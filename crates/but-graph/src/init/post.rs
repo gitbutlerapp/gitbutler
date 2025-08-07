@@ -9,6 +9,7 @@ use but_core::{RefMetadata, ref_metadata};
 use gix::prelude::ObjectIdExt;
 use gix::reference::Category;
 use petgraph::Direction;
+use petgraph::graph::NodeIndex;
 use petgraph::prelude::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::instrument;
@@ -58,6 +59,9 @@ impl Graph {
                 .and_then(|s| s.commit_index_of(tip));
         }
 
+        // Before anything, cleanup the graph.
+        self.fixup_remote_tracking_refs_and_maybe_split_segments(meta)?;
+
         // This should be first as what follows could help name these new segments that it creates.
         self.fixup_workspace_segments(repo, &refs_by_id, meta)?;
         // All non-workspace fixups must come first, otherwise the workspace handling might
@@ -86,6 +90,53 @@ impl Graph {
         Ok(self)
     }
 
+    /// This is a post-process as only in the end we are sure what is a remote commit.
+    /// On remote commits, we want to further segment remote tracking segments to avoid picking
+    /// up too many remote commits later.
+    /// For everything else, we want to just remove the extra ref-names that we aren't interested in.
+    fn fixup_remote_tracking_refs_and_maybe_split_segments<T: RefMetadata>(
+        &mut self,
+        meta: &OverlayMetadata<'_, T>,
+    ) -> anyhow::Result<()> {
+        let mut split_info = Vec::new();
+        for node in self.node_weights_mut() {
+            let node_has_commits = node.commits.len() > 1;
+            for (cidx, commit_with_refs) in node
+                .commits
+                .iter_mut()
+                .enumerate()
+                .filter_map(|t| (!t.1.refs.is_empty()).then_some(t))
+            {
+                let is_splittable =
+                    commit_with_refs.flags.is_remote() && node_has_commits && cidx > 0;
+                commit_with_refs.refs.retain(|rn| {
+                    rn.category().is_none_or(|c| {
+                        if matches!(c, Category::RemoteBranch) {
+                            // Always remove the ref, but keep info to create a split if possible.
+                            if is_splittable {
+                                let info = (node.id, cidx, rn.clone());
+                                // This means we are more interested in the split than in representing every reference for now.
+                                if split_info.contains(&info) {
+                                    tracing::debug!(?node.id, ?commit_with_refs.id, ?rn, "Ignoring remote reference which *should* have no effect");
+                                } else {
+                                    split_info.push(info);
+                                }
+                            }
+                            false
+                        } else {
+                            true
+                        }
+                    })
+                })
+            }
+        }
+
+        for (sidx, new_segment_start_idx, segment_name) in split_info {
+            self.split_segment(sidx, new_segment_start_idx, Some(segment_name), None, meta)?;
+        }
+        Ok(())
+    }
+
     /// Assure that workspace segments with managed commits only have that commit, and move all others
     /// into a new segment.
     fn fixup_workspace_segments<T: RefMetadata>(
@@ -111,42 +162,62 @@ impl Graph {
             ) {
                 continue;
             }
-            let second_commit_id = s.commits[1].id;
-            let new_segment_commits = s.commits.drain(1..).collect();
-            let edges_to_reconnect: Vec<_> = self
-                .edges_directed_in_order_of_creation(ws_sidx, Direction::Outgoing)
-                .into_iter()
-                .map(EdgeOwned::from)
-                .collect();
-            let mut new_segment = branch_segment_from_name_and_meta(
-                None,
-                meta,
-                Some((refs_by_id, second_commit_id)),
-            )?;
-            new_segment.commits = new_segment_commits;
-            let new_segment_sidx =
-                self.connect_new_segment(ws_sidx, 0, new_segment, 0, second_commit_id);
 
-            let (src, src_id) = {
-                let s = &self[new_segment_sidx];
-                let last = s.commits.len() - 1;
-                (Some(last), Some(s.commits[last].id))
-            };
-            for edge in edges_to_reconnect {
-                self.inner.add_edge(
-                    new_segment_sidx,
-                    edge.target,
-                    Edge {
-                        src,
-                        src_id,
-                        dst: edge.weight.dst,
-                        dst_id: edge.weight.dst_id,
-                    },
-                );
-                self.inner.remove_edge(edge.id);
-            }
+            self.split_segment(ws_sidx, 1, None, Some(refs_by_id), meta)?;
         }
         Ok(())
+    }
+
+    fn split_segment<T: RefMetadata>(
+        &mut self,
+        sidx: NodeIndex,
+        cidx_for_new_segment: CommitIndex,
+        segment_name: Option<gix::refs::FullName>,
+        refs_by_id: Option<&RefsById>,
+        meta: &OverlayMetadata<'_, T>,
+    ) -> anyhow::Result<SegmentIndex> {
+        let s = &mut self[sidx];
+        let tip_of_new_segment = s.commits[cidx_for_new_segment].id;
+        let new_segment_commits = s.commits.drain(cidx_for_new_segment..).collect();
+        let last_cidx_in_top_segment = s.last_commit_index();
+        let edges_to_reconnect: Vec<_> = self
+            .edges_directed_in_order_of_creation(sidx, Direction::Outgoing)
+            .into_iter()
+            .map(EdgeOwned::from)
+            .collect();
+        let mut new_segment = branch_segment_from_name_and_meta(
+            segment_name.map(|sn| (sn, None)),
+            meta,
+            refs_by_id.map(|lut| (lut, tip_of_new_segment)),
+        )?;
+        new_segment.commits = new_segment_commits;
+        let new_segment_sidx = self.connect_new_segment(
+            sidx,
+            last_cidx_in_top_segment,
+            new_segment,
+            0,
+            tip_of_new_segment,
+        );
+
+        let (src, src_id) = {
+            let s = &self[new_segment_sidx];
+            let last = s.commits.len() - 1;
+            (Some(last), Some(s.commits[last].id))
+        };
+        for edge in edges_to_reconnect {
+            self.inner.add_edge(
+                new_segment_sidx,
+                edge.target,
+                Edge {
+                    src,
+                    src_id,
+                    dst: edge.weight.dst,
+                    dst_id: edge.weight.dst_id,
+                },
+            );
+            self.inner.remove_edge(edge.id);
+        }
+        Ok(new_segment_sidx)
     }
 
     /// To keep it simple, the iteration will not always create perfect segment names right away so we

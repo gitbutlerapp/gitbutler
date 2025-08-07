@@ -265,7 +265,17 @@ impl Graph {
         let configured_remote_tracking_branches =
             remotes::configured_remote_tracking_branches(repo)?;
         let refs_by_id = repo.collect_ref_mapping_by_prefix(
-            std::iter::once("refs/heads/").chain(if collect_tags {
+            [
+                "refs/heads/",
+                // Remote refs are special as we collect them into commits to know about them,
+                // just to later remove them unless they are on an actual remote commit.
+                // In that case, we also split the segment there if the previous segment then wouldn't be empty.
+                // Naturally we only pick them up and segment them if they are added by the local tracking branch
+                // that was seen in the walk before.
+                "refs/remotes/",
+            ]
+            .into_iter()
+            .chain(if collect_tags {
                 Some("refs/tags/")
             } else {
                 None

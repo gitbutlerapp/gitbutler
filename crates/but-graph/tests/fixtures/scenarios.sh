@@ -797,6 +797,54 @@ EOF
     cp .git/refs/remotes/origin/main .git/refs/remotes/origin/A
   )
 
+  git init "two-dependent-branches-rebased-with-remotes-merge-one-local"
+  (cd "two-dependent-branches-rebased-with-remotes-merge-one-local"
+    echo init>file && git add file && git commit -m "init"
+    git checkout -b A && echo A >>file && git commit -am "A"
+    git checkout -b B && echo B >>file && git commit -am "B"
+    create_workspace_commit_once B
+    git checkout -b soon-origin-A main
+      tick
+      git cherry-pick A
+      git checkout -b soon-origin-B
+      git cherry-pick B
+    git checkout -b soon-origin-main main
+      git merge --no-ff A
+    git checkout gitbutler/workspace
+
+    setup_remote_tracking soon-origin-A A "move"
+    setup_remote_tracking soon-origin-B B "move"
+    setup_remote_tracking soon-origin-main main "move"
+
+    add_main_remote_setup
+  )
+
+  git init "two-dependent-branches-rebased-with-remotes-squash-merge-one-remote"
+  (cd "two-dependent-branches-rebased-with-remotes-squash-merge-one-remote"
+    echo init>file && git add file && git commit -m "init"
+    git checkout -b A && echo A >>file && git commit -am "A"
+    git checkout -b B && echo B >>file && git commit -am "B"
+
+    git checkout main
+      tick
+      # easy squash-merge simulation of only A
+      git cherry-pick A
+      setup_target_to_match_main
+    git checkout -b rebased-B
+      # rebase B on top
+      git cherry-pick B
+
+      # setup free-standing remotes that were previously pushed.
+      # replace local branches as they don't matter there.
+      setup_remote_tracking A A "move"
+      setup_remote_tracking B B "move"
+
+      # get our rebased B back.
+      git branch -m B
+
+    create_workspace_commit_once B
+  )
+
   git init special-branches
   (cd special-branches
     commit init
