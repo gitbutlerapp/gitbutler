@@ -764,7 +764,8 @@ pub fn possibly_split_occupied_segment(
     };
     let dst_sidx = *existing_sidx.get();
     let (top_sidx, mut bottom_sidx) =
-        // If a normal branch walks into a workspace branch, put the workspace branch on top.
+        // If a normal branch walks into a workspace branch, put the workspace branch on top
+        // so it doesn't own the existing commit.
         if graph[dst_sidx].workspace_metadata().is_some() &&
             graph[src_sidx].ref_name.as_ref()
                 .and_then(|rn| rn.category()).is_some_and(|c| matches!(c, Category::LocalBranch)) {

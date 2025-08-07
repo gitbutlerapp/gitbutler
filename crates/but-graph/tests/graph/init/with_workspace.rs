@@ -3190,10 +3190,10 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::
     * 281456a init
     ");
 
-    // The branch A is not in the workspace anymore, and we signal it by removing metadata
-    add_stack_with_segments(&mut meta, 0, "B", StackState::InWorkspace, &[]);
+    // The branch A is not in the workspace anymore, and we *could* signal it by removing metadata.
+    // But even with metadata, it still works fine.
+    add_stack_with_segments(&mut meta, 0, "B", StackState::InWorkspace, &["A"]);
 
-    // TODO: fix it - should know remote branch origin/A
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
@@ -3207,17 +3207,18 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::
     ├── ►:1[0]:origin/main →:2:
     │   └── →:2: (main →:1:)
     └── ►:4[0]:origin/B →:3:
-        ├── 🟣da597e8
-        └── 🟣1818c17
-            └── →:5:
+        └── 🟣da597e8
+            └── ►:6[1]:origin/A
+                └── 🟣1818c17
+                    └── →:5:
     ");
 
+    // We segment
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 0b6b861
-    └── ≡📙:3:B <> origin/B →:4:⇡1⇣2 on 0b6b861
-        └── 📙:3:B <> origin/B →:4:⇡1⇣2
+    └── ≡📙:3:B <> origin/B →:4:⇡1⇣1 on 0b6b861
+        └── 📙:3:B <> origin/B →:4:⇡1⇣1
             ├── 🟣da597e8
-            ├── 🟣1818c17
             └── ·e0bd0a7 (🏘️)
     ");
     Ok(())
