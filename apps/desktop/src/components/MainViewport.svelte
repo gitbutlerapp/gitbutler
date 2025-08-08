@@ -211,9 +211,7 @@ the window, then enlarge it and retain the original widths of the layout.
 			parentId: DefinedFocusable.MainViewport
 		}}
 	>
-		<AsyncRender>
-			{@render middle()}
-		</AsyncRender>
+		{@render middle()}
 	</div>
 
 	{#if right}
