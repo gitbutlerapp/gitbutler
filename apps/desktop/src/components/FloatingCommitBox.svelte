@@ -29,7 +29,7 @@
 		height,
 		snapPosition,
 		minWidth: 420,
-		minHeight: 300
+		minHeight: 280
 	}}
 	onUpdateSize={(newWidth, newHeight) => {
 		uiState.global.floatingBoxSize.set({ width: newWidth, height: newHeight });
