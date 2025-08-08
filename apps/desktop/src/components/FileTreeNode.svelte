@@ -1,5 +1,4 @@
 <script lang="ts">
-	import AsyncRender from '$components/AsyncRender.svelte';
 	import Self from '$components/FileTreeNode.svelte';
 	import TreeListFolder from '$components/TreeListFolder.svelte';
 	import { TestId } from '@gitbutler/ui';
@@ -56,17 +55,15 @@
 	/>
 
 	{#if isExpanded}
-		<AsyncRender>
-			{#each node.children as childNode (childNode.name)}
-				<Self
-					{stackId}
-					depth={depth + 1}
-					node={childNode}
-					{showCheckboxes}
-					{changes}
-					{fileTemplate}
-				/>
-			{/each}
-		</AsyncRender>
+		{#each node.children as childNode (childNode.name)}
+			<Self
+				{stackId}
+				depth={depth + 1}
+				node={childNode}
+				{showCheckboxes}
+				{changes}
+				{fileTemplate}
+			/>
+		{/each}
 	{/if}
 {/if}
