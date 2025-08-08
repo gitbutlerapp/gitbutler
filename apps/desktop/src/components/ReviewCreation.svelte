@@ -379,7 +379,7 @@
 					prTitle.set(value);
 				}}
 				onkeydown={(e: KeyboardEvent) => {
-					if ((e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) && !e.isComposing) {
+					if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
 						e.preventDefault();
 						messageEditor?.focus();
 					}

@@ -120,12 +120,7 @@
 
 		const metaKey = event.metaKey || event.ctrlKey;
 
-		if (
-			event.key === 'Enter' &&
-			!event.shiftKey &&
-			!event.isComposing &&
-			suggestions.suggestions === undefined
-		) {
+		if (event.key === 'Enter' && !event.shiftKey && suggestions.suggestions === undefined) {
 			event.preventDefault();
 			event.stopPropagation();
 			handleSendMessage();

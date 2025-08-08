@@ -74,8 +74,7 @@
 	}
 
 	function onEnter(event: KeyboardEvent): boolean {
-		if (suggestedEmojis === undefined || selectedSuggestionIndex === undefined || event.isComposing)
-			return false;
+		if (suggestedEmojis === undefined || selectedSuggestionIndex === undefined) return false;
 
 		selectSuggestion(suggestedEmojis[selectedSuggestionIndex]);
 		event.preventDefault();

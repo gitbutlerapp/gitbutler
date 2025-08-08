@@ -48,7 +48,7 @@
 		} else {
 			if (key.length === 1 && key.match(/\w/)) {
 				queryBuffer += key;
-			} else if (key === 'Enter' && !e.isComposing) {
+			} else if (key === 'Enter') {
 				query = queryBuffer;
 				position = getCursorPosition();
 				e.preventDefault();
