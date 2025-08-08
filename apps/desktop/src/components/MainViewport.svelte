@@ -24,7 +24,6 @@ the window, then enlarge it and retain the original widths of the layout.
 ```
 -->
 <script lang="ts">
-	import AsyncRender from '$components/AsyncRender.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
@@ -146,24 +145,22 @@ the window, then enlarge it and retain the original widths of the layout.
 				parentId: DefinedFocusable.MainViewport
 			}}
 		>
-			<AsyncRender>
-				<div class="left-section__content">
-					{@render left()}
-				</div>
-				<Resizer
-					viewport={leftDiv}
-					direction="right"
-					minWidth={leftMinWidth}
-					defaultValue={leftDefaultWidth}
-					maxWidth={leftMaxWidth}
-					imitateBorder
-					borderRadius={!preview ? 'ml' : 'none'}
-					persistId="viewport-${name}-left-section"
-					onWidth={(width) => {
-						leftPreferredWidth = width;
-					}}
-				/>
-			</AsyncRender>
+			<div class="left-section__content">
+				{@render left()}
+			</div>
+			<Resizer
+				viewport={leftDiv}
+				direction="right"
+				minWidth={leftMinWidth}
+				defaultValue={leftDefaultWidth}
+				maxWidth={leftMaxWidth}
+				imitateBorder
+				borderRadius={!preview ? 'ml' : 'none'}
+				persistId="viewport-${name}-left-section"
+				onWidth={(width) => {
+					leftPreferredWidth = width;
+				}}
+			/>
 		</div>
 
 		{#if preview}
@@ -177,23 +174,21 @@ the window, then enlarge it and retain the original widths of the layout.
 					parentId: DefinedFocusable.MainViewport
 				}}
 			>
-				<AsyncRender>
-					<div class="left-sideview-content dotted-pattern">
-						{@render preview()}
-					</div>
-					<Resizer
-						viewport={previewDiv}
-						direction="right"
-						minWidth={previewMinWidth}
-						maxWidth={previewMaxWidth}
-						borderRadius="ml"
-						persistId="viewport-${name}-left-sideview"
-						defaultValue={pxToRem(previewWidth?.default, zoom)}
-						onWidth={(width) => {
-							previewPreferredWidth = width;
-						}}
-					/>
-				</AsyncRender>
+				<div class="left-sideview-content dotted-pattern">
+					{@render preview()}
+				</div>
+				<Resizer
+					viewport={previewDiv}
+					direction="right"
+					minWidth={previewMinWidth}
+					maxWidth={previewMaxWidth}
+					borderRadius="ml"
+					persistId="viewport-${name}-left-sideview"
+					defaultValue={pxToRem(previewWidth?.default, zoom)}
+					onWidth={(width) => {
+						previewPreferredWidth = width;
+					}}
+				/>
 			</div>
 		{/if}
 	{:else}
@@ -224,23 +219,21 @@ the window, then enlarge it and retain the original widths of the layout.
 				parentId: DefinedFocusable.MainViewport
 			}}
 		>
-			<AsyncRender>
-				<Resizer
-					viewport={rightDiv}
-					direction="left"
-					minWidth={rightMinWidth}
-					defaultValue={pxToRem(rightWidth.default, zoom)}
-					maxWidth={rightMaxWidth}
-					borderRadius="ml"
-					persistId="viewport-${name}-right-sideview"
-					onWidth={(width) => {
-						rightPreferredWidth = width;
-					}}
-				/>
-				<div class="right-sideview-content">
-					{@render right()}
-				</div>
-			</AsyncRender>
+			<Resizer
+				viewport={rightDiv}
+				direction="left"
+				minWidth={rightMinWidth}
+				defaultValue={pxToRem(rightWidth.default, zoom)}
+				maxWidth={rightMaxWidth}
+				borderRadius="ml"
+				persistId="viewport-${name}-right-sideview"
+				onWidth={(width) => {
+					rightPreferredWidth = width;
+				}}
+			/>
+			<div class="right-sideview-content">
+				{@render right()}
+			</div>
 		</div>
 	{/if}
 </div>
