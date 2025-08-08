@@ -307,7 +307,9 @@
 		{#if base}
 			<div class="section">
 				<h3 class="text-14 text-semibold section-title">
-					<span>Incoming changes</span><Badge>{base.upstreamCommits.length}</Badge>
+					<span>Incoming {base.upstreamCommits.length === 1 ? 'change' : 'changes'}</span><Badge
+						>{base.upstreamCommits.length}</Badge
+					>
 				</h3>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight="16.5rem">
