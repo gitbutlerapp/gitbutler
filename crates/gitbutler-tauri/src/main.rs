@@ -243,6 +243,7 @@ fn main() {
                     virtual_branches::integrate_upstream,
                     virtual_branches::resolve_upstream_integration,
                     virtual_branches::find_commit,
+                    stack::create_reference,
                     stack::create_branch,
                     stack::remove_branch,
                     stack::update_branch_name,

@@ -11,6 +11,22 @@ use but_api::error::Error;
 
 #[tauri::command(async)]
 #[instrument(skip(app), err(Debug))]
+pub fn create_reference(
+    app: State<App>,
+    project_id: ProjectId,
+    request: stack::create_reference::Request,
+) -> Result<(), Error> {
+    stack::create_reference(
+        &app,
+        stack::create_reference::Params {
+            project_id,
+            request,
+        },
+    )
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
 pub fn create_branch(
     app: State<App>,
     project_id: ProjectId,

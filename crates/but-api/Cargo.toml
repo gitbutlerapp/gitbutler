@@ -54,3 +54,7 @@ open = "5.3"
 url = "2.5"
 gitbutler-id.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+insta = { version = "1.43.1", features = ["json"]}
+
