@@ -9,6 +9,10 @@ export type CodeEditorSettings = {
 	schemeIdentifer: string;
 	displayName: string;
 };
+export type TerminalSettings = {
+	appName: string;
+	displayName: string;
+};
 
 export interface Settings {
 	aiSummariesEnabled?: boolean;
@@ -30,6 +34,7 @@ export interface Settings {
 	inlineUnifiedDiffs: boolean;
 	diffContrast: 'light' | 'medium' | 'strong';
 	defaultCodeEditor: CodeEditorSettings;
+	defaultTerminal: TerminalSettings;
 }
 
 const defaults: Settings = {
@@ -50,7 +55,8 @@ const defaults: Settings = {
 	diffLigatures: false,
 	inlineUnifiedDiffs: false,
 	diffContrast: 'light',
-	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' }
+	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' },
+	defaultTerminal: { appName: 'Terminal.app', displayName: 'Terminal' }
 };
 
 export function loadUserSettings(): Writable<Settings> {

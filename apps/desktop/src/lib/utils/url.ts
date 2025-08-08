@@ -51,3 +51,7 @@ export function getEditorUri(params: EditorUriParams): string {
 
 	return `${params.schemeId}://file${pathString}${positionSuffix}${searchSuffix}`;
 }
+
+export async function openInTerminal(appName: string, path: string) {
+	await invoke<void>('open_in_terminal', { appName, path });
+}
