@@ -1,9 +1,9 @@
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{ops::Deref, str::FromStr};
 
 /// A type that deserializes a hexadecimal hash into an object id automatically.
 #[derive(Debug, Clone, Copy)]
-pub struct HexHash(gix::ObjectId);
+pub struct HexHash(pub gix::ObjectId);
 
 impl From<HexHash> for gix::ObjectId {
     fn from(value: HexHash) -> Self {
@@ -31,6 +31,15 @@ impl<'de> Deserialize<'de> for HexHash {
     }
 }
 
+impl Serialize for HexHash {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.0.to_hex().to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -42,5 +51,11 @@ mod tests {
         let actual =
             serde_json::from_str::<HexHash>(&format!("\"{hex_str}\"")).expect("input is valid");
         assert_eq!(actual.0, expected);
+
+        let actual = serde_json::to_string(&actual);
+        assert_eq!(
+            actual.unwrap(),
+            "\"5c69907b1244089142905dba380371728e2e8160\""
+        );
     }
 }

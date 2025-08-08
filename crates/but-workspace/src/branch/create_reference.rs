@@ -2,7 +2,7 @@ use anyhow::Context;
 use std::borrow::Cow;
 
 /// For use in [`ReferenceAnchor`].
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum ReferencePosition {
     /// The new dependent branch will appear above its anchor.
     Above,

@@ -1,3 +1,4 @@
+use crate::commands::stack::create_reference::Anchor;
 use crate::{App, error::Error};
 use anyhow::{Context, anyhow};
 use but_workspace::branch::{ReferenceAnchor, ReferencePosition};
@@ -18,6 +19,84 @@ pub struct CreateBranchParams {
     pub project_id: ProjectId,
     pub stack_id: StackId,
     pub request: CreateSeriesRequest,
+}
+
+pub mod create_reference {
+    use crate::hex_hash::HexHash;
+    use gitbutler_project::ProjectId;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Deserialize, Serialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Request {
+        /// The short name of the new branch, i.e. `foo` or `features/bar`
+        pub new_name: String,
+        /// If `None`, it's a new stack.
+        pub anchor: Option<Anchor>,
+    }
+
+    #[derive(Deserialize, Serialize, Debug)]
+    #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
+    pub enum Anchor {
+        AtCommit {
+            commit_id: HexHash,
+            position: but_workspace::branch::ReferencePosition,
+        },
+        AtReference {
+            short_name: String,
+            position: but_workspace::branch::ReferencePosition,
+        },
+    }
+
+    #[derive(Deserialize, Serialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Params {
+        pub project_id: ProjectId,
+        pub request: Request,
+    }
+}
+
+pub fn create_reference(app: &App, params: create_reference::Params) -> Result<(), Error> {
+    let project = gitbutler_project::get(params.project_id)?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let create_reference::Request { new_name, anchor } = params.request;
+    let new_ref = Category::LocalBranch
+        .to_full_name(new_name.as_str())
+        .map_err(anyhow::Error::from)?;
+    let anchor = anchor
+        .map(|anchor| -> Result<_, Error> {
+            Ok(match anchor {
+                Anchor::AtCommit {
+                    commit_id,
+                    position,
+                } => but_workspace::branch::ReferenceAnchor::AtCommit {
+                    commit_id: commit_id.into(),
+                    position,
+                },
+                Anchor::AtReference {
+                    short_name,
+                    position,
+                } => but_workspace::branch::ReferenceAnchor::AtSegment {
+                    ref_name: Cow::Owned(
+                        Category::LocalBranch
+                            .to_full_name(short_name.as_str())
+                            .map_err(anyhow::Error::from)?,
+                    ),
+                    position,
+                },
+            })
+        })
+        .transpose()?;
+
+    let (repo, mut meta, graph) = ctx.graph_and_meta_and_repo()?;
+    _ = but_workspace::branch::create_reference(
+        new_ref,
+        anchor,
+        &repo,
+        &graph.to_workspace()?,
+        &mut meta,
+    )?;
+    Ok(())
 }
 
 pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error> {
