@@ -31,7 +31,6 @@
 		Formatter,
 		GhostTextPlugin,
 		HardWrapPlugin,
-		FormattingBar,
 		FormattingButton
 	} from '@gitbutler/ui';
 	import FileUploadPlugin, {
@@ -321,12 +320,6 @@
 				<MessageEditorRuler />
 			{/if}
 
-			{#if useFloatingBox.current}
-				<div class="editor-extratools">
-					<FormattingBar {formatter} />
-				</div>
-			{/if}
-
 			<div class="message-textarea__wrapper">
 				<RichTextEditor
 					minHeight="4rem"
@@ -467,16 +460,6 @@
 		flex-direction: column;
 		min-height: 0;
 		overflow: auto;
-	}
-
-	.editor-extratools {
-		display: flex;
-		align-items: center;
-		height: var(--extratoolbar-height);
-		padding: 0 10px;
-		gap: 12px;
-		border-bottom: 1px solid var(--clr-border-3);
-		background-color: var(--clr-bg-2);
 	}
 
 	/* MESSAGE INPUT */

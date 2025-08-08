@@ -211,7 +211,13 @@
 				</InfoButton>
 			</td>
 		{:else}
-			<td class="table__lockColumn" data-no-drag> </td>
+			<td
+				class="table__lockColumn"
+				data-no-drag
+				class:diff-line-deletion={row.type === SectionType.RemovedLines}
+				class:diff-line-addition={row.type === SectionType.AddedLines}
+			>
+			</td>
 		{/if}
 	{/if}
 
@@ -445,6 +451,18 @@
 		border-right: 1px solid var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);
+
+		&.diff-line-addition {
+			border-color: var(--clr-diff-addition-count-border);
+			background-color: var(--clr-diff-addition-count-bg);
+			color: var(--clr-diff-addition-count-text);
+		}
+
+		&.diff-line-deletion {
+			border-color: var(--clr-diff-deletion-count-border);
+			background-color: var(--clr-diff-deletion-count-bg);
+			color: var(--clr-diff-deletion-count-text);
+		}
 
 		&.locked {
 			border-color: var(--clr-diff-locked-count-border);

@@ -11,9 +11,7 @@
 		type StackTarget,
 		encodeStackTarget,
 		decodeStackTarget,
-		compareStackTarget,
-		isLeftmostTarget,
-		isRightmostTarget
+		compareStackTarget
 	} from '$lib/rules/rule';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { getStackName } from '$lib/stacks/stack';
@@ -264,44 +262,55 @@
 			<h3 class="text-13 text-semibold">Assign to branch</h3>
 			<ReduxResult {projectId} result={stackEntries.current}>
 				{#snippet children(stacks)}
-					{@const stackOptions = stacks.map((stack) => ({
-						label: getStackName(stack),
-						value: encodeStackTarget({ type: 'stackId', subject: stack.id })
-					}))}
+					{@const stackOptions = [
+						...stacks.map((stack) => ({
+							label: getStackName(stack),
+							value: encodeStackTarget({ type: 'stackId', subject: stack.id })
+						})),
+						{ separator: true } as const,
+						{
+							label: 'Leftmost stack',
+							value: encodeStackTarget({ type: 'leftmost' })
+						},
+						{
+							label: 'Rightmost stack',
+							value: encodeStackTarget({ type: 'rightmost' })
+						}
+					]}
 
 					<Select
 						value={encodedStackTarget}
-						options={stackOptions.concat([
-							{
-								label: 'Leftmost stack',
-								value: encodeStackTarget({ type: 'leftmost' })
-							},
-							{
-								label: 'Rightmost stack',
-								value: encodeStackTarget({ type: 'rightmost' })
-							}
-						])}
+						options={stackOptions}
 						placeholder="Select a branch…"
 						flex="1"
 						searchable
 						onselect={(selectedStackTarget) => {
 							stackTargetSelected = decodeStackTarget(selectedStackTarget);
 						}}
-						icon="branch-remote"
+						icon={stackTargetSelected
+							? stackTargetSelected.type === 'leftmost'
+								? 'leftmost-lane'
+								: stackTargetSelected.type === 'rightmost'
+									? 'rightmost-lane'
+									: 'branch-remote'
+							: 'branch-remote'}
 					>
 						{#snippet itemSnippet({ item, highlighted })}
 							<SelectItem
-								selected={compareStackTarget(item.value, stackTargetSelected)}
+								selected={item.value ? compareStackTarget(item.value, stackTargetSelected) : false}
 								{highlighted}
 							>
-								{item.label}
+								{item.label || ''}
 								{#snippet iconSnippet()}
-									{#if isLeftmostTarget(item.value)}
-										<Icon name="arrow-left" opacity={0.6} />
-									{:else if isRightmostTarget(item.value)}
-										<Icon name="arrow-right" opacity={0.6} />
-									{:else}
-										<Icon name="branch-in-square" opacity={0.6} />
+									{#if item.value}
+										{@const target = decodeStackTarget(item.value)}
+										{#if target.type === 'leftmost'}
+											<Icon name="leftmost-lane" />
+										{:else if target.type === 'rightmost'}
+											<Icon name="rightmost-lane" />
+										{:else}
+											<Icon name="branch-remote" />
+										{/if}
 									{/if}
 								{/snippet}
 							</SelectItem>

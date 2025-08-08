@@ -45,7 +45,7 @@
 				{#if stack !== null}
 					{@const stackName = getStackName(stack)}
 					<div class="rule__pill">
-						<Icon name="branch-in-square" opacity={0.6} />
+						<Icon name="branch-remote" color="var(--clr-text-2)" />
 						<span class="text-12 truncate" title={stackName}>{stackName}</span>
 					</div>
 				{:else}
@@ -60,12 +60,12 @@
 		</ReduxResult>
 	{:else if target.type === 'leftmost'}
 		<div class="rule__pill">
-			<Icon name="arrow-left" opacity={0.6} />
+			<Icon name="leftmost-lane" color="var(--clr-text-2)" />
 			<span class="text-12 truncate">left most</span>
 		</div>
 	{:else if target.type === 'rightmost'}
 		<div class="rule__pill">
-			<Icon name="arrow-right" opacity={0.6} />
+			<Icon name="rightmost-lane" color="var(--clr-text-2)" />
 			<span class="text-12 truncate">right most</span>
 		</div>
 	{/if}

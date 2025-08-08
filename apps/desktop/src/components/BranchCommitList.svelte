@@ -10,6 +10,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { hasConflicts, isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { commitStatusLabel } from '$lib/commits/commit';
 	import {
 		AmendCommitWithChangeDzHandler,
 		AmendCommitWithHunkDzHandler,
@@ -342,7 +343,7 @@
 						okWithForce: true,
 						uiState
 					})}
-					{@const tooltip = commit.state.type}
+					{@const tooltip = commitStatusLabel(commit.state.type)}
 					<Dropzone handlers={[amendHandler, squashHandler, hunkHandler]}>
 						{#snippet overlay({ hovered, activated, handler })}
 							{@const label =

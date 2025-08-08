@@ -1,7 +1,6 @@
 <script module lang="ts">
 	import RichTextEditor from '$lib/richText/RichTextEditor.svelte';
 	import Formatter from '$lib/richText/plugins/Formatter.svelte';
-	import FormattingBar from '$lib/richText/tools/FormattingBar.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
@@ -24,7 +23,6 @@
 <Story name="default">
 	{#snippet template(args)}
 		<div class="wrap">
-			<FormattingBar bind:formatter />
 			<div class="text-input">
 				<RichTextEditor
 					namespace={args.namespace || 'commit-message'}

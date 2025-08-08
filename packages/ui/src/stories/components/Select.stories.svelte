@@ -57,6 +57,23 @@
 						'This option has a very long name that includes multiple words and should demonstrate how the select component handles text truncation with ellipsis when the content exceeds the available width'
 				},
 				{ value: '8', label: 'Final long option to complete the test suite for overflow behavior' }
+			],
+			optionsWithSeparators: [
+				{ value: 'new', label: '📄 New Document' },
+				{ value: 'open', label: '📂 Open Document' },
+				{ value: 'recent', label: '🕐 Recent Documents' },
+				{ separator: true },
+				{ value: 'save', label: '💾 Save' },
+				{ value: 'save-as', label: '💾 Save As...' },
+				{ value: 'export', label: '📤 Export' },
+				{ separator: true },
+				{ value: 'cut', label: '✂️ Cut' },
+				{ value: 'copy', label: '📋 Copy' },
+				{ value: 'paste', label: '📋 Paste' },
+				{ separator: true },
+				{ value: 'settings', label: '⚙️ Settings' },
+				{ value: 'help', label: '❓ Help' },
+				{ value: 'about', label: 'ℹ️ About' }
 			]
 		},
 		argTypes: {}
@@ -66,6 +83,7 @@
 	let selectedWithIcon = $state<string>('js');
 	let selectedWithEmoji = $state<string>('happy');
 	let selectedLongOption = $state<string>('1');
+	let selectedWithSeparators = $state<string>('new');
 </script>
 
 <script lang="ts">
@@ -229,6 +247,77 @@
 					<SelectItem selected={highlighted} {highlighted}>
 						{item.label}
 					</SelectItem>
+				{/snippet}
+			</Select>
+		</div>
+	{/snippet}
+</Story>
+
+<Story name="With Separators">
+	{#snippet template(args)}
+		<div class="wrap">
+			<Select
+				searchable
+				options={args.optionsWithSeparators}
+				value={selectedWithSeparators}
+				onselect={(value: string) => {
+					selectedWithSeparators = value;
+				}}
+				placeholder="Choose an action..."
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={highlighted} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		</div>
+	{/snippet}
+</Story>
+
+<Story name="Complex Separators">
+	{#snippet template(_args)}
+		<div class="wrap">
+			<Select
+				searchable
+				options={[
+					{ value: 'draft', label: 'Draft', icon: 'pencil' },
+					{ value: 'published', label: 'Published', icon: 'check' },
+					{ value: 'archived', label: 'Archived', icon: 'archive' },
+					{ separator: true },
+					{ value: 'high', label: 'High Priority', emoji: '🔴' },
+					{ value: 'medium', label: 'Medium Priority', emoji: '🟡' },
+					{ value: 'low', label: 'Low Priority', emoji: '🟢' },
+					{ separator: true },
+					{ value: 'today', label: 'Due Today' },
+					{ value: 'week', label: 'Due This Week' },
+					{ value: 'month', label: 'Due This Month' },
+					{ separator: true },
+					{ value: 'delete', label: 'Delete', emoji: '🗑️' }
+				]}
+				value={selectedWithSeparators}
+				onselect={(value: string) => {
+					selectedWithSeparators = value;
+				}}
+				placeholder="Filter options..."
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					{#if item.icon}
+						<SelectItem selected={highlighted} {highlighted} icon={item.icon}>
+							{item.label}
+						</SelectItem>
+					{:else if item.emoji}
+						<SelectItem selected={highlighted} {highlighted}>
+							{#snippet iconSnippet()}
+								<span class="emoji">{item.emoji}</span>
+							{/snippet}
+							{item.label}
+						</SelectItem>
+					{:else}
+						<SelectItem selected={highlighted} {highlighted}>
+							{item.label}
+						</SelectItem>
+					{/if}
 				{/snippet}
 			</Select>
 		</div>
