@@ -3207,49 +3207,15 @@ fn advanced_workspace_multi_stack() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
 
     let opts = standard_options();
-    let info = head_info(&repo, &meta, opts)?;
-    // It can find the exact location of the workspace commit in the ancestry.
-    insta::assert_debug_snapshot!(info, @r#"
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
-        ),
-        stacks: [],
-        target: Some(
-            Target {
-                ref_name: FullName(
-                    "refs/remotes/origin/main",
-                ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
-            },
-        ),
-        extra_target: Some(
-            NodeIndex(1),
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: false,
-        ancestor_workspace_commit: Some(
-            AncestorWorkspaceCommit {
-                commits_outside: [
-                    Commit(a7131b1, "on-top4\n"🏘️),
-                    Commit(4d3831e, "on-top3\n"🏘️),
-                    Commit(468357f, "on-top2-merge\n"🏘️),
-                    Commit(d3166f7, "on-top-sibling\n"🏘️),
-                    Commit(118ddbb, "on-top1\n"🏘️),
-                ],
-                segment_with_managed_commit: NodeIndex(10),
-                commit_index_of_managed_commit: 0,
-            },
-        ),
-        is_entrypoint: true,
-    }
-    "#);
+    let err = head_info(&repo, &meta, opts).unwrap_err();
+    insta::assert_snapshot!(err.to_string(), @r"
+    Found 5 commit(s) on top of the workspace commit.
+
+    The current changes will be stashed and must be re-applied manually. Commit them otherwise.
+    Run the following command in your working directory to fix this and restore the committed changes.
+
+        git stash && git reset --hard 619d5486e6f5ae7f5e4ecc4a6ea506d6c8433410 && git checkout a7131b181b20c699ecbe4f6145bbb8746716c18b -- .
+    ");
     Ok(())
 }
 
@@ -3273,49 +3239,15 @@ fn advanced_workspace_single_stack() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
     let opts = standard_options();
-    let info = head_info(&repo, &meta, opts)?;
-    // It can find the exact location of the workspace commit in the ancestry.
-    insta::assert_debug_snapshot!(info, @r#"
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
-        ),
-        stacks: [],
-        target: Some(
-            Target {
-                ref_name: FullName(
-                    "refs/remotes/origin/main",
-                ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
-            },
-        ),
-        extra_target: Some(
-            NodeIndex(1),
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: false,
-        ancestor_workspace_commit: Some(
-            AncestorWorkspaceCommit {
-                commits_outside: [
-                    Commit(da912a8, "on-top4\n"🏘️),
-                    Commit(198eaf8, "on-top3\n"🏘️),
-                    Commit(3147997, "on-top2-merge\n"🏘️),
-                    Commit(dd7bb9a, "on-top-sibling\n"🏘️),
-                    Commit(9785229, "on-top1\n"🏘️),
-                ],
-                segment_with_managed_commit: NodeIndex(7),
-                commit_index_of_managed_commit: 1,
-            },
-        ),
-        is_entrypoint: true,
-    }
-    "#);
+    let err = head_info(&repo, &meta, opts).unwrap_err();
+    insta::assert_snapshot!(err.to_string(), @r"
+    Found 5 commit(s) on top of the workspace commit.
+
+    The current changes will be stashed and must be re-applied manually. Commit them otherwise.
+    Run the following command in your working directory to fix this and restore the committed changes.
+
+        git stash && git reset --hard c58f15768a8ba280fe773ffc4820b13ad882cd84 && git checkout da912a8a455bca9e94ed65cb42328177fa891081 -- .
+    ");
     Ok(())
 }
 

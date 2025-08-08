@@ -323,6 +323,7 @@ pub(crate) mod function {
     use super::ui::{LocalCommit, LocalCommitRelation};
     use crate::ui::PushStatus;
     use crate::{AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch, ref_info::ui};
+    use anyhow::{Context, bail};
     use but_core::ref_metadata::ValueInfo;
     use but_graph::petgraph::Direction;
     use but_graph::{
@@ -449,10 +450,28 @@ pub(crate) mod function {
             ancestor_workspace_commit,
             is_entrypoint: graph.lookup_entrypoint()?.segment_index == id,
         };
-        if info.ancestor_workspace_commit.is_some() {
-            // Don't trust the stacks anymore, they now contain the workspace comit and shouldn't be acted on.
-            // That way it's clear this must be fixed first.
-            info.stacks.clear();
+
+        if let Some(info) = &info.ancestor_workspace_commit {
+            // This is the MVP version of what should be guided by the UI - just communicate through
+            // an error message, which can only be recovered once the command is executed.
+            let mut msg = format!(
+                "Found {} commit(s) on top of the workspace commit.\n\n",
+                info.commits_outside.len()
+            );
+            let ws_commit_id = graph[info.segment_with_managed_commit].commits
+                [info.commit_index_of_managed_commit]
+                .id;
+            msg.push_str(
+                    "The current changes will be stashed and must be re-applied manually. Commit them otherwise.\n",
+                );
+            msg.push_str(
+                    "Run the following command in your working directory to fix this and restore the committed changes.\n\n",
+                );
+            msg.push_str(&format!("    git stash && git reset --hard {ws_commit_id} && git checkout {user_commit_id} -- .",
+                                      user_commit_id = info.commits_outside
+                                                              .first()
+                                                              .context("BUG: at least one user commit on top")?.id));
+            bail!("{msg}");
         }
         info.compute_similarity(graph, repo, opts.expensive_commit_info)?;
         Ok(info)
