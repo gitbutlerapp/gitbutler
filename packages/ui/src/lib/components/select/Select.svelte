@@ -2,11 +2,15 @@
 	type T = string;
 
 	export type SelectItem<T extends string = string> = {
-		label: string;
-		value: T;
+		label?: string;
+		value?: T;
 		selectable?: boolean;
+		separator?: boolean; // When true, this item acts as a separator
 		[key: string]: any; // Allow additional properties for icons, emojis, etc.
-	};
+	} & (
+		| { separator: true } // Separator items don't need label or value
+		| { label: string; value: T } // Regular items require label and value
+	);
 
 	interface Props {
 		id?: string;
@@ -80,7 +84,39 @@
 	let highlightedIndex: number | undefined = $state(undefined);
 	let searchValue = $state('');
 	const filteredOptions = $derived(
-		options.filter((item) => item.label.toLowerCase().includes(searchValue.toLowerCase()))
+		options.filter(
+			(item) =>
+				item.separator ||
+				(item.label && item.label.toLowerCase().includes(searchValue.toLowerCase()))
+		)
+	);
+
+	// Group options by separators
+	const groupedOptions = $derived.by(() => {
+		const groups: SelectItem<T>[][] = [];
+		let currentGroup: SelectItem<T>[] = [];
+
+		for (const option of filteredOptions) {
+			if (option.separator) {
+				if (currentGroup.length > 0) {
+					groups.push(currentGroup);
+					currentGroup = [];
+				}
+			} else {
+				currentGroup.push(option as SelectItem<T>);
+			}
+		}
+
+		if (currentGroup.length > 0) {
+			groups.push(currentGroup);
+		}
+
+		return groups;
+	});
+
+	// Flatten grouped options for navigation while preserving order
+	const selectableOptions = $derived.by(
+		() => filteredOptions.filter((item) => !item.separator) as SelectItem<T>[]
 	);
 	let maxHeightState = $state(maxHeight);
 	let listOpen = $state(false);
@@ -130,33 +166,36 @@
 	}
 
 	function handleSelect(item: SelectItem<string>) {
+		if (item.separator || !item.value) return;
 		const value = item.value as T;
 		onselect?.(value);
 		closeList();
 	}
 
 	function handleEnter() {
-		const option = highlightedIndex !== undefined ? filteredOptions[highlightedIndex] : undefined;
+		const option = highlightedIndex !== undefined ? selectableOptions[highlightedIndex] : undefined;
 		if (option) {
 			handleSelect(option);
 		}
 	}
 
 	function handleArrowUp() {
-		if (filteredOptions.length === 0) return;
+		if (selectableOptions.length === 0) return;
 		if (highlightedIndex === undefined) {
-			highlightedIndex = filteredOptions.length - 1;
+			highlightedIndex = selectableOptions.length - 1;
 		} else {
-			highlightedIndex = highlightedIndex === 0 ? filteredOptions.length - 1 : highlightedIndex - 1;
+			highlightedIndex =
+				highlightedIndex === 0 ? selectableOptions.length - 1 : highlightedIndex - 1;
 		}
 	}
 
 	function handleArrowDown() {
-		if (filteredOptions.length === 0) return;
+		if (selectableOptions.length === 0) return;
 		if (highlightedIndex === undefined) {
 			highlightedIndex = 0;
 		} else {
-			highlightedIndex = highlightedIndex === filteredOptions.length - 1 ? 0 : highlightedIndex + 1;
+			highlightedIndex =
+				highlightedIndex === selectableOptions.length - 1 ? 0 : highlightedIndex + 1;
 		}
 	}
 
@@ -170,7 +209,7 @@
 				e.stopPropagation();
 				openList();
 				if (key === KeyName.Up) {
-					highlightedIndex = filteredOptions.length - 1;
+					highlightedIndex = selectableOptions.length - 1;
 				} else if (key === KeyName.Down) {
 					highlightedIndex = 0;
 				}
@@ -254,7 +293,7 @@
 			role="presentation"
 			class="select__custom-button"
 			onmousedown={toggleList}
-			onkeydown={(ev) => handleKeyDown(ev)}
+			onkeydown={(ev: KeyboardEvent) => handleKeyDown(ev)}
 		>
 			{@render customSelectButton()}
 		</div>
@@ -270,7 +309,7 @@
 			disabled={disabled || loading}
 			{autofocus}
 			onmousedown={toggleList}
-			onkeydown={(ev) => handleKeyDown(ev)}
+			onkeydown={(ev: KeyboardEvent) => handleKeyDown(ev)}
 		/>
 	{/if}
 	{#if listOpen}
@@ -297,18 +336,35 @@
 					{#if searchable && options.length > 5}
 						<SearchItem bind:searchValue />
 					{/if}
-					<OptionsGroup>
-						{#if filteredOptions.length === 0}
+					{#if groupedOptions.length === 0}
+						<OptionsGroup>
 							<div class="text-13 text-semibold option nothing-found">
 								<span class=""> Nothing found ¯\_(ツ)_/¯ </span>
 							</div>
-						{/if}
-						{#each filteredOptions as item, idx}
-							<div class="option" tabindex="-1" role="none" onmousedown={() => handleSelect(item)}>
-								{@render itemSnippet({ item, highlighted: idx === highlightedIndex, idx })}
-							</div>
+						</OptionsGroup>
+					{:else}
+						{#each groupedOptions as group}
+							<OptionsGroup>
+								{#each group as item}
+									{@const selectableIdx = selectableOptions.findIndex(
+										(opt) => opt.value === item.value && item.value !== undefined
+									)}
+									<div
+										class="option"
+										tabindex="-1"
+										role="none"
+										onmousedown={() => handleSelect(item)}
+									>
+										{@render itemSnippet({
+											item,
+											highlighted: selectableIdx === highlightedIndex,
+											idx: selectableIdx
+										})}
+									</div>
+								{/each}
+							</OptionsGroup>
 						{/each}
-					</OptionsGroup>
+					{/if}
 
 					{#if children}
 						{@render children()}
