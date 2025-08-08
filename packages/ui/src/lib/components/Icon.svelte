@@ -11,25 +11,30 @@
 
 	interface Props {
 		name: IconName;
-		color?: IconColor;
-		opacity?: number | undefined;
-		spinnerRadius?: number | undefined;
+		color?: IconColor | string;
+		opacity?: number;
+		spinnerRadius?: number;
 		size?: number;
-		rotate?: number | undefined;
+		rotate?: number;
 		verticalAlign?: string;
 		noEvents?: boolean;
 	}
 
 	const {
 		name,
-		color = undefined,
+		color,
 		opacity = 1,
 		spinnerRadius = 5,
 		size = 16,
-		rotate = undefined,
+		rotate,
 		verticalAlign,
 		noEvents
 	}: Props = $props();
+
+	// Check if color is a predefined type or custom color
+	const predefinedColors = ['success', 'error', 'pop', 'warning'];
+	const isPredefinedColor = color && predefinedColors.includes(color as string);
+	const customColor = !isPredefinedColor ? color : undefined;
 </script>
 
 <svg
@@ -38,6 +43,7 @@
 	class:error={color === 'error'}
 	class:pop={color === 'pop'}
 	class:warning={color === 'warning'}
+	class:custom={customColor}
 	viewBox="0 0 16 16"
 	fill-rule="evenodd"
 	class:default={!color}
@@ -46,7 +52,7 @@
 	style:height="{pxToRem(size)}rem"
 	style:transform={rotate ? `rotate(${rotate}deg)` : undefined}
 	style:vertical-align={verticalAlign}
-	style="--spinner-radius: {spinnerRadius}"
+	style="--spinner-radius: {spinnerRadius}; --custom-color: {customColor || 'currentColor'}"
 	style:pointer-events={noEvents ? 'none' : undefined}
 >
 	{#if name === 'spinner'}
@@ -84,6 +90,9 @@
 	}
 	.warning {
 		color: var(--clr-scale-warn-50);
+	}
+	.custom {
+		color: var(--custom-color);
 	}
 
 	.spinner {
