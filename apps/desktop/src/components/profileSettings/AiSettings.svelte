@@ -94,6 +94,14 @@
 
 	const openAIModelOptions = [
 		{
+			label: 'GPT 5',
+			value: OpenAIModelName.GPT5
+		},
+		{
+			label: 'GPT 5 Mini',
+			value: OpenAIModelName.GPT5Mini
+		},
+		{
 			label: 'o3 Mini',
 			value: OpenAIModelName.O3mini
 		},
@@ -102,8 +110,16 @@
 			value: OpenAIModelName.O1mini
 		},
 		{
-			label: 'GPT 4o mini (recommended)',
+			label: 'GPT 4o mini',
 			value: OpenAIModelName.GPT4oMini
+		},
+		{
+			label: 'GPT 4.1',
+			value: OpenAIModelName.GPT4_1
+		},
+		{
+			label: 'GPT 4.1 mini (recommended)',
+			value: OpenAIModelName.GPT4_1Mini
 		}
 	];
 
