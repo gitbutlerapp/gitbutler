@@ -69,7 +69,8 @@ const ERROR_INFO: Record<StackAction, StackErrorInfo> = {
 	push: {
 		title: 'Git push failed',
 		codeInfo: {
-			['errors.git.authentication']: 'an authentication failure'
+			['errors.git.authentication']: 'an authentication failure',
+			['errors.git.force_push_protection']: 'force push protection'
 		},
 		defaultInfo: 'an unforeseen error'
 	}
@@ -80,6 +81,10 @@ function surfaceStackError(action: StackAction, errorCode: string, errorMessage:
 	const title = ERROR_INFO[action].title;
 	switch (action) {
 		case 'push': {
+			if (errorCode === 'errors.git.force_push_protection') {
+				return false;
+			}
+
 			showToast({
 				title,
 				message: `
@@ -442,7 +447,10 @@ export class StackService {
 			},
 			onError: (commandError: ReduxError) => {
 				const { code, message } = commandError;
-				surfaceStackError('push', code ?? '', message);
+				const handled = surfaceStackError('push', code ?? '', message);
+				if (!handled && code === 'errors.git.force_push_protection') {
+					throw commandError;
+				}
 			},
 			throwSlientError: true
 		});
@@ -1039,6 +1047,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					projectId: string;
 					stackId: string;
 					withForce: boolean;
+					forcePushProtection: boolean;
 					branch: string;
 				}
 			>({

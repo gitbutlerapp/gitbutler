@@ -10,6 +10,7 @@ export const MOCK_PROJECT_A: Project = {
 	api: undefined,
 	preferred_key: 'systemExecutable',
 	ok_with_force_push: true,
+	force_push_protection: false,
 	omit_certificate_check: false,
 	use_diff_context: true,
 	snapshot_lines_threshold: 5,

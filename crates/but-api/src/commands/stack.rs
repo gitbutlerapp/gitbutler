@@ -266,6 +266,7 @@ pub struct PushStackParams {
     pub project_id: ProjectId,
     pub stack_id: StackId,
     pub with_force: bool,
+    pub force_push_protection: bool,
     pub branch: String,
 }
 
@@ -276,6 +277,7 @@ pub fn push_stack(app: &App, params: PushStackParams) -> Result<PushResult, Erro
         &ctx,
         params.stack_id,
         params.with_force,
+        params.force_push_protection,
         params.branch,
     )
     .map_err(|e| e.into())
