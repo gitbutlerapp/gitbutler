@@ -36,6 +36,7 @@ export { default as SeriesLabelsRow } from '$components/SeriesLabelsRow.svelte';
 export { default as SidebarEntry } from '$components/SidebarEntry.svelte';
 export { default as SimpleCommitRow } from '$components/SimpleCommitRow.svelte';
 export { default as Spacer } from '$components/Spacer.svelte';
+export { default as Switch } from '$components/Switch.svelte';
 export { default as Textarea } from '$components/Textarea.svelte';
 export { default as Textbox } from '$components/Textbox.svelte';
 export { default as TimeAgo } from '$components/TimeAgo.svelte';
