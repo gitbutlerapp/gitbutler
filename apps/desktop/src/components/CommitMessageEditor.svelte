@@ -68,6 +68,7 @@
 
 	let composer = $state<ReturnType<typeof MessageEditor>>();
 	let titleInput = $state<HTMLTextAreaElement>();
+	let isTitleComposing = false;
 
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
 	const diffInputArgs = $derived<DiffInputContextArgs>(
@@ -165,17 +166,31 @@
 		onchange={(value) => {
 			onChange?.({ title: value });
 		}}
+		oncompositionstart={() => {
+			// Track IME composition state manually for WebKit compatibility
+			isTitleComposing = true;
+		}}
 		onkeydown={async (e: KeyboardEvent) => {
+			// Prevent focus movement when Enter is pressed during IME composition
+			// for Japanese/Chinese/Korean input confirmation.
+			// WebKit sets e.isComposing to false on Enter, so we use isTitleComposing as fallback
+			if (e.key === 'Enter' && (e.isComposing || isTitleComposing)) {
+				isTitleComposing = false;
+				return;
+			}
+			// Submit commit with Ctrl/Cmd + Enter
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
 				if (title.trim()) {
 					emitAction();
 				}
 			}
+			// Move focus to description field with Enter or Tab
 			if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
 				e.preventDefault();
 				composer?.focus();
 			}
+			// Cancel commit with Escape
 			if (e.key === 'Escape') {
 				e.preventDefault();
 				handleCancel();
