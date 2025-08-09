@@ -53,7 +53,8 @@
 		onchange,
 		onfocus,
 		onblur,
-		onkeydown
+		onkeydown,
+		...restProps
 	}: Props = $props();
 
 	let measureEl: HTMLPreElement | undefined = $state();
@@ -141,6 +142,7 @@
 		{onkeydown}
 		{onfocus}
 		rows={minRows}
+		{...restProps}
 	></textarea>
 </div>
 

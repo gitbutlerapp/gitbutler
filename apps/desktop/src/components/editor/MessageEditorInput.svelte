@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Textarea } from '@gitbutler/ui';
+	import type { CompositionEventHandler } from 'svelte/elements';
 
 	interface Props {
 		ref: HTMLTextAreaElement | undefined;
@@ -8,6 +9,7 @@
 		placeholder?: string;
 		oninput?: (e: Event) => void;
 		onchange?: (value: string) => void;
+		oncompositionstart?: CompositionEventHandler<HTMLTextAreaElement>;
 		onkeydown: (e: KeyboardEvent) => void;
 		testId?: string;
 	}
@@ -19,6 +21,7 @@
 		placeholder,
 		oninput,
 		onchange,
+		oncompositionstart,
 		onkeydown,
 		testId
 	}: Props = $props();
@@ -45,6 +48,7 @@
 		}}
 		unstyled
 		onchange={(e) => onchange?.(e.currentTarget.value)}
+		{oncompositionstart}
 		{onkeydown}
 	/>
 	{#if isCharCount}
