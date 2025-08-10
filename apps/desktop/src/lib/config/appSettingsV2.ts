@@ -80,8 +80,6 @@ export type TelemetrySettings = {
 };
 
 export type FeatureFlags = {
-	/** Enable the usage of the V3 workspace API */
-	ws3: boolean;
 	/** Enable the usage of GitButler Acitions. */
 	actions: boolean;
 	/** Enable the usage of butbot chat */
