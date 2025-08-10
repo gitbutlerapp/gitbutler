@@ -18,10 +18,6 @@
 		"oauthClientId": "cd51880daa675d9e6452"
 	},
 	"featureFlags": {
-		// Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments).
-		"v3": false,
-		/// Enable the usage of V3 workspace APIs.
-		"ws3": false,
 		/// Enable undo/redo support.
 		"undo": false,
 		/// Enable the usage of GitButler Acitions.
