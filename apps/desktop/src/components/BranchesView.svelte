@@ -80,7 +80,7 @@
 		}
 	});
 
-	async function checkoutBranch() {
+	async function checkoutBranch() { // This can probably be used in the modal to checkout an existing branch.
 		const { branchName, remote, prNumber, hasLocal } = branchesState.current;
 		const remoteRef = remote ? `refs/remotes/${remote}/${branchName}` : undefined;
 		const branchRef = hasLocal ? `refs/heads/${branchName}` : remoteRef;
