@@ -56,3 +56,19 @@ impl Emittable for TokenUpdate {
         (name, payload)
     }
 }
+
+pub struct TokenEnd {
+    pub project_id: ProjectId,
+    pub message_id: String,
+}
+
+impl Emittable for TokenEnd {
+    fn emittable(&self) -> (String, serde_json::Value) {
+        let name = format!("project://{}/token-updates", self.project_id);
+        let payload = serde_json::json!({
+            "messageId": self.message_id,
+            "token": "\n\n---\n\n"
+        });
+        (name, payload)
+    }
+}

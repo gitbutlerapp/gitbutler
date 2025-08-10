@@ -3,6 +3,8 @@ use but_tools::emit::Emitter;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 
+mod state;
+
 use crate::agent::{Agent, ButBot};
 
 pub mod agent;
