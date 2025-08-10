@@ -121,15 +121,24 @@ pub fn structured_output_blocking<
     T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
 >(
     openai: &OpenAiProvider,
-    messages: Vec<ChatCompletionRequestMessage>,
+    system_message: &str,
+    chat_messages: Vec<ChatMessage>,
 ) -> anyhow::Result<Option<T>> {
     let client = openai.client()?;
-    let messages_owned = messages.clone();
+    let mut messages: Vec<ChatCompletionRequestMessage> =
+        vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
+
+    messages.extend(
+        chat_messages
+            .into_iter()
+            .map(ChatCompletionRequestMessage::from)
+            .collect::<Vec<_>>(),
+    );
 
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(structured_output::<T>(&client, messages_owned))
+            .block_on(structured_output::<T>(&client, messages))
     })
     .join()
     .unwrap()
