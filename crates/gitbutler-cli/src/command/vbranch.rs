@@ -68,21 +68,16 @@ pub fn status(project: Project) -> Result<()> {
 
 pub(crate) fn stacks(ctx: &CommandContext) -> Result<Vec<(StackId, StackDetails)>> {
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    let stacks = {
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
-        )?;
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default())
-    }?;
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project().gb_dir().join("virtual_branches.toml"),
+    )?;
+    let stacks = { but_workspace::stacks_v3(&repo, &meta, StacksFilter::default()) }?;
     let mut details = vec![];
     for stack in stacks {
         let stack_id = stack
             .id
             .context("BUG(opt-stack-id): CLI code shouldn't trigger this")?;
         details.push((stack_id, {
-            let meta = VirtualBranchesTomlMetadata::from_path(
-                ctx.project().gb_dir().join("virtual_branches.toml"),
-            )?;
             but_workspace::stack_details_v3(stack_id.into(), &repo, &meta)
         }?));
     }
@@ -185,9 +180,22 @@ fn set_default_branch(project: &Project, stack: &Stack) -> Result<()> {
 }
 
 pub fn series(project: Project, stack_name: String, new_series_name: String) -> Result<()> {
-    let mut stack = stack_by_name(&project, &stack_name)?;
+    let stack = stack_by_name(&project, &stack_name)?;
+    let anchor = but_api::commands::stack::create_reference::Anchor::AtReference {
+        short_name: stack.derived_name()?,
+        position: but_workspace::branch::ReferencePosition::Above,
+    };
+    let req = but_api::commands::stack::create_reference::Request {
+        new_name: new_series_name,
+        anchor: Some(anchor),
+    };
+    let params = but_api::commands::stack::create_reference::Params {
+        project_id: project.id,
+        request: req,
+    };
     let ctx = CommandContext::open(&project, AppSettings::default())?;
-    stack.add_series_top_of_stack(&ctx, new_series_name, None)?;
+    but_api::commands::stack::create_reference(&ctx, params)
+        .map_err(|e| anyhow::anyhow!("Failed create reference: {:?}", e))?;
     Ok(())
 }
 

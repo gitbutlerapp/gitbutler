@@ -82,6 +82,7 @@ fn integration() {
         )
         .unwrap();
 
+        dbg!(stack_details(ctx));
         let (_, b) = stack_details(ctx)
             .into_iter()
             .find(|d| d.0 == branch_id)

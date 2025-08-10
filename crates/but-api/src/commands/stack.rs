@@ -56,9 +56,10 @@ pub mod create_reference {
     }
 }
 
-pub fn create_reference(app: &App, params: create_reference::Params) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+pub fn create_reference(
+    ctx: &CommandContext,
+    params: create_reference::Params,
+) -> Result<(), Error> {
     let create_reference::Request { new_name, anchor } = params.request;
     let new_ref = Category::LocalBranch
         .to_full_name(new_name.as_str())
