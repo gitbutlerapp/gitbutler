@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/components/Rule.svelte", "apps/desktop/src/components/RulesList.svelte"]
-ourEntries = ["apps/desktop/src/components/Rule.svelte", "apps/desktop/src/components/RulesList.svelte"]
-theirEntries = ["apps/desktop/src/components/Rule.svelte", "apps/desktop/src/components/RulesList.svelte"]
