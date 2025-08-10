@@ -13,8 +13,9 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 
-	import { Badge, TestId } from '@gitbutler/ui';
+	import { Badge, TestId, Switch } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { type Snippet } from 'svelte';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
@@ -69,6 +70,7 @@
 	const changes = $derived(uncommittedService.changesByStackId(stackId || null));
 
 	let listMode: 'list' | 'tree' = $state('list');
+	let previewOnSelect = persisted(true, 'preview-on-select');
 
 	let scrollTopIsVisible = $state(true);
 
@@ -105,7 +107,7 @@
 			{active}
 			{stackId}
 			hideLastFileBorder={mode !== 'unassigned'}
-			{onselect}
+			onselect={$previewOnSelect ? onselect : undefined}
 		/>
 	</div>
 {/snippet}
@@ -146,6 +148,14 @@
 						<Badge>{changes.current.length}</Badge>
 					</div>
 				</div>
+
+				<Switch
+					id="preview-on-select"
+					tooltip="Preview file on select"
+					icon="select-to-preview"
+					bind:checked={$previewOnSelect}
+				/>
+
 				{#if changes.current.length > 0}
 					<FileListMode bind:mode={listMode} persist="uncommitted" />
 				{/if}

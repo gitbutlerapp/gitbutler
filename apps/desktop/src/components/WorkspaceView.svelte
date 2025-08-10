@@ -19,6 +19,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE, type ExclusiveAction } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import type { SelectionId } from '$lib/selection/key';
@@ -78,9 +79,10 @@
 	);
 
 	const selectionId = { type: 'worktree', stackId: undefined } as SelectionId;
+	const previewOnSelect = persisted(true, 'preview-on-select');
 
 	const lastAdded = $derived(worktreeSelection.lastAdded);
-	const previewOpen = $derived(!!$lastAdded?.key);
+	const previewOpen = $derived(!!$lastAdded?.key && $previewOnSelect);
 
 	// Ensures that the exclusive action is still valid.
 	$effect(() => {
