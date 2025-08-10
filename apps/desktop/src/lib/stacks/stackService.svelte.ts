@@ -1343,10 +1343,11 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Remove Branch'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.StackDetails, args.stackId),
-					invalidatesList(ReduxTag.BranchListing)
-				]
+                invalidatesTags: (_result, _error, args) => [
+                    invalidatesItem(ReduxTag.StackDetails, args.stackId),
+                    invalidatesList(ReduxTag.BranchListing),
+                    invalidatesList(ReduxTag.Stacks)
+                ]
 			}),
 			updateBranchDescription: build.mutation<
 				void,
