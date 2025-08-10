@@ -34,7 +34,8 @@ pub use action::Source;
 pub use action::list_actions;
 use but_graph::VirtualBranchesTomlMetadata;
 pub use openai::{
-    ChatMessage, ToolCallContent, ToolResponseContent, tool_calling_loop, tool_calling_loop_stream,
+    ChatMessage, ToolCallContent, ToolResponseContent, structured_output_blocking,
+    tool_calling_loop, tool_calling_loop_stream,
 };
 use strum::EnumString;
 use uuid::Uuid;

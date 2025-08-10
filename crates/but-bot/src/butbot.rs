@@ -8,6 +8,40 @@ use crate::{
     state::{AgentState, Todo},
 };
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum ButBotRoute {
+    #[schemars(description = "
+<description>
+Simple routing, no complex planning needed.
+</description>
+
+<when_to_use>
+Use this route when the user request is straightforward and can be handled with simple actions.
+This is the fastest route, and is suitable whenever the objectives are clear and there are not multiple steps involved.
+</when_to_use>
+    ")]
+    Simple,
+    #[schemars(description = "
+<description>
+Complex routing, requires planning and multiple steps.
+</description>
+
+<when_to_use>
+Use this route when the user request is complex, or there is some investigation that needs to be done and requires multiple steps to complete.
+This route is slower, but allows for more complex actions to be performed.
+</when_to_use>
+")]
+    Planning,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct ButButRouteResponse {
+    #[schemars(description = "The route that was taken by the agent.")]
+    pub route: ButBotRoute,
+}
+
 const MODEL: &str = "gpt-4.1";
 
 const SYS_PROMPT: &str = "
@@ -84,6 +118,41 @@ impl<'a> ButBot<'a> {
             openai,
             chat_messages,
             text_response_buffer: vec![],
+        }
+    }
+
+    pub fn pick_route(&mut self) -> anyhow::Result<ButBotRoute> {
+        let routing_sys_prompt = "
+Your are an expert in determining the best workflow path to take based on the user request.
+Please, take a look at the provided conversation and return which is the route that should be taken.
+";
+
+        let conversation = self
+            .chat_messages
+            .iter()
+            .map(|msg| msg.to_string())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        let messages = vec![but_action::ChatMessage::User(format!(
+            "
+Take a look at the conversation, specifically, the last user request below, and choose the best route to take.
+<CONVERSATION>
+{}
+</CONVERSATION>
+            ",
+             conversation
+        ))];
+
+        let response = but_action::structured_output_blocking::<ButButRouteResponse>(
+            self.openai,
+            routing_sys_prompt,
+            messages,
+        )?;
+
+        match response {
+            Some(route) => Ok(route.route),
+            None => Err(anyhow::anyhow!("Failed to determine the route to take.")),
         }
     }
 
@@ -372,6 +441,15 @@ If you need to perform actions, do so, and be concise in the description of the 
 }
 
 impl Agent for ButBot<'_> {
+    fn route(&mut self) -> anyhow::Result<AgentGraphNode> {
+        match self.pick_route()? {
+            ButBotRoute::Planning => Ok(AgentGraphNode::CreateTodos),
+            ButBotRoute::Simple => {
+                let response = self.workspace_loop()?;
+                Ok(AgentGraphNode::Done(response))
+            }
+        }
+    }
     fn create_todos(&mut self) -> anyhow::Result<AgentGraphNode> {
         self.update_state()?;
 
@@ -385,7 +463,6 @@ impl Agent for ButBot<'_> {
 
     fn execute_todo(&mut self) -> anyhow::Result<AgentGraphNode> {
         if let Some(todo) = self.state.next_todo() {
-            println!("Executing todo: {}", todo.clone().as_prompt());
             let (text_response, messages) = self.execute_todo(&todo)?;
             self.chat_messages = messages;
             self.text_response_buffer.push(text_response);

@@ -1,4 +1,5 @@
 pub enum AgentGraphNode {
+    Route,
     CreateTodos,
     ExecuteTodo,
     Done(String),
@@ -17,13 +18,16 @@ impl Default for AgentGraph {
 impl AgentGraph {
     pub fn new() -> Self {
         Self {
-            current_node: AgentGraphNode::CreateTodos,
+            current_node: AgentGraphNode::Route,
         }
     }
 
     pub fn start(&mut self, agent: &mut dyn Agent) -> anyhow::Result<String> {
         loop {
             match self.current_node {
+                AgentGraphNode::Route => {
+                    self.current_node = agent.route()?;
+                }
                 AgentGraphNode::CreateTodos => {
                     self.current_node = agent.create_todos()?;
                 }
@@ -39,6 +43,7 @@ impl AgentGraph {
 }
 
 pub trait Agent {
+    fn route(&mut self) -> anyhow::Result<AgentGraphNode>;
     fn create_todos(&mut self) -> anyhow::Result<AgentGraphNode>;
     fn execute_todo(&mut self) -> anyhow::Result<AgentGraphNode>;
 }
