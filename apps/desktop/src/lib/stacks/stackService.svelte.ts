@@ -714,10 +714,6 @@ export class StackService {
 		return this.api.endpoints.amendCommit.mutate;
 	}
 
-	get moveCommitFileMutation() {
-		return this.api.endpoints.moveCommitFile.mutate;
-	}
-
 	/** Squash all the commits in a branch together */
 	async squashAllCommits({
 		projectId,
@@ -1446,27 +1442,6 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges), // Could cause conflicts
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
-				]
-			}),
-			moveCommitFile: build.mutation<
-				void,
-				{
-					projectId: string;
-					stackId: string;
-					fromCommitOid: string;
-					toCommitOid: string;
-					ownership: string;
-				}
-			>({
-				extraOptions: {
-					command: 'move_commit_file',
-					actionName: 'Move Commit File'
-				},
-				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesList(ReduxTag.WorktreeChanges), // Could cause conflicts
-					invalidatesItem(ReduxTag.StackDetails, args.stackId),
-					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
 			newBranchName: build.query<

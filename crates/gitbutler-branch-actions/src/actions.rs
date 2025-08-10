@@ -284,23 +284,6 @@ fn amend_with_commit_engine(
     Ok(new_commit.to_git2())
 }
 
-pub fn move_commit_file(
-    ctx: &CommandContext,
-    stack_id: StackId,
-    from_commit_oid: git2::Oid,
-    to_commit_oid: git2::Oid,
-    ownership: &BranchOwnershipClaims,
-) -> Result<git2::Oid> {
-    let mut guard = ctx.project().exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Amending a commit requires open workspace mode")?;
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::MoveCommitFile),
-        guard.write_permission(),
-    );
-    vbranch::move_commit_file(ctx, stack_id, from_commit_oid, to_commit_oid, ownership)
-}
-
 pub fn undo_commit(ctx: &CommandContext, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {
     let mut guard = ctx.project().exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;

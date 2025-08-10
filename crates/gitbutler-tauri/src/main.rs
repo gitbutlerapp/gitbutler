@@ -227,7 +227,6 @@ fn main() {
                     virtual_branches::can_apply_remote_branch,
                     virtual_branches::list_commit_files,
                     virtual_branches::amend_virtual_branch,
-                    virtual_branches::move_commit_file,
                     virtual_branches::undo_commit,
                     virtual_branches::insert_blank_commit,
                     virtual_branches::reorder_stack,
