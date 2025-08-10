@@ -496,7 +496,7 @@ pub fn tool_calling_loop(
     chat_messages: Vec<ChatMessage>,
     tool_set: &mut impl Toolset,
     model: Option<String>,
-) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
+) -> anyhow::Result<String> {
     let mut messages: Vec<ChatCompletionRequestMessage> =
         vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
 
@@ -519,6 +519,23 @@ pub fn tool_calling_loop(
         open_ai_tools.clone(),
         model.clone(),
     )?;
+
+    let mut text_response_buffer = vec![];
+    if let Some(text_response) = response
+        .choices
+        .first()
+        .and_then(|choice| choice.message.content.clone())
+    {
+        text_response_buffer.push(text_response.clone());
+        messages.push(ChatCompletionRequestMessage::Assistant(
+            async_openai::types::ChatCompletionRequestAssistantMessage {
+                content: Some(ChatCompletionRequestAssistantMessageContent::Text(
+                    text_response,
+                )),
+                ..Default::default()
+            },
+        ));
+    }
 
     while let Some(tool_calls) = response
         .choices
@@ -575,7 +592,29 @@ pub fn tool_calling_loop(
             open_ai_tools.clone(),
             model.clone(),
         )?;
+
+        if let Some(text_response) = response
+            .choices
+            .first()
+            .and_then(|choice| choice.message.content.clone())
+        {
+            text_response_buffer.push(text_response.clone());
+            messages.push(ChatCompletionRequestMessage::Assistant(
+                async_openai::types::ChatCompletionRequestAssistantMessage {
+                    content: Some(ChatCompletionRequestAssistantMessageContent::Text(
+                        text_response,
+                    )),
+                    ..Default::default()
+                },
+            ));
+        }
     }
+
+    let response = text_response_buffer
+        .into_iter()
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<String>>()
+        .join("\n\n");
 
     Ok(response)
 }
