@@ -68,16 +68,14 @@
 	let kebabButtonElement = $state<HTMLElement>();
 
 	async function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
-		if (!context) return;
-		if (
-			context?.data.commitStatus !== 'LocalOnly' &&
-			context?.data.commitStatus !== 'LocalAndRemote'
-		) {
+		const data = context?.data ?? contextData;
+		if (!data) return;
+		if (data.commitStatus !== 'LocalOnly' && data.commitStatus !== 'LocalAndRemote') {
 			return;
 		}
 		await insertBlankCommitInBranch({
 			projectId,
-			stackId: context?.data.stackId,
+			stackId: data.stackId,
 			commitId: commitId,
 			offset: location === 'above' ? -1 : 1
 		});
