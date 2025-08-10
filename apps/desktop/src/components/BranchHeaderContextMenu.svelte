@@ -3,7 +3,6 @@
 		branch: BranchDetails;
 		prNumber?: number;
 		first?: boolean;
-		stackLength: number;
 	};
 </script>
 
@@ -152,7 +151,7 @@
 		testId={TestId.BranchHeaderContextMenu}
 	>
 		{#if contextData}
-			{@const { branch, prNumber, first, stackLength } = contextData}
+			{@const { branch, prNumber, first } = contextData}
 			{@const branchName = branch.name}
 			{#if first && stackId}
 				<ContextMenuSection>
@@ -252,7 +251,6 @@
 							}}
 						/>
 					{/if}
-					{#if stackLength && stackLength > 1}
 						<ContextMenuItem
 							label="Delete"
 							testId={TestId.BranchHeaderContextMenu_Delete}
@@ -267,7 +265,6 @@
 								close();
 							}}
 						/>
-					{/if}
 				</ContextMenuSection>
 			{/if}
 			{#if prNumber}
