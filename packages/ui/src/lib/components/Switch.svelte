@@ -121,6 +121,10 @@
 		transform: translateX(18px);
 	}
 
+	.switch.checked .switch-indicator-on {
+		box-shadow: inset 0 0 0 var(--line-width) var(--clr-theme-pop-element);
+	}
+
 	.switch-indicator-on,
 	.switch-indicator-off {
 		--line-width: 0.094rem;
@@ -128,23 +132,22 @@
 		position: absolute;
 		top: 50%;
 		transform: translateY(-50%);
+		box-shadow: inset 0 0 0 var(--line-width) var(--clr-text-3);
 		pointer-events: none;
+		transition: box-shadow var(--transition-fast);
 	}
 
 	.switch-indicator-on {
 		left: 7px;
 		width: 7px;
 		height: 7px;
-		border: var(--line-width) solid var(--clr-theme-pop-element);
 		border-radius: 50%;
 	}
 
 	.switch-indicator-off {
 		right: 10px;
-		width: 2px;
+		width: var(--line-width);
 		height: 10px;
-		border-radius: 50%;
-		background-color: var(--clr-text-3);
 		opacity: 0.5;
 	}
 

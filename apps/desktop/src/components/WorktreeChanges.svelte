@@ -149,14 +149,15 @@
 					</div>
 				</div>
 
-				<Switch
-					id="preview-on-select"
-					tooltip="Preview file on select"
-					icon="select-to-preview"
-					bind:checked={$previewOnSelect}
-				/>
-
 				{#if changes.current.length > 0}
+					{#if mode === 'unassigned'}
+						<Switch
+							id="preview-on-select"
+							tooltip="Preview on select"
+							icon={$previewOnSelect ? 'eye-shown' : 'eye-hidden'}
+							bind:checked={$previewOnSelect}
+						/>
+					{/if}
 					<FileListMode bind:mode={listMode} persist="uncommitted" />
 				{/if}
 			</div>
