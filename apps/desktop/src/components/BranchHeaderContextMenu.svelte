@@ -251,20 +251,20 @@
 							}}
 						/>
 					{/if}
-						<ContextMenuItem
-							label="Delete"
-							testId={TestId.BranchHeaderContextMenu_Delete}
-							onclick={async () => {
-								deleteBranchModalContext = {
-									projectId,
-									stackId,
-									branchName
-								};
-								await tick();
-								deleteBranchModal?.show();
-								close();
-							}}
-						/>
+					<ContextMenuItem
+						label="Delete"
+						testId={TestId.BranchHeaderContextMenu_Delete}
+						onclick={async () => {
+							deleteBranchModalContext = {
+								projectId,
+								stackId,
+								branchName
+							};
+							await tick();
+							deleteBranchModal?.show();
+							close();
+						}}
+					/>
 				</ContextMenuSection>
 			{/if}
 			{#if prNumber}
