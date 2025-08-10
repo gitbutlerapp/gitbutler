@@ -40,9 +40,8 @@ pub fn create_virtual_branch(
     params: CreateVirtualBranchParams,
 ) -> Result<StackEntryNoOpt, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ws3_enabled = app.app_settings.get()?.feature_flags.ws3;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    let stack_entry = if ws3_enabled {
+    let stack_entry = {
         let (repo, mut meta, graph) = ctx.graph_and_meta_and_repo()?;
         let ws = graph.to_workspace()?;
         let new_ref = Category::LocalBranch
@@ -73,12 +72,6 @@ pub fn create_virtual_branch(
             tip,
             order: Some(stack_idx),
         }
-    } else {
-        gitbutler_branch_actions::create_virtual_branch(
-            &ctx,
-            &params.branch,
-            ctx.project().exclusive_worktree_access().write_permission(),
-        )?
     };
     Ok(stack_entry)
 }

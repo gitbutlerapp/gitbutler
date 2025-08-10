@@ -524,25 +524,17 @@ impl OutputAsJson for Result<ClaudeHookOutput> {
 }
 
 fn stack_details(ctx: &CommandContext, stack_id: StackId) -> anyhow::Result<StackDetails> {
-    if ctx.app_settings().feature_flags.ws3 {
-        let repo = ctx.gix_repo_for_merging_non_persisting()?;
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
-        )?;
-        but_workspace::stack_details_v3(Some(stack_id), &repo, &meta)
-    } else {
-        but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
-    }
+    let repo = ctx.gix_repo_for_merging_non_persisting()?;
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project().gb_dir().join("virtual_branches.toml"),
+    )?;
+    but_workspace::stack_details_v3(Some(stack_id), &repo, &meta)
 }
 
 fn list_stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    if ctx.app_settings().feature_flags.ws3 {
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
-        )?;
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default())
-    } else {
-        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
-    }
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project().gb_dir().join("virtual_branches.toml"),
+    )?;
+    but_workspace::stacks_v3(&repo, &meta, StacksFilter::default())
 }

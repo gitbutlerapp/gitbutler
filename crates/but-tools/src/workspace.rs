@@ -1991,7 +1991,7 @@ pub struct AbsorbSpec {
     <description>
         The title of the commit to use in the amended commit.
     </description>
-    
+
     <important_notes>
         The title should be concise and descriptive.
         Don't use more than 50 characters.
@@ -2042,16 +2042,6 @@ fn stacks(
     ctx: &CommandContext,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<but_workspace::ui::StackEntry>> {
-    let project = ctx.project();
-    if ctx.app_settings().feature_flags.ws3 {
-        let meta = ref_metadata_toml(ctx.project())?;
-        but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace)
-    } else {
-        but_workspace::stacks(
-            ctx,
-            &project.gb_dir(),
-            repo,
-            but_workspace::StacksFilter::InWorkspace,
-        )
-    }
+    let meta = ref_metadata_toml(ctx.project())?;
+    but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace)
 }
