@@ -36,13 +36,18 @@
 	);
 	let semanticType = $state<SemanticType | undefined>(initialFilterValues.semanticType?.type);
 
+	let claudeCodeSessionId = $state<string | undefined>(
+		initialFilterValues.claudeCodeSessionId ?? undefined
+	);
+
 	const ruleFilterTypes = $derived(typedKeys(initialFilterValues));
 
 	const orderMap: Record<RuleFilterType, number> = {
-		pathMatchesRegex: 0,
-		contentMatchesRegex: 1,
-		fileChangeType: 2,
-		semanticType: 3
+		claudeCodeSessionId: 0,
+		pathMatchesRegex: 1,
+		contentMatchesRegex: 2,
+		fileChangeType: 3,
+		semanticType: 4
 	};
 
 	function isLastFilterType(type: RuleFilterType): boolean {
@@ -58,6 +63,7 @@
 			if (type === 'contentMatchesRegex' && !contentRegex) return false;
 			if (type === 'fileChangeType' && !treeChangeType) return false;
 			if (type === 'semanticType' && !semanticType) return false;
+			if (type === 'claudeCodeSessionId' && !claudeCodeSessionId) return false;
 		}
 		return true;
 	}
@@ -93,6 +99,10 @@
 			semanticType !== 'userDefined'
 		) {
 			filters.push({ type: 'semanticType', subject: { type: semanticType } });
+		}
+
+		if (ruleFilterTypes.includes('claudeCodeSessionId') && claudeCodeSessionId) {
+			filters.push({ type: 'claudeCodeSessionId', subject: claudeCodeSessionId });
 		}
 
 		return filters;
@@ -178,6 +188,11 @@
 	</Select>
 {/snippet}
 
+<!-- Claude Code Session ID -->
+{#snippet claudeCodeSessionIdFilter()}
+	{claudeCodeSessionId}
+{/snippet}
+
 <!-- This is the parent component,
         wraps around the rule input -->
 {#snippet ruleFilterRow(type: RuleFilterType)}
@@ -190,6 +205,8 @@
 			{@render fileChangeType()}
 		{:else if type === 'semanticType'}
 			{@render semanticTypeFilter()}
+		{:else if type === 'claudeCodeSessionId'}
+			{@render claudeCodeSessionIdFilter()}
 		{/if}
 
 		<div class="rule-filter-row__actions">
@@ -232,6 +249,10 @@
 
 {#if ruleFilterTypes.includes('semanticType')}
 	{@render ruleFilterRow('semanticType')}
+{/if}
+
+{#if ruleFilterTypes.includes('claudeCodeSessionId')}
+	{@render ruleFilterRow('claudeCodeSessionId')}
 {/if}
 
 <NewRuleMenu

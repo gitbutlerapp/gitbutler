@@ -85,6 +85,10 @@
 		{:else if filter.type === 'semanticType'}
 			<Icon name="tag" opacity={0.6} />
 			<span class="text-12 truncate">{semanticTypeToString(filter.subject.type)}</span>
+		{:else if filter.type === 'claudeCodeSessionId'}
+			<Icon name="tag" opacity={0.6} />
+			<!-- TODO: Make an API call to get a rich name for the session, instead of rendering a UUID -->
+			<span class="text-12 truncate">{filter.subject}</span>
 		{/if}
 	</div>
 {/snippet}
@@ -110,7 +114,7 @@
 	</div>
 {/snippet}
 
-{#if rule.action.type === 'explicit' && rule.action.subject.type === 'assign' && rule.trigger === 'fileSytemChange'}
+{#if rule.action.type === 'explicit' && rule.action.subject.type === 'assign' && (rule.trigger === 'fileSytemChange' || rule.trigger === 'claudeCodeHook')}
 	{@const target = rule.action.subject.subject.target}
 	{@const filters = rule.filters}
 
