@@ -62,7 +62,7 @@ impl Storage {
                     })
                     .collect();
 
-                all_projects.sort_by(|a, b| a.title.cmp(&b.title));
+                all_projects.sort_by_key(|p| p.title.to_lowercase());
                 Ok(all_projects)
             }
             None => Ok(vec![]),
