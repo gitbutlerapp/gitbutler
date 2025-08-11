@@ -62,3 +62,22 @@ diesel::table! {
         action -> Text,
     }
 }
+
+diesel::table! {
+    claude_sessions (id) {
+        id -> Text,
+        current_id -> Text,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    claude_messages (id) {
+        id -> Text,
+        session_id -> Text,
+        created_at -> Timestamp,
+        content_type -> Text,
+        content -> Text,
+    }
+}

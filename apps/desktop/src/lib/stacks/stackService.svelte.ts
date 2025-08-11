@@ -33,7 +33,13 @@ import type { CommitKey } from '$lib/commits/commit';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges, TreeStats } from '$lib/hunks/change';
 import type { DiffSpec } from '$lib/hunks/hunk';
-import type { BranchDetails, Stack, StackOpt, StackDetails } from '$lib/stacks/stack';
+import type {
+	BranchDetails,
+	Stack,
+	StackOpt,
+	StackDetails,
+	CreateRefRequest
+} from '$lib/stacks/stack';
 import type { PropertiesFn } from '$lib/state/customHooks.svelte';
 import type { ReduxError } from '$lib/state/reduxError';
 
@@ -714,10 +720,6 @@ export class StackService {
 		return this.api.endpoints.amendCommit.mutate;
 	}
 
-	get moveCommitFileMutation() {
-		return this.api.endpoints.moveCommitFile.mutate;
-	}
-
 	/** Squash all the commits in a branch together */
 	async squashAllCommits({
 		projectId,
@@ -859,6 +861,10 @@ export class StackService {
 			projectId,
 			forge: { name: forgeName }
 		});
+	}
+
+	get createReference() {
+		return this.api.endpoints.createReference.useMutation();
 	}
 }
 
@@ -1448,27 +1454,6 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
-			moveCommitFile: build.mutation<
-				void,
-				{
-					projectId: string;
-					stackId: string;
-					fromCommitOid: string;
-					toCommitOid: string;
-					ownership: string;
-				}
-			>({
-				extraOptions: {
-					command: 'move_commit_file',
-					actionName: 'Move Commit File'
-				},
-				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesList(ReduxTag.WorktreeChanges), // Could cause conflicts
-					invalidatesItem(ReduxTag.StackDetails, args.stackId),
-					invalidatesList(ReduxTag.BranchListing)
-				]
-			}),
 			newBranchName: build.query<
 				string,
 				{
@@ -1538,6 +1523,25 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					invalidatesItem(ReduxTag.StackDetails, args.sourceStackId),
 					invalidatesItem(ReduxTag.BranchChanges, args.sourceStackId),
 					invalidatesList(ReduxTag.Stacks)
+				]
+			}),
+			createReference: build.mutation<
+				void,
+				{ projectId: string; stackId: string; request: CreateRefRequest }
+			>({
+				extraOptions: {
+					command: 'create_reference',
+					actionName: 'Create Reference'
+				},
+				query: (args) => {
+					// TODO: Remove the stack ID from the request args.
+					// The backend doesn't need it, but the frontend does to invalidate the right tags.
+					// We should move away from using the stack ID as the cache key, an move towards some form of branch name instead.
+
+					return { projectId: args.projectId, request: args.request };
+				},
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
 			stackDetailsUpdate: build.query<void, { projectId: string }>({

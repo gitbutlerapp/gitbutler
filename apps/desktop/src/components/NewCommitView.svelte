@@ -1,5 +1,4 @@
 <script lang="ts">
-	import AsyncRender from '$components/AsyncRender.svelte';
 	import CommitMessageEditor from '$components/CommitMessageEditor.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
@@ -98,11 +97,7 @@
 			});
 
 			if ($runCommitHooks) {
-				try {
-					await hooksService.runPreCommitHooks(projectId, worktreeChanges);
-				} catch {
-					return;
-				}
+				await hooksService.runPreCommitHooks(projectId, worktreeChanges);
 			}
 
 			const response = await createCommitInStack(
@@ -118,11 +113,7 @@
 			);
 
 			if ($runCommitHooks) {
-				try {
-					await hooksService.runPostCommitHooks(projectId);
-				} catch {
-					return;
-				}
+				await hooksService.runPostCommitHooks(projectId);
 			}
 
 			const newId = response.newCommit;
@@ -211,20 +202,18 @@
 	}
 </script>
 
-<AsyncRender>
-	<div data-testid={TestId.NewCommitView}>
-		<CommitMessageEditor
-			bind:this={input}
-			{projectId}
-			{stackId}
-			actionLabel="Create commit"
-			action={({ title, description }) => handleCommitCreation(title, description)}
-			onChange={({ title, description }) => handleMessageUpdate(title, description)}
-			onCancel={cancel}
-			disabledAction={!canCommit}
-			loading={commitCreation.current.isLoading || newStackResult.current.isLoading || isCooking}
-			title={stackState.newCommitMessage.current.title}
-			description={stackState.newCommitMessage.current.description}
-		/>
-	</div>
-</AsyncRender>
+<div data-testid={TestId.NewCommitView}>
+	<CommitMessageEditor
+		bind:this={input}
+		{projectId}
+		{stackId}
+		actionLabel="Create commit"
+		action={({ title, description }) => handleCommitCreation(title, description)}
+		onChange={({ title, description }) => handleMessageUpdate(title, description)}
+		onCancel={cancel}
+		disabledAction={!canCommit}
+		loading={commitCreation.current.isLoading || newStackResult.current.isLoading || isCooking}
+		title={stackState.newCommitMessage.current.title}
+		description={stackState.newCommitMessage.current.description}
+	/>
+</div>

@@ -1,25 +1,39 @@
 <script lang="ts" module>
-	type CommitContextData = {
+	import type { CommitStatusType } from '$lib/commits/commit';
+	interface BaseContextData {
+		commitStatus: CommitStatusType;
 		commitId: string;
 		commitMessage: string;
-		commitUrl: string | undefined;
-		commitStatus: CommitStatusType;
-	} & (
-		| {
-				commitStatus: 'LocalOnly' | 'LocalAndRemote' | 'Integrated' | 'Remote';
-				stackId: string;
-		  }
-		| { commitStatus: 'Base' }
-	) &
-		(
-			| {
-					commitStatus: 'LocalOnly' | 'LocalAndRemote';
-					onUncommitClick: (event: MouseEvent) => void;
-					onEditMessageClick: (event: MouseEvent) => void;
-					onPatchEditClick: (event: MouseEvent) => void;
-			  }
-			| { commitStatus: 'Remote' | 'Base' | 'Integrated' }
-		);
+		commitUrl?: string;
+	}
+
+	interface LocalCommitContextData extends BaseContextData {
+		commitStatus: 'LocalOnly' | 'LocalAndRemote';
+		stackId: string;
+		onUncommitClick: (event: MouseEvent) => void;
+		onEditMessageClick: (event: MouseEvent) => void;
+		onPatchEditClick: (event: MouseEvent) => void;
+	}
+
+	interface RemoteCommitContextData extends BaseContextData {
+		commitStatus: 'Remote';
+		stackId: string;
+	}
+
+	interface IntegratedCommitContextData extends BaseContextData {
+		commitStatus: 'Integrated';
+		stackId: string;
+	}
+
+	interface BaseCommitContextData extends BaseContextData {
+		commitStatus: 'Base';
+	}
+
+	export type CommitContextData =
+		| LocalCommitContextData
+		| RemoteCommitContextData
+		| IntegratedCommitContextData
+		| BaseCommitContextData;
 
 	export type CommitMenuContext = {
 		position: { coords?: { x: number; y: number }; element?: HTMLElement };
@@ -40,29 +54,21 @@
 		KebabButton,
 		TestId
 	} from '@gitbutler/ui';
-
-	import type { CommitStatusType } from '$lib/commits/commit';
+	import type { AnchorPosition } from '$lib/stacks/stack';
 
 	type Props = {
 		flat?: boolean;
 		projectId: string;
 		openId?: string;
-		context?: CommitMenuContext;
 		rightClickTrigger?: HTMLElement;
-		contextData?: CommitContextData;
+		contextData: CommitContextData | undefined;
 	};
 
-	let {
-		flat,
-		projectId,
-		context = $bindable(),
-		openId = $bindable(),
-		rightClickTrigger,
-		contextData
-	}: Props = $props();
+	let { flat, projectId, openId = $bindable(), rightClickTrigger, contextData }: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
+	const [createRef, refCreation] = stackService.createReference;
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let kebabButtonElement = $state<HTMLElement>();
@@ -76,8 +82,34 @@
 		await insertBlankCommitInBranch({
 			projectId,
 			stackId: data.stackId,
+	async function insertBlankCommit(
+		stackId: string,
+		commitId: string,
+		location: 'above' | 'below' = 'below'
+	) {
+		await insertBlankCommitInBranch({
+			projectId,
+			stackId,
 			commitId: commitId,
 			offset: location === 'above' ? -1 : 1
+		});
+	}
+
+	async function handleCreateNewRef(stackId: string, commitId: string, position: AnchorPosition) {
+		const newName = await stackService.fetchNewBranchName(projectId);
+		await createRef({
+			projectId,
+			stackId,
+			request: {
+				newName,
+				anchor: {
+					type: 'atCommit',
+					subject: {
+						commit_id: commitId,
+						position
+					}
+				}
+			}
 		});
 	}
 
@@ -169,12 +201,13 @@
 				/>
 			</ContextMenuSection>
 			{#if contextData.commitStatus === 'LocalAndRemote' || contextData.commitStatus === 'LocalOnly'}
+				{@const stackId = contextData.stackId}
 				<ContextMenuSection>
 					<ContextMenuItem
 						label="Add empty commit above"
 						disabled={commitInsertion.current.isLoading}
 						onclick={() => {
-							insertBlankCommit(commitId, 'above');
+							insertBlankCommit(stackId, commitId, 'above');
 							close();
 						}}
 					/>
@@ -182,7 +215,25 @@
 						label="Add empty commit below"
 						disabled={commitInsertion.current.isLoading}
 						onclick={() => {
-							insertBlankCommit(commitId, 'below');
+							insertBlankCommit(stackId, commitId, 'below');
+							close();
+						}}
+					/>
+				</ContextMenuSection>
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="Create reference above"
+						disabled={refCreation.current.isLoading}
+						onclick={async () => {
+							await handleCreateNewRef(stackId, commitId, 'Above');
+							close();
+						}}
+					/>
+					<ContextMenuItem
+						label="Create reference below"
+						disabled={refCreation.current.isLoading}
+						onclick={async () => {
+							await handleCreateNewRef(stackId, commitId, 'Below');
 							close();
 						}}
 					/>

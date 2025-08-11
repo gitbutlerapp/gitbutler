@@ -15,6 +15,8 @@ mod workflows;
 pub use workflows::Workflow;
 mod claude_code_sessions;
 pub use claude_code_sessions::ClaudeCodeSession;
+mod claude;
+pub use claude::{ClaudeMessage, ClaudeSession};
 mod file_write_locks;
 pub use file_write_locks::FileWriteLock;
 mod workspace_rules;
