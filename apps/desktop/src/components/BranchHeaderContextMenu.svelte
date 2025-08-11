@@ -3,6 +3,7 @@
 		branch: BranchDetails;
 		prNumber?: number;
 		first?: boolean;
+		stackLength: number;
 	};
 </script>
 
@@ -151,7 +152,7 @@
 		testId={TestId.BranchHeaderContextMenu}
 	>
 		{#if contextData}
-			{@const { branch, prNumber, first } = contextData}
+			{@const { branch, prNumber, first, stackLength } = contextData}
 			{@const branchName = branch.name}
 			{#if first && stackId}
 				<ContextMenuSection>
@@ -251,20 +252,22 @@
 							}}
 						/>
 					{/if}
-					<ContextMenuItem
-						label="Delete"
-						testId={TestId.BranchHeaderContextMenu_Delete}
-						onclick={async () => {
-							deleteBranchModalContext = {
-								projectId,
-								stackId,
-								branchName
-							};
-							await tick();
-							deleteBranchModal?.show();
-							close();
-						}}
-					/>
+					{#if stackLength && (stackLength > 1 || (stackLength === 1 && branch.commits.length === 0))}
+						<ContextMenuItem
+							label="Delete"
+							testId={TestId.BranchHeaderContextMenu_Delete}
+							onclick={async () => {
+								deleteBranchModalContext = {
+									projectId,
+									stackId,
+									branchName
+								};
+								await tick();
+								deleteBranchModal?.show();
+								close();
+							}}
+						/>
+					{/if}
 				</ContextMenuSection>
 			{/if}
 			{#if prNumber}
