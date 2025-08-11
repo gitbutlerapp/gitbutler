@@ -929,6 +929,8 @@ dependencies = [
  "gix",
  "serde",
  "serde_json",
+ "strum",
+ "uuid",
 ]
 
 [[package]]
