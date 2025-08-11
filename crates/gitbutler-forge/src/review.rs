@@ -126,18 +126,18 @@ fn is_valid_review_template_path_github(path: &path::Path) -> bool {
 }
 
 fn get_gitlab_directory_path(root_path: &path::Path) -> path::PathBuf {
-    // TODO: implement
-    root_path.to_path_buf()
+    let mut path = root_path.to_path_buf();
+    path.push(".gitlab");
+    path
 }
 
-fn is_review_template_gitlab(_path_str: &str) -> bool {
-    // TODO: implement
-    false
+fn is_review_template_gitlab(path_str: &str) -> bool {
+    let normalized_path = path_str.replace('\\', "/");
+    normalized_path.contains(".gitlab/merge_request_templates/") && normalized_path.ends_with(".md")
 }
 
-fn is_valid_review_template_path_gitlab(_path: &path::Path) -> bool {
-    // TODO: implement
-    false
+fn is_valid_review_template_path_gitlab(path: &path::Path) -> bool {
+    is_review_template_gitlab(path.to_str().unwrap_or_default())
 }
 
 fn get_bitbucket_directory_path(root_path: &path::Path) -> path::PathBuf {
@@ -176,62 +176,123 @@ mod tests {
 
     use super::*;
 
+    fn p(path: &str) -> &Path {
+        Path::new(path)
+    }
+
     #[test]
     fn test_is_valid_review_template_path_github() {
-        let valid_review_template_path_1 = Path::new(".github/PULL_REQUEST_TEMPLATE.md");
-        let valid_review_template_path_2 = Path::new(".github/pull_request_template.md");
-        let valid_review_template_path_3 = Path::new(".github/PULL_REQUEST_TEMPLATE/something.md");
-        let valid_review_template_path_4 = Path::new(".docs/PULL_REQUEST_TEMPLATE.md");
-        let valid_review_template_path_5 = Path::new("PULL_REQUEST_TEMPLATE.md");
-        let invalid_review_template_path = Path::new("README.md");
-
-        assert!(is_valid_review_template_path_github(
-            valid_review_template_path_1,
-        ));
-        assert!(is_valid_review_template_path_github(
-            valid_review_template_path_2,
-        ));
-        assert!(is_valid_review_template_path_github(
-            valid_review_template_path_3,
-        ));
-        assert!(is_valid_review_template_path_github(
-            valid_review_template_path_4,
-        ));
-        assert!(is_valid_review_template_path_github(
-            valid_review_template_path_5,
-        ));
-        assert!(!is_valid_review_template_path_github(
-            invalid_review_template_path,
-        ));
+        assert!(is_valid_review_template_path_github(p(
+            ".github/PULL_REQUEST_TEMPLATE.md"
+        )));
+        assert!(is_valid_review_template_path_github(p(
+            ".github/pull_request_template.md"
+        )));
+        assert!(is_valid_review_template_path_github(p(
+            ".github/PULL_REQUEST_TEMPLATE/something.md"
+        )));
+        assert!(is_valid_review_template_path_github(p(
+            ".docs/PULL_REQUEST_TEMPLATE.md"
+        )));
+        assert!(is_valid_review_template_path_github(p(
+            "PULL_REQUEST_TEMPLATE.md"
+        )));
+        assert!(!is_valid_review_template_path_github(p("README.md"),));
     }
 
     #[test]
     fn test_is_valid_review_template_path_github_windows() {
-        let valid_review_template_path_1 = Path::new(".github\\PULL_REQUEST_TEMPLATE.md");
-        let valid_review_template_path_2 = Path::new(".github\\pull_request_template.md");
-        let valid_review_template_path_3 =
-            Path::new(".github\\PULL_REQUEST_TEMPLATE\\something.md");
-        let valid_review_template_path_4 = Path::new(".docs\\PULL_REQUEST_TEMPLATE.md");
-        let valid_review_template_path_5 = Path::new("PULL_REQUEST_TEMPLATE.md");
-        let invalid_review_template_path = Path::new("README.md");
+        assert!(is_valid_review_template_path_github(p(
+            ".github\\PULL_REQUEST_TEMPLATE.md"
+        ),));
+        assert!(is_valid_review_template_path_github(p(
+            ".github\\pull_request_template.md"
+        ),));
+        assert!(is_valid_review_template_path_github(p(
+            ".github\\PULL_REQUEST_TEMPLATE\\something.md"
+        ),));
+        assert!(is_valid_review_template_path_github(p(
+            ".docs\\PULL_REQUEST_TEMPLATE.md"
+        ),));
+        assert!(is_valid_review_template_path_github(p(
+            "PULL_REQUEST_TEMPLATE.md"
+        ),));
+        assert!(!is_valid_review_template_path_github(p("README.md"),));
+    }
 
-        assert!(is_valid_review_template_path_github(
-            valid_review_template_path_1,
+    #[test]
+    fn test_is_valid_review_template_path_gitlab() {
+        assert!(is_valid_review_template_path_gitlab(p(
+            ".gitlab/merge_request_templates/Default.md"
+        )));
+        assert!(is_valid_review_template_path_gitlab(p(
+            ".gitlab/merge_request_templates/Documentation.md"
+        )));
+        assert!(is_valid_review_template_path_gitlab(p(
+            ".gitlab/merge_request_templates/Security Fix.md"
+        )));
+        assert!(!is_valid_review_template_path_gitlab(p("README.md")));
+        assert!(!is_valid_review_template_path_gitlab(p(
+            ".gitlab/issue_templates/Bug.md"
+        )));
+        assert!(!is_valid_review_template_path_gitlab(p(
+            ".gitlab/merge_request_templates/Default.txt"
+        )));
+    }
+
+    #[test]
+    fn test_is_valid_review_template_path_gitlab_windows() {
+        assert!(is_valid_review_template_path_gitlab(p(
+            ".gitlab\\merge_request_templates\\Default.md"
+        )));
+        assert!(is_valid_review_template_path_gitlab(p(
+            ".gitlab\\merge_request_templates\\Documentation.md"
+        )));
+        assert!(is_valid_review_template_path_gitlab(p(
+            ".gitlab\\merge_request_templates\\Security Fix.md"
+        )));
+        assert!(!is_valid_review_template_path_gitlab(p("README.md")));
+        assert!(!is_valid_review_template_path_gitlab(p(
+            ".gitlab\\issue_templates\\Bug.md"
+        )));
+        assert!(!is_valid_review_template_path_gitlab(p(
+            ".gitlab\\merge_request_templates\\Default.txt"
+        )));
+    }
+
+    #[test]
+    fn test_get_gitlab_directory_path() {
+        let root_path = p("/path/to/project");
+        let gitlab_path = get_gitlab_directory_path(root_path);
+        assert_eq!(gitlab_path, p("/path/to/project/.gitlab"));
+    }
+
+    #[test]
+    fn test_is_review_template_gitlab() {
+        // Valid GitLab merge request templates
+        assert!(is_review_template_gitlab(
+            ".gitlab/merge_request_templates/Default.md"
         ));
-        assert!(is_valid_review_template_path_github(
-            valid_review_template_path_2,
+        assert!(is_review_template_gitlab(
+            ".gitlab/merge_request_templates/Documentation.md"
         ));
-        assert!(is_valid_review_template_path_github(
-            valid_review_template_path_3,
+        assert!(is_review_template_gitlab(
+            ".gitlab/merge_request_templates/Security Fix.md"
         ));
-        assert!(is_valid_review_template_path_github(
-            valid_review_template_path_4,
+
+        // Invalid paths
+        assert!(!is_review_template_gitlab("README.md"));
+        assert!(!is_review_template_gitlab(".gitlab/issue_templates/Bug.md"));
+        assert!(!is_review_template_gitlab(
+            ".gitlab/merge_request_templates/Default.txt"
         ));
-        assert!(is_valid_review_template_path_github(
-            valid_review_template_path_5,
+        assert!(!is_review_template_gitlab(
+            "merge_request_templates/Default.md"
         ));
-        assert!(!is_valid_review_template_path_github(
-            invalid_review_template_path,
+
+        // Windows path separators should work
+        assert!(is_review_template_gitlab(
+            ".gitlab\\merge_request_templates\\Default.md"
         ));
     }
 }

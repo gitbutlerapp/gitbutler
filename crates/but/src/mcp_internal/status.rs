@@ -10,7 +10,6 @@ pub fn project_status(project_dir: &Path) -> anyhow::Result<but_tools::workspace
     // Enable v3 feature flags for the command context
     let app_settings = AppSettings {
         feature_flags: but_settings::app_settings::FeatureFlags {
-            v3: true,
             // Keep this off until it caught up at least.
             ws3: false,
             undo: false,

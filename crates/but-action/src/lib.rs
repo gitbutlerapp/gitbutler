@@ -33,7 +33,10 @@ pub use action::ActionListing;
 pub use action::Source;
 pub use action::list_actions;
 use but_graph::VirtualBranchesTomlMetadata;
-pub use openai::{ChatMessage, ToolCallContent, ToolResponseContent, tool_calling_loop_stream};
+pub use openai::{
+    ChatMessage, ToolCallContent, ToolResponseContent, structured_output_blocking,
+    tool_calling_loop, tool_calling_loop_stream,
+};
 use strum::EnumString;
 use uuid::Uuid;
 pub use workflow::WorkflowList;
@@ -128,7 +131,7 @@ pub fn freestyle(
             (emitter)(&name, payload);
         }
     });
-    let response = crate::openai::tool_calling_loop_stream(
+    let (response, _) = crate::openai::tool_calling_loop_stream(
         openai,
         system_message,
         internal_chat_messages,
@@ -137,7 +140,7 @@ pub fn freestyle(
         on_token_cb,
     )?;
 
-    Ok(response.unwrap_or_default())
+    Ok(response)
 }
 
 pub fn absorb(
