@@ -1,8 +1,11 @@
 import { InjectionToken } from '@gitbutler/shared/context';
+import { getStorageItem, setStorageItem } from '@gitbutler/shared/persisted';
 import { writable } from 'svelte/store';
 import type { Tauri } from '$lib/backend/tauri';
 
 export const SETTINGS_SERVICE = new InjectionToken<SettingsService>('SettingsService');
+
+const WS3_AUTO_TOGGLE = 'ws3AutoToggle';
 
 export class SettingsService {
 	readonly appSettings = writable<AppSettings | undefined>(undefined, () => {
@@ -15,7 +18,9 @@ export class SettingsService {
 
 	readonly subscribe = this.appSettings.subscribe;
 
-	constructor(private tauri: Tauri) {}
+	constructor(private tauri: Tauri) {
+		this.autoOptInWs3();
+	}
 
 	private async handlePayload(settings: AppSettings) {
 		this.appSettings.set(settings);
@@ -45,6 +50,33 @@ export class SettingsService {
 
 	async updateFeatureFlags(update: Partial<FeatureFlags>) {
 		await this.tauri.invoke('update_feature_flags', { update });
+	}
+
+	/**
+	 * Automatically opt-in to WS3 if it is not already enabled.
+	 *
+	 * This is done only to kickstart the usage of WS3, so that users can try it out.
+	 * Once the transition into WS3 is complete, this method can be removed.
+	 */
+	async autoOptInWs3() {
+		try {
+			const response = await this.tauri.invoke<AppSettings>('get_app_settings');
+			const performedAutoToggle = getStorageItem(WS3_AUTO_TOGGLE) ?? false;
+			if (response.featureFlags.ws3 || performedAutoToggle) {
+				// If the WS3 feature flag is already enabled, or if we have already performed the auto toggle,
+				return;
+			}
+
+			// If the WS3 feature flag is not enabled, we automatically enable it for the
+			// first time, so that the user can try it out.
+			await this.updateFeatureFlags({
+				ws3: true
+			});
+
+			setStorageItem(WS3_AUTO_TOGGLE, true);
+		} catch (error: unknown) {
+			console.error(`Failed to auto-opt-in to WS3: ${error}`);
+		}
 	}
 
 	/**
