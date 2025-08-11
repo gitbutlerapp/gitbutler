@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/components/BranchHeaderContextMenu.svelte"]
+ourEntries = ["apps/desktop/src/components/BranchHeaderContextMenu.svelte"]
+theirEntries = ["apps/desktop/src/components/BranchHeaderContextMenu.svelte"]
