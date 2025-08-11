@@ -359,7 +359,7 @@ Based on the conversation below and the project status, please update the status
 </TODO>
 
 <IMPORTANT_NOTES>
-Keep your response short please.
+Be thorough in your response. Name relevant branches, commits, file changes, and any other relevant information.
 Follow best practices.
 ONLY perform the actions that are necessary to complete the todo item above.
 If you need to perform investigations, do so, and be detailed in your findings. Don't perform actions.
@@ -407,7 +407,7 @@ If you need to perform actions, do so, and be concise in the description of the 
                 }
             });
 
-        let (response, messages) = but_action::tool_calling_loop_stream(
+        let (response, _) = but_action::tool_calling_loop_stream(
             self.openai,
             SYS_PROMPT,
             internal_chat_messages,
@@ -417,18 +417,12 @@ If you need to perform actions, do so, and be concise in the description of the 
         )?;
 
         // Remove the injected project status tool calls and responses from the messages.
-        internal_chat_messages = messages
-            .into_iter()
-            .filter(|msg| match msg {
-                but_action::ChatMessage::ToolCall(tool_call) => tool_call.id != "project_status",
-                but_action::ChatMessage::ToolResponse(tool_response) => {
-                    tool_response.id != "project_status"
-                }
-                _ => true,
-            })
-            .collect();
+        internal_chat_messages = self.chat_messages.clone();
 
-        // Emit a new like
+        internal_chat_messages.push(but_action::ChatMessage::User(todo.as_prompt()));
+        internal_chat_messages.push(but_action::ChatMessage::Assistant(response.clone()));
+
+        // Emit a new line
         let end_token_update = but_tools::emit::TokenEnd {
             project_id: self.project_id,
             message_id: self.message_id.clone(),
