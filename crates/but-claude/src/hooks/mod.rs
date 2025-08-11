@@ -5,9 +5,9 @@ use std::str::FromStr;
 use anyhow::{Context, Result, anyhow};
 use but_action::rename_branch::RenameBranchParams;
 use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
-use but_db::ClaudeCodeSession;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
+use but_rules::CreateRuleRequest;
 use but_settings::AppSettings;
 use but_workspace::ui::{StackDetails, StackEntry};
 use but_workspace::{HunkHeader, StackId, StacksFilter};
@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 mod claude_transcript;
 mod file_lock;
 use claude_transcript::Transcript;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClaudePostToolUseInput {
@@ -131,7 +132,7 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
 
     // If the session stopped, but there's no session persisted in the database, we create a new one.
     // If the session is already persisted, we just retrieve it.
-    let (_, stack_id) = get_or_create_session(defer.ctx, &input.session_id, stacks, vb_state)?;
+    let stack_id = get_or_create_session(defer.ctx, &input.session_id, stacks, vb_state)?;
 
     let (id, outcome) = but_action::handle_changes(
         defer.ctx,
@@ -366,7 +367,7 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
 
     let vb_state = &VirtualBranchesHandle::new(defer.ctx.project().gb_dir());
 
-    let (_, stack_id) = get_or_create_session(defer.ctx, &input.session_id, stacks, vb_state)?;
+    let stack_id = get_or_create_session(defer.ctx, &input.session_id, stacks, vb_state)?;
 
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
@@ -409,43 +410,51 @@ fn get_or_create_session(
     session_id: &str,
     stacks: Vec<but_workspace::ui::StackEntry>,
     vb_state: &VirtualBranchesHandle,
-) -> Result<(ClaudeCodeSession, StackId), anyhow::Error> {
+) -> Result<StackId, anyhow::Error> {
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
 
-    let sessions = list_sessions(ctx)?;
-    let session_and_stack_id = if let Some(session) = sessions.iter().find(|s| s.id == session_id) {
-        // If the stack referenced by the session is in the list of applied stacks do nothing
-        // Otherwise, create a new stack and update the session
+    if crate::db::get_session_by_id(ctx, Uuid::parse_str(session_id)?)?.is_none() {
+        crate::db::save_new_session(ctx, Uuid::parse_str(session_id)?)?;
+    }
+
+    let rule = but_rules::list_rules(ctx)?
+        .into_iter()
+        .find(|r| r.matches_claude_code_session(session_id));
+
+    let stack_id = rule.and_then(|r| r.target_stack_id());
+
+    let stack_id = if let Some(stack_id) = stack_id {
         if let Some(stack_id) = stacks.iter().find_map(|s| {
             let id = s.id?;
-            (id.to_string() == session.stack_id).then_some(id)
+            (id.to_string() == stack_id).then_some(id)
         }) {
-            (session.to_owned(), stack_id)
+            stack_id
         } else {
             let stack_id = create_stack(ctx, vb_state, perm)?;
             ctx.db()?
                 .claude_code_sessions()
                 .update_stack_id(session_id, &stack_id.to_string())
                 .map_err(|e| anyhow::anyhow!("Failed to update session stack ID: {}", e))?;
-            (session.to_owned(), stack_id)
+            stack_id
         }
     } else {
         // If the session is not in the list of sessions, then create a new stack + session entry
         // Create a new stack
         let stack_id = create_stack(ctx, vb_state, perm)?;
-        let new_session = ClaudeCodeSession {
-            id: session_id.to_owned(),
-            created_at: chrono::Local::now().naive_local(),
-            stack_id: stack_id.to_string(),
+        let req = CreateRuleRequest {
+            trigger: but_rules::Trigger::ClaudeCodeHook,
+            filters: vec![but_rules::Filter::ClaudeCodeSessionId(
+                session_id.to_string(),
+            )],
+            action: but_rules::Action::Explicit(but_rules::Operation::Assign {
+                target: but_rules::StackTarget::StackId(stack_id.to_string()),
+            }),
         };
-        ctx.db()?
-            .claude_code_sessions()
-            .insert(new_session.clone())
-            .map_err(|e| anyhow::anyhow!("Failed to insert new session: {}", e))?;
-        (new_session, stack_id)
+        but_rules::create_rule(ctx, req)?;
+        stack_id
     };
-    Ok(session_and_stack_id)
+    Ok(stack_id)
 }
 
 fn stdin() -> anyhow::Result<String> {
@@ -470,15 +479,6 @@ fn create_stack(
     };
     let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;
     Ok(stack.id)
-}
-
-fn list_sessions(ctx: &mut CommandContext) -> anyhow::Result<Vec<ClaudeCodeSession>> {
-    let sessions = ctx
-        .db()?
-        .claude_code_sessions()
-        .list()
-        .map_err(|e| anyhow::anyhow!("Failed to list Claude code sessions: {}", e))?;
-    Ok(sessions)
 }
 
 #[derive(Serialize, Debug, Clone)]

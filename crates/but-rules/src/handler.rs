@@ -161,6 +161,7 @@ fn matching(wt_assignments: &[HunkAssignment], filters: Vec<Filter>) -> Vec<Hunk
             }
             Filter::FileChangeType(_) => continue,
             Filter::SemanticType(_) => continue,
+            Filter::ClaudeCodeSessionId(_) => continue,
         }
     }
     assignments
