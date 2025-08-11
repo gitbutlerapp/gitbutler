@@ -286,7 +286,7 @@
 						}}
 					/>
 				{/if}
-				{#if stackLength && stackLength > 1}
+				{#if stackLength && (stackLength > 1 || (stackLength === 1 && branch.commits.length === 0))}
 					<ContextMenuItem
 						label="Delete"
 						testId={TestId.BranchHeaderContextMenu_Delete}
@@ -317,8 +317,6 @@
 								close();
 							}}
 						/>
-					{/if}
-					{#if stackLength && (stackLength > 1 || (stackLength === 1 && branch.commits.length === 0))}
 						<ContextMenuItem
 							label="Copy PR link"
 							testId={TestId.BranchHeaderContextMenu_CopyPRLink}
