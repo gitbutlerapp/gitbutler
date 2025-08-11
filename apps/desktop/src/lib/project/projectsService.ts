@@ -1,7 +1,13 @@
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { type Project } from '$lib/project/project';
-import { invalidatesList, providesItem, providesList, ReduxTag } from '$lib/state/tags';
+import {
+	invalidatesItem,
+	invalidatesList,
+	providesItem,
+	providesList,
+	ReduxTag
+} from '$lib/state/tags';
 import { getCookie } from '$lib/utils/cookies';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { persisted } from '@gitbutler/shared/persisted';
@@ -49,7 +55,7 @@ export class ProjectsService {
 	}
 
 	async updateProject(project: Project & { unset_bool?: boolean; unset_forge_override?: boolean }) {
-		await invoke('update_project', { project: project });
+		return await this.api.endpoints.update.mutate({ project });
 	}
 
 	async deleteProject(projectId: string) {
@@ -168,6 +174,13 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				extraOptions: { command: 'delete_project' },
 				query: (args) => args,
 				invalidatesTags: () => [invalidatesList(ReduxTag.Project)]
+			}),
+			update: build.mutation<Project[], { project: Project }>({
+				extraOptions: { command: 'update_project' },
+				query: (args) => args,
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.Project, args.project.id)
+				]
 			})
 		})
 	});
