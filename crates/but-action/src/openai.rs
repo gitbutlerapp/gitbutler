@@ -161,7 +161,7 @@ pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSche
     };
 
     let request = CreateChatCompletionRequestArgs::default()
-        .model("gpt-4.1-mini")
+        .model("gpt-5-mini")
         .messages(messages)
         .response_format(response_format)
         .build()?;
@@ -204,7 +204,7 @@ pub async fn tool_calling(
     tools: Vec<async_openai::types::ChatCompletionTool>,
     model: Option<String>,
 ) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
-    let model = model.unwrap_or_else(|| "gpt-4.1-mini".to_string());
+    let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
     let request = CreateChatCompletionRequestArgs::default()
         .model(model)
         .messages(messages.clone())
@@ -257,7 +257,7 @@ pub async fn tool_calling_stream(
     model: Option<String>,
     on_token: impl Fn(&str) + Send + Sync + 'static,
 ) -> anyhow::Result<StreamToolCallResult> {
-    let model = model.unwrap_or_else(|| "gpt-4.1-mini".to_string());
+    let model = model.unwrap_or_else(|| "gpt-5-mini".to_string());
     let request = CreateChatCompletionRequestArgs::default()
         .model(model)
         .messages(messages.clone())
