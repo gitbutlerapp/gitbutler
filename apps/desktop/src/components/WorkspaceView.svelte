@@ -140,7 +140,8 @@
 			{selectionId}
 			draggableFiles
 			onclose={() => {
-				idSelection.clear(selectionId);
+				// Only clear the lastAdded to close the preview without clearing the selection
+				idSelection.getById(selectionId).lastAdded.set(undefined);
 			}}
 		/>
 	</ConfigurableScrollableContainer>
