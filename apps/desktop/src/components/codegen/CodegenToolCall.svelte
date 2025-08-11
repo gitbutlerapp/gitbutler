@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { toolCallLoading, type ToolCall } from '$lib/vibeCenter/transcript';
+	import { toolCallLoading, type ToolCall } from '$lib/codegen/transcript';
 	import { Button, Icon, Markdown } from '@gitbutler/ui';
 
 	type Props = {

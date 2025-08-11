@@ -1,7 +1,6 @@
-import { invoke } from '$lib/backend/ipc';
 import { hasTauriExtra } from '$lib/state/backendQuery';
 import { invalidatesItem, providesItem, ReduxTag } from '$lib/state/tags';
-import { type ClaudeCodeMessage, type ClaudeMessage } from '$lib/vibeCenter/types';
+import { type ClaudeMessage } from '$lib/codegen/types';
 import { InjectionToken } from '@gitbutler/shared/context';
 import type { ClientState } from '$lib/state/clientState.svelte';
 

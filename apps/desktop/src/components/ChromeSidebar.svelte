@@ -15,8 +15,8 @@
 		newProjectSettingsPath,
 		newSettingsPath,
 		workspacePath,
-		isVibeCenterPath,
-		vibeCenterPath
+		isCodegenPath,
+		codegenPath
 	} from '$lib/routes/routes.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { USER } from '$lib/user/user';
@@ -134,15 +134,15 @@
 			</Button>
 		</div>
 		<div>
-			{#if isVibeCenterPath()}
+			{#if isCodegenPath()}
 				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 			{/if}
 			<Button
 				testId={TestId.NavigationBranchesButton}
 				kind="outline"
-				onclick={() => goto(vibeCenterPath(projectId))}
+				onclick={() => goto(codegenPath(projectId))}
 				width={34}
-				class={['btn-square', isVibeCenterPath() && 'btn-active']}
+				class={['btn-square', isCodegenPath() && 'btn-active']}
 				tooltip="Branches"
 				{disabled}
 			>

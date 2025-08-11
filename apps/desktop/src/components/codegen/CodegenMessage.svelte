@@ -1,6 +1,6 @@
 <script lang="ts">
-	import VibeCenterToolCall from '$components/vibeCenter/VibeCenterToolCall.svelte';
-	import { toolCallLoading, type Message } from '$lib/vibeCenter/transcript';
+	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
+	import { toolCallLoading, type Message } from '$lib/codegen/transcript';
 	import { Avatar, Button, Icon, Markdown } from '@gitbutler/ui';
 
 	type Props = {
@@ -52,7 +52,7 @@
 							<p>{message.toolCalls.length} tool calls</p>
 						</div>
 						{#each message.toolCalls as toolCall}
-							<VibeCenterToolCall {toolCall} />
+							<CodegenToolCall {toolCall} />
 						{/each}
 					</div>
 				{:else}

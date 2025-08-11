@@ -1,14 +1,14 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import VibeCenterChatLayout from '$components/vibeCenter/VibeCenterChatLayout.svelte';
-	import VibeCenterInput from '$components/vibeCenter/VibeCenterInput.svelte';
-	import VibeCenterMessage from '$components/vibeCenter/VibeCenterMessage.svelte';
-	import VibeCenterSidebar from '$components/vibeCenter/VibeCenterSidebar.svelte';
-	import VibeCenterSidebarEntry from '$components/vibeCenter/VibeCenterSidebarEntry.svelte';
+	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
+	import CodegenInput from '$components/codegen/CodegenInput.svelte';
+	import CodegenMessage from '$components/codegen/CodegenMessage.svelte';
+	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
+	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
-	import { CLAUDE_CODE_SERVICE } from '$lib/vibeCenter/claude';
-	import { formatEvents } from '$lib/vibeCenter/transcript';
+	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
+	import { formatEvents } from '$lib/codegen/transcript';
 	import { inject } from '@gitbutler/shared/context';
 	import { Badge, Button } from '@gitbutler/ui';
 
@@ -77,15 +77,15 @@
 </script>
 
 <div class="page">
-	<VibeCenterSidebar content={sidebarContent}>
+	<CodegenSidebar content={sidebarContent}>
 		{#snippet actions()}
 			<Button disabled kind="outline" icon="plus-small" size="tag">Create new</Button>
 		{/snippet}
-	</VibeCenterSidebar>
+	</CodegenSidebar>
 
 	<div class="content">
 		{#if selectedBranch}
-			<VibeCenterChatLayout branchName={selectedBranch.head}>
+			<CodegenChatLayout branchName={selectedBranch.head}>
 				{#snippet workspaceActions()}
 					<Button disabled kind="outline" size="tag" icon="workbench" reversedDirection
 						>Show in workspace</Button
@@ -101,19 +101,19 @@
 					<ReduxResult result={events?.current} {projectId}>
 						{#snippet children(events, { projectId: _projectId })}
 							{#each formatEvents(events) as message}
-								<VibeCenterMessage {message} />
+								<CodegenMessage {message} />
 							{/each}
 						{/snippet}
 					</ReduxResult>
 				{/snippet}
 				{#snippet input()}
-					<VibeCenterInput bind:value={message} enabled onsubmit={sendMessage}>
+					<CodegenInput bind:value={message} enabled onsubmit={sendMessage}>
 						{#snippet actions()}
 							<Button disabled kind="outline" icon="attachment" reversedDirection>Context</Button>
 						{/snippet}
-					</VibeCenterInput>
+					</CodegenInput>
 				{/snippet}
-			</VibeCenterChatLayout>
+			</CodegenChatLayout>
 		{/if}
 	</div>
 </div>
@@ -136,7 +136,7 @@
 	<ReduxResult result={combineResults(branch.current, commits.current)} {projectId} {stackId}>
 		{#snippet children([branch, commits], { projectId: _projectId, stackId })}
 			{stackId}
-			<VibeCenterSidebarEntry
+			<CodegenSidebarEntry
 				onclick={() => {
 					selectedBranch = { stackId, head: branch.name };
 				}}

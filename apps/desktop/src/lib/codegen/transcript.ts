@@ -2,11 +2,7 @@
  * This module is responsible for taking the transcript from a near-incomprehesable mess into something _vaugly_ useful.
  */
 
-import type { ClaudeMessage } from '$lib/vibeCenter/types';
-import type {
-	Message as ClaudeSdkMessage,
-	ContentBlock
-} from '@anthropic-ai/sdk/resources/index.mjs';
+import type { ClaudeMessage } from '$lib/codegen/types';
 
 export type Message =
 	/* This is strictly only things that the real fleshy human has said */
