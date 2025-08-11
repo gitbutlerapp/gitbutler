@@ -62,7 +62,7 @@ pub async fn commit_message(
     };
 
     let request = CreateChatCompletionRequestArgs::default()
-        .model("gpt-4o")
+        .model("gpt-5-mini")
         .messages([
             ChatCompletionRequestSystemMessage::from(system_message).into(),
             ChatCompletionRequestUserMessage::from(user_message).into(),
@@ -143,7 +143,7 @@ pub async fn branch_name(
     };
 
     let request = CreateChatCompletionRequestArgs::default()
-        .model("gpt-4o")
+        .model("gpt-5-mini")
         .messages([
             ChatCompletionRequestSystemMessage::from(system_message).into(),
             ChatCompletionRequestUserMessage::from(user_message).into(),
