@@ -1,5 +1,99 @@
 use anyhow::Result;
+use gitbutler_command_context::CommandContext;
 use uuid::Uuid;
+
+use crate::ClaudeSession;
+
+/// Creates a new ClaudeSession with the session_id provided and saves it to the database.
+pub fn save_new_session(ctx: &mut CommandContext, id: Uuid) -> anyhow::Result<ClaudeSession> {
+    let now = chrono::Utc::now().naive_utc();
+    let session = ClaudeSession {
+        id,
+        current_id: id,
+        created_at: now,
+        updated_at: now,
+    };
+    ctx.db()?
+        .claude_sessions()
+        .insert(session.clone().try_into()?)?;
+    Ok(session)
+}
+
+/// Updates the current session ID for a given session in the database.
+pub fn set_session_current_id(
+    ctx: &mut CommandContext,
+    session_id: Uuid,
+    current_id: Uuid,
+) -> anyhow::Result<()> {
+    ctx.db()?
+        .claude_sessions()
+        .update(&session_id.to_string(), &current_id.to_string())?;
+    Ok(())
+}
+
+/// Lists all known Claude sessions
+pub fn list_all_sessions(ctx: &mut CommandContext) -> anyhow::Result<Vec<ClaudeSession>> {
+    let sessions = ctx.db()?.claude_sessions().list()?;
+    sessions
+        .into_iter()
+        .map(|s| s.try_into())
+        .collect::<Result<_, _>>()
+}
+
+/// Retrieves a Claude session by its ID from the database.
+pub fn get_session_by_id(
+    ctx: &mut CommandContext,
+    session_id: Uuid,
+) -> anyhow::Result<Option<ClaudeSession>> {
+    let session = ctx.db()?.claude_sessions().get(&session_id.to_string())?;
+    match session {
+        Some(s) => Ok(Some(s.try_into()?)),
+        None => Ok(None),
+    }
+}
+
+/// Deletes a Claude session and all associated messages from the database. This is what we want to use when we want to delete a session completely.
+pub fn delete_session_and_messages_by_id(
+    ctx: &mut CommandContext,
+    session_id: Uuid,
+) -> anyhow::Result<()> {
+    ctx.db()?
+        .delete_session_and_messages(&session_id.to_string())?;
+    Ok(())
+}
+
+/// Creates a new ClaudeMessage with the provided session_id and content, and saves it to the database.
+pub fn save_new_message(
+    ctx: &mut CommandContext,
+    session_id: Uuid,
+    content: crate::ClaudeMessageContent,
+) -> anyhow::Result<crate::ClaudeMessage> {
+    let message = crate::ClaudeMessage {
+        id: Uuid::new_v4(),
+        session_id,
+        created_at: chrono::Utc::now().naive_utc(),
+        content,
+    };
+    ctx.db()?
+        .claude_messages()
+        .insert(message.clone().try_into()?)?;
+    Ok(message)
+}
+
+/// Lists all messages associated with a given session ID from the database.
+pub fn list_messages_by_session(
+    ctx: &mut CommandContext,
+    session_id: Uuid,
+) -> anyhow::Result<Vec<crate::ClaudeMessage>> {
+    let messages = ctx
+        .db()?
+        .claude_messages()
+        .list_by_session(&session_id.to_string())?;
+    messages
+        .into_iter()
+        .map(|m| m.try_into())
+        .collect::<Result<_, _>>()
+}
 
 impl TryFrom<but_db::ClaudeSession> for crate::ClaudeSession {
     type Error = anyhow::Error;
