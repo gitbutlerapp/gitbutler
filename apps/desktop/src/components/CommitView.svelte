@@ -1,5 +1,5 @@
 <script lang="ts">
-	import CommitContextMenu, { type CommitMenuContext } from '$components/CommitContextMenu.svelte';
+	import CommitContextMenu from '$components/CommitContextMenu.svelte';
 	import CommitDetails from '$components/CommitDetails.svelte';
 	import CommitMessageEditor from '$components/CommitMessageEditor.svelte';
 	import CommitTitle from '$components/CommitTitle.svelte';
@@ -124,8 +124,6 @@
 		setMode('view');
 	}
 
-	let commitMenuContext = $state<CommitMenuContext>();
-
 	async function handleUncommit() {
 		if (!branchName) return;
 		await stackService.uncommit({ projectId, stackId, branchName, commitId: commitKey.commitId });
@@ -213,12 +211,7 @@
 						}
 					: undefined}
 				{#if data}
-					<CommitContextMenu
-						{projectId}
-						bind:context={commitMenuContext}
-						rightClickTrigger={header}
-						contextData={data}
-					/>
+					<CommitContextMenu {projectId} rightClickTrigger={header} contextData={data} />
 				{/if}
 			{/snippet}
 
