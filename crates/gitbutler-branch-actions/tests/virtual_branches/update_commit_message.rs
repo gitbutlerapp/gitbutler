@@ -177,7 +177,7 @@ fn forcepush_allowed() {
         ctx,
         stack_entry.id,
         false,
-        ctx.project().force_push_protection,
+        false,
         stack_entry.name().map(|n| n.to_string()).unwrap(),
     )
     .unwrap();

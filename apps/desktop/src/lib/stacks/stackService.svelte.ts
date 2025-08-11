@@ -1053,7 +1053,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					projectId: string;
 					stackId: string;
 					withForce: boolean;
-					forcePushProtection: boolean;
+					skipForcePushProtection: boolean;
 					branch: string;
 				}
 			>({

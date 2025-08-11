@@ -9,6 +9,7 @@
 		branchRequiresForcePush
 	} from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { splitMessage } from '$lib/utils/commitMessage';
@@ -50,30 +51,28 @@
 	const branchDetails = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const projectResult = $derived(projectsService.getProject(projectId));
 	const [pushStack, pushResult] = stackService.pushStack;
-	const potentialOverwrittenCommits = $derived(
-		stackService.upstreamCommits(projectId, stackId, branchName).current.data || []
+	const upstreamCommitsResult = $derived(
+		stackService.upstreamCommits(projectId, stackId, branchName)
 	);
+	const upstreamCommits = $derived(upstreamCommitsResult.current.data);
 
-	let _currentProject = $state<any>(undefined);
-
-	function handleClick(requiresForce: boolean, project?: any) {
-		_currentProject = project;
-
+	function handleClick(args: { withForce: boolean; skipForcePushProtection: boolean }) {
 		if (multipleBranches && !isLastBranchInStack && !$doNotShowPushBelowWarning) {
 			confirmationModal?.show();
 			return;
 		}
 
-		push(requiresForce, project?.force_push_protection);
+		push(args);
 	}
 
-	async function push(requiresForce: boolean, forcePushProtection: boolean) {
+	async function push(args: { withForce: boolean; skipForcePushProtection: boolean }) {
+		const { withForce, skipForcePushProtection } = args;
 		try {
 			const pushResult = await pushStack({
 				projectId,
 				stackId,
-				withForce: requiresForce,
-				forcePushProtection: forcePushProtection,
+				withForce,
+				skipForcePushProtection,
 				branch: branchName
 			});
 
@@ -112,29 +111,25 @@
 	let forcePushProtectionModal = $state<ReturnType<typeof Modal>>();
 </script>
 
-<ReduxResult {projectId} result={branchDetails.current}>
-	{#snippet children(branchDetails)}
-		{@const requiresForce = branchRequiresForcePush(branchDetails)}
+<ReduxResult {projectId} result={combineResults(branchDetails.current, projectResult.current)}>
+	{#snippet children([branchDetails])}
+		{@const withForce = branchRequiresForcePush(branchDetails)}
 		{@const hasThingsToPush = branchHasUnpushedCommits(branchDetails)}
 		{@const hasConflicts = branchHasConflicts(branchDetails)}
 
-		<ReduxResult {projectId} result={projectResult.current}>
-			{#snippet children(project)}
-				<Button
-					testId={TestId.StackPushButton}
-					kind={isFirstBranchInStack ? 'solid' : 'outline'}
-					size="tag"
-					style="neutral"
-					{loading}
-					disabled={!hasThingsToPush || hasConflicts}
-					tooltip={getButtonTooltip(hasThingsToPush, hasConflicts)}
-					onclick={() => handleClick(requiresForce, project)}
-					icon={multipleBranches && !isLastBranchInStack ? 'push-below' : 'push'}
-				>
-					{requiresForce ? 'Force push' : 'Push'}
-				</Button>
-			{/snippet}
-		</ReduxResult>
+		<Button
+			testId={TestId.StackPushButton}
+			kind={isFirstBranchInStack ? 'solid' : 'outline'}
+			size="tag"
+			style="neutral"
+			{loading}
+			disabled={!hasThingsToPush || hasConflicts}
+			tooltip={getButtonTooltip(hasThingsToPush, hasConflicts)}
+			onclick={() => handleClick({ withForce, skipForcePushProtection: false })}
+			icon={multipleBranches && !isLastBranchInStack ? 'push-below' : 'push'}
+		>
+			{withForce ? 'Force push' : 'Push'}
+		</Button>
 
 		<Modal
 			title="Push with dependencies"
@@ -142,7 +137,7 @@
 			bind:this={confirmationModal}
 			onSubmit={async (close) => {
 				close();
-				push(requiresForce, _currentProject?.force_push_protection);
+				push({ withForce, skipForcePushProtection: false });
 			}}
 		>
 			<p>
@@ -163,11 +158,13 @@
 						onclick={() => {
 							$doNotShowPushBelowWarning = false;
 							close();
-						}}>Cancel</Button
+						}}
 					>
-					<Button testId={TestId.StackConfirmPushModalButton} style="pop" type="submit" width={90}
-						>Push</Button
-					>
+						Cancel
+					</Button>
+					<Button testId={TestId.StackConfirmPushModalButton} style="pop" type="submit" width={90}>
+						Push
+					</Button>
 				</div>
 			{/snippet}
 		</Modal>
@@ -179,35 +176,35 @@
 			bind:this={forcePushProtectionModal}
 			onSubmit={async (close) => {
 				close();
-				push(requiresForce, false);
+				push({ withForce, skipForcePushProtection: true });
 			}}
 		>
 			<p class="description">
 				Your force push was blocked because the remote branch contains <span
 					class="text-bold text-nowrap"
-					>{potentialOverwrittenCommits.length === 1
-						? '1 commit'
-						: `${potentialOverwrittenCommits.length} commits`}</span
+					>{upstreamCommits?.length === 1 ? '1 commit' : `${upstreamCommits?.length} commits`}</span
 				>
 				your local branch doesn’t include. To prevent overwriting history,
 				<span class="text-bold">cancel and pull & integrate</span> the changes.
 			</p>
-			<div class="scroll-wrap">
-				<ScrollableContainer maxHeight="16.5rem">
-					{#each potentialOverwrittenCommits as commit}
-						{@const commitUrl = forge.current.commitUrl(commit.id)}
-						<SimpleCommitRow
-							title={splitMessage(commit.message).title ?? ''}
-							sha={commit.id}
-							date={new Date(commit.createdAt)}
-							author={commit.author.name}
-							url={commitUrl}
-							onOpen={(url) => openExternalUrl(url)}
-							onCopy={() => writeClipboard(commit.id)}
-						/>
-					{/each}
-				</ScrollableContainer>
-			</div>
+			{#if upstreamCommits}
+				<div class="scroll-wrap">
+					<ScrollableContainer maxHeight="16.5rem">
+						{#each upstreamCommits as commit}
+							{@const commitUrl = forge.current.commitUrl(commit.id)}
+							<SimpleCommitRow
+								title={splitMessage(commit.message).title ?? ''}
+								sha={commit.id}
+								date={new Date(commit.createdAt)}
+								author={commit.author.name}
+								url={commitUrl}
+								onOpen={(url) => openExternalUrl(url)}
+								onCopy={() => writeClipboard(commit.id)}
+							/>
+						{/each}
+					</ScrollableContainer>
+				</div>
+			{/if}
 
 			{#snippet controls(close)}
 				<div class="controls">
