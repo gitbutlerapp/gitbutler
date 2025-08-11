@@ -918,6 +918,7 @@ dependencies = [
  "but-db",
  "but-graph",
  "but-hunk-assignment",
+ "but-rules",
  "but-settings",
  "but-workspace",
  "chrono",

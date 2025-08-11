@@ -127,6 +127,9 @@
 				case 'semanticType':
 					initialValues.semanticType = filter.subject;
 					break;
+				case 'claudeCodeSessionId':
+					initialValues.claudeCodeSessionId = filter.subject;
+					break;
 			}
 		}
 
