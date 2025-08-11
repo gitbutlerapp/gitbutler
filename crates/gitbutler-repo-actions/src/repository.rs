@@ -66,27 +66,13 @@ impl RepoActionsExt for CommandContext {
         let refname =
             RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
 
-        match self.push(
-            commit_id,
-            &refname,
-            false,
-            self.project().force_push_protection,
-            None,
-            askpass,
-        ) {
+        match self.push(commit_id, &refname, false, false, None, askpass) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
 
         let empty_refspec = Some(format!(":refs/heads/{}", branch_name));
-        match self.push(
-            commit_id,
-            &refname,
-            false,
-            self.project().force_push_protection,
-            empty_refspec,
-            askpass,
-        ) {
+        match self.push(commit_id, &refname, false, false, empty_refspec, askpass) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
