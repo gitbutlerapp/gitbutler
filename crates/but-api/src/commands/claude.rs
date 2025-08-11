@@ -34,17 +34,17 @@ pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetTranscriptParams {
+pub struct GetMessagesParams {
     pub project_id: ProjectId,
     pub stack_id: StackId,
 }
 
-pub async fn claude_get_transcript(
+pub async fn claude_get_messages(
     app: &App,
-    params: GetTranscriptParams,
+    params: GetMessagesParams,
 ) -> Result<Vec<ClaudeMessage>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let mut ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    let transcript = app.claudes.get_messages(&mut ctx, params.stack_id)?;
-    Ok(transcript)
+    let messages = app.claudes.get_messages(&mut ctx, params.stack_id)?;
+    Ok(messages)
 }

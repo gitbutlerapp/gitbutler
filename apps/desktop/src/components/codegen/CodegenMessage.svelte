@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
-	import { toolCallLoading, type Message } from '$lib/codegen/transcript';
+	import { toolCallLoading, type Message } from '$lib/codegen/messages';
 	import { Avatar, Button, Icon, Markdown } from '@gitbutler/ui';
 
 	type Props = {

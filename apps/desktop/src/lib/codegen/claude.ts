@@ -17,8 +17,8 @@ export class ClaudeCodeService {
 		return this.api.endpoints.sendMessage.mutate;
 	}
 
-	get transcript() {
-		return this.api.endpoints.getTranscript.useQuery;
+	get messages() {
+		return this.api.endpoints.getMessages.useQuery;
 	}
 }
 
@@ -42,8 +42,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesItem(ReduxTag.EditChangesSinceInitial, args.projectId + args.stackId)
 				]
 			}),
-			getTranscript: build.query<ClaudeMessage[], { projectId: string; stackId: string }>({
-				extraOptions: { command: 'claude_get_transcript' },
+			getMessages: build.query<ClaudeMessage[], { projectId: string; stackId: string }>({
+				extraOptions: { command: 'claude_get_messages' },
 				query: (args) => args,
 				providesTags: (_result, _error, args) => [
 					...providesItem(ReduxTag.EditChangesSinceInitial, args.projectId + args.stackId)

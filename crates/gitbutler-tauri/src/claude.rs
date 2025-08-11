@@ -1,5 +1,5 @@
 use but_api::{
-    commands::claude::{self, GetTranscriptParams, SendMessageParams},
+    commands::claude::{self, GetMessagesParams, SendMessageParams},
     error::Error,
     App,
 };
@@ -27,14 +27,14 @@ pub async fn claude_send_message(
 }
 
 #[tauri::command(async)]
-pub async fn claude_get_transcript(
+pub async fn claude_get_messages(
     app: State<'_, App>,
     project_id: ProjectId,
     stack_id: StackId,
 ) -> Result<Vec<ClaudeMessage>, Error> {
-    claude::claude_get_transcript(
+    claude::claude_get_messages(
         &app,
-        GetTranscriptParams {
+        GetMessagesParams {
             project_id,
             stack_id,
         },

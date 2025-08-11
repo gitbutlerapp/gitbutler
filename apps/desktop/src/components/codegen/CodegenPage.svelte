@@ -8,7 +8,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { formatEvents } from '$lib/codegen/transcript';
+	import { formatMessages } from '$lib/codegen/messages';
 	import { inject } from '@gitbutler/shared/context';
 	import { Badge, Button } from '@gitbutler/ui';
 
@@ -72,7 +72,7 @@
 	}
 
 	const events = $derived(
-		claudeCodeService.transcript({ projectId, stackId: selectedBranch?.stackId || '' })
+		claudeCodeService.messages({ projectId, stackId: selectedBranch?.stackId || '' })
 	);
 </script>
 
@@ -100,7 +100,7 @@
 				{#snippet messages()}
 					<ReduxResult result={events?.current} {projectId}>
 						{#snippet children(events, { projectId: _projectId })}
-							{#each formatEvents(events) as message}
+							{#each formatMessages(events) as message}
 								<CodegenMessage {message} />
 							{/each}
 						{/snippet}

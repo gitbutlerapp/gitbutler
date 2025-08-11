@@ -426,11 +426,11 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
-        "claude_get_transcript" => {
+        "claude_get_messages" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = claude::claude_get_transcript(&app, params).await;
+                    let result = claude::claude_get_messages(&app, params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),

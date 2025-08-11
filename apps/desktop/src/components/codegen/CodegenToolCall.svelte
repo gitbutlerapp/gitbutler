@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { toolCallLoading, type ToolCall } from '$lib/codegen/transcript';
+	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
 	import { Button, Icon, Markdown } from '@gitbutler/ui';
 
 	type Props = {

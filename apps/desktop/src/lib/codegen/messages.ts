@@ -1,5 +1,5 @@
 /**
- * This module is responsible for taking the transcript from a near-incomprehesable mess into something _vaugly_ useful.
+ * This module is responsible for taking the messages from a near-incomprehesable mess into something _vaugly_ useful.
  */
 
 import type { ClaudeMessage } from '$lib/codegen/types';
@@ -28,7 +28,7 @@ export function toolCallLoading(toolCall: ToolCall): boolean {
 	return toolCall.result === undefined;
 }
 
-export function formatEvents(events: ClaudeMessage[]): Message[] {
+export function formatMessages(events: ClaudeMessage[]): Message[] {
 	const out: Message[] = [];
 	// A mapping to better handle tool call responses when they come in.
 	const toolCalls: Record<string, ToolCall> = {};
