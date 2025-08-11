@@ -208,13 +208,9 @@
 						</Tooltip>
 					</div>
 				</div>
-				{#if action.toolCalls.length > 0}
-					<div class="action-item__content-tool-calls">
-						{#each action.toolCalls as toolCall}
-							<FeedItemKind type="tool-call" {projectId} {toolCall} />
-						{/each}
-					</div>
-				{/if}
+				{#each action.toolCalls as toolCall}
+					<FeedItemKind type="tool-call" {projectId} {toolCall} />
+				{/each}
 			{/if}
 			<span class="text-14">
 				<Markdown content={action.content} />
@@ -236,7 +232,9 @@
 					</Tooltip>
 				</div>
 			</div>
-			<FeedStreamMessage {projectId} message={action} />
+			<span class="text-14">
+				<FeedStreamMessage {projectId} message={action} />
+			</span>
 		</div>
 	{/if}
 </div>
@@ -302,16 +300,6 @@
 		width: 100%;
 		min-width: 0;
 		gap: 8px;
-	}
-
-	.action-item__content-tool-calls {
-		display: flex;
-		flex-direction: column;
-		padding: 10px;
-		gap: 4px;
-		border: 1px solid var(--clr-border-2);
-
-		border-radius: var(--radius-ml);
 	}
 
 	.action-item__editor-logo {

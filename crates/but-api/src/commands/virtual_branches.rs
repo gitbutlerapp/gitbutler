@@ -317,6 +317,22 @@ pub struct MoveCommitFileParams {
     pub ownership: BranchOwnershipClaims,
 }
 
+pub fn move_commit_file(app: &App, params: MoveCommitFileParams) -> Result<String, Error> {
+    let project = gitbutler_project::get(params.project_id)?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let from_commit_id = git2::Oid::from_str(&params.from_commit_id).map_err(|e| anyhow!(e))?;
+    let to_commit_id = git2::Oid::from_str(&params.to_commit_id).map_err(|e| anyhow!(e))?;
+    let claim = params.ownership.into();
+    let oid = gitbutler_branch_actions::move_commit_file(
+        &ctx,
+        params.stack_id,
+        from_commit_id,
+        to_commit_id,
+        &claim,
+    )?;
+    Ok(oid.to_string())
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UndoCommitParams {

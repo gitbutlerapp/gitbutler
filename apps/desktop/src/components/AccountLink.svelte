@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { newSettingsPath } from '$lib/routes/routes.svelte';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
 	import { Icon } from '@gitbutler/ui';
@@ -19,7 +18,7 @@
 	type="button"
 	class="btn"
 	class:pop
-	onclick={async () => goto(newSettingsPath())}
+	onclick={async () => await goto('/settings/')}
 	class:collapsed={isNavCollapsed}
 >
 	{#if !isNavCollapsed}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AsyncRender from '$components/AsyncRender.svelte';
 	import CommitMessageEditor from '$components/CommitMessageEditor.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
@@ -97,7 +98,11 @@
 			});
 
 			if ($runCommitHooks) {
-				await hooksService.runPreCommitHooks(projectId, worktreeChanges);
+				try {
+					await hooksService.runPreCommitHooks(projectId, worktreeChanges);
+				} catch {
+					return;
+				}
 			}
 
 			const response = await createCommitInStack(
@@ -113,7 +118,11 @@
 			);
 
 			if ($runCommitHooks) {
-				await hooksService.runPostCommitHooks(projectId);
+				try {
+					await hooksService.runPostCommitHooks(projectId);
+				} catch {
+					return;
+				}
 			}
 
 			const newId = response.newCommit;
@@ -202,18 +211,20 @@
 	}
 </script>
 
-<div data-testid={TestId.NewCommitView}>
-	<CommitMessageEditor
-		bind:this={input}
-		{projectId}
-		{stackId}
-		actionLabel="Create commit"
-		action={({ title, description }) => handleCommitCreation(title, description)}
-		onChange={({ title, description }) => handleMessageUpdate(title, description)}
-		onCancel={cancel}
-		disabledAction={!canCommit}
-		loading={commitCreation.current.isLoading || newStackResult.current.isLoading || isCooking}
-		title={stackState.newCommitMessage.current.title}
-		description={stackState.newCommitMessage.current.description}
-	/>
-</div>
+<AsyncRender>
+	<div data-testid={TestId.NewCommitView}>
+		<CommitMessageEditor
+			bind:this={input}
+			{projectId}
+			{stackId}
+			actionLabel="Create commit"
+			action={({ title, description }) => handleCommitCreation(title, description)}
+			onChange={({ title, description }) => handleMessageUpdate(title, description)}
+			onCancel={cancel}
+			disabledAction={!canCommit}
+			loading={commitCreation.current.isLoading || newStackResult.current.isLoading || isCooking}
+			title={stackState.newCommitMessage.current.title}
+			description={stackState.newCommitMessage.current.description}
+		/>
+	</div>
+</AsyncRender>

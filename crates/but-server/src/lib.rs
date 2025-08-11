@@ -272,6 +272,7 @@ async fn handle_command(
         "amend_virtual_branch" => {
             run_cmd(&app, request.params, virtual_branches::amend_virtual_branch)
         }
+        "move_commit_file" => run_cmd(&app, request.params, virtual_branches::move_commit_file),
         "undo_commit" => run_cmd(&app, request.params, virtual_branches::undo_commit),
         "insert_blank_commit" => {
             run_cmd(&app, request.params, virtual_branches::insert_blank_commit)

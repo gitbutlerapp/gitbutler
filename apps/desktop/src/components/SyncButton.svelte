@@ -15,7 +15,7 @@
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const branchService = inject(BRANCH_SERVICE);
-	const baseBranch = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranch = baseBranchService.baseBranch(projectId);
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const listingService = $derived(forge.current.listService);

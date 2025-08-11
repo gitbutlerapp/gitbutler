@@ -1,13 +1,13 @@
 use crate::{hunk::VirtualBranchHunk, status::get_applied_status_cached, VirtualBranchesExt};
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::BString;
+use bstr::{BString, ByteSlice};
 use but_rebase::RebaseStep;
 use but_workspace::stack_ext::StackExt;
 use gitbutler_branch::dedup;
 use gitbutler_branch::BranchUpdateRequest;
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_diff::GitHunk;
 use gitbutler_oxidize::{
     git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt,
@@ -484,6 +484,204 @@ pub fn is_remote_branch_mergeable(
         .has_unresolved_conflicts(conflict_kind);
 
     Ok(mergeable)
+}
+
+// this function takes a list of file ownership from a "from" commit and "moves"
+// those changes to a "to" commit in a branch. This allows users to drag changes
+// from one commit to another.
+// if the "to" commit is below the "from" commit, the changes are simply added to the "to" commit
+// and the rebase should be simple. if the "to" commit is above the "from" commit,
+// the changes need to be removed from the "from" commit, everything rebased,
+// then added to the "to" commit and everything above that rebased again.
+//
+// NB: It appears that this function is semi-broken when the "to" commit is above the "from" commit.
+// Ths changes are indeed removed from the "from" commit, but they end up in the workspace and not the "to" commit.
+// This was broken before the migration to the rebase engine.
+// The way the trees of "diffs to keep" and "diffs to amend" are computed with gitbutler_diff::write::hunks_onto_commit is incredibly sketchy
+pub(crate) fn move_commit_file(
+    ctx: &CommandContext,
+    stack_id: StackId,
+    from_commit_id: git2::Oid,
+    to_commit_id: git2::Oid,
+    target_ownership: &BranchOwnershipClaims,
+) -> Result<git2::Oid> {
+    let vb_state = ctx.project().virtual_branches();
+
+    let default_target = vb_state.get_default_target()?;
+
+    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
+    let gix_repo = ctx.gix_repo()?;
+    let merge_base = stack.merge_base(ctx)?;
+
+    // first, let's get the from commit data and it's parent data
+    let from_commit = ctx
+        .repo()
+        .find_commit(from_commit_id)
+        .context("failed to find commit")?;
+    let from_tree = from_commit.tree().context("failed to find tree")?;
+    let from_parent = from_commit.parent(0).context("failed to find parent")?;
+    let from_parent_tree = from_parent.tree().context("failed to find parent tree")?;
+
+    // ok, what is the entire patch introduced in the "from" commit?
+    // we need to remove the parts of this patch that are in target_ownership (the parts we're moving)
+    // and then apply the rest to the parent tree of the "from" commit to
+    // create the new "from" commit without the changes we're moving
+    let from_commit_diffs = gitbutler_diff::trees(ctx.repo(), &from_parent_tree, &from_tree, true)
+        .context("failed to diff trees")?;
+
+    // filter from_commit_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks NOT in target_ownership
+    // this is the patch parts we're keeping
+    let diffs_to_keep = from_commit_diffs
+        .iter()
+        .filter_map(|(filepath, file_diff)| {
+            let hunks = file_diff
+                .hunks
+                .iter()
+                .filter(|hunk| {
+                    !target_ownership.claims.iter().any(|file_ownership| {
+                        file_ownership.file_path.eq(filepath)
+                            && file_ownership.hunks.iter().any(|owned_hunk| {
+                                owned_hunk.start == hunk.new_start
+                                    && owned_hunk.end == hunk.new_start + hunk.new_lines
+                            })
+                    })
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            if hunks.is_empty() {
+                None
+            } else {
+                Some((filepath.clone(), hunks))
+            }
+        })
+        .collect::<HashMap<_, _>>();
+
+    // write our new tree and commit for the new "from" commit without the moved changes
+    let new_from_tree_id =
+        gitbutler_diff::write::hunks_onto_commit(ctx, from_parent.id(), &diffs_to_keep)?;
+    let new_from_tree = &ctx
+        .repo()
+        .find_tree(new_from_tree_id)
+        .with_context(|| "tree {new_from_tree_oid} not found")?;
+    let new_from_commit_oid = ctx
+        .repo()
+        .commit_with_signature(
+            None,
+            &from_commit.author(),
+            &from_commit.committer(),
+            &from_commit.message_bstr().to_str_lossy(),
+            new_from_tree,
+            &[&from_parent],
+            from_commit.gitbutler_headers(),
+        )
+        .context("commit failed")?;
+
+    // rebase swapping the from_commit_oid with the new_from_commit_oid
+    let mut steps = stack.as_rebase_steps(ctx, &gix_repo)?;
+    // replace the "from" commit in the rebase steps with the new "from" commit which has the moved changes removed
+    for step in steps.iter_mut() {
+        if let RebaseStep::Pick { commit_id, .. } = step {
+            if *commit_id == from_commit_id.to_gix() {
+                *commit_id = new_from_commit_oid.to_gix();
+            }
+        }
+    }
+    let mut rebase = but_rebase::Rebase::new(&gix_repo, merge_base, None)?;
+    rebase.steps(steps)?;
+    rebase.rebase_noops(false);
+    let outcome = rebase.rebase()?;
+    // ensure that the stack here has been updated.
+    stack.set_heads_from_rebase_output(ctx, outcome.references)?;
+
+    // Discover the new id of the commit to amend `to_commit_id` from the output of the first rebas
+    let to_commit_id = outcome
+        .commit_mapping
+        .iter()
+        .find(|(_base, old, _new)| old == &to_commit_id.to_gix())
+        .map(|(_base, _old, new)| new.to_git2())
+        .ok_or_else(|| anyhow!("failed to find the to_ammend_commit after the initial rebase"))?;
+
+    let to_commit = ctx
+        .repo()
+        .find_commit(to_commit_id)
+        .context("failed to find commit")?;
+    let to_commit_parents: Vec<_> = to_commit.parents().collect();
+
+    // get a list of all the diffs across all the virtual branches
+    let base_file_diffs = gitbutler_diff::workdir(ctx.repo(), default_target.sha)
+        .context("failed to diff workdir")?;
+
+    // filter base_file_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks in target_ownership
+    // this is essentially the group of patches that we're "moving"
+    let diffs_to_amend = target_ownership
+        .claims
+        .iter()
+        .filter_map(|file_ownership| {
+            let hunks = base_file_diffs
+                .get(&file_ownership.file_path)
+                .map(|hunks| {
+                    hunks
+                        .hunks
+                        .iter()
+                        .filter(|hunk| {
+                            file_ownership.hunks.iter().any(|owned_hunk| {
+                                owned_hunk.start == hunk.new_start
+                                    && owned_hunk.end == hunk.new_start + hunk.new_lines
+                            })
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            if hunks.is_empty() {
+                None
+            } else {
+                Some((file_ownership.file_path.clone(), hunks))
+            }
+        })
+        .collect::<HashMap<_, _>>();
+    // apply diffs_to_amend to the commit tree
+    // and write a new commit with the changes we're moving
+    // let new_tree_oid =
+    //     gitbutler_diff::write::hunks_onto_commit(ctx, to_commit_id, &diffs_to_amend)?;
+    let new_tree_oid =
+        gitbutler_diff::write::hunks_onto_tree(ctx, &to_commit.tree()?, &diffs_to_amend, true)?;
+
+    let new_tree = ctx
+        .repo()
+        .find_tree(new_tree_oid)
+        .context("failed to find new tree")?;
+    let new_to_commit_oid = ctx
+        .repo()
+        .commit_with_signature(
+            None,
+            &to_commit.author(),
+            &to_commit.committer(),
+            &to_commit.message_bstr().to_str_lossy(),
+            &new_tree,
+            &to_commit_parents.iter().collect::<Vec<_>>(),
+            to_commit.gitbutler_headers(),
+        )
+        .context("failed to create commit")?;
+
+    // another rebase
+    let mut steps = stack.as_rebase_steps(ctx, &gix_repo)?;
+    // replace the "to" commit in the rebase steps with the new "to" commit which has the moved changes added
+    for step in steps.iter_mut() {
+        if let RebaseStep::Pick { commit_id, .. } = step {
+            if *commit_id == to_commit_id.to_gix() {
+                *commit_id = new_to_commit_oid.to_gix();
+            }
+        }
+    }
+    let mut rebase = but_rebase::Rebase::new(&gix_repo, merge_base, None)?;
+    rebase.steps(steps)?;
+    rebase.rebase_noops(false);
+    let outcome = rebase.rebase()?;
+    stack.set_heads_from_rebase_output(ctx, outcome.references)?;
+    stack.set_stack_head(&vb_state, &gix_repo, outcome.top_commit.to_git2(), None)?;
+    // todo: maybe update the workspace commit here?
+    Ok(new_to_commit_oid)
 }
 
 // create and insert a blank commit (no tree change) either above or below a commit

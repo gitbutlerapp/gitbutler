@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import CommitAction from '$components/CommitAction.svelte';
-	import CommitContextMenu from '$components/CommitContextMenu.svelte';
+	import CommitContextMenu, { type CommitMenuContext } from '$components/CommitContextMenu.svelte';
 	import CommitGoesHere from '$components/CommitGoesHere.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
 	import CommitsAccordion from '$components/CommitsAccordion.svelte';
@@ -125,6 +125,7 @@
 	const baseSha = $derived(base?.baseSha);
 
 	let confirmResetModal = $state<ReturnType<typeof Modal>>();
+	let commitMenuContext = $state<CommitMenuContext>();
 
 	async function integrate(strategy?: SeriesIntegrationStrategy): Promise<void> {
 		await integrateUpstreamCommits({
@@ -394,6 +395,7 @@
 								{selected}
 								{tooltip}
 								{active}
+								isOpen={commit.id === commitMenuContext?.data.commitId}
 								onclick={() => handleCommitClick(commit.id, false)}
 								disableCommitActions={false}
 							>
@@ -414,7 +416,13 @@
 												isAncestorMostConflicted: ancestorMostConflicted?.id === commit.id
 											})
 									}}
-									<CommitContextMenu flat {projectId} {rightClickTrigger} contextData={data} />
+									<CommitContextMenu
+										flat
+										{projectId}
+										bind:context={commitMenuContext}
+										{rightClickTrigger}
+										contextData={data}
+									/>
 								{/snippet}
 							</CommitRow>
 						</div>

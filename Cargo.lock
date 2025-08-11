@@ -901,9 +901,7 @@ dependencies = [
  "but-tools",
  "gitbutler-command-context",
  "gitbutler-project",
- "gix",
  "schemars 0.9.0",
- "serde",
  "serde_json",
  "uuid",
 ]
@@ -929,8 +927,6 @@ dependencies = [
  "gix",
  "serde",
  "serde_json",
- "strum",
- "uuid",
 ]
 
 [[package]]

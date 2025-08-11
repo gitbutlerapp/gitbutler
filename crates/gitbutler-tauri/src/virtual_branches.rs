@@ -1,4 +1,5 @@
 use but_api::{commands::virtual_branches, App};
+use but_graph::virtual_branches_legacy_types::BranchOwnershipClaims;
 use but_workspace::ui::StackEntryNoOpt;
 use but_workspace::DiffSpec;
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
@@ -218,6 +219,28 @@ pub fn amend_virtual_branch(
             stack_id,
             commit_id,
             worktree_changes,
+        },
+    )
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub fn move_commit_file(
+    app: State<App>,
+    project_id: ProjectId,
+    stack_id: StackId,
+    from_commit_id: String,
+    to_commit_id: String,
+    ownership: BranchOwnershipClaims,
+) -> Result<String, Error> {
+    virtual_branches::move_commit_file(
+        &app,
+        virtual_branches::MoveCommitFileParams {
+            project_id,
+            stack_id,
+            from_commit_id,
+            to_commit_id,
+            ownership,
         },
     )
 }

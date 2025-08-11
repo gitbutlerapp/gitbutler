@@ -56,17 +56,6 @@ type ToolCallEvent = ToolCall & {
 	messageId: string;
 };
 
-export type TodoState = {
-	id: string;
-	title: string;
-	status: 'waiting' | 'in-progress' | 'success' | 'failed';
-};
-
-type TodoUpdateEvent = {
-	messageId: string;
-	list: TodoState[];
-};
-
 type UserMessageId = `user-${string}`;
 
 export type UserMessage = {
@@ -91,7 +80,6 @@ export type InProgressAssistantMessage = {
 	type: 'assistant-in-progress';
 	content: string;
 	toolCalls: ToolCall[];
-	todos: TodoState[];
 };
 
 export type FeedMessage = UserMessage | AssistantMessage;
@@ -114,7 +102,7 @@ export function isInProgressAssistantMessage(
 }
 
 interface BaseInProgressUpdate {
-	type: 'token' | 'tool-call' | 'todo-update';
+	type: 'token' | 'tool-call';
 }
 
 export interface TokenUpdate extends BaseInProgressUpdate {
@@ -127,12 +115,7 @@ export interface ToolCallUpdate extends BaseInProgressUpdate {
 	toolCall: ToolCall;
 }
 
-export interface TodoUpdate extends BaseInProgressUpdate {
-	type: 'todo-update';
-	list: TodoState[];
-}
-
-export type InProgressUpdate = TokenUpdate | ToolCallUpdate | TodoUpdate;
+export type InProgressUpdate = TokenUpdate | ToolCallUpdate;
 
 type InProgressSubscribeCallback = (update: InProgressUpdate) => void;
 
@@ -142,7 +125,6 @@ class Feed {
 	private unlistenDB: () => void;
 	private unlistenTokens: () => void;
 	private unlistenToolCalls: () => void;
-	private unlistenTodoUpdates: () => void;
 	private initialized;
 	private mutex = new Mutex();
 	private updateTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -179,13 +161,6 @@ class Feed {
 			`project://${projectId}/tool-call`,
 			(event) => {
 				this.handleToolCallEvent(event.payload);
-			}
-		);
-
-		this.unlistenTodoUpdates = this.tauri.listen<TodoUpdateEvent>(
-			`project://${projectId}/todo-updates`,
-			(event) => {
-				this.handleTodoUpdate(event.payload);
 			}
 		);
 	}
@@ -226,11 +201,6 @@ class Feed {
 		subscribers.forEach((callback) => callback({ type: 'tool-call', toolCall }));
 	}
 
-	private notifySubscribersTodoUpdate(messageId: InProgressAssistantMessageId, list: TodoState[]) {
-		const subscribers = this.messageSubscribers.get(messageId) ?? [];
-		subscribers.forEach((callback) => callback({ type: 'todo-update', list }));
-	}
-
 	private handleDBEvent(event: DBEvent) {
 		switch (event.kind) {
 			case 'actions':
@@ -268,22 +238,6 @@ class Feed {
 		});
 	}
 
-	private async handleTodoUpdate(event: TodoUpdateEvent) {
-		const inProgressId: InProgressAssistantMessageId = `assistant-in-progress-${event.messageId}`;
-		this.notifySubscribersTodoUpdate(inProgressId, event.list);
-
-		await this.mutex.lock(async () => {
-			this.combined.update((entries) => {
-				const existing = entries.find((entry) => entry.id === inProgressId);
-				if (existing && isInProgressAssistantMessage(existing)) {
-					existing.todos = event.list;
-					return deduplicateBy([...entries], 'id');
-				}
-				return entries; // If not found, do nothing.
-			});
-		});
-	}
-
 	private async handleLastAdded(entry: FeedEntry) {
 		this.lastAddedId.set(entry.id);
 	}
@@ -312,8 +266,7 @@ class Feed {
 			id: `assistant-in-progress-${uuid}`,
 			type: 'assistant-in-progress',
 			content: '',
-			toolCalls: [],
-			todos: []
+			toolCalls: []
 		};
 
 		let added = false;
@@ -543,6 +496,5 @@ class Feed {
 		this.unlistenDB();
 		this.unlistenTokens();
 		this.unlistenToolCalls();
-		this.unlistenTodoUpdates();
 	}
 }

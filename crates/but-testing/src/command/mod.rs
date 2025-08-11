@@ -342,6 +342,7 @@ pub mod stacks {
         // Enable v3 feature flags for the command context
         let app_settings = AppSettings {
             feature_flags: but_settings::app_settings::FeatureFlags {
+                v3: true,
                 ws3,
                 undo: false,
                 actions: false,
