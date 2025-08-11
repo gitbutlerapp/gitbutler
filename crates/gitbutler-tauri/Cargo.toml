@@ -87,6 +87,7 @@ but-bot.workspace = true
 but-rules.workspace = true
 but-path.workspace = true
 but-api.workspace = true
+but-claude.workspace = true
 open = "5"
 url = "2.5.4"
 dirs.workspace = true

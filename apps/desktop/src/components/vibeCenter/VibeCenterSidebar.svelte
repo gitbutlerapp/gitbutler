@@ -23,6 +23,7 @@
 <style lang="postcss">
 	.sidebar {
 		display: flex;
+		flex-shrink: 0;
 		flex-direction: column;
 
 		/* TODO: This should be resizable */

@@ -1,21 +1,26 @@
 import type { Message, MessageParam } from '@anthropic-ai/sdk/resources/index.mjs';
 
-export type ClaudeCodeEvent =
-	// An assistant message
+/**
+ * Represents different types of events that can occur during Claude code interactions
+ */
+export type ClaudeCodeMessage =
+	/** An assistant message */
 	| {
 			type: 'assistant';
-			message: Message; // from Anthropic SDK
+			/** Message from Anthropic SDK */
+			message: Message;
 			session_id: string;
 	  }
 
-	// A user message
+	/** A user message */
 	| {
 			type: 'user';
-			message: MessageParam; // from Anthropic SDK
+			/** Message from Anthropic SDK */
+			message: MessageParam;
 			session_id: string;
 	  }
 
-	// Emitted as the last message
+	/** Emitted as the last message */
 	| {
 			type: 'result';
 			subtype: 'success';
@@ -28,7 +33,7 @@ export type ClaudeCodeEvent =
 			total_cost_usd: number;
 	  }
 
-	// Emitted as the last message, when we've reached the maximum number of turns
+	/** Emitted as the last message, when we've reached the maximum number of turns */
 	| {
 			type: 'result';
 			subtype: 'error_max_turns' | 'error_during_execution';
@@ -40,7 +45,7 @@ export type ClaudeCodeEvent =
 			total_cost_usd: number;
 	  }
 
-	// Emitted as the first message at the start of a conversation
+	/** Emitted as the first message at the start of a conversation */
 	| {
 			type: 'system';
 			subtype: 'init';
@@ -56,110 +61,45 @@ export type ClaudeCodeEvent =
 			permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
 	  };
 
-export type ContentBlock = {
-	text: string;
-	type: 'text';
-};
-
-export type ToolUseBlock = {
+/**
+ * Represents a Claude Code session that GitButler is tracking.
+ */
+export interface ClaudeSession {
+	/** The unique and stable identifier for the session. This is the first session_id that was used. */
 	id: string;
-	input: Record<string, unknown>;
-	name: string;
-	type: 'tool_use';
-};
+	/** The most recent session ID. If a session is stopped and resumed, Claude will copy over the past context into a new session. This value is unique. */
+	currentId: string;
+	/** The timestamp when the first session was created. */
+	createdAt: string;
+	/** The timestamp when the session was last updated. */
+	updatedAt: string;
+}
 
-export type ToolResultBlock = {
-	content: string;
-	tool_use_id: string;
-	type: 'tool_result';
-};
+/**
+ * Represents a message in a Claude session, referencing the stable session ID.
+ */
+export interface ClaudeMessage {
+	/** Message identifier */
+	id: string;
+	/** The stable session ID that this message belongs to. */
+	sessionId: string;
+	/** The timestamp when the message was created. */
+	createdAt: string;
+	/** The content of the message, which can be either output from Claude or user input. */
+	content: ClaudeMessageContent;
+}
 
-export type Usage = {
-	cache_creation_input_tokens?: number;
-	cache_read_input_tokens?: number;
-	input_tokens: number;
-	output_tokens: number;
-	service_tier?: string;
-};
-
-export type UserMessage = {
-	role: string;
-	content: (ContentBlock | ToolResultBlock)[];
-};
-
-export type AssistantMessage = {
-	id?: string;
-	type?: string;
-	role: string;
-	model?: string;
-	content: (ContentBlock | ToolUseBlock)[];
-	stop_reason?: string | null;
-	stop_sequence?: string | null;
-	usage?: Usage;
-};
-
-export type ToolUseResult = {
-	durationMs?: number;
-	filenames?: string[];
-	numFiles?: number;
-	truncated?: boolean;
-	interrupted?: boolean;
-	isImage?: boolean;
-	stderr?: string;
-	stdout?: string;
-	mode?: string;
-};
-
-export type TranscriptEntry =
+/**
+ * Represents the kind of content in a Claude message.
+ */
+export type ClaudeMessageContent =
+	/** Came from Claude standard out stream */
 	| {
-			type: 'summary';
-			summary: string;
-			leafUuid: string;
+			type: 'claudeOutput';
+			subject: ClaudeCodeMessage;
 	  }
+	/** Inserted via GitButler (what the user typed) */
 	| {
-			type: 'user';
-			parentUuid?: string;
-			isSidechain?: boolean;
-			userType?: string;
-			cwd?: string;
-			sessionId?: string;
-			version?: string;
-			message?: UserMessage;
-			uuid?: string;
-			timestamp?: string;
-			gitBranch?: string;
-			toolUseResult?: ToolUseResult;
-	  }
-	| {
-			type: 'assistant';
-			parentUuid?: string;
-			isSidechain?: boolean;
-			userType?: string;
-			cwd?: string;
-			sessionId?: string;
-			version?: string;
-			message?: AssistantMessage;
-			requestId?: string;
-			uuid?: string;
-			timestamp?: string;
-			toolUseResult?: ToolUseResult;
-			gitBranch?: string;
-			parent_tool_use_id?: string;
-			session_id?: string;
-	  }
-	| {
-			type: 'result';
-			duration_api_ms: number;
-			duration_ms: number;
-			is_error: boolean;
-			num_turns: number;
-			result: string;
-			session_id: string;
-			subtype: 'success';
-			total_cost_usd: number;
-			usage: Usage & {
-				server_tool_use?: {
-					web_search_requests: number;
-				};
-			};
+			type: 'userInput';
+			subject: { message: string };
 	  };

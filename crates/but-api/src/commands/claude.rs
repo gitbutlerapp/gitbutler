@@ -1,7 +1,9 @@
+use but_claude::ClaudeMessage;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use serde::Deserialize;
+use tokio::sync::Mutex;
 
 use crate::{App, error::Error};
 
@@ -15,13 +17,18 @@ pub struct SendMessageParams {
 
 pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    app.claudes.lock().await.send_message(
-        &ctx,
-        app.broadcaster.clone(),
-        params.stack_id,
-        &params.message,
-    )?;
+    let ctx = Mutex::new(CommandContext::open(
+        &project,
+        app.app_settings.get()?.clone(),
+    )?);
+    app.claudes
+        .send_message(
+            ctx,
+            app.broadcaster.clone(),
+            params.stack_id,
+            &params.message,
+        )
+        .await?;
     Ok(())
 }
 
@@ -35,13 +42,9 @@ pub struct GetTranscriptParams {
 pub async fn claude_get_transcript(
     app: &App,
     params: GetTranscriptParams,
-) -> Result<Vec<serde_json::Value>, Error> {
+) -> Result<Vec<ClaudeMessage>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    let transcript = app
-        .claudes
-        .lock()
-        .await
-        .get_transcript(&ctx, params.stack_id)?;
+    let mut ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let transcript = app.claudes.get_messages(&mut ctx, params.stack_id)?;
     Ok(transcript)
 }

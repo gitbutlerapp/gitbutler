@@ -945,7 +945,6 @@ dependencies = [
  "serde",
  "serde_json",
  "strum",
- "uuid",
  "tokio",
  "uuid",
 ]
@@ -3583,6 +3582,7 @@ dependencies = [
  "but-api",
  "but-bot",
  "but-broadcaster",
+ "but-claude",
  "but-core",
  "but-db",
  "but-graph",

@@ -149,18 +149,23 @@ impl TryFrom<but_db::ClaudeMessage> for crate::ClaudeMessage {
 impl TryFrom<crate::ClaudeMessage> for but_db::ClaudeMessage {
     type Error = anyhow::Error;
     fn try_from(value: crate::ClaudeMessage) -> Result<Self, Self::Error> {
-        let content_type = match value.content {
-            crate::ClaudeMessageContent::ClaudeOutput(_) => {
-                ClaudeMessageDbContentType::ClaudeOutput
+        let (content_type, content) = match value.content {
+            crate::ClaudeMessageContent::ClaudeOutput(value) => {
+                let value = serde_json::to_string(&value)?;
+                (ClaudeMessageDbContentType::ClaudeOutput, value)
             }
-            crate::ClaudeMessageContent::UserInput(_) => ClaudeMessageDbContentType::UserInput,
+            crate::ClaudeMessageContent::UserInput(value) => {
+                let value = serde_json::to_string(&value)?;
+                (ClaudeMessageDbContentType::UserInput, value)
+            }
         };
+
         Ok(but_db::ClaudeMessage {
             id: value.id.to_string(),
             session_id: value.session_id.to_string(),
             created_at: value.created_at,
             content_type: content_type.to_string(),
-            content: serde_json::to_string(&value.content)?,
+            content,
         })
     }
 }

@@ -32,7 +32,9 @@
 		</div>
 	</div>
 	<div class="chat-messages">
-		{@render messages()}
+		<div>
+			{@render messages()}
+		</div>
 	</div>
 	<div class="chat-footer">
 		{@render input()}
@@ -44,7 +46,10 @@
 		display: flex;
 		flex-direction: column;
 
+		width: 100%;
 		height: 100%;
+
+		overflow: hidden;
 	}
 
 	.chat-header {
@@ -64,15 +69,18 @@
 	}
 
 	.chat-messages {
+		display: flex;
 		flex-grow: 1;
+		flex-direction: column-reverse;
 		width: 100%;
+
+		overflow: auto;
 	}
 
 	.chat-footer {
+		flex-shrink: 0;
 		width: 100%;
-
 		padding: 16px;
-
 		border-top: 1px solid var(--clr-border-2);
 	}
 </style>

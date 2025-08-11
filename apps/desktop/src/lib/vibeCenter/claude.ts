@@ -1,7 +1,7 @@
 import { invoke } from '$lib/backend/ipc';
 import { hasTauriExtra } from '$lib/state/backendQuery';
-import { providesList, ReduxTag } from '$lib/state/tags';
-import { type TranscriptEntry, type ClaudeCodeEvent } from '$lib/vibeCenter/types';
+import { invalidatesItem, providesItem, ReduxTag } from '$lib/state/tags';
+import { type ClaudeCodeMessage, type ClaudeMessage } from '$lib/vibeCenter/types';
 import { InjectionToken } from '@gitbutler/shared/context';
 import type { ClientState } from '$lib/state/clientState.svelte';
 
@@ -15,7 +15,7 @@ export class ClaudeCodeService {
 	}
 
 	get sendMessage() {
-		return this.api.endpoints.sendMessage.useMutation;
+		return this.api.endpoints.sendMessage.mutate;
 	}
 
 	get transcript() {
@@ -38,23 +38,29 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'claude_send_message',
 					actionName: 'Send message'
 				},
-				query: (args) => args
+				query: (args) => args,
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.EditChangesSinceInitial, args.projectId + args.stackId)
+				]
 			}),
-			getTranscript: build.query<TranscriptEntry[], { projectId: string; stackId: string }>({
+			getTranscript: build.query<ClaudeMessage[], { projectId: string; stackId: string }>({
 				extraOptions: { command: 'claude_get_transcript' },
 				query: (args) => args,
-				providesTags: [providesList(ReduxTag.EditChangesSinceInitial)],
+				providesTags: (_result, _error, args) => [
+					...providesItem(ReduxTag.EditChangesSinceInitial, args.projectId + args.stackId)
+				],
 				async onCacheEntryAdded(arg, lifecycleApi) {
 					if (!hasTauriExtra(lifecycleApi.extra)) {
 						throw new Error('Redux dependency Tauri not found!');
 					}
 					const { listen } = lifecycleApi.extra.tauri;
 					await lifecycleApi.cacheDataLoaded;
-					const unsubscribe = listen<ClaudeCodeEvent>(
+					const unsubscribe = listen<ClaudeMessage>(
 						`project://${arg.projectId}/claude/${arg.stackId}/message_recieved`,
-						async (_event) => {
-							const transcript = await invoke<TranscriptEntry[]>('claude_get_transcript', arg);
-							lifecycleApi.updateCachedData(() => transcript);
+						async (event) => {
+							lifecycleApi.updateCachedData((events) => {
+								events.push(event.payload);
+							});
 						}
 					);
 					await lifecycleApi.cacheEntryRemoved;

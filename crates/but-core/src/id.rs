@@ -29,9 +29,9 @@ impl<const KIND: char> From<Uuid> for Id<KIND> {
     }
 }
 
-impl<const KIND: char> Into<Uuid> for Id<KIND> {
-    fn into(self) -> Uuid {
-        self.0
+impl<const KIND: char> From<Id<KIND>> for Uuid {
+    fn from(val: Id<KIND>) -> Self {
+        val.0
     }
 }
 

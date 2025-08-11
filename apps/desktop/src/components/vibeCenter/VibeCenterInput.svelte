@@ -7,16 +7,26 @@
 
 		enabled: boolean;
 
-		onsubmit: () => void;
+		onsubmit: () => Promise<void>;
 		actions: Snippet;
 	};
 
 	let { value = $bindable(), enabled, onsubmit, actions }: Props = $props();
 
-	function handleKeypress(e: KeyboardEvent) {
+	let loading = $state(false);
+
+	async function handleSubmit() {
+		loading = true;
+
+		await onsubmit();
+
+		loading = false;
+	}
+
+	async function handleKeypress(e: KeyboardEvent) {
 		if (e.key === 'Enter' && e.shiftKey) {
 			e.preventDefault();
-			onsubmit();
+			await handleSubmit();
 		}
 	}
 </script>
@@ -38,7 +48,7 @@
 		<div class="flex gap-4 items-center">
 			{@render actions()}
 		</div>
-		<Button disabled={!enabled} style="pop" onclick={onsubmit}>
+		<Button disabled={!enabled || loading} {loading} style="pop" onclick={handleSubmit}>
 			<div class="svg-container">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

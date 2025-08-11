@@ -3,6 +3,7 @@ use but_api::{
     error::Error,
     App,
 };
+use but_claude::ClaudeMessage;
 use but_workspace::StackId;
 use gitbutler_project::ProjectId;
 use tauri::State;
@@ -30,7 +31,7 @@ pub async fn claude_get_transcript(
     app: State<'_, App>,
     project_id: ProjectId,
     stack_id: StackId,
-) -> Result<Vec<serde_json::Value>, Error> {
+) -> Result<Vec<ClaudeMessage>, Error> {
     claude::claude_get_transcript(
         &app,
         GetTranscriptParams {

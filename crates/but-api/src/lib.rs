@@ -22,7 +22,7 @@ pub struct App {
     pub app_settings: Arc<AppSettingsWithDiskSync>,
     pub broadcaster: Arc<Mutex<Broadcaster>>,
     pub archival: Arc<gitbutler_feedback::Archival>,
-    pub claudes: Arc<Mutex<Claudes>>,
+    pub claudes: Arc<Claudes>,
 }
 
 #[derive(Deserialize)]

@@ -2,10 +2,13 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import VibeCenterChatLayout from '$components/vibeCenter/VibeCenterChatLayout.svelte';
 	import VibeCenterInput from '$components/vibeCenter/VibeCenterInput.svelte';
+	import VibeCenterMessage from '$components/vibeCenter/VibeCenterMessage.svelte';
 	import VibeCenterSidebar from '$components/vibeCenter/VibeCenterSidebar.svelte';
 	import VibeCenterSidebarEntry from '$components/vibeCenter/VibeCenterSidebarEntry.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
+	import { CLAUDE_CODE_SERVICE } from '$lib/vibeCenter/claude';
+	import { formatEvents } from '$lib/vibeCenter/transcript';
 	import { inject } from '@gitbutler/shared/context';
 	import { Badge, Button } from '@gitbutler/ui';
 
@@ -14,7 +17,7 @@
 	};
 	const { projectId }: Props = $props();
 
-	// const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
+	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 
 	const stacks = $derived(stackService.stacks(projectId));
@@ -56,7 +59,21 @@
 		}
 	}
 
-	// const events = $derived(claudeCodeService.transcript({ projectId, stackId }));
+	async function sendMessage() {
+		if (!selectedBranch) return;
+		if (!message) return;
+		const promise = claudeCodeService.sendMessage({
+			projectId,
+			stackId: selectedBranch.stackId,
+			message
+		});
+		message = '';
+		await promise;
+	}
+
+	const events = $derived(
+		claudeCodeService.transcript({ projectId, stackId: selectedBranch?.stackId || '' })
+	);
 </script>
 
 <div class="page">
@@ -81,17 +98,16 @@
 					<Button disabled kind="ghost" size="tag" icon="kebab" />
 				{/snippet}
 				{#snippet messages()}
-					<p>I'm a message :D</p>
-					<p>I'm a message too :D</p>
+					<ReduxResult result={events?.current} {projectId}>
+						{#snippet children(events, { projectId: _projectId })}
+							{#each formatEvents(events) as message}
+								<VibeCenterMessage {message} />
+							{/each}
+						{/snippet}
+					</ReduxResult>
 				{/snippet}
 				{#snippet input()}
-					<VibeCenterInput
-						bind:value={message}
-						enabled
-						onsubmit={() => {
-							message = '';
-						}}
-					>
+					<VibeCenterInput bind:value={message} enabled onsubmit={sendMessage}>
 						{#snippet actions()}
 							<Button disabled kind="outline" icon="attachment" reversedDirection>Context</Button>
 						{/snippet}
@@ -118,7 +134,8 @@
 	{@const branch = stackService.branchByName(projectId, stackId, head)}
 	{@const commits = stackService.commits(projectId, stackId, head)}
 	<ReduxResult result={combineResults(branch.current, commits.current)} {projectId} {stackId}>
-		{#snippet children([branch, commits], { projectId, stackId })}
+		{#snippet children([branch, commits], { projectId: _projectId, stackId })}
+			{stackId}
 			<VibeCenterSidebarEntry
 				onclick={() => {
 					selectedBranch = { stackId, head: branch.name };
@@ -153,6 +170,8 @@
 		/* TODO: This should be resizable */
 		flex-grow: 1;
 		height: 100%;
+
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
