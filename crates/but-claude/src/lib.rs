@@ -41,5 +41,13 @@ pub enum ClaudeMessageContent {
     /// Came from Claude standard out stream
     ClaudeOutput(serde_json::Value),
     /// Inserted via  GitButler (what the user typed)
-    UserInput(serde_json::Value),
+    UserInput(UserInput),
+}
+
+/// Represents user input in a Claude session.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UserInput {
+    /// The user message
+    pub message: String,
 }
