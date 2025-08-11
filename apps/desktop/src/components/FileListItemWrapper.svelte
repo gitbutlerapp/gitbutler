@@ -37,6 +37,7 @@
 		draggable?: boolean;
 		transparent?: boolean;
 		onclick?: (e: MouseEvent) => void;
+		ondblclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		onCloseClick?: () => void;
 		conflictEntries?: ConflictEntriesObj;
@@ -60,6 +61,7 @@
 		draggable,
 		transparent,
 		onclick,
+		ondblclick,
 		onkeydown,
 		onCloseClick,
 		hideBorder
@@ -192,6 +194,7 @@
 			conflicted={!!conflict}
 			conflictHint={conflict ? conflictEntryHint(conflict) : undefined}
 			{onclick}
+			{ondblclick}
 			oncheck={(e) => onCheck(e.currentTarget.checked)}
 			oncontextmenu={onContextMenu}
 		/>

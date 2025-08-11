@@ -30,6 +30,7 @@ export interface Settings {
 	inlineUnifiedDiffs: boolean;
 	diffContrast: 'light' | 'medium' | 'strong';
 	defaultCodeEditor: CodeEditorSettings;
+	openPreviewOnDoubleClick: boolean;
 }
 
 const defaults: Settings = {
@@ -50,7 +51,8 @@ const defaults: Settings = {
 	diffLigatures: false,
 	inlineUnifiedDiffs: false,
 	diffContrast: 'light',
-	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' }
+	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' },
+	openPreviewOnDoubleClick: true
 };
 
 export function loadUserSettings(): Writable<Settings> {

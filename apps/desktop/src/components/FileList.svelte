@@ -35,6 +35,8 @@
 		ancestorMostConflictedCommitId?: string;
 		hideLastFileBorder?: boolean;
 		onselect?: () => void;
+		openOnDoubleClick?: boolean;
+		onTriggerPreview?: () => void;
 	};
 
 	const {
@@ -49,7 +51,9 @@
 		draggableFiles,
 		ancestorMostConflictedCommitId,
 		hideLastFileBorder = true,
-		onselect
+		onselect,
+		openOnDoubleClick = false,
+		onTriggerPreview
 	}: Props = $props();
 
 	const idSelection = inject(ID_SELECTION);
@@ -67,6 +71,30 @@
 	function showEditPatchConfirmation(filePath: string) {
 		selectedFilePath = filePath;
 		editPatchModal?.show();
+	}
+
+	function handleFileClick(e: MouseEvent, change: TreeChange, idx: number) {
+		e.stopPropagation();
+
+		if (openOnDoubleClick) {
+			// Only update visual selection without triggering preview
+			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
+		} else {
+			// Original behavior - single click opens preview
+			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
+			onselect?.();
+		}
+	}
+
+	function handleFileDoubleClick(e: MouseEvent, change: TreeChange, idx: number) {
+		e.stopPropagation();
+
+		if (openOnDoubleClick) {
+			// Update selection and trigger preview
+			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
+			onTriggerPreview?.(); // Set flag to allow preview
+			onselect?.(); // Trigger the preview
+		}
 	}
 
 	function handleConfirmEditPatch() {
@@ -217,11 +245,8 @@
 		executable={!!isExecutable}
 		showCheckbox={showCheckboxes}
 		selected={idSelection.has(change.path, selectionId)}
-		onclick={(e) => {
-			e.stopPropagation();
-			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
-			onselect?.();
-		}}
+		onclick={(e) => handleFileClick(e, change, idx)}
+		ondblclick={(e) => handleFileDoubleClick(e, change, idx)}
 		{conflictEntries}
 	/>
 {/snippet}

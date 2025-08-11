@@ -9,6 +9,7 @@
 	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { Badge, Button, TestId } from '@gitbutler/ui';
@@ -17,9 +18,11 @@
 	interface Props {
 		projectId: string;
 		focus: DefinedFocusable;
+		onPreviewRequest?: (shouldShow: boolean) => void;
+		explicitlyClosedFileKey?: string | null;
 	}
 
-	const { projectId, focus }: Props = $props();
+	const { projectId, focus, onPreviewRequest, explicitlyClosedFileKey = null }: Props = $props();
 
 	const selectionId = { type: 'worktree', stackId: undefined } as SelectionId;
 
@@ -28,6 +31,7 @@
 	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
 	const idSelection = inject(ID_SELECTION);
 	const settingsService = inject(SETTINGS_SERVICE);
+	const userSettings = inject(SETTINGS);
 	const settingsStore = $derived(settingsService.appSettings);
 	const projectState = $derived(uiState.project(projectId));
 	const unassignedSidebaFolded = $derived(uiState.global.unassignedSidebaFolded);
@@ -35,10 +39,17 @@
 	const isCommitting = $derived(exclusiveAction?.type === 'commit');
 	let isScrollable = $state<boolean>(false);
 
+	// Use the user setting instead of local state
+	const openOnDoubleClick = $derived($userSettings.openPreviewOnDoubleClick);
+
 	const treeChanges = $derived(uncommittedService.changesByStackId(null));
 	const treeChangesCount = $derived(treeChanges.current.length);
-	const changesToCommit = $derived(treeChangesCount > 0);
+	const changesToCommit = $derived(treeChanges.current.length > 0);
 	let foldedContentWidth = $state<number>(0);
+
+	// Get the selection for this component
+	const selection = $derived(idSelection.getById(selectionId));
+	const lastAdded = $derived(selection.lastAdded);
 
 	function unfoldView() {
 		unassignedSidebaFolded.set(false);
@@ -46,11 +57,29 @@
 
 	function unselectFiles() {
 		idSelection.clear(selectionId);
+		onPreviewRequest?.(false); // Close preview when clearing selection
 	}
 
 	$effect(() => {
 		if (isCommitting && changesToCommit) {
 			unassignedSidebaFolded.set(false);
+		}
+	});
+
+	// Auto-open preview when a file is selected in single-click mode
+	$effect(() => {
+		const shouldAutoOpen = !openOnDoubleClick;
+		const lastAddedFile = $lastAdded;
+		const hasSelection = !!lastAddedFile;
+		const currentFileKey = lastAddedFile?.key;
+
+		// Only block auto-open if the currently selected file is the one that was explicitly closed
+		const shouldBlockAutoOpen =
+			explicitlyClosedFileKey && currentFileKey === explicitlyClosedFileKey;
+
+		if (shouldAutoOpen && hasSelection && !shouldBlockAutoOpen) {
+			// Always try to open preview in single-click mode when a file is selected
+			onPreviewRequest?.(true);
 		}
 	});
 
@@ -86,8 +115,18 @@
 				}}
 				overflow
 				onselect={() => {
+					// This is called whenever files are selected, but we handle preview separately
+					// Only trigger intelligent scrolling in single-click mode
+					if (!openOnDoubleClick) {
+						intelligentScrollingService.unassignedFileClicked(projectId);
+					}
+				}}
+				onTriggerPreview={() => {
+					// This is called when we want to trigger the preview (on double-click)
+					onPreviewRequest?.(true);
 					intelligentScrollingService.unassignedFileClicked(projectId);
 				}}
+				{openOnDoubleClick}
 				foldButton={$settingsStore?.featureFlags.rules ? undefined : foldButton}
 			>
 				{#snippet emptyPlaceholder()}

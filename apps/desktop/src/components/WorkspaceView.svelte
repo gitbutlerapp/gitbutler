@@ -16,6 +16,7 @@
 		uncommittedFocusableId
 	} from '$lib/focus/focusManager.svelte';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE, type ExclusiveAction } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -34,6 +35,7 @@
 	const idSelection = inject(ID_SELECTION);
 	const focusManager = inject(FOCUS_MANAGER);
 	const settingsService = inject(SETTINGS_SERVICE);
+	const userSettings = inject(SETTINGS);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 
 	const worktreeSelection = $derived(idSelection.getById({ type: 'worktree' }));
@@ -80,7 +82,24 @@
 	const selectionId = { type: 'worktree', stackId: undefined } as SelectionId;
 
 	const lastAdded = $derived(worktreeSelection.lastAdded);
-	const previewOpen = $derived(!!$lastAdded?.key);
+	let previewShouldOpen = $state<boolean>(false);
+	let explicitlyClosedFileKey = $state<string | null>(null);
+	const previewOpen = $derived(!!$lastAdded?.key && previewShouldOpen);
+
+	// Reset explicit close flag when switching between click modes
+	const openOnDoubleClick = $derived($userSettings.openPreviewOnDoubleClick);
+	let previousOpenOnDoubleClick = $state<boolean | undefined>(undefined);
+
+	$effect(() => {
+		if (
+			previousOpenOnDoubleClick !== undefined &&
+			previousOpenOnDoubleClick !== openOnDoubleClick
+		) {
+			// User changed the click mode setting, reset the explicit close flag
+			explicitlyClosedFileKey = null;
+		}
+		previousOpenOnDoubleClick = openOnDoubleClick;
+	});
 
 	// Ensures that the exclusive action is still valid.
 	$effect(() => {
@@ -140,7 +159,10 @@
 			{selectionId}
 			draggableFiles
 			onclose={() => {
+				const currentFileKey = $lastAdded?.key;
 				idSelection.clear(selectionId);
+				previewShouldOpen = false;
+				explicitlyClosedFileKey = currentFileKey || null;
 			}}
 		/>
 	</ConfigurableScrollableContainer>
@@ -155,7 +177,17 @@
 	rightWidth={{ default: 320, min: 220 }}
 >
 	{#snippet left()}
-		<UnassignedView {projectId} focus={focusGroup.current as DefinedFocusable} />
+		<UnassignedView
+			{projectId}
+			focus={focusGroup.current as DefinedFocusable}
+			{explicitlyClosedFileKey}
+			onPreviewRequest={(shouldShow) => {
+				if (shouldShow) {
+					explicitlyClosedFileKey = null;
+				}
+				previewShouldOpen = shouldShow;
+			}}
+		/>
 	{/snippet}
 	{#snippet middle()}
 		<ReduxResult {projectId} result={stacksResult?.current}>

@@ -32,6 +32,8 @@
 		foldButton?: Snippet;
 		onselect?: () => void;
 		onscrollexists?: (exists: boolean) => void;
+		openOnDoubleClick?: boolean;
+		onTriggerPreview?: () => void;
 	};
 
 	let {
@@ -46,7 +48,9 @@
 		emptyPlaceholder,
 		foldButton,
 		onselect,
-		onscrollexists
+		onscrollexists,
+		openOnDoubleClick = false,
+		onTriggerPreview
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
@@ -106,6 +110,8 @@
 			{stackId}
 			hideLastFileBorder={mode !== 'unassigned'}
 			{onselect}
+			{openOnDoubleClick}
+			{onTriggerPreview}
 		/>
 	</div>
 {/snippet}

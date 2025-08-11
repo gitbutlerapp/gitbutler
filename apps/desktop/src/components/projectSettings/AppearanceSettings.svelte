@@ -283,3 +283,25 @@
 		/>
 	{/snippet}
 </SectionCard>
+
+<SectionCard labelFor="openPreviewOnDoubleClick" orientation="row">
+	{#snippet title()}
+		Open preview only on double-click
+	{/snippet}
+	{#snippet caption()}
+		When enabled, file previews in the unassigned changes panel will only open on double-click.
+		Single clicks will still select files.
+	{/snippet}
+	{#snippet actions()}
+		<Toggle
+			id="openPreviewOnDoubleClick"
+			checked={$userSettings.openPreviewOnDoubleClick}
+			onclick={() => {
+				userSettings.update((s) => ({
+					...s,
+					openPreviewOnDoubleClick: !s.openPreviewOnDoubleClick
+				}));
+			}}
+		/>
+	{/snippet}
+</SectionCard>
