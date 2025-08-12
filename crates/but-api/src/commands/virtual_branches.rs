@@ -20,8 +20,8 @@ use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gix::reference::Category;
 use serde::Deserialize;
 
+use crate::commands::workspace::{CannedBranchNameParams, canned_branch_name};
 use crate::{App, error::Error};
-
 // Parameter structs for all functions
 
 pub fn normalize_branch_name(_app: &App, name: String) -> Result<String, Error> {
@@ -46,7 +46,21 @@ pub fn create_virtual_branch(
         let (repo, mut meta, graph) = ctx.graph_and_meta_and_repo()?;
         let ws = graph.to_workspace()?;
         let new_ref = Category::LocalBranch
-            .to_full_name(params.branch.name.as_deref().unwrap_or("Lane"))
+            .to_full_name(
+                params
+                    .branch
+                    .name
+                    .map(Ok)
+                    .unwrap_or_else(|| {
+                        canned_branch_name(
+                            app,
+                            CannedBranchNameParams {
+                                project_id: params.project_id,
+                            },
+                        )
+                    })?
+                    .as_str(),
+            )
             .map_err(anyhow::Error::from)?;
 
         let _guard = project.exclusive_worktree_access();
