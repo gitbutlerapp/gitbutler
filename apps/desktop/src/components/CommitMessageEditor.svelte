@@ -63,8 +63,8 @@
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 
-	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
-	const stackSelection = $derived(stackState?.selection);
+	const laneState = $derived(stackId ? uiState.lane(stackId) : undefined);
+	const stackSelection = $derived(laneState?.selection);
 
 	let composer = $state<ReturnType<typeof MessageEditor>>();
 	let titleInput = $state<HTMLTextAreaElement>();

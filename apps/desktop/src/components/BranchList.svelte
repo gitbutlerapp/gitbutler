@@ -55,8 +55,8 @@
 	const isCommitting = $derived(
 		exclusiveAction?.type === 'commit' && exclusiveAction?.stackId === stackId
 	);
-	const stackState = $derived(uiState.stack(laneId));
-	const selection = $derived(stackState.selection);
+	const laneState = $derived(uiState.lane(laneId));
+	const selection = $derived(laneState.selection);
 	const selectedCommitId = $derived(selection.current?.commitId);
 
 	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
@@ -70,7 +70,7 @@
 	}
 
 	function startEditingCommitMessage(branchName: string, commitId: string) {
-		stackState.selection.set({ branchName, commitId });
+		laneState.selection.set({ branchName, commitId });
 		projectState.exclusiveAction.set({
 			type: 'edit-commit-message',
 			stackId,
@@ -185,7 +185,7 @@
 					trackingBranch={branch.remoteTrackingBranch ?? undefined}
 					readonly={!!branch.remoteTrackingBranch}
 					onclick={() => {
-						uiState.stack(laneId).selection.set({ branchName });
+						uiState.lane(laneId).selection.set({ branchName });
 						intelligentScrollingService.show(projectId, laneId, 'details');
 						onselect?.();
 					}}

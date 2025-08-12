@@ -99,10 +99,8 @@
 			exclusiveAction.branchName === branchName
 	);
 
-	const stackState = $derived(
-		args.type === 'stack-branch' ? uiState.stack(args.laneId) : undefined
-	);
-	const selection = $derived(stackState ? stackState.selection.current : undefined);
+	const laneState = $derived(args.type === 'stack-branch' ? uiState.lane(args.laneId) : undefined);
+	const selection = $derived(laneState ? laneState.selection.current : undefined);
 	const selected = $derived(selection?.branchName === branchName);
 	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
 

@@ -612,7 +612,7 @@ export class StackService {
 		commitId: string;
 	}) {
 		const result = await this.api.endpoints.uncommit.mutate(args);
-		const selection = this.uiState.stack(args.stackId).selection;
+		const selection = this.uiState.lane(args.stackId).selection;
 		if (args.commitId === selection.current?.commitId) {
 			selection.set(undefined);
 		}
@@ -651,10 +651,10 @@ export class StackService {
 		return this.api.endpoints.updateBranchName.useMutation({
 			sideEffect: (_, args) => {
 				// Immediately update the selection and the exclusive action.
-				const stackState = this.uiState.stack(args.laneId);
+				const laneState = this.uiState.lane(args.laneId);
 				const projectState = this.uiState.project(args.projectId);
 				const exclusiveAction = projectState.exclusiveAction.current;
-				const previousSelection = stackState.selection.current;
+				const previousSelection = laneState.selection.current;
 
 				if (previousSelection) {
 					const updatedSelection = replaceBranchInStackSelection(
@@ -662,7 +662,7 @@ export class StackService {
 						args.branchName,
 						args.newName
 					);
-					stackState.selection.set(updatedSelection);
+					laneState.selection.set(updatedSelection);
 				}
 
 				if (exclusiveAction) {
@@ -675,7 +675,7 @@ export class StackService {
 				}
 			},
 			onError: (_, args) => {
-				const state = this.uiState.stack(args.laneId);
+				const state = this.uiState.lane(args.laneId);
 				state.selection.set({
 					branchName: args.branchName
 				});
