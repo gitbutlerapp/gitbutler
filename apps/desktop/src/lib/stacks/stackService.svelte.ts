@@ -897,6 +897,22 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				extraOptions: { command: 'stacks' },
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.Stacks)],
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					if (!hasTauriExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Tauri not found!');
+					}
+					// The `cacheDataLoaded` promise resolves when the result is first loaded.
+					await lifecycleApi.cacheDataLoaded;
+					const unsubscribe = lifecycleApi.extra.tauri.listen(
+						`project://${arg.projectId}/hunk-assignment-update`,
+						() => {
+							lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.Stacks)]));
+						}
+					);
+					// The `cacheEntryRemoved` promise resolves when the result is removed
+					await lifecycleApi.cacheEntryRemoved;
+					unsubscribe();
+				},
 				transformResponse(response: Stack[], _, { projectId }) {
 					// Clear the selection of stale stacks.
 					updateStaleProjectState(

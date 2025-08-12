@@ -89,7 +89,7 @@ pub(crate) mod state {
                         project_id,
                     },
                     ItemKind::Assignments => ChangeForFrontend {
-                        name: format!("project://{}/db-updates", project_id),
+                        name: format!("project://{}/hunk-assignment-update", project_id),
                         payload: serde_json::json!({
                             "kind": "hunk-assignments"
                         }),

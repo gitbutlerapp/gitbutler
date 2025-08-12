@@ -43,7 +43,7 @@ export default class FeedFactory {
 }
 
 type DBEvent = {
-	kind: 'actions' | 'workflows' | 'hunk-assignments' | 'unknown';
+	kind: 'actions' | 'workflows' | 'unknown';
 	item?: string;
 };
 
@@ -238,7 +238,6 @@ class Feed {
 				this.updateCombinedFeed();
 				return;
 			}
-			case 'hunk-assignments':
 			case 'unknown': {
 				// Do nothing for now, as we are not handling these events.
 				return;
