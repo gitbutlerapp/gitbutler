@@ -119,203 +119,194 @@
 	const canPublishPR = $derived(forge.current.authenticated);
 </script>
 
-<div class="wrapper">
-	<div class="branches-wrapper">
-		{#each branches as branch, i}
-			{@const branchName = branch.name}
-			{@const localAndRemoteCommits = stackService.commits(projectId, stackId, branchName)}
-			{@const upstreamOnlyCommits = stackService.upstreamCommits(projectId, stackId, branchName)}
-			{@const branchDetailsResult = stackService.branchDetails(projectId, stackId, branchName)}
-			{@const commitResult = stackService.commitAt(projectId, stackId, branchName, 0)}
-			{@const prResult = branch.prNumber
-				? forge.current.prService?.get(branch.prNumber)
-				: undefined}
+<div class="branches-wrapper">
+	{#each branches as branch, i}
+		{@const branchName = branch.name}
+		{@const localAndRemoteCommits = stackService.commits(projectId, stackId, branchName)}
+		{@const upstreamOnlyCommits = stackService.upstreamCommits(projectId, stackId, branchName)}
+		{@const branchDetailsResult = stackService.branchDetails(projectId, stackId, branchName)}
+		{@const commitResult = stackService.commitAt(projectId, stackId, branchName, 0)}
+		{@const prResult = branch.prNumber ? forge.current.prService?.get(branch.prNumber) : undefined}
 
-			{@const first = i === 0}
+		{@const first = i === 0}
 
-			<ReduxResult
-				{projectId}
-				{stackId}
-				result={combineResults(
-					localAndRemoteCommits.current,
-					upstreamOnlyCommits.current,
-					branchDetailsResult.current,
-					commitResult.current
-				)}
-			>
-				{#snippet children([localAndRemoteCommits, upstreamOnlyCommits, branchDetails, commit])}
-					{@const firstBranch = i === 0}
-					{@const lastBranch = i === branches.length - 1}
-					{@const iconName = getIconFromCommitState(commit?.id, commit?.state)}
-					{@const lineColor = commit
-						? getColorFromCommitState(
-								commit.state.type,
-								commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject
-							)
-						: 'var(--clr-commit-local)'}
-					{@const isNewBranch =
-						upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
-					{@const selected =
-						selection?.current?.branchName === branchName &&
-						selection?.current.commitId === undefined}
-					{@const pushStatus = branchDetails.pushStatus}
-					{@const isConflicted = branchDetails.isConflicted}
-					{@const lastUpdatedAt = branchDetails.lastUpdatedAt}
-					{@const reviewId = branch.reviewId || undefined}
-					{@const prNumber = branch.prNumber || undefined}
-					<BranchCard
-						type="stack-branch"
-						{projectId}
-						{stackId}
-						{branchName}
-						{lineColor}
-						{first}
-						{isCommitting}
-						{iconName}
-						{selected}
-						{isNewBranch}
-						{pushStatus}
-						{isConflicted}
-						{lastUpdatedAt}
-						{reviewId}
-						{prNumber}
-						dropzones={[stackingReorderDropzoneManager.top(branchName)]}
-						active={focusedStackId === stackId}
-						trackingBranch={branch.remoteTrackingBranch ?? undefined}
-						readonly={!!branch.remoteTrackingBranch}
-						onclick={() => {
-							uiState.stack(stackId).selection.set({ branchName });
-							intelligentScrollingService.show(projectId, stackId, 'details');
-							onselect?.();
-						}}
-					>
-						{#snippet buttons()}
+		<ReduxResult
+			{projectId}
+			{stackId}
+			result={combineResults(
+				localAndRemoteCommits.current,
+				upstreamOnlyCommits.current,
+				branchDetailsResult.current,
+				commitResult.current
+			)}
+		>
+			{#snippet children([localAndRemoteCommits, upstreamOnlyCommits, branchDetails, commit])}
+				{@const firstBranch = i === 0}
+				{@const lastBranch = i === branches.length - 1}
+				{@const iconName = getIconFromCommitState(commit?.id, commit?.state)}
+				{@const lineColor = commit
+					? getColorFromCommitState(
+							commit.state.type,
+							commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject
+						)
+					: 'var(--clr-commit-local)'}
+				{@const isNewBranch =
+					upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
+				{@const selected =
+					selection?.current?.branchName === branchName &&
+					selection?.current.commitId === undefined}
+				{@const pushStatus = branchDetails.pushStatus}
+				{@const isConflicted = branchDetails.isConflicted}
+				{@const lastUpdatedAt = branchDetails.lastUpdatedAt}
+				{@const reviewId = branch.reviewId || undefined}
+				{@const prNumber = branch.prNumber || undefined}
+				<BranchCard
+					type="stack-branch"
+					{projectId}
+					{stackId}
+					{branchName}
+					{lineColor}
+					{first}
+					{isCommitting}
+					{iconName}
+					{selected}
+					{isNewBranch}
+					{pushStatus}
+					{isConflicted}
+					{lastUpdatedAt}
+					{reviewId}
+					{prNumber}
+					dropzones={[stackingReorderDropzoneManager.top(branchName)]}
+					active={focusedStackId === stackId}
+					trackingBranch={branch.remoteTrackingBranch ?? undefined}
+					readonly={!!branch.remoteTrackingBranch}
+					onclick={() => {
+						uiState.stack(stackId).selection.set({ branchName });
+						intelligentScrollingService.show(projectId, stackId, 'details');
+						onselect?.();
+					}}
+				>
+					{#snippet buttons()}
+						<Button
+							icon="new-empty-commit"
+							size="tag"
+							kind="outline"
+							tooltip="Create empty commit"
+							onclick={async () => {
+								await insertBlankCommitInBranch({
+									projectId,
+									stackId,
+									commitId: undefined,
+									offset: -1
+								});
+							}}
+							disabled={commitInsertion.current.isLoading}
+						/>
+						<Button
+							icon="copy-small"
+							size="tag"
+							kind="outline"
+							tooltip="Copy branch name"
+							onclick={() => {
+								copyToClipboard(branchName);
+							}}
+						/>
+						{#if first}
 							<Button
-								icon="new-empty-commit"
+								icon="new-dep-branch"
 								size="tag"
 								kind="outline"
-								tooltip="Create empty commit"
+								tooltip="Create new branch"
 								onclick={async () => {
-									await insertBlankCommitInBranch({
+									addDependentBranchModalContext = {
 										projectId,
-										stackId,
-										commitId: undefined,
-										offset: -1
-									});
-								}}
-								disabled={commitInsertion.current.isLoading}
-							/>
-							<Button
-								icon="copy-small"
-								size="tag"
-								kind="outline"
-								tooltip="Copy branch name"
-								onclick={() => {
-									copyToClipboard(branchName);
+										stackId
+									};
+
+									await tick();
+									addDependentBranchModal?.show();
 								}}
 							/>
-							{#if first}
+						{/if}
+
+						{#if canPublishPR && !isNewBranch}
+							{#if !branch.prNumber}
 								<Button
-									icon="new-dep-branch"
 									size="tag"
 									kind="outline"
-									tooltip="Create new branch"
-									onclick={async () => {
-										addDependentBranchModalContext = {
-											projectId,
-											stackId
-										};
-
-										await tick();
-										addDependentBranchModal?.show();
+									shrinkable
+									onclick={(e) => {
+										e.stopPropagation();
+										projectState.exclusiveAction.set({
+											type: 'create-pr',
+											stackId,
+											branchName
+										});
 									}}
-								/>
+									testId={TestId.CreateReviewButton}
+									disabled={!!projectState.exclusiveAction.current}
+									icon={getForgeLogo(forge.current.name, true)}
+								>
+									{`Create ${forge.current.name === 'gitlab' ? 'MR' : 'PR'}`}
+								</Button>
+							{:else}
+								{@const prUrl = prResult?.current.data?.htmlUrl}
+								<Button
+									size="tag"
+									kind="outline"
+									shrinkable
+									disabled={!prUrl}
+									onclick={() => {
+										if (prUrl) {
+											openExternalUrl(prUrl);
+										}
+									}}
+									icon={forge.current.name === 'gitlab' ? 'view-mr-browser' : 'view-pr-browser'}
+								>
+									{`View ${forge.current.name === 'gitlab' ? 'MR' : 'PR'}`}
+								</Button>
 							{/if}
+						{/if}
+						<PushButton
+							{branchName}
+							{projectId}
+							{stackId}
+							multipleBranches={branches.length > 1}
+							isFirstBranchInStack={firstBranch}
+							isLastBranchInStack={lastBranch}
+						/>
+					{/snippet}
 
-							{#if canPublishPR && !isNewBranch}
-								{#if !branch.prNumber}
-									<Button
-										size="tag"
-										kind="outline"
-										shrinkable
-										onclick={(e) => {
-											e.stopPropagation();
-											projectState.exclusiveAction.set({
-												type: 'create-pr',
-												stackId,
-												branchName
-											});
-										}}
-										testId={TestId.CreateReviewButton}
-										disabled={!!projectState.exclusiveAction.current}
-										icon={getForgeLogo(forge.current.name, true)}
-									>
-										{`Create ${forge.current.name === 'gitlab' ? 'MR' : 'PR'}`}
-									</Button>
-								{:else}
-									{@const prUrl = prResult?.current.data?.htmlUrl}
-									<Button
-										size="tag"
-										kind="outline"
-										shrinkable
-										disabled={!prUrl}
-										onclick={() => {
-											if (prUrl) {
-												openExternalUrl(prUrl);
-											}
-										}}
-										icon={forge.current.name === 'gitlab' ? 'view-mr-browser' : 'view-pr-browser'}
-									>
-										{`View ${forge.current.name === 'gitlab' ? 'MR' : 'PR'}`}
-									</Button>
-								{/if}
-							{/if}
-							<PushButton
-								{branchName}
-								{projectId}
-								{stackId}
-								multipleBranches={branches.length > 1}
-								isFirstBranchInStack={firstBranch}
-								isLastBranchInStack={lastBranch}
-							/>
-						{/snippet}
+					{#snippet menu({ rightClickTrigger })}
+						{@const data = {
+							branch,
+							prNumber,
+							first,
+							stackLength: branches.length
+						}}
+						<BranchHeaderContextMenu {projectId} {stackId} {rightClickTrigger} contextData={data} />
+					{/snippet}
 
-						{#snippet menu({ rightClickTrigger })}
-							{@const data = {
-								branch,
-								prNumber,
-								first,
-								stackLength: branches.length
-							}}
-							<BranchHeaderContextMenu
-								{projectId}
-								{stackId}
-								{rightClickTrigger}
-								contextData={data}
-							/>
-						{/snippet}
-
-						{#snippet branchContent()}
-							<BranchCommitList
-								{firstBranch}
-								{lastBranch}
-								active={focusedStackId === stackId}
-								{projectId}
-								{stackId}
-								{branchName}
-								{branchDetails}
-								{stackingReorderDropzoneManager}
-								{handleUncommit}
-								{startEditingCommitMessage}
-								{handleEditPatch}
-								{onselect}
-							/>
-						{/snippet}
-					</BranchCard>
-				{/snippet}
-			</ReduxResult>
-		{/each}
-	</div>
+					{#snippet branchContent()}
+						<BranchCommitList
+							{firstBranch}
+							{lastBranch}
+							active={focusedStackId === stackId}
+							{projectId}
+							{stackId}
+							{branchName}
+							{branchDetails}
+							{stackingReorderDropzoneManager}
+							{handleUncommit}
+							{startEditingCommitMessage}
+							{handleEditPatch}
+							{onselect}
+						/>
+					{/snippet}
+				</BranchCard>
+			{/snippet}
+		</ReduxResult>
+	{/each}
 </div>
 
 <NewBranchModal {projectId} {stackId} bind:this={newBranchModal} />
@@ -355,16 +346,10 @@
 {/if}
 
 <style lang="postcss">
-	.wrapper {
+	.branches-wrapper {
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
-	}
-
-	.branches-wrapper {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		padding: 12px;
+		margin: 12px 0;
 	}
 </style>
