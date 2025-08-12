@@ -39,5 +39,4 @@ pub async fn claude_get_messages(
             stack_id,
         },
     )
-    .await
 }

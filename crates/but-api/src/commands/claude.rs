@@ -39,7 +39,7 @@ pub struct GetMessagesParams {
     pub stack_id: StackId,
 }
 
-pub async fn claude_get_messages(
+pub fn claude_get_messages(
     app: &App,
     params: GetMessagesParams,
 ) -> Result<Vec<ClaudeMessage>, Error> {
