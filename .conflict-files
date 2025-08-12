@@ -1,3 +1,0 @@
-ancestorEntries = []
-ourEntries = ["apps/desktop/src/lib/codegen/messages.ts"]
-theirEntries = ["apps/desktop/src/lib/codegen/messages.ts"]
