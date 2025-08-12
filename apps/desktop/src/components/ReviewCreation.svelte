@@ -91,6 +91,7 @@
 
 	let titleInput = $state<HTMLTextAreaElement | undefined>(undefined);
 	let messageEditor = $state<MessageEditor>();
+	let isComposing = $state(false);
 
 	// AI things
 	const aiGenEnabled = projectAiGenEnabled(projectId);
@@ -387,7 +388,15 @@
 				prTitle.set(value);
 			}}
 			onkeydown={(e: KeyboardEvent) => {
-				if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+				if (
+					['Enter', 'Escape', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) &&
+					isComposing
+				) {
+					e.preventDefault();
+					isComposing = false;
+					return;
+				}
+				if ((e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) && !isComposing) {
 					e.preventDefault();
 					messageEditor?.focus();
 				}
@@ -398,7 +407,7 @@
 					return true;
 				}
 
-				if (e.key === 'Escape') {
+				if (e.key === 'Escape' && !isComposing) {
 					e.preventDefault();
 					onClose();
 				}
@@ -408,6 +417,9 @@
 			oninput={(e: Event) => {
 				const target = e.target as HTMLInputElement;
 				prTitle.set(target.value);
+				if (e instanceof InputEvent) {
+					isComposing = e.isComposing;
+				}
 			}}
 		/>
 		<MessageEditor
