@@ -430,7 +430,7 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = claude::claude_get_messages(&app, params).await;
+                    let result = claude::claude_get_messages(&app, params);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
