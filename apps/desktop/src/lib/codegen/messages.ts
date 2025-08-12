@@ -76,8 +76,11 @@ export function formatMessages(events: ClaudeMessage[]): Message[] {
 				if (Array.isArray(content) && content[0]!.type === 'tool_result') {
 					const result = content[0]!;
 					const foundToolCall = toolCalls[result.tool_use_id];
-					if (!foundToolCall || !result.content) throw new Error("Ahh! I can't handle this");
-					if (typeof result.content === 'string') {
+					if (!foundToolCall) {
+						return [];
+					} else if (!result.content) {
+						foundToolCall.result = undefined;
+					} else if (typeof result.content === 'string') {
 						foundToolCall.result = result.content;
 					} else if (result.content[0]!.type === 'text') {
 						foundToolCall.result = result.content[0]!.text;

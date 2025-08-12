@@ -19,6 +19,7 @@ pub struct FeatureFlagsUpdate {
     pub actions: Option<bool>,
     pub butbot: Option<bool>,
     pub rules: Option<bool>,
+    pub single_branch: Option<bool>,
 }
 
 /// Mutation, immediately followed by writing everything to disk.
@@ -56,6 +57,7 @@ impl AppSettingsWithDiskSync {
             actions,
             butbot,
             rules,
+            single_branch,
         }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
@@ -70,6 +72,9 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(rules) = rules {
             settings.feature_flags.rules = rules;
+        }
+        if let Some(single_branch) = single_branch {
+            settings.feature_flags.single_branch = single_branch;
         }
         settings.save()
     }

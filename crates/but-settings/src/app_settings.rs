@@ -47,6 +47,8 @@ pub struct FeatureFlags {
     pub butbot: bool,
     /// Enable processing of workspace rules.
     pub rules: bool,
+    /// Enable single branch mode.
+    pub single_branch: bool,
 }
 
 fn default_true() -> bool {

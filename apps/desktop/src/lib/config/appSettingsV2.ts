@@ -123,6 +123,8 @@ export type FeatureFlags = {
 	butbot: boolean;
 	/** Enable processing of workspace rules. */
 	rules: boolean;
+	/** Enable single-branch mode. */
+	singleBranch: boolean;
 };
 
 export type Fetch = {
