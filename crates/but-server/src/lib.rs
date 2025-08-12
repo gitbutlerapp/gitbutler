@@ -436,6 +436,9 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "claude_get_session_details" => {
+            run_cmd(&app, request.params, claude::claude_get_session_details)
+        }
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
     };
 

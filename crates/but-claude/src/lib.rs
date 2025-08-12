@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 pub mod bridge;
 pub(crate) mod claude_transcript;
+pub use claude_transcript::Transcript;
 pub mod db;
 pub mod hooks;
 pub mod mcp;
@@ -52,4 +53,13 @@ pub enum ClaudeMessageContent {
 pub struct UserInput {
     /// The user message
     pub message: String,
+}
+
+/// Details about a Claude session, extracted from the Claude transcript.
+/// This data is derived just in time, i.e. not persisted by GitButler.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeSessionDetails {
+    pub summary: Option<String>,
+    pub last_prompt: Option<String>,
 }

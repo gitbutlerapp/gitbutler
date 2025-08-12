@@ -48,3 +48,24 @@ pub fn claude_get_messages(
     let messages = app.claudes.get_messages(&mut ctx, params.stack_id)?;
     Ok(messages)
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetSessionDetailsParams {
+    pub project_id: ProjectId,
+    pub session_id: String,
+}
+
+pub fn claude_get_session_details(
+    _app: &App,
+    params: GetSessionDetailsParams,
+) -> Result<but_claude::ClaudeSessionDetails, Error> {
+    let project = gitbutler_project::get(params.project_id)?;
+    let session_id = uuid::Uuid::parse_str(&params.session_id).map_err(anyhow::Error::from)?;
+    let transcript_path = but_claude::Transcript::get_transcript_path(&project.path, session_id)?;
+    let transcript = but_claude::Transcript::from_file(&transcript_path)?;
+    Ok(but_claude::ClaudeSessionDetails {
+        summary: transcript.summary(),
+        last_prompt: transcript.prompt(),
+    })
+}
