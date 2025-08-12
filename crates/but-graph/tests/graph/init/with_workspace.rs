@@ -3511,15 +3511,15 @@ fn no_workspace_commit() -> anyhow::Result<()> {
     );
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    // It's notable that `lane` can't pick up its additional segments as these aren't on the actual
-    // segment, they are on the base which isn't where it can pick them up from and isn't were they
-    // would be created.
+    // Notably we also pick up 'lane' which sits on the base.
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
     │   ├── 📙►:3[1]:lane
     │   │   └── ·cbc6713 (⌂|🏘️|1)
-    │   │       └── ►:2[4]:main <> origin/main →:1:
-    │   │           └── ·fafd9d0 (⌂|🏘️|✓|11) ►lane-segment-01, ►lane-segment-02
+    │   │       └── 📙►:7[2]:lane-segment-01
+    │   │           └── 📙►:8[3]:lane-segment-02
+    │   │               └── ►:2[4]:main <> origin/main →:1:
+    │   │                   └── ·fafd9d0 (⌂|🏘️|✓|11)
     │   └── 📙►:4[1]:lane-2
     │       └── 📙►:5[2]:lane-2-segment-01
     │           └── 📙►:6[3]:lane-2-segment-02
@@ -3534,8 +3534,10 @@ fn no_workspace_commit() -> anyhow::Result<()> {
     │   ├── 📙:5:lane-2-segment-01
     │   └── 📙:6:lane-2-segment-02
     └── ≡📙:3:lane on fafd9d0
-        └── 📙:3:lane
-            └── ·cbc6713 (🏘️)
+        ├── 📙:3:lane
+        │   └── ·cbc6713 (🏘️)
+        ├── 📙:7:lane-segment-01
+        └── 📙:8:lane-segment-02
     ");
 
     // Natural order here is `lane` first, but we say we want `lane-2` first
@@ -3563,18 +3565,22 @@ fn no_workspace_commit() -> anyhow::Result<()> {
     │   │   └── 📙►:5[2]:lane-2-segment-01
     │   │       └── 📙►:6[3]:lane-2-segment-02
     │   │           └── ►:2[4]:main <> origin/main →:1:
-    │   │               └── ·fafd9d0 (⌂|🏘️|✓|11) ►lane-segment-01, ►lane-segment-02
+    │   │               └── ·fafd9d0 (⌂|🏘️|✓|11)
     │   └── 📙►:3[1]:lane
     │       └── ·cbc6713 (⌂|🏘️|1)
-    │           └── →:2: (main →:1:)
+    │           └── 📙►:7[2]:lane-segment-01
+    │               └── 📙►:8[3]:lane-segment-02
+    │                   └── →:2: (main →:1:)
     └── ►:1[0]:origin/main →:2:
         └── →:2: (main →:1:)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
     ├── ≡📙:3:lane on fafd9d0
-    │   └── 📙:3:lane
-    │       └── ·cbc6713 (🏘️)
+    │   ├── 📙:3:lane
+    │   │   └── ·cbc6713 (🏘️)
+    │   ├── 📙:7:lane-segment-01
+    │   └── 📙:8:lane-segment-02
     └── ≡📙:4:lane-2 on fafd9d0
         ├── 📙:4:lane-2
         ├── 📙:5:lane-2-segment-01
@@ -4375,6 +4381,110 @@ fn applied_stack_above_explicit_lower_bound() -> anyhow::Result<()> {
     └── ≡:1:B on bce0c5e
         └── :1:B
             └── ·ce25240 (🏘️)
+    ");
+    Ok(())
+}
+
+#[test]
+fn dependent_branch_on_base() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/dependent-branch-on-base")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *-.   a0385a8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\ \  
+    | | * 49d4b34 (A) A1
+    | |/  
+    |/|   
+    | * f9e2cb7 (C2-3, C2-2, C2-1, C) C2
+    | * aaa195b (C1-3, C1-2, C1-1) C1
+    |/  
+    * 3183e43 (origin/main, main, below-below-C, below-below-B, below-below-A, below-C, below-B, below-A, B) M1
+    ");
+
+    add_stack_with_segments(
+        &mut meta,
+        1,
+        "A",
+        StackState::InWorkspace,
+        &["below-A", "below-below-A"],
+    );
+    add_stack_with_segments(
+        &mut meta,
+        2,
+        "B",
+        StackState::InWorkspace,
+        &["below-B", "below-below-B"],
+    );
+    add_stack_with_segments(
+        &mut meta,
+        3,
+        "C",
+        StackState::InWorkspace,
+        &[
+            "C2-1",
+            "C2-2",
+            "C2-3",
+            "C1-3",
+            "C1-2",
+            "C1-1",
+            "below-C",
+            "below-below-C",
+        ],
+    );
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ·a0385a8 (⌂|🏘️|1)
+    │       ├── 📙►:3[1]:A
+    │       │   └── ·49d4b34 (⌂|🏘️|1)
+    │       │       └── 📙►:9[2]:below-A
+    │       │           └── 📙►:10[3]:below-below-A
+    │       │               └── ►:2[10]:main <> origin/main →:1:
+    │       │                   └── ·3183e43 (⌂|🏘️|✓|11)
+    │       ├── 📙►:6[1]:B
+    │       │   └── 📙►:7[2]:below-B
+    │       │       └── 📙►:8[3]:below-below-B
+    │       │           └── →:2: (main →:1:)
+    │       └── 📙►:4[1]:C
+    │           └── 📙►:11[2]:C2-1
+    │               └── 📙►:12[3]:C2-2
+    │                   └── 📙►:13[4]:C2-3
+    │                       └── ·f9e2cb7 (⌂|🏘️|1)
+    │                           └── 📙►:5[5]:C1-3
+    │                               └── 📙►:14[6]:C1-2
+    │                                   └── 📙►:15[7]:C1-1
+    │                                       └── ·aaa195b (⌂|🏘️|1)
+    │                                           └── 📙►:16[8]:below-C
+    │                                               └── 📙►:17[9]:below-below-C
+    │                                                   └── →:2: (main →:1:)
+    └── ►:1[0]:origin/main →:2:
+        └── →:2: (main →:1:)
+    ");
+
+    // Both stacks will look the same, with the dependent branch inserted at the very bottom.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:4:C on 3183e43
+    │   ├── 📙:4:C
+    │   ├── 📙:11:C2-1
+    │   ├── 📙:12:C2-2
+    │   ├── 📙:13:C2-3
+    │   │   └── ·f9e2cb7 (🏘️)
+    │   ├── 📙:5:C1-3
+    │   ├── 📙:14:C1-2
+    │   ├── 📙:15:C1-1
+    │   │   └── ·aaa195b (🏘️)
+    │   ├── 📙:16:below-C
+    │   └── 📙:17:below-below-C
+    ├── ≡📙:6:B on 3183e43
+    │   ├── 📙:6:B
+    │   ├── 📙:7:below-B
+    │   └── 📙:8:below-below-B
+    └── ≡📙:3:A on 3183e43
+        ├── 📙:3:A
+        │   └── ·49d4b34 (🏘️)
+        ├── 📙:9:below-A
+        └── 📙:10:below-below-A
     ");
     Ok(())
 }

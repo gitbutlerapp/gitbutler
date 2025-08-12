@@ -439,63 +439,108 @@ impl Graph {
         // Note that we can still source names from previously used stacks just to be able to capture more
         // of the original intent, despite the graph having changed. This works because in the end, we are consuming
         // refs on commits that can't be re-used once they have been moved into their own segment.
-        for ws_segment_sidx in ws_stacks.iter().flat_map(|stack| {
-            stack
+        for stack in &ws_stacks {
+            let mut last_created_segment = None;
+            for ws_segment_sidx in stack
                 .segments
                 .iter()
                 .flat_map(|segment| segment.commits_by_segment.iter().map(|t| t.0))
-        }) {
-            // Find all commit-refs which are mentioned in ws_data.stacks, for simplicity in any stack that matches (for now).
-            // Stacks shouldn't be so different that they don't match reality anymore and each mutation has to re-set them to
-            // match reality.
-            let mut current_above = ws_segment_sidx;
-            let mut truncate_commits_from = None;
-            for commit_idx in 0..self[ws_segment_sidx].commits.len() {
-                let commit = &self[ws_segment_sidx].commits[commit_idx];
-                let has_inserted_segment_above = current_above != ws_segment_sidx;
+            {
+                // Find all commit-refs which are mentioned in ws_data.stacks, for simplicity in any stack that matches (for now).
+                // Stacks shouldn't be so different that they don't match reality anymore and each mutation has to re-set them to
+                // match reality.
+                let mut current_above = ws_segment_sidx;
+                let mut truncate_commits_from = None;
+                for commit_idx in 0..self[ws_segment_sidx].commits.len() {
+                    let commit = &self[ws_segment_sidx].commits[commit_idx];
+                    let has_inserted_segment_above = current_above != ws_segment_sidx;
+                    let Some(refs_for_dependent_branches) =
+                        find_all_desired_stack_refs_in_commit(&ws_data, commit.refs.iter(), None)
+                            .next()
+                    else {
+                        // Now we have to assign this uninteresting commit to the last created segment, if there was one.
+                        if has_inserted_segment_above {
+                            self.push_commit_and_reconnect_outgoing(
+                                commit.clone(),
+                                current_above,
+                                (ws_segment_sidx, commit_idx),
+                            );
+                        }
+                        continue;
+                    };
+
+                    // In ws-stack segment order, map all the indices from top to bottom
+                    let new_above = maybe_create_multiple_segments(
+                        self,
+                        current_above,
+                        ws_segment_sidx,
+                        Some(commit_idx),
+                        refs_for_dependent_branches,
+                        meta,
+                    )?;
+                    // Did it actually do something?
+                    if new_above == Some(current_above) {
+                        if has_inserted_segment_above {
+                            self.push_commit_and_reconnect_outgoing(
+                                self[ws_segment_sidx].commits[commit_idx].clone(),
+                                current_above,
+                                (ws_segment_sidx, commit_idx),
+                            );
+                        }
+                        continue;
+                    }
+                    current_above = new_above.unwrap_or(current_above);
+                    truncate_commits_from.get_or_insert(commit_idx);
+                }
+                if let Some(truncate_from) = truncate_commits_from {
+                    let segment = &mut self[ws_segment_sidx];
+                    // Keep only the commits that weren't reassigned to other segments.
+                    segment.commits.truncate(truncate_from);
+                    delete_anon_if_empty_and_reconnect(self, ws_segment_sidx);
+                }
+                last_created_segment = Some(current_above);
+            }
+
+            if let Some((last_segment_id, base_sidx, commit)) =
+                stack.segments.last().and_then(|s| {
+                    let base_sidx = s.base_segment_id?;
+                    let c = self[base_sidx].commits.first()?;
+                    Some((last_created_segment.unwrap_or(s.id), base_sidx, c))
+                })
+            {
                 let Some(refs_for_dependent_branches) =
                     find_all_desired_stack_refs_in_commit(&ws_data, commit.refs.iter(), None)
                         .next()
                 else {
-                    // Now we have to assign this uninteresting commit to the last created segment, if there was one.
-                    if has_inserted_segment_above {
-                        self.push_commit_and_reconnect_outgoing(
-                            commit.clone(),
-                            current_above,
-                            (ws_segment_sidx, commit_idx),
-                        );
-                    }
                     continue;
                 };
 
-                // In ws-stack segment order, map all the indices from top to bottom
-                let new_above = maybe_create_multiple_segments(
+                let edges = collect_edges_at_commit_reverse_order(
                     self,
-                    current_above,
-                    ws_segment_sidx,
-                    commit_idx,
-                    refs_for_dependent_branches,
+                    (
+                        last_segment_id,
+                        self[last_segment_id].commits.len().checked_sub(1),
+                    ),
+                    Direction::Outgoing,
+                );
+                let new_sidx_above_base_sidx = maybe_create_multiple_segments(
+                    self,
+                    last_segment_id,
+                    base_sidx,
+                    None,
+                    refs_for_dependent_branches.clone(),
                     meta,
-                )?;
-                // Did it actually do something?
-                if new_above == Some(current_above) {
-                    if has_inserted_segment_above {
-                        self.push_commit_and_reconnect_outgoing(
-                            self[ws_segment_sidx].commits[commit_idx].clone(),
-                            current_above,
-                            (ws_segment_sidx, commit_idx),
-                        );
-                    }
-                    continue;
-                }
-                current_above = new_above.unwrap_or(current_above);
-                truncate_commits_from.get_or_insert(commit_idx);
-            }
-            if let Some(truncate_from) = truncate_commits_from {
-                let segment = &mut self[ws_segment_sidx];
-                // Keep only the commits that weren't reassigned to other segments.
-                segment.commits.truncate(truncate_from);
-                delete_anon_if_empty_and_reconnect(self, ws_segment_sidx);
+                )?
+                .expect("fix me: always creates a segment");
+
+                // As we didn't allow the previous function to deal with the commit, we do it.
+                self[base_sidx]
+                    .commits
+                    .first_mut()
+                    .expect("we know there is one already")
+                    .refs
+                    .retain(|rn| !refs_for_dependent_branches.contains(rn));
+                reconnect_edges(self, edges, (new_sidx_above_base_sidx, None));
             }
         }
 
@@ -898,7 +943,9 @@ fn create_independent_segments<T: RefMetadata>(
 
 /// Maybe create a new stack from `N` (where `N` > 1) refs that match a ref in `ws_stack` (in the order given there), with `N-1` segments being empty on top
 /// of the last one `N`.
-/// `commit_parent` is the segment to use `commit_idx` on to get its data. We also use this information to re-link
+/// `commit_parent_below` is the segment to use `commit_idx` on to get its data, and assumed below `above_idx`.
+/// We also use this information to re-link segments (vaguely).
+/// If `commit_idx` is `None` (hack), don't add a commit at all, leave the segments empty.
 /// Return `Some(bottom_segment_index)`, or `None` no ref matched commit. There may be any amount of new segments above
 /// the `bottom_segment_index`.
 /// Note that the Segment at `bottom_segment_index` will own `commit`.
@@ -907,13 +954,13 @@ fn create_independent_segments<T: RefMetadata>(
 fn maybe_create_multiple_segments<T: RefMetadata>(
     graph: &mut Graph,
     mut above_idx: SegmentIndex,
-    commit_parent: SegmentIndex,
-    commit_idx: CommitIndex,
+    commit_parent_below: SegmentIndex,
+    commit_idx: Option<CommitIndex>,
     mut matching_refs: Vec<gix::refs::FullName>,
     meta: &OverlayMetadata<'_, T>,
 ) -> anyhow::Result<Option<SegmentIndex>> {
     assert!(!matching_refs.is_empty());
-    let commit = &graph[commit_parent].commits[commit_idx];
+    let commit = commit_idx.map(|cidx| &graph[commit_parent_below].commits[cidx]);
 
     let iter_len = matching_refs.len();
     // Shortcut: instead of replacing single anonymous segments, set their name.
@@ -932,11 +979,11 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
         return Ok(Some(above_idx));
     }
 
-    let commit = {
+    let commit = commit.map(|commit| {
         let mut c = commit.clone();
         c.refs.retain(|rn| !matching_refs.contains(rn));
         c
-    };
+    });
     let matching_refs = matching_refs
         .into_iter()
         .enumerate()
@@ -954,7 +1001,7 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
         let new_segment = branch_segment_from_name_and_meta(Some((ref_name, None)), meta, None)?;
         let above_commit_idx = {
             let s = &graph[above_idx];
-            let cidx = s.commit_index_of(commit.id);
+            let cidx = commit.as_ref().and_then(|c| s.commit_index_of(c.id));
             if cidx.is_some() {
                 // We will take the current commit, so must commit to the one above.
                 // This works just once, for the actually passed parent commit.
@@ -968,8 +1015,8 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
             above_idx,
             above_commit_idx,
             new_segment,
-            is_last.then_some(0),
-            is_last.then_some(commit.id),
+            (is_last && commit.is_some()).then_some(0),
+            is_last.then_some(commit.as_ref().map(|c| c.id)).flatten(),
         );
         above_idx = new_segment;
         if is_first {
@@ -977,20 +1024,20 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
             // Connect to the commit if we have one.
             let edges = collect_edges_at_commit_reverse_order(
                 &graph.inner,
-                (commit_parent, commit_idx),
+                (commit_parent_below, commit_idx),
                 Direction::Incoming,
             );
             for edge in &edges {
                 graph.inner.remove_edge(edge.id);
             }
             for edge in edges.into_iter().rev() {
-                let (target, target_cidx) = if commit_idx == 0 {
+                let (target, target_cidx) = if commit_idx == Some(0) {
                     // the current target of the edge will be empty after we steal its commit.
                     // Thus, we want to keep pointing to it to naturally reach the commit later.
                     (edge.target, None)
                 } else {
                     // The new segment is the shortest way to the commit we loose.
-                    (new_segment, is_last.then_some(0))
+                    (new_segment, (is_last && commit.is_some()).then_some(0))
                 };
                 graph.inner.add_edge(
                     edge.source,
@@ -999,50 +1046,61 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
                         src: edge.weight.src,
                         src_id: edge.weight.src_id,
                         dst: target_cidx,
-                        dst_id: target_cidx.map(|_| commit.id),
+                        dst_id: target_cidx.and_then(|_| commit.as_ref().map(|c| c.id)),
                     },
                 );
             }
         }
         if is_last {
             // connect outgoing edges (and disconnect them)
-            let commit_id = commit.id;
-            graph[new_segment].commits.push(commit);
+            if let Some((commit, commit_idx)) = commit.zip(commit_idx) {
+                let commit_id = commit.id;
+                graph[new_segment].commits.push(commit);
 
-            reconnect_outgoing(
-                &mut graph.inner,
-                (commit_parent, commit_idx),
-                (new_segment, commit_id),
-            );
+                reconnect_outgoing(
+                    &mut graph.inner,
+                    (commit_parent_below, commit_idx),
+                    (new_segment, commit_id),
+                );
+            }
             break;
         }
     }
     Ok(Some(above_idx))
 }
 
-/// This removes outgoing connections from `source_sidx` and places them on the first commit
-/// of `target_sidx`.
+/// This removes outgoing connections from `source_sidx` and places them on the given commit
+/// of `target`.
 fn reconnect_outgoing(
     graph: &mut PetGraph,
     (source_sidx, source_cidx): (SegmentIndex, CommitIndex),
-    (target_sidx, target_first_commit_id): (SegmentIndex, gix::ObjectId),
+    (target_sidx, target_cidx): (SegmentIndex, gix::ObjectId),
 ) {
     let edges = collect_edges_at_commit_reverse_order(
         graph,
-        (source_sidx, source_cidx),
+        (source_sidx, Some(source_cidx)),
         Direction::Outgoing,
     );
+    reconnect_edges(graph, edges, (target_sidx, Some(target_cidx)))
+}
+
+/// Delete all `edges` and recreate the edges with `target` as new source.
+fn reconnect_edges(
+    graph: &mut PetGraph,
+    edges: Vec<EdgeOwned>,
+    (target_sidx, target_first_commit_id): (SegmentIndex, Option<gix::ObjectId>),
+) {
     for edge in &edges {
         graph.remove_edge(edge.id);
     }
     for edge in edges.into_iter().rev() {
-        let src = graph[target_sidx].commit_index_of(target_first_commit_id);
+        let src = target_first_commit_id.and_then(|id| graph[target_sidx].commit_index_of(id));
         graph.add_edge(
             target_sidx,
             edge.target,
             Edge {
                 src,
-                src_id: Some(target_first_commit_id),
+                src_id: target_first_commit_id,
                 dst: edge.weight.dst,
                 dst_id: edge.weight.dst_id,
             },
@@ -1052,14 +1110,14 @@ fn reconnect_outgoing(
 
 fn collect_edges_at_commit_reverse_order(
     graph: &PetGraph,
-    (segment, commit): (SegmentIndex, CommitIndex),
+    (segment, commit): (SegmentIndex, Option<CommitIndex>),
     direction: Direction,
 ) -> Vec<EdgeOwned> {
     graph
         .edges_directed(segment, direction)
         .filter(|&e| match direction {
-            Direction::Incoming => e.weight().dst == Some(commit),
-            Direction::Outgoing => e.weight().src == Some(commit),
+            Direction::Incoming => e.weight().dst == commit,
+            Direction::Outgoing => e.weight().src == commit,
         })
         .map(Into::into)
         .collect()
