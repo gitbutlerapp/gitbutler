@@ -173,7 +173,7 @@
 						}
 					},
 					filters: ruleFilters,
-					trigger: 'fileSytemChange'
+					trigger: null
 				}
 			});
 		} else {
