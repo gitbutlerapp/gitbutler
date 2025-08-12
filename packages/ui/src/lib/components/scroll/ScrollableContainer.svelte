@@ -116,7 +116,7 @@
 	>
 		<div
 			class="hide-native-scrollbar"
-			style:height={childrenWrapHeight}
+			style:min-height={childrenWrapHeight}
 			style:display={childrenWrapDisplay}
 		>
 			{@render children()}
