@@ -24,7 +24,6 @@
 	import { BranchService, BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { CommitService, COMMIT_SERVICE } from '$lib/commits/commitService.svelte';
 	import { APP_SETTINGS } from '$lib/config/appSettings';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import DependencyService, {
@@ -238,7 +237,6 @@
 	provide(ORGANIZATION_SERVICE, organizationService);
 	provide(CLOUD_USER_SERVICE, cloudUserService);
 	provide(HOOKS_SERVICE, data.hooksService);
-	provide(SETTINGS_SERVICE, data.settingsService);
 	provide(FILE_SERVICE, data.fileService);
 	provide(COMMIT_SERVICE, commitService);
 
@@ -272,9 +270,6 @@
 	provide(RESIZE_SYNC, new ResizeSync());
 	provide(GIT_SERVICE, new GitService(data.tauri));
 
-	const settingsService = data.settingsService;
-	const settingsStore = settingsService.appSettings;
-
 	// Special initialization to capture pageviews for single page apps.
 	if (browser) {
 		beforeNavigate(() => data.posthog.capture('$pageleave'));
@@ -304,10 +299,6 @@
 	});
 
 	const handleKeyDown = createKeybind({
-		// Toggle v3 workspace APIs on/off
-		'w s 3': () => {
-			settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 });
-		},
 		// This is a debug tool to see how the commit-graph looks like, the basis for all workspace computation.
 		// For good measure, it also shows the workspace.
 		'd o t': async () => {

@@ -1,6 +1,7 @@
 use but_api::{commands::stack, App};
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
+use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
 use gitbutler_user::User;
@@ -16,8 +17,10 @@ pub fn create_reference(
     project_id: ProjectId,
     request: stack::create_reference::Request,
 ) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     stack::create_reference(
-        &app,
+        &ctx,
         stack::create_reference::Params {
             project_id,
             request,

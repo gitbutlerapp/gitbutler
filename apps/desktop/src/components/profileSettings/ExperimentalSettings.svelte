@@ -35,23 +35,6 @@
 			/>
 		{/snippet}
 	</SectionCard>
-	<SectionCard labelFor="ws3" roundedTop={false} roundedBottom={false} orientation="row">
-		{#snippet title()}
-			New workspace backend
-		{/snippet}
-		{#snippet caption()}
-			Enable this to use the new API for rendering the workspace state. This should correctly detect
-			squash-merged PRs as integrated when updating the workspace.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="ws3"
-				checked={$settingsStore?.featureFlags.ws3}
-				onclick={() =>
-					settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 })}
-			/>
-		{/snippet}
-	</SectionCard>
 	<SectionCard labelFor="rules" roundedTop={false} orientation="row">
 		{#snippet title()}
 			Workspace Rules

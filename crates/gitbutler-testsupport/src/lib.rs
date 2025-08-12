@@ -167,16 +167,11 @@ pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termt
 
 pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
     let repo = ctx.gix_repo_for_merging_non_persisting().unwrap();
-    let stacks = if ctx.app_settings().feature_flags.ws3 {
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
-        )
-        .unwrap();
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default())
-    } else {
-        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
-    }
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project().gb_dir().join("virtual_branches.toml"),
+    )
     .unwrap();
+    let stacks = { but_workspace::stacks_v3(&repo, &meta, StacksFilter::default()) }.unwrap();
     let mut details = vec![];
     for stack in stacks {
         let stack_id = stack
@@ -184,16 +179,7 @@ pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
             .expect("BUG(opt-stack-id): test code shouldn't trigger this");
         details.push((
             stack_id,
-            if ctx.app_settings().feature_flags.ws3 {
-                let meta = VirtualBranchesTomlMetadata::from_path(
-                    ctx.project().gb_dir().join("virtual_branches.toml"),
-                )
-                .unwrap();
-                but_workspace::stack_details_v3(stack_id.into(), &repo, &meta)
-            } else {
-                but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
-            }
-            .unwrap(),
+            but_workspace::stack_details_v3(stack_id.into(), &repo, &meta).unwrap(),
         ));
     }
     details

@@ -31,13 +31,11 @@ pub fn process_workspace_rules(
     }
 
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    let stacks_in_ws = if ctx.app_settings().feature_flags.ws3 {
+    let stacks_in_ws = {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project().gb_dir().join("virtual_branches.toml"),
         )?;
         but_workspace::stacks_v3(&repo, &meta, StacksFilter::InWorkspace)
-    } else {
-        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
     }?;
 
     for rule in rules {

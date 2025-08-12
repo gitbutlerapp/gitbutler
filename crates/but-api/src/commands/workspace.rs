@@ -32,18 +32,8 @@ pub fn stacks(app: &App, params: StacksParams) -> Result<Vec<StackEntry>, Error>
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    if ctx.app_settings().feature_flags.ws3 {
-        let meta = ref_metadata_toml(ctx.project())?;
-        but_workspace::stacks_v3(&repo, &meta, params.filter.unwrap_or_default())
-    } else {
-        but_workspace::stacks(
-            &ctx,
-            &project.gb_dir(),
-            &repo,
-            params.filter.unwrap_or_default(),
-        )
-    }
-    .map_err(Into::into)
+    let meta = ref_metadata_toml(ctx.project())?;
+    but_workspace::stacks_v3(&repo, &meta, params.filter.unwrap_or_default()).map_err(Into::into)
 }
 
 #[derive(Deserialize)]
@@ -105,18 +95,9 @@ pub fn stack_details(
 ) -> Result<but_workspace::ui::StackDetails, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    if ctx.app_settings().feature_flags.ws3 {
-        let repo = ctx.gix_repo_for_merging_non_persisting()?;
-        let meta = ref_metadata_toml(ctx.project())?;
-        but_workspace::stack_details_v3(params.stack_id, &repo, &meta)
-    } else {
-        but_workspace::stack_details(
-            &project.gb_dir(),
-            params.stack_id.context("BUG(opt-stack-id)")?,
-            &ctx,
-        )
-    }
-    .map_err(Into::into)
+    let repo = ctx.gix_repo_for_merging_non_persisting()?;
+    let meta = ref_metadata_toml(ctx.project())?;
+    but_workspace::stack_details_v3(params.stack_id, &repo, &meta).map_err(Into::into)
 }
 
 #[derive(Deserialize)]
@@ -133,29 +114,19 @@ pub fn branch_details(
 ) -> Result<but_workspace::ui::BranchDetails, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    if ctx.app_settings().feature_flags.ws3 {
-        let repo = ctx.gix_repo_for_merging_non_persisting()?;
-        let meta = ref_metadata_toml(ctx.project())?;
-        let ref_name: gix::refs::FullName = match params.remote.as_deref() {
-            None => {
-                format!("refs/heads/{}", params.branch_name)
-            }
-            Some(remote) => {
-                format!("refs/remotes/{remote}/{}", params.branch_name)
-            }
+    let repo = ctx.gix_repo_for_merging_non_persisting()?;
+    let meta = ref_metadata_toml(ctx.project())?;
+    let ref_name: gix::refs::FullName = match params.remote.as_deref() {
+        None => {
+            format!("refs/heads/{}", params.branch_name)
         }
-        .try_into()
-        .map_err(anyhow::Error::from)?;
-        but_workspace::branch_details_v3(&repo, ref_name.as_ref(), &meta)
-    } else {
-        but_workspace::branch_details(
-            &project.gb_dir(),
-            &params.branch_name,
-            params.remote.as_deref(),
-            &ctx,
-        )
+        Some(remote) => {
+            format!("refs/remotes/{remote}/{}", params.branch_name)
+        }
     }
-    .map_err(Into::into)
+    .try_into()
+    .map_err(anyhow::Error::from)?;
+    but_workspace::branch_details_v3(&repo, ref_name.as_ref(), &meta).map_err(Into::into)
 }
 
 #[derive(Deserialize)]

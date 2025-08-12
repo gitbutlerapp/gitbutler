@@ -79,12 +79,8 @@ pub async fn commit(
 
 fn stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    if ctx.app_settings().feature_flags.ws3 {
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
-        )?;
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default())
-    } else {
-        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
-    }
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project().gb_dir().join("virtual_branches.toml"),
+    )?;
+    but_workspace::stacks_v3(&repo, &meta, StacksFilter::default())
 }

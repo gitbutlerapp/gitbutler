@@ -23,9 +23,6 @@ pub struct GitHubOAuthAppSettings {
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct FeatureFlags {
-    /// Enable the usage of V3 workspace APIs.
-    #[serde(default = "default_true")]
-    pub ws3: bool,
     /// Enable undo/redo support.
     ///
     /// ### Progression for implementation
@@ -47,10 +44,6 @@ pub struct FeatureFlags {
     pub butbot: bool,
     /// Enable processing of workspace rules.
     pub rules: bool,
-}
-
-fn default_true() -> bool {
-    true
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

@@ -11,7 +11,6 @@ pub fn project_status(project_dir: &Path) -> anyhow::Result<but_tools::workspace
     let app_settings = AppSettings {
         feature_flags: but_settings::app_settings::FeatureFlags {
             // Keep this off until it caught up at least.
-            ws3: false,
             undo: false,
             actions: false,
             butbot: false,

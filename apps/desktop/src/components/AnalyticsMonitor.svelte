@@ -64,7 +64,6 @@ attached to posthog events.
 		eventContext.update({
 			v3: true,
 			butlerActions: $settingsService?.featureFlags.actions,
-			ws3: $settingsService?.featureFlags.ws3,
 			rules: $settingsService?.featureFlags.rules
 		});
 	});
