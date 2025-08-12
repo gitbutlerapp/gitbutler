@@ -422,9 +422,9 @@ fn get_or_create_session(
         .into_iter()
         .find(|r| r.matches_claude_code_session(session_id));
 
-    let stack_id = rule.and_then(|r| r.target_stack_id());
-
-    let stack_id = if let Some(stack_id) = stack_id {
+    let stack_id = if let Some((_, stack_id)) =
+        rule.and_then(|r| r.target_stack_id().map(|stack_id| (r, stack_id)))
+    {
         if let Some(stack_id) = stacks.iter().find_map(|s| {
             let id = s.id?;
             (id.to_string() == stack_id).then_some(id)
