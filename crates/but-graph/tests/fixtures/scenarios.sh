@@ -1000,6 +1000,32 @@ EOF
     create_workspace_commit_once B A
   )
 
+  git init dependent-branch-on-base
+  (cd dependent-branch-on-base
+    commit M1
+    setup_target_to_match_main
+    git branch B
+    git branch below-below-A
+    git branch below-A
+    git branch below-B
+    git branch below-below-B
+    git branch C
+    git branch below-C
+    git branch below-below-C
+    git checkout -b A
+      commit A1
+    git checkout C
+      commit C1
+      git branch C1-1
+      git branch C1-2
+      git branch C1-3
+      commit C2
+      git branch C2-1
+      git branch C2-2
+      git branch C2-3
+    create_workspace_commit_aggressively C B A
+  )
+
   mkdir edit-commit
   (cd edit-commit
     git init simple

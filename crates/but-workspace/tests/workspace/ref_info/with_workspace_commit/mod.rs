@@ -1045,7 +1045,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
     );
 
     // The stacks should come out just like defined above, "lane" and then "lane2" with all the right segments.
-    // he lane-segment01|02 bits can't be connected as they are not physically connected in the graph anymore.
+    // The lane-segment01|02 bits are brought up as dependent branch as well.
     let opts = standard_options();
     let info = ref_info(repo.find_reference("lane")?, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
@@ -1071,6 +1071,28 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
+                        commits_on_remote: [],
+                        commits_outside: None,
+                        metadata: Branch,
+                        push_status: CompletelyUnpushed,
+                        base: "None",
+                    },
+                    ref_info::ui::Segment {
+                        id: NodeIndex(7),
+                        ref_name: "refs/heads/lane-segment-01",
+                        remote_tracking_ref_name: "None",
+                        commits: [],
+                        commits_on_remote: [],
+                        commits_outside: None,
+                        metadata: Branch,
+                        push_status: CompletelyUnpushed,
+                        base: "None",
+                    },
+                    ref_info::ui::Segment {
+                        id: NodeIndex(8),
+                        ref_name: "refs/heads/lane-segment-02",
+                        remote_tracking_ref_name: "None",
+                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -1230,6 +1252,28 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
+                        commits_on_remote: [],
+                        commits_outside: None,
+                        metadata: Branch,
+                        push_status: CompletelyUnpushed,
+                        base: "None",
+                    },
+                    ref_info::ui::Segment {
+                        id: NodeIndex(7),
+                        ref_name: "refs/heads/lane-segment-01",
+                        remote_tracking_ref_name: "None",
+                        commits: [],
+                        commits_on_remote: [],
+                        commits_outside: None,
+                        metadata: Branch,
+                        push_status: CompletelyUnpushed,
+                        base: "None",
+                    },
+                    ref_info::ui::Segment {
+                        id: NodeIndex(8),
+                        ref_name: "refs/heads/lane-segment-02",
+                        remote_tracking_ref_name: "None",
+                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
