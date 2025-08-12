@@ -347,6 +347,7 @@ pub mod stacks {
                 actions: false,
                 butbot: false,
                 rules: false,
+                single_branch: false,
             },
             ..AppSettings::default()
         };

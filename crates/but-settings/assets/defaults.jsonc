@@ -29,7 +29,9 @@
 		/// Enable the usage of the butbot chat.
 		"butbot": false,
 		/// Enable processing of workspace rules.
-		"rules": false
+		"rules": false,
+		/// Enable single branch mode.
+		"singleBranch": false
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {
