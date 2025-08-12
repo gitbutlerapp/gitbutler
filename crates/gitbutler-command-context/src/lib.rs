@@ -1,7 +1,8 @@
 use anyhow::Result;
-use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
+use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_project::Project;
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
 pub struct CommandContext {
@@ -12,6 +13,42 @@ pub struct CommandContext {
     /// A snapshot of the app settings obtained at the beginnig of each command.
     app_settings: AppSettings,
     db_handle: Option<but_db::DbHandle>,
+}
+
+/// A [`but_graph::VirtualBranchesTomlMetadata`] instance that is only accessible if it sees a read
+/// permission upon instantiation.
+///
+/// This is necessary only while the `virtual_branches.toml` file is used as it's read eagerly on
+/// instantiation, and must thus not interleave with other writers.
+pub struct VirtualBranchesTomlMetadata(but_graph::VirtualBranchesTomlMetadata);
+
+impl Deref for VirtualBranchesTomlMetadata {
+    type Target = but_graph::VirtualBranchesTomlMetadata;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// A [`but_graph::VirtualBranchesTomlMetadata`] instance that is only accessible if it sees a write
+/// permission upon instantiation.
+///
+/// This is necessary only while the `virtual_branches.toml` file is used as it's read eagerly on
+/// instantiation, and must thus not interleave with other writers.
+pub struct VirtualBranchesTomlMetadataMut(but_graph::VirtualBranchesTomlMetadata);
+
+impl Deref for VirtualBranchesTomlMetadataMut {
+    type Target = but_graph::VirtualBranchesTomlMetadata;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for VirtualBranchesTomlMetadataMut {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }
 
 impl CommandContext {
@@ -29,10 +66,6 @@ impl CommandContext {
     pub fn project(&self) -> &Project {
         &self.project
     }
-    //
-    // pub fn meta(&self) -> Result<VirtualBranchesTomlMetadata> {
-    //     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
-    // }
 
     /// Return the [`project`](Self::project) repository.
     pub fn repo(&self) -> &git2::Repository {
@@ -65,9 +98,13 @@ impl CommandContext {
 
     /// Create a new Graph traversal from the current HEAD, using (and returning) the given `repo` (configured by the caller),
     /// along with a new metadata instance, and the graph itself.
+    ///
+    /// The read-permission is required to obtain a shared metadata instance. Note that it must be held
+    /// for until the end of the operation for the protection to be effective.
     pub fn graph_and_meta(
         &self,
         repo: gix::Repository,
+        _read_only: &WorktreeReadPermission,
     ) -> Result<(
         gix::Repository,
         VirtualBranchesTomlMetadata,
@@ -75,28 +112,28 @@ impl CommandContext {
     )> {
         let meta = self.meta()?;
         let graph = but_graph::Graph::from_head(&repo, &meta, meta.graph_options())?;
-        Ok((repo, meta, graph))
+        Ok((repo, VirtualBranchesTomlMetadata(meta), graph))
     }
 
     /// Open the repository with standard options and create a new Graph traversal from the current HEAD,
     /// along with a new metadata instance, and the graph itself.
     ///
+    /// The write-permission is required to obtain a mutable metadata instance. Note that it must be held
+    /// for until the end of the operation for the protection to be effective.
+    ///
     /// Use [`Self::graph_and_meta()`] if control over the repository configuration is needed.
-    pub fn graph_and_meta_and_repo(
+    pub fn graph_and_meta_mut_and_repo(
         &self,
+        _write: &mut WorktreeWritePermission,
     ) -> Result<(
         gix::Repository,
-        VirtualBranchesTomlMetadata,
+        VirtualBranchesTomlMetadataMut,
         but_graph::Graph,
     )> {
         let repo = self.gix_repo()?;
-        self.graph_and_meta(repo)
-    }
-
-    /// Return the `RefMetadata` implementation based on the `virtual_branches.toml` file.
-    /// This can one day be changed to auto-migrate away from the toml and to the database.
-    pub fn meta(&self) -> Result<VirtualBranchesTomlMetadata> {
-        VirtualBranchesTomlMetadata::from_path(self.project.gb_dir().join("virtual_branches.toml"))
+        let meta = self.meta()?;
+        let graph = but_graph::Graph::from_head(&repo, &meta, meta.graph_options())?;
+        Ok((repo, VirtualBranchesTomlMetadataMut(meta), graph))
     }
 
     /// Return a newly opened `gitoxide` repository, with all configuration available
@@ -130,6 +167,17 @@ impl CommandContext {
 
     pub fn app_settings(&self) -> &AppSettings {
         &self.app_settings
+    }
+}
+
+/// Keep these private
+impl CommandContext {
+    /// Return the `RefMetadata` implementation based on the `virtual_branches.toml` file.
+    /// This can one day be changed to auto-migrate away from the toml and to the database.
+    fn meta(&self) -> Result<but_graph::VirtualBranchesTomlMetadata> {
+        but_graph::VirtualBranchesTomlMetadata::from_path(
+            self.project.gb_dir().join("virtual_branches.toml"),
+        )
     }
 }
 

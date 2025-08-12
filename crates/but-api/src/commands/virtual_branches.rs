@@ -43,7 +43,8 @@ pub fn create_virtual_branch(
     let ws3_enabled = app.app_settings.get()?.feature_flags.ws3;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let stack_entry = if ws3_enabled {
-        let (repo, mut meta, graph) = ctx.graph_and_meta_and_repo()?;
+        let mut guard = project.exclusive_worktree_access();
+        let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
         let ws = graph.to_workspace()?;
         let new_ref = Category::LocalBranch
             .to_full_name(
@@ -63,9 +64,13 @@ pub fn create_virtual_branch(
             )
             .map_err(anyhow::Error::from)?;
 
-        let _guard = project.exclusive_worktree_access();
-        let graph =
-            but_workspace::branch::create_reference(new_ref.as_ref(), None, &repo, &ws, &mut meta)?;
+        let graph = but_workspace::branch::create_reference(
+            new_ref.as_ref(),
+            None,
+            &repo,
+            &ws,
+            &mut *meta,
+        )?;
 
         let ws = graph.to_workspace()?;
         let (stack_idx, segment_idx) = ws
