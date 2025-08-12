@@ -170,25 +170,6 @@
 	>
 		{@const { branch, prNumber, first, stackLength } = contextData}
 		{@const branchName = branch.name}
-		{#if first && stackId}
-			<ContextMenuSection>
-				<ContextMenuItem
-					label="Add dependent branch"
-					testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
-					onclick={async () => {
-						addDependentBranchModalContext = {
-							projectId,
-							stackId
-						};
-
-						await tick();
-
-						addDependentBranchModal?.show();
-						close();
-					}}
-				/>
-			</ContextMenuSection>
-		{/if}
 		<ContextMenuSection>
 			{#if branch.remoteTrackingBranch}
 				<ContextMenuItem
@@ -213,15 +194,16 @@
 		{#if stackId}
 			<ContextMenuSection>
 				<ContextMenuItem
-					label="Create reference above"
+					label="Create dependent branch above"
 					disabled={refCreation.current.isLoading}
+					testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
 					onclick={async () => {
 						await handleCreateNewRef(stackId, 'Above');
 						close();
 					}}
 				/>
 				<ContextMenuItem
-					label="Create reference below"
+					label="Create dependent branch below"
 					disabled={refCreation.current.isLoading}
 					onclick={async () => {
 						await handleCreateNewRef(stackId, 'Below');

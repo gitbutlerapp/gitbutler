@@ -213,7 +213,7 @@
 				</ContextMenuSection>
 				<ContextMenuSection>
 					<ContextMenuItem
-						label="Create reference above"
+						label="Create dependent branch above"
 						disabled={refCreation.current.isLoading}
 						onclick={async () => {
 							await handleCreateNewRef(stackId, commitId, 'Above');
@@ -221,7 +221,7 @@
 						}}
 					/>
 					<ContextMenuItem
-						label="Create reference below"
+						label="Create dependent branch below"
 						disabled={refCreation.current.isLoading}
 						onclick={async () => {
 							await handleCreateNewRef(stackId, commitId, 'Below');
