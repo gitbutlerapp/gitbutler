@@ -60,9 +60,9 @@
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const modeService = injectOptional(MODE_SERVICE, undefined);
-	const stackState = $derived(uiState.stack(laneId));
+	const laneState = $derived(uiState.lane(laneId));
 	const projectState = $derived(uiState.project(projectId));
-	const selected = $derived(stackState.selection);
+	const selected = $derived(laneState.selection);
 	const branchName = $derived(selected.current?.branchName);
 
 	const commitResult = $derived(
@@ -123,7 +123,7 @@
 			message: commitMessage
 		});
 
-		uiState.stack(stackId).selection.set({ branchName, commitId: newCommitId });
+		uiState.lane(stackId).selection.set({ branchName, commitId: newCommitId });
 		setMode('view');
 	}
 

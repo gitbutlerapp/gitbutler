@@ -90,8 +90,8 @@
 
 	let dropzoneActivated = $state(false);
 
-	const stackState = $derived(uiState.stack(laneId));
-	const selection = $derived(stackState.selection);
+	const laneState = $derived(uiState.lane(laneId));
+	const selection = $derived(laneState.selection);
 	const assignedSelection = $derived(
 		idSelection.getById(createWorktreeSelection({ stackId: stackId }))
 	);
@@ -435,7 +435,7 @@
 									}}
 									onselect={() => {
 										// Clear one selection when you modify the other.
-										stackState?.selection.set(undefined);
+										laneState?.selection.set(undefined);
 										intelligentScrollingService.show(projectId, laneId, 'diff');
 									}}
 								>

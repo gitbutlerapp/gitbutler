@@ -111,8 +111,8 @@
 	const isCommitting = $derived(
 		exclusiveAction?.type === 'commit' && exclusiveAction.stackId === stackId
 	);
-	const stackState = $derived(uiState.stack(laneId));
-	const selection = $derived(stackState.selection);
+	const laneState = $derived(uiState.lane(laneId));
+	const selection = $derived(laneState.selection);
 	const runHooks = $derived(projectRunCommitHooks(projectId));
 
 	const selectedBranchName = $derived(selection.current?.branchName);
@@ -156,7 +156,7 @@
 
 	async function handleCommitClick(commitId: string, upstream: boolean) {
 		if (selectedCommitId !== commitId) {
-			stackState.selection.set({ branchName, commitId, upstream });
+			laneState.selection.set({ branchName, commitId, upstream });
 		}
 		projectState.stackId.set(stackId);
 		onselect?.();
@@ -327,7 +327,7 @@
 								stackId,
 								$runHooks,
 								dzCommit,
-								(newId) => uiState.stack(stackId).selection.set({ branchName, commitId: newId }),
+								(newId) => uiState.lane(stackId).selection.set({ branchName, commitId: newId }),
 								uiState
 							)
 						: undefined}
