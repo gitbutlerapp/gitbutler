@@ -12,6 +12,8 @@
 		| { label: string; value: T } // Regular items require label and value
 	);
 
+	type Modifiers = { shift: boolean; ctrl: boolean; alt: boolean; meta: boolean };
+
 	interface Props {
 		id?: string;
 		label?: string;
@@ -34,7 +36,7 @@
 		children?: Snippet;
 		icon?: keyof typeof iconsJson;
 		autofocus?: boolean;
-		onselect?: (value: T) => void;
+		onselect?: (value: T, modifiers?: Modifiers) => void;
 		ontoggle?: (isOpen: boolean) => void;
 	}
 </script>
@@ -165,17 +167,25 @@
 		}
 	}
 
-	function handleSelect(item: SelectItem<string>) {
+	function handleSelect(item: SelectItem<string>, event?: MouseEvent | KeyboardEvent) {
 		if (item.separator || !item.value) return;
 		const value = item.value as T;
-		onselect?.(value);
+		const modifiers = event
+			? {
+					shift: event.shiftKey,
+					ctrl: event.ctrlKey,
+					alt: event.altKey,
+					meta: event.metaKey
+				}
+			: undefined;
+		onselect?.(value, modifiers);
 		closeList();
 	}
 
-	function handleEnter() {
+	function handleEnter(event: KeyboardEvent) {
 		const option = highlightedIndex !== undefined ? selectableOptions[highlightedIndex] : undefined;
 		if (option) {
-			handleSelect(option);
+			handleSelect(option, event);
 		}
 	}
 
@@ -232,7 +242,7 @@
 				handleArrowDown();
 				break;
 			case KeyName.Enter:
-				handleEnter();
+				handleEnter(e);
 				break;
 		}
 	}
@@ -353,7 +363,7 @@
 										class="option"
 										tabindex="-1"
 										role="none"
-										onmousedown={() => handleSelect(item)}
+										onmousedown={(event) => handleSelect(item, event)}
 									>
 										{@render itemSnippet({
 											item,

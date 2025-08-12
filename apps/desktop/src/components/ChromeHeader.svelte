@@ -103,8 +103,12 @@
 			options={mappedProjects}
 			loading={newProjectLoading || cloneProjectLoading}
 			disabled={newProjectLoading || cloneProjectLoading}
-			onselect={(value: string) => {
-				goto(projectPath(value));
+			onselect={(value: string, modifiers?) => {
+				if (modifiers?.meta) {
+					projectsService.openProjectInNewWindow(value);
+				} else {
+					goto(projectPath(value));
+				}
 			}}
 			popupAlign="center"
 			customWidth={300}
