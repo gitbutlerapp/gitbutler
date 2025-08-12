@@ -16,6 +16,7 @@ you right. Let's get started.
 - [Debugging](#debugging)
   - [Logs](#logs)
   - [Tokio](#tokio)
+- [Troubleshooting](#troubleshooting)
 - [Building](#building)
   - [Building on Windows](#building-on-windows)
     - [File permissions](#file-permissions)
@@ -219,6 +220,115 @@ We are also collecting tokio's runtime tracing information that could be viewed 
   ```bash
   $ tokio-console http://127.0.0.1:6667
   ```
+
+---
+
+## Troubleshooting
+
+Common issues and solutions when developing GitButler.
+
+### Turbo/Build Issues
+
+### Case-sensitive volume problems
+
+If you're experiencing issues with the `dev:desktop` target failing to start, especially on macOS with case-sensitive filesystems, this may be related to Turborepo's handling of case-sensitive volumes.
+
+**Solution:** See the related issue at [vercel/turborepo#8491](https://github.com/vercel/turborepo/issues/8491) for current workarounds.
+
+#### Turbo daemon issues
+
+If builds are hanging or behaving unexpectedly:
+
+```bash
+# Stop the turbo daemon
+$ pnpm exec turbo daemon stop
+
+# Clear turbo cache
+$ pnpm exec turbo daemon clean
+
+# Restart development
+$ pnpm dev:desktop
+```
+
+### Cache Issues
+
+If you're seeing stale builds or unexpected behavior:
+
+```bash
+# Clear all caches
+$ pnpm clean
+$ cargo clean
+$ rm -rf node_modules
+$ pnpm install
+```
+
+### Platform-specific Issues
+
+For Windows-specific build issues, refer to the [Building on Windows](#building-on-windows) section. Common issues include:
+
+- Missing Perl interpreter for OpenSSL compilation
+- Incorrect npm prefix configuration
+- File permission issues with pnpm
+
+#### macOS
+
+- Ensure Xcode Command Line Tools are installed: `xcode-select --install`
+- If using Homebrew, ensure cmake is installed: `brew install cmake`
+
+#### Linux
+
+- Double-check all system dependencies are installed (see Prerequisites)
+- On some distributions, you may need additional development packages
+
+### Node.js and pnpm Issues
+
+#### pnpm installation failures
+
+```bash
+# Disable and re-enable corepack
+$ corepack disable
+$ corepack enable
+
+# Or install pnpm globally
+$ npm install -g pnpm
+```
+
+#### Node version conflicts
+
+Ensure you're using Node 20+. If using a version manager like nvm:
+
+```bash
+$ nvm use 20
+$ nvm alias default 20
+```
+
+### Rust Issues
+
+#### Cargo build failures
+
+```bash
+# Update Rust toolchain
+$ rustup update
+
+# Clean and rebuild
+$ cargo clean
+$ cargo build
+```
+
+#### Missing system dependencies
+
+On Linux, if you're getting linking errors, ensure all required system libraries are installed. Revisit the Prerequisites section for your distribution.
+
+### Additional Resources
+
+For issues specific to our toolchain components:
+
+- [Turborepo Issues](https://github.com/vercel/turborepo/issues)
+- [Tauri Issues](https://github.com/tauri-apps/tauri/issues)
+- [Svelte Issues](https://github.com/sveltejs/svelte/issues)
+- [Rust Issues](https://github.com/rust-lang/rust/issues)
+
+If none of these solutions work, please check our [GitHub Issues](https://github.com/gitbutlerapp/gitbutler/issues) or create a new issue with detailed information about your system and the error you're encountering.
 
 ---
 
