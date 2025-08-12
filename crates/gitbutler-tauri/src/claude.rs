@@ -7,6 +7,7 @@ use but_claude::ClaudeMessage;
 use but_workspace::StackId;
 use gitbutler_project::ProjectId;
 use tauri::State;
+use tracing::instrument;
 
 #[tauri::command(async)]
 pub async fn claude_send_message(
@@ -37,6 +38,22 @@ pub async fn claude_get_messages(
         GetMessagesParams {
             project_id,
             stack_id,
+        },
+    )
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub fn claude_get_session_details(
+    app: State<'_, App>,
+    project_id: ProjectId,
+    session_id: String,
+) -> Result<but_claude::ClaudeSessionDetails, Error> {
+    claude::claude_get_session_details(
+        &app,
+        claude::GetSessionDetailsParams {
+            project_id,
+            session_id,
         },
     )
 }

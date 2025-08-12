@@ -328,6 +328,7 @@ fn main() {
                     diff::changes_in_branch,
                     diff::tree_change_diffs,
                     diff::assign_hunk,
+                    claude::claude_get_session_details,
                     // Debug-only - not for production!
                     #[cfg(debug_assertions)]
                     env::env_vars,
