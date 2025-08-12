@@ -28,7 +28,8 @@ pub async fn claude_send_message(
 }
 
 #[tauri::command(async)]
-pub async fn claude_get_messages(
+#[instrument(skip(app), err(Debug))]
+pub fn claude_get_messages(
     app: State<'_, App>,
     project_id: ProjectId,
     stack_id: StackId,
