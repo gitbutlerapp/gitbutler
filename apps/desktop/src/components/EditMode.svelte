@@ -13,6 +13,7 @@
 	import { MODE_SERVICE, type EditModeMetadata } from '$lib/mode/modeService';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { createCommitSelection } from '$lib/selection/key';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
@@ -25,7 +26,6 @@
 	import { derived, fromStore, readable, toStore, type Readable } from 'svelte/store';
 	import type { FileInfo } from '$lib/files/file';
 	import type { TreeChange } from '$lib/hunks/change';
-	import type { SelectionId } from '$lib/selection/key';
 	import type { FileStatus } from '@gitbutler/ui/components/file/types';
 
 	type Props = {
@@ -323,7 +323,7 @@
 				{projectId}
 				trigger={filesList}
 				stackId={undefined}
-				selectionId={{ type: 'commit', commitId: editModeMetadata.commitOid } satisfies SelectionId}
+				selectionId={createCommitSelection({ commitId: editModeMetadata.commitOid })}
 				editMode={true}
 			/>
 		{/snippet}

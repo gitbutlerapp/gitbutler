@@ -54,7 +54,8 @@
 	interface StackBranchProps extends BranchCardProps {
 		type: 'stack-branch';
 		iconName: keyof typeof iconsJson;
-		stackId: string;
+		stackId?: string;
+		laneId: string;
 		selected: boolean;
 		trackingBranch?: string;
 		isNewBranch?: boolean;
@@ -99,7 +100,7 @@
 	);
 
 	const stackState = $derived(
-		args.type === 'stack-branch' ? uiState.stack(args.stackId) : undefined
+		args.type === 'stack-branch' ? uiState.stack(args.laneId) : undefined
 	);
 	const selection = $derived(stackState ? stackState.selection.current : undefined);
 	const selected = $derived(selection?.branchName === branchName);
@@ -113,9 +114,11 @@
 				uiState.global.draftBranchName.set(normalized);
 			}
 		} else if (args.type === 'stack-branch') {
+			if (!args.stackId) return;
 			updateName({
 				projectId,
 				stackId: args.stackId,
+				laneId: args.laneId,
 				branchName,
 				newName: title
 			});
@@ -135,11 +138,15 @@
 	data-testid={TestId.BranchCard}
 >
 	{#if args.type === 'stack-branch'}
-		{@const moveHandler = new MoveCommitDzHandler(stackService, args.stackId, projectId)}
-		{#if !args.prNumber}
+		{@const moveHandler = args.stackId
+			? new MoveCommitDzHandler(stackService, args.stackId, projectId)
+			: undefined}
+		{#if !args.prNumber && args.stackId}
 			<PrNumberUpdater {projectId} stackId={args.stackId} {branchName} />
 		{/if}
-		<Dropzone handlers={args.first ? [moveHandler, ...args.dropzones] : args.dropzones}>
+		<Dropzone
+			handlers={args.first && moveHandler ? [moveHandler, ...args.dropzones] : args.dropzones}
+		>
 			{#snippet overlay({ hovered, activated, handler })}
 				{@const label =
 					handler instanceof MoveCommitDzHandler

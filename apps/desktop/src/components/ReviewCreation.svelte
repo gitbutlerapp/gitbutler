@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	export interface CreatePrParams {
-		stackId: string;
+		stackId?: string;
 		branchName: string;
 		title: string;
 		body: string;
@@ -41,7 +41,7 @@
 
 	type Props = {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
 		branchName: string;
 		reviewId?: string;
 		onClose: () => void;
@@ -296,12 +296,14 @@
 			});
 
 			// Store the new pull request number with the branch data.
-			await stackService.updateBranchPrNumber({
-				projectId,
-				stackId: params.stackId,
-				branchName: params.branchName,
-				prNumber: pr.number
-			});
+			if (params.stackId) {
+				await stackService.updateBranchPrNumber({
+					projectId,
+					stackId: params.stackId,
+					branchName: params.branchName,
+					prNumber: pr.number
+				});
+			}
 
 			// If we now have two or more pull requests we add a stack table to the description.
 			prNumbers[currentIndex] = pr.number;

@@ -25,7 +25,8 @@
 
 	type Props = {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
+		laneId: string;
 		commitKey: CommitKey;
 		active?: boolean;
 		draggableFiles: boolean;
@@ -42,6 +43,7 @@
 	let {
 		projectId,
 		stackId,
+		laneId,
 		commitKey,
 		scrollToId,
 		scrollToType,
@@ -58,7 +60,7 @@
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const modeService = injectOptional(MODE_SERVICE, undefined);
-	const stackState = $derived(uiState.stack(stackId));
+	const stackState = $derived(uiState.stack(laneId));
 	const projectState = $derived(uiState.project(projectId));
 	const selected = $derived(stackState.selection);
 	const branchName = $derived(selected.current?.branchName);
@@ -104,6 +106,7 @@
 	}
 
 	async function saveCommitMessage(title: string, description: string) {
+		if (!stackId) return;
 		const commitMessage = combineParts(title, description);
 		if (!branchName) {
 			throw new Error('No branch selected!');
@@ -125,6 +128,7 @@
 	}
 
 	async function handleUncommit() {
+		if (!stackId) return;
 		if (!branchName) return;
 		await stackService.uncommit({ projectId, stackId, branchName, commitId: commitKey.commitId });
 	}
@@ -134,6 +138,7 @@
 	}
 
 	async function handleEditPatch() {
+		if (!stackId) return;
 		await editPatch({
 			modeService,
 			commitId: commitKey.commitId,

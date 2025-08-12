@@ -18,7 +18,8 @@
 	import type { ComponentProps } from 'svelte';
 
 	interface Props {
-		stackId: string;
+		stackId?: string;
+		laneId: string;
 		projectId: string;
 		branchName: string;
 		active?: boolean;
@@ -34,6 +35,7 @@
 
 	let {
 		stackId,
+		laneId,
 		projectId,
 		branchName,
 		scrollToId,
@@ -106,6 +108,7 @@
 				<BranchHeaderContextMenu
 					{projectId}
 					{stackId}
+					{laneId}
 					rightClickTrigger={header}
 					contextData={data}
 				/>
@@ -142,6 +145,7 @@
 		<BranchRenameModal
 			{projectId}
 			{stackId}
+			{laneId}
 			branchName={branch.name}
 			bind:this={renameBranchModal}
 			isPushed={!!branch.remoteTrackingBranch}

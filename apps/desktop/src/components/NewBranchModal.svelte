@@ -8,7 +8,7 @@
 
 	interface Props {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
 	}
 
 	const BRANCH_STACKING_DOCS =
@@ -30,6 +30,7 @@
 	const generatedNameDiverges = $derived(!!createRefName && slugifiedRefName !== createRefName);
 
 	async function addSeries() {
+		if (!stackId) return;
 		if (!slugifiedRefName) {
 			chipToasts.error('No branch name provided');
 			createRefModal?.close();

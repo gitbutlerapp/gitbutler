@@ -23,6 +23,11 @@
 	import { isParsedError } from '$lib/error/parser';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { workspacePath } from '$lib/routes/routes.svelte';
+	import {
+		createBranchSelection,
+		createCommitSelection,
+		type SelectionId
+	} from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -30,7 +35,6 @@
 	import { AsyncButton, Button, Modal, TestId } from '@gitbutler/ui';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { SidebarEntrySubject } from '$lib/branches/branchListing';
-	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
 		projectId: string;
@@ -60,23 +64,13 @@
 	const selectionId: SelectionId | undefined = $derived.by(() => {
 		const current = branchesState?.current;
 		if (current.commitId) {
-			return { type: 'commit', commitId: current.commitId, stackId: current.stackId };
+			return createCommitSelection({ commitId: current.commitId, stackId: current.stackId });
 		}
 		if (current.branchName) {
 			const branchName = current.remote
 				? current.remote + '/' + current.branchName
 				: current.branchName;
-			if (current.stackId) {
-				return {
-					type: 'branch',
-					branchName,
-					stackId: current.stackId
-				};
-			}
-			return {
-				type: 'branch',
-				branchName
-			};
+			return createBranchSelection({ stackId: current.stackId, branchName });
 		}
 	});
 
@@ -377,6 +371,7 @@
 								{#if current.inWorkspace && current.stackId}
 									<BranchView
 										{projectId}
+										laneId="branches-view"
 										branchName={current.branchName}
 										stackId={current.stackId}
 										active

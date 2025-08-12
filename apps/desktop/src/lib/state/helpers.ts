@@ -1,3 +1,4 @@
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import {
 	QueryStatus,
 	type EndpointDefinition,
@@ -36,13 +37,14 @@ export function combineResults<T extends [...CustomResult<any>[]]>(
 	if (results.length === 0) {
 		return;
 	}
+	const results2 = results.filter(isDefined);
 
-	const data = results.every((r) => r.data !== undefined) ? results.map((r) => r.data) : undefined;
-	const error = results.find((r) => r.error)?.error;
-	const status = (results.find((r) => r.status === QueryStatus.rejected) ||
-		results.find((r) => r.status === QueryStatus.uninitialized) ||
-		results.find((r) => r.status === QueryStatus.pending) ||
-		results.find((r) => r.status === QueryStatus.fulfilled))!.status;
+	const data = results2.every((r) => r.data !== undefined) ? results.map((r) => r.data) : undefined;
+	const error = results2.find((r) => r.error)?.error;
+	const status = (results2.find((r) => r.status === QueryStatus.rejected) ||
+		results2.find((r) => r.status === QueryStatus.uninitialized) ||
+		results2.find((r) => r.status === QueryStatus.pending) ||
+		results2.find((r) => r.status === QueryStatus.fulfilled))!.status;
 	return {
 		status,
 		error,

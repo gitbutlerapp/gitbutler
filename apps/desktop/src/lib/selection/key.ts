@@ -107,3 +107,39 @@ export function selectionKey(id: SelectionId): SelectionKey {
 			return `${id.type}${UNIT_SEP}${id.snapshotId}` as SelectionKey;
 	}
 }
+
+/**
+ * Helper function to create SelectionId objects with auto-populated laneId.
+ * Uses stackId as laneId if it exists, otherwise defaults to "banana".
+ */
+export function createSelectionId<T extends Omit<SelectionId, 'laneId'>>(params: T): SelectionId {
+	const stackId = 'stackId' in params ? (params as any).stackId : undefined;
+	const laneId: string = stackId || 'banana';
+	return { ...params, laneId } as any;
+}
+
+/**
+ * Helper functions for creating specific SelectionId types with auto-populated laneId
+ */
+export function createWorktreeSelection(params: { stackId?: string }): SelectionId {
+	return createSelectionId({ type: 'worktree', stackId: params.stackId });
+}
+
+export function createCommitSelection(params: { commitId: string; stackId?: string }): SelectionId {
+	return createSelectionId({ type: 'commit', commitId: params.commitId, stackId: params.stackId });
+}
+
+export function createBranchSelection(params: {
+	stackId?: string;
+	branchName: string;
+}): SelectionId {
+	return createSelectionId({
+		type: 'branch',
+		stackId: params.stackId,
+		branchName: params.branchName
+	});
+}
+
+export function createSnapshotSelection(params: { snapshotId: string }): SelectionId {
+	return createSelectionId({ type: 'snapshot', snapshotId: params.snapshotId });
+}
