@@ -478,18 +478,7 @@ impl Graph {
                         refs_for_dependent_branches,
                         meta,
                     )?;
-                    // Did it actually do something?
-                    if new_above == Some(current_above) {
-                        if has_inserted_segment_above {
-                            self.push_commit_and_reconnect_outgoing(
-                                self[ws_segment_sidx].commits[commit_idx].clone(),
-                                current_above,
-                                (ws_segment_sidx, commit_idx),
-                            );
-                        }
-                        continue;
-                    }
-                    current_above = new_above.unwrap_or(current_above);
+                    current_above = new_above;
                     truncate_commits_from.get_or_insert(commit_idx);
                 }
                 if let Some(truncate_from) = truncate_commits_from {
@@ -515,7 +504,7 @@ impl Graph {
                     continue;
                 };
 
-                let edges = collect_edges_at_commit_reverse_order(
+                let edges_from_segment_above = collect_edges_at_commit_reverse_order(
                     self,
                     (
                         last_segment_id,
@@ -530,8 +519,7 @@ impl Graph {
                     None,
                     refs_for_dependent_branches.clone(),
                     meta,
-                )?
-                .expect("fix me: always creates a segment");
+                )?;
 
                 // As we didn't allow the previous function to deal with the commit, we do it.
                 self[base_sidx]
@@ -540,7 +528,11 @@ impl Graph {
                     .expect("we know there is one already")
                     .refs
                     .retain(|rn| !refs_for_dependent_branches.contains(rn));
-                reconnect_edges(self, edges, (new_sidx_above_base_sidx, None));
+                reconnect_edges(
+                    self,
+                    edges_from_segment_above,
+                    (new_sidx_above_base_sidx, None),
+                );
             }
         }
 
@@ -946,8 +938,8 @@ fn create_independent_segments<T: RefMetadata>(
 /// `commit_parent_below` is the segment to use `commit_idx` on to get its data, and assumed below `above_idx`.
 /// We also use this information to re-link segments (vaguely).
 /// If `commit_idx` is `None` (hack), don't add a commit at all, leave the segments empty.
-/// Return `Some(bottom_segment_index)`, or `None` no ref matched commit. There may be any amount of new segments above
-/// the `bottom_segment_index`.
+/// Return the index of the bottom-most created segment.
+/// There may be any amount of new segments above the `bottom_segment_index`.
 /// Note that the Segment at `bottom_segment_index` will own `commit`.
 /// Also note that we reconnect commit-by-commit, so the outer processing has to do that.
 /// Note that it may avoid creating a new segment.
@@ -956,28 +948,16 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
     mut above_idx: SegmentIndex,
     commit_parent_below: SegmentIndex,
     commit_idx: Option<CommitIndex>,
-    mut matching_refs: Vec<gix::refs::FullName>,
+    matching_refs: Vec<gix::refs::FullName>,
     meta: &OverlayMetadata<'_, T>,
-) -> anyhow::Result<Option<SegmentIndex>> {
-    assert!(!matching_refs.is_empty());
+) -> anyhow::Result<SegmentIndex> {
+    assert!(
+        !matching_refs.is_empty(),
+        "BUG: We really expect to create new segments here"
+    );
     let commit = commit_idx.map(|cidx| &graph[commit_parent_below].commits[cidx]);
 
     let iter_len = matching_refs.len();
-    // Shortcut: instead of replacing single anonymous segments, set their name.
-    if iter_len == 1 && graph[above_idx].ref_name.is_none() {
-        let s = &mut graph[above_idx];
-        let rn = matching_refs.pop().expect("exactly viable name");
-        s.metadata = meta
-            .branch_opt(rn.as_ref())?
-            .map(|md| SegmentMetadata::Branch(md.clone()));
-        s.commits
-            .first_mut()
-            .expect("at least one commit")
-            .refs
-            .retain(|crn| crn != &rn);
-        s.ref_name = rn.into();
-        return Ok(Some(above_idx));
-    }
 
     let commit = commit.map(|commit| {
         let mut c = commit.clone();
@@ -1066,7 +1046,7 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
             break;
         }
     }
-    Ok(Some(above_idx))
+    Ok(above_idx)
 }
 
 /// This removes outgoing connections from `source_sidx` and places them on the given commit
