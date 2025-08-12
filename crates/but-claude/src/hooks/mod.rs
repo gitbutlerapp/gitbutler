@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io::{self, Read};
+use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{Context, Result, anyhow};
@@ -19,9 +20,8 @@ use serde::{Deserialize, Serialize};
 
 // use crate::command::file_lock;
 
-mod claude_transcript;
 mod file_lock;
-use claude_transcript::Transcript;
+use crate::claude_transcript::Transcript;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -89,8 +89,7 @@ pub struct ClaudeStopInput {
 pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
     let input: ClaudeStopInput = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
-
-    let transcript = Transcript::from_file(input.transcript_path)?;
+    let transcript = Transcript::from_file(Path::new(&input.transcript_path))?;
     let cwd = transcript.dir()?;
     let repo = gix::discover(cwd)?;
     let project = Project::from_path(

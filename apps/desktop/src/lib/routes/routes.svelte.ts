@@ -69,6 +69,14 @@ export function isBranchesPath() {
 	return isUrl<{ projectId: string }>('/[projectId]/branches');
 }
 
+export function codegenPath(projectId: string) {
+	return `/${projectId}/codegen`;
+}
+
+export function isCodegenPath() {
+	return isUrl<{ projectId: string }>('/[projectId]/codegen');
+}
+
 export function isPreviewStackPath() {
 	return isUrl<{ projectId: string }>('/[projectId]/preview-stack/[stackId]');
 }

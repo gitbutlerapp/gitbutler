@@ -11,14 +11,14 @@ use axum::{
 };
 use but_api::{
     App, NoParams,
-    broadcaster::Broadcaster,
     commands::{
-        askpass, cli, config, diff, forge, git, github, modes, open, projects as iprojects,
+        askpass, claude, cli, config, diff, forge, git, github, modes, open, projects as iprojects,
         remotes, repo, rules, secret, settings, stack, undo, users, virtual_branches, workspace,
         zip,
     },
     error::ToError as _,
 };
+use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -73,6 +73,7 @@ pub async fn run() {
             cache_dir: app_data_dir.join("cache").clone(),
             logs_dir: app_data_dir.join("logs").clone(),
         }),
+        claudes: Default::default(),
     };
 
     // build our application with a single route
@@ -415,6 +416,26 @@ async fn handle_command(
         // Zip/Archive commands
         "get_project_archive_path" => run_cmd(&app, request.params, zip::get_project_archive_path),
         "get_logs_archive_path" => run_cmd(&app, request.params, zip::get_logs_archive_path),
+        "claude_send_message" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = claude::claude_send_message(&app, params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "claude_get_messages" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = claude::claude_get_messages(&app, params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
     };
 

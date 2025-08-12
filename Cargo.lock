@@ -852,6 +852,8 @@ name = "but-api"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-broadcaster",
+ "but-claude",
  "but-core",
  "but-graph",
  "but-hunk-assignment",
@@ -909,11 +911,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-broadcaster"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "but-claude"
 version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-action",
+ "but-broadcaster",
  "but-core",
  "but-db",
  "but-graph",
@@ -922,6 +935,7 @@ dependencies = [
  "but-settings",
  "but-workspace",
  "chrono",
+ "dirs 6.0.0",
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
@@ -931,6 +945,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strum",
+ "tokio",
  "uuid",
 ]
 
@@ -1099,6 +1114,7 @@ dependencies = [
  "anyhow",
  "axum 0.8.4",
  "but-api",
+ "but-broadcaster",
  "but-path",
  "but-settings",
  "futures-util",
@@ -3565,6 +3581,8 @@ dependencies = [
  "but-action",
  "but-api",
  "but-bot",
+ "but-broadcaster",
+ "but-claude",
  "but-core",
  "but-db",
  "but-graph",
@@ -3627,6 +3645,7 @@ dependencies = [
  "tracing-forest",
  "tracing-subscriber",
  "url",
+ "uuid",
 ]
 
 [[package]]

@@ -29,6 +29,12 @@ impl<const KIND: char> From<Uuid> for Id<KIND> {
     }
 }
 
+impl<const KIND: char> From<Id<KIND>> for Uuid {
+    fn from(val: Id<KIND>) -> Self {
+        val.0
+    }
+}
+
 impl<'de, const KIND: char> Deserialize<'de> for Id<KIND> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

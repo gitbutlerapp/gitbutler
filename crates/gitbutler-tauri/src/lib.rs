@@ -11,6 +11,7 @@
     clippy::too_many_lines
 )]
 
+pub mod claude;
 pub mod commands;
 
 pub mod logs;

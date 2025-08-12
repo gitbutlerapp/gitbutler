@@ -1,6 +1,7 @@
 use crate::Extra;
 use anyhow::{Context as _, Result};
-use but_api::{App, broadcaster::FrontendEvent, error::ToError};
+use but_api::{App, error::ToError};
+use but_broadcaster::FrontendEvent;
 use gitbutler_project::{Project, ProjectId};
 use gitbutler_watcher::{Change, WatcherHandle};
 use serde::Deserialize;
