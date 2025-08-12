@@ -40,6 +40,7 @@
 	type Props = {
 		projectId: string;
 		stackId?: string;
+		laneId: string;
 		openId?: string;
 		rightClickTrigger?: HTMLElement;
 		contextData: BranchHeaderContextData;
@@ -48,6 +49,7 @@
 	let {
 		projectId,
 		stackId,
+		laneId,
 		openId = $bindable(),
 		rightClickTrigger,
 		contextData
@@ -116,6 +118,7 @@
 			await updateBranchNameMutation({
 				projectId: projectId,
 				stackId,
+				laneId,
 				branchName,
 				newName: newBranchName
 			});
@@ -259,6 +262,7 @@
 							renameBranchModalContext = {
 								projectId,
 								stackId,
+								laneId,
 								branchName,
 								isPushed: !!branch.remoteTrackingBranch
 							};

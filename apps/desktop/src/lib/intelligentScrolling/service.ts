@@ -41,10 +41,10 @@ export class IntelligentScrollingService {
 	}
 
 	/** Handles clicking on either a commit or branch header */
-	async show(projectId: string, stackId: string, type: TargetType) {
+	async show(projectId: string, laneId: string, type: TargetType) {
 		await sleep(15);
 
-		const target = this.targets.find((t) => t.type === type && t.id === stackId);
+		const target = this.targets.find((t) => t.type === type && t.id === laneId);
 
 		if (!target) return;
 

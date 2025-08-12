@@ -5,11 +5,10 @@
 	import ChangedFiles from '$components/ChangedFiles.svelte';
 	import Drawer from '$components/Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import { createBranchSelection, type SelectionId } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { Icon, TestId, Tooltip } from '@gitbutler/ui';
-
-	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
 		projectId: string;
@@ -34,17 +33,7 @@
 
 	const selectionId: SelectionId = $derived.by(() => {
 		const bname = remote ? remote + '/' + branchName : branchName;
-		if (stackId) {
-			return {
-				type: 'branch',
-				branchName: bname,
-				stackId
-			};
-		}
-		return {
-			type: 'branch',
-			branchName: bname
-		};
+		return createBranchSelection({ stackId, branchName: bname });
 	});
 </script>
 
@@ -79,7 +68,12 @@
 					prNumber: branch.prNumber || undefined,
 					stackLength: 1
 				}}
-				<BranchHeaderContextMenu {projectId} rightClickTrigger={header} contextData={data} />
+				<BranchHeaderContextMenu
+					laneId="unapplied-branch-view"
+					{projectId}
+					rightClickTrigger={header}
+					contextData={data}
+				/>
 			{/snippet}
 
 			<div class="branch-header">

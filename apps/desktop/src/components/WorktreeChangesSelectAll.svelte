@@ -4,7 +4,7 @@
 	import { Checkbox } from '@gitbutler/ui';
 
 	type Props = {
-		stackId: string | undefined;
+		stackId?: string;
 	};
 
 	const { stackId }: Props = $props();

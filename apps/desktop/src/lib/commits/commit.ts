@@ -4,7 +4,7 @@ import { Transform } from 'class-transformer';
 import 'reflect-metadata';
 
 export type CommitKey = {
-	stackId: string;
+	stackId?: string;
 	branchName: string;
 	commitId: string;
 	upstream: boolean;

@@ -28,7 +28,7 @@ export class ChangeDropData {
 		 */
 		private selection: IdSelection,
 		readonly selectionId: SelectionId,
-		readonly stackId: string | null
+		readonly stackId?: string
 	) {}
 
 	changedPaths(params: SelectionId): string[] {

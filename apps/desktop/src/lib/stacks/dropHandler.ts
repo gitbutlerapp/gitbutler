@@ -100,7 +100,9 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 
 				const changes = await data.treeChanges();
 				const assignments = changes
-					.flatMap((c) => this.uncommittedService.getAssignmentsByPath(data.stackId, c.path))
+					.flatMap((c) =>
+						this.uncommittedService.getAssignmentsByPath(data.stackId || null, c.path)
+					)
 					.map((h) => ({ ...h, stackId: stack.id }));
 				await this.diffService.assignHunk({
 					projectId: this.projectId,

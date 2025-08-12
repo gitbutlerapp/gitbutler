@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	export type DeleteBranchModalProps = {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
 		branchName: string;
 	};
 </script>

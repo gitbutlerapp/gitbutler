@@ -130,7 +130,7 @@
 				oldLine: line.beforeLineNumber
 			}));
 
-		const selection = uncommittedService.hunkCheckStatus(stackId || null, change.path, hunk);
+		const selection = uncommittedService.hunkCheckStatus(stackId, change.path, hunk);
 		const currentSelectedLines = selection.current.lines;
 		const isSelected = selection.current.selected;
 
@@ -184,11 +184,7 @@
 				/>
 			{:else}
 				{#each filter(diff.subject.hunks) as hunk}
-					{@const selection = uncommittedService.hunkCheckStatus(
-						stackId || null,
-						change.path,
-						hunk
-					)}
+					{@const selection = uncommittedService.hunkCheckStatus(stackId, change.path, hunk)}
 					{@const [_, lineLocks] = getLineLocks(hunk, fileDependencies?.dependencies ?? [])}
 					<div
 						class="hunk-content"
