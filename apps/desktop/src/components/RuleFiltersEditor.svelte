@@ -57,13 +57,25 @@
 		return orderValue === maxOrderValue;
 	}
 
+	function isFilterTypeReady(type: RuleFilterType): boolean {
+		switch (type) {
+			case 'pathMatchesRegex':
+				return pathRegex !== undefined && pathRegex.trim() !== '';
+			case 'contentMatchesRegex':
+				return contentRegex !== undefined && contentRegex.trim() !== '';
+			case 'fileChangeType':
+				return treeChangeType !== undefined;
+			case 'semanticType':
+				// For now, user defined is not considered ready
+				return semanticType !== undefined && semanticType !== 'userDefined';
+			case 'claudeCodeSessionId':
+				return claudeCodeSessionId !== undefined && claudeCodeSessionId.trim() !== '';
+		}
+	}
+
 	function areDraftRuleFiltersReady(types: RuleFilterType[]): boolean {
 		for (const type of types) {
-			if (type === 'pathMatchesRegex' && !pathRegex) return false;
-			if (type === 'contentMatchesRegex' && !contentRegex) return false;
-			if (type === 'fileChangeType' && !treeChangeType) return false;
-			if (type === 'semanticType' && !semanticType) return false;
-			if (type === 'claudeCodeSessionId' && !claudeCodeSessionId) return false;
+			if (!isFilterTypeReady(type)) return false;
 		}
 		return true;
 	}
@@ -190,7 +202,11 @@
 
 <!-- Claude Code Session ID -->
 {#snippet claudeCodeSessionIdFilter()}
-	{claudeCodeSessionId}
+	<div class="rule__pill">
+		<span class="text-13 truncate">
+			{claudeCodeSessionId}
+		</span>
+	</div>
 {/snippet}
 
 <!-- This is the parent component,
@@ -209,29 +225,31 @@
 			{@render claudeCodeSessionIdFilter()}
 		{/if}
 
-		<div class="rule-filter-row__actions">
-			<Button
-				icon="bin"
-				size="cta"
-				class="rule-filter-row__button"
-				kind="ghost"
-				width="auto"
-				onclick={() => {
-					deleteFilter(type);
-				}}
-			/>
-			{#if isLastFilterType(type) && canAddMore}
+		{#if type !== 'claudeCodeSessionId'}
+			<div class="rule-filter-row__actions">
 				<Button
-					bind:el={addFilterButton}
-					class="rule-filter-row__button"
-					width="auto"
-					icon="plus"
+					icon="bin"
 					size="cta"
+					class="rule-filter-row__button"
 					kind="ghost"
-					onclick={handleAddFilter}
+					width="auto"
+					onclick={() => {
+						deleteFilter(type);
+					}}
 				/>
-			{/if}
-		</div>
+				{#if isLastFilterType(type) && canAddMore}
+					<Button
+						bind:el={addFilterButton}
+						class="rule-filter-row__button"
+						width="auto"
+						icon="plus"
+						size="cta"
+						kind="ghost"
+						onclick={handleAddFilter}
+					/>
+				{/if}
+			</div>
+		{/if}
 	</div>
 {/snippet}
 
@@ -278,6 +296,15 @@
 	.rule-filter-row__actions {
 		display: flex;
 		align-items: center;
+	}
+	.rule__pill {
+		display: flex;
+		align-items: center;
+		height: var(--size-tag);
+		padding: 0 6px;
+		gap: 6px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: 100px;
 	}
 
 	:global(.rule-filter-row .rule-filter-row__button) {
