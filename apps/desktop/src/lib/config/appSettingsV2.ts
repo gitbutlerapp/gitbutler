@@ -62,8 +62,11 @@ export class SettingsService {
 		try {
 			const response = await this.tauri.invoke<AppSettings>('get_app_settings');
 			const performedAutoToggle = getStorageItem(WS3_AUTO_TOGGLE) ?? false;
-			if (response.featureFlags.ws3 || performedAutoToggle) {
-				// If the WS3 feature flag is already enabled, or if we have already performed the auto toggle,
+			// If the auto toggle has already been performed, we do not need to do it again.
+			if (performedAutoToggle) return;
+			if (response.featureFlags.ws3) {
+				// If the WS3 feature flag is already enabled, set the flag and do not toggle it again.
+				setStorageItem(WS3_AUTO_TOGGLE, true);
 				return;
 			}
 
