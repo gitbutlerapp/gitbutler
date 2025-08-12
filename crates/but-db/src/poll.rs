@@ -10,6 +10,7 @@ bitflags! {
         const Actions = 1 << 0;
         const Workflows = 1 << 1;
         const Assignments = 1 << 2;
+        const Rules = 1 << 3;
     }
 }
 
@@ -110,6 +111,7 @@ impl DbHandle {
             let mut prev_assignments = Vec::new();
             let mut prev_workflows = Vec::new();
             let mut prev_actions = Vec::new();
+            let mut prev_rules = Vec::new();
             let mut ticker = tokio::time::interval(interval);
             loop {
                 ticker.tick().await;
@@ -153,6 +155,19 @@ impl DbHandle {
                             }
                             Err(e) => tx.send(Err(e)).await,
                         }
+                    } else if kind & to_check == ItemKind::Rules {
+                        let res = this.workspace_rules().list();
+                        match res {
+                            Ok(items) => {
+                                if items != prev_rules {
+                                    prev_rules = items;
+                                    tx.send(Ok(ItemKind::Rules)).await
+                                } else {
+                                    continue;
+                                }
+                            }
+                            Err(e) => tx.send(Err(anyhow::Error::from(e))).await,
+                        }
                     } else {
                         eprintln!("BUG: didn't implement a branch for {to_check:?}");
                         return;
@@ -187,7 +202,7 @@ pub fn watch_in_background(
     send_event: impl Fn(ItemKind) -> anyhow::Result<()> + Send + Sync + 'static,
 ) -> anyhow::Result<DBWatcherHandle, anyhow::Error> {
     let mut rx = db.poll_changes_async(
-        ItemKind::Actions | ItemKind::Workflows | ItemKind::Assignments,
+        ItemKind::Actions | ItemKind::Workflows | ItemKind::Assignments | ItemKind::Rules,
         std::time::Duration::from_millis(500),
     )?;
 

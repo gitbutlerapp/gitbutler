@@ -11,7 +11,8 @@
 		type StackTarget,
 		encodeStackTarget,
 		decodeStackTarget,
-		compareStackTarget
+		compareStackTarget,
+		type RuleFilter
 	} from '$lib/rules/rule';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { getStackName } from '$lib/stacks/stack';
@@ -97,6 +98,26 @@
 		resetEditor();
 	}
 
+	function updateInitialValues(filter: RuleFilter, initialValues: Partial<RuleFilterMap>): true {
+		switch (filter.type) {
+			case 'pathMatchesRegex':
+				initialValues.pathMatchesRegex = filter.subject;
+				return true;
+			case 'contentMatchesRegex':
+				initialValues.contentMatchesRegex = filter.subject;
+				return true;
+			case 'fileChangeType':
+				initialValues.fileChangeType = filter.subject;
+				return true;
+			case 'semanticType':
+				initialValues.semanticType = filter.subject;
+				return true;
+			case 'claudeCodeSessionId':
+				initialValues.claudeCodeSessionId = filter.subject;
+				return true;
+		}
+	}
+
 	async function editExistingRule(rule: WorkspaceRule) {
 		if (rule.action.type === 'implicit') {
 			chipToasts.error('Cannot edit implicit rules');
@@ -114,23 +135,7 @@
 		const initialValues: Partial<RuleFilterMap> = {};
 
 		for (const filter of rule.filters) {
-			switch (filter.type) {
-				case 'pathMatchesRegex':
-					initialValues.pathMatchesRegex = filter.subject;
-					break;
-				case 'contentMatchesRegex':
-					initialValues.contentMatchesRegex = filter.subject;
-					break;
-				case 'fileChangeType':
-					initialValues.fileChangeType = filter.subject;
-					break;
-				case 'semanticType':
-					initialValues.semanticType = filter.subject;
-					break;
-				case 'claudeCodeSessionId':
-					initialValues.claudeCodeSessionId = filter.subject;
-					break;
-			}
+			updateInitialValues(filter, initialValues);
 		}
 
 		draftRuleFilterInitialValues = initialValues;
@@ -219,7 +224,7 @@
 </div>
 
 {#snippet ruleListContent()}
-	{@const rules = rulesService.listWorkspaceRules(projectId)}
+	{@const rules = rulesService.workspaceRules(projectId)}
 	<ReduxResult {projectId} result={rules.current}>
 		{#snippet children(rules)}
 			{#if rules.length > 0}

@@ -1,3 +1,4 @@
+import { hasTauriExtra } from '$lib/state/backendQuery';
 import { invalidatesItem, invalidatesList, providesItems, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
@@ -30,7 +31,7 @@ export default class RulesService {
 		return this.api.endpoints.updateWorkspaceRule.useMutation();
 	}
 
-	listWorkspaceRules(projectId: string) {
+	workspaceRules(projectId: string) {
 		return this.api.endpoints.listWorkspaceRules.useQuery(
 			{ projectId },
 			{ transform: (result) => workspaceRulesSelectors.selectAll(result) }
@@ -88,6 +89,24 @@ function injectEndpoints(api: BackendApi) {
 				extraOptions: { command: 'list_workspace_rules' },
 				query: (args) => args,
 				providesTags: (result) => providesItems(ReduxTag.WorkspaceRules, result?.ids ?? []),
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					if (!hasTauriExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Tauri not found!');
+					}
+					// The `cacheDataLoaded` promise resolves when the result is first loaded.
+					await lifecycleApi.cacheDataLoaded;
+					const unsubscribe = lifecycleApi.extra.tauri.listen(
+						`project://${arg.projectId}/rule-updates`,
+						() => {
+							lifecycleApi.dispatch(
+								api.util.invalidateTags([invalidatesList(ReduxTag.WorkspaceRules)])
+							);
+						}
+					);
+					// The `cacheEntryRemoved` promise resolves when the result is removed
+					await lifecycleApi.cacheEntryRemoved;
+					unsubscribe();
+				},
 				transformResponse: (response: WorkspaceRule[]) => {
 					return workspaceRulesAdapter.addMany(workspaceRulesAdapter.getInitialState(), response);
 				}

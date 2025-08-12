@@ -95,6 +95,13 @@ pub(crate) mod state {
                         }),
                         project_id,
                     },
+                    ItemKind::Rules => ChangeForFrontend {
+                        name: format!("project://{}/rule-updates", project_id),
+                        payload: serde_json::json!({
+                            "kind": "rules"
+                        }),
+                        project_id,
+                    },
                     _ => {
                         tracing::warn!("Unhandled ItemKind in ChangeForFrontend: {:?}", item);
                         ChangeForFrontend {
