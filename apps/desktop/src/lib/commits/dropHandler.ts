@@ -360,8 +360,8 @@ function updateUiState(
 	mapping: [string, string][]
 ) {
 	const sourceReplacement = mapping.find(([before]) => before === commitId);
-	const sourceState = untrack(() => uiState.stack(stackId).selection.current);
+	const sourceState = untrack(() => uiState.lane(stackId).selection.current);
 	if (sourceReplacement && sourceState) {
-		uiState.stack(stackId).selection.set({ ...sourceState, commitId: sourceReplacement[1] });
+		uiState.lane(stackId).selection.set({ ...sourceState, commitId: sourceReplacement[1] });
 	}
 }

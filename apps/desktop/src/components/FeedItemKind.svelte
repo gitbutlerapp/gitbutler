@@ -30,8 +30,8 @@
 
 	function selectCommit(stackId: string, branchName: string, commitId: string) {
 		const projectState = uiState.project(projectId);
-		const stackState = uiState.stack(stackId);
-		stackState.selection.set({
+		const laneState = uiState.lane(stackId);
+		laneState.selection.set({
 			branchName,
 			commitId
 		});
@@ -40,8 +40,8 @@
 
 	function selectBranch(stackId: string, branchName: string) {
 		const projectState = uiState.project(projectId);
-		const stackState = uiState.stack(stackId);
-		stackState.selection.set({
+		const laneState = uiState.lane(stackId);
+		laneState.selection.set({
 			branchName
 		});
 		projectState.stackId.set(stackId);

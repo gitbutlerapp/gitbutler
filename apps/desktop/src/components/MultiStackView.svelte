@@ -143,8 +143,8 @@
 	`StackView` instead of being set imperatively in the dragstart handler.
 	 -->
 		{#each mutableStacks as stack, i (stack.id)}
-			{@const stackState = uiState.stack(stack.id)}
-			{@const selection = stackState.selection}
+			{@const laneState = uiState.lane(stack.id)}
+			{@const selection = laneState.selection}
 			<div
 				class="reorderable-stack"
 				role="presentation"

@@ -37,7 +37,7 @@ export default class StackMacros {
 		);
 
 		if (outcome.newCommit) {
-			this.uiState.stack(stack.id).selection.set({
+			this.uiState.lane(stack.id).selection.set({
 				branchName,
 				commitId: outcome.newCommit
 			});
@@ -115,7 +115,7 @@ export default class StackMacros {
 			throw new Error('No new commit id found for the moved changes');
 		}
 
-		this.uiState.stack(destinationStackId).selection.set({
+		this.uiState.lane(destinationStackId).selection.set({
 			branchName,
 			commitId: newCommitId
 		});
