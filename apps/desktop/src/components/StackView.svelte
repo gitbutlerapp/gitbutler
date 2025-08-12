@@ -21,7 +21,6 @@
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { readKey, type SelectionId } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -32,7 +31,7 @@
 
 	import { Button, FileViewHeader, Icon, TestId } from '@gitbutler/ui';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+	import { fly } from 'svelte/transition';
 	import type { Commit } from '$lib/branches/v3';
 	import type { Stack } from '$lib/stacks/stack';
 
@@ -68,14 +67,13 @@
 	const action = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(action?.type === 'commit' && action.stackId === stack.id);
 
-	const userSettings = inject(SETTINGS);
-	const zoom = $derived($userSettings.zoom);
-
 	// If the user is making a commit to a different lane we dim this one.
 	const dimmed = $derived(action?.type === 'commit' && action?.stackId !== stack.id);
 
+	// Get the default width from global state, but don't make it reactive during initialization
+	const defaultStackWidth = uiState.global.stackWidth.current;
 	const persistedStackWidth = persistWithExpiration(
-		uiState.global.stackWidth.current,
+		defaultStackWidth,
 		`ui-stack-width-${stack.id}`,
 		1440
 	);
@@ -124,29 +122,14 @@
 
 	const changes = $derived(uncommittedService.changesByStackId(stack.id || null));
 
-	const unsetMaxHeight = '25%';
-
 	let stackViewEl = $state<HTMLDivElement>();
 	let compactDiv = $state<HTMLDivElement>();
-
-	let verticalHeight = $state<number>(0);
-	let verticalHeightRem = $derived(pxToRem(verticalHeight, zoom));
-
-	let actualDetailsHeight = $state<number>(0);
-	let actualDetailsHeightRem = $derived(pxToRem(actualDetailsHeight, zoom));
-
-	let minChangedFilesHeight = $state(8);
-	let minPreviewHeight = $derived(previewChangeResult ? 7 : 0);
-
-	let maxChangedFilesHeight = $derived(
-		verticalHeightRem - actualDetailsHeightRem - minPreviewHeight
-	);
 
 	let changedFilesCollapsed = $state<boolean>();
 
 	const defaultBranchResult = $derived(stackService.defaultBranch(projectId, stack.id));
 
-	// Resizer configuration constants
+	// Resizer configuration for stack panels and details view
 	const RESIZER_CONFIG = {
 		panel1: {
 			minWidth: 18,
@@ -200,6 +183,34 @@
 		}
 		return undefined;
 	}
+
+	let isDetailsViewOpen = $derived(!!(branchName || commitId || assignedKey || selectedFile));
+	const DETAILS_RIGHT_PADDING_REM = 1.125;
+
+	// Function to update CSS custom property for details view width
+	function updateDetailsViewWidth(width: number) {
+		if (stackViewEl) {
+			stackViewEl.style.setProperty('--details-view-width', `${width}rem`);
+		}
+	}
+
+	// Set initial CSS custom properties when details view opens/closes
+	$effect(() => {
+		if (stackViewEl) {
+			if (isDetailsViewOpen) {
+				// Set default width if not already set or is zero
+				const currentWidth = stackViewEl.style.getPropertyValue('--details-view-width');
+				if (!currentWidth || currentWidth === '0rem') {
+					stackViewEl.style.setProperty(
+						'--details-view-width',
+						`${RESIZER_CONFIG.panel2.defaultValue}rem`
+					);
+				}
+			} else {
+				stackViewEl.style.setProperty('--details-view-width', '0rem');
+			}
+		}
+	});
 </script>
 
 <!-- ATTENTION -->
@@ -250,7 +261,6 @@
 			focusedStackId === stack.id}
 		scrollToType="details"
 		scrollToId={stack.id}
-		bind:clientHeight={actualDetailsHeight}
 		{onerror}
 		{onclose}
 	/>
@@ -270,7 +280,6 @@
 		active={selectedFile?.type === 'commit' && focusedStackId === stack.id}
 		scrollToType="details"
 		scrollToId={stack.id}
-		bind:clientHeight={actualDetailsHeight}
 		{onerror}
 		{onclose}
 	/>
@@ -305,13 +314,11 @@
 				{ancestorMostConflictedCommitId}
 				{active}
 				resizer={{
-					persistId: `resizer-panel2-changed-files-${stack.id}`,
-					defaultValue: undefined,
-					maxHeight: maxChangedFilesHeight,
-					minHeight: minChangedFilesHeight,
-					passive: !previewKey,
-					order: 1,
-					unsetMaxHeight: previewKey ? unsetMaxHeight : undefined
+					persistId: `changed-files-${stack.id}`,
+					direction: 'down',
+					minHeight: 8,
+					maxHeight: 32,
+					defaultValue: 16
 				}}
 				autoselect
 			/>
@@ -343,13 +350,11 @@
 				stats={changes.stats}
 				{active}
 				resizer={{
-					persistId: `resizer-panel2-changed-files-${stack.id}`,
-					defaultValue: undefined,
-					maxHeight: maxChangedFilesHeight,
-					minHeight: minChangedFilesHeight,
-					passive: !previewKey,
-					order: 1,
-					unsetMaxHeight: previewKey ? unsetMaxHeight : undefined
+					persistId: `changed-files-${stack.id}`,
+					direction: 'down',
+					minHeight: 8,
+					maxHeight: 32,
+					defaultValue: 16
 				}}
 			></ChangedFiles>
 		{/snippet}
@@ -381,173 +386,203 @@
 		parentId: DefinedFocusable.ViewportMiddle
 	}}
 >
-	<div
-		class="stack-view"
-		style:width={$persistedStackWidth + 'rem'}
-		bind:this={stackViewEl}
-		{@attach scrollingAttachment(intelligentScrollingService, stack.id, 'stack')}
-	>
-		{#if !isCommitting}
-			<div class="drag-handle" data-remove-from-panning data-drag-handle draggable="true">
-				<Icon name="draggable-narrow" rotate={90} noEvents />
-			</div>
-		{/if}
-		<Resizer
-			persistId="resizer-panel1-${stack.id}"
-			viewport={stackViewEl!}
-			zIndex="var(--z-lifted)"
-			direction="right"
-			minWidth={RESIZER_CONFIG.panel1.minWidth}
-			maxWidth={RESIZER_CONFIG.panel1.maxWidth}
-			defaultValue={RESIZER_CONFIG.panel1.defaultValue}
-			syncName="panel1"
-			imitateBorder
-		/>
-		<ReduxResult
-			{projectId}
-			result={combineResults(branchesResult.current, defaultBranchResult.current)}
+	{#if !isCommitting}
+		<div class="drag-handle" data-remove-from-panning data-drag-handle draggable="true">
+			<Icon name="draggable-narrow" rotate={90} noEvents />
+		</div>
+	{/if}
+
+	<ConfigurableScrollableContainer childrenWrapHeight="100%">
+		<div
+			class="stack-view"
+			class:details-open={isDetailsViewOpen}
+			{@attach scrollingAttachment(intelligentScrollingService, stack.id, 'stack')}
+			style:width="{$persistedStackWidth}rem"
+			bind:this={stackViewEl}
 		>
-			{#snippet children([branches, defaultBranch])}
-				<ConfigurableScrollableContainer>
-					<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
-					<div
-						class="assignments-wrap"
-						class:assignments__empty={changes.current.length === 0 && !isCommitting}
-					>
+			<ReduxResult
+				{projectId}
+				result={combineResults(branchesResult.current, defaultBranchResult.current)}
+			>
+				{#snippet children([branches, defaultBranch])}
+					<div class="stack-v">
+						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
 						<div
-							class="worktree-wrap"
-							class:remove-border-bottom={(isCommitting && changes.current.length === 0) ||
-								!startCommitVisible.current}
-							class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+							class="assignments-wrap"
+							class:assignments__empty={changes.current.length === 0 && !isCommitting}
 						>
-							<WorktreeChanges
-								title="Assigned"
-								{projectId}
-								stackId={stack.id}
-								mode="assigned"
-								active={focusedStackId === stack.id}
-								dropzoneVisible={changes.current.length === 0 && !isCommitting}
-								onDropzoneActivated={(activated) => {
-									dropzoneActivated = activated;
-								}}
-								onselect={() => {
-									// Clear one selection when you modify the other.
-									stackState?.selection.set(undefined);
-									intelligentScrollingService.show(projectId, stack.id, 'diff');
-								}}
+							<div
+								class="worktree-wrap"
+								class:remove-border-bottom={(isCommitting && changes.current.length === 0) ||
+									!startCommitVisible.current}
+								class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
 							>
-								{#snippet emptyPlaceholder()}
-									{#if !isCommitting}
-										<div class="assigned-changes-empty">
-											<p class="text-12 text-body assigned-changes-empty__text">
-												Drop files to assign or commit directly
-											</p>
-										</div>
-									{/if}
-								{/snippet}
-							</WorktreeChanges>
+								<WorktreeChanges
+									title="Assigned"
+									{projectId}
+									stackId={stack.id}
+									mode="assigned"
+									active={focusedStackId === stack.id}
+									dropzoneVisible={changes.current.length === 0 && !isCommitting}
+									onDropzoneActivated={(activated) => {
+										dropzoneActivated = activated;
+									}}
+									onselect={() => {
+										// Clear one selection when you modify the other.
+										stackState?.selection.set(undefined);
+										intelligentScrollingService.show(projectId, stack.id, 'diff');
+									}}
+								>
+									{#snippet emptyPlaceholder()}
+										{#if !isCommitting}
+											<div class="assigned-changes-empty">
+												<p class="text-12 text-body assigned-changes-empty__text">
+													Drop files to assign or commit directly
+												</p>
+											</div>
+										{/if}
+									{/snippet}
+								</WorktreeChanges>
+							</div>
+
+							{#if startCommitVisible.current || isCommitting}
+								{#if !isCommitting}
+									<div class="start-commit">
+										<Button
+											testId={TestId.StartCommitButton}
+											kind={changes.current.length > 0 ? 'solid' : 'outline'}
+											style={changes.current.length > 0 ? 'pop' : 'neutral'}
+											type="button"
+											wide
+											disabled={defaultBranch === null || !!projectState.exclusiveAction.current}
+											onclick={() => {
+												if (defaultBranch) startCommit(defaultBranch);
+											}}
+										>
+											Start a commit…
+										</Button>
+									</div>
+								{:else if isCommitting}
+									<NewCommitView {projectId} stackId={stack.id} />
+								{/if}
+							{/if}
 						</div>
 
-						{#if startCommitVisible.current || isCommitting}
-							{#if !isCommitting}
-								<div class="start-commit">
-									<Button
-										testId={TestId.StartCommitButton}
-										kind={changes.current.length > 0 ? 'solid' : 'outline'}
-										style={changes.current.length > 0 ? 'pop' : 'neutral'}
-										type="button"
-										wide
-										disabled={defaultBranch === null || !!projectState.exclusiveAction.current}
-										onclick={() => {
-											if (defaultBranch) startCommit(defaultBranch);
-										}}
-									>
-										Start a commit…
-									</Button>
-								</div>
-							{:else if isCommitting}
-								<NewCommitView {projectId} stackId={stack.id} />
-							{/if}
-						{/if}
+						<BranchList
+							{projectId}
+							{branches}
+							stackId={stack.id}
+							{focusedStackId}
+							onselect={() => {
+								// Clear one selection when you modify the other.
+								idSelection.clear({ type: 'worktree', stackId: stack.id });
+								intelligentScrollingService.show(projectId, stack.id, 'details');
+							}}
+						/>
 					</div>
 
-					<BranchList
-						{projectId}
-						{branches}
-						stackId={stack.id}
-						{focusedStackId}
-						onselect={() => {
-							// Clear one selection when you modify the other.
-							idSelection.clear({ type: 'worktree', stackId: stack.id });
-							intelligentScrollingService.show(projectId, stack.id, 'details');
-						}}
+					<!-- RESIZE PANEL 1 -->
+					<Resizer
+						persistId="resizer-panel1-${stack.id}"
+						viewport={stackViewEl!}
+						zIndex="var(--z-lifted)"
+						direction="right"
+						minWidth={RESIZER_CONFIG.panel1.minWidth}
+						maxWidth={RESIZER_CONFIG.panel1.maxWidth}
+						defaultValue={RESIZER_CONFIG.panel1.defaultValue}
+						syncName="panel1"
 					/>
-				</ConfigurableScrollableContainer>
-			{/snippet}
-		</ReduxResult>
-	</div>
+				{/snippet}
+			</ReduxResult>
+		</div>
+	</ConfigurableScrollableContainer>
 
-	{#if commitId || branchName || assignedKey || selectedFile}
+	<!-- STACK WIDTH RESIZER -->
+	<Resizer
+		persistId="ui-stack-width-${stack.id}"
+		viewport={stackViewEl!}
+		zIndex="var(--z-lifted)"
+		direction="right"
+		minWidth={18}
+		maxWidth={64}
+		defaultValue={defaultStackWidth}
+		onWidth={(newWidth) => {
+			// Update the persisted stack width when resizer changes
+			persistedStackWidth.set(newWidth);
+		}}
+	/>
+
+	<!-- PREVIEW -->
+	{#if isDetailsViewOpen}
 		<div
-			class="combined-view"
+			in:fly={{ y: 20, duration: 200 }}
+			class="details-view"
 			bind:this={compactDiv}
-			bind:clientHeight={verticalHeight}
-			data-remove-from-draggable
 			data-details={stack.id}
+			style:right="{DETAILS_RIGHT_PADDING_REM}rem"
 		>
+			<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
 			{#if branchName && commitId}
 				{@render commitView(branchName, commitId)}
-				{@render commitChangedFiles(commitId)}
 			{:else if branchName}
 				{@render branchView(branchName)}
+			{/if}
+
+			<!-- MIDDLE SECTION: Changed Files (with resizer) -->
+			{#if branchName && commitId}
+				{@render commitChangedFiles(commitId)}
+			{:else if branchName}
 				{@render branchChangedFiles(branchName)}
 			{/if}
 
+			<!-- BOTTOM SECTION: File Preview (no resizer) -->
 			{#if assignedKey || selectedFile}
 				<ReduxResult {projectId} result={previewChangeResult?.current}>
 					{#snippet children(previewChange)}
 						{@const diffResult = diffService.getDiff(projectId, previewChange)}
 						{@const diffData = diffResult.current.data}
 
-						{#if assignedKey?.type === 'worktree' && assignedKey.stackId}
-							<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
-								{@render assignedChangePreview(assignedKey.stackId)}
-							</ConfigurableScrollableContainer>
-						{:else if selectedFile}
-							<Drawer bottomBorder>
-								{#snippet header()}
-									<FileViewHeader
-										noPaddings
-										transparent
-										filePath={previewChange.path}
-										fileStatus={computeChangeStatus(previewChange)}
-										linesAdded={diffData?.type === 'Patch'
-											? diffData.subject.linesAdded
-											: undefined}
-										linesRemoved={diffData?.type === 'Patch'
-											? diffData.subject.linesRemoved
-											: undefined}
-									/>
-								{/snippet}
-								{@render otherChangePreview(selectedFile)}
-							</Drawer>
-						{/if}
+						<div class="file-preview-section">
+							{#if assignedKey?.type === 'worktree' && assignedKey.stackId}
+								<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
+									{@render assignedChangePreview(assignedKey.stackId)}
+								</ConfigurableScrollableContainer>
+							{:else if selectedFile}
+								<Drawer>
+									{#snippet header()}
+										<FileViewHeader
+											noPaddings
+											transparent
+											filePath={previewChange.path}
+											fileStatus={computeChangeStatus(previewChange)}
+											linesAdded={diffData?.type === 'Patch'
+												? diffData.subject.linesAdded
+												: undefined}
+											linesRemoved={diffData?.type === 'Patch'
+												? diffData.subject.linesRemoved
+												: undefined}
+										/>
+									{/snippet}
+									{@render otherChangePreview(selectedFile)}
+								</Drawer>
+							{/if}
+						</div>
 					{/snippet}
 				</ReduxResult>
 			{/if}
-
-			<!-- The id of this resizer is intentionally the same as in default view. -->
-			<Resizer
-				viewport={compactDiv}
-				persistId="resizer-panel2-${stack.id}"
-				direction="right"
-				minWidth={RESIZER_CONFIG.panel2.minWidth}
-				maxWidth={RESIZER_CONFIG.panel2.maxWidth}
-				defaultValue={RESIZER_CONFIG.panel2.defaultValue}
-				syncName="panel2"
-				imitateBorder
-			/>
 		</div>
+
+		<!-- DETAILS VIEW WIDTH RESIZER -->
+		<Resizer
+			viewport={compactDiv!}
+			persistId="resizer-panel2-${stack.id}"
+			direction="right"
+			minWidth={RESIZER_CONFIG.panel2.minWidth}
+			maxWidth={RESIZER_CONFIG.panel2.maxWidth}
+			defaultValue={RESIZER_CONFIG.panel2.defaultValue}
+			syncName="panel2"
+			onWidth={updateDetailsViewWidth}
+		/>
 	{/if}
 </div>
 
@@ -558,6 +593,7 @@
 		flex-shrink: 0;
 		height: 100%;
 		overflow: hidden;
+		border-right: 1px solid var(--clr-border-2);
 		transition: opacity 0.15s;
 
 		&.dimmed {
@@ -570,8 +606,16 @@
 		position: relative;
 		flex-shrink: 0;
 		flex-direction: column;
+		height: 100%;
+		padding: 0 12px;
+
+		/* Use CSS custom properties for details view width to avoid ResizeObserver errors */
+		--details-view-width: 0rem;
 	}
 
+	.stack-view.details-open {
+		margin-right: calc(var(--details-view-width) + 1.125rem);
+	}
 	.dimmed .stack-view {
 		pointer-events: none;
 	}
@@ -590,8 +634,7 @@
 		display: flex;
 		flex-shrink: 0;
 		flex-direction: column;
-		margin: 12px;
-		margin-bottom: 0;
+		margin-top: 12px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
@@ -620,13 +663,27 @@
 		}
 	}
 
-	.combined-view {
+	.details-view {
 		display: flex;
-		position: relative;
+		z-index: var(--z-ground);
+		position: absolute;
+		top: 12px;
 		flex-shrink: 0;
 		flex-direction: column;
-		height: 100%;
-		white-space: wrap;
+		max-height: calc(100% - 24px);
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
+		box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
+	}
+
+	.file-preview-section {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		min-height: 0; /* Allow shrinking */
+		overflow: hidden;
 	}
 
 	.start-commit {
