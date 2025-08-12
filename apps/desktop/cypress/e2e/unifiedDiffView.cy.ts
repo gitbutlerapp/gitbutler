@@ -54,11 +54,11 @@ describe('Unified Diff View', () => {
 			.should('contain', stackName)
 			.click()
 			.then(() => {
-				cy.getByTestIdByValue('stack', stack.id)
+				cy.getByTestIdByValue('stack', stack.id!)
 					.should('be.visible')
 					.within(() => {
 						// Check if the file list is updated
-						const changedFileNames = mockBackend.getBranchChangesFileNames(stack.id, stackName);
+						const changedFileNames = mockBackend.getBranchChangesFileNames(stack.id!, stackName);
 						for (const fileName of changedFileNames) {
 							cy.getByTestId('file-list-item', fileName).should('be.visible').click();
 						}

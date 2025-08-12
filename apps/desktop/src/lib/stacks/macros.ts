@@ -35,7 +35,7 @@ export default class StackMacros {
 			params.branchName,
 			params.commitMessage
 		);
-
+		if (!stack.id) return;
 		if (outcome.newCommit) {
 			this.uiState.lane(stack.id).selection.set({
 				branchName,
@@ -58,6 +58,9 @@ export default class StackMacros {
 			projectId: this.projectId,
 			branch: { name }
 		});
+		if (!stack.id) {
+			throw new Error('New stack has no stack id');
+		}
 		const branchName = getStackName(stack);
 		const outcome = await this.stackService.createCommitMutation({
 			projectId: this.projectId,

@@ -20,7 +20,7 @@ export type Stack = {
 	/**
 	 * The id of the stack.
 	 */
-	id: string;
+	id?: string;
 	/**
 	 * Information about the branches contained in the stack.
 	 */

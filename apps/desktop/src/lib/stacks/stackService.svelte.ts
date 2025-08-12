@@ -917,7 +917,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 						uiState,
 						projectId,
 						// TODO(opt-stack-id): `s.id` might actually be optional once outside-of-workspace is a thing.
-						response.map((s) => s.id)
+						response.map((s) => s.id).filter(isDefined)
 					);
 
 					return transformStacksResponse(response);
@@ -1612,7 +1612,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 }
 
 const stackAdapter = createEntityAdapter<Stack, string>({
-	selectId: (stack) => stack.id
+	selectId: (stack) => stack.id || stack.heads.at(0)?.name || stack.tip
 });
 const stackSelectors = { ...stackAdapter.getSelectors(), selectNth: createSelectNth<Stack>() };
 
