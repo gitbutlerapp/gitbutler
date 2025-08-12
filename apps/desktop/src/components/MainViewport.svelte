@@ -154,8 +154,6 @@ the window, then enlarge it and retain the original widths of the layout.
 				minWidth={leftMinWidth}
 				defaultValue={leftDefaultWidth}
 				maxWidth={leftMaxWidth}
-				imitateBorder
-				borderRadius={!preview ? 'ml' : 'none'}
 				persistId="viewport-${name}-left-section"
 				onWidth={(width) => {
 					leftPreferredWidth = width;
@@ -182,7 +180,6 @@ the window, then enlarge it and retain the original widths of the layout.
 					direction="right"
 					minWidth={previewMinWidth}
 					maxWidth={previewMaxWidth}
-					borderRadius="ml"
 					persistId="viewport-${name}-left-sideview"
 					defaultValue={pxToRem(previewWidth?.default, zoom)}
 					onWidth={(width) => {
@@ -225,7 +222,6 @@ the window, then enlarge it and retain the original widths of the layout.
 				minWidth={rightMinWidth}
 				defaultValue={pxToRem(rightWidth.default, zoom)}
 				maxWidth={rightMaxWidth}
-				borderRadius="ml"
 				persistId="viewport-${name}-right-sideview"
 				onWidth={(width) => {
 					rightPreferredWidth = width;
@@ -307,7 +303,6 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	.left-sideview-open .left-section__content {
 		border-radius: var(--radius-ml) 0 0 var(--radius-ml);
-		border-right-color: transparent;
 	}
 
 	.main-section {

@@ -194,7 +194,6 @@
 			viewport={sidebarEl}
 			direction="right"
 			minWidth={14}
-			borderRadius="ml"
 			persistId="resizer-historyWidth"
 			defaultValue={30}
 		/>

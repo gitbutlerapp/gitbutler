@@ -15,13 +15,8 @@
 		viewport: HTMLElement;
 		/** Sets direction of resizing for viewport */
 		direction: 'left' | 'right' | 'up' | 'down';
-		/** Border radius for cases when the resizable element has rounded corners */
-		borderRadius?: 's' | 'm' | 'ml' | 'l' | 'none';
 		/** Custom z-index in case of overlapping with other elements */
 		zIndex?: string;
-		/** imitate border */
-		imitateBorder?: boolean;
-		borderColor?: string;
 		/** Other resizers with the same name will receive same updates. */
 		syncName?: string;
 		/** Name under which the latest width is stored. */
@@ -47,7 +42,6 @@
 		onWidth?: (width: number) => void;
 		onResizing?: (isResizing: boolean) => void;
 		onOverflow?: (value: number) => void;
-		onHover?: (isHovering: boolean) => void;
 		onDblClick?: () => void;
 	}
 
@@ -60,9 +54,6 @@
 		maxWidth = 120,
 		minHeight = 0,
 		maxHeight = 120,
-		borderRadius = 'none',
-		imitateBorder,
-		borderColor = 'var(--clr-border-2)',
 		syncName,
 		persistId,
 		passive,
@@ -72,7 +63,6 @@
 		unsetMaxHeight,
 		onResizing,
 		onOverflow,
-		onHover,
 		onDblClick,
 		onWidth
 	}: Props = $props();
@@ -227,10 +217,6 @@
 		}
 	}
 
-	function isHovered(isHovered: boolean) {
-		onHover?.(isHovered);
-	}
-
 	function getValue() {
 		if ($value !== undefined) {
 			return $value;
@@ -292,9 +278,8 @@
 	});
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	role="presentation"
 	bind:this={resizerDiv}
 	data-remove-from-draggable
 	onmousedown={onMouseDown}
@@ -302,11 +287,7 @@
 		onDblClick?.();
 		setValue(defaultValue);
 	}}
-	onmouseenter={() => isHovered(true)}
-	onmouseleave={() => isHovered(false)}
-	tabindex="0"
 	class:hidden
-	class:imitate-border={imitateBorder}
 	class="resizer"
 	class:dragging
 	class:vertical={orientation === 'vertical'}
@@ -316,117 +297,46 @@
 	class:left={direction === 'left'}
 	class:right={direction === 'right'}
 	style:z-index={zIndex}
-	style:--resizer-border-radius="var(--radius-{borderRadius})"
-	style:--border-imitation-color={borderColor}
->
-	<div class="resizer-line"></div>
-</div>
+></div>
 
 <style lang="postcss">
 	.resizer {
-		--resizer-line-thickness: 0;
-		--resizer-line-color: transparent;
-		/* resizer-line-frame should be the same as border-radius */
-		--resizer-line-frame: var(--resizer-border-radius, 1px);
+		--resizer-thickness: 4px;
 		--resizer-cursor: default;
 		position: absolute;
 		outline: none;
 		cursor: var(--resizer-cursor);
 
-		&.imitate-border {
-			--resizer-line-color: var(--border-imitation-color);
-			--resizer-line-thickness: 1px;
-		}
-
-		&:not(.hidden) {
-			&:hover,
-			&:focus,
-			&.dragging {
-				--resizer-line-color: var(--resizer-color);
-				--resizer-line-thickness: 0.14rem;
-
-				& .resizer-line {
-					transition-delay: 0.1s;
-				}
-			}
-		}
-
 		&.horizontal {
 			--resizer-cursor: col-resize;
 			top: 0;
-			width: 4px;
+			width: var(--resizer-thickness);
 			height: 100%;
-
-			& .resizer-line {
-				width: var(--resizer-line-frame);
-			}
 		}
 
 		&.vertical {
 			--resizer-cursor: row-resize;
 			left: 0;
 			width: 100%;
-			height: 4px;
-
-			& .resizer-line {
-				height: var(--resizer-line-frame);
-			}
+			height: var(--resizer-thickness);
 		}
 
 		&.right {
 			right: 0;
-
-			& .resizer-line {
-				left: auto;
-				border-right: var(--resizer-line-thickness) solid var(--resizer-line-color);
-				border-top-right-radius: var(--resizer-border-radius);
-				border-bottom-right-radius: var(--resizer-border-radius);
-			}
 		}
 		&.left {
 			left: 0;
-
-			& .resizer-line {
-				right: auto;
-				border-left: var(--resizer-line-thickness) solid var(--resizer-line-color);
-				border-top-left-radius: var(--resizer-border-radius);
-				border-bottom-left-radius: var(--resizer-border-radius);
-			}
 		}
 		&.up {
 			top: 0;
-
-			& .resizer-line {
-				bottom: auto;
-				border-top: var(--resizer-line-thickness) solid var(--resizer-line-color);
-				border-top-right-radius: var(--resizer-border-radius);
-				border-top-left-radius: var(--resizer-border-radius);
-			}
 		}
 		&.down {
 			bottom: 0;
-
-			& .resizer-line {
-				top: auto;
-				border-bottom: var(--resizer-line-thickness) solid var(--resizer-line-color);
-				border-bottom-right-radius: var(--resizer-border-radius);
-				border-bottom-left-radius: var(--resizer-border-radius);
-			}
 		}
 
 		&.hidden {
 			pointer-events: none;
 			--resizer-cursor: default;
 		}
-	}
-
-	.resizer-line {
-		position: absolute;
-		top: 0;
-		right: 0;
-		bottom: 0;
-		left: 0;
-		pointer-events: none;
-		transition: border 0.1s ease;
 	}
 </style>

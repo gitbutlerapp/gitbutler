@@ -159,7 +159,6 @@
 			passive={resizer.passive}
 			hidden={$collapsed}
 			direction="down"
-			imitateBorder
 			{...resizer}
 			{maxHeight}
 		/>

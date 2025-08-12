@@ -267,7 +267,6 @@
 					viewport={branchViewLeftEl}
 					direction="right"
 					minWidth={14}
-					borderRadius="ml"
 					persistId="resizer-branchesWidth"
 					defaultValue={24}
 				/>
