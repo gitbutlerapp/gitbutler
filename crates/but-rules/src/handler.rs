@@ -14,6 +14,10 @@ pub fn process_workspace_rules(
     dependencies: &Option<HunkDependencies>,
 ) -> anyhow::Result<usize> {
     let mut updates = 0;
+    if assignments.is_empty() {
+        // Dont create stacks if there are no changes to assign anywhere
+        return Ok(updates);
+    }
     let rules = super::list_rules(ctx)?
         .into_iter()
         .filter(|r| r.enabled)
