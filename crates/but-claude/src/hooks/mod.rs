@@ -7,7 +7,7 @@ use but_action::rename_branch::RenameBranchParams;
 use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
-use but_rules::CreateRuleRequest;
+use but_rules::{CreateRuleRequest, UpdateRuleRequest};
 use but_settings::AppSettings;
 use but_workspace::ui::{StackDetails, StackEntry};
 use but_workspace::{HunkHeader, StackId, StacksFilter};
@@ -422,9 +422,9 @@ fn get_or_create_session(
         .into_iter()
         .find(|r| r.matches_claude_code_session(session_id));
 
-    let stack_id = rule.and_then(|r| r.target_stack_id());
-
-    let stack_id = if let Some(stack_id) = stack_id {
+    let stack_id = if let Some((rule, stack_id)) =
+        rule.and_then(|r| r.target_stack_id().map(|stack_id| (r, stack_id)))
+    {
         if let Some(stack_id) = stacks.iter().find_map(|s| {
             let id = s.id?;
             (id.to_string() == stack_id).then_some(id)
@@ -432,10 +432,18 @@ fn get_or_create_session(
             stack_id
         } else {
             let stack_id = create_stack(ctx, vb_state, perm)?;
-            ctx.db()?
-                .claude_code_sessions()
-                .update_stack_id(session_id, &stack_id.to_string())
-                .map_err(|e| anyhow::anyhow!("Failed to update session stack ID: {}", e))?;
+            let mut req: UpdateRuleRequest = rule.into();
+            req.action = req.action.and_then(|a| {
+                match a {
+                    but_rules::Action::Explicit(but_rules::Operation::Assign { target: _ }) => {
+                        Some(but_rules::Action::Explicit(but_rules::Operation::Assign {
+                            target: but_rules::StackTarget::StackId(stack_id.to_string()),
+                        }))
+                    }
+                    _ => None, // If the action is not assign, we don't update it
+                }
+            });
+            but_rules::update_rule(ctx, req)?;
             stack_id
         }
     } else {

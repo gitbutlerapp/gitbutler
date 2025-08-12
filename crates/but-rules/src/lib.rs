@@ -44,6 +44,10 @@ impl WorkspaceRule {
             None
         }
     }
+
+    pub fn id(&self) -> String {
+        self.id.clone()
+    }
 }
 
 /// Represents the kinds of events in the app that can cause a rule to be evaluated.
@@ -196,19 +200,31 @@ pub fn delete_rule(ctx: &mut CommandContext, id: &str) -> anyhow::Result<()> {
 }
 
 /// A request to update an existing workspace rule.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateRuleRequest {
     /// The ID of the rule to update.
     id: String,
     /// The new enabled state of the rule. If not provided, the existing state is retained.
-    enabled: Option<bool>,
+    pub enabled: Option<bool>,
     /// The new trigger for the rule. If not provided, the existing trigger is retained.
-    trigger: Option<Trigger>,
+    pub trigger: Option<Trigger>,
     /// The new filters for the rule. If not provided, the existing filters are retained.
-    filters: Option<Vec<Filter>>,
+    pub filters: Option<Vec<Filter>>,
     /// The new action for the rule. If not provided, the existing action is retained.
-    action: Option<Action>,
+    pub action: Option<Action>,
+}
+
+impl From<WorkspaceRule> for UpdateRuleRequest {
+    fn from(rule: WorkspaceRule) -> Self {
+        UpdateRuleRequest {
+            id: rule.id,
+            enabled: Some(rule.enabled),
+            trigger: Some(rule.trigger),
+            filters: Some(rule.filters),
+            action: Some(rule.action),
+        }
+    }
 }
 
 /// Updates an existing workspace rule with the provided request data.
