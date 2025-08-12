@@ -3,7 +3,6 @@ import { writeClipboard } from '$lib/backend/clipboard';
 import { showError } from '$lib/notifications/toasts';
 import { User } from '$lib/user/user';
 import { sleep } from '$lib/utils/sleep';
-import { openExternalUrl } from '$lib/utils/url';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
 import { plainToInstance } from 'class-transformer';
@@ -120,7 +119,7 @@ export class UserService {
 
 	async login(aborted: Readable<boolean> = readable(false)): Promise<User | undefined> {
 		return await this.loginCommon((url) => {
-			openExternalUrl(url);
+			this.backend.openExternalUrl(url);
 		}, aborted);
 	}
 

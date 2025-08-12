@@ -13,7 +13,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { splitMessage } from '$lib/utils/commitMessage';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import {
@@ -48,6 +48,7 @@
 	const projectsService = inject(PROJECTS_SERVICE);
 	const uiState = inject(UI_STATE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const urlService = inject(URL_SERVICE);
 	const branchDetails = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const projectResult = $derived(projectsService.getProject(projectId));
 	const [pushStack, pushResult] = stackService.pushStack;
@@ -199,7 +200,7 @@
 								date={new Date(commit.createdAt)}
 								author={commit.author.name}
 								url={commitUrl}
-								onOpen={(url) => openExternalUrl(url)}
+								onOpen={(url) => urlService.openExternalUrl(url)}
 								onCopy={() => writeClipboard(commit.id)}
 							/>
 						{/each}

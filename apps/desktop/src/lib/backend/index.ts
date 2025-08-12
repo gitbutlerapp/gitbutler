@@ -3,13 +3,15 @@ import {
 	tauriListen,
 	tauriCheck,
 	tauriGetVersion,
-	tauriReadFile
+	tauriReadFile,
+	tauriOpenExternalUrl
 } from '$lib/backend/tauri';
 import {
 	webCheckUpdate,
 	webCurrentVersion,
 	webInvoke,
 	webListen,
+	webOpenExternalUrl,
 	webReadFile
 } from '$lib/backend/web';
 
@@ -58,6 +60,7 @@ export interface IBackend {
 	checkUpdate: () => Promise<Update | null>;
 	currentVersion: () => Promise<string>;
 	readFile: (path: string) => Promise<Uint8Array>;
+	openExternalUrl: (href: string) => Promise<void>;
 }
 
 class Tauri implements IBackend {
@@ -66,6 +69,7 @@ class Tauri implements IBackend {
 	checkUpdate = tauriCheck;
 	currentVersion = tauriGetVersion;
 	readFile = tauriReadFile;
+	openExternalUrl = tauriOpenExternalUrl;
 }
 
 class Web implements IBackend {
@@ -74,6 +78,7 @@ class Web implements IBackend {
 	checkUpdate = webCheckUpdate;
 	currentVersion = webCurrentVersion;
 	readFile = webReadFile;
+	openExternalUrl = webOpenExternalUrl;
 }
 
 export function isBackend(something: unknown): something is IBackend {

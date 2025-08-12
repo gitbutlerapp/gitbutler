@@ -16,7 +16,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 
 	import {
@@ -63,6 +63,7 @@
 	const aiService = inject(AI_SERVICE);
 	const actionService = inject(ACTION_SERVICE);
 	const fileService = inject(FILE_SERVICE);
+	const urlService = inject(URL_SERVICE);
 	const [autoCommit, autoCommitting] = actionService.autoCommit;
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
 	const [absorbChanges, absorbingChanges] = actionService.absorb;
@@ -430,7 +431,7 @@
 										schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
 										path: [vscodePath(projectPath), change.path]
 									});
-									openExternalUrl(path);
+									urlService.openExternalUrl(path);
 								}
 							}
 							contextMenu.close();

@@ -1,12 +1,6 @@
 import { showError } from '$lib/notifications/toasts';
 import { type Project } from '$lib/project/project';
-import {
-	invalidatesItem,
-	invalidatesList,
-	providesItem,
-	providesList,
-	ReduxTag
-} from '$lib/state/tags';
+import { invalidatesList, providesItem, providesList, ReduxTag } from '$lib/state/tags';
 import { getCookie } from '$lib/utils/cookies';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { persisted } from '@gitbutler/shared/persisted';

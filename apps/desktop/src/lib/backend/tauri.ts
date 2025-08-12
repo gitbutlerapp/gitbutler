@@ -37,6 +37,10 @@ export function tauriListen<T>(event: EventName, handle: EventCallback<T>) {
 	return async () => await unlisten.then((unlistenFn) => unlistenFn());
 }
 
+export async function tauriOpenExternalUrl(href: string): Promise<void> {
+	return await invokeTauri<void>('open_url', { url: href });
+}
+
 export { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 export { check as tauriCheck } from '@tauri-apps/plugin-updater';
 export { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';

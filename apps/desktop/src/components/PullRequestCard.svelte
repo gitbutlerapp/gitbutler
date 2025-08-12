@@ -4,7 +4,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import {
 		Button,
@@ -57,6 +57,7 @@
 	const forgeName = $derived(forge.current.name);
 	const prService = $derived(forge.current.prService);
 	const checksService = $derived(forge.current.checks);
+	const urlService = inject(URL_SERVICE);
 
 	const prResult = $derived(prService?.get(prNumber, { forceRefetch: true }));
 	const pr = $derived(prResult?.current.data);
@@ -117,7 +118,7 @@
 				<ContextMenuItem
 					label="Open in browser"
 					onclick={() => {
-						openExternalUrl(pr.htmlUrl);
+						urlService.openExternalUrl(pr.htmlUrl);
 						contextMenuEl?.close();
 					}}
 				/>
@@ -144,7 +145,7 @@
 					<ContextMenuItem
 						label="Open checks"
 						onclick={() => {
-							openExternalUrl(`${pr.htmlUrl}/checks`);
+							urlService.openExternalUrl(`${pr.htmlUrl}/checks`);
 							contextMenuEl?.close();
 						}}
 					/>
@@ -186,7 +187,7 @@
 					icon="open-link"
 					tooltip="Open {abbr} in browser"
 					onclick={() => {
-						openExternalUrl(pr.htmlUrl);
+						urlService.openExternalUrl(pr.htmlUrl);
 					}}
 				/>
 			</div>

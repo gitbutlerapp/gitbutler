@@ -45,7 +45,7 @@
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import {
 		ContextMenu,
@@ -66,6 +66,7 @@
 
 	let { flat, projectId, openId = $bindable(), rightClickTrigger, contextData }: Props = $props();
 
+	const urlService = inject(URL_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 	const [createRef, refCreation] = stackService.createReference;
@@ -164,7 +165,7 @@
 					<ContextMenuItem
 						label="Open in browser"
 						onclick={async () => {
-							await openExternalUrl(commitUrl);
+							await urlService.openExternalUrl(commitUrl);
 							close();
 						}}
 					/>

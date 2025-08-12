@@ -24,7 +24,7 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import {
 		ContextMenu,
@@ -59,6 +59,7 @@
 	const stackService = inject(STACK_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const promptService = inject(PROMPT_SERVICE);
+	const urlService = inject(URL_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 	const [updateBranchNameMutation] = stackService.updateBranchName;
 	const [createRef, refCreation] = stackService.createReference;
@@ -180,7 +181,7 @@
 					testId={TestId.BranchHeaderContextMenu_OpenInBrowser}
 					onclick={() => {
 						const url = forge.current.branch(branchName)?.url;
-						if (url) openExternalUrl(url);
+						if (url) urlService.openExternalUrl(url);
 						close();
 					}}
 				/>
@@ -299,7 +300,7 @@
 							label="Open PR in browser"
 							testId={TestId.BranchHeaderContextMenu_OpenPRInBrowser}
 							onclick={() => {
-								openExternalUrl(pr.htmlUrl);
+								urlService.openExternalUrl(pr.htmlUrl);
 								close();
 							}}
 						/>

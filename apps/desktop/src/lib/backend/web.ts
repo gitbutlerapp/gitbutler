@@ -68,6 +68,11 @@ export async function webReadFile(_path: string): Promise<Uint8Array> {
 	throw new Error('webReadFile is not implemented for the web version');
 }
 
+export async function webOpenExternalUrl(href: string): Promise<void> {
+	window.open(href, '_blank');
+	return await Promise.resolve();
+}
+
 class WebListener {
 	private socket: WebSocket | undefined;
 	private count = 0;

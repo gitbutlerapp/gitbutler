@@ -7,13 +7,14 @@
 	import { historyPath } from '$lib/routes/routes.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
-	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 
 	const { projectId }: { projectId: string } = $props();
 
 	const projectsService = inject(PROJECTS_SERVICE);
+	const urlService = inject(URL_SERVICE);
 
 	const userSettings = inject(SETTINGS);
 	const shortcutService = inject(SHORTCUT_SERVICE);
@@ -32,7 +33,7 @@
 				if (!project) {
 					throw new Error(`Project not found: ${projectId}`);
 				}
-				openExternalUrl(
+				urlService.openExternalUrl(
 					getEditorUri({
 						schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
 						path: [vscodePath(project.path)],

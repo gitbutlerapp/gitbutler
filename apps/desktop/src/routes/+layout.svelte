@@ -21,8 +21,8 @@
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import BaseBranchService, { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService, BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
-	import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/codegen/claude';
 	import CLIManager, { CLI_MANAGER } from '$lib/cli/cli';
+	import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/codegen/claude';
 	import { CommitService, COMMIT_SERVICE } from '$lib/commits/commitService.svelte';
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
@@ -82,7 +82,7 @@
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { ResizeSync, RESIZE_SYNC } from '$lib/utils/resizeSync';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
-	import { openExternalUrl } from '$lib/utils/url';
+	import URLService, { URL_SERVICE } from '$lib/utils/url';
 	import { WorktreeService, WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { provide } from '@gitbutler/shared/context';
 	import { FeedService, FEED_SERVICE } from '@gitbutler/shared/feeds/service';
@@ -197,6 +197,8 @@
 		historyService
 	);
 
+	const urlService = new URLService(data.backend);
+
 	const projectsService = new ProjectsService(clientState, data.homeDir, data.httpClient);
 	provide(PROJECTS_SERVICE, projectsService);
 
@@ -225,7 +227,7 @@
 
 	$effect(() => shortcutService.listen());
 
-	setExternalLinkService({ open: openExternalUrl });
+	setExternalLinkService({ open: (url) => urlService.openExternalUrl(url) });
 
 	const secretsService = new RustSecretService(data.backend);
 	provide(SECRET_SERVICE, secretsService);
@@ -280,6 +282,7 @@
 	provide(DRAG_STATE_SERVICE, new DragStateService());
 	provide(RESIZE_SYNC, new ResizeSync());
 	provide(GIT_SERVICE, new GitService(data.backend));
+	provide(URL_SERVICE, urlService);
 
 	const settingsService = data.settingsService;
 	const settingsStore = settingsService.appSettings;

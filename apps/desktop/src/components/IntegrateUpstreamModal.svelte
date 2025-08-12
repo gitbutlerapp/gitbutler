@@ -15,7 +15,7 @@
 		type StackStatusesWithBranchesV3
 	} from '$lib/upstream/types';
 	import { UPSTREAM_INTEGRATION_SERVICE } from '$lib/upstream/upstreamIntegrationService.svelte';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import {
 		Badge,
@@ -50,6 +50,7 @@
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseBranchResponse.current.data);
+	const urlService = inject(URL_SERVICE);
 
 	let modal = $state<Modal>();
 	let integratingUpstream = $state<OperationState>('inert');
@@ -322,7 +323,7 @@
 								date={commit.createdAt}
 								author={commit.author.name}
 								url={commitUrl}
-								onOpen={(url) => openExternalUrl(url)}
+								onOpen={(url) => urlService.openExternalUrl(url)}
 								onCopy={() => writeClipboard(commit.id)}
 							/>
 						{/each}
