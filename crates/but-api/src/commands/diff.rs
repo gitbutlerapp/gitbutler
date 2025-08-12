@@ -100,7 +100,8 @@ fn changes_in_branch_inner(
     remote: Option<String>,
     branch_name: String,
 ) -> anyhow::Result<TreeChanges> {
-    let (repo, _meta, graph) = ctx.graph_and_meta(ctx.gix_repo()?)?;
+    let guard = ctx.project().shared_worktree_access();
+    let (repo, _meta, graph) = ctx.graph_and_meta(ctx.gix_repo()?, guard.read_permission())?;
     let name = if let Some(remote) = remote {
         Category::RemoteBranch.to_full_name(format!("{remote}/{branch_name}").as_str())
     } else {
