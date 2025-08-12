@@ -20,6 +20,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE, type ExclusiveAction } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 
@@ -52,13 +53,17 @@
 
 	const stackFocusables = $derived(
 		stacksResult.current?.data
-			? stacksResult.current.data.map((stack) => stackFocusableId(stack.id))
+			? stacksResult.current.data
+					.map((stack) => (stack.id ? stackFocusableId(stack.id) : undefined))
+					.filter(isDefined)
 			: []
 	);
 
 	const uncommittedFocusables = $derived(
 		stacksResult.current?.data
-			? stacksResult.current.data.map((stack) => uncommittedFocusableId(stack.id))
+			? stacksResult.current.data
+					.map((stack) => (stack.id ? uncommittedFocusableId(stack.id) : undefined))
+					.filter(isDefined)
 			: []
 	);
 

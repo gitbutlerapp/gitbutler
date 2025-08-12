@@ -70,6 +70,9 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 			case 'commit': {
 				const { stack, outcome, branchName } = await this.macros.createNewStackAndCommit();
 
+				if (!stack.id) {
+					throw new Error('New stack has no stack id');
+				}
 				if (!outcome.newCommit) {
 					throw new Error('Failed to create a new commit');
 				}
@@ -97,13 +100,17 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 					projectId: this.projectId,
 					branch: { name: undefined }
 				});
+				const stackId = stack.id;
+				if (!stackId) {
+					throw new Error('New stack has no stack id');
+				}
 
 				const changes = await data.treeChanges();
 				const assignments = changes
 					.flatMap((c) =>
-						this.uncommittedService.getAssignmentsByPath(data.stackId || null, c.path)
+						this.uncommittedService.getAssignmentsByPath(data.stackId ?? null, c.path)
 					)
-					.map((h) => ({ ...h, stackId: stack.id }));
+					.map((h) => ({ ...h, stackId }));
 				await this.diffService.assignHunk({
 					projectId: this.projectId,
 					assignments
