@@ -10,3 +10,4 @@ export const autoSelectBranchNameFeature = persisted(false, 'autoSelectBranchLan
 export const ircEnabled = persistWithExpiration(false, 'feature-irc', 1440 * 30);
 export const ircServer = persistWithExpiration('', 'feature-irc-server', 1440 * 30);
 export const rewrapCommitMessage = persistWithExpiration(true, 'rewrap-commit-msg', 1440 * 30);
+export const codegenEnabled = persistWithExpiration(false, 'feature-codegen', 1440 * 30);

@@ -5,10 +5,10 @@
 	import CodegenMessage from '$components/codegen/CodegenMessage.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { combineResults } from '$lib/state/helpers';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { formatMessages } from '$lib/codegen/messages';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { combineResults } from '$lib/state/helpers';
 	import { inject } from '@gitbutler/shared/context';
 	import { Badge, Button } from '@gitbutler/ui';
 

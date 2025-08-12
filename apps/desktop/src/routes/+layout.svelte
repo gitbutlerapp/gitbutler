@@ -22,6 +22,7 @@
 	import { invoke } from '$lib/backend/ipc';
 	import BaseBranchService, { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService, BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
+	import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/codegen/claude';
 	import { CommitService, COMMIT_SERVICE } from '$lib/commits/commitService.svelte';
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
@@ -81,7 +82,6 @@
 	import { ResizeSync, RESIZE_SYNC } from '$lib/utils/resizeSync';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/codegen/claude';
 	import { WorktreeService, WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { provide } from '@gitbutler/shared/context';
 	import { FeedService, FEED_SERVICE } from '@gitbutler/shared/feeds/service';
