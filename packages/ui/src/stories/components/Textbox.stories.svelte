@@ -24,6 +24,7 @@
 			selectall: false,
 			label: '',
 			helperText: '',
+			error: '',
 			iconLeft: undefined,
 			iconRight: undefined,
 			width: undefined,
@@ -59,6 +60,30 @@
 	let numberValue = $state('42');
 	let emailValue = $state('user@example.com');
 	let searchValue = $state('');
+
+	// Error state examples with dynamic error handling
+	let emailErrorValue = $state('invalid@email');
+	let passwordErrorValue = $state('123');
+	let requiredErrorValue = $state('');
+	let numberErrorValue = $state('150');
+
+	// Dynamic error computation
+	let emailError = $derived(
+		(emailErrorValue && !emailErrorValue.includes('@')) || emailErrorValue.endsWith('@')
+			? 'Please enter a valid email address'
+			: ''
+	);
+	let passwordError = $derived(
+		passwordErrorValue && passwordErrorValue.length < 8
+			? 'Password must be at least 8 characters long'
+			: ''
+	);
+	let requiredError = $derived(!requiredErrorValue.trim() ? 'This field is required' : '');
+	let numberError = $derived(
+		numberErrorValue && (parseInt(numberErrorValue) < 0 || parseInt(numberErrorValue) > 100)
+			? 'Value must be between 0 and 100'
+			: ''
+	);
 </script>
 
 <Story name="Default">
@@ -438,6 +463,114 @@
 					width={300}
 					placeholder="Enter text"
 					label="Custom Width (300px)"
+				/>
+			</div>
+		</div>
+	{/snippet}
+</Story>
+
+<Story name="Error States">
+	{#snippet template()}
+		<div class="wrap">
+			<div class="story-group">
+				<h4>Dynamic Email Validation (try fixing the email)</h4>
+				<Textbox
+					bind:value={emailErrorValue}
+					type="email"
+					iconLeft="mail"
+					placeholder="user@example.com"
+					label="Email"
+					error={emailError}
+					helperText={!emailError ? 'Error disappears when email is valid' : undefined}
+				/>
+			</div>
+			<div class="story-group">
+				<h4>Dynamic Required Field (try typing something)</h4>
+				<Textbox
+					bind:value={requiredErrorValue}
+					placeholder="This field is required"
+					label="Required Field *"
+					required={true}
+					error={requiredError}
+					helperText={!requiredError ? 'Great! Field is no longer empty' : undefined}
+				/>
+			</div>
+			<div class="story-group">
+				<h4>Dynamic Password Validation (try 8+ characters)</h4>
+				<Textbox
+					bind:value={passwordErrorValue}
+					type="password"
+					iconLeft="locked"
+					placeholder="Enter password"
+					label="Password"
+					error={passwordError}
+					helperText={!passwordError ? 'Password length is valid!' : undefined}
+				/>
+			</div>
+			<div class="story-group">
+				<h4>Dynamic Number Range (try 0-100)</h4>
+				<Textbox
+					bind:value={numberErrorValue}
+					type="number"
+					showCountActions={true}
+					minVal={0}
+					maxVal={100}
+					placeholder="Enter number"
+					label="Count (0-100)"
+					error={numberError}
+					helperText={!numberError ? 'Perfect! Number is in valid range' : undefined}
+				/>
+			</div>
+			<div class="story-group">
+				<h4>Normal Field with Helper Text (for comparison)</h4>
+				<Textbox
+					value="valid@example.com"
+					type="email"
+					iconLeft="mail"
+					placeholder="user@example.com"
+					label="Email"
+					helperText="Enter your email address"
+				/>
+			</div>
+		</div>
+	{/snippet}
+</Story>
+
+<Story name="Native HTML5 Validation">
+	{#snippet template()}
+		<div class="wrap">
+			<div class="story-group">
+				<h4>Email Validation (uses browser validation + wiggle animation)</h4>
+				<Textbox
+					value="not-an-email"
+					type="email"
+					iconLeft="mail"
+					placeholder="user@example.com"
+					label="Email (HTML5)"
+					helperText="Browser validation will trigger wiggle animation on invalid input"
+				/>
+			</div>
+			<div class="story-group">
+				<h4>Required Field (HTML5)</h4>
+				<Textbox
+					value=""
+					type="text"
+					placeholder="Required field"
+					label="Required Field"
+					required={true}
+					helperText="Browser validation will show error state when empty"
+				/>
+			</div>
+			<div class="story-group">
+				<h4>Number Range (HTML5)</h4>
+				<Textbox
+					value="200"
+					type="number"
+					minVal={1}
+					maxVal={100}
+					placeholder="1-100"
+					label="Number (1-100)"
+					helperText="Browser validation for number range"
 				/>
 			</div>
 		</div>
