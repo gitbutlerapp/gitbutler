@@ -1,12 +1,37 @@
 import { isReduxError } from '$lib/state/reduxError';
+import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { invoke as invokeTauri } from '@tauri-apps/api/core';
 import { listen as listenTauri } from '@tauri-apps/api/event';
+import { getCurrentWindow, Window } from '@tauri-apps/api/window';
+import { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';
+import { check as tauriCheck } from '@tauri-apps/plugin-updater';
+import { readable } from 'svelte/store';
+import type { IBackend } from '$lib/backend/backend';
 import type { EventCallback, EventName } from '@tauri-apps/api/event';
 
-export async function tauriInvoke<T>(
-	command: string,
-	params: Record<string, unknown> = {}
-): Promise<T> {
+export default class Tauri implements IBackend {
+	private appWindow: Window | undefined;
+	systemTheme = readable<string | null>(null, (set) => {
+		if (!this.appWindow) {
+			this.appWindow = getCurrentWindow();
+		}
+		this.appWindow.theme().then((value) => {
+			set(value);
+		});
+
+		this.appWindow.onThemeChanged((e) => {
+			set(e.payload);
+		});
+	});
+	invoke = tauriInvoke;
+	listen = tauriListen;
+	checkUpdate = tauriCheck;
+	currentVersion = tauriGetVersion;
+	readFile = tauriReadFile;
+	openExternalUrl = tauriOpenExternalUrl;
+}
+
+async function tauriInvoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
 	// This commented out code can be used to delay/reject an api call
 	// return new Promise<T>((resolve, reject) => {
 	// 	if (command.startsWith('apply')) {
@@ -32,15 +57,11 @@ export async function tauriInvoke<T>(
 	}
 }
 
-export function tauriListen<T>(event: EventName, handle: EventCallback<T>) {
+function tauriListen<T>(event: EventName, handle: EventCallback<T>) {
 	const unlisten = listenTauri(event, handle);
 	return async () => await unlisten.then((unlistenFn) => unlistenFn());
 }
 
-export async function tauriOpenExternalUrl(href: string): Promise<void> {
+async function tauriOpenExternalUrl(href: string): Promise<void> {
 	return await invokeTauri<void>('open_url', { url: href });
 }
-
-export { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
-export { check as tauriCheck } from '@tauri-apps/plugin-updater';
-export { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';
