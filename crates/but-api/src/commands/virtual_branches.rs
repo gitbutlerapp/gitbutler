@@ -88,9 +88,11 @@ pub fn create_virtual_branch(
             heads: vec![StackHeadInfo {
                 name: new_ref.shorten().into(),
                 tip,
+                is_checked_out: false,
             }],
             tip,
             order: Some(stack_idx),
+            is_checked_out: false,
         }
     } else {
         gitbutler_branch_actions::create_virtual_branch(

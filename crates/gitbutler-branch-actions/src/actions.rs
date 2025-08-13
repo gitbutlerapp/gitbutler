@@ -81,6 +81,7 @@ pub fn create_virtual_branch(
         heads: stack_heads_info(&stack, &repo)?,
         tip: stack.head_oid(&repo)?,
         order: Some(stack.order),
+        is_checked_out: false,
     })
 }
 

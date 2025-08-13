@@ -59,6 +59,7 @@ pub fn stack_heads_info(
             Some(ui::StackHeadInfo {
                 name: branch.name().to_owned().into(),
                 tip,
+                is_checked_out: false,
             })
         })
         .collect::<Vec<_>>();
@@ -128,6 +129,7 @@ fn try_from_stack_v3(
                     .map(|id| id.detach())
                     .unwrap_or(repo.object_hash().null()),
                 name: ref_name.shorten().into(),
+                is_checked_out: segment.is_entrypoint,
             })
         })
         .collect::<anyhow::Result<_>>()?;
@@ -137,6 +139,7 @@ fn try_from_stack_v3(
             .first()
             .map(|h| h.tip)
             .unwrap_or(repo.object_hash().null()),
+        is_checked_out: heads.iter().any(|h| h.is_checked_out),
         heads,
         order: None,
     })
@@ -145,11 +148,14 @@ fn try_from_stack_v3(
 /// Returns the list of stacks that pass `filter`, in unspecified order.
 ///
 /// Use `repo` and `meta` to read branches data
+/// Use `ref_name` to forcefully pretend the HEAD is looking at something else. Only used in testing to avoid needing
+/// multiple fixtures just with a different HEAD position.
 // TODO: See if the UI can migrate to `head_info()` or a variant of it so the information is only called once.
 pub fn stacks_v3(
     repo: &gix::Repository,
     meta: &VirtualBranchesTomlMetadata,
     filter: StacksFilter,
+    ref_name_override: Option<&gix::refs::FullNameRef>,
 ) -> anyhow::Result<Vec<ui::StackEntry>> {
     // TODO: See if this works at all once VirtualBranches.toml isn't the backing anymore.
     //       Probably needs to change, maybe even alongside the notion of 'unapplied'.
@@ -192,22 +198,24 @@ pub fn stacks_v3(
                 heads: vec![ui::StackHeadInfo {
                     name: ref_name.shorten().into(),
                     tip,
+                    is_checked_out: false,
                 }],
                 tip,
                 order: None,
+                is_checked_out: false,
             })
         }
         Ok(out)
     }
 
-    let info = head_info(
-        repo,
-        meta,
-        ref_info::Options {
-            expensive_commit_info: false,
-            traversal: meta.graph_options(),
-        },
-    )?;
+    let options = ref_info::Options {
+        expensive_commit_info: false,
+        traversal: meta.graph_options(),
+    };
+    let info = match ref_name_override {
+        None => head_info(repo, meta, options),
+        Some(ref_name) => ref_info(repo.find_reference(ref_name)?, meta, options),
+    }?;
 
     fn into_ui_stacks(
         repo: &gix::Repository,
