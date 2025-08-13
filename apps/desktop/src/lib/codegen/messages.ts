@@ -2,6 +2,7 @@
  * This module is responsible for taking the messages from a near-incomprehesable mess into something _vaugly_ useful.
  */
 
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { ClaudeMessage } from '$lib/codegen/types';
 
 export type Message =
@@ -77,9 +78,10 @@ export function formatMessages(events: ClaudeMessage[]): Message[] {
 					const result = content[0]!;
 					const foundToolCall = toolCalls[result.tool_use_id];
 					if (!foundToolCall) {
-						return [];
-					} else if (!result.content) {
-						foundToolCall.result = undefined;
+						// This should never happen
+						continue;
+					} else if (!isDefined(result.content)) {
+						foundToolCall.result = 'Tool completed with no output';
 					} else if (typeof result.content === 'string') {
 						foundToolCall.result = result.content;
 					} else if (result.content[0]!.type === 'text') {
