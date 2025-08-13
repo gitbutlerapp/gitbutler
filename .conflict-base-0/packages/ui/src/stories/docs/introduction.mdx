@@ -1,0 +1,74 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="About/Introduction" />
+
+# 🤖 Welcome to GitButler UI
+
+Welcome to the GitButler UI Storybook. This is a collection of components that are used to build the GitButler UI. Here you can see all the components that are available and how they can be used.
+
+---
+
+## 📚 How to install
+
+Because the GitButler UI is a part of a monorepo, you can use the components by adding the package to your package.json file.
+
+```bash
+"@gitbutler/ui": "workspace:*",
+```
+
+Then import the package styles in your project:
+
+```css
+@import '@gitbutler/ui/main.css';
+```
+
+This **single import** automatically includes:
+
+- All UI component styles
+- All font definitions (`@font-face` rules)
+- Font file assets (Inter, Geist Mono, PP Editorial New)
+- CSS custom properties for fonts
+
+### 🔤 Font System
+
+The UI package uses a centralized font system. Once you import `main.css`, you can use these font families:
+
+```css
+font-family: var(--fonts-inter); /* Primary UI font */
+font-family: var(--fonts-geist-mono); /* Code/monospace font */
+font-family: var(--fonts-pp-editorial); /* Display/heading font */
+```
+
+**Available fonts:**
+
+- **Inter**: Regular, Medium, SemiBold, Bold (+ Italic versions)
+- **Geist Mono**: Regular, Medium, Bold
+- **PP Editorial New**: Regular
+
+No additional font imports needed - everything is included in the single CSS import!
+
+---
+
+## 📦 Packing styles
+
+In order to pack the styles, we use PostCSS. The PostCSS configuration is located in the `postcss.config.js` file.
+
+```js
+const config = {
+	plugins: [
+		pxToRem({
+			rootValue: 16,
+			unitPrecision: 5,
+			propList: ['*'],
+			selectorBlackList: [],
+			replace: true,
+			mediaQuery: false,
+			minPixelValue: 0
+		}),
+		autoprefixer(),
+		postcssNesting(),
+		postcssBundler(),
+		postcssMinify()
+	]
+};
+```
