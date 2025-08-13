@@ -1,19 +1,19 @@
 use anyhow::{Context, Result};
 use but_core::ui::TreeChange;
+use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::{ensure_edit_mode, ensure_open_workspace_mode, EditModeMetadata};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt,
 };
-use gitbutler_reference::ReferenceName;
 
 use crate::ConflictEntryPresence;
 
 pub fn enter_edit_mode(
     ctx: &CommandContext,
     commit_oid: git2::Oid,
-    branch_reference_name: ReferenceName,
+    stack_id: StackId,
 ) -> Result<EditModeMetadata> {
     let mut guard = ctx.project().exclusive_worktree_access();
 
@@ -25,17 +25,12 @@ pub fn enter_edit_mode(
         .find_commit(commit_oid)
         .context("Failed to find commit")?;
 
-    let branch = ctx
-        .repo()
-        .find_reference(&branch_reference_name)
-        .context("Failed to find branch reference")?;
-
     let snapshot = ctx
         .prepare_snapshot(guard.read_permission())
         .context("Failed to prepare snapshot")?;
 
     let edit_mode_metadata =
-        crate::enter_edit_mode(ctx, commit, &branch, guard.write_permission())?;
+        crate::enter_edit_mode(ctx, commit, stack_id, guard.write_permission())?;
 
     let _ = ctx.commit_snapshot(
         snapshot,

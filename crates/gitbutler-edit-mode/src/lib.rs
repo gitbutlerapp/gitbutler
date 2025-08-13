@@ -1,10 +1,9 @@
 use std::collections::HashMap;
-use std::str::FromStr;
 
 use anyhow::{bail, Context, Result};
 use bstr::{BString, ByteSlice};
 use but_core::TreeChange;
-use but_workspace::stack_ext::StackExt;
+use but_workspace::{stack_ext::StackExt, StackId};
 use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
@@ -21,10 +20,9 @@ use gitbutler_oxidize::{
     git2_to_gix_object_id, gix_to_git2_index, GixRepositoryExt, ObjectIdExt, OidExt, RepoExt,
 };
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
-use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::{signature, SignaturePurpose};
-use gitbutler_stack::{Stack, VirtualBranchesHandle};
+use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
 #[allow(deprecated)]
 use serde::Serialize;
@@ -169,46 +167,20 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: git2::Commit) -> Result<()
     Ok(())
 }
 
-fn find_stack_by_reference(
-    ctx: &CommandContext,
-    reference: &ReferenceName,
-) -> Result<Option<Stack>> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let all_stacks = vb_state
-        .list_stacks_in_workspace()
-        .context("Failed to read virtual branches")?;
-
-    Ok(all_stacks.into_iter().find(|branch| {
-        let Ok(refname) = branch.refname() else {
-            return false;
-        };
-
-        let Ok(checked_out_refname) = Refname::from_str(reference) else {
-            return false;
-        };
-
-        checked_out_refname == refname.into()
-    }))
-}
-
 pub(crate) fn enter_edit_mode(
     ctx: &CommandContext,
     commit: git2::Commit,
-    branch: &git2::Reference,
+    stack_id: StackId,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<EditModeMetadata> {
-    let Some(branch_reference) = branch.name() else {
-        bail!("Failed to get branch reference name");
-    };
-
     let edit_mode_metadata = EditModeMetadata {
         commit_oid: commit.id(),
-        branch_reference: branch_reference.to_string().into(),
+        stack_id,
     };
 
-    if find_stack_by_reference(ctx, &edit_mode_metadata.branch_reference)?.is_none() {
-        bail!("Can not enter edit mode for a reference which does not have a cooresponding virtual branch")
-    }
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    // Validate the stack_id
+    vb_state.get_stack_in_workspace(stack_id)?;
 
     commit_uncommited_changes(ctx)?;
     write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
@@ -254,10 +226,7 @@ pub(crate) fn save_and_return_to_workspace(
         .find_commit(edit_mode_metadata.commit_oid)
         .context("Failed to find commit")?;
 
-    let Some(mut stack) = find_stack_by_reference(ctx, &edit_mode_metadata.branch_reference)?
-    else {
-        bail!("Failed to find virtual branch for this reference. Entering and leaving edit mode for non-virtual branches is unsupported")
-    };
+    let mut stack = vb_state.get_stack_in_workspace(edit_mode_metadata.stack_id)?;
 
     let parents = commit.parents().collect::<Vec<_>>();
 
