@@ -103,3 +103,16 @@ export type ClaudeMessageContent =
 			type: 'userInput';
 			subject: { message: string };
 	  };
+
+/**
+ * Details about a Claude session, extracted from the Claude transcript.
+ * This data is derived just in time, i.e. not persisted by GitButler.
+ */
+export type ClaudeSessionDetails = {
+	summary: string | null;
+	lastPrompt: string | null;
+};
+
+export function sessionMessage(sessionDetails: ClaudeSessionDetails): string | undefined {
+	return sessionDetails.summary ?? sessionDetails.lastPrompt ?? undefined;
+}
