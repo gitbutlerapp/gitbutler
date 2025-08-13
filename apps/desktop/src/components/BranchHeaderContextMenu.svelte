@@ -20,7 +20,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { PROMPT_SERVICE } from '$lib/ai/promptService';
 	import { AI_SERVICE } from '$lib/ai/service';
-	import { writeClipboard } from '$lib/backend/clipboard';
+	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -60,6 +60,7 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const promptService = inject(PROMPT_SERVICE);
 	const urlService = inject(URL_SERVICE);
+	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 	const [updateBranchNameMutation] = stackService.updateBranchName;
 	const [createRef, refCreation] = stackService.createReference;
@@ -190,7 +191,7 @@
 				label="Copy branch name"
 				testId={TestId.BranchHeaderContextMenu_CopyBranchName}
 				onclick={() => {
-					writeClipboard(branch?.name);
+					clipboardService.write(branch?.name);
 					close();
 				}}
 			/>
@@ -308,7 +309,7 @@
 							label="Copy PR link"
 							testId={TestId.BranchHeaderContextMenu_CopyPRLink}
 							onclick={() => {
-								writeClipboard(pr.htmlUrl);
+								clipboardService.write(pr.htmlUrl);
 								close();
 							}}
 						/>

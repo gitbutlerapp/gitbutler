@@ -2,7 +2,7 @@
 	import PrStatusBadge from '$components/PrStatusBadge.svelte';
 	import PullRequestPolling from '$components/PullRequestPolling.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { writeClipboard } from '$lib/backend/clipboard';
+	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
@@ -58,6 +58,7 @@
 	const prService = $derived(forge.current.prService);
 	const checksService = $derived(forge.current.checks);
 	const urlService = inject(URL_SERVICE);
+	const clipboardService = inject(CLIPBOARD_SERVICE);
 
 	const prResult = $derived(prService?.get(prNumber, { forceRefetch: true }));
 	const pr = $derived(prResult?.current.data);
@@ -125,7 +126,7 @@
 				<ContextMenuItem
 					label="Copy link"
 					onclick={() => {
-						writeClipboard(pr.htmlUrl);
+						clipboardService.write(pr.htmlUrl);
 						contextMenuEl?.close();
 					}}
 				/>
@@ -152,7 +153,7 @@
 					<ContextMenuItem
 						label="Copy checks"
 						onclick={() => {
-							writeClipboard(`${pr.htmlUrl}/checks`);
+							clipboardService.write(`${pr.htmlUrl}/checks`);
 							contextMenuEl?.close();
 						}}
 					/>
@@ -178,7 +179,7 @@
 					icon="copy-small"
 					tooltip="Copy {abbr} link"
 					onclick={() => {
-						writeClipboard(pr.htmlUrl);
+						clipboardService.write(pr.htmlUrl);
 					}}
 				/>
 				<Button

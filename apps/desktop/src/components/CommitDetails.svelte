@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { writeClipboard } from '$lib/backend/clipboard';
+	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { type Commit, type UpstreamCommit } from '$lib/branches/v3';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { SETTINGS } from '$lib/settings/userSettings';
@@ -21,6 +21,7 @@
 
 	const userService = inject(USER_SERVICE);
 	const userSettings = inject(SETTINGS);
+	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const zoom = $derived($userSettings.zoom);
 
 	const user = $derived(userService.user);
@@ -69,7 +70,7 @@
 				type="button"
 				class="copy-sha underline-dotted"
 				onclick={() => {
-					writeClipboard(commit.id, {
+					clipboardService.write(commit.id, {
 						message: 'Commit SHA copied'
 					});
 				}}

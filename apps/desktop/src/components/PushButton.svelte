@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { writeClipboard } from '$lib/backend/clipboard';
+	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import {
@@ -49,6 +49,8 @@
 	const uiState = inject(UI_STATE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const urlService = inject(URL_SERVICE);
+	const clipboardService = inject(CLIPBOARD_SERVICE);
+
 	const branchDetails = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const projectResult = $derived(projectsService.getProject(projectId));
 	const [pushStack, pushResult] = stackService.pushStack;
@@ -201,7 +203,7 @@
 								author={commit.author.name}
 								url={commitUrl}
 								onOpen={(url) => urlService.openExternalUrl(url)}
-								onCopy={() => writeClipboard(commit.id)}
+								onCopy={() => clipboardService.write(commit.id)}
 							/>
 						{/each}
 					</ScrollableContainer>

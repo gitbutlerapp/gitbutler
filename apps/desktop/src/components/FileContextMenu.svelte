@@ -4,7 +4,7 @@
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { BACKEND } from '$lib/backend';
-	import { writeClipboard } from '$lib/backend/clipboard';
+	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { changesToDiffSpec } from '$lib/commits/utils';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
 	import { FILE_SERVICE } from '$lib/files/fileService';
@@ -64,6 +64,7 @@
 	const actionService = inject(ACTION_SERVICE);
 	const fileService = inject(FILE_SERVICE);
 	const urlService = inject(URL_SERVICE);
+	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const backend = inject(BACKEND);
 	const [autoCommit, autoCommitting] = actionService.autoCommit;
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
@@ -399,7 +400,7 @@
 							const projectPath = project?.path;
 							if (projectPath) {
 								const absPath = await backend.joinPath(projectPath, item.changes[0]!.path);
-								await writeClipboard(absPath, {
+								await clipboardService.write(absPath, {
 									errorMessage: 'Failed to copy absolute path'
 								});
 							}
@@ -409,7 +410,7 @@
 					<ContextMenuItem
 						label="Copy Relative Path"
 						onclick={async () => {
-							await writeClipboard(item.changes[0]!.path, {
+							await clipboardService.write(item.changes[0]!.path, {
 								errorMessage: 'Failed to copy relative path'
 							});
 							contextMenu.close();

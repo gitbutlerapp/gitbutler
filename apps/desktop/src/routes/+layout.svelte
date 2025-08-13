@@ -20,6 +20,7 @@
 	import { EVENT_CONTEXT } from '$lib/analytics/eventContext';
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BACKEND } from '$lib/backend';
+	import ClipboardService, { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import BaseBranchService, { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService, BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import CLIManager, { CLI_MANAGER } from '$lib/cli/cli';
@@ -199,6 +200,7 @@
 	);
 
 	const urlService = new URLService(data.backend);
+	const clipboardService = new ClipboardService(data.backend);
 
 	const projectsService = new ProjectsService(clientState, data.homeDir, data.backend);
 	provide(PROJECTS_SERVICE, projectsService);
@@ -284,6 +286,7 @@
 	provide(RESIZE_SYNC, new ResizeSync());
 	provide(GIT_SERVICE, new GitService(data.backend));
 	provide(URL_SERVICE, urlService);
+	provide(CLIPBOARD_SERVICE, clipboardService);
 
 	provide(BACKEND, data.backend);
 
