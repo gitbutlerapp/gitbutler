@@ -1,6 +1,17 @@
 import { isReduxError } from '$lib/state/reduxError';
-
 import { getCookie } from '$lib/utils/cookies';
+import { readable } from 'svelte/store';
+import type { IBackend } from '$lib/backend/backend';
+
+export default class Web implements IBackend {
+	systemTheme = readable<string | null>(null);
+	invoke = webInvoke;
+	listen = webListen;
+	checkUpdate = webCheckUpdate;
+	currentVersion = webCurrentVersion;
+	readFile = webReadFile;
+	openExternalUrl = webOpenExternalUrl;
+}
 
 /**
  * Invokes a backend web command via HTTP POST and returns the result.
@@ -11,10 +22,7 @@ import { getCookie } from '$lib/utils/cookies';
  * @returns A promise that resolves with the subject of the response if successful.
  * @throws Throws an error if the backend responds with an error or if the request fails.
  */
-export async function webInvoke<T>(
-	command: string,
-	params: Record<string, unknown> = {}
-): Promise<T> {
+async function webInvoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
 	try {
 		const response = await fetch(`http://${getWebUrl()}`, {
 			method: 'POST',
@@ -48,27 +56,27 @@ export async function webInvoke<T>(
  * @param handle - The callback function to handle the event when it is triggered.
  * @returns A function or object that can be used to remove or manage the event listener, as provided by `WebListener.listen`.
  */
-export function webListen<T>(event: EventName, handle: EventCallback<T>) {
+function webListen<T>(event: EventName, handle: EventCallback<T>) {
 	const webListener = WebListener.getInstance();
 	return webListener.listen({ name: event, handle });
 }
 
-export async function webCheckUpdate(): Promise<null> {
+async function webCheckUpdate(): Promise<null> {
 	// TODO: Implement this for the web version if needed
 	return null;
 }
 
-export async function webCurrentVersion(): Promise<string> {
+async function webCurrentVersion(): Promise<string> {
 	// TODO: Implement this for the web version if needed
 	return '0.0.0';
 }
 
-export async function webReadFile(_path: string): Promise<Uint8Array> {
+async function webReadFile(_path: string): Promise<Uint8Array> {
 	// TODO: Implement this for the web version if needed
 	throw new Error('webReadFile is not implemented for the web version');
 }
 
-export async function webOpenExternalUrl(href: string): Promise<void> {
+async function webOpenExternalUrl(href: string): Promise<void> {
 	window.open(href, '_blank');
 	return await Promise.resolve();
 }

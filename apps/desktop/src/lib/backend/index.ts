@@ -1,84 +1,15 @@
-import {
-	tauriInvoke,
-	tauriListen,
-	tauriCheck,
-	tauriGetVersion,
-	tauriReadFile,
-	tauriOpenExternalUrl
-} from '$lib/backend/tauri';
-import {
-	webCheckUpdate,
-	webCurrentVersion,
-	webInvoke,
-	webListen,
-	webOpenExternalUrl,
-	webReadFile
-} from '$lib/backend/web';
+import Tauri from '$lib/backend/tauri';
+import Web from '$lib/backend/web';
+import { InjectionToken } from '@gitbutler/shared/context';
+import type { IBackend } from '$lib/backend/backend';
 
-type Event<T> = {
-	/** Event name */
-	event: string;
-	/** Event identifier used to unlisten */
-	id: number;
-	/** Event payload */
-	payload: T;
-};
+export const BACKEND = new InjectionToken<IBackend>('Backend');
 
-export type DownloadEvent =
-	| {
-			event: 'Started';
-			data: {
-				contentLength?: number;
-			};
-	  }
-	| {
-			event: 'Progress';
-			data: {
-				chunkLength: number;
-			};
-	  }
-	| {
-			event: 'Finished';
-	  };
-
-export type DownloadEventName = DownloadEvent['event'];
-
-export type DownloadUpdate = (onEvent?: (progress: DownloadEvent) => void) => Promise<void>;
-export type InstallUpdate = () => Promise<void>;
-
-export type Update = {
-	version: string;
-	currentVersion: string;
-	body?: string;
-	download: DownloadUpdate;
-	install: InstallUpdate;
-};
-
-export interface IBackend {
-	invoke: <T>(command: string, ...args: any[]) => Promise<T>;
-	listen: <T>(event: string, callback: (event: Event<T>) => void) => () => Promise<void>;
-	checkUpdate: () => Promise<Update | null>;
-	currentVersion: () => Promise<string>;
-	readFile: (path: string) => Promise<Uint8Array>;
-	openExternalUrl: (href: string) => Promise<void>;
-}
-
-class Tauri implements IBackend {
-	invoke = tauriInvoke;
-	listen = tauriListen;
-	checkUpdate = tauriCheck;
-	currentVersion = tauriGetVersion;
-	readFile = tauriReadFile;
-	openExternalUrl = tauriOpenExternalUrl;
-}
-
-class Web implements IBackend {
-	invoke = webInvoke;
-	listen = webListen;
-	checkUpdate = webCheckUpdate;
-	currentVersion = webCurrentVersion;
-	readFile = webReadFile;
-	openExternalUrl = webOpenExternalUrl;
+export default function createBackend(): IBackend {
+	if (import.meta.env.VITE_BUILD_TARGET === 'web') {
+		return new Web();
+	}
+	return new Tauri();
 }
 
 export function isBackend(something: unknown): something is IBackend {
@@ -89,9 +20,4 @@ export function isBackend(something: unknown): something is IBackend {
 	);
 }
 
-export default function createBackend(): IBackend {
-	if (import.meta.env.VITE_BUILD_TARGET === 'web') {
-		return new Web();
-	}
-	return new Tauri();
-}
+export * from '$lib/backend/backend';
