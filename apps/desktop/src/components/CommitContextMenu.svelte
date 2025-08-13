@@ -42,7 +42,7 @@
 </script>
 
 <script lang="ts">
-	import { writeClipboard } from '$lib/backend/clipboard';
+	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
@@ -68,6 +68,7 @@
 
 	const urlService = inject(URL_SERVICE);
 	const stackService = inject(STACK_SERVICE);
+	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 	const [createRef, refCreation] = stackService.createReference;
 
@@ -172,7 +173,7 @@
 					<ContextMenuItem
 						label="Copy commit link"
 						onclick={() => {
-							writeClipboard(commitUrl);
+							clipboardService.write(commitUrl);
 							close();
 						}}
 					/>
@@ -180,14 +181,14 @@
 				<ContextMenuItem
 					label="Copy commit hash"
 					onclick={() => {
-						writeClipboard(commitId);
+						clipboardService.write(commitId);
 						close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Copy commit message"
 					onclick={() => {
-						writeClipboard(commitMessage);
+						clipboardService.write(commitMessage);
 						close();
 					}}
 				/>
