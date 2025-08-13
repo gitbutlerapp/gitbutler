@@ -227,7 +227,7 @@ We are also collecting tokio's runtime tracing information that could be viewed 
 
 Common issues and solutions when developing GitButler.
 
-### Turbo/Build Issues
+### Turbo/build issues
 
 #### Case-sensitive volume problems
 
@@ -241,59 +241,27 @@ If builds are hanging or behaving unexpectedly:
 
 ```bash
 # Stop the turbo daemon
-$ pnpm exec turbo daemon stop
+pnpm exec turbo daemon stop
 
 # Clear turbo cache
-$ pnpm exec turbo daemon clean
+pnpm exec turbo daemon clean
 
 # Restart development
-$ pnpm dev:desktop
+pnpm dev:desktop
 ```
 
-### Cache Issues
+### Cache issues
 
 If you're seeing stale builds or unexpected behavior:
 
 ```bash
-# Clear all caches
-$ pnpm clean
-$ cargo clean
-$ rm -rf node_modules
-$ pnpm install
+rm -rf .turbo node_modules
+pnpm install
+# Optional (Rust artifacts):
+cargo clean
 ```
 
-### Platform-specific Issues
-
-For Windows-specific build issues, refer to the [Building on Windows](#building-on-windows) section. Common issues include:
-
-- Missing Perl interpreter for OpenSSL compilation
-- Incorrect npm prefix configuration
-- File permission issues with pnpm
-
-#### macOS
-
-- Ensure Xcode Command Line Tools are installed: `xcode-select --install`
-- If using Homebrew, ensure cmake is installed: `brew install cmake`
-
-#### Linux
-
-- Double-check all system dependencies are installed (see Prerequisites)
-- On some distributions, you may need additional development packages
-
-### Node.js and pnpm Issues
-
-#### pnpm installation failures
-
-```bash
-# Disable and re-enable corepack
-$ corepack disable
-$ corepack enable
-
-# Or install pnpm globally
-$ npm install -g pnpm
-```
-
-#### Node version conflicts
+### Node.js & pnpm
 
 Use the Node version pinned by `.nvmrc` (currently LTS “jod” / Node 22):
 
@@ -303,31 +271,21 @@ nvm use
 node -v
 ```
 
-### Rust Issues
-
-#### Cargo build failures
+Use pnpm via Corepack (avoid global installs):
 
 ```bash
-# Update Rust toolchain
-$ rustup update
-
-# Clean and rebuild
-$ cargo clean
-$ cargo build
+corepack enable
+corepack pnpm -v
+# optionally pin a major:
+corepack prepare pnpm@10 --activate
 ```
 
-#### Missing system dependencies
-
-On Linux, if you're getting linking errors, ensure all required system libraries are installed. Revisit the Prerequisites section for your distribution.
-
-### Additional Resources
+### Additional resources
 
 For issues specific to our toolchain components:
 
-- [Turborepo Issues](https://github.com/vercel/turborepo/issues)
-- [Tauri Issues](https://github.com/tauri-apps/tauri/issues)
-- [Svelte Issues](https://github.com/sveltejs/svelte/issues)
-- [Rust Issues](https://github.com/rust-lang/rust/issues)
+- [Turborepo issues](https://github.com/vercel/turborepo/issues)
+- [Tauri issues](https://github.com/tauri-apps/tauri/issues)
 
 If none of these solutions work, please check our [GitHub Issues](https://github.com/gitbutlerapp/gitbutler/issues) or create a new issue with detailed information about your system and the error you're encountering.
 
