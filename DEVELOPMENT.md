@@ -295,11 +295,12 @@ $ npm install -g pnpm
 
 #### Node version conflicts
 
-Ensure you're using Node 20+. If using a version manager like nvm:
+Use the Node version pinned by `.nvmrc` (currently LTS “jod” / Node 22):
 
 ```bash
-$ nvm use 20
-$ nvm alias default 20
+nvm install
+nvm use
+node -v
 ```
 
 ### Rust Issues
