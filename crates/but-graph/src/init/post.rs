@@ -493,7 +493,7 @@ impl Graph {
             if let Some((last_segment_id, base_sidx, commit)) =
                 stack.segments.last().and_then(|s| {
                     let base_sidx = s.base_segment_id?;
-                    let c = self[base_sidx].commits.first()?;
+                    let c = self.node_weight(base_sidx)?.commits.first()?;
                     Some((last_created_segment.unwrap_or(s.id), base_sidx, c))
                 })
             {
@@ -861,8 +861,22 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
         .edges_directed(sidx, Direction::Incoming)
         .map(EdgeOwned::from)
         .collect();
+    let (target_commit_id, target_commit_idx) = graph[new_target]
+        .commits
+        .first()
+        .map(|c| (Some(c.id), Some(0)))
+        .unwrap_or_default();
     for edge in incoming.iter().rev() {
-        graph.inner.add_edge(edge.source, new_target, edge.weight);
+        graph.inner.add_edge(
+            edge.source,
+            new_target,
+            Edge {
+                src: edge.weight.src,
+                src_id: edge.weight.src_id,
+                dst: target_commit_idx,
+                dst_id: target_commit_id,
+            },
+        );
     }
     graph.inner.remove_node(sidx);
 
