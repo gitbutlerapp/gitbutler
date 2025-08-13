@@ -681,11 +681,16 @@
 		flex-shrink: 0;
 		flex-direction: column;
 		max-height: calc(100% - 24px);
+		margin-right: 2px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
 		box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
+	}
+
+	:global(.dark) .details-view {
+		box-shadow: 0 10px 50px 5px color(srgb 0 0 0 / 0.5);
 	}
 
 	.file-preview-section {
