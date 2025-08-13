@@ -67,7 +67,6 @@
 	}
 
 	async function push(args: { withForce: boolean; skipForcePushProtection: boolean }) {
-		if (!stackId) return;
 		const { withForce, skipForcePushProtection } = args;
 		try {
 			const pushResult = await pushStack({
