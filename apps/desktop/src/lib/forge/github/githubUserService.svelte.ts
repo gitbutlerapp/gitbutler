@@ -1,7 +1,7 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
 import { providesList, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/shared/context';
-import type { Tauri } from '$lib/backend/tauri';
+import type { IBackend } from '$lib/backend';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 
@@ -18,7 +18,7 @@ export class GitHubUserService {
 	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
-		private tauri: Tauri,
+		private backend: IBackend,
 		gitHubApi: GitHubApi
 	) {
 		this.api = injectEndpoints(gitHubApi);
@@ -29,11 +29,11 @@ export class GitHubUserService {
 	}
 
 	async initDeviceOauth() {
-		return await this.tauri.invoke<Verification>('init_device_oauth');
+		return await this.backend.invoke<Verification>('init_device_oauth');
 	}
 
 	async checkAuthStatus(params: { deviceCode: string }) {
-		return await this.tauri.invoke<string>('check_auth_status', params);
+		return await this.backend.invoke<string>('check_auth_status', params);
 	}
 }
 

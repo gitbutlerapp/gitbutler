@@ -3,7 +3,7 @@
 	import InfoMessage, { type MessageStyle } from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import { invoke } from '$lib/backend/ipc';
+	import { GIT_SERVICE } from '$lib/git/gitService';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { projectPath } from '$lib/routes/routes.svelte';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
@@ -18,6 +18,7 @@
 	import { onMount } from 'svelte';
 
 	const projectsService = inject(PROJECTS_SERVICE);
+	const gitService = inject(GIT_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
 
 	let loading = $state(false);
@@ -84,10 +85,7 @@
 
 			const targetDir = await join(targetDirPath, remoteUrl.name);
 
-			await invoke('git_clone_repository', {
-				repositoryUrl,
-				targetDir
-			});
+			await gitService.cloneRepo(repositoryUrl, targetDir);
 
 			posthog.capture('Repository Cloned', { protocol: remoteUrl.protocol });
 			const project = await projectsService.addProject(targetDir);

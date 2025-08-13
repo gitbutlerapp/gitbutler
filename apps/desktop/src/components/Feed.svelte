@@ -4,7 +4,7 @@
 	import CliSymLink from '$components/profileSettings/CliSymLink.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
-	import { invoke } from '$lib/backend/ipc';
+	import { CLI_MANAGER } from '$lib/cli/cli';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { FEED_FACTORY } from '$lib/feed/feed';
@@ -25,6 +25,9 @@
 	const actionService = inject(ACTION_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = $derived(settingsService.appSettings);
+
+	const cliManager = inject(CLI_MANAGER);
+	const [instalCLI, installingCLI] = cliManager.install;
 
 	const combinedEntries = $derived(feed.combined);
 	const lastAddedId = $derived(feed.lastAddedId);
@@ -202,7 +205,8 @@
 											kind="outline"
 											icon="play"
 											size="tag"
-											onclick={async () => await invoke('install_cli')}>Install But CLI</Button
+											loading={installingCLI.current.isLoading}
+											onclick={async () => await instalCLI()}>Install But CLI</Button
 										>
 										<span class="clr-text-2">(requires admin)</span>
 										or

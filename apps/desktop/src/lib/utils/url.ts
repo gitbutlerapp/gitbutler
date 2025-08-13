@@ -1,28 +1,31 @@
-import { invoke } from '$lib/backend/ipc';
 import { showToast } from '$lib/notifications/toasts';
+import { InjectionToken } from '@gitbutler/shared/context';
+import type { IBackend } from '$lib/backend';
 
 const SEPARATOR = '/';
 
-export async function openExternalUrl(href: string) {
-	try {
-		await invoke<void>('open_url', { url: href });
-	} catch (e) {
-		if (typeof e === 'string' || e instanceof String) {
-			const message = `
+export const URL_SERVICE = new InjectionToken<URLService>('URLService');
+
+export default class URLService {
+	constructor(private backend: IBackend) {}
+
+	async openExternalUrl(href: string) {
+		try {
+			await this.backend.openExternalUrl(href);
+		} catch (e) {
+			if (typeof e === 'string' || e instanceof String) {
+				const message = `
                 Failed to open link in external browser:
 
                 ${href}
             `;
-			showToast({ title: 'External URL error', message, style: 'error' });
+				showToast({ title: 'External URL error', message, style: 'error' });
+			}
+
+			// Rethrowing for sentry and posthog
+			throw e;
 		}
-
-		// Rethrowing for sentry and posthog
-		throw e;
 	}
-}
-
-export async function showFileInFolder(filePath: string) {
-	await invoke<void>('show_in_finder', { path: filePath });
 }
 
 export interface EditorUriParams {

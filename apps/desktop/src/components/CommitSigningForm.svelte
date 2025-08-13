@@ -2,8 +2,8 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
-	import { invoke } from '$lib/backend/ipc';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
+	import { GIT_SERVICE } from '$lib/git/gitService';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, Link, SectionCard, Select, SelectItem, Textbox, Toggle } from '@gitbutler/ui';
 
@@ -12,6 +12,7 @@
 	const { projectId }: { projectId: string } = $props();
 
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
+	const gitService = inject(GIT_SERVICE);
 
 	let signCommits = $state(false);
 
@@ -57,8 +58,9 @@
 		errorMessage = '';
 		checked = true;
 		loading = true;
-		await invoke('check_signing_settings', { projectId: projectId })
-			.then((_) => {
+		await gitService
+			.checkSigningSettings(projectId)
+			.then(() => {
 				signCheckResult = true;
 			})
 			.catch((err) => {

@@ -17,7 +17,7 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 
 	import { Avatar, Badge, Button, FileListItem, InfoButton, Modal } from '@gitbutler/ui';
@@ -42,6 +42,7 @@
 	const modeService = inject(MODE_SERVICE);
 	const userSettings = inject(SETTINGS);
 	const fileService = inject(FILE_SERVICE);
+	const urlService = inject(URL_SERVICE);
 
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;
@@ -208,7 +209,7 @@
 				schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
 				path: [vscodePath(projectPath), file.path]
 			});
-			openExternalUrl(path);
+			urlService.openExternalUrl(path);
 		}
 	}
 

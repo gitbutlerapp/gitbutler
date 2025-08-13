@@ -1,15 +1,14 @@
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { writeClipboard } from '$lib/backend/clipboard';
-import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { User } from '$lib/user/user';
 import { sleep } from '$lib/utils/sleep';
-import { openExternalUrl } from '$lib/utils/url';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
 import { plainToInstance } from 'class-transformer';
 import { derived, get, readable, writable, type Readable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
+import type { IBackend } from '$lib/backend';
 import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import type { ApiUser } from '@gitbutler/shared/users/types';
 
@@ -42,7 +41,7 @@ export class UserService {
 	readonly error = writable();
 
 	async refresh() {
-		const userData = await invoke<User | undefined>('get_user');
+		const userData = await this.backend.invoke<User | undefined>('get_user');
 		if (userData) {
 			const user = plainToInstance(User, userData);
 			this.tokenMemoryService.setToken(user.access_token);
@@ -63,6 +62,7 @@ export class UserService {
 	});
 
 	constructor(
+		private backend: IBackend,
 		private httpClient: HttpClient,
 		private tokenMemoryService: TokenMemoryService,
 		private posthog: PostHogWrapper
@@ -70,7 +70,7 @@ export class UserService {
 
 	async setUser(user: User | undefined) {
 		if (user) {
-			await invoke('set_user', { user });
+			await this.backend.invoke('set_user', { user });
 			this.tokenMemoryService.setToken(user.access_token);
 		} else {
 			await this.clearUser();
@@ -79,7 +79,7 @@ export class UserService {
 	}
 
 	private async clearUser() {
-		await invoke('delete_user');
+		await this.backend.invoke('delete_user');
 	}
 
 	async logout() {
@@ -119,7 +119,7 @@ export class UserService {
 
 	async login(aborted: Readable<boolean> = readable(false)): Promise<User | undefined> {
 		return await this.loginCommon((url) => {
-			openExternalUrl(url);
+			this.backend.openExternalUrl(url);
 		}, aborted);
 	}
 

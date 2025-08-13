@@ -12,7 +12,8 @@
 	import TelemetrySettings from '$components/profileSettings/TelemetrySettings.svelte';
 	import AppearanceSettings from '$components/projectSettings/AppearanceSettings.svelte';
 	import { newSettingsPath } from '$lib/routes/routes.svelte';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { URL_SERVICE } from '$lib/utils/url';
+	import { inject } from '@gitbutler/shared/context';
 	import { Icon } from '@gitbutler/ui';
 
 	const pages: Page[] = [
@@ -75,6 +76,7 @@
 		}
 	];
 
+	const urlService = inject(URL_SERVICE);
 	const selectedId = $derived(page.params.selectedId);
 </script>
 
@@ -96,7 +98,9 @@
 					type="button"
 					class="social-banner"
 					onclick={async () =>
-						await openExternalUrl('mailto:hello@gitbutler.com?subject=Feedback or question!')}
+						await urlService.openExternalUrl(
+							'mailto:hello@gitbutler.com?subject=Feedback or question!'
+						)}
 				>
 					<span class="text-14 text-bold">Contact us</span>
 					<Icon name="mail" />
@@ -104,7 +108,7 @@
 				<button
 					type="button"
 					class="social-banner"
-					onclick={async () => await openExternalUrl('https://discord.gg/MmFkmaJ42D')}
+					onclick={async () => await urlService.openExternalUrl('https://discord.gg/MmFkmaJ42D')}
 				>
 					<span class="text-14 text-bold">Join our Discord</span>
 					<Icon name="discord" />

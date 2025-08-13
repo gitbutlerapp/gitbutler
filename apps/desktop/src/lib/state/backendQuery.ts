@@ -1,4 +1,4 @@
-import { Tauri } from '$lib/backend/tauri';
+import { isBackend, type IBackend } from '$lib/backend';
 import { isReduxError, type ReduxError } from '$lib/state/reduxError';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
@@ -20,12 +20,12 @@ export const tauriBaseQuery: TauriBaseQueryFn = async (
 		return newError('Expected a command!');
 	}
 
-	if (!hasTauriExtra(api.extra)) {
+	if (!hasBackendExtra(api.extra)) {
 		return newError('Redux dependency Tauri not found!');
 	}
 
 	try {
-		const result = { data: await api.extra.tauri.invoke(command, args) };
+		const result = { data: await api.extra.backend.invoke(command, args) };
 		return result;
 	} catch (error: unknown) {
 		const name = `API error: (${command})`;
@@ -54,14 +54,14 @@ type ApiArgs = Record<string, unknown> | undefined;
 /**
  * Typeguard for accessing injected Tauri dependency safely.
  */
-export function hasTauriExtra(extra: unknown): extra is {
-	tauri: Tauri;
+export function hasBackendExtra(extra: unknown): extra is {
+	backend: IBackend;
 } {
 	return (
 		!!extra &&
 		typeof extra === 'object' &&
 		extra !== null &&
-		'tauri' in extra &&
-		extra.tauri instanceof Tauri
+		'backend' in extra &&
+		isBackend(extra.backend)
 	);
 }

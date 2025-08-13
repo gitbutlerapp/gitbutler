@@ -6,6 +6,7 @@
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { changesToDiffSpec } from '$lib/commits/utils';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
+	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { platformName } from '$lib/platform/platform';
 	import { vscodePath } from '$lib/project/project';
@@ -15,7 +16,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { getEditorUri, openExternalUrl, showFileInFolder } from '$lib/utils/url';
+	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 
 	import {
@@ -61,6 +62,8 @@
 	const idSelection = inject(ID_SELECTION);
 	const aiService = inject(AI_SERVICE);
 	const actionService = inject(ACTION_SERVICE);
+	const fileService = inject(FILE_SERVICE);
+	const urlService = inject(URL_SERVICE);
 	const [autoCommit, autoCommitting] = actionService.autoCommit;
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
 	const [absorbChanges, absorbingChanges] = actionService.absorb;
@@ -428,7 +431,7 @@
 										schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
 										path: [vscodePath(projectPath), change.path]
 									});
-									openExternalUrl(path);
+									urlService.openExternalUrl(path);
 								}
 							}
 							contextMenu.close();
@@ -446,7 +449,7 @@
 							const projectPath = project?.path;
 							if (projectPath) {
 								const absPath = await join(projectPath, item.changes[0]!.path);
-								await showFileInFolder(absPath);
+								await fileService.showFileInFolder(absPath);
 							}
 							contextMenu.close();
 						}}

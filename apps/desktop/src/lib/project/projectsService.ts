@@ -1,13 +1,6 @@
-import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { type Project } from '$lib/project/project';
-import {
-	invalidatesItem,
-	invalidatesList,
-	providesItem,
-	providesList,
-	ReduxTag
-} from '$lib/state/tags';
+import { invalidatesList, providesItem, providesList, ReduxTag } from '$lib/state/tags';
 import { getCookie } from '$lib/utils/cookies';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { persisted } from '@gitbutler/shared/persisted';
@@ -50,12 +43,11 @@ export class ProjectsService {
 	}
 
 	async setActiveProject(projectId: string): Promise<ProjectInfo | null> {
-		const info = await invoke<ProjectInfo | null>('set_project_active', { id: projectId });
-		return info;
+		return await this.api.endpoints.setProjectActive.mutate({ id: projectId });
 	}
 
 	async updateProject(project: Project & { unset_bool?: boolean; unset_forge_override?: boolean }) {
-		return await this.api.endpoints.update.mutate({ project });
+		await this.api.endpoints.updateProject.mutate({ project });
 	}
 
 	async deleteProject(projectId: string) {
@@ -83,7 +75,7 @@ export class ProjectsService {
 
 	// TODO: Reinstate the ability to open a project in a new window.
 	async openProjectInNewWindow(projectId: string) {
-		await invoke('open_project_in_window', { id: projectId });
+		await this.api.endpoints.openProjectInWindow.mutate({ id: projectId });
 	}
 
 	async relocateProject(projectId: string): Promise<void> {
@@ -175,12 +167,21 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				invalidatesTags: () => [invalidatesList(ReduxTag.Project)]
 			}),
-			update: build.mutation<Project[], { project: Project }>({
+			setProjectActive: build.mutation<ProjectInfo | null, { id: string }>({
+				extraOptions: { command: 'set_project_active' },
+				query: (args) => args
+			}),
+			updateProject: build.mutation<
+				void,
+				{ project: Project & { unset_bool?: boolean; unset_forge_override?: boolean } }
+			>({
 				extraOptions: { command: 'update_project' },
 				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.Project, args.project.id)
-				]
+				invalidatesTags: (_result, _error, args) => providesItem(ReduxTag.Project, args.project.id)
+			}),
+			openProjectInWindow: build.mutation<void, { id: string }>({
+				extraOptions: { command: 'open_project_in_window' },
+				query: (args) => args
 			})
 		})
 	});

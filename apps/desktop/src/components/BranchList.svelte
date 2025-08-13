@@ -18,7 +18,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { URL_SERVICE } from '$lib/utils/url';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { inject } from '@gitbutler/shared/context';
 
@@ -43,6 +43,7 @@
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const urlService = inject(URL_SERVICE);
 	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
 
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
@@ -264,7 +265,7 @@
 									disabled={!prUrl}
 									onclick={() => {
 										if (prUrl) {
-											openExternalUrl(prUrl);
+											urlService.openExternalUrl(prUrl);
 										}
 									}}
 									icon={forge.current.name === 'gitlab' ? 'view-mr-browser' : 'view-pr-browser'}

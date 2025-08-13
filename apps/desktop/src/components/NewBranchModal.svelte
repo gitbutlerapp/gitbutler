@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 
 	import { Button, LinkButton, Modal, Textbox, chipToasts } from '@gitbutler/ui';
@@ -11,10 +11,12 @@
 		stackId?: string;
 	}
 
+	const urlService = inject(URL_SERVICE);
+
 	const BRANCH_STACKING_DOCS =
 		'https://docs.gitbutler.com/features/virtual-branches/stacked-branches';
 	function clickOnDocsLink() {
-		openExternalUrl(BRANCH_STACKING_DOCS);
+		urlService.openExternalUrl(BRANCH_STACKING_DOCS);
 	}
 
 	const { projectId, stackId }: Props = $props();

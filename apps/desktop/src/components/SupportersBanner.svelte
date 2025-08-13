@@ -1,12 +1,16 @@
 <script lang="ts">
 	import bannerImgSVG from '$lib/assets/supporters.svg?raw';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { URL_SERVICE } from '$lib/utils/url';
+	import { inject } from '@gitbutler/shared/context';
+
+	const urlService = inject(URL_SERVICE);
 </script>
 
 <button
 	type="button"
 	class="banner"
-	onclick={async () => await openExternalUrl('https://docs.gitbutler.com/community/supporters')}
+	onclick={async () =>
+		await urlService.openExternalUrl('https://docs.gitbutler.com/community/supporters')}
 >
 	<div class="banner-img-wrap">
 		{@html bannerImgSVG}

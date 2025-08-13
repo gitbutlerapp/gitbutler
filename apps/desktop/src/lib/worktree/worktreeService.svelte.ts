@@ -1,4 +1,4 @@
-import { hasTauriExtra } from '$lib/state/backendQuery';
+import { hasBackendExtra } from '$lib/state/backendQuery';
 import { createSelectByIds } from '$lib/state/customSelectors';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/shared/context';
@@ -105,12 +105,12 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				 * of the query results have unsubscribed.
 				 */
 				async onCacheEntryAdded(arg, lifecycleApi) {
-					if (!hasTauriExtra(lifecycleApi.extra)) {
-						throw new Error('Redux dependency Tauri not found!');
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Backend not found!');
 					}
 					// The `cacheDataLoaded` promise resolves when the result is first loaded.
 					await lifecycleApi.cacheDataLoaded;
-					const unsubscribe = lifecycleApi.extra.tauri.listen<WorktreeChanges>(
+					const unsubscribe = lifecycleApi.extra.backend.listen<WorktreeChanges>(
 						`project://${arg.projectId}/worktree_changes`,
 						(event) => {
 							lifecycleApi.updateCachedData(() => ({
