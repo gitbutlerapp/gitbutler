@@ -8,6 +8,10 @@ import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { readable } from 'svelte/store';
 import type { IBackend } from '$lib/backend/backend';
 import type { EventCallback, EventName } from '@tauri-apps/api/event';
+import { relaunch as relaunchTauri } from '@tauri-apps/plugin-process';
+import { documentDir as documentDirTauri } from '@tauri-apps/api/path';
+import { join as joinPathTauri } from '@tauri-apps/api/path';
+import { open as filePickerTauri, type OpenDialogOptions } from '@tauri-apps/plugin-dialog';
 
 export default class Tauri implements IBackend {
 	private appWindow: Window | undefined;
@@ -30,6 +34,11 @@ export default class Tauri implements IBackend {
 	readFile = tauriReadFile;
 	openExternalUrl = tauriOpenExternalUrl;
 	relaunch = relaunchTauri;
+	documentDir = documentDirTauri;
+	joinPath = joinPathTauri;
+	filePicker<T extends OpenDialogOptions>() {
+		return filePickerTauri<T>();
+	}
 }
 
 async function tauriInvoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {

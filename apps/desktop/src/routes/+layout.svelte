@@ -200,7 +200,7 @@
 
 	const urlService = new URLService(data.backend);
 
-	const projectsService = new ProjectsService(clientState, data.homeDir, data.httpClient);
+	const projectsService = new ProjectsService(clientState, data.homeDir, data.backend);
 	provide(PROJECTS_SERVICE, projectsService);
 
 	const shortcutService = new ShortcutService(data.backend);

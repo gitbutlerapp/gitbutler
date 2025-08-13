@@ -5,10 +5,10 @@ import { getCookie } from '$lib/utils/cookies';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { persisted } from '@gitbutler/shared/persisted';
 import { chipToasts } from '@gitbutler/ui';
-import { open } from '@tauri-apps/plugin-dialog';
 import { get } from 'svelte/store';
 import type { ClientState } from '$lib/state/clientState.svelte';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
+import type { IBackend } from '$lib/backend';
 
 export type ProjectInfo = {
 	is_exclusive: boolean;
@@ -25,7 +25,7 @@ export class ProjectsService {
 	constructor(
 		state: ClientState,
 		private homeDir: string | undefined,
-		private httpClient: HttpClient
+		private backend: IBackend
 	) {
 		this.api = injectEndpoints(state.backendApi);
 	}
@@ -59,15 +59,11 @@ export class ProjectsService {
 		if (cookiePath) {
 			return cookiePath;
 		}
-
-		let selectedPath: string | undefined | null;
-		if (import.meta.env.VITE_BUILD_TARGET === 'web') {
-			// TODO: Consider: this is electron specific, could we use a web API
-			// and also work on the real web?
-			selectedPath = await window.electronAPI?.openDirectory();
-		} else {
-			selectedPath = await open({ directory: true, recursive: true, defaultPath: this.homeDir });
-		}
+		const selectedPath = await this.backend.filePicker({
+			directory: true,
+			recursive: true,
+			defaultPath: this.homeDir
+		});
 		if (selectedPath) {
 			return selectedPath;
 		}

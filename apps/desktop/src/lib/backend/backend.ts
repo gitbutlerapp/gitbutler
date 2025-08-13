@@ -38,6 +38,54 @@ export type Update = {
 	install: InstallUpdate;
 };
 
+type DialogFilter = {
+	/** Filter name. */
+	name: string;
+	/**
+	 * Extensions to filter, without a `.` prefix.
+	 * @example
+	 * ```typescript
+	 * extensions: ['svg', 'png']
+	 * ```
+	 */
+	extensions: string[];
+};
+
+export type OpenDialogOptions = {
+	/** The title of the dialog window (desktop only). */
+	title?: string;
+	/** The filters of the dialog. */
+	filters?: DialogFilter[];
+	/**
+	 * Initial directory or file path.
+	 * If it's a directory path, the dialog interface will change to that folder.
+	 * If it's not an existing directory, the file name will be set to the dialog's file name input and the dialog will be set to the parent folder.
+	 *
+	 * On mobile the file name is always used on the dialog's file name input.
+	 * If not provided, Android uses `(invalid).txt` as default file name.
+	 */
+	defaultPath?: string;
+	/** Whether the dialog allows multiple selection or not. */
+	multiple?: boolean;
+	/** Whether the dialog is a directory selection or not. */
+	directory?: boolean;
+	/**
+	 * If `directory` is true, indicates that it will be read recursively later.
+	 * Defines whether subdirectories will be allowed on the scope or not.
+	 */
+	recursive?: boolean;
+	/** Whether to allow creating directories in the dialog. Enabled by default. **macOS Only** */
+	canCreateDirectories?: boolean;
+};
+
+export type OpenDialogReturn<T extends OpenDialogOptions> = T['directory'] extends true
+	? T['multiple'] extends true
+		? string[] | null
+		: string | null
+	: T['multiple'] extends true
+		? string[] | null
+		: string | null;
+
 export interface IBackend {
 	systemTheme: Readable<string | null>;
 	invoke: <T>(command: string, ...args: any[]) => Promise<T>;
@@ -47,4 +95,7 @@ export interface IBackend {
 	readFile: (path: string) => Promise<Uint8Array>;
 	openExternalUrl: (href: string) => Promise<void>;
 	relaunch: () => Promise<void>;
+	documentDir: () => Promise<string>;
+	joinPath: (path: string, ...paths: string[]) => Promise<string>;
+	filePicker<T extends OpenDialogOptions>(options?: T): Promise<OpenDialogReturn<T>>;
 }
