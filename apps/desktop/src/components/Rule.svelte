@@ -1,5 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
+	import { sessionMessage } from '$lib/codegen/types';
 	import {
 		semanticTypeToString,
 		treeStatusToShortString,
@@ -23,6 +25,7 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
+	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 
 	const [deleteRule, deletingRule] = rulesService.deleteWorkspaceRule;
 
@@ -86,9 +89,22 @@
 			<Icon name="tag" opacity={0.6} />
 			<span class="text-12 truncate">{semanticTypeToString(filter.subject.type)}</span>
 		{:else if filter.type === 'claudeCodeSessionId'}
-			<Icon name="tag" opacity={0.6} />
-			<!-- TODO: Make an API call to get a rich name for the session, instead of rendering a UUID -->
-			<span class="text-12 truncate">{filter.subject}</span>
+			{@const sessionDetails = claudeCodeService.sessionDetails(projectId, filter.subject)}
+			<ReduxResult {projectId} result={sessionDetails.current}>
+				{#snippet loading()}
+					<Icon name="tag" opacity={0.6} />
+					<span class="text-12 truncate">{filter.subject}</span>
+				{/snippet}
+				{#snippet error()}
+					<Icon name="tag" opacity={0.6} />
+					<span class="text-12 truncate">{filter.subject}</span>
+				{/snippet}
+				{#snippet children(sessionDetails)}
+					{@const title = sessionMessage(sessionDetails) ?? filter.subject}
+					<Icon name="tag" opacity={0.6} />
+					<span class="text-12 truncate" {title}>{title}</span>
+				{/snippet}
+			</ReduxResult>
 		{/if}
 	</div>
 {/snippet}
