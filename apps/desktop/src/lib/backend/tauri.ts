@@ -2,8 +2,12 @@ import { isReduxError } from '$lib/state/reduxError';
 import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { invoke as invokeTauri } from '@tauri-apps/api/core';
 import { listen as listenTauri } from '@tauri-apps/api/event';
+import { documentDir as documentDirTauri } from '@tauri-apps/api/path';
+import { join as joinPathTauri } from '@tauri-apps/api/path';
 import { getCurrentWindow, Window } from '@tauri-apps/api/window';
+import { open as filePickerTauri, type OpenDialogOptions } from '@tauri-apps/plugin-dialog';
 import { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';
+import { relaunch as relaunchTauri } from '@tauri-apps/plugin-process';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { readable } from 'svelte/store';
 import type { IBackend } from '$lib/backend/backend';
@@ -29,6 +33,12 @@ export default class Tauri implements IBackend {
 	currentVersion = tauriGetVersion;
 	readFile = tauriReadFile;
 	openExternalUrl = tauriOpenExternalUrl;
+	relaunch = relaunchTauri;
+	documentDir = documentDirTauri;
+	joinPath = joinPathTauri;
+	async filePicker<T extends OpenDialogOptions>() {
+		return await filePickerTauri<T>();
+	}
 }
 
 async function tauriInvoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {

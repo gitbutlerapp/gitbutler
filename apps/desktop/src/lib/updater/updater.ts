@@ -1,6 +1,5 @@
 import { showToast } from '$lib/notifications/toasts';
 import { InjectionToken } from '@gitbutler/shared/context';
-import { relaunch } from '@tauri-apps/plugin-process';
 import { get, writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type {
@@ -180,7 +179,7 @@ export class UpdaterService {
 
 	async relaunchApp() {
 		try {
-			await relaunch();
+			await this.backend.relaunch();
 		} catch (err: unknown) {
 			handleError(err, true);
 		}

@@ -1,7 +1,8 @@
 import { isReduxError } from '$lib/state/reduxError';
 import { getCookie } from '$lib/utils/cookies';
 import { readable } from 'svelte/store';
-import type { IBackend } from '$lib/backend/backend';
+import path from 'path';
+import type { IBackend, OpenDialogOptions, OpenDialogReturn } from '$lib/backend/backend';
 
 export default class Web implements IBackend {
 	systemTheme = readable<string | null>(null);
@@ -11,6 +12,67 @@ export default class Web implements IBackend {
 	currentVersion = webCurrentVersion;
 	readFile = webReadFile;
 	openExternalUrl = webOpenExternalUrl;
+	relaunch = webRelaunch;
+	documentDir = webDocumentDir;
+	joinPath = webJoinPath;
+	async filePicker<T extends OpenDialogOptions>(options?: T): Promise<OpenDialogReturn<T>> {
+		return await webFilePicker<T>(options);
+	}
+}
+
+async function webJoinPath(pathSegment: string, ...paths: string[]): Promise<string> {
+	// TODO: We might want to expose some endpoint in the backedn to handle path joining in the right way.
+	// This will break on windows
+	return await Promise.resolve(path.join(pathSegment, ...paths));
+}
+
+async function webDocumentDir(): Promise<string> {
+	// This needs to be implemented for the web version
+	return await Promise.resolve('');
+}
+
+async function webFilePicker<T extends OpenDialogOptions>(
+	options?: T
+): Promise<OpenDialogReturn<T>> {
+	const fileInput = document.createElement('input');
+	fileInput.type = 'file';
+
+	if (options?.multiple) {
+		fileInput.multiple = true;
+	}
+
+	const promise = new Promise<OpenDialogReturn<T>>((resolve) => {
+		fileInput.onchange = () => {
+			const files = fileInput.files;
+			if (!files) {
+				resolve(null);
+				return;
+			}
+			const paths: string[] = [];
+			for (const file of files) {
+				paths.push(file.name);
+			}
+			if (paths.length === 0) {
+				resolve(null);
+				return;
+			}
+			if (options?.multiple) {
+				resolve(paths as OpenDialogReturn<T>);
+				return;
+			}
+
+			const path = paths[0];
+			resolve(path as OpenDialogReturn<T>);
+		};
+	});
+
+	fileInput.click();
+	return await promise;
+}
+
+async function webRelaunch(): Promise<void> {
+	// The web version does not support relaunching
+	throw new Error('Relaunch is not implemented in the web version');
 }
 
 /**

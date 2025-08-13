@@ -3,6 +3,7 @@
 	import InfoMessage, { type MessageStyle } from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
+	import { BACKEND } from '$lib/backend';
 	import { GIT_SERVICE } from '$lib/git/gitService';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { projectPath } from '$lib/routes/routes.svelte';
@@ -12,14 +13,12 @@
 	import { Button, Spacer, Textbox } from '@gitbutler/ui';
 
 	import * as Sentry from '@sentry/sveltekit';
-	import { documentDir } from '@tauri-apps/api/path';
-	import { join } from '@tauri-apps/api/path';
-	import { open } from '@tauri-apps/plugin-dialog';
 	import { onMount } from 'svelte';
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const gitService = inject(GIT_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
+	const backend = inject(BACKEND);
 
 	let loading = $state(false);
 	let errors = $state<{ label: string }[]>([]);
@@ -32,12 +31,12 @@
 		if ($savedTargetDirPath) {
 			targetDirPath = $savedTargetDirPath;
 		} else {
-			targetDirPath = await documentDir();
+			targetDirPath = await backend.documentDir();
 		}
 	});
 
 	async function handleCloneTargetSelect() {
-		const selectedPath = await open({
+		const selectedPath = await backend.filePicker({
 			directory: true,
 			recursive: true,
 			title: 'Target Clone Directory'
@@ -83,7 +82,7 @@
 				return;
 			}
 
-			const targetDir = await join(targetDirPath, remoteUrl.name);
+			const targetDir = await backend.joinPath(targetDirPath, remoteUrl.name);
 
 			await gitService.cloneRepo(repositoryUrl, targetDir);
 
