@@ -45,25 +45,25 @@
 				return {
 					icon: 'folder' as keyof typeof iconsJson,
 					label: filter.subject,
-					tooltip: filter.subject
+					tooltip: `Path: ${filter.subject}`
 				};
 			case 'contentMatchesRegex':
 				return {
 					icon: 'text-width' as keyof typeof iconsJson,
 					label: filter.subject,
-					tooltip: filter.subject
+					tooltip: `Changes with text: ${filter.subject}`
 				};
 			case 'fileChangeType':
 				return {
 					icon: null,
 					label: treeStatusToShortString(filter.subject),
-					tooltip: treeStatusToShortString(filter.subject)
+					tooltip: `File change type: ${treeStatusToShortString(filter.subject)}`
 				};
 			case 'semanticType':
 				return {
 					icon: 'tag' as keyof typeof iconsJson,
 					label: semanticTypeToString(filter.subject.type),
-					tooltip: semanticTypeToString(filter.subject.type)
+					tooltip: `Semantic type: ${semanticTypeToString(filter.subject.type)}`
 				};
 			case 'claudeCodeSessionId':
 				return {
@@ -104,9 +104,9 @@
 			{/snippet}
 		</ReduxResult>
 	{:else if target.type === 'leftmost'}
-		{@render stackPill('leftmost-lane', 'left most', 'Leftmost stack')}
+		{@render stackPill('leftmost-lane', 'Leftmost', 'Leftmost lane')}
 	{:else if target.type === 'rightmost'}
-		{@render stackPill('rightmost-lane', 'right most', 'Rightmost stack')}
+		{@render stackPill('rightmost-lane', 'Rightmost', 'Rightmost stack')}
 	{/if}
 {/snippet}
 
@@ -164,21 +164,24 @@
 {/snippet}
 
 {#snippet assignChip()}
-	<div class="rule__action-chip">
-		<Icon name="arrow-right" />
-	</div>
+	<Tooltip text="Assigns to">
+		<div class="rule__action-chip">
+			<Icon name="arrow-right" />
+		</div>
+	</Tooltip>
 {/snippet}
 
 {#snippet ruleActions()}
 	<div class="rule__actions">
 		<div class="rule__actions-buttons">
-			<Button icon="edit-text" size="tag" kind="ghost" onclick={editRule} />
+			<Button icon="edit-text" size="tag" kind="ghost" onclick={editRule} tooltip="Edit rule" />
 			<Button
 				icon="remove-from-list"
 				style="error"
 				size="tag"
 				kind="ghost"
 				onclick={() => confirmationModal?.show()}
+				tooltip="Delete rule"
 			/>
 		</div>
 	</div>
@@ -193,7 +196,7 @@
 			{@render filterPill(filter)}
 		{:else}
 			<div class="rule__pill">
-				<span class="text-12 truncate">All files matched</span>
+				<span class="text-12 truncate">*. All files matched</span>
 			</div>
 		{/each}
 		{@render assignChip()}

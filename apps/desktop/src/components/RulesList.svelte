@@ -211,6 +211,7 @@
 				icon="plus-small"
 				size="tag"
 				kind="outline"
+				tooltip="Automate actions for new code changes"
 				onclick={openAddRuleContextMenu}
 				disabled={mode === 'edit' || mode === 'add'}
 				loading={creatingRule.current.isLoading}>Add rule</Button
