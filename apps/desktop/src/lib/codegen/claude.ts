@@ -1,6 +1,6 @@
 import { type ClaudeMessage, type ClaudeSessionDetails } from '$lib/codegen/types';
 import { hasTauriExtra } from '$lib/state/backendQuery';
-import { invalidatesItem, providesItem, ReduxTag } from '$lib/state/tags';
+import { providesItem, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/shared/context';
 import type { ClientState } from '$lib/state/clientState.svelte';
 
@@ -44,10 +44,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'claude_send_message',
 					actionName: 'Send message'
 				},
-				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.EditChangesSinceInitial, args.projectId + args.stackId)
-				]
+				query: (args) => args
 			}),
 			getSessionDetails: build.query<
 				ClaudeSessionDetails,
@@ -63,7 +60,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				extraOptions: { command: 'claude_get_messages' },
 				query: (args) => args,
 				providesTags: (_result, _error, args) => [
-					...providesItem(ReduxTag.EditChangesSinceInitial, args.projectId + args.stackId)
+					...providesItem(ReduxTag.ClaudeCodeTranscript, args.projectId + args.stackId)
 				],
 				async onCacheEntryAdded(arg, lifecycleApi) {
 					if (!hasTauriExtra(lifecycleApi.extra)) {
