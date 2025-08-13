@@ -19,6 +19,7 @@
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
+	import { ensureValue } from '$lib/utils/validation';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { inject } from '@gitbutler/shared/context';
 
@@ -66,8 +67,12 @@
 		$state<ReturnType<typeof ConflictResolutionConfirmModal>>();
 
 	async function handleUncommit(commitId: string, branchName: string) {
-		if (!stackId) return;
-		await stackService.uncommit({ projectId, stackId, branchName, commitId: commitId });
+		await stackService.uncommit({
+			projectId,
+			stackId: ensureValue(stackId),
+			branchName,
+			commitId: commitId
+		});
 	}
 
 	function startEditingCommitMessage(branchName: string, commitId: string) {
@@ -86,7 +91,6 @@
 		hasConflicts: boolean;
 		isAncestorMostConflicted: boolean;
 	}) {
-		if (!stackId) return;
 		if (args.type === 'LocalAndRemote' && args.hasConflicts && !args.isAncestorMostConflicted) {
 			conflictResolutionConfirmationModal?.show();
 			return;
@@ -94,7 +98,7 @@
 		await editPatch({
 			modeService,
 			commitId: args.commitId,
-			stackId,
+			stackId: ensureValue(stackId),
 			projectId
 		});
 	}
@@ -198,10 +202,9 @@
 							kind="outline"
 							tooltip="Create empty commit"
 							onclick={async () => {
-								if (!stackId) return;
 								await insertBlankCommitInBranch({
 									projectId,
-									stackId,
+									stackId: ensureValue(stackId),
 									commitId: undefined,
 									offset: -1
 								});
@@ -224,10 +227,9 @@
 								kind="outline"
 								tooltip="Create new branch"
 								onclick={async () => {
-									if (!stackId) return;
 									addDependentBranchModalContext = {
 										projectId,
-										stackId
+										stackId: ensureValue(stackId)
 									};
 
 									await tick();

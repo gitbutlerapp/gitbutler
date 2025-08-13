@@ -17,6 +17,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { splitMessage } from '$lib/utils/commitMessage';
+	import { ensureValue } from '$lib/utils/validation';
 	import { inject, injectOptional } from '@gitbutler/shared/context';
 	import { AsyncButton, Button, TestId } from '@gitbutler/ui';
 
@@ -106,7 +107,6 @@
 	}
 
 	async function saveCommitMessage(title: string, description: string) {
-		if (!stackId) return;
 		const commitMessage = combineParts(title, description);
 		if (!branchName) {
 			throw new Error('No branch selected!');
@@ -118,19 +118,23 @@
 
 		const newCommitId = await updateCommitMessage({
 			projectId,
-			stackId,
+			stackId: ensureValue(stackId),
 			commitId: commitKey.commitId,
 			message: commitMessage
 		});
 
-		uiState.lane(stackId).selection.set({ branchName, commitId: newCommitId });
+		uiState.lane(ensureValue(stackId)).selection.set({ branchName, commitId: newCommitId });
 		setMode('view');
 	}
 
 	async function handleUncommit() {
-		if (!stackId) return;
 		if (!branchName) return;
-		await stackService.uncommit({ projectId, stackId, branchName, commitId: commitKey.commitId });
+		await stackService.uncommit({
+			projectId,
+			stackId: ensureValue(stackId),
+			branchName,
+			commitId: commitKey.commitId
+		});
 	}
 
 	function canEdit() {
@@ -138,11 +142,10 @@
 	}
 
 	async function handleEditPatch() {
-		if (!stackId) return;
 		await editPatch({
 			modeService,
 			commitId: commitKey.commitId,
-			stackId,
+			stackId: ensureValue(stackId),
 			projectId
 		});
 	}

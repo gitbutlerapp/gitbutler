@@ -241,8 +241,7 @@
 		selectionId={createWorktreeSelection({ stackId })}
 		onclose={() => {
 			idSelection.clear(createWorktreeSelection({ stackId: stackId }));
-			if (!stackId) return;
-			intelligentScrollingService.show(projectId, stackId, 'stack');
+			intelligentScrollingService.show(projectId, laneId, 'stack');
 		}}
 		draggableFiles
 	/>

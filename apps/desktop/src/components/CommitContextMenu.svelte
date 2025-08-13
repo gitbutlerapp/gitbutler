@@ -46,6 +46,7 @@
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
+	import { ensureValue } from '$lib/utils/validation';
 	import { inject } from '@gitbutler/shared/context';
 	import {
 		ContextMenu,
@@ -200,8 +201,7 @@
 						label="Add empty commit above"
 						disabled={commitInsertion.current.isLoading}
 						onclick={() => {
-							if (!stackId) return;
-							insertBlankCommit(stackId, commitId, 'above');
+							insertBlankCommit(ensureValue(stackId), commitId, 'above');
 							close();
 						}}
 					/>
@@ -209,8 +209,7 @@
 						label="Add empty commit below"
 						disabled={commitInsertion.current.isLoading}
 						onclick={() => {
-							if (!stackId) return;
-							insertBlankCommit(stackId, commitId, 'below');
+							insertBlankCommit(ensureValue(stackId), commitId, 'below');
 							close();
 						}}
 					/>
@@ -220,8 +219,7 @@
 						label="Create dependent branch above"
 						disabled={refCreation.current.isLoading}
 						onclick={async () => {
-							if (!stackId) return;
-							await handleCreateNewRef(stackId, commitId, 'Above');
+							await handleCreateNewRef(ensureValue(stackId), commitId, 'Above');
 							close();
 						}}
 					/>
@@ -229,8 +227,7 @@
 						label="Create dependent branch below"
 						disabled={refCreation.current.isLoading}
 						onclick={async () => {
-							if (!stackId) return;
-							await handleCreateNewRef(stackId, commitId, 'Below');
+							await handleCreateNewRef(ensureValue(stackId), commitId, 'Below');
 							close();
 						}}
 					/>
