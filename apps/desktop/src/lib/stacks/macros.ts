@@ -1,4 +1,5 @@
 import { getStackName } from '$lib/stacks/stack';
+import { ensureValue } from '$lib/utils/validation';
 import type { DiffSpec } from '$lib/hunks/hunk';
 import type {
 	CreateCommitRequestWorktreeChanges,
@@ -58,13 +59,10 @@ export default class StackMacros {
 			projectId: this.projectId,
 			branch: { name }
 		});
-		if (!stack.id) {
-			throw new Error('New stack has no stack id');
-		}
 		const branchName = getStackName(stack);
 		const outcome = await this.stackService.createCommitMutation({
 			projectId: this.projectId,
-			stackId: stack.id,
+			stackId: ensureValue(stack.id),
 			stackBranchName: branchName,
 			parentId: undefined,
 			message: message ?? STUB_COMMIT_MESSAGE,

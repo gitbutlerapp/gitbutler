@@ -31,6 +31,7 @@
 	import { STACK_SERVICE, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
+	import { ensureValue } from '$lib/utils/validation';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, Modal, TestId } from '@gitbutler/ui';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
@@ -130,10 +131,9 @@
 	let confirmResetModal = $state<ReturnType<typeof Modal>>();
 
 	async function integrate(strategy?: SeriesIntegrationStrategy): Promise<void> {
-		if (!stackId) return;
 		await integrateUpstreamCommits({
 			projectId,
-			stackId,
+			stackId: ensureValue(stackId),
 			seriesName: branchName,
 			strategy
 		});

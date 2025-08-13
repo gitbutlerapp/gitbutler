@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { ensureValue } from '$lib/utils/validation';
 	import { inject } from '@gitbutler/shared/context';
 
 	import { Button, LinkButton, Modal, Textbox, chipToasts } from '@gitbutler/ui';
@@ -30,7 +31,6 @@
 	const generatedNameDiverges = $derived(!!createRefName && slugifiedRefName !== createRefName);
 
 	async function addSeries() {
-		if (!stackId) return;
 		if (!slugifiedRefName) {
 			chipToasts.error('No branch name provided');
 			createRefModal?.close();
@@ -39,7 +39,7 @@
 
 		await createNewBranch({
 			projectId,
-			stackId,
+			stackId: ensureValue(stackId),
 			request: { targetPatch: undefined, name: slugifiedRefName }
 		});
 
