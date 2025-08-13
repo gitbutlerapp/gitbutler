@@ -1,7 +1,6 @@
 <script lang="ts">
+	import ClaudeSessionDescriptor from '$components/ClaudeSessionDescriptor.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { sessionMessage } from '$lib/codegen/types';
 	import {
 		semanticTypeToString,
 		treeStatusToShortString,
@@ -26,7 +25,6 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
-	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 
 	const [deleteRule, deletingRule] = rulesService.deleteWorkspaceRule;
 
@@ -143,19 +141,14 @@
 	{@const config = getFilterConfig(filter)}
 
 	{#if filter.type === 'claudeCodeSessionId'}
-		{@const sessionDetails = claudeCodeService.sessionDetails(projectId, filter.subject)}
-		<ReduxResult {projectId} result={sessionDetails.current}>
-			{#snippet loading()}
+		<ClaudeSessionDescriptor {projectId} sessionId={filter.subject}>
+			{#snippet fallback()}
 				{@render renderBasicPill(config)}
 			{/snippet}
-			{#snippet error()}
-				{@render renderBasicPill(config)}
+			{#snippet children(descriptor)}
+				{@render renderSessionPill(`Code session: ${descriptor}`, config.icon!, descriptor)}
 			{/snippet}
-			{#snippet children(sessionDetails)}
-				{@const title = sessionMessage(sessionDetails) ?? filter.subject}
-				{@render renderSessionPill(`Code session: ${title}`, config.icon!, title)}
-			{/snippet}
-		</ReduxResult>
+		</ClaudeSessionDescriptor>
 	{:else if filter.type === 'fileChangeType'}
 		{@render renderFileChangePill(config, filter.subject)}
 	{:else}
