@@ -2,7 +2,7 @@ import { isReduxError } from '$lib/state/reduxError';
 import { getCookie } from '$lib/utils/cookies';
 import { readable } from 'svelte/store';
 import path from 'path';
-import type { IBackend, OpenDialogOptions, OpenDialogReturn } from '$lib/backend/backend';
+import type { AppInfo, IBackend, OpenDialogOptions, OpenDialogReturn } from '$lib/backend/backend';
 
 export default class Web implements IBackend {
 	systemTheme = readable<string | null>(null);
@@ -16,9 +16,17 @@ export default class Web implements IBackend {
 	documentDir = webDocumentDir;
 	joinPath = webJoinPath;
 	homeDirectory = webHomeDirectory;
+	getAppInfo = webGetAppInfo;
 	async filePicker<T extends OpenDialogOptions>(options?: T): Promise<OpenDialogReturn<T>> {
 		return await webFilePicker<T>(options);
 	}
+}
+
+async function webGetAppInfo(): Promise<AppInfo> {
+	return await Promise.resolve({
+		name: 'gitbutler-web',
+		version: '0.0.0'
+	});
 }
 
 async function webHomeDirectory(): Promise<string> {

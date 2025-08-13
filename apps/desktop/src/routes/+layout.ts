@@ -38,7 +38,7 @@ export const load: LayoutLoad = async () => {
 	const eventContext = new EventContext();
 	// Awaited and will block initial render, but it is necessary in order to respect the user
 	// settings on telemetry.
-	const posthog = new PostHogWrapper(settingsService, eventContext);
+	const posthog = new PostHogWrapper(settingsService, backend, eventContext);
 	const appSettings = await loadAppSettings();
 	initAnalyticsIfEnabled(appSettings, posthog);
 

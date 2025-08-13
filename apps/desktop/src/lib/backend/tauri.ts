@@ -1,5 +1,5 @@
 import { isReduxError } from '$lib/state/reduxError';
-import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
+import { getName, getVersion, getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { invoke as invokeTauri } from '@tauri-apps/api/core';
 import { listen as listenTauri } from '@tauri-apps/api/event';
 import { documentDir as documentDirTauri } from '@tauri-apps/api/path';
@@ -10,7 +10,7 @@ import { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';
 import { relaunch as relaunchTauri } from '@tauri-apps/plugin-process';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { readable } from 'svelte/store';
-import type { IBackend } from '$lib/backend/backend';
+import type { AppInfo, IBackend } from '$lib/backend/backend';
 import type { EventCallback, EventName } from '@tauri-apps/api/event';
 
 export default class Tauri implements IBackend {
@@ -36,6 +36,7 @@ export default class Tauri implements IBackend {
 	relaunch = relaunchTauri;
 	documentDir = documentDirTauri;
 	joinPath = joinPathTauri;
+	getAppInfo = tauriGetAppInfo;
 	async filePicker<T extends OpenDialogOptions>() {
 		return await filePickerTauri<T>();
 	}
@@ -44,6 +45,11 @@ export default class Tauri implements IBackend {
 		// https://github.com/sveltejs/kit/issues/905
 		return await (await import('@tauri-apps/api/path')).homeDir();
 	}
+}
+
+async function tauriGetAppInfo(): Promise<AppInfo> {
+	const [appName, appVersion] = await Promise.all([getName(), getVersion()]);
+	return { name: appName, version: appVersion };
 }
 
 async function tauriInvoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
