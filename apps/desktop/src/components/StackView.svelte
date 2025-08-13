@@ -309,7 +309,7 @@
 			{@const ancestorMostConflictedCommitId = getAncestorMostConflicted(commits)?.id}
 
 			<ChangedFiles
-				title="Changed Files"
+				title="Changed files"
 				{projectId}
 				{stackId}
 				draggableFiles
@@ -501,26 +501,15 @@
 						maxWidth={RESIZER_CONFIG.panel1.maxWidth}
 						defaultValue={RESIZER_CONFIG.panel1.defaultValue}
 						syncName="panel1"
+						onWidth={(newWidth) => {
+							// Update the persisted stack width when panel1 resizer changes
+							persistedStackWidth.set(newWidth);
+						}}
 					/>
 				{/snippet}
 			</ReduxResult>
 		</div>
 	</ConfigurableScrollableContainer>
-
-	<!-- STACK WIDTH RESIZER -->
-	<Resizer
-		persistId="ui-stack-width-${stackId}"
-		viewport={stackViewEl!}
-		zIndex="var(--z-lifted)"
-		direction="right"
-		minWidth={18}
-		maxWidth={64}
-		defaultValue={defaultStackWidth}
-		onWidth={(newWidth) => {
-			// Update the persisted stack width when resizer changes
-			persistedStackWidth.set(newWidth);
-		}}
-	/>
 
 	<!-- PREVIEW -->
 	{#if isDetailsViewOpen}
@@ -582,7 +571,7 @@
 			{/if}
 		</div>
 
-		<!-- DETAILS VIEW WIDTH RESIZER -->
+		<!-- DETAILS VIEW WIDTH RESIZER - Only show when details view is open -->
 		<Resizer
 			viewport={compactDiv!}
 			persistId="resizer-panel2-${stackId}"
@@ -681,11 +670,16 @@
 		flex-shrink: 0;
 		flex-direction: column;
 		max-height: calc(100% - 24px);
+		margin-right: 2px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
 		box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
+	}
+
+	:global(.dark) .details-view {
+		box-shadow: 0 10px 50px 5px color(srgb 0 0 0 / 0.5);
 	}
 
 	.file-preview-section {
