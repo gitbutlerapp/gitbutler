@@ -251,6 +251,7 @@
 			<div class="rules-list__filters">
 				<RuleFiltersEditor
 					bind:this={ruleFiltersEditor}
+					{projectId}
 					initialFilterValues={draftRuleFilterInitialValues}
 					addFilter={addDraftRuleFilter}
 					deleteFilter={removeDraftRuleFilter}

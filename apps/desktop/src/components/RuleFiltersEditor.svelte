@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ClaudeSessionDescriptor from '$components/ClaudeSessionDescriptor.svelte';
 	import NewRuleMenu from '$components/NewRuleMenu.svelte';
 	import {
 		type SemanticType,
@@ -17,12 +18,13 @@
 	const FILE_STATUS_OPTIONS: FileStatus[] = ['addition', 'modification', 'deletion', 'rename'];
 
 	type Props = {
+		projectId: string;
 		initialFilterValues: Partial<RuleFilterMap>;
 		addFilter: (type: RuleFilterType) => void;
 		deleteFilter: (type: RuleFilterType) => void;
 	};
 
-	const { initialFilterValues, addFilter, deleteFilter }: Props = $props();
+	const { projectId, initialFilterValues, addFilter, deleteFilter }: Props = $props();
 
 	let addFilterButton = $state<HTMLDivElement>();
 	let newFilterContextMenu = $state<NewRuleMenu>();
@@ -201,12 +203,25 @@
 {/snippet}
 
 <!-- Claude Code Session ID -->
-{#snippet claudeCodeSessionIdFilter()}
-	<Textbox value={claudeCodeSessionId} readonly>
-		{#snippet customIconLeft()}
-			<Icon name="ai" />
-		{/snippet}
-	</Textbox>
+{#snippet claudeCodeSessionIdFilter(sessionId: string)}
+	<div class="rule__pill expand">
+		<ClaudeSessionDescriptor {projectId} {sessionId}>
+			{#snippet fallback()}
+				<Textbox value={sessionId} readonly>
+					{#snippet customIconLeft()}
+						<Icon name="ai" />
+					{/snippet}
+				</Textbox>
+			{/snippet}
+			{#snippet children(descriptor)}
+				<Textbox value={descriptor} readonly>
+					{#snippet customIconLeft()}
+						<Icon name="ai" />
+					{/snippet}
+				</Textbox>
+			{/snippet}
+		</ClaudeSessionDescriptor>
+	</div>
 {/snippet}
 
 <!-- This is the parent component,
@@ -221,8 +236,8 @@
 			{@render fileChangeType()}
 		{:else if type === 'semanticType'}
 			{@render semanticTypeFilter()}
-		{:else if type === 'claudeCodeSessionId'}
-			{@render claudeCodeSessionIdFilter()}
+		{:else if type === 'claudeCodeSessionId' && claudeCodeSessionId}
+			{@render claudeCodeSessionIdFilter(claudeCodeSessionId)}
 		{/if}
 
 		{#if type !== 'claudeCodeSessionId'}
