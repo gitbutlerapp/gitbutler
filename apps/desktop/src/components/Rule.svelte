@@ -157,7 +157,7 @@
 {/snippet}
 
 {#snippet assignChip()}
-	<Tooltip text="Assigns to">
+	<Tooltip text="Assign to">
 		<div class="rule__action-chip">
 			<Icon name="arrow-right" />
 		</div>
