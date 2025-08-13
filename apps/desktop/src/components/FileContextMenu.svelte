@@ -3,6 +3,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
 	import { AI_SERVICE } from '$lib/ai/service';
+	import { BACKEND } from '$lib/backend';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { changesToDiffSpec } from '$lib/commits/utils';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
@@ -30,7 +31,6 @@
 		Textbox,
 		chipToasts
 	} from '@gitbutler/ui';
-	import { join } from '@tauri-apps/api/path';
 	import type { DiffSpec } from '$lib/hunks/hunk';
 	import type { SelectionId } from '$lib/selection/key';
 
@@ -64,6 +64,7 @@
 	const actionService = inject(ACTION_SERVICE);
 	const fileService = inject(FILE_SERVICE);
 	const urlService = inject(URL_SERVICE);
+	const backend = inject(BACKEND);
 	const [autoCommit, autoCommitting] = actionService.autoCommit;
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
 	const [absorbChanges, absorbingChanges] = actionService.absorb;
@@ -397,7 +398,7 @@
 							const project = await projectService.fetchProject(projectId);
 							const projectPath = project?.path;
 							if (projectPath) {
-								const absPath = await join(projectPath, item.changes[0]!.path);
+								const absPath = await backend.joinPath(projectPath, item.changes[0]!.path);
 								await writeClipboard(absPath, {
 									errorMessage: 'Failed to copy absolute path'
 								});
@@ -448,7 +449,7 @@
 							const project = await projectService.fetchProject(projectId);
 							const projectPath = project?.path;
 							if (projectPath) {
-								const absPath = await join(projectPath, item.changes[0]!.path);
+								const absPath = await backend.joinPath(projectPath, item.changes[0]!.path);
 								await fileService.showFileInFolder(absPath);
 							}
 							contextMenu.close();
