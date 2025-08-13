@@ -15,9 +15,15 @@ export default class Web implements IBackend {
 	relaunch = webRelaunch;
 	documentDir = webDocumentDir;
 	joinPath = webJoinPath;
+	homeDirectory = webHomeDirectory;
 	async filePicker<T extends OpenDialogOptions>(options?: T): Promise<OpenDialogReturn<T>> {
 		return await webFilePicker<T>(options);
 	}
+}
+
+async function webHomeDirectory(): Promise<string> {
+	// This needs to be implemented for the web version
+	return await Promise.resolve('/tmp/gitbutler');
 }
 
 async function webJoinPath(pathSegment: string, ...paths: string[]): Promise<string> {

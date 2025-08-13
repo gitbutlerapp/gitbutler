@@ -98,4 +98,5 @@ export interface IBackend {
 	documentDir: () => Promise<string>;
 	joinPath: (path: string, ...paths: string[]) => Promise<string>;
 	filePicker<T extends OpenDialogOptions>(options?: T): Promise<OpenDialogReturn<T>>;
+	homeDirectory(): Promise<string>;
 }
