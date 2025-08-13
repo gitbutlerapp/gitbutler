@@ -11,6 +11,12 @@ export default class Web implements IBackend {
 	currentVersion = webCurrentVersion;
 	readFile = webReadFile;
 	openExternalUrl = webOpenExternalUrl;
+	relaunch = webRelaunch;
+}
+
+function webRelaunch(): Promise<void> {
+	// The web version does not support relaunching
+	throw new Error('Relaunch is not implemented in the web version');
 }
 
 /**

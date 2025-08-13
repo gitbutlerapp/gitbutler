@@ -46,4 +46,5 @@ export interface IBackend {
 	currentVersion: () => Promise<string>;
 	readFile: (path: string) => Promise<Uint8Array>;
 	openExternalUrl: (href: string) => Promise<void>;
+	relaunch: () => Promise<void>;
 }

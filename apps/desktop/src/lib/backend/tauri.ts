@@ -29,6 +29,7 @@ export default class Tauri implements IBackend {
 	currentVersion = tauriGetVersion;
 	readFile = tauriReadFile;
 	openExternalUrl = tauriOpenExternalUrl;
+	relaunch = relaunchTauri;
 }
 
 async function tauriInvoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
