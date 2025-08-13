@@ -99,6 +99,9 @@
 	const assignedKey = $derived(
 		$lastAddedAssigned?.key ? readKey($lastAddedAssigned.key) : undefined
 	);
+	const assignedStackId = $derived(
+		assignedKey?.type === 'worktree' ? assignedKey.stackId : undefined
+	);
 
 	const commitId = $derived(selection.current?.commitId);
 	const branchName = $derived(selection.current?.branchName);
@@ -543,16 +546,16 @@
 			{/if}
 
 			<!-- BOTTOM SECTION: File Preview (no resizer) -->
-			{#if assignedKey || selectedFile}
+			{#if assignedStackId || selectedFile}
 				<ReduxResult {projectId} result={previewChangeResult?.current}>
 					{#snippet children(previewChange)}
 						{@const diffResult = diffService.getDiff(projectId, previewChange)}
 						{@const diffData = diffResult.current.data}
 
 						<div class="file-preview-section">
-							{#if assignedKey?.type === 'worktree' && assignedKey.stackId}
+							{#if assignedStackId}
 								<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
-									{@render assignedChangePreview(assignedKey.stackId)}
+									{@render assignedChangePreview(assignedStackId)}
 								</ConfigurableScrollableContainer>
 							{:else if selectedFile}
 								<Drawer>
