@@ -17,9 +17,19 @@ export default class Web implements IBackend {
 	joinPath = webJoinPath;
 	homeDirectory = webHomeDirectory;
 	getAppInfo = webGetAppInfo;
+	readTextFromClipboard = webReadTextFromClipboard;
+	writeTextToClipboard = webWriteTextToClipboard;
 	async filePicker<T extends OpenDialogOptions>(options?: T): Promise<OpenDialogReturn<T>> {
 		return await webFilePicker<T>(options);
 	}
+}
+
+async function webReadTextFromClipboard(): Promise<string> {
+	return await window.navigator.clipboard.readText();
+}
+
+async function webWriteTextToClipboard(text: string): Promise<void> {
+	await window.navigator.clipboard.writeText(text);
 }
 
 async function webGetAppInfo(): Promise<AppInfo> {

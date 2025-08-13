@@ -1,5 +1,4 @@
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
-import { writeClipboard } from '$lib/backend/clipboard';
 import { showError } from '$lib/notifications/toasts';
 import { User } from '$lib/user/user';
 import { sleep } from '$lib/utils/sleep';
@@ -126,7 +125,7 @@ export class UserService {
 	async loginAndCopyLink(aborted: Readable<boolean> = readable(false)): Promise<User | undefined> {
 		return await this.loginCommon((url) => {
 			setTimeout(() => {
-				writeClipboard(url);
+				this.backend.writeTextToClipboard(url);
 			}, 0);
 		}, aborted);
 	}

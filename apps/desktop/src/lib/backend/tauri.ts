@@ -5,6 +5,10 @@ import { listen as listenTauri } from '@tauri-apps/api/event';
 import { documentDir as documentDirTauri } from '@tauri-apps/api/path';
 import { join as joinPathTauri } from '@tauri-apps/api/path';
 import { getCurrentWindow, Window } from '@tauri-apps/api/window';
+import {
+	writeText as tauriWriteText,
+	readText as tauriReadText
+} from '@tauri-apps/plugin-clipboard-manager';
 import { open as filePickerTauri, type OpenDialogOptions } from '@tauri-apps/plugin-dialog';
 import { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';
 import { relaunch as relaunchTauri } from '@tauri-apps/plugin-process';
@@ -37,6 +41,8 @@ export default class Tauri implements IBackend {
 	documentDir = documentDirTauri;
 	joinPath = joinPathTauri;
 	getAppInfo = tauriGetAppInfo;
+	readTextFromClipboard = tauriReadText;
+	writeTextToClipboard = tauriWriteText;
 	async filePicker<T extends OpenDialogOptions>() {
 		return await filePickerTauri<T>();
 	}

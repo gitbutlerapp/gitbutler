@@ -104,4 +104,6 @@ export interface IBackend {
 	filePicker<T extends OpenDialogOptions>(options?: T): Promise<OpenDialogReturn<T>>;
 	homeDirectory(): Promise<string>;
 	getAppInfo: () => Promise<AppInfo>;
+	writeTextToClipboard: (text: string) => Promise<void>;
+	readTextFromClipboard: () => Promise<string>;
 }
