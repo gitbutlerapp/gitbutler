@@ -189,7 +189,7 @@
 			{@render filterPill(filter)}
 		{:else}
 			<div class="rule__pill">
-				<span class="text-12 truncate">*. All files matched</span>
+				<span class="text-12 truncate">*. All changes</span>
 			</div>
 		{/each}
 		{@render assignChip()}
