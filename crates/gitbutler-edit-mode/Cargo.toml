@@ -29,6 +29,7 @@ but-rebase.workspace = true
 but-core.workspace = true
 serde.workspace = true
 tracing.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 gitbutler-testsupport.workspace = true

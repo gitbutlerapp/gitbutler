@@ -23,6 +23,7 @@ gitbutler-repo.workspace = true
 gitbutler-stack.workspace = true
 but-settings.workspace = true
 gitbutler-project.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 gitbutler-testsupport.workspace = true

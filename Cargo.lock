@@ -3204,6 +3204,7 @@ dependencies = [
  "serde",
  "tempfile",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -3343,6 +3344,7 @@ dependencies = [
  "serde",
  "toml",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

@@ -2,8 +2,8 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{bail, Context, Result};
 use bstr::BString;
+use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
-use gitbutler_reference::ReferenceName;
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
@@ -60,7 +60,7 @@ pub struct EditModeMetadata {
     #[serde(with = "gitbutler_serde::oid")]
     pub commit_oid: git2::Oid,
     /// The ref of the vbranch which owns this commit.
-    pub branch_reference: ReferenceName,
+    pub stack_id: StackId,
 }
 
 #[derive(Debug, Default, Serialize, PartialEq, Clone)]

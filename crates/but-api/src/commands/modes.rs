@@ -6,7 +6,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_edit_mode::ConflictEntryPresence;
 use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};
 use gitbutler_project::ProjectId;
-use gitbutler_stack::VirtualBranchesHandle;
 use serde::Deserialize;
 
 use crate::{App, error::Error};
@@ -34,17 +33,10 @@ pub struct EnterEditModeParams {
 pub fn enter_edit_mode(app: &App, params: EnterEditModeParams) -> Result<EditModeMetadata, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    let handle = VirtualBranchesHandle::new(project.gb_dir());
-    let stack = handle.get_stack(params.stack_id)?;
-
     let commit = git2::Oid::from_str(&params.commit_id).context("Failed to parse commit oid")?;
 
-    gitbutler_edit_mode::commands::enter_edit_mode(
-        &ctx,
-        commit,
-        stack.refname()?.to_string().into(),
-    )
-    .map_err(Into::into)
+    gitbutler_edit_mode::commands::enter_edit_mode(&ctx, commit, params.stack_id)
+        .map_err(Into::into)
 }
 
 #[derive(Deserialize)]
