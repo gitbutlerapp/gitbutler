@@ -12,6 +12,7 @@
 		type RuleFilterMap
 	} from '$lib/rules/rule';
 	import { typedKeys } from '$lib/utils/object';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { Button, Select, SelectItem, Textbox, Icon, FileStatusBadge } from '@gitbutler/ui';
 	import type { FileStatus } from '@gitbutler/ui/components/file/types';
 
@@ -40,6 +41,9 @@
 
 	let claudeCodeSessionId = $state<string | undefined>(
 		initialFilterValues.claudeCodeSessionId ?? undefined
+	);
+	let claudeResumeCommand = $derived(
+		claudeCodeSessionId ? `claude --resume ${claudeCodeSessionId}` : undefined
 	);
 
 	const ruleFilterTypes = $derived(typedKeys(initialFilterValues));
@@ -290,6 +294,19 @@
 
 {#if ruleFilterTypes.includes('claudeCodeSessionId')}
 	{@render ruleFilterRow('claudeCodeSessionId')}
+	{#if claudeResumeCommand}
+		<div class="text-12 text-body">Resume command</div>
+		<div class="claude-command-copy-box m-top-12">
+			<p>{claudeResumeCommand}</p>
+			<button
+				type="button"
+				class="claude-command--copy-icon"
+				onclick={() => copyToClipboard(claudeResumeCommand)}
+			>
+				<Icon name="copy" />
+			</button>
+		</div>
+	{/if}
 {/if}
 
 <NewRuleMenu
@@ -302,6 +319,30 @@
 />
 
 <style lang="postcss">
+	.claude-command-copy-box {
+		display: flex;
+		padding: 8px 10px;
+		gap: 10px;
+		border: 1px solid var(--clr-border-3);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1-muted);
+		color: var(--clr-text-1);
+		font-size: 12px;
+		font-family: var(--fontfamily-mono);
+		word-break: break-all;
+		user-select: text;
+	}
+
+	.claude-command--copy-icon {
+		display: flex;
+		color: var(--clr-text-3);
+		transition: color var(--transition-fast);
+
+		&:hover {
+			color: var(--clr-text-2);
+		}
+	}
+
 	.rule-filter-row {
 		display: flex;
 		margin-bottom: 8px;
