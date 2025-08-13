@@ -158,7 +158,8 @@ pub fn build<R: Runtime>(
                 .build(handle)?,
         )
         .separator()
-        .text("project/open-in-vscode", "Open in Editor");
+        .text("project/open-in-vscode", "Open in Editor")
+        .text("project/open-in-terminal", "Open in Terminal");
 
     #[cfg(target_os = "macos")]
     {
@@ -319,6 +320,11 @@ pub fn handle_event<R: Runtime>(
 
     if event.id() == "project/open-in-vscode" {
         emit(webview, SHORTCUT_EVENT, "open-in-vscode");
+        return;
+    }
+
+    if event.id() == "project/open-in-terminal" {
+        emit(webview, SHORTCUT_EVENT, "open-in-terminal");
         return;
     }
 
