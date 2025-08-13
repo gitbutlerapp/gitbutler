@@ -21,6 +21,7 @@
 		width?: number;
 		placeholder?: string;
 		helperText?: string;
+		error?: string;
 		label?: string;
 		wide?: boolean;
 		minVal?: number;
@@ -56,6 +57,7 @@
 		textAlign = 'left',
 		placeholder,
 		helperText,
+		error,
 		label,
 		wide,
 		minVal,
@@ -79,6 +81,9 @@
 	let showPassword = $state(false);
 	let isInputValid = $state(true);
 	let htmlInput: HTMLInputElement;
+
+	// Compute whether the input has an error (external error prop or validation error)
+	let hasError = $derived(!!error || !isInputValid);
 
 	export function focus() {
 		htmlInput.focus();
@@ -114,8 +119,9 @@
 	class="textbox"
 	bind:this={element}
 	class:wide
+	class:error={hasError}
 	style:width={width ? `${pxToRem(width)}rem` : undefined}
-	class:wiggle-animation={!isInputValid}
+	class:wiggle-animation={hasError}
 	use:clickOutside={{ excludeElement: element, handler: onClickOutside }}
 >
 	{#if label}
@@ -167,6 +173,7 @@
 				? 'text-14 text-semibold'
 				: 'text-13'}"
 			class:readonly={type !== 'select' && readonly}
+			class:error={hasError}
 			style:text-align={textAlign}
 			bind:value
 			bind:this={htmlInput}
@@ -235,7 +242,9 @@
 		{/if}
 	</div>
 
-	{#if helperText}
+	{#if error}
+		<p class="text-11 text-body textbox__error-text">{error}</p>
+	{:else if helperText}
 		<p class="text-11 text-body textbox__helper-text">{helperText}</p>
 	{/if}
 </div>
@@ -279,6 +288,11 @@
 			background-color: var(--clr-bg-1-muted);
 		}
 
+		&.error {
+			border-color: var(--clr-theme-err-element);
+			background-color: var(--clr-theme-err-bg);
+		}
+
 		&.size-default {
 			height: var(--size-cta);
 		}
@@ -295,6 +309,10 @@
 
 	.textbox__helper-text {
 		color: var(--clr-scale-ntrl-50);
+	}
+
+	.textbox__error-text {
+		color: var(--clr-theme-err-element);
 	}
 
 	.textbox__icon {

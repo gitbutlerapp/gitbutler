@@ -14,6 +14,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, FileStatusBadge, Icon, Modal, Tooltip } from '@gitbutler/ui';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	type Props = {
 		projectId: string;
@@ -37,7 +38,56 @@
 			id: rule.id
 		});
 	}
+
+	function getFilterConfig(filter: RuleFilter) {
+		switch (filter.type) {
+			case 'pathMatchesRegex':
+				return {
+					icon: 'folder' as keyof typeof iconsJson,
+					label: filter.subject,
+					tooltip: `Path: ${filter.subject}`
+				};
+			case 'contentMatchesRegex':
+				return {
+					icon: 'text-width' as keyof typeof iconsJson,
+					label: filter.subject,
+					tooltip: `Changes with text: ${filter.subject}`
+				};
+			case 'fileChangeType':
+				return {
+					icon: null,
+					label: treeStatusToShortString(filter.subject),
+					tooltip: `File change type: ${treeStatusToShortString(filter.subject)}`
+				};
+			case 'semanticType':
+				return {
+					icon: 'tag' as keyof typeof iconsJson,
+					label: semanticTypeToString(filter.subject.type),
+					tooltip: `Semantic type: ${semanticTypeToString(filter.subject.type)}`
+				};
+			case 'claudeCodeSessionId':
+				return {
+					icon: 'ai-small' as keyof typeof iconsJson,
+					label: filter.subject,
+					tooltip: `Code session: ${filter.subject}`
+				};
+		}
+	}
 </script>
+
+{#snippet stackPill(
+	icon: keyof typeof iconsJson,
+	label: string,
+	tooltip: string,
+	hasError?: boolean
+)}
+	<Tooltip text={tooltip}>
+		<div class="rule__pill" class:error={hasError}>
+			<Icon name={icon} color={hasError ? 'error' : 'var(--clr-text-2)'} />
+			<span class="text-12 truncate">{label}</span>
+		</div>
+	</Tooltip>
+{/snippet}
 
 {#snippet stackTarget(target: StackTarget)}
 	{#if target.type === 'stackId'}
@@ -47,84 +97,91 @@
 			{#snippet children(stack)}
 				{#if stack !== null}
 					{@const stackName = getStackName(stack)}
-					<div class="rule__pill">
-						<Icon name="branch-remote" color="var(--clr-text-2)" />
-						<span class="text-12 truncate" title={stackName}>{stackName}</span>
-					</div>
+					{@render stackPill('branch-remote', stackName, stackName)}
 				{:else}
-					<Tooltip text="Associated stack not found" position="top">
-						<div class="rule__pill error">
-							<Icon name="error-small" color="error" />
-							<span class="text-12 truncate">branch missing</span>
-						</div>
-					</Tooltip>
+					{@render stackPill('error-small', 'branch missing', 'Associated stack not found', true)}
 				{/if}
 			{/snippet}
 		</ReduxResult>
 	{:else if target.type === 'leftmost'}
-		<div class="rule__pill">
-			<Icon name="leftmost-lane" color="var(--clr-text-2)" />
-			<span class="text-12 truncate">left most</span>
-		</div>
+		{@render stackPill('leftmost-lane', 'Leftmost', 'Leftmost lane')}
 	{:else if target.type === 'rightmost'}
-		<div class="rule__pill">
-			<Icon name="rightmost-lane" color="var(--clr-text-2)" />
-			<span class="text-12 truncate">right most</span>
-		</div>
+		{@render stackPill('rightmost-lane', 'Rightmost', 'Rightmost stack')}
 	{/if}
 {/snippet}
 
+{#snippet renderBasicPill(config: ReturnType<typeof getFilterConfig>)}
+	<Tooltip text={config.tooltip}>
+		<div class="rule__pill">
+			{#if config.icon}
+				<Icon name={config.icon} color="var(--clr-text-2)" />
+			{/if}
+			<span class="text-12 truncate">{config.label}</span>
+		</div>
+	</Tooltip>
+{/snippet}
+
+{#snippet renderFileChangePill(config: ReturnType<typeof getFilterConfig>, fileStatus: any)}
+	<Tooltip text={config.tooltip}>
+		<div class="rule__pill">
+			<FileStatusBadge status={fileStatus} style="dot" />
+			<span class="text-12 truncate">{config.label}</span>
+		</div>
+	</Tooltip>
+{/snippet}
+
+{#snippet renderSessionPill(tooltip: string, icon: keyof typeof iconsJson, title: string)}
+	<Tooltip text={tooltip}>
+		<div class="rule__ai-pill">
+			<Icon name={icon} color="var(--clr-theme-purp-element)" />
+			<span class="text-12 truncate">{title}</span>
+		</div>
+	</Tooltip>
+{/snippet}
+
 {#snippet filterPill(filter: RuleFilter)}
-	<div class="rule__pill">
-		{#if filter.type === 'pathMatchesRegex'}
-			<Icon name="folder" opacity={0.6} />
-			<span class="text-12 trucate" title={filter.subject}>{filter.subject}</span>
-		{:else if filter.type === 'contentMatchesRegex'}
-			<Icon name="text-width" opacity={0.6} />
-			<span class="text-12 truncate" title={filter.subject}>{filter.subject}</span>
-		{:else if filter.type === 'fileChangeType'}
-			<FileStatusBadge status={filter.subject} style="dot" />
-			<span class="text-12 truncate">{treeStatusToShortString(filter.subject)}</span>
-		{:else if filter.type === 'semanticType'}
-			<Icon name="tag" opacity={0.6} />
-			<span class="text-12 truncate">{semanticTypeToString(filter.subject.type)}</span>
-		{:else if filter.type === 'claudeCodeSessionId'}
-			{@const sessionDetails = claudeCodeService.sessionDetails(projectId, filter.subject)}
-			<ReduxResult {projectId} result={sessionDetails.current}>
-				{#snippet loading()}
-					<Icon name="tag" opacity={0.6} />
-					<span class="text-12 truncate">{filter.subject}</span>
-				{/snippet}
-				{#snippet error()}
-					<Icon name="tag" opacity={0.6} />
-					<span class="text-12 truncate">{filter.subject}</span>
-				{/snippet}
-				{#snippet children(sessionDetails)}
-					{@const title = sessionMessage(sessionDetails) ?? filter.subject}
-					<Icon name="tag" opacity={0.6} />
-					<span class="text-12 truncate" {title}>{title}</span>
-				{/snippet}
-			</ReduxResult>
-		{/if}
-	</div>
+	{@const config = getFilterConfig(filter)}
+
+	{#if filter.type === 'claudeCodeSessionId'}
+		{@const sessionDetails = claudeCodeService.sessionDetails(projectId, filter.subject)}
+		<ReduxResult {projectId} result={sessionDetails.current}>
+			{#snippet loading()}
+				{@render renderBasicPill(config)}
+			{/snippet}
+			{#snippet error()}
+				{@render renderBasicPill(config)}
+			{/snippet}
+			{#snippet children(sessionDetails)}
+				{@const title = sessionMessage(sessionDetails) ?? filter.subject}
+				{@render renderSessionPill(`Code session: ${title}`, config.icon!, title)}
+			{/snippet}
+		</ReduxResult>
+	{:else if filter.type === 'fileChangeType'}
+		{@render renderFileChangePill(config, filter.subject)}
+	{:else}
+		{@render renderBasicPill(config)}
+	{/if}
 {/snippet}
 
 {#snippet assignChip()}
-	<div class="rule__action-chip">
-		<Icon name="arrow-right" />
-	</div>
+	<Tooltip text="Assigns to">
+		<div class="rule__action-chip">
+			<Icon name="arrow-right" />
+		</div>
+	</Tooltip>
 {/snippet}
 
 {#snippet ruleActions()}
 	<div class="rule__actions">
 		<div class="rule__actions-buttons">
-			<Button icon="edit-text" size="tag" kind="ghost" onclick={editRule} />
+			<Button icon="edit-text" size="tag" kind="ghost" onclick={editRule} tooltip="Edit rule" />
 			<Button
 				icon="remove-from-list"
 				style="error"
 				size="tag"
 				kind="ghost"
 				onclick={() => confirmationModal?.show()}
+				tooltip="Delete rule"
 			/>
 		</div>
 	</div>
@@ -139,7 +196,7 @@
 			{@render filterPill(filter)}
 		{:else}
 			<div class="rule__pill">
-				<span class="text-12 trucate">All files matched</span>
+				<span class="text-12 truncate">*. All files matched</span>
 			</div>
 		{/each}
 		{@render assignChip()}
@@ -223,23 +280,26 @@
 		color: var(--clr-text-2);
 	}
 
-	.rule__pill {
+	.rule__pill,
+	.rule__ai-pill {
 		display: flex;
 		align-items: center;
+		max-width: 130px;
 		height: var(--size-tag);
 		padding: 0 6px;
-		gap: 6px;
-		border: 1px solid var(--clr-border-2);
+		overflow: hidden;
+		gap: 5px;
 		border-radius: 100px;
+	}
 
+	.rule__pill {
+		border: 1px solid var(--clr-border-2);
 		&.error {
 			border: 1px solid var(--clr-theme-err-element);
 		}
 	}
 
-	.rule__pill span {
-		max-width: 100px;
-		overflow: hidden;
-		text-overflow: ellipsis;
+	.rule__ai-pill {
+		background: var(--clr-theme-purp-soft);
 	}
 </style>
