@@ -49,7 +49,7 @@
 				return {
 					icon: 'text-width' as keyof typeof iconsJson,
 					label: filter.subject,
-					tooltip: `Changes with text: ${filter.subject}`
+					tooltip: `Containing text: ${filter.subject}`
 				};
 			case 'fileChangeType':
 				return {
