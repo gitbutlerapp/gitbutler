@@ -1,4 +1,4 @@
-import { type ClaudeMessage } from '$lib/codegen/types';
+import { type ClaudeMessage, type ClaudeSessionDetails } from '$lib/codegen/types';
 import { hasTauriExtra } from '$lib/state/backendQuery';
 import { invalidatesItem, providesItem, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/shared/context';
@@ -20,6 +20,13 @@ export class ClaudeCodeService {
 	get messages() {
 		return this.api.endpoints.getMessages.useQuery;
 	}
+
+	sessionDetails(projectId: string, sessionId: string) {
+		return this.api.endpoints.getSessionDetails.useQuery({
+			projectId,
+			sessionId
+		});
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -40,6 +47,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.EditChangesSinceInitial, args.projectId + args.stackId)
+				]
+			}),
+			getSessionDetails: build.query<
+				ClaudeSessionDetails,
+				{ projectId: string; sessionId: string }
+			>({
+				extraOptions: { command: 'claude_get_session_details' },
+				query: (args) => args,
+				providesTags: (_result, _error, args) => [
+					...providesItem(ReduxTag.ClaudeSessionDetails, args.projectId + args.sessionId)
 				]
 			}),
 			getMessages: build.query<ClaudeMessage[], { projectId: string; stackId: string }>({
