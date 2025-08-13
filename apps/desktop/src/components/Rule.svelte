@@ -49,7 +49,7 @@
 				return {
 					icon: 'text-width' as keyof typeof iconsJson,
 					label: filter.subject,
-					tooltip: `Changes with text: ${filter.subject}`
+					tooltip: `Containing text: ${filter.subject}`
 				};
 			case 'fileChangeType':
 				return {
@@ -157,7 +157,7 @@
 {/snippet}
 
 {#snippet assignChip()}
-	<Tooltip text="Assigns to">
+	<Tooltip text="Assign to branch">
 		<div class="rule__action-chip">
 			<Icon name="arrow-right" />
 		</div>
@@ -189,7 +189,7 @@
 			{@render filterPill(filter)}
 		{:else}
 			<div class="rule__pill">
-				<span class="text-12 truncate">*. All files matched</span>
+				<span class="text-12 truncate">*. All changes</span>
 			</div>
 		{/each}
 		{@render assignChip()}
