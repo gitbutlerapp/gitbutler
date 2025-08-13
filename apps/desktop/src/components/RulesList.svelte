@@ -248,7 +248,6 @@
 	<div class="rules-list__editor-content">
 		{#if typedKeys(draftRuleFilterInitialValues).length > 0}
 			<div class="rules-list__filters">
-				<h3 class="text-13 text-semibold">Filters</h3>
 				<RuleFiltersEditor
 					bind:this={ruleFiltersEditor}
 					initialFilterValues={draftRuleFilterInitialValues}
@@ -412,10 +411,6 @@
 	.rules-list__filters {
 		display: flex;
 		flex-direction: column;
-
-		& h3 {
-			margin-bottom: 10px;
-		}
 	}
 
 	.rules-list__matches-all {

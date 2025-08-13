@@ -11,7 +11,7 @@
 		type RuleFilterMap
 	} from '$lib/rules/rule';
 	import { typedKeys } from '$lib/utils/object';
-	import { Button, Select, SelectItem, Textbox, FileStatusBadge } from '@gitbutler/ui';
+	import { Button, Select, SelectItem, Textbox, Icon, FileStatusBadge } from '@gitbutler/ui';
 	import type { FileStatus } from '@gitbutler/ui/components/file/types';
 
 	const FILE_STATUS_OPTIONS: FileStatus[] = ['addition', 'modification', 'deletion', 'rename'];
@@ -202,11 +202,11 @@
 
 <!-- Claude Code Session ID -->
 {#snippet claudeCodeSessionIdFilter()}
-	<div class="rule__pill">
-		<span class="text-13 truncate">
-			{claudeCodeSessionId}
-		</span>
-	</div>
+	<Textbox value={claudeCodeSessionId} readonly>
+		{#snippet customIconLeft()}
+			<Icon name="ai" />
+		{/snippet}
+	</Textbox>
 {/snippet}
 
 <!-- This is the parent component,
@@ -253,6 +253,10 @@
 	</div>
 {/snippet}
 
+<h3 class="text-13 text-semibold m-bottom-10">
+	{ruleFilterTypes.includes('claudeCodeSessionId') ? 'Claude Code session' : 'Filters'}
+</h3>
+
 {#if ruleFilterTypes.includes('pathMatchesRegex')}
 	{@render ruleFilterRow('pathMatchesRegex')}
 {/if}
@@ -296,15 +300,6 @@
 	.rule-filter-row__actions {
 		display: flex;
 		align-items: center;
-	}
-	.rule__pill {
-		display: flex;
-		align-items: center;
-		height: var(--size-tag);
-		padding: 0 6px;
-		gap: 6px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: 100px;
 	}
 
 	:global(.rule-filter-row .rule-filter-row__button) {
