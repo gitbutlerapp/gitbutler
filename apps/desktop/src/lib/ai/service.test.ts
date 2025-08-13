@@ -21,7 +21,7 @@ import {
 	type AIClient,
 	type Prompt
 } from '$lib/ai/types';
-import { Tauri } from '$lib/backend/tauri';
+import createBackend from '$lib/backend';
 import { type GbConfig, GitConfigService } from '$lib/config/gitConfigService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
@@ -43,7 +43,8 @@ const defaultSecretsConfig = Object.freeze({
 
 class DummyGitConfigService extends GitConfigService {
 	constructor(private config: { [index: string]: string | undefined }) {
-		super(new Tauri());
+		const backend = createBackend();
+		super(backend);
 	}
 	async getGbConfig(_projectId: string): Promise<GbConfig> {
 		throw new Error('Method not implemented.');

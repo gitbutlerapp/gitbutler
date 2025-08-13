@@ -1,4 +1,3 @@
-import { invoke } from '$lib/backend/ipc';
 import { showToast } from '$lib/notifications/toasts';
 
 const SEPARATOR = '/';
@@ -19,10 +18,6 @@ export async function openExternalUrl(href: string) {
 		// Rethrowing for sentry and posthog
 		throw e;
 	}
-}
-
-export async function showFileInFolder(filePath: string) {
-	await invoke<void>('show_in_finder', { path: filePath });
 }
 
 export interface EditorUriParams {

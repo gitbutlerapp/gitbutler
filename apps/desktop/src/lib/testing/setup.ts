@@ -1,5 +1,5 @@
 import { AIService } from '$lib/ai/service';
-import { Tauri } from '$lib/backend/tauri';
+import createBackend from '$lib/backend';
 import { BaseBranch } from '$lib/baseBranch/baseBranch';
 import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -10,11 +10,12 @@ import { getMockBaseBranch } from '$lib/testing/mockBaseBranch';
 import { getStackServiceMock } from '$lib/testing/mockStackService';
 import { getUiStateMock } from '$lib/testing/mockUiState';
 import { vi } from 'vitest';
+import type { IBackend } from '$lib/backend';
 
 export type TestSetup = {
 	cleanup: () => void;
 	context: Map<any, any>;
-	tauri: Tauri;
+	backend: IBackend;
 };
 
 function createContext() {
@@ -81,11 +82,11 @@ export function setup(): TestSetup {
 		thresholds = [];
 	};
 
-	const tauri = new Tauri();
+	const backend = createBackend();
 
 	let context = createContext();
 
-	vi.spyOn(tauri, 'listen').mockReturnValue(async () => {});
+	vi.spyOn(backend, 'listen').mockReturnValue(async () => {});
 
 	return {
 		cleanup: () => {
@@ -94,6 +95,6 @@ export function setup(): TestSetup {
 			context = createContext();
 		},
 		context,
-		tauri
+		backend
 	};
 }

@@ -76,6 +76,14 @@ class Web implements IBackend {
 	readFile = webReadFile;
 }
 
+export function isBackend(something: unknown): something is IBackend {
+	return (
+		typeof something === 'object' &&
+		something !== null &&
+		(something instanceof Tauri || something instanceof Web)
+	);
+}
+
 export default function createBackend(): IBackend {
 	if (import.meta.env.VITE_BUILD_TARGET === 'web') {
 		return new Web();

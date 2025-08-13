@@ -1,7 +1,7 @@
 import { InjectionToken } from '@gitbutler/shared/context';
 import { getStorageItem, setStorageItem } from '@gitbutler/shared/persisted';
 import { writable } from 'svelte/store';
-import type { Tauri } from '$lib/backend/tauri';
+import type { IBackend } from '$lib/backend';
 
 export const SETTINGS_SERVICE = new InjectionToken<SettingsService>('SettingsService');
 
@@ -18,7 +18,7 @@ export class SettingsService {
 
 	readonly subscribe = this.appSettings.subscribe;
 
-	constructor(private tauri: Tauri) {
+	constructor(private backend: IBackend) {
 		this.autoOptInWs3();
 	}
 
@@ -27,29 +27,31 @@ export class SettingsService {
 	}
 
 	async refresh() {
-		const response = await this.tauri.invoke<AppSettings>('get_app_settings');
+		const response = await this.backend.invoke<AppSettings>('get_app_settings');
 		const settings = response;
 		this.handlePayload(settings);
 	}
 
 	private listen(callback: (settings: AppSettings) => void) {
-		return this.tauri.listen<AppSettings>(`settings://update`, (event) => callback(event.payload));
+		return this.backend.listen<AppSettings>(`settings://update`, (event) =>
+			callback(event.payload)
+		);
 	}
 
 	async updateOnboardingComplete(update: boolean) {
-		await this.tauri.invoke('update_onboarding_complete', { update });
+		await this.backend.invoke('update_onboarding_complete', { update });
 	}
 
 	async updateTelemetry(update: Partial<TelemetrySettings>) {
-		await this.tauri.invoke('update_telemetry', { update });
+		await this.backend.invoke('update_telemetry', { update });
 	}
 
 	async updateTelemetryDistinctId(appDistinctId: string | null) {
-		await this.tauri.invoke('update_telemetry_distinct_id', { appDistinctId });
+		await this.backend.invoke('update_telemetry_distinct_id', { appDistinctId });
 	}
 
 	async updateFeatureFlags(update: Partial<FeatureFlags>) {
-		await this.tauri.invoke('update_feature_flags', { update });
+		await this.backend.invoke('update_feature_flags', { update });
 	}
 
 	/**
@@ -60,7 +62,7 @@ export class SettingsService {
 	 */
 	async autoOptInWs3() {
 		try {
-			const response = await this.tauri.invoke<AppSettings>('get_app_settings');
+			const response = await this.backend.invoke<AppSettings>('get_app_settings');
 			const performedAutoToggle = getStorageItem(WS3_AUTO_TOGGLE) ?? false;
 			// If the auto toggle has already been performed, we do not need to do it again.
 			if (performedAutoToggle) return;
@@ -88,7 +90,7 @@ export class SettingsService {
 	 * - project data directory
 	 */
 	async deleteAllData() {
-		await this.tauri.invoke<void>('delete_all_data');
+		await this.backend.invoke<void>('delete_all_data');
 	}
 }
 

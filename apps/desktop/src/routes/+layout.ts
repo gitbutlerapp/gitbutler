@@ -2,7 +2,7 @@ import { PromptService as AIPromptService } from '$lib/ai/promptService';
 import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { EventContext } from '$lib/analytics/eventContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
-import { Tauri } from '$lib/backend/tauri';
+import createBackend from '$lib/backend';
 import { loadAppSettings } from '$lib/config/appSettings';
 import { SettingsService } from '$lib/config/appSettingsV2';
 import { GitConfigService } from '$lib/config/gitConfigService';
@@ -38,11 +38,11 @@ export const load: LayoutLoad = async () => {
 
 	const tokenMemoryService = new TokenMemoryService();
 	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
-	const tauri = new Tauri();
-	const promptService = new PromptService();
 	const uploadsService = new UploadsService(httpClient);
+	const backend = createBackend();
+	const promptService = new PromptService(backend);
 
-	const settingsService = new SettingsService(tauri);
+	const settingsService = new SettingsService(backend);
 
 	const eventContext = new EventContext();
 	// Awaited and will block initial render, but it is necessary in order to respect the user
@@ -51,12 +51,12 @@ export const load: LayoutLoad = async () => {
 	const appSettings = await loadAppSettings();
 	initAnalyticsIfEnabled(appSettings, posthog);
 
-	const gitConfig = new GitConfigService(tauri);
-	const remotesService = new RemotesService();
+	const gitConfig = new GitConfigService(backend);
+	const remotesService = new RemotesService(backend);
 	const aiPromptService = new AIPromptService();
-	const fileService = new FileService(tauri);
-	const hooksService = new HooksService(tauri);
-	const userService = new UserService(httpClient, tokenMemoryService, posthog);
+	const fileService = new FileService(backend);
+	const hooksService = new HooksService(backend);
+	const userService = new UserService(backend, httpClient, tokenMemoryService, posthog);
 
 	// Await settings to prevent immediate reloads on initial render.
 	await settingsService.refresh();
@@ -72,7 +72,7 @@ export const load: LayoutLoad = async () => {
 		remotesService,
 		aiPromptService,
 		posthog,
-		tauri,
+		backend,
 		fileService,
 		hooksService,
 		settingsService,

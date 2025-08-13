@@ -1,6 +1,6 @@
 import { InjectionToken } from '@gitbutler/shared/context';
 import { chipToasts } from '@gitbutler/ui';
-import type { Tauri } from '$lib/backend/tauri';
+import type { IBackend } from '$lib/backend';
 import type { DiffSpec } from '$lib/hunks/hunk';
 
 export type HookStatus =
@@ -34,23 +34,23 @@ export type MessageHookStatus =
 export const HOOKS_SERVICE = new InjectionToken<HooksService>('HooksService');
 
 export class HooksService {
-	constructor(private tauri: Tauri) {}
+	constructor(private backend: IBackend) {}
 
 	async preCommitDiffspecs(projectId: string, changes: DiffSpec[]) {
-		return await this.tauri.invoke<HookStatus>('pre_commit_hook_diffspecs', {
+		return await this.backend.invoke<HookStatus>('pre_commit_hook_diffspecs', {
 			projectId,
 			changes
 		});
 	}
 
 	async postCommit(projectId: string) {
-		return await this.tauri.invoke<HookStatus>('post_commit_hook', {
+		return await this.backend.invoke<HookStatus>('post_commit_hook', {
 			projectId
 		});
 	}
 
 	async message(projectId: string, message: string) {
-		return await this.tauri.invoke<MessageHookStatus>('message_hook', {
+		return await this.backend.invoke<MessageHookStatus>('message_hook', {
 			projectId,
 			message
 		});

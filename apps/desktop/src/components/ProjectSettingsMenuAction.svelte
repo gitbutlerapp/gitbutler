@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
 	import { historyPath } from '$lib/routes/routes.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
-	import { getEditorUri, openExternalUrl, showFileInFolder } from '$lib/utils/url';
+	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 
@@ -16,6 +17,7 @@
 
 	const userSettings = inject(SETTINGS);
 	const shortcutService = inject(SHORTCUT_SERVICE);
+	const fileService = inject(FILE_SERVICE);
 
 	$effect(() =>
 		mergeUnlisten(
@@ -44,7 +46,7 @@
 					throw new Error(`Project not found: ${projectId}`);
 				}
 				// Show the project directory in the default file manager (cross-platform)
-				await showFileInFolder(project.path);
+				await fileService.showFileInFolder(project.path);
 			})
 		)
 	);

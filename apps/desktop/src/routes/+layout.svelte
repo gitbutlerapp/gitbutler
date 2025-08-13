@@ -19,10 +19,10 @@
 	import { AI_SERVICE, AIService } from '$lib/ai/service';
 	import { EVENT_CONTEXT } from '$lib/analytics/eventContext';
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import { invoke } from '$lib/backend/ipc';
 	import BaseBranchService, { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService, BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/codegen/claude';
+	import CLIManager, { CLI_MANAGER } from '$lib/cli/cli';
 	import { CommitService, COMMIT_SERVICE } from '$lib/commits/commitService.svelte';
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
@@ -70,6 +70,7 @@
 	import { StackService, STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { ClientState, CLIENT_STATE } from '$lib/state/clientState.svelte';
 	import { UiState, UI_STATE } from '$lib/state/uiState.svelte';
+	import DataSharingService, { DATA_SHARING_SERVICE } from '$lib/support/dataSharing';
 	import { UPDATER_SERVICE, UpdaterService } from '$lib/updater/updater';
 	import {
 		UpstreamIntegrationService,
@@ -121,7 +122,7 @@
 	provide(IRC_CLIENT, ircClient);
 
 	const clientState = new ClientState(
-		data.tauri,
+		data.backend,
 		gitHubClient,
 		gitLabClient,
 		ircClient,
@@ -165,7 +166,7 @@
 		forgeFactory,
 		uiState
 	);
-	const feedFactory = new FeedFactory(data.tauri, stackService);
+	const feedFactory = new FeedFactory(data.backend, stackService);
 	const rulesService = new RulesService(clientState['backendApi']);
 	const modeService = $derived(new ModeService(clientState['backendApi']));
 	$effect.pre(() => {
@@ -180,10 +181,12 @@
 	const cloudUserService = new CloudUserService(data.httpClient, appState.appDispatch);
 	const dependecyService = new DependencyService(worktreeService);
 	const diffService = new DiffService(clientState);
+	const cliManager = new CLIManager(clientState['backendApi']);
+	const dataSharingService = new DataSharingService(clientState['backendApi']);
 
 	const uncommittedService = new UncommittedService(clientState, worktreeService, diffService);
 	provide(UNCOMMITTED_SERVICE, uncommittedService);
-	const historyService = new HistoryService(clientState['backendApi']);
+	const historyService = new HistoryService(data.backend, clientState['backendApi']);
 	provide(HISTORY_SERVICE, historyService);
 
 	const idSelection = new IdSelection(
@@ -197,9 +200,9 @@
 	const projectsService = new ProjectsService(clientState, data.homeDir, data.httpClient);
 	provide(PROJECTS_SERVICE, projectsService);
 
-	const shortcutService = new ShortcutService(data.tauri);
-	const updaterService = new UpdaterService(data.tauri, data.posthog, shortcutService);
-	const commitService = new CommitService();
+	const shortcutService = new ShortcutService(data.backend);
+	const updaterService = new UpdaterService(data.backend, data.posthog, shortcutService);
+	const commitService = new CommitService(data.backend);
 
 	const upstreamIntegrationService = new UpstreamIntegrationService(
 		clientState,
@@ -224,7 +227,7 @@
 
 	setExternalLinkService({ open: openExternalUrl });
 
-	const secretsService = new RustSecretService(data.gitConfig);
+	const secretsService = new RustSecretService(data.backend);
 	provide(SECRET_SERVICE, secretsService);
 
 	const aiService = new AIService(
@@ -245,6 +248,8 @@
 	provide(SETTINGS_SERVICE, data.settingsService);
 	provide(FILE_SERVICE, data.fileService);
 	provide(COMMIT_SERVICE, commitService);
+	provide(CLI_MANAGER, cliManager);
+	provide(DATA_SHARING_SERVICE, dataSharingService);
 
 	// Setters do not need to be reactive since `data` never updates
 	provide(POSTHOG_WRAPPER, data.posthog);
@@ -274,7 +279,7 @@
 	provide(DROPZONE_REGISTRY, new DropzoneRegistry());
 	provide(DRAG_STATE_SERVICE, new DragStateService());
 	provide(RESIZE_SYNC, new ResizeSync());
-	provide(GIT_SERVICE, new GitService(data.tauri));
+	provide(GIT_SERVICE, new GitService(data.backend));
 
 	const settingsService = data.settingsService;
 	const settingsStore = settingsService.appSettings;
@@ -288,7 +293,7 @@
 	// This store is literally only used once, on GitHub oauth, to set the
 	// gh username on the user object. Furthermore, it isn't used anywhere.
 	// TODO: Remove the gh username completely?
-	const githubUserService = new GitHubUserService(data.tauri, clientState['githubApi']);
+	const githubUserService = new GitHubUserService(data.backend, clientState['githubApi']);
 	provide(GITHUB_USER_SERVICE, githubUserService);
 
 	let shareIssueModal: ShareIssueModal;
@@ -316,11 +321,11 @@
 		// For good measure, it also shows the workspace.
 		'd o t': async () => {
 			const projectId = page.params.projectId;
-			await invoke('show_graph_svg', { projectId });
+			await data.backend.invoke('show_graph_svg', { projectId });
 		},
 		// This is a debug tool to learn about environment variables actually present - only available if the backend is in debug mode.
 		'e n v': async () => {
-			let env = await invoke('env_vars');
+			let env = await data.backend.invoke('env_vars');
 			// eslint-disable-next-line no-console
 			console.log(env);
 			(window as any).tauriEnv = env;

@@ -1,9 +1,9 @@
-import { invoke } from '$lib/backend/ipc';
 import { Snapshot } from '$lib/history/types';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
+import type { IBackend } from '$lib/backend';
 import type { TreeChange } from '$lib/hunks/change';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
 
@@ -29,7 +29,10 @@ class SnapshotPager {
 		};
 	});
 
-	constructor(private readonly projectId: string) {}
+	constructor(
+		private readonly projectId: string,
+		private backend: IBackend
+	) {}
 
 	async load() {
 		const data = await this.fetch();
@@ -56,7 +59,7 @@ class SnapshotPager {
 
 	private async fetch(after?: string) {
 		this.loading.set(true);
-		const resp = await invoke<Snapshot[]>('list_snapshots', {
+		const resp = await this.backend.invoke<Snapshot[]>('list_snapshots', {
 			projectId: this.projectId,
 			sha: after,
 			limit: 32
@@ -78,7 +81,10 @@ type SnapshotDiffParams = {
 export class HistoryService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(backendApi: BackendApi) {
+	constructor(
+		private backend: IBackend,
+		backendApi: BackendApi
+	) {
 		this.api = injectEndpoints(backendApi);
 	}
 
@@ -86,7 +92,7 @@ export class HistoryService {
 	snapshots(projectId: string) {
 		let snapshot = this.#snapshots.get(projectId);
 		if (!snapshot) {
-			snapshot = new SnapshotPager(projectId);
+			snapshot = new SnapshotPager(projectId, this.backend);
 			this.#snapshots.set(projectId, snapshot);
 		}
 		return snapshot;
@@ -115,10 +121,7 @@ export class HistoryService {
 	}
 
 	async restoreSnapshot(projectId: string, sha: string) {
-		await invoke<string>('restore_snapshot', {
-			projectId: projectId,
-			sha: sha
-		});
+		await this.api.endpoints.restoreSnapshot.mutate({ projectId, sha });
 	}
 }
 
@@ -136,6 +139,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				transformResponse: (data: TreeChange[]) => {
 					return snapshotDiffAdapter.addMany(snapshotDiffAdapter.getInitialState(), data);
 				}
+			}),
+			restoreSnapshot: build.mutation<void, { projectId: string; sha: string }>({
+				extraOptions: { command: 'restore_snapshot' },
+				query: (args) => args
 			})
 		})
 	});

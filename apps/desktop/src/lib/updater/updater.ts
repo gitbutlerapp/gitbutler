@@ -1,10 +1,16 @@
 import { showToast } from '$lib/notifications/toasts';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { type DownloadEvent, Update } from '@tauri-apps/plugin-updater';
 import { get, writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { Tauri } from '$lib/backend/tauri';
+import type {
+	DownloadEvent,
+	DownloadEventName,
+	DownloadUpdate,
+	IBackend,
+	InstallUpdate,
+	Update
+} from '$lib/backend';
 import type { ShortcutService } from '$lib/shortcuts/shortcutService';
 
 export const UPDATER_SERVICE = new InjectionToken<UpdaterService>('UpdaterService');
@@ -24,7 +30,7 @@ export type InstallStatus =
 	| 'Up-to-date'
 	| 'Error';
 
-const downloadStatusMap: { [K in DownloadEvent['event']]: InstallStatus } = {
+const downloadStatusMap: { [K in DownloadEventName]: InstallStatus } = {
 	Started: 'Downloading',
 	Progress: 'Downloading',
 	Finished: 'Downloaded'
@@ -44,26 +50,23 @@ export class UpdaterService {
 	readonly disableAutoChecks = writable(false);
 	readonly loading = writable(false);
 	readonly update = writable<UpdateStatus>({}, () => {
-		if (import.meta.env.VITE_BUILD_TARGET === 'web') {
-			return;
-		}
-
 		this.start();
 		return () => {
 			this.stop();
 		};
 	});
 
+	private manualCheck = false;
 	private checkForUpdateInterval: ReturnType<typeof setInterval> | undefined;
 	private seenVersion: string | undefined;
-	private tauriDownload: Update['download'] | undefined;
-	private tauriInstall: Update['install'] | undefined;
+	private backendDownload: DownloadUpdate | undefined;
+	private backendInstall: InstallUpdate | undefined;
 
 	unlistenStatus?: () => void;
 	unlistenMenu?: () => void;
 
 	constructor(
-		private tauri: Tauri,
+		private backend: IBackend,
 		private posthog: PostHogWrapper,
 		private shortcuts: ShortcutService
 	) {}
@@ -92,9 +95,13 @@ export class UpdaterService {
 	async checkForUpdate(manual = false) {
 		if (get(this.disableAutoChecks)) return;
 
+		if (manual) {
+			this.manualCheck = manual;
+		}
+
 		this.loading.set(true);
 		try {
-			this.handleUpdate(await this.tauri.checkUpdate(), manual); // In DEV mode this never returns.
+			this.handleUpdate(await this.backend.checkUpdate()); // In DEV mode this never returns.
 		} catch (err: unknown) {
 			handleError(err, manual);
 		} finally {
@@ -102,25 +109,28 @@ export class UpdaterService {
 		}
 	}
 
-	private handleUpdate(update: Update | null, manual: boolean) {
+	private handleUpdate(update: Update | null) {
 		if (update === null) {
+			if (this.manualCheck) {
+				this.setStatus('Up-to-date');
+				return;
+			}
+
 			this.update.set({});
 			return;
 		}
-		if (!update.available && manual) {
-			this.setStatus('Up-to-date');
-		} else if (
-			update.available &&
+
+		if (
 			update.version !== this.seenVersion &&
 			update.currentVersion !== '0.0.0' // DEV mode.
 		) {
-			const { version, body, download, install } = update;
-			this.tauriDownload = download.bind(update);
-			this.tauriInstall = install.bind(update);
-			this.seenVersion = version;
+			this.backendDownload = async (onEvent) => await update.download(onEvent);
+			this.backendInstall = async () => await update.install();
+
+			this.seenVersion = update.version;
 			this.update.set({
-				version,
-				releaseNotes: body,
+				version: update.version,
+				releaseNotes: update.body,
 				status: undefined
 			});
 		}
@@ -143,22 +153,22 @@ export class UpdaterService {
 	}
 
 	private async download() {
-		if (!this.tauriDownload) {
+		if (!this.backendDownload) {
 			throw new Error('Download function not available.');
 		}
 		this.setStatus('Downloading');
-		await this.tauriDownload((progress: DownloadEvent) => {
+		await this.backendDownload((progress: DownloadEvent) => {
 			this.setStatus(downloadStatusMap[progress.event]);
 		});
 		this.setStatus('Downloaded');
 	}
 
 	private async install() {
-		if (!this.tauriInstall) {
+		if (!this.backendInstall) {
 			throw new Error('Install function not available.');
 		}
 		this.setStatus('Installing');
-		await this.tauriInstall();
+		await this.backendInstall();
 		this.setStatus('Done');
 	}
 
@@ -178,6 +188,7 @@ export class UpdaterService {
 
 	dismiss() {
 		this.update.set({});
+		this.manualCheck = false;
 	}
 }
 

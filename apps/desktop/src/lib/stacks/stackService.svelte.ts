@@ -1,7 +1,7 @@
 import { ConflictEntries, type ConflictEntriesObj } from '$lib/files/conflicts';
 import { sortLikeFileTree } from '$lib/files/filetreeV3';
 import { showToast } from '$lib/notifications/toasts';
-import { hasTauriExtra } from '$lib/state/backendQuery';
+import { hasBackendExtra } from '$lib/state/backendQuery';
 import { ClientState, type BackendApi } from '$lib/state/clientState.svelte';
 import { createSelectByIds, createSelectNth } from '$lib/state/customSelectors';
 import {
@@ -896,12 +896,12 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.Stacks)],
 				async onCacheEntryAdded(arg, lifecycleApi) {
-					if (!hasTauriExtra(lifecycleApi.extra)) {
+					if (!hasBackendExtra(lifecycleApi.extra)) {
 						throw new Error('Redux dependency Tauri not found!');
 					}
 					// The `cacheDataLoaded` promise resolves when the result is first loaded.
 					await lifecycleApi.cacheDataLoaded;
-					const unsubscribe = lifecycleApi.extra.tauri.listen(
+					const unsubscribe = lifecycleApi.extra.backend.listen(
 						`project://${arg.projectId}/hunk-assignment-update`,
 						() => {
 							lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.Stacks)]));
@@ -1574,12 +1574,12 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 			stackDetailsUpdate: build.query<void, { projectId: string }>({
 				queryFn: () => ({ data: undefined }),
 				async onCacheEntryAdded(arg, lifecycleApi) {
-					if (!hasTauriExtra(lifecycleApi.extra)) {
-						throw new Error('Stack details update endpoint requires Tauri extra');
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Stack details update endpoint requires Backend extra');
 					}
 
 					await lifecycleApi.cacheDataLoaded;
-					const unsubscribe = lifecycleApi.extra.tauri.listen<{ stackId: string }>(
+					const unsubscribe = lifecycleApi.extra.backend.listen<{ stackId: string }>(
 						`project://${arg.projectId}/stack_details_update`,
 						(event) => {
 							lifecycleApi.dispatch(

@@ -1,4 +1,4 @@
-import { hasTauriExtra } from '$lib/state/backendQuery';
+import { hasBackendExtra } from '$lib/state/backendQuery';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/shared/context';
 import type { ConflictEntryPresence } from '$lib/conflictEntryPresence';
@@ -119,10 +119,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.EditChangesSinceInitial)],
 				async onCacheEntryAdded(arg, lifecycleApi) {
-					if (!hasTauriExtra(lifecycleApi.extra)) {
-						throw new Error('Redux dependency Tauri not found!');
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Backend not found!');
 					}
-					const { invoke, listen } = lifecycleApi.extra.tauri;
+					const { invoke, listen } = lifecycleApi.extra.backend;
 					await lifecycleApi.cacheDataLoaded;
 					let finished = false;
 					// We are listening to this only for the notification that changes have been made
@@ -145,11 +145,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.HeadMetadata)],
 				async onCacheEntryAdded(arg, lifecycleApi) {
-					if (!hasTauriExtra(lifecycleApi.extra)) {
-						throw new Error('Redux dependency Tauri not found!');
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Backend not found!');
 					}
 					await lifecycleApi.cacheDataLoaded;
-					const unsubscribe = lifecycleApi.extra.tauri.listen<HeadAndMode>(
+					const unsubscribe = lifecycleApi.extra.backend.listen<HeadAndMode>(
 						`project://${arg.projectId}/git/head`,
 						(event) => {
 							lifecycleApi.updateCachedData(() => event.payload.operatingMode);
@@ -164,11 +164,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.HeadMetadata)],
 				async onCacheEntryAdded(arg, lifecycleApi) {
-					if (!hasTauriExtra(lifecycleApi.extra)) {
-						throw new Error('Redux dependency Tauri not found!');
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Backend not found!');
 					}
 					await lifecycleApi.cacheDataLoaded;
-					const unsubscribe = lifecycleApi.extra.tauri.listen<HeadAndMode>(
+					const unsubscribe = lifecycleApi.extra.backend.listen<HeadAndMode>(
 						`project://${arg.projectId}/git/head`,
 						(event) => {
 							lifecycleApi.updateCachedData(() => event.payload.head);

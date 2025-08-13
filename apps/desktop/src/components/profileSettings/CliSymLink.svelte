@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { invoke } from '$lib/backend/ipc';
+	import { CLI_MANAGER } from '$lib/cli/cli';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
+	import { inject } from '@gitbutler/shared/context';
 	import { Icon } from '@gitbutler/ui';
 
 	interface Props {
@@ -9,20 +10,23 @@
 
 	const { class: classes = '' }: Props = $props();
 
-	async function cli_command(): Promise<string> {
-		const path: string = await invoke('cli_path');
+	const cliManager = inject(CLI_MANAGER);
+	const cliPath = cliManager.path();
+
+	function cliCommand(path: string): string {
 		const command = "sudo ln -sf '" + path + "' /usr/local/bin/but";
 		return command;
 	}
 </script>
 
 <div class="symlink-copy-box {classes}">
-	{#await cli_command() then command}
+	{#if cliPath.current?.data}
+		{@const command = cliCommand(cliPath.current.data)}
 		<p>{command}</p>
 		<button type="button" class="symlink-copy-icon" onclick={() => copyToClipboard(command)}>
 			<Icon name="copy" />
 		</button>
-	{/await}
+	{/if}
 </div>
 
 <style lang="postcss">

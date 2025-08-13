@@ -1,5 +1,5 @@
 import { type ClaudeMessage, type ClaudeSessionDetails } from '$lib/codegen/types';
-import { hasTauriExtra } from '$lib/state/backendQuery';
+import { hasBackendExtra } from '$lib/state/backendQuery';
 import { providesItem, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/shared/context';
 import type { ClientState } from '$lib/state/clientState.svelte';
@@ -63,10 +63,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					...providesItem(ReduxTag.ClaudeCodeTranscript, args.projectId + args.stackId)
 				],
 				async onCacheEntryAdded(arg, lifecycleApi) {
-					if (!hasTauriExtra(lifecycleApi.extra)) {
-						throw new Error('Redux dependency Tauri not found!');
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Backend not found!');
 					}
-					const { listen } = lifecycleApi.extra.tauri;
+					const { listen } = lifecycleApi.extra.backend;
 					await lifecycleApi.cacheDataLoaded;
 					const unsubscribe = listen<ClaudeMessage>(
 						`project://${arg.projectId}/claude/${arg.stackId}/message_recieved`,

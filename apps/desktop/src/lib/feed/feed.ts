@@ -1,5 +1,4 @@
 import { ActionListing, ButlerAction, Workflow, WorkflowList } from '$lib/actions/types';
-import { invoke } from '$lib/backend/ipc';
 import { Snapshot } from '$lib/history/types';
 import Mutex from '$lib/utils/mutex';
 import { InjectionToken } from '@gitbutler/shared/context';
@@ -7,7 +6,7 @@ import { deduplicateBy } from '@gitbutler/shared/utils/array';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
 import type { ToolCall } from '$lib/ai/tool';
-import type { Tauri } from '$lib/backend/tauri';
+import type { IBackend } from '$lib/backend';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 
 export const FEED_FACTORY = new InjectionToken<FeedFactory>('FeedFactory');
@@ -16,7 +15,7 @@ export default class FeedFactory {
 	private instance: Feed | null = null;
 
 	constructor(
-		private tauri: Tauri,
+		private backend: IBackend,
 		private stackService: StackService
 	) {}
 
@@ -30,12 +29,12 @@ export default class FeedFactory {
 	 */
 	getFeed(projectId: string): Feed {
 		if (!this.instance) {
-			this.instance = new Feed(this.tauri, projectId, this.stackService);
+			this.instance = new Feed(this.backend, projectId, this.stackService);
 		}
 
 		if (!this.instance.isProjectFeed(projectId)) {
 			this.instance.unlisten();
-			this.instance = new Feed(this.tauri, projectId, this.stackService);
+			this.instance = new Feed(this.backend, projectId, this.stackService);
 		}
 
 		return this.instance;
@@ -155,7 +154,7 @@ class Feed {
 	});
 
 	constructor(
-		private tauri: Tauri,
+		private backend: IBackend,
 		private projectId: string,
 		private stackService: StackService
 	) {
@@ -164,25 +163,25 @@ class Feed {
 		this.messageSubscribers = new Map();
 		this.initialized = false;
 
-		this.unlistenDB = this.tauri.listen<DBEvent>(`project://${projectId}/db-updates`, (event) => {
+		this.unlistenDB = this.backend.listen<DBEvent>(`project://${projectId}/db-updates`, (event) => {
 			this.handleDBEvent(event.payload);
 		});
 
-		this.unlistenTokens = this.tauri.listen<TokenEvent>(
+		this.unlistenTokens = this.backend.listen<TokenEvent>(
 			`project://${projectId}/token-updates`,
 			(event) => {
 				this.handleTokenEvent(event.payload);
 			}
 		);
 
-		this.unlistenToolCalls = this.tauri.listen<ToolCallEvent>(
+		this.unlistenToolCalls = this.backend.listen<ToolCallEvent>(
 			`project://${projectId}/tool-call`,
 			(event) => {
 				this.handleToolCallEvent(event.payload);
 			}
 		);
 
-		this.unlistenTodoUpdates = this.tauri.listen<TodoUpdateEvent>(
+		this.unlistenTodoUpdates = this.backend.listen<TodoUpdateEvent>(
 			`project://${projectId}/todo-updates`,
 			(event) => {
 				this.handleTodoUpdate(event.payload);
@@ -519,7 +518,7 @@ class Feed {
 	}
 
 	private async fetchActions(count: number, offset: number) {
-		const listing = await invoke<any>('list_actions', {
+		const listing = await this.backend.invoke<any>('list_actions', {
 			projectId: this.projectId,
 			offset: offset,
 			limit: count
@@ -529,7 +528,7 @@ class Feed {
 	}
 
 	private async fetchWorkflows(count: number, offset: number) {
-		const listing = await invoke<any>('list_workflows', {
+		const listing = await this.backend.invoke<any>('list_workflows', {
 			projectId: this.projectId,
 			offset: offset,
 			limit: count
