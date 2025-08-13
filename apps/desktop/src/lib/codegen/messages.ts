@@ -94,3 +94,78 @@ export function formatMessages(events: ClaudeMessage[]): Message[] {
 
 	return out;
 }
+
+/** Anthropic prices, per 1M tokens */
+const pricing = [
+	{
+		name: 'claude-opus',
+		input: 15,
+		output: 75,
+		writeCache: 18.75,
+		readCache: 1.5
+	},
+	{
+		name: 'claude-sonnet',
+		input: 3,
+		output: 6,
+		writeCache: 3.75,
+		readCache: 0.3
+	},
+	{
+		name: 'claude-haiku',
+		input: 0.8,
+		output: 4,
+		writeCache: 1,
+		readCache: 0.08
+	}
+] as const;
+
+/** Cost of anthropic making web request calls per 1K calls */
+const webRequestCost = 10;
+
+/**
+ * Calculates the usage stats from the message log.
+ *
+ * This makes use of the "assistant" messages rather than the "result" ones
+ * because the "assistant" ones come in more frequently.
+ *
+ * For some reason the final quantity of tokens ends up slightly greater than if
+ * you were using the result, however, the calculated cost ends up being the
+ * same as the cost provided in the result based messages.
+ *
+ * I can only assume that there is a mistake in the token counting code on CC's
+ * side.
+ */
+export function usageStats(events: ClaudeMessage[]): { tokens: number; cost: number } {
+	let tokens = 0;
+	let cost = 0;
+	for (const event of events) {
+		if (event.content.type !== 'claudeOutput') continue;
+		const message = event.content.subject;
+		if (message.type !== 'assistant') continue;
+
+		const usage = message.message.usage;
+		tokens += usage.input_tokens;
+		tokens += usage.output_tokens;
+
+		const modelPricing = findModelPricing(message.message.model);
+		if (!modelPricing) continue;
+
+		cost += (usage.input_tokens * modelPricing.input) / 1_000_000;
+		cost += (usage.output_tokens * modelPricing.output) / 1_000_000;
+		cost += ((usage.cache_creation_input_tokens || 0) * modelPricing.writeCache) / 1_000_000;
+		cost += ((usage.cache_read_input_tokens || 0) * modelPricing.readCache) / 1_000_000;
+		cost += ((usage.server_tool_use?.web_search_requests || 0) * webRequestCost) / 1_000;
+	}
+
+	return { tokens, cost };
+}
+
+function findModelPricing(name: string) {
+	for (const p of pricing) {
+		// We do a starts with so we don't have to deal with all the versioning
+		if (name.startsWith(p.name)) {
+			return p;
+		}
+	}
+}
