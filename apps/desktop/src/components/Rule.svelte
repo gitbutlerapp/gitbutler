@@ -67,7 +67,7 @@
 				};
 			case 'claudeCodeSessionId':
 				return {
-					icon: 'tag' as keyof typeof iconsJson,
+					icon: 'ai-small' as keyof typeof iconsJson,
 					label: filter.subject,
 					tooltip: `Code session: ${filter.subject}`
 				};
@@ -114,7 +114,7 @@
 	<Tooltip text={config.tooltip}>
 		<div class="rule__pill">
 			{#if config.icon}
-				<Icon name={config.icon} opacity={0.6} />
+				<Icon name={config.icon} color="var(--clr-text-2)" />
 			{/if}
 			<span class="text-12 truncate">{config.label}</span>
 		</div>
@@ -132,8 +132,8 @@
 
 {#snippet renderSessionPill(tooltip: string, icon: keyof typeof iconsJson, title: string)}
 	<Tooltip text={tooltip}>
-		<div class="rule__pill">
-			<Icon name={icon} opacity={0.6} />
+		<div class="rule__ai-pill">
+			<Icon name={icon} color="var(--clr-theme-purp-element)" />
 			<span class="text-12 truncate">{title}</span>
 		</div>
 	</Tooltip>
@@ -277,7 +277,8 @@
 		color: var(--clr-text-2);
 	}
 
-	.rule__pill {
+	.rule__pill,
+	.rule__ai-pill {
 		display: flex;
 		align-items: center;
 		max-width: 130px;
@@ -285,11 +286,17 @@
 		padding: 0 6px;
 		overflow: hidden;
 		gap: 5px;
-		border: 1px solid var(--clr-border-2);
 		border-radius: 100px;
+	}
 
+	.rule__pill {
+		border: 1px solid var(--clr-border-2);
 		&.error {
 			border: 1px solid var(--clr-theme-err-element);
 		}
+	}
+
+	.rule__ai-pill {
+		background: var(--clr-theme-purp-soft);
 	}
 </style>
