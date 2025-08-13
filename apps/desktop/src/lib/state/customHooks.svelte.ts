@@ -1,4 +1,4 @@
-import { SilentError } from '$lib/error/error';
+import { emitQueryError, SilentError } from '$lib/error/error';
 import { isReduxError, type ReduxError } from '$lib/state/reduxError';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { type Reactive } from '@gitbutler/shared/storeUtils';
@@ -94,6 +94,14 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 
 		const selector = $derived(select(queryArg));
 		const result = $derived(selector(state()));
+
+		$effect(() => {
+			if (result.error) {
+				const error = result.error;
+				emitQueryError(error);
+			}
+		});
+
 		const output = $derived.by(() => {
 			let data = result.data;
 			if (options?.transform && data) {
