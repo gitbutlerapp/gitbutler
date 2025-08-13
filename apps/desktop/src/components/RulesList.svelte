@@ -20,6 +20,7 @@
 	import { typedKeys } from '$lib/utils/object';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, chipToasts, Select, SelectItem, Icon } from '@gitbutler/ui';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -271,10 +272,16 @@
 			<ReduxResult {projectId} result={stackEntries.current}>
 				{#snippet children(stacks)}
 					{@const stackOptions = [
-						...stacks.map((stack) => ({
-							label: getStackName(stack),
-							value: encodeStackTarget({ type: 'stackId', subject: stack.id })
-						})),
+						...stacks
+							.map((stack) =>
+								stack.id
+									? {
+											label: getStackName(stack),
+											value: encodeStackTarget({ type: 'stackId', subject: stack.id })
+										}
+									: undefined
+							)
+							.filter(isDefined),
 						{ separator: true } as const,
 						{
 							label: 'Leftmost stack',

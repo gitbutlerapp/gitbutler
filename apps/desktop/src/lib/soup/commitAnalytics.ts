@@ -136,7 +136,7 @@ export class CommitAnalytics {
 			.filter((assignment) => assignment.stackId !== null)
 			.forEach((assignment) => assignedStacks.add(assignment.stackId!));
 
-		return stacks.filter((stack) => assignedStacks.has(stack.id));
+		return stacks.filter((stack) => stack.id && assignedStacks.has(stack.id));
 	}
 
 	private getAssignedFiles(assignments: HunkAssignment[]): string[] {

@@ -46,7 +46,7 @@
 
 	type WithStackId = {
 		disableCommitActions: false;
-		stackId: string;
+		stackId?: string;
 	};
 
 	type WithoutStackId = {

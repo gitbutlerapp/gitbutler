@@ -37,7 +37,7 @@ describe('Selection', () => {
 
 		for (const stack of stacks) {
 			const stackName = stack.heads[0]?.name;
-			const stackId = stack.id;
+			const stackId = stack.id!;
 			if (!stackName) continue;
 
 			cy.getByTestIdByValue('branch-header', stackName)
@@ -51,7 +51,7 @@ describe('Selection', () => {
 				.scrollIntoView()
 				.should('be.visible')
 				.within(() => {
-					const changedFileNames = mockBackend.getBranchChangesFileNames(stack.id, stackName);
+					const changedFileNames = mockBackend.getBranchChangesFileNames(stackId, stackName);
 					for (const fileName of changedFileNames) {
 						cy.getByTestId('file-list-item', fileName).should('be.visible');
 					}
@@ -71,7 +71,7 @@ describe('Selection', () => {
 		// Select the initial commit which should be local only
 		cy.getByTestId('commit-row', 'Initial commit').first().click();
 
-		cy.getByTestIdByValue('stack', stack.id)
+		cy.getByTestIdByValue('stack', stack.id!)
 			.should('be.visible')
 			.within(() => {
 				cy.getByTestId('commit-drawer-title').should('contain', 'Initial commit');

@@ -2,6 +2,7 @@ import {
 	selectionKey,
 	key,
 	readKey,
+	createWorktreeSelection,
 	type SelectedFileKey,
 	type SelectionId,
 	type SelectedFile
@@ -50,7 +51,7 @@ export class IdSelection {
 		private historyService: HistoryService
 	) {
 		this.selections = new Map();
-		this.selections.set(selectionKey({ type: 'worktree' }), {
+		this.selections.set(selectionKey(createWorktreeSelection({ stackId: undefined })), {
 			entries: new SvelteSet<SelectedFileKey>(),
 			lastAdded: writable()
 		});
@@ -203,7 +204,9 @@ export class IdSelection {
 			return;
 		}
 		const removedFiles: SelectedFile[] = [];
-		const worktreeSelection = this.selections.get(selectionKey({ type: 'worktree' }));
+		const worktreeSelection = this.selections.get(
+			selectionKey(createWorktreeSelection({ stackId: undefined }))
+		);
 		if (!worktreeSelection) return;
 
 		for (const selectedFile of worktreeSelection.entries) {

@@ -26,7 +26,7 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	// Using a dummy stackId kind of sucks... but it's fine for now
-	const stackState = $derived(uiState.stack(stackId || 'new-commit-view--new-stack'));
+	const laneState = $derived(uiState.lane(stackId || 'new-commit-view--new-stack'));
 
 	const [createCommitInStack, commitCreation] = stackService.createCommit({});
 
@@ -120,7 +120,7 @@
 
 			if (newId) {
 				// Clear saved state for commit message editor.
-				stackState.newCommitMessage.set({ title: '', description: '' });
+				laneState.newCommitMessage.set({ title: '', description: '' });
 
 				// Close the drawer.
 				projectState.exclusiveAction.set(undefined);
@@ -143,7 +143,7 @@
 					projectId,
 					targetBranchName: finalBranchName,
 					newCommitId: newId ?? undefined,
-					commitTitle: stackState.newCommitMessage.current?.title || '',
+					commitTitle: laneState.newCommitMessage.current?.title || '',
 					pathsToRejectedChanges
 				});
 			}
@@ -155,7 +155,7 @@
 	const [createNewStack, newStackResult] = stackService.newStack;
 
 	async function handleCommitCreation(title: string, description: string) {
-		stackState.newCommitMessage.set({ title, description });
+		laneState.newCommitMessage.set({ title, description });
 
 		const message = description ? title + '\n\n' + description : title;
 		if (!message) {
@@ -184,15 +184,15 @@
 		}
 
 		if (newCommitMessageUpdate) {
-			stackState.newCommitMessage.set({
-				...stackState.newCommitMessage.current,
+			laneState.newCommitMessage.set({
+				...laneState.newCommitMessage.current,
 				...newCommitMessageUpdate
 			});
 		}
 	}
 
 	function cancel(args: { title: string; description: string }) {
-		stackState.newCommitMessage.set(args);
+		laneState.newCommitMessage.set(args);
 		projectState.exclusiveAction.set(undefined);
 		uncommittedService.uncheckAll(null);
 		if (stackId) {
@@ -213,7 +213,7 @@
 		onCancel={cancel}
 		disabledAction={!canCommit}
 		loading={commitCreation.current.isLoading || newStackResult.current.isLoading || isCooking}
-		title={stackState.newCommitMessage.current.title}
-		description={stackState.newCommitMessage.current.description}
+		title={laneState.newCommitMessage.current.title}
+		description={laneState.newCommitMessage.current.description}
 	/>
 </div>

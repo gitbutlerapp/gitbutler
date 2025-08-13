@@ -9,7 +9,7 @@
 
 	interface LocalCommitContextData extends BaseContextData {
 		commitStatus: 'LocalOnly' | 'LocalAndRemote';
-		stackId: string;
+		stackId?: string;
 		onUncommitClick: (event: MouseEvent) => void;
 		onEditMessageClick: (event: MouseEvent) => void;
 		onPatchEditClick: (event: MouseEvent) => void;
@@ -17,12 +17,12 @@
 
 	interface RemoteCommitContextData extends BaseContextData {
 		commitStatus: 'Remote';
-		stackId: string;
+		stackId?: string;
 	}
 
 	interface IntegratedCommitContextData extends BaseContextData {
 		commitStatus: 'Integrated';
-		stackId: string;
+		stackId?: string;
 	}
 
 	interface BaseCommitContextData extends BaseContextData {
@@ -198,6 +198,7 @@
 						label="Add empty commit above"
 						disabled={commitInsertion.current.isLoading}
 						onclick={() => {
+							if (!stackId) return;
 							insertBlankCommit(stackId, commitId, 'above');
 							close();
 						}}
@@ -206,6 +207,7 @@
 						label="Add empty commit below"
 						disabled={commitInsertion.current.isLoading}
 						onclick={() => {
+							if (!stackId) return;
 							insertBlankCommit(stackId, commitId, 'below');
 							close();
 						}}
@@ -216,6 +218,7 @@
 						label="Create dependent branch above"
 						disabled={refCreation.current.isLoading}
 						onclick={async () => {
+							if (!stackId) return;
 							await handleCreateNewRef(stackId, commitId, 'Above');
 							close();
 						}}
@@ -224,6 +227,7 @@
 						label="Create dependent branch below"
 						disabled={refCreation.current.isLoading}
 						onclick={async () => {
+							if (!stackId) return;
 							await handleCreateNewRef(stackId, commitId, 'Below');
 							close();
 						}}

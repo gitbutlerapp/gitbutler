@@ -319,11 +319,11 @@ export class UncommittedService {
 	 * We can hide the commit button when there are no unassigned commits, and
 	 * no assigned commits.
 	 */
-	startCommitVisible(stackId: string): Reactive<boolean> {
+	startCommitVisible(stackId?: string): Reactive<boolean> {
 		const assignments = $derived(
 			uncommittedSelectors.hunkAssignments.selectByPrefix(
 				this.state.hunkAssignments,
-				partialKey(stackId)
+				partialKey(stackId || null)
 			)
 		);
 		const unassigned = $derived(
@@ -349,10 +349,10 @@ export class UncommittedService {
 		return reactive(() => assignments);
 	}
 
-	hunkCheckStatus(stackId: string | null, path: string, header: HunkHeader) {
+	hunkCheckStatus(stackId: string | undefined, path: string, header: HunkHeader) {
 		const result = $derived(
 			uncommittedSelectors.hunkSelection.hunkCheckStatus(this.state, {
-				stackId,
+				stackId: stackId || null,
 				path,
 				hunkHeader: header
 			})

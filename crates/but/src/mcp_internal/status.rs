@@ -16,6 +16,7 @@ pub fn project_status(project_dir: &Path) -> anyhow::Result<but_tools::workspace
             actions: false,
             butbot: false,
             rules: false,
+            single_branch: false,
         },
         ..AppSettings::load_from_default_path_creating()?
     };

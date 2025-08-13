@@ -20,6 +20,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { throttle } from '$lib/utils/misc';
 	import { inject } from '@gitbutler/shared/context';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { flip } from 'svelte/animate';
 	import type { Stack } from '$lib/stacks/stack';
 
@@ -128,7 +129,9 @@
 	ondrop={() => {
 		stackService.updateStackOrder({
 			projectId,
-			stacks: mutableStacks.map((b, i) => ({ id: b.id, order: i }))
+			stacks: mutableStacks
+				.map((b, i) => (b.id ? { id: b.id, order: i } : undefined))
+				.filter(isDefined)
 		});
 	}}
 >
@@ -143,21 +146,25 @@
 	`StackView` instead of being set imperatively in the dragstart handler.
 	 -->
 		{#each mutableStacks as stack, i (stack.id)}
-			{@const stackState = uiState.stack(stack.id)}
-			{@const selection = stackState.selection}
+			<!-- TODO: What fallback id should we use? -->
+			{@const laneId = stack.id || 'fallback-id'}
+			{@const laneState = uiState.lane(laneId)}
+			{@const selection = laneState.selection}
 			<div
 				class="reorderable-stack"
 				role="presentation"
 				animate:flip={{ duration: 150 }}
 				onmousedown={onReorderMouseDown}
 				ondragstart={(e) => {
+					if (!stack.id) return;
 					onReorderStart(e, stack.id, () => {
 						draggingStack = true;
 						selection.set(undefined);
-						intelligentScrollingService.show(projectId, stack.id, 'stack');
+						intelligentScrollingService.show(projectId, laneId, 'stack');
 					});
 				}}
 				ondragover={(e) => {
+					if (!stack.id) return;
 					throttledDragOver(e, mutableStacks, stack.id);
 				}}
 				ondragend={() => {
@@ -167,7 +174,9 @@
 			>
 				<StackView
 					{projectId}
-					{stack}
+					laneId={stack.id || 'banana'}
+					stackId={stack.id}
+					topBranch={stack.heads.at(0)?.name}
 					{focusedStackId}
 					bind:clientWidth={laneWidths[i]}
 					bind:clientHeight={lineHights[i]}

@@ -28,7 +28,7 @@
 
 	type Props = {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
 		branchName: string;
 		multipleBranches: boolean;
 		isLastBranchInStack?: boolean;
@@ -66,6 +66,7 @@
 	}
 
 	async function push(args: { withForce: boolean; skipForcePushProtection: boolean }) {
+		if (!stackId) return;
 		const { withForce, skipForcePushProtection } = args;
 		try {
 			const pushResult = await pushStack({

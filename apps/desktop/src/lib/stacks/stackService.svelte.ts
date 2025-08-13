@@ -33,13 +33,7 @@ import type { CommitKey } from '$lib/commits/commit';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges, TreeStats } from '$lib/hunks/change';
 import type { DiffSpec } from '$lib/hunks/hunk';
-import type {
-	BranchDetails,
-	Stack,
-	StackOpt,
-	StackDetails,
-	CreateRefRequest
-} from '$lib/stacks/stack';
+import type { BranchDetails, Stack, StackDetails, CreateRefRequest } from '$lib/stacks/stack';
 import type { PropertiesFn } from '$lib/state/customHooks.svelte';
 import type { ReduxError } from '$lib/state/reduxError';
 
@@ -223,7 +217,8 @@ export class StackService {
 		);
 	}
 
-	defaultBranch(projectId: string, stackId: string) {
+	defaultBranch(projectId: string, stackId?: string) {
+		if (!stackId) return null;
 		return this.api.endpoints.stacks.useQuery(
 			{ projectId },
 			{
@@ -239,7 +234,7 @@ export class StackService {
 		);
 	}
 
-	branchDetails(projectId: string, stackId: string, branchName?: string) {
+	branchDetails(projectId: string, stackId: string | undefined, branchName?: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -268,7 +263,7 @@ export class StackService {
 		return this.api.endpoints.updateStackOrder.mutate;
 	}
 
-	branches(projectId: string, stackId: string) {
+	branches(projectId: string, stackId?: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -277,7 +272,7 @@ export class StackService {
 		);
 	}
 
-	branchAt(projectId: string, stackId: string, index: number) {
+	branchAt(projectId: string, stackId: string | undefined, index: number) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -287,7 +282,7 @@ export class StackService {
 	}
 
 	/** Returns the parent of the branch specified by the provided name */
-	branchParentByName(projectId: string, stackId: string, name: string) {
+	branchParentByName(projectId: string, stackId: string | undefined, name: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -305,7 +300,7 @@ export class StackService {
 		);
 	}
 	/** Returns the child of the branch specified by the provided name */
-	branchChildByName(projectId: string, stackId: string, name: string) {
+	branchChildByName(projectId: string, stackId: string | undefined, name: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -323,14 +318,14 @@ export class StackService {
 		);
 	}
 
-	branchByName(projectId: string, stackId: string, name: string) {
+	branchByName(projectId: string, stackId: string | undefined, name: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{ transform: ({ branchDetails }) => branchDetailsSelectors.selectById(branchDetails, name) }
 		);
 	}
 
-	commits(projectId: string, stackId: string, branchName: string) {
+	commits(projectId: string, stackId: string | undefined, branchName: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -340,7 +335,7 @@ export class StackService {
 		);
 	}
 
-	fetchCommits(projectId: string, stackId: string, branchName: string) {
+	fetchCommits(projectId: string, stackId: string | undefined, branchName: string) {
 		return this.api.endpoints.stackDetails.fetch(
 			{ projectId, stackId },
 			{
@@ -368,7 +363,7 @@ export class StackService {
 		);
 	}
 
-	commitAt(projectId: string, stackId: string, branchName: string, index: number) {
+	commitAt(projectId: string, stackId: string | undefined, branchName: string, index: number) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -397,7 +392,7 @@ export class StackService {
 		);
 	}
 
-	upstreamCommits(projectId: string, stackId: string, branchName: string) {
+	upstreamCommits(projectId: string, stackId: string | undefined, branchName: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -617,7 +612,7 @@ export class StackService {
 		commitId: string;
 	}) {
 		const result = await this.api.endpoints.uncommit.mutate(args);
-		const selection = this.uiState.stack(args.stackId).selection;
+		const selection = this.uiState.lane(args.stackId).selection;
 		if (args.commitId === selection.current?.commitId) {
 			selection.set(undefined);
 		}
@@ -656,10 +651,10 @@ export class StackService {
 		return this.api.endpoints.updateBranchName.useMutation({
 			sideEffect: (_, args) => {
 				// Immediately update the selection and the exclusive action.
-				const stackState = this.uiState.stack(args.stackId);
+				const laneState = this.uiState.lane(args.laneId);
 				const projectState = this.uiState.project(args.projectId);
 				const exclusiveAction = projectState.exclusiveAction.current;
-				const previousSelection = stackState.selection.current;
+				const previousSelection = laneState.selection.current;
 
 				if (previousSelection) {
 					const updatedSelection = replaceBranchInStackSelection(
@@ -667,7 +662,7 @@ export class StackService {
 						args.branchName,
 						args.newName
 					);
-					stackState.selection.set(updatedSelection);
+					laneState.selection.set(updatedSelection);
 				}
 
 				if (exclusiveAction) {
@@ -680,7 +675,7 @@ export class StackService {
 				}
 			},
 			onError: (_, args) => {
-				const state = this.uiState.stack(args.stackId);
+				const state = this.uiState.lane(args.laneId);
 				state.selection.set({
 					branchName: args.branchName
 				});
@@ -858,6 +853,9 @@ export class StackService {
 			])
 		);
 	}
+	invalidateStacks() {
+		this.dispatch(this.api.util.invalidateTags([invalidatesList(ReduxTag.Stacks)]));
+	}
 
 	templates(projectId: string, forgeName: string) {
 		return this.api.endpoints.templates.useQuery({ projectId, forge: { name: forgeName } });
@@ -877,16 +875,16 @@ export class StackService {
 }
 
 function transformStacksResponse(response: Stack[]) {
-	response.forEach((stack) => {
-		// To keep it simple, what's cast as `Stack` is actually `StackOpt`
-		// (as returned by the backend).
-		// So here we cast it back and stop any optional stack-id in its tracks
-		// until the code can actually cope with it.
-		const stackOpt = stack as StackOpt;
-		if (!stackOpt.id) {
-			throw new Error('BUG(opt-stack-id): cannot yet handle optional stack IDs');
-		}
-	});
+	// response.forEach((stack) => {
+	// 	// To keep it simple, what's cast as `Stack` is actually `StackOpt`
+	// 	// (as returned by the backend).
+	// 	// So here we cast it back and stop any optional stack-id in its tracks
+	// 	// until the code can actually cope with it.
+	// 	const stackOpt = stack as StackOpt;
+	// 	if (!stackOpt.id) {
+	// 		throw new Error('BUG(opt-stack-id): cannot yet handle optional stack IDs');
+	// 	}
+	// });
 	return stackAdapter.addMany(stackAdapter.getInitialState(), response);
 }
 
@@ -919,7 +917,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 						uiState,
 						projectId,
 						// TODO(opt-stack-id): `s.id` might actually be optional once outside-of-workspace is a thing.
-						response.map((s) => s.id)
+						response.map((s) => s.id).filter(isDefined)
 					);
 
 					return transformStacksResponse(response);
@@ -983,15 +981,17 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				},
 				// TODO(single-branch): stackId is actually `stackId?` in the backend to be able to query details in single-branch mode.
 				// 	  however, ideally all this goes away in favor of consuming `RefInfo` from the backend.
-				{ projectId: string; stackId: string }
+				{ projectId: string; stackId?: string }
 			>({
 				extraOptions: { command: 'stack_details' },
 				query: (args) => args,
 				providesTags: (_result, _error, { stackId }) => [
-					...providesItem(ReduxTag.StackDetails, stackId)
+					...providesItem(ReduxTag.StackDetails, stackId || 'undefined')
 				],
 				transformResponse(response: StackDetails, _, { projectId, stackId }) {
-					updateStaleStackState(uiState, projectId, stackId, response);
+					if (stackId) {
+						updateStaleStackState(uiState, projectId, stackId, response);
+					}
 
 					const branchDetailsEntity = branchDetailsAdapter.addMany(
 						branchDetailsAdapter.getInitialState(),
@@ -1067,7 +1067,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				BranchPushResult,
 				{
 					projectId: string;
-					stackId: string;
+					stackId?: string;
 					withForce: boolean;
 					skipForcePushProtection: boolean;
 					branch: string;
@@ -1345,7 +1345,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				void,
 				{
 					projectId: string;
-					stackId: string;
+					stackId?: string;
+					laneId: string;
 					branchName: string;
 					newName: string;
 				}
@@ -1365,7 +1366,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				void,
 				{
 					projectId: string;
-					stackId: string;
+					stackId?: string;
 					branchName: string;
 				}
 			>({
@@ -1611,7 +1612,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 }
 
 const stackAdapter = createEntityAdapter<Stack, string>({
-	selectId: (stack) => stack.id
+	selectId: (stack) => stack.id || stack.heads.at(0)?.name || stack.tip
 });
 const stackSelectors = { ...stackAdapter.getSelectors(), selectNth: createSelectNth<Stack>() };
 

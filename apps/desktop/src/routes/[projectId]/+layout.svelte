@@ -96,7 +96,14 @@
 	// Refresh base branch if git fetch event is detected.
 	const modeService = inject(MODE_SERVICE);
 	const mode = $derived(modeService.mode({ projectId }));
-	const head = $derived(modeService.head({ projectId }));
+	const headResult = $derived(modeService.head({ projectId }));
+	const head = $derived(headResult.current.data);
+
+	$effect(() => {
+		if (head?.type === 'OutsideWorkspace' && head.subject.branchName) {
+			stackService.invalidateStacks();
+		}
+	});
 
 	const debouncedBaseBranchRefresh = debounce(async () => {
 		await baseBranchService.refreshBaseBranch(projectId);
@@ -118,7 +125,7 @@
 	);
 
 	$effect(() => {
-		if (baseBranch || head.current) debouncedRemoteBranchRefresh();
+		if (baseBranch || headResult.current.data) debouncedRemoteBranchRefresh();
 	});
 
 	const gitlabConfigured = $derived(gitLabState.configured);
@@ -283,7 +290,7 @@
 		{#if !baseBranch}
 			<NoBaseBranch {projectId} />
 		{:else if baseBranch}
-			{#if mode.type === 'OpenWorkspace' || mode.type === 'Edit'}
+			{#if mode.type === 'OpenWorkspace' || mode.type === 'Edit' || ($settingsStore?.featureFlags.singleBranch && mode.subject.branchName)}
 				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
 					<Chrome {projectId} sidebarDisabled={mode.type === 'Edit'}>
 						{@render pageChildren()}

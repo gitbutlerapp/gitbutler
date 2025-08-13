@@ -97,7 +97,9 @@
 		}
 	}
 
-	const checkStatus = $derived(uncommittedService.fileCheckStatus(stackId, change.path));
+	const checkStatus = $derived(
+		uncommittedService.fileCheckStatus(stackId || undefined, change.path)
+	);
 
 	async function onContextMenu(e: MouseEvent) {
 		const changes = await idSelection.treeChanges(projectId, selectionId);
@@ -138,7 +140,7 @@
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
-		data: new ChangeDropData(projectId, change, idSelection, selectionId, stackId || null),
+		data: new ChangeDropData(projectId, change, idSelection, selectionId, stackId || undefined),
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable',
 		disabled: draggableDisabled,

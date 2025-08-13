@@ -49,7 +49,7 @@
 
 		const firstStack = stacks.current.data[0];
 		const firstHead = firstStack?.heads[0];
-		if (firstHead) {
+		if (firstHead && firstStack.id) {
 			selectedBranch = {
 				stackId: firstStack.id,
 				head: firstHead.name
@@ -122,9 +122,11 @@
 	<ReduxResult result={stacks.current} {projectId}>
 		{#snippet children(stacks, { projectId })}
 			{#each stacks as stack}
-				{#each stack.heads as head}
-					{@render sidebarContentEntry(projectId, stack.id, head.name)}
-				{/each}
+				{#if stack.id}
+					{#each stack.heads as head}
+						{@render sidebarContentEntry(projectId, stack.id, head.name)}
+					{/each}
+				{/if}
 			{/each}
 		{/snippet}
 	</ReduxResult>

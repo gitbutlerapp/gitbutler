@@ -1,7 +1,8 @@
 <script lang="ts" module>
 	export type BranchRenameModalProps = {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
+		laneId: string;
 		branchName: string;
 		isPushed: boolean;
 	};
@@ -12,7 +13,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, ElementId, Modal, TestId, Textbox } from '@gitbutler/ui';
 
-	const { projectId, stackId, branchName, isPushed }: BranchRenameModalProps = $props();
+	const { projectId, stackId, laneId, branchName, isPushed }: BranchRenameModalProps = $props();
 	const stackService = inject(STACK_SERVICE);
 
 	const [renameBranch, renameResult] = stackService.updateBranchName;
@@ -34,7 +35,7 @@
 	bind:this={modal}
 	onSubmit={async (close) => {
 		if (newName) {
-			renameBranch({ projectId, stackId, branchName, newName });
+			renameBranch({ projectId, stackId, laneId, branchName, newName });
 		}
 		close();
 	}}

@@ -11,6 +11,7 @@
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { HISTORY_SERVICE, createdOnDay } from '$lib/history/history';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { createSnapshotSelection } from '$lib/selection/key';
 	import { inject } from '@gitbutler/shared/context';
 	import { EmptyStatePlaceholder, Icon, FileViewHeader } from '@gitbutler/ui';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
@@ -74,13 +75,8 @@
 			.find(([tc]) => tc.path === path);
 		if (!file) return;
 
-		selectedFile = {
-			type: 'snapshot',
-			snapshotId: entry.id,
-			path: path
-		};
-
-		idSelection.set(path, selectedFile, file[1]);
+		const selectionId = createSnapshotSelection({ snapshotId: entry.id });
+		idSelection.set(path, selectionId, file[1]);
 	}
 </script>
 
@@ -216,7 +212,7 @@
 					<SelectionView
 						{projectId}
 						diffOnly
-						selectionId={{ type: 'snapshot', snapshotId: selectedFile.snapshotId }}
+						selectionId={createSnapshotSelection({ snapshotId: selectedFile.snapshotId })}
 					/>
 				</ConfigurableScrollableContainer>
 			</div>

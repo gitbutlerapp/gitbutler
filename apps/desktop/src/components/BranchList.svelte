@@ -31,13 +31,14 @@
 
 	type Props = {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
+		laneId: string;
 		branches: BranchDetails[];
 		focusedStackId?: string;
 		onselect?: () => void;
 	};
 
-	const { projectId, branches, stackId, focusedStackId, onselect }: Props = $props();
+	const { projectId, branches, stackId, laneId, focusedStackId, onselect }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
@@ -54,8 +55,8 @@
 	const isCommitting = $derived(
 		exclusiveAction?.type === 'commit' && exclusiveAction?.stackId === stackId
 	);
-	const stackState = $derived(uiState.stack(stackId));
-	const selection = $derived(stackState.selection);
+	const laneState = $derived(uiState.lane(laneId));
+	const selection = $derived(laneState.selection);
 	const selectedCommitId = $derived(selection.current?.commitId);
 
 	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
@@ -64,11 +65,12 @@
 		$state<ReturnType<typeof ConflictResolutionConfirmModal>>();
 
 	async function handleUncommit(commitId: string, branchName: string) {
+		if (!stackId) return;
 		await stackService.uncommit({ projectId, stackId, branchName, commitId: commitId });
 	}
 
 	function startEditingCommitMessage(branchName: string, commitId: string) {
-		stackState.selection.set({ branchName, commitId });
+		laneState.selection.set({ branchName, commitId });
 		projectState.exclusiveAction.set({
 			type: 'edit-commit-message',
 			stackId,
@@ -83,6 +85,7 @@
 		hasConflicts: boolean;
 		isAncestorMostConflicted: boolean;
 	}) {
+		if (!stackId) return;
 		if (args.type === 'LocalAndRemote' && args.hasConflicts && !args.isAncestorMostConflicted) {
 			conflictResolutionConfirmationModal?.show();
 			return;
@@ -111,7 +114,7 @@
 	const stackingReorderDropzoneManagerFactory = inject(STACKING_REORDER_DROPZONE_MANAGER_FACTORY);
 	const stackingReorderDropzoneManager = $derived(
 		stackingReorderDropzoneManagerFactory.build(
-			stackId,
+			laneId,
 			branches.map((s) => ({ name: s.name, commitIds: s.commits.map((p) => p.id) }))
 		)
 	);
@@ -164,6 +167,7 @@
 					type="stack-branch"
 					{projectId}
 					{stackId}
+					{laneId}
 					{branchName}
 					{lineColor}
 					{first}
@@ -181,8 +185,8 @@
 					trackingBranch={branch.remoteTrackingBranch ?? undefined}
 					readonly={!!branch.remoteTrackingBranch}
 					onclick={() => {
-						uiState.stack(stackId).selection.set({ branchName });
-						intelligentScrollingService.show(projectId, stackId, 'details');
+						uiState.lane(laneId).selection.set({ branchName });
+						intelligentScrollingService.show(projectId, laneId, 'details');
 						onselect?.();
 					}}
 				>
@@ -193,6 +197,7 @@
 							kind="outline"
 							tooltip="Create empty commit"
 							onclick={async () => {
+								if (!stackId) return;
 								await insertBlankCommitInBranch({
 									projectId,
 									stackId,
@@ -218,6 +223,7 @@
 								kind="outline"
 								tooltip="Create new branch"
 								onclick={async () => {
+									if (!stackId) return;
 									addDependentBranchModalContext = {
 										projectId,
 										stackId
@@ -284,7 +290,13 @@
 							first,
 							stackLength: branches.length
 						}}
-						<BranchHeaderContextMenu {projectId} {stackId} {rightClickTrigger} contextData={data} />
+						<BranchHeaderContextMenu
+							{projectId}
+							{stackId}
+							{laneId}
+							{rightClickTrigger}
+							contextData={data}
+						/>
 					{/snippet}
 
 					{#snippet branchContent()}
@@ -294,6 +306,7 @@
 							active={focusedStackId === stackId}
 							{projectId}
 							{stackId}
+							{laneId}
 							{branchName}
 							{branchDetails}
 							{stackingReorderDropzoneManager}

@@ -158,7 +158,7 @@
 			changes: changesToDiffSpec(changes)
 		});
 		const newCommitId = replacedCommits.find(([before]) => before === commitId)?.[1];
-		const branchName = uiState.stack(stackId).selection.current?.branchName;
+		const branchName = uiState.lane(stackId).selection.current?.branchName;
 		const selectedFiles = changes.map((change) => ({ ...selectionId, path: change.path }));
 
 		// Unselect the uncommitted files
@@ -166,7 +166,7 @@
 
 		if (newCommitId && branchName) {
 			// Update the selection to the new commit
-			uiState.stack(stackId).selection.set({ branchName, commitId: newCommitId });
+			uiState.lane(stackId).selection.set({ branchName, commitId: newCommitId });
 		}
 		contextMenu.close();
 	}

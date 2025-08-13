@@ -34,6 +34,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, Modal, TestId } from '@gitbutler/ui';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { Commit } from '$lib/branches/v3';
 	import type { CommitStatusType } from '$lib/commits/commit';
 	import type { BranchDetails } from '$lib/stacks/stack';
@@ -60,7 +61,8 @@
 	interface Props {
 		active: boolean;
 		projectId: string;
-		stackId: string;
+		stackId?: string;
+		laneId: string;
 		branchName: string;
 		firstBranch: boolean;
 		lastBranch: boolean;
@@ -82,6 +84,7 @@
 		active,
 		projectId,
 		stackId,
+		laneId,
 		branchName,
 		branchDetails,
 		firstBranch,
@@ -108,8 +111,8 @@
 	const isCommitting = $derived(
 		exclusiveAction?.type === 'commit' && exclusiveAction.stackId === stackId
 	);
-	const stackState = $derived(uiState.stack(stackId));
-	const selection = $derived(stackState.selection);
+	const laneState = $derived(uiState.lane(laneId));
+	const selection = $derived(laneState.selection);
 	const runHooks = $derived(projectRunCommitHooks(projectId));
 
 	const selectedBranchName = $derived(selection.current?.branchName);
@@ -127,6 +130,7 @@
 	let confirmResetModal = $state<ReturnType<typeof Modal>>();
 
 	async function integrate(strategy?: SeriesIntegrationStrategy): Promise<void> {
+		if (!stackId) return;
 		await integrateUpstreamCommits({
 			projectId,
 			stackId,
@@ -152,7 +156,7 @@
 
 	async function handleCommitClick(commitId: string, upstream: boolean) {
 		if (selectedCommitId !== commitId) {
-			stackState.selection.set({ branchName, commitId, upstream });
+			laneState.selection.set({ branchName, commitId, upstream });
 		}
 		projectState.stackId.set(stackId);
 		onselect?.();
@@ -315,35 +319,41 @@
 						isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
 						hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
 					}}
-					{@const amendHandler = new AmendCommitWithChangeDzHandler(
-						projectId,
-						stackService,
-						hooksService,
-						stackId,
-						$runHooks,
-						dzCommit,
-						(newId) => uiState.stack(stackId).selection.set({ branchName, commitId: newId }),
-						uiState
-					)}
-					{@const squashHandler = new SquashCommitDzHandler({
-						stackService,
-						projectId,
-						stackId,
-						commit: dzCommit
-					})}
-					{@const hunkHandler = new AmendCommitWithHunkDzHandler({
-						stackService,
-						hooksService,
-						projectId,
-						stackId,
-						commit: dzCommit,
-						runHooks: $runHooks,
-						// TODO: Use correct value!
-						okWithForce: true,
-						uiState
-					})}
+					{@const amendHandler = stackId
+						? new AmendCommitWithChangeDzHandler(
+								projectId,
+								stackService,
+								hooksService,
+								stackId,
+								$runHooks,
+								dzCommit,
+								(newId) => uiState.lane(stackId).selection.set({ branchName, commitId: newId }),
+								uiState
+							)
+						: undefined}
+					{@const squashHandler = stackId
+						? new SquashCommitDzHandler({
+								stackService,
+								projectId,
+								stackId,
+								commit: dzCommit
+							})
+						: undefined}
+					{@const hunkHandler = stackId
+						? new AmendCommitWithHunkDzHandler({
+								stackService,
+								hooksService,
+								projectId,
+								stackId,
+								commit: dzCommit,
+								runHooks: $runHooks,
+								// TODO: Use correct value!
+								okWithForce: true,
+								uiState
+							})
+						: undefined}
 					{@const tooltip = commitStatusLabel(commit.state.type)}
-					<Dropzone handlers={[amendHandler, squashHandler, hunkHandler]}>
+					<Dropzone handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}>
 						{#snippet overlay({ hovered, activated, handler })}
 							{@const label =
 								handler instanceof AmendCommitWithChangeDzHandler ||
@@ -361,18 +371,20 @@
 								date: getTimeAgo(commit.createdAt),
 								authorImgUrl: undefined,
 								commitType: commit.state.type,
-								data: new CommitDropData(
-									stackId,
-									{
-										id: commitId,
-										isRemote: !!branchDetails.remoteTrackingBranch,
-										hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
-										isIntegrated:
-											isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated'
-									},
-									false,
-									branchName
-								),
+								data: stackId
+									? new CommitDropData(
+											stackId,
+											{
+												id: commitId,
+												isRemote: !!branchDetails.remoteTrackingBranch,
+												hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
+												isIntegrated:
+													isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated'
+											},
+											false,
+											branchName
+										)
+									: undefined,
 								viewportId: 'board-viewport',
 								dropzoneRegistry,
 								dragStateService

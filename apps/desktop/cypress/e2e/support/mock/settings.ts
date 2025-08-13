@@ -11,7 +11,8 @@ export const MOCK_FEATURE_FLAGS: FeatureFlags = {
 	ws3: false,
 	actions: false,
 	butbot: false,
-	rules: false
+	rules: false,
+	singleBranch: false
 };
 
 export const MOCK_APP_SETTINGS: AppSettings = {

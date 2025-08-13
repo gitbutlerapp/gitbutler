@@ -10,7 +10,7 @@
 
 	type Props = {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
 		branchName: string;
 		oncancel?: () => void;
 	};
