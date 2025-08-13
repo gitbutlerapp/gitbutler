@@ -548,7 +548,7 @@ fn list_stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project().gb_dir().join("virtual_branches.toml"),
         )?;
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default())
+        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default(), None)
     } else {
         but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
     }

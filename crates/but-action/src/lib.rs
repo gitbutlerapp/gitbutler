@@ -228,7 +228,7 @@ fn stacks(ctx: &CommandContext, repo: &gix::Repository) -> anyhow::Result<Vec<St
     let project = ctx.project();
     if ctx.app_settings().feature_flags.ws3 {
         let meta = ref_metadata_toml(ctx.project())?;
-        but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace)
+        but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace, None)
     } else {
         but_workspace::stacks(
             ctx,

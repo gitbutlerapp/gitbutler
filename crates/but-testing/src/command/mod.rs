@@ -192,7 +192,7 @@ pub mod stacks {
         };
         let stacks = if v3 {
             let meta = ref_metadata_toml(ctx.project())?;
-            but_workspace::stacks_v3(&repo, &meta, filter)
+            but_workspace::stacks_v3(&repo, &meta, filter, None)
         } else {
             but_workspace::stacks(&ctx, &project.gb_dir(), &repo, filter)
         }?;

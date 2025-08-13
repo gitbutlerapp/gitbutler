@@ -34,7 +34,7 @@ pub fn stacks(app: &App, params: StacksParams) -> Result<Vec<StackEntry>, Error>
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
     if ctx.app_settings().feature_flags.ws3 {
         let meta = ref_metadata_toml(ctx.project())?;
-        but_workspace::stacks_v3(&repo, &meta, params.filter.unwrap_or_default())
+        but_workspace::stacks_v3(&repo, &meta, params.filter.unwrap_or_default(), None)
     } else {
         but_workspace::stacks(
             &ctx,

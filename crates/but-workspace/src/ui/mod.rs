@@ -74,6 +74,9 @@ pub struct StackHeadInfo {
     /// The tip of the branch.
     #[serde(with = "gitbutler_serde::object_id")]
     pub tip: gix::ObjectId,
+    /// If `true`, then this head is checked directly so `HEAD` points to it, and this is only ever `true` for a single head.
+    /// This is `false` if the worktree is checked out.
+    pub is_checked_out: bool,
 }
 
 /// Represents a lightweight version of a [`Stack`] for listing.
@@ -92,6 +95,8 @@ pub struct StackEntry {
     pub tip: gix::ObjectId,
     /// The zero-based index for sorting stacks.
     pub order: Option<usize>,
+    /// If `true`, then any head in this stack is checked directly so `HEAD` points to it, and this is only ever `true` for a single stack.
+    pub is_checked_out: bool,
 }
 
 /// **Temporary type to help transitioning to the optional version of stack-entry** and ultimately, to [`crate::RefInfo`].
@@ -110,6 +115,8 @@ pub struct StackEntryNoOpt {
     pub tip: gix::ObjectId,
     /// The zero-based index for sorting stacks.
     pub order: Option<usize>,
+    /// If `true`, then any head in this stack is checked directly so `HEAD` points to it, and this is only ever `true` for a single stack.
+    pub is_checked_out: bool,
 }
 
 impl StackEntry {
@@ -135,6 +142,7 @@ impl TryFrom<StackEntry> for StackEntryNoOpt {
             heads,
             tip,
             order,
+            is_checked_out,
         }: StackEntry,
     ) -> Result<Self, Self::Error> {
         let id = id.context("BUG(opt-stack-id)")?;
@@ -143,6 +151,7 @@ impl TryFrom<StackEntry> for StackEntryNoOpt {
             heads,
             tip,
             order,
+            is_checked_out,
         })
     }
 }
@@ -154,6 +163,7 @@ impl From<StackEntryNoOpt> for StackEntry {
             heads,
             tip,
             order,
+            is_checked_out,
         }: StackEntryNoOpt,
     ) -> Self {
         StackEntry {
@@ -161,6 +171,7 @@ impl From<StackEntryNoOpt> for StackEntry {
             heads,
             tip,
             order,
+            is_checked_out,
         }
     }
 }
@@ -172,6 +183,7 @@ impl StackEntry {
             heads: crate::stack_heads_info(stack, repo)?,
             tip: stack.head_oid(repo)?,
             order: Some(stack.order),
+            is_checked_out: false,
         })
     }
 }
@@ -183,6 +195,7 @@ impl StackEntryNoOpt {
             heads: crate::stack_heads_info(stack, repo)?,
             tip: stack.head_oid(repo)?,
             order: Some(stack.order),
+            is_checked_out: false,
         })
     }
 }

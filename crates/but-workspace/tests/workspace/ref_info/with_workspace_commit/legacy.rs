@@ -35,7 +35,7 @@ mod stacks {
         * c166d42 (origin/main, origin/HEAD, main) init-integration
         ");
         // It's notable that the segment A is shared between both stacks.
-        let actual = stacks_v3(&repo, &meta, StacksFilter::All)?;
+        let actual = stacks_v3(&repo, &meta, StacksFilter::All, None)?;
         insta::assert_debug_snapshot!(actual, @r#"
         [
             StackEntry {
@@ -46,14 +46,17 @@ mod stacks {
                     StackHeadInfo {
                         name: "C-on-A",
                         tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                        is_checked_out: false,
                     },
                     StackHeadInfo {
                         name: "A",
                         tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        is_checked_out: false,
                     },
                 ],
                 tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
                 order: None,
+                is_checked_out: false,
             },
             StackEntry {
                 id: Some(
@@ -63,19 +66,22 @@ mod stacks {
                     StackHeadInfo {
                         name: "B-on-A",
                         tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                        is_checked_out: false,
                     },
                     StackHeadInfo {
                         name: "A",
                         tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        is_checked_out: false,
                     },
                 ],
                 tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
                 order: None,
+                is_checked_out: false,
             },
         ]
         "#);
 
-        let actual = stacks_v3(&repo, &meta, StacksFilter::InWorkspace)?;
+        let actual = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?;
         // It lists both still as both are reachable from a workspace commit, so clearly in the workspace.
         insta::assert_debug_snapshot!(actual, @r#"
         [
@@ -87,14 +93,17 @@ mod stacks {
                     StackHeadInfo {
                         name: "C-on-A",
                         tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                        is_checked_out: false,
                     },
                     StackHeadInfo {
                         name: "A",
                         tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        is_checked_out: false,
                     },
                 ],
                 tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
                 order: None,
+                is_checked_out: false,
             },
             StackEntry {
                 id: Some(
@@ -104,25 +113,80 @@ mod stacks {
                     StackHeadInfo {
                         name: "B-on-A",
                         tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                        is_checked_out: false,
                     },
                     StackHeadInfo {
                         name: "A",
                         tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        is_checked_out: false,
                     },
                 ],
                 tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
                 order: None,
+                is_checked_out: false,
             },
         ]
         "#);
 
-        let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied)?;
+        let actual = stacks_v3(
+            &repo,
+            &meta,
+            StacksFilter::InWorkspace,
+            Some("refs/heads/A".try_into()?),
+        )?;
+        // Now it's seen as 'checked-out' as a sign for the UI to do something differently.
+        insta::assert_debug_snapshot!(actual, @r#"
+        [
+            StackEntry {
+                id: Some(
+                    00000000-0000-0000-0000-000000000002,
+                ),
+                heads: [
+                    StackHeadInfo {
+                        name: "C-on-A",
+                        tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                        is_checked_out: false,
+                    },
+                    StackHeadInfo {
+                        name: "A",
+                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        is_checked_out: true,
+                    },
+                ],
+                tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                order: None,
+                is_checked_out: true,
+            },
+            StackEntry {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
+                heads: [
+                    StackHeadInfo {
+                        name: "B-on-A",
+                        tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                        is_checked_out: false,
+                    },
+                    StackHeadInfo {
+                        name: "A",
+                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        is_checked_out: true,
+                    },
+                ],
+                tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                order: None,
+                is_checked_out: true,
+            },
+        ]
+        "#);
+
+        let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied, None)?;
         // nothing reachable
         insta::assert_debug_snapshot!(actual, @"[]");
 
         add_stack(&mut meta, 5, "main", StackState::Inactive);
 
-        let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied)?;
+        let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied, None)?;
         // Still nothing reachable
         insta::assert_debug_snapshot!(actual, @r#"
         [
@@ -134,10 +198,12 @@ mod stacks {
                     StackHeadInfo {
                         name: "main",
                         tip: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                        is_checked_out: false,
                     },
                 ],
                 tip: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 order: None,
+                is_checked_out: false,
             },
         ]
         "#);
