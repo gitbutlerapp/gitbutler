@@ -119,6 +119,11 @@
 			worktreeChanges
 		});
 
+		const selectedFiles = item.changes.map((change) => ({ ...selectionId, path: change.path }));
+
+		// Unselect the discarded files
+		idSelection.removeMany(selectedFiles);
+
 		confirmationModal?.close();
 	}
 
