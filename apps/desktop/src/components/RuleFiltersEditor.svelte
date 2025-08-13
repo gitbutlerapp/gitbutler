@@ -42,7 +42,7 @@
 	let claudeCodeSessionId = $state<string | undefined>(
 		initialFilterValues.claudeCodeSessionId ?? undefined
 	);
-	let claudeResumeCommand = $derived(
+	const claudeResumeCommand = $derived(
 		claudeCodeSessionId ? `claude --resume ${claudeCodeSessionId}` : undefined
 	);
 
@@ -295,17 +295,18 @@
 {#if ruleFilterTypes.includes('claudeCodeSessionId')}
 	{@render ruleFilterRow('claudeCodeSessionId')}
 	{#if claudeResumeCommand}
-		<div class="text-12 text-body">Resume command</div>
-		<div class="claude-command-copy-box m-top-12">
-			<p>{claudeResumeCommand}</p>
-			<button
-				type="button"
-				class="claude-command--copy-icon"
-				onclick={() => copyToClipboard(claudeResumeCommand)}
-			>
+		<button
+			class="claude-command-copy"
+			type="button"
+			onclick={() => copyToClipboard(claudeResumeCommand)}
+		>
+			<p class="text-12 clr-text-3">Resume session command:</p>
+			<code class="claude-command-copy__code">{claudeResumeCommand}</code>
+
+			<i class="claude-command-copy__icon">
 				<Icon name="copy" />
-			</button>
-		</div>
+			</i>
+		</button>
 	{/if}
 {/if}
 
@@ -319,28 +320,45 @@
 />
 
 <style lang="postcss">
-	.claude-command-copy-box {
+	.claude-command-copy {
 		display: flex;
-		padding: 8px 10px;
-		gap: 10px;
+		position: relative;
+		flex-direction: column;
+		margin-top: 10px;
+		padding: 12px;
+		gap: 6px;
 		border: 1px solid var(--clr-border-3);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1-muted);
-		color: var(--clr-text-1);
-		font-size: 12px;
-		font-family: var(--fontfamily-mono);
-		word-break: break-all;
-		user-select: text;
-	}
-
-	.claude-command--copy-icon {
-		display: flex;
-		color: var(--clr-text-3);
-		transition: color var(--transition-fast);
+		text-align: left;
 
 		&:hover {
-			color: var(--clr-text-2);
+			& .claude-command-copy__icon {
+				color: var(--clr-text-2);
+			}
+			& .claude-command-copy__code {
+				opacity: 0.8;
+			}
 		}
+	}
+
+	.claude-command-copy__icon {
+		display: flex;
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		color: var(--clr-text-3);
+		transition: color var(--transition-fast);
+	}
+
+	.claude-command-copy__code {
+		font-size: 12px;
+		line-height: 1.5;
+		font-family: var(--fontfamily-mono);
+		word-break: break-all;
+		opacity: 0.6;
+		transition: opacity var(--transition-fast);
+		user-select: text;
 	}
 
 	.rule-filter-row {
