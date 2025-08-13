@@ -70,25 +70,6 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard labelFor="single-branch" roundedTop={false} orientation="row">
-		{#snippet title()}
-			Single-branch mode
-		{/snippet}
-		{#snippet caption()}
-			Stay in the workspace view when leaving the gitbutler/workspace branch.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="rules"
-				checked={$settingsStore?.featureFlags.singleBranch}
-				onclick={() =>
-					settingsService.updateFeatureFlags({
-						singleBranch: !$settingsStore?.featureFlags.singleBranch
-					})}
-			/>
-		{/snippet}
-	</SectionCard>
-
 	{#if $user?.role === 'admin'}
 		<Spacer margin={20} />
 		{#if $settingsStore?.featureFlags.actions}
@@ -109,6 +90,30 @@
 				{/snippet}
 			</SectionCard>
 		{/if}
+
+		<SectionCard
+			labelFor="single-branch"
+			roundedTop={false}
+			roundedBottom={false}
+			orientation="row"
+		>
+			{#snippet title()}
+				Single-branch mode
+			{/snippet}
+			{#snippet caption()}
+				Stay in the workspace view when leaving the gitbutler/workspace branch.
+			{/snippet}
+			{#snippet actions()}
+				<Toggle
+					id="rules"
+					checked={$settingsStore?.featureFlags.singleBranch}
+					onclick={() =>
+						settingsService.updateFeatureFlags({
+							singleBranch: !$settingsStore?.featureFlags.singleBranch
+						})}
+				/>
+			{/snippet}
+		</SectionCard>
 
 		<SectionCard labelFor="codegen" roundedTop={false} roundedBottom={false} orientation="row">
 			{#snippet title()}
