@@ -39,7 +39,7 @@
 				<div class="flex gap-8 items-center">
 					<p class="text-12">{tokensUsed}</p>
 					<div class="iddy-biddy-line"></div>
-					<p class="text-12">{cost.toFixed(2)}</p>
+					<p class="text-12">${cost.toFixed(2)}</p>
 				</div>
 			</div>
 		{/snippet}

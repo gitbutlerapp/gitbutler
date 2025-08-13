@@ -1,4 +1,4 @@
-import type { Message, MessageParam } from '@anthropic-ai/sdk/resources/index.mjs';
+import type { Message, MessageParam, Usage } from '@anthropic-ai/sdk/resources/index.mjs';
 
 /**
  * Represents different types of events that can occur during Claude code interactions
@@ -43,6 +43,7 @@ export type ClaudeCodeMessage =
 			num_turns: number;
 			session_id: string;
 			total_cost_usd: number;
+			usage: Usage;
 	  }
 
 	/** Emitted as the first message at the start of a conversation */

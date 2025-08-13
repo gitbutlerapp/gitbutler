@@ -6,7 +6,7 @@
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { formatMessages } from '$lib/codegen/messages';
+	import { formatMessages, usageStats } from '$lib/codegen/messages';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { inject } from '@gitbutler/shared/context';
@@ -135,9 +135,17 @@
 {#snippet sidebarContentEntry(projectId: string, stackId: string, head: string)}
 	{@const branch = stackService.branchByName(projectId, stackId, head)}
 	{@const commits = stackService.commits(projectId, stackId, head)}
-	<ReduxResult result={combineResults(branch.current, commits.current)} {projectId} {stackId}>
-		{#snippet children([branch, commits], { projectId: _projectId, stackId })}
-			{stackId}
+	{@const events = claudeCodeService.messages({
+		projectId,
+		stackId: selectedBranch?.stackId || ''
+	})}
+	<ReduxResult
+		result={combineResults(branch.current, commits.current, events.current)}
+		{projectId}
+		{stackId}
+	>
+		{#snippet children([branch, commits, events], { projectId: _projectId, stackId })}
+			{@const usage = usageStats(events)}
 			<CodegenSidebarEntry
 				onclick={() => {
 					selectedBranch = { stackId, head: branch.name };
@@ -145,8 +153,8 @@
 				selected={selectedBranch?.stackId === stackId && selectedBranch?.head === branch.name}
 				branchName={branch.name}
 				status="vibes"
-				tokensUsed={69}
-				cost={4.2}
+				tokensUsed={usage.tokens}
+				cost={usage.cost}
 				commitCount={commits.length}
 				commits={commitsList}
 			/>
