@@ -229,7 +229,7 @@ Common issues and solutions when developing GitButler.
 
 ### Turbo/Build Issues
 
-### Case-sensitive volume problems
+#### Case-sensitive volume problems
 
 If you're experiencing issues with the `dev:desktop` target failing to start, especially on macOS with case-sensitive filesystems, this may be related to Turborepo's handling of case-sensitive volumes.
 
