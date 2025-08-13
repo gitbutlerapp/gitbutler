@@ -73,7 +73,7 @@
 	});
 </script>
 
-<Drawer {grow} {ontoggle} {resizer} {noshrink} bottomBorder>
+<Drawer {grow} {ontoggle} {resizer} {noshrink} bottomBorder={changes.length > 0}>
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">{title}</h4>
 		<div class="text-11 header-stats">

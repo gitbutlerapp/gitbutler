@@ -309,7 +309,7 @@
 			{@const ancestorMostConflictedCommitId = getAncestorMostConflicted(commits)?.id}
 
 			<ChangedFiles
-				title="Changed Files"
+				title="Changed files"
 				{projectId}
 				{stackId}
 				draggableFiles
