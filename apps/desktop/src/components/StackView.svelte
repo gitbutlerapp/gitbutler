@@ -501,26 +501,15 @@
 						maxWidth={RESIZER_CONFIG.panel1.maxWidth}
 						defaultValue={RESIZER_CONFIG.panel1.defaultValue}
 						syncName="panel1"
+						onWidth={(newWidth) => {
+							// Update the persisted stack width when panel1 resizer changes
+							persistedStackWidth.set(newWidth);
+						}}
 					/>
 				{/snippet}
 			</ReduxResult>
 		</div>
 	</ConfigurableScrollableContainer>
-
-	<!-- STACK WIDTH RESIZER -->
-	<Resizer
-		persistId="ui-stack-width-${stackId}"
-		viewport={stackViewEl!}
-		zIndex="var(--z-lifted)"
-		direction="right"
-		minWidth={18}
-		maxWidth={64}
-		defaultValue={defaultStackWidth}
-		onWidth={(newWidth) => {
-			// Update the persisted stack width when resizer changes
-			persistedStackWidth.set(newWidth);
-		}}
-	/>
 
 	<!-- PREVIEW -->
 	{#if isDetailsViewOpen}
@@ -582,7 +571,7 @@
 			{/if}
 		</div>
 
-		<!-- DETAILS VIEW WIDTH RESIZER -->
+		<!-- DETAILS VIEW WIDTH RESIZER - Only show when details view is open -->
 		<Resizer
 			viewport={compactDiv!}
 			persistId="resizer-panel2-${stackId}"
