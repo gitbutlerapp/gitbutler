@@ -171,7 +171,7 @@ export class CommitAnalytics {
 			...assignmentTargetTypes
 		};
 
-		return namespaceProps(ruleMetrics, 'rule');
+		return namespaceProps(ruleMetrics, 'workspaceRules');
 	}
 }
 
