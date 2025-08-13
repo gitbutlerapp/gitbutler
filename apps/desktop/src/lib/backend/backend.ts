@@ -86,6 +86,10 @@ export type OpenDialogReturn<T extends OpenDialogOptions> = T['directory'] exten
 		? string[] | null
 		: string | null;
 
+export type AppInfo = {
+	name: string;
+	version: string;
+};
 export interface IBackend {
 	systemTheme: Readable<string | null>;
 	invoke: <T>(command: string, ...args: any[]) => Promise<T>;
@@ -99,4 +103,5 @@ export interface IBackend {
 	joinPath: (path: string, ...paths: string[]) => Promise<string>;
 	filePicker<T extends OpenDialogOptions>(options?: T): Promise<OpenDialogReturn<T>>;
 	homeDirectory(): Promise<string>;
+	getAppInfo: () => Promise<AppInfo>;
 }

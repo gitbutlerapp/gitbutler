@@ -18,7 +18,7 @@ describe('Updater', () => {
 	const shortcuts = new ShortcutService(backend);
 	const settingsService = new MockSettingsService();
 	const eventContext = new EventContext();
-	const posthog = new PostHogWrapper(settingsService, eventContext);
+	const posthog = new PostHogWrapper(settingsService, backend, eventContext);
 
 	beforeEach(() => {
 		vi.useFakeTimers();

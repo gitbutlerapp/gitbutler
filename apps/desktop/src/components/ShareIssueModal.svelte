@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { BACKEND } from '$lib/backend';
 	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { GIT_SERVICE } from '$lib/git/gitService';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
@@ -9,7 +10,6 @@
 	import { HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 
 	import { Button, Checkbox, Modal, Textarea, Textbox, chipToasts } from '@gitbutler/ui';
-	import { getVersion } from '@tauri-apps/api/app';
 
 	type Feedback = {
 		id: number;
@@ -26,6 +26,7 @@
 	const dataSharingService = inject(DATA_SHARING_SERVICE);
 	const gitService = inject(GIT_SERVICE);
 	const user = inject(USER);
+	const backend = inject(BACKEND);
 
 	export function show() {
 		modal?.show();
@@ -65,7 +66,8 @@
 
 		// put together context information to send with the feedback
 		let context = '';
-		const appVersion = await getVersion();
+		const appInfo = await backend.getAppInfo();
+		const appVersion = appInfo.version;
 		const indexLength = await gitIndexLength();
 		context += 'GitButler Version: ' + appVersion + '\n';
 		context += 'Browser: ' + navigator.userAgent + '\n';

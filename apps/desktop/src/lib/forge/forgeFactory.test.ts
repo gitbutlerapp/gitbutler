@@ -1,5 +1,6 @@
 import { EventContext } from '$lib/analytics/eventContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
+import createBackend from '$lib/backend';
 import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import { GitHub } from '$lib/forge/github/github';
 import { GitLab } from '$lib/forge/gitlab/gitlab';
@@ -12,9 +13,10 @@ import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 
 describe.concurrent('DefaultforgeFactory', () => {
 	const MockSettingsService = getSettingsdServiceMock();
+	const backend = createBackend();
 	const settingsService = new MockSettingsService();
 	const eventContext = new EventContext();
-	const posthog = new PostHogWrapper(settingsService, eventContext);
+	const posthog = new PostHogWrapper(settingsService, backend, eventContext);
 	const gitHubApi: GitHubApi = {
 		endpoints: {},
 		reducerPath: 'github',

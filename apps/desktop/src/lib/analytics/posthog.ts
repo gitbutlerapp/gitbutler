@@ -1,6 +1,7 @@
 import { InjectionToken } from '@gitbutler/shared/context';
 import { PostHog, posthog, type Properties } from 'posthog-js';
 import type { EventContext } from '$lib/analytics/eventContext';
+import type { IBackend } from '$lib/backend';
 import type { SettingsService } from '$lib/config/appSettingsV2';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import { PUBLIC_POSTHOG_API_KEY } from '$env/static/public';
@@ -12,6 +13,7 @@ export class PostHogWrapper {
 
 	constructor(
 		private settingsService: SettingsService,
+		private backend: IBackend,
 		private eventContext: EventContext
 	) {}
 
@@ -21,7 +23,8 @@ export class PostHogWrapper {
 		this._instance?.capture(eventName, newProperties);
 	}
 
-	async init(appName: string, appVersion: string) {
+	async init() {
+		const appInfo = await this.backend.getAppInfo();
 		this._instance = posthog.init(PUBLIC_POSTHOG_API_KEY, {
 			api_host: 'https://eu.posthog.com',
 			autocapture: false,
@@ -34,8 +37,8 @@ export class PostHogWrapper {
 			}
 		});
 		posthog.register({
-			appName,
-			appVersion
+			appName: appInfo.name,
+			appVersion: appInfo.version
 		});
 	}
 
