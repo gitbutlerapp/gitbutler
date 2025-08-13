@@ -39,6 +39,11 @@ export default class Tauri implements IBackend {
 	async filePicker<T extends OpenDialogOptions>() {
 		return await filePickerTauri<T>();
 	}
+	async homeDirectory(): Promise<string> {
+		// TODO: Find a workaround to avoid this dynamic import
+		// https://github.com/sveltejs/kit/issues/905
+		return await (await import('@tauri-apps/api/path')).homeDir();
+	}
 }
 
 async function tauriInvoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
