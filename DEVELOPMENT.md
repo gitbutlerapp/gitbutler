@@ -16,6 +16,7 @@ you right. Let's get started.
 - [Debugging](#debugging)
   - [Logs](#logs)
   - [Tokio](#tokio)
+- [Troubleshooting](#troubleshooting)
 - [Building](#building)
   - [Building on Windows](#building-on-windows)
     - [File permissions](#file-permissions)
@@ -219,6 +220,74 @@ We are also collecting tokio's runtime tracing information that could be viewed 
   ```bash
   $ tokio-console http://127.0.0.1:6667
   ```
+
+---
+
+## Troubleshooting
+
+Common issues and solutions when developing GitButler.
+
+### Turbo/build issues
+
+#### Case-sensitive volume problems
+
+If you're experiencing issues with the `dev:desktop` target failing to start, especially on macOS with case-sensitive filesystems, this may be related to Turborepo's handling of case-sensitive volumes.
+
+**Solution:** See the related issue at [vercel/turborepo#8491](https://github.com/vercel/turborepo/issues/8491) for current workarounds.
+
+#### Turbo daemon issues
+
+If builds are hanging or behaving unexpectedly:
+
+```bash
+# Stop the turbo daemon
+pnpm exec turbo daemon stop
+
+# Clear turbo cache
+pnpm exec turbo daemon clean
+
+# Restart development
+pnpm dev:desktop
+```
+
+### Cache issues
+
+If you're seeing stale builds or unexpected behavior:
+
+```bash
+rm -rf .turbo node_modules
+pnpm install
+# Optional (Rust artifacts):
+cargo clean
+```
+
+### Node.js & pnpm
+
+Use the Node version pinned by `.nvmrc` (currently LTS “jod” / Node 22):
+
+```bash
+nvm install
+nvm use
+node -v
+```
+
+Use pnpm via Corepack (avoid global installs):
+
+```bash
+corepack enable
+corepack pnpm -v
+# optionally pin a major:
+corepack prepare pnpm@10 --activate
+```
+
+### Additional resources
+
+For issues specific to our toolchain components:
+
+- [Turborepo issues](https://github.com/vercel/turborepo/issues)
+- [Tauri issues](https://github.com/tauri-apps/tauri/issues)
+
+If none of these solutions work, please check our [GitHub Issues](https://github.com/gitbutlerapp/gitbutler/issues) or create a new issue with detailed information about your system and the error you're encountering.
 
 ---
 
