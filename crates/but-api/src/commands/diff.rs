@@ -154,6 +154,15 @@ pub fn changes_in_worktree(
         ),
     };
 
+    if ctx.app_settings().feature_flags.rules {
+        but_rules::handler::process_workspace_rules(
+            ctx,
+            &assignments,
+            &dependencies.as_ref().ok().cloned(),
+        )
+        .ok();
+    }
+
     Ok(WorktreeChanges {
         worktree_changes: changes.into(),
         assignments,
