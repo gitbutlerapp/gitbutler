@@ -34,7 +34,6 @@ import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges, TreeStats } from '$lib/hunks/change';
 import type { DiffSpec } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackDetails, CreateRefRequest } from '$lib/stacks/stack';
-import type { PropertiesFn } from '$lib/state/customHooks.svelte';
 import type { ReduxError } from '$lib/state/reduxError';
 
 type BranchParams = {
@@ -457,9 +456,8 @@ export class StackService {
 		});
 	}
 
-	createCommit(args: { propertiesFn?: PropertiesFn }) {
-		const propertiesFn = args.propertiesFn;
-		return this.api.endpoints.createCommit.useMutation({ propertiesFn });
+	createCommit() {
+		return this.api.endpoints.createCommit.useMutation();
 	}
 
 	get createCommitMutation() {

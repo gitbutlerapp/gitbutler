@@ -28,7 +28,7 @@
 	// Using a dummy stackId kind of sucks... but it's fine for now
 	const laneState = $derived(uiState.lane(stackId || 'new-commit-view--new-stack'));
 
-	const [createCommitInStack, commitCreation] = stackService.createCommit({});
+	const [createCommitInStack, commitCreation] = stackService.createCommit();
 
 	let isCooking = $state(false);
 
