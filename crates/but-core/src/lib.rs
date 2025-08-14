@@ -332,9 +332,9 @@ pub enum IgnoredWorktreeTreeChangeStatus {
 pub struct IgnoredWorktreeChange {
     /// The worktree-relative path to the change.
     #[serde(serialize_with = "gitbutler_serde::bstring_lossy::serialize")]
-    path: BString,
+    pub path: BString,
     /// The status that caused this change to be ignored.
-    status: IgnoredWorktreeTreeChangeStatus,
+    pub status: IgnoredWorktreeTreeChangeStatus,
 }
 
 /// The type returned by [`worktree_changes()`](diff::worktree_changes).

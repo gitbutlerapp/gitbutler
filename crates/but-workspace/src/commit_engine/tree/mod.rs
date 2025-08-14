@@ -1,4 +1,4 @@
-use crate::commit_engine::{Destination, MoveSourceCommit, RejectionReason, apply_hunks};
+use crate::commit_engine::{MoveSourceCommit, RejectionReason, apply_hunks};
 use crate::{DiffSpec, HunkHeader};
 use bstr::{BStr, ByteSlice};
 use but_core::{RepositoryExt, UnifiedDiff};
@@ -17,8 +17,8 @@ pub struct CreateTreeOutcome {
     /// when merging the workspace commit, or because the specified hunks didn't match exactly due to changes
     /// that happened in the meantime, or if a file without a change was specified.
     pub rejected_specs: Vec<(RejectionReason, DiffSpec)>,
-    /// The newly created seen from tree that acts as the destination of the changes, or `None` if no commit could be
-    /// created as all changes-requests were rejected.
+    /// The newly created seen from tree that acts as the destination of the changes, or `None` if no tree could be
+    /// created as all changes-requests were rejected (or there was no change).
     pub destination_tree: Option<gix::ObjectId>,
     /// If `destination_tree` is `Some(_)`, this field is `Some(_)` as well and denotes the base-tree + all changes.
     /// If the applied changes were from the worktree, it's `HEAD^{tree}` + changes.
@@ -29,28 +29,11 @@ pub struct CreateTreeOutcome {
 /// Like [`create_commit()`], but lower-level and only returns a new tree, without finally associating it with a commit.
 pub fn create_tree(
     repo: &gix::Repository,
-    destination: &Destination,
+    target_tree: gix::ObjectId,
     move_source: Option<MoveSourceCommit>,
     changes: Vec<DiffSpec>,
     context_lines: u32,
 ) -> anyhow::Result<CreateTreeOutcome> {
-    let target_tree = match destination {
-        Destination::NewCommit {
-            parent_commit_id: None,
-            ..
-        } => gix::ObjectId::empty_tree(repo.object_hash()),
-        Destination::NewCommit {
-            parent_commit_id: Some(base_commit),
-            ..
-        }
-        | Destination::AmendCommit {
-            commit_id: base_commit,
-            ..
-        } => but_core::Commit::from_id(base_commit.attach(repo))?
-            .tree_id_or_auto_resolution()?
-            .detach(),
-    };
-
     let mut changes: Vec<_> = changes.into_iter().map(Ok).collect();
     let (new_tree, changed_tree_pre_cherry_pick) = if changes.is_empty() {
         (Some(target_tree), None)
@@ -81,7 +64,7 @@ pub fn create_tree(
             let tree_with_changes = if new_tree == actual_base_tree
                 && changes.iter().all(|c| {
                     c.is_ok()
-                        // Some rejections are OK and we want to create a commit anyway.
+                        // Some rejections are OK, and we want to create a commit anyway.
                         || !matches!(
                             c,
                             Err((RejectionReason::CherryPickMergeConflict,_))

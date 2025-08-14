@@ -231,11 +231,28 @@ pub fn create_commit(
         bail!("cannot currently handle more than 1 parent")
     }
 
+    let target_tree = match &destination {
+        Destination::NewCommit {
+            parent_commit_id: None,
+            ..
+        } => gix::ObjectId::empty_tree(repo.object_hash()),
+        Destination::NewCommit {
+            parent_commit_id: Some(base_commit),
+            ..
+        }
+        | Destination::AmendCommit {
+            commit_id: base_commit,
+            ..
+        } => but_core::Commit::from_id(base_commit.attach(repo))?
+            .tree_id_or_auto_resolution()?
+            .detach(),
+    };
+
     let CreateTreeOutcome {
         rejected_specs,
         destination_tree,
         changed_tree_pre_cherry_pick,
-    } = create_tree(repo, &destination, move_source, changes, context_lines)?;
+    } = create_tree(repo, target_tree, move_source, changes, context_lines)?;
     let new_commit = if let Some(new_tree) = destination_tree {
         match destination {
             Destination::NewCommit {

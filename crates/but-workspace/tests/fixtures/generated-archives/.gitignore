@@ -6,10 +6,7 @@
 /all-file-types-modified.tar
 /merge-with-two-branches-line-offset-two-files.tar
 /merge-with-two-branches-line-offset.tar
-/unborn-with-submodules.tar
-/unborn-untracked-crlf.tar
-/unborn-untracked-all-file-types.tar
-/unborn-untracked.tar
+/unborn-*.tar
 /all-file-types-renamed-and-modified.tar
 /merge-with-two-branches-auto-resolved-merge.tar
 /two-commits-three-buckets.tar
