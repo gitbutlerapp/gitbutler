@@ -55,7 +55,6 @@
 		KebabButton,
 		TestId
 	} from '@gitbutler/ui';
-	import type { AnchorPosition } from '$lib/stacks/stack';
 
 	type Props = {
 		flat?: boolean;
@@ -71,7 +70,6 @@
 	const stackService = inject(STACK_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
-	const [createRef, refCreation] = stackService.createReference;
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let kebabButtonElement = $state<HTMLElement>();
@@ -86,24 +84,6 @@
 			stackId,
 			commitId: commitId,
 			offset: location === 'above' ? -1 : 1
-		});
-	}
-
-	async function handleCreateNewRef(stackId: string, commitId: string, position: AnchorPosition) {
-		const newName = await stackService.fetchNewBranchName(projectId);
-		await createRef({
-			projectId,
-			stackId,
-			request: {
-				newName,
-				anchor: {
-					type: 'atCommit',
-					subject: {
-						commit_id: commitId,
-						position
-					}
-				}
-			}
 		});
 	}
 
@@ -210,24 +190,6 @@
 						disabled={commitInsertion.current.isLoading}
 						onclick={() => {
 							insertBlankCommit(ensureValue(stackId), commitId, 'below');
-							close();
-						}}
-					/>
-				</ContextMenuSection>
-				<ContextMenuSection>
-					<ContextMenuItem
-						label="Create dependent branch above"
-						disabled={refCreation.current.isLoading}
-						onclick={async () => {
-							await handleCreateNewRef(ensureValue(stackId), commitId, 'Above');
-							close();
-						}}
-					/>
-					<ContextMenuItem
-						label="Create dependent branch below"
-						disabled={refCreation.current.isLoading}
-						onclick={async () => {
-							await handleCreateNewRef(ensureValue(stackId), commitId, 'Below');
 							close();
 						}}
 					/>

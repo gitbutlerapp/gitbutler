@@ -185,6 +185,7 @@
 						size="tag"
 						kind="solid"
 						style="error"
+						class="m-right-4"
 						action={handleEditPatch}
 						icon="warning-small"
 						tooltip="Resolve conflicts"

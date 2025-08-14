@@ -85,6 +85,7 @@
 					isScrollable = exists;
 				}}
 				overflow
+				mode="unassigned"
 				onselect={() => {
 					intelligentScrollingService.unassignedFileClicked(projectId);
 				}}
