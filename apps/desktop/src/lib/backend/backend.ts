@@ -91,6 +91,7 @@ export type AppInfo = {
 	version: string;
 };
 export interface IBackend {
+	platformName: string;
 	systemTheme: Readable<string | null>;
 	invoke: <T>(command: string, ...args: any[]) => Promise<T>;
 	listen: <T>(event: string, callback: (event: Event<T>) => void) => () => Promise<void>;

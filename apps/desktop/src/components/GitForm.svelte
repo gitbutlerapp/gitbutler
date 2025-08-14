@@ -3,7 +3,7 @@
 	import KeysForm from '$components/KeysForm.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Section from '$components/Section.svelte';
-	import { platformName } from '$lib/platform/platform';
+	import { BACKEND } from '$lib/backend';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 	import { SectionCard, Spacer, Toggle } from '@gitbutler/ui';
@@ -12,6 +12,7 @@
 	const { projectId }: { projectId: string } = $props();
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectResult = $derived(projectsService.getProject(projectId));
+	const backend = inject(BACKEND);
 
 	async function onForcePushClick(project: Project, value: boolean) {
 		await projectsService.updateProject({ ...project, ok_with_force_push: value });
@@ -24,7 +25,7 @@
 
 <Section>
 	<CommitSigningForm {projectId} />
-	{#if platformName !== 'windows'}
+	{#if backend.platformName !== 'windows'}
 		<Spacer />
 		<KeysForm {projectId} showProjectName={false} />
 	{/if}

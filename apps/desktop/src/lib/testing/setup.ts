@@ -1,11 +1,11 @@
 import { AIService } from '$lib/ai/service';
-import createBackend from '$lib/backend';
 import { BaseBranch } from '$lib/baseBranch/baseBranch';
 import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import { StackService } from '$lib/stacks/stackService.svelte';
 import { UiState } from '$lib/state/uiState.svelte';
 import { getAIServiceMock } from '$lib/testing/mockAIService';
+import { mockCreateBackend } from '$lib/testing/mockBackend';
 import { getMockBaseBranch } from '$lib/testing/mockBaseBranch';
 import { getStackServiceMock } from '$lib/testing/mockStackService';
 import { getUiStateMock } from '$lib/testing/mockUiState';
@@ -82,7 +82,7 @@ export function setup(): TestSetup {
 		thresholds = [];
 	};
 
-	const backend = createBackend();
+	const backend = mockCreateBackend();
 
 	let context = createContext();
 

@@ -9,7 +9,6 @@
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
 	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
-	import { platformName } from '$lib/platform/platform';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
@@ -83,7 +82,7 @@
 
 	// Platform-specific label for "Show in Finder/Explorer/File Manager"
 	const showInFolderLabel = (() => {
-		switch (platformName) {
+		switch (backend.platformName) {
 			case 'macos':
 				return 'Show in Finder';
 			case 'windows':

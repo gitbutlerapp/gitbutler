@@ -6,8 +6,8 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
+	import { BACKEND } from '$lib/backend';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { platformName } from '$lib/platform/platform';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, TestId } from '@gitbutler/ui';
@@ -23,6 +23,7 @@
 	const projectsService = inject(PROJECTS_SERVICE);
 	const baseService = inject(BASE_BRANCH_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
+	const backend = inject(BACKEND);
 	const projectResult = $derived(projectsService.getProject(projectId));
 	const [setBaseBranchTarget, settingBranch] = baseService.setTarget;
 
@@ -45,7 +46,7 @@
 </script>
 
 <DecorativeSplitView img={newProjectSvg} testId={TestId.ProjectSetupPage}>
-	{#if selectedBranch[0] && selectedBranch[0] !== '' && platformName !== 'windows'}
+	{#if selectedBranch[0] && selectedBranch[0] !== '' && backend.platformName !== 'windows'}
 		{@const [remoteName, branchName] = selectedBranch[0].split(/\/(.*)/s)}
 		<KeysForm {projectId} {remoteName} {branchName} disabled={settingBranch.current.isLoading} />
 		<div class="actions">
@@ -72,7 +73,7 @@
 					{remoteBranches}
 					onBranchSelected={async (branch) => {
 						selectedBranch = branch;
-						if (platformName !== 'windows') return;
+						if (backend.platformName !== 'windows') return;
 						setTarget();
 					}}
 				/>

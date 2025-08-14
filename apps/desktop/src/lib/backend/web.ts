@@ -5,6 +5,7 @@ import path from 'path';
 import type { AppInfo, IBackend, OpenDialogOptions, OpenDialogReturn } from '$lib/backend/backend';
 
 export default class Web implements IBackend {
+	platformName = 'web';
 	systemTheme = readable<string | null>(null);
 	invoke = webInvoke;
 	listen = webListen;
@@ -22,6 +23,10 @@ export default class Web implements IBackend {
 	async filePicker<T extends OpenDialogOptions>(options?: T): Promise<OpenDialogReturn<T>> {
 		return await webFilePicker<T>(options);
 	}
+}
+
+export function webPathSeparator(): string {
+	return '/'; // Web uses forward slashes for path
 }
 
 async function webReadTextFromClipboard(): Promise<string> {
