@@ -10,6 +10,7 @@ use tauri::State;
 use tracing::instrument;
 
 #[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
 pub async fn claude_send_message(
     app: State<'_, App>,
     project_id: ProjectId,

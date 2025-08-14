@@ -130,11 +130,7 @@ const webRequestCost = 10;
  * because the "assistant" ones come in more frequently.
  *
  * For some reason the final quantity of tokens ends up slightly greater than if
- * you were using the result, however, the calculated cost ends up being the
- * same as the cost provided in the result based messages.
- *
- * I can only assume that there is a mistake in the token counting code on CC's
- * side.
+ * you were using the result. I'm not entirly sure where the discrepency is.
  */
 export function usageStats(events: ClaudeMessage[]): { tokens: number; cost: number } {
 	let tokens = 0;
@@ -143,8 +139,8 @@ export function usageStats(events: ClaudeMessage[]): { tokens: number; cost: num
 		if (event.content.type !== 'claudeOutput') continue;
 		const message = event.content.subject;
 		if (message.type !== 'assistant') continue;
-
 		const usage = message.message.usage;
+		if (message.message.stop_reason === 'tool_use') continue;
 		tokens += usage.input_tokens;
 		tokens += usage.output_tokens;
 
