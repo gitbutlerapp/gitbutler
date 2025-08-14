@@ -2,11 +2,10 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import {
 		branchHasConflicts,
 		branchHasUnpushedCommits,
-		branchRequiresForcePush
+		partialStackRequestsForcePush
 	} from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
@@ -45,14 +44,13 @@
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
-	const projectsService = inject(PROJECTS_SERVICE);
 	const uiState = inject(UI_STATE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 
 	const branchDetails = $derived(stackService.branchDetails(projectId, stackId, branchName));
-	const projectResult = $derived(projectsService.getProject(projectId));
+	const branchesResult = $derived(stackService.branches(projectId, stackId));
 	const [pushStack, pushResult] = stackService.pushStack;
 	const upstreamCommitsResult = $derived(
 		stackService.upstreamCommits(projectId, stackId, branchName)
@@ -114,9 +112,9 @@
 	let forcePushProtectionModal = $state<ReturnType<typeof Modal>>();
 </script>
 
-<ReduxResult {projectId} result={combineResults(branchDetails.current, projectResult.current)}>
-	{#snippet children([branchDetails])}
-		{@const withForce = branchRequiresForcePush(branchDetails)}
+<ReduxResult {projectId} result={combineResults(branchDetails.current, branchesResult.current)}>
+	{#snippet children([branchDetails, branches])}
+		{@const withForce = partialStackRequestsForcePush(branchName, branches)}
 		{@const hasThingsToPush = branchHasUnpushedCommits(branchDetails)}
 		{@const hasConflicts = branchHasConflicts(branchDetails)}
 
