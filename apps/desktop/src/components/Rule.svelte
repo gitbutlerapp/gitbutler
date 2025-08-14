@@ -67,7 +67,7 @@
 				return {
 					icon: 'ai-small' as keyof typeof iconsJson,
 					label: filter.subject,
-					tooltip: `Code session: ${filter.subject}`
+					tooltip: `Claude session: ${filter.subject}`
 				};
 		}
 	}
@@ -146,7 +146,7 @@
 				{@render renderBasicPill(config)}
 			{/snippet}
 			{#snippet children(descriptor)}
-				{@render renderSessionPill(`Code session: ${descriptor}`, config.icon!, descriptor)}
+				{@render renderSessionPill(`Claude session: ${descriptor}`, config.icon!, descriptor)}
 			{/snippet}
 		</ClaudeSessionDescriptor>
 	{:else if filter.type === 'fileChangeType'}
