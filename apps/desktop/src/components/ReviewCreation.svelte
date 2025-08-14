@@ -25,7 +25,7 @@
 	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { REMOTES_SERVICE } from '$lib/remotes/remotesService';
-	import { requiresPush } from '$lib/stacks/stack';
+	import { partialStackRequestsForcePush, requiresPush } from '$lib/stacks/stack';
 	import { STACK_SERVICE, type BranchPushResult } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
@@ -154,10 +154,11 @@
 	): Promise<[string | undefined, BranchPushResult | undefined]> {
 		if (pushBeforeCreate) {
 			const firstPush = branchDetails?.pushStatus === 'completelyUnpushed';
+			const withForce = partialStackRequestsForcePush(branchName, branches);
 			const pushResult = await pushStack({
 				projectId,
 				stackId,
-				withForce: branchDetails?.pushStatus === 'unpushedCommitsRequiringForce',
+				withForce,
 				skipForcePushProtection: false, // override available for regular push
 				branch: branchName
 			});
