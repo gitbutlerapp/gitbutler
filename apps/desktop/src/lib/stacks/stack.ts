@@ -213,6 +213,29 @@ export function branchRequiresForcePush(branch: BranchDetails): boolean {
 	return branch.pushStatus === 'unpushedCommitsRequiringForce';
 }
 
+/**
+ * Does the branch or other branch this depends on require a force push?
+ *
+ * @param branchName The name of the branch to check
+ * @param allBranches Complete list of branches in the stack. The order is expected to be child-to-parent
+ */
+export function partialStackRequestsForcePush(
+	branchName: string,
+	allBranches: BranchDetails[]
+): boolean {
+	let foundBranch = false;
+
+	for (const branch of allBranches) {
+		if (branch.name === branchName && !foundBranch) {
+			foundBranch = true;
+		}
+		if (!foundBranch) continue;
+		if (branchRequiresForcePush(branch)) return true;
+	}
+
+	return false;
+}
+
 export function stackHasConflicts(stack: StackDetails): boolean {
 	return stack.isConflicted;
 }
