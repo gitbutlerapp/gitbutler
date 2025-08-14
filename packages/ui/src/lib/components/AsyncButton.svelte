@@ -35,6 +35,7 @@
 		tooltipDelay?: number;
 		testId?: string;
 		loading?: boolean;
+		class?: string;
 		// Snippets
 		children?: Snippet;
 	};
