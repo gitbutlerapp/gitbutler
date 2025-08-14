@@ -52,6 +52,20 @@ pub fn get_session_by_id(
     }
 }
 
+pub fn get_session_by_current_id(
+    ctx: &mut CommandContext,
+    current_id: Uuid,
+) -> anyhow::Result<Option<ClaudeSession>> {
+    let session = ctx
+        .db()?
+        .claude_sessions()
+        .get_by_current_id(&current_id.to_string())?;
+    match session {
+        Some(s) => Ok(Some(s.try_into()?)),
+        None => Ok(None),
+    }
+}
+
 /// Deletes a Claude session and all associated messages from the database. This is what we want to use when we want to delete a session completely.
 pub fn delete_session_and_messages_by_id(
     ctx: &mut CommandContext,

@@ -118,10 +118,11 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
     let prompt = transcript.prompt().unwrap_or_default();
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let session_id = original_session_id(ctx, input.session_id.clone())?;
 
     let defer = ClearLocksGuard {
         ctx,
-        session_id: input.session_id.clone(),
+        session_id: session_id.clone(),
         file_path: None,
     };
 
@@ -131,14 +132,14 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
 
     // If the session stopped, but there's no session persisted in the database, we create a new one.
     // If the session is already persisted, we just retrieve it.
-    let stack_id = get_or_create_session(defer.ctx, &input.session_id, stacks, vb_state)?;
+    let stack_id = get_or_create_session(defer.ctx, &session_id, stacks, vb_state)?;
 
     let (id, outcome) = but_action::handle_changes(
         defer.ctx,
         &summary,
         Some(prompt.clone()),
         ActionHandler::HandleChangesSimple,
-        Source::ClaudeCode(input.session_id),
+        Source::ClaudeCode(session_id),
         Some(stack_id),
     )?;
 
@@ -310,8 +311,9 @@ pub fn handle_pre_tool_call() -> anyhow::Result<ClaudeHookOutput> {
     input.tool_input.file_path = relative_file_path;
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let session_id = original_session_id(ctx, input.session_id.clone())?;
 
-    file_lock::obtain(ctx, input.session_id, input.tool_input.file_path.clone())?;
+    file_lock::obtain(ctx, session_id, input.tool_input.file_path.clone())?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,
@@ -355,10 +357,11 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
     input.tool_response.file_path = relative_file_path;
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let session_id = original_session_id(ctx, input.session_id.clone())?;
 
     let defer = ClearLocksGuard {
         ctx,
-        session_id: input.session_id.clone(),
+        session_id: session_id.clone(),
         file_path: Some(input.tool_response.file_path.clone()),
     };
 
@@ -366,7 +369,7 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
 
     let vb_state = &VirtualBranchesHandle::new(defer.ctx.project().gb_dir());
 
-    let stack_id = get_or_create_session(defer.ctx, &input.session_id, stacks, vb_state)?;
+    let stack_id = get_or_create_session(defer.ctx, &session_id, stacks, vb_state)?;
 
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
@@ -402,6 +405,16 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
         stop_reason: String::default(),
         suppress_output: true,
     })
+}
+
+fn original_session_id(ctx: &mut CommandContext, current_id: String) -> Result<String> {
+    let original_session_id =
+        crate::db::get_session_by_current_id(ctx, Uuid::parse_str(&current_id)?)?;
+    if let Some(session) = original_session_id {
+        Ok(session.id.to_string())
+    } else {
+        Ok(current_id)
+    }
 }
 
 fn get_or_create_session(

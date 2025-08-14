@@ -112,6 +112,17 @@ impl ClaudeSessionsHandle<'_> {
         Ok(session)
     }
 
+    pub fn get_by_current_id(
+        &mut self,
+        current_id: &str,
+    ) -> Result<Option<ClaudeSession>, diesel::result::Error> {
+        let session = claude_sessions
+            .filter(crate::schema::claude_sessions::current_id.eq(current_id))
+            .first::<ClaudeSession>(&mut self.db.conn)
+            .optional()?;
+        Ok(session)
+    }
+
     pub fn list(&mut self) -> Result<Vec<ClaudeSession>, diesel::result::Error> {
         let sessions = claude_sessions.load::<ClaudeSession>(&mut self.db.conn)?;
         Ok(sessions)
