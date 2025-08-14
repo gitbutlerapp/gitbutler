@@ -43,6 +43,13 @@
 			posthog.capture('Project Setup Complete');
 		}
 	}
+
+	$effect(() => {
+		if (projectResult.current.isError) {
+			console.error('Failed to load project, redirecting:', projectResult.current.error);
+			goto('/');
+		}
+	});
 </script>
 
 <DecorativeSplitView img={newProjectSvg} testId={TestId.ProjectSetupPage}>

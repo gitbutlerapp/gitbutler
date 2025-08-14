@@ -106,7 +106,9 @@
 	});
 
 	const debouncedBaseBranchRefresh = debounce(async () => {
-		await baseBranchService.refreshBaseBranch(projectId);
+		await baseBranchService.refreshBaseBranch(projectId).catch((error) => {
+			console.error('Failed to refresh base branch:', error);
+		});
 	}, 500);
 
 	const debouncedRemoteBranchRefresh = debounce(async () => {

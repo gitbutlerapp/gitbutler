@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import GithubIntegration from '$components/GithubIntegration.svelte';
 	import Login from '$components/Login.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
@@ -58,12 +57,6 @@
 	const projectsService = inject(PROJECTS_SERVICE);
 	async function deleteProjectAndGoBack() {
 		await projectsService.deleteProject(projectId);
-
-		if (history.length > 0) {
-			history.back();
-		} else {
-			goto('/');
-		}
 	}
 </script>
 
@@ -240,7 +233,7 @@
 		</SetupFeature>
 	</div>
 	<div class="action-buttons">
-		<Button kind="outline" onmousedown={deleteProjectAndGoBack}>Cancel</Button>
+		<Button kind="outline" onclick={deleteProjectAndGoBack}>Cancel</Button>
 		<Button
 			style="pop"
 			{loading}
