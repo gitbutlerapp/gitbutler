@@ -3,6 +3,8 @@
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
 	import { showError, showToast } from '$lib/notifications/toasts';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { createWorktreeSelection } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { COMMIT_ANALYTICS } from '$lib/soup/commitAnalytics';
 	import { STACK_SERVICE, type RejectionReason } from '$lib/stacks/stackService.svelte';
@@ -23,6 +25,7 @@
 	const hooksService = inject(HOOKS_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const commitAnalytics = inject(COMMIT_ANALYTICS);
+	const idSelection = inject(ID_SELECTION);
 
 	const projectState = $derived(uiState.project(projectId));
 	// Using a dummy stackId kind of sucks... but it's fine for now
@@ -127,6 +130,7 @@
 
 				// Clear change/hunk selection used for creating the commit.
 				uncommittedService.clearHunkSelection();
+				idSelection.clear(createWorktreeSelection({ stackId }));
 			}
 
 			if (response.pathsToRejectedChanges.length > 0) {
