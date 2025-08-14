@@ -142,7 +142,7 @@
 				{/if}
 
 				<div class="worktree-header__content">
-					{#if isCommitting}
+					{#if isCommitting && changes.current.length > 0}
 						<WorktreeChangesSelectAll {stackId} />
 					{/if}
 					<div class="worktree-header__title truncate">
