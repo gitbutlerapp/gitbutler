@@ -1,11 +1,9 @@
 <script lang="ts">
+	import ChromeErrorBoundary from '$components/ChromeErrorBoundary.svelte';
 	import ChromeHeader from '$components/ChromeHeader.svelte';
 	import ChromeSidebar from '$components/ChromeSidebar.svelte';
-	import ProjectNotFound from '$components/ProjectNotFound.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { Code } from '$lib/error/knownErrors';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { isReduxError } from '$lib/state/reduxError';
 	import { inject } from '@gitbutler/shared/context';
 	import type { Snippet } from 'svelte';
 
@@ -36,11 +34,7 @@
 		</div>
 	{/snippet}
 	{#snippet error(e)}
-		{#if isReduxError(e)}
-			{#if e.code === Code.ProjectMissing}
-				<ProjectNotFound {projectId} />
-			{/if}
-		{/if}
+		<ChromeErrorBoundary {projectId} error={e} />
 	{/snippet}
 </ReduxResult>
 

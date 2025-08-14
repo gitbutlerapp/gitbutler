@@ -84,7 +84,7 @@ function getBestCode(error: unknown): string | undefined {
 	return undefined;
 }
 
-function parseQueryError(error: unknown): QueryError {
+export function parseQueryError(error: unknown): QueryError {
 	const name = getBestName(error);
 	const message = getBestMessage(error);
 	const code = getBestCode(error);

@@ -49,7 +49,7 @@
 	});
 </script>
 
-{#snippet page()}
+<Chrome {projectId} sidebarDisabled>
 	<DecorativeSplitView img={loadErrorSvg}>
 		<div class="problem">
 			<div class="project-name">
@@ -85,10 +85,6 @@
 			</div>
 		</div>
 	</DecorativeSplitView>
-{/snippet}
-
-<Chrome {projectId} sidebarDisabled>
-	{@render page()}
 </Chrome>
 
 <style lang="postcss">
