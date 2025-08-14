@@ -102,7 +102,7 @@ export interface IBackend {
 	relaunch: () => Promise<void>;
 	documentDir: () => Promise<string>;
 	joinPath: (path: string, ...paths: string[]) => Promise<string>;
-	filePicker<T extends OpenDialogOptions>(options?: T): Promise<OpenDialogReturn<T>>;
+	filePicker<T extends OpenDialogOptions>(options: T): Promise<OpenDialogReturn<T>>;
 	homeDirectory(): Promise<string>;
 	getAppInfo: () => Promise<AppInfo>;
 	writeTextToClipboard: (text: string) => Promise<void>;
