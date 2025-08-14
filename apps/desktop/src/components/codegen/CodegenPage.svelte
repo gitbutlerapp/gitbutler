@@ -137,7 +137,7 @@
 	{@const commits = stackService.commits(projectId, stackId, head)}
 	{@const events = claudeCodeService.messages({
 		projectId,
-		stackId: selectedBranch?.stackId || ''
+		stackId
 	})}
 	<ReduxResult
 		result={combineResults(branch.current, commits.current, events.current)}

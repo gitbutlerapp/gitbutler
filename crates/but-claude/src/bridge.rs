@@ -27,7 +27,7 @@ use gitbutler_command_context::CommandContext;
 use serde_json::json;
 use std::{
     collections::HashSet,
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, Read as _},
     sync::Arc,
 };
 use tokio::{process::Command, sync::Mutex};
@@ -97,6 +97,7 @@ impl Claudes {
         let create_new = !transcript_path.try_exists()?;
 
         let (read_stdout, writer) = std::io::pipe()?;
+        let (mut read_stderr, write_stderr) = std::io::pipe()?;
         let broadcaster = broadcaster.clone();
 
         // Currently the stack_id is used as the initial "stable" identifier.
@@ -166,6 +167,7 @@ impl Claudes {
 
         let mut command = Command::new("claude");
         command.stdout(writer);
+        command.stderr(write_stderr);
         command.current_dir(&project_path);
         command.args([
             "-p",
@@ -181,10 +183,20 @@ impl Claudes {
         command.arg(message);
 
         let mut handle = command.spawn().unwrap();
-        handle.wait().await.unwrap();
+        let exit_status = handle.wait().await?;
         response_streamer.abort();
 
         self.requests.lock().await.remove(&stack_id);
+
+        if !exit_status.success() {
+            let mut buf = String::new();
+            read_stderr.read_to_string(&mut buf)?;
+            bail!(
+                "Claude code exited with status: {}\n\n{}",
+                exit_status.code().unwrap_or(1),
+                buf
+            )
+        }
 
         Ok(())
     }

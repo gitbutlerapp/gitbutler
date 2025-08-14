@@ -31,6 +31,7 @@ export type ClaudeCodeMessage =
 			result: string;
 			session_id: string;
 			total_cost_usd: number;
+			usage: Usage;
 	  }
 
 	/** Emitted as the last message, when we've reached the maximum number of turns */
