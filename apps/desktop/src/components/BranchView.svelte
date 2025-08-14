@@ -5,7 +5,6 @@
 	import BranchReview from '$components/BranchReview.svelte';
 	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
 	import Drawer from '$components/Drawer.svelte';
-	import NewBranchModal from '$components/NewBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
@@ -54,7 +53,6 @@
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
-	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
 	let renameBranchModal = $state<BranchRenameModal>();
 	let deleteBranchModal = $state<DeleteBranchModal>();
 </script>
@@ -139,8 +137,6 @@
 				</div>
 			{/if}
 		</Drawer>
-
-		<NewBranchModal {projectId} {stackId} bind:this={newBranchModal} />
 
 		<BranchRenameModal
 			{projectId}
