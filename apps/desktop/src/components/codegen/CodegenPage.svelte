@@ -1,12 +1,18 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
+	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
-	import CodegenMessage from '$components/codegen/CodegenMessage.svelte';
+	import CodegenRunningMessage from '$components/codegen/CodegenRunningMessage.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { formatMessages, usageStats } from '$lib/codegen/messages';
+	import {
+		currentStatus,
+		formatMessages,
+		lastUserMessageSentAt,
+		usageStats
+	} from '$lib/codegen/messages';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { inject } from '@gitbutler/shared/context';
@@ -101,17 +107,31 @@
 					<ReduxResult result={events?.current} {projectId}>
 						{#snippet children(events, { projectId: _projectId })}
 							{#each formatMessages(events) as message}
-								<CodegenMessage {message} />
+								<CodegenClaudeMessage {message} />
 							{/each}
+							{@const lastUserMessageSent = lastUserMessageSentAt(events)}
+							{#if currentStatus(events) === 'running' && lastUserMessageSent}
+								<CodegenRunningMessage {lastUserMessageSent} />
+							{/if}
 						{/snippet}
 					</ReduxResult>
 				{/snippet}
 				{#snippet input()}
-					<CodegenInput bind:value={message} enabled onsubmit={sendMessage}>
-						{#snippet actions()}
-							<Button disabled kind="outline" icon="attachment" reversedDirection>Context</Button>
+					<ReduxResult result={events?.current} {projectId}>
+						{#snippet children(events, { projectId: _projectId })}
+							<CodegenInput
+								bind:value={message}
+								loading={currentStatus(events) === 'running'}
+								onsubmit={sendMessage}
+							>
+								{#snippet actions()}
+									<Button disabled kind="outline" icon="attachment" reversedDirection
+										>Context</Button
+									>
+								{/snippet}
+							</CodegenInput>
 						{/snippet}
-					</CodegenInput>
+					</ReduxResult>
 				{/snippet}
 			</CodegenChatLayout>
 		{/if}
@@ -152,7 +172,7 @@
 				}}
 				selected={selectedBranch?.stackId === stackId && selectedBranch?.head === branch.name}
 				branchName={branch.name}
-				status="vibes"
+				status={currentStatus(events)}
 				tokensUsed={usage.tokens}
 				cost={usage.cost}
 				commitCount={commits.length}
