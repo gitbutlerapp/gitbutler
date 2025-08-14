@@ -118,3 +118,5 @@ export type ClaudeSessionDetails = {
 export function sessionMessage(sessionDetails: ClaudeSessionDetails): string | undefined {
 	return sessionDetails.summary ?? sessionDetails.lastPrompt ?? undefined;
 }
+
+export type ClaudeStatus = 'disabled' | 'enabled' | 'running' | 'completed';

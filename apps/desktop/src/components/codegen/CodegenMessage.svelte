@@ -1,89 +1,41 @@
 <script lang="ts">
-	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
-	import { toolCallLoading, type Message } from '$lib/codegen/messages';
-	import { Avatar, Button, Icon, Markdown } from '@gitbutler/ui';
+	import { Avatar, Markdown } from '@gitbutler/ui';
+	import type { Snippet } from 'svelte';
 
 	type Props = {
-		message: Message;
+		side: 'left' | 'right';
+		content?: string;
+		avatarUrl?: string;
+		extraContent?: Snippet;
+		bubble?: boolean;
 	};
-	const { message }: Props = $props();
 
-	let toolCallsExpanded = $state(false);
-
-	const toolDisplayLimit = 3;
-
-	const toolsToDisplay = $derived.by(() => {
-		if (message.type !== 'claude') return [];
-
-		const loadingTools = message.toolCalls.filter((tc) => toolCallLoading(tc));
-		const loadedTools = message.toolCalls.filter((tc) => !toolCallLoading(tc));
-		return [...loadingTools, ...loadedTools].slice(0, 3);
-	});
+	const { side, content, avatarUrl, extraContent, bubble }: Props = $props();
 </script>
 
-{#if message.type === 'user'}
-	<div class="message message-right">
-		<div class="message-avatar">
-			<Avatar size="large" srcUrl="https://avatars.githubusercontent.com/u/70?v=4" tooltip="" />
-		</div>
-		<div class="message-content">
-			<div class="message-user-bubble">
-				<Markdown content={message.message} />
-			</div>
-		</div>
-	</div>
-{:else if message.type === 'claude'}
-	<div class="message message-left">
-		<div class="message-avatar">
+<div class="message message-{side}">
+	<div class="message-avatar">
+		{#if avatarUrl}
+			<Avatar size="large" srcUrl={avatarUrl} tooltip="" />
+		{:else}
 			{@render happyPC()}
-		</div>
-		<div class="message-content">
-			<Markdown content={message.message} />
-			{#if message.toolCalls.length > 0}
-				{#if toolCallsExpanded}
-					<div class="message-content-expanded-calls text-13">
-						<div class="flex gap-10 items-center">
-							<Button
-								kind="ghost"
-								icon="chevron-down"
-								size="tag"
-								onclick={() => (toolCallsExpanded = false)}
-							/>
-							<p>{message.toolCalls.length} tool calls</p>
-						</div>
-						{#each message.toolCalls as toolCall}
-							<CodegenToolCall {toolCall} />
-						{/each}
-					</div>
-				{:else}
-					<div class="message-content-collapsed-calls text-13">
-						<Button
-							kind="ghost"
-							icon="chevron-right"
-							size="tag"
-							onclick={() => (toolCallsExpanded = true)}
-						/>
-						<p>{message.toolCalls.length} tools in</p>
-						<div class="message-content-collapsed-calls-entries clr-text-2">
-							{#each toolsToDisplay as toolCall, idx}
-								{#if toolCallLoading(toolCall)}
-									<Icon name="spinner" />
-								{/if}
-								<div>{toolCall.name}</div>
-								{#if idx !== toolsToDisplay.length - 1}
-									<div>•</div>
-								{/if}
-							{/each}
-						</div>
-						{#if message.toolCalls.length > toolDisplayLimit}
-							<p class="clr-text-2">And +{message.toolCalls.length - toolDisplayLimit} more</p>
-						{/if}
-					</div>
-				{/if}
-			{/if}
-		</div>
+		{/if}
 	</div>
-{/if}
+	<div class="message-content">
+		{#if content}
+			{#if bubble}
+				<div class="message-user-bubble">
+					<Markdown {content} />
+				</div>
+			{:else}
+				<Markdown {content} />
+			{/if}
+		{/if}
+		{#if extraContent}
+			{@render extraContent()}
+		{/if}
+	</div>
+</div>
 
 {#snippet happyPC()}
 	<svg width="30" height="32" viewBox="0 0 30 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -147,33 +99,5 @@
 		max-width: calc(100% - 40px);
 		gap: 16px;
 		text-wrap: wrap;
-	}
-
-	.message-content-collapsed-calls {
-		display: flex;
-
-		align-items: center;
-		width: fit-content;
-		padding: 8px;
-		padding-right: 12px;
-		gap: 10px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-	}
-
-	.message-content-collapsed-calls-entries {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-
-	.message-content-expanded-calls {
-		display: flex;
-		flex-direction: column;
-
-		padding: 8px;
-		gap: 10px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
 	}
 </style>

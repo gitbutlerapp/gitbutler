@@ -3,7 +3,7 @@
  */
 
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import type { ClaudeMessage } from '$lib/codegen/types';
+import type { ClaudeMessage, ClaudeStatus } from '$lib/codegen/types';
 
 export type Message =
 	/* This is strictly only things that the real fleshy human has said */
@@ -164,4 +164,33 @@ function findModelPricing(name: string) {
 			return p;
 		}
 	}
+}
+
+/**
+ * Based on the current event log, determine the current status
+ */
+export function currentStatus(events: ClaudeMessage[]): ClaudeStatus {
+	if (events.length === 0) return 'disabled';
+	const lastEvent = events.at(-1)!;
+	if (lastEvent.content.type === 'claudeOutput' && lastEvent.content.subject.type === 'result') {
+		// Once we have the TODOs, if all the TODOs are completed, we can change
+		// this to conditionally return 'enabled' or 'completed'
+		return 'enabled';
+	}
+	return 'running';
+}
+
+/**
+ * Thinking duration in ms
+ */
+export function lastUserMessageSentAt(events: ClaudeMessage[]): Date | undefined {
+	let event: ClaudeMessage | undefined;
+	for (let i = events.length - 1; i >= 0; --i) {
+		if (events[i]!.content.type === 'userInput') {
+			event = events[i]!;
+			break;
+		}
+	}
+	if (!event) return;
+	return new Date(event.createdAt);
 }

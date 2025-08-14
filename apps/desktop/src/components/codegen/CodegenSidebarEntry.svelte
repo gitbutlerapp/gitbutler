@@ -1,11 +1,12 @@
 <script lang="ts">
 	import Drawer from '$components/Drawer.svelte';
 	import { Badge, Icon } from '@gitbutler/ui';
+	import type { ClaudeStatus } from '$lib/codegen/types';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
 		selected: boolean;
-		status: 'no-vibes' | 'vibes' | 'running' | 'completed' | 'assistance-required';
+		status: ClaudeStatus;
 		branchName: string;
 		tokensUsed: number;
 		cost: number;
@@ -36,11 +37,13 @@
 					<p class="text-14 text-semibold">Commits</p>
 					<Badge>{commitCount}</Badge>
 				</div>
-				<div class="flex gap-8 items-center">
-					<p class="text-12">{tokensUsed}</p>
-					<div class="iddy-biddy-line"></div>
-					<p class="text-12">${cost.toFixed(2)}</p>
-				</div>
+				{#if status !== 'disabled'}
+					<div class="flex gap-8 items-center">
+						<p class="text-12">{tokensUsed}</p>
+						<div class="iddy-biddy-line"></div>
+						<p class="text-12">${cost.toFixed(2)}</p>
+					</div>
+				{/if}
 			</div>
 		{/snippet}
 	</Drawer>
@@ -48,14 +51,14 @@
 
 {#snippet vibeIcon()}
 	<div class="vibe-icon {status}">
-		{#if status === 'vibes'}
+		{#if status === 'enabled'}
 			<Icon name="ai" />
 		{:else if status === 'running'}
 			<Icon name="running-man" />
 		{:else if status === 'completed'}
 			<Icon name="success" />
-		{:else if status === 'assistance-required'}
-			<Icon name="error" />
+			<!-- {:else if status === 'assistance-required'}
+			<Icon name="error" /> -->
 		{/if}
 	</div>
 {/snippet}
@@ -125,7 +128,7 @@
 	}
 
 	.vibe-icon {
-		&.vibes {
+		&.enabled {
 			color: var(--clr-theme-pop-element);
 		}
 		&.running {
@@ -134,8 +137,8 @@
 		&.completed {
 			color: var(--clr-theme-succ-element);
 		}
-		&.assistance-required {
+		/* &.assistance-required {
 			color: var(--clr-theme-err-element);
-		}
+		} */
 	}
 </style>
