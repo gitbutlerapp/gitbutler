@@ -45,8 +45,8 @@ export default class Tauri implements IBackend {
 	getAppInfo = tauriGetAppInfo;
 	readTextFromClipboard = tauriReadText;
 	writeTextToClipboard = tauriWriteText;
-	async filePicker<T extends OpenDialogOptions>() {
-		return await filePickerTauri<T>();
+	async filePicker<T extends OpenDialogOptions>(options?: T) {
+		return await filePickerTauri<T>(options);
 	}
 	async homeDirectory(): Promise<string> {
 		// TODO: Find a workaround to avoid this dynamic import
