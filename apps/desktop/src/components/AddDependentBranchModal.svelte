@@ -20,6 +20,7 @@
 	let branchName = $state<string>();
 
 	const slugifiedRefName = $derived(branchName && slugify(branchName));
+	const generatedNameDiverges = $derived(!!branchName && slugifiedRefName !== branchName);
 
 	async function handleAddDependentBranch(close: () => void) {
 		if (!slugifiedRefName) return;
@@ -49,7 +50,12 @@
 	onSubmit={handleAddDependentBranch}
 >
 	<div class="content-wrap">
-		<Textbox placeholder="Branch name" bind:value={branchName} autofocus />
+		<Textbox
+			placeholder="Branch name"
+			bind:value={branchName}
+			autofocus
+			helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}'` : undefined}
+		/>
 	</div>
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>

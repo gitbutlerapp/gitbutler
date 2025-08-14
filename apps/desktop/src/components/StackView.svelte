@@ -235,7 +235,6 @@
 
 {#snippet assignedChangePreview(stackId?: string)}
 	<SelectionView
-		bottomBorder
 		testId={TestId.WorktreeSelectionView}
 		{projectId}
 		selectionId={createWorktreeSelection({ stackId })}
