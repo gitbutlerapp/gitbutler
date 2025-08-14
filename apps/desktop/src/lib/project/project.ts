@@ -19,6 +19,7 @@ export type Project = {
 	};
 	preferred_key: AuthKey;
 	ok_with_force_push: boolean;
+	force_push_protection: boolean;
 	omit_certificate_check: boolean | undefined;
 	use_diff_context: boolean | undefined;
 	snapshot_lines_threshold: number | undefined;

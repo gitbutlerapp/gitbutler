@@ -102,14 +102,10 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 				const worktreeChanges = changesToDiffSpec(await data.treeChanges(), assignments);
 
 				if (this.runHooks) {
-					try {
-						await this.hooksService.runPreCommitHooks(this.projectId, worktreeChanges);
-					} catch {
-						return;
-					}
+					await this.hooksService.runPreCommitHooks(this.projectId, worktreeChanges);
 				}
 
-				const result = this.onresult(
+				this.onresult(
 					await this.stackService.amendCommitMutation({
 						projectId: this.projectId,
 						stackId: this.stackId,
@@ -121,7 +117,6 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 				if (this.runHooks) {
 					await this.hooksService.runPostCommitHooks(this.projectId);
 				}
-				return result;
 			}
 		}
 	}
@@ -365,8 +360,8 @@ function updateUiState(
 	mapping: [string, string][]
 ) {
 	const sourceReplacement = mapping.find(([before]) => before === commitId);
-	const sourceState = untrack(() => uiState.stack(stackId).selection.current);
+	const sourceState = untrack(() => uiState.lane(stackId).selection.current);
 	if (sourceReplacement && sourceState) {
-		uiState.stack(stackId).selection.set({ ...sourceState, commitId: sourceReplacement[1] });
+		uiState.lane(stackId).selection.set({ ...sourceState, commitId: sourceReplacement[1] });
 	}
 }

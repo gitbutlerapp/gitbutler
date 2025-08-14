@@ -17,7 +17,7 @@ import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } fro
 import persistStore from 'redux-persist/lib/persistStore';
 import storage from 'redux-persist/lib/storage';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { Tauri } from '$lib/backend/tauri';
+import type { IBackend } from '$lib/backend';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { IrcClient } from '$lib/irc/ircClient.svelte';
@@ -71,7 +71,7 @@ export class ClientState {
 	}
 
 	constructor(
-		tauri: Tauri,
+		backend: IBackend,
 		gitHubClient: GitHubClient,
 		gitLabClient: GitLabClient,
 		ircClient: IrcClient,
@@ -89,7 +89,7 @@ export class ClientState {
 		this.backendApi = createBackendApi(butlerMod);
 
 		const { store, reducer } = createStore({
-			tauri,
+			backend,
 			gitHubClient,
 			gitLabClient,
 			ircClient,
@@ -128,7 +128,7 @@ export class ClientState {
  * and then assign the value in the constructor.
  */
 function createStore(params: {
-	tauri: Tauri;
+	backend: IBackend;
 	gitHubClient: GitHubClient;
 	gitLabClient: GitLabClient;
 	ircClient: IrcClient;
@@ -136,7 +136,8 @@ function createStore(params: {
 	githubApi: GitHubApi;
 	gitlabApi: GitLabApi;
 }) {
-	const { tauri, gitHubClient, gitLabClient, ircClient, backendApi, githubApi, gitlabApi } = params;
+	const { backend, gitHubClient, gitLabClient, ircClient, backendApi, githubApi, gitlabApi } =
+		params;
 
 	// We can't use the `persistStore` function because it doesn't work
 	// with injected reducers. We should inject all reduces so we don't
@@ -163,7 +164,7 @@ function createStore(params: {
 			return getDefaultMiddleware({
 				thunk: {
 					extraArgument: {
-						tauri,
+						backend,
 						gitHubClient,
 						gitLabClient,
 						ircClient

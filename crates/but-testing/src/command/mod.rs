@@ -192,7 +192,7 @@ pub mod stacks {
         };
         let stacks = if v3 {
             let meta = ref_metadata_toml(ctx.project())?;
-            but_workspace::stacks_v3(&repo, &meta, filter)
+            but_workspace::stacks_v3(&repo, &meta, filter, None)
         } else {
             but_workspace::stacks(&ctx, &project.gb_dir(), &repo, filter)
         }?;
@@ -342,12 +342,12 @@ pub mod stacks {
         // Enable v3 feature flags for the command context
         let app_settings = AppSettings {
             feature_flags: but_settings::app_settings::FeatureFlags {
-                v3: true,
                 ws3,
                 undo: false,
                 actions: false,
                 butbot: false,
                 rules: false,
+                single_branch: false,
             },
             ..AppSettings::default()
         };

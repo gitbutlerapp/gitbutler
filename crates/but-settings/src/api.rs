@@ -15,11 +15,11 @@ pub struct TelemetryUpdate {
 #[serde(rename_all = "camelCase")]
 /// Update request for [`crate::app_settings::FeatureFlags`].
 pub struct FeatureFlagsUpdate {
-    pub v3: Option<bool>,
     pub ws3: Option<bool>,
     pub actions: Option<bool>,
     pub butbot: Option<bool>,
     pub rules: Option<bool>,
+    pub single_branch: Option<bool>,
 }
 
 /// Mutation, immediately followed by writing everything to disk.
@@ -53,17 +53,14 @@ impl AppSettingsWithDiskSync {
     pub fn update_feature_flags(
         &self,
         FeatureFlagsUpdate {
-            v3,
             ws3,
             actions,
             butbot,
             rules,
+            single_branch,
         }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
-        if let Some(v3) = v3 {
-            settings.feature_flags.v3 = v3;
-        }
         if let Some(ws3) = ws3 {
             settings.feature_flags.ws3 = ws3;
         }
@@ -75,6 +72,9 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(rules) = rules {
             settings.feature_flags.rules = rules;
+        }
+        if let Some(single_branch) = single_branch {
+            settings.feature_flags.single_branch = single_branch;
         }
         settings.save()
     }

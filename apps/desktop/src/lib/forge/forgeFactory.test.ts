@@ -4,6 +4,7 @@ import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import { GitHub } from '$lib/forge/github/github';
 import { GitLab } from '$lib/forge/gitlab/gitlab';
 import { type GitHubApi } from '$lib/state/clientState.svelte';
+import { mockCreateBackend } from '$lib/testing/mockBackend';
 import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { expect, test, describe } from 'vitest';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
@@ -12,9 +13,10 @@ import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 
 describe.concurrent('DefaultforgeFactory', () => {
 	const MockSettingsService = getSettingsdServiceMock();
+	const backend = mockCreateBackend();
 	const settingsService = new MockSettingsService();
 	const eventContext = new EventContext();
-	const posthog = new PostHogWrapper(settingsService, eventContext);
+	const posthog = new PostHogWrapper(settingsService, backend, eventContext);
 	const gitHubApi: GitHubApi = {
 		endpoints: {},
 		reducerPath: 'github',

@@ -20,7 +20,7 @@ export type Stack = {
 	/**
 	 * The id of the stack.
 	 */
-	id: string;
+	id?: string;
 	/**
 	 * Information about the branches contained in the stack.
 	 */
@@ -236,3 +236,28 @@ export function requiresPush(status: PushStatus): boolean {
 		status === 'completelyUnpushed'
 	);
 }
+
+export type AnchorPosition = 'Above' | 'Below';
+
+export type AtCommitAnchor = {
+	type: 'atCommit';
+	subject: {
+		readonly commit_id: string;
+		readonly position: AnchorPosition;
+	};
+};
+
+export type AtReferenceAnchor = {
+	type: 'atReference';
+	subject: {
+		readonly short_name: string;
+		readonly position: AnchorPosition;
+	};
+};
+
+export type CreateRefAnchor = AtCommitAnchor | AtReferenceAnchor;
+
+export type CreateRefRequest = {
+	newName: string;
+	anchor: CreateRefAnchor;
+};

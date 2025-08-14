@@ -81,6 +81,7 @@ pub fn create_virtual_branch(
         heads: stack_heads_info(&stack, &repo)?,
         tip: stack.head_oid(&repo)?,
         order: Some(stack.order),
+        is_checked_out: false,
     })
 }
 
@@ -146,12 +147,8 @@ pub fn set_target_push_remote(ctx: &CommandContext, push_remote: &str) -> Result
     base::set_target_push_remote(ctx, push_remote)
 }
 
-pub fn push_base_branch(
-    ctx: &CommandContext,
-    with_force: bool,
-    force_if_includes: bool,
-) -> Result<()> {
-    base::push(ctx, with_force, force_if_includes)
+pub fn push_base_branch(ctx: &CommandContext, with_force: bool) -> Result<()> {
+    base::push(ctx, with_force)
 }
 
 pub fn integrate_upstream_commits(
@@ -282,23 +279,6 @@ fn amend_with_commit_engine(
         outcome.rejected_specs
     ))?;
     Ok(new_commit.to_git2())
-}
-
-pub fn move_commit_file(
-    ctx: &CommandContext,
-    stack_id: StackId,
-    from_commit_oid: git2::Oid,
-    to_commit_oid: git2::Oid,
-    ownership: &BranchOwnershipClaims,
-) -> Result<git2::Oid> {
-    let mut guard = ctx.project().exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Amending a commit requires open workspace mode")?;
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::MoveCommitFile),
-        guard.write_permission(),
-    );
-    vbranch::move_commit_file(ctx, stack_id, from_commit_oid, to_commit_oid, ownership)
 }
 
 pub fn undo_commit(ctx: &CommandContext, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {

@@ -2,11 +2,11 @@
 	import { goto } from '$app/navigation';
 	import IntegrateUpstreamModal from '$components/IntegrateUpstreamModal.svelte';
 	import SyncButton from '$components/SyncButton.svelte';
+	import { BACKEND } from '$lib/backend';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
-	import { platformName } from '$lib/platform/platform';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -38,6 +38,7 @@
 	const base = $derived(baseReponse?.current.data);
 	const settingsStore = $derived(settingsService.appSettings);
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
+	const backend = inject(BACKEND);
 
 	const upstreamCommits = $derived(base?.behind ?? 0);
 	const isHasUpstreamCommits = $derived(upstreamCommits > 0);
@@ -75,9 +76,9 @@
 	<IntegrateUpstreamModal bind:this={modal} {projectId} />
 {/if}
 
-<div class="chrome-header" class:mac={platformName === 'macos'} data-tauri-drag-region>
+<div class="chrome-header" class:mac={backend.platformName === 'macos'} data-tauri-drag-region>
 	<div class="chrome-left" data-tauri-drag-region>
-		<div class="chrome-left-buttons" class:macos={platformName === 'macos'}>
+		<div class="chrome-left-buttons" class:macos={backend.platformName === 'macos'}>
 			<SyncButton {projectId} size="button" disabled={actionsDisabled} />
 			{#if isHasUpstreamCommits}
 				<Button
@@ -103,8 +104,12 @@
 			options={mappedProjects}
 			loading={newProjectLoading || cloneProjectLoading}
 			disabled={newProjectLoading || cloneProjectLoading}
-			onselect={(value: string) => {
-				goto(projectPath(value));
+			onselect={(value: string, modifiers?) => {
+				if (modifiers?.meta) {
+					projectsService.openProjectInNewWindow(value);
+				} else {
+					goto(projectPath(value));
+				}
 			}}
 			popupAlign="center"
 			customWidth={300}

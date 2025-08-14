@@ -13,14 +13,14 @@
 
 use std::sync::Arc;
 
-use but_api::broadcaster::Broadcaster;
 use but_api::App;
+use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::{
-    action, askpass, bot, cli, commands, config, diff, env, forge, github, logs, menu, modes, open,
-    projects, remotes, repo, rules, secret, settings, stack, undo, users, virtual_branches,
-    workspace, zip, WindowState,
+    action, askpass, bot, claude, cli, commands, config, diff, env, forge, github, logs, menu,
+    modes, open, projects, remotes, repo, rules, secret, settings, stack, undo, users,
+    virtual_branches, workspace, zip, WindowState,
 };
 use tauri::Emitter;
 use tauri::{generate_context, Manager};
@@ -138,6 +138,23 @@ fn main() {
                     })?;
 
                     let broadcaster = Arc::new(Mutex::new(Broadcaster::new()));
+
+                    let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
+                    let broadcaster2 = broadcaster.clone();
+                    tokio::spawn(async move {
+                        broadcaster2
+                            .lock()
+                            .await
+                            .register_sender(&uuid::Uuid::new_v4(), send)
+                    });
+
+                    let window2 = window.clone();
+                    std::thread::spawn(move || {
+                        while let Some(message) = recv.blocking_recv() {
+                            window2.emit(&message.name, message.payload).unwrap();
+                        }
+                    });
+
                     let archival = Arc::new(gitbutler_feedback::Archival {
                         cache_dir: app_cache_dir.clone(),
                         logs_dir: app_log_dir.clone(),
@@ -146,6 +163,7 @@ fn main() {
                         app_settings: Arc::new(app_settings),
                         broadcaster: broadcaster.clone(),
                         archival: archival.clone(),
+                        claudes: Default::default(),
                     };
 
                     app_handle.manage(app);
@@ -227,7 +245,6 @@ fn main() {
                     virtual_branches::can_apply_remote_branch,
                     virtual_branches::list_commit_files,
                     virtual_branches::amend_virtual_branch,
-                    virtual_branches::move_commit_file,
                     virtual_branches::undo_commit,
                     virtual_branches::insert_blank_commit,
                     virtual_branches::reorder_stack,
@@ -311,11 +328,14 @@ fn main() {
                     diff::changes_in_branch,
                     diff::tree_change_diffs,
                     diff::assign_hunk,
+                    claude::claude_get_session_details,
                     // Debug-only - not for production!
                     #[cfg(debug_assertions)]
                     env::env_vars,
                     #[cfg(all(debug_assertions, unix))]
                     workspace::show_graph_svg,
+                    claude::claude_send_message,
+                    claude::claude_get_messages
                 ])
                 .menu(move |handle| menu::build(handle, &app_settings_for_menu))
                 .on_window_event(|window, event| match event {

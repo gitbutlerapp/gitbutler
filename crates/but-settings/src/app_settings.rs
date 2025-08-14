@@ -23,12 +23,6 @@ pub struct GitHubOAuthAppSettings {
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct FeatureFlags {
-    /// Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments).
-    #[serde(
-        default = "FeatureFlags::always_true",
-        deserialize_with = "FeatureFlags::deserialize_v3_true"
-    )]
-    pub v3: bool,
     /// Enable the usage of V3 workspace APIs.
     #[serde(default = "default_true")]
     pub ws3: bool,
@@ -53,23 +47,12 @@ pub struct FeatureFlags {
     pub butbot: bool,
     /// Enable processing of workspace rules.
     pub rules: bool,
+    /// Enable single branch mode.
+    pub single_branch: bool,
 }
 
 fn default_true() -> bool {
     true
-}
-
-impl FeatureFlags {
-    fn always_true() -> bool {
-        true
-    }
-
-    fn deserialize_v3_true<'de, D>(_deserializer: D) -> Result<bool, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Ok(true)
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

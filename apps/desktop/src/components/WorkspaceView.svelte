@@ -16,12 +16,13 @@
 		uncommittedFocusableId
 	} from '$lib/focus/focusManager.svelte';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { createWorktreeSelection } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE, type ExclusiveAction } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
-	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
 		projectId: string;
@@ -36,7 +37,8 @@
 	const settingsService = inject(SETTINGS_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 
-	const worktreeSelection = $derived(idSelection.getById({ type: 'worktree' }));
+	const selectionId = createWorktreeSelection({ stackId: undefined });
+	const worktreeSelection = $derived(idSelection.getById(selectionId));
 	const stacksResult = $derived(stackService.stacks(projectId));
 	const projectState = $derived(uiState.project(projectId));
 	const settingsStore = $derived(settingsService.appSettings);
@@ -51,13 +53,17 @@
 
 	const stackFocusables = $derived(
 		stacksResult.current?.data
-			? stacksResult.current.data.map((stack) => stackFocusableId(stack.id))
+			? stacksResult.current.data
+					.map((stack) => (stack.id ? stackFocusableId(stack.id) : undefined))
+					.filter(isDefined)
 			: []
 	);
 
 	const uncommittedFocusables = $derived(
 		stacksResult.current?.data
-			? stacksResult.current.data.map((stack) => uncommittedFocusableId(stack.id))
+			? stacksResult.current.data
+					.map((stack) => (stack.id ? uncommittedFocusableId(stack.id) : undefined))
+					.filter(isDefined)
 			: []
 	);
 
@@ -76,8 +82,6 @@
 	const focusedStackId = $derived(
 		focusGroup.current ? parseFocusableId(focusGroup.current) : undefined
 	);
-
-	const selectionId = { type: 'worktree', stackId: undefined } as SelectionId;
 
 	const lastAdded = $derived(worktreeSelection.lastAdded);
 	const previewOpen = $derived(!!$lastAdded?.key);

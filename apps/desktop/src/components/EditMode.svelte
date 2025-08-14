@@ -13,10 +13,11 @@
 	import { MODE_SERVICE, type EditModeMetadata } from '$lib/mode/modeService';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { createCommitSelection } from '$lib/selection/key';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 
 	import { Avatar, Badge, Button, FileListItem, InfoButton, Modal } from '@gitbutler/ui';
@@ -25,7 +26,6 @@
 	import { derived, fromStore, readable, toStore, type Readable } from 'svelte/store';
 	import type { FileInfo } from '$lib/files/file';
 	import type { TreeChange } from '$lib/hunks/change';
-	import type { SelectionId } from '$lib/selection/key';
 	import type { FileStatus } from '@gitbutler/ui/components/file/types';
 
 	type Props = {
@@ -42,6 +42,7 @@
 	const modeService = inject(MODE_SERVICE);
 	const userSettings = inject(SETTINGS);
 	const fileService = inject(FILE_SERVICE);
+	const urlService = inject(URL_SERVICE);
 
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;
@@ -208,7 +209,7 @@
 				schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
 				path: [vscodePath(projectPath), file.path]
 			});
-			openExternalUrl(path);
+			urlService.openExternalUrl(path);
 		}
 	}
 
@@ -323,7 +324,7 @@
 				{projectId}
 				trigger={filesList}
 				stackId={undefined}
-				selectionId={{ type: 'commit', commitId: editModeMetadata.commitOid } satisfies SelectionId}
+				selectionId={createCommitSelection({ commitId: editModeMetadata.commitOid })}
 				editMode={true}
 			/>
 		{/snippet}

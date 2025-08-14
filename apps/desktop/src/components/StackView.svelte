@@ -1,5 +1,4 @@
 <script lang="ts">
-	import AsyncRender from '$components/AsyncRender.svelte';
 	import BranchList from '$components/BranchList.svelte';
 	import BranchView from '$components/BranchView.svelte';
 	import ChangedFiles from '$components/ChangedFiles.svelte';
@@ -20,11 +19,15 @@
 		scrollingAttachment
 	} from '$lib/intelligentScrolling/service';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
-	import { readKey, type SelectionId } from '$lib/selection/key';
+	import {
+		createBranchSelection,
+		createCommitSelection,
+		createWorktreeSelection,
+		readKey,
+		type SelectionId
+	} from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
@@ -33,13 +36,14 @@
 
 	import { Button, FileViewHeader, Icon, TestId } from '@gitbutler/ui';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+	import { fly } from 'svelte/transition';
 	import type { Commit } from '$lib/branches/v3';
-	import type { Stack } from '$lib/stacks/stack';
 
 	type Props = {
 		projectId: string;
-		stack: Stack;
+		stackId?: string;
+		laneId: string;
+		topBranch?: string;
 		focusedStackId?: string;
 		onVisible: (visible: boolean) => void;
 		clientWidth?: number;
@@ -48,7 +52,9 @@
 
 	let {
 		projectId,
-		stack,
+		stackId,
+		laneId,
+		topBranch,
 		focusedStackId,
 		clientHeight = $bindable(),
 		clientWidth = $bindable(),
@@ -67,35 +73,34 @@
 	const projectState = $derived(uiState.project(projectId));
 
 	const action = $derived(projectState.exclusiveAction.current);
-	const isCommitting = $derived(action?.type === 'commit' && action.stackId === stack.id);
-
-	const userSettings = inject(SETTINGS);
-	const zoom = $derived($userSettings.zoom);
+	const isCommitting = $derived(action?.type === 'commit' && action.stackId === stackId);
 
 	// If the user is making a commit to a different lane we dim this one.
-	const dimmed = $derived(action?.type === 'commit' && action?.stackId !== stack.id);
+	const dimmed = $derived(action?.type === 'commit' && action?.stackId !== stackId);
 
+	// Get the default width from global state, but don't make it reactive during initialization
+	const defaultStackWidth = uiState.global.stackWidth.current;
 	const persistedStackWidth = persistWithExpiration(
-		uiState.global.stackWidth.current,
-		`ui-stack-width-${stack.id}`,
+		defaultStackWidth,
+		`ui-stack-width-${stackId}`,
 		1440
 	);
 
-	const branchesResult = $derived(stackService.branches(projectId, stack.id));
+	const branchesResult = $derived(stackService.branches(projectId, stackId));
 
 	let dropzoneActivated = $state(false);
 
-	const stackState = $derived(uiState.stack(stack.id));
-	const selection = $derived(stackState.selection);
+	const laneState = $derived(uiState.lane(laneId));
+	const selection = $derived(laneState.selection);
 	const assignedSelection = $derived(
-		idSelection.getById({
-			type: 'worktree',
-			stackId: stack.id
-		})
+		idSelection.getById(createWorktreeSelection({ stackId: stackId }))
 	);
 	const lastAddedAssigned = $derived(assignedSelection.lastAdded);
 	const assignedKey = $derived(
 		$lastAddedAssigned?.key ? readKey($lastAddedAssigned.key) : undefined
+	);
+	const assignedStackId = $derived(
+		assignedKey?.type === 'worktree' ? assignedKey.stackId : undefined
 	);
 
 	const commitId = $derived(selection.current?.commitId);
@@ -104,9 +109,9 @@
 
 	const activeSelectionId: SelectionId | undefined = $derived.by(() => {
 		if (commitId) {
-			return { type: 'commit', commitId, stackId: stack.id };
+			return createCommitSelection({ commitId, stackId: stackId });
 		} else if (branchName) {
-			return { type: 'branch', stackId: stack.id, branchName };
+			return createBranchSelection({ stackId: stackId, branchName });
 		}
 	});
 
@@ -123,31 +128,17 @@
 		previewKey ? idSelection.changeByKey(projectId, previewKey) : undefined
 	);
 
-	const changes = $derived(uncommittedService.changesByStackId(stack.id || null));
-
-	const unsetMaxHeight = '25%';
+	const changes = $derived(uncommittedService.changesByStackId(stackId || null));
 
 	let stackViewEl = $state<HTMLDivElement>();
 	let compactDiv = $state<HTMLDivElement>();
 
-	let verticalHeight = $state<number>(0);
-	let verticalHeightRem = $derived(pxToRem(verticalHeight, zoom));
-
-	let actualDetailsHeight = $state<number>(0);
-	let actualDetailsHeightRem = $derived(pxToRem(actualDetailsHeight, zoom));
-
-	let minChangedFilesHeight = $state(8);
-	let minPreviewHeight = $derived(previewChangeResult ? 7 : 0);
-
-	let maxChangedFilesHeight = $derived(
-		verticalHeightRem - actualDetailsHeightRem - minPreviewHeight
-	);
-
 	let changedFilesCollapsed = $state<boolean>();
 
-	const defaultBranchResult = $derived(stackService.defaultBranch(projectId, stack.id));
+	const defaultBranchResult = $derived(stackService.defaultBranch(projectId, stackId));
+	const defaultBranch = $derived(defaultBranchResult?.current.data);
 
-	// Resizer configuration constants
+	// Resizer configuration for stack panels and details view
 	const RESIZER_CONFIG = {
 		panel1: {
 			minWidth: 18,
@@ -165,11 +156,11 @@
 		projectState.exclusiveAction.set({
 			type: 'commit',
 			branchName,
-			stackId: stack.id
+			stackId: stackId
 		});
-		const stackAssignments = uncommittedService.getAssignmentsByStackId(stack.id);
-		if (stackAssignments.length > 0) {
-			uncommittedService.checkAll(stack.id);
+		const stackAssignments = stackId ? uncommittedService.getAssignmentsByStackId(stackId) : [];
+		if (stackId && stackAssignments.length > 0) {
+			uncommittedService.checkAll(stackId);
 			uncommittedService.uncheckAll(null);
 		} else {
 			uncommittedService.checkAll(null);
@@ -178,10 +169,10 @@
 
 	export function onclose() {
 		selection.set(undefined);
-		intelligentScrollingService.show(projectId, stack.id, 'stack');
+		intelligentScrollingService.show(projectId, laneId, 'stack');
 	}
 
-	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stack.id));
+	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stackId));
 
 	function onerror(err: unknown) {
 		// Clear selection if branch not found.
@@ -201,6 +192,34 @@
 		}
 		return undefined;
 	}
+
+	let isDetailsViewOpen = $derived(!!(branchName || commitId || assignedKey || selectedFile));
+	const DETAILS_RIGHT_PADDING_REM = 1.125;
+
+	// Function to update CSS custom property for details view width
+	function updateDetailsViewWidth(width: number) {
+		if (stackViewEl) {
+			stackViewEl.style.setProperty('--details-view-width', `${width}rem`);
+		}
+	}
+
+	// Set initial CSS custom properties when details view opens/closes
+	$effect(() => {
+		if (stackViewEl) {
+			if (isDetailsViewOpen) {
+				// Set default width if not already set or is zero
+				const currentWidth = stackViewEl.style.getPropertyValue('--details-view-width');
+				if (!currentWidth || currentWidth === '0rem') {
+					stackViewEl.style.setProperty(
+						'--details-view-width',
+						`${RESIZER_CONFIG.panel2.defaultValue}rem`
+					);
+				}
+			} else {
+				stackViewEl.style.setProperty('--details-view-width', '0rem');
+			}
+		}
+	});
 </script>
 
 <!-- ATTENTION -->
@@ -219,10 +238,10 @@
 		bottomBorder
 		testId={TestId.WorktreeSelectionView}
 		{projectId}
-		selectionId={{ ...assignedKey, type: 'worktree', stackId }}
+		selectionId={createWorktreeSelection({ stackId })}
 		onclose={() => {
-			idSelection.clear({ type: 'worktree', stackId: stack.id });
-			intelligentScrollingService.show(projectId, stack.id, 'stack');
+			idSelection.clear(createWorktreeSelection({ stackId: stackId }));
+			intelligentScrollingService.show(projectId, laneId, 'stack');
 		}}
 		draggableFiles
 	/>
@@ -235,7 +254,7 @@
 		{selectionId}
 		diffOnly={true}
 		onclose={() => {
-			intelligentScrollingService.show(projectId, stack.id, 'details');
+			intelligentScrollingService.show(projectId, laneId, 'details');
 		}}
 		draggableFiles={selectionId.type === 'commit'}
 	/>
@@ -243,15 +262,15 @@
 
 {#snippet branchView(branchName: string)}
 	<BranchView
-		stackId={stack.id}
+		{stackId}
+		{laneId}
 		{projectId}
 		{branchName}
 		active={selectedFile?.type === 'branch' &&
 			selectedFile.branchName === branchName &&
-			focusedStackId === stack.id}
+			focusedStackId === stackId}
 		scrollToType="details"
-		scrollToId={stack.id}
-		bind:clientHeight={actualDetailsHeight}
+		scrollToId={stackId}
 		{onerror}
 		{onclose}
 	/>
@@ -260,27 +279,27 @@
 {#snippet commitView(branchName: string, commitId: string)}
 	<CommitView
 		{projectId}
-		stackId={stack.id}
+		{stackId}
+		{laneId}
 		commitKey={{
-			stackId: stack.id,
+			stackId: stackId,
 			branchName,
 			commitId,
 			upstream: !!upstream
 		}}
 		draggableFiles
-		active={selectedFile?.type === 'commit' && focusedStackId === stack.id}
+		active={selectedFile?.type === 'commit' && focusedStackId === stackId}
 		scrollToType="details"
-		scrollToId={stack.id}
-		bind:clientHeight={actualDetailsHeight}
+		scrollToId={stackId}
 		{onerror}
 		{onclose}
 	/>
 {/snippet}
 
 {#snippet commitChangedFiles(commitId: string)}
-	{@const active = activeSelectionId?.type === 'commit' && focusedStackId === stack.id}
+	{@const active = activeSelectionId?.type === 'commit' && focusedStackId === stackId}
 	{@const changesResult = stackService.commitChanges(projectId, commitId)}
-	<ReduxResult {projectId} stackId={stack.id} result={changesResult.current}>
+	<ReduxResult {projectId} {stackId} result={changesResult.current}>
 		{#snippet children(changes, { projectId, stackId })}
 			{@const commitsResult = branchName
 				? stackService.commits(projectId, stackId, branchName)
@@ -289,11 +308,11 @@
 			{@const ancestorMostConflictedCommitId = getAncestorMostConflicted(commits)?.id}
 
 			<ChangedFiles
-				title="Changed Files"
+				title="Changed files"
 				{projectId}
 				{stackId}
 				draggableFiles
-				selectionId={{ type: 'commit', commitId, stackId: stack.id }}
+				selectionId={createCommitSelection({ commitId, stackId: stackId })}
 				noshrink={!!previewKey}
 				ontoggle={(collapsed) => {
 					changedFilesCollapsed = collapsed;
@@ -306,13 +325,11 @@
 				{ancestorMostConflictedCommitId}
 				{active}
 				resizer={{
-					persistId: `resizer-panel2-changed-files-${stack.id}`,
-					defaultValue: undefined,
-					maxHeight: maxChangedFilesHeight,
-					minHeight: minChangedFilesHeight,
-					passive: !previewKey,
-					order: 1,
-					unsetMaxHeight: previewKey ? unsetMaxHeight : undefined
+					persistId: `changed-files-${stackId}`,
+					direction: 'down',
+					minHeight: 8,
+					maxHeight: 32,
+					defaultValue: 16
 				}}
 				autoselect
 			/>
@@ -321,13 +338,13 @@
 {/snippet}
 
 {#snippet branchChangedFiles(branchName: string)}
-	{@const active = activeSelectionId?.type === 'branch' && focusedStackId === stack.id}
+	{@const active = activeSelectionId?.type === 'branch' && focusedStackId === stackId}
 	{@const changesResult = stackService.branchChanges({
 		projectId,
-		stackId: stack.id,
+		stackId: stackId,
 		branchName
 	})}
-	<ReduxResult {projectId} stackId={stack.id} result={changesResult.current}>
+	<ReduxResult {projectId} {stackId} result={changesResult.current}>
 		{#snippet children(changes, { projectId, stackId })}
 			<ChangedFiles
 				title="Combined Changes"
@@ -335,7 +352,7 @@
 				{stackId}
 				draggableFiles
 				autoselect
-				selectionId={{ type: 'branch', stackId: stack.id, branchName }}
+				selectionId={createBranchSelection({ stackId: stackId, branchName })}
 				noshrink={!!previewKey}
 				ontoggle={() => {
 					changedFilesCollapsed = !changedFilesCollapsed;
@@ -344,73 +361,59 @@
 				stats={changes.stats}
 				{active}
 				resizer={{
-					persistId: `resizer-panel2-changed-files-${stack.id}`,
-					defaultValue: undefined,
-					maxHeight: maxChangedFilesHeight,
-					minHeight: minChangedFilesHeight,
-					passive: !previewKey,
-					order: 1,
-					unsetMaxHeight: previewKey ? unsetMaxHeight : undefined
+					persistId: `changed-files-${stackId}`,
+					direction: 'down',
+					minHeight: 8,
+					maxHeight: 32,
+					defaultValue: 16
 				}}
 			></ChangedFiles>
 		{/snippet}
 	</ReduxResult>
 {/snippet}
 
-<AsyncRender>
-	<div
-		bind:clientWidth
-		bind:clientHeight
-		class="stack-view-wrapper"
-		role="presentation"
-		class:dimmed
-		tabindex="-1"
-		data-id={stack.id}
-		data-testid={TestId.Stack}
-		data-testid-stackid={stack.id}
-		data-testid-stack={stack.heads.at(0)?.name}
-		use:intersectionObserver={{
-			callback: (entry) => {
-				onVisible(!!entry?.isIntersecting);
-			},
-			options: {
-				threshold: 0.5,
-				root: lanesSrollableEl
-			}
-		}}
-		use:focusable={{
-			id: DefinedFocusable.Stack + ':' + stack.id,
-			parentId: DefinedFocusable.ViewportMiddle
-		}}
-	>
+<div
+	bind:clientWidth
+	bind:clientHeight
+	class="stack-view-wrapper"
+	role="presentation"
+	class:dimmed
+	tabindex="-1"
+	data-id={stackId}
+	data-testid={TestId.Stack}
+	data-testid-stackid={stackId}
+	data-testid-stack={topBranch}
+	use:intersectionObserver={{
+		callback: (entry) => {
+			onVisible(!!entry?.isIntersecting);
+		},
+		options: {
+			threshold: 0.5,
+			root: lanesSrollableEl
+		}
+	}}
+	use:focusable={{
+		id: DefinedFocusable.Stack + ':' + stackId,
+		parentId: DefinedFocusable.ViewportMiddle
+	}}
+>
+	{#if !isCommitting}
+		<div class="drag-handle" data-remove-from-panning data-drag-handle draggable="true">
+			<Icon name="draggable-narrow" rotate={90} noEvents />
+		</div>
+	{/if}
+
+	<ConfigurableScrollableContainer childrenWrapHeight="100%">
 		<div
 			class="stack-view"
-			style:width={$persistedStackWidth + 'rem'}
+			class:details-open={isDetailsViewOpen}
+			{@attach scrollingAttachment(intelligentScrollingService, stackId, 'stack')}
+			style:width="{$persistedStackWidth}rem"
 			bind:this={stackViewEl}
-			{@attach scrollingAttachment(intelligentScrollingService, stack.id, 'stack')}
 		>
-			{#if !isCommitting}
-				<div class="drag-handle" data-remove-from-panning data-drag-handle draggable="true">
-					<Icon name="draggable-narrow" rotate={90} noEvents />
-				</div>
-			{/if}
-			<Resizer
-				persistId="resizer-panel1-${stack.id}"
-				viewport={stackViewEl!}
-				zIndex="var(--z-lifted)"
-				direction="right"
-				minWidth={RESIZER_CONFIG.panel1.minWidth}
-				maxWidth={RESIZER_CONFIG.panel1.maxWidth}
-				defaultValue={RESIZER_CONFIG.panel1.defaultValue}
-				syncName="panel1"
-				imitateBorder
-			/>
-			<ReduxResult
-				{projectId}
-				result={combineResults(branchesResult.current, defaultBranchResult.current)}
-			>
-				{#snippet children([branches, defaultBranch])}
-					<ConfigurableScrollableContainer>
+			<ReduxResult {projectId} result={branchesResult.current}>
+				{#snippet children(branches)}
+					<div class="stack-v">
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
 						<div
 							class="assignments-wrap"
@@ -425,17 +428,17 @@
 								<WorktreeChanges
 									title="Assigned"
 									{projectId}
-									stackId={stack.id}
+									{stackId}
 									mode="assigned"
-									active={focusedStackId === stack.id}
+									active={focusedStackId === stackId}
 									dropzoneVisible={changes.current.length === 0 && !isCommitting}
 									onDropzoneActivated={(activated) => {
 										dropzoneActivated = activated;
 									}}
 									onselect={() => {
 										// Clear one selection when you modify the other.
-										stackState?.selection.set(undefined);
-										intelligentScrollingService.show(projectId, stack.id, 'diff');
+										laneState?.selection.set(undefined);
+										intelligentScrollingService.show(projectId, laneId, 'diff');
 									}}
 								>
 									{#snippet emptyPlaceholder()}
@@ -468,7 +471,7 @@
 										</Button>
 									</div>
 								{:else if isCommitting}
-									<NewCommitView {projectId} stackId={stack.id} />
+									<NewCommitView {projectId} {stackId} />
 								{/if}
 							{/if}
 						</div>
@@ -476,47 +479,74 @@
 						<BranchList
 							{projectId}
 							{branches}
-							stackId={stack.id}
+							{laneId}
+							{stackId}
 							{focusedStackId}
 							onselect={() => {
 								// Clear one selection when you modify the other.
-								idSelection.clear({ type: 'worktree', stackId: stack.id });
-								intelligentScrollingService.show(projectId, stack.id, 'details');
+								idSelection.clear({ type: 'worktree', stackId: stackId });
+								intelligentScrollingService.show(projectId, laneId, 'details');
 							}}
 						/>
-					</ConfigurableScrollableContainer>
+					</div>
+
+					<!-- RESIZE PANEL 1 -->
+					<Resizer
+						persistId="resizer-panel1-${stackId}"
+						viewport={stackViewEl!}
+						zIndex="var(--z-lifted)"
+						direction="right"
+						minWidth={RESIZER_CONFIG.panel1.minWidth}
+						maxWidth={RESIZER_CONFIG.panel1.maxWidth}
+						defaultValue={RESIZER_CONFIG.panel1.defaultValue}
+						syncName="panel1"
+						onWidth={(newWidth) => {
+							// Update the persisted stack width when panel1 resizer changes
+							persistedStackWidth.set(newWidth);
+						}}
+					/>
 				{/snippet}
 			</ReduxResult>
 		</div>
+	</ConfigurableScrollableContainer>
 
-		{#if commitId || branchName || assignedKey || selectedFile}
-			<div
-				class="combined-view"
-				bind:this={compactDiv}
-				bind:clientHeight={verticalHeight}
-				data-remove-from-draggable
-				data-details={stack.id}
-			>
-				{#if branchName && commitId}
-					{@render commitView(branchName, commitId)}
-					{@render commitChangedFiles(commitId)}
-				{:else if branchName}
-					{@render branchView(branchName)}
-					{@render branchChangedFiles(branchName)}
-				{/if}
+	<!-- PREVIEW -->
+	{#if isDetailsViewOpen}
+		<div
+			in:fly={{ y: 20, duration: 200 }}
+			class="details-view"
+			bind:this={compactDiv}
+			data-details={stackId}
+			style:right="{DETAILS_RIGHT_PADDING_REM}rem"
+		>
+			<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
+			{#if branchName && commitId}
+				{@render commitView(branchName, commitId)}
+			{:else if branchName}
+				{@render branchView(branchName)}
+			{/if}
 
-				{#if assignedKey || selectedFile}
-					<ReduxResult {projectId} result={previewChangeResult?.current}>
-						{#snippet children(previewChange)}
-							{@const diffResult = diffService.getDiff(projectId, previewChange)}
-							{@const diffData = diffResult.current.data}
+			<!-- MIDDLE SECTION: Changed Files (with resizer) -->
+			{#if branchName && commitId}
+				{@render commitChangedFiles(commitId)}
+			{:else if branchName}
+				{@render branchChangedFiles(branchName)}
+			{/if}
 
-							{#if assignedKey?.type === 'worktree' && assignedKey.stackId}
+			<!-- BOTTOM SECTION: File Preview (no resizer) -->
+			{#if assignedStackId || selectedFile}
+				<ReduxResult {projectId} result={previewChangeResult?.current}>
+					{#snippet children(previewChange)}
+						{@const diffResult = diffService.getDiff(projectId, previewChange)}
+						{@const diffData = diffResult.current.data}
+
+						<div class="file-preview-section">
+							{#if assignedStackId}
 								<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
-									{@render assignedChangePreview(assignedKey.stackId)}
+									{@render assignedChangePreview(assignedStackId)}
 								</ConfigurableScrollableContainer>
 							{:else if selectedFile}
-								<Drawer bottomBorder>
+								<Drawer>
 									{#snippet header()}
 										<FileViewHeader
 											noPaddings
@@ -534,25 +564,25 @@
 									{@render otherChangePreview(selectedFile)}
 								</Drawer>
 							{/if}
-						{/snippet}
-					</ReduxResult>
-				{/if}
+						</div>
+					{/snippet}
+				</ReduxResult>
+			{/if}
+		</div>
 
-				<!-- The id of this resizer is intentionally the same as in default view. -->
-				<Resizer
-					viewport={compactDiv}
-					persistId="resizer-panel2-${stack.id}"
-					direction="right"
-					minWidth={RESIZER_CONFIG.panel2.minWidth}
-					maxWidth={RESIZER_CONFIG.panel2.maxWidth}
-					defaultValue={RESIZER_CONFIG.panel2.defaultValue}
-					syncName="panel2"
-					imitateBorder
-				/>
-			</div>
-		{/if}
-	</div>
-</AsyncRender>
+		<!-- DETAILS VIEW WIDTH RESIZER - Only show when details view is open -->
+		<Resizer
+			viewport={compactDiv!}
+			persistId="resizer-panel2-${stackId}"
+			direction="right"
+			minWidth={RESIZER_CONFIG.panel2.minWidth}
+			maxWidth={RESIZER_CONFIG.panel2.maxWidth}
+			defaultValue={RESIZER_CONFIG.panel2.defaultValue}
+			syncName="panel2"
+			onWidth={updateDetailsViewWidth}
+		/>
+	{/if}
+</div>
 
 <style lang="postcss">
 	.stack-view-wrapper {
@@ -561,6 +591,7 @@
 		flex-shrink: 0;
 		height: 100%;
 		overflow: hidden;
+		border-right: 1px solid var(--clr-border-2);
 		transition: opacity 0.15s;
 
 		&.dimmed {
@@ -573,8 +604,16 @@
 		position: relative;
 		flex-shrink: 0;
 		flex-direction: column;
+		height: 100%;
+		padding: 0 12px;
+
+		/* Use CSS custom properties for details view width to avoid ResizeObserver errors */
+		--details-view-width: 0rem;
 	}
 
+	.stack-view.details-open {
+		margin-right: calc(var(--details-view-width) + 1.125rem);
+	}
 	.dimmed .stack-view {
 		pointer-events: none;
 	}
@@ -593,8 +632,7 @@
 		display: flex;
 		flex-shrink: 0;
 		flex-direction: column;
-		margin: 12px;
-		margin-bottom: 0;
+		margin-top: 12px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
@@ -623,13 +661,32 @@
 		}
 	}
 
-	.combined-view {
+	.details-view {
 		display: flex;
-		position: relative;
+		z-index: var(--z-ground);
+		position: absolute;
+		top: 12px;
 		flex-shrink: 0;
 		flex-direction: column;
-		height: 100%;
-		white-space: wrap;
+		max-height: calc(100% - 24px);
+		margin-right: 2px;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
+		box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
+	}
+
+	:global(.dark) .details-view {
+		box-shadow: 0 10px 50px 5px color(srgb 0 0 0 / 0.5);
+	}
+
+	.file-preview-section {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		min-height: 0; /* Allow shrinking */
+		overflow: hidden;
 	}
 
 	.start-commit {

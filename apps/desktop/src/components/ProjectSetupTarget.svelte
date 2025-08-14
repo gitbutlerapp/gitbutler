@@ -4,8 +4,8 @@
 	import Login from '$components/Login.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import SetupFeature from '$components/SetupFeature.svelte';
+	import { BACKEND } from '$lib/backend';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { platformName } from '$lib/platform/platform';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { unique } from '$lib/utils/array';
@@ -23,6 +23,7 @@
 
 	const { projectId, projectName, remoteBranches, onBranchSelected }: Props = $props();
 
+	const backend = inject(BACKEND);
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 
@@ -248,7 +249,7 @@
 			testId={TestId.ProjectSetupPageTargetContinueButton}
 			id="set-base-branch"
 		>
-			{#if platformName === 'windows'}
+			{#if backend.platformName === 'windows'}
 				Let's go
 			{:else}
 				Continue

@@ -19,6 +19,7 @@
 		Textbox
 	} from '@gitbutler/ui';
 	import { slugify } from '@gitbutler/ui/utils/string';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	type Props = {
 		el?: HTMLButtonElement;
@@ -46,13 +47,16 @@
 
 	// Create options for the selector (stack represented by first branch name)
 	const stackOptions = $derived(
-		allStacks.map((stack) => {
-			const firstBranchName = stack.heads[0]?.name ?? `Stack ${stack.id.slice(0, 8)}`;
-			return {
-				label: firstBranchName,
-				value: stack.id
-			};
-		})
+		allStacks
+			.map((stack) => {
+				if (!stack.id) return;
+				const firstBranchName = stack.heads[0]?.name ?? `Stack ${stack?.id.slice(0, 8)}`;
+				return {
+					label: firstBranchName,
+					value: stack.id
+				};
+			})
+			.filter(isDefined)
 	);
 
 	// Set default selected stack and handle if current selected stack is no longer available

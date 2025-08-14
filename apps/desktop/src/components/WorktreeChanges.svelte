@@ -9,6 +9,7 @@
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { createWorktreeSelection } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -55,6 +56,9 @@
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(ID_SELECTION);
 
+	// Create selectionId for this worktree lane
+	const selectionId = $derived(createWorktreeSelection({ stackId }));
+
 	const uncommitDzHandler = $derived(
 		new UncommitDzHandler(projectId, stackService, uiState, stackId)
 	);
@@ -97,7 +101,7 @@
 	<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
 		<FileList
 			draggableFiles
-			selectionId={{ type: 'worktree', stackId }}
+			{selectionId}
 			showCheckboxes={isCommitting}
 			changes={changes.current}
 			{projectId}
@@ -182,7 +186,7 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
-		height: 42px;
+		min-height: 42px;
 		padding: 0 10px 0 14px;
 		gap: 6px;
 		border-bottom: 1px solid var(--clr-border-2);

@@ -23,7 +23,7 @@
 
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { platformName } from '$lib/platform/platform';
+	import { BACKEND } from '$lib/backend';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, Icon } from '@gitbutler/ui';
@@ -54,12 +54,13 @@
 	}: Props = $props();
 
 	const userService = inject(USER_SERVICE);
+	const backend = inject(BACKEND);
 
 	const user = userService.user;
 	const shownId = $derived(selectedId || pages[0]!.id);
 	const shownPage = $derived(selectedId ? pages.find((p) => p.id === shownId) : pages[0]);
 
-	const isWithExtraSpace = $derived(platformName === 'macos' && isFullPage);
+	const isWithExtraSpace = $derived(backend.platformName === 'macos' && isFullPage);
 </script>
 
 <div class="settings-wrap" class:chrome-page={!isFullPage}>

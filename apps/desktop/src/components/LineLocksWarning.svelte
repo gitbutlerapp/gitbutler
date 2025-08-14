@@ -21,7 +21,9 @@
 
 <ReduxResult result={stacksResult.current} {projectId}>
 	{#snippet children(stacks)}
-		{@const lockedToStacks = stacks.filter((stack) => lockedToStackIds.includes(stack.id))}
+		{@const lockedToStacks = stacks.filter(
+			(stack) => stack.id && lockedToStackIds.includes(stack.id)
+		)}
 		{@const stackNames = lockedToStacks.map(getStackName)}
 		<div data-testid={TestId.UnifiedDiffViewLockWarning}>
 			{#if stackNames.length > 1}

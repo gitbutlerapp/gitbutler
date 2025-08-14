@@ -5,6 +5,7 @@
 	import Drawer from '$components/Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
+	import { createCommitSelection } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
@@ -44,7 +45,7 @@
 					autoselect
 					grow
 					{projectId}
-					selectionId={{ type: 'commit', commitId }}
+					selectionId={createCommitSelection({ commitId })}
 					changes={changes.changes}
 				/>
 			{/snippet}

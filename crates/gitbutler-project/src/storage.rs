@@ -24,6 +24,7 @@ pub struct UpdateRequest {
     pub gitbutler_data_last_fetched: Option<FetchResult>,
     pub preferred_key: Option<AuthKey>,
     pub ok_with_force_push: Option<bool>,
+    pub force_push_protection: Option<bool>,
     pub gitbutler_code_push_state: Option<CodePushState>,
     pub project_data_last_fetched: Option<FetchResult>,
     pub omit_certificate_check: Option<bool>,
@@ -62,7 +63,7 @@ impl Storage {
                     })
                     .collect();
 
-                all_projects.sort_by(|a, b| a.title.cmp(&b.title));
+                all_projects.sort_by_key(|p| p.title.to_lowercase());
                 Ok(all_projects)
             }
             None => Ok(vec![]),
@@ -134,6 +135,10 @@ impl Storage {
 
         if let Some(ok_with_force_push) = update_request.ok_with_force_push {
             *project.ok_with_force_push = ok_with_force_push;
+        }
+
+        if let Some(force_push_protection) = update_request.force_push_protection {
+            project.force_push_protection = force_push_protection;
         }
 
         if let Some(omit_certificate_check) = update_request.omit_certificate_check {

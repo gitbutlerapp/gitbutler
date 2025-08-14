@@ -73,7 +73,7 @@
 	});
 </script>
 
-<Drawer {grow} {ontoggle} {resizer} {noshrink}>
+<Drawer {grow} {ontoggle} {resizer} {noshrink} bottomBorder={changes.length > 0}>
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">{title}</h4>
 		<div class="text-11 header-stats">
@@ -99,6 +99,7 @@
 				{conflictEntries}
 				{draggableFiles}
 				{ancestorMostConflictedCommitId}
+				hideLastFileBorder={false}
 				onselect={() => {
 					if (stackId) {
 						intelligentScrollingService.show(projectId, stackId, 'diff');
@@ -125,6 +126,7 @@
 	.filelist-wrapper {
 		display: flex;
 		flex-direction: column;
+		margin-bottom: 16px;
 		background-color: var(--clr-bg-1);
 
 		&.bottom-border {

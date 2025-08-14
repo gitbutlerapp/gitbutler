@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, ircServer, codegenEnabled } from '$lib/config/uiFeatureFlags';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
 	import { SectionCard, Spacer, Textbox, Toggle } from '@gitbutler/ui';
@@ -90,6 +90,46 @@
 				{/snippet}
 			</SectionCard>
 		{/if}
+
+		<SectionCard
+			labelFor="single-branch"
+			roundedTop={false}
+			roundedBottom={false}
+			orientation="row"
+		>
+			{#snippet title()}
+				Single-branch mode
+			{/snippet}
+			{#snippet caption()}
+				Stay in the workspace view when leaving the gitbutler/workspace branch.
+			{/snippet}
+			{#snippet actions()}
+				<Toggle
+					id="rules"
+					checked={$settingsStore?.featureFlags.singleBranch}
+					onclick={() =>
+						settingsService.updateFeatureFlags({
+							singleBranch: !$settingsStore?.featureFlags.singleBranch
+						})}
+				/>
+			{/snippet}
+		</SectionCard>
+
+		<SectionCard labelFor="codegen" roundedTop={false} roundedBottom={false} orientation="row">
+			{#snippet title()}
+				Codegen (Claude Code)
+			{/snippet}
+			{#snippet caption()}
+				Enable AI-powered code generation and editing with Claude.
+			{/snippet}
+			{#snippet actions()}
+				<Toggle
+					id="codegen"
+					checked={$codegenEnabled}
+					onclick={() => ($codegenEnabled = !$codegenEnabled)}
+				/>
+			{/snippet}
+		</SectionCard>
 
 		<SectionCard labelFor="irc" roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
 			{#snippet title()}

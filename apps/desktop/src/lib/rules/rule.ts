@@ -33,7 +33,9 @@ export interface WorkspaceRule {
  */
 export type Trigger =
 	/** When a file is added, removed or modified in the Git worktree. */
-	'fileSytemChange';
+	| 'fileSytemChange'
+	/** Whenever a Claude Code hook is invoked. */
+	| 'claudeCodeHook';
 
 /**
  * A filter is a condition that determines what files or changes the rule applies to.
@@ -43,14 +45,16 @@ export type RuleFilter =
 	| { type: 'pathMatchesRegex'; subject: string } // regex patterns as strings
 	| { type: 'contentMatchesRegex'; subject: string } // regex patterns as strings
 	| { type: 'fileChangeType'; subject: FileStatus }
-	| { type: 'semanticType'; subject: SemanticTypeFilter };
+	| { type: 'semanticType'; subject: SemanticTypeFilter }
+	| { type: 'claudeCodeSessionId'; subject: string };
 
 export type RuleFilterType = RuleFilter['type'];
 export const RULE_FILTER_TYPES = [
 	'pathMatchesRegex',
 	'contentMatchesRegex',
 	'fileChangeType',
-	'semanticType'
+	'semanticType',
+	'claudeCodeSessionId'
 ] satisfies RuleFilterType[];
 
 export type RuleFilterMap = {
@@ -70,7 +74,8 @@ export function getFilterCountMap(rules: WorkspaceRule[]): FilterCountMap {
 		pathMatchesRegexCount: 0,
 		contentMatchesRegexCount: 0,
 		fileChangeTypeCount: 0,
-		semanticTypeCount: 0
+		semanticTypeCount: 0,
+		claudeCodeSessionIdCount: 0
 	};
 
 	for (const rule of rules) {

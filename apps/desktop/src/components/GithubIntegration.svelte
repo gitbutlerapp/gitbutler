@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { writeClipboard } from '$lib/backend/clipboard';
+	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 
 	import { Button, Icon, Modal, SectionCard, chipToasts as toasts } from '@gitbutler/ui';
@@ -18,6 +18,8 @@
 	const githubUserService = inject(GITHUB_USER_SERVICE);
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;
+	const urlService = inject(URL_SERVICE);
+	const clipboardService = inject(CLIPBOARD_SERVICE);
 
 	// step flags
 	let codeCopied = $state(false);
@@ -138,7 +140,7 @@
 						icon="copy"
 						disabled={codeCopied}
 						onclick={() => {
-							writeClipboard(userCode);
+							clipboardService.write(userCode);
 							codeCopied = true;
 						}}
 					>
@@ -160,7 +162,7 @@
 						disabled={GhActivationLinkPressed}
 						icon="open-link"
 						onclick={() => {
-							openExternalUrl('https://github.com/login/device');
+							urlService.openExternalUrl('https://github.com/login/device');
 							GhActivationLinkPressed = true;
 
 							// add timeout to prevent show the check button before the page is opened

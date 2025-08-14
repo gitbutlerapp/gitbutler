@@ -19,7 +19,7 @@ jobs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -48,7 +48,7 @@ jobs:
     if: ${{ needs.changes.outputs.node == 'false' &&  needs.changes.outputs.docs == 'true'}}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/init-env-node
       - run: pnpm prettier
 
@@ -57,7 +57,7 @@ jobs:
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/init-env-node
       - run: pnpm lint
 
@@ -66,7 +66,7 @@ jobs:
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/init-env-node
       - run: pnpm check
 
@@ -75,7 +75,7 @@ jobs:
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/init-env-node
       - run: pnpm test
 
@@ -88,7 +88,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: cargo fmt --check --all
       - run: cargo check --workspace --all-targets
 
@@ -101,7 +101,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # TODO(qix-): we have to exclude the app here for now because for some
       # TODO(qix-): reason it doesn't build with the docs feature enabled.
       - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
@@ -113,7 +113,7 @@ jobs:
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: EmbarkStudios/cargo-deny-action@30f817c6f72275c6d54dc744fbca09ebc958599f # v2.0.12
         with:
           command: check bans licenses sources
@@ -128,7 +128,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.0
         with:
@@ -185,7 +185,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.0
         with:

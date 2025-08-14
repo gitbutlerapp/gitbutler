@@ -19,7 +19,7 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import { ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from '@gitbutler/ui';
 	import type { TreeChange } from '$lib/hunks/change';
@@ -50,6 +50,7 @@
 	const stackService = inject(STACK_SERVICE);
 	const ircService = inject(IRC_SERVICE);
 	const projectService = inject(PROJECTS_SERVICE);
+	const urlService = inject(URL_SERVICE);
 
 	const userSettings = inject(SETTINGS);
 	const ircChats = $derived(ircService.getChats());
@@ -174,7 +175,7 @@
 									path: [vscodePath(project.path), filePath],
 									line: item.beforeLineNumber ?? item.afterLineNumber
 								});
-								openExternalUrl(path);
+								urlService.openExternalUrl(path);
 							}
 							contextMenu?.close();
 						}}

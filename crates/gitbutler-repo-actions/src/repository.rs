@@ -22,7 +22,7 @@ pub trait RepoActionsExt {
         head: git2::Oid,
         branch: &RemoteRefname,
         with_force: bool,
-        force_if_includes: bool,
+        force_push_protection: bool,
         refspec: Option<String>,
         askpass_broker: Option<Option<StackId>>,
     ) -> Result<()>;
@@ -160,16 +160,12 @@ impl RepoActionsExt for CommandContext {
         head: git2::Oid,
         branch: &RemoteRefname,
         with_force: bool,
-        force_if_includes: bool,
+        force_push_protection: bool,
         refspec: Option<String>,
         askpass_broker: Option<Option<StackId>>,
     ) -> Result<()> {
         let refspec = refspec.unwrap_or_else(|| {
-            if with_force {
-                format!("+{}:refs/heads/{}", head, branch.branch())
-            } else {
-                format!("{}:refs/heads/{}", head, branch.branch())
-            }
+            format!("{}:refs/heads/{}", head, branch.branch()) // for force pushing we previously had "+{}:refs/heads/{}" which was removed because it bypasses the force push protection flags as it is equivalent to --force
         });
 
         // NOTE(qix-): This is a nasty hack, however the codebase isn't structured
@@ -189,14 +185,22 @@ impl RepoActionsExt for CommandContext {
                         &remote,
                         gitbutler_git::RefSpec::parse(refspec).unwrap(),
                         with_force,
-                        force_if_includes,
+                        force_push_protection,
                         handle_git_prompt_push,
                         askpass_broker,
                     ))
             })
             .join()
             .unwrap()
-            .map_err(Into::into);
+            .map_err(|err| {
+                match err {
+                    gitbutler_git::Error::ForcePushProtection(_) => {
+                        anyhow!("The force push was blocked because the remote branch contains commits that would be overwritten")
+                            .context(Code::GitForcePushProtection)
+                    },
+                    _ => err.into()
+                }
+            });
         }
 
         let auth_flows = credentials::help(self, branch.remote())?;

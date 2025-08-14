@@ -1,7 +1,5 @@
 // TODO: Refactor this enum into an object conataining invalidation rules.
 export enum ReduxTag {
-	InitalEditListing = 'InitialEditListing',
-	EditChangesSinceInitial = 'EditChangesSinceInitial',
 	HeadMetadata = 'HeadMetadata',
 	Diff = 'Diff',
 	Stacks = 'Stacks',
@@ -24,7 +22,11 @@ export enum ReduxTag {
 	BranchDetails = 'BranchDetails',
 	SnapshotDiff = 'SnapshotDiff',
 	WorkspaceRules = 'WorkspaceRules',
-	Project = 'Project'
+	Project = 'Project',
+	ClaudeCodeTranscript = 'ClaudeCodeTranscript',
+	ClaudeSessionDetails = 'ClaudeSessionDetails',
+	InitalEditListing = 'InitialEditListing',
+	EditChangesSinceInitial = 'EditChangesSinceInitial'
 }
 
 type Tag<T extends string | number> = {

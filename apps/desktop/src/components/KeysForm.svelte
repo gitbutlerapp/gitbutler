@@ -92,7 +92,6 @@
 					Configure the authentication flow for GitButler when authenticating with your Git remote
 					provider.
 				{/snippet}
-				ProjectSetupGitAuth
 				<form
 					class="git-radio"
 					class:disabled

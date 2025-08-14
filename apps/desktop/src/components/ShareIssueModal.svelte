@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { invoke } from '$lib/backend/ipc';
+	import { BACKEND } from '$lib/backend';
+	import { FILE_SERVICE } from '$lib/files/fileService';
+	import { GIT_SERVICE } from '$lib/git/gitService';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
-	import * as zip from '$lib/support/dataSharing';
+	import { DATA_SHARING_SERVICE } from '$lib/support/dataSharing';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
 	import { HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 
 	import { Button, Checkbox, Modal, Textarea, Textbox, chipToasts } from '@gitbutler/ui';
-	import { getVersion } from '@tauri-apps/api/app';
 
 	type Feedback = {
 		id: number;
@@ -21,16 +22,18 @@
 
 	const shortcutService = inject(SHORTCUT_SERVICE);
 	const httpClient = inject(HTTP_CLIENT);
+	const fileService = inject(FILE_SERVICE);
+	const dataSharingService = inject(DATA_SHARING_SERVICE);
+	const gitService = inject(GIT_SERVICE);
 	const user = inject(USER);
+	const backend = inject(BACKEND);
 
 	export function show() {
 		modal?.show();
 	}
 
 	async function gitIndexLength() {
-		return await invoke<void>('git_index_size', {
-			projectId: projectId
-		});
+		return await gitService.indexSize(projectId);
 	}
 
 	let modal: ReturnType<typeof Modal> | undefined = $state();
@@ -49,9 +52,8 @@
 	}
 
 	async function readZipFile(path: string, filename?: string): Promise<File | Blob> {
-		const { readFile } = await import('@tauri-apps/plugin-fs');
 		// Using `new Uint8Array` to get an `ArrayBuffer` rather than `ArrayBufferLike`.
-		const file = new Uint8Array(await readFile(path));
+		const file = new Uint8Array(await fileService.readFile(path));
 		const fileName = filename ?? path.split('/').pop();
 		return fileName
 			? new File([file], fileName, { type: 'application/zip' })
@@ -64,7 +66,8 @@
 
 		// put together context information to send with the feedback
 		let context = '';
-		const appVersion = await getVersion();
+		const appInfo = await backend.getAppInfo();
+		const appVersion = appInfo.version;
 		const indexLength = await gitIndexLength();
 		context += 'GitButler Version: ' + appVersion + '\n';
 		context += 'Browser: ' + navigator.userAgent + '\n';
@@ -73,10 +76,12 @@
 
 		chipToasts.promise(
 			Promise.all([
-				sendLogs ? zip.logs().then(async (path) => await readZipFile(path, 'logs.zip')) : undefined,
+				sendLogs
+					? dataSharingService.logs().then(async (path) => await readZipFile(path, 'logs.zip'))
+					: undefined,
 				sendProjectRepository
-					? zip
-							.projectData({ projectId })
+					? dataSharingService
+							.projectData(projectId)
 							.then(async (path) => await readZipFile(path, 'project.zip'))
 					: undefined
 			]).then(

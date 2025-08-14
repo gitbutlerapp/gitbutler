@@ -112,12 +112,12 @@ export class UiState {
 	private state = $state.raw<EntityState<UiStateVariable, string>>(uiStateSlice.getInitialState());
 
 	private scopesCache = {
-		stacks: {} as Record<string, GlobalStore<any>>,
+		lanes: {} as Record<string, GlobalStore<any>>,
 		projects: {} as Record<string, GlobalStore<any>>
 	};
 
 	/** Properties scoped to a specific stack. */
-	readonly stack = this.buildScopedProps<StackState>(this.scopesCache.stacks, {
+	readonly lane = this.buildScopedProps<StackState>(this.scopesCache.lanes, {
 		selection: undefined,
 		newCommitMessage: { title: '', description: '' }
 	});
@@ -366,8 +366,8 @@ export function updateStaleProjectState(
 }
 
 function updateStackSelection(uiState: UiState, stackId: string, details: StackDetails): void {
-	const stackState = uiState.stack(stackId);
-	const selection = stackState.selection.current;
+	const laneState = uiState.lane(stackId);
+	const selection = laneState.selection.current;
 	const branches = details.branchDetails.map((branch) => branch.name);
 
 	// If no selection, do nothing
@@ -375,7 +375,7 @@ function updateStackSelection(uiState: UiState, stackId: string, details: StackD
 
 	// Clear selection if the selected branch is not in the list of branches
 	if (!branches.includes(selection.branchName)) {
-		stackState.selection.set(undefined);
+		laneState.selection.set(undefined);
 		return;
 	}
 
@@ -395,7 +395,7 @@ function updateStackSelection(uiState: UiState, stackId: string, details: StackD
 
 	// If the selected commit is not in the branch, clear the commit selection
 	if (!selection.upstream && !branchCommitIds.includes(selection.commitId)) {
-		stackState.selection.set({
+		laneState.selection.set({
 			branchName: selection.branchName
 		});
 
@@ -407,7 +407,7 @@ function updateStackSelection(uiState: UiState, stackId: string, details: StackD
 
 	// If the selection is for an upstream commit and the commit is not in the upstream commits, clear the selection
 	if (selection.upstream && !upstreamCommitIds.includes(selection.commitId)) {
-		stackState.selection.set({
+		laneState.selection.set({
 			branchName: selection.branchName
 		});
 

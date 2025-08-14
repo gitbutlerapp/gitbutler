@@ -3,7 +3,7 @@
 	import Login from '$components/Login.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import CliSymLink from '$components/profileSettings/CliSymLink.svelte';
-	import { invoke } from '$lib/backend/ipc';
+	import { CLI_MANAGER } from '$lib/cli/cli';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -33,6 +33,9 @@
 
 	const updaterService = inject(UPDATER_SERVICE);
 	const disableAutoChecks = updaterService.disableAutoChecks;
+
+	const cliManager = inject(CLI_MANAGER);
+	const [instalCLI, installingCLI] = cliManager.install;
 
 	const fileTypes = ['image/jpeg', 'image/png'];
 
@@ -235,7 +238,12 @@
 
 	<div class="flex flex-col gap-16">
 		<div class="flex gap-8 justify-end">
-			<Button style="pop" icon="play" onclick={async () => await invoke('install_cli')}
+			<Button
+				style="pop"
+				icon="play"
+				onclick={async () => await instalCLI()}
+				loading={installingCLI.current.isLoading}
+			>
 				>Install But CLI</Button
 			>
 			<Button

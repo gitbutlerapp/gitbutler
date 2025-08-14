@@ -1,7 +1,7 @@
 import { ConflictEntries, type ConflictEntriesObj } from '$lib/files/conflicts';
 import { sortLikeFileTree } from '$lib/files/filetreeV3';
 import { showToast } from '$lib/notifications/toasts';
-import { hasTauriExtra } from '$lib/state/backendQuery';
+import { hasBackendExtra } from '$lib/state/backendQuery';
 import { ClientState, type BackendApi } from '$lib/state/clientState.svelte';
 import { createSelectByIds, createSelectNth } from '$lib/state/customSelectors';
 import {
@@ -33,8 +33,7 @@ import type { CommitKey } from '$lib/commits/commit';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges, TreeStats } from '$lib/hunks/change';
 import type { DiffSpec } from '$lib/hunks/hunk';
-import type { BranchDetails, Stack, StackOpt, StackDetails } from '$lib/stacks/stack';
-import type { PropertiesFn } from '$lib/state/customHooks.svelte';
+import type { BranchDetails, Stack, StackDetails, CreateRefRequest } from '$lib/stacks/stack';
 import type { ReduxError } from '$lib/state/reduxError';
 
 type BranchParams = {
@@ -69,7 +68,8 @@ const ERROR_INFO: Record<StackAction, StackErrorInfo> = {
 	push: {
 		title: 'Git push failed',
 		codeInfo: {
-			['errors.git.authentication']: 'an authentication failure'
+			['errors.git.authentication']: 'an authentication failure',
+			['errors.git.force_push_protection']: 'force push protection'
 		},
 		defaultInfo: 'an unforeseen error'
 	}
@@ -80,6 +80,10 @@ function surfaceStackError(action: StackAction, errorCode: string, errorMessage:
 	const title = ERROR_INFO[action].title;
 	switch (action) {
 		case 'push': {
+			if (errorCode === 'errors.git.force_push_protection') {
+				return false;
+			}
+
 			showToast({
 				title,
 				message: `
@@ -212,7 +216,8 @@ export class StackService {
 		);
 	}
 
-	defaultBranch(projectId: string, stackId: string) {
+	defaultBranch(projectId: string, stackId?: string) {
+		if (!stackId) return null;
 		return this.api.endpoints.stacks.useQuery(
 			{ projectId },
 			{
@@ -228,7 +233,7 @@ export class StackService {
 		);
 	}
 
-	branchDetails(projectId: string, stackId: string, branchName?: string) {
+	branchDetails(projectId: string, stackId: string | undefined, branchName?: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -257,7 +262,7 @@ export class StackService {
 		return this.api.endpoints.updateStackOrder.mutate;
 	}
 
-	branches(projectId: string, stackId: string) {
+	branches(projectId: string, stackId?: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -266,7 +271,7 @@ export class StackService {
 		);
 	}
 
-	branchAt(projectId: string, stackId: string, index: number) {
+	branchAt(projectId: string, stackId: string | undefined, index: number) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -276,7 +281,7 @@ export class StackService {
 	}
 
 	/** Returns the parent of the branch specified by the provided name */
-	branchParentByName(projectId: string, stackId: string, name: string) {
+	branchParentByName(projectId: string, stackId: string | undefined, name: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -294,7 +299,7 @@ export class StackService {
 		);
 	}
 	/** Returns the child of the branch specified by the provided name */
-	branchChildByName(projectId: string, stackId: string, name: string) {
+	branchChildByName(projectId: string, stackId: string | undefined, name: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -312,14 +317,14 @@ export class StackService {
 		);
 	}
 
-	branchByName(projectId: string, stackId: string, name: string) {
+	branchByName(projectId: string, stackId: string | undefined, name: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{ transform: ({ branchDetails }) => branchDetailsSelectors.selectById(branchDetails, name) }
 		);
 	}
 
-	commits(projectId: string, stackId: string, branchName: string) {
+	commits(projectId: string, stackId: string | undefined, branchName: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -329,7 +334,7 @@ export class StackService {
 		);
 	}
 
-	fetchCommits(projectId: string, stackId: string, branchName: string) {
+	fetchCommits(projectId: string, stackId: string | undefined, branchName: string) {
 		return this.api.endpoints.stackDetails.fetch(
 			{ projectId, stackId },
 			{
@@ -357,7 +362,7 @@ export class StackService {
 		);
 	}
 
-	commitAt(projectId: string, stackId: string, branchName: string, index: number) {
+	commitAt(projectId: string, stackId: string | undefined, branchName: string, index: number) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -386,7 +391,7 @@ export class StackService {
 		);
 	}
 
-	upstreamCommits(projectId: string, stackId: string, branchName: string) {
+	upstreamCommits(projectId: string, stackId: string | undefined, branchName: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
@@ -442,15 +447,17 @@ export class StackService {
 			},
 			onError: (commandError: ReduxError) => {
 				const { code, message } = commandError;
-				surfaceStackError('push', code ?? '', message);
+				const handled = surfaceStackError('push', code ?? '', message);
+				if (!handled && code === 'errors.git.force_push_protection') {
+					throw commandError;
+				}
 			},
 			throwSlientError: true
 		});
 	}
 
-	createCommit(args: { propertiesFn?: PropertiesFn }) {
-		const propertiesFn = args.propertiesFn;
-		return this.api.endpoints.createCommit.useMutation({ propertiesFn });
+	createCommit() {
+		return this.api.endpoints.createCommit.useMutation();
 	}
 
 	get createCommitMutation() {
@@ -603,7 +610,7 @@ export class StackService {
 		commitId: string;
 	}) {
 		const result = await this.api.endpoints.uncommit.mutate(args);
-		const selection = this.uiState.stack(args.stackId).selection;
+		const selection = this.uiState.lane(args.stackId).selection;
 		if (args.commitId === selection.current?.commitId) {
 			selection.set(undefined);
 		}
@@ -642,10 +649,10 @@ export class StackService {
 		return this.api.endpoints.updateBranchName.useMutation({
 			sideEffect: (_, args) => {
 				// Immediately update the selection and the exclusive action.
-				const stackState = this.uiState.stack(args.stackId);
+				const laneState = this.uiState.lane(args.laneId);
 				const projectState = this.uiState.project(args.projectId);
 				const exclusiveAction = projectState.exclusiveAction.current;
-				const previousSelection = stackState.selection.current;
+				const previousSelection = laneState.selection.current;
 
 				if (previousSelection) {
 					const updatedSelection = replaceBranchInStackSelection(
@@ -653,7 +660,7 @@ export class StackService {
 						args.branchName,
 						args.newName
 					);
-					stackState.selection.set(updatedSelection);
+					laneState.selection.set(updatedSelection);
 				}
 
 				if (exclusiveAction) {
@@ -666,7 +673,7 @@ export class StackService {
 				}
 			},
 			onError: (_, args) => {
-				const state = this.uiState.stack(args.stackId);
+				const state = this.uiState.lane(args.laneId);
 				state.selection.set({
 					branchName: args.branchName
 				});
@@ -712,10 +719,6 @@ export class StackService {
 
 	get amendCommitMutation() {
 		return this.api.endpoints.amendCommit.mutate;
-	}
-
-	get moveCommitFileMutation() {
-		return this.api.endpoints.moveCommitFile.mutate;
 	}
 
 	/** Squash all the commits in a branch together */
@@ -848,6 +851,9 @@ export class StackService {
 			])
 		);
 	}
+	invalidateStacks() {
+		this.dispatch(this.api.util.invalidateTags([invalidatesList(ReduxTag.Stacks)]));
+	}
 
 	templates(projectId: string, forgeName: string) {
 		return this.api.endpoints.templates.useQuery({ projectId, forge: { name: forgeName } });
@@ -860,19 +866,23 @@ export class StackService {
 			forge: { name: forgeName }
 		});
 	}
+
+	get createReference() {
+		return this.api.endpoints.createReference.useMutation();
+	}
 }
 
 function transformStacksResponse(response: Stack[]) {
-	response.forEach((stack) => {
-		// To keep it simple, what's cast as `Stack` is actually `StackOpt`
-		// (as returned by the backend).
-		// So here we cast it back and stop any optional stack-id in its tracks
-		// until the code can actually cope with it.
-		const stackOpt = stack as StackOpt;
-		if (!stackOpt.id) {
-			throw new Error('BUG(opt-stack-id): cannot yet handle optional stack IDs');
-		}
-	});
+	// response.forEach((stack) => {
+	// 	// To keep it simple, what's cast as `Stack` is actually `StackOpt`
+	// 	// (as returned by the backend).
+	// 	// So here we cast it back and stop any optional stack-id in its tracks
+	// 	// until the code can actually cope with it.
+	// 	const stackOpt = stack as StackOpt;
+	// 	if (!stackOpt.id) {
+	// 		throw new Error('BUG(opt-stack-id): cannot yet handle optional stack IDs');
+	// 	}
+	// });
 	return stackAdapter.addMany(stackAdapter.getInitialState(), response);
 }
 
@@ -883,13 +893,29 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				extraOptions: { command: 'stacks' },
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.Stacks)],
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Tauri not found!');
+					}
+					// The `cacheDataLoaded` promise resolves when the result is first loaded.
+					await lifecycleApi.cacheDataLoaded;
+					const unsubscribe = lifecycleApi.extra.backend.listen(
+						`project://${arg.projectId}/hunk-assignment-update`,
+						() => {
+							lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.Stacks)]));
+						}
+					);
+					// The `cacheEntryRemoved` promise resolves when the result is removed
+					await lifecycleApi.cacheEntryRemoved;
+					unsubscribe();
+				},
 				transformResponse(response: Stack[], _, { projectId }) {
 					// Clear the selection of stale stacks.
 					updateStaleProjectState(
 						uiState,
 						projectId,
 						// TODO(opt-stack-id): `s.id` might actually be optional once outside-of-workspace is a thing.
-						response.map((s) => s.id)
+						response.map((s) => s.id).filter(isDefined)
 					);
 
 					return transformStacksResponse(response);
@@ -953,15 +979,17 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				},
 				// TODO(single-branch): stackId is actually `stackId?` in the backend to be able to query details in single-branch mode.
 				// 	  however, ideally all this goes away in favor of consuming `RefInfo` from the backend.
-				{ projectId: string; stackId: string }
+				{ projectId: string; stackId?: string }
 			>({
 				extraOptions: { command: 'stack_details' },
 				query: (args) => args,
 				providesTags: (_result, _error, { stackId }) => [
-					...providesItem(ReduxTag.StackDetails, stackId)
+					...providesItem(ReduxTag.StackDetails, stackId || 'undefined')
 				],
 				transformResponse(response: StackDetails, _, { projectId, stackId }) {
-					updateStaleStackState(uiState, projectId, stackId, response);
+					if (stackId) {
+						updateStaleStackState(uiState, projectId, stackId, response);
+					}
 
 					const branchDetailsEntity = branchDetailsAdapter.addMany(
 						branchDetailsAdapter.getInitialState(),
@@ -1037,8 +1065,9 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				BranchPushResult,
 				{
 					projectId: string;
-					stackId: string;
+					stackId?: string;
 					withForce: boolean;
+					skipForcePushProtection: boolean;
 					branch: string;
 				}
 			>({
@@ -1314,7 +1343,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				void,
 				{
 					projectId: string;
-					stackId: string;
+					stackId?: string;
+					laneId: string;
 					branchName: string;
 					newName: string;
 				}
@@ -1334,7 +1364,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				void,
 				{
 					projectId: string;
-					stackId: string;
+					stackId?: string;
 					branchName: string;
 				}
 			>({
@@ -1345,7 +1375,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				query: (args) => args,
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackDetails, args.stackId),
-					invalidatesList(ReduxTag.BranchListing)
+					invalidatesList(ReduxTag.BranchListing),
+					invalidatesList(ReduxTag.Stacks)
 				]
 			}),
 			updateBranchDescription: build.mutation<
@@ -1448,27 +1479,6 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
-			moveCommitFile: build.mutation<
-				void,
-				{
-					projectId: string;
-					stackId: string;
-					fromCommitOid: string;
-					toCommitOid: string;
-					ownership: string;
-				}
-			>({
-				extraOptions: {
-					command: 'move_commit_file',
-					actionName: 'Move Commit File'
-				},
-				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesList(ReduxTag.WorktreeChanges), // Could cause conflicts
-					invalidatesItem(ReduxTag.StackDetails, args.stackId),
-					invalidatesList(ReduxTag.BranchListing)
-				]
-			}),
 			newBranchName: build.query<
 				string,
 				{
@@ -1540,15 +1550,34 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					invalidatesList(ReduxTag.Stacks)
 				]
 			}),
+			createReference: build.mutation<
+				void,
+				{ projectId: string; stackId: string; request: CreateRefRequest }
+			>({
+				extraOptions: {
+					command: 'create_reference',
+					actionName: 'Create Reference'
+				},
+				query: (args) => {
+					// TODO: Remove the stack ID from the request args.
+					// The backend doesn't need it, but the frontend does to invalidate the right tags.
+					// We should move away from using the stack ID as the cache key, an move towards some form of branch name instead.
+
+					return { projectId: args.projectId, request: args.request };
+				},
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.StackDetails, args.stackId)
+				]
+			}),
 			stackDetailsUpdate: build.query<void, { projectId: string }>({
 				queryFn: () => ({ data: undefined }),
 				async onCacheEntryAdded(arg, lifecycleApi) {
-					if (!hasTauriExtra(lifecycleApi.extra)) {
-						throw new Error('Stack details update endpoint requires Tauri extra');
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Stack details update endpoint requires Backend extra');
 					}
 
 					await lifecycleApi.cacheDataLoaded;
-					const unsubscribe = lifecycleApi.extra.tauri.listen<{ stackId: string }>(
+					const unsubscribe = lifecycleApi.extra.backend.listen<{ stackId: string }>(
 						`project://${arg.projectId}/stack_details_update`,
 						(event) => {
 							lifecycleApi.dispatch(
@@ -1581,7 +1610,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 }
 
 const stackAdapter = createEntityAdapter<Stack, string>({
-	selectId: (stack) => stack.id
+	selectId: (stack) => stack.id || stack.heads.at(0)?.name || stack.tip
 });
 const stackSelectors = { ...stackAdapter.getSelectors(), selectNth: createSelectNth<Stack>() };
 

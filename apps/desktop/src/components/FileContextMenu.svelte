@@ -3,11 +3,12 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
 	import { AI_SERVICE } from '$lib/ai/service';
-	import { writeClipboard } from '$lib/backend/clipboard';
+	import { BACKEND } from '$lib/backend';
+	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { changesToDiffSpec } from '$lib/commits/utils';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
+	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
-	import { platformName } from '$lib/platform/platform';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
@@ -15,7 +16,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { getEditorUri, openExternalUrl, showFileInFolder } from '$lib/utils/url';
+	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 
 	import {
@@ -29,7 +30,6 @@
 		Textbox,
 		chipToasts
 	} from '@gitbutler/ui';
-	import { join } from '@tauri-apps/api/path';
 	import type { DiffSpec } from '$lib/hunks/hunk';
 	import type { SelectionId } from '$lib/selection/key';
 
@@ -61,6 +61,10 @@
 	const idSelection = inject(ID_SELECTION);
 	const aiService = inject(AI_SERVICE);
 	const actionService = inject(ACTION_SERVICE);
+	const fileService = inject(FILE_SERVICE);
+	const urlService = inject(URL_SERVICE);
+	const clipboardService = inject(CLIPBOARD_SERVICE);
+	const backend = inject(BACKEND);
 	const [autoCommit, autoCommitting] = actionService.autoCommit;
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
 	const [absorbChanges, absorbingChanges] = actionService.absorb;
@@ -78,7 +82,7 @@
 
 	// Platform-specific label for "Show in Finder/Explorer/File Manager"
 	const showInFolderLabel = (() => {
-		switch (platformName) {
+		switch (backend.platformName) {
 			case 'macos':
 				return 'Show in Finder';
 			case 'windows':
@@ -119,6 +123,11 @@
 			worktreeChanges
 		});
 
+		const selectedFiles = item.changes.map((change) => ({ ...selectionId, path: change.path }));
+
+		// Unselect the discarded files
+		idSelection.removeMany(selectedFiles);
+
 		confirmationModal?.close();
 	}
 
@@ -158,7 +167,7 @@
 			changes: changesToDiffSpec(changes)
 		});
 		const newCommitId = replacedCommits.find(([before]) => before === commitId)?.[1];
-		const branchName = uiState.stack(stackId).selection.current?.branchName;
+		const branchName = uiState.lane(stackId).selection.current?.branchName;
 		const selectedFiles = changes.map((change) => ({ ...selectionId, path: change.path }));
 
 		// Unselect the uncommitted files
@@ -166,7 +175,7 @@
 
 		if (newCommitId && branchName) {
 			// Update the selection to the new commit
-			uiState.stack(stackId).selection.set({ branchName, commitId: newCommitId });
+			uiState.lane(stackId).selection.set({ branchName, commitId: newCommitId });
 		}
 		contextMenu.close();
 	}
@@ -389,8 +398,8 @@
 							const project = await projectService.fetchProject(projectId);
 							const projectPath = project?.path;
 							if (projectPath) {
-								const absPath = await join(projectPath, item.changes[0]!.path);
-								await writeClipboard(absPath, {
+								const absPath = await backend.joinPath(projectPath, item.changes[0]!.path);
+								await clipboardService.write(absPath, {
 									errorMessage: 'Failed to copy absolute path'
 								});
 							}
@@ -400,7 +409,7 @@
 					<ContextMenuItem
 						label="Copy Relative Path"
 						onclick={async () => {
-							await writeClipboard(item.changes[0]!.path, {
+							await clipboardService.write(item.changes[0]!.path, {
 								errorMessage: 'Failed to copy relative path'
 							});
 							contextMenu.close();
@@ -423,7 +432,7 @@
 										schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
 										path: [vscodePath(projectPath), change.path]
 									});
-									openExternalUrl(path);
+									urlService.openExternalUrl(path);
 								}
 							}
 							contextMenu.close();
@@ -440,8 +449,8 @@
 							const project = await projectService.fetchProject(projectId);
 							const projectPath = project?.path;
 							if (projectPath) {
-								const absPath = await join(projectPath, item.changes[0]!.path);
-								await showFileInFolder(absPath);
+								const absPath = await backend.joinPath(projectPath, item.changes[0]!.path);
+								await fileService.showFileInFolder(absPath);
 							}
 							contextMenu.close();
 						}}

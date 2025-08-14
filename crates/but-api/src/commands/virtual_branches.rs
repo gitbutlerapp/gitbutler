@@ -20,8 +20,8 @@ use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gix::reference::Category;
 use serde::Deserialize;
 
+use crate::commands::workspace::{CannedBranchNameParams, canned_branch_name};
 use crate::{App, error::Error};
-
 // Parameter structs for all functions
 
 pub fn normalize_branch_name(_app: &App, name: String) -> Result<String, Error> {
@@ -43,15 +43,34 @@ pub fn create_virtual_branch(
     let ws3_enabled = app.app_settings.get()?.feature_flags.ws3;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let stack_entry = if ws3_enabled {
-        let (repo, mut meta, graph) = ctx.graph_and_meta_and_repo()?;
+        let mut guard = project.exclusive_worktree_access();
+        let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
         let ws = graph.to_workspace()?;
         let new_ref = Category::LocalBranch
-            .to_full_name(params.branch.name.as_deref().unwrap_or("Lane"))
+            .to_full_name(
+                params
+                    .branch
+                    .name
+                    .map(Ok)
+                    .unwrap_or_else(|| {
+                        canned_branch_name(
+                            app,
+                            CannedBranchNameParams {
+                                project_id: params.project_id,
+                            },
+                        )
+                    })?
+                    .as_str(),
+            )
             .map_err(anyhow::Error::from)?;
 
-        let _guard = project.exclusive_worktree_access();
-        let graph =
-            but_workspace::branch::create_reference(new_ref.as_ref(), None, &repo, &ws, &mut meta)?;
+        let graph = but_workspace::branch::create_reference(
+            new_ref.as_ref(),
+            None,
+            &repo,
+            &ws,
+            &mut *meta,
+        )?;
 
         let ws = graph.to_workspace()?;
         let (stack_idx, segment_idx) = ws
@@ -69,9 +88,11 @@ pub fn create_virtual_branch(
             heads: vec![StackHeadInfo {
                 name: new_ref.shorten().into(),
                 tip,
+                is_checked_out: false,
             }],
             tip,
             order: Some(stack_idx),
+            is_checked_out: false,
         }
     } else {
         gitbutler_branch_actions::create_virtual_branch(
@@ -204,11 +225,7 @@ pub struct PushBaseBranchParams {
 pub fn push_base_branch(app: &App, params: PushBaseBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    gitbutler_branch_actions::push_base_branch(
-        &ctx,
-        params.with_force,
-        ctx.app_settings().force_if_includes,
-    )?;
+    gitbutler_branch_actions::push_base_branch(&ctx, params.with_force)?;
     Ok(())
 }
 
@@ -315,22 +332,6 @@ pub struct MoveCommitFileParams {
     pub from_commit_id: String,
     pub to_commit_id: String,
     pub ownership: BranchOwnershipClaims,
-}
-
-pub fn move_commit_file(app: &App, params: MoveCommitFileParams) -> Result<String, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    let from_commit_id = git2::Oid::from_str(&params.from_commit_id).map_err(|e| anyhow!(e))?;
-    let to_commit_id = git2::Oid::from_str(&params.to_commit_id).map_err(|e| anyhow!(e))?;
-    let claim = params.ownership.into();
-    let oid = gitbutler_branch_actions::move_commit_file(
-        &ctx,
-        params.stack_id,
-        from_commit_id,
-        to_commit_id,
-        &claim,
-    )?;
-    Ok(oid.to_string())
 }
 
 #[derive(Deserialize)]

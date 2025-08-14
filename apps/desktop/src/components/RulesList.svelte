@@ -11,7 +11,8 @@
 		type StackTarget,
 		encodeStackTarget,
 		decodeStackTarget,
-		compareStackTarget
+		compareStackTarget,
+		type RuleFilter
 	} from '$lib/rules/rule';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { getStackName } from '$lib/stacks/stack';
@@ -19,6 +20,7 @@
 	import { typedKeys } from '$lib/utils/object';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, chipToasts, Select, SelectItem, Icon } from '@gitbutler/ui';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -97,6 +99,26 @@
 		resetEditor();
 	}
 
+	function updateInitialValues(filter: RuleFilter, initialValues: Partial<RuleFilterMap>): true {
+		switch (filter.type) {
+			case 'pathMatchesRegex':
+				initialValues.pathMatchesRegex = filter.subject;
+				return true;
+			case 'contentMatchesRegex':
+				initialValues.contentMatchesRegex = filter.subject;
+				return true;
+			case 'fileChangeType':
+				initialValues.fileChangeType = filter.subject;
+				return true;
+			case 'semanticType':
+				initialValues.semanticType = filter.subject;
+				return true;
+			case 'claudeCodeSessionId':
+				initialValues.claudeCodeSessionId = filter.subject;
+				return true;
+		}
+	}
+
 	async function editExistingRule(rule: WorkspaceRule) {
 		if (rule.action.type === 'implicit') {
 			chipToasts.error('Cannot edit implicit rules');
@@ -114,20 +136,7 @@
 		const initialValues: Partial<RuleFilterMap> = {};
 
 		for (const filter of rule.filters) {
-			switch (filter.type) {
-				case 'pathMatchesRegex':
-					initialValues.pathMatchesRegex = filter.subject;
-					break;
-				case 'contentMatchesRegex':
-					initialValues.contentMatchesRegex = filter.subject;
-					break;
-				case 'fileChangeType':
-					initialValues.fileChangeType = filter.subject;
-					break;
-				case 'semanticType':
-					initialValues.semanticType = filter.subject;
-					break;
-			}
+			updateInitialValues(filter, initialValues);
 		}
 
 		draftRuleFilterInitialValues = initialValues;
@@ -165,7 +174,7 @@
 						}
 					},
 					filters: ruleFilters,
-					trigger: 'fileSytemChange'
+					trigger: null
 				}
 			});
 		} else {
@@ -202,6 +211,7 @@
 				icon="plus-small"
 				size="tag"
 				kind="outline"
+				tooltip="Automate actions for new code changes"
 				onclick={openAddRuleContextMenu}
 				disabled={mode === 'edit' || mode === 'add'}
 				loading={creatingRule.current.isLoading}>Add rule</Button
@@ -216,7 +226,7 @@
 </div>
 
 {#snippet ruleListContent()}
-	{@const rules = rulesService.listWorkspaceRules(projectId)}
+	{@const rules = rulesService.workspaceRules(projectId)}
 	<ReduxResult {projectId} result={rules.current}>
 		{#snippet children(rules)}
 			{#if rules.length > 0}
@@ -239,9 +249,9 @@
 	<div class="rules-list__editor-content">
 		{#if typedKeys(draftRuleFilterInitialValues).length > 0}
 			<div class="rules-list__filters">
-				<h3 class="text-13 text-semibold">Filters</h3>
 				<RuleFiltersEditor
 					bind:this={ruleFiltersEditor}
+					{projectId}
 					initialFilterValues={draftRuleFilterInitialValues}
 					addFilter={addDraftRuleFilter}
 					deleteFilter={removeDraftRuleFilter}
@@ -263,10 +273,16 @@
 			<ReduxResult {projectId} result={stackEntries.current}>
 				{#snippet children(stacks)}
 					{@const stackOptions = [
-						...stacks.map((stack) => ({
-							label: getStackName(stack),
-							value: encodeStackTarget({ type: 'stackId', subject: stack.id })
-						})),
+						...stacks
+							.map((stack) =>
+								stack.id
+									? {
+											label: getStackName(stack),
+											value: encodeStackTarget({ type: 'stackId', subject: stack.id })
+										}
+									: undefined
+							)
+							.filter(isDefined),
 						{ separator: true } as const,
 						{
 							label: 'Leftmost stack',
@@ -397,10 +413,6 @@
 	.rules-list__filters {
 		display: flex;
 		flex-direction: column;
-
-		& h3 {
-			margin-bottom: 10px;
-		}
 	}
 
 	.rules-list__matches-all {

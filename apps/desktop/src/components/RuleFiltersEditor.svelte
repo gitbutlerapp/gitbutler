@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ClaudeSessionDescriptor from '$components/ClaudeSessionDescriptor.svelte';
 	import NewRuleMenu from '$components/NewRuleMenu.svelte';
 	import {
 		type SemanticType,
@@ -11,18 +12,20 @@
 		type RuleFilterMap
 	} from '$lib/rules/rule';
 	import { typedKeys } from '$lib/utils/object';
-	import { Button, Select, SelectItem, Textbox, FileStatusBadge } from '@gitbutler/ui';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
+	import { Button, Select, SelectItem, Textbox, Icon, FileStatusBadge } from '@gitbutler/ui';
 	import type { FileStatus } from '@gitbutler/ui/components/file/types';
 
 	const FILE_STATUS_OPTIONS: FileStatus[] = ['addition', 'modification', 'deletion', 'rename'];
 
 	type Props = {
+		projectId: string;
 		initialFilterValues: Partial<RuleFilterMap>;
 		addFilter: (type: RuleFilterType) => void;
 		deleteFilter: (type: RuleFilterType) => void;
 	};
 
-	const { initialFilterValues, addFilter, deleteFilter }: Props = $props();
+	const { projectId, initialFilterValues, addFilter, deleteFilter }: Props = $props();
 
 	let addFilterButton = $state<HTMLDivElement>();
 	let newFilterContextMenu = $state<NewRuleMenu>();
@@ -36,13 +39,21 @@
 	);
 	let semanticType = $state<SemanticType | undefined>(initialFilterValues.semanticType?.type);
 
+	let claudeCodeSessionId = $state<string | undefined>(
+		initialFilterValues.claudeCodeSessionId ?? undefined
+	);
+	const claudeResumeCommand = $derived(
+		claudeCodeSessionId ? `claude --resume ${claudeCodeSessionId}` : undefined
+	);
+
 	const ruleFilterTypes = $derived(typedKeys(initialFilterValues));
 
 	const orderMap: Record<RuleFilterType, number> = {
-		pathMatchesRegex: 0,
-		contentMatchesRegex: 1,
-		fileChangeType: 2,
-		semanticType: 3
+		claudeCodeSessionId: 0,
+		pathMatchesRegex: 1,
+		contentMatchesRegex: 2,
+		fileChangeType: 3,
+		semanticType: 4
 	};
 
 	function isLastFilterType(type: RuleFilterType): boolean {
@@ -52,12 +63,25 @@
 		return orderValue === maxOrderValue;
 	}
 
+	function isFilterTypeReady(type: RuleFilterType): boolean {
+		switch (type) {
+			case 'pathMatchesRegex':
+				return pathRegex !== undefined && pathRegex.trim() !== '';
+			case 'contentMatchesRegex':
+				return contentRegex !== undefined && contentRegex.trim() !== '';
+			case 'fileChangeType':
+				return treeChangeType !== undefined;
+			case 'semanticType':
+				// For now, user defined is not considered ready
+				return semanticType !== undefined && semanticType !== 'userDefined';
+			case 'claudeCodeSessionId':
+				return claudeCodeSessionId !== undefined && claudeCodeSessionId.trim() !== '';
+		}
+	}
+
 	function areDraftRuleFiltersReady(types: RuleFilterType[]): boolean {
 		for (const type of types) {
-			if (type === 'pathMatchesRegex' && !pathRegex) return false;
-			if (type === 'contentMatchesRegex' && !contentRegex) return false;
-			if (type === 'fileChangeType' && !treeChangeType) return false;
-			if (type === 'semanticType' && !semanticType) return false;
+			if (!isFilterTypeReady(type)) return false;
 		}
 		return true;
 	}
@@ -93,6 +117,10 @@
 			semanticType !== 'userDefined'
 		) {
 			filters.push({ type: 'semanticType', subject: { type: semanticType } });
+		}
+
+		if (ruleFilterTypes.includes('claudeCodeSessionId') && claudeCodeSessionId) {
+			filters.push({ type: 'claudeCodeSessionId', subject: claudeCodeSessionId });
 		}
 
 		return filters;
@@ -178,6 +206,28 @@
 	</Select>
 {/snippet}
 
+<!-- Claude Code Session ID -->
+{#snippet claudeCodeSessionIdFilter(sessionId: string)}
+	<div class="rule__pill expand">
+		<ClaudeSessionDescriptor {projectId} {sessionId}>
+			{#snippet fallback()}
+				<Textbox value={sessionId} readonly>
+					{#snippet customIconLeft()}
+						<Icon name="ai" />
+					{/snippet}
+				</Textbox>
+			{/snippet}
+			{#snippet children(descriptor)}
+				<Textbox value={descriptor} readonly>
+					{#snippet customIconLeft()}
+						<Icon name="ai" />
+					{/snippet}
+				</Textbox>
+			{/snippet}
+		</ClaudeSessionDescriptor>
+	</div>
+{/snippet}
+
 <!-- This is the parent component,
         wraps around the rule input -->
 {#snippet ruleFilterRow(type: RuleFilterType)}
@@ -190,33 +240,41 @@
 			{@render fileChangeType()}
 		{:else if type === 'semanticType'}
 			{@render semanticTypeFilter()}
+		{:else if type === 'claudeCodeSessionId' && claudeCodeSessionId}
+			{@render claudeCodeSessionIdFilter(claudeCodeSessionId)}
 		{/if}
 
-		<div class="rule-filter-row__actions">
-			<Button
-				icon="bin"
-				size="cta"
-				class="rule-filter-row__button"
-				kind="ghost"
-				width="auto"
-				onclick={() => {
-					deleteFilter(type);
-				}}
-			/>
-			{#if isLastFilterType(type) && canAddMore}
+		{#if type !== 'claudeCodeSessionId'}
+			<div class="rule-filter-row__actions">
 				<Button
-					bind:el={addFilterButton}
-					class="rule-filter-row__button"
-					width="auto"
-					icon="plus"
+					icon="bin"
 					size="cta"
+					class="rule-filter-row__button"
 					kind="ghost"
-					onclick={handleAddFilter}
+					width="auto"
+					onclick={() => {
+						deleteFilter(type);
+					}}
 				/>
-			{/if}
-		</div>
+				{#if isLastFilterType(type) && canAddMore}
+					<Button
+						bind:el={addFilterButton}
+						class="rule-filter-row__button"
+						width="auto"
+						icon="plus"
+						size="cta"
+						kind="ghost"
+						onclick={handleAddFilter}
+					/>
+				{/if}
+			</div>
+		{/if}
 	</div>
 {/snippet}
+
+<h3 class="text-13 text-semibold m-bottom-10">
+	{ruleFilterTypes.includes('claudeCodeSessionId') ? 'Claude Code session' : 'Filters'}
+</h3>
 
 {#if ruleFilterTypes.includes('pathMatchesRegex')}
 	{@render ruleFilterRow('pathMatchesRegex')}
@@ -234,6 +292,24 @@
 	{@render ruleFilterRow('semanticType')}
 {/if}
 
+{#if ruleFilterTypes.includes('claudeCodeSessionId')}
+	{@render ruleFilterRow('claudeCodeSessionId')}
+	{#if claudeResumeCommand}
+		<button
+			class="claude-command-copy"
+			type="button"
+			onclick={() => copyToClipboard(claudeResumeCommand)}
+		>
+			<p class="text-12 clr-text-3">Resume session command:</p>
+			<code class="claude-command-copy__code">{claudeResumeCommand}</code>
+
+			<i class="claude-command-copy__icon">
+				<Icon name="copy" />
+			</i>
+		</button>
+	{/if}
+{/if}
+
 <NewRuleMenu
 	bind:this={newFilterContextMenu}
 	addedFilterTypes={ruleFilterTypes}
@@ -244,6 +320,47 @@
 />
 
 <style lang="postcss">
+	.claude-command-copy {
+		display: flex;
+		position: relative;
+		flex-direction: column;
+		margin-top: 10px;
+		padding: 12px;
+		gap: 6px;
+		border: 1px solid var(--clr-border-3);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1-muted);
+		text-align: left;
+
+		&:hover {
+			& .claude-command-copy__icon {
+				color: var(--clr-text-2);
+			}
+			& .claude-command-copy__code {
+				opacity: 0.8;
+			}
+		}
+	}
+
+	.claude-command-copy__icon {
+		display: flex;
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		color: var(--clr-text-3);
+		transition: color var(--transition-fast);
+	}
+
+	.claude-command-copy__code {
+		font-size: 12px;
+		line-height: 1.5;
+		font-family: var(--fontfamily-mono);
+		word-break: break-all;
+		opacity: 0.6;
+		transition: opacity var(--transition-fast);
+		user-select: text;
+	}
+
 	.rule-filter-row {
 		display: flex;
 		margin-bottom: 8px;

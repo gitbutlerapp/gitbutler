@@ -1,7 +1,6 @@
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { initSentry } from '$lib/analytics/sentry';
 import { AppSettings } from '$lib/config/appSettings';
-import { getName, getVersion } from '@tauri-apps/api/app';
 import posthog from 'posthog-js';
 
 export function initAnalyticsIfEnabled(appSettings: AppSettings, postHog: PostHogWrapper) {
@@ -14,12 +13,7 @@ export function initAnalyticsIfEnabled(appSettings: AppSettings, postHog: PostHo
 			});
 			appSettings.appMetricsEnabled.onDisk().then(async (enabled) => {
 				if (enabled) {
-					if (import.meta.env.VITE_BUILD_TARGET === 'web') {
-						postHog.init('gitbutler-web', '0.0.0');
-					} else {
-						const [appName, appVersion] = await Promise.all([getName(), getVersion()]);
-						postHog.init(appName, appVersion);
-					}
+					await postHog.init();
 				}
 			});
 			appSettings.appNonAnonMetricsEnabled.onDisk().then((enabled) => {

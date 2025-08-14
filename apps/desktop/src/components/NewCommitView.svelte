@@ -1,9 +1,10 @@
 <script lang="ts">
-	import AsyncRender from '$components/AsyncRender.svelte';
 	import CommitMessageEditor from '$components/CommitMessageEditor.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
 	import { showError, showToast } from '$lib/notifications/toasts';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { createWorktreeSelection } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { COMMIT_ANALYTICS } from '$lib/soup/commitAnalytics';
 	import { STACK_SERVICE, type RejectionReason } from '$lib/stacks/stackService.svelte';
@@ -24,12 +25,13 @@
 	const hooksService = inject(HOOKS_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const commitAnalytics = inject(COMMIT_ANALYTICS);
+	const idSelection = inject(ID_SELECTION);
 
 	const projectState = $derived(uiState.project(projectId));
 	// Using a dummy stackId kind of sucks... but it's fine for now
-	const stackState = $derived(uiState.stack(stackId || 'new-commit-view--new-stack'));
+	const laneState = $derived(uiState.lane(stackId || 'new-commit-view--new-stack'));
 
-	const [createCommitInStack, commitCreation] = stackService.createCommit({});
+	const [createCommitInStack, commitCreation] = stackService.createCommit();
 
 	let isCooking = $state(false);
 
@@ -98,11 +100,7 @@
 			});
 
 			if ($runCommitHooks) {
-				try {
-					await hooksService.runPreCommitHooks(projectId, worktreeChanges);
-				} catch {
-					return;
-				}
+				await hooksService.runPreCommitHooks(projectId, worktreeChanges);
 			}
 
 			const response = await createCommitInStack(
@@ -118,24 +116,21 @@
 			);
 
 			if ($runCommitHooks) {
-				try {
-					await hooksService.runPostCommitHooks(projectId);
-				} catch {
-					return;
-				}
+				await hooksService.runPostCommitHooks(projectId);
 			}
 
 			const newId = response.newCommit;
 
 			if (newId) {
 				// Clear saved state for commit message editor.
-				stackState.newCommitMessage.set({ title: '', description: '' });
+				laneState.newCommitMessage.set({ title: '', description: '' });
 
 				// Close the drawer.
 				projectState.exclusiveAction.set(undefined);
 
 				// Clear change/hunk selection used for creating the commit.
 				uncommittedService.clearHunkSelection();
+				idSelection.clear(createWorktreeSelection({ stackId }));
 			}
 
 			if (response.pathsToRejectedChanges.length > 0) {
@@ -152,7 +147,7 @@
 					projectId,
 					targetBranchName: finalBranchName,
 					newCommitId: newId ?? undefined,
-					commitTitle: stackState.newCommitMessage.current?.title || '',
+					commitTitle: laneState.newCommitMessage.current?.title || '',
 					pathsToRejectedChanges
 				});
 			}
@@ -164,7 +159,7 @@
 	const [createNewStack, newStackResult] = stackService.newStack;
 
 	async function handleCommitCreation(title: string, description: string) {
-		stackState.newCommitMessage.set({ title, description });
+		laneState.newCommitMessage.set({ title, description });
 
 		const message = description ? title + '\n\n' + description : title;
 		if (!message) {
@@ -193,15 +188,15 @@
 		}
 
 		if (newCommitMessageUpdate) {
-			stackState.newCommitMessage.set({
-				...stackState.newCommitMessage.current,
+			laneState.newCommitMessage.set({
+				...laneState.newCommitMessage.current,
 				...newCommitMessageUpdate
 			});
 		}
 	}
 
 	function cancel(args: { title: string; description: string }) {
-		stackState.newCommitMessage.set(args);
+		laneState.newCommitMessage.set(args);
 		projectState.exclusiveAction.set(undefined);
 		uncommittedService.uncheckAll(null);
 		if (stackId) {
@@ -211,20 +206,18 @@
 	}
 </script>
 
-<AsyncRender>
-	<div data-testid={TestId.NewCommitView}>
-		<CommitMessageEditor
-			bind:this={input}
-			{projectId}
-			{stackId}
-			actionLabel="Create commit"
-			action={({ title, description }) => handleCommitCreation(title, description)}
-			onChange={({ title, description }) => handleMessageUpdate(title, description)}
-			onCancel={cancel}
-			disabledAction={!canCommit}
-			loading={commitCreation.current.isLoading || newStackResult.current.isLoading || isCooking}
-			title={stackState.newCommitMessage.current.title}
-			description={stackState.newCommitMessage.current.description}
-		/>
-	</div>
-</AsyncRender>
+<div data-testid={TestId.NewCommitView}>
+	<CommitMessageEditor
+		bind:this={input}
+		{projectId}
+		{stackId}
+		actionLabel="Create commit"
+		action={({ title, description }) => handleCommitCreation(title, description)}
+		onChange={({ title, description }) => handleMessageUpdate(title, description)}
+		onCancel={cancel}
+		disabledAction={!canCommit}
+		loading={commitCreation.current.isLoading || newStackResult.current.isLoading || isCooking}
+		title={laneState.newCommitMessage.current.title}
+		description={laneState.newCommitMessage.current.description}
+	/>
+</div>

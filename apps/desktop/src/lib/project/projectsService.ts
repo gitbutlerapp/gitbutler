@@ -1,4 +1,3 @@
-import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { type Project } from '$lib/project/project';
 import { invalidatesList, providesItem, providesList, ReduxTag } from '$lib/state/tags';
@@ -6,10 +5,9 @@ import { getCookie } from '$lib/utils/cookies';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { persisted } from '@gitbutler/shared/persisted';
 import { chipToasts } from '@gitbutler/ui';
-import { open } from '@tauri-apps/plugin-dialog';
 import { get } from 'svelte/store';
+import type { IBackend } from '$lib/backend';
 import type { ClientState } from '$lib/state/clientState.svelte';
-import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
 export type ProjectInfo = {
 	is_exclusive: boolean;
@@ -26,7 +24,7 @@ export class ProjectsService {
 	constructor(
 		state: ClientState,
 		private homeDir: string | undefined,
-		private httpClient: HttpClient
+		private backend: IBackend
 	) {
 		this.api = injectEndpoints(state.backendApi);
 	}
@@ -44,12 +42,11 @@ export class ProjectsService {
 	}
 
 	async setActiveProject(projectId: string): Promise<ProjectInfo | null> {
-		const info = await invoke<ProjectInfo | null>('set_project_active', { id: projectId });
-		return info;
+		return await this.api.endpoints.setProjectActive.mutate({ id: projectId });
 	}
 
 	async updateProject(project: Project & { unset_bool?: boolean; unset_forge_override?: boolean }) {
-		await invoke('update_project', { project: project });
+		await this.api.endpoints.updateProject.mutate({ project });
 	}
 
 	async deleteProject(projectId: string) {
@@ -61,15 +58,11 @@ export class ProjectsService {
 		if (cookiePath) {
 			return cookiePath;
 		}
-
-		let selectedPath: string | undefined | null;
-		if (import.meta.env.VITE_BUILD_TARGET === 'web') {
-			// TODO: Consider: this is electron specific, could we use a web API
-			// and also work on the real web?
-			selectedPath = await window.electronAPI?.openDirectory();
-		} else {
-			selectedPath = await open({ directory: true, recursive: true, defaultPath: this.homeDir });
-		}
+		const selectedPath = await this.backend.filePicker({
+			directory: true,
+			recursive: true,
+			defaultPath: this.homeDir
+		});
 		if (selectedPath) {
 			return selectedPath;
 		}
@@ -77,7 +70,7 @@ export class ProjectsService {
 
 	// TODO: Reinstate the ability to open a project in a new window.
 	async openProjectInNewWindow(projectId: string) {
-		await invoke('open_project_in_window', { id: projectId });
+		await this.api.endpoints.openProjectInWindow.mutate({ id: projectId });
 	}
 
 	async relocateProject(projectId: string): Promise<void> {
@@ -168,6 +161,22 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				extraOptions: { command: 'delete_project' },
 				query: (args) => args,
 				invalidatesTags: () => [invalidatesList(ReduxTag.Project)]
+			}),
+			setProjectActive: build.mutation<ProjectInfo | null, { id: string }>({
+				extraOptions: { command: 'set_project_active' },
+				query: (args) => args
+			}),
+			updateProject: build.mutation<
+				void,
+				{ project: Project & { unset_bool?: boolean; unset_forge_override?: boolean } }
+			>({
+				extraOptions: { command: 'update_project' },
+				query: (args) => args,
+				invalidatesTags: (_result, _error, args) => providesItem(ReduxTag.Project, args.project.id)
+			}),
+			openProjectInWindow: build.mutation<void, { id: string }>({
+				extraOptions: { command: 'open_project_in_window' },
+				query: (args) => args
 			})
 		})
 	});

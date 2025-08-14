@@ -87,6 +87,9 @@ pub struct Project {
     /// for example, when updating base branch
     #[serde(default)]
     pub ok_with_force_push: DefaultTrue,
+    /// Force push protection uses safer force push flags instead of doing straight force pushes
+    #[serde(default)]
+    pub force_push_protection: bool,
     pub api: Option<ApiProject>,
     #[serde(default)]
     pub gitbutler_data_last_fetch: Option<FetchResult>,

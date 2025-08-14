@@ -158,6 +158,7 @@ pub fn push_stack(
     ctx: &CommandContext,
     stack_id: StackId,
     with_force: bool,
+    skip_force_push_protection: bool,
     branch_limit: String,
 ) -> Result<PushResult> {
     ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
@@ -186,6 +187,9 @@ pub fn push_stack(
         remote: default_target.push_remote_name(),
         branch_to_remote: vec![],
     };
+
+    let force_push_protection = !skip_force_push_protection && ctx.project().force_push_protection;
+
     for branch in stack_branches {
         if branch.archived {
             // Nothing to push for this one
@@ -204,7 +208,7 @@ pub fn push_stack(
             push_details.head,
             &push_details.remote_refname,
             with_force,
-            ctx.app_settings().force_if_includes,
+            force_push_protection,
             None,
             Some(Some(stack.id)),
         )?;

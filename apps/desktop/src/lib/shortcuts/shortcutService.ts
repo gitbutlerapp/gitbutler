@@ -1,5 +1,5 @@
 import { InjectionToken } from '@gitbutler/shared/context';
-import type { Tauri } from '$lib/backend/tauri';
+import type { IBackend } from '$lib/backend';
 
 export const SHORTCUT_SERVICE = new InjectionToken<ShortcutService>('ShortcutService');
 
@@ -8,10 +8,10 @@ export const SHORTCUT_SERVICE = new InjectionToken<ShortcutService>('ShortcutSer
  */
 export class ShortcutService {
 	private listeners: [string, CallableFunction][] = [];
-	constructor(private tauri: Tauri) {}
+	constructor(private backend: IBackend) {}
 
 	listen() {
-		return this.tauri.listen<string>('menu://shortcut', (e) => {
+		return this.backend.listen<string>('menu://shortcut', (e) => {
 			for (const listener of this.listeners) {
 				if (listener[0] === e.payload) {
 					listener[1]();

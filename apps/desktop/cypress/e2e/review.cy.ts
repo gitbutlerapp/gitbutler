@@ -183,13 +183,13 @@ describe('Review', () => {
 				cy.getByTestId('create-review-box-title-input')
 					.should('be.visible')
 					.should('be.enabled')
-					.should('have.value', mockBackend.getCommitTitle(stack.id))
+					.should('have.value', mockBackend.getCommitTitle(stack.id!))
 					.clear()
 					.type(prTitle);
 
 				cy.getByTestId('create-review-box-description-input')
 					.should('be.visible')
-					.should('contain', mockBackend.getCommitMessage(stack.id))
+					.should('contain', mockBackend.getCommitMessage(stack.id!))
 					.click()
 					.clear()
 					.type(prDescription);
@@ -251,13 +251,13 @@ describe('Review', () => {
 					cy.getByTestId('create-review-box-title-input')
 						.should('be.visible')
 						.should('be.enabled')
-						.should('have.value', mockBackend.getCommitTitle(stack.id))
+						.should('have.value', mockBackend.getCommitTitle(stack.id!))
 						.clear()
 						.type(prTitle);
 
 					cy.getByTestId('create-review-box-description-input')
 						.should('be.visible')
-						.should('contain', mockBackend.getCommitMessage(stack.id))
+						.should('contain', mockBackend.getCommitMessage(stack.id!))
 						.click()
 						.clear()
 						.type(prDescription);
@@ -333,7 +333,7 @@ describe('Review', () => {
 						cy.getByTestId('create-review-box-title-input')
 							.should('be.visible')
 							.should('be.enabled')
-							.should('have.value', mockBackend.getCommitTitle(stack.id));
+							.should('have.value', mockBackend.getCommitTitle(stack.id!));
 
 						cy.getByTestId('create-review-box-template-toggle').click();
 						enabledTemplates = true;
@@ -343,7 +343,7 @@ describe('Review', () => {
 					cy.getByTestId('create-review-box-title-input')
 						.should('be.visible')
 						.should('be.enabled')
-						.should('have.value', mockBackend.getCommitTitle(stack.id))
+						.should('have.value', mockBackend.getCommitTitle(stack.id!))
 						.clear()
 						.type(prTitle);
 

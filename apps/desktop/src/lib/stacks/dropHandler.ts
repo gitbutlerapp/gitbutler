@@ -1,6 +1,7 @@
 import { changesToDiffSpec } from '$lib/commits/utils';
 import { ChangeDropData } from '$lib/dragging/draggables';
 import StackMacros from '$lib/stacks/macros';
+import { ensureValue } from '$lib/utils/validation';
 import { chipToasts } from '@gitbutler/ui';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffService } from '$lib/hunks/diffService.svelte';
@@ -79,7 +80,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 				if (sourceStackId) {
 					const diffSpec = changesToDiffSpec(await data.treeChanges());
 					await this.macros.moveChangesToNewCommit(
-						stack.id,
+						ensureValue(stack.id),
 						outcome.newCommit,
 						sourceStackId,
 						sourceCommitId,
@@ -100,8 +101,10 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 
 				const changes = await data.treeChanges();
 				const assignments = changes
-					.flatMap((c) => this.uncommittedService.getAssignmentsByPath(data.stackId, c.path))
-					.map((h) => ({ ...h, stackId: stack.id }));
+					.flatMap((c) =>
+						this.uncommittedService.getAssignmentsByPath(data.stackId ?? null, c.path)
+					)
+					.map((h) => ({ ...h, stackId: ensureValue(stack.id) }));
 				await this.diffService.assignHunk({
 					projectId: this.projectId,
 					assignments

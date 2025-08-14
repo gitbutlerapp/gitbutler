@@ -8,11 +8,11 @@
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { createWorktreeSelection } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { Badge, Button, TestId } from '@gitbutler/ui';
-	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
 		projectId: string;
@@ -21,7 +21,7 @@
 
 	const { projectId, focus }: Props = $props();
 
-	const selectionId = { type: 'worktree', stackId: undefined } as SelectionId;
+	const selectionId = createWorktreeSelection({ stackId: undefined });
 
 	const uiState = inject(UI_STATE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);

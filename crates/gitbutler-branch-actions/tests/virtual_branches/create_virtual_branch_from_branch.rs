@@ -33,6 +33,7 @@ fn integration() {
             ctx,
             stack_entry.id,
             false,
+            false,
             stack_entry.name().map(|n| n.to_string()).unwrap(),
         )
         .unwrap();
@@ -77,6 +78,7 @@ fn integration() {
         gitbutler_branch_actions::stack::push_stack(
             ctx,
             branch_id,
+            false,
             false,
             branch_name.simple_name(),
         )

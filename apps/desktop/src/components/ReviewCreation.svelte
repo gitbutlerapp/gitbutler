@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	export interface CreatePrParams {
-		stackId: string;
+		stackId?: string;
 		branchName: string;
 		title: string;
 		body: string;
@@ -10,7 +10,6 @@
 </script>
 
 <script lang="ts">
-	import AsyncRender from '$components/AsyncRender.svelte';
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
 	import MessageEditor from '$components/editor/MessageEditor.svelte';
 	import MessageEditorInput from '$components/editor/MessageEditorInput.svelte';
@@ -42,7 +41,7 @@
 
 	type Props = {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
 		branchName: string;
 		reviewId?: string;
 		onClose: () => void;
@@ -159,6 +158,7 @@
 				projectId,
 				stackId,
 				withForce: branchDetails?.pushStatus === 'unpushedCommitsRequiringForce',
+				skipForcePushProtection: false, // override available for regular push
 				branch: branchName
 			});
 
@@ -296,12 +296,14 @@
 			});
 
 			// Store the new pull request number with the branch data.
-			await stackService.updateBranchPrNumber({
-				projectId,
-				stackId: params.stackId,
-				branchName: params.branchName,
-				prNumber: pr.number
-			});
+			if (params.stackId) {
+				await stackService.updateBranchPrNumber({
+					projectId,
+					stackId: params.stackId,
+					branchName: params.branchName,
+					prNumber: pr.number
+				});
+			}
 
 			// If we now have two or more pull requests we add a stack table to the description.
 			prNumbers[currentIndex] = pr.number;
@@ -359,83 +361,81 @@
 </script>
 
 <div class="pr-editor">
-	<AsyncRender>
-		<PrTemplateSection
-			{projectId}
-			template={{ enabled: templateEnabled, path: templatePath }}
-			forgeName={forge.current.name}
-			disabled={isExecuting}
-			onselect={(value) => {
-				prBody.set(value);
-				messageEditor?.setText(value);
+	<PrTemplateSection
+		{projectId}
+		template={{ enabled: templateEnabled, path: templatePath }}
+		forgeName={forge.current.name}
+		disabled={isExecuting}
+		onselect={(value) => {
+			prBody.set(value);
+			messageEditor?.setText(value);
+		}}
+	/>
+	<div class="pr-fields">
+		<MessageEditorInput
+			testId={TestId.ReviewTitleInput}
+			bind:ref={titleInput}
+			value={$prTitle}
+			onchange={(value) => {
+				prTitle.set(value);
+			}}
+			onkeydown={(e: KeyboardEvent) => {
+				if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+					e.preventDefault();
+					messageEditor?.focus();
+				}
+
+				if (e.key === 'Escape') {
+					e.preventDefault();
+					onClose();
+				}
+			}}
+			placeholder="PR title"
+			showCount={false}
+			oninput={(e: Event) => {
+				const target = e.target as HTMLInputElement;
+				prTitle.set(target.value);
 			}}
 		/>
-		<div class="pr-fields">
-			<MessageEditorInput
-				testId={TestId.ReviewTitleInput}
-				bind:ref={titleInput}
-				value={$prTitle}
-				onchange={(value) => {
-					prTitle.set(value);
-				}}
-				onkeydown={(e: KeyboardEvent) => {
-					if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
-						e.preventDefault();
-						messageEditor?.focus();
-					}
+		<MessageEditor
+			forceSansFont
+			bind:this={messageEditor}
+			testId={TestId.ReviewDescriptionInput}
+			{projectId}
+			disabled={isExecuting}
+			initialValue={$prBody}
+			enableFileUpload
+			enableSmiles
+			placeholder="PR Description"
+			{onAiButtonClick}
+			{canUseAI}
+			{aiIsLoading}
+			onChange={(text: string) => {
+				prBody.set(text);
+			}}
+			onKeyDown={(e: KeyboardEvent) => {
+				if (e.key === 'Tab' && e.shiftKey) {
+					e.preventDefault();
+					titleInput?.focus();
+					return true;
+				}
 
-					if (e.key === 'Escape') {
-						e.preventDefault();
-						onClose();
-					}
-				}}
-				placeholder="PR title"
-				showCount={false}
-				oninput={(e: Event) => {
-					const target = e.target as HTMLInputElement;
-					prTitle.set(target.value);
-				}}
-			/>
-			<MessageEditor
-				forceSansFont
-				bind:this={messageEditor}
-				testId={TestId.ReviewDescriptionInput}
-				{projectId}
-				disabled={isExecuting}
-				initialValue={$prBody}
-				enableFileUpload
-				enableSmiles
-				placeholder="PR Description"
-				{onAiButtonClick}
-				{canUseAI}
-				{aiIsLoading}
-				onChange={(text: string) => {
-					prBody.set(text);
-				}}
-				onKeyDown={(e: KeyboardEvent) => {
-					if (e.key === 'Tab' && e.shiftKey) {
-						e.preventDefault();
-						titleInput?.focus();
-						return true;
-					}
+				if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+					e.preventDefault();
+					createReview();
+					return true;
+				}
 
-					if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-						e.preventDefault();
-						createReview();
-						return true;
-					}
+				if (e.key === 'Escape') {
+					e.preventDefault();
+					onClose();
+					return true;
+				}
 
-					if (e.key === 'Escape') {
-						e.preventDefault();
-						onClose();
-						return true;
-					}
-
-					return false;
-				}}
-			/>
-		</div>
-	</AsyncRender>
+				return false;
+			}}
+		/>
+	</div>
 </div>
 
 <style lang="postcss">

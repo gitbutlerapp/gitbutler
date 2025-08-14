@@ -37,14 +37,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    claude_code_sessions (id) {
-        id -> Text,
-        created_at -> Timestamp,
-        stack_id -> Text,
-    }
-}
-
-diesel::table! {
     file_write_locks (path) {
         path -> Text,
         created_at -> Timestamp,
@@ -60,5 +52,24 @@ diesel::table! {
         trigger -> Text,
         filters -> Text,
         action -> Text,
+    }
+}
+
+diesel::table! {
+    claude_sessions (id) {
+        id -> Text,
+        current_id -> Text,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    claude_messages (id) {
+        id -> Text,
+        session_id -> Text,
+        created_at -> Timestamp,
+        content_type -> Text,
+        content -> Text,
     }
 }

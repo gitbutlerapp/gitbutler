@@ -14,6 +14,10 @@ pub fn process_workspace_rules(
     dependencies: &Option<HunkDependencies>,
 ) -> anyhow::Result<usize> {
     let mut updates = 0;
+    if assignments.is_empty() {
+        // Dont create stacks if there are no changes to assign anywhere
+        return Ok(updates);
+    }
     let rules = super::list_rules(ctx)?
         .into_iter()
         .filter(|r| r.enabled)
@@ -35,7 +39,7 @@ pub fn process_workspace_rules(
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project().gb_dir().join("virtual_branches.toml"),
         )?;
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::InWorkspace)
+        but_workspace::stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)
     } else {
         but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
     }?;
@@ -161,6 +165,7 @@ fn matching(wt_assignments: &[HunkAssignment], filters: Vec<Filter>) -> Vec<Hunk
             }
             Filter::FileChangeType(_) => continue,
             Filter::SemanticType(_) => continue,
+            Filter::ClaudeCodeSessionId(_) => continue,
         }
     }
     assignments

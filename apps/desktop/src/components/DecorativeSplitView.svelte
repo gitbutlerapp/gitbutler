@@ -2,7 +2,7 @@
 	import AccountLink from '$components/AccountLink.svelte';
 	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
 	import { USER } from '$lib/user/user';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import { Icon } from '@gitbutler/ui';
 	import { type Snippet } from 'svelte';
@@ -17,6 +17,7 @@
 	const { hideDetails, img, children, testId }: Props = $props();
 
 	const user = inject(USER);
+	const urlService = inject(URL_SERVICE);
 </script>
 
 <div class="decorative-split-view" data-testid={testId}>
@@ -51,7 +52,8 @@
 							<button
 								type="button"
 								class="right-side__link"
-								onclick={async () => await openExternalUrl('https://docs.gitbutler.com/')}
+								onclick={async () =>
+									await urlService.openExternalUrl('https://docs.gitbutler.com/')}
 							>
 								<Icon name="docs" opacity={0.6} />
 								<span class="text-14 text-semibold">GitButler docs</span>
@@ -59,7 +61,8 @@
 							<button
 								type="button"
 								class="right-side__link"
-								onclick={async () => await openExternalUrl('https://discord.com/invite/MmFkmaJ42D')}
+								onclick={async () =>
+									await urlService.openExternalUrl('https://discord.com/invite/MmFkmaJ42D')}
 							>
 								<Icon name="discord" opacity={0.6} />
 								<span class="text-14 text-semibold">Join community</span>

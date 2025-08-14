@@ -345,7 +345,7 @@ pub async fn push<P, F, Fut, E, Extra>(
     remote: &str,
     refspec: RefSpec,
     force: bool,
-    force_if_includes: bool,
+    force_push_protection: bool,
     on_prompt: F,
     extra: Extra,
 ) -> Result<(), crate::Error<Error<E>>>
@@ -364,42 +364,46 @@ where
     args.push(&refspec);
 
     if force {
-        args.push("--force-with-lease");
-    }
-
-    if force && force_if_includes {
-        args.push("--force-if-includes");
+        if force_push_protection {
+            args.push("--force-with-lease");
+            args.push("--force-if-includes");
+        } else {
+            args.push("--force");
+        }
     }
 
     let (status, stdout, stderr) =
         execute_with_auth_harness(repo_path, &executor, &args, None, on_prompt, extra).await?;
 
     if status == 0 {
-        Ok(())
-    } else {
-        // Was the ref not found?
-        if let Some(refname) = stderr
-            .lines()
-            .find(|line| line.to_lowercase().contains("does not match any"))
-            .map(|line| line.split_whitespace().last().unwrap_or_default())
-        {
-            Err(crate::Error::RefNotFound(refname.to_owned()))?
-        } else if stderr.to_lowercase().contains("permission denied") {
-            Err(crate::Error::AuthorizationFailed(Error::<E>::Failed {
-                status,
-                args: args.into_iter().map(Into::into).collect(),
-                stdout,
-                stderr,
-            }))?
-        } else {
-            Err(Error::<E>::Failed {
-                status,
-                args: args.into_iter().map(Into::into).collect(),
-                stdout,
-                stderr,
-            })?
-        }
+        return Ok(());
     }
+
+    let base_error = Error::<E>::Failed {
+        status,
+        args: args.into_iter().map(Into::into).collect(),
+        stdout,
+        stderr: stderr.clone(),
+    };
+
+    if status == 1 && force && force_push_protection {
+        return Err(crate::Error::ForcePushProtection(base_error));
+    }
+
+    // Check for specific error patterns in stderr
+    if let Some(refname) = stderr
+        .lines()
+        .find(|line| line.to_lowercase().contains("does not match any"))
+        .and_then(|line| line.split_whitespace().last())
+    {
+        return Err(crate::Error::RefNotFound(refname.to_owned()));
+    }
+
+    if stderr.to_lowercase().contains("permission denied") {
+        return Err(crate::Error::AuthorizationFailed(base_error));
+    }
+
+    Err(base_error.into())
 }
 
 /// Signs the given commit-ish in the repository at the given path.

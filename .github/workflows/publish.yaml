@@ -39,7 +39,7 @@ jobs:
         if: ${{ github.event_name == 'schedule' }}
         shell: bash
         run: curl "${{ secrets.SENTRY_CRONS }}?status=in_progress"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           token: ${{ secrets.PAT_JUNON }}
       - name: Consume input variables
@@ -129,7 +129,7 @@ jobs:
           echo "PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           echo "OPENSSL_SRC_PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
       - name: Init Node Environment
@@ -180,7 +180,7 @@ jobs:
             gir1.2-javascriptcoregtk-4.1=2.44.0-2 \
             gir1.2-webkit2-4.1=2.44.0-2;
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: sveltekit-build
           path: ./apps/desktop/build/
@@ -241,7 +241,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download unsigned artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release
@@ -271,7 +271,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download ev-signed artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release
@@ -323,11 +323,11 @@ jobs:
           - ubuntu-24.04 # [linux, x64]
           - windows-latest # [windows, x64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release
@@ -368,7 +368,7 @@ jobs:
     needs: [publish-tauri, build-tauri]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
       - name: Create git tag

@@ -1,5 +1,4 @@
 import { ActionListing, ButlerAction, Workflow, WorkflowList } from '$lib/actions/types';
-import { invoke } from '$lib/backend/ipc';
 import { Snapshot } from '$lib/history/types';
 import Mutex from '$lib/utils/mutex';
 import { InjectionToken } from '@gitbutler/shared/context';
@@ -7,7 +6,7 @@ import { deduplicateBy } from '@gitbutler/shared/utils/array';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
 import type { ToolCall } from '$lib/ai/tool';
-import type { Tauri } from '$lib/backend/tauri';
+import type { IBackend } from '$lib/backend';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 
 export const FEED_FACTORY = new InjectionToken<FeedFactory>('FeedFactory');
@@ -16,7 +15,7 @@ export default class FeedFactory {
 	private instance: Feed | null = null;
 
 	constructor(
-		private tauri: Tauri,
+		private backend: IBackend,
 		private stackService: StackService
 	) {}
 
@@ -30,12 +29,12 @@ export default class FeedFactory {
 	 */
 	getFeed(projectId: string): Feed {
 		if (!this.instance) {
-			this.instance = new Feed(this.tauri, projectId, this.stackService);
+			this.instance = new Feed(this.backend, projectId, this.stackService);
 		}
 
 		if (!this.instance.isProjectFeed(projectId)) {
 			this.instance.unlisten();
-			this.instance = new Feed(this.tauri, projectId, this.stackService);
+			this.instance = new Feed(this.backend, projectId, this.stackService);
 		}
 
 		return this.instance;
@@ -43,7 +42,7 @@ export default class FeedFactory {
 }
 
 type DBEvent = {
-	kind: 'actions' | 'workflows' | 'hunk-assignments' | 'unknown';
+	kind: 'actions' | 'workflows' | 'unknown';
 	item?: string;
 };
 
@@ -54,6 +53,17 @@ type TokenEvent = {
 
 type ToolCallEvent = ToolCall & {
 	messageId: string;
+};
+
+export type TodoState = {
+	id: string;
+	title: string;
+	status: 'waiting' | 'in-progress' | 'success' | 'failed';
+};
+
+type TodoUpdateEvent = {
+	messageId: string;
+	list: TodoState[];
 };
 
 type UserMessageId = `user-${string}`;
@@ -80,6 +90,7 @@ export type InProgressAssistantMessage = {
 	type: 'assistant-in-progress';
 	content: string;
 	toolCalls: ToolCall[];
+	todos: TodoState[];
 };
 
 export type FeedMessage = UserMessage | AssistantMessage;
@@ -102,7 +113,7 @@ export function isInProgressAssistantMessage(
 }
 
 interface BaseInProgressUpdate {
-	type: 'token' | 'tool-call';
+	type: 'token' | 'tool-call' | 'todo-update';
 }
 
 export interface TokenUpdate extends BaseInProgressUpdate {
@@ -115,7 +126,12 @@ export interface ToolCallUpdate extends BaseInProgressUpdate {
 	toolCall: ToolCall;
 }
 
-export type InProgressUpdate = TokenUpdate | ToolCallUpdate;
+export interface TodoUpdate extends BaseInProgressUpdate {
+	type: 'todo-update';
+	list: TodoState[];
+}
+
+export type InProgressUpdate = TokenUpdate | ToolCallUpdate | TodoUpdate;
 
 type InProgressSubscribeCallback = (update: InProgressUpdate) => void;
 
@@ -125,6 +141,7 @@ class Feed {
 	private unlistenDB: () => void;
 	private unlistenTokens: () => void;
 	private unlistenToolCalls: () => void;
+	private unlistenTodoUpdates: () => void;
 	private initialized;
 	private mutex = new Mutex();
 	private updateTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -137,7 +154,7 @@ class Feed {
 	});
 
 	constructor(
-		private tauri: Tauri,
+		private backend: IBackend,
 		private projectId: string,
 		private stackService: StackService
 	) {
@@ -146,21 +163,28 @@ class Feed {
 		this.messageSubscribers = new Map();
 		this.initialized = false;
 
-		this.unlistenDB = this.tauri.listen<DBEvent>(`project://${projectId}/db-updates`, (event) => {
+		this.unlistenDB = this.backend.listen<DBEvent>(`project://${projectId}/db-updates`, (event) => {
 			this.handleDBEvent(event.payload);
 		});
 
-		this.unlistenTokens = this.tauri.listen<TokenEvent>(
+		this.unlistenTokens = this.backend.listen<TokenEvent>(
 			`project://${projectId}/token-updates`,
 			(event) => {
 				this.handleTokenEvent(event.payload);
 			}
 		);
 
-		this.unlistenToolCalls = this.tauri.listen<ToolCallEvent>(
+		this.unlistenToolCalls = this.backend.listen<ToolCallEvent>(
 			`project://${projectId}/tool-call`,
 			(event) => {
 				this.handleToolCallEvent(event.payload);
+			}
+		);
+
+		this.unlistenTodoUpdates = this.backend.listen<TodoUpdateEvent>(
+			`project://${projectId}/todo-updates`,
+			(event) => {
+				this.handleTodoUpdate(event.payload);
 			}
 		);
 	}
@@ -201,6 +225,11 @@ class Feed {
 		subscribers.forEach((callback) => callback({ type: 'tool-call', toolCall }));
 	}
 
+	private notifySubscribersTodoUpdate(messageId: InProgressAssistantMessageId, list: TodoState[]) {
+		const subscribers = this.messageSubscribers.get(messageId) ?? [];
+		subscribers.forEach((callback) => callback({ type: 'todo-update', list }));
+	}
+
 	private handleDBEvent(event: DBEvent) {
 		switch (event.kind) {
 			case 'actions':
@@ -208,7 +237,6 @@ class Feed {
 				this.updateCombinedFeed();
 				return;
 			}
-			case 'hunk-assignments':
 			case 'unknown': {
 				// Do nothing for now, as we are not handling these events.
 				return;
@@ -231,6 +259,22 @@ class Feed {
 				const existing = entries.find((entry) => entry.id === inProgressId);
 				if (existing && isInProgressAssistantMessage(existing)) {
 					existing.toolCalls.push({ name, parameters, result });
+					return deduplicateBy([...entries], 'id');
+				}
+				return entries; // If not found, do nothing.
+			});
+		});
+	}
+
+	private async handleTodoUpdate(event: TodoUpdateEvent) {
+		const inProgressId: InProgressAssistantMessageId = `assistant-in-progress-${event.messageId}`;
+		this.notifySubscribersTodoUpdate(inProgressId, event.list);
+
+		await this.mutex.lock(async () => {
+			this.combined.update((entries) => {
+				const existing = entries.find((entry) => entry.id === inProgressId);
+				if (existing && isInProgressAssistantMessage(existing)) {
+					existing.todos = event.list;
 					return deduplicateBy([...entries], 'id');
 				}
 				return entries; // If not found, do nothing.
@@ -266,7 +310,8 @@ class Feed {
 			id: `assistant-in-progress-${uuid}`,
 			type: 'assistant-in-progress',
 			content: '',
-			toolCalls: []
+			toolCalls: [],
+			todos: []
 		};
 
 		let added = false;
@@ -473,7 +518,7 @@ class Feed {
 	}
 
 	private async fetchActions(count: number, offset: number) {
-		const listing = await invoke<any>('list_actions', {
+		const listing = await this.backend.invoke<any>('list_actions', {
 			projectId: this.projectId,
 			offset: offset,
 			limit: count
@@ -483,7 +528,7 @@ class Feed {
 	}
 
 	private async fetchWorkflows(count: number, offset: number) {
-		const listing = await invoke<any>('list_workflows', {
+		const listing = await this.backend.invoke<any>('list_workflows', {
 			projectId: this.projectId,
 			offset: offset,
 			limit: count
@@ -496,5 +541,6 @@ class Feed {
 		this.unlistenDB();
 		this.unlistenTokens();
 		this.unlistenToolCalls();
+		this.unlistenTodoUpdates();
 	}
 }

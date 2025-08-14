@@ -136,7 +136,7 @@ export class CommitAnalytics {
 			.filter((assignment) => assignment.stackId !== null)
 			.forEach((assignment) => assignedStacks.add(assignment.stackId!));
 
-		return stacks.filter((stack) => assignedStacks.has(stack.id));
+		return stacks.filter((stack) => stack.id && assignedStacks.has(stack.id));
 	}
 
 	private getAssignedFiles(assignments: HunkAssignment[]): string[] {
@@ -160,7 +160,7 @@ export class CommitAnalytics {
 		const filterCountByType = getFilterCountMap(rules);
 		const assignmentTargetTypes = getStackTargetTypeCountMap(rules);
 
-		return {
+		const ruleMetrics = {
 			// Total number of rules in the workspace
 			totalWorkspaceRules: rules.length,
 			// Average number of filters per rule
@@ -170,7 +170,17 @@ export class CommitAnalytics {
 			/// Count the stack target types used
 			...assignmentTargetTypes
 		};
+
+		return namespaceProps(ruleMetrics, 'workspaceRules');
 	}
+}
+
+function namespaceProps(props: EventProperties, namespace: string): EventProperties {
+	const namespacedProps: EventProperties = {};
+	for (const [key, value] of Object.entries(props)) {
+		namespacedProps[`${namespace}:${key}`] = value;
+	}
+	return namespacedProps;
 }
 
 function average(arr: number[]): number {

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import AsyncRender from '$components/AsyncRender.svelte';
 	import FloatingCommitBox from '$components/FloatingCommitBox.svelte';
 	import ReviewCreation from '$components/ReviewCreation.svelte';
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
@@ -11,7 +10,7 @@
 
 	type Props = {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
 		branchName: string;
 		oncancel?: () => void;
 	};
@@ -43,29 +42,21 @@
 </script>
 
 {#snippet editor()}
-	<AsyncRender>
-		<div class="create-review-box" data-testid={TestId.CreateReviewBox}>
-			<ReviewCreation
-				bind:this={reviewCreation}
-				{projectId}
-				{stackId}
-				{branchName}
-				onClose={close}
-			/>
-			<ReviewCreationControls
-				isSubmitting={!!reviewCreation?.imports.isLoading}
-				{canPublishPR}
-				{reviewUnit}
-				onCancel={() => {
-					close();
-					oncancel?.();
-				}}
-				onSubmit={async () => {
-					await reviewCreation?.createReview();
-				}}
-			/>
-		</div>
-	</AsyncRender>
+	<div class="create-review-box" data-testid={TestId.CreateReviewBox}>
+		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} onClose={close} />
+		<ReviewCreationControls
+			isSubmitting={!!reviewCreation?.imports.isLoading}
+			{canPublishPR}
+			{reviewUnit}
+			onCancel={() => {
+				close();
+				oncancel?.();
+			}}
+			onSubmit={async () => {
+				await reviewCreation?.createReview();
+			}}
+		/>
+	</div>
 {/snippet}
 
 {#if useFloatingBox.current}

@@ -33,7 +33,7 @@ export class AssignmentDropHandler implements DropzoneHandler {
 			// A whole file.
 			const changes = await data.treeChanges();
 			const assignments = changes
-				.flatMap((c) => this.uncommittedService.getAssignmentsByPath(data.stackId, c.path))
+				.flatMap((c) => this.uncommittedService.getAssignmentsByPath(data.stackId || null, c.path))
 				.map((h) => ({ ...h, stackId: this.stackId }));
 			await this.diffService.assignHunk({
 				projectId: this.projectId,

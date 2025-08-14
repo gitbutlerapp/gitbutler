@@ -1,5 +1,5 @@
 <script lang="ts">
-	import CommitContextMenu, { type CommitMenuContext } from '$components/CommitContextMenu.svelte';
+	import CommitContextMenu from '$components/CommitContextMenu.svelte';
 	import CommitDetails from '$components/CommitDetails.svelte';
 	import CommitMessageEditor from '$components/CommitMessageEditor.svelte';
 	import CommitTitle from '$components/CommitTitle.svelte';
@@ -17,6 +17,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { splitMessage } from '$lib/utils/commitMessage';
+	import { ensureValue } from '$lib/utils/validation';
 	import { inject, injectOptional } from '@gitbutler/shared/context';
 	import { AsyncButton, Button, TestId } from '@gitbutler/ui';
 
@@ -25,7 +26,8 @@
 
 	type Props = {
 		projectId: string;
-		stackId: string;
+		stackId?: string;
+		laneId: string;
 		commitKey: CommitKey;
 		active?: boolean;
 		draggableFiles: boolean;
@@ -42,6 +44,7 @@
 	let {
 		projectId,
 		stackId,
+		laneId,
 		commitKey,
 		scrollToId,
 		scrollToType,
@@ -58,9 +61,9 @@
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const modeService = injectOptional(MODE_SERVICE, undefined);
-	const stackState = $derived(uiState.stack(stackId));
+	const laneState = $derived(uiState.lane(laneId));
 	const projectState = $derived(uiState.project(projectId));
-	const selected = $derived(stackState.selection);
+	const selected = $derived(laneState.selection);
 	const branchName = $derived(selected.current?.branchName);
 
 	const commitResult = $derived(
@@ -115,20 +118,23 @@
 
 		const newCommitId = await updateCommitMessage({
 			projectId,
-			stackId,
+			stackId: ensureValue(stackId),
 			commitId: commitKey.commitId,
 			message: commitMessage
 		});
 
-		uiState.stack(stackId).selection.set({ branchName, commitId: newCommitId });
+		uiState.lane(ensureValue(stackId)).selection.set({ branchName, commitId: newCommitId });
 		setMode('view');
 	}
 
-	let commitMenuContext = $state<CommitMenuContext>();
-
 	async function handleUncommit() {
 		if (!branchName) return;
-		await stackService.uncommit({ projectId, stackId, branchName, commitId: commitKey.commitId });
+		await stackService.uncommit({
+			projectId,
+			stackId: ensureValue(stackId),
+			branchName,
+			commitId: commitKey.commitId
+		});
 	}
 
 	function canEdit() {
@@ -139,7 +145,7 @@
 		await editPatch({
 			modeService,
 			commitId: commitKey.commitId,
-			stackId,
+			stackId: ensureValue(stackId),
 			projectId
 		});
 	}
@@ -213,12 +219,7 @@
 						}
 					: undefined}
 				{#if data}
-					<CommitContextMenu
-						{projectId}
-						bind:context={commitMenuContext}
-						rightClickTrigger={header}
-						contextData={data}
-					/>
+					<CommitContextMenu {projectId} rightClickTrigger={header} contextData={data} />
 				{/if}
 			{/snippet}
 

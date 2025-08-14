@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { writeClipboard } from '$lib/backend/clipboard';
+	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { type Stack } from '$lib/stacks/stack';
 	import {
 		getBaseBranchResolution,
 		type BaseBranchResolutionApproach,
@@ -16,7 +15,7 @@
 		type StackStatusesWithBranchesV3
 	} from '$lib/upstream/types';
 	import { UPSTREAM_INTEGRATION_SERVICE } from '$lib/upstream/upstreamIntegrationService.svelte';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import {
 		Badge,
@@ -51,6 +50,8 @@
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseBranchResponse.current.data);
+	const urlService = inject(URL_SERVICE);
+	const clipboardService = inject(CLIPBOARD_SERVICE);
 
 	let modal = $state<Modal>();
 	let integratingUpstream = $state<OperationState>('inert');
@@ -86,12 +87,14 @@
 			);
 			const forceIntegratedBranches = mergedAssociatedReviews.map((r) => r.sourceBranch);
 
-			results.set(status.stack.id, {
-				branchId: status.stack.id,
-				approach: getResolutionApproachV3(status),
-				deleteIntegratedBranches: true,
-				forceIntegratedBranches
-			});
+			if (status.stack.id) {
+				results.set(status.stack.id, {
+					branchId: status.stack.id,
+					approach: getResolutionApproachV3(status),
+					deleteIntegratedBranches: true,
+					forceIntegratedBranches
+				});
+			}
 		}
 
 		statuses = statusesTmp;
@@ -266,22 +269,22 @@
 	}
 </script>
 
-{#snippet stackStatus(stack: Stack, stackStatus: StackStatus)}
-	{@const branchShouldBeDeletedMap = getBranchShouldBeDeletedMap(stack.id, stackStatus)}
+{#snippet stackStatus(stackId: string, stackStatus: StackStatus)}
+	{@const branchShouldBeDeletedMap = getBranchShouldBeDeletedMap(stackId, stackStatus)}
 	<IntegrationSeriesRow
 		testId={TestId.IntegrateUpstreamSeriesRow}
 		series={integrationRowSeries(stackStatus)}
 		{branchShouldBeDeletedMap}
 		updateBranchShouldBeDeletedMap={(_, shouldBeDeleted) =>
-			updateBranchShouldBeDeletedMap(stack.id, shouldBeDeleted)}
+			updateBranchShouldBeDeletedMap(stackId, shouldBeDeleted)}
 	>
-		{#if !stackFullyIntegrated(stackStatus) && results.get(stack.id)}
+		{#if !stackFullyIntegrated(stackStatus) && results.get(stackId)}
 			<Select
-				value={results.get(stack.id)!.approach.type}
+				value={results.get(stackId)!.approach.type}
 				maxWidth={130}
 				onselect={(value) => {
-					const result = results.get(stack.id)!;
-					results.set(stack.id, { ...result, approach: { type: value as OperationType } });
+					const result = results.get(stackId)!;
+					results.set(stackId, { ...result, approach: { type: value as OperationType } });
 				}}
 				options={integrationOptions(stackStatus)}
 			>
@@ -321,8 +324,8 @@
 								date={commit.createdAt}
 								author={commit.author.name}
 								url={commitUrl}
-								onOpen={(url) => openExternalUrl(url)}
-								onCopy={() => writeClipboard(commit.id)}
+								onOpen={(url) => urlService.openExternalUrl(url)}
+								onCopy={() => clipboardService.write(commit.id)}
 							/>
 						{/each}
 					</ScrollableContainer>
@@ -397,7 +400,9 @@
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight="15rem">
 						{#each statuses as { stack, status }}
-							{@render stackStatus(stack, status)}
+							{#if stack.id}
+								{@render stackStatus(stack.id, status)}
+							{/if}
 						{/each}
 					</ScrollableContainer>
 				</div>
