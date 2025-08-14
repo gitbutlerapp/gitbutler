@@ -21,9 +21,9 @@ import {
 	type AIClient,
 	type Prompt
 } from '$lib/ai/types';
-import createBackend from '$lib/backend';
 import { type GbConfig, GitConfigService } from '$lib/config/gitConfigService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
+import { mockCreateBackend } from '$lib/testing/mockBackend';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
 import { expect, test, describe, vi } from 'vitest';
 import type { SecretsService } from '$lib/secrets/secretsService';
@@ -43,7 +43,7 @@ const defaultSecretsConfig = Object.freeze({
 
 class DummyGitConfigService extends GitConfigService {
 	constructor(private config: { [index: string]: string | undefined }) {
-		const backend = createBackend();
+		const backend = mockCreateBackend();
 		super(backend);
 	}
 	async getGbConfig(_projectId: string): Promise<GbConfig> {

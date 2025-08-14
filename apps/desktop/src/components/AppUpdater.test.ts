@@ -1,8 +1,9 @@
 import AppUpdater from '$components/AppUpdater.svelte';
 import { EventContext } from '$lib/analytics/eventContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
-import createBackend, { type Update } from '$lib/backend';
+import { type Update } from '$lib/backend';
 import { ShortcutService } from '$lib/shortcuts/shortcutService';
+import { mockCreateBackend } from '$lib/testing/mockBackend';
 import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { UPDATER_SERVICE, UpdaterService } from '$lib/updater/updater';
 import { render, screen } from '@testing-library/svelte';
@@ -11,7 +12,7 @@ import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
 describe('AppUpdater', () => {
 	let updater: UpdaterService;
 	let context: Map<any, any>;
-	const backend = createBackend();
+	const backend = mockCreateBackend();
 	const shortcuts = new ShortcutService(backend);
 	const MockSettingsService = getSettingsdServiceMock();
 	const settingsService = new MockSettingsService();

@@ -1,7 +1,7 @@
-import createBackend from '$lib/backend';
 import { GitHubClient } from '$lib/forge/github/githubClient';
 import { butlerModule } from '$lib/state/butlerModule';
 import { createGitHubApi } from '$lib/state/clientState.svelte';
+import { mockCreateBackend } from '$lib/testing/mockBackend';
 import { Octokit } from '@octokit/rest';
 import { configureStore, type ThunkDispatch, type UnknownAction } from '@reduxjs/toolkit';
 
@@ -26,7 +26,7 @@ export function setupMockGitHubApi() {
 	let state = {};
 	let dispatch: ThunkDispatch<any, any, UnknownAction> | undefined = undefined;
 
-	const backend = createBackend();
+	const backend = mockCreateBackend();
 	const octokit = new Octokit();
 	const gitHubClient = new GitHubClient({ client: octokit });
 	gitHubClient.setRepo({ owner: 'test-owner', repo: 'test-repo' });
