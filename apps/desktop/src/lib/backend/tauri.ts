@@ -11,6 +11,7 @@ import {
 } from '@tauri-apps/plugin-clipboard-manager';
 import { open as filePickerTauri, type OpenDialogOptions } from '@tauri-apps/plugin-dialog';
 import { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';
+import { platform } from '@tauri-apps/plugin-os';
 import { relaunch as relaunchTauri } from '@tauri-apps/plugin-process';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { readable } from 'svelte/store';
@@ -18,6 +19,7 @@ import type { AppInfo, IBackend } from '$lib/backend/backend';
 import type { EventCallback, EventName } from '@tauri-apps/api/event';
 
 export default class Tauri implements IBackend {
+	platformName = platform();
 	private appWindow: Window | undefined;
 	systemTheme = readable<string | null>(null, (set) => {
 		if (!this.appWindow) {
@@ -51,6 +53,11 @@ export default class Tauri implements IBackend {
 		// https://github.com/sveltejs/kit/issues/905
 		return await (await import('@tauri-apps/api/path')).homeDir();
 	}
+}
+
+export function tauriPathSeparator(): string {
+	const platformName = platform();
+	return platformName === 'windows' ? '\\' : '/';
 }
 
 async function tauriGetAppInfo(): Promise<AppInfo> {
