@@ -6,6 +6,7 @@ import type { IBackend } from '$lib/backend';
 export const SETTINGS_SERVICE = new InjectionToken<SettingsService>('SettingsService');
 
 const WS3_AUTO_TOGGLE = 'ws3AutoToggle';
+const RULES_AUTO_TOGGLE = 'rulesAutoToggle';
 
 export class SettingsService {
 	readonly appSettings = writable<AppSettings | undefined>(undefined, () => {
@@ -19,7 +20,7 @@ export class SettingsService {
 	readonly subscribe = this.appSettings.subscribe;
 
 	constructor(private backend: IBackend) {
-		this.autoOptInWs3();
+		this.nudge();
 	}
 
 	private async handlePayload(settings: AppSettings) {
@@ -54,13 +55,18 @@ export class SettingsService {
 		await this.backend.invoke('update_feature_flags', { update });
 	}
 
+	private async nudge(): Promise<void> {
+		await this.autoOptInWs3();
+		await this.autoOptInRules();
+	}
+
 	/**
 	 * Automatically opt-in to WS3 if it is not already enabled.
 	 *
 	 * This is done only to kickstart the usage of WS3, so that users can try it out.
 	 * Once the transition into WS3 is complete, this method can be removed.
 	 */
-	async autoOptInWs3() {
+	private async autoOptInWs3() {
 		try {
 			const response = await this.backend.invoke<AppSettings>('get_app_settings');
 			const performedAutoToggle = getStorageItem(WS3_AUTO_TOGGLE) ?? false;
@@ -81,6 +87,35 @@ export class SettingsService {
 			setStorageItem(WS3_AUTO_TOGGLE, true);
 		} catch (error: unknown) {
 			console.error(`Failed to auto-opt-in to WS3: ${error}`);
+		}
+	}
+
+	/**
+	 * Automatically opt-in to rules if it is not already enabled.
+	 *
+	 * This is done only to kickstart the usage of rules, so that users can try it out.
+	 */
+	private async autoOptInRules() {
+		try {
+			const response = await this.backend.invoke<AppSettings>('get_app_settings');
+			const performedAutoToggle = getStorageItem(RULES_AUTO_TOGGLE) ?? false;
+			// If the auto toggle has already been performed, we do not need to do it again.
+			if (performedAutoToggle) return;
+			if (response.featureFlags.rules) {
+				// If the rules feature flag is already enabled, set the flag and do not toggle it again.
+				setStorageItem(RULES_AUTO_TOGGLE, true);
+				return;
+			}
+
+			// If the rules feature flag is not enabled, we automatically enable it for the
+			// first time, so that the user can try it out.
+			await this.updateFeatureFlags({
+				rules: true
+			});
+
+			setStorageItem(RULES_AUTO_TOGGLE, true);
+		} catch (error: unknown) {
+			console.error(`Failed to auto-opt-in to rules: ${error}`);
 		}
 	}
 
