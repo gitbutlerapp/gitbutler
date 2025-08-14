@@ -6,7 +6,6 @@
 	import BranchCommitList from '$components/BranchCommitList.svelte';
 	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
 	import ConflictResolutionConfirmModal from '$components/ConflictResolutionConfirmModal.svelte';
-	import NewBranchModal from '$components/NewBranchModal.svelte';
 	import PushButton from '$components/PushButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
@@ -60,8 +59,6 @@
 	const laneState = $derived(uiState.lane(laneId));
 	const selection = $derived(laneState.selection);
 	const selectedCommitId = $derived(selection.current?.commitId);
-
-	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
 
 	let conflictResolutionConfirmationModal =
 		$state<ReturnType<typeof ConflictResolutionConfirmModal>>();
@@ -324,8 +321,6 @@
 		</ReduxResult>
 	{/each}
 </div>
-
-<NewBranchModal {projectId} {stackId} bind:this={newBranchModal} />
 
 <Modal
 	bind:this={conflictResolutionConfirmationModal}
