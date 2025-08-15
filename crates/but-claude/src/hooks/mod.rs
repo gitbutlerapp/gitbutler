@@ -8,7 +8,7 @@ use but_action::rename_branch::RenameBranchParams;
 use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
-use but_rules::{CreateRuleRequest, UpdateRuleRequest};
+use but_rules::UpdateRuleRequest;
 use but_settings::AppSettings;
 use but_workspace::ui::{StackDetails, StackEntry};
 use but_workspace::{HunkHeader, StackId, StacksFilter};
@@ -462,16 +462,7 @@ fn get_or_create_session(
         // If the session is not in the list of sessions, then create a new stack + session entry
         // Create a new stack
         let stack_id = create_stack(ctx, vb_state, perm)?;
-        let req = CreateRuleRequest {
-            trigger: but_rules::Trigger::ClaudeCodeHook,
-            filters: vec![but_rules::Filter::ClaudeCodeSessionId(
-                session_id.to_string(),
-            )],
-            action: but_rules::Action::Explicit(but_rules::Operation::Assign {
-                target: but_rules::StackTarget::StackId(stack_id.to_string()),
-            }),
-        };
-        but_rules::create_rule(ctx, req)?;
+        crate::rules::create_claude_assignment_rule(ctx, Uuid::parse_str(session_id)?, stack_id)?;
         stack_id
     };
     Ok(stack_id)
