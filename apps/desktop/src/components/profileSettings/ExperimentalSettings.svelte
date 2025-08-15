@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { ircEnabled, ircServer, codegenEnabled } from '$lib/config/uiFeatureFlags';
+	import { UI_FEATURE_FLAGS_SERVICE } from '$lib/config/uiFeatureFlags';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
 	import { SectionCard, Spacer, Textbox, Toggle } from '@gitbutler/ui';
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
+	const uiFlagsService = inject(UI_FEATURE_FLAGS_SERVICE);
 
 	const user = inject(USER);
 </script>
@@ -125,13 +126,13 @@
 			{#snippet actions()}
 				<Toggle
 					id="codegen"
-					checked={$codegenEnabled}
-					onclick={() => ($codegenEnabled = !$codegenEnabled)}
+					checked={$uiFlagsService.codegenEnabled}
+					onclick={() => uiFlagsService.setCodegenEnabled(!$uiFlagsService.codegenEnabled)}
 				/>
 			{/snippet}
 		</SectionCard>
 
-		<SectionCard labelFor="irc" roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
+		<SectionCard labelFor="irc" roundedTop={false} roundedBottom={!$uiFlagsService.ircEnabled} orientation="row">
 			{#snippet title()}
 				IRC
 			{/snippet}
@@ -139,18 +140,18 @@
 				Enable experimental in-app chat.
 			{/snippet}
 			{#snippet actions()}
-				<Toggle id="irc" checked={$ircEnabled} onclick={() => ($ircEnabled = !$ircEnabled)} />
+				<Toggle id="irc" checked={$uiFlagsService.ircEnabled} onclick={() => uiFlagsService.setIrcEnabled(!$uiFlagsService.ircEnabled)} />
 			{/snippet}
 		</SectionCard>
-		{#if $ircEnabled}
+		{#if $uiFlagsService.ircEnabled}
 			<SectionCard roundedTop={false} topDivider orientation="column">
 				{#snippet actions()}
 					<Textbox
-						value={$ircServer}
+						value={$uiFlagsService.ircServer}
 						size="large"
 						label="Server"
 						placeholder="wss://irc.gitbutler.com:443"
-						onchange={(value) => ($ircServer = value)}
+						onchange={(value) => uiFlagsService.setIrcServer(value)}
 					/>
 				{/snippet}
 			</SectionCard>

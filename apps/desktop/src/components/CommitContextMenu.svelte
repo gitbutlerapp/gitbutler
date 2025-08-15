@@ -43,7 +43,7 @@
 
 <script lang="ts">
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
+	import { UI_FEATURE_FLAGS_SERVICE } from '$lib/config/uiFeatureFlags';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
@@ -67,6 +67,7 @@
 	let { flat, projectId, openId = $bindable(), rightClickTrigger, contextData }: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
+	const uiFlagsService = inject(UI_FEATURE_FLAGS_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 	const [createRef, refCreation] = stackService.createReference;
 
@@ -236,10 +237,10 @@
 			{/if}
 			<ContextMenuSection>
 				<ContextMenuItem
-					label={$rewrapCommitMessage ? 'Show original wrapping' : 'Rewrap message'}
+					label={$uiFlagsService.rewrapCommitMessage ? 'Show original wrapping' : 'Rewrap message'}
 					disabled={commitInsertion.current.isLoading}
 					onclick={() => {
-						rewrapCommitMessage.set(!$rewrapCommitMessage);
+						uiFlagsService.setRewrapCommitMessage(!$uiFlagsService.rewrapCommitMessage);
 						close();
 					}}
 				/>
