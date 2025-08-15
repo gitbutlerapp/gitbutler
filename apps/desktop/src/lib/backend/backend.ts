@@ -1,4 +1,84 @@
 import type { Readable } from 'svelte/store';
+
+export interface IBackend {
+	/**
+	 * The name of the platform, e.g. 'macos', 'windows', 'linux', or 'web'
+	 */
+	platformName: string;
+	/**
+	 * The theme of the system, e.g. 'light', 'dark'
+	 */
+	systemTheme: Readable<string | null>;
+	/**
+	 * Executes a command in the backend.
+	 */
+	invoke: <T>(command: string, ...args: any[]) => Promise<T>;
+	/**
+	 * Subscribes to an event in the backend.
+	 */
+	listen: <T>(event: string, callback: (event: Event<T>) => void) => () => Promise<void>;
+	/**
+	 * Checks for updates in the backend.
+	 */
+	checkUpdate: () => Promise<Update | null>;
+	/**
+	 * Returns the current version of the application.
+	 */
+	currentVersion: () => Promise<string>;
+	/**
+	 * Reads a file from the disk.
+	 */
+	readFile: (path: string) => Promise<Uint8Array>;
+	/**
+	 * Opens an external URL in the system's default browser.
+	 */
+	openExternalUrl: (href: string) => Promise<void>;
+	/**
+	 * Relaunches the application.
+	 */
+	relaunch: () => Promise<void>;
+	/**
+	 * Returns the absolute path to the user's document directory.
+	 */
+	documentDir: () => Promise<string>;
+	/**
+	 * Joins path segments into a single path, taking care of platform-specific path separators.
+	 */
+	joinPath: (path: string, ...paths: string[]) => Promise<string>;
+	/**
+	 * Opens a file picker dialog to select files or directories.
+	 */
+	filePicker<T extends OpenDialogOptions>(options: T): Promise<OpenDialogReturn<T>>;
+	/**
+	 * Returns the absolute path to the user's home directory.
+	 */
+	homeDirectory(): Promise<string>;
+	/**
+	 * Gets the application name and version.
+	 */
+	getAppInfo: () => Promise<AppInfo>;
+	/**
+	 * Writes text to the system clipboard.
+	 */
+	writeTextToClipboard: (text: string) => Promise<void>;
+	/**
+	 * Reads text from the system clipboard.
+	 */
+	readTextFromClipboard: () => Promise<string>;
+	/**
+	 * Loads a disk store from a file.
+	 */
+	loadDiskStore: (fileName: string) => Promise<DiskStore>;
+}
+
+export interface DiskStore {
+	set: (key: string, value: unknown) => Promise<void>;
+
+	get<T>(key: string, defaultValue: undefined): Promise<T | undefined>;
+	get<T>(key: string, defaultValue: T): Promise<T>;
+	get<T>(key: string, defaultValue?: T): Promise<T | undefined>;
+}
+
 type Event<T> = {
 	/** Event name */
 	event: string;
@@ -90,21 +170,3 @@ export type AppInfo = {
 	name: string;
 	version: string;
 };
-export interface IBackend {
-	platformName: string;
-	systemTheme: Readable<string | null>;
-	invoke: <T>(command: string, ...args: any[]) => Promise<T>;
-	listen: <T>(event: string, callback: (event: Event<T>) => void) => () => Promise<void>;
-	checkUpdate: () => Promise<Update | null>;
-	currentVersion: () => Promise<string>;
-	readFile: (path: string) => Promise<Uint8Array>;
-	openExternalUrl: (href: string) => Promise<void>;
-	relaunch: () => Promise<void>;
-	documentDir: () => Promise<string>;
-	joinPath: (path: string, ...paths: string[]) => Promise<string>;
-	filePicker<T extends OpenDialogOptions>(options: T): Promise<OpenDialogReturn<T>>;
-	homeDirectory(): Promise<string>;
-	getAppInfo: () => Promise<AppInfo>;
-	writeTextToClipboard: (text: string) => Promise<void>;
-	readTextFromClipboard: () => Promise<string>;
-}

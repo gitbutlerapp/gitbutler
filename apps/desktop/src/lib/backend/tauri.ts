@@ -13,9 +13,10 @@ import { open as filePickerTauri, type OpenDialogOptions } from '@tauri-apps/plu
 import { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';
 import { platform } from '@tauri-apps/plugin-os';
 import { relaunch as relaunchTauri } from '@tauri-apps/plugin-process';
+import { Store } from '@tauri-apps/plugin-store';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { readable } from 'svelte/store';
-import type { AppInfo, IBackend } from '$lib/backend/backend';
+import type { AppInfo, DiskStore, IBackend } from '$lib/backend/backend';
 import type { EventCallback, EventName } from '@tauri-apps/api/event';
 
 export default class Tauri implements IBackend {
@@ -52,6 +53,25 @@ export default class Tauri implements IBackend {
 		// TODO: Find a workaround to avoid this dynamic import
 		// https://github.com/sveltejs/kit/issues/905
 		return await (await import('@tauri-apps/api/path')).homeDir();
+	}
+	async loadDiskStore(fileName: string): Promise<DiskStore> {
+		const store = await Store.load(fileName, { autoSave: true });
+		return new TauriDiskStore(store);
+	}
+}
+
+class TauriDiskStore implements DiskStore {
+	constructor(private store: Store) {}
+
+	async set(key: string, value: unknown): Promise<void> {
+		return await this.store.set(key, value);
+	}
+
+	async get<T>(key: string, defaultValue: undefined): Promise<T | undefined>;
+	async get<T>(key: string, defaultValue: T): Promise<T>;
+	async get<T>(key: string, defaultValue?: T): Promise<T | undefined> {
+		const value = await this.store.get<T>(key);
+		return value !== undefined ? value : defaultValue;
 	}
 }
 

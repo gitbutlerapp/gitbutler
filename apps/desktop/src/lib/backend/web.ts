@@ -2,7 +2,13 @@ import { isReduxError } from '$lib/state/reduxError';
 import { getCookie } from '$lib/utils/cookies';
 import { readable } from 'svelte/store';
 import path from 'path';
-import type { AppInfo, IBackend, OpenDialogOptions, OpenDialogReturn } from '$lib/backend/backend';
+import type {
+	AppInfo,
+	DiskStore,
+	IBackend,
+	OpenDialogOptions,
+	OpenDialogReturn
+} from '$lib/backend/backend';
 
 export default class Web implements IBackend {
 	platformName = 'web';
@@ -22,6 +28,27 @@ export default class Web implements IBackend {
 	writeTextToClipboard = webWriteTextToClipboard;
 	async filePicker<T extends OpenDialogOptions>(options?: T): Promise<OpenDialogReturn<T>> {
 		return await webFilePicker<T>(options);
+	}
+	async loadDiskStore(_filename: string): Promise<DiskStore> {
+		// For the web version, we don't have a disk store, so we return a no-op implementation
+		return new WebDiskStore();
+	}
+}
+
+class WebDiskStore implements DiskStore {
+	constructor() {}
+
+	async set(_key: string, _value: unknown): Promise<void> {
+		// TODO: Implement this for the web version
+		// This is a no-op for the web version
+	}
+
+	async get<T>(key: string, defaultValue: undefined): Promise<T | undefined>;
+	async get<T>(key: string, defaultValue: T): Promise<T>;
+	async get<T>(_: string, defaultValue?: T): Promise<T | undefined> {
+		// TODO: Implement this for the web version
+		// This is a no-op for the web version
+		return defaultValue;
 	}
 }
 
@@ -45,7 +72,6 @@ async function webGetAppInfo(): Promise<AppInfo> {
 }
 
 async function webHomeDirectory(): Promise<string> {
-	// This needs to be implemented for the web version
 	return await Promise.resolve('/tmp/gitbutler');
 }
 
