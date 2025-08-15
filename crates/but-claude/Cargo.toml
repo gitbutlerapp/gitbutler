@@ -29,3 +29,10 @@ gitbutler-command-context.workspace = true
 gitbutler-branch-actions.workspace = true
 tokio = { workspace = true, features = ["full"] }
 dirs.workspace = true
+rmcp.workspace = true
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = [
+    "env-filter",
+    "std",
+    "fmt",
+] }

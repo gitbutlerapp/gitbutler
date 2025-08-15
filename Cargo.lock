@@ -942,10 +942,13 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-stack",
  "gix",
+ "rmcp",
  "serde",
  "serde_json",
  "strum",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 

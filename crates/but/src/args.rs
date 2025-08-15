@@ -132,5 +132,7 @@ pub mod claude {
         #[clap(alias = "post-tool-use")]
         PostTool,
         Stop,
+        #[clap(alias = "pp")]
+        PermissionPromptMcp,
     }
 }
