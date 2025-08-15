@@ -26,14 +26,20 @@ pub struct WorkspaceRule {
 }
 
 impl WorkspaceRule {
-    pub fn matches_claude_code_session(&self, session_id: &str) -> bool {
-        self.trigger == Trigger::ClaudeCodeHook
-            && self
-                .filters
-                .iter()
-                .any(|f| matches!(f, Filter::ClaudeCodeSessionId(id) if id == session_id))
+    /// If the rule has a session ID filter, this returns the first one found.
+    pub fn session_id(&self) -> Option<String> {
+        self.filters.iter().find_map(|f| match f {
+            Filter::ClaudeCodeSessionId(id) => Some(id.clone()),
+            _ => None,
+        })
     }
 
+    /// Checks if the rule matches a Claude Code session by comparing the session ID.
+    pub fn matches_claude_code_session(&self, session_id: &str) -> bool {
+        self.trigger == Trigger::ClaudeCodeHook && self.session_id().as_deref() == Some(session_id)
+    }
+
+    /// Returns the target stack ID if the action is an explicit assignment operation.
     pub fn target_stack_id(&self) -> Option<String> {
         if let Action::Explicit(Operation::Assign { target }) = &self.action {
             match target {
@@ -47,6 +53,14 @@ impl WorkspaceRule {
 
     pub fn id(&self) -> String {
         self.id.clone()
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn created_at(&self) -> chrono::NaiveDateTime {
+        self.created_at
     }
 }
 
