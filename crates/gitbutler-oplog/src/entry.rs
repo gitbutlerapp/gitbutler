@@ -1,7 +1,6 @@
 use std::{
     fmt,
     fmt::{Debug, Display, Formatter},
-    path::PathBuf,
     str::FromStr,
 };
 
@@ -21,12 +20,6 @@ pub struct Snapshot {
     /// Snapshot creation time in seconds from Unix epoch seconds, based on a commit as `commit_id`.
     #[serde(serialize_with = "gitbutler_serde::as_time_seconds_from_unix_epoch")]
     pub created_at: git2::Time,
-    /// The number of working directory lines added in the snapshot
-    pub lines_added: usize,
-    /// The number of working directory lines removed in the snapshot
-    pub lines_removed: usize,
-    /// The list of working directory files that were changed in the snapshot
-    pub files_changed: Vec<PathBuf>,
     /// Snapshot details as persisted in the commit message, or `None` if the details couldn't be parsed.
     pub details: Option<SnapshotDetails>,
 }

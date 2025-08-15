@@ -94,7 +94,7 @@ mod operation_kind {
 }
 
 mod snapshot_details {
-    use std::{path::PathBuf, str::FromStr};
+    use std::str::FromStr;
 
     use gitbutler_oplog::entry::{OperationKind, Snapshot, SnapshotDetails, Trailer, Version};
 
@@ -109,9 +109,6 @@ mod snapshot_details {
         let snapshot = Snapshot {
             commit_id: commit_sha,
             created_at,
-            lines_added: 1,
-            lines_removed: 1,
-            files_changed: vec![PathBuf::from("foo.txt")],
             details: Some(details),
         };
         assert_eq!(snapshot.commit_id, commit_sha);

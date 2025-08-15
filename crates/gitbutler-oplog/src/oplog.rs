@@ -29,7 +29,6 @@ use gitbutler_project::{
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
 use gitbutler_stack::{Stack, VirtualBranchesHandle, VirtualBranchesState};
-use gix::object::tree::diff::Change;
 use gix::prelude::ObjectIdExt;
 use gix::{bstr::ByteSlice, ObjectId};
 use tracing::instrument;
@@ -197,7 +196,6 @@ impl OplogExt for CommandContext {
         .attach(&repo);
 
         let mut snapshots = Vec::new();
-        let mut wd_trees_cache: HashMap<gix::ObjectId, gix::ObjectId> = HashMap::new();
 
         for commit_info in traversal_root_id.ancestors().all()? {
             if snapshots.len() == limit {
@@ -224,14 +222,6 @@ impl OplogExt for CommandContext {
                 continue;
             }
 
-            // Get tree id from cache or calculate it
-            let wd_tree = repo.find_tree(get_workdir_tree(
-                Some(&mut wd_trees_cache),
-                commit_id,
-                &repo,
-                self,
-            )?)?;
-
             let commit_id = gix_to_git2_oid(commit_id);
             let details = commit
                 .message_raw()?
@@ -245,63 +235,12 @@ impl OplogExt for CommandContext {
                 }
             }
 
-            if let Some(parent_id) = first_parent {
-                // Get tree id from cache or calculate it
-
-                let mut files_changed = Vec::new();
-                let mut resource_cache = repo.diff_resource_cache_for_tree_diff()?;
-                let (mut lines_added, mut lines_removed) = (0, 0);
-                let parent_tree = repo.find_tree(get_workdir_tree(
-                    Some(&mut wd_trees_cache),
-                    parent_id,
-                    &repo,
-                    self,
-                )?)?;
-                parent_tree
-                    .changes()?
-                    .options(|opts| {
-                        opts.track_rewrites(None).track_path();
-                    })
-                    .for_each_to_obtain_tree(&wd_tree, |change| -> Result<_> {
-                        match change {
-                            Change::Addition { location, .. } => {
-                                files_changed.push(gix::path::from_bstr(location).into_owned());
-                            }
-                            Change::Deletion { .. }
-                            | Change::Modification { .. }
-                            | Change::Rewrite { .. } => {}
-                        }
-                        if let Some(counts) = change
-                            .diff(&mut resource_cache)
-                            .ok()
-                            .and_then(|mut platform| platform.line_counts().ok().flatten())
-                        {
-                            lines_added += u64::from(counts.insertions);
-                            lines_removed += u64::from(counts.removals);
-                        }
-                        resource_cache.clear_resource_cache_keep_allocation();
-
-                        Ok(gix::object::tree::diff::Action::Continue)
-                    })?;
-
-                snapshots.push(Snapshot {
-                    commit_id,
-                    details,
-                    lines_added: lines_added as usize,
-                    lines_removed: lines_removed as usize,
-                    files_changed,
-                    created_at: commit_time,
-                });
-            } else {
-                // this is the very first snapshot
-                snapshots.push(Snapshot {
-                    commit_id,
-                    details,
-                    lines_added: 0,
-                    lines_removed: 0,
-                    files_changed: Vec::new(),
-                    created_at: commit_time,
-                });
+            snapshots.push(Snapshot {
+                commit_id,
+                details,
+                created_at: commit_time,
+            });
+            if first_parent.is_none() {
                 break;
             }
         }

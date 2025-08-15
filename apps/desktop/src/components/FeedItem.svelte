@@ -2,6 +2,7 @@
 	import FeedActionDiff from '$components/FeedActionDiff.svelte';
 	import FeedItemKind from '$components/FeedItemKind.svelte';
 	import FeedStreamMessage from '$components/FeedStreamMessage.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import {
 		allCommitsUpdated,
 		ButlerAction,
@@ -14,6 +15,7 @@
 	} from '$lib/actions/types';
 	import butbotSvg from '$lib/assets/butbot-actions.svg?raw';
 	import { isFeedMessage, isInProgressAssistantMessage, type FeedEntry } from '$lib/feed/feed';
+	import { HISTORY_SERVICE } from '$lib/history/history';
 	import { Snapshot } from '$lib/history/types';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
@@ -27,6 +29,14 @@
 	const { action, projectId }: Props = $props();
 
 	const user = inject(USER);
+	const historyService = inject(HISTORY_SERVICE);
+
+	// Get snapshot diff for Snapshot feed items
+	const snapshotDiff = $derived(
+		action instanceof Snapshot
+			? historyService.snapshotDiff({ projectId, snapshotId: action.id })
+			: null
+	);
 	let failedToLoadImage = $state(false);
 
 	function workflowTriggerTooltip(workflow: Workflow): string {
@@ -142,9 +152,15 @@
 				{#if action.details?.body}
 					<Markdown content={action.details?.body} />
 				{/if}
-				{#each action.filesChanged as file}
-					<span class="text-greyer">{file}</span>
-				{/each}
+				{#if snapshotDiff}
+					<ReduxResult result={snapshotDiff.current} {projectId}>
+						{#snippet children(files)}
+							{#each files as file}
+								<span class="text-greyer">{file.path}</span>
+							{/each}
+						{/snippet}
+					</ReduxResult>
+				{/if}
 			</span>
 		</div>
 	{:else if action instanceof Workflow}

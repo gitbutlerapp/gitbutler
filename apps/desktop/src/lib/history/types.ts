@@ -56,9 +56,6 @@ export class SnapshotDetails {
 
 export class Snapshot {
 	id!: string;
-	linesAdded!: number;
-	linesRemoved!: number;
-	filesChanged!: string[];
 	@Type(() => SnapshotDetails)
 	details?: SnapshotDetails;
 	@Transform((obj) => new Date(obj.value * 1000))
