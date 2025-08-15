@@ -492,7 +492,7 @@ fn remote_ahead() -> anyhow::Result<()> {
                             ],
                             commits_outside: None,
                             metadata: "None",
-                            push_status: NothingToPush,
+                            push_status: UnpushedCommitsRequiringForce,
                             base: "fafd9d0",
                         },
                     ],

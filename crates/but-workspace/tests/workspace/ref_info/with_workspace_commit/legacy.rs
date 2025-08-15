@@ -347,7 +347,7 @@ mod stack_details {
                     review_id: None,
                     tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     base_commit: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                    push_status: NothingToPush,
+                    push_status: UnpushedCommitsRequiringForce,
                     last_updated_at: None,
                     authors: [
                         author <author@example.com>,
@@ -404,7 +404,7 @@ mod stack_details {
                     review_id: None,
                     tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     base_commit: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                    push_status: NothingToPush,
+                    push_status: UnpushedCommitsRequiringForce,
                     last_updated_at: None,
                     authors: [
                         author <author@example.com>,
