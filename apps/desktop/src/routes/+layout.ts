@@ -39,7 +39,7 @@ export const load: LayoutLoad = async () => {
 	// Awaited and will block initial render, but it is necessary in order to respect the user
 	// settings on telemetry.
 	const posthog = new PostHogWrapper(settingsService, backend, eventContext);
-	const appSettings = await loadAppSettings();
+	const appSettings = await loadAppSettings(backend);
 	initAnalyticsIfEnabled(appSettings, posthog);
 
 	const gitConfig = new GitConfigService(backend);
