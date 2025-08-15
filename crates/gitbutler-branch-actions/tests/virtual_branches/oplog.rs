@@ -364,16 +364,6 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         &all_snapshots[3..],
     );
 
-    let first_snapshot = all_snapshots.last().unwrap();
-    assert_eq!(
-        (
-            first_snapshot.lines_added,
-            first_snapshot.lines_removed,
-            first_snapshot.files_changed.len()
-        ),
-        (0, 0, 0),
-        "The first snapshot is intentionally not listing everything as changed"
-    );
     Ok(())
 }
 

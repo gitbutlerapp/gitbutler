@@ -11,13 +11,11 @@
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { HISTORY_SERVICE, createdOnDay } from '$lib/history/history';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
-	import { createSnapshotSelection } from '$lib/selection/key';
+	import { createSnapshotSelection, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/shared/context';
 	import { EmptyStatePlaceholder, Icon, FileViewHeader } from '@gitbutler/ui';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 	import type { Snapshot } from '$lib/history/types';
-	import type { TreeChange } from '$lib/hunks/change';
-	import type { SelectedFile } from '$lib/selection/key';
 
 	// TODO: Refactor so we don't need non-null assertion.
 	const projectId = $derived(page.params.projectId!);
@@ -37,9 +35,14 @@
 
 	const withinRestoreItems = $derived(findRestorationRanges($snapshots));
 
-	let snapshotFilesTempStore: { entryId: string; diffs: TreeChange[] } | undefined =
-		$state(undefined);
-	let selectedFile: (SelectedFile & { type: 'snapshot' }) | undefined = $state(undefined);
+	let currentSelectionId: SelectionId | undefined = $state(undefined);
+
+	// Derive selectedFile from the selection service
+	const selectedFile = $derived.by(() => {
+		if (!currentSelectionId) return undefined;
+		const selections = idSelection.values(currentSelectionId);
+		return selections.length > 0 ? selections[0] : undefined;
+	});
 
 	async function onLastInView() {
 		if (!$loading && !$isAllLoaded) await snapshotManager.loadMore();
@@ -67,16 +70,15 @@
 		return ranges.map((snapshot) => snapshot.id);
 	}
 
-	function updateFilePreview(entry: Snapshot, path: string) {
-		if (!snapshotFilesTempStore) return;
-
-		const file = snapshotFilesTempStore.diffs
-			.map((tc, i) => [tc, i] as const)
-			.find(([tc]) => tc.path === path);
-		if (!file) return;
-
+	async function updateFilePreview(entry: Snapshot, path: string) {
 		const selectionId = createSnapshotSelection({ snapshotId: entry.id });
-		idSelection.set(path, selectionId, file[1]);
+		// Get the diff data to find the file index
+		const diffs = await historyService.getSnapshotDiff(projectId, entry.id);
+		const fileIndex = diffs.findIndex((tc) => tc.path === path);
+		if (fileIndex === -1) return;
+
+		idSelection.set(path, selectionId, fileIndex);
+		currentSelectionId = selectionId;
 	}
 </script>
 
@@ -130,21 +132,20 @@
 									// Until we have that figured out, we need to reload the page.
 									location.reload();
 								}}
-								onDiffClick={async (path) => {
-									if (snapshotFilesTempStore?.entryId === entry.id) {
-										if (selectedFile?.path === path) {
-											selectedFile = undefined;
-										} else {
-											updateFilePreview(entry, path);
-										}
+								onDiffClick={(path) => {
+									if (
+										selectedFile?.path === path &&
+										selectedFile?.type === 'snapshot' &&
+										selectedFile.snapshotId === entry.id
+									) {
+										currentSelectionId = undefined;
 									} else {
-										snapshotFilesTempStore = {
-											entryId: entry.id,
-											diffs: await historyService.getSnapshotDiff(projectId, entry.id)
-										};
 										updateFilePreview(entry, path);
 									}
 								}}
+								selectedFile={currentSelectionId && selectedFile && selectedFile.type === 'snapshot'
+									? { entryId: selectedFile.snapshotId, path: selectedFile.path }
+									: undefined}
 							/>
 						{/if}
 					{/each}
@@ -204,16 +205,12 @@
 							filePath={selectedFile.path}
 							draggable={false}
 							oncloseclick={() => {
-								selectedFile = undefined;
+								currentSelectionId = undefined;
 							}}
 						/>
 					</div>
 
-					<SelectionView
-						{projectId}
-						diffOnly
-						selectionId={createSnapshotSelection({ snapshotId: selectedFile.snapshotId })}
-					/>
+					<SelectionView {projectId} diffOnly selectionId={currentSelectionId} />
 				</ConfigurableScrollableContainer>
 			</div>
 		{:else}

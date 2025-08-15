@@ -1,6 +1,7 @@
 <script lang="ts">
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
-	import { createdOnDay } from '$lib/history/history';
+	import { createdOnDay, HISTORY_SERVICE } from '$lib/history/history';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { toHumanReadableTime } from '$lib/utils/time';
 	import { inject } from '@gitbutler/shared/context';
@@ -168,6 +169,9 @@
 
 	const modeService = inject(MODE_SERVICE);
 	const mode = $derived(modeService.mode({ projectId }));
+
+	const historyService = inject(HISTORY_SERVICE);
+	const snapshotDiff = $derived(historyService.snapshotDiff({ projectId, snapshotId: entry.id }));
 </script>
 
 <div
@@ -214,25 +218,25 @@
 			{/if}
 		</div>
 
-		{#if entry.filesChanged.length > 0 && !isRestoreSnapshot}
-			{@const files = entry.filesChanged}
-			<SnapshotAttachment
-				foldable={entry.filesChanged.length > 2}
-				foldedAmount={entry.filesChanged.length}
-			>
-				<div class="files-attacment">
-					{#each files as filePath}
-						<FileListItem
-							listMode="list"
-							{filePath}
-							onclick={() => onDiffClick(filePath)}
-							selected={selectedFile?.path === filePath && selectedFile?.entryId === entry.id}
-							hideBorder={filePath === files[files.length - 1]}
-						/>
-					{/each}
-				</div>
-			</SnapshotAttachment>
-		{/if}
+		<ReduxResult result={snapshotDiff.current} {projectId}>
+			{#snippet children(files)}
+				{#if files.length > 0 && !isRestoreSnapshot}
+					<SnapshotAttachment foldable={files.length > 2} foldedAmount={files.length}>
+						<div class="files-attacment">
+							{#each files as file, idx}
+								<FileListItem
+									listMode="list"
+									filePath={file.path}
+									onclick={() => onDiffClick(file.path)}
+									selected={selectedFile?.path === file.path && selectedFile?.entryId === entry.id}
+									hideBorder={idx === files.length - 1}
+								/>
+							{/each}
+						</div>
+					</SnapshotAttachment>
+				{/if}
+			{/snippet}
+		</ReduxResult>
 
 		{#if isRestoreSnapshot}
 			<SnapshotAttachment>
