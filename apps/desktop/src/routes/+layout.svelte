@@ -27,7 +27,12 @@
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import { 
+		UIFeatureFlagsService,
+		UI_FEATURE_FLAGS_SERVICE,
+		ircEnabled, 
+		ircServer 
+	} from '$lib/config/uiFeatureFlags';
 	import DependencyService, {
 		DEPENDENCY_SERVICE
 	} from '$lib/dependencies/dependencyService.svelte';
@@ -275,6 +280,7 @@
 	provide(DRAG_STATE_SERVICE, new DragStateService());
 	provide(RESIZE_SYNC, new ResizeSync());
 	provide(GIT_SERVICE, new GitService(data.tauri));
+	provide(UI_FEATURE_FLAGS_SERVICE, new UIFeatureFlagsService());
 
 	const settingsService = data.settingsService;
 	const settingsStore = settingsService.appSettings;

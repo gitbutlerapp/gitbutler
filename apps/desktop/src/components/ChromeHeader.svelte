@@ -4,7 +4,7 @@
 	import SyncButton from '$components/SyncButton.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { ircEnabled } from '$lib/config/uiFeatureFlags';
+	import { UI_FEATURE_FLAGS_SERVICE } from '$lib/config/uiFeatureFlags';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -33,6 +33,7 @@
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const ircService = inject(IRC_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
+	const uiFlagsService = inject(UI_FEATURE_FLAGS_SERVICE);
 	const uiState = inject(UI_STATE);
 	const baseReponse = $derived(projectId ? baseBranchService.baseBranch(projectId) : undefined);
 	const base = $derived(baseReponse?.current.data);
@@ -163,7 +164,7 @@
 		</Select>
 	</div>
 	<div class="chrome-right" data-tauri-drag-region>
-		{#if $ircEnabled}
+		{#if $uiFlagsService.ircEnabled}
 			<NotificationButton
 				hasUnread={isNotificationsUnread}
 				onclick={() => {

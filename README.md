@@ -63,7 +63,7 @@ And finally, while in Git it is preferable that you create your desired branch a
 
 ## Why GitButler?
 
-We love Git. Our own [@schacon](https://github.com/schacon) has even published the [Pro Git](https://git-scm.com/book/en/v2) book. At the same time, Git's user interface hasn't been fundamentally changed for 15 years. While it was written for Linux kernel devs sending patches to each other over mailing lists, most developers today have different workflows and needs.
+We love Git. Our own [@schacon](https://github.com/schacon) (Scott Chacon), co-founder of GitHub and author of the [Pro Git](https://git-scm.com/book/en/v2) book, helped grow GitHub from 4 founders to 450 employees over 8 years before its $7.5 billion acquisition by Microsoft. At the same time, Git's user interface hasn't been fundamentally changed for 15 years. While it was written for Linux kernel devs sending patches to each other over mailing lists, most developers today have different workflows and needs.
 
 Instead of trying to fit the semantics of the Git CLI into a graphical interface, we are starting with the developer workflow and mapping it back to Git.
 

@@ -1,5 +1,14 @@
 // TODO: Refactor this enum into an object conataining invalidation rules.
 export enum ReduxTag {
+<<<<<<< ours
+||||||| ancestor
+	InitalEditListing = 'InitialEditListing',
+	EditChangesSinceInitial = 'EditChangesSinceInitial',
+=======
+	InitalEditListing = 'InitialEditListing',
+	Foobar = 'oohhh yeah',
+	EditChangesSinceInitial = 'EditChangesSinceInitial',
+>>>>>>> theirs
 	HeadMetadata = 'HeadMetadata',
 	Diff = 'Diff',
 	Stacks = 'Stacks',
