@@ -19,7 +19,10 @@
 //! - This might give us more flexabiity in the long run, but initially seems
 //!   more complex with more unknowns.
 
-use crate::{ClaudeMessage, ClaudeMessageContent, UserInput, claude_transcript::Transcript, db};
+use crate::{
+    ClaudeMessage, ClaudeMessageContent, UserInput, db,
+    rules::{create_claude_assignment_rule, list_claude_assignment_rules},
+};
 use anyhow::{Result, bail};
 use but_broadcaster::{Broadcaster, FrontendEvent};
 use but_workspace::StackId;
@@ -27,10 +30,13 @@ use gitbutler_command_context::CommandContext;
 use serde_json::json;
 use std::{
     collections::HashSet,
-    io::{BufRead, BufReader, Read as _},
+    io::{BufRead, BufReader, PipeReader, Read as _},
     sync::Arc,
 };
-use tokio::{process::Command, sync::Mutex};
+use tokio::{
+    process::{Child, Command},
+    sync::Mutex,
+};
 
 /// Holds the CC instances. Currently keyed by stackId, since our current model
 /// assumes one CC per stack at any given time.
@@ -50,7 +56,7 @@ impl Claudes {
 
     pub async fn send_message(
         &self,
-        ctx: Mutex<CommandContext>,
+        ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
         stack_id: StackId,
         message: &str,
@@ -70,21 +76,25 @@ impl Claudes {
         ctx: &mut CommandContext,
         stack_id: StackId,
     ) -> Result<Vec<ClaudeMessage>> {
-        let messages = db::list_messages_by_session(ctx, stack_id.into())?;
-        Ok(messages)
+        let rule = list_claude_assignment_rules(ctx)?
+            .into_iter()
+            .find(|rule| rule.stack_id == stack_id);
+        if let Some(rule) = rule {
+            let messages = db::list_messages_by_session(ctx, rule.session_id)?;
+            Ok(messages)
+        } else {
+            Ok(vec![])
+        }
     }
 
     async fn spawn_claude(
         &self,
-        ctx: Mutex<CommandContext>,
+        ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
         stack_id: StackId,
         message: String,
     ) -> Result<()> {
         self.requests.lock().await.insert(stack_id);
-
-        // Clone so the reference to ctx can be immediatly dropped
-        let project = ctx.lock().await.project().clone();
 
         // We're also making the bold assumption that if we can find the
         // transcript, that a session was created. This is _not_ the best
@@ -92,98 +102,45 @@ impl Claudes {
         //
         // https://github.com/anthropics/claude-code/issues/5161 could
         // simplify this
-        let transcript_path = Transcript::get_transcript_path(&project.path, stack_id.into())?;
-
-        let create_new = !transcript_path.try_exists()?;
-
-        let (read_stdout, writer) = std::io::pipe()?;
-        let (mut read_stderr, write_stderr) = std::io::pipe()?;
-        let broadcaster = broadcaster.clone();
-
-        // Currently the stack_id is used as the initial "stable" identifier.
-        let session_id: uuid::Uuid = stack_id.into();
-        let project_id = project.id;
-
-        let session = {
+        let rule = {
             let mut ctx = ctx.lock().await;
-            let session = if let Some(session) = db::get_session_by_id(&mut ctx, session_id)? {
-                session
-            } else {
-                db::save_new_session(&mut ctx, session_id)?
-            };
-
-            // Before we save the first line, we want to append the user's side
-            let message = db::save_new_message(
-                &mut ctx,
-                stack_id.into(),
-                ClaudeMessageContent::UserInput(UserInput {
-                    message: message.clone(),
-                }),
-            )?;
-
-            broadcaster.lock().await.send(FrontendEvent {
-                name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
-                payload: json!(message),
-            });
-
-            session
+            list_claude_assignment_rules(&mut ctx)?
+                .into_iter()
+                .find(|rule| rule.stack_id == stack_id)
         };
 
-        let response_streamer = tokio::spawn(async move {
-            let reader = BufReader::new(read_stdout);
-            let mut first = true;
-            for line in reader.lines() {
-                let mut ctx = ctx.lock().await;
-                let line = line.unwrap();
-                let parsed_event: serde_json::Value = serde_json::from_str(&line).unwrap();
+        let create_new = rule.is_none();
+        let session_id = rule.map(|r| r.session_id).unwrap_or(uuid::Uuid::new_v4());
 
-                if first {
-                    let current_session_id = parsed_event["session_id"]
-                        .as_str()
-                        .unwrap()
-                        .parse()
-                        .unwrap();
-                    let session = db::get_session_by_id(&mut ctx, session_id).unwrap();
-                    if session.is_some() {
-                        db::set_session_current_id(&mut ctx, session_id, current_session_id)
-                            .unwrap();
-                    }
-                    first = false;
-                }
+        let broadcaster = broadcaster.clone();
 
-                let message_content = ClaudeMessageContent::ClaudeOutput(parsed_event.clone());
-                let message =
-                    db::save_new_message(&mut ctx, stack_id.into(), message_content.clone())
-                        .unwrap();
+        let session = upsert_session(ctx.clone(), session_id, stack_id).await?;
+        create_user_message(
+            ctx.clone(),
+            broadcaster.clone(),
+            session_id,
+            stack_id,
+            &message,
+        )
+        .await?;
+        let (read_stdout, writer) = std::io::pipe()?;
+        let response_streamer =
+            spawn_response_streaming(ctx.clone(), broadcaster, read_stdout, session_id, stack_id);
 
-                broadcaster.lock().await.send(FrontendEvent {
-                    name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
-                    payload: json!(message),
-                })
-            }
-        });
-
-        let project_path = project.path.clone();
-
-        let mut command = Command::new("claude");
-        command.stdout(writer);
-        command.stderr(write_stderr);
-        command.current_dir(&project_path);
-        command.args([
-            "-p",
-            "--output-format=stream-json",
-            "--verbose",
-            "--dangerously-skip-permissions",
-        ]);
-        if create_new {
-            command.arg(format!("--session-id={stack_id}"));
-        } else {
-            command.arg(format!("--resume={}", session.current_id));
-        }
-        command.arg(message);
-
-        let mut handle = command.spawn().unwrap();
+        let (mut read_stderr, write_stderr) = std::io::pipe()?;
+        // Clone so the reference to ctx can be immediatly dropped
+        let project = ctx.lock().await.project().clone();
+        let mut handle = spawn_command(
+            message,
+            create_new,
+            writer,
+            write_stderr,
+            session,
+            project.path.clone(),
+        )?;
         let exit_status = handle.wait().await?;
+        // My understanding is that it is not great to abort things like this,
+        // but it's "good enough" for now.
         response_streamer.abort();
 
         self.requests.lock().await.remove(&stack_id);
@@ -200,6 +157,121 @@ impl Claudes {
 
         Ok(())
     }
+}
+
+/// Spawns the actual claude code command
+fn spawn_command(
+    message: String,
+    create_new: bool,
+    writer: std::io::PipeWriter,
+    write_stderr: std::io::PipeWriter,
+    session: crate::ClaudeSession,
+    project_path: std::path::PathBuf,
+) -> Result<Child> {
+    let mut command = Command::new("claude");
+    command.stdout(writer);
+    command.stderr(write_stderr);
+    command.current_dir(&project_path);
+    command.args([
+        "-p",
+        "--output-format=stream-json",
+        "--verbose",
+        "--dangerously-skip-permissions",
+    ]);
+    if create_new {
+        command.arg(format!("--session-id={}", session.id));
+    } else {
+        command.arg(format!("--resume={}", session.current_id));
+    }
+    command.arg(message);
+    Ok(command.spawn()?)
+}
+
+/// Creates the user's message, and adds it to the database & streams it back to
+/// the client.
+async fn create_user_message(
+    ctx: Arc<Mutex<CommandContext>>,
+    broadcaster: Arc<Mutex<Broadcaster>>,
+    session_id: uuid::Uuid,
+    stack_id: StackId,
+    message: &str,
+) -> Result<()> {
+    let mut ctx = ctx.lock().await;
+    let message = db::save_new_message(
+        &mut ctx,
+        session_id,
+        ClaudeMessageContent::UserInput(UserInput {
+            message: message.to_owned(),
+        }),
+    )?;
+    let project_id = ctx.project().id;
+    broadcaster.lock().await.send(FrontendEvent {
+        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+        payload: json!(message),
+    });
+    Ok(())
+}
+
+/// If a session exists, it just returns it, otherwise it creates a new session
+/// and makes a cooresponding rule
+async fn upsert_session(
+    ctx: Arc<Mutex<CommandContext>>,
+    session_id: uuid::Uuid,
+    stack_id: StackId,
+) -> Result<crate::ClaudeSession> {
+    let mut ctx = ctx.lock().await;
+    let session = if let Some(session) = db::get_session_by_id(&mut ctx, session_id)? {
+        session
+    } else {
+        let session = db::save_new_session(&mut ctx, session_id)?;
+        create_claude_assignment_rule(&mut ctx, session_id, stack_id)?;
+        session
+    };
+    Ok(session)
+}
+
+/// Spawns the thread that manages reading the CC stdout and saves the events to
+/// the db and streams them to the client.
+fn spawn_response_streaming(
+    ctx: Arc<Mutex<CommandContext>>,
+    broadcaster: Arc<Mutex<Broadcaster>>,
+    read_stdout: PipeReader,
+    session_id: uuid::Uuid,
+    stack_id: StackId,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let reader = BufReader::new(read_stdout);
+        let mut first = true;
+        for line in reader.lines() {
+            let mut ctx = ctx.lock().await;
+            let line = line.unwrap();
+            let parsed_event: serde_json::Value = serde_json::from_str(&line).unwrap();
+
+            if first {
+                let current_session_id = parsed_event["session_id"]
+                    .as_str()
+                    .unwrap()
+                    .parse()
+                    .unwrap();
+                let session = db::get_session_by_id(&mut ctx, session_id).unwrap();
+                if session.is_some() {
+                    db::set_session_current_id(&mut ctx, session_id, current_session_id).unwrap();
+                }
+                first = false;
+            }
+
+            let message_content = ClaudeMessageContent::ClaudeOutput(parsed_event.clone());
+            let message =
+                db::save_new_message(&mut ctx, session_id, message_content.clone()).unwrap();
+
+            let project_id = ctx.project().id;
+
+            broadcaster.lock().await.send(FrontendEvent {
+                name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+                payload: json!(message),
+            })
+        }
+    })
 }
 
 impl Default for Claudes {
