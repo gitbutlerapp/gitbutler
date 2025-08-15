@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use but_rules::CreateRuleRequest;
+use but_rules::{CreateRuleRequest, UpdateRuleRequest};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
@@ -9,17 +9,17 @@ use uuid::Uuid;
 /// A simplified subset of a `but_rules::WorkspaceRule` representing a rule for assigning a Claude Code session to a stack.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ClaudeSessionAssignmentRule {
+pub(crate) struct ClaudeSessionAssignmentRule {
     /// A unique identifier for the rule.
-    id: String,
+    pub id: String,
     /// The time when the rule was created, represented as a Unix timestamp in milliseconds.
-    created_at: chrono::NaiveDateTime,
+    pub created_at: chrono::NaiveDateTime,
     /// Whether the rule is currently enabled or not.
-    enabled: bool,
+    pub enabled: bool,
     /// The original Claude Code session id.
-    session_id: Uuid,
+    pub session_id: Uuid,
     /// The Stack ID to which the session should be assigned.
-    stack_id: StackId,
+    pub stack_id: StackId,
 }
 
 impl TryFrom<but_rules::WorkspaceRule> for ClaudeSessionAssignmentRule {
@@ -56,6 +56,25 @@ pub(crate) fn list_claude_assignment_rules(
         .filter_map(Result::ok)
         .collect();
     Ok(rules)
+}
+
+/// Updates the target stack ID of an existing Claude session assignment rule.
+pub(crate) fn update_claude_assignment_rule_target(
+    ctx: &mut CommandContext,
+    rule_id: String,
+    stack_id: StackId,
+) -> anyhow::Result<ClaudeSessionAssignmentRule> {
+    let mut req: UpdateRuleRequest = but_rules::get_rule(ctx, &rule_id)?.into();
+    req.action = req.action.and_then(|a| match a {
+        but_rules::Action::Explicit(but_rules::Operation::Assign { target: _ }) => {
+            Some(but_rules::Action::Explicit(but_rules::Operation::Assign {
+                target: but_rules::StackTarget::StackId(stack_id.to_string()),
+            }))
+        }
+        _ => None,
+    });
+    let rule = but_rules::update_rule(ctx, req)?;
+    rule.try_into()
 }
 
 /// Creates a new Claude session assignment rule for a given session ID and stack ID.
