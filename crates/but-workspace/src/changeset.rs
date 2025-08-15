@@ -244,12 +244,12 @@ impl PushStatus {
                     && matches!(c.relation, LocalCommitRelation::Integrated(_)))
         }) {
             PushStatus::UnpushedCommitsRequiringForce
+        } else if remote_has_commits {
+            // If there are remote commits, pushing would require a force push, as the remote-only
+            // commits would be overwritten.
+            PushStatus::UnpushedCommitsRequiringForce
         } else if first_commit_is_local {
-            if remote_has_commits {
-                PushStatus::UnpushedCommitsRequiringForce
-            } else {
-                PushStatus::UnpushedCommits
-            }
+            PushStatus::UnpushedCommits
         } else {
             PushStatus::NothingToPush
         }
