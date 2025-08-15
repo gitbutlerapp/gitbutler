@@ -8,6 +8,7 @@ pub use claude_transcript::Transcript;
 pub mod db;
 pub mod hooks;
 pub mod mcp;
+mod rules;
 
 /// Represents a Claude Code session that GitButler is tracking.
 #[derive(Serialize, Deserialize, Debug, Clone)]

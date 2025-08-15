@@ -26,14 +26,15 @@ pub struct WorkspaceRule {
 }
 
 impl WorkspaceRule {
-    pub fn matches_claude_code_session(&self, session_id: &str) -> bool {
-        self.trigger == Trigger::ClaudeCodeHook
-            && self
-                .filters
-                .iter()
-                .any(|f| matches!(f, Filter::ClaudeCodeSessionId(id) if id == session_id))
+    /// If the rule has a session ID filter, this returns the first one found.
+    pub fn session_id(&self) -> Option<String> {
+        self.filters.iter().find_map(|f| match f {
+            Filter::ClaudeCodeSessionId(id) => Some(id.clone()),
+            _ => None,
+        })
     }
 
+    /// Returns the target stack ID if the action is an explicit assignment operation.
     pub fn target_stack_id(&self) -> Option<String> {
         if let Action::Explicit(Operation::Assign { target }) = &self.action {
             match target {
@@ -47,6 +48,14 @@ impl WorkspaceRule {
 
     pub fn id(&self) -> String {
         self.id.clone()
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn created_at(&self) -> chrono::NaiveDateTime {
+        self.created_at
     }
 }
 
@@ -257,6 +266,17 @@ pub fn update_rule(
         .update(&req.id, rule.clone().try_into()?)
         .map_err(|e| anyhow::anyhow!("Failed to update workspace rule: {}", e))?;
     process_rules(ctx).ok(); // Reevaluate rules after updating
+    Ok(rule)
+}
+
+/// Retrieves a workspace rule by its ID.
+pub fn get_rule(ctx: &mut CommandContext, id: &str) -> anyhow::Result<WorkspaceRule> {
+    let rule = ctx
+        .db()?
+        .workspace_rules()
+        .get(id)?
+        .ok_or_else(|| anyhow::anyhow!("Rule with ID {} not found", id))?
+        .try_into()?;
     Ok(rule)
 }
 
