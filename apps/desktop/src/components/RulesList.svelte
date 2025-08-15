@@ -285,11 +285,11 @@
 							.filter(isDefined),
 						{ separator: true } as const,
 						{
-							label: 'Leftmost stack',
+							label: 'Leftmost lane',
 							value: encodeStackTarget({ type: 'leftmost' })
 						},
 						{
-							label: 'Rightmost stack',
+							label: 'Rightmost lane',
 							value: encodeStackTarget({ type: 'rightmost' })
 						}
 					]}
