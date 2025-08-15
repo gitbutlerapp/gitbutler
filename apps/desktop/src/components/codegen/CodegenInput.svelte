@@ -18,7 +18,7 @@
 	}
 
 	async function handleKeypress(e: KeyboardEvent) {
-		if (e.key === 'Enter' && e.shiftKey) {
+		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 			await handleSubmit();
 		}
