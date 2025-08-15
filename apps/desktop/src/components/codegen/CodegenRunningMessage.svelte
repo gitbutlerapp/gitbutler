@@ -80,7 +80,7 @@
 	$effect(() => {
 		const updateWordInterval = setInterval(() => {
 			currentWord = getWord();
-		}, 1000 * 25);
+		}, 1000 * 15);
 
 		const updateTimeInterval = setInterval(() => {
 			currentDuration = milisToEnglish(getUTCNow() - lastUserMessageSent.getTime());
