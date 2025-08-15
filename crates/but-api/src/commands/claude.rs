@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use but_claude::ClaudeMessage;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
@@ -17,10 +19,10 @@ pub struct SendMessageParams {
 
 pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = Mutex::new(CommandContext::open(
+    let ctx = Arc::new(Mutex::new(CommandContext::open(
         &project,
         app.app_settings.get()?.clone(),
-    )?);
+    )?));
     app.claudes
         .send_message(
             ctx,
