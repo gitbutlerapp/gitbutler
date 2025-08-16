@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 /// A way to determine what should be included in the snapshot when calling [create_tree()](function::create_tree).
 #[derive(Debug, Clone)]
 pub struct State {
-    /// The result of a previous worktree changes call.
+    /// The result of a previous worktree changes call, but [the one **without** renames](but_core::diff::worktree_changes_no_renames()).
     ///
     /// It contains detailed information about the complete set of possible changes to become part of the worktree.
     pub changes: but_core::WorktreeChanges,
@@ -59,9 +59,13 @@ pub fn no_workspace_and_meta() -> Option<(
 pub(super) mod function {
     use super::{Outcome, State};
     use crate::{DiffSpec, commit_engine};
-    use anyhow::bail;
+    use anyhow::{Context, bail};
+    use bstr::{BString, ByteSlice};
     use but_core::RefMetadata;
+    use gix::diff::index::Change;
     use gix::object::tree::EntryKind;
+    use gix::status::plumbing::index_as_worktree::EntryStatus;
+    use std::collections::BTreeSet;
     use tracing::instrument;
 
     /// Create a tree that represents the snapshot for the given `selection`, whereas the basis for these changes
@@ -105,6 +109,8 @@ pub(super) mod function {
         }: State,
         _workspace_and_meta: Option<(&but_graph::projection::Workspace, &impl RefMetadata)>,
     ) -> anyhow::Result<Outcome> {
+        // Assure this is a tree.
+        let head_tree = head_tree_id.object()?.into_tree();
         let repo = head_tree_id.repo;
         let mut changes_to_apply: Vec<_> = changes
             .changes
@@ -138,19 +144,118 @@ pub(super) mod function {
             needs_head = true;
         }
 
+        let (index, index_conflicts) = snapshot_index(&mut edit, head_tree, changes, selection)?
+            .map(|t| {
+                needs_head = true;
+                t
+            })
+            .unwrap_or_default();
+
         if needs_head {
             edit.upsert("HEAD", EntryKind::Tree, head_tree_id)?;
         }
 
         Ok(Outcome {
             snapshot_tree: edit.write()?.into(),
-            head_tree: head_tree_id.into(),
+            head_tree: head_tree_id.detach(),
             worktree,
-            index: None,
-            index_conflicts: None,
+            index,
+            index_conflicts,
             workspace_references: None,
             head_references: None,
             metadata: None,
         })
+    }
+
+    /// `snapshot_tree` is the tree into which our `index` and `index-conflicts` trees are written. These will also be returned
+    /// if they were written.
+    ///
+    /// `base_tree_id` is the tree from which a clean index can be created, and which we will edit to incorporate the
+    /// non-conflicting index changes.
+    fn snapshot_index(
+        snapshot_tree: &mut gix::object::tree::Editor,
+        base_tree: gix::Tree,
+        changes: but_core::WorktreeChanges,
+        selection: BTreeSet<BString>,
+    ) -> anyhow::Result<Option<(Option<gix::ObjectId>, Option<gix::ObjectId>)>> {
+        let mut conflicts = Vec::new();
+        let changes: Vec<_> = changes
+            .changes
+            .into_iter()
+            .filter_map(|c| c.status_item)
+            .chain(
+                changes
+                    .ignored_changes
+                    .into_iter()
+                    .filter_map(|c| c.status_item),
+            )
+            .filter_map(|item| match item {
+                gix::status::Item::IndexWorktree(
+                    gix::status::index_worktree::Item::Modification {
+                        status: EntryStatus::Conflict(_),
+                        entry,
+                        ..
+                    },
+                ) => {
+                    conflicts.push(entry);
+                    None
+                }
+                gix::status::Item::TreeIndex(c) => Some(c),
+                _ => None,
+            })
+            .filter(|c| selection.iter().any(|path| path == c.location()))
+            .collect();
+
+        if changes.is_empty() && conflicts.is_empty() {
+            return Ok(None);
+        }
+
+        let mut base_tree_edit = base_tree.edit()?;
+        for change in changes {
+            match change {
+                Change::Deletion { location, .. } => {
+                    base_tree_edit.remove(location.as_bstr())?;
+                }
+                Change::Addition {
+                    location,
+                    entry_mode,
+                    id,
+                    ..
+                }
+                | Change::Modification {
+                    location,
+                    entry_mode,
+                    id,
+                    ..
+                } => {
+                    base_tree_edit.upsert(
+                        location.as_bstr(),
+                        entry_mode
+                            .to_tree_entry_mode()
+                            .with_context(|| format!("Could not convert the index entry {entry_mode:?} at '{location}' into a tree entry kind"))?
+                            .kind(),
+                        id.into_owned(),
+                    )?;
+                }
+                Change::Rewrite { .. } => {
+                    unreachable!("BUG: this must have been deactivated")
+                }
+            }
+        }
+
+        let index = base_tree_edit.write()?;
+        let index = (index != base_tree.id).then_some(index.detach());
+        if let Some(index) = index {
+            snapshot_tree.upsert("index", EntryKind::Tree, index)?;
+        }
+
+        let index_conflicts = if conflicts.is_empty() {
+            None
+        } else {
+            dbg!(conflicts);
+            todo!("build conflict tree")
+        };
+
+        Ok(Some((index, index_conflicts)))
     }
 }

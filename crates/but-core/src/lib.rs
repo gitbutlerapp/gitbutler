@@ -332,13 +332,17 @@ pub enum IgnoredWorktreeTreeChangeStatus {
 }
 
 /// A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Serialize)]
 pub struct IgnoredWorktreeChange {
     /// The worktree-relative path to the change.
     #[serde(serialize_with = "gitbutler_serde::bstring_lossy::serialize")]
     pub path: BString,
     /// The status that caused this change to be ignored.
     pub status: IgnoredWorktreeTreeChangeStatus,
+    /// The status item that this change is derived from, used in places that need detailed information.
+    /// It's `None` if the status item is already present in non-ignored changes.
+    #[serde(skip)]
+    pub status_item: Option<gix::status::Item>,
 }
 
 /// The type returned by [`worktree_changes()`](diff::worktree_changes).

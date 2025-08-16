@@ -33,11 +33,35 @@ enum Origin {
 /// to get a commit with a tree equal to the current worktree.
 #[instrument(skip(repo), err(Debug))]
 pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChanges> {
-    let rewrites = gix::diff::Rewrites::default(); /* standard Git rewrite handling for everything */
-    debug_assert!(
-        rewrites.copies.is_none(),
-        "TODO: copy tracking needs specific support wherever 'previous_path()' is called."
-    );
+    worktree_changes_inner(repo, RenameTracking::Always)
+}
+
+/// Just like [`worktree_changes()`], but don't do any rename tracking for performance.
+#[instrument(skip(repo), err(Debug))]
+pub fn worktree_changes_no_renames(repo: &gix::Repository) -> anyhow::Result<WorktreeChanges> {
+    worktree_changes_inner(repo, RenameTracking::Disabled)
+}
+
+enum RenameTracking {
+    Always,
+    Disabled,
+}
+
+fn worktree_changes_inner(
+    repo: &gix::Repository,
+    renames: RenameTracking,
+) -> anyhow::Result<WorktreeChanges> {
+    let (tree_index_rewrites, worktree_rewrites) = match renames {
+        RenameTracking::Always => {
+            let rewrites = gix::diff::Rewrites::default(); /* standard Git rewrite handling for everything */
+            debug_assert!(
+                rewrites.copies.is_none(),
+                "TODO: copy tracking needs specific support wherever 'previous_path()' is called."
+            );
+            (TrackRenames::Given(rewrites), Some(rewrites))
+        }
+        RenameTracking::Disabled => (TrackRenames::Disabled, None),
+    };
     let has_submodule_ignore_configuration = repo.modules()?.is_some_and(|modules| {
         modules
             .names()
@@ -45,8 +69,8 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
     });
     let status_changes = repo
         .status(gix::progress::Discard)?
-        .tree_index_track_renames(TrackRenames::Given(rewrites))
-        .index_worktree_rewrites(rewrites)
+        .tree_index_track_renames(tree_index_rewrites)
+        .index_worktree_rewrites(worktree_rewrites)
         // Learn about submodule changes, but only do the cheap checks, showing only what we could commit.
         .index_worktree_submodules(if has_submodule_ignore_configuration {
             gix::status::Submodule::AsConfigured { check_dirty: true }
@@ -415,6 +439,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                 ignored_changes.push(IgnoredWorktreeChange {
                     path: rela_path,
                     status: IgnoredWorktreeTreeChangeStatus::Conflict,
+                    status_item: Some(change),
                 });
                 continue;
             }
@@ -483,15 +508,17 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                     changes.push(merged);
                     IgnoredWorktreeTreeChangeStatus::TreeIndex
                 }
-                [Some(first), Some(second)] => {
+                [Some(mut first), Some(mut second)] => {
                     ignored_changes.push(IgnoredWorktreeChange {
                         path: first.path.clone(),
                         status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
+                        status_item: first.status_item.take(),
                     });
                     changes.push(first);
                     ignored_changes.push(IgnoredWorktreeChange {
                         path: second.path.clone(),
                         status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
+                        status_item: second.status_item.take(),
                     });
                     changes.push(second);
                     continue;
@@ -500,6 +527,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
             ignored_changes.push(IgnoredWorktreeChange {
                 path: change_path,
                 status,
+                status_item: None,
             });
             continue;
         }

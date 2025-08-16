@@ -6,6 +6,7 @@ pub struct Outcome<'repo> {
     /// It's `None` if the was no worktree change.
     pub worktree_cherry_pick: Option<gix::merge::tree::Outcome<'repo>>,
     /// If an index was stored in the snapshot, this is the reconstructed index, including conflicts.
+    /// Note that it has no information from disk whatsoever and should not be written like that.
     ///
     /// It's `None` if there were no index-only changes.
     pub index: Option<gix::index::State>,
