@@ -219,7 +219,6 @@ pub(crate) fn set_ownership(
 pub type BranchStatus = HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>;
 pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
 
-#[allow(clippy::too_many_arguments)]
 pub fn commit(
     ctx: &CommandContext,
     stack_id: StackId,

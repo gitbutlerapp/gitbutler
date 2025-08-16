@@ -17,7 +17,6 @@ use gitbutler_serde::BStringForFrontend;
 
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
-#[allow(deprecated)]
 use gix::merge::tree::TreatAsUnresolved;
 use serde::{Deserialize, Serialize};
 

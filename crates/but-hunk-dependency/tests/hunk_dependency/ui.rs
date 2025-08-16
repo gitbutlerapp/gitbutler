@@ -269,8 +269,7 @@ mod util {
     }
 
     #[derive(Debug)]
-    #[allow(dead_code)]
-    #[allow(clippy::type_complexity)]
+    #[expect(dead_code)]
     pub struct StableHunkDependencies {
         pub diffs: Vec<(String, DiffHunk, Vec<HunkLock>)>,
         pub errors: Vec<but_hunk_dependency::CalculationError>,
@@ -278,7 +277,6 @@ mod util {
 
     impl From<HunkDependencies> for StableHunkDependencies {
         fn from(HunkDependencies { diffs, errors }: HunkDependencies) -> Self {
-            #[allow(clippy::type_complexity)]
             StableHunkDependencies {
                 diffs: diffs
                     .into_iter()
@@ -296,7 +294,6 @@ mod util {
     pub struct TestContext {
         pub repo: gix::Repository,
         /// All the stacks in the workspace
-        #[allow(unused)]
         pub stacks_entries: Vec<but_workspace::ui::StackEntry>,
         /// The storage directory for GitButler.
         pub gitbutler_dir: PathBuf,
@@ -320,7 +317,7 @@ mod util {
 
     impl TestContext {
         /// Find a stack which contains a branch with the given `short_name`.
-        #[allow(unused)]
+        #[expect(unused)]
         pub fn stack_with_branch(&self, short_name: &str) -> &but_workspace::ui::StackEntry {
             self.stacks_entries
                 .iter()

@@ -123,7 +123,7 @@ impl Display for CommitOrChangeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CommitOrChangeId::CommitId(id) => write!(f, "CommitId: {}", id),
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             CommitOrChangeId::ChangeId(id) => write!(f, "ChangeId: {}", id),
         }
     }
@@ -199,7 +199,7 @@ impl StackBranch {
         stack_head: git2::Oid,
         merge_base: git2::Oid,
     ) {
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         if let CommitOrChangeId::ChangeId(_) = &self.head {
             if let core::result::Result::Ok(commit) =
                 commit_by_oid_or_change_id(&self.head.clone(), repo, stack_head, merge_base)
@@ -511,7 +511,7 @@ fn commit_by_oid_or_change_id<'a>(
 ) -> Result<Commit<'a>> {
     Ok(match reference_target {
         CommitOrChangeId::CommitId(commit_id) => repo.find_commit(commit_id.parse()?)?,
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         CommitOrChangeId::ChangeId(change_id) => {
             commit_by_branch_id_and_change_id(repo, stack_head, merge_base, change_id)?
         }

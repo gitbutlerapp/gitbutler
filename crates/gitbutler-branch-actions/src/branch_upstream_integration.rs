@@ -14,7 +14,6 @@ use gitbutler_repo::{
 };
 use gitbutler_stack::StackId;
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
-#[allow(deprecated)]
 use gix::refs::FullName;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};

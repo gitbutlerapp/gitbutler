@@ -1,7 +1,6 @@
 //! GitButler internal library containing functionality related to branches, i.e. the virtual branches implementation
 mod actions;
 // This is our API
-#[allow(deprecated)]
 pub use actions::{
     amend, can_apply_remote_branch, create_commit, create_virtual_branch,
     create_virtual_branch_from_branch, delete_local_branch, fetch_from_remotes, find_commit,
@@ -75,6 +74,5 @@ pub use branch::{
 
 pub use integration::GITBUTLER_WORKSPACE_COMMIT_TITLE;
 
-mod commit_ops;
 pub mod hooks;
 pub mod stack;

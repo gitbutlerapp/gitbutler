@@ -156,7 +156,7 @@ fn worktree_all_filetypes() -> anyhow::Result<()> {
 }
 
 /// Produce all args needed for creating a snapshot tree, and assure everything is selected.
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity)]
 fn args_for_worktree_changes(
     repo: &gix::Repository,
 ) -> anyhow::Result<(

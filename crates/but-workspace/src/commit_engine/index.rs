@@ -96,7 +96,7 @@ pub fn upsert_index_entry(
         Stage::Unconflicted,
         *num_sorted_entries,
     ) {
-        #[allow(clippy::indexing_slicing)]
+        #[expect(clippy::indexing_slicing)]
         let entry = &mut index.entries_mut()[pos];
         // NOTE: it's needed to set the values to 0 here or else 1 in 40 times or so
         //       git status will report the file didn't change even though it did.

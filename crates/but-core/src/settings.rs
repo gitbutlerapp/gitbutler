@@ -21,7 +21,7 @@ pub mod git {
         /// See [`GitConfigSettings`](crate::GitConfigSettings) for the docs.
         #[derive(Debug, PartialEq, Clone, Default, serde::Serialize, serde::Deserialize)]
         #[serde(rename_all = "camelCase")]
-        #[allow(missing_docs)]
+        #[expect(missing_docs)]
         pub struct GitConfigSettings {
             #[serde(rename = "signCommits")]
             pub gitbutler_sign_commits: Option<bool>,

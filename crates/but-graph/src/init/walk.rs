@@ -596,7 +596,7 @@ pub fn find(
 /// This means we process all workspaces if we aren't currently and clearly looking at a workspace.
 ///
 /// Also prune all non-standard workspaces early, or those that don't have a tip.
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity)]
 pub fn obtain_workspace_infos<T: RefMetadata>(
     repo: &OverlayRepo<'_>,
     maybe_ref_name: Option<&gix::refs::FullNameRef>,
@@ -695,7 +695,7 @@ pub fn propagate_flags_downward(
 /// If a remote tracking branch is in `target_refs`, we assume it was already scheduled and won't schedule it again.
 /// Note that remotes fully obey the limit.
 /// If the created remote segment belongs to the segment of `local_tracking_sidx`, return its Segment index along with its name.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
     repo: &OverlayRepo<'_>,
     refs: &[gix::refs::FullName],
