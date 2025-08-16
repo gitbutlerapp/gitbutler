@@ -1,0 +1,46 @@
+{
+	// The amount of context lines to show in unified diffs, above and below the hunk.
+	"contextLines": 3,
+	// Whether the user has passed the onboarding flow.
+	"onboardingComplete": false,
+	"telemetry": {
+		// Whether the anonymous metrics are enabled.
+		"appMetricsEnabled": true,
+		// Whether anonymous error reporting is enabled.
+		"appErrorReportingEnabled": true,
+		// Whether non-anonymous metrics are enabled.
+		"appNonAnonMetricsEnabled": false,
+		/// Distinct ID, if reporting is enabled.
+		"appDistinctId": null
+	},
+	"githubOauthApp": {
+		// Client ID for the GitHub OAuth application. Set this to use custom (non-GitButler) OAuth application.
+		"oauthClientId": "cd51880daa675d9e6452"
+	},
+	"featureFlags": {
+		// Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments).
+		"v3": false,
+		/// Enable the usage of V3 workspace APIs.
+		"ws3": false,
+		/// Enable undo/redo support.
+		"undo": false,
+		/// Enable the usage of GitButler Acitions.
+		"actions": false,
+		/// Enable the usage of the butbot chat.
+		"butbot": false,
+		/// Enable processing of workspace rules.
+		"rules": false,
+		/// Enable single branch mode.
+		"singleBranch": false
+	},
+	// Allows for additional "connect-src" hosts to be included. Requires app restart.
+	"extraCsp": {
+		// Additional hosts that the application can connect to.
+		"hosts": []
+	},
+	// Settings related to fetching.
+	"fetch": {
+	  // The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching.
+		"autoFetchIntervalMinutes": 15
+	}
+}

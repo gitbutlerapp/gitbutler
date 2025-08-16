@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/routes/[projectId]/history/+page.svelte"]
+ourEntries = ["apps/desktop/src/routes/[projectId]/history/+page.svelte"]
+theirEntries = ["apps/desktop/src/routes/[projectId]/history/+page.svelte"]
