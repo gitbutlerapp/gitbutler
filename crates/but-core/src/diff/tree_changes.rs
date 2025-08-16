@@ -81,6 +81,7 @@ impl From<gix::object::tree::diff::ChangeDetached> for TreeChange {
                     },
                     is_untracked: false,
                 },
+                status_item: None,
             },
             Change::Deletion {
                 location,
@@ -95,6 +96,7 @@ impl From<gix::object::tree::diff::ChangeDetached> for TreeChange {
                         kind: entry_mode.kind(),
                     },
                 },
+                status_item: None,
             },
             Change::Modification {
                 location,
@@ -118,6 +120,7 @@ impl From<gix::object::tree::diff::ChangeDetached> for TreeChange {
                         state,
                         flags: ModeFlags::calculate(&previous_state, &state),
                     },
+                    status_item: None,
                 }
             }
             Change::Rewrite {
@@ -147,6 +150,7 @@ impl From<gix::object::tree::diff::ChangeDetached> for TreeChange {
                         state,
                         flags: ModeFlags::calculate(&previous_state, &state),
                     },
+                    status_item: None,
                 }
             }
         }
