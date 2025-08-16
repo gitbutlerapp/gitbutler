@@ -56,3 +56,108 @@ describe.concurrent('getBranchRemoteFromRef', () => {
 		expect(BranchUtils.getBranchRemoteFromRef(ref)).toBe('origin');
 	});
 });
+
+describe.concurrent('parseBranchName', () => {
+	test('When provided a local branch name without remote, it returns just the branch name', () => {
+		const result = BranchUtils.parseBranchName('feature/awesome-stuff');
+
+		expect(result).toEqual({
+			remote: undefined,
+			branchName: 'feature/awesome-stuff'
+		});
+	});
+
+	test('When provided a branch with origin remote prefix, it extracts remote and branch name', () => {
+		const result = BranchUtils.parseBranchName('origin/feature/awesome-stuff');
+
+		expect(result).toEqual({
+			remote: 'origin',
+			branchName: 'feature/awesome-stuff'
+		});
+	});
+
+	test('When provided a branch with upstream remote prefix, it extracts remote and branch name', () => {
+		const result = BranchUtils.parseBranchName('upstream/main');
+
+		expect(result).toEqual({
+			remote: 'upstream',
+			branchName: 'main'
+		});
+	});
+
+	test('When provided a branch with fork remote prefix, it extracts remote and branch name', () => {
+		const result = BranchUtils.parseBranchName('fork/bugfix/issue-123');
+
+		expect(result).toEqual({
+			remote: 'fork',
+			branchName: 'bugfix/issue-123'
+		});
+	});
+
+	test('When provided a branch with an explicit remote parameter, it uses the provided remote', () => {
+		const result = BranchUtils.parseBranchName('origin/feature/test', 'upstream');
+
+		expect(result).toEqual({
+			remote: 'upstream',
+			branchName: 'feature/test'
+		});
+	});
+
+	test('When provided a branch name that matches the provided remote, it strips the remote prefix', () => {
+		const result = BranchUtils.parseBranchName('origin/feature/test', 'origin');
+
+		expect(result).toEqual({
+			remote: 'origin',
+			branchName: 'feature/test'
+		});
+	});
+
+	test('When provided a branch name with non-standard remote name, it treats it as part of branch name', () => {
+		const result = BranchUtils.parseBranchName('my-company/special-feature');
+
+		expect(result).toEqual({
+			remote: undefined,
+			branchName: 'my-company/special-feature'
+		});
+	});
+
+	test('When provided a single-part branch name, it returns unchanged', () => {
+		const result = BranchUtils.parseBranchName('main');
+
+		expect(result).toEqual({
+			remote: undefined,
+			branchName: 'main'
+		});
+	});
+
+	test('When provided an empty string, it throws an error', () => {
+		expect(() => BranchUtils.parseBranchName('')).toThrow();
+	});
+
+	test('When provided a branch with multiple slashes but unknown remote, it keeps the full path', () => {
+		const result = BranchUtils.parseBranchName('some/deep/feature/branch');
+
+		expect(result).toEqual({
+			remote: undefined,
+			branchName: 'some/deep/feature/branch'
+		});
+	});
+
+	test('When provided a branch with remote remote prefix, it extracts remote and branch name', () => {
+		const result = BranchUtils.parseBranchName('remote/hotfix/critical-bug');
+
+		expect(result).toEqual({
+			remote: 'remote',
+			branchName: 'hotfix/critical-bug'
+		});
+	});
+
+	test('When provided a complex nested branch with known remote, it handles correctly', () => {
+		const result = BranchUtils.parseBranchName('origin/release/v2.1.0/hotfix/security');
+
+		expect(result).toEqual({
+			remote: 'origin',
+			branchName: 'release/v2.1.0/hotfix/security'
+		});
+	});
+});
