@@ -13,8 +13,7 @@
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { createSnapshotSelection, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/shared/context';
-	import { EmptyStatePlaceholder, Icon, FileViewHeader } from '@gitbutler/ui';
-	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
+	import { EmptyStatePlaceholder, Icon } from '@gitbutler/ui';
 	import type { Snapshot } from '$lib/history/types';
 
 	// TODO: Refactor so we don't need non-null assertion.
@@ -80,6 +79,8 @@
 		idSelection.set(path, selectionId, fileIndex);
 		currentSelectionId = selectionId;
 	}
+
+	let scrollContainer: HTMLDivElement | undefined = $state();
 </script>
 
 {#snippet historyEntries()}
@@ -199,18 +200,8 @@
 	<div class="history-view__preview dotted-pattern">
 		{#if selectedFile}
 			<div class="history-view__preview-file">
-				<ConfigurableScrollableContainer>
-					<div use:stickyHeader class="history-view__file-header">
-						<FileViewHeader
-							filePath={selectedFile.path}
-							draggable={false}
-							oncloseclick={() => {
-								currentSelectionId = undefined;
-							}}
-						/>
-					</div>
-
-					<SelectionView {projectId} diffOnly selectionId={currentSelectionId} />
+				<ConfigurableScrollableContainer bind:viewport={scrollContainer}>
+					<SelectionView {projectId} {scrollContainer} selectionId={currentSelectionId} />
 				</ConfigurableScrollableContainer>
 			</div>
 		{:else}
@@ -319,6 +310,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		background-color: var(--clr-bg-1);
 	}
 
 	.history-view__file-header {

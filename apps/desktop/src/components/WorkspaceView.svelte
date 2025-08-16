@@ -130,6 +130,8 @@
 			}
 		});
 	}
+
+	let selectionPreviewScrollContainer: HTMLDivElement | undefined = $state();
 </script>
 
 {#snippet right()}
@@ -137,12 +139,16 @@
 {/snippet}
 
 {#snippet leftPreview()}
-	<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
+	<ConfigurableScrollableContainer
+		bind:viewport={selectionPreviewScrollContainer}
+		zIndex="var(--z-lifted)"
+	>
 		<SelectionView
 			bottomBorder
 			{projectId}
 			{selectionId}
 			draggableFiles
+			scrollContainer={selectionPreviewScrollContainer}
 			onclose={() => {
 				idSelection.clear(selectionId);
 			}}

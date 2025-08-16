@@ -135,6 +135,8 @@
 			return () => unsub?.();
 		}
 	});
+
+	let selectionPreviewScrollContainer: HTMLDivElement | undefined = $state();
 </script>
 
 <Modal
@@ -403,8 +405,12 @@
 
 					{#if !isNonLocalPr}
 						<div class="preview-selection">
-							<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
+							<ConfigurableScrollableContainer
+								bind:viewport={selectionPreviewScrollContainer}
+								zIndex="var(--z-lifted)"
+							>
 								<SelectionView
+									scrollContainer={selectionPreviewScrollContainer}
 									testId={TestId.BranchesSelectionView}
 									{projectId}
 									{selectionId}

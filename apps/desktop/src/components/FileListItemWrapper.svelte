@@ -14,7 +14,7 @@
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/shared/context';
 	import { FileListItem, FileViewHeader, TestId } from '@gitbutler/ui';
-	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
+	import { sticky as stickyAction } from '@gitbutler/ui/utils/sticky';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { Rename } from '$lib/hunks/change';
 	import type { UnifiedDiff } from '$lib/hunks/diff';
@@ -36,10 +36,12 @@
 		showCheckbox?: boolean;
 		draggable?: boolean;
 		transparent?: boolean;
+		sticky?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		onCloseClick?: () => void;
 		conflictEntries?: ConflictEntriesObj;
+		scrollContainer?: HTMLDivElement;
 		hideBorder?: boolean;
 	}
 
@@ -62,7 +64,8 @@
 		onclick,
 		onkeydown,
 		onCloseClick,
-		hideBorder
+		hideBorder,
+		scrollContainer
 	}: Props = $props();
 
 	const idSelection = inject(ID_SELECTION);
@@ -72,6 +75,7 @@
 
 	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
+	let isStuck = $state(false);
 
 	const previousTooltipText = $derived(
 		(change.status.subject as Rename).previousPath
@@ -129,13 +133,11 @@
 
 <div
 	data-testid={TestId.FileListItem}
-	use:stickyHeader={{
-		disabled: !isHeader
-	}}
 	class="filelistitem-wrapper"
 	data-remove-from-panning
 	class:filelistitem-header={isHeader}
 	class:transparent
+	class:stuck={isHeader && isStuck}
 	bind:this={draggableEl}
 	use:draggableChips={{
 		label: getFilename(change.path),
@@ -147,6 +149,13 @@
 		chipType: 'file',
 		dropzoneRegistry,
 		dragStateService
+	}}
+	use:stickyAction={{
+		enabled: isHeader,
+		scrollContainer,
+		onStuck: (stuck) => {
+			isStuck = stuck;
+		}
 	}}
 >
 	<FileContextMenu
@@ -211,9 +220,14 @@
 		&.transparent {
 			background-color: transparent;
 		}
+
+		&.stuck {
+			border-bottom: 1px solid var(--clr-border-2);
+			background-color: var(--clr-bg-1);
+			box-shadow: 0 1px 8px rgba(0, 0, 0, 0.1);
+		}
 	}
 	.filelistitem-header {
 		z-index: var(--z-lifted);
-		background-color: var(--clr-bg-1);
 	}
 </style>
