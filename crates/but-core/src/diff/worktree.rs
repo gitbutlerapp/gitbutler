@@ -75,7 +75,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
     let mut ignored_changes = Vec::new();
     for change in status_changes {
         let change = change?;
-        let change = match change {
+        let change = match change.clone() {
             status::Item::TreeIndex(gix::diff::index::Change::Deletion {
                 location,
                 id,
@@ -91,6 +91,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                         },
                     },
                     path: location.into_owned(),
+                    status_item: Some(change),
                 },
             ),
             status::Item::TreeIndex(gix::diff::index::Change::Addition {
@@ -109,6 +110,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             kind: into_tree_entry_kind(entry_mode)?,
                         },
                     },
+                    status_item: Some(change),
                 },
             ),
             status::Item::TreeIndex(gix::diff::index::Change::Modification {
@@ -136,6 +138,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -154,6 +157,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             kind: into_tree_entry_kind(entry.mode)?,
                         },
                     },
+                    status_item: Some(change),
                 },
             ),
             status::Item::IndexWorktree(index_worktree::Item::Modification {
@@ -180,6 +184,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -216,6 +221,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -237,6 +243,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                         },
                         is_untracked: false,
                     },
+                    status_item: Some(change),
                 },
             ),
             status::Item::IndexWorktree(index_worktree::Item::DirectoryContents {
@@ -269,6 +276,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             },
                             is_untracked: true,
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -276,10 +284,12 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                 rela_path,
                 entry,
                 status:
-                    EntryStatus::Change(index_as_worktree::Change::SubmoduleModification(change)),
+                    EntryStatus::Change(index_as_worktree::Change::SubmoduleModification(
+                        submodule_change,
+                    )),
                 ..
             }) => {
-                let Some(checked_out_head_id) = change.checked_out_head_id else {
+                let Some(checked_out_head_id) = submodule_change.checked_out_head_id else {
                     continue;
                 };
                 // We can arrive here if the user configures to `ignore = none`, and there are
@@ -306,6 +316,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -361,6 +372,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -391,6 +403,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -655,6 +668,8 @@ fn merge_changes(
                 status: TreeStatus::Deletion {
                     previous_state: *previous_state,
                 },
+                // NOTE: not relevant, as renames are disabled for snapshots where this is used.
+                status_item: None,
             }));
         }
         (
@@ -674,6 +689,8 @@ fn merge_changes(
                         // It's just in the index, which to us doesn't exist.
                         is_untracked: true,
                     },
+                    // NOTE: not relevant, as renames are disabled for snapshots where this is used.
+                    status_item: None,
                 }),
                 Some(TreeChange {
                     path: index_wt.path,
@@ -685,6 +702,8 @@ fn merge_changes(
                         // read the initial state of a file from.
                         is_untracked: true,
                     },
+                    // NOTE: not relevant, as renames are disabled for snapshots where this is used.
+                    status_item: None,
                 }),
             ]);
         }

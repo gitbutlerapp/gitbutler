@@ -233,12 +233,16 @@ pub fn open_repo(path: impl Into<PathBuf>) -> anyhow::Result<gix::Repository> {
 ///
 /// For simplicity, copy-tracking is not representable right now, but `copy: bool` could be added
 /// if needed. Copy-tracking is deactivated as well.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TreeChange {
     /// The *relative* path in the worktree where the entry can be found.
     pub path: BString,
     /// The specific information about this change.
     pub status: TreeStatus,
+    /// The status item that this change is derived from, used in places that need detailed information.
+    /// This is only set if this instance was created from a worktree-status, and is `None` when created
+    /// from a tree-diff.
+    pub status_item: Option<gix::status::Item>,
 }
 
 /// Specifically defines a [`TreeChange`].
