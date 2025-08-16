@@ -220,6 +220,8 @@
 			}
 		}
 	});
+
+	let selectionPreviewScrollContainer: HTMLDivElement | undefined = $state();
 </script>
 
 <!-- ATTENTION -->
@@ -237,6 +239,7 @@
 	<SelectionView
 		testId={TestId.WorktreeSelectionView}
 		{projectId}
+		scrollContainer={selectionPreviewScrollContainer}
 		selectionId={createWorktreeSelection({ stackId })}
 		onclose={() => {
 			idSelection.clear(createWorktreeSelection({ stackId: stackId }));
@@ -541,7 +544,10 @@
 
 						<div class="file-preview-section">
 							{#if assignedStackId}
-								<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
+								<ConfigurableScrollableContainer
+									zIndex="var(--z-lifted)"
+									bind:viewport={selectionPreviewScrollContainer}
+								>
 									{@render assignedChangePreview(assignedStackId)}
 								</ConfigurableScrollableContainer>
 							{:else if selectedFile}

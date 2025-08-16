@@ -102,7 +102,6 @@
 		width: 100%;
 		padding: 12px 10px 12px 14px;
 		gap: 12px;
-		background-color: var(--clr-bg-1);
 
 		&.transparent {
 			background-color: transparent;

@@ -19,6 +19,7 @@
 		diffOnly?: boolean;
 		onclose?: () => void;
 		testId?: string;
+		scrollContainer?: HTMLDivElement;
 		bottomBorder?: boolean;
 	};
 
@@ -29,6 +30,7 @@
 		diffOnly,
 		onclose,
 		testId,
+		scrollContainer,
 		bottomBorder
 	}: Props = $props();
 
@@ -75,6 +77,7 @@
 								<FileListItemWrapper
 									selectionId={selectedFile}
 									projectId={env.projectId}
+									{scrollContainer}
 									{change}
 									{diff}
 									{draggable}
