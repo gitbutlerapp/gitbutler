@@ -1,5 +1,5 @@
+use crate::snapshot::args_for_worktree_changes;
 use crate::utils::read_only_in_memory_scenario;
-use but_graph::VirtualBranchesTomlMetadata;
 use but_testsupport::visualize_tree;
 use but_workspace::snapshot;
 use gix::prelude::ObjectIdExt;
@@ -153,32 +153,4 @@ fn worktree_all_filetypes() -> anyhow::Result<()> {
         "didn't ask to store this"
     );
     Ok(())
-}
-
-/// Produce all args needed for creating a snapshot tree, and assure everything is selected.
-#[expect(clippy::type_complexity)]
-fn args_for_worktree_changes(
-    repo: &gix::Repository,
-) -> anyhow::Result<(
-    gix::Id<'_>,
-    snapshot::create_tree::State,
-    Option<(
-        &'static but_graph::projection::Workspace<'static>,
-        &'static VirtualBranchesTomlMetadata,
-    )>,
-)> {
-    let changes = but_core::diff::worktree_changes(repo)?;
-    let state = snapshot::create_tree::State {
-        selection: changes
-            .changes
-            .iter()
-            .map(|c| c.path.clone())
-            .chain(changes.ignored_changes.iter().map(|c| c.path.clone()))
-            .collect(),
-        changes,
-        head: false,
-    };
-    let head_tree_id = repo.head_tree_id_or_empty()?;
-
-    Ok((head_tree_id, state, None))
 }

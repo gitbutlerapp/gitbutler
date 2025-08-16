@@ -106,7 +106,7 @@ impl<'a> ReferenceAnchor<'a> {
 }
 
 pub(super) mod function {
-    #![allow(clippy::indexing_slicing)]
+    #![expect(clippy::indexing_slicing)]
 
     use crate::branch::{ReferenceAnchor, ReferencePosition};
     use anyhow::{Context, bail};
