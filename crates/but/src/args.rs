@@ -22,8 +22,11 @@ pub enum Subcommands {
     Status,
 
     /// Combines two entities together to perform an operation.
-    #[clap(about = "Combines two entities together to perform an operation.
-Non-exhaustive list of operations
+    #[clap(
+        about = "Combines two entities together to perform an operation",
+        long_about = "Combines two entities together to perform an operation.
+
+Non-exhaustive list of operations:
       │Source     │Target
 ──────┼───────────┼──────
 Amend │File,Branch│Commit
@@ -31,7 +34,8 @@ Squash│Commit     │Commit
 Assign│File,Branch│Branch
 Move  │Commit     │Branch
 
-For examples `but rub --help`.")]
+For examples see `but rub --help`."
+    )]
     Rub {
         /// The source entity to combine
         source: String,
