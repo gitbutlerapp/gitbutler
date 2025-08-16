@@ -1,17 +1,13 @@
-use bstr::{BStr, BString, ByteSlice};
-use std::{collections::HashSet, path::Path};
+use bstr::{BStr, ByteSlice};
+use std::path::Path;
 
-/// Turn `rhs` into `lhs` by modifying `rhs`. This will leave `rhs` intact as much as possible, but will remove
+/// Turn `rhs` into `lhs` by modifying `rhs`. This will leave `rhs` intact as much as possible.
 /// Note that conflicting entries will be replaced by an addition or edit automatically.
 /// extensions that might be affected by these changes, for a lack of finesse with our edits.
-///
-/// `filter_paths` is an optional filter that allows to specify which paths should be considered for the update.
-/// If `None`, all paths are considered.
 pub fn apply_lhs_to_rhs(
     workdir: &Path,
     lhs: &gix::index::State,
     rhs: &mut gix::index::State,
-    filter_paths: Option<HashSet<BString>>,
 ) -> anyhow::Result<()> {
     let mut num_sorted_entries = rhs.entries().len();
     let mut needs_sorting = false;
@@ -31,12 +27,6 @@ pub fn apply_lhs_to_rhs(
 
     use gix::diff::index::Change;
     for change in changes {
-        if let Some(filter_paths) = &filter_paths {
-            if !filter_paths.contains(&change.location().to_owned()) {
-                continue;
-            }
-        }
-
         match change {
             Change::Addition { location, .. } => {
                 delete_entry_by_path_bounded(rhs, location.as_bstr(), &mut num_sorted_entries);
@@ -106,7 +96,7 @@ pub fn upsert_index_entry(
         Stage::Unconflicted,
         *num_sorted_entries,
     ) {
-        #[allow(clippy::indexing_slicing)]
+        #[expect(clippy::indexing_slicing)]
         let entry = &mut index.entries_mut()[pos];
         // NOTE: it's needed to set the values to 0 here or else 1 in 40 times or so
         //       git status will report the file didn't change even though it did.

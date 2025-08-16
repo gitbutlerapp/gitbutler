@@ -249,7 +249,7 @@ pub struct ChangeState {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub enum ModeFlags {
     ExecutableBitAdded,
     ExecutableBitRemoved,
@@ -269,12 +269,20 @@ impl From<TreeChange> for crate::TreeChange {
         crate::TreeChange {
             path: path_bytes,
             status: status.into(),
+            // Lossy conversion, but this is fine.
+            status_item: None,
         }
     }
 }
 
 impl From<crate::TreeChange> for TreeChange {
-    fn from(crate::TreeChange { path, status }: crate::TreeChange) -> Self {
+    fn from(
+        crate::TreeChange {
+            path,
+            status,
+            status_item: _,
+        }: crate::TreeChange,
+    ) -> Self {
         TreeChange {
             path: path.clone().into(),
             path_bytes: path,

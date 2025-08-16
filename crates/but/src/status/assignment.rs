@@ -20,7 +20,7 @@ impl FileAssignment {
             assignments: filtered_assignments,
         }
     }
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn hash(&self) -> String {
         let combined_ids: String = self
             .assignments

@@ -8,7 +8,7 @@ use gitbutler_project::Project;
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use std::path::Path;
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn commit(
     repo: gix::Repository,
     project: Option<Project>,
@@ -109,7 +109,7 @@ fn resolve_changes(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn commit_with_project(
     repo: &gix::Repository,
     project: &Project,
@@ -159,7 +159,7 @@ fn commit_with_project(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn commit_without_project(
     repo: &gix::Repository,
     message: Option<&str>,

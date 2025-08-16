@@ -15,7 +15,7 @@ pub enum BranchSuggestion {
 }
 
 impl BranchSuggestion {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn name(&self) -> String {
         match self {
             BranchSuggestion::New(name) => name.clone(),
@@ -63,7 +63,7 @@ pub struct Grouping {
     pub groups: Vec<Group>,
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub fn group(openai: &OpenAiProvider, project_status: &ProjectStatus) -> anyhow::Result<Grouping> {
     let system_message ="
         You are an expert in grouping file changes into logical units for version control.

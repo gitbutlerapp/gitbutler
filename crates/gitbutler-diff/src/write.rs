@@ -239,7 +239,7 @@ pub fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<B
     }
 
     #[derive(Debug)]
-    #[allow(dead_code)] // Read by Debug auto-impl, which doesn't count
+    #[expect(dead_code)] // Read by Debug auto-impl, which doesn't count
     pub enum DebugLine {
         // Note that each of these strings is a hash only
         Context(String),
@@ -258,7 +258,7 @@ pub fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<B
     }
 
     #[derive(Debug)]
-    #[allow(dead_code)] // Read by Debug auto-impl, which doesn't count
+    #[expect(dead_code)] // Read by Debug auto-impl, which doesn't count
     struct DebugHunk {
         old_range: diffy::HunkRange,
         new_range: diffy::HunkRange,
@@ -276,7 +276,7 @@ pub fn apply<S: AsRef<[u8]>>(base_image: S, patch: &Patch<'_, [u8]>) -> Result<B
     }
 
     #[derive(Debug)]
-    #[allow(dead_code)] // Read by Debug auto-impl, which doesn't count
+    #[expect(dead_code)] // Read by Debug auto-impl, which doesn't count
     struct DebugContext {
         base_image_hash: String,
         hunks: Vec<DebugHunk>,

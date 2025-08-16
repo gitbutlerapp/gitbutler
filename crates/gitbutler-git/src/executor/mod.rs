@@ -34,7 +34,7 @@ pub mod tokio;
 /// we have some loose checks to ensure that the invariants are upheld,
 /// we cannot guarantee that they are upheld in all cases. Thus, it is
 /// up to the implementor to ensure that the invariants are upheld.
-#[allow(unsafe_code)]
+#[expect(unsafe_code)]
 pub unsafe trait GitExecutor {
     /// The error type returned by this executor,
     /// specifically in cases where the execution fails.

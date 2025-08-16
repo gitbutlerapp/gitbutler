@@ -15,7 +15,6 @@ pub fn project_repo(path: &Path) -> anyhow::Result<gix::Repository> {
 }
 pub enum RepositoryOpenMode {
     // We'll need this later for the commit command
-    #[allow(dead_code)]
     Merge,
     General,
 }

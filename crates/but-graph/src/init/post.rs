@@ -35,7 +35,6 @@ impl Graph {
     /// Now that the graph is complete, perform additional structural improvements with
     /// the requirement of them to be computationally cheap.
     #[instrument(skip(self, meta, repo, refs_by_id), err(Debug))]
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn post_processed<T: RefMetadata>(
         mut self,
         meta: &OverlayMetadata<'_, T>,

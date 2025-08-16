@@ -231,11 +231,28 @@ pub fn create_commit(
         bail!("cannot currently handle more than 1 parent")
     }
 
+    let target_tree = match &destination {
+        Destination::NewCommit {
+            parent_commit_id: None,
+            ..
+        } => gix::ObjectId::empty_tree(repo.object_hash()),
+        Destination::NewCommit {
+            parent_commit_id: Some(base_commit),
+            ..
+        }
+        | Destination::AmendCommit {
+            commit_id: base_commit,
+            ..
+        } => but_core::Commit::from_id(base_commit.attach(repo))?
+            .tree_id_or_auto_resolution()?
+            .detach(),
+    };
+
     let CreateTreeOutcome {
         rejected_specs,
         destination_tree,
         changed_tree_pre_cherry_pick,
-    } = create_tree(repo, &destination, move_source, changes, context_lines)?;
+    } = create_tree(repo, target_tree, move_source, changes, context_lines)?;
     let new_commit = if let Some(new_tree) = destination_tree {
         match destination {
             Destination::NewCommit {
@@ -577,7 +594,6 @@ pub fn create_commit_and_update_refs(
             repo.workdir().expect("non-bare"),
             &tree_index,
             &mut disk_index,
-            None,
         )?;
         out.index = disk_index.into();
     } else {
@@ -611,7 +627,7 @@ pub fn create_commit_and_update_refs(
 /// if present. Alternatively, it uses the current `HEAD` as only reference point.
 /// Note that virtual branches will be updated and written back after this call, which will obtain
 /// an exclusive workspace lock as well.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn create_commit_and_update_refs_with_project(
     repo: &gix::Repository,
     project: &gitbutler_project::Project,
@@ -662,7 +678,6 @@ pub fn create_commit_and_update_refs_with_project(
 }
 
 /// Create a commit exactly as specified, and sign it depending on Git and GitButler specific Git configuration.
-#[allow(clippy::too_many_arguments)]
 fn create_possibly_signed_commit(
     repo: &gix::Repository,
     author: gix::actor::Signature,
