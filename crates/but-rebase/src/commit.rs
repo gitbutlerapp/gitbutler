@@ -25,7 +25,6 @@ pub enum DateMode {
 ///
 /// Signatures will be removed automatically if signing is disabled to prevent an amended commit
 /// to use the old signature.
-#[allow(clippy::too_many_arguments)]
 pub fn create(
     repo: &gix::Repository,
     mut commit: gix::objs::Commit,

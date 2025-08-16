@@ -3,7 +3,7 @@ use gitbutler_project::ProjectId;
 
 /// An event telling the receiver something about the state of the application which just changed.
 #[derive(Debug, Clone)]
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub enum Change {
     GitFetch(ProjectId),
     GitHead {

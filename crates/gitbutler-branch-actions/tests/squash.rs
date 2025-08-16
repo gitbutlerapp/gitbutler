@@ -490,7 +490,7 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext<'_>> {
 // - commit 3
 // - commit 2
 // - commit 1 (a-branch-1)
-#[allow(unused)]
+#[expect(unused)]
 struct TestContext<'a> {
     stack: gitbutler_stack::Stack,
     branch_1: StackBranch,

@@ -13,7 +13,6 @@ pub enum CliId {
     Branch {
         name: String,
     },
-    #[allow(dead_code)]
     Commit {
         oid: gix::ObjectId,
     },
@@ -54,7 +53,6 @@ impl CliId {
         s == self.to_string()
     }
 
-    #[allow(dead_code)]
     pub fn from_str(ctx: &mut CommandContext, s: &str) -> anyhow::Result<Vec<Self>> {
         if s.len() < 2 {
             return Err(anyhow::anyhow!("Id needs to be 3 characters long: {}", s));

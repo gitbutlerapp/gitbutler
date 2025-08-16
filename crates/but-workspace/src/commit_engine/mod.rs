@@ -627,7 +627,7 @@ pub fn create_commit_and_update_refs(
 /// if present. Alternatively, it uses the current `HEAD` as only reference point.
 /// Note that virtual branches will be updated and written back after this call, which will obtain
 /// an exclusive workspace lock as well.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn create_commit_and_update_refs_with_project(
     repo: &gix::Repository,
     project: &gitbutler_project::Project,
@@ -678,7 +678,6 @@ pub fn create_commit_and_update_refs_with_project(
 }
 
 /// Create a commit exactly as specified, and sign it depending on Git and GitButler specific Git configuration.
-#[allow(clippy::too_many_arguments)]
 fn create_possibly_signed_commit(
     repo: &gix::Repository,
     author: gix::actor::Signature,

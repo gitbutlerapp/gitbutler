@@ -121,7 +121,7 @@ where
         .await
         .map_err(Error::<E>::Exec)?;
 
-    #[allow(unsafe_code)]
+    #[expect(unsafe_code)]
     let sock_server = unsafe { executor.create_askpass_server() }
         .await
         .map_err(Error::<E>::Exec)?;
@@ -219,7 +219,6 @@ where
                 system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
                 // We can ignore clippy here since the type is different depending on the platform.
-                #[allow(clippy::useless_conversion)]
                 let peer_path = system
                     .process(sysinfo::Pid::from_u32(peer_pid.try_into().map_err(|_| Error::<E>::NoSuchPid(peer_pid))?))
                     .and_then(|p| p.exe().map(|exe| exe.to_string_lossy().into_owned()))
@@ -338,7 +337,7 @@ where
 /// Any prompts for the user are passed to the asynchronous callback `on_prompt`,
 /// which should return the user's response or `None` if the operation should be
 /// aborted, in which case an `Err` value is returned from this function.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub async fn push<P, F, Fut, E, Extra>(
     repo_path: P,
     executor: E,

@@ -18,7 +18,7 @@ pub use self::windows::TokioAskpassServer;
 /// via [`tokio::process::Command`].
 pub struct TokioExecutor;
 
-#[allow(unsafe_code)]
+#[expect(unsafe_code)]
 unsafe impl super::GitExecutor for TokioExecutor {
     type Error = std::io::Error;
     type ServerHandle = TokioAskpassServer;
@@ -144,7 +144,7 @@ mod tests {
     async fn test_askpass() {
         let secret = "super-secret-secret";
         let executor = TokioExecutor;
-        #[allow(unsafe_code)]
+        #[expect(unsafe_code)]
         let sock_server: TokioAskpassServer = unsafe { executor.create_askpass_server() }
             .await
             .expect("create_askpass_server():");
