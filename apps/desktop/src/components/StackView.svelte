@@ -30,6 +30,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 
+	import { parseBranchName } from '$lib/utils/branch';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
@@ -104,7 +105,16 @@
 	);
 
 	const commitId = $derived(selection.current?.commitId);
-	const branchName = $derived(selection.current?.branchName);
+	const { branchName, branchRemote } = $derived.by(() => {
+		const rawBranchName = selection.current?.branchName;
+		if (!rawBranchName) {
+			return { branchName: undefined, branchRemote: undefined };
+		}
+
+		const { branchName: parsedBranchName, remote } = parseBranchName(rawBranchName);
+		return { branchName: parsedBranchName, branchRemote: remote };
+	});
+
 	const upstream = $derived(selection.current?.upstream);
 
 	const activeSelectionId: SelectionId | undefined = $derived.by(() => {
@@ -341,11 +351,14 @@
 
 {#snippet branchChangedFiles(branchName: string)}
 	{@const active = activeSelectionId?.type === 'branch' && focusedStackId === stackId}
-	{@const changesResult = stackService.branchChanges({
-		projectId,
-		stackId: stackId,
-		branchName
-	})}
+	{@const changesResult = (() => {
+		return stackService.branchChanges({
+			projectId,
+			stackId: stackId,
+			branchName,
+			remote: branchRemote
+		});
+	})()}
 	<ReduxResult {projectId} {stackId} result={changesResult.current}>
 		{#snippet children(changes, { projectId, stackId })}
 			<ChangedFiles

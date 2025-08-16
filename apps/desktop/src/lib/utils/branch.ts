@@ -1,6 +1,7 @@
 const PREFERRED_REMOTE = 'origin';
 const BRANCH_SEPARATOR = '/';
 const REF_REMOTES_PREFIX = 'refs/remotes/';
+const COMMON_REMOTE_NAMES = ['origin', 'upstream', 'fork', 'remote'] as const;
 
 /**
  * Get the branch name from a refname.
@@ -70,4 +71,45 @@ export function getBestRemote(remotes: string[]): string | undefined {
 	}
 
 	return remotes[0];
+}
+
+/**
+ * Parses a branch name that may contain a remote prefix and returns the remote and branch name separately.
+ * This handles cases where a remote branch is passed as "origin/feature/foo" instead of being split properly.
+ *
+ * @param branchName - The branch name, potentially with remote prefix (e.g., "origin/feature/foo")
+ * @param providedRemote - The remote name if already provided separately
+ * @returns Object with parsed remote and branch name
+ */
+export function parseBranchName(
+	branchName: string,
+	providedRemote?: string
+): { remote?: string; branchName: string } {
+	if (!branchName) {
+		throw new Error('Branch name cannot be empty');
+	}
+
+	const parts = branchName.split(BRANCH_SEPARATOR);
+
+	// No separator means it's a simple branch name
+	if (parts.length <= 1) {
+		return { remote: providedRemote, branchName };
+	}
+
+	const [firstPart, ...remainingParts] = parts;
+	const branchNameWithoutPrefix = remainingParts.join(BRANCH_SEPARATOR);
+
+	// Check if first part looks like a remote name
+	const isKnownRemote = COMMON_REMOTE_NAMES.includes(firstPart as any);
+	const matchesProvidedRemote = providedRemote === firstPart;
+
+	if (isKnownRemote || matchesProvidedRemote) {
+		return {
+			remote: providedRemote || firstPart,
+			branchName: branchNameWithoutPrefix
+		};
+	}
+
+	// First part doesn't look like a remote, treat whole string as branch name
+	return { remote: providedRemote, branchName };
 }

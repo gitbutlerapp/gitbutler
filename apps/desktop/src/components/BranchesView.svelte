@@ -30,6 +30,7 @@
 	} from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
+	import { parseBranchName } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { AsyncButton, Button, Modal, TestId } from '@gitbutler/ui';
@@ -70,7 +71,8 @@
 			const branchName = current.remote
 				? current.remote + '/' + current.branchName
 				: current.branchName;
-			return createBranchSelection({ stackId: current.stackId, branchName });
+			const { branchName: parsedBranchName } = parseBranchName(branchName);
+			return createBranchSelection({ stackId: current.stackId, branchName: parsedBranchName });
 		}
 	});
 
