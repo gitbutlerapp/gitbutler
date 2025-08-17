@@ -2,8 +2,6 @@
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FileContextMenu from '$components/FileContextMenu.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { Commit } from '$lib/commits/commit';
-	import { COMMIT_SERVICE } from '$lib/commits/commitService.svelte';
 	import {
 		conflictEntryHint,
 		getConflictState,
@@ -15,7 +13,9 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { createCommitSelection } from '$lib/selection/key';
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { USER_SERVICE } from '$lib/user/userService';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { USER } from '$lib/user/user';
+	import { splitMessage } from '$lib/utils/commitMessage';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
@@ -38,14 +38,12 @@
 	const projectService = inject(PROJECTS_SERVICE);
 	const projectResult = $derived(projectService.getProject(projectId));
 
-	const remoteCommitService = inject(COMMIT_SERVICE);
+	const user = inject(USER);
+	const stackService = inject(STACK_SERVICE);
 	const modeService = inject(MODE_SERVICE);
 	const userSettings = inject(SETTINGS);
 	const fileService = inject(FILE_SERVICE);
 	const urlService = inject(URL_SERVICE);
-
-	const userService = inject(USER_SERVICE);
-	const user = userService.user;
 
 	const initialFiles = $derived(modeService.initialEditModeState({ projectId }));
 	const uncommittedFiles = $derived(modeService.changesSinceInitialEditState({ projectId }));
@@ -62,24 +60,7 @@
 		});
 	}
 
-	let commit = $state<Commit>();
-
-	async function getCommitData() {
-		commit = await remoteCommitService.find(projectId, editModeMetadata.commitOid);
-	}
-
-	$effect(() => {
-		getCommitData();
-	});
-
-	const authorImgUrl = $derived.by(() => {
-		if (commit) {
-			return commit.author.email?.toLowerCase() === $user?.email?.toLowerCase()
-				? $user?.picture
-				: commit.author.gravatarUrl;
-		}
-		return undefined;
-	});
+	let commitResult = $derived(stackService.commitDetails(projectId, editModeMetadata.commitOid));
 
 	let filesList = $state<HTMLDivElement | undefined>(undefined);
 	let contextMenu = $state<ReturnType<typeof FileContextMenu> | undefined>(undefined);
@@ -234,23 +215,33 @@
 
 				<div class="commit-group">
 					<div class="card commit-card">
-						<h3 class="text-13 text-semibold text-body commit-card__title">
-							{commit?.descriptionTitle || 'Undefined commit'}
-						</h3>
+						<ReduxResult {projectId} result={commitResult.current}>
+							{#snippet children(commit)}
+								{@const authorImgUrl = commit
+									? commit.author.email?.toLowerCase() === $user?.email?.toLowerCase()
+										? $user?.picture
+										: commit.author.gravatarUrl
+									: undefined}
+								{@const title = splitMessage(commit.message).title}
+								<h3 class="text-13 text-semibold text-body commit-card__title">
+									{title || 'Undefined commit'}
+								</h3>
 
-						{#if commit}
-							<div class="text-11 commit-card__details">
-								{#if authorImgUrl && commit.author.email}
-									<Avatar srcUrl={authorImgUrl} tooltip={commit.author.email} />
-									<span class="commit-card__divider">•</span>
+								{#if commit}
+									<div class="text-11 commit-card__details">
+										{#if authorImgUrl && commit.author.email}
+											<Avatar srcUrl={authorImgUrl} tooltip={commit.author.email} />
+											<span class="commit-card__divider">•</span>
+										{/if}
+										<span class="">{editModeMetadata.commitOid.slice(0, 7)}</span>
+										<span class="commit-card__divider">•</span>
+										<span class="">{commit.author.name}</span>
+									</div>
 								{/if}
-								<span class="">{editModeMetadata.commitOid.slice(0, 7)}</span>
-								<span class="commit-card__divider">•</span>
-								<span class="">{commit.author.name}</span>
-							</div>
-						{/if}
 
-						<div class="commit-card__type-indicator"></div>
+								<div class="commit-card__type-indicator"></div>
+							{/snippet}
+						</ReduxResult>
 					</div>
 
 					<div bind:this={filesList} class="card files">
