@@ -43,6 +43,20 @@ pub struct ClaudeMessage {
     pub content: String,
 }
 
+#[derive(
+    Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable, Identifiable,
+)]
+#[diesel(table_name = crate::schema::claude_permission_requests)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct ClaudePermissionRequest {
+    pub id: String,
+    pub created_at: chrono::NaiveDateTime,
+    pub updated_at: chrono::NaiveDateTime,
+    pub tool_name: String,
+    pub input: String,
+    pub approved: Option<bool>,
+}
+
 impl DbHandle {
     pub fn claude_sessions(&mut self) -> ClaudeSessionsHandle {
         ClaudeSessionsHandle { db: self }
@@ -51,6 +65,11 @@ impl DbHandle {
     pub fn claude_messages(&mut self) -> ClaudeMessagesHandle {
         ClaudeMessagesHandle { db: self }
     }
+
+    pub fn claude_permission_requests(&mut self) -> ClaudePermissionRequestsHandle {
+        ClaudePermissionRequestsHandle { db: self }
+    }
+
     pub fn delete_session_and_messages(
         &mut self,
         session_id: &str,
@@ -77,6 +96,62 @@ pub struct ClaudeSessionsHandle<'a> {
 
 pub struct ClaudeMessagesHandle<'a> {
     db: &'a mut DbHandle,
+}
+
+pub struct ClaudePermissionRequestsHandle<'a> {
+    db: &'a mut DbHandle,
+}
+
+impl ClaudePermissionRequestsHandle<'_> {
+    pub fn insert(
+        &mut self,
+        request: ClaudePermissionRequest,
+    ) -> Result<(), diesel::result::Error> {
+        diesel::insert_into(crate::schema::claude_permission_requests::table)
+            .values(request)
+            .execute(&mut self.db.conn)?;
+        Ok(())
+    }
+
+    pub fn set_approval(&mut self, id: &str, approved: bool) -> Result<(), diesel::result::Error> {
+        diesel::update(
+            crate::schema::claude_permission_requests::table
+                .filter(crate::schema::claude_permission_requests::id.eq(id)),
+        )
+        .set((
+            crate::schema::claude_permission_requests::approved.eq(approved),
+            crate::schema::claude_permission_requests::updated_at
+                .eq(chrono::Local::now().naive_local()),
+        ))
+        .execute(&mut self.db.conn)?;
+        Ok(())
+    }
+
+    pub fn get(
+        &mut self,
+        id: &str,
+    ) -> Result<Option<ClaudePermissionRequest>, diesel::result::Error> {
+        let request = crate::schema::claude_permission_requests::table
+            .filter(crate::schema::claude_permission_requests::id.eq(id))
+            .first::<ClaudePermissionRequest>(&mut self.db.conn)
+            .optional()?;
+        Ok(request)
+    }
+
+    pub fn delete(&mut self, id: &str) -> Result<(), diesel::result::Error> {
+        diesel::delete(
+            crate::schema::claude_permission_requests::table
+                .filter(crate::schema::claude_permission_requests::id.eq(id)),
+        )
+        .execute(&mut self.db.conn)?;
+        Ok(())
+    }
+
+    pub fn list(&mut self) -> Result<Vec<ClaudePermissionRequest>, diesel::result::Error> {
+        let requests = crate::schema::claude_permission_requests::table
+            .load::<ClaudePermissionRequest>(&mut self.db.conn)?;
+        Ok(requests)
+    }
 }
 
 impl ClaudeSessionsHandle<'_> {
