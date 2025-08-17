@@ -11,6 +11,7 @@ bitflags! {
         const Workflows = 1 << 1;
         const Assignments = 1 << 2;
         const Rules = 1 << 3;
+        const ClaudePermissionRequests = 1 << 4;
     }
 }
 
@@ -36,6 +37,8 @@ impl DbHandle {
                 let mut prev_assignments = Vec::new();
                 let mut prev_workflows = Vec::new();
                 let mut prev_actions = Vec::new();
+                let mut prev_rules = Vec::new();
+                let mut prev_claude_requests = Vec::new();
                 'outer: loop {
                     std::thread::sleep(interval);
                     for to_check in ItemKind::all().iter() {
@@ -78,6 +81,32 @@ impl DbHandle {
                                 }
                                 Err(e) => tx.send(Err(e)),
                             }
+                        } else if kind & to_check == ItemKind::Rules {
+                            let res = this.workspace_rules().list();
+                            match res {
+                                Ok(items) => {
+                                    if items != prev_rules {
+                                        prev_rules = items;
+                                        tx.send(Ok(ItemKind::Rules))
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                                Err(e) => tx.send(Err(anyhow::Error::from(e))),
+                            }
+                        } else if kind & to_check == ItemKind::ClaudePermissionRequests {
+                            let res = this.claude_permission_requests().list();
+                            match res {
+                                Ok(items) => {
+                                    if items != prev_claude_requests {
+                                        prev_claude_requests = items;
+                                        tx.send(Ok(ItemKind::ClaudePermissionRequests))
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                                Err(e) => tx.send(Err(anyhow::Error::from(e))),
+                            }
                         } else {
                             eprintln!("BUG: didn't implement a branch for {to_check:?}");
                             break 'outer;
@@ -112,6 +141,7 @@ impl DbHandle {
             let mut prev_workflows = Vec::new();
             let mut prev_actions = Vec::new();
             let mut prev_rules = Vec::new();
+            let mut prev_claude_requests = Vec::new();
             let mut ticker = tokio::time::interval(interval);
             loop {
                 ticker.tick().await;
@@ -162,6 +192,19 @@ impl DbHandle {
                                 if items != prev_rules {
                                     prev_rules = items;
                                     tx.send(Ok(ItemKind::Rules)).await
+                                } else {
+                                    continue;
+                                }
+                            }
+                            Err(e) => tx.send(Err(anyhow::Error::from(e))).await,
+                        }
+                    } else if kind & to_check == ItemKind::ClaudePermissionRequests {
+                        let res = this.claude_permission_requests().list();
+                        match res {
+                            Ok(items) => {
+                                if items != prev_claude_requests {
+                                    prev_claude_requests = items;
+                                    tx.send(Ok(ItemKind::ClaudePermissionRequests)).await
                                 } else {
                                     continue;
                                 }

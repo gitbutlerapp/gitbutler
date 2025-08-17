@@ -1,6 +1,13 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::Result;
+use but_db::poll::ItemKind;
+use but_settings::AppSettings;
+use gitbutler_command_context::CommandContext;
+use gitbutler_project::Project;
 use rmcp::{
     Error as McpError, ServerHandler, ServiceExt,
     model::{
@@ -9,10 +16,12 @@ use rmcp::{
     schemars, tool,
 };
 
-pub async fn start() -> Result<()> {
+pub async fn start(repo_path: &Path) -> Result<()> {
+    let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let client_info = Arc::new(Mutex::new(None));
     let transport = (tokio::io::stdin(), tokio::io::stdout());
-    let service = Mcp::default().serve(transport).await?;
+    let server = Mcp { project };
+    let service = server.serve(transport).await?;
     let info = service.peer_info();
     if let Ok(mut guard) = client_info.lock() {
         guard.replace(info.client_info.clone());
@@ -22,7 +31,9 @@ pub async fn start() -> Result<()> {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct Mcp {}
+pub struct Mcp {
+    project: Project,
+}
 
 #[tool(tool_box)]
 impl Mcp {
@@ -31,12 +42,89 @@ impl Mcp {
         &self,
         #[tool(aggr)] request: McpPermissionRequest,
     ) -> Result<CallToolResult, McpError> {
+        let approved = self
+            .approval_inner(request.clone().into(), std::time::Duration::from_secs(60))
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
         let result = Ok(McpPermissionResponse {
-            behavior: Behavior::Allow,
+            behavior: if approved {
+                Behavior::Allow
+            } else {
+                Behavior::Deny
+            },
             updated_input: Some(request.input),
-            message: None,
+            message: if approved {
+                None
+            } else {
+                Some("Rejected by user".to_string())
+            },
         });
         result.map(|outcome| Ok(CallToolResult::success(vec![Content::json(outcome)?])))?
+    }
+
+    fn approval_inner(
+        &self,
+        req: crate::ClaudePermissionRequest,
+        timeout: std::time::Duration,
+    ) -> anyhow::Result<bool> {
+        let ctx = &mut CommandContext::open(
+            &self.project,
+            AppSettings::load_from_default_path_creating()?,
+        )?;
+        // Create a record that will be seen by the user in the UI
+        ctx.db()?
+            .claude_permission_requests()
+            .insert(req.clone().try_into()?)?;
+        // Poll for user approval
+        let rx = ctx.db()?.poll_changes(
+            ItemKind::Actions
+                | ItemKind::Workflows
+                | ItemKind::Assignments
+                | ItemKind::Rules
+                | ItemKind::ClaudePermissionRequests,
+            std::time::Duration::from_millis(500),
+        )?;
+        let mut approved_state = false;
+        let start_time = std::time::Instant::now();
+        for item in rx {
+            if start_time.elapsed() > timeout {
+                eprintln!("Timeout waiting for permission approval (60 seconds)");
+                break;
+            }
+            match item {
+                Ok(ItemKind::ClaudePermissionRequests) => {
+                    if let Some(updated) = ctx.db()?.claude_permission_requests().get(&req.id)? {
+                        if let Some(approved) = updated.approved {
+                            approved_state = approved;
+                            break;
+                        }
+                    } else {
+                        eprintln!("Permission request not found: {}", req.id);
+                        break;
+                    }
+                }
+                Ok(_) => continue, // Ignore other item kinds
+                Err(e) => {
+                    eprintln!("Error polling for changes: {e}");
+                    break;
+                }
+            }
+        }
+        ctx.db()?.claude_permission_requests().delete(&req.id)?;
+        Ok(approved_state)
+    }
+}
+
+impl From<McpPermissionRequest> for crate::ClaudePermissionRequest {
+    fn from(request: McpPermissionRequest) -> Self {
+        crate::ClaudePermissionRequest {
+            id: request.tool_use_id,
+            created_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now().naive_utc(),
+            tool_name: request.tool_name,
+            input: request.input,
+            approved: None,
+        }
     }
 }
 
