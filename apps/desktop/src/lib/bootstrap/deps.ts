@@ -14,7 +14,6 @@ import BaseBranchService, { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBran
 import { BranchService, BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 import CLIManager, { CLI_MANAGER } from '$lib/cli/cli';
 import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/codegen/claude';
-import { CommitService, COMMIT_SERVICE } from '$lib/commits/commitService.svelte';
 import { AppSettings, APP_SETTINGS } from '$lib/config/appSettings';
 import { SETTINGS_SERVICE, SettingsService } from '$lib/config/appSettingsV2';
 import { GIT_CONFIG_SERVICE, GitConfigService } from '$lib/config/gitConfigService';
@@ -211,7 +210,6 @@ export function initDependencies(args: {
 
 	const historyService = new HistoryService(backend, clientState['backendApi']);
 	const oplogService = new OplogService(clientState['backendApi']);
-	const commitService = new CommitService(backend);
 	const commitAnalytics = new CommitAnalytics(stackService, uiState, worktreeService, rulesService);
 
 	// ============================================================================
@@ -307,7 +305,6 @@ export function initDependencies(args: {
 		[CLI_MANAGER, cliManager],
 		[CLOUD_USER_SERVICE, cloudUserService],
 		[COMMIT_ANALYTICS, commitAnalytics],
-		[COMMIT_SERVICE, commitService],
 		[DATA_SHARING_SERVICE, dataSharingService],
 		[DEFAULT_FORGE_FACTORY, forgeFactory],
 		[DEPENDENCY_SERVICE, dependencyService],
