@@ -194,7 +194,7 @@
 		{#if stackId}
 			<ContextMenuSection>
 				<ContextMenuItem
-					label="Create dependent branch above"
+					label="Create branch above"
 					disabled={refCreation.current.isLoading}
 					testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
 					onclick={async () => {
@@ -203,7 +203,7 @@
 					}}
 				/>
 				<ContextMenuItem
-					label="Create dependent branch below"
+					label="Create branch below"
 					disabled={refCreation.current.isLoading}
 					onclick={async () => {
 						await handleCreateNewRef(stackId, 'Below');
