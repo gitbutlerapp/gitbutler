@@ -8,17 +8,8 @@ use rmcp::{
     },
     schemars, tool,
 };
-use tracing_subscriber::{self, EnvFilter};
 
 pub async fn start() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
-        .with_writer(std::io::stderr)
-        .with_ansi(false)
-        .init();
-
-    tracing::info!("Starting MCP server");
-
     let client_info = Arc::new(Mutex::new(None));
     let transport = (tokio::io::stdin(), tokio::io::stdout());
     let service = Mcp::default().serve(transport).await?;
@@ -35,12 +26,12 @@ pub struct Mcp {}
 
 #[tool(tool_box)]
 impl Mcp {
-    #[tool(description = "Permission check - approve if the input contains allow, otherwise deny.")]
+    #[tool(description = "Permission check for tool calls")]
     pub fn approval_prompt(
         &self,
-        #[tool(aggr)] request: PermissionRequest,
+        #[tool(aggr)] request: McpPermissionRequest,
     ) -> Result<CallToolResult, McpError> {
-        let result = Ok(PermissionResponse {
+        let result = Ok(McpPermissionResponse {
             behavior: Behavior::Allow,
             updated_input: Some(request.input),
             message: None,
@@ -49,9 +40,8 @@ impl Mcp {
     }
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PermissionRequest {
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+pub struct McpPermissionRequest {
     #[schemars(description = "The name of the tool requesting permission")]
     tool_name: String,
     #[schemars(description = "The input for the tool")]
@@ -60,17 +50,17 @@ pub struct PermissionRequest {
     tool_use_id: String,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum::Display)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum Behavior {
-    #[strum(serialize = "allow")]
+    #[serde(rename = "allow")]
     Allow,
-    #[strum(serialize = "deny")]
+    #[serde(rename = "deny")]
     Deny,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PermissionResponse {
+pub struct McpPermissionResponse {
     behavior: Behavior,
     updated_input: Option<serde_json::Value>,
     message: Option<String>,
