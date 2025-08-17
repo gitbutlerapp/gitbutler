@@ -396,7 +396,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
             }
             status::Item::IndexWorktree(index_worktree::Item::Modification {
                 rela_path,
-                status: EntryStatus::Conflict(_conflict),
+                status: EntryStatus::Conflict { .. },
                 ..
             }) => {
                 ignored_changes.push(IgnoredWorktreeChange {

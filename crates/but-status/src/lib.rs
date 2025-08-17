@@ -83,7 +83,7 @@ pub fn create_wd_tree(
                 rela_path,
                 status:
                     EntryStatus::Change(Change::Type { .. } | Change::Modification { .. })
-                    | EntryStatus::Conflict(_)
+                    | EntryStatus::Conflict { .. }
                     | EntryStatus::IntentToAdd,
                 ..
             }) => {
