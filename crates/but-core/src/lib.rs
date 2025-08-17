@@ -233,12 +233,16 @@ pub fn open_repo(path: impl Into<PathBuf>) -> anyhow::Result<gix::Repository> {
 ///
 /// For simplicity, copy-tracking is not representable right now, but `copy: bool` could be added
 /// if needed. Copy-tracking is deactivated as well.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TreeChange {
     /// The *relative* path in the worktree where the entry can be found.
     pub path: BString,
     /// The specific information about this change.
     pub status: TreeStatus,
+    /// The status item that this change is derived from, used in places that need detailed information.
+    /// This is only set if this instance was created from a worktree-status, and is `None` when created
+    /// from a tree-diff.
+    pub status_item: Option<gix::status::Item>,
 }
 
 /// Specifically defines a [`TreeChange`].
@@ -328,13 +332,17 @@ pub enum IgnoredWorktreeTreeChangeStatus {
 }
 
 /// A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Serialize)]
 pub struct IgnoredWorktreeChange {
     /// The worktree-relative path to the change.
     #[serde(serialize_with = "gitbutler_serde::bstring_lossy::serialize")]
-    path: BString,
+    pub path: BString,
     /// The status that caused this change to be ignored.
-    status: IgnoredWorktreeTreeChangeStatus,
+    pub status: IgnoredWorktreeTreeChangeStatus,
+    /// The status item that this change is derived from, used in places that need detailed information.
+    /// It's `None` if the status item is already present in non-ignored changes.
+    #[serde(skip)]
+    pub status_item: Option<gix::status::Item>,
 }
 
 /// The type returned by [`worktree_changes()`](diff::worktree_changes).
@@ -350,7 +358,7 @@ pub struct WorktreeChanges {
 /// the *dominant* change to display. Note that it can stack with a content change,
 /// but *should not only in case of a `TypeChange*`*.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub enum ModeFlags {
     ExecutableBitAdded,
     ExecutableBitRemoved,

@@ -24,7 +24,6 @@ use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::{signature, SignaturePurpose};
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
-#[allow(deprecated)]
 use serde::Serialize;
 
 pub mod commands;

@@ -5,6 +5,7 @@ mod branch_details;
 mod commit_engine;
 mod flatten_diff_specs;
 mod ref_info;
+mod snapshot;
 mod tree_manipulation;
 mod ui;
 

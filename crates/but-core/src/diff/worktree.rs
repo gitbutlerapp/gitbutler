@@ -33,11 +33,35 @@ enum Origin {
 /// to get a commit with a tree equal to the current worktree.
 #[instrument(skip(repo), err(Debug))]
 pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChanges> {
-    let rewrites = gix::diff::Rewrites::default(); /* standard Git rewrite handling for everything */
-    debug_assert!(
-        rewrites.copies.is_none(),
-        "TODO: copy tracking needs specific support wherever 'previous_path()' is called."
-    );
+    worktree_changes_inner(repo, RenameTracking::Always)
+}
+
+/// Just like [`worktree_changes()`], but don't do any rename tracking for performance.
+#[instrument(skip(repo), err(Debug))]
+pub fn worktree_changes_no_renames(repo: &gix::Repository) -> anyhow::Result<WorktreeChanges> {
+    worktree_changes_inner(repo, RenameTracking::Disabled)
+}
+
+enum RenameTracking {
+    Always,
+    Disabled,
+}
+
+fn worktree_changes_inner(
+    repo: &gix::Repository,
+    renames: RenameTracking,
+) -> anyhow::Result<WorktreeChanges> {
+    let (tree_index_rewrites, worktree_rewrites) = match renames {
+        RenameTracking::Always => {
+            let rewrites = gix::diff::Rewrites::default(); /* standard Git rewrite handling for everything */
+            debug_assert!(
+                rewrites.copies.is_none(),
+                "TODO: copy tracking needs specific support wherever 'previous_path()' is called."
+            );
+            (TrackRenames::Given(rewrites), Some(rewrites))
+        }
+        RenameTracking::Disabled => (TrackRenames::Disabled, None),
+    };
     let has_submodule_ignore_configuration = repo.modules()?.is_some_and(|modules| {
         modules
             .names()
@@ -45,8 +69,8 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
     });
     let status_changes = repo
         .status(gix::progress::Discard)?
-        .tree_index_track_renames(TrackRenames::Given(rewrites))
-        .index_worktree_rewrites(rewrites)
+        .tree_index_track_renames(tree_index_rewrites)
+        .index_worktree_rewrites(worktree_rewrites)
         // Learn about submodule changes, but only do the cheap checks, showing only what we could commit.
         .index_worktree_submodules(if has_submodule_ignore_configuration {
             gix::status::Submodule::AsConfigured { check_dirty: true }
@@ -75,7 +99,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
     let mut ignored_changes = Vec::new();
     for change in status_changes {
         let change = change?;
-        let change = match change {
+        let change = match change.clone() {
             status::Item::TreeIndex(gix::diff::index::Change::Deletion {
                 location,
                 id,
@@ -91,6 +115,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                         },
                     },
                     path: location.into_owned(),
+                    status_item: Some(change),
                 },
             ),
             status::Item::TreeIndex(gix::diff::index::Change::Addition {
@@ -109,6 +134,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             kind: into_tree_entry_kind(entry_mode)?,
                         },
                     },
+                    status_item: Some(change),
                 },
             ),
             status::Item::TreeIndex(gix::diff::index::Change::Modification {
@@ -136,6 +162,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -154,6 +181,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             kind: into_tree_entry_kind(entry.mode)?,
                         },
                     },
+                    status_item: Some(change),
                 },
             ),
             status::Item::IndexWorktree(index_worktree::Item::Modification {
@@ -180,6 +208,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -216,6 +245,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -237,6 +267,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                         },
                         is_untracked: false,
                     },
+                    status_item: Some(change),
                 },
             ),
             status::Item::IndexWorktree(index_worktree::Item::DirectoryContents {
@@ -269,6 +300,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             },
                             is_untracked: true,
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -276,10 +308,12 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                 rela_path,
                 entry,
                 status:
-                    EntryStatus::Change(index_as_worktree::Change::SubmoduleModification(change)),
+                    EntryStatus::Change(index_as_worktree::Change::SubmoduleModification(
+                        submodule_change,
+                    )),
                 ..
             }) => {
-                let Some(checked_out_head_id) = change.checked_out_head_id else {
+                let Some(checked_out_head_id) = submodule_change.checked_out_head_id else {
                     continue;
                 };
                 // We can arrive here if the user configures to `ignore = none`, and there are
@@ -306,6 +340,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -361,6 +396,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
+                        status_item: Some(change),
                     },
                 )
             }
@@ -391,17 +427,19 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
+                        status_item: Some(change),
                     },
                 )
             }
             status::Item::IndexWorktree(index_worktree::Item::Modification {
                 rela_path,
-                status: EntryStatus::Conflict(_conflict),
+                status: EntryStatus::Conflict { .. },
                 ..
             }) => {
                 ignored_changes.push(IgnoredWorktreeChange {
                     path: rela_path,
                     status: IgnoredWorktreeTreeChangeStatus::Conflict,
+                    status_item: Some(change),
                 });
                 continue;
             }
@@ -470,15 +508,17 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
                     changes.push(merged);
                     IgnoredWorktreeTreeChangeStatus::TreeIndex
                 }
-                [Some(first), Some(second)] => {
+                [Some(mut first), Some(mut second)] => {
                     ignored_changes.push(IgnoredWorktreeChange {
                         path: first.path.clone(),
                         status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
+                        status_item: first.status_item.take(),
                     });
                     changes.push(first);
                     ignored_changes.push(IgnoredWorktreeChange {
                         path: second.path.clone(),
                         status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
+                        status_item: second.status_item.take(),
                     });
                     changes.push(second);
                     continue;
@@ -487,6 +527,7 @@ pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChange
             ignored_changes.push(IgnoredWorktreeChange {
                 path: change_path,
                 status,
+                status_item: None,
             });
             continue;
         }
@@ -655,6 +696,8 @@ fn merge_changes(
                 status: TreeStatus::Deletion {
                     previous_state: *previous_state,
                 },
+                // NOTE: not relevant, as renames are disabled for snapshots where this is used.
+                status_item: None,
             }));
         }
         (
@@ -674,6 +717,8 @@ fn merge_changes(
                         // It's just in the index, which to us doesn't exist.
                         is_untracked: true,
                     },
+                    // NOTE: not relevant, as renames are disabled for snapshots where this is used.
+                    status_item: None,
                 }),
                 Some(TreeChange {
                     path: index_wt.path,
@@ -685,6 +730,8 @@ fn merge_changes(
                         // read the initial state of a file from.
                         is_untracked: true,
                     },
+                    // NOTE: not relevant, as renames are disabled for snapshots where this is used.
+                    status_item: None,
                 }),
             ]);
         }

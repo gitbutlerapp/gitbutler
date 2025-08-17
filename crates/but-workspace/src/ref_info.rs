@@ -1,4 +1,4 @@
-#![allow(clippy::indexing_slicing)]
+#![expect(clippy::indexing_slicing)]
 // TODO: rename this module to `workspace`, make it private, and pub-use all content in the top-level, as we now literally
 //       get the workspace, while possibly processing it for use in the UI.
 

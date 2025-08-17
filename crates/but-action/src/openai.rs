@@ -19,7 +19,6 @@ use schemars::{JsonSchema, schema_for};
 use serde::de::DeserializeOwned;
 use tokio::sync::Mutex;
 
-#[allow(unused)]
 #[derive(Debug, Clone, serde::Serialize, strum::Display)]
 pub enum CredentialsKind {
     EnvVarOpenAiKey,
@@ -116,7 +115,6 @@ impl OpenAiProvider {
     }
 }
 
-#[allow(dead_code)]
 pub fn structured_output_blocking<
     T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
 >(
@@ -144,7 +142,6 @@ pub fn structured_output_blocking<
     .unwrap()
 }
 
-#[allow(dead_code)]
 pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema>(
     client: &Client<OpenAIConfig>,
     messages: Vec<ChatCompletionRequestMessage>,
@@ -177,7 +174,6 @@ pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSche
     Ok(None)
 }
 
-#[allow(dead_code)]
 pub fn tool_calling_blocking(
     client: &OpenAiProvider,
     messages: Vec<ChatCompletionRequestMessage>,
@@ -197,7 +193,6 @@ pub fn tool_calling_blocking(
     .unwrap()
 }
 
-#[allow(dead_code)]
 pub async fn tool_calling(
     client: &Client<OpenAIConfig>,
     messages: Vec<ChatCompletionRequestMessage>,

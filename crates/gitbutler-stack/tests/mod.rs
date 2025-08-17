@@ -841,7 +841,6 @@ struct TestContext<'a> {
     /// Oldest commit first
     commits: Vec<git2::Commit<'a>>,
     /// Oldest commit first
-    #[allow(dead_code)]
     other_commits: Vec<git2::Commit<'a>>,
     handle: VirtualBranchesHandle,
     default_target: gitbutler_stack::Target,

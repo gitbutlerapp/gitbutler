@@ -12,7 +12,7 @@ pub(crate) enum HunkSubstraction {
 /// Like a boolean subtraction, remove `subtractions` from `hunk`, and return the remaining pieces.
 /// Note that the old and new ranges in `hunk` are split in lock-step, so that cutting out a piece from old will take
 /// the respective amount of lines from new if these are available.
-#[allow(clippy::indexing_slicing)]
+#[expect(clippy::indexing_slicing)]
 pub(crate) fn subtract_hunks(
     hunk: HunkHeader,
     subtractions: impl IntoIterator<Item = HunkSubstraction>,

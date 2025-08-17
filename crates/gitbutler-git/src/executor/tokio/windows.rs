@@ -25,7 +25,7 @@ impl Socket for BufStream<NamedPipeServer> {
         let handle: HANDLE = HANDLE(raw_handle);
         let mut out_pid: u32 = 0;
 
-        #[allow(unsafe_code)]
+        #[expect(unsafe_code)]
         let r = unsafe { GetNamedPipeClientProcessId(handle, &mut out_pid) };
 
         match r {
@@ -77,7 +77,7 @@ impl AskpassServer for TokioAskpassServer {
     type SocketHandle = BufStream<NamedPipeServer>;
 
     // We can ignore clippy here since we locked the mutex.
-    #[allow(clippy::await_holding_refcell_ref)]
+    #[expect(clippy::await_holding_refcell_ref)]
     async fn accept(&self, timeout: Option<Duration>) -> Result<Self::SocketHandle, Self::Error> {
         let server = self.server.lock().await;
 

@@ -186,7 +186,7 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
 /// If there are multiple heads that point to the same patch, the `add` and `update` operations can specify the intended order.
 impl Stack {
     /// Creates a new `Branch` with the given name. The `in_workspace` flag is set to `true`.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     #[deprecated(note = "DO NOT USE THIS DIRECTLY, use `stack_ext::StackExt::create` instead.")]
     pub fn new(
         name: String,
@@ -297,7 +297,7 @@ impl Stack {
     // TODO: When this is stable, make it error out on initialization failure
     /// Constructs and initializes a new Stack.
     /// If initialization fails, a warning is logged and the stack is returned as is.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub fn create(
         ctx: &CommandContext,
         name: String,
@@ -311,7 +311,7 @@ impl Stack {
         allow_rebasing: bool,
         allow_duplicate_refs: bool,
     ) -> Result<Self> {
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         // this should be the only place (other than tests) where this is allowed
         let mut branch = Stack::new(
             name,
@@ -643,7 +643,6 @@ impl Stack {
     ) -> Result<()> {
         self.ensure_initialized()?;
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
-        #[allow(deprecated)] // this is the only place where this is allowed
         self.set_head(commit_id);
         if let Some(tree) = tree {
             self.tree = tree;
@@ -784,9 +783,8 @@ impl Stack {
     }
 
     /// Migrates all change IDs in stack heads to commit IDs.
-    #[allow(deprecated)]
     pub fn migrate_change_ids(&mut self, ctx: &CommandContext) -> Result<()> {
-        // If all of the heads are already commit IDs, there is nothing to do
+        // If all the heads are already commit IDs, there is nothing to do
         if self.heads.iter().all(|h| !h.uses_change_id()) {
             return Ok(());
         }

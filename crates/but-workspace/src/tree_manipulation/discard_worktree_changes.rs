@@ -470,7 +470,7 @@ mod file {
         num_sorted_entries: usize,
     ) -> anyhow::Result<()> {
         if let Some(range) = index.entry_range(with_trailing_slash(rela_path).as_bstr()) {
-            #[allow(clippy::indexing_slicing)]
+            #[expect(clippy::indexing_slicing)]
             for entry in &mut index.entries_mut()[range] {
                 entry.flags.insert(gix::index::entry::Flags::REMOVE);
             }
@@ -517,7 +517,7 @@ mod file {
                 ) else {
                     continue;
                 };
-                #[allow(clippy::indexing_slicing)]
+                #[expect(clippy::indexing_slicing)]
                 state.entries_mut()[entry_idx]
                     .flags
                     .insert(gix::index::entry::Flags::REMOVE);

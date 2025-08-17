@@ -17,11 +17,11 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
         let mut config = repo.config_snapshot_mut();
         config.set_value(
             &gix::config::tree::gitoxide::Commit::COMMITTER_DATE,
-            "946771266 +0633",
+            "946771266 +0600",
         )?;
         config.set_value(
             &gix::config::tree::gitoxide::Commit::AUTHOR_DATE,
-            "946684866 +0633",
+            "946684866 +0600",
         )?;
     }
     let head_commit = repo.rev_parse_single("HEAD")?;
@@ -51,7 +51,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(1e8275bd6e656965ed0729797362abc2e1fb633d),
+            Sha1(e69a4dfd9ef6d55fd4e49f801612fbe061677adb),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(e56fc9bacdd11ebe576b5d96d21127c423698126),
@@ -74,8 +74,8 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     // which thus should never be removed.
     insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
     tree e56fc9bacdd11ebe576b5d96d21127c423698126
-    author author <author@example.com> 946684866 +0633
-    committer committer (From Env) <committer@example.com> 946771266 +0633
+    author author <author@example.com> 946684866 +0600
+    committer committer (From Env) <committer@example.com> 946771266 +0600
     gitbutler-headers-version 2
     gitbutler-change-id 00000000-0000-0000-0000-000000003333
 

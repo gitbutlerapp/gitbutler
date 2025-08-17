@@ -16,7 +16,7 @@ pub use heads::add_head;
 pub use stack::{PatchReferenceUpdate, TargetUpdate};
 
 // This is here because CommitOrChangeId::ChangeId is deprecated, for some reason allow cant be done on the CommitOrChangeId struct
-#[allow(deprecated)]
+#[expect(deprecated)]
 mod stack_branch;
 pub use stack::canned_branch_name;
 pub use stack_branch::{CommitOrChangeId, StackBranch};
