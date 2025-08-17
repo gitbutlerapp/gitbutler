@@ -52,7 +52,7 @@ export class IrcClient {
 	constructor() {}
 
 	get connected() {
-		return this._connected;
+		return reactive(() => this._connected);
 	}
 
 	/**
@@ -108,6 +108,7 @@ export class IrcClient {
 		if (!this.registered) {
 			if (event.type === 'welcome') {
 				this.registered = true;
+				this.onregistered();
 			} else if (event.type === 'capabilities' && event.subcommand === 'LS') {
 				this.send(`CAP REQ : ${capabilities.join(' ')}`);
 			} else if (event.type === 'capabilities' && event.subcommand === 'NAK') {

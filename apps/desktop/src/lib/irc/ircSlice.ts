@@ -1,6 +1,6 @@
 import { createChat, joinChannel } from '$lib/irc/channel';
 import { logsAdapter, logSelectors } from '$lib/irc/logs';
-import { type IrcEvent } from '$lib/irc/parser';
+import { type IrcEvent, EVENT_TYPE } from '$lib/irc/parser';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import {
 	createAsyncThunk,
@@ -59,31 +59,31 @@ export const ircSlice = createSlice({
 			const me = state.connection.nick!;
 
 			switch (event.type) {
-				case 'welcome': {
+				case EVENT_TYPE.WELCOME: {
 					state.connection = {
 						nick: event.message,
 						connected: true
 					};
 					break;
 				}
-				case 'userJoined': {
+				case EVENT_TYPE.USER_JOINED: {
 					const nick = event.user.nick;
 					const channel = state.channels[event.channel];
 					// When this client joins a new channale.
 					if (!channel) joinChannel(state.channels, event.channel, nick);
 					break;
 				}
-				case 'userParted': {
+				case EVENT_TYPE.USER_PARTED: {
 					leaveChannel({ state, nick: event.nick, channelName: event.channel });
 					break;
 				}
-				case 'userQuit': {
+				case EVENT_TYPE.USER_QUIT: {
 					for (const name of Object.keys(state.channels)) {
 						leaveChannel({ state, nick: event.nick, channelName: name });
 					}
 					break;
 				}
-				case 'namesList': {
+				case EVENT_TYPE.NAMES_LIST: {
 					const channel = state.channels[event.channel];
 
 					const users = event.names.map((name) => {
@@ -105,7 +105,7 @@ export const ircSlice = createSlice({
 					}
 					break;
 				}
-				case 'groupMessage': {
+				case EVENT_TYPE.GROUP_MESSAGE: {
 					const channel = state.channels[event.to];
 					if (!channel) {
 						joinChannel(state.channels, event.to, event.to);
@@ -130,7 +130,7 @@ export const ircSlice = createSlice({
 					}
 					break;
 				}
-				case 'privateMessage': {
+				case EVENT_TYPE.PRIVATE_MESSAGE: {
 					const { from, to } = event;
 					const user = from === me ? to : from;
 					let chat = state.chats[user];
@@ -155,7 +155,7 @@ export const ircSlice = createSlice({
 					}
 					break;
 				}
-				case 'serverNotice': {
+				case EVENT_TYPE.SERVER_NOTICE: {
 					const name = event.target;
 					const channel = state.channels[name];
 					if (channel) {
@@ -171,26 +171,26 @@ export const ircSlice = createSlice({
 					}
 					break;
 				}
-				case 'channelTopic': {
+				case EVENT_TYPE.CHANNEL_TOPIC: {
 					const channel = state.channels[event.channel];
 					if (channel) channel.topic = event.topic;
 					break;
 				}
 
-				case 'nickChanged': {
+				case EVENT_TYPE.NICK_CHANGED: {
 					const whoInfo = state.whois[event.oldNick];
 					state.whois[event.oldNick] = undefined;
 					state.whois[event.newNick] = whoInfo;
 					break;
 				}
 
-				case 'whois': {
+				case EVENT_TYPE.WHOIS: {
 					state.whois[event.nick] = event;
 					break;
 				}
 
-				case 'motd':
-				case 'error': {
+				case EVENT_TYPE.MOTD:
+				case EVENT_TYPE.ERROR: {
 					state.systemMessages.push({
 						timestamp: Date.now(),
 						type: 'server',
@@ -199,7 +199,7 @@ export const ircSlice = createSlice({
 					break;
 				}
 
-				case 'unsupported': {
+				case EVENT_TYPE.UNSUPPORTED: {
 					state.systemMessages.push({
 						type: 'server',
 						timestamp: Date.now(),
@@ -207,7 +207,7 @@ export const ircSlice = createSlice({
 					});
 					break;
 				}
-				case 'ping': {
+				case EVENT_TYPE.PING: {
 					state.systemMessages.push({
 						type: 'server',
 						timestamp: Date.now(),
