@@ -54,7 +54,7 @@ export class ReorderCommitDzFactory {
 		private projectId: string,
 		private stackService: StackService,
 		private stack: { name: string; commitIds: string[] }[],
-		private stackId: string
+		private laneId: string
 	) {
 		const seriesMap = new Map();
 		this.stack.forEach((series) => {
@@ -71,7 +71,7 @@ export class ReorderCommitDzFactory {
 
 		return new ReorderCommitDzHandler(
 			this.projectId,
-			this.stackId,
+			this.laneId,
 			this.stackService,
 			currentSeries.name,
 			this.stack,
@@ -87,7 +87,7 @@ export class ReorderCommitDzFactory {
 
 		return new ReorderCommitDzHandler(
 			this.projectId,
-			this.stackId,
+			this.laneId,
 			this.stackService,
 			currentSeries.name,
 			this.stack,
@@ -96,19 +96,15 @@ export class ReorderCommitDzFactory {
 	}
 }
 
-export const STACKING_REORDER_DROPZONE_MANAGER_FACTORY =
-	new InjectionToken<StackingReorderDropzoneManagerFactory>(
-		'StackingReorderDropzoneManagerFactory'
-	);
+export const REORDER_DROPZONE_FACTORY = new InjectionToken<ReorderDropzoneFactory>(
+	'ReorderDropzoneFactory'
+);
 
-export class StackingReorderDropzoneManagerFactory {
-	constructor(
-		private projectId: string,
-		private stackService: StackService
-	) {}
+export class ReorderDropzoneFactory {
+	constructor(private stackService: StackService) {}
 
-	build(stackId: string, series: { name: string; commitIds: string[] }[]) {
-		return new ReorderCommitDzFactory(this.projectId, this.stackService, series, stackId);
+	build(projectId: string, laneId: string, series: { name: string; commitIds: string[] }[]) {
+		return new ReorderCommitDzFactory(projectId, this.stackService, series, laneId);
 	}
 }
 

@@ -10,15 +10,11 @@
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import {
-		StackingReorderDropzoneManagerFactory,
-		STACKING_REORDER_DROPZONE_MANAGER_FACTORY
-	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { FEED_FACTORY } from '$lib/feed/feed';
-	import { FocusManager, FOCUS_MANAGER } from '$lib/focus/focusManager.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import { GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
@@ -33,6 +29,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
 	import { combineResults } from '$lib/state/helpers';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { debounce } from '$lib/utils/debounce';
 	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { inject, provide } from '@gitbutler/shared/context';
@@ -41,9 +38,36 @@
 
 	const { data, children: pageChildren }: { data: LayoutData; children: Snippet } = $props();
 
-	const { projectId, userService, posthog } = $derived(data);
+	// =============================================================================
+	// PROJECT SETUP & CORE STATE
+	// =============================================================================
+
+	const { projectId } = $derived(data);
+
+	// Core services
+	const userService = inject(USER_SERVICE);
+	const posthog = inject(POSTHOG_WRAPPER);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const settingsStore = settingsService.appSettings;
+	const projectsService = inject(PROJECTS_SERVICE);
+	const clientState = inject(CLIENT_STATE);
+
+	// User state
+	const user = $derived(userService.user);
+	const accessToken = $derived($user?.github_access_token);
+
+	// Project data
+	const projectsResult = $derived(projectsService.projects());
+	const projects = $derived(projectsResult.current.data);
+
+	// =============================================================================
+	// REPOSITORY & BRANCH MANAGEMENT
+	// =============================================================================
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const branchService = inject(BRANCH_SERVICE);
+	const gitService = inject(GIT_SERVICE);
+
 	const repoInfoResponse = $derived(baseBranchService.repo(projectId));
 	const repoInfo = $derived(repoInfoResponse.current.data);
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
@@ -51,59 +75,124 @@
 	const baseBranchName = $derived(baseBranch?.shortName);
 	const pushRepoResponse = $derived(baseBranchService.pushRepo(projectId));
 	const forkInfo = $derived(pushRepoResponse.current.data);
-	const branchService = inject(BRANCH_SERVICE);
 
-	const stackService = inject(STACK_SERVICE);
-	const feedFactory = inject(FEED_FACTORY);
+	// =============================================================================
+	// WORKSPACE & MODE MANAGEMENT
+	// =============================================================================
 
-	const secretService = inject(SECRET_SERVICE);
-	const gitLabState = $derived(new GitLabState(secretService, repoInfo, projectId));
-	$effect.pre(() => {
-		provide(GITLAB_STATE, gitLabState);
-	});
-	const gitLabClient = inject(GITLAB_CLIENT);
-	$effect.pre(() => {
-		gitLabClient.set(gitLabState);
-	});
-
-	const user = $derived(userService.user);
-	const accessToken = $derived($user?.github_access_token);
-
-	const gitHubClient = inject(GITHUB_CLIENT);
-	$effect.pre(() => gitHubClient.setToken(accessToken));
-	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
-
-	const projectsService = inject(PROJECTS_SERVICE);
-	const projectsResult = $derived(projectsService.projects());
-	const projects = $derived(projectsResult.current.data);
-
-	$effect.pre(() => {
-		const stackingReorderDropzoneManagerFactory = new StackingReorderDropzoneManagerFactory(
-			projectId,
-			stackService
-		);
-
-		provide(STACKING_REORDER_DROPZONE_MANAGER_FACTORY, stackingReorderDropzoneManagerFactory);
-	});
-
-	const focusManager = new FocusManager();
-	provide(FOCUS_MANAGER, focusManager);
-
-	let intervalId: any;
-
-	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
-
-	// Refresh base branch if git fetch event is detected.
 	const modeService = inject(MODE_SERVICE);
+	const stackService = inject(STACK_SERVICE);
+	const worktreeService = inject(WORKTREE_SERVICE);
+
 	const mode = $derived(modeService.mode({ projectId }));
 	const headResult = $derived(modeService.head({ projectId }));
 	const head = $derived(headResult.current.data);
 
+	// Invalidate stacks when switching branches outside workspace
 	$effect(() => {
 		if (head?.type === 'OutsideWorkspace' && head.subject.branchName) {
 			stackService.invalidateStacks();
 		}
 	});
+
+	// =============================================================================
+	// FORGE INTEGRATION (GitHub & GitLab)
+	// =============================================================================
+
+	const gitHubClient = inject(GITHUB_CLIENT);
+	const gitLabClient = inject(GITLAB_CLIENT);
+	const secretService = inject(SECRET_SERVICE);
+	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
+
+	// GitHub setup
+	$effect.pre(() => gitHubClient.setToken(accessToken));
+	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
+
+	// GitLab setup
+	const gitLabState = $derived(new GitLabState(secretService, repoInfo, projectId));
+	const gitlabConfigured = $derived(gitLabState.configured);
+
+	$effect.pre(() => {
+		provide(GITLAB_STATE, gitLabState);
+		gitLabClient.set(gitLabState);
+	});
+
+	// Forge factory configuration
+	$effect(() => {
+		forgeFactory.setConfig({
+			repo: repoInfo,
+			pushRepo: forkInfo,
+			baseBranch: baseBranchName,
+			githubAuthenticated: !!$user?.github_access_token,
+			gitlabAuthenticated: !!$gitlabConfigured,
+			forgeOverride: projects?.find((project) => project.id === projectId)?.forge_override
+		});
+	});
+
+	// =============================================================================
+	// FILE SELECTION & WORKTREE MANAGEMENT
+	// ================================================ReorderDropzoneFactory
+
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const idSelection = inject(ID_SELECTION);
+
+	const worktreeDataResult = $derived(worktreeService.worktreeData(projectId));
+	const worktreeData = $derived(worktreeDataResult.current.data);
+
+	// Bridge between RTKQ and custom slice
+	$effect(() => {
+		if (worktreeData) {
+			untrack(() => {
+				uncommittedService.updateData({
+					changes: worktreeData.rawChanges,
+					assignments: worktreeData.hunkAssignments
+				});
+			});
+		}
+	});
+
+	// Clear expired file selections
+	const affectedPaths = $derived(worktreeData?.rawChanges.map((c) => c.path));
+	$effect(() => {
+		if (affectedPaths) {
+			untrack(() => {
+				idSelection.retain(affectedPaths);
+			});
+		}
+	});
+
+	// =============================================================================
+	// ANALYTICS INIT
+	// =============================================================================
+
+	$effect(() => {
+		posthog.setPostHogRepo(repoInfo);
+		return () => {
+			posthog.setPostHogRepo(undefined);
+		};
+	});
+
+	// =============================================================================
+	// FEED & UPDATES MANAGEMENT
+	// =============================================================================
+
+	const feedFactory = inject(FEED_FACTORY);
+
+	// Listen for stack details updates
+	$effect(() => {
+		stackService.stackDetailsUpdateListener(projectId);
+	});
+
+	// Listen for feed updates
+	$effect(() => {
+		feedFactory.getFeed(projectId);
+	});
+
+	// =============================================================================
+	// AUTO-REFRESH & SYNCHRONIZATION
+	// =============================================================================
+
+	let intervalId: any;
 
 	const debouncedBaseBranchRefresh = debounce(async () => {
 		await baseBranchService.refreshBaseBranch(projectId).catch((error) => {
@@ -117,8 +206,7 @@
 		});
 	}, 500);
 
-	// TODO: Refactor `$head` into `.onHead()` as well.
-	const gitService = inject(GIT_SERVICE);
+	// Refresh on git fetch events
 	$effect(() =>
 		gitService.onFetch(data.projectId, () => {
 			debouncedBaseBranchRefresh();
@@ -126,39 +214,12 @@
 		})
 	);
 
+	// Refresh when branch data changes
 	$effect(() => {
 		if (baseBranch || headResult.current.data) debouncedRemoteBranchRefresh();
 	});
 
-	const gitlabConfigured = $derived(gitLabState.configured);
-
-	$effect(() => {
-		forgeFactory.setConfig({
-			repo: repoInfo,
-			pushRepo: forkInfo,
-			baseBranch: baseBranchName,
-			githubAuthenticated: !!$user?.github_access_token,
-			gitlabAuthenticated: !!$gitlabConfigured,
-			forgeOverride: projects?.find((project) => project.id === projectId)?.forge_override
-		});
-	});
-
-	$effect(() => {
-		posthog.setPostHogRepo(repoInfo);
-		return () => {
-			posthog.setPostHogRepo(undefined);
-		};
-	});
-
-	// Once on load and every time the project id changes
-	$effect(() => {
-		if (projectId) {
-			untrack(() => setupFetchInterval());
-		} else {
-			goto('/onboarding');
-		}
-	});
-
+	// Auto-fetch setup
 	async function fetchRemoteForProject() {
 		await baseBranchService.fetchFromRemotes(projectId, 'auto');
 	}
@@ -170,7 +231,7 @@
 		}
 		fetchRemoteForProject();
 		clearFetchInterval();
-		const intervalMs = autoFetchIntervalMinutes * 60 * 1000; // 15 minutes
+		const intervalMs = autoFetchIntervalMinutes * 60 * 1000;
 		intervalId = setInterval(async () => {
 			await fetchRemoteForProject();
 		}, intervalMs);
@@ -182,23 +243,26 @@
 		if (intervalId) clearInterval(intervalId);
 	}
 
-	const settingsService = inject(SETTINGS_SERVICE);
-	const settingsStore = settingsService.appSettings;
+	// =============================================================================
+	// PROJECT LIFECYCLE & NAVIGATION
+	// =============================================================================
 
-	onDestroy(() => {
-		clearFetchInterval();
+	// Setup auto-fetch when project changes
+	$effect(() => {
+		if (projectId) {
+			untrack(() => setupFetchInterval());
+		} else {
+			goto('/onboarding');
+		}
 	});
 
+	// Set active project and handle notifications
 	async function setActiveProjectOrRedirect(projectId: string) {
 		const dontShowAgainKey = `git-filters--dont-show-again--${projectId}`;
-		// Optimistically assume the project is viewable
 		try {
 			const info = await projectsService.setActiveProject(projectId);
 
-			if (!info) {
-				// The project is not found do nothing. The application will redirect to the start.
-				return;
-			}
+			if (!info) return;
 
 			if (!info.is_exclusive) {
 				showInfo(
@@ -229,58 +293,16 @@
 		setActiveProjectOrRedirect(projectId);
 	});
 
-	// Clear the backend API when the project id changes.
-	const clientState = inject(CLIENT_STATE);
+	// Clear backend API state when project changes
 	$effect(() => {
 		if (projectId) {
 			clientState.backendApi.util.resetApiState();
 		}
 	});
 
-	// TODO: Can we combine WorktreeService and UncommittedService? The former
-	// is powered by RTKQ, while the latter is a custom slice, but perhaps
-	// they could be still be contained within the same .svelte.ts file.
-	const worktreeService = inject(WORKTREE_SERVICE);
-	const uncommittedService = inject(UNCOMMITTED_SERVICE);
-	const worktreeDataResult = $derived(worktreeService.worktreeData(projectId));
-	const worktreeData = $derived(worktreeDataResult.current.data);
-
-	// This effect is a sort of bridge between rtkq and the custom slice.
-	$effect(() => {
-		if (worktreeData) {
-			untrack(() => {
-				uncommittedService.updateData({
-					changes: worktreeData.rawChanges,
-					// If assignments are not enabled we override the stack id to prevent
-					// files from becoming hidden when toggling on/off.
-					assignments: worktreeData.hunkAssignments
-				});
-			});
-		}
-	});
-
-	// Here we clear any expired file selections. Note that the notion of
-	// file selection is related to selecting things with checkmarks, and
-	// that this `IdSelection` class should be deprecated in favor of
-	// combining it with `UncommittedService`.
-	const idSelection = inject(ID_SELECTION);
-	const affectedPaths = $derived(worktreeData?.rawChanges.map((c) => c.path));
-	$effect(() => {
-		if (affectedPaths) {
-			untrack(() => {
-				idSelection.retain(affectedPaths);
-			});
-		}
-	});
-
-	// Listen for stack details updates from the backend.
-	$effect(() => {
-		stackService.stackDetailsUpdateListener(projectId);
-	});
-
-	// Listen for the feed updates from the backend.
-	$effect(() => {
-		feedFactory.getFeed(projectId);
+	// Cleanup on destroy
+	onDestroy(() => {
+		clearFetchInterval();
 	});
 </script>
 
