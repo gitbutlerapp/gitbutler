@@ -138,18 +138,15 @@ export class IrcService {
 	}
 
 	getServerMessages() {
-		const result = $derived(selectSystemMessages(this.state));
-		return result;
+		return selectSystemMessages(this.state);
 	}
 
 	getChannelMessages(channel: string) {
-		const result = $derived(selectChannelMessages(this.state, channel));
-		return result;
+		return selectChannelMessages(this.state, channel);
 	}
 
 	getPrivateMessages(nick: string) {
-		const result = $derived(selectPrivateMessages(this.state, nick));
-		return result;
+		return selectPrivateMessages(this.state, nick);
 	}
 
 	getChats() {
