@@ -23,13 +23,11 @@ pub struct Handler {
     // the tauri app, assuming that such application would not be `Send + Sync` everywhere and thus would
     // need extra protection.
     /// A function to send events - decoupled from app-handle for testing purposes.
-    #[allow(clippy::type_complexity)]
     send_event: Arc<dyn Fn(Change) -> Result<()> + Send + Sync + 'static>,
 }
 
 impl Handler {
     /// A constructor whose primary use is the test-suite.
-    #[allow(clippy::too_many_arguments)]
     pub fn new(send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static) -> Self {
         Handler {
             send_event: Arc::new(send_event),

@@ -82,7 +82,6 @@ where
         // Write file or directory explicitly
         // Some unzip tools unzip files with directory paths correctly, some do not!
         if path.is_file() {
-            #[allow(deprecated)]
             zip.start_file_from_path(name, options)?;
             let mut f = fs::File::open(path)?;
 
@@ -92,7 +91,6 @@ where
         } else if !name.as_os_str().is_empty() {
             // Only if not root! Avoids path spec / warning
             // and mapname conversion failed error on unzip
-            #[allow(deprecated)]
             zip.add_directory_from_path(name, options)?;
         }
     }

@@ -6,7 +6,6 @@ use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{Stack, StackId};
 
-#[allow(deprecated)]
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};

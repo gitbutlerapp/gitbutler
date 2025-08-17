@@ -40,7 +40,6 @@ pub fn read_only_in_memory_scenario_named(
 }
 
 pub enum StackState {
-    #[allow(dead_code)]
     InWorkspace,
     Inactive,
 }

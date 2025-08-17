@@ -4,8 +4,10 @@ use bstr::{BStr, ByteSlice};
 pub use tree_changes::tree_changes;
 
 mod worktree;
-use crate::{ChangeState, ModeFlags, TreeChange, TreeStatus, TreeStatusKind};
-pub use worktree::worktree_changes;
+use crate::{
+    ChangeState, IgnoredWorktreeChange, ModeFlags, TreeChange, TreeStatus, TreeStatusKind,
+};
+pub use worktree::{worktree_changes, worktree_changes_no_renames};
 
 /// conversion functions for use in the UI
 pub mod ui;
@@ -56,6 +58,24 @@ impl TreeChange {
             | TreeStatus::Modification { .. } => None,
             TreeStatus::Rename { previous_path, .. } => Some(previous_path.as_ref()),
         }
+    }
+}
+
+impl std::fmt::Debug for TreeChange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TreeChange")
+            .field("path", &self.path)
+            .field("status", &self.status)
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for IgnoredWorktreeChange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IgnoredWorktreeChange")
+            .field("path", &self.path)
+            .field("status", &self.status)
+            .finish()
     }
 }
 

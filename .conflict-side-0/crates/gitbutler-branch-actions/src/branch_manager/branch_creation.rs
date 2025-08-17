@@ -19,7 +19,6 @@ use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
-#[allow(deprecated)]
 use tracing::instrument;
 
 impl BranchManager<'_> {

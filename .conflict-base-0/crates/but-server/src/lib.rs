@@ -126,7 +126,7 @@ async fn handle_websocket(socket: WebSocket, broadcaster: Arc<Mutex<Broadcaster>
     });
 
     while let Some(Ok(msg)) = socket_recv.next().await {
-        #[allow(clippy::single_match)]
+        #[expect(clippy::single_match)]
         match msg {
             Message::Close(_) => {
                 thread.abort();

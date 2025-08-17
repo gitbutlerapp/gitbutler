@@ -1,4 +1,4 @@
-#![deny(missing_docs, rust_2018_idioms)]
+#![deny(missing_docs)]
 #![deny(clippy::indexing_slicing)]
 
 //! ### Terminology
@@ -54,6 +54,8 @@ pub use head::{head, merge_worktree_with_workspace};
 /// 🚧utilities for applying and unapplying branches 🚧.
 /// Ignore the name of this module; it's just a place to put code by now.
 pub mod branch;
+
+pub mod snapshot;
 
 mod changeset;
 

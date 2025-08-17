@@ -241,10 +241,10 @@ fn conflicts_are_invisible() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-conflict");
     insta::assert_snapshot!(git_status(&repo)?, @"UU file");
     insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
-100644:e69de29 file
-100644:e6c4914 file
-100644:e33f5e9 file
-");
+    100644:e69de29 file:1
+    100644:e6c4914 file:2
+    100644:e33f5e9 file:3
+    ");
 
     let dropped = discard_workspace_changes(&repo, Some(file_to_spec("file")), CONTEXT_LINES)?;
     assert_eq!(
@@ -256,10 +256,10 @@ fn conflicts_are_invisible() -> anyhow::Result<()> {
     // Nothing was changed
     insta::assert_snapshot!(git_status(&repo)?, @"UU file");
     insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
-100644:e69de29 file
-100644:e6c4914 file
-100644:e33f5e9 file
-");
+    100644:e69de29 file:1
+    100644:e6c4914 file:2
+    100644:e33f5e9 file:3
+    ");
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @r"
 .
 ├── .git:40755

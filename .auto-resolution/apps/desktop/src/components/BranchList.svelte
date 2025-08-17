@@ -9,7 +9,7 @@
 	import PushButton from '$components/PushButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
-	import { STACKING_REORDER_DROPZONE_MANAGER_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
+	import { REORDER_DROPZONE_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
@@ -113,9 +113,10 @@
 		}
 	});
 
-	const stackingReorderDropzoneManagerFactory = inject(STACKING_REORDER_DROPZONE_MANAGER_FACTORY);
+	const stackingReorderDropzoneManagerFactory = inject(REORDER_DROPZONE_FACTORY);
 	const stackingReorderDropzoneManager = $derived(
 		stackingReorderDropzoneManagerFactory.build(
+			projectId,
 			laneId,
 			branches.map((s) => ({ name: s.name, commitIds: s.commits.map((p) => p.id) }))
 		)

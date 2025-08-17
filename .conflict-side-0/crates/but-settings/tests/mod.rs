@@ -1,7 +1,7 @@
 use but_settings::AppSettings;
 
 #[test]
-#[allow(clippy::bool_assert_comparison)]
+#[expect(clippy::bool_assert_comparison)]
 fn test_load_settings() {
     let settings =
         AppSettings::load("tests/fixtures/modify_default_true_to_false.json".as_ref()).unwrap();

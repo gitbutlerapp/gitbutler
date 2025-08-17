@@ -170,7 +170,7 @@ fn intersect_workspace_ranges(
 
 /// A structure that has stable content so it can be asserted on, showing the hunk-ranges that intersect with each of the input ranges.
 #[derive(Debug)]
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub struct LockInfo {
     /// All available ranges for a tracked path, basically all changes seen over a set of commits.
     pub ranges_by_path: Vec<(BString, Vec<but_hunk_dependency::HunkRange>)>,
@@ -181,7 +181,7 @@ pub struct LockInfo {
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub struct HunkIntersection {
     /// The hunk that was used for the intersection.
     pub hunk: but_core::unified_diff::DiffHunk,

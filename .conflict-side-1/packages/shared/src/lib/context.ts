@@ -38,6 +38,15 @@ export function provide<T>(token: InjectionToken<T>, value: T): void {
 }
 
 /**
+ * Provides many injectables in one call.
+ */
+export function provideAll(entries: [InjectionToken<any>, any][]) {
+	for (const [token, value] of entries) {
+		provide(token, value);
+	}
+}
+
+/**
  * An injector for use with `InjectionToken` rather than `Constructor`.
  */
 export function inject<T>(token: InjectionToken<T>): T {

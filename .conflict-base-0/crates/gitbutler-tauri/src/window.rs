@@ -138,7 +138,7 @@ pub(crate) mod state {
         /// Let's make it optional while it's only in our own way, while aiming for making that reasonably well working.
         exclusive_access: Option<gitbutler_project::access::LockFile>,
         // Database watcher handle.
-        #[allow(dead_code)]
+        #[expect(dead_code)]
         db_watcher: but_db::poll::DBWatcherHandle,
     }
 

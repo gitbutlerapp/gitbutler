@@ -56,7 +56,7 @@ pub trait RepositoryExt {
     /// This is for safety to assure the repository actually is in 'gitbutler mode'.
     fn workspace_ref_from_head(&self) -> Result<git2::Reference<'_>>;
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn commit_with_signature(
         &self,
         update_ref: Option<&Refname>,
@@ -140,7 +140,6 @@ impl RepositoryExt for git2::Repository {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn commit_with_signature(
         &self,
         update_ref: Option<&Refname>,

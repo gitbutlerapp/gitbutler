@@ -46,9 +46,10 @@ pub(crate) fn rebase_mapping_with_overrides(
 }
 
 pub enum ChangesSource {
-    #[allow(dead_code)]
-    Commit { id: gix::ObjectId },
-    #[allow(dead_code)]
+    Commit {
+        id: gix::ObjectId,
+    },
+    #[expect(dead_code)]
     Tree {
         after_id: gix::ObjectId,
         before_id: gix::ObjectId,

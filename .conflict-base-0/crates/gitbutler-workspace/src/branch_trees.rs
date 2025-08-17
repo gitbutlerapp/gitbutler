@@ -176,7 +176,7 @@ pub fn compute_updated_branch_head(
     new_head: git2::Oid,
     ctx: &CommandContext,
 ) -> Result<BranchHeadAndTree> {
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     compute_updated_branch_head_for_commits(
         repo,
         gix_repo,

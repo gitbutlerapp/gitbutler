@@ -473,7 +473,7 @@ pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> 
     }?)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn graph(
     args: &super::Args,
     ref_name: Option<&str>,

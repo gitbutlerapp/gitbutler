@@ -329,7 +329,7 @@ fn branch_group_to_branch(
 }
 
 /// A sum type of branch that can be a plain git branch or a virtual branch
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 enum GroupBranch<'a> {
     Local(gix::Reference<'a>),
     Remote(gix::Reference<'a>),

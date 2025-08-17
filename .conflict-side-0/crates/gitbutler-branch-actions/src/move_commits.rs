@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-#[allow(deprecated)]
 use crate::dependencies::commit_dependencies_from_workspace;
 use crate::VirtualBranchesExt;
 use crate::{compute_workspace_dependencies, BranchStatus};

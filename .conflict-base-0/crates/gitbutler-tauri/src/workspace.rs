@@ -67,7 +67,6 @@ pub fn branch_details(
 
 #[tauri::command(async)]
 #[instrument(skip(app), err(Debug))]
-#[allow(clippy::too_many_arguments)]
 pub fn create_commit_from_worktree_changes(
     app: State<'_, but_api::App>,
     project_id: ProjectId,
@@ -128,7 +127,6 @@ pub fn discard_worktree_changes(
 
 #[tauri::command(async)]
 #[instrument(skip(app), err(Debug))]
-#[allow(clippy::too_many_arguments)]
 pub fn move_changes_between_commits(
     app: State<'_, but_api::App>,
     project_id: ProjectId,
@@ -153,7 +151,6 @@ pub fn move_changes_between_commits(
 
 #[tauri::command(async)]
 #[instrument(skip(app), err(Debug))]
-#[allow(clippy::too_many_arguments)]
 pub fn split_branch(
     app: State<'_, but_api::App>,
     project_id: ProjectId,
@@ -176,7 +173,6 @@ pub fn split_branch(
 
 #[tauri::command(async)]
 #[instrument(skip(app), err(Debug))]
-#[allow(clippy::too_many_arguments)]
 pub fn split_branch_into_dependent_branch(
     app: State<'_, but_api::App>,
     project_id: ProjectId,
@@ -199,7 +195,6 @@ pub fn split_branch_into_dependent_branch(
 
 #[tauri::command(async)]
 #[instrument(skip(app), err(Debug))]
-#[allow(clippy::too_many_arguments)]
 pub fn uncommit_changes(
     app: State<'_, but_api::App>,
     project_id: ProjectId,
