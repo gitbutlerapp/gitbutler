@@ -2,6 +2,7 @@ use crate::ref_info::function::workspace_data_of_default_workspace_branch;
 use crate::ui::{CommitState, PushStatus, UpstreamCommit};
 use crate::{state_handle, ui};
 use anyhow::{Context, bail};
+use bstr::ByteSlice;
 use but_core::RefMetadata;
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Code;
@@ -114,6 +115,13 @@ pub fn branch_details(
 /// Note that for stacks, we shouldn't call `stack_details_v3`, but instead [`head_info()`](crate::head_info()) to get all stacks
 /// reachable from the current HEAD.
 ///
+/// ### Remote Reference Detection
+///
+/// This function uses Git's standard tracking branch lookup first. If that fails (as is common with GitButler
+/// virtual branches that don't follow standard Git tracking conventions), it falls back to constructing
+/// remote references based on the integration branch and branch name. This fallback is essential for
+/// accurate force push detection in GitButler workflows.
+///
 /// ### Implementation
 ///
 /// Note that the following fields aren't computed or are only partially computed.
@@ -146,6 +154,41 @@ pub fn branch_details_v3(
         .branch_remote_tracking_ref_name(name, Direction::Fetch)
         .transpose()?
         .and_then(|remote_tracking_ref| repo.find_reference(remote_tracking_ref.as_ref()).ok());
+    
+    // Fallback for GitButler virtual branches that don't follow standard Git tracking conventions.
+    // GitButler creates local branches without setting up tracking relationships, but still needs remote 
+    // references for force push detection. This extracts the remote name from the integration branch
+    // and constructs the expected remote reference path.
+    // Only apply fallback when we have clear signals this is a GitButler scenario:
+    // 1. Local branch without tracking
+    // 2. Integration branch is either remote or local (both are valid GitButler patterns)
+    if remote_tracking_branch.is_none() 
+        && name.as_bstr().starts_with(b"refs/heads/") {
+        match find_gitbutler_remote_reference(repo, name, &integration_branch_name) {
+            Ok(Some(remote_ref)) => {
+                tracing::debug!(
+                    "Found remote reference via GitButler fallback: {} for local branch {}", 
+                    remote_ref.name().as_bstr(), 
+                    name.as_bstr()
+                );
+                remote_tracking_branch = Some(remote_ref);
+            }
+            Ok(None) => {
+                tracing::debug!(
+                    "No remote reference found via GitButler fallback for branch {}", 
+                    name.as_bstr()
+                );
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "GitButler remote reference fallback failed for branch {}: {:#}", 
+                    name.as_bstr(), 
+                    e
+                );
+            }
+        }
+    }
+    
     let remote_tracking_branch_id = remote_tracking_branch
         .as_mut()
         .map(|r| r.peel_to_id_in_place())
@@ -394,4 +437,81 @@ fn local_commits_gix(
         });
     }
     Ok(out)
+}
+
+/// Attempts to find a remote reference for a GitButler virtual branch that lacks standard tracking.
+/// 
+/// GitButler creates virtual branches without setting up Git tracking relationships, but remote
+/// references may still exist and are needed for force push detection. This function:
+/// 1. Extracts the remote name from the integration branch reference
+/// 2. Extracts the local branch name from the branch reference  
+/// 3. Constructs and looks up the expected remote reference
+///
+/// Returns `Ok(Some(reference))` if found, `Ok(None)` if not found, or `Err` if the operation fails.
+fn find_gitbutler_remote_reference<'a>(
+    repo: &'a gix::Repository,
+    branch_name: &gix::refs::FullNameRef,
+    integration_branch_name: &gix::refs::FullName,
+) -> anyhow::Result<Option<gix::Reference<'a>>> {
+    // Extract remote name with proper error handling
+    let remote_name = extract_remote_name_from_integration_branch(integration_branch_name)
+        .with_context(|| format!("Failed to extract remote name from integration branch: {}", integration_branch_name.as_bstr()))?;
+    
+    // Extract local branch name with validation
+    let local_branch_name = extract_local_branch_name(branch_name)
+        .context("Failed to extract local branch name")?;
+    
+    // Construct and validate remote reference name
+    let remote_ref_name = format!("refs/remotes/{}/{}", remote_name, local_branch_name);
+    let remote_ref_name = gix::refs::FullName::try_from(remote_ref_name)
+        .context("Constructed remote reference name is invalid")?;
+    
+    // Look up the remote reference
+    Ok(repo.find_reference(&remote_ref_name).ok())
+}
+
+/// Extracts the remote name from an integration branch reference.
+/// 
+/// For `refs/remotes/origin/main` returns `"origin"`.
+/// For `refs/heads/main` returns `"origin"` as the default remote.
+fn extract_remote_name_from_integration_branch(
+    integration_branch: &gix::refs::FullName,
+) -> anyhow::Result<&str> {
+    let branch_str = integration_branch.as_bstr().to_str()
+        .context("Integration branch name contains invalid UTF-8")?;
+    
+    if let Some(remote_path) = branch_str.strip_prefix("refs/remotes/") {
+        remote_path.split('/').next()
+            .context("Malformed remote branch reference - missing remote name")
+    } else if branch_str.starts_with("refs/heads/") {
+        // For local integration branches, assume "origin" as the default remote.
+        // This handles cases where GitButler or other tools use local branches as integration targets.
+        Ok("origin")
+    } else {
+        anyhow::bail!(
+            "Unsupported integration branch format: {}. Expected refs/remotes/* or refs/heads/*.", 
+            branch_str
+        );
+    }
+}
+
+/// Extracts the local branch name from a full branch reference.
+/// 
+/// For `refs/heads/feature/my-branch` returns `"feature/my-branch"`.
+/// For `refs/heads/simple` returns `"simple"`.
+fn extract_local_branch_name(branch_ref: &gix::refs::FullNameRef) -> anyhow::Result<&str> {
+    let branch_str = branch_ref.as_bstr().to_str()
+        .context("Branch name contains invalid UTF-8")?;
+    
+    if let Some(branch_name) = branch_str.strip_prefix("refs/heads/") {
+        if branch_name.is_empty() {
+            anyhow::bail!("Branch reference is missing branch name: {}", branch_str);
+        }
+        Ok(branch_name)
+    } else {
+        anyhow::bail!(
+            "Expected local branch reference (refs/heads/*), got: {}", 
+            branch_str
+        );
+    }
 }

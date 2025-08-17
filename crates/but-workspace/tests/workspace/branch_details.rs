@@ -1,6 +1,7 @@
 /// All tests have a workspace present.
 mod with_workspace {
     use crate::utils::{read_only_in_memory_scenario, read_only_in_memory_scenario_named};
+    use bstr::ByteSlice;
     use but_core::RefMetadata;
     use but_core::ref_metadata::{Branch, RefInfo, Review, Workspace};
     use but_testsupport::{visualize_commit_graph, visualize_commit_graph_all};
@@ -366,5 +367,56 @@ mod with_workspace {
         fn remove(&mut self, _ref_name: &FullNameRef) -> anyhow::Result<bool> {
             unreachable!()
         }
+    }
+
+    #[test]
+    fn gitbutler_virtual_branch_without_tracking_detects_force_push() -> anyhow::Result<()> {
+        // Test GitButler scenario: local and remote branches exist and diverged, but NO tracking setup
+        // This validates the fallback logic that constructs remote references for force push detection
+        
+        let repo = read_only_in_memory_scenario_named(
+            "gitbutler-virtual-branch-no-tracking", 
+            "gitbutler-no-tracking"
+        )?;
+
+        // GitButler uses refs/remotes/origin/main as the integration branch
+        // This allows the fallback to extract "origin" as the remote name
+        let store = WorkspaceStore::default()
+            .with_target("origin/main")  // Creates refs/remotes/origin/main as target
+            .with_named_branch("A");
+
+        let result = but_workspace::branch_details_v3(&repo, refname("A").as_ref(), &store)?;
+        
+        // Validate that fallback successfully detected force push requirement
+        assert_eq!(
+            result.push_status, 
+            but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce,
+            "GitButler fallback should detect force push is needed when local and remote diverged"
+        );
+        
+        // Verify that fallback found the remote reference
+        assert!(
+            result.remote_tracking_branch.is_some(),
+            "Fallback should find remote reference refs/remotes/origin/A"
+        );
+        
+        let remote_ref = result.remote_tracking_branch.unwrap();
+        assert_eq!(
+            remote_ref.as_bstr(), 
+            "refs/remotes/origin/A",
+            "Should find correct remote reference path"
+        );
+        
+        // Ensure we have the expected commit structure (local diverged from remote)
+        assert!(
+            !result.commits.is_empty(),
+            "Should have local commits"
+        );
+        assert!(
+            !result.upstream_commits.is_empty(),
+            "Should have upstream commits showing divergence"
+        );
+
+        Ok(())
     }
 }

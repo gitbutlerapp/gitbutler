@@ -39,13 +39,15 @@ fn disjoint() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(actual, @r#"
     BranchDetails {
         name: "refs/heads/main",
-        remote_tracking_branch: None,
+        remote_tracking_branch: Some(
+            "refs/remotes/origin/main",
+        ),
         description: None,
         pr_number: None,
         review_id: None,
         tip: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
         base_commit: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        push_status: CompletelyUnpushed,
+        push_status: NothingToPush,
         last_updated_at: None,
         authors: [],
         is_conflicted: false,
