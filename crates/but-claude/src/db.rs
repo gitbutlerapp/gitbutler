@@ -183,3 +183,31 @@ impl TryFrom<crate::ClaudeMessage> for but_db::ClaudeMessage {
         })
     }
 }
+
+impl TryFrom<but_db::ClaudePermissionRequest> for crate::ClaudePermissionRequest {
+    type Error = anyhow::Error;
+    fn try_from(value: but_db::ClaudePermissionRequest) -> Result<Self, Self::Error> {
+        Ok(crate::ClaudePermissionRequest {
+            id: value.id.to_string(),
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+            tool_name: value.tool_name,
+            input: serde_json::from_str(&value.input)?,
+            approved: value.approved,
+        })
+    }
+}
+
+impl TryFrom<crate::ClaudePermissionRequest> for but_db::ClaudePermissionRequest {
+    type Error = anyhow::Error;
+    fn try_from(value: crate::ClaudePermissionRequest) -> Result<Self, Self::Error> {
+        Ok(but_db::ClaudePermissionRequest {
+            id: value.id,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+            tool_name: value.tool_name,
+            input: serde_json::to_string(&value.input)?,
+            approved: value.approved,
+        })
+    }
+}

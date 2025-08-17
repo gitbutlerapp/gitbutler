@@ -64,3 +64,20 @@ pub struct ClaudeSessionDetails {
     pub summary: Option<String>,
     pub last_prompt: Option<String>,
 }
+
+/// Represents a request for permission to use a tool in the Claude MCP.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ClaudePermissionRequest {
+    /// Maps to the tool_use_id from the MCP request
+    pub id: String,
+    /// When the requst was made.
+    pub created_at: chrono::NaiveDateTime,
+    /// When the request was updated.
+    pub updated_at: chrono::NaiveDateTime,
+    /// The tool for which permission is requested
+    pub tool_name: String,
+    /// The input for the tool
+    pub input: serde_json::Value,
+    /// The status of the request or None if not yet handled
+    pub approved: Option<bool>,
+}

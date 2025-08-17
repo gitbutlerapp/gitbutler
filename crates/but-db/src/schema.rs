@@ -73,3 +73,14 @@ diesel::table! {
         content -> Text,
     }
 }
+
+diesel::table! {
+    claude_permission_requests (id) {
+        id -> Text,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+        tool_name -> Text,
+        input -> Text,
+        approved -> Nullable<Bool>,
+    }
+}

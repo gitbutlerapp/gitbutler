@@ -75,7 +75,9 @@ async fn main() -> Result<()> {
                 metrics_if_configured(app_settings, CommandName::ClaudeStop, p).ok();
                 Ok(())
             }
-            claude::Subcommands::PermissionPromptMcp => but_claude::mcp::start().await,
+            claude::Subcommands::PermissionPromptMcp => {
+                but_claude::mcp::start(&args.current_dir).await
+            }
         },
         Subcommands::Log => {
             let result = log::commit_graph(&args.current_dir, args.json);
