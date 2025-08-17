@@ -8,7 +8,7 @@ export const BRANCH_SERVICE = new InjectionToken<BranchService>('BranchService')
 export class BranchService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(private readonly backendApi: BackendApi) {
+	constructor(backendApi: BackendApi) {
 		this.api = injectEndpoints(backendApi);
 	}
 
