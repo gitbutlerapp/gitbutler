@@ -226,6 +226,55 @@ function prefixToUser(prefix: string | undefined): IrcUser | undefined {
 	return { nick: nick!, user: userName!, host: host! };
 }
 
+// Helper functions for common parsing patterns
+function getNick(prefix?: string) {
+	return prefix?.split('!')[0] ?? 'unknown';
+}
+
+function createMessageEvent(
+	msg: IrcMessage,
+	type: EVENT_TYPE.GROUP_MESSAGE | EVENT_TYPE.PRIVATE_MESSAGE
+): IrcEvent {
+	return {
+		type,
+		from: getNick(msg.prefix),
+		to: msg.params[0]!,
+		text: msg.trailing || '',
+		msgid: msg.tags['msgid'],
+		data: msg.tags['+data']
+	};
+}
+
+function createErrorEvent(msg: IrcMessage, code: number): IrcEvent {
+	return {
+		type: EVENT_TYPE.ERROR,
+		code,
+		nick: msg.params[0]!,
+		params: msg.params.slice(1).join(' '),
+		message: msg.trailing || ''
+	};
+}
+
+// Event type enum for better IDE support and type safety
+export enum EVENT_TYPE {
+	USER_JOINED = 'userJoined',
+	USER_PARTED = 'userParted',
+	USER_QUIT = 'userQuit',
+	GROUP_MESSAGE = 'groupMessage',
+	PRIVATE_MESSAGE = 'privateMessage',
+	NAMES_LIST = 'namesList',
+	CAPABILITIES = 'capabilities',
+	NICK_CHANGED = 'nickChanged',
+	CHANNEL_TOPIC = 'channelTopic',
+	WHOIS = 'whois',
+	WELCOME = 'welcome',
+	SERVER_NOTICE = 'serverNotice',
+	MOTD = 'motd',
+	ERROR = 'error',
+	PING = 'ping',
+	UNSUPPORTED = 'unsupported'
+}
+
 export type IrcEvent =
 	| { type: 'userJoined'; nick: string; channel: string; user: IrcUser }
 	| { type: 'userParted'; nick: string; channel: string; reason?: string }
@@ -256,149 +305,128 @@ export type IrcEvent =
 	| { type: 'motd'; message: string }
 	| { type: 'error'; message: string; code: number; nick?: string; params?: string }
 	| { type: 'ping'; id: string }
-	| { type: 'unsupported'; command: string; raw: string }; // fallback/default
+	| { type: 'unsupported'; command: string; raw: string };
+
+// Command parsers - each handles one specific command type
+const commandParsers = {
+	[Cmd.PING]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.PING,
+		id: msg.trailing!
+	}),
+
+	[Cmd.JOIN]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.USER_JOINED,
+		nick: getNick(msg.prefix),
+		channel: msg.trailing!,
+		user: prefixToUser(msg.prefix)!
+	}),
+
+	[Cmd.PART]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.USER_PARTED,
+		nick: getNick(msg.prefix),
+		channel: msg.trailing!,
+		reason: msg.params[0]
+	}),
+
+	[Cmd.QUIT]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.USER_QUIT,
+		nick: getNick(msg.prefix),
+		reason: msg.trailing
+	}),
+
+	[Cmd.PRIVMSG]: (msg: IrcMessage): IrcEvent => {
+		const target = msg.params[0]!;
+		return target.startsWith('#')
+			? createMessageEvent(msg, EVENT_TYPE.GROUP_MESSAGE)
+			: createMessageEvent(msg, EVENT_TYPE.PRIVATE_MESSAGE);
+	},
+
+	[Cmd.CAP]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.CAPABILITIES,
+		subcommand: msg.params.at(1),
+		capabilities: msg.trailing?.split(' ') || []
+	}),
+
+	[Cmd.NICK]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.NICK_CHANGED,
+		oldNick: getNick(msg.prefix),
+		newNick: msg.trailing || msg.params[0]!
+	}),
+
+	[Cmd.TOPIC]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.CHANNEL_TOPIC,
+		channel: msg.params[0]!,
+		topic: msg.trailing || ''
+	}),
+
+	[Cmd.RPL_WELCOME]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.WELCOME,
+		message: msg.trailing || '',
+		nick: msg.params[0]!
+	}),
+
+	[Cmd.NOTICE]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.SERVER_NOTICE,
+		target: msg.params[0]!,
+		message: msg.trailing || ''
+	}),
+
+	[Cmd.RPL_WHOISUSER]: (msg: IrcMessage): IrcEvent => {
+		const [_, nick, username, host, , realname] = msg.params;
+		return {
+			type: EVENT_TYPE.WHOIS,
+			nick: nick!,
+			username,
+			host,
+			realname
+		};
+	},
+
+	[Cmd.RPL_NAMREPLY]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.NAMES_LIST,
+		channel: msg.params[2]!,
+		names: msg.trailing!.split(' ')
+	}),
+
+	[Cmd.ERROR]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.ERROR,
+		code: 0,
+		message: msg.trailing || ''
+	}),
+
+	[Cmd.RPL_MOTDSTART]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.MOTD,
+		message: msg.trailing!
+	}),
+
+	[Cmd.RPL_MOTD]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.MOTD,
+		message: msg.trailing!
+	}),
+
+	[Cmd.RPL_ENDOFMOTD]: (msg: IrcMessage): IrcEvent => ({
+		type: EVENT_TYPE.MOTD,
+		message: msg.trailing!
+	})
+} as const;
 
 export function toIrcEvent(msg: IrcMessage): IrcEvent {
-	const [nick] = msg.prefix?.split('!') ?? [];
-	const user = prefixToUser(msg.prefix);
-
-	switch (msg.command) {
-		case Cmd.PING:
-			return {
-				type: 'ping',
-				id: msg.trailing!
-			};
-		case Cmd.JOIN:
-			return {
-				type: 'userJoined',
-				nick: nick ?? 'unknown',
-				channel: msg.trailing!,
-				user: user!
-			};
-
-		case Cmd.PART:
-			return {
-				type: 'userParted',
-				nick: nick ?? 'unknown',
-				channel: msg.trailing!,
-				reason: msg.params[0]
-			};
-
-		case Cmd.QUIT:
-			return {
-				type: 'userQuit',
-				nick: nick ?? 'unknown',
-				reason: msg.trailing
-			};
-
-		case Cmd.PRIVMSG: {
-			const target = msg.params[0]!;
-			if (target.startsWith('#')) {
-				return {
-					type: 'groupMessage',
-					from: nick ?? 'unknown',
-					to: msg.params[0]!,
-					text: msg.trailing || '',
-					msgid: msg.tags['msgid'],
-					data: msg.tags['+data']
-				};
-			}
-			return {
-				type: 'privateMessage',
-				from: nick ?? 'unknown',
-				to: msg.params[0]!,
-				text: msg.trailing || '',
-				msgid: msg.tags['msgid'],
-				data: msg.tags['+data']
-			};
-		}
-		case Cmd.CAP:
-			return {
-				type: 'capabilities',
-				subcommand: msg.params.at(1),
-				capabilities: msg.trailing?.split(' ') || []
-			};
-
-		case Cmd.NICK:
-			return {
-				type: 'nickChanged',
-				oldNick: nick ?? 'unknown',
-				newNick: msg.trailing || msg.params[0]!
-			};
-
-		case Cmd.TOPIC:
-			return {
-				type: 'channelTopic',
-				channel: msg.params[0]!,
-				topic: msg.trailing || ''
-			};
-
-		case Cmd.RPL_WELCOME:
-			return {
-				type: 'welcome',
-				message: msg.trailing || '',
-				nick: msg.params[0]!
-			};
-
-		case Cmd.NOTICE:
-			return {
-				type: 'serverNotice',
-				target: msg.params[0]!,
-				message: msg.trailing || ''
-			};
-
-		case Cmd.RPL_WHOISUSER: {
-			const [_, nick, username, host, , realname] = msg.params;
-			return {
-				type: 'whois',
-				nick: nick!,
-				username,
-				host,
-				realname
-			};
-		}
-
-		case Cmd.RPL_NAMREPLY: {
-			return {
-				type: 'namesList',
-				channel: msg.params[2]!,
-				names: msg.trailing!.split(' ')
-			};
-		}
-
-		case Cmd.ERROR: {
-			return {
-				type: 'error',
-				code: 0,
-				message: msg.trailing || ''
-			};
-		}
-
-		case Cmd.RPL_MOTDSTART:
-		case Cmd.RPL_MOTD:
-		case Cmd.RPL_ENDOFMOTD:
-			return {
-				type: 'motd',
-				message: msg.trailing!
-			};
-
-		default:
-			if (/^[45]\d{2}$/.test(msg.command)) {
-				return {
-					type: 'error',
-					code: parseInt(msg.command, 10),
-					nick: msg.params[0]!,
-					params: msg.params.slice(1).join(' '),
-					message: msg.trailing || ''
-				};
-			}
-
-			return {
-				type: 'unsupported',
-				command: msg.command,
-				raw: msg.raw
-			};
+	const parser = commandParsers[msg.command as keyof typeof commandParsers];
+	if (parser) {
+		return parser(msg);
 	}
+
+	// Handle numeric error replies
+	if (/^[45]\d{2}$/.test(msg.command)) {
+		return createErrorEvent(msg, parseInt(msg.command, 10));
+	}
+
+	// Fallback for unsupported commands
+	return {
+		type: EVENT_TYPE.UNSUPPORTED,
+		command: msg.command,
+		raw: msg.raw
+	};
 }
 
 export function parseIRCMessage(line: string): IrcMessage {

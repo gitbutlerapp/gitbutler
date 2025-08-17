@@ -22,7 +22,7 @@
 	const ircClient = inject(IRC_CLIENT);
 
 	$effect(() => {
-		if (props.type === 'group' && props.autojoin && ircClient.connected) {
+		if (props.type === 'group' && props.autojoin && ircClient.connected.current) {
 			ircService.send(`JOIN ${props.channel}`);
 		}
 	});
