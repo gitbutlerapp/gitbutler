@@ -315,9 +315,9 @@ export function canBePartiallySelected(patch: Patch): boolean {
 export function hunkContainsHunk(a: DiffHunk, b: DiffHunk): boolean {
 	return (
 		a.oldStart <= b.oldStart &&
-		a.oldStart + a.oldLines - 1 >= b.oldStart + b.oldLines &&
+		a.oldStart + a.oldLines - 1 >= b.oldStart + b.oldLines - 1 &&
 		a.newStart <= b.newStart &&
-		a.newStart + a.newLines - 1 >= b.newStart + b.newLines
+		a.newStart + a.newLines - 1 >= b.newStart + b.newLines - 1
 	);
 }
 
