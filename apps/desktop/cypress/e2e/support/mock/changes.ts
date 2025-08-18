@@ -148,8 +148,7 @@ export function isGetCommitChangesParams(args: unknown): args is GetCommitChange
 export type GetBranchChangesParams = {
 	projectId: string;
 	stackId?: string;
-	branchName: string;
-	remote?: string;
+	branch: string;
 };
 
 export function isGetBranchChangesParams(args: unknown): args is GetBranchChangesParams {
@@ -159,9 +158,8 @@ export function isGetBranchChangesParams(args: unknown): args is GetBranchChange
 		'projectId' in args &&
 		typeof args['projectId'] === 'string' &&
 		(typeof (args as any).stackId === 'string' || (args as any).stackId === undefined) &&
-		'branchName' in args &&
-		typeof args['branchName'] === 'string' &&
-		(typeof (args as any).remote === 'string' || (args as any).remote === undefined)
+		'branch' in args &&
+		typeof args['branch'] === 'string'
 	);
 }
 

@@ -442,10 +442,10 @@ export default class MockBackend {
 
 	public getBranchChanges(args: InvokeArgs | undefined): TreeChanges {
 		if (!args || !isGetBranchChangesParams(args)) {
-			throw new Error('Invalid arguments for getBranchChanges');
+			throw new Error('Invalid arguments for getBranchChanges: ' + JSON.stringify(args));
 		}
 
-		const { stackId, branchName } = args;
+		const { stackId, branch } = args;
 
 		if (!stackId) {
 			return {
@@ -463,9 +463,9 @@ export default class MockBackend {
 			throw new Error(`No changes found for stack with ID ${stackId}`);
 		}
 
-		const branchChanges = stackBranchChanges.get(branchName);
+		const branchChanges = stackBranchChanges.get(branch);
 		if (!branchChanges) {
-			throw new Error(`No changes found for branch with name ${branchName}`);
+			throw new Error(`No changes found for branch with name ${branch}`);
 		}
 
 		return {
@@ -480,10 +480,10 @@ export default class MockBackend {
 
 	public getBranchChangesFileNames(
 		stackId: string,
-		branchName: string,
+		branch: string,
 		projectId: string = PROJECT_ID
 	): string[] {
-		const changes = this.getBranchChanges({ projectId, stackId, branchName });
+		const changes = this.getBranchChanges({ projectId, stackId, branch });
 		return changes.changes.map((change) => change.path).map((path) => path.split('/').pop()!);
 	}
 
