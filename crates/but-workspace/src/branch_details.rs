@@ -142,10 +142,23 @@ pub fn branch_details_v3(
     let mut branch = repo.find_reference(name)?;
     let branch_id = branch.peel_to_id_in_place()?;
 
+    // First try the official gix method which respects git configuration (branch.*.remote, branch.*.merge)
     let mut remote_tracking_branch = repo
         .branch_remote_tracking_ref_name(name, Direction::Fetch)
         .transpose()?
         .and_then(|remote_tracking_ref| repo.find_reference(remote_tracking_ref.as_ref()).ok());
+
+    // If the gix method didn't find a tracking branch, use the enhanced GitButler fallback
+    // This handles cases where git config is missing (e.g., test environments, or GitButler virtual branches)
+    if remote_tracking_branch.is_none() {
+        remote_tracking_branch =
+            but_graph::remote_ref_utils::find_remote_ref_name(repo, &name.shorten().to_string())
+                .and_then(|remote_ref_name| {
+                    gix::refs::FullName::try_from(remote_ref_name.clone())
+                        .ok()
+                        .and_then(|full_name| repo.find_reference(full_name.as_ref()).ok())
+                });
+    }
     let remote_tracking_branch_id = remote_tracking_branch
         .as_mut()
         .map(|r| r.peel_to_id_in_place())

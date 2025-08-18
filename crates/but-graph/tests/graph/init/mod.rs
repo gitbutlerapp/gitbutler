@@ -290,17 +290,20 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    ├── 👉►:0[0]:B <> origin/B →:1:
-    │   └── ·312f819 (⌂|1)
-    │       └── ►:2[1]:A <> origin/A →:3:
-    │           └── ·e255adc (⌂|11)
-    │               └── ►:4[2]:main
-    │                   └── ·fafd9d0 (⌂|11)
-    └── ►:1[0]:origin/B →:0:
-        └── 🟣682be32
-            └── ►:3[1]:origin/A →:2:
-                └── 🟣e29c23d
-                    └── →:4: (main)
+    ├── ►:1[0]:origin/B <> B →:0:
+    │   └── 🟣682be32 (0x0|100)
+    │       └── ►:3[1]:origin/A <> A →:2:
+    │           └── 🟣e29c23d (0x0|1100)
+    │               └── ►:5[3]:main
+    │                   └── ·fafd9d0 (⌂|1111)
+    ├── ►:4[0]:B <> origin/B
+    │   └── 👉►:0[1]:B <> origin/B →:1:
+    │       └── ·312f819 (⌂|1)
+    │           └── ►:2[2]:A <> origin/A →:3:
+    │               └── ·e255adc (⌂|11)
+    │                   └── →:5: (main)
+    └── ►:6[0]:A <> origin/A
+        └── →:2: (A →:3:)
     ");
 
     // 'main' is frozen because it connects to a 'foreign' remote, the commit was pushed.
@@ -313,7 +316,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         ├── :2:A <> origin/A →:3:⇡1⇣1
         │   ├── 🟣e29c23d
         │   └── ·e255adc
-        └── :4:main
+        └── :5:main
             └── ❄fafd9d0
     ");
 
@@ -324,12 +327,11 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     ├── 👉►:0[0]:B <> origin/B →:1:
     │   └── ·312f819 (⌂|1)
     │       └── ►:2[1]:A <> origin/A →:3:
-    │           └── ·e255adc (⌂|11)
-    │               └── ►:4[2]:main
-    │                   └── ·fafd9d0 (⌂|11)
-    ├── ►:1[0]:origin/B →:0:
-    │   └── ❌🟣682be32
-    └── ►:3[0]:origin/A →:2:
+    │           └── ❌·e255adc (⌂|11)
+    ├── ►:1[0]:origin/B <> B →:0:
+    │   └── ❌🟣682be32 (0x0|100)
+    ├── ►:3[0]:origin/A <> A →:2:
+    └── ►:4[0]:B <> origin/B
     ");
     // As the remotes don't connect, they are entirely unknown.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
@@ -338,39 +340,41 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         ├── :0:B <> origin/B →:1:⇡1⇣1
         │   ├── 🟣682be32
         │   └── ·312f819
-        ├── :2:A <> origin/A →:3:⇡1
-        │   └── ·e255adc
-        └── :4:main
-            └── ·fafd9d0
+        └── :2:A <> origin/A →:3:⇡1
+            └── ❌·e255adc
     ");
 
     // Everything we encounter is checked for remotes (no limit)
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    ├── 👉►:0[0]:B <> origin/B →:1:
-    │   └── ·312f819 (⌂|1)
-    │       └── ►:2[1]:A <> origin/A →:3:
-    │           └── ·e255adc (⌂|11)
-    │               └── ►:4[2]:main
-    │                   └── ·fafd9d0 (⌂|11)
-    └── ►:1[0]:origin/B →:0:
-        └── 🟣682be32
-            └── ►:3[1]:origin/A →:2:
-                └── 🟣e29c23d
-                    └── →:4: (main)
+    ├── ►:1[0]:origin/B <> B →:0:
+    │   └── 🟣682be32 (0x0|100)
+    │       └── ►:3[1]:origin/A <> A →:2:
+    │           └── 🟣e29c23d (0x0|1100)
+    │               └── ►:5[3]:main
+    │                   └── ·fafd9d0 (⌂|1111)
+    ├── ►:4[0]:B <> origin/B
+    │   └── 👉►:0[1]:B <> origin/B →:1:
+    │       └── ·312f819 (⌂|1)
+    │           └── ►:2[2]:A <> origin/A →:3:
+    │               └── ·e255adc (⌂|11)
+    │                   └── →:5: (main)
+    └── ►:6[0]:A <> origin/A
+        └── →:2: (A →:3:)
     ");
 
     // With a lower entrypoint, we don't see part of the graph.
     let (id, name) = id_at(&repo, "A");
     let graph = Graph::from_commit_traversal(id, name, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    ├── 👉►:0[0]:A <> origin/A →:1:
-    │   └── ·e255adc (⌂|1)
-    │       └── ►:2[1]:main
-    │           └── ·fafd9d0 (⌂|1)
-    └── ►:1[0]:origin/A →:0:
-        └── 🟣e29c23d
-            └── →:2: (main)
+    ├── ►:1[0]:origin/A <> A →:0:
+    │   └── 🟣e29c23d (0x0|10)
+    │       └── ►:2[2]:main
+    │           └── ·fafd9d0 (⌂|11)
+    └── ►:3[0]:A <> origin/A
+        └── 👉►:0[1]:A <> origin/A →:1:
+            └── ·e255adc (⌂|1)
+                └── →:2: (main)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:A <> ✓!

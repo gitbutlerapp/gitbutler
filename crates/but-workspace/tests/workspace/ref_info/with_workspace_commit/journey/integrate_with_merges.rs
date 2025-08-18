@@ -39,7 +39,7 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(3),
+                            id: NodeIndex(4),
                             ref_name: "refs/heads/A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -110,7 +110,7 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(3),
+                            id: NodeIndex(4),
                             ref_name: "refs/heads/A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -183,7 +183,7 @@ fn remote_diverged() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(3),
+                            id: NodeIndex(4),
                             ref_name: "refs/heads/A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -266,7 +266,7 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(5),
+                            id: NodeIndex(7),
                             ref_name: "refs/heads/A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -335,7 +335,7 @@ fn remote_behind() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(3),
+                            id: NodeIndex(4),
                             ref_name: "refs/heads/A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -411,7 +411,7 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(5),
+                            id: NodeIndex(7),
                             ref_name: "refs/heads/A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -481,7 +481,7 @@ fn remote_ahead() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(3),
+                            id: NodeIndex(4),
                             ref_name: "refs/heads/A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -554,7 +554,7 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(4),
+                            id: NodeIndex(6),
                             ref_name: "refs/heads/A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [

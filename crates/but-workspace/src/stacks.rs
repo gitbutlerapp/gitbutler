@@ -258,10 +258,54 @@ pub fn stack_details(
         remote: &str,
     ) -> anyhow::Result<bool> {
         let upstream = branch.remote_reference(remote);
+        tracing::info!(
+            "requires_force called for branch {} with remote {} (upstream: {})",
+            branch.name(),
+            remote,
+            upstream
+        );
 
         let upstream_reference = match ctx.repo().refname_to_id(&upstream) {
             Ok(reference) => reference,
-            Err(err) if err.code() == git2::ErrorCode::NotFound => return Ok(false),
+            Err(err) if err.code() == git2::ErrorCode::NotFound => {
+                // GitButler fallback: try to find remote reference using branch name pattern
+                // This handles GitButler virtual branches that don't have tracking setup
+                let branch_name = branch.name().as_str();
+
+                // First try to find the reference name using the shared utility
+                let gix_repo = ctx.gix_repo()?;
+                match but_graph::remote_ref_utils::find_remote_ref_name(&gix_repo, branch_name) {
+                    Some(remote_ref_name) => {
+                        // Convert the found reference name to OID using git2
+                        match ctx.repo().refname_to_id(&remote_ref_name) {
+                            Ok(reference) => {
+                                tracing::debug!(
+                                    branch = branch_name,
+                                    remote_ref = remote_ref_name,
+                                    "GitButler fallback found remote reference for force push detection"
+                                );
+                                reference
+                            }
+                            Err(err) => {
+                                tracing::warn!(
+                                    branch = branch_name,
+                                    remote_ref = remote_ref_name,
+                                    error = %err,
+                                    "GitButler fallback found reference name but failed to get OID"
+                                );
+                                return Ok(false);
+                            }
+                        }
+                    }
+                    None => {
+                        tracing::debug!(
+                            branch = branch_name,
+                            "GitButler fallback: no remote reference found, assuming no force push needed"
+                        );
+                        return Ok(false);
+                    }
+                }
+            }
             Err(other) => return Err(other).context("failed to find upstream reference"),
         };
 

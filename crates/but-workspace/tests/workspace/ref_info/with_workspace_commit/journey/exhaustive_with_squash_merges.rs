@@ -131,14 +131,14 @@ However, without an official workspace it still won't be acting as a target.
                         ref_info::ui::Segment {
                             id: NodeIndex(0),
                             ref_name: "refs/heads/main",
-                            remote_tracking_ref_name: "None",
+                            remote_tracking_ref_name: "refs/remotes/origin/main",
                             commits: [
-                                LocalCommit(fafd9d0, "init\n", local),
+                                LocalCommit(fafd9d0, "init\n", local/remote(identity)),
                             ],
                             commits_on_remote: [],
                             commits_outside: None,
                             metadata: "None",
-                            push_status: CompletelyUnpushed,
+                            push_status: NothingToPush,
                             base: "None",
                         },
                     ],
@@ -178,14 +178,14 @@ However, without an official workspace it still won't be acting as a target.
                         ref_info::ui::Segment {
                             id: NodeIndex(0),
                             ref_name: "refs/heads/main",
-                            remote_tracking_ref_name: "None",
+                            remote_tracking_ref_name: "refs/remotes/origin/main",
                             commits: [
                                 LocalCommit(fafd9d0, "init\n", integrated(fafd9d0)),
                             ],
                             commits_on_remote: [],
                             commits_outside: None,
                             metadata: "None",
-                            push_status: CompletelyUnpushed,
+                            push_status: Integrated,
                             base: "None",
                         },
                     ],
@@ -281,7 +281,7 @@ fn j05_empty_stack() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(3),
+                            id: NodeIndex(4),
                             ref_name: "refs/heads/S1",
                             remote_tracking_ref_name: "None",
                             commits: [],
@@ -345,7 +345,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(3),
+                            id: NodeIndex(4),
                             ref_name: "refs/heads/S1",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -812,7 +812,7 @@ The remote was re-used and merged once more with more changes.
             ),
             extra_target: None,
             lower_bound: Some(
-                NodeIndex(5),
+                NodeIndex(7),
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -906,7 +906,7 @@ A new multi-segment stack is created without remote and squash merged locally.
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(5),
+                            id: NodeIndex(7),
                             ref_name: "refs/heads/local",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -919,7 +919,7 @@ A new multi-segment stack is created without remote and squash merged locally.
                             base: "de02b20",
                         },
                         ref_info::ui::Segment {
-                            id: NodeIndex(6),
+                            id: NodeIndex(8),
                             ref_name: "refs/heads/local-bottom",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -945,7 +945,7 @@ A new multi-segment stack is created without remote and squash merged locally.
             ),
             extra_target: None,
             lower_bound: Some(
-                NodeIndex(7),
+                NodeIndex(9),
             ),
             is_managed_ref: true,
             is_managed_commit: true,

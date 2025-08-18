@@ -63,7 +63,7 @@ impl RefInfo {
         let mut upstream_commits = Vec::new();
         let Some(target_tip) = topmost_target_sidx else {
             // Without any notion of 'target' we can't do anything here.
-            self.compute_pushstatus();
+            self.compute_pushstatus(repo);
             return Ok(());
         };
         let lower_bound_generation = self.lower_bound.map(|sidx| graph[sidx].generation);
@@ -192,21 +192,47 @@ impl RefInfo {
                 break;
             }
         }
-        self.compute_pushstatus();
+        self.compute_pushstatus(repo);
         Ok(())
     }
 
     /// Recalculate everything that depends on these values and the exact set of remote commits.
-    fn compute_pushstatus(&mut self) {
+    fn compute_pushstatus(&mut self, repo: &gix::Repository) {
         for segment in self
             .stacks
             .iter_mut()
             .flat_map(|stack| stack.segments.iter_mut())
         {
+            tracing::info!(
+                "compute_pushstatus for segment {:?}: remote_tracking_ref_name={:?}",
+                segment.ref_name,
+                segment.remote_tracking_ref_name
+            );
+
+            let has_remote_tracking_ref = segment.remote_tracking_ref_name.is_some();
+            let remote_has_commits = !segment.commits_on_remote.is_empty();
+
+            // GitButler fallback: check for remote refs even without tracking setup
+            let remote_has_commits_with_fallback =
+                if !has_remote_tracking_ref && !remote_has_commits {
+                    segment
+                        .ref_name
+                        .as_ref()
+                        .map(|ref_name| {
+                            but_graph::remote_ref_utils::has_remote_refs(
+                                repo,
+                                &ref_name.as_ref().shorten().to_string(),
+                            )
+                        })
+                        .unwrap_or(false)
+                } else {
+                    remote_has_commits
+                };
+
             segment.push_status = PushStatus::derive_from_commits(
-                segment.remote_tracking_ref_name.is_some(),
+                has_remote_tracking_ref,
                 &segment.commits,
-                !segment.commits_on_remote.is_empty(),
+                remote_has_commits_with_fallback,
             );
         }
     }
@@ -225,9 +251,17 @@ impl PushStatus {
         commits: &[LocalCommit],
         remote_has_commits: bool,
     ) -> Self {
-        if !has_remote_tracking_ref {
-            // Generally, don't do anything if no remote relationship is set up (anymore).
-            // There may be better ways to deal with this.
+        tracing::info!(
+            "derive_from_commits: has_remote_tracking_ref={}, remote_has_commits={}, commits_count={}",
+            has_remote_tracking_ref,
+            remote_has_commits,
+            commits.len()
+        );
+
+        if !has_remote_tracking_ref && !remote_has_commits {
+            tracing::info!("No tracking ref and no remote commits - returning CompletelyUnpushed");
+            // Generally, don't do anything if no remote relationship is set up (anymore)
+            // and there are no remote commits to consider.
             return PushStatus::CompletelyUnpushed;
         }
 

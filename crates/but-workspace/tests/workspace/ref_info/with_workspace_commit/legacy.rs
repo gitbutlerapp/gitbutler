@@ -270,7 +270,7 @@ mod stack_details {
                     review_id: None,
                     tip: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
                     base_commit: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                    push_status: NothingToPush,
+                    push_status: UnpushedCommits,
                     last_updated_at: Some(
                         0,
                     ),
@@ -279,7 +279,7 @@ mod stack_details {
                     ],
                     is_conflicted: false,
                     commits: [
-                        Commit(cbc6713, "change", local/remote(identity)),
+                        Commit(cbc6713, "change", local),
                     ],
                     upstream_commits: [],
                     is_remote_head: false,

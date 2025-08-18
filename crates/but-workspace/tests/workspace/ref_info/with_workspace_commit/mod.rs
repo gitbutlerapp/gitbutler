@@ -361,18 +361,18 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
                         ref_name: "refs/heads/A",
-                        remote_tracking_ref_name: "None",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(f504e38, "change after push\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
-                        push_status: CompletelyUnpushed,
+                        push_status: UnpushedCommits,
                         base: "807f596",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: NodeIndex(9),
                         ref_name: "refs/heads/base-of-A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -693,7 +693,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/B",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -706,7 +706,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                         base: "1818c17",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -778,14 +778,14 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
                         ref_name: "refs/heads/A",
-                        remote_tracking_ref_name: "None",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(1818c17, "A\n", integrated(0b6b861)),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: "None",
-                        push_status: CompletelyUnpushed,
+                        push_status: Integrated,
                         base: "281456a",
                     },
                 ],
@@ -936,7 +936,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1078,7 +1078,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(7),
+                        id: NodeIndex(8),
                         ref_name: "refs/heads/lane-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1089,7 +1089,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(8),
+                        id: NodeIndex(9),
                         ref_name: "refs/heads/lane-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1110,7 +1110,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1121,7 +1121,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/lane-2-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1132,7 +1132,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/lane-2-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1203,7 +1203,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1214,7 +1214,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/lane-2-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1225,7 +1225,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/lane-2-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1259,7 +1259,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(7),
+                        id: NodeIndex(8),
                         ref_name: "refs/heads/lane-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1270,7 +1270,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(8),
+                        id: NodeIndex(9),
                         ref_name: "refs/heads/lane-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1365,7 +1365,7 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1434,7 +1434,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1524,16 +1524,16 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
-                            LocalCommit(cbc6713, "change\n", local/remote(identity)),
+                            LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
-                        push_status: NothingToPush,
+                        push_status: UnpushedCommits,
                         base: "fafd9d0",
                     },
                 ],
@@ -1601,7 +1601,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1689,7 +1689,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1700,16 +1700,16 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: NodeIndex(8),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
-                            LocalCommit(cbc6713, "change\n", local/remote(identity)),
+                            LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
-                        push_status: NothingToPush,
+                        push_status: UnpushedCommits,
                         base: "fafd9d0",
                     },
                 ],
@@ -1775,7 +1775,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/on-top-of-dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1786,16 +1786,16 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: NodeIndex(8),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
-                            LocalCommit(cbc6713, "change\n", local/remote(identity)),
+                            LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
-                        push_status: NothingToPush,
+                        push_status: UnpushedCommits,
                         base: "fafd9d0",
                     },
                 ],
@@ -1967,7 +1967,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                         base: "f15ca75",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/integrated",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2063,7 +2063,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -2139,7 +2139,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -2617,7 +2617,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2642,7 +2642,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2655,7 +2655,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2727,7 +2727,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2752,7 +2752,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2765,7 +2765,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2837,7 +2837,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2875,7 +2875,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2973,7 +2973,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: NodeIndex(8),
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -3058,7 +3058,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -3112,7 +3112,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [],

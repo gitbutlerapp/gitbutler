@@ -42,7 +42,7 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(3),
+                            id: NodeIndex(4),
                             ref_name: "refs/heads/A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -69,7 +69,7 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
             ),
             extra_target: None,
             lower_bound: Some(
-                NodeIndex(5),
+                NodeIndex(7),
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -120,7 +120,7 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(3),
+                            id: NodeIndex(4),
                             ref_name: "refs/heads/A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -147,7 +147,7 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
             ),
             extra_target: None,
             lower_bound: Some(
-                NodeIndex(5),
+                NodeIndex(7),
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -195,7 +195,7 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(3),
+                            id: NodeIndex(4),
                             ref_name: "refs/heads/A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -273,7 +273,7 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(3),
+                            id: NodeIndex(4),
                             ref_name: "refs/heads/A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -300,7 +300,7 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
             ),
             extra_target: None,
             lower_bound: Some(
-                NodeIndex(5),
+                NodeIndex(7),
             ),
             is_managed_ref: true,
             is_managed_commit: true,

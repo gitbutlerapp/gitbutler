@@ -13,7 +13,7 @@ use crate::askpass;
 use gitbutler_repo::{
     credentials,
     logging::{LogUntil, RepositoryExt as _},
-    RepositoryExt,
+    RepoCommands, RepositoryExt,
 };
 pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()>;
@@ -176,7 +176,7 @@ impl RepoActionsExt for CommandContext {
         if self.project().preferred_key == AuthKey::SystemExecutable {
             let path = self.project().worktree_path();
             let remote = branch.remote().to_string();
-            return std::thread::spawn(move || {
+            let push_result = std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
                     .unwrap()
                     .block_on(gitbutler_git::push(
@@ -201,6 +201,34 @@ impl RepoActionsExt for CommandContext {
                     _ => err.into()
                 }
             });
+
+            // Set up branch tracking after successful push
+            if push_result.is_ok() {
+                if let Err(err) = setup_branch_tracking(self, branch) {
+                    tracing::warn!(
+                        project_id = %self.project().id,
+                        branch = branch.branch(),
+                        remote = branch.remote(),
+                        %err,
+                        "Failed to set up tracking for {}. Push succeeded but force push detection may not work properly. Manual setup: git branch --set-upstream-to={}/{}",
+                        branch.branch(), branch.remote(), branch.branch()
+                    );
+                }
+
+                // Fetch the pushed branch to create proper remote-tracking reference
+                if let Err(err) = fetch_pushed_branch(self, branch) {
+                    tracing::warn!(
+                        project_id = %self.project().id,
+                        branch = branch.branch(),
+                        remote = branch.remote(),
+                        %err,
+                        "Failed to fetch {} after push. Push succeeded but remote-tracking ref may be outdated. Manual refresh: git fetch {}",
+                        branch.branch(), branch.remote()
+                    );
+                }
+            }
+
+            return push_result;
         }
 
         let auth_flows = credentials::help(self, branch.remote())?;
@@ -232,6 +260,31 @@ impl RepoActionsExt for CommandContext {
                             branch = branch.branch(),
                             "pushed git branch"
                         );
+
+                        // Set up branch tracking after successful push
+                        if let Err(err) = setup_branch_tracking(self, branch) {
+                            tracing::warn!(
+                                project_id = %self.project().id,
+                                branch = branch.branch(),
+                                remote = branch.remote(),
+                                %err,
+                                "Failed to set up tracking for {}. Push succeeded but force push detection may not work properly. Manual setup: git branch --set-upstream-to={}/{}",
+                                branch.branch(), branch.remote(), branch.branch()
+                            );
+                        }
+
+                        // Fetch the pushed branch to create proper remote-tracking reference
+                        if let Err(err) = fetch_pushed_branch(self, branch) {
+                            tracing::warn!(
+                                project_id = %self.project().id,
+                                branch = branch.branch(),
+                                remote = branch.remote(),
+                                %err,
+                                "Failed to fetch {} after push. Push succeeded but remote-tracking ref may be outdated. Manual refresh: git fetch {}",
+                                branch.branch(), branch.remote()
+                            );
+                        }
+
                         return Ok(());
                     }
                     Err(err) => match err.class() {
@@ -324,6 +377,93 @@ impl RepoActionsExt for CommandContext {
 
         Err(anyhow!("authentication failed")).context(Code::ProjectGitAuth)
     }
+}
+
+/// Sets up branch tracking configuration after a successful push.
+/// This allows Git to properly track the relationship between local and remote branches,
+/// enabling force push detection and other Git operations to work correctly.
+///
+/// Equivalent to: git branch --set-upstream-to=origin/branch-name branch-name
+fn setup_branch_tracking(ctx: &CommandContext, branch: &RemoteRefname) -> Result<()> {
+    let local_branch_name = branch.branch();
+    let remote_name = branch.remote();
+
+    tracing::info!(
+        project_id = %ctx.project().id,
+        branch = local_branch_name,
+        remote = remote_name,
+        "setup_branch_tracking called"
+    );
+
+    // Check if local branch exists before setting up tracking
+    let local_branch_exists = ctx
+        .repo()
+        .find_branch(local_branch_name, git2::BranchType::Local)
+        .is_ok();
+
+    if !local_branch_exists {
+        tracing::info!(
+            project_id = %ctx.project().id,
+            branch = local_branch_name,
+            "skipping tracking setup: local branch does not exist"
+        );
+        return Ok(());
+    }
+
+    let project = ctx.project();
+
+    // Set branch.{branch_name}.remote = {remote_name}
+    let remote_config_key = format!("branch.{local_branch_name}.remote");
+    project.set_local_config(&remote_config_key, remote_name)?;
+
+    // Set branch.{branch_name}.merge = refs/heads/{branch_name}
+    let merge_config_key = format!("branch.{local_branch_name}.merge");
+    let merge_ref = format!("refs/heads/{}", local_branch_name);
+    project.set_local_config(&merge_config_key, &merge_ref)?;
+
+    tracing::info!(
+        project_id = %ctx.project().id,
+        branch = local_branch_name,
+        remote = remote_name,
+        "successfully set up branch tracking"
+    );
+
+    Ok(())
+}
+
+fn fetch_pushed_branch(ctx: &CommandContext, branch: &RemoteRefname) -> Result<()> {
+    let remote_name = branch.remote();
+
+    tracing::info!(
+        project_id = %ctx.project().id,
+        branch = branch.branch(),
+        remote = remote_name,
+        "fetching from remote to ensure pushed branch remote-tracking reference is up to date"
+    );
+
+    match ctx.fetch(remote_name, None) {
+        Ok(()) => {
+            tracing::info!(
+                project_id = %ctx.project().id,
+                branch = branch.branch(),
+                remote = remote_name,
+                "successfully fetched from remote after push"
+            );
+        }
+        Err(err) => {
+            tracing::warn!(
+                project_id = %ctx.project().id,
+                branch = branch.branch(),
+                remote = remote_name,
+                error = %err,
+                "Failed to fetch {} from {} after push. Push succeeded but remote-tracking ref may be stale. Manual refresh: git fetch {}",
+                branch.branch(), remote_name, remote_name
+            );
+            // Don't fail the entire operation - the push succeeded and tracking is set up
+        }
+    }
+
+    Ok(())
 }
 
 async fn handle_git_prompt_push(
