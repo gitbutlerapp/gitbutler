@@ -479,6 +479,7 @@ fn worktree_changes_inner(
     let mut path_check = gix::status::plumbing::SymlinkCheck::new(
         repo.workdir().map(ToOwned::to_owned).context("non-bare")?,
     );
+    let original_changes = tmp.iter().map(|(_, change)| change.clone()).collect();
     for (_origin, change) in tmp {
         // At this point we know that the current `change` is the tree/index variant
         // of a prior change between index/worktree.
@@ -538,6 +539,7 @@ fn worktree_changes_inner(
     Ok(WorktreeChanges {
         changes,
         ignored_changes,
+        original_changes,
     })
 }
 
@@ -933,5 +935,14 @@ impl TreeChange {
                 diff_filter,
             ),
         }
+    }
+}
+
+impl std::fmt::Debug for WorktreeChanges {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WorktreeChanges")
+            .field("changes", &self.changes)
+            .field("ignored_changes", &self.ignored_changes)
+            .finish()
     }
 }
