@@ -11,6 +11,7 @@ import {
 } from '@tauri-apps/plugin-clipboard-manager';
 import { open as filePickerTauri, type OpenDialogOptions } from '@tauri-apps/plugin-dialog';
 import { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';
+import { error as logErrorToFile } from '@tauri-apps/plugin-log';
 import { platform } from '@tauri-apps/plugin-os';
 import { relaunch as relaunchTauri } from '@tauri-apps/plugin-process';
 import { Store } from '@tauri-apps/plugin-store';
@@ -73,6 +74,10 @@ class TauriDiskStore implements DiskStore {
 		const value = await this.store.get<T>(key);
 		return value !== undefined ? value : defaultValue;
 	}
+}
+
+export async function tauriLogErrorToFile(error: string) {
+	await logErrorToFile(error);
 }
 
 export function tauriPathSeparator(): string {

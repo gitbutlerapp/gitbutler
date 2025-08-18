@@ -1,7 +1,7 @@
+import { logErrorToFile } from '$lib/backend';
 import { SilentError } from '$lib/error/error';
 import { showError } from '$lib/notifications/toasts';
 import { captureException } from '@sentry/sveltekit';
-import { error as logErrorToFile } from '@tauri-apps/plugin-log';
 import type { HandleClientError } from '@sveltejs/kit';
 
 // SvelteKit error handler.
@@ -61,13 +61,10 @@ function logError(error: unknown) {
 			showError('Unhandled exception', error);
 		}
 
+		const logMessage = loggableError(error);
+		logErrorToFile(logMessage);
+
 		console.error(error);
-		if (import.meta.env.VITE_BUILD_TARGET === 'web') {
-			// TODO: Replace with electron log file
-		} else {
-			const errorMessage = loggableError(error);
-			logErrorToFile(errorMessage);
-		}
 	} catch (err: unknown) {
 		console.error('Error while trying to log error.', err);
 	}

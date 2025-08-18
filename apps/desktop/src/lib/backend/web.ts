@@ -52,6 +52,11 @@ class WebDiskStore implements DiskStore {
 	}
 }
 
+export function webLogErrorToFile(error: string) {
+	// TODO: Implement this for the web version if needed
+	console.error('Logging to file is not supported in web builds.');
+	console.error(error);
+}
 export function webPathSeparator(): string {
 	return '/'; // Web uses forward slashes for path
 }
