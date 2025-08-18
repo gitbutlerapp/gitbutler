@@ -13,8 +13,10 @@
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
+	import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { initDependencies } from '$lib/bootstrap/deps';
+	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
@@ -45,7 +47,11 @@
 	initDependencies(data);
 
 	const clientState = inject(CLIENT_STATE);
+	const appSettings = inject(APP_SETTINGS);
+	const posthog = inject(POSTHOG_WRAPPER);
+
 	clientState.initPersist();
+	initAnalyticsIfEnabled(appSettings, posthog);
 
 	// =============================================================================
 	// CORE REACTIVE STATE & EFFECTS
@@ -79,8 +85,6 @@
 	// ANALYTICS & NAVIGATION
 	// =============================================================================
 
-	// Analytics for single page app navigation
-	const posthog = inject(POSTHOG_WRAPPER);
 	if (browser) {
 		beforeNavigate(() => posthog.capture('$pageleave'));
 		afterNavigate(() => posthog.capture('$pageview'));
