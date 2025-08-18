@@ -64,7 +64,6 @@ pub(super) mod function {
     use but_core::{ChangeState, RefMetadata};
     use gix::diff::index::Change;
     use gix::object::tree::EntryKind;
-    use gix::status::plumbing::index_as_worktree::EntryStatus;
     use std::collections::BTreeSet;
     use tracing::instrument;
 
@@ -122,37 +121,24 @@ pub(super) mod function {
             .filter(|c| selection.contains(&c.path))
             .map(|c| Ok(DiffSpec::from(c)))
             .collect();
-        changes_to_apply.extend(
-            changes
-                .ignored_changes
-                .iter()
-                .filter_map(|c| match &c.status_item {
-                    Some(gix::status::Item::IndexWorktree(
-                        gix::status::index_worktree::Item::Modification {
-                            status: EntryStatus::Conflict { .. },
-                            rela_path,
-                            ..
-                        },
-                    )) => Some(rela_path),
-                    _ => None,
-                })
-                .filter(|rela_path| selection.contains(rela_path.as_bstr()))
-                .map(|rela_path| {
-                    // Create a pretend-addition to pick up conflicted paths as well.
-                    Ok(DiffSpec::from(but_core::TreeChange {
-                        path: rela_path.to_owned(),
-                        status: but_core::TreeStatus::Addition {
-                            state: ChangeState {
-                                id: repo.object_hash().null(),
-                                // This field isn't relevant when entries are read from disk.
-                                kind: EntryKind::Tree,
-                            },
-                            is_untracked: true,
-                        },
-                        status_item: None,
-                    }))
-                }),
-        );
+        changes_to_apply.extend(changes.index_conflicts.iter().filter_map(|(rela_path, _)| {
+            if !selection.contains(rela_path.as_bstr()) {
+                return None;
+            }
+            // Create a pretend-addition to pick up conflicted paths as well.
+            Ok(DiffSpec::from(but_core::TreeChange {
+                path: rela_path.to_owned(),
+                status: but_core::TreeStatus::Addition {
+                    state: ChangeState {
+                        id: repo.object_hash().null(),
+                        // This field isn't relevant when entries are read from disk.
+                        kind: EntryKind::Tree,
+                    },
+                    is_untracked: true,
+                },
+            }))
+            .into()
+        }));
 
         let (new_tree, base_tree) = commit_engine::tree::apply_worktree_changes(
             head_tree_id.into(),
@@ -214,27 +200,13 @@ pub(super) mod function {
         selection: BTreeSet<BString>,
     ) -> anyhow::Result<Option<(Option<gix::ObjectId>, Option<gix::ObjectId>)>> {
         let conflicts: Vec<_> = changes
-            .ignored_changes
+            .index_conflicts
             .into_iter()
-            .filter_map(|c| match c.status_item {
-                Some(gix::status::Item::IndexWorktree(
-                    gix::status::index_worktree::Item::Modification {
-                        status: EntryStatus::Conflict { entries, .. },
-                        rela_path,
-                        ..
-                    },
-                )) => Some((rela_path, entries)),
-                _ => None,
-            })
+            .filter(|(rela_path, _)| selection.contains(rela_path))
             .collect();
-
         let changes: Vec<_> = changes
-            .original_changes
+            .index_changes
             .into_iter()
-            .filter_map(|c| match c.status_item {
-                Some(gix::status::Item::TreeIndex(c)) => Some(c),
-                _ => None,
-            })
             .filter(|c| selection.iter().any(|path| path == c.location()))
             .collect();
 

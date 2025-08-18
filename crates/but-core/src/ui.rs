@@ -29,7 +29,8 @@ impl From<crate::WorktreeChanges> for WorktreeChanges {
         crate::WorktreeChanges {
             changes,
             ignored_changes,
-            original_changes: _,
+            index_changes: _,
+            index_conflicts: _,
         }: crate::WorktreeChanges,
     ) -> Self {
         WorktreeChanges {
@@ -270,20 +271,12 @@ impl From<TreeChange> for crate::TreeChange {
         crate::TreeChange {
             path: path_bytes,
             status: status.into(),
-            // Lossy conversion, but this is fine.
-            status_item: None,
         }
     }
 }
 
 impl From<crate::TreeChange> for TreeChange {
-    fn from(
-        crate::TreeChange {
-            path,
-            status,
-            status_item: _,
-        }: crate::TreeChange,
-    ) -> Self {
+    fn from(crate::TreeChange { path, status }: crate::TreeChange) -> Self {
         TreeChange {
             path: path.clone().into(),
             path_bytes: path,
