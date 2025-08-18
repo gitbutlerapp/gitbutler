@@ -61,15 +61,6 @@ impl TreeChange {
     }
 }
 
-impl std::fmt::Debug for TreeChange {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TreeChange")
-            .field("path", &self.path)
-            .field("status", &self.status)
-            .finish()
-    }
-}
-
 impl std::fmt::Debug for IgnoredWorktreeChange {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("IgnoredWorktreeChange")

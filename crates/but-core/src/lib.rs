@@ -44,6 +44,7 @@
 use bstr::BString;
 use gix::object::tree::EntryKind;
 use gix::refs::FullNameRef;
+use gix::status::plumbing::index_as_worktree::ConflictIndexEntry;
 use serde::Serialize;
 use std::any::Any;
 use std::ops::{Deref, DerefMut};
@@ -233,16 +234,12 @@ pub fn open_repo(path: impl Into<PathBuf>) -> anyhow::Result<gix::Repository> {
 ///
 /// For simplicity, copy-tracking is not representable right now, but `copy: bool` could be added
 /// if needed. Copy-tracking is deactivated as well.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TreeChange {
     /// The *relative* path in the worktree where the entry can be found.
     pub path: BString,
     /// The specific information about this change.
     pub status: TreeStatus,
-    /// The status item that this change is derived from, used in places that need detailed information.
-    /// This is only set if this instance was created from a worktree-status, and is `None` when created
-    /// from a tree-diff.
-    pub status_item: Option<gix::status::Item>,
 }
 
 /// Specifically defines a [`TreeChange`].
@@ -339,10 +336,6 @@ pub struct IgnoredWorktreeChange {
     pub path: BString,
     /// The status that caused this change to be ignored.
     pub status: IgnoredWorktreeTreeChangeStatus,
-    /// The status item that this change is derived from, used in places that need detailed information.
-    /// It's `None` if the status item is already present in non-ignored changes.
-    #[serde(skip)]
-    pub status_item: Option<gix::status::Item>,
 }
 
 /// The type returned by [`worktree_changes()`](diff::worktree_changes).
@@ -352,10 +345,10 @@ pub struct WorktreeChanges {
     pub changes: Vec<TreeChange>,
     /// Changes that were in the index that we can't handle. The user can see them and interact with them to clear them out before a commit can be made.
     pub ignored_changes: Vec<IgnoredWorktreeChange>,
-    /// The unprocessed (but sorted, by path) changes which were used to produce `changes` and `ignored_changes`.
-    /// This doesn't include index conflicts!
-    /// TODO: can this be specific index changes? After all that's the only thing we need.
-    pub original_changes: Vec<TreeChange>,
+    /// All unprocessed changes to the index.
+    pub index_changes: Vec<gix::diff::index::Change>,
+    /// The conflicting index entries, along with their relative path `(rela_path, [Entries(base, ours, theirs)])`.
+    pub index_conflicts: Vec<(BString, Box<[Option<ConflictIndexEntry>; 3]>)>,
 }
 
 /// Computed using the file kinds/modes of two [`ChangeState`] instances to represent
