@@ -92,7 +92,7 @@ pub fn update_workspace_commit(
     if !virtual_branches.is_empty() {
         message.push_str("This is a merge commit the virtual branches in your workspace.\n\n");
     } else {
-        message.push_str("This is placeholder commit and will be replaced by a merge of your");
+        message.push_str("This is placeholder commit and will be replaced by a merge of your ");
         message.push_str("virtual branches.\n\n");
     }
     message.push_str(
