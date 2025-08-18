@@ -4,7 +4,6 @@ import {
 	PROMPT_SERVICE as AI_PROMPT_SERVICE
 } from '$lib/ai/promptService';
 import { AIService, AI_SERVICE } from '$lib/ai/service';
-import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { EVENT_CONTEXT, EventContext } from '$lib/analytics/eventContext';
 import { POSTHOG_WRAPPER, PostHogWrapper } from '$lib/analytics/posthog';
 import { type IBackend } from '$lib/backend';
@@ -107,7 +106,6 @@ export function initDependencies(args: {
 
 	const eventContext = new EventContext();
 	const posthog = new PostHogWrapper(settingsService, backend, eventContext);
-	initAnalyticsIfEnabled(appSettings, posthog);
 
 	// ============================================================================
 	// AUTHENTICATION & SECURITY
