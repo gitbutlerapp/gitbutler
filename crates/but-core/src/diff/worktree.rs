@@ -97,74 +97,102 @@ fn worktree_changes_inner(
     let work_dir = repo.workdir().context("need non-bare repository")?;
     let mut tmp = Vec::new();
     let mut ignored_changes = Vec::new();
+    let mut index_conflicts = Vec::new();
+    let mut index_changes = Vec::new();
     for change in status_changes {
         let change = change?;
-        let change = match change.clone() {
+        let change = match change {
             status::Item::TreeIndex(gix::diff::index::Change::Deletion {
                 location,
+                index,
                 id,
                 entry_mode,
-                ..
-            }) => (
-                Origin::TreeIndex,
-                TreeChange {
-                    status: TreeStatus::Deletion {
-                        previous_state: ChangeState {
-                            id: id.into_owned(),
-                            kind: into_tree_entry_kind(entry_mode)?,
+            }) => {
+                let res = (
+                    Origin::TreeIndex,
+                    TreeChange {
+                        status: TreeStatus::Deletion {
+                            previous_state: ChangeState {
+                                id: id.clone().into_owned(),
+                                kind: into_tree_entry_kind(entry_mode)?,
+                            },
                         },
+                        path: location.clone().into_owned(),
                     },
-                    path: location.into_owned(),
-                    status_item: Some(change),
-                },
-            ),
+                );
+                index_changes.push(gix::diff::index::Change::Deletion {
+                    location,
+                    index,
+                    id,
+                    entry_mode,
+                });
+                res
+            }
             status::Item::TreeIndex(gix::diff::index::Change::Addition {
                 location,
+                index,
                 entry_mode,
                 id,
-                ..
-            }) => (
-                Origin::TreeIndex,
-                TreeChange {
-                    path: location.into_owned(),
-                    status: TreeStatus::Addition {
-                        is_untracked: false,
-                        state: ChangeState {
-                            id: id.into_owned(),
-                            kind: into_tree_entry_kind(entry_mode)?,
+            }) => {
+                let res = (
+                    Origin::TreeIndex,
+                    TreeChange {
+                        path: location.clone().into_owned(),
+                        status: TreeStatus::Addition {
+                            is_untracked: false,
+                            state: ChangeState {
+                                id: id.clone().into_owned(),
+                                kind: into_tree_entry_kind(entry_mode)?,
+                            },
                         },
                     },
-                    status_item: Some(change),
-                },
-            ),
+                );
+                index_changes.push(gix::diff::index::ChangeRef::Addition {
+                    location,
+                    index,
+                    entry_mode,
+                    id,
+                });
+                res
+            }
             status::Item::TreeIndex(gix::diff::index::Change::Modification {
                 location,
+                previous_index,
                 previous_entry_mode,
+                index,
                 entry_mode,
                 previous_id,
                 id,
-                ..
             }) => {
                 let previous_state = ChangeState {
-                    id: previous_id.into_owned(),
+                    id: previous_id.clone().into_owned(),
                     kind: into_tree_entry_kind(previous_entry_mode)?,
                 };
                 let state = ChangeState {
-                    id: id.into_owned(),
+                    id: id.clone().into_owned(),
                     kind: into_tree_entry_kind(entry_mode)?,
                 };
-                (
+                let res = (
                     Origin::TreeIndex,
                     TreeChange {
-                        path: location.into_owned(),
+                        path: location.clone().into_owned(),
                         status: TreeStatus::Modification {
                             previous_state,
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
-                        status_item: Some(change),
                     },
-                )
+                );
+                index_changes.push(gix::diff::index::Change::Modification {
+                    location,
+                    previous_index,
+                    previous_entry_mode,
+                    previous_id,
+                    index,
+                    entry_mode,
+                    id,
+                });
+                res
             }
             status::Item::IndexWorktree(index_worktree::Item::Modification {
                 rela_path,
@@ -181,7 +209,6 @@ fn worktree_changes_inner(
                             kind: into_tree_entry_kind(entry.mode)?,
                         },
                     },
-                    status_item: Some(change),
                 },
             ),
             status::Item::IndexWorktree(index_worktree::Item::Modification {
@@ -208,7 +235,6 @@ fn worktree_changes_inner(
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
-                        status_item: Some(change),
                     },
                 )
             }
@@ -245,7 +271,6 @@ fn worktree_changes_inner(
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
-                        status_item: Some(change),
                     },
                 )
             }
@@ -267,7 +292,6 @@ fn worktree_changes_inner(
                         },
                         is_untracked: false,
                     },
-                    status_item: Some(change),
                 },
             ),
             status::Item::IndexWorktree(index_worktree::Item::DirectoryContents {
@@ -300,7 +324,6 @@ fn worktree_changes_inner(
                             },
                             is_untracked: true,
                         },
-                        status_item: Some(change),
                     },
                 )
             }
@@ -340,7 +363,6 @@ fn worktree_changes_inner(
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
-                        status_item: Some(change),
                     },
                 )
             }
@@ -396,7 +418,6 @@ fn worktree_changes_inner(
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
-                        status_item: Some(change),
                     },
                 )
             }
@@ -427,19 +448,18 @@ fn worktree_changes_inner(
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
-                        status_item: Some(change),
                     },
                 )
             }
             status::Item::IndexWorktree(index_worktree::Item::Modification {
                 rela_path,
-                status: EntryStatus::Conflict { .. },
+                status: EntryStatus::Conflict { entries, .. },
                 ..
             }) => {
+                index_conflicts.push((rela_path.clone(), entries));
                 ignored_changes.push(IgnoredWorktreeChange {
                     path: rela_path,
                     status: IgnoredWorktreeTreeChangeStatus::Conflict,
-                    status_item: Some(change),
                 });
                 continue;
             }
@@ -479,7 +499,6 @@ fn worktree_changes_inner(
     let mut path_check = gix::status::plumbing::SymlinkCheck::new(
         repo.workdir().map(ToOwned::to_owned).context("non-bare")?,
     );
-    let original_changes = tmp.iter().map(|(_, change)| change.clone()).collect();
     for (_origin, change) in tmp {
         // At this point we know that the current `change` is the tree/index variant
         // of a prior change between index/worktree.
@@ -509,17 +528,15 @@ fn worktree_changes_inner(
                     changes.push(merged);
                     IgnoredWorktreeTreeChangeStatus::TreeIndex
                 }
-                [Some(mut first), Some(mut second)] => {
+                [Some(first), Some(second)] => {
                     ignored_changes.push(IgnoredWorktreeChange {
                         path: first.path.clone(),
                         status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
-                        status_item: first.status_item.take(),
                     });
                     changes.push(first);
                     ignored_changes.push(IgnoredWorktreeChange {
                         path: second.path.clone(),
                         status: IgnoredWorktreeTreeChangeStatus::TreeIndex,
-                        status_item: second.status_item.take(),
                     });
                     changes.push(second);
                     continue;
@@ -528,7 +545,6 @@ fn worktree_changes_inner(
             ignored_changes.push(IgnoredWorktreeChange {
                 path: change_path,
                 status,
-                status_item: None,
             });
             continue;
         }
@@ -539,7 +555,8 @@ fn worktree_changes_inner(
     Ok(WorktreeChanges {
         changes,
         ignored_changes,
-        original_changes,
+        index_changes,
+        index_conflicts,
     })
 }
 
@@ -698,8 +715,6 @@ fn merge_changes(
                 status: TreeStatus::Deletion {
                     previous_state: *previous_state,
                 },
-                // NOTE: not relevant, as renames are disabled for snapshots where this is used.
-                status_item: None,
             }));
         }
         (
@@ -719,8 +734,6 @@ fn merge_changes(
                         // It's just in the index, which to us doesn't exist.
                         is_untracked: true,
                     },
-                    // NOTE: not relevant, as renames are disabled for snapshots where this is used.
-                    status_item: None,
                 }),
                 Some(TreeChange {
                     path: index_wt.path,
@@ -732,8 +745,6 @@ fn merge_changes(
                         // read the initial state of a file from.
                         is_untracked: true,
                     },
-                    // NOTE: not relevant, as renames are disabled for snapshots where this is used.
-                    status_item: None,
                 }),
             ]);
         }

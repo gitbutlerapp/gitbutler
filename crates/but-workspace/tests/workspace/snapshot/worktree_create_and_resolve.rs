@@ -49,9 +49,9 @@ fn unborn_empty() -> anyhow::Result<()> {
 #[test]
 fn unborn_untracked() -> anyhow::Result<()> {
     let repo = read_only_in_memory_scenario("unborn-untracked-all-file-types")?;
-    let (head_tree_id, state, no_workspace_and_meta) = args_for_worktree_changes(&repo)?;
+    let (head_tree_id, mut state, no_workspace_and_meta) = args_for_worktree_changes(&repo)?;
 
-    let out = snapshot::create_tree(head_tree_id, state, no_workspace_and_meta)?;
+    let out = snapshot::create_tree(head_tree_id, state.clone(), no_workspace_and_meta)?;
     assert!(!out.is_empty(), "it picks up the untracked files");
     insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @r#"
     a863d4e
@@ -96,15 +96,20 @@ fn unborn_untracked() -> anyhow::Result<()> {
         res_out.workspace_references.is_none(),
         "didn't ask to store this"
     );
+
+    state.selection.clear();
+    let out = snapshot::create_tree(head_tree_id, state, no_workspace_and_meta)?;
+    // An empty selection always means there is no effective change.
+    insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @"4b825dc");
     Ok(())
 }
 
 #[test]
 fn worktree_all_filetypes() -> anyhow::Result<()> {
     let repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
-    let (head_tree_id, state, no_workspace_and_meta) = args_for_worktree_changes(&repo)?;
+    let (head_tree_id, mut state, no_workspace_and_meta) = args_for_worktree_changes(&repo)?;
 
-    let out = snapshot::create_tree(head_tree_id, state, no_workspace_and_meta)?;
+    let out = snapshot::create_tree(head_tree_id, state.clone(), no_workspace_and_meta)?;
     insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @r#"
     9d274f3
     ├── HEAD:3fd29f0 
@@ -152,5 +157,10 @@ fn worktree_all_filetypes() -> anyhow::Result<()> {
         res_out.workspace_references.is_none(),
         "didn't ask to store this"
     );
+
+    state.selection.clear();
+    let out = snapshot::create_tree(head_tree_id, state, no_workspace_and_meta)?;
+    // An empty selection always means there is no effective change.
+    insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @"4b825dc");
     Ok(())
 }
