@@ -18,7 +18,7 @@ import {
 	type UiState,
 	updateStaleStackState
 } from '$lib/state/uiState.svelte';
-import { getBranchNameFromRef } from '$lib/utils/branch';
+import { getBranchNameFromRef, type BranchRef } from '$lib/utils/branch';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import {
@@ -536,18 +536,12 @@ export class StackService {
 	 * If the branch is part of a stack and if the stackId is provided, this will include only the changes up to the next branch in the stack.
 	 * Otherwise, if stackId is not provided, this will include all changes as compared to the target branch
 	 */
-	branchChanges(args: {
-		projectId: string;
-		stackId?: string;
-		branchName: string;
-		remote?: string;
-	}) {
+	branchChanges(args: { projectId: string; stackId?: string; branch: BranchRef }) {
 		return this.api.endpoints.branchChanges.useQuery(
 			{
 				projectId: args.projectId,
 				stackId: args.stackId,
-				branchName: args.branchName,
-				remote: args.remote
+				branch: args.branch
 			},
 			{
 				transform: (result) => ({
@@ -558,19 +552,12 @@ export class StackService {
 		);
 	}
 
-	branchChange(args: {
-		projectId: string;
-		stackId?: string;
-		branchName: string;
-		remote?: string;
-		path: string;
-	}) {
+	branchChange(args: { projectId: string; stackId?: string; branch: BranchRef; path: string }) {
 		return this.api.endpoints.branchChanges.useQuery(
 			{
 				projectId: args.projectId,
 				stackId: args.stackId,
-				branchName: args.branchName,
-				remote: args.remote
+				branch: args.branch
 			},
 			{ transform: (result) => changesSelectors.selectById(result.changes, args.path) }
 		);
@@ -579,16 +566,14 @@ export class StackService {
 	async branchChangesByPaths(args: {
 		projectId: string;
 		stackId?: string;
-		branchName: string;
-		remote?: string;
+		branch: BranchRef;
 		paths: string[];
 	}) {
 		const result = await this.api.endpoints.branchChanges.fetch(
 			{
 				projectId: args.projectId,
 				stackId: args.stackId,
-				branchName: args.branchName,
-				remote: args.remote
+				branch: args.branch
 			},
 			{ transform: (result) => selectChangesByPaths(result.changes, args.paths) }
 		);
@@ -1145,7 +1130,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 			}),
 			branchChanges: build.query<
 				{ changes: EntityState<TreeChange, string>; stats: TreeStats },
-				{ projectId: string; stackId?: string; branchName: string; remote?: string }
+				{ projectId: string; stackId?: string; branch: BranchRef }
 			>({
 				extraOptions: { command: 'changes_in_branch' },
 				query: (args) => args,
