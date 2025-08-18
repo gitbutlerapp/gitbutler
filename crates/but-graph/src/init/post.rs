@@ -4,7 +4,7 @@ use crate::init::walk::{RefsById, disambiguate_refs_by_branch_metadata};
 use crate::init::{PetGraph, branch_segment_from_name_and_meta, remotes};
 use crate::projection::workspace;
 use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex, SegmentMetadata};
-use anyhow::bail;
+use anyhow::{Context as _, bail};
 use but_core::{RefMetadata, ref_metadata};
 use gix::prelude::ObjectIdExt;
 use gix::reference::Category;
@@ -176,7 +176,17 @@ impl Graph {
         meta: &OverlayMetadata<'_, T>,
     ) -> anyhow::Result<SegmentIndex> {
         let s = &mut self[sidx];
-        let tip_of_new_segment = s.commits[cidx_for_new_segment].id;
+        let tip_of_new_segment = s
+            .commits
+            .get(cidx_for_new_segment)
+            .with_context(|| {
+                format!(
+                    "Segment {sidx:?} \
+        has only {} commit(s), cannot split at {cidx_for_new_segment}",
+                    s.commits.len()
+                )
+            })?
+            .id;
         let new_segment_commits = s.commits.drain(cidx_for_new_segment..).collect();
         let last_cidx_in_top_segment = s.last_commit_index();
         let edges_to_reconnect: Vec<_> = self
