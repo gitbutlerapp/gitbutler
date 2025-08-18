@@ -98,8 +98,9 @@ pub(super) mod function {
     ///       even though it might be that the respective objects aren't written to disk yet.
     ///     - Note that this tree may contain files with conflict markers as it will pick up the conflicting state visible on disk.
     /// * `index`
-    ///     - A representation of the non-conflicting and changed portions of the index, without its meta-data.
-    ///     - may be empty if only conflicts exist.
+    ///     - A representation of the non-conflicting portions of the index, without its meta-data,
+    ///       ready to be read back as an index.
+    ///     - It's present only if there is at least one modification compared to the `HEAD^{tree}`.
     /// * `index-conflicts`
     ///     - `<entry-path>/[1,2,3]` - the blobs at their respective stages.
     #[instrument(skip(changes, _workspace_and_meta), err(Debug))]
@@ -212,29 +213,26 @@ pub(super) mod function {
         changes: but_core::WorktreeChanges,
         selection: BTreeSet<BString>,
     ) -> anyhow::Result<Option<(Option<gix::ObjectId>, Option<gix::ObjectId>)>> {
-        let mut conflicts = Vec::new();
-        let changes: Vec<_> = changes
-            .changes
+        let conflicts: Vec<_> = changes
+            .ignored_changes
             .into_iter()
-            .filter_map(|c| c.status_item)
-            .chain(
-                changes
-                    .ignored_changes
-                    .into_iter()
-                    .filter_map(|c| c.status_item),
-            )
-            .filter_map(|item| match item {
-                gix::status::Item::IndexWorktree(
+            .filter_map(|c| match c.status_item {
+                Some(gix::status::Item::IndexWorktree(
                     gix::status::index_worktree::Item::Modification {
                         status: EntryStatus::Conflict { entries, .. },
                         rela_path,
                         ..
                     },
-                ) => {
-                    conflicts.push((rela_path, entries));
-                    None
-                }
-                gix::status::Item::TreeIndex(c) => Some(c),
+                )) => Some((rela_path, entries)),
+                _ => None,
+            })
+            .collect();
+
+        let changes: Vec<_> = changes
+            .original_changes
+            .into_iter()
+            .filter_map(|c| match c.status_item {
+                Some(gix::status::Item::TreeIndex(c)) => Some(c),
                 _ => None,
             })
             .filter(|c| selection.iter().any(|path| path == c.location()))

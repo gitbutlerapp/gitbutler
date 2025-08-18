@@ -346,12 +346,16 @@ pub struct IgnoredWorktreeChange {
 }
 
 /// The type returned by [`worktree_changes()`](diff::worktree_changes).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct WorktreeChanges {
     /// Changes that could be committed.
     pub changes: Vec<TreeChange>,
     /// Changes that were in the index that we can't handle. The user can see them and interact with them to clear them out before a commit can be made.
     pub ignored_changes: Vec<IgnoredWorktreeChange>,
+    /// The unprocessed (but sorted, by path) changes which were used to produce `changes` and `ignored_changes`.
+    /// This doesn't include index conflicts!
+    /// TODO: can this be specific index changes? After all that's the only thing we need.
+    pub original_changes: Vec<TreeChange>,
 }
 
 /// Computed using the file kinds/modes of two [`ChangeState`] instances to represent
