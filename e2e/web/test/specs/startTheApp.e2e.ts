@@ -1,4 +1,4 @@
-import { getByTestId, GitButler, startGitButler } from './utils.js';
+import { getByTestId, GitButler, startGitButler } from './utils.ts';
 import { expect, $ } from '@wdio/globals';
 import * as path from 'node:path';
 

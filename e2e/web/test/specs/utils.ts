@@ -127,9 +127,9 @@ export async function startGitButler(browser: WebdriverIO.Browser): Promise<GitB
 	const butPort = await getPort();
 
 	// Get paths
-	const rootDir = path.resolve(import.meta.dirname, '../../..');
+	const rootDir = path.resolve(import.meta.dirname, '../../../..');
 	const desktopDir = path.resolve(rootDir, 'apps/desktop');
-	const scriptsDir = path.resolve(rootDir, 'e2e/test/specs/scripts');
+	const scriptsDir = path.resolve(rootDir, 'e2e/web/test/specs/scripts');
 
 	// Start the Vite dev server
 	if (!builtDesktop) {
