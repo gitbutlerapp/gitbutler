@@ -278,6 +278,27 @@ describe('hunkContainsHunk', () => {
 		const outer = { ...baseHunk, oldStart: 5, oldLines: 20, newStart: 15, newLines: 20, diff: '' };
 		expect(hunkContainsHunk(baseHunk, outer)).toBe(false);
 	});
+	test('returns true when hunk b ends at the exact same line as hunk a', () => {
+		// Hunk a: oldStart=10, oldLines=10 -> covers old lines 10-19
+		// Hunk b: oldStart=15, oldLines=5 -> covers old lines 15-19 (ends at same line)
+		const inner = { oldStart: 15, oldLines: 5, newStart: 25, newLines: 5, diff: '' };
+		expect(hunkContainsHunk(baseHunk, inner)).toBe(true);
+	});
+	test('returns false when hunk b extends beyond hunk a by one line', () => {
+		// Hunk a: oldStart=10, oldLines=10 -> covers old lines 10-19
+		// Hunk b: oldStart=15, oldLines=6 -> covers old lines 15-20 (extends beyond by 1)
+		const extending = {
+			oldStart: 15,
+			oldLines: 6,
+			newStart: 25,
+			newLines: 6,
+			diff: ''
+		};
+		expect(hunkContainsHunk(baseHunk, extending)).toBe(false);
+	});
+	test('returns true when ranges are identical', () => {
+		expect(hunkContainsHunk(baseHunk, baseHunk)).toBe(true);
+	});
 });
 
 describe('hunkContainsLine', () => {
