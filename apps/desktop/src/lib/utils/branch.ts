@@ -1,6 +1,18 @@
+import type { BrandedId } from '@gitbutler/shared/utils/branding';
+
 const PREFERRED_REMOTE = 'origin';
 const BRANCH_SEPARATOR = '/';
 const REF_REMOTES_PREFIX = 'refs/remotes/';
+const REF_HEADS_PREFIX = 'refs/heads/';
+
+export type BranchRef = BrandedId<'BranchRef'>;
+
+export function createBranchRef(branchName: string, remote: string | undefined): BranchRef {
+	if (remote) {
+		return `${REF_REMOTES_PREFIX}${remote}${BRANCH_SEPARATOR}${branchName}` as BranchRef;
+	}
+	return `${REF_HEADS_PREFIX}${branchName}` as BranchRef;
+}
 
 /**
  * Get the branch name from a refname.
