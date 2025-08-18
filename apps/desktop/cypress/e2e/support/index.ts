@@ -159,6 +159,8 @@ Cypress.on('window:before:load', (win) => {
 				return MOCK_USER;
 			case 'plugin:window|theme':
 				return 'light';
+			case 'update_feature_flags':
+				return await Promise.resolve();
 			case 'get_app_settings':
 				return MOCK_APP_SETTINGS;
 			case 'plugin:event|unlisten':
