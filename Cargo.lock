@@ -852,6 +852,7 @@ name = "but-api"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-action",
  "but-broadcaster",
  "but-claude",
  "but-core",
@@ -931,6 +932,7 @@ dependencies = [
  "but-db",
  "but-graph",
  "but-hunk-assignment",
+ "but-path",
  "but-rules",
  "but-settings",
  "but-workspace",
