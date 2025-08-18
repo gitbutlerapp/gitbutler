@@ -149,6 +149,11 @@ impl Workspace<'_> {
             })
     }
 
+    /// Return `true` if `name` is contained in the workspace as segment.
+    pub fn refname_is_segment(&self, name: &gix::refs::FullNameRef) -> bool {
+        self.find_segment_and_stack_by_refname(name).is_some()
+    }
+
     /// Try to find `name` in any named [`StackSegment`] and return it along with the stack containing it.
     pub fn find_segment_and_stack_by_refname(
         &self,
@@ -189,9 +194,9 @@ pub enum WorkspaceKind {
         /// The name of the reference pointing to the workspace commit. Useful for deriving the workspace name.
         ref_name: gix::refs::FullName,
     },
-    /// Information for when a workspace reference was advanced by hand and does not point to a
-    /// managed workspace commit anymore.
-    /// That commit, however, is reachable by following the first parent from the workspace reference.
+    /// Information for when a workspace reference was *possibly* advanced by hand and does not point to a
+    /// managed workspace commit (anymore).
+    /// That workspace commit, may be reachable by following the first parent from the workspace reference.
     ///
     /// Note that the stacks that follow *will* be in unusable if the workspace commit is in a segment below,
     /// but typically is usable if there is just a single real stack, or any amount of virtual stacks below
