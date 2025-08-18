@@ -1,11 +1,11 @@
-import prettier from 'eslint-config-prettier';
+import noRelativeImportPaths from '@gitbutler/no-relative-imports';
 import js from '@eslint/js';
+import prettier from 'eslint-config-prettier';
+import { createNextImportResolver } from 'eslint-import-resolver-next';
+import pluginImportX from 'eslint-plugin-import-x';
 import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 import ts from 'typescript-eslint';
-import pluginImportX from 'eslint-plugin-import-x';
-import noRelativeImportPaths from '@gitbutler/no-relative-imports';
-import { createNextImportResolver } from 'eslint-import-resolver-next';
 
 export default ts.config(
 	js.configs.recommended,
@@ -20,7 +20,11 @@ export default ts.config(
 				...globals.node
 			},
 			parserOptions: {
-				projectService: true
+				projectService: {
+					// This prevents lint error when running eslint from
+					// subdirectories, ignoring the root tsconfig.json
+					allowDefaultProject: ['svelte.config.js']
+				}
 			}
 		},
 		rules: {
@@ -90,28 +94,16 @@ export default ts.config(
 			'svelte/require-each-key': 'off',
 			'svelte/no-inspect': 'error',
 			'svelte/no-at-debug-tags': 'error',
-			'svelte/no-unused-props': 'error'
+			'svelte/no-unused-props': 'error',
+			'svelte/prefer-svelte-reactivity': 'off'
 		},
 
 		settings: {
-			'import-x/extensions': ['.ts'],
+			'import-x/extensions': ['.ts', '.js', '.mjs'],
 			'import-x/parsers': {
-				'@typescript-eslint/parser': ['.ts']
+				'@typescript-eslint/parser': ['.ts', '.js', '.mjs']
 			},
-			'import-x/resolver-next': [
-				createNextImportResolver({
-					typescript: {
-						project: [
-							'./apps/**/tsconfig.json',
-							'./apps/desktop/.svelte-kit/tsconfig.json',
-							'./apps/web/.svelte-kit/tsconfig.json',
-							'./packages/**/tsconfig.json',
-							'./packages/ui/.svelte-kit/tsconfig.json',
-							'./packages/shared/.svelte-kit/tsconfig.json'
-						]
-					}
-				})
-			]
+			'import-x/resolver-next': [createNextImportResolver()]
 		},
 		plugins: {
 			'import-x': pluginImportX,
@@ -140,7 +132,7 @@ export default ts.config(
 			'**/build',
 			'**/static',
 			'**/dist',
-			'.svelte-kit',
+			'**/.svelte-kit',
 			'**/package',
 			'**/.env',
 			'**/.env.*',
@@ -150,8 +142,6 @@ export default ts.config(
 			'**/yarn.lock',
 			'.github',
 			'.vscode',
-			'**/eslint.config.js',
-			'**/svelte.config.js',
 			'**/.pnpm-store',
 			'**/vite.config.ts.timestamp-*',
 			'!.storybook',

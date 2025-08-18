@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"target": "esnext",
+		"module": "esnext",
+		"moduleResolution": "node",
+		"allowJs": true,
+		"checkJs": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"esModuleInterop": true
+	},
+	"include": ["**/*.js", "**/*.mjs"],
+	"exclude": ["**/.svelte-kit/", "**/build/", "**/dist/", "**/node_modules/", "**/target/"]
+}
