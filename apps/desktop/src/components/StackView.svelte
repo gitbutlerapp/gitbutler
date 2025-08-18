@@ -30,6 +30,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 
+	import { createBranchRef } from '$lib/utils/branch';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
@@ -111,7 +112,7 @@
 		if (commitId) {
 			return createCommitSelection({ commitId, stackId: stackId });
 		} else if (branchName) {
-			return createBranchSelection({ stackId: stackId, branchName });
+			return createBranchSelection({ stackId: stackId, branchName, remote: undefined });
 		}
 	});
 
@@ -229,7 +230,7 @@
 	This file is growing complex, and should be simplified where possible.  It
 	is also intentionally intriciate, as it allows us to render the components
 	in two different configurations.
-	
+
 	While tedious to maintain, it is also a good forcing function for making
 	components that compose better. Be careful when changing, especially since
 	integration tests only covers the default layout.
@@ -344,7 +345,7 @@
 	{@const changesResult = stackService.branchChanges({
 		projectId,
 		stackId: stackId,
-		branchName
+		branch: createBranchRef(branchName, undefined)
 	})}
 	<ReduxResult {projectId} {stackId} result={changesResult.current}>
 		{#snippet children(changes, { projectId, stackId })}
@@ -354,7 +355,7 @@
 				{stackId}
 				draggableFiles
 				autoselect
-				selectionId={createBranchSelection({ stackId: stackId, branchName })}
+				selectionId={createBranchSelection({ stackId: stackId, branchName, remote: undefined })}
 				noshrink={!!previewKey}
 				ontoggle={() => {
 					changedFilesCollapsed = !changedFilesCollapsed;
