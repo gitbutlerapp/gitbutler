@@ -20,7 +20,9 @@
 //!   more complex with more unknowns.
 
 use crate::{
-    ClaudeMessage, ClaudeMessageContent, UserInput, db,
+    ClaudeMessage, ClaudeMessageContent, UserInput,
+    claude_config::fmt_claude_config,
+    db,
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
 };
 use anyhow::{Result, bail};
@@ -168,6 +170,9 @@ fn spawn_command(
     session: crate::ClaudeSession,
     project_path: std::path::PathBuf,
 ) -> Result<Child> {
+    // Write and obtain our own claude hooks path.
+    let config = fmt_claude_config()?;
+
     let mut command = Command::new("claude");
     command.stdout(writer);
     command.stderr(write_stderr);
@@ -177,6 +182,7 @@ fn spawn_command(
         "--output-format=stream-json",
         "--verbose",
         "--dangerously-skip-permissions",
+        &format!("--settings={config}"),
     ]);
     if create_new {
         command.arg(format!("--session-id={}", session.id));

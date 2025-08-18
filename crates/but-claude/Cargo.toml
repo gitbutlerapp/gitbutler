@@ -22,6 +22,7 @@ but-rules.workspace = true
 but-settings.workspace = true
 but-hunk-assignment.workspace = true
 but-workspace.workspace = true
+but-path.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-project.workspace = true

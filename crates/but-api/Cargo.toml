@@ -25,6 +25,7 @@ gitbutler-secret.workspace = true
 but-workspace.workspace = true
 but-core.workspace = true
 but-hunk-assignment.workspace = true
+but-action.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-command-context.workspace = true
@@ -58,5 +59,4 @@ gitbutler-id.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
-insta = { version = "1.43.1", features = ["json"]}
-
+insta = { version = "1.43.1", features = ["json"] }

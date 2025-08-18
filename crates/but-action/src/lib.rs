@@ -21,6 +21,7 @@ mod absorb;
 mod action;
 mod auto_commit;
 mod branch_changes;
+pub mod cli;
 mod generate;
 mod grouping;
 mod openai;
