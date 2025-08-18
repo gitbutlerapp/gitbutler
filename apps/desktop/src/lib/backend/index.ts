@@ -1,5 +1,5 @@
-import Tauri, { tauriPathSeparator } from '$lib/backend/tauri';
-import Web, { webPathSeparator } from '$lib/backend/web';
+import Tauri, { tauriLogErrorToFile, tauriPathSeparator } from '$lib/backend/tauri';
+import Web, { webLogErrorToFile, webPathSeparator } from '$lib/backend/web';
 import { InjectionToken } from '@gitbutler/shared/context';
 import type { IBackend } from '$lib/backend/backend';
 
@@ -25,6 +25,15 @@ export function platformPathSeparator(): string {
 		return webPathSeparator();
 	}
 	return tauriPathSeparator();
+}
+
+export function logErrorToFile(error: string) {
+	if (import.meta.env.VITE_BUILD_TARGET === 'web') {
+		webLogErrorToFile(error);
+		return;
+	}
+
+	tauriLogErrorToFile(error);
 }
 
 export * from '$lib/backend/backend';
