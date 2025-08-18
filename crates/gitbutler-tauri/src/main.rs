@@ -332,7 +332,7 @@ fn main() {
                     // Debug-only - not for production!
                     #[cfg(debug_assertions)]
                     env::env_vars,
-                    #[cfg(all(debug_assertions, unix))]
+                    #[cfg(unix)]
                     workspace::show_graph_svg,
                     claude::claude_send_message,
                     claude::claude_get_messages
