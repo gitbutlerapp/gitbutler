@@ -41,12 +41,12 @@ jobs:
         if: failure()
         with:
           name: e2e-test-videos
-          path: e2e/test-results/videos/
+          path: e2e/web/test-results/videos/
           retention-days: 30
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: e2e-test-results
-          path: e2e/test-results/
+          path: e2e/web/test-results/
           retention-days: 7

@@ -49,7 +49,7 @@ catalogs:
   redux:
     '@reduxjs/toolkit':
       specifier: 2.8.2
-      version: 2.8.2
+      version: 2.5.0
   svelte:
     '@sentry/sveltekit':
       specifier: 10.2.0
@@ -476,6 +476,9 @@ importers:
       '@wdio/spec-reporter':
         specifier: ^9.18.0
         version: 9.18.0
+      '@wdio/types':
+        specifier: ^9.19.1
+        version: 9.19.1
       wdio-video-reporter:
         specifier: ^6.0.0
         version: 6.1.1(expect-webdriverio@5.4.1)(webdriverio@9.18.4)
@@ -1654,6 +1657,15 @@ packages:
 
   '@inquirer/confirm@5.1.14':
     resolution: {integrity: sha512-5yR4IBfe0kXe59r1YCTG8WXkUbl7Z35HK87Sw+WUyGD8wNUx7JvY7laahzeytyE1oLn74bQnL7hstctQxisQ8Q==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@types/node': '>=18'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+
+  '@inquirer/confirm@5.1.15':
+    resolution: {integrity: sha512-SwHMGa8Z47LawQN0rog0sT+6JpiL0B7eW9p1Bb7iCeKDGTI5Ez25TSc2l8kw52VV7hA4sX/C78CGkMrKXfuspA==}
     engines: {node: '>=18'}
     peerDependencies:
       '@types/node': '>=18'
@@ -3419,6 +3431,10 @@ packages:
 
   '@wdio/types@9.16.2':
     resolution: {integrity: sha512-P86FvM/4XQGpJKwlC2RKF3I21TglPvPOozJGG9HoL0Jmt6jRF20ggO/nRTxU0XiWkRdqESUTmfA87bdCO4GRkQ==}
+    engines: {node: '>=18.20.0'}
+
+  '@wdio/types@9.19.1':
+    resolution: {integrity: sha512-Q1HVcXiWMHp3ze2NN1BvpsfEh/j6GtAeMHhHW4p2IWUfRZlZqTfiJ+95LmkwXOG2gw9yndT8NkJigAz8v7WVYQ==}
     engines: {node: '>=18.20.0'}
 
   '@wdio/utils@9.18.0':
@@ -8935,7 +8951,15 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.17.0
 
-  '@inquirer/confirm@5.1.14(@types/node@22.3.0)':
+  '@inquirer/confirm@5.1.15(@types/node@22.17.0)':
+    dependencies:
+      '@inquirer/core': 10.1.15(@types/node@22.17.0)
+      '@inquirer/type': 3.0.8(@types/node@22.17.0)
+    optionalDependencies:
+      '@types/node': 22.17.0
+    optional: true
+
+  '@inquirer/confirm@5.1.15(@types/node@22.3.0)':
     dependencies:
       '@inquirer/core': 10.1.15(@types/node@22.3.0)
       '@inquirer/type': 3.0.8(@types/node@22.3.0)
@@ -9090,7 +9114,7 @@ snapshots:
 
   '@jest/pattern@30.0.1':
     dependencies:
-      '@types/node': 20.19.9
+      '@types/node': 22.17.0
       jest-regex-util: 30.0.1
 
   '@jest/schemas@30.0.5':
@@ -9103,7 +9127,7 @@ snapshots:
       '@jest/schemas': 30.0.5
       '@types/istanbul-lib-coverage': 2.0.6
       '@types/istanbul-reports': 3.0.4
-      '@types/node': 20.19.9
+      '@types/node': 22.17.0
       '@types/yargs': 17.0.33
       chalk: 4.1.2
 
@@ -10739,7 +10763,7 @@ snapshots:
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 20.19.9
+      '@types/node': 22.17.0
 
   '@types/yargs-parser@21.0.3': {}
 
@@ -11209,6 +11233,10 @@ snapshots:
       pretty-ms: 9.2.0
 
   '@wdio/types@9.16.2':
+    dependencies:
+      '@types/node': 20.19.9
+
+  '@wdio/types@9.19.1':
     dependencies:
       '@types/node': 20.19.9
 
@@ -13682,7 +13710,7 @@ snapshots:
   jest-mock@30.0.5:
     dependencies:
       '@jest/types': 30.0.5
-      '@types/node': 20.19.9
+      '@types/node': 22.17.0
       jest-util: 30.0.5
 
   jest-regex-util@30.0.1: {}
@@ -13690,7 +13718,7 @@ snapshots:
   jest-util@30.0.5:
     dependencies:
       '@jest/types': 30.0.5
-      '@types/node': 20.19.9
+      '@types/node': 22.17.0
       chalk: 4.1.2
       ci-info: 4.3.0
       graceful-fs: 4.2.11
@@ -14110,7 +14138,7 @@ snapshots:
       '@bundled-es-modules/cookie': 2.0.1
       '@bundled-es-modules/statuses': 1.0.1
       '@bundled-es-modules/tough-cookie': 0.1.6
-      '@inquirer/confirm': 5.1.14(@types/node@22.17.0)
+      '@inquirer/confirm': 5.1.15(@types/node@22.17.0)
       '@mswjs/interceptors': 0.37.6
       '@open-draft/deferred-promise': 2.2.0
       '@open-draft/until': 2.1.0
@@ -14136,7 +14164,7 @@ snapshots:
       '@bundled-es-modules/cookie': 2.0.1
       '@bundled-es-modules/statuses': 1.0.1
       '@bundled-es-modules/tough-cookie': 0.1.6
-      '@inquirer/confirm': 5.1.14(@types/node@22.3.0)
+      '@inquirer/confirm': 5.1.15(@types/node@22.3.0)
       '@mswjs/interceptors': 0.37.6
       '@open-draft/deferred-promise': 2.2.0
       '@open-draft/until': 2.1.0
@@ -16289,7 +16317,7 @@ snapshots:
       '@wdio/globals': 9.17.0(expect-webdriverio@5.4.1)(webdriverio@9.18.4)
       '@wdio/logger': 9.18.0
       '@wdio/reporter': 9.18.0
-      '@wdio/types': 9.16.2
+      '@wdio/types': 9.19.1
       glob: 11.0.0
     transitivePeerDependencies:
       - expect-webdriverio
