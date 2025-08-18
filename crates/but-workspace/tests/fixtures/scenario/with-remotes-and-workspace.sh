@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-### General Description
-
-# Various directories with different scenarios for testing stack information *with* a workspace commit,
-# and of course with a remote and a branch to integrate with.
 set -eu -o pipefail
 
 source "${BASH_SOURCE[0]%/*}/shared.sh"
 
+### General Description
+
+# Various directories with different scenarios for testing stack information *with* a workspace commit,
+# and of course with a remote and a branch to integrate with.
 
 git init remote
 (cd remote

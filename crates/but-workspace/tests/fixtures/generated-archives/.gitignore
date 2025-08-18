@@ -30,3 +30,5 @@
 /journey*.tar
 /single-branch*.tar
 /index*.tar
+/detached-*.tar
+/ws-ref-*
