@@ -2,6 +2,7 @@ import type { BrandedId } from '@gitbutler/shared/utils/branding';
 
 // ASCII Unit Separator, used to separate data units within a record or field.
 const UNIT_SEP = '\u001F';
+const UNDEFINED_REMOTE = '<<no-remote>>';
 
 const SELECTION_TYPES = ['commit', 'branch', 'worktree', 'snapshot'] as const;
 
@@ -26,6 +27,7 @@ export type SelectionId = {
 	| {
 			type: 'branch';
 			stackId?: string;
+			remote: string | undefined;
 			branchName: string;
 	  }
 	| {
@@ -47,7 +49,7 @@ export function key(params: SelectedFile): SelectedFileKey {
 		case 'commit':
 			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.commitId}${UNIT_SEP}${params.stackId}` as SelectedFileKey;
 		case 'branch':
-			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.stackId}${UNIT_SEP}${params.branchName}` as SelectedFileKey;
+			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.stackId}${UNIT_SEP}${params.remote ?? UNDEFINED_REMOTE}${UNIT_SEP}${params.branchName}` as SelectedFileKey;
 		case 'worktree':
 			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.stackId}` as SelectedFileKey;
 		case 'snapshot':
@@ -70,13 +72,14 @@ export function readKey(key: SelectedFileKey): SelectedFile {
 				stackId: parts[2]!
 			};
 		case 'branch':
-			if (parts.length !== 3) throw new Error('Invalid branch key');
+			if (parts.length !== 4) throw new Error('Invalid branch key');
 			return {
 				type,
 				path: parts[0]!,
 				// TODO: Fix this by adding a new type for regular branches.
 				stackId: parts[1] === 'undefined' ? undefined : parts[1]!,
-				branchName: parts[2]!
+				remote: parts[2] === UNDEFINED_REMOTE ? undefined : parts[2]!,
+				branchName: parts[3]!
 			};
 		case 'worktree':
 			if (parts.length !== 2) throw new Error('Invalid worktree key');
@@ -100,7 +103,7 @@ export function selectionKey(id: SelectionId): SelectionKey {
 		case 'commit':
 			return `${id.type}${UNIT_SEP}${id.commitId}` as SelectionKey;
 		case 'branch':
-			return `${id.type}${UNIT_SEP}${id.stackId}${UNIT_SEP}${id.branchName}` as SelectionKey;
+			return `${id.type}${UNIT_SEP}${id.stackId}${UNIT_SEP}${id.remote ?? UNDEFINED_REMOTE}${UNIT_SEP}${id.branchName}` as SelectionKey;
 		case 'worktree':
 			return `${id.type}${UNIT_SEP}${id.stackId}` as SelectionKey;
 		case 'snapshot':
@@ -132,11 +135,13 @@ export function createCommitSelection(params: { commitId: string; stackId?: stri
 export function createBranchSelection(params: {
 	stackId?: string;
 	branchName: string;
+	remote: string | undefined;
 }): SelectionId {
 	return createSelectionId({
 		type: 'branch',
 		stackId: params.stackId,
-		branchName: params.branchName
+		branchName: params.branchName,
+		remote: params.remote
 	});
 }
 

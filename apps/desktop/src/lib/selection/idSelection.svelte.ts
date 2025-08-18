@@ -7,6 +7,7 @@ import {
 	type SelectionId,
 	type SelectedFile
 } from '$lib/selection/key';
+import { createBranchRef } from '$lib/utils/branch';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { SvelteSet } from 'svelte/reactivity';
@@ -148,13 +149,16 @@ export class IdSelection {
 				return this.uncommittedService
 					.getChangesByStackId(params.stackId || null)
 					.filter((c) => paths.includes(c.path));
-			case 'branch':
+			case 'branch': {
+				const { remote, branchName } = params;
+				const branch = createBranchRef(branchName, remote);
 				return await this.stackService.branchChangesByPaths({
 					projectId,
 					stackId: params.stackId,
-					branchName: params.branchName,
+					branch,
 					paths: paths
 				});
+			}
 			case 'commit':
 				return await this.stackService.commitChangesByPaths(projectId, params.commitId, paths);
 			case 'snapshot':
@@ -236,13 +240,16 @@ export class IdSelection {
 		switch (selectedFile.type) {
 			case 'commit':
 				return this.stackService.commitChange(projectId, selectedFile.commitId, selectedFile.path);
-			case 'branch':
+			case 'branch': {
+				const { remote, branchName } = selectedFile;
+				const branch = createBranchRef(branchName, remote);
 				return this.stackService.branchChange({
 					projectId,
 					stackId: selectedFile.stackId,
-					branchName: selectedFile.branchName,
+					branch,
 					path: selectedFile.path
 				});
+			}
 			case 'worktree':
 				this.uncommittedService.assignmentsByPath(selectedFile.stackId || null, selectedFile.path);
 				return this.worktreeService.treeChangeByPath(projectId, selectedFile.path);
