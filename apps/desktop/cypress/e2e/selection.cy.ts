@@ -51,7 +51,8 @@ describe('Selection', () => {
 				.scrollIntoView()
 				.should('be.visible')
 				.within(() => {
-					const changedFileNames = mockBackend.getBranchChangesFileNames(stackId, stackName);
+					const branch = `refs/heads/${stackName}`;
+					const changedFileNames = mockBackend.getBranchChangesFileNames(stackId, branch);
 					for (const fileName of changedFileNames) {
 						cy.getByTestId('file-list-item', fileName).should('be.visible');
 					}

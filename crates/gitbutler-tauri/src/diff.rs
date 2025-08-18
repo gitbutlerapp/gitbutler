@@ -8,6 +8,7 @@ use but_core::ui::{TreeChange, TreeChanges};
 use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeChanges};
 use but_workspace::StackId;
 use gitbutler_project::ProjectId;
+use gitbutler_reference::Refname;
 use tauri::State;
 use tracing::instrument;
 
@@ -52,16 +53,14 @@ pub fn changes_in_branch(
     project_id: ProjectId,
     // TODO: remove this, go by name. Ideally, the UI would pass us two commits.
     _stack_id: Option<StackId>,
-    branch_name: String,
-    remote: Option<String>,
+    branch: Refname,
 ) -> anyhow::Result<TreeChanges, Error> {
     diff::changes_in_branch(
         &app,
         ChangesInBranchParams {
             project_id,
             _stack_id,
-            branch_name,
-            remote,
+            branch,
         },
     )
 }

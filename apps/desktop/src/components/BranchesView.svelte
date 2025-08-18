@@ -67,10 +67,11 @@
 			return createCommitSelection({ commitId: current.commitId, stackId: current.stackId });
 		}
 		if (current.branchName) {
-			const branchName = current.remote
-				? current.remote + '/' + current.branchName
-				: current.branchName;
-			return createBranchSelection({ stackId: current.stackId, branchName });
+			return createBranchSelection({
+				stackId: current.stackId,
+				branchName: current.branchName,
+				remote: current.remote
+			});
 		}
 	});
 

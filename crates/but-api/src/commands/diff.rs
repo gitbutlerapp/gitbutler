@@ -11,6 +11,7 @@ use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
+use gitbutler_reference::Refname;
 use gix::refs::Category;
 use serde::{Deserialize, Serialize};
 
@@ -76,8 +77,7 @@ pub struct ChangesInBranchParams {
     pub project_id: ProjectId,
     // TODO: remove this, go by name. Ideally, the UI would pass us two commits.
     pub _stack_id: Option<StackId>,
-    pub branch_name: String,
-    pub remote: Option<String>,
+    pub branch: Refname,
 }
 
 /// Gets the changes for a given branch.
@@ -92,21 +92,22 @@ pub fn changes_in_branch(
 ) -> anyhow::Result<TreeChanges, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    changes_in_branch_inner(ctx, params.remote, params.branch_name).map_err(Into::into)
+    changes_in_branch_inner(ctx, params.branch).map_err(Into::into)
 }
 
-fn changes_in_branch_inner(
-    ctx: CommandContext,
-    remote: Option<String>,
-    branch_name: String,
-) -> anyhow::Result<TreeChanges> {
+fn changes_in_branch_inner(ctx: CommandContext, branch: Refname) -> anyhow::Result<TreeChanges> {
     let guard = ctx.project().shared_worktree_access();
     let (repo, _meta, graph) = ctx.graph_and_meta(ctx.gix_repo()?, guard.read_permission())?;
-    let name = if let Some(remote) = remote {
-        Category::RemoteBranch.to_full_name(format!("{remote}/{branch_name}").as_str())
-    } else {
-        Category::LocalBranch.to_full_name(branch_name.as_str())
-    }?;
+    let name = match branch {
+        Refname::Virtual(virtual_refname) => {
+            Category::LocalBranch.to_full_name(virtual_refname.branch())?
+        }
+        Refname::Local(local) => Category::LocalBranch.to_full_name(local.branch())?,
+        Refname::Other(raw) => Category::LocalBranch.to_full_name(raw.as_str())?,
+        Refname::Remote(remote) => {
+            Category::RemoteBranch.to_full_name(remote.fullname().as_str())?
+        }
+    };
     let ws = graph.to_workspace()?;
     but_workspace::ui::diff::changes_in_branch(&repo, &ws, name.as_ref())
 }

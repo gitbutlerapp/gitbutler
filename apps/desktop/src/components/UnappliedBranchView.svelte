@@ -7,6 +7,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { createBranchSelection, type SelectionId } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { createBranchRef } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/shared/context';
 	import { Icon, TestId, Tooltip } from '@gitbutler/ui';
 
@@ -29,12 +30,12 @@
 			? stackService.branchDetails(projectId, stackId, branchName)
 			: stackService.unstackedBranchDetails(projectId, branchName, remote)
 	);
-	const changesResult = $derived(stackService.branchChanges({ projectId, branchName, remote }));
 
 	const selectionId: SelectionId = $derived.by(() => {
-		const bname = remote ? remote + '/' + branchName : branchName;
-		return createBranchSelection({ stackId, branchName: bname });
+		return createBranchSelection({ stackId, branchName, remote });
 	});
+
+	const branchRef = $derived(createBranchRef(branchName, remote));
 </script>
 
 <ReduxResult {projectId} result={branchResult.current} {onerror}>
@@ -94,6 +95,7 @@
 			</div>
 		</Drawer>
 
+		{@const changesResult = stackService.branchChanges({ projectId, branch: branchRef })}
 		<ReduxResult {projectId} result={changesResult.current}>
 			{#snippet children(changes, env)}
 				<ChangedFiles

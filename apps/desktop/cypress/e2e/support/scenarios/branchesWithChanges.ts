@@ -635,13 +635,16 @@ export default class BranchesWithChanges extends MockBackend {
 		this.stackDetails.set(MOCK_STACK_C_ID, MOCK_STACK_DETAILS_C);
 
 		const stackAChanges = new Map<string, TreeChange[]>();
-		stackAChanges.set(MOCK_STACK_A_ID, MOCK_BRANCH_A_CHANGES);
+		const branchARef = `refs/heads/${MOCK_STACK_A_ID}`;
+		stackAChanges.set(branchARef, MOCK_BRANCH_A_CHANGES);
 
 		const stackBChanges = new Map<string, TreeChange[]>();
-		stackBChanges.set(MOCK_STACK_B_ID, MOCK_BRANCH_B_CHANGES);
+		const branchBRef = `refs/heads/${MOCK_STACK_B_ID}`;
+		stackBChanges.set(branchBRef, MOCK_BRANCH_B_CHANGES);
 
 		const stackCChanges = new Map<string, TreeChange[]>();
-		stackCChanges.set(MOCK_STACK_C_ID, MOCK_BRANCH_C_CHANGES);
+		const branchCRef = `refs/heads/${MOCK_STACK_C_ID}`;
+		stackCChanges.set(branchCRef, MOCK_BRANCH_C_CHANGES);
 
 		this.branchChanges.set(MOCK_STACK_A_ID, stackAChanges);
 		this.branchChanges.set(MOCK_STACK_B_ID, stackBChanges);
