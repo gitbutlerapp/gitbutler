@@ -29,6 +29,7 @@ impl From<crate::WorktreeChanges> for WorktreeChanges {
         crate::WorktreeChanges {
             changes,
             ignored_changes,
+            original_changes: _,
         }: crate::WorktreeChanges,
     ) -> Self {
         WorktreeChanges {

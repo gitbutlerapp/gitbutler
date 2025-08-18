@@ -125,3 +125,51 @@ fn with_conflicts() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn index_added_modified_deleted() -> anyhow::Result<()> {
+    let repo = read_only_in_memory_scenario("index-modified-added-deleted")?;
+    let (head_tree_id, state, no_workspace_and_meta) = args_for_worktree_changes(&repo)?;
+
+    let out = snapshot::create_tree(head_tree_id, state, no_workspace_and_meta)?;
+    insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @r#"
+    449404d
+    └── index:3fd7ead 
+        ├── link:120000:e940347 "only-in-index"
+        ├── modified-content:100644:70c2547 "index-content\n"
+        └── modified-exe:100755:ef1943d "change-exe-bit\n"
+    "#);
+    insta::assert_debug_snapshot!(out, @r"
+    Outcome {
+        snapshot_tree: Sha1(449404df68c6041fc4f9b2f1cd30725bdb7ba329),
+        head_tree: Sha1(632babec715de181e63036ee0cc3686efa67528d),
+        worktree: None,
+        index: Some(
+            Sha1(3fd7ead2468a4def3db4c946c0f3b933eb8f2682),
+        ),
+        index_conflicts: None,
+        workspace_references: None,
+        head_references: None,
+        metadata: None,
+    }
+    ");
+
+    let res_out = snapshot::resolve_tree(
+        out.snapshot_tree.attach(&repo),
+        out.head_tree,
+        snapshot::resolve_tree::Options::default(),
+    )?;
+    let index = res_out.index.expect("the index was altered");
+    insta::assert_snapshot!(visualize_index(&index), @r"
+    120000:e940347 link
+    100644:70c2547 modified-content
+    100755:ef1943d modified-exe
+    ");
+
+    assert!(res_out.metadata.is_none());
+    assert!(
+        res_out.workspace_references.is_none(),
+        "didn't ask to store this"
+    );
+    Ok(())
+}
