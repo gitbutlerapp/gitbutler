@@ -1,14 +1,13 @@
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { showError } from '$lib/notifications/toasts';
-import { User } from '$lib/user/user';
 import { sleep } from '$lib/utils/sleep';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
-import { plainToInstance } from 'class-transformer';
 import { derived, get, readable, writable, type Readable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { IBackend } from '$lib/backend';
 import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
+import type { User } from '$lib/user/user';
 import type { ApiUser } from '@gitbutler/shared/users/types';
 
 export type LoginToken = {
@@ -40,9 +39,8 @@ export class UserService {
 	readonly error = writable();
 
 	async refresh() {
-		const userData = await this.backend.invoke<User | undefined>('get_user');
-		if (userData) {
-			const user = plainToInstance(User, userData);
+		const user = await this.backend.invoke<User | undefined>('get_user');
+		if (user) {
 			this.tokenMemoryService.setToken(user.access_token);
 			this.user.set(user);
 			await this.posthog.setPostHogUser({ id: user.id, email: user.email, name: user.name });
