@@ -1,6 +1,6 @@
 {
 	"eslint.useFlatConfig": true,
-	"eslint.validate": ["svelte"],
+	"eslint.validate": ["typescript", "javascript", "svelte"],
 	"eslint.workingDirectories": [{ "directory": "./", "changeProcessCWD": true }],
 	"svelte.enable-ts-plugin": true,
 	"prettier.configPath": ".prettierrc.mjs",

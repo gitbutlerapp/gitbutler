@@ -1,8 +1,7 @@
-import staticAdapter from '@sveltejs/adapter-static';
 import svelteInjectComment from '@gitbutler/svelte-comment-injector';
+import staticAdapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
-/** @type {import('@sveltejs/kit').Config} */
 const config = {
 	preprocess: [vitePreprocess({ script: true }), svelteInjectComment()],
 	kit: {
