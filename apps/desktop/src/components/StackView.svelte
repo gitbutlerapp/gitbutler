@@ -153,19 +153,43 @@
 		}
 	} as const;
 
+	function checkFilesForCommit() {
+		const stackAssignments = stackId ? uncommittedService.getAssignmentsByStackId(stackId) : [];
+		if (stackId && stackAssignments.length > 0) {
+			// If there are assignments for this stack, we check those.
+			const selectionId = createWorktreeSelection({ stackId });
+			const selectedPaths = idSelection.values(selectionId).map((entry) => entry.path);
+
+			// If there are selected paths, we check those.
+			if (selectedPaths.length > 0) {
+				uncommittedService.checkFiles(stackId, selectedPaths);
+			} else {
+				uncommittedService.checkAll(stackId);
+			}
+			// Uncheck the unassigned files.
+			uncommittedService.uncheckAll(null);
+			return;
+		}
+
+		const selectionId = createWorktreeSelection({});
+		const selectedPaths = idSelection.values(selectionId).map((entry) => entry.path);
+
+		// If there are selected paths in the unassigned selection, we check those.
+		if (selectedPaths.length > 0) {
+			uncommittedService.checkFiles(null, selectedPaths);
+		} else {
+			uncommittedService.checkAll(null);
+		}
+	}
+
 	function startCommit(branchName: string) {
 		projectState.exclusiveAction.set({
 			type: 'commit',
 			branchName,
 			stackId: stackId
 		});
-		const stackAssignments = stackId ? uncommittedService.getAssignmentsByStackId(stackId) : [];
-		if (stackId && stackAssignments.length > 0) {
-			uncommittedService.checkAll(stackId);
-			uncommittedService.uncheckAll(null);
-		} else {
-			uncommittedService.checkAll(null);
-		}
+
+		checkFilesForCommit();
 	}
 
 	export function onclose() {

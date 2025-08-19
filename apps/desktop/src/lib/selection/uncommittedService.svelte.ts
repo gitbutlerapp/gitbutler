@@ -417,6 +417,10 @@ export class UncommittedService {
 		this.dispatch(uncommittedActions.checkFile({ stackId, path }));
 	}
 
+	checkFiles(stackId: string | null, paths: string[]) {
+		this.dispatch(uncommittedActions.checkFiles({ stackId, paths }));
+	}
+
 	uncheckFile(stackId: string | null, path: string) {
 		this.dispatch(uncommittedActions.uncheckFile({ stackId, path }));
 	}

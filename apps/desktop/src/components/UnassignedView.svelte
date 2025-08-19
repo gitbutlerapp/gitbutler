@@ -57,6 +57,18 @@
 	function foldUnnassignedView() {
 		unassignedSidebaFolded.set(true);
 	}
+
+	function checkFilesForCommit() {
+		const selectionId = createWorktreeSelection({});
+		const selectedPaths = idSelection.values(selectionId).map((entry) => entry.path);
+
+		// If there are selected paths in the unassigned selection, we check those.
+		if (selectedPaths.length > 0) {
+			uncommittedService.checkFiles(null, selectedPaths);
+		} else {
+			uncommittedService.checkAll(null);
+		}
+	}
 </script>
 
 {#snippet foldButton()}
@@ -118,7 +130,7 @@
 							stackId: undefined,
 							branchName: undefined
 						});
-						uncommittedService.checkAll(null);
+						checkFilesForCommit();
 					}}
 					icon={isCommitting ? undefined : 'plus-small'}
 					testId={TestId.CommitToNewBranchButton}
