@@ -3,7 +3,6 @@ import { mrToInstance } from '$lib/forge/gitlab/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
 import { providesList, ReduxTag } from '$lib/state/tags';
 import { toSerializable } from '@gitbutler/shared/network/types';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
@@ -18,13 +17,10 @@ export class GitLabListingService implements ForgeListingService {
 	}
 
 	list(projectId: string, pollingInterval?: number) {
-		const result = $derived(
-			this.api.endpoints.listPrs.useQuery(projectId, {
-				transform: (result) => prSelectors.selectAll(result),
-				subscriptionOptions: { pollingInterval }
-			})
-		);
-		return reactive(() => result.current);
+		return this.api.endpoints.listPrs.useQuery(projectId, {
+			transform: (result) => prSelectors.selectAll(result),
+			subscriptionOptions: { pollingInterval }
+		});
 	}
 
 	getByBranch(projectId: string, branchName: string) {

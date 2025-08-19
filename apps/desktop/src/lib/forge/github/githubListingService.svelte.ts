@@ -2,7 +2,6 @@ import { ghQuery } from '$lib/forge/github/ghQuery';
 import { ghResponseToInstance } from '$lib/forge/github/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
 import { providesList, ReduxTag } from '$lib/state/tags';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
@@ -17,13 +16,10 @@ export class GitHubListingService implements ForgeListingService {
 	}
 
 	list(projectId: string, pollingInterval?: number) {
-		const result = $derived(
-			this.api.endpoints.listPrs.useQuery(projectId, {
-				transform: (result) => prSelectors.selectAll(result),
-				subscriptionOptions: { pollingInterval }
-			})
-		);
-		return reactive(() => result.current);
+		return this.api.endpoints.listPrs.useQuery(projectId, {
+			transform: (result) => prSelectors.selectAll(result),
+			subscriptionOptions: { pollingInterval }
+		});
 	}
 
 	getByBranch(projectId: string, branchName: string) {

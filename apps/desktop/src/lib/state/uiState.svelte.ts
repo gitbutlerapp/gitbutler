@@ -10,6 +10,7 @@ import {
 	type ThunkDispatch,
 	type UnknownAction
 } from '@reduxjs/toolkit';
+import type { PullRequest } from '$lib/forge/interface/types';
 import type { StackDetails } from '$lib/stacks/stack';
 import type { RejectionReason } from '$lib/stacks/stackService.svelte';
 
@@ -466,5 +467,17 @@ export function updateStaleStackState(
 		case 'create-pr':
 			// Do nothing, alles gut
 			break;
+	}
+}
+
+export function updateStalePrSelection(uiState: UiState, projectId: string, prs: PullRequest[]) {
+	const projectState = uiState.project(projectId);
+	if (projectState.branchesSelection.current.prNumber === undefined) {
+		return;
+	}
+
+	const prNumber = projectState.branchesSelection.current.prNumber;
+	if (!prs.some((pr) => pr.number === prNumber)) {
+		projectState.branchesSelection.set({});
 	}
 }
