@@ -59,3 +59,33 @@ pub fn claude_get_session_details(
         },
     )
 }
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub fn claude_list_permission_requests(
+    app: State<'_, App>,
+    project_id: ProjectId,
+) -> Result<Vec<but_claude::ClaudePermissionRequest>, Error> {
+    claude::claude_list_permission_requests(
+        &app,
+        claude::ListPermissionRequestsParams { project_id },
+    )
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub fn claude_update_permission_request(
+    app: State<'_, App>,
+    project_id: ProjectId,
+    request_id: String,
+    approval: bool,
+) -> Result<(), Error> {
+    claude::claude_update_permission_request(
+        &app,
+        claude::UpdatePermissionRequestParams {
+            project_id,
+            request_id,
+            approval,
+        },
+    )
+}

@@ -27,6 +27,7 @@
 	const stackService = inject(STACK_SERVICE);
 
 	const stacks = $derived(stackService.stacks(projectId));
+	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
 
 	let message = $state('');
 	let selectedBranch = $state<{ stackId: string; head: string }>();
@@ -77,6 +78,13 @@
 		await promise;
 	}
 
+	async function onApproval(id: string) {
+		await claudeCodeService.updatePermissionRequest({ projectId, requestId: id, approval: true });
+	}
+	async function onRejection(id: string) {
+		await claudeCodeService.updatePermissionRequest({ projectId, requestId: id, approval: false });
+	}
+
 	const events = $derived(
 		claudeCodeService.messages({ projectId, stackId: selectedBranch?.stackId || '' })
 	);
@@ -104,10 +112,13 @@
 					<Button disabled kind="ghost" size="tag" icon="kebab" />
 				{/snippet}
 				{#snippet messages()}
-					<ReduxResult result={events?.current} {projectId}>
-						{#snippet children(events, { projectId: _projectId })}
-							{#each formatMessages(events) as message}
-								<CodegenClaudeMessage {message} />
+					<ReduxResult
+						result={combineResults(events?.current, permissionRequests.current)}
+						{projectId}
+					>
+						{#snippet children([events, permissionRequests], { projectId: _projectId })}
+							{#each formatMessages(events, permissionRequests) as message}
+								<CodegenClaudeMessage {message} {onApproval} {onRejection} />
 							{/each}
 							{@const lastUserMessageSent = lastUserMessageSentAt(events)}
 							{#if currentStatus(events) === 'running' && lastUserMessageSent}

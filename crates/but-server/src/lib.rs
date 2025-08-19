@@ -439,6 +439,17 @@ async fn handle_command(
         "claude_get_session_details" => {
             run_cmd(&app, request.params, claude::claude_get_session_details)
         }
+        "claude_list_permission_requests" => run_cmd(
+            &app,
+            request.params,
+            claude::claude_list_permission_requests,
+        ),
+        "claude_update_permission_request" => run_cmd(
+            &app,
+            request.params,
+            claude::claude_update_permission_request,
+        ),
+
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
     };
 

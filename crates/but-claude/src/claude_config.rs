@@ -5,7 +5,7 @@ use but_action::cli::get_cli_path;
 use serde_json::json;
 
 /// Formats the claude code config
-pub fn fmt_claude_config() -> Result<String> {
+pub fn fmt_claude_settings() -> Result<String> {
     let cli_cmd = format!("\"{}\"", get_cli_path()?.to_string_lossy());
     let pre_cmd = format!("{cli_cmd} claude pre-tool");
     let post_cmd = format!("{cli_cmd} claude post-tool");
@@ -36,6 +36,22 @@ pub fn fmt_claude_config() -> Result<String> {
                     "command": stop_cmd
                 }]
             }]
+        }
+    });
+
+    Ok(serde_json::to_string(&config)?)
+}
+
+pub fn fmt_claude_mcp() -> Result<String> {
+    let config = json!({
+        "mcpServers": {
+            "but-security": {
+                "type": "stdio",
+                // I don't really know why, but we _don't_ want this to be a string
+                "command": get_cli_path()?.to_string_lossy(),
+                "args": ["claude", "pp"],
+                "env": {}
+            }
         }
     });
 

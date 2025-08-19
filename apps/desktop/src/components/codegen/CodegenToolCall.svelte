@@ -1,13 +1,19 @@
 <script lang="ts">
 	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
-	import { Button, Icon, Markdown } from '@gitbutler/ui';
+	import { AsyncButton, Button, Icon, Markdown } from '@gitbutler/ui';
+
+	export type RequiresApproval = {
+		onApproval: (id: string) => Promise<void>;
+		onRejection: (id: string) => Promise<void>;
+	};
 
 	type Props = {
 		toolCall: ToolCall;
+		requiresApproval?: RequiresApproval;
 	};
-	const { toolCall }: Props = $props();
+	const { toolCall, requiresApproval = undefined }: Props = $props();
 
-	let expanded = $state(false);
+	let expanded = $derived(!!requiresApproval);
 </script>
 
 <div class="tool-call">
@@ -18,9 +24,25 @@
 			size="tag"
 			onclick={() => (expanded = !expanded)}
 		/>
-		<p>{toolCall.name}</p>
-		{#if toolCallLoading(toolCall)}
+		{#if requiresApproval}
+			<div class="flex items-center justify-between grow gap-12">
+				<p>{toolCall.name} requires approval</p>
+				<div class="flex gap-8">
+					<AsyncButton
+						kind="outline"
+						action={async () => await requiresApproval.onRejection(toolCall.id)}>Reject</AsyncButton
+					>
+					<AsyncButton
+						style="pop"
+						action={async () => await requiresApproval.onApproval(toolCall.id)}>Approve</AsyncButton
+					>
+				</div>
+			</div>
+		{:else if toolCallLoading(toolCall)}
+			<p>{toolCall.name}</p>
 			<Icon name="spinner" />
+		{:else}
+			<p>{toolCall.name}</p>
 		{/if}
 	</div>
 	{#if expanded}

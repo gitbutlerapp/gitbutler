@@ -24,6 +24,7 @@ export enum ReduxTag {
 	WorkspaceRules = 'WorkspaceRules',
 	Project = 'Project',
 	ClaudeCodeTranscript = 'ClaudeCodeTranscript',
+	ClaudePermissionRequests = 'ClaudePermissionPrompts',
 	ClaudeSessionDetails = 'ClaudeSessionDetails',
 	InitalEditListing = 'InitialEditListing',
 	EditChangesSinceInitial = 'EditChangesSinceInitial'

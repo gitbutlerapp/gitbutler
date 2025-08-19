@@ -2,7 +2,7 @@ use anyhow::Result;
 use gitbutler_command_context::CommandContext;
 use uuid::Uuid;
 
-use crate::ClaudeSession;
+use crate::{ClaudePermissionRequest, ClaudeSession};
 
 /// Creates a new ClaudeSession with the session_id provided and saves it to the database.
 pub fn save_new_session(ctx: &mut CommandContext, id: Uuid) -> anyhow::Result<ClaudeSession> {
@@ -107,6 +107,29 @@ pub fn list_messages_by_session(
         .into_iter()
         .map(|m| m.try_into())
         .collect::<Result<_, _>>()
+}
+
+/// Lists all Permission Requests
+pub fn list_all_permission_requests(
+    ctx: &mut CommandContext,
+) -> anyhow::Result<Vec<ClaudePermissionRequest>> {
+    let requests = ctx.db()?.claude_permission_requests().list()?;
+    requests
+        .into_iter()
+        .map(|s| s.try_into())
+        .collect::<Result<_, _>>()
+}
+
+/// Update permission request approval state to either true or false
+pub fn update_permission_request(
+    ctx: &mut CommandContext,
+    id: &str,
+    approval: bool,
+) -> anyhow::Result<()> {
+    ctx.db()?
+        .claude_permission_requests()
+        .set_approval(id, approval)?;
+    Ok(())
 }
 
 impl TryFrom<but_db::ClaudeSession> for crate::ClaudeSession {

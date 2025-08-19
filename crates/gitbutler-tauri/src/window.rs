@@ -102,6 +102,13 @@ pub(crate) mod state {
                         }),
                         project_id,
                     },
+                    ItemKind::ClaudePermissionRequests => ChangeForFrontend {
+                        name: format!("project://{}/claude-permission-requests", project_id),
+                        payload: serde_json::json!({
+                            "kind": "claude-permission-requests"
+                        }),
+                        project_id,
+                    },
                     _ => {
                         tracing::warn!("Unhandled ItemKind in ChangeForFrontend: {:?}", item);
                         ChangeForFrontend {
