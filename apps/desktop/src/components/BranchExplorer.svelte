@@ -10,8 +10,11 @@
 	} from '$lib/branches/branchListing';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import prList from '$lib/forge/prPolling.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/shared/context';
+	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { Badge, Button, EmptyStatePlaceholder, Segment, SegmentControl } from '@gitbutler/ui';
 
 	import Fuse from 'fuse.js';
@@ -58,18 +61,18 @@
 	let searching = $state(false);
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const uiState = inject(UI_STATE);
 	const branchService = inject(BRANCH_SERVICE);
 
-	const pollingInterval = 15 * 60 * 1000; // 15 minutes.
-	const prListResult = $derived(forge.current.listService?.list(projectId, pollingInterval));
+	const prs = prList(
+		reactive(() => projectId),
+		forge,
+		uiState
+	);
 
 	const branchesResult = $derived(branchService.list(projectId));
 	const combined = $derived(
-		combineBranchesAndPrs(
-			prListResult?.current.data || [],
-			branchesResult.current.data || [],
-			selectedOption
-		)
+		combineBranchesAndPrs(prs.current, branchesResult.current.data || [], selectedOption)
 	);
 	const groupedBranches = $derived(groupBranches(combined));
 	const searchedBranches = $derived(searchTerm.length >= 2 ? searchEngine.search(searchTerm) : []);
