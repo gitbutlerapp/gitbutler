@@ -68,6 +68,7 @@
 
 	let composer = $state<ReturnType<typeof MessageEditor>>();
 	let titleInput = $state<HTMLTextAreaElement>();
+	let isComposing = $state(false);
 
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
 	const diffInputArgs = $derived<DiffInputContextArgs>(
@@ -165,14 +166,27 @@
 		onchange={(value) => {
 			onChange?.({ title: value });
 		}}
+		oninput={(e: Event) => {
+			if (e instanceof InputEvent) {
+				isComposing = e.isComposing;
+			}
+		}}
 		onkeydown={async (e: KeyboardEvent) => {
+			if (
+				['Enter', 'Escape', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) &&
+				isComposing
+			) {
+				e.preventDefault();
+				isComposing = false;
+				return;
+			}
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
 				if (title.trim()) {
 					emitAction();
 				}
 			}
-			if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+			if ((e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) && !isComposing) {
 				e.preventDefault();
 				composer?.focus();
 			}
