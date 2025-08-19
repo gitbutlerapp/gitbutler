@@ -14,7 +14,8 @@
 			shortcutService.on('add-local-repo', async () => {
 				const project = await projectsService.addProject();
 				if (!project) {
-					throw new Error('Failed to add project.');
+					// User cancelled the project creation
+					return;
 				}
 				goto(projectPath(project.id));
 			}),
