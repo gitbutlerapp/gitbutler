@@ -115,6 +115,7 @@
 	.commit {
 		display: flex;
 		flex-direction: column;
+		padding: 14px;
 		gap: 12px;
 	}
 
