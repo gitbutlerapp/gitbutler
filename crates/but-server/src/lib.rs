@@ -96,7 +96,7 @@ pub async fn run() {
         .layer(ServiceBuilder::new().layer(cors));
 
     let port = std::env::var("BUTLER_PORT").unwrap_or("6978".into());
-    let host = std::env::var("BUTLER_HOST").unwrap_or("172.0.0.1".into());
+    let host = std::env::var("BUTLER_HOST").unwrap_or("127.0.0.1".into());
     let url = format!("{}:{}", host, port);
     let listener = tokio::net::TcpListener::bind(&url).await.unwrap();
     println!("Running at {}", url);
