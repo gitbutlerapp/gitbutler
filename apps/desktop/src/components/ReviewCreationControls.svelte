@@ -47,6 +47,7 @@
 		style="pop"
 		loading={isSubmitting}
 		disabled={submitDisabled}
+		hotkey="⌘↵"
 	>
 		{$createDraft ? `Create ${unit} draft` : `Create ${unit}`}
 
