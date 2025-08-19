@@ -5,7 +5,7 @@
 		Button,
 		ContextMenuItem,
 		ContextMenuSection,
-		DropDownButton,
+		DropdownButton,
 		TestId
 	} from '@gitbutler/ui';
 
@@ -22,7 +22,7 @@
 		$props();
 
 	const unit = $derived(reviewUnit ?? 'PR');
-	let commitButton = $state<DropDownButton>();
+	let commitButton = $state<DropdownButton>();
 
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
 </script>
@@ -36,7 +36,7 @@
 		onclick={onCancel}>Cancel</Button
 	>
 
-	<DropDownButton
+	<DropdownButton
 		testId={TestId.ReviewCreateButton}
 		bind:this={commitButton}
 		onclick={() => {
@@ -71,7 +71,7 @@
 				/>
 			</ContextMenuSection>
 		{/snippet}
-	</DropDownButton>
+	</DropdownButton>
 </div>
 
 <style lang="postcss">

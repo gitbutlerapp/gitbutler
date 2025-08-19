@@ -24,7 +24,7 @@
 		Checkbox,
 		ContextMenuItem,
 		ContextMenuSection,
-		DropDownButton,
+		DropdownButton,
 		EmojiPickerButton,
 		Modal,
 		RichTextEditor,
@@ -416,7 +416,7 @@
 					{/if}
 				{/if}
 			</div>
-			<DropDownButton
+			<DropdownButton
 				kind="outline"
 				icon="ai-small"
 				shrinkable
@@ -448,7 +448,7 @@
 						</ContextMenuItem>
 					</ContextMenuSection>
 				{/snippet}
-			</DropDownButton>
+			</DropdownButton>
 		</div>
 	</div>
 </div>
