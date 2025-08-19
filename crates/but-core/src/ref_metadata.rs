@@ -29,6 +29,10 @@ pub struct Workspace {
     /// If there is no target name, this is a local workspace (and if no global target is set).
     /// Note that even though this is per workspace, the implementation can fill in global information at will.
     pub target_ref: Option<gix::refs::FullName>,
+    /// The symbolic name of the remote to push branches to.
+    ///
+    /// This is useful when there are no push permissions for the remote behind `target_ref`.
+    pub push_remote: Option<String>,
 }
 
 impl Workspace {

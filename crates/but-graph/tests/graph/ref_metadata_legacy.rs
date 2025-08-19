@@ -1,8 +1,10 @@
 use but_core::RefMetadata;
 use but_core::ref_metadata::{StackId, ValueInfo, WorkspaceStack, WorkspaceStackBranch};
 use but_graph::VirtualBranchesTomlMetadata;
+use but_graph::virtual_branches_legacy_types::Target;
 use but_testsupport::gix_testtools::tempfile::{TempDir, tempdir};
 use but_testsupport::{debug_str, sanitize_uuids_and_timestamps_with_mapping};
+use gitbutler_reference::RemoteRefname;
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -379,6 +381,8 @@ fn read_only() -> anyhow::Result<()> {
 #[test]
 fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
+    store.data_mut().default_target = None;
+
     let toml_path = store.path().to_owned();
     let branch_name: gix::refs::FullName = "refs/heads/feat".try_into()?;
     let mut branch = store.branch(branch_name.as_ref())?;
@@ -745,6 +749,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
         stacks: [],
         target_ref: None,
+        push_remote: None,
     }
     "#);
 
@@ -753,6 +758,35 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         !toml_path.exists(),
         "if everything is just the default, the file is deleted on write"
     );
+
+    let mut store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
+    store.data_mut().default_target = Some(default_target());
+
+    let toml_path = store.path().to_owned();
+    let mut ws = store.workspace(workspace_name.as_ref())?;
+
+    ws.push_remote = Some("push-remote".into());
+    ws.target_ref = Some(gix::refs::FullName::try_from(
+        "refs/remotes/new-origin/new-target",
+    )?);
+    store.set_workspace(&ws)?;
+
+    drop(store);
+    let (actual, _uuids) =
+        sanitize_uuids_and_timestamps_with_mapping(std::fs::read_to_string(&toml_path)?);
+    insta::assert_snapshot!(actual, @r#"
+    [default_target]
+    branchName = "new-target"
+    remoteName = "new-origin"
+    remoteUrl = "https://example.com/example-org/example-repo"
+    sha = "0000000000000000000000000000000000000000"
+    pushRemoteName = "push-remote"
+
+    [branch_targets]
+
+    [branches]
+    "#);
+
     Ok(())
 }
 
@@ -900,6 +934,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
         !branch.is_default(),
         "Workspace branches are implicitly created, this isn't the case in a normal backend implementation"
     );
+
     Ok(())
 }
 
@@ -918,8 +953,18 @@ fn vb_store_rw(name: &str) -> anyhow::Result<(VirtualBranchesTomlMetadata, TempD
 
 fn empty_vb_store_rw() -> anyhow::Result<(VirtualBranchesTomlMetadata, TempDir)> {
     let tmp = tempdir()?;
-    let store = VirtualBranchesTomlMetadata::from_path(tmp.path().join("vb.toml"))?;
+    let mut store = VirtualBranchesTomlMetadata::from_path(tmp.path().join("vb.toml"))?;
+    store.data_mut().default_target = Some(default_target());
     Ok((store, tmp))
+}
+
+fn default_target() -> Target {
+    Target {
+        branch: RemoteRefname::new("origin/sub-name", "main"),
+        remote_url: "https://example.com/example-org/example-repo".to_string(),
+        sha: gix::hash::Kind::Sha1.null(),
+        push_remote_name: None,
+    }
 }
 
 /// Assure everything can round-trip and the data looks consistent, independently of the actual data,

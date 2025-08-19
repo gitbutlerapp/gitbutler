@@ -291,18 +291,24 @@ impl Graph {
                 .flag_for(tip)
                 .expect("we more than one bitflags for this");
 
-        let target_symbolic_remote_names = {
+        let target_symbolic_remote_names: Vec<_> = {
             let remote_names = repo.remote_names();
             let mut v: Vec<_> = workspaces
                 .iter()
-                .filter_map(|(_, _, data)| {
-                    let target_ref = data.target_ref.as_ref()?;
-                    remotes::extract_remote_name(target_ref.as_ref(), &remote_names)
+                .flat_map(|(_, _, data)| {
+                    data.target_ref
+                        .as_ref()
+                        .and_then(|target| {
+                            remotes::extract_remote_name(target.as_ref(), &remote_names)
+                                .map(|remote| (1, remote))
+                        })
+                        .into_iter()
+                        .chain(data.push_remote.clone().map(|push_remote| (0, push_remote)))
                 })
                 .collect();
             v.sort();
             v.dedup();
-            v
+            v.into_iter().map(|(_order, remote)| remote).collect()
         };
 
         let mut next = Queue::new_with_limit(hard_limit);

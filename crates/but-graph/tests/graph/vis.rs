@@ -23,6 +23,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
             ref_info: Default::default(),
             stacks: vec![],
             target_ref: None,
+            push_remote: None,
         })),
         ..Default::default()
     };

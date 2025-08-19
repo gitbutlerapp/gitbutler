@@ -319,6 +319,8 @@ mkdir ws
       commit A2
     create_workspace_commit_once A
     setup_remote_tracking soon-remote A "move"
+    mkdir .git/refs/remotes/push-remote
+    cp .git/refs/remotes/origin/A .git/refs/remotes/push-remote/A
 
 cat <<EOF >>.git/config
 [remote "origin"]
