@@ -20,7 +20,7 @@
 		Button,
 		ContextMenuItem,
 		ContextMenuSection,
-		DropDownButton,
+		DropdownButton,
 		EmojiPickerButton,
 		Mention as MentionsPlugin,
 		RichTextEditor
@@ -169,7 +169,7 @@
 	type Action = keyof typeof actionLabels;
 
 	let action = $state<Action>('approve');
-	let dropDownButton = $state<ReturnType<typeof DropDownButton>>();
+	let dropDownButton = $state<ReturnType<typeof DropdownButton>>();
 
 	async function approve() {
 		await patchCommitService.updatePatch(branchUuid, changeId, {
@@ -312,7 +312,7 @@
 
 				<div class="chat-input__action-buttons">
 					{#if isPatchAuthor === false}
-						<DropDownButton
+						<DropdownButton
 							bind:this={dropDownButton}
 							loading={isSendingMessage || isExecuting}
 							style="neutral"
@@ -345,7 +345,7 @@
 									/>
 								</ContextMenuSection>
 							{/snippet}
-						</DropDownButton>
+						</DropdownButton>
 					{/if}
 					<Button
 						style="pop"

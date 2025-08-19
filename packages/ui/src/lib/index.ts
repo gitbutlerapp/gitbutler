@@ -11,7 +11,7 @@ export {
 export { default as ContextMenu } from '$components/ContextMenu.svelte';
 export { default as ContextMenuItem } from '$components/ContextMenuItem.svelte';
 export { default as ContextMenuSection } from '$components/ContextMenuSection.svelte';
-export { default as DropDownButton } from '$components/DropDownButton.svelte';
+export { default as DropdownButton } from '$components/DropdownButton.svelte';
 export { default as EditorLogo } from '$components/EditorLogo.svelte';
 export { default as EmptyStatePlaceholder } from '$components/EmptyStatePlaceholder.svelte';
 export { default as HunkDiff, type LineClickParams } from '$components/hunkDiff/HunkDiff.svelte';

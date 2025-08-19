@@ -2,7 +2,7 @@
 	import { MergeMethod } from '$lib/forge/interface/types';
 	import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 
-	import { ContextMenuItem, ContextMenuSection, DropDownButton } from '@gitbutler/ui';
+	import { ContextMenuItem, ContextMenuSection, DropdownButton } from '@gitbutler/ui';
 	import type { ButtonProps } from '@gitbutler/ui';
 
 	interface Props {
@@ -32,7 +32,7 @@
 
 	const action = persistedAction(projectId);
 
-	let dropDown: ReturnType<typeof DropDownButton> | undefined;
+	let dropDown: ReturnType<typeof DropdownButton> | undefined;
 	let loading = $state(false);
 
 	const labels = {
@@ -42,7 +42,7 @@
 	};
 </script>
 
-<DropDownButton
+<DropdownButton
 	bind:this={dropDown}
 	onclick={async () => {
 		loading = true;
@@ -73,4 +73,4 @@
 			{/each}
 		</ContextMenuSection>
 	{/snippet}
-</DropDownButton>
+</DropdownButton>
