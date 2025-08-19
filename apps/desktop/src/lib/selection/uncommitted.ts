@@ -216,6 +216,30 @@ export const uncommittedSlice = createSlice({
 				});
 			}
 		},
+		checkFiles(state, action: PayloadAction<{ stackId: string | null; paths: string[] }>) {
+			const { stackId, paths } = action.payload;
+			const hunkSelections: HunkSelection[] = [];
+			for (const path of paths) {
+				const prefix = partialKey(stackId, path);
+				const assignments = uncommittedSelectors.hunkAssignments.selectByPrefix(
+					state.hunkAssignments,
+					prefix
+				);
+
+				for (const assignment of assignments) {
+					const key = hunkAssignmentAdapter.selectId(assignment);
+					hunkSelections.push({
+						stableId: assignment.id,
+						stackId: stackId,
+						path: assignment.path,
+						assignmentId: key,
+						lines: []
+					});
+				}
+			}
+
+			state.hunkSelection = hunkSelectionAdapter.upsertMany(state.hunkSelection, hunkSelections);
+		},
 		uncheckFile(state, action: PayloadAction<{ stackId: string | null; path: string }>) {
 			const { stackId, path } = action.payload;
 			const prefix = partialKey(stackId, path);
