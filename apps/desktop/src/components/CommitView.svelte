@@ -256,13 +256,15 @@
 <style>
 	.commit-view {
 		position: relative;
-		padding: 14px;
+		/* Limit the commit view to at most 40vh to ensure other sections remain visible */
+		max-height: 40vh;
 		background-color: var(--clr-bg-1);
 	}
 
 	.edit-commit-view {
 		display: flex;
 		flex-direction: column;
+		padding: 14px;
 
 		&.no-paddings {
 			margin: -14px;
