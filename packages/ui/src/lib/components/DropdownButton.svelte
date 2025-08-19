@@ -21,6 +21,7 @@
 		type?: 'button' | 'submit' | 'reset';
 		menuPosition?: 'top' | 'bottom';
 		shrinkable?: boolean;
+		hotkey?: string;
 		children?: Snippet;
 		contextMenuSlot: Snippet;
 		onclick?: (e: MouseEvent) => void;
@@ -41,6 +42,7 @@
 		tooltip,
 		menuPosition = 'bottom',
 		shrinkable,
+		hotkey,
 		children,
 		contextMenuSlot,
 		onclick
@@ -76,6 +78,7 @@
 			{shrinkable}
 			{type}
 			{width}
+			{hotkey}
 			reversedDirection
 			disabled={disabled || loading}
 			dropdownChild

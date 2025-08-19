@@ -8,7 +8,7 @@
 		CommitStatusBadge,
 		ContextMenuItem,
 		ContextMenuSection,
-		DropDownButton
+		DropdownButton
 	} from '@gitbutler/ui';
 
 	interface Props {
@@ -45,7 +45,7 @@
 	let loginModal = $state<LoginModal>();
 	let action = $state<Action>('approve');
 	let isExecuting = $state(false);
-	let dropDownButton = $state<ReturnType<typeof DropDownButton>>();
+	let dropDownButton = $state<ReturnType<typeof DropdownButton>>();
 
 	const buttonColor = $derived.by(() => {
 		switch (action) {
@@ -134,7 +134,7 @@
 		</button>
 	</div>
 {:else}
-	<DropDownButton
+	<DropdownButton
 		bind:this={dropDownButton}
 		loading={isExecuting}
 		menuPosition="top"
@@ -161,7 +161,7 @@
 				/>
 			</ContextMenuSection>
 		{/snippet}
-	</DropDownButton>
+	</DropdownButton>
 {/if}
 
 <LoginModal bind:this={loginModal}>
