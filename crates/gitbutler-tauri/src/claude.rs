@@ -1,5 +1,5 @@
 use but_api::{
-    commands::claude::{self, GetMessagesParams, SendMessageParams},
+    commands::claude::{self, GetMessagesParams, SendMessageParams, CancelSessionParams},
     error::Error,
     App,
 };
@@ -88,4 +88,21 @@ pub fn claude_update_permission_request(
             approval,
         },
     )
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub async fn claude_cancel_session(
+    app: State<'_, App>,
+    project_id: ProjectId,
+    stack_id: StackId,
+) -> Result<bool, Error> {
+    claude::claude_cancel_session(
+        &app,
+        CancelSessionParams {
+            project_id,
+            stack_id,
+        },
+    )
+    .await
 }

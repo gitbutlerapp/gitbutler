@@ -37,3 +37,4 @@ tracing-subscriber = { version = "0.3", features = [
     "std",
     "fmt",
 ] }
+nix = { version = "0.30.1", features = ["signal"] }

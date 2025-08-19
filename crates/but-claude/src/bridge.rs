@@ -31,28 +31,34 @@ use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use serde_json::json;
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     io::{BufRead, BufReader, PipeReader, Read as _},
+    process::ExitStatus,
     sync::Arc,
 };
 use tokio::{
     process::{Child, Command},
-    sync::Mutex,
+    sync::{
+        Mutex,
+        mpsc::{UnboundedSender, unbounded_channel},
+    },
 };
 
 /// Holds the CC instances. Currently keyed by stackId, since our current model
 /// assumes one CC per stack at any given time.
 pub struct Claudes {
     /// A set that contains all the currently running requests
-    requests: Mutex<HashSet<StackId>>,
+    requests: Mutex<HashMap<StackId, Arc<Claude>>>,
 }
 
-pub struct Claude {}
+pub struct Claude {
+    kill: UnboundedSender<()>,
+}
 
 impl Claudes {
     pub fn new() -> Self {
         Self {
-            requests: Mutex::new(HashSet::new()),
+            requests: Mutex::new(HashMap::new()),
         }
     }
 
@@ -63,7 +69,7 @@ impl Claudes {
         stack_id: StackId,
         message: &str,
     ) -> Result<()> {
-        if self.requests.lock().await.contains(&stack_id) {
+        if self.requests.lock().await.contains_key(&stack_id) {
             bail!("Claude is thinking, back off!!!")
         } else {
             self.spawn_claude(ctx, broadcaster, stack_id, message.to_owned())
@@ -89,6 +95,21 @@ impl Claudes {
         }
     }
 
+    /// Cancel a running Claude session for the given stack
+    pub async fn cancel_session(&self, stack_id: StackId) -> Result<bool> {
+        let requests = self.requests.lock().await;
+        if let Some(claude) = requests.get(&stack_id) {
+            // Send the kill signal
+            claude
+                .kill
+                .send(())
+                .map_err(|_| anyhow::anyhow!("Failed to send kill signal"))?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
     async fn spawn_claude(
         &self,
         ctx: Arc<Mutex<CommandContext>>,
@@ -96,7 +117,11 @@ impl Claudes {
         stack_id: StackId,
         message: String,
     ) -> Result<()> {
-        self.requests.lock().await.insert(stack_id);
+        let (send_kill, mut recv_kill) = unbounded_channel();
+        self.requests
+            .lock()
+            .await
+            .insert(stack_id, Arc::new(Claude { kill: send_kill }));
 
         // We're also making the bold assumption that if we can find the
         // transcript, that a session was created. This is _not_ the best
@@ -140,25 +165,54 @@ impl Claudes {
             session,
             project.path.clone(),
         )?;
-        let exit_status = handle.wait().await?;
+        let exit_status = tokio::select! {
+            status = handle.wait() => Exit::WithStatus(status),
+            _ = recv_kill.recv() => Exit::ByUser
+        };
         // My understanding is that it is not great to abort things like this,
         // but it's "good enough" for now.
         response_streamer.abort();
 
         self.requests.lock().await.remove(&stack_id);
 
-        if !exit_status.success() {
-            let mut buf = String::new();
-            read_stderr.read_to_string(&mut buf)?;
-            bail!(
-                "Claude code exited with status: {}\n\n{}",
-                exit_status.code().unwrap_or(1),
-                buf
-            )
+        match exit_status {
+            Exit::WithStatus(exit_status) => {
+                let exit_status = exit_status?;
+                if !exit_status.success() {
+                    let mut buf = String::new();
+                    read_stderr.read_to_string(&mut buf)?;
+                    bail!(
+                        "Claude code exited with status: {}\n\n{}",
+                        exit_status.code().unwrap_or(1),
+                        buf
+                    )
+                }
+            }
+            Exit::ByUser => {
+                #[cfg(unix)]
+                {
+                    use nix::sys::signal::{self, Signal};
+                    use nix::unistd::Pid;
+                    if let Some(pid) = handle.id() {
+                        signal::kill(Pid::from_raw(pid as i32), Signal::SIGTERM)?;
+                    } else {
+                        handle.kill().await?;
+                    }
+                }
+                #[cfg(not(unix))]
+                {
+                    handle.kill().await?;
+                }
+            }
         }
 
         Ok(())
     }
+}
+
+enum Exit {
+    WithStatus(std::io::Result<ExitStatus>),
+    ByUser,
 }
 
 /// Spawns the actual claude code command

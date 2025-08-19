@@ -944,6 +944,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-stack",
  "gix",
+ "nix 0.30.1",
  "rmcp",
  "serde",
  "serde_json",

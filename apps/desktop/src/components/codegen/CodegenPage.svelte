@@ -84,6 +84,10 @@
 	async function onRejection(id: string) {
 		await claudeCodeService.updatePermissionRequest({ projectId, requestId: id, approval: false });
 	}
+	async function onAbort() {
+		if (!selectedBranch) return;
+		await claudeCodeService.cancelSession({ projectId, stackId: selectedBranch?.stackId });
+	}
 
 	const events = $derived(
 		claudeCodeService.messages({ projectId, stackId: selectedBranch?.stackId || '' })
@@ -122,7 +126,7 @@
 							{/each}
 							{@const lastUserMessageSent = lastUserMessageSentAt(events)}
 							{#if currentStatus(events) === 'running' && lastUserMessageSent}
-								<CodegenRunningMessage {lastUserMessageSent} />
+								<CodegenRunningMessage {lastUserMessageSent} {onAbort} />
 							{/if}
 						{/snippet}
 					</ReduxResult>
