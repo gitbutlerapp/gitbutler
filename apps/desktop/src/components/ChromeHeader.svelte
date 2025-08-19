@@ -136,7 +136,9 @@
 						try {
 							const project = await projectsService.addProject();
 							if (!project) {
-								throw new Error('Failed to add project.');
+								// User cancelled the project creation
+								newProjectLoading = false;
+								return;
 							}
 							goto(projectPath(project.id));
 						} finally {
