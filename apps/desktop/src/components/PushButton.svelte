@@ -93,18 +93,33 @@
 
 	const loading = $derived(pushResult.current.isLoading);
 
-	function getButtonTooltip(hasThingsToPush: boolean, hasConflicts: boolean): string | undefined {
+	function getButtonTooltip(
+		hasThingsToPush: boolean,
+		hasConflicts: boolean,
+		withForce: boolean,
+		remoteTrackingBranch: string | null
+	): string | undefined {
 		if (!hasThingsToPush) {
 			return 'No commits to push';
 		}
+
 		if (hasConflicts) {
 			return 'In order to push, please resolve any conflicted commits.';
 		}
+
 		if (multipleBranches && !isLastBranchInStack) {
 			return 'Push this and all branches below';
 		}
 
-		return undefined;
+		if (withForce) {
+			return remoteTrackingBranch
+				? 'Force push this branch'
+				: `Force push this branch to ${remoteTrackingBranch}`;
+		}
+
+		return remoteTrackingBranch
+			? `Push this branch to ${remoteTrackingBranch}`
+			: 'Push this branch';
 	}
 
 	const doNotShowPushBelowWarning = persisted<boolean>(false, 'doNotShowPushBelowWarning');
@@ -125,7 +140,12 @@
 			style="neutral"
 			{loading}
 			disabled={!hasThingsToPush || hasConflicts}
-			tooltip={getButtonTooltip(hasThingsToPush, hasConflicts)}
+			tooltip={getButtonTooltip(
+				hasThingsToPush,
+				hasConflicts,
+				withForce,
+				branchDetails.remoteTrackingBranch
+			)}
 			onclick={() => handleClick({ withForce, skipForcePushProtection: false })}
 			icon={multipleBranches && !isLastBranchInStack ? 'push-below' : 'push'}
 		>
