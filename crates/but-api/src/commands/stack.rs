@@ -1,7 +1,7 @@
-use crate::commands::stack::create_reference::Anchor;
+use crate::commands::stack::create_reference::Anchor as AnchorAPI;
 use crate::{App, error::Error};
 use anyhow::{Context, anyhow};
-use but_workspace::branch::{ReferenceAnchor, ReferencePosition};
+use but_workspace::branch::create_reference::{Anchor, Position};
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_command_context::CommandContext;
@@ -40,11 +40,11 @@ pub mod create_reference {
     pub enum Anchor {
         AtCommit {
             commit_id: HexHash,
-            position: but_workspace::branch::ReferencePosition,
+            position: but_workspace::branch::create_reference::Position,
         },
         AtReference {
             short_name: String,
-            position: but_workspace::branch::ReferencePosition,
+            position: but_workspace::branch::create_reference::Position,
         },
     }
 
@@ -66,17 +66,17 @@ pub fn create_reference(app: &App, params: create_reference::Params) -> Result<(
     let anchor = anchor
         .map(|anchor| -> Result<_, Error> {
             Ok(match anchor {
-                Anchor::AtCommit {
+                AnchorAPI::AtCommit {
                     commit_id,
                     position,
-                } => but_workspace::branch::ReferenceAnchor::AtCommit {
+                } => but_workspace::branch::create_reference::Anchor::AtCommit {
                     commit_id: commit_id.into(),
                     position,
                 },
-                Anchor::AtReference {
+                AnchorAPI::AtReference {
                     short_name,
                     position,
-                } => but_workspace::branch::ReferenceAnchor::AtSegment {
+                } => but_workspace::branch::create_reference::Anchor::AtSegment {
                     ref_name: Cow::Owned(
                         Category::LocalBranch
                             .to_full_name(short_name.as_str())
@@ -104,7 +104,7 @@ pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error>
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     if app.app_settings.get()?.feature_flags.ws3 {
-        use ReferencePosition::Above;
+        use Position::Above;
         let mut guard = project.exclusive_worktree_access();
         let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
         let ws = graph.to_workspace()?;
@@ -128,12 +128,12 @@ pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error>
                 segment
                     .ref_name
                     .as_ref()
-                    .map(|rn| ReferenceAnchor::AtSegment {
+                    .map(|rn| Anchor::AtSegment {
                         ref_name: Cow::Borrowed(rn.as_ref()),
                         position: Above,
                     })
                     .or_else(|| {
-                        Some(ReferenceAnchor::AtCommit {
+                        Some(Anchor::AtCommit {
                             commit_id: graph.tip_skip_empty(segment.id)?.id,
                             position: Above,
                         })
