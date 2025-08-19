@@ -386,6 +386,12 @@
 					messageEditor?.focus();
 				}
 
+				if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+					e.preventDefault();
+					createReview();
+					return true;
+				}
+
 				if (e.key === 'Escape') {
 					e.preventDefault();
 					onClose();
