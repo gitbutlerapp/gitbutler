@@ -1031,7 +1031,7 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     * 8b39ce4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 9d34471 (A) A2
     * 5b89c71 A1
-    | * 3ea1a8f (origin/A) only-remote-02
+    | * 3ea1a8f (push-remote/A, origin/A) only-remote-02
     | * 9c50f71 only-remote-01
     | * 2cfbb79 merge
     |/| 
@@ -1117,6 +1117,49 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
         │   ├── ·5b89c71 (🏘️)
         │   └── ❄️998eae6 (🏘️)
         └── 👉:0:main
+            └── ❄fafd9d0 (🏘️)
+    ");
+
+    // When the push-remote is configured, it overrides the remote we use for listing, even if a fetch remote is available.
+    meta.data_mut()
+        .default_target
+        .as_mut()
+        .expect("set by default")
+        .push_remote_name = Some("push-remote".into());
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ·8b39ce4 (⌂|🏘️|1)
+    │       └── ►:1[1]:A <> push-remote/A →:2:
+    │           ├── ·9d34471 (⌂|🏘️|11)
+    │           └── ·5b89c71 (⌂|🏘️|11)
+    │               └── ►:5[3]:anon:
+    │                   └── ·998eae6 (⌂|🏘️|11)
+    │                       └── ►:3[4]:main
+    │                           └── ·fafd9d0 (⌂|🏘️|11)
+    └── ►:2[0]:push-remote/A →:1:
+        ├── 🟣3ea1a8f
+        └── 🟣9c50f71
+            └── ►:4[1]:anon:
+                └── 🟣2cfbb79
+                    ├── →:5:
+                    └── ►:6[2]:anon:
+                        └── 🟣e898cd0
+                            └── →:5:
+    ");
+
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓!
+    └── ≡:1:A <> push-remote/A →:2:⇡2⇣4
+        ├── :1:A <> push-remote/A →:2:⇡2⇣4
+        │   ├── 🟣3ea1a8f
+        │   ├── 🟣9c50f71
+        │   ├── 🟣2cfbb79
+        │   ├── 🟣e898cd0
+        │   ├── ·9d34471 (🏘️)
+        │   ├── ·5b89c71 (🏘️)
+        │   └── ❄️998eae6 (🏘️)
+        └── :3:main
             └── ❄fafd9d0 (🏘️)
     ");
     Ok(())

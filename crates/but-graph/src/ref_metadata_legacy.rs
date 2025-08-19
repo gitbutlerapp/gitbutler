@@ -1,10 +1,13 @@
 use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
 use anyhow::{Context, bail};
+use bstr::ByteSlice;
 use but_core::RefMetadata;
 use but_core::ref_metadata::{
     Branch, RefInfo, StackId, ValueInfo, Workspace, WorkspaceStack, WorkspaceStackBranch,
 };
+use gitbutler_reference::RemoteRefname;
 use gix::date::SecondsSinceUnixEpoch;
+use gix::reference::Category;
 use gix::refs::{FullName, FullNameRef};
 use itertools::Itertools;
 use std::any::Any;
@@ -361,6 +364,42 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             }
             stack.in_workspace = false;
         }
+
+        // We don't support initialising this yet, for now just changes.
+        let mut changed_target = false;
+        if let Some(target) = self.data_mut().default_target.as_mut() {
+            if target.push_remote_name != value.push_remote {
+                target.push_remote_name = value.push_remote.clone();
+                changed_target = true;
+            }
+            if let Some((category, short_name)) = value
+                .target_ref
+                .as_ref()
+                .and_then(|rn| rn.category_and_short_name())
+            {
+                if category == Category::RemoteBranch {
+                    // TODO: remove this as we don't handle symbolic names with slashes correctly.
+                    // At least try to not always set this value, but this test is also ambiguous.
+                    if !short_name.ends_with_str(target.branch.branch()) {
+                        let slash_pos = short_name.find_byte(b'/').context(
+                            "remote branch didn't have '/' in the name, but should be 'origin/foo'",
+                        )?;
+                        target.branch = RemoteRefname::new(
+                            short_name[..slash_pos].to_str_lossy().as_ref(),
+                            short_name[slash_pos + 1..].to_str_lossy().as_ref(),
+                        );
+                        changed_target = true;
+                    }
+                } else {
+                    bail!(
+                        "Cannot set target branches to a branch that isn't a remote tracking branch: '{short_name}'"
+                    );
+                }
+            }
+        }
+        if changed_target {
+            self.snapshot.changed_at = Some(Instant::now());
+        }
         Ok(())
     }
 
@@ -478,15 +517,21 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
 
 impl VirtualBranchesTomlMetadata {
     fn workspace_from_data(data: &VirtualBranches) -> Workspace {
-        let target_branch = data
+        let (target_branch, push_remote) = data
             .default_target
             .as_ref()
-            .and_then(|target| gix::refs::FullName::try_from(target.branch.to_string()).ok());
+            .map(|target| {
+                (
+                    gix::refs::FullName::try_from(target.branch.to_string()).ok(),
+                    target.push_remote_name.clone(),
+                )
+            })
+            .unwrap_or_default();
 
         let mut stacks: Vec<_> = data.branches.values().cloned().collect();
         stacks.sort_by_key(|s| s.order);
 
-        let workspace = but_core::ref_metadata::Workspace {
+        let workspace = Workspace {
             ref_info: managed_ref_info(),
             stacks: stacks
                 .iter()
@@ -510,6 +555,7 @@ impl VirtualBranchesTomlMetadata {
                 })
                 .collect(),
             target_ref: target_branch,
+            push_remote,
         };
         workspace
     }

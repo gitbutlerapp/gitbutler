@@ -27,7 +27,7 @@ mod with_workspace {
         |/  
         * ff045ef (main) init
         ");
-        let store = WorkspaceStore::default()
+        let store = WorkspaceRefMetadataStore::default()
             .with_target("B")
             .with_named_branch("A");
         insta::assert_debug_snapshot!(
@@ -77,7 +77,7 @@ mod with_workspace {
         * d79bba9 new file in A
         * c166d42 (origin/main, origin/HEAD, main) init-integration
         ");
-        let store = WorkspaceStore::default()
+        let store = WorkspaceRefMetadataStore::default()
             .with_target("main")
             .with_named_branch("A");
         insta::assert_debug_snapshot!(but_workspace::branch_details_v3(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
@@ -129,7 +129,7 @@ mod with_workspace {
         * c166d42 (origin/main, origin/HEAD, main) init-integration
         ");
 
-        let store = WorkspaceStore::default()
+        let store = WorkspaceRefMetadataStore::default()
             .with_target("main")
             .with_named_branch("A");
         insta::assert_debug_snapshot!(but_workspace::branch_details_v3(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
@@ -208,7 +208,7 @@ mod with_workspace {
         * c166d42 (origin/main, origin/HEAD, main) init-integration
         ");
 
-        let store = WorkspaceStore::default()
+        let store = WorkspaceRefMetadataStore::default()
             .with_target("main")
             .with_named_branch("A");
         insta::assert_debug_snapshot!(but_workspace::branch_details_v3(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
@@ -252,17 +252,18 @@ mod with_workspace {
     }
 
     #[derive(Default)]
-    struct WorkspaceStore {
+    struct WorkspaceRefMetadataStore {
         workspace: Workspace,
         branches: Vec<(FullName, but_core::ref_metadata::Branch)>,
     }
 
-    impl WorkspaceStore {
+    impl WorkspaceRefMetadataStore {
         pub fn with_target(mut self, short_name: &str) -> Self {
             self.workspace = but_core::ref_metadata::Workspace {
                 ref_info: Default::default(),
                 stacks: vec![],
                 target_ref: Some(refname(short_name)),
+                push_remote: None,
             };
             self
         }
@@ -320,7 +321,7 @@ mod with_workspace {
         }
     }
 
-    impl RefMetadata for WorkspaceStore {
+    impl RefMetadata for WorkspaceRefMetadataStore {
         type Handle<T> = NullHandle<T>;
 
         fn iter(&self) -> impl Iterator<Item = anyhow::Result<(FullName, Box<dyn Any>)>> + '_ {
