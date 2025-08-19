@@ -71,3 +71,39 @@ pub fn claude_get_session_details(
         last_prompt: transcript.prompt(),
     })
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListPermissionRequestsParams {
+    pub project_id: ProjectId,
+}
+
+pub fn claude_list_permission_requests(
+    app: &App,
+    params: ListPermissionRequestsParams,
+) -> Result<Vec<but_claude::ClaudePermissionRequest>, Error> {
+    let project = gitbutler_project::get(params.project_id)?;
+    let mut ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    Ok(but_claude::db::list_all_permission_requests(&mut ctx)?)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatePermissionRequestParams {
+    pub project_id: ProjectId,
+    pub request_id: String,
+    pub approval: bool,
+}
+
+pub fn claude_update_permission_request(
+    app: &App,
+    params: UpdatePermissionRequestParams,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(params.project_id)?;
+    let mut ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    Ok(but_claude::db::update_permission_request(
+        &mut ctx,
+        &params.request_id,
+        params.approval,
+    )?)
+}

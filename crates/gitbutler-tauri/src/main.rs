@@ -335,7 +335,9 @@ fn main() {
                     #[cfg(unix)]
                     workspace::show_graph_svg,
                     claude::claude_send_message,
-                    claude::claude_get_messages
+                    claude::claude_get_messages,
+                    claude::claude_list_permission_requests,
+                    claude::claude_update_permission_request
                 ])
                 .menu(move |handle| menu::build(handle, &app_settings_for_menu))
                 .on_window_event(|window, event| match event {

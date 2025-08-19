@@ -21,7 +21,7 @@
 
 use crate::{
     ClaudeMessage, ClaudeMessageContent, UserInput,
-    claude_config::fmt_claude_config,
+    claude_config::{fmt_claude_mcp, fmt_claude_settings},
     db,
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
 };
@@ -171,7 +171,8 @@ fn spawn_command(
     project_path: std::path::PathBuf,
 ) -> Result<Child> {
     // Write and obtain our own claude hooks path.
-    let config = fmt_claude_config()?;
+    let settings = fmt_claude_settings()?;
+    let mcp_config = fmt_claude_mcp()?;
 
     let mut command = Command::new("claude");
     command.stdout(writer);
@@ -181,8 +182,11 @@ fn spawn_command(
         "-p",
         "--output-format=stream-json",
         "--verbose",
-        "--dangerously-skip-permissions",
-        &format!("--settings={config}"),
+        // "--dangerously-skip-permissions",
+        &format!("--settings={settings}"),
+        &format!("--mcp-config={mcp_config}"),
+        "--permission-prompt-tool=mcp__but-security__approval_prompt",
+        "--permission-mode=acceptEdits",
     ]);
     if create_new {
         command.arg(format!("--session-id={}", session.id));

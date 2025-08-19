@@ -56,6 +56,9 @@
 .flex-nowrap {
 	flex-wrap: nowrap;
 }
+.grow {
+	flex-grow: 1;
+}
 
 /* Overflow */
 .overflow-hidden {

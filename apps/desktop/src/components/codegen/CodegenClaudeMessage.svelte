@@ -6,8 +6,10 @@
 
 	type Props = {
 		message: Message;
+		onApproval?: (id: string) => Promise<void>;
+		onRejection?: (id: string) => Promise<void>;
 	};
-	const { message }: Props = $props();
+	const { message, onApproval, onRejection }: Props = $props();
 
 	let toolCallsExpanded = $state(false);
 
@@ -73,6 +75,17 @@
 						{/if}
 					</div>
 				{/if}
+			{/if}
+			{#if message.toolCallsPendingApproval.length > 0}
+				{#each message.toolCallsPendingApproval as toolCall}
+					<CodegenToolCall
+						{toolCall}
+						requiresApproval={{
+							onApproval: async (id) => await onApproval?.(id),
+							onRejection: async (id) => await onRejection?.(id)
+						}}
+					/>
+				{/each}
 			{/if}
 		{/snippet}
 	</CodegenMessage>

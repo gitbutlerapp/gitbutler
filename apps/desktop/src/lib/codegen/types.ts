@@ -120,3 +120,18 @@ export function sessionMessage(sessionDetails: ClaudeSessionDetails): string | u
 }
 
 export type ClaudeStatus = 'disabled' | 'enabled' | 'running' | 'completed';
+
+export type ClaudePermissionRequest = {
+	/** Maps to the tool_use_id from the MCP request */
+	id: string;
+	/** When the request was made */
+	createdAt: string;
+	/** When the request was updated */
+	updatedAt: string;
+	/** The tool for which permission is requested */
+	toolName: string;
+	/** The input for the tool */
+	input: unknown;
+	/** The status of the request or null if not yet handled */
+	approved?: boolean;
+};

@@ -3,7 +3,7 @@
  */
 
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import type { ClaudeMessage, ClaudeStatus } from '$lib/codegen/types';
+import type { ClaudeMessage, ClaudePermissionRequest, ClaudeStatus } from '$lib/codegen/types';
 
 export type Message =
 	/* This is strictly only things that the real fleshy human has said */
@@ -16,6 +16,7 @@ export type Message =
 			type: 'claude';
 			message: string;
 			toolCalls: ToolCall[];
+			toolCallsPendingApproval: ToolCall[];
 	  };
 
 export type ToolCall = {
@@ -29,7 +30,15 @@ export function toolCallLoading(toolCall: ToolCall): boolean {
 	return toolCall.result === undefined;
 }
 
-export function formatMessages(events: ClaudeMessage[]): Message[] {
+export function formatMessages(
+	events: ClaudeMessage[],
+	permissionRequests: ClaudePermissionRequest[]
+): Message[] {
+	const permReqsById: Record<string, ClaudePermissionRequest> = {};
+	for (const request of permissionRequests) {
+		permReqsById[request.id] = request;
+	}
+
 	const out: Message[] = [];
 	// A mapping to better handle tool call responses when they come in.
 	const toolCalls: Record<string, ToolCall> = {};
@@ -41,6 +50,7 @@ export function formatMessages(events: ClaudeMessage[]): Message[] {
 				type: 'user',
 				message: event.content.subject.message
 			});
+			lastAssistantMessage = undefined;
 		} else if (event.content.type === 'claudeOutput') {
 			const subject = event.content.subject;
 			// We've either triggered a tool call, or sent a message
@@ -50,7 +60,8 @@ export function formatMessages(events: ClaudeMessage[]): Message[] {
 					lastAssistantMessage = {
 						type: 'claude',
 						message: message.content[0]!.text,
-						toolCalls: []
+						toolCalls: [],
+						toolCallsPendingApproval: []
 					};
 					out.push(lastAssistantMessage);
 				} else if (message.content[0]!.type === 'tool_use') {
@@ -65,11 +76,18 @@ export function formatMessages(events: ClaudeMessage[]): Message[] {
 						lastAssistantMessage = {
 							type: 'claude',
 							message: '',
-							toolCalls: []
+							toolCalls: [],
+							toolCallsPendingApproval: []
 						};
 						out.push(lastAssistantMessage);
 					}
-					lastAssistantMessage.toolCalls.push(toolCall);
+
+					const permReq = permReqsById[toolCall.id];
+					if (permReq && !isDefined(permReq.approved)) {
+						lastAssistantMessage.toolCallsPendingApproval.push(toolCall);
+					} else {
+						lastAssistantMessage.toolCalls.push(toolCall);
+					}
 					toolCalls[toolCall.id] = toolCall;
 				}
 			} else if (subject.type === 'user') {

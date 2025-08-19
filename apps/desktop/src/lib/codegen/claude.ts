@@ -1,6 +1,10 @@
-import { type ClaudeMessage, type ClaudeSessionDetails } from '$lib/codegen/types';
+import {
+	type ClaudeMessage,
+	type ClaudePermissionRequest,
+	type ClaudeSessionDetails
+} from '$lib/codegen/types';
 import { hasBackendExtra } from '$lib/state/backendQuery';
-import { providesItem, ReduxTag } from '$lib/state/tags';
+import { invalidatesItem, providesItem, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/shared/context';
 import type { ClientState } from '$lib/state/clientState.svelte';
 
@@ -19,6 +23,14 @@ export class ClaudeCodeService {
 
 	get messages() {
 		return this.api.endpoints.getMessages.useQuery;
+	}
+
+	get permissionRequests() {
+		return this.api.endpoints.getPermissionRequests.useQuery;
+	}
+
+	get updatePermissionRequest() {
+		return this.api.endpoints.updatePermissionRequest.mutate;
 	}
 
 	sessionDetails(projectId: string, sessionId: string) {
@@ -79,6 +91,49 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					await lifecycleApi.cacheEntryRemoved;
 					unsubscribe();
 				}
+			}),
+			getPermissionRequests: build.query<ClaudePermissionRequest[], { projectId: string }>({
+				extraOptions: { command: 'claude_list_permission_requests' },
+				query: (args) => args,
+				providesTags: (_result, _error, args) => [
+					...providesItem(ReduxTag.ClaudePermissionRequests, args.projectId)
+				],
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Backend not found!');
+					}
+					const { listen, invoke } = lifecycleApi.extra.backend;
+					await lifecycleApi.cacheDataLoaded;
+					const unsubscribe = listen<unknown>(
+						`project://${arg.projectId}/claude-permission-requests`,
+						async (_) => {
+							const value = await invoke<ClaudePermissionRequest[]>(
+								'claude_list_permission_requests',
+								{ projectId: arg.projectId }
+							);
+							lifecycleApi.updateCachedData(() => value);
+						}
+					);
+					await lifecycleApi.cacheEntryRemoved;
+					unsubscribe();
+				}
+			}),
+			updatePermissionRequest: build.mutation<
+				undefined,
+				{
+					projectId: string;
+					requestId: string;
+					approval: boolean;
+				}
+			>({
+				extraOptions: {
+					command: 'claude_update_permission_request',
+					actionName: 'Update Permission Request'
+				},
+				query: (args) => args,
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.ClaudePermissionRequests, args.projectId)
+				]
 			})
 		})
 	});

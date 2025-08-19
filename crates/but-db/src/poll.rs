@@ -245,7 +245,11 @@ pub fn watch_in_background(
     send_event: impl Fn(ItemKind) -> anyhow::Result<()> + Send + Sync + 'static,
 ) -> anyhow::Result<DBWatcherHandle, anyhow::Error> {
     let mut rx = db.poll_changes_async(
-        ItemKind::Actions | ItemKind::Workflows | ItemKind::Assignments | ItemKind::Rules,
+        ItemKind::Actions
+            | ItemKind::Workflows
+            | ItemKind::Assignments
+            | ItemKind::Rules
+            | ItemKind::ClaudePermissionRequests,
         std::time::Duration::from_millis(500),
     )?;
 
