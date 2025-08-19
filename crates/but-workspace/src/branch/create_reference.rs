@@ -1,9 +1,9 @@
 use anyhow::Context;
 use std::borrow::Cow;
 
-/// For use in [`ReferenceAnchor`].
+/// For use in [`Anchor`].
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
-pub enum ReferencePosition {
+pub enum Position {
     /// The new dependent branch will appear above its anchor.
     Above,
     /// The new dependent branch will appear below its anchor.
@@ -33,7 +33,7 @@ impl<'a> From<&'a but_graph::projection::StackCommit> for MinimalCommit<'a> {
     }
 }
 
-impl ReferencePosition {
+impl Position {
     fn resolve_commit(
         &self,
         commit: MinimalCommit<'_>,
@@ -43,15 +43,13 @@ impl ReferencePosition {
             return Ok(commit.id);
         }
         Ok(match self {
-            ReferencePosition::Above => commit.id,
-            ReferencePosition::Below => {
-                commit.parent_ids.iter().cloned().next().with_context(|| {
-                    format!(
-                        "Commit {id} is the first in history and no branch can point below it",
-                        id = commit.id
-                    )
-                })?
-            }
+            Position::Above => commit.id,
+            Position::Below => commit.parent_ids.iter().cloned().next().with_context(|| {
+                format!(
+                    "Commit {id} is the first in history and no branch can point below it",
+                    id = commit.id
+                )
+            })?,
         })
     }
 }
@@ -63,7 +61,7 @@ impl ReferencePosition {
 /// go just by commit. We must be specifying it in terms of above/below ref-name when possible,
 /// or else they will always go on top.
 #[derive(Debug, Clone)]
-pub enum ReferenceAnchor<'a> {
+pub enum Anchor<'a> {
     /// Use a commit as position, which means we always need unambiguous placement
     /// without a way to stack references on top of other references - only on top
     /// of commits their segments may own.
@@ -72,7 +70,7 @@ pub enum ReferenceAnchor<'a> {
         commit_id: gix::ObjectId,
         /// `Above` means the reference will point at `commit_id`, `Below` means it points at its
         /// parent if possible.
-        position: ReferencePosition,
+        position: Position,
     },
     /// Use a segment as reference for positioning the new reference.
     /// Without a workspace, this is the same as saying 'the commit that the segment points to'.
@@ -83,22 +81,22 @@ pub enum ReferenceAnchor<'a> {
         /// if it points to the same commit.
         /// `Below` means the reference will be right below the segment with `ref_name` even
         /// if it points to the same commit.
-        position: ReferencePosition,
+        position: Position,
     },
 }
 
-impl<'a> ReferenceAnchor<'a> {
+impl<'a> Anchor<'a> {
     /// Create a new instance with an object ID as anchor.
-    pub fn at_id(commit_id: impl Into<gix::ObjectId>, position: ReferencePosition) -> Self {
-        ReferenceAnchor::AtCommit {
+    pub fn at_id(commit_id: impl Into<gix::ObjectId>, position: Position) -> Self {
+        Anchor::AtCommit {
             commit_id: commit_id.into(),
             position,
         }
     }
 
     /// Create a new instance with a segment name as anchor.
-    pub fn at_segment(ref_name: &'a gix::refs::FullNameRef, position: ReferencePosition) -> Self {
-        ReferenceAnchor::AtSegment {
+    pub fn at_segment(ref_name: &'a gix::refs::FullNameRef, position: Position) -> Self {
+        Anchor::AtSegment {
             ref_name: Cow::Borrowed(ref_name),
             position,
         }
@@ -108,7 +106,7 @@ impl<'a> ReferenceAnchor<'a> {
 pub(super) mod function {
     #![expect(clippy::indexing_slicing)]
 
-    use crate::branch::{ReferenceAnchor, ReferencePosition};
+    use crate::branch::create_reference::{Anchor, Position};
     use anyhow::{Context, bail};
     use but_core::ref_metadata::{StackId, WorkspaceStack, WorkspaceStackBranch};
     use but_core::{RefMetadata, ref_metadata};
@@ -130,7 +128,7 @@ pub(super) mod function {
     /// Return a regenerated Graph that contains the new reference, and from which a new workspace can be derived.
     pub fn create_reference<'name, T: RefMetadata>(
         ref_name: impl Borrow<gix::refs::FullNameRef>,
-        anchor: impl Into<Option<ReferenceAnchor<'name>>>,
+        anchor: impl Into<Option<Anchor<'name>>>,
         repo: &gix::Repository,
         workspace: &but_graph::projection::Workspace<'_>,
         meta: &mut T,
@@ -172,7 +170,7 @@ pub(super) mod function {
                         Some(Instruction::Independent),
                     )
                 }
-                Some(ReferenceAnchor::AtCommit {
+                Some(Anchor::AtCommit {
                     commit_id,
                     position,
                 }) => {
@@ -200,7 +198,7 @@ pub(super) mod function {
 
                     (validate_id, ref_target_id, instruction)
                 }
-                Some(ReferenceAnchor::AtSegment { ref_name, position }) => {
+                Some(Anchor::AtSegment { ref_name, position }) => {
                     let mut validate_id = true;
                     let ref_target_id = if workspace.has_metadata() {
                         let (stack_idx, seg_idx) = workspace
@@ -396,8 +394,8 @@ pub(super) mod function {
                 let branches = &mut ws_meta.stacks[stack_idx].branches;
                 branches.insert(
                     match position {
-                        ReferencePosition::Above => branch_idx,
-                        ReferencePosition::Below => branch_idx + 1,
+                        Position::Above => branch_idx,
+                        Position::Below => branch_idx + 1,
                     },
                     WorkspaceStackBranch {
                         ref_name: new_ref.to_owned(),
@@ -417,7 +415,7 @@ pub(super) mod function {
         ws: &but_graph::projection::Workspace<'_>,
         anchor_id: gix::ObjectId,
     ) -> anyhow::Result<Instruction<'static>> {
-        use ReferencePosition::*;
+        use Position::*;
         let (anchor_stack_idx, anchor_seg_idx, _anchor_commit_idx) = ws
             .find_owner_indexes_by_commit_id(anchor_id)
             .with_context(|| {
@@ -468,7 +466,7 @@ pub(super) mod function {
         DependentInStack(StackId),
         Dependent {
             ref_name: Cow<'a, gix::refs::FullNameRef>,
-            position: ReferencePosition,
+            position: Position,
         },
     }
 }

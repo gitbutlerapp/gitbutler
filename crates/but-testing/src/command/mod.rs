@@ -3,7 +3,7 @@ use but_core::UnifiedDiff;
 use but_db::poll::ItemKind;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
-use but_workspace::branch::{ReferenceAnchor, ReferencePosition};
+use but_workspace::branch::create_reference::{Anchor, Position};
 use but_workspace::{DiffSpec, HunkHeader};
 use gitbutler_project::{Project, ProjectId};
 use gix::bstr::{BString, ByteSlice};
@@ -601,22 +601,21 @@ pub fn create_reference(
 ) -> anyhow::Result<()> {
     let (repo, project, graph, mut meta) =
         repo_and_maybe_project_and_graph(args, RepositoryOpenMode::General)?;
-    let resolve =
-        |spec: &str, position: ReferencePosition| -> anyhow::Result<ReferenceAnchor<'_>> {
-            Ok(match repo.try_find_reference(spec)? {
-                None => ReferenceAnchor::AtCommit {
-                    commit_id: repo.rev_parse_single(spec)?.detach(),
-                    position,
-                },
-                Some(rn) => ReferenceAnchor::AtSegment {
-                    ref_name: Cow::Owned(rn.inner.name),
-                    position,
-                },
-            })
-        };
+    let resolve = |spec: &str, position: Position| -> anyhow::Result<Anchor<'_>> {
+        Ok(match repo.try_find_reference(spec)? {
+            None => Anchor::AtCommit {
+                commit_id: repo.rev_parse_single(spec)?.detach(),
+                position,
+            },
+            Some(rn) => Anchor::AtSegment {
+                ref_name: Cow::Owned(rn.inner.name),
+                position,
+            },
+        })
+    };
     let anchor = above
-        .map(|spec| resolve(spec, ReferencePosition::Above))
-        .or_else(|| below.map(|spec| resolve(spec, ReferencePosition::Below)))
+        .map(|spec| resolve(spec, Position::Above))
+        .or_else(|| below.map(|spec| resolve(spec, Position::Below)))
         .transpose()?;
 
     let new_ref = Category::LocalBranch.to_full_name(short_name)?;
