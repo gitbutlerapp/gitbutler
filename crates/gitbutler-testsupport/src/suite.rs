@@ -68,8 +68,6 @@ impl Suite {
             gitbutler_project::add_with_path(
                 self.local_app_data(),
                 repository.path().parent().unwrap(),
-                None,
-                None,
             )
             .expect("failed to add project"),
             tmp,
