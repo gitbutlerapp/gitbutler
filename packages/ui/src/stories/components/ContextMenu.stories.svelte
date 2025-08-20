@@ -2,6 +2,7 @@
 	import Button from '$components/Button.svelte';
 	import ContextMenu from '$components/ContextMenu.svelte';
 	import ContextMenuItem from '$components/ContextMenuItem.svelte';
+	import ContextMenuItemSubmenu from '$components/ContextMenuItemSubmenu.svelte';
 	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
@@ -198,6 +199,107 @@
 				<ContextMenuItem label="Item 13" onclick={() => console.log('Item 13')} />
 				<ContextMenuItem label="Item 14" onclick={() => console.log('Item 14')} />
 				<ContextMenuItem label="Item 15" onclick={() => console.log('Item 15')} />
+			</ContextMenuSection>
+		</ContextMenu>
+	{/snippet}
+</Story>
+
+<Story name="With Submenus">
+	{#snippet template(args)}
+		<div class="wrap">
+			<Button
+				kind="outline"
+				bind:el={contextTrigger}
+				onclick={() => {
+					contextMenu?.toggle();
+				}}>Context menu with submenus</Button
+			>
+		</div>
+
+		<ContextMenu bind:this={contextMenu} leftClickTrigger={contextTrigger} side="bottom" {...args}>
+			<ContextMenuSection title="Basic actions">
+				<ContextMenuItem label="Copy" onclick={() => console.log('Copy')} />
+				<ContextMenuItem label="Paste" onclick={() => console.log('Paste')} />
+				<ContextMenuItem label="Cut" onclick={() => console.log('Cut')} />
+			</ContextMenuSection>
+			<ContextMenuSection title="Advanced">
+				<ContextMenuItemSubmenu label="Format" icon="text-bold">
+					{#snippet submenu({ close })}
+						<ContextMenuSection>
+							<ContextMenuItem
+								label="Bold"
+								onclick={() => {
+									console.log('Bold');
+									close();
+								}}
+							/>
+							<ContextMenuItem
+								label="Italic"
+								onclick={() => {
+									console.log('Italic');
+									close();
+								}}
+							/>
+							<ContextMenuItem
+								label="Underline"
+								onclick={() => {
+									console.log('Underline');
+									close();
+								}}
+							/>
+						</ContextMenuSection>
+						<ContextMenuSection title="Alignment">
+							<ContextMenuItem
+								label="Left"
+								onclick={() => {
+									console.log('Left');
+									close();
+								}}
+							/>
+							<ContextMenuItem
+								label="Center"
+								onclick={() => {
+									console.log('Center');
+									close();
+								}}
+							/>
+							<ContextMenuItem
+								label="Right"
+								onclick={() => {
+									console.log('Right');
+									close();
+								}}
+							/>
+						</ContextMenuSection>
+					{/snippet}
+				</ContextMenuItemSubmenu>
+				<ContextMenuItemSubmenu label="Insert" icon="plus">
+					{#snippet submenu({ close })}
+						<ContextMenuSection>
+							<ContextMenuItem
+								label="Image"
+								onclick={() => {
+									console.log('Image');
+									close();
+								}}
+							/>
+							<ContextMenuItem
+								label="Link"
+								onclick={() => {
+									console.log('Link');
+									close();
+								}}
+							/>
+							<ContextMenuItem
+								label="Table"
+								onclick={() => {
+									console.log('Table');
+									close();
+								}}
+							/>
+						</ContextMenuSection>
+					{/snippet}
+				</ContextMenuItemSubmenu>
 			</ContextMenuSection>
 		</ContextMenu>
 	{/snippet}

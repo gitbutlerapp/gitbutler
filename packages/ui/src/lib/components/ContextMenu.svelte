@@ -2,7 +2,11 @@
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import { focusTrap } from '$lib/utils/focusTrap';
 	import { portal } from '$lib/utils/portal';
+	import { setContext } from 'svelte';
 	import { type Snippet } from 'svelte';
+
+	// Context key for submenu coordination
+	const SUBMENU_CONTEXT_KEY = 'contextmenu-submenu-coordination';
 
 	// Constants
 	const POSITIONING = {
@@ -25,6 +29,7 @@
 		onclick?: () => void;
 		onkeypress?: () => void;
 		menu?: Snippet<[{ close: () => void }]>;
+		offset?: number;
 	}
 
 	type HorizontalProps<T = any> = BaseProps<T> & {
@@ -54,7 +59,8 @@
 		ontoggle,
 		onclick,
 		onkeypress,
-		menu
+		menu,
+		offset = 0
 	}: Props<T> = $props();
 
 	let menuContainer: HTMLElement | undefined = $state();
@@ -73,13 +79,29 @@
 	// Store the original/default side value to fall back to when there's no space in either direction
 	let originalSide = side;
 
+	// Set up submenu coordination context
+	const openSubmenus = new Set<() => void>();
+	const submenuCoordination = {
+		closeAll: () => {
+			openSubmenus.forEach((close) => close());
+		},
+		register: (closeCallback: () => void) => {
+			openSubmenus.add(closeCallback);
+			return () => openSubmenus.delete(closeCallback);
+		}
+	};
+
+	setContext(SUBMENU_CONTEXT_KEY, submenuCoordination);
+
 	function calculateVerticalPosition(targetBoundingRect: DOMRect): number {
 		// For horizontal sides (top/bottom)
 		if (calculatedSide === 'top' || calculatedSide === 'bottom') {
 			if (calculatedSide === 'top') {
-				return targetBoundingRect.top > 0 ? targetBoundingRect.top - contextMenuHeight : 0;
+				return targetBoundingRect.top > 0 ? targetBoundingRect.top - contextMenuHeight - offset : 0;
 			}
-			return targetBoundingRect.top > 0 ? targetBoundingRect.top + targetBoundingRect.height : 0;
+			return targetBoundingRect.top > 0
+				? targetBoundingRect.top + targetBoundingRect.height + offset
+				: 0;
 		}
 
 		// For vertical sides (left/right)
@@ -106,10 +128,10 @@
 
 		// For vertical sides (left/right)
 		if (calculatedSide === 'left') {
-			return targetBoundingRect.x - contextMenuWidth - POSITIONING.PADDING * 2;
+			return targetBoundingRect.x - contextMenuWidth - POSITIONING.PADDING * 2 - offset;
 		}
 		if (calculatedSide === 'right') {
-			return targetBoundingRect.right + POSITIONING.PADDING;
+			return targetBoundingRect.right + POSITIONING.PADDING + offset;
 		}
 
 		return POSITIONING.PADDING;

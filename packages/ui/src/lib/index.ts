@@ -10,6 +10,7 @@ export {
 } from '$components/CommitStatusBadge.svelte';
 export { default as ContextMenu } from '$components/ContextMenu.svelte';
 export { default as ContextMenuItem } from '$components/ContextMenuItem.svelte';
+export { default as ContextMenuItemSubmenu } from '$components/ContextMenuItemSubmenu.svelte';
 export { default as ContextMenuSection } from '$components/ContextMenuSection.svelte';
 export { default as DropdownButton } from '$components/DropdownButton.svelte';
 export { default as EditorLogo } from '$components/EditorLogo.svelte';

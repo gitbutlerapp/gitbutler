@@ -2,8 +2,12 @@
 	import Icon from '$components/Icon.svelte';
 	import Tooltip from '$components/Tooltip.svelte';
 	import { keysStringToArr } from '$lib/utils/hotkeys';
+	import { getContext } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
+
+	// Context key for submenu coordination
+	const SUBMENU_CONTEXT_KEY = 'contextmenu-submenu-coordination';
 
 	interface Props {
 		icon?: keyof typeof iconsJson | undefined;
@@ -18,6 +22,18 @@
 
 	const { onclick, icon, label, disabled, control, keyboardShortcut, testId, tooltip }: Props =
 		$props();
+
+	// Get submenu coordination context if available
+	const submenuCoordination:
+		| {
+				closeAll: () => void;
+		  }
+		| undefined = getContext(SUBMENU_CONTEXT_KEY);
+
+	function handleMouseEnter() {
+		// Close any open submenus when hovering over a regular menu item
+		submenuCoordination?.closeAll();
+	}
 </script>
 
 {#snippet button()}
@@ -28,6 +44,7 @@
 		class:disabled
 		{disabled}
 		{onclick}
+		onmouseenter={handleMouseEnter}
 	>
 		{#if icon}
 			<div class="menu-item__icon">
