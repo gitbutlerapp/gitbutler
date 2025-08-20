@@ -12,6 +12,9 @@ pub trait RepositoryExt {
     fn set_git_settings(&self, config: &GitConfigSettings) -> anyhow::Result<()>;
     /// Return all signatures that would be needed to perform a commit as configured in Git: `(author, committer)`.
     fn commit_signatures(&self) -> anyhow::Result<(gix::actor::Signature, gix::actor::Signature)>;
+    /// Get commit signatures with fallback to GitButler signatures when no author is configured.
+    /// This allows commits to be created without requiring dummy values to be persisted to git configuration.
+    fn commit_signatures_with_fallback(&self) -> anyhow::Result<(gix::actor::Signature, gix::actor::Signature)>;
     /// Return labels that would be written into the conflict markers when merging blobs.
     fn default_merge_labels(&self) -> gix::merge::blob::builtin_driver::text::Labels<'static>;
     /// Cherry-pick the changes in the tree of `to_rebase_commit_id` onto `new_base_commit_id`.
@@ -98,6 +101,35 @@ impl RepositoryExt for gix::Repository {
         Ok((author.into(), committer))
     }
 
+    /// Get commit signatures for creating commits, providing fallback GitButler signatures when no author is configured.
+    /// This ensures commits can be created even when no git author is configured, rather than requiring dummy values
+    /// to be persisted to local git configuration.
+    fn commit_signatures_with_fallback(&self) -> anyhow::Result<(gix::actor::Signature, gix::actor::Signature)> {
+        let repo = gix::open(self.path())?;
+
+        // Try to get configured author, but fallback to GitButler signature if none configured
+        let author = repo
+            .author()
+            .transpose()?
+            .map(|sig| sig.into())
+            .unwrap_or_else(fallback_author_signature);
+
+        let commit_as_gitbutler = self
+            .config_snapshot()
+            .boolean("gitbutler.gitbutlerCommitter")
+            .unwrap_or_default();
+        let committer = if commit_as_gitbutler {
+            committer_signature()
+        } else {
+            repo.committer()
+                .transpose()?
+                .and_then(|s| s.to_owned().ok())
+                .unwrap_or_else(committer_signature)
+        };
+
+        Ok((author, committer))
+    }
+
     fn git_settings(&self) -> anyhow::Result<GitConfigSettings> {
         // TODO: Make it easy to load the latest configuration in `gix`.
         // Re-open just the local configuration to be sure it's fresh before writing it.
@@ -120,6 +152,15 @@ fn committer_signature() -> gix::actor::Signature {
         name: GITBUTLER_COMMIT_AUTHOR_NAME.into(),
         email: GITBUTLER_COMMIT_AUTHOR_EMAIL.into(),
         time: commit_time("GIT_COMMITTER_DATE"),
+    }
+}
+
+/// Provide a fallback author signature with GitButler identity when no author is configured.
+fn fallback_author_signature() -> gix::actor::Signature {
+    gix::actor::Signature {
+        name: GITBUTLER_COMMIT_AUTHOR_NAME.into(),
+        email: GITBUTLER_COMMIT_AUTHOR_EMAIL.into(),
+        time: commit_time("GIT_AUTHOR_DATE"),
     }
 }
 
