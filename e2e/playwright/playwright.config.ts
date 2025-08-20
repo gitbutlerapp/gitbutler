@@ -12,9 +12,7 @@ import path from 'node:path';
 const BUT_SERVER_PORT = process.env.BUTLER_PORT || '6978';
 const DESKTOP_PORT = process.env.DESKTOP_PORT || '3000';
 
-const RUN_FE_SERVER_COMMAND = process.env.CI
-	? `pnpm start:desktop --port ${DESKTOP_PORT}`
-	: `pnpm --filter @gitbutler/desktop dev --port ${DESKTOP_PORT}`;
+const AMOUNT_OF_WORKERS = 2;
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -28,7 +26,7 @@ export default defineConfig({
 	/* Retry on CI only */
 	retries: process.env.CI ? 2 : 0,
 	/* Opt out of parallel tests on CI. */
-	workers: process.env.CI ? 1 : undefined,
+	workers: process.env.CI ? AMOUNT_OF_WORKERS : undefined,
 	/* Reporter to use. See https://playwright.dev/docs/test-reporters */
 	reporter: process.env.CI ? 'github' : 'list',
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -80,18 +78,62 @@ export default defineConfig({
 	],
 
 	/* Run your local dev server before starting the tests */
-	webServer: [
-		{
-			cwd: path.resolve(import.meta.dirname, '../..'),
-			command: RUN_FE_SERVER_COMMAND,
-			url: `http://localhost:${DESKTOP_PORT}`,
-			env: {
-				VITE_BUTLER_PORT: BUT_SERVER_PORT,
-				VITE_BUTLER_HOST: 'localhost',
-				VITE_BUILD_TARGET: 'web'
-			},
-			reuseExistingServer: !process.env.CI,
-			stdout: 'pipe'
-		}
-	]
+	webServer: webServers()
 });
+
+/**
+ * Command to start the frontend server.
+ * @param desktopPort - Optional port for the desktop application.
+ */
+function feServerCommand(desktopPort?: number) {
+	const port = desktopPort ?? DESKTOP_PORT;
+	return process.env.CI
+		? `pnpm start:desktop --port ${port}`
+		: `pnpm --filter @gitbutler/desktop dev --port ${port}`;
+}
+
+/**
+ * Returns the Frontend server configuration for the playwright tests.
+ *
+ * If running locally, this returns a single server configuration what starts the dev server
+ * on the default port.
+ *
+ * If running on CI, this returns multiple server configurations, one for each worker.
+ * Each worker will start the dev server on a different port, so that they can run in parallel.
+ */
+function webServers() {
+	const baseConfig = {
+		cwd: path.resolve(import.meta.dirname, '../..'),
+		command: feServerCommand(),
+		url: `http://localhost:${DESKTOP_PORT}`,
+		env: {
+			VITE_BUTLER_PORT: BUT_SERVER_PORT,
+			VITE_BUTLER_HOST: 'localhost',
+			VITE_BUILD_TARGET: 'web'
+		},
+		reuseExistingServer: !process.env.CI,
+		stdout: 'pipe'
+	} as const;
+
+	if (!process.env.CI) {
+		return [baseConfig];
+	}
+
+	const feServerConfigs = [];
+	for (let i = 0; i < AMOUNT_OF_WORKERS; i++) {
+		const butServerPort = parseInt(BUT_SERVER_PORT, 10) + i;
+		const desktopPort = parseInt(DESKTOP_PORT, 10) + i;
+
+		feServerConfigs.push({
+			...baseConfig,
+			command: feServerCommand(desktopPort),
+			url: `http://localhost:${desktopPort}`,
+			env: {
+				...baseConfig.env,
+				VITE_BUTLER_PORT: `${butServerPort}`
+			}
+		} as const);
+	}
+
+	return feServerConfigs;
+}
