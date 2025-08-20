@@ -1,4 +1,5 @@
 export enum TestId {
+	WorkspaceView = 'workspace-view',
 	NavigationWorkspaceButton = 'navigation-workspace-button',
 	NavigationBranchesButton = 'navigation-branches-button',
 	BranchNameLabel = 'branch-name-label',
