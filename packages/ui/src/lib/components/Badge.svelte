@@ -41,10 +41,8 @@
 		{onclick}
 	>
 		{#if children}
-			<span
-				class="badge__label text-bold"
-				class:text-10={size === 'icon'}
-				class:text-11={size === 'tag'}>{@render children()}</span
+			<span class="badge__label {size === 'icon' ? 'text-10' : 'text-11'} text-semibold"
+				>{@render children()}</span
 			>
 		{/if}
 		{#if icon}
@@ -131,30 +129,74 @@
 		&.icon-size {
 			min-width: var(--size-icon);
 			height: var(--size-icon);
-			padding: 0 2px;
 			gap: 1px;
+
+			& .badge__label {
+				padding: 0 2px 0 5px;
+			}
+
+			/* When no icon, use equal padding */
+			&:not(:has(.badge__icon)) .badge__label {
+				padding: 0 5px;
+			}
 		}
 
 		&.tag-size {
 			min-width: var(--size-tag);
 			height: var(--size-tag);
-			padding: 0 4px;
 			gap: 2px;
+
+			& .badge__label {
+				padding: 0 2px 0 8px;
+			}
+
+			& .badge__icon {
+				padding-right: 4px;
+				padding-left: 0;
+			}
+
+			/* When no icon, use equal padding */
+			&:not(:has(.badge__icon)) .badge__label {
+				padding: 0 8px;
+			}
 		}
 
 		/* REVERSED DIRECTION */
 		&.reversedDirection {
 			flex-direction: row-reverse;
+
+			&.icon-size .badge__label {
+				padding: 0 5px 0 2px;
+			}
+
+			&.tag-size .badge__label {
+				padding: 0 8px 0 2px;
+			}
+
+			&.tag-size .badge__icon {
+				padding-right: 0;
+				padding-left: 4px;
+			}
+
+			/* When reversed and no icon, padding stays equal */
+			&.icon-size:not(:has(.badge__icon)) .badge__label {
+				padding: 0 5px;
+			}
+
+			&.tag-size:not(:has(.badge__icon)) .badge__label {
+				padding: 0 8px;
+			}
 		}
 	}
 
 	.badge__label {
 		display: flex;
-		padding: 0 2px;
+		line-height: 1;
 		white-space: nowrap;
 	}
 
 	.badge__icon {
+		display: flex;
 		opacity: 0.7;
 	}
 </style>

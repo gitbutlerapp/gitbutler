@@ -148,8 +148,6 @@
 		{#each mutableStacks as stack, i (stack.id)}
 			<!-- TODO: What fallback id should we use? -->
 			{@const laneId = stack.id || 'fallback-id'}
-			{@const laneState = uiState.lane(laneId)}
-			{@const selection = laneState.selection}
 			<div
 				class="reorderable-stack"
 				role="presentation"
@@ -159,7 +157,6 @@
 					if (!stack.id) return;
 					onReorderStart(e, stack.id, () => {
 						draggingStack = true;
-						selection.set(undefined);
 						intelligentScrollingService.show(projectId, laneId, 'stack');
 					});
 				}}
