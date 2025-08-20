@@ -111,6 +111,7 @@ export function formatMessages(
 			const subject = event.content.subject;
 			if (subject.type === 'claudeExit' || subject.type === 'userAbort') {
 				for (const toolCall of Object.values(toolCalls)) {
+					if (toolCall.result) continue;
 					toolCall.result = 'Tool call aborted due to claude exit';
 				}
 				toolCalls = {};
