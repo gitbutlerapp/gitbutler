@@ -63,8 +63,6 @@ impl Controller {
     pub(crate) fn add<P: AsRef<Path>>(
         &self,
         path: P,
-        _name: Option<String>,
-        _email: Option<String>,
     ) -> Result<Project> {
         let path = path.as_ref();
         let all_projects = self
@@ -129,11 +127,6 @@ impl Controller {
         if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
             tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project add", project.gb_dir());
         }
-
-        // Note: We no longer automatically set dummy git user configuration.
-        // Instead, we let the application handle missing author information
-        // dynamically when needed, allowing the UI to guide users to configure
-        // their git identity properly.
 
         Ok(project)
     }

@@ -10,7 +10,7 @@ fn twice() {
 
     {
         let project =
-            gitbutler_project::add_with_path(data_dir.path(), test_project.path(), None, None)
+            gitbutler_project::add_with_path(data_dir.path(), test_project.path())
                 .expect("failed to add project");
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
 
@@ -28,7 +28,7 @@ fn twice() {
 
     {
         let project =
-            gitbutler_project::add_with_path(data_dir.path(), test_project.path(), None, None)
+            gitbutler_project::add_with_path(data_dir.path(), test_project.path())
                 .unwrap();
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
         gitbutler_branch_actions::set_base_branch(

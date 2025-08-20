@@ -241,8 +241,6 @@ pub mod read_only {
             gitbutler_project::add_with_path(
                 tmp.path(),
                 project_worktree_dir.as_path(),
-                None,
-                None,
             )?
         } else {
             Project {

@@ -62,22 +62,18 @@ pub fn update_with_path<P: AsRef<Path>>(
 
 pub fn add<P: AsRef<Path>>(
     path: P,
-    name: Option<String>,
-    email: Option<String>,
 ) -> anyhow::Result<Project> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
-    controller.add(path, name, email)
+    controller.add(path)
 }
 
 /// Testing purpose only.
 pub fn add_with_path<P: AsRef<Path>>(
     data_dir: P,
     path: P,
-    name: Option<String>,
-    email: Option<String>,
 ) -> anyhow::Result<Project> {
     let controller = Controller::from_path(data_dir.as_ref());
-    controller.add(path, name, email)
+    controller.add(path)
 }
 
 pub fn list() -> anyhow::Result<Vec<Project>> {
