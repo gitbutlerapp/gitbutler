@@ -40,6 +40,20 @@ pub fn add_project(
 
 #[tauri::command(async)]
 #[instrument(skip(app), err(Debug))]
+pub fn add_project_with_trust(
+    app: State<'_, but_api::App>,
+    path: &path::Path,
+) -> Result<gitbutler_project::Project, Error> {
+    projects::add_project_with_trust(
+        &app,
+        AddProjectParams {
+            path: path.to_path_buf(),
+        },
+    )
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
 pub fn get_project(
     app: State<'_, but_api::App>,
     project_id: ProjectId,

@@ -216,6 +216,7 @@ fn main() {
                     users::delete_user,
                     users::get_user,
                     projects::add_project,
+                    projects::add_project_with_trust,
                     projects::get_project,
                     projects::update_project,
                     projects::delete_project,
