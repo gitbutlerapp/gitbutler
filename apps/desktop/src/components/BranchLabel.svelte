@@ -8,6 +8,7 @@
 		name: string;
 		disabled?: boolean;
 		readonly?: boolean;
+		error?: boolean;
 		fontSize?: '14' | '15';
 		allowClear?: boolean;
 		onChange?: (value: string) => void;
@@ -20,6 +21,7 @@
 		fontSize = '14',
 		readonly = false,
 		allowClear,
+		error,
 		onChange,
 		onDblClick
 	}: Props = $props();
@@ -88,6 +90,12 @@
 		const target = e.currentTarget as HTMLInputElement;
 		currentValue = target.value;
 	}
+
+	$effect(() => {
+		if (error) {
+			currentValue = name;
+		}
+	});
 </script>
 
 <!-- Hidden element for measuring text width -->

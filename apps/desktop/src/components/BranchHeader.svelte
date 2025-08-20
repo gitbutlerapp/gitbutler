@@ -22,6 +22,7 @@
 		onclick?: () => void;
 		updateBranchName: (name: string) => void;
 		isUpdatingName: boolean;
+		failedMisserablyToUpdateBranchName: boolean;
 		emptyState?: Snippet;
 		content?: Snippet;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
@@ -36,6 +37,7 @@
 		active,
 		isCommitting,
 		isUpdatingName,
+		failedMisserablyToUpdateBranchName,
 		readonly,
 		isPushed,
 		lineColor,
@@ -83,6 +85,7 @@
 					name={branchName}
 					fontSize="15"
 					disabled={isUpdatingName}
+					error={failedMisserablyToUpdateBranchName}
 					readonly={readonly || isPushed}
 					onChange={(name) => updateBranchName(name)}
 				/>

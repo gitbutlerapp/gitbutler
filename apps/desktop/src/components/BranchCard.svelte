@@ -165,6 +165,7 @@
 				iconName={args.iconName}
 				{updateBranchName}
 				isUpdatingName={nameUpdate.current.isLoading}
+				failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
 				{active}
 				{readonly}
 				{isPushed}
@@ -239,6 +240,7 @@
 			iconName={args.iconName}
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
+			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
 			{active}
 			readonly
 			{isPushed}
@@ -266,6 +268,7 @@
 			iconName="branch-remote"
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
+			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
 			{active}
 			readonly
 			isPushed
@@ -288,6 +291,7 @@
 			iconName="branch-local"
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
+			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
 			{active}
 			readonly={false}
 			isPushed={false}
