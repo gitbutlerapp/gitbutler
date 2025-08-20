@@ -113,65 +113,7 @@
 </Story>
 
 <!-- eslint-disable no-console -->
-<Story name="Scrollable menu (many items)">
-	{#snippet template(args)}
-		<div class="wrap">
-			<Button
-				kind="outline"
-				bind:el={contextTrigger}
-				onclick={() => {
-					contextMenu?.toggle();
-				}}>Long context menu</Button
-			>
-		</div>
-
-		<ContextMenu bind:this={contextMenu} leftClickTrigger={contextTrigger} {...args}>
-			<ContextMenuSection title="File operations">
-				<ContextMenuItem label="New file" onclick={() => console.log('New file')} />
-				<ContextMenuItem label="Open file" onclick={() => console.log('Open file')} />
-				<ContextMenuItem label="Save file" onclick={() => console.log('Save file')} />
-				<ContextMenuItem label="Save as..." onclick={() => console.log('Save as')} />
-				<ContextMenuItem label="Close file" onclick={() => console.log('Close file')} />
-			</ContextMenuSection>
-			<ContextMenuSection title="Edit operations">
-				<ContextMenuItem label="Cut" onclick={() => console.log('Cut')} />
-				<ContextMenuItem label="Copy" onclick={() => console.log('Copy')} />
-				<ContextMenuItem label="Paste" onclick={() => console.log('Paste')} />
-				<ContextMenuItem label="Select all" onclick={() => console.log('Select all')} />
-				<ContextMenuItem label="Find" onclick={() => console.log('Find')} />
-				<ContextMenuItem label="Replace" onclick={() => console.log('Replace')} />
-			</ContextMenuSection>
-			<ContextMenuSection title="Git operations">
-				<ContextMenuItem label="Commit" onclick={() => console.log('Commit')} />
-				<ContextMenuItem label="Commit and push" onclick={() => console.log('Commit and push')} />
-				<ContextMenuItem label="Amend commit" onclick={() => console.log('Amend commit')} />
-				<ContextMenuItem label="Revert changes" onclick={() => console.log('Revert changes')} />
-				<ContextMenuItem label="Stash changes" onclick={() => console.log('Stash changes')} />
-				<ContextMenuItem label="Create branch" onclick={() => console.log('Create branch')} />
-				<ContextMenuItem label="Merge branch" onclick={() => console.log('Merge branch')} />
-				<ContextMenuItem label="Rebase" onclick={() => console.log('Rebase')} />
-			</ContextMenuSection>
-			<ContextMenuSection title="More actions">
-				<ContextMenuItem label="Format code" onclick={() => console.log('Format code')} />
-				<ContextMenuItem label="Run tests" onclick={() => console.log('Run tests')} />
-				<ContextMenuItem label="Build project" onclick={() => console.log('Build project')} />
-				<ContextMenuItem label="Deploy" onclick={() => console.log('Deploy')} />
-				<ContextMenuItem label="Settings" onclick={() => console.log('Settings')} />
-			</ContextMenuSection>
-			<ContextMenuSection title="Danger zone">
-				<ContextMenuItem label="Delete file" onclick={() => console.log('Delete file')} />
-				<ContextMenuItem label="Reset hard" onclick={() => console.log('Reset hard')} />
-				<ContextMenuItem
-					label="Delete repository"
-					onclick={() => console.log('Delete repository')}
-				/>
-			</ContextMenuSection>
-		</ContextMenu>
-	{/snippet}
-</Story>
-
-<!-- eslint-disable no-console -->
-<Story name="Right-click scrollable menu">
+<Story name="Right-click">
 	{#snippet template(args)}
 		<div class="wrap">
 			<Button

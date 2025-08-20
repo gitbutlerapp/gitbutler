@@ -76,7 +76,7 @@
 		{/if}
 
 		{#if fileStatus}
-			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style="full-large" />
+			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style="full" />
 		{/if}
 
 		{#if conflicted}
@@ -125,7 +125,7 @@
 	.file-header__statuses {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: 6px;
 	}
 
 	.file-header__name {
