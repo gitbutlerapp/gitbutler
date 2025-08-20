@@ -29,7 +29,7 @@
 		"test": {
 			"dependsOn": ["package", "playwright:install"]
 		},
-		"test:e2e:web": {
+		"test:e2e:playwright": {
 			"env": ["PLAYWRIGHT_BROWSERS_PATH"],
 			"dependsOn": ["package"]
 		},

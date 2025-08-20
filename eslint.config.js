@@ -69,6 +69,7 @@ export default ts.config(
 						// Define monorepo paths as internal
 						{ pattern: 'apps/**', group: 'internal' },
 						{ pattern: 'packages/**', group: 'internal' },
+						{ pattern: 'e2e/**', group: 'internal' },
 						// Add SvelteKit paths
 						{ pattern: '$lib/**', group: 'internal' },
 						{ pattern: '$components/**', group: 'internal' },

@@ -16,6 +16,12 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      DESKTOP_PORT: 3000
+      BUTLER_PORT: 6978
+      VITE_BUTLER_PORT: 6978
+      VITE_BUTLER_HOST: 'localhost'
+      VITE_BUILD_TARGET: 'web'
     steps:
       - uses: actions/checkout@v5
         if: ${{ github.event_name != 'workflow_dispatch' }}
@@ -23,9 +29,37 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
           ref: ${{ github.event.inputs.sha }}
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.0
+        with:
+          shared-key: unix-rust-testing-v2
+      - run: |
+          sudo apt update
+          sudo apt install libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            cmake
+      - name: Setup rust-toolchain stable
+        id: rust-toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cargo-${{ steps.rust-toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
-
       - id: get_playwright_version
         uses: eviden-actions/get-playwright-version@v1
       - name: Cache playwright binaries
@@ -36,13 +70,18 @@ jobs:
             ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
       - if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: cd apps/web && pnpm exec playwright install --with-deps
-
+        run: cd e2e && pnpm exec playwright install --with-deps
+      - name: Build but-server
+        run: cargo build -p but-server
+      - name: Build SvelteKit
+        run: pnpm build:desktop
       - name: Run Playwright tests
-        run: pnpm exec turbo run test:e2e:web
+        run: pnpm exec turbo run test:e2e:playwright
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
-          path: playwright-report/
+          path: |
+            ${{ github.workspace }}/e2e/playwright-report/
+            ${{ github.workspace }}/e2e/test-results/
           retention-days: 30
