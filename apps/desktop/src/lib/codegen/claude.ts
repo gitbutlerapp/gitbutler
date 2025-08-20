@@ -33,6 +33,10 @@ export class ClaudeCodeService {
 		return this.api.endpoints.updatePermissionRequest.mutate;
 	}
 
+	get cancelSession() {
+		return this.api.endpoints.cancelSession.mutate;
+	}
+
 	sessionDetails(projectId: string, sessionId: string) {
 		return this.api.endpoints.getSessionDetails.useQuery({
 			projectId,
@@ -134,6 +138,19 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.ClaudePermissionRequests, args.projectId)
 				]
+			}),
+			cancelSession: build.mutation<
+				boolean,
+				{
+					projectId: string;
+					stackId: string;
+				}
+			>({
+				extraOptions: {
+					command: 'claude_cancel_session',
+					actionName: 'Cancel Session'
+				},
+				query: (args) => args
 			})
 		})
 	});

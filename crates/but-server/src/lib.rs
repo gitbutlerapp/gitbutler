@@ -449,6 +449,16 @@ async fn handle_command(
             request.params,
             claude::claude_update_permission_request,
         ),
+        "claude_cancel_session" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = claude::claude_cancel_session(&app, params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
 
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
     };

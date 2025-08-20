@@ -26,12 +26,15 @@
 			{#if bubble}
 				<div class="message-user-bubble">
 					<Markdown {content} />
+					{#if extraContent}
+						{@render extraContent()}
+					{/if}
 				</div>
 			{:else}
 				<Markdown {content} />
 			{/if}
 		{/if}
-		{#if extraContent}
+		{#if extraContent && !bubble}
 			{@render extraContent()}
 		{/if}
 	</div>

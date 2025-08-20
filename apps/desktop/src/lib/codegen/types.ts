@@ -104,6 +104,23 @@ export type ClaudeMessageContent =
 	| {
 			type: 'userInput';
 			subject: { message: string };
+	  }
+	| {
+			type: 'gitButlerMessage';
+			subject: GitButlerMessage;
+	  };
+
+export type GitButlerMessage =
+	| {
+			type: 'claudeExit';
+			subject: {
+				code: number;
+				message: string;
+			};
+	  }
+	| {
+			type: 'userAbort';
+			subject: undefined;
 	  };
 
 /**

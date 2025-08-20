@@ -1,11 +1,13 @@
 <script lang="ts">
 	import CodegenMessage from '$components/codegen/CodegenMessage.svelte';
+	import { AsyncButton } from '@gitbutler/ui';
 
 	type Props = {
 		lastUserMessageSent: Date;
+		onAbort: () => Promise<void>;
 	};
 
-	const { lastUserMessageSent }: Props = $props();
+	const { lastUserMessageSent, onAbort }: Props = $props();
 
 	const words = [
 		'contemplating',
@@ -93,4 +95,8 @@
 	});
 </script>
 
-<CodegenMessage content="Claude is {currentWord}... {currentDuration}" side="left" bubble />
+<CodegenMessage content="Claude is {currentWord}... {currentDuration}" side="left" bubble>
+	{#snippet extraContent()}
+		<AsyncButton kind="outline" action={onAbort}>Abort</AsyncButton>
+	{/snippet}
+</CodegenMessage>

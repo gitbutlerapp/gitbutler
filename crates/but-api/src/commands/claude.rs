@@ -107,3 +107,15 @@ pub fn claude_update_permission_request(
         params.approval,
     )?)
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelSessionParams {
+    pub project_id: ProjectId,
+    pub stack_id: StackId,
+}
+
+pub async fn claude_cancel_session(app: &App, params: CancelSessionParams) -> Result<bool, Error> {
+    let cancelled = app.claudes.cancel_session(params.stack_id).await?;
+    Ok(cancelled)
+}

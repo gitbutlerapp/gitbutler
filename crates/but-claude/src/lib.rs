@@ -47,6 +47,8 @@ pub enum ClaudeMessageContent {
     ClaudeOutput(serde_json::Value),
     /// Inserted via  GitButler (what the user typed)
     UserInput(UserInput),
+    /// Metadata provided by GitButler around the Claude Code statuts
+    GitButlerMessage(GitButlerMessage),
 }
 
 /// Represents user input in a Claude session.
@@ -55,6 +57,16 @@ pub enum ClaudeMessageContent {
 pub struct UserInput {
     /// The user message
     pub message: String,
+}
+
+/// Metadata provided by GitButler.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum GitButlerMessage {
+    /// Claude code has exited naturally.
+    ClaudeExit { code: i32, message: String },
+    /// Claude code has exited due to a user abortion.
+    UserAbort,
 }
 
 /// Details about a Claude session, extracted from the Claude transcript.
