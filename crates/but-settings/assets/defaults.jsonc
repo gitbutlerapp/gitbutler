@@ -42,5 +42,10 @@
 	"fetch": {
 	  // The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching.
 		"autoFetchIntervalMinutes": 15
+	},
+	// Settings related to Claude Code.
+	"claude": {
+		// Path to the Claude Code executable. Defaults to "claude" if not set.
+		"executable": "claude"
 	}
 }

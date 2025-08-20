@@ -22,6 +22,13 @@ pub struct FeatureFlagsUpdate {
     pub single_branch: Option<bool>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+/// Update request for [`crate::app_settings::Claude`].
+pub struct ClaudeUpdate {
+    pub executable: Option<String>,
+}
+
 /// Mutation, immediately followed by writing everything to disk.
 impl AppSettingsWithDiskSync {
     pub fn update_onboarding_complete(&self, update: bool) -> Result<()> {
@@ -75,6 +82,14 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(single_branch) = single_branch {
             settings.feature_flags.single_branch = single_branch;
+        }
+        settings.save()
+    }
+
+    pub fn update_claude(&self, update: ClaudeUpdate) -> Result<()> {
+        let mut settings = self.get_mut_enforce_save()?;
+        if let Some(executable) = update.executable {
+            settings.claude.executable = executable;
         }
         settings.save()
     }

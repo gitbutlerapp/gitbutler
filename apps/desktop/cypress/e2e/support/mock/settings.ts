@@ -21,5 +21,8 @@ export const MOCK_APP_SETTINGS: AppSettings = {
 	featureFlags: MOCK_FEATURE_FLAGS,
 	fetch: {
 		autoFetchIntervalMinutes: 15
+	},
+	claude: {
+		executable: 'claude'
 	}
 };

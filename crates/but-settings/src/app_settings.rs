@@ -68,3 +68,10 @@ pub struct Fetch {
     /// The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching.
     pub auto_fetch_interval_minutes: isize,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Claude {
+    /// Path to the Claude Code executable. Defaults to "claude" if not set.
+    pub executable: String,
+}

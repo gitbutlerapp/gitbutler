@@ -106,3 +106,9 @@ pub async fn claude_cancel_session(
     )
     .await
 }
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub async fn claude_check_available(app: State<'_, App>) -> Result<bool, Error> {
+    claude::claude_check_available(&app, but_api::NoParams {}).await
+}
