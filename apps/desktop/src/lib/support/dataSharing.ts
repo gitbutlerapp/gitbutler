@@ -16,6 +16,9 @@ export default class DataSharingService {
 	async projectData(projectId: string) {
 		return await this.api.endpoints.projectData.fetch({ projectId }, { forceRefetch: true });
 	}
+	async graphFile(projectId: string) {
+		return await this.api.endpoints.graphFile.fetch({ projectId }, { forceRefetch: true });
+	}
 }
 
 function injectEndpoints(backendApi: BackendApi) {
@@ -27,6 +30,10 @@ function injectEndpoints(backendApi: BackendApi) {
 			}),
 			projectData: build.query<string, { projectId: string }>({
 				extraOptions: { command: 'get_project_archive_path' },
+				query: (params) => params
+			}),
+			graphFile: build.query<string, { projectId: string }>({
+				extraOptions: { command: 'get_anonymous_graph_path' },
 				query: (params) => params
 			})
 		})

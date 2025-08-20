@@ -42,6 +42,7 @@
 	let emailInputValue = $state('');
 	let sendLogs = $state(false);
 	let sendProjectRepository = $state(false);
+	let sendGraph = $state(false);
 
 	const projectId = $derived($page.params.projectId!);
 
@@ -49,6 +50,7 @@
 		messageInputValue = '';
 		sendLogs = false;
 		sendProjectRepository = false;
+		sendGraph = false;
 	}
 
 	async function readZipFile(path: string, filename?: string): Promise<File | Blob> {
@@ -83,19 +85,28 @@
 					? dataSharingService
 							.projectData(projectId)
 							.then(async (path) => await readZipFile(path, 'project.zip'))
+					: undefined,
+				sendGraph
+					? dataSharingService
+							.graphFile(projectId)
+							.then(async (path) => await readZipFile(path, 'graph.zip'))
 					: undefined
 			]).then(
-				async ([logs, repo]) =>
+				async ([logs, repo, graph]) =>
 					await createFeedback($user?.access_token, {
 						email,
 						message,
 						context,
 						logs,
-						repo
+						repo,
+						graph
 					})
 			),
 			{
-				loading: !sendLogs && !sendProjectRepository ? 'Sending feedback...' : 'Uploading data...',
+				loading:
+					!sendLogs && !sendProjectRepository && !sendGraph
+						? 'Sending feedback...'
+						: 'Uploading data...',
 				success: 'Feedback sent successfully',
 				error: 'Failed to send feedback'
 			}
@@ -111,6 +122,7 @@
 			context?: string;
 			logs?: Blob | File;
 			repo?: Blob | File;
+			graph?: Blob | File;
 		}
 	): Promise<Feedback> {
 		const formData = new FormData();
@@ -119,6 +131,7 @@
 		if (params.context) formData.append('context', params.context);
 		if (params.logs) formData.append('logs', params.logs);
 		if (params.repo) formData.append('repo', params.repo);
+		if (params.graph) formData.append('graph', params.graph);
 
 		// Content Type must be unset for the right form-data border to be set automatically
 		return await httpClient.put('feedback', {
@@ -189,6 +202,10 @@
 					<Checkbox name="project-repository" bind:checked={sendProjectRepository} />
 					<label class="text-13" for="project-repository">Share project repository</label>
 				</div>
+				<div class="content-wrapper__checkbox">
+					<Checkbox name="graph" bind:checked={sendGraph} />
+					<label class="text-13" for="graph">Share anonymized commit-graph</label>
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -196,7 +213,9 @@
 	<!-- Use our own close function -->
 	{#snippet controls()}
 		<Button kind="outline" type="reset" onclick={close}>Close</Button>
-		<Button style="pop" type="submit">Share with GitButler</Button>
+		<Button disabled={!sendLogs && !sendProjectRepository && !sendGraph} style="pop" type="submit"
+			>Share with GitButler</Button
+		>
 	{/snippet}
 </Modal>
 
