@@ -1,5 +1,5 @@
 use but_api::{
-    commands::claude::{self, GetMessagesParams, SendMessageParams, CancelSessionParams},
+    commands::claude::{self, CancelSessionParams, GetMessagesParams, SendMessageParams},
     error::Error,
     App,
 };

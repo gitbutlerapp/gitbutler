@@ -41,7 +41,7 @@ export function formatMessages(
 
 	const out: Message[] = [];
 	// A mapping to better handle tool call responses when they come in.
-	const toolCalls: Record<string, ToolCall> = {};
+	let toolCalls: Record<string, ToolCall> = {};
 	let lastAssistantMessage: Message | undefined = undefined;
 
 	for (const event of events) {
@@ -106,6 +106,34 @@ export function formatMessages(
 						foundToolCall.result = result.content[0]!.text;
 					}
 				}
+			}
+		} else if (event.content.type === 'gitButlerMessage') {
+			const subject = event.content.subject;
+			if (subject.type === 'claudeExit' || subject.type === 'userAbort') {
+				for (const toolCall of Object.values(toolCalls)) {
+					toolCall.result = 'Tool call aborted due to claude exit';
+				}
+				toolCalls = {};
+				lastAssistantMessage = undefined;
+			}
+
+			if (subject.type === 'claudeExit' && subject.subject.code !== 0) {
+				const message: Message = {
+					type: 'claude',
+					message: `Claude exited with non 0 error code \n\n\`\`\`\n${subject.subject.message}\n\`\`\``,
+					toolCalls: [],
+					toolCallsPendingApproval: []
+				};
+				out.push(message);
+			}
+			if (subject.type === 'userAbort') {
+				const message: Message = {
+					type: 'claude',
+					message: `I've stopped! What can I help you with next?`,
+					toolCalls: [],
+					toolCallsPendingApproval: []
+				};
+				out.push(message);
 			}
 		}
 	}
@@ -191,6 +219,15 @@ export function currentStatus(events: ClaudeMessage[]): ClaudeStatus {
 	if (events.length === 0) return 'disabled';
 	const lastEvent = events.at(-1)!;
 	if (lastEvent.content.type === 'claudeOutput' && lastEvent.content.subject.type === 'result') {
+		// Once we have the TODOs, if all the TODOs are completed, we can change
+		// this to conditionally return 'enabled' or 'completed'
+		return 'enabled';
+	}
+	if (
+		lastEvent.content.type === 'gitButlerMessage' &&
+		(lastEvent.content.subject.type === 'userAbort' ||
+			lastEvent.content.subject.type === 'claudeExit')
+	) {
 		// Once we have the TODOs, if all the TODOs are completed, we can change
 		// this to conditionally return 'enabled' or 'completed'
 		return 'enabled';

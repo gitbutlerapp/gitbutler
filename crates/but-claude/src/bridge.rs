@@ -142,19 +142,29 @@ impl Claudes {
         let broadcaster = broadcaster.clone();
 
         let session = upsert_session(ctx.clone(), session_id, stack_id).await?;
-        create_user_message(
+        {
+            let mut ctx = ctx.lock().await;
+            send_claude_message(
+                &mut ctx,
+                broadcaster.clone(),
+                session_id,
+                stack_id,
+                ClaudeMessageContent::UserInput(UserInput {
+                    message: message.to_owned(),
+                }),
+            )
+            .await?;
+        }
+        let (read_stdout, writer) = std::io::pipe()?;
+        let response_streamer = spawn_response_streaming(
             ctx.clone(),
             broadcaster.clone(),
+            read_stdout,
             session_id,
             stack_id,
-            &message,
-        )
-        .await?;
-        let (read_stdout, writer) = std::io::pipe()?;
-        let response_streamer =
-            spawn_response_streaming(ctx.clone(), broadcaster, read_stdout, session_id, stack_id);
+        );
 
-        let (mut read_stderr, write_stderr) = std::io::pipe()?;
+        let (read_stderr, write_stderr) = std::io::pipe()?;
         // Clone so the reference to ctx can be immediatly dropped
         let project = ctx.lock().await.project().clone();
         let mut handle = spawn_command(
@@ -165,49 +175,86 @@ impl Claudes {
             session,
             project.path.clone(),
         )?;
-        let exit_status = tokio::select! {
+        let cmd_exit = tokio::select! {
             status = handle.wait() => Exit::WithStatus(status),
             _ = recv_kill.recv() => Exit::ByUser
         };
         // My understanding is that it is not great to abort things like this,
         // but it's "good enough" for now.
         response_streamer.abort();
-
         self.requests.lock().await.remove(&stack_id);
 
-        match exit_status {
-            Exit::WithStatus(exit_status) => {
-                let exit_status = exit_status?;
-                if !exit_status.success() {
-                    let mut buf = String::new();
-                    read_stderr.read_to_string(&mut buf)?;
-                    bail!(
-                        "Claude code exited with status: {}\n\n{}",
-                        exit_status.code().unwrap_or(1),
-                        buf
-                    )
-                }
-            }
-            Exit::ByUser => {
-                #[cfg(unix)]
-                {
-                    use nix::sys::signal::{self, Signal};
-                    use nix::unistd::Pid;
-                    if let Some(pid) = handle.id() {
-                        signal::kill(Pid::from_raw(pid as i32), Signal::SIGTERM)?;
-                    } else {
-                        handle.kill().await?;
-                    }
-                }
-                #[cfg(not(unix))]
-                {
-                    handle.kill().await?;
-                }
-            }
-        }
+        handle_exit(
+            ctx,
+            broadcaster,
+            stack_id,
+            session_id,
+            read_stderr,
+            handle,
+            cmd_exit,
+        )
+        .await?;
 
         Ok(())
     }
+}
+
+async fn handle_exit(
+    ctx: Arc<Mutex<CommandContext>>,
+    broadcaster: Arc<Mutex<Broadcaster>>,
+    stack_id: but_core::Id<'S'>,
+    session_id: uuid::Uuid,
+    mut read_stderr: PipeReader,
+    mut handle: Child,
+    cmd_exit: Exit,
+) -> Result<(), anyhow::Error> {
+    match cmd_exit {
+        Exit::WithStatus(exit_status) => {
+            let exit_status = exit_status?;
+            let mut buf = String::new();
+            read_stderr.read_to_string(&mut buf)?;
+            let mut ctx = ctx.lock().await;
+            send_claude_message(
+                &mut ctx,
+                broadcaster.clone(),
+                session_id,
+                stack_id,
+                ClaudeMessageContent::GitButlerMessage(crate::GitButlerMessage::ClaudeExit {
+                    code: exit_status.code().unwrap_or(0),
+                    message: buf.clone(),
+                }),
+            )
+            .await?;
+        }
+        Exit::ByUser => {
+            // On *nix try to kill claude more gently.
+            #[cfg(unix)]
+            {
+                use nix::sys::signal::{self, Signal};
+                use nix::unistd::Pid;
+                if let Some(pid) = handle.id() {
+                    signal::kill(Pid::from_raw(pid as i32), Signal::SIGINT)?;
+                    handle.wait().await?;
+                } else {
+                    handle.kill().await?;
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                handle.kill().await?;
+            }
+            let mut ctx = ctx.lock().await;
+            send_claude_message(
+                &mut ctx,
+                broadcaster.clone(),
+                session_id,
+                stack_id,
+                ClaudeMessageContent::GitButlerMessage(crate::GitButlerMessage::UserAbort),
+            )
+            .await?;
+        }
+    }
+    Ok(())
 }
 
 enum Exit {
@@ -249,31 +296,6 @@ fn spawn_command(
     }
     command.arg(message);
     Ok(command.spawn()?)
-}
-
-/// Creates the user's message, and adds it to the database & streams it back to
-/// the client.
-async fn create_user_message(
-    ctx: Arc<Mutex<CommandContext>>,
-    broadcaster: Arc<Mutex<Broadcaster>>,
-    session_id: uuid::Uuid,
-    stack_id: StackId,
-    message: &str,
-) -> Result<()> {
-    let mut ctx = ctx.lock().await;
-    let message = db::save_new_message(
-        &mut ctx,
-        session_id,
-        ClaudeMessageContent::UserInput(UserInput {
-            message: message.to_owned(),
-        }),
-    )?;
-    let project_id = ctx.project().id;
-    broadcaster.lock().await.send(FrontendEvent {
-        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
-        payload: json!(message),
-    });
-    Ok(())
 }
 
 /// If a session exists, it just returns it, otherwise it creates a new session
@@ -325,15 +347,15 @@ fn spawn_response_streaming(
             }
 
             let message_content = ClaudeMessageContent::ClaudeOutput(parsed_event.clone());
-            let message =
-                db::save_new_message(&mut ctx, session_id, message_content.clone()).unwrap();
-
-            let project_id = ctx.project().id;
-
-            broadcaster.lock().await.send(FrontendEvent {
-                name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
-                payload: json!(message),
-            })
+            send_claude_message(
+                &mut ctx,
+                broadcaster.clone(),
+                session_id,
+                stack_id,
+                message_content,
+            )
+            .await
+            .unwrap();
         }
     })
 }
@@ -342,4 +364,21 @@ impl Default for Claudes {
     fn default() -> Self {
         Self::new()
     }
+}
+
+async fn send_claude_message(
+    ctx: &mut CommandContext,
+    broadcaster: Arc<Mutex<Broadcaster>>,
+    session_id: uuid::Uuid,
+    stack_id: StackId,
+    content: ClaudeMessageContent,
+) -> Result<()> {
+    let message = db::save_new_message(ctx, session_id, content.clone())?;
+    let project_id = ctx.project().id;
+
+    broadcaster.lock().await.send(FrontendEvent {
+        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+        payload: json!(message),
+    });
+    Ok(())
 }

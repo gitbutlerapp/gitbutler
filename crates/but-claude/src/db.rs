@@ -160,6 +160,7 @@ impl TryFrom<crate::ClaudeSession> for but_db::ClaudeSession {
 enum ClaudeMessageDbContentType {
     ClaudeOutput,
     UserInput,
+    GitButlerMessage,
 }
 
 impl TryFrom<but_db::ClaudeMessage> for crate::ClaudeMessage {
@@ -172,6 +173,9 @@ impl TryFrom<but_db::ClaudeMessage> for crate::ClaudeMessage {
             }
             ClaudeMessageDbContentType::UserInput => {
                 crate::ClaudeMessageContent::UserInput(serde_json::from_str(&value.content)?)
+            }
+            ClaudeMessageDbContentType::GitButlerMessage => {
+                crate::ClaudeMessageContent::GitButlerMessage(serde_json::from_str(&value.content)?)
             }
         };
         Ok(crate::ClaudeMessage {
@@ -194,6 +198,10 @@ impl TryFrom<crate::ClaudeMessage> for but_db::ClaudeMessage {
             crate::ClaudeMessageContent::UserInput(value) => {
                 let value = serde_json::to_string(&value)?;
                 (ClaudeMessageDbContentType::UserInput, value)
+            }
+            crate::ClaudeMessageContent::GitButlerMessage(value) => {
+                let value = serde_json::to_string(&value)?;
+                (ClaudeMessageDbContentType::GitButlerMessage, value)
             }
         };
 
