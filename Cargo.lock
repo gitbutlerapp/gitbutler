@@ -856,6 +856,7 @@ dependencies = [
  "but-broadcaster",
  "but-claude",
  "but-core",
+ "but-feedback",
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
@@ -868,7 +869,6 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-edit-mode",
  "gitbutler-error",
- "gitbutler-feedback",
  "gitbutler-forge",
  "gitbutler-id",
  "gitbutler-operating-modes",
@@ -991,6 +991,20 @@ dependencies = [
 [[package]]
 name = "but-debugging"
 version = "0.0.0"
+
+[[package]]
+name = "but-feedback"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-graph",
+ "chrono",
+ "gitbutler-command-context",
+ "gitbutler-project",
+ "tempfile",
+ "walkdir",
+ "zip 2.4.2",
+]
 
 [[package]]
 name = "but-graph"
@@ -1120,10 +1134,10 @@ dependencies = [
  "axum 0.8.4",
  "but-api",
  "but-broadcaster",
+ "but-feedback",
  "but-path",
  "but-settings",
  "futures-util",
- "gitbutler-feedback",
  "gitbutler-project",
  "gitbutler-user",
  "gitbutler-watcher",
@@ -3218,18 +3232,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-feedback"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "gitbutler-project",
- "sha2",
- "tempfile",
- "walkdir",
- "zip 2.4.2",
-]
-
-[[package]]
 name = "gitbutler-filemonitor"
 version = "0.0.0"
 dependencies = [
@@ -3589,6 +3591,7 @@ dependencies = [
  "but-claude",
  "but-core",
  "but-db",
+ "but-feedback",
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
@@ -3605,7 +3608,6 @@ dependencies = [
  "gitbutler-diff",
  "gitbutler-edit-mode",
  "gitbutler-error",
- "gitbutler-feedback",
  "gitbutler-forge",
  "gitbutler-id",
  "gitbutler-operating-modes",

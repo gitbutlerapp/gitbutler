@@ -155,7 +155,7 @@ fn main() {
                         }
                     });
 
-                    let archival = Arc::new(gitbutler_feedback::Archival {
+                    let archival = Arc::new(but_feedback::Archival {
                         cache_dir: app_cache_dir.clone(),
                         logs_dir: app_log_dir.clone(),
                     });
