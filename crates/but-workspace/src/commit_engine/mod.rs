@@ -260,7 +260,7 @@ pub fn create_commit(
                 parent_commit_id: _,
                 stack_segment: _,
             } => {
-                let (author, committer) = repo.commit_signatures_with_fallback()?;
+                let (author, committer) = repo.commit_signatures()?;
                 let new_commit = create_possibly_signed_commit(
                     repo, author, committer, &message, new_tree, parents, None,
                 )?;
