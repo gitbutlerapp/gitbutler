@@ -3,8 +3,8 @@
 A three way split view that manages resizing of the panels.
 
 The left panel is set in rem units, the left-sideview has fixed width constraints,
-and the mainSection panel grows as the window resizes. If the window shrinks to where 
-it is smaller than the sum of the preferred widths, then the derived widths adjust 
+and the mainSection panel grows as the window resizes. If the window shrinks to where
+it is smaller than the sum of the preferred widths, then the derived widths adjust
 down, with the left hand side shrinking before the left-sideview panel.
 
 Persisted widths are only stored when resizing manually, meaning you can shrink
@@ -34,6 +34,7 @@ the window, then enlarge it and retain the original widths of the layout.
 	import type { Snippet } from 'svelte';
 
 	type Props = {
+		testId?: string;
 		name: string;
 		left: Snippet;
 		leftWidth: {
@@ -53,7 +54,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		};
 	};
 
-	const { name, left, leftWidth, preview, previewWidth, middle, right, rightWidth }: Props =
+	const { testId, name, left, leftWidth, preview, previewWidth, middle, right, rightWidth }: Props =
 		$props();
 
 	const userSettings = inject(SETTINGS);
@@ -132,6 +133,7 @@ the window, then enlarge it and retain the original widths of the layout.
 	class="main-viewport"
 	use:focusable={{ id: DefinedFocusable.MainViewport }}
 	bind:clientWidth={containerBindWidth}
+	data-testid={testId}
 	class:left-sideview-open={!!preview}
 >
 	{#if !unassignedSidebaFolded.current}

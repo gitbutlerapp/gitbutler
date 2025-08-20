@@ -20,6 +20,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE, type ExclusiveAction } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import { TestId } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
@@ -157,6 +158,7 @@
 {/snippet}
 
 <MainViewport
+	testId={TestId.WorkspaceView}
 	name="workspace"
 	leftWidth={{ default: 280, min: 220 }}
 	preview={previewOpen ? leftPreview : undefined}
