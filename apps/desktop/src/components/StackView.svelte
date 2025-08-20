@@ -602,6 +602,10 @@
 		&.dimmed {
 			opacity: 0.5;
 		}
+
+		&:focus {
+			outline: none;
+		}
 	}
 
 	.stack-view {
