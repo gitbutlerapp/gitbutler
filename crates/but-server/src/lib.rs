@@ -219,6 +219,7 @@ async fn handle_command(
             run_cmd(&app, request.params, settings::update_telemetry_distinct_id)
         }
         "update_feature_flags" => run_cmd(&app, request.params, settings::update_feature_flags),
+        "update_claude" => run_cmd(&app, request.params, settings::update_claude),
         // Secret management
         "secret_get_global" => run_cmd(&app, request.params, secret::secret_get_global),
         "secret_set_global" => run_cmd(&app, request.params, secret::secret_set_global),
@@ -458,6 +459,10 @@ async fn handle_command(
                 }
                 Err(e) => Err(e),
             }
+        }
+        "claude_check_available" => {
+            let result = claude::claude_check_available(&app, NoParams {}).await;
+            result.map(|r| json!(r))
         }
 
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),

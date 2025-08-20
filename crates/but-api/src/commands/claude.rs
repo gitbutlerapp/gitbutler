@@ -7,7 +7,7 @@ use gitbutler_project::ProjectId;
 use serde::Deserialize;
 use tokio::sync::Mutex;
 
-use crate::{App, error::Error};
+use crate::{App, NoParams, error::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -118,4 +118,10 @@ pub struct CancelSessionParams {
 pub async fn claude_cancel_session(app: &App, params: CancelSessionParams) -> Result<bool, Error> {
     let cancelled = app.claudes.cancel_session(params.stack_id).await?;
     Ok(cancelled)
+}
+
+pub async fn claude_check_available(app: &App, _params: NoParams) -> Result<bool, Error> {
+    let claude_executable = app.app_settings.get()?.claude.executable.clone();
+    let is_available = but_claude::bridge::check_claude_available(&claude_executable).await;
+    Ok(is_available)
 }

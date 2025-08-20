@@ -37,6 +37,14 @@ export class ClaudeCodeService {
 		return this.api.endpoints.cancelSession.mutate;
 	}
 
+	get checkAvailable() {
+		return this.api.endpoints.checkAvailable.useQuery;
+	}
+
+	get fetchCheckAvailable() {
+		return this.api.endpoints.checkAvailable.fetch;
+	}
+
 	sessionDetails(projectId: string, sessionId: string) {
 		return this.api.endpoints.getSessionDetails.useQuery({
 			projectId,
@@ -150,6 +158,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'claude_cancel_session',
 					actionName: 'Cancel Session'
 				},
+				query: (args) => args
+			}),
+			checkAvailable: build.query<boolean, undefined>({
+				extraOptions: { command: 'claude_check_available' },
 				query: (args) => args
 			})
 		})

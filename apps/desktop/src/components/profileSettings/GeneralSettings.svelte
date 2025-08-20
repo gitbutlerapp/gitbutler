@@ -3,8 +3,11 @@
 	import Login from '$components/Login.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import CliSymLink from '$components/profileSettings/CliSymLink.svelte';
+	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import { CLI_MANAGER } from '$lib/cli/cli';
+	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { codegenEnabled } from '$lib/config/uiFeatureFlags';
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { SETTINGS, type CodeEditorSettings } from '$lib/settings/userSettings';
@@ -29,7 +32,9 @@
 	const userService = inject(USER_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const projectsService = inject(PROJECTS_SERVICE);
+	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const user = userService.user;
+	const settingsStore = settingsService.appSettings;
 
 	const updaterService = inject(UPDATER_SERVICE);
 	const disableAutoChecks = updaterService.disableAutoChecks;
@@ -140,6 +145,30 @@
 	}
 
 	let showSymlink = $state(false);
+	let claudeExecutable = $state('');
+
+	// Initialize Claude executable from settings
+	$effect(() => {
+		if ($settingsStore?.claude) {
+			claudeExecutable = $settingsStore.claude.executable;
+		}
+	});
+
+	let recheckedAvailability = $state<'recheck-failed' | 'recheck-succeeded'>();
+	async function checkClaudeAvailability() {
+		const recheck = await claudeCodeService.fetchCheckAvailable(undefined, { forceRefetch: true });
+		if (recheck) {
+			recheckedAvailability = 'recheck-succeeded';
+		} else {
+			recheckedAvailability = 'recheck-failed';
+		}
+	}
+
+	async function updateClaudeExecutable(value: string) {
+		claudeExecutable = value;
+		recheckedAvailability = undefined;
+		await settingsService.updateClaude({ executable: value });
+	}
 </script>
 
 {#if $user}
@@ -255,6 +284,28 @@
 		</div>
 	</div>
 </SectionCard>
+
+{#if $codegenEnabled}
+	<SectionCard orientation="column">
+		{#snippet title()}
+			Claude Code Configuration
+		{/snippet}
+
+		{#snippet caption()}
+			Configure the path to the Claude Code executable. This is used for AI-powered code generation
+			and editing.
+		{/snippet}
+
+		<ClaudeCheck
+			{claudeExecutable}
+			{recheckedAvailability}
+			onUpdateExecutable={updateClaudeExecutable}
+			onCheckAvailability={checkClaudeAvailability}
+			showInstallationGuide={false}
+			showTitle={false}
+		/>
+	</SectionCard>
+{/if}
 
 <Spacer />
 

@@ -1,6 +1,6 @@
 //! In place of commands.rs
 use but_settings::AppSettings;
-use but_settings::api::{FeatureFlagsUpdate, TelemetryUpdate};
+use but_settings::api::{ClaudeUpdate, FeatureFlagsUpdate, TelemetryUpdate};
 use serde::Deserialize;
 
 use crate::NoParams;
@@ -61,5 +61,17 @@ pub struct UpdateFeatureFlagsParams {
 pub fn update_feature_flags(app: &App, params: UpdateFeatureFlagsParams) -> Result<(), Error> {
     app.app_settings
         .update_feature_flags(params.update)
+        .map_err(|e| e.into())
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateClaudeParams {
+    pub update: ClaudeUpdate,
+}
+
+pub fn update_claude(app: &App, params: UpdateClaudeParams) -> Result<(), Error> {
+    app.app_settings
+        .update_claude(params.update)
         .map_err(|e| e.into())
 }

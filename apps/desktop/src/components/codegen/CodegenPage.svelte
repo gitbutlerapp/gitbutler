@@ -6,6 +6,7 @@
 	import CodegenRunningMessage from '$components/codegen/CodegenRunningMessage.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
+	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import {
 		currentStatus,
@@ -13,6 +14,7 @@
 		lastUserMessageSentAt,
 		usageStats
 	} from '$lib/codegen/messages';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { inject } from '@gitbutler/shared/context';
@@ -25,12 +27,17 @@
 
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
+	const settingsService = inject(SETTINGS_SERVICE);
 
 	const stacks = $derived(stackService.stacks(projectId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
+	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
+	const settingsStore = settingsService.appSettings;
 
 	let message = $state('');
 	let selectedBranch = $state<{ stackId: string; head: string }>();
+	let claudeExecutable = $derived($settingsStore?.claude.executable || 'claude');
+	let updatingExecutable = $state(false);
 
 	$effect(() => {
 		if (stacks.current.data) {
@@ -89,12 +96,42 @@
 		await claudeCodeService.cancelSession({ projectId, stackId: selectedBranch?.stackId });
 	}
 
+	let recheckedAvailability = $state<'recheck-failed' | 'recheck-succeeded'>();
+	async function checkClaudeAvailability() {
+		const recheck = await claudeCodeService.fetchCheckAvailable(undefined, { forceRefetch: true });
+		if (recheck) {
+			recheckedAvailability = 'recheck-succeeded';
+		} else {
+			recheckedAvailability = 'recheck-failed';
+		}
+	}
+
+	async function updateClaudeExecutable(value: string) {
+		if (updatingExecutable) return;
+
+		claudeExecutable = value;
+		recheckedAvailability = undefined;
+		await settingsService.updateClaude({ executable: value });
+	}
+
 	const events = $derived(
 		claudeCodeService.messages({ projectId, stackId: selectedBranch?.stackId || '' })
 	);
 </script>
 
 <div class="page">
+	<ReduxResult result={claudeAvailable.current} {projectId}>
+		{#snippet children(claudeAvailable, { projectId })}
+			{#if claudeAvailable}
+				{@render main({ projectId })}
+			{:else}
+				{@render claudeNotAvailable()}
+			{/if}
+		{/snippet}
+	</ReduxResult>
+</div>
+
+{#snippet main({ projectId }: { projectId: string })}
 	<CodegenSidebar content={sidebarContent}>
 		{#snippet actions()}
 			<Button disabled kind="outline" icon="plus-small" size="tag">Create new</Button>
@@ -151,7 +188,7 @@
 			</CodegenChatLayout>
 		{/if}
 	</div>
-</div>
+{/snippet}
 
 {#snippet sidebarContent()}
 	<ReduxResult result={stacks.current} {projectId}>
@@ -202,6 +239,19 @@
 	</ReduxResult>
 {/snippet}
 
+{#snippet claudeNotAvailable()}
+	<div class="not-available">
+		<div class="not-available-form">
+			<ClaudeCheck
+				{claudeExecutable}
+				{recheckedAvailability}
+				onUpdateExecutable={updateClaudeExecutable}
+				onCheckAvailability={checkClaudeAvailability}
+			/>
+		</div>
+	</div>
+{/snippet}
+
 <style lang="postcss">
 	.page {
 		display: flex;
@@ -217,6 +267,26 @@
 		height: 100%;
 
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-l);
+		background-color: var(--clr-bg-1);
+	}
+
+	.not-available {
+		display: flex;
+		flex-grow: 1;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+	}
+
+	.not-available-form {
+		display: flex;
+		flex-direction: column;
+		max-width: 400px;
+		padding: 20px;
+		overflow: hidden;
+		gap: 12px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);

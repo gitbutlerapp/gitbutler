@@ -18,6 +18,8 @@ pub struct AppSettings {
     pub extra_csp: app_settings::ExtraCsp,
     /// Settings related to fetching.
     pub fetch: app_settings::Fetch,
+    /// Settings related to Claude Code.
+    pub claude: app_settings::Claude,
 }
 
 impl Default for AppSettings {

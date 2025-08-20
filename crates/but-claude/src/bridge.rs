@@ -174,7 +174,9 @@ impl Claudes {
             write_stderr,
             session,
             project.path.clone(),
-        )?;
+            ctx.clone(),
+        )
+        .await?;
         let cmd_exit = tokio::select! {
             status = handle.wait() => Exit::WithStatus(status),
             _ = recv_kill.recv() => Exit::ByUser
@@ -263,19 +265,21 @@ enum Exit {
 }
 
 /// Spawns the actual claude code command
-fn spawn_command(
+async fn spawn_command(
     message: String,
     create_new: bool,
     writer: std::io::PipeWriter,
     write_stderr: std::io::PipeWriter,
     session: crate::ClaudeSession,
     project_path: std::path::PathBuf,
+    ctx: Arc<Mutex<CommandContext>>,
 ) -> Result<Child> {
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
     let mcp_config = fmt_claude_mcp()?;
 
-    let mut command = Command::new("claude");
+    let claude_executable = ctx.lock().await.app_settings().claude.executable.clone();
+    let mut command = Command::new(claude_executable);
     command.stdout(writer);
     command.stderr(write_stderr);
     command.current_dir(&project_path);
@@ -381,4 +385,17 @@ async fn send_claude_message(
         payload: json!(message),
     });
     Ok(())
+}
+
+/// Check if Claude Code is available by running the version command.
+/// Returns true if the command executes successfully, false otherwise.
+pub async fn check_claude_available(claude_executable: &str) -> bool {
+    match Command::new(claude_executable)
+        .arg("--version")
+        .output()
+        .await
+    {
+        Ok(output) => output.status.success(),
+        Err(_) => false,
+    }
 }

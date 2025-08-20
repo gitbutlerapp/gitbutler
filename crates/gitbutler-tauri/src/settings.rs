@@ -1,7 +1,7 @@
 #![allow(deprecated)]
 use but_api::NoParams;
 use but_api::{commands::settings, App};
-use but_settings::api::{FeatureFlagsUpdate, TelemetryUpdate};
+use but_settings::api::{ClaudeUpdate, FeatureFlagsUpdate, TelemetryUpdate};
 use but_settings::AppSettings;
 use tauri::State;
 use tracing::instrument;
@@ -42,4 +42,10 @@ pub fn update_telemetry_distinct_id(
 #[instrument(skip(app), err(Debug))]
 pub fn update_feature_flags(app: State<'_, App>, update: FeatureFlagsUpdate) -> Result<(), Error> {
     settings::update_feature_flags(&app, settings::UpdateFeatureFlagsParams { update })
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub fn update_claude(app: State<'_, App>, update: ClaudeUpdate) -> Result<(), Error> {
+    settings::update_claude(&app, settings::UpdateClaudeParams { update })
 }

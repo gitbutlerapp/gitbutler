@@ -55,6 +55,10 @@ export class SettingsService {
 		await this.backend.invoke('update_feature_flags', { update });
 	}
 
+	async updateClaude(update: Partial<Claude>) {
+		await this.backend.invoke('update_claude', { update });
+	}
+
 	private async nudge(): Promise<void> {
 		await this.autoOptInWs3();
 		await this.autoOptInRules();
@@ -138,6 +142,8 @@ export type AppSettings = {
 	featureFlags: FeatureFlags;
 	/** Settings related to fetching */
 	fetch: Fetch;
+	/** Settings related to Claude Code */
+	claude: Claude;
 };
 
 export type TelemetrySettings = {
@@ -167,4 +173,9 @@ export type FeatureFlags = {
 export type Fetch = {
 	/** The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching. */
 	autoFetchIntervalMinutes: number;
+};
+
+export type Claude = {
+	/** Path to the Claude Code executable. Defaults to "claude" if not set. */
+	executable: string;
 };
