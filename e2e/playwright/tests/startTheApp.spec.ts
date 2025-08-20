@@ -1,8 +1,12 @@
-import { type GitButler, startGitButler } from '../src/setup.ts';
-import { getByTestId } from '../src/util.ts';
+import { getBaseURL, type GitButler, startGitButler } from '../src/setup.ts';
+import { clickByTestId, getByTestId } from '../src/util.ts';
 import { test } from '@playwright/test';
 
 let gitbutler: GitButler;
+
+test.use({
+	baseURL: getBaseURL()
+});
 
 test.afterEach(async () => {
 	gitbutler?.destroy();
@@ -19,15 +23,11 @@ test('should start the application', async ({ page, context }, testInfo) => {
 	const onboardingPage = getByTestId(page, 'onboarding-page');
 	await onboardingPage.waitFor();
 
-	const continueButton = getByTestId(page, 'analytics-continue');
-	await continueButton.waitFor();
-	await continueButton.click();
+	clickByTestId(page, 'analytics-continue');
 
 	// Add a local project
 	const fileChooserPromise = page.waitForEvent('filechooser');
-	const addLocalProjectButton = getByTestId(page, 'add-local-project');
-	await addLocalProjectButton.waitFor();
-	await addLocalProjectButton.click();
+	clickByTestId(page, 'add-local-project');
 
 	const fileChooser = await fileChooserPromise;
 	const projectPath = gitbutler.pathInWorkdir('local-clone/');
@@ -37,16 +37,12 @@ test('should start the application', async ({ page, context }, testInfo) => {
 	const projectSetupPage = getByTestId(page, 'project-setup-page');
 	await projectSetupPage.waitFor();
 
-	const targetBranchSelect = getByTestId(page, 'set-base-branch');
-	await targetBranchSelect.waitFor();
-	await targetBranchSelect.click();
+	clickByTestId(page, 'set-base-branch');
 
 	// Should see the keys form page
 	const gitAuthPage = getByTestId(page, 'project-setup-git-auth-page');
 	await gitAuthPage.waitFor();
-	const acceptGitAuthButton = getByTestId(page, 'accept-git-auth');
-	await acceptGitAuthButton.waitFor();
-	await acceptGitAuthButton.click();
+	clickByTestId(page, 'accept-git-auth');
 
 	// Should load the workspace
 	const workspaceView = getByTestId(page, 'workspace-view');

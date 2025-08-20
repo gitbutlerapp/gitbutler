@@ -4,6 +4,23 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { Socket } from 'node:net';
 import path from 'node:path';
 
+const DESKTOP_PORT = process.env.DESKTOP_PORT || '3000';
+const BUTLER_PORT = process.env.BUTLER_PORT || '6978';
+
+export function getBaseURL() {
+	const parallelId = process.env.TEST_PARALLEL_INDEX ?? '0';
+	const id = parseInt(parallelId, 10);
+	const port = parseInt(DESKTOP_PORT, 10);
+
+	return `http://localhost:${port + id}`;
+}
+
+export function getButlerPort(): string {
+	const parallelId = process.env.TEST_PARALLEL_INDEX ?? '0';
+	const id = parseInt(parallelId, 10);
+	return `${parseInt(BUTLER_PORT, 10) + id}`;
+}
+
 export interface GitButler {
 	pathInWorkdir: (filePath: string) => string;
 	runScript(scriptName: string): Promise<void>;
@@ -33,7 +50,7 @@ class GitButlerManager implements GitButler {
 
 		this.butServerProcess = spawnProcess('cargo', ['run', '-p', 'but-server'], this.rootDir, {
 			E2E_TEST_APP_DATA_DIR: this.configDir || path.join(this.workdir, 'config'),
-			BUTLER_PORT: process.env.BUTLER_PORT || '6978'
+			BUTLER_PORT: getButlerPort()
 		});
 
 		this.butServerProcess.on('message', (message) => {
