@@ -7,6 +7,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { type AuthKey, type KeyType } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/shared/context';
 	import { Link, RadioButton, SectionCard, TestId, Textbox } from '@gitbutler/ui';
 
@@ -56,11 +57,23 @@
 
 	let form = $state<HTMLFormElement>();
 
+	const debouncedUpdateLocalKey = debounce((privateKey: string) => {
+		if (privateKey.trim() === '') {
+			updateKey({
+				preferred_key: {
+					local: {
+						private_key_path: privateKey.trim()
+					}
+				}
+			});
+		}
+	}, 500);
+
 	function onFormChange(selectedType: string) {
 		credentialCheck?.reset();
 		if (selectedType !== 'local') {
 			updateKey({ preferred_key: selectedType as AuthKey });
-		} else {
+		} else if (privateKeyPath.trim() !== '') {
 			updateKey({
 				preferred_key: {
 					local: {
@@ -147,6 +160,9 @@
 									label="Path to private key"
 									placeholder="for example: ~/.ssh/id_rsa"
 									bind:value={privateKeyPath}
+									oninput={(value) => {
+										debouncedUpdateLocalKey(value);
+									}}
 								/>
 							</div>
 						</SectionCard>
@@ -187,6 +203,7 @@
 					<SectionCard roundedTop={false} orientation="row">
 						<CredentialCheck
 							bind:this={credentialCheck}
+							disabled={selectedType === 'local' && privateKeyPath.trim() === ''}
 							projectId={project.id}
 							remoteName={remoteName || baseBranch?.remoteName}
 							branchName={branchName || baseBranch?.shortName}
