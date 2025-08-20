@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_error::error;
 
-use super::{storage, storage::UpdateRequest, Project, ProjectId};
+use super::{repository, storage, storage::UpdateRequest, Project, ProjectId};
 use crate::AuthKey;
 
 #[derive(Clone, Debug)]
@@ -66,6 +66,25 @@ impl Controller {
         name: Option<String>,
         email: Option<String>,
     ) -> Result<Project> {
+        self.add_internal(path, name, email, false)
+    }
+
+    pub(crate) fn add_with_trust<P: AsRef<Path>>(
+        &self,
+        path: P,
+        name: Option<String>,
+        email: Option<String>,
+    ) -> Result<Project> {
+        self.add_internal(path, name, email, true)
+    }
+
+    fn add_internal<P: AsRef<Path>>(
+        &self,
+        path: P,
+        name: Option<String>,
+        email: Option<String>,
+        trust_override: bool,
+    ) -> Result<Project> {
         let path = path.as_ref();
         let all_projects = self
             .projects_storage
@@ -80,28 +99,64 @@ impl Controller {
         if !path.is_dir() {
             bail!("not a directory");
         }
-        match gix::open_opts(path, gix::open::Options::isolated()) {
-            Ok(repo) if repo.is_bare() => {
-                bail!("bare repositories are unsupported");
-            }
-            Ok(repo) if repo.worktree().is_some_and(|wt| !wt.is_main()) => {
-                if path.join(".git").is_file() {
-                    bail!("can only work in main worktrees");
-                };
-            }
-            Ok(repo) => {
-                match repo.workdir() {
-                    None => bail!("Cannot add non-bare repositories without a workdir"),
-                    Some(wd) => {
-                        if !wd.join(".git").is_dir() {
-                            bail!("A git-repository without a `.git` directory cannot currently be added");
+        if trust_override {
+            // When trust override is requested, try opening with full trust
+            match repository::open_repository_with_full_trust(path) {
+                Ok(repo) => {
+                    if repo.is_bare() {
+                        bail!("bare repositories are unsupported");
+                    }
+                    if repo.worktree().is_some_and(|wt| !wt.is_main()) {
+                        if path.join(".git").is_file() {
+                            bail!("can only work in main worktrees");
+                        };
+                    }
+                    match repo.workdir() {
+                        None => bail!("Cannot add non-bare repositories without a workdir"),
+                        Some(wd) => {
+                            if !wd.join(".git").is_dir() {
+                                bail!("A git-repository without a `.git` directory cannot currently be added");
+                            }
                         }
                     }
                 }
+                Err(err) => {
+                    return Err(err)
+                        .context(error::Context::new("Failed to open repository even with full trust"));
+                }
             }
-            Err(err) => {
-                return Err(anyhow::Error::from(err))
-                    .context(error::Context::new("must be a Git repository"));
+        } else {
+            // Use standard trust checking
+            match repository::open_repository_with_trust_check(path) {
+                repository::RepositoryOpenResult::Success(repo) => {
+                    if repo.is_bare() {
+                        bail!("bare repositories are unsupported");
+                    }
+                    if repo.worktree().is_some_and(|wt| !wt.is_main()) {
+                        if path.join(".git").is_file() {
+                            bail!("can only work in main worktrees");
+                        };
+                    }
+                    match repo.workdir() {
+                        None => bail!("Cannot add non-bare repositories without a workdir"),
+                        Some(wd) => {
+                            if !wd.join(".git").is_dir() {
+                                bail!("A git-repository without a `.git` directory cannot currently be added");
+                            }
+                        }
+                    }
+                }
+                repository::RepositoryOpenResult::TrustError { error, .. } => {
+                    return Err(anyhow::Error::from(error))
+                        .context(error::Context::new_static(
+                            error::Code::GitRepositoryTrust,
+                            "Repository opening failed due to Git security/trust settings. The repository may be in an untrusted location.",
+                        ));
+                }
+                repository::RepositoryOpenResult::OtherError(err) => {
+                    return Err(anyhow::Error::from(err))
+                        .context(error::Context::new("must be a Git repository"));
+                }
             }
         }
 
@@ -211,17 +266,30 @@ impl Controller {
         let mut project = self.projects_storage.get(id)?;
         if validate {
             let worktree_dir = &project.path;
-            if gix::open_opts(worktree_dir, gix::open::Options::isolated()).is_err() {
-                let suffix = if !worktree_dir.exists() {
-                    " as it does not exist"
-                } else {
-                    ""
-                };
-                return Err(anyhow!(
-                    "Could not open repository at '{}'{suffix}",
-                    worktree_dir.display()
-                )
-                .context(error::Code::ProjectMissing));
+            match repository::open_repository_with_trust_check(worktree_dir) {
+                repository::RepositoryOpenResult::Success(_) => {
+                    // Repository is valid and trusted
+                }
+                repository::RepositoryOpenResult::TrustError { error, .. } => {
+                    return Err(anyhow::Error::from(error))
+                        .context(error::Context::new_static(
+                            error::Code::GitRepositoryTrust,
+                            "Repository opening failed due to Git security/trust settings. The repository may be in an untrusted location.",
+                        ))
+                        .with_context(|| format!("Could not open repository at '{}'", worktree_dir.display()));
+                }
+                repository::RepositoryOpenResult::OtherError(_) => {
+                    let suffix = if !worktree_dir.exists() {
+                        " as it does not exist"
+                    } else {
+                        ""
+                    };
+                    return Err(anyhow!(
+                        "Could not open repository at '{}'{suffix}",
+                        worktree_dir.display()
+                    )
+                    .context(error::Code::ProjectMissing));
+                }
             }
         }
 

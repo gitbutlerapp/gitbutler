@@ -2,12 +2,14 @@ pub mod access;
 mod controller;
 mod default_true;
 mod project;
+mod repository;
 mod storage;
 
 use std::path::Path;
 
 use controller::Controller;
 pub use project::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
+pub use repository::{open_repository_with_full_trust, open_repository_with_trust_check, RepositoryOpenResult};
 pub use storage::UpdateRequest;
 
 /// A utility to be used from applications to optimize `git2` configuration.
@@ -69,6 +71,15 @@ pub fn add<P: AsRef<Path>>(
     controller.add(path, name, email)
 }
 
+pub fn add_with_trust<P: AsRef<Path>>(
+    path: P,
+    name: Option<String>,
+    email: Option<String>,
+) -> anyhow::Result<Project> {
+    let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.add_with_trust(path, name, email)
+}
+
 /// Testing purpose only.
 pub fn add_with_path<P: AsRef<Path>>(
     data_dir: P,
@@ -78,6 +89,17 @@ pub fn add_with_path<P: AsRef<Path>>(
 ) -> anyhow::Result<Project> {
     let controller = Controller::from_path(data_dir.as_ref());
     controller.add(path, name, email)
+}
+
+/// Testing purpose only.
+pub fn add_with_trust_and_path<P: AsRef<Path>>(
+    data_dir: P,
+    path: P,
+    name: Option<String>,
+    email: Option<String>,
+) -> anyhow::Result<Project> {
+    let controller = Controller::from_path(data_dir.as_ref());
+    controller.add_with_trust(path, name, email)
 }
 
 pub fn list() -> anyhow::Result<Vec<Project>> {
