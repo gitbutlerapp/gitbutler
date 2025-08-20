@@ -704,7 +704,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
             └── ❄️fafd9d0 (🏘️|✓)
     ");
 
-    let graph = Graph::from_commit_traversal(id, ref_name.clone(), &*meta, standard_options())?
+    let mut graph = Graph::from_commit_traversal(id, ref_name.clone(), &*meta, standard_options())?
         .validated()?;
     // Now the dependent segments are applied, and so is the separate stack.
     insta::assert_snapshot!(graph_tree(&graph), @r"
@@ -732,6 +732,19 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         ├── 📙:3:C
         ├── 📙:4:B
         └── 📙:5:A
+    ");
+
+    graph.anonymize(&repo.remote_names())?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:0:A <> ✓refs/remotes/remote-0/A on fafd9d0
+    ├── ≡📙:6:E on fafd9d0
+    │   ├── 📙:6:E
+    │   ├── 📙:7:F
+    │   └── 📙:8:G
+    └── ≡📙:3:B on fafd9d0
+        ├── 📙:3:B
+        ├── 📙:4:C
+        └── 📙:5:D
     ");
 
     let graph = Graph::from_commit_traversal(
@@ -993,7 +1006,7 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
     * 9bcd3af (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * ca7baa7 (origin/main) only-remote-02
     | * 7ea1468 only-remote-01
-    |/
+    |/  
     * 998eae6 (main) shared
     * fafd9d0 init
     ");
@@ -1056,9 +1069,9 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     | * 3ea1a8f (push-remote/A, origin/A) only-remote-02
     | * 9c50f71 only-remote-01
     | * 2cfbb79 merge
-    |/|
+    |/| 
     | * e898cd0 feat-on-remote
-    |/
+    |/  
     * 998eae6 shared
     * fafd9d0 (main) init
     ");
@@ -1196,7 +1209,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     | * 7786959 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * 312f819 (B) B
     | * e255adc (A) A
-    |/
+    |/  
     * fafd9d0 (origin/main, main) init
     ");
 
@@ -1340,7 +1353,7 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
     * e30f90c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 2173153 (origin/ambiguous-C, origin/C, ambiguous-C, C) C
     | * ac24e74 (origin/B) remote-of-B
-    |/
+    |/  
     * 312f819 (ambiguous-B, B) B
     * e255adc (origin/A, ambiguous-A, A) A
     * fafd9d0 (origin/main, main) init
@@ -1448,22 +1461,22 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     * d0df794 (origin/main) remote-2
     * 09c6e08 remote-1
     *   7b9f260 Merge branch 'A' into soon-origin-main
-    |\
+    |\  
     | | * 4077353 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | | * 6b1a13b (B) B2
     | | * 03ad472 B1
-    | |/
+    | |/  
     | * 79bbb29 (A) 8
     | * fc98174 7
     | * a381df5 6
     | * 777b552 5
     | *   ce4a760 Merge branch 'A-feat' into A
-    | |\
+    | |\  
     | | * fea59b5 (A-feat) A-feat-2
     | | * 4deea74 A-feat-1
-    | |/
+    | |/  
     | * 01d0e1e 4
-    |/
+    |/  
     * 4b3e5a8 (main) 3
     * 34d0715 2
     * eb5f731 1
@@ -1798,22 +1811,22 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     * d0df794 (origin/main) remote-2
     * 09c6e08 remote-1
     *   7b9f260 Merge branch 'A' into soon-origin-main
-    |\
+    |\  
     | | * 4077353 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | | * 6b1a13b (B) B2
     | | * 03ad472 B1
-    | |/
+    | |/  
     | * 79bbb29 (A) 8
     | * fc98174 7
     | * a381df5 6
     | * 777b552 5
     | *   ce4a760 Merge branch 'A-feat' into A
-    | |\
+    | |\  
     | | * fea59b5 (A-feat) A-feat-2
     | | * 4deea74 A-feat-1
-    | |/
+    | |/  
     | * 01d0e1e 4
-    |/
+    |/  
     * 4b3e5a8 (main) 3
     * 34d0715 2
     * eb5f731 1
@@ -2003,22 +2016,22 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
     * d0df794 (origin/main) remote-2
     * 09c6e08 remote-1
     *   7b9f260 Merge branch 'A' into soon-origin-main
-    |\
+    |\  
     | | * 4077353 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | | * 6b1a13b (B) B2
     | | * 03ad472 B1
-    | |/
+    | |/  
     | * 79bbb29 (A) 8
     | * fc98174 7
     | * a381df5 6
     | * 777b552 5
     | *   ce4a760 Merge branch 'A-feat' into A
-    | |\
+    | |\  
     | | * fea59b5 (A-feat) A-feat-2
     | | * 4deea74 A-feat-1
-    | |/
+    | |/  
     | * 01d0e1e 4
-    |/
+    |/  
     * 4b3e5a8 (main) 3
     * 34d0715 2
     * eb5f731 1
@@ -2255,7 +2268,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 41ed0e4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | *   232ed06 (origin/main) target
-    | |\
+    | |\  
     | | * 9e2a79e (long-workspace-to-target) Tl7
     | | * fdeaa43 Tl6
     | | * 30565ee Tl5
@@ -2263,21 +2276,21 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     | | * 56d152c Tl3
     | | * e6e1360 Tl2
     | | * 1a22a39 Tl1
-    | |/
-    |/|
+    | |/  
+    |/|   
     | * abcfd9a (workspace-to-target) Ts3
     | * bc86eba Ts2
     | * c7ae303 Ts1
-    |/
+    |/  
     *   9730cbf (workspace) W1-merge
-    |\
+    |\  
     | * 77f31a0 (long-main-to-workspace) Wl4
     | * eb17e31 Wl3
     | * fe2046b Wl2
     | * 5532ef5 Wl1
     | * 2438292 (main) M2
     * | dc7ab57 (main-to-workspace) Ws1
-    |/
+    |/  
     * c056b75 M10
     * f49c977 M9
     * 7b7ebb2 M8
@@ -2489,7 +2502,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     | * 742c068 Tl3
     | * fe06afd Tl2
     | *   3027746 Tl-merge
-    | |\
+    | |\  
     | | * edf041f (longer-workspace-to-target) Tll6
     | | * d9f03f6 Tll5
     | | * 8d1d264 Tll4
@@ -2497,18 +2510,18 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     | | * 95bdbf1 Tll2
     | | * 5bac978 Tll1
     | * | f0d2a35 Tl1
-    |/ /
+    |/ /  
     * |   c9120f1 (workspace) W1-merge
-    |\ \
-    | |/
-    |/|
+    |\ \  
+    | |/  
+    |/|   
     | * b39c7ec (long-main-to-workspace) Wl4
     | * 2983a97 Wl3
     | * 144ea85 Wl2
     | * 5aecfd2 Wl1
     | * bce0c5e (main) M2
     * | 1126587 (main-to-workspace) Ws1
-    |/
+    |/  
     * 3183e43 M1
     ");
 
@@ -2622,25 +2635,25 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
         read_only_in_memory_scenario("ws/multi-lane-with-shared-segment-one-integrated")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *-.   2b30d94 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\ \
+    |\ \  
     | | * acdc49a (B) B2
     | | * f0117e0 B1
     * | | 9895054 (D) D1
     * | | de625cc (C) C3
     * | | 23419f8 C2
     * | | 5dc4389 C1
-    | |/
-    |/|
+    | |/  
+    |/|   
     | | *   c08dc6b (origin/main) Merge branch 'A' into soon-remote-main
-    | | |\
-    | | |/
-    | |/|
+    | | |\  
+    | | |/  
+    | |/|   
     | * | 0bad3af (A) A1
-    |/ /
+    |/ /  
     * | d4f537e (shared) S3
     * | b448757 S2
     * | e9a378d S1
-    |/
+    |/  
     * 3183e43 (main) M1
     ");
 
@@ -2739,21 +2752,21 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *-.   2b30d94 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\ \
+    |\ \  
     | | * acdc49a (B) B2
     | | * f0117e0 B1
     | * | 0bad3af (A) A1
-    | |/
+    | |/  
     * | 9895054 (D) D1
     * | de625cc (C) C3
     * | 23419f8 C2
     * | 5dc4389 C1
-    |/
+    |/  
     * d4f537e (shared) S3
     * b448757 S2
     * e9a378d S1
     | * bce0c5e (origin/main) M2
-    |/
+    |/  
     * 3183e43 (main) M1
     ");
 
@@ -2861,9 +2874,9 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     )?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\
+    |\  
     | * cbc6713 (origin/advanced-lane, dependant, advanced-lane) change
-    |/
+    |/  
     * fafd9d0 (origin/main, main, lane) init
     ");
 
@@ -2967,12 +2980,12 @@ fn multiple_stacks_with_shared_parent_and_remote() -> anyhow::Result<()> {
         read_only_in_memory_scenario("ws/multiple-stacks-with-shared-segment-and-remote")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   e982e8a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\
+    |\  
     | * aff8449 (B-on-A) B-on-A
     * | 4f1bb32 (C-on-A) C-on-A
-    |/
+    |/  
     | * b627ca7 (origin/A) A-on-remote
-    |/
+    |/  
     * e255adc (A) A
     * fafd9d0 (origin/main, main) init
     ");
@@ -3024,9 +3037,9 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
     )?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   873d056 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\
+    |\  
     * | cbc6713 (advanced-lane) change
-    |/
+    |/  
     * fafd9d0 (main, lane) init
     * da83717 (origin/main) disjoint remote target
     ");
@@ -3100,7 +3113,7 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
     * aadad9d (A) shared by name
     * 96a2408 (origin/main) another unrelated
     | * 2b1808c (origin/A) shared by name
-    |/
+    |/  
     * f15ca75 (integrated) other integrated
     * 9456d79 integrated in target
     * fafd9d0 (main) init
@@ -3170,12 +3183,12 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
     * e0bd0a7 (origin/B) B
     * 0b6b861 (origin/A) A
     | * b694668 (origin/main) Merge branch 'A' into soon-origin-main
-    |/|
+    |/| 
     | | * 4f08b8d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | | * da597e8 (B) B
-    | |/
+    | |/  
     | * 1818c17 (A) A
-    |/
+    |/  
     * 281456a (main) init
     ");
 
@@ -3251,7 +3264,7 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::
     * 0b6b861 (origin/main, main) A
     | * da597e8 (origin/B) B
     | * 1818c17 (origin/A) A
-    |/
+    |/  
     * 281456a init
     ");
 
@@ -3433,7 +3446,7 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 3ea2742 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * 4fe5a6f (origin/A) A-remote
-    |/
+    |/  
     * a62b0de (A) A2
     * 120a217 A1
     * fafd9d0 (main) init
@@ -3663,7 +3676,7 @@ fn two_dependent_branches_first_merged_by_rebase() -> anyhow::Result<()> {
     | * 4f08b8d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * da597e8 (B) B
     | * 1818c17 (A) A
-    |/
+    |/  
     * 281456a (main) init
     ");
 
@@ -3787,44 +3800,44 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/branches-ahead-of-workspace")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   790a17d (C-bottom) C2 merge commit
-    |\
+    |\  
     | * 631be19 (tmp) C1-outside2
     * | 969aaec C1-outside
-    |/
+    |/  
     | * 71dad1a (D) D2-outside
     | | * c83f258 (A) A2-outside
     | | | * 27c2545 (origin/A-middle, A-middle) A1-outside
     | | | | * c8f73c7 (B-middle) B3-outside
     | | | | * ff75b80 (intermediate-branch) B2-outside
     | | | | | *-.   fe6ba62 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    | | | |_|/|\ \
-    | | |/| | | |/
-    | | |_|_|_|/|
-    | |/| | | | |
+    | | | |_|/|\ \  
+    | | |/| | | |/  
+    | | |_|_|_|/|   
+    | |/| | | | |   
     | * | | | | | ed36e3b (new-name-for-D) D1
     | | | | | | * 3f7c4e6 (C) C2
-    | |_|_|_|_|/
-    |/| | | | |
+    | |_|_|_|_|/  
+    |/| | | | |   
     * | | | | | b6895d7 C1
-    |/ / / / /
+    |/ / / / /  
     | | | | * 2f8f06d (B) B3
-    | | | |/
+    | | | |/  
     | | | | *   867927f (origin/main, main) Merge branch 'B-middle'
-    | | | | |\
-    | | | | |/
-    | | | |/|
+    | | | | |\  
+    | | | | |/  
+    | | | |/|   
     | | | * | 91bc3fc (origin/B-middle) B2
     | | | * | cf9330f B1
-    | |_|/ /
-    |/| | |
+    | |_|/ /  
+    |/| | |   
     | | | * 6e03461 Merge branch 'A'
-    | |_|/|
-    |/| |/
-    | |/|
+    | |_|/| 
+    |/| |/  
+    | |/|   
     | * | a62b0de A2
-    | |/
+    | |/  
     | * 120a217 A1
-    |/
+    |/  
     * fafd9d0 init
     ");
 
@@ -4005,9 +4018,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
     )?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   873d056 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\
+    |\  
     * | cbc6713 (advanced-lane) change
-    |/
+    |/  
     * fafd9d0 (main, lane) init
     * da83717 (origin/main) disjoint remote target
     ");
@@ -4105,15 +4118,15 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
     * a7131b1 (HEAD -> gitbutler/workspace) on-top4
     * 4d3831e (intermediate-ref) on-top3
     *   468357f on-top2-merge
-    |\
+    |\  
     | * d3166f7 (branch-on-top) on-top-sibling
-    |/
+    |/  
     * 118ddbb on-top1
     *   619d548 GitButler Workspace Commit
-    |\
+    |\  
     | * 6fdab32 (A) A1
     * | 8a352d5 (B) B1
-    |/
+    |/  
     * bce0c5e (origin/main, main) M2
     * 3183e43 M1
     ");
@@ -4224,9 +4237,9 @@ fn advanced_workspace_ref_single_stack() -> anyhow::Result<()> {
     * da912a8 (HEAD -> gitbutler/workspace) on-top4
     * 198eaf8 (intermediate-ref) on-top3
     *   3147997 on-top2-merge
-    |\
+    |\  
     | * dd7bb9a (branch-on-top) on-top-sibling
-    |/
+    |/  
     * 9785229 on-top1
     * c58f157 GitButler Workspace Commit
     * 6fdab32 (A) A1
@@ -4283,14 +4296,14 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   e82dfab (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\
+    |\  
     | * 6fdab32 (A) A1
     * | 78b1b59 (B) B1
     | | * 938e6f2 (origin/main, main) M4
-    | |/
-    |/|
+    | |/  
+    |/|   
     * | f52fcec M3
-    |/
+    |/  
     * bce0c5e M2
     * 3183e43 M1
     ");
