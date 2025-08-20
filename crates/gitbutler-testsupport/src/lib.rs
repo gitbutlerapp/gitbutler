@@ -238,12 +238,7 @@ pub mod read_only {
         // Assure the project is valid the first time.
         let project = if was_inserted {
             let tmp = tempfile::TempDir::new()?;
-            gitbutler_project::add_with_path(
-                tmp.path(),
-                project_worktree_dir.as_path(),
-                None,
-                None,
-            )?
+            gitbutler_project::add_with_path(tmp.path(), project_worktree_dir.as_path())?
         } else {
             Project {
                 id: ProjectId::generate(),
