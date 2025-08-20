@@ -8,7 +8,7 @@
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
+	import { ircPath, projectPath, isWorkspacePath } from '$lib/routes/routes.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import {
@@ -37,6 +37,7 @@
 	const baseReponse = $derived(projectId ? baseBranchService.baseBranch(projectId) : undefined);
 	const base = $derived(baseReponse?.current.data);
 	const settingsStore = $derived(settingsService.appSettings);
+	const isWorkspace = $derived(isWorkspacePath());
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 	const backend = inject(BACKEND);
 
@@ -182,7 +183,7 @@
 				onclick={() => {
 					toggleButActions();
 				}}
-				disabled={actionsDisabled}
+				disabled={actionsDisabled || !isWorkspace}
 			>
 				{#snippet custom()}
 					<svg
