@@ -95,34 +95,51 @@ async function webFilePicker<T extends OpenDialogOptions>(
 	options?: T
 ): Promise<OpenDialogReturn<T>> {
 	const fileInput = document.createElement('input');
+	const projectPath = getCookie('PROJECT_PATH') || '';
 	fileInput.type = 'file';
 
 	if (options?.multiple) {
 		fileInput.multiple = true;
 	}
 
+	if (options?.directory) {
+		fileInput.webkitdirectory = true; // This is a web-specific feature for directory selection
+	}
+
 	const promise = new Promise<OpenDialogReturn<T>>((resolve) => {
 		fileInput.onchange = () => {
 			const files = fileInput.files;
-			if (!files) {
+			if (!files || files.length === 0) {
 				resolve(null);
 				return;
 			}
+
+			if (options?.directory) {
+				const file = files[0]!;
+				const filePath = file.webkitRelativePath || file.name;
+				const dirPath = filePath.split('/').slice(0, -1).join('/');
+				const absolute = projectPath + '/' + dirPath;
+				resolve(absolute as OpenDialogReturn<T>);
+				return;
+			}
+
 			const paths: string[] = [];
 			for (const file of files) {
 				paths.push(file.name);
 			}
+
 			if (paths.length === 0) {
 				resolve(null);
 				return;
 			}
+
 			if (options?.multiple) {
 				resolve(paths as OpenDialogReturn<T>);
 				return;
 			}
 
-			const path = paths[0];
-			resolve(path as OpenDialogReturn<T>);
+			const filePath = paths[0];
+			resolve(filePath as OpenDialogReturn<T>);
 		};
 	});
 
