@@ -19,7 +19,7 @@
 			return 'branch-small';
 		}
 
-		return 'chain-link';
+		return 'link-small';
 	}
 </script>
 
