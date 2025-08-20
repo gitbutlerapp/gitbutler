@@ -8,11 +8,12 @@
 
 	interface Props {
 		projectId: string;
+		disabled: boolean;
 		remoteName: string | null | undefined;
 		branchName: string | null | undefined;
 	}
 
-	const { projectId, remoteName, branchName }: Props = $props();
+	const { projectId, remoteName, branchName, disabled }: Props = $props();
 
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
 
@@ -106,7 +107,7 @@
 			</InfoMessage>
 		</div>
 	{/if}
-	<Button style="pop" wide icon="item-tick" disabled={loading} onclick={checkCredentials}>
+	<Button style="pop" wide icon="item-tick" {loading} {disabled} onclick={checkCredentials}>
 		{#if loading || checks?.length === 0}
 			Test credentials
 		{:else}
