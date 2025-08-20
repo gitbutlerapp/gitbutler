@@ -155,7 +155,7 @@ fn main() {
                         }
                     });
 
-                    let archival = Arc::new(gitbutler_feedback::Archival {
+                    let archival = Arc::new(but_feedback::Archival {
                         cache_dir: app_cache_dir.clone(),
                         logs_dir: app_log_dir.clone(),
                     });
@@ -212,6 +212,7 @@ fn main() {
                     commands::git_index_size,
                     zip::commands::get_logs_archive_path,
                     zip::commands::get_project_archive_path,
+                    zip::commands::get_anonymous_graph_path,
                     users::set_user,
                     users::delete_user,
                     users::get_user,

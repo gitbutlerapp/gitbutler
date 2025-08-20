@@ -1,13 +1,126 @@
 use crate::init::PetGraph;
 use crate::{Edge, Graph, Segment, SegmentIndex, SegmentMetadata};
-use bstr::ByteSlice;
+use anyhow::{Context, bail};
+use bstr::{BString, ByteSlice, ByteVec};
 use gix::reference::Category;
 use petgraph::prelude::EdgeRef;
 use petgraph::stable_graph::EdgeReference;
 use petgraph::visit::IntoEdgeReferences;
+use std::collections::BTreeMap;
 
 /// Debugging
 impl Graph {
+    /// Assure that no PII is left in the graph, by deterministically anonymizing branch names.
+    ///
+    /// What it will keep is `gitbutler/` references, and all commit information (flags, hashes).
+    ///
+    /// Use `remotes` to know how to separate the remote name from the branch name of a short name.
+    pub fn anonymize(&mut self, remotes: &gix::remote::Names) -> anyhow::Result<&mut Self> {
+        fn int_to_alpha(mut n: usize) -> String {
+            let mut result = String::new();
+            while n > 0 {
+                n -= 1; // Adjust for 0-based indexing in base-26
+                let remainder = n % 26;
+                let c = (b'A' + remainder as u8) as char;
+                result.insert(0, c);
+                n /= 26;
+            }
+            if result.is_empty() {
+                result.push('A');
+            }
+            result
+        }
+
+        let mut remote_mapping = BTreeMap::<BString, BString>::new();
+        let mut name_mapping = BTreeMap::<BString, BString>::new();
+        let mut anon = |rn: &mut gix::refs::FullName| -> anyhow::Result<()> {
+            let (category, short_name) = rn
+                .category_and_short_name()
+                .with_context(|| format!("Couldn't classify reference '{rn}'"))?;
+            match category {
+                Category::Tag | Category::LocalBranch => {
+                    let num_names = name_mapping.len();
+                    let new_name = name_mapping
+                        .entry(short_name.to_owned())
+                        .or_insert_with(|| int_to_alpha(num_names).into());
+                    *rn = category.to_full_name(new_name.as_bstr())?;
+                }
+                Category::RemoteBranch => {
+                    let (remote_name, short_name) = remotes
+                        .iter()
+                        .rev()
+                        .find_map(|remote| {
+                            rn.as_bstr()[Category::RemoteBranch.prefix().len()..]
+                                .as_bstr()
+                                .strip_prefix(remote.as_bytes())
+                                .map(|short_name| (remote, short_name.as_bstr()))
+                        })
+                        .with_context(|| format!("Couldn't determine remote name in {rn}"))?;
+
+                    let short_name = short_name
+                        .strip_prefix(b"/")
+                        .with_context(|| {
+                            format!("Couldn't *unambiguously* determine remote name in {rn}")
+                        })?
+                        .as_bstr();
+
+                    let mut new_name: BString = "refs/remotes/".into();
+
+                    let num_remotes = remote_mapping.len();
+                    let new_remote_name = remote_mapping
+                        .entry(remote_name.as_bstr().to_owned())
+                        .or_insert_with(|| format!("remote-{}", num_remotes).into());
+                    new_name.push_str(new_remote_name);
+
+                    let num_names = name_mapping.len();
+                    let new_short_name = name_mapping
+                        .entry(short_name.to_owned())
+                        .or_insert_with(|| int_to_alpha(num_names).into());
+                    new_name.push_byte(b'/');
+                    new_name.push_str(new_short_name);
+                    *rn = gix::refs::FullName::try_from(new_name.as_bstr())
+                        .expect("Our replacement names are always valid");
+                }
+
+                Category::Note
+                | Category::PseudoRef
+                | Category::MainPseudoRef
+                | Category::MainRef
+                | Category::LinkedPseudoRef { .. }
+                | Category::LinkedRef { .. }
+                | Category::Bisect
+                | Category::Rewritten
+                | Category::WorktreePrivate => {
+                    bail!("Can't handle reference '{rn}' of category '{category:?}'");
+                }
+            }
+            Ok(())
+        };
+        for node in self.inner.node_weights_mut() {
+            if let Some(rn) = node.ref_name.as_mut() {
+                anon(rn)?;
+            }
+            if let Some(rn) = node.remote_tracking_ref_name.as_mut() {
+                anon(rn)?;
+            }
+            for rn in node.commits.iter_mut().flat_map(|c| c.refs.iter_mut()) {
+                anon(rn)?;
+            }
+            if let Some(SegmentMetadata::Workspace(md)) = node.metadata.as_mut() {
+                if let Some(rn) = md.target_ref.as_mut() {
+                    anon(rn)?;
+                }
+                for rn in md
+                    .stacks
+                    .iter_mut()
+                    .flat_map(|s| s.branches.iter_mut().map(|b| &mut b.ref_name))
+                {
+                    anon(rn)?;
+                }
+            }
+        }
+        Ok(self)
+    }
     /// Produce a string that concisely represents `commit`, adding `extra` information as needed.
     pub fn commit_debug_string(
         commit: &crate::Commit,

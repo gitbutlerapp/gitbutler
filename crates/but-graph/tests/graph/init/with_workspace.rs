@@ -704,8 +704,8 @@ fn just_init_with_branches() -> anyhow::Result<()> {
             └── ❄️fafd9d0 (🏘️|✓)
     ");
 
-    let graph =
-        Graph::from_commit_traversal(id, ref_name, &*meta, standard_options())?.validated()?;
+    let mut graph = Graph::from_commit_traversal(id, ref_name.clone(), &*meta, standard_options())?
+        .validated()?;
     // Now the dependent segments are applied, and so is the separate stack.
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
@@ -733,6 +733,41 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         ├── 📙:4:B
         └── 📙:5:A
     ");
+
+    graph.anonymize(&repo.remote_names())?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:0:A <> ✓refs/remotes/remote-0/A on fafd9d0
+    ├── ≡📙:6:E on fafd9d0
+    │   ├── 📙:6:E
+    │   ├── 📙:7:F
+    │   └── 📙:8:G
+    └── ≡📙:3:B on fafd9d0
+        ├── 📙:3:B
+        ├── 📙:4:C
+        └── 📙:5:D
+    ");
+
+    let graph = Graph::from_commit_traversal(
+        id,
+        ref_name,
+        &*meta,
+        but_graph::init::Options {
+            dangerously_skip_postprocessing_for_debugging: true,
+            ..standard_options()
+        },
+    )?
+    .validated()?;
+    // Show how the lack of post-processing affects the graph.
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ►:2[0]:main →:1:
+    │       └── ·fafd9d0 (⌂|🏘️|✓|1) ►A, ►B, ►C, ►D, ►E, ►F, ►origin/main
+    └── ►:1[0]:origin/main →:2:
+        └── →:2: (main →:1:)
+    ");
+
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0");
+
     Ok(())
 }
 

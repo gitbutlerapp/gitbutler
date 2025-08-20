@@ -21,6 +21,7 @@ pub(super) struct Context<'a> {
     pub inserted_proxy_segments: Vec<SegmentIndex>,
     pub refs_by_id: RefsById,
     pub hard_limit: bool,
+    pub dangerously_skip_postprocessing_for_debugging: bool,
 }
 
 impl Context<'_> {
@@ -46,6 +47,7 @@ impl Graph {
             inserted_proxy_segments,
             refs_by_id,
             hard_limit,
+            dangerously_skip_postprocessing_for_debugging,
         }: Context<'_>,
     ) -> anyhow::Result<Self> {
         self.hard_limit_hit = hard_limit;
@@ -56,6 +58,10 @@ impl Graph {
                 .inner
                 .node_weight(*segment)
                 .and_then(|s| s.commit_index_of(tip));
+        }
+
+        if dangerously_skip_postprocessing_for_debugging {
+            return Ok(self);
         }
 
         // Before anything, cleanup the graph.

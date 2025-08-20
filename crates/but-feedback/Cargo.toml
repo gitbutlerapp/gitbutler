@@ -1,15 +1,21 @@
 [package]
-name = "gitbutler-feedback"
+name = "but-feedback"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
+
+[lib]
+test = false
+doctest = false
 
 [dependencies]
 anyhow = "1.0.98"
 zip = "2.2.0"
 walkdir = "2.5.0"
-sha2 = "0.10.9"
+chrono = { version = "0.4.41" }
+gitbutler-command-context.workspace = true
+but-graph.workspace = true
 gitbutler-project.workspace = true
 
 [dev-dependencies]

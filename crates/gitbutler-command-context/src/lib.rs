@@ -110,9 +110,16 @@ impl CommandContext {
         VirtualBranchesTomlMetadata,
         but_graph::Graph,
     )> {
-        let meta = self.meta()?;
+        let meta = self.meta_inner()?;
         let graph = but_graph::Graph::from_head(&repo, &meta, meta.graph_options())?;
         Ok((repo, VirtualBranchesTomlMetadata(meta), graph))
+    }
+
+    /// Return a wrapper for metadata that only supports read-only access when presented with the project wide permission
+    /// to read data.
+    /// This is helping to prevent races with mutable instances.
+    pub fn meta(&self, _read_only: &WorktreeReadPermission) -> Result<VirtualBranchesTomlMetadata> {
+        self.meta_inner().map(VirtualBranchesTomlMetadata)
     }
 
     /// Open the repository with standard options and create a new Graph traversal from the current HEAD,
@@ -131,7 +138,7 @@ impl CommandContext {
         but_graph::Graph,
     )> {
         let repo = self.gix_repo()?;
-        let meta = self.meta()?;
+        let meta = self.meta_inner()?;
         let graph = but_graph::Graph::from_head(&repo, &meta, meta.graph_options())?;
         Ok((repo, VirtualBranchesTomlMetadataMut(meta), graph))
     }
@@ -174,7 +181,7 @@ impl CommandContext {
 impl CommandContext {
     /// Return the `RefMetadata` implementation based on the `virtual_branches.toml` file.
     /// This can one day be changed to auto-migrate away from the toml and to the database.
-    fn meta(&self) -> Result<but_graph::VirtualBranchesTomlMetadata> {
+    fn meta_inner(&self) -> Result<but_graph::VirtualBranchesTomlMetadata> {
         but_graph::VirtualBranchesTomlMetadata::from_path(
             self.project.gb_dir().join("virtual_branches.toml"),
         )

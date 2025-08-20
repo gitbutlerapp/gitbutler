@@ -69,7 +69,7 @@ pub async fn run() {
                 .expect("failed to create app settings"),
         ),
         broadcaster: broadcaster.clone(),
-        archival: Arc::new(gitbutler_feedback::Archival {
+        archival: Arc::new(but_feedback::Archival {
             cache_dir: app_data_dir.join("cache").clone(),
             logs_dir: app_data_dir.join("logs").clone(),
         }),

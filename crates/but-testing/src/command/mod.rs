@@ -510,6 +510,7 @@ pub fn graph(
                     .expect("the prefix is unambiguous")
             })
             .collect(),
+        dangerously_skip_postprocessing_for_debugging: false,
     };
 
     // Never drop - this is read-only.

@@ -73,6 +73,11 @@ pub struct Options {
     /// the workspace.
     /// Typically, it's a past position of an existing target, or a target chosen by the user.
     pub extra_target_commit_id: Option<gix::ObjectId>,
+    /// Enabling this will prevent the postprocessing step to run which is what makes the graph useful through clean-up
+    /// and to make it more amenable to a workspace project.
+    ///
+    /// This should only be used in case post-processing fails and one wants to preview the version before that.
+    pub dangerously_skip_postprocessing_for_debugging: bool,
 }
 
 /// Presets
@@ -244,6 +249,7 @@ impl Graph {
             commits_limit_hint: limit,
             commits_limit_recharge_location: mut max_commits_recharge_location,
             hard_limit,
+            dangerously_skip_postprocessing_for_debugging,
         } = options;
 
         let max_limit = Limit::new(limit);
@@ -322,6 +328,7 @@ impl Graph {
             inserted_proxy_segments: Vec::new(),
             refs_by_id,
             hard_limit: false,
+            dangerously_skip_postprocessing_for_debugging,
         };
         if tip_is_not_workspace_commit {
             let current = graph.insert_root(branch_segment_from_name_and_meta(

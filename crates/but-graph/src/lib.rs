@@ -196,7 +196,7 @@
 //! as projections are inherently lossy.
 //! Thus, it's useful create projects with links back to the segments that the information was extracted from.
 #![forbid(unsafe_code)]
-#![deny(missing_docs, rust_2018_idioms)]
+#![deny(missing_docs)]
 
 mod segment;
 pub use segment::{Commit, CommitFlags, Segment, SegmentMetadata};
