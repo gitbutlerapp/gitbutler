@@ -118,6 +118,7 @@ pub fn standard_options() -> but_graph::init::Options {
         commits_limit_recharge_location: vec![],
         hard_limit: None,
         extra_target_commit_id: None,
+        dangerously_skip_postprocessing_for_debugging: false,
     }
 }
 
