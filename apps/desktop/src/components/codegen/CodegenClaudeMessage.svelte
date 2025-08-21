@@ -8,9 +8,9 @@
 		message: Message;
 		onApproval?: (id: string) => Promise<void>;
 		onRejection?: (id: string) => Promise<void>;
+		userAvatarUrl?: string;
 	};
-	const { message, onApproval, onRejection }: Props = $props();
-
+	const { message, onApproval, onRejection, userAvatarUrl }: Props = $props();
 	let toolCallsExpanded = $state(false);
 
 	const toolDisplayLimit = 3;
@@ -25,12 +25,7 @@
 </script>
 
 {#if message.type === 'user'}
-	<CodegenMessage
-		content={message.message}
-		avatarUrl="https://avatars.githubusercontent.com/u/70?v=4"
-		side="right"
-		bubble
-	/>
+	<CodegenMessage content={message.message} avatarUrl={userAvatarUrl} side="right" bubble />
 {:else if message.type === 'claude'}
 	<CodegenMessage content={message.message} side="left">
 		{#snippet extraContent()}

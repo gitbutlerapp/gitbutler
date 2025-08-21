@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Avatar, Markdown } from '@gitbutler/ui';
+	import { Avatar, Icon, Markdown } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -17,6 +17,10 @@
 	<div class="message-avatar">
 		{#if avatarUrl}
 			<Avatar size="large" srcUrl={avatarUrl} tooltip="" />
+		{:else if side === 'right'}
+			<div class="user-icon">
+				<Icon name="profile" size={22} />
+			</div>
 		{:else}
 			{@render happyPC()}
 		{/if}
@@ -102,5 +106,16 @@
 		max-width: calc(100% - 40px);
 		gap: 16px;
 		text-wrap: wrap;
+	}
+
+	.user-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 16px;
+		background: var(--clr-theme-pop-element);
+		color: var(--clr-theme-pop-on-element);
 	}
 </style>
