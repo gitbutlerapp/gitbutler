@@ -42,7 +42,7 @@
 	>
 		<ConfigurableScrollableContainer>
 			<div class="draft-stack__scroll-wrap">
-				<div class="new-commit-view" data-testid={TestId.NewCommitView}>
+				<div class="new-commit-view">
 					<NewCommitView {projectId} />
 				</div>
 				<ReduxResult {projectId} result={newNameResult.current}>
