@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 pub struct ClaudeSession {
     pub id: String,
     pub current_id: String,
+    pub session_ids: String,
     pub created_at: chrono::NaiveDateTime,
     pub updated_at: chrono::NaiveDateTime,
     pub in_gui: bool,
@@ -171,6 +172,20 @@ impl ClaudeSessionsHandle<'_> {
         diesel::update(claude_sessions.filter(crate::schema::claude_sessions::id.eq(id)))
             .set((
                 crate::schema::claude_sessions::current_id.eq(current_id),
+                crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
+            ))
+            .execute(&mut self.db.conn)?;
+        Ok(())
+    }
+
+    pub fn update_session_ids(
+        &mut self,
+        id: &str,
+        session_ids: &str,
+    ) -> Result<(), diesel::result::Error> {
+        diesel::update(claude_sessions.filter(crate::schema::claude_sessions::id.eq(id)))
+            .set((
+                crate::schema::claude_sessions::session_ids.eq(session_ids),
                 crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
             ))
             .execute(&mut self.db.conn)?;

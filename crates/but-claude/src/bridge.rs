@@ -20,7 +20,7 @@
 //!   more complex with more unknowns.
 
 use crate::{
-    ClaudeMessage, ClaudeMessageContent, UserInput,
+    ClaudeMessage, ClaudeMessageContent, Transcript, UserInput,
     claude_config::{fmt_claude_mcp, fmt_claude_settings},
     db,
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
@@ -32,6 +32,7 @@ use gitbutler_command_context::CommandContext;
 use serde_json::json;
 use std::{
     collections::HashMap,
+    fs,
     io::{BufRead, BufReader, PipeReader, Read as _},
     process::ExitStatus,
     sync::Arc,
@@ -296,7 +297,19 @@ async fn spawn_command(
     if create_new {
         command.arg(format!("--session-id={}", session.id));
     } else {
-        command.arg(format!("--resume={}", session.current_id));
+        let mut session_ids = session.session_ids.clone();
+        let mut current_id = session_ids.pop().unwrap_or(session.current_id);
+
+        while !session_ids.is_empty()
+            && !dbg!(fs::exists(Transcript::get_transcript_path(
+                &project_path,
+                current_id
+            )?)?)
+        {
+            current_id = session_ids.pop().unwrap_or(session.current_id);
+        }
+
+        command.arg(format!("--resume={}", current_id));
     }
     command.arg(message);
     Ok(command.spawn()?)
