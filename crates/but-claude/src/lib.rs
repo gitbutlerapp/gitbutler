@@ -19,6 +19,8 @@ pub struct ClaudeSession {
     id: Uuid,
     /// The most recent session ID. If a session is stopped and resumed, Claude will copy over the past context into a new session. This value is unique.
     current_id: Uuid,
+    /// All session IDs that have been used for this session, including the current one.
+    session_ids: Vec<Uuid>,
     /// The timestamp when the first session was created.
     created_at: chrono::NaiveDateTime,
     /// The timestamp when the session was last updated.

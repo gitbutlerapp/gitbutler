@@ -19,6 +19,7 @@ pub fn save_new_session_with_gui_flag(
     let session = ClaudeSession {
         id,
         current_id: id,
+        session_ids: vec![id],
         created_at: now,
         updated_at: now,
         in_gui,
@@ -38,6 +39,30 @@ pub fn set_session_current_id(
     ctx.db()?
         .claude_sessions()
         .update_current_id(&session_id.to_string(), &current_id.to_string())?;
+    Ok(())
+}
+
+/// Adds a session ID to the list of session IDs for a given session.
+pub fn add_session_id(
+    ctx: &mut CommandContext,
+    session_id: Uuid,
+    new_session_id: Uuid,
+) -> anyhow::Result<()> {
+    if let Some(mut session) = get_session_by_id(ctx, session_id)? {
+        if !session.session_ids.contains(&new_session_id) {
+            session.session_ids.push(new_session_id);
+            session.current_id = new_session_id;
+
+            let json = serde_json::to_string(&session.session_ids)?;
+
+            ctx.db()?
+                .claude_sessions()
+                .update_session_ids(&session_id.to_string(), &json)?;
+            ctx.db()?
+                .claude_sessions()
+                .update_current_id(&session_id.to_string(), &new_session_id.to_string())?;
+        }
+    }
     Ok(())
 }
 
@@ -157,9 +182,11 @@ pub fn update_permission_request(
 impl TryFrom<but_db::ClaudeSession> for crate::ClaudeSession {
     type Error = anyhow::Error;
     fn try_from(value: but_db::ClaudeSession) -> Result<Self, Self::Error> {
+        let session_ids: Vec<Uuid> = serde_json::from_str(&value.session_ids)?;
         Ok(crate::ClaudeSession {
             id: Uuid::parse_str(&value.id)?,
             current_id: Uuid::parse_str(&value.current_id)?,
+            session_ids,
             created_at: value.created_at,
             updated_at: value.updated_at,
             in_gui: value.in_gui,
@@ -170,9 +197,11 @@ impl TryFrom<but_db::ClaudeSession> for crate::ClaudeSession {
 impl TryFrom<crate::ClaudeSession> for but_db::ClaudeSession {
     type Error = anyhow::Error;
     fn try_from(value: crate::ClaudeSession) -> Result<Self, Self::Error> {
+        let session_ids = serde_json::to_string(&value.session_ids)?;
         Ok(but_db::ClaudeSession {
             id: value.id.to_string(),
             current_id: value.current_id.to_string(),
+            session_ids,
             created_at: value.created_at,
             updated_at: value.updated_at,
             in_gui: value.in_gui,

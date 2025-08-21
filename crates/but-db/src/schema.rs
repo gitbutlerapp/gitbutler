@@ -59,6 +59,7 @@ diesel::table! {
     claude_sessions (id) {
         id -> Text,
         current_id -> Text,
+        session_ids -> Text,
         created_at -> Timestamp,
         updated_at -> Timestamp,
         in_gui -> Bool,

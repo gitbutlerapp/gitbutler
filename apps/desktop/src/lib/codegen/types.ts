@@ -71,6 +71,8 @@ export interface ClaudeSession {
 	id: string;
 	/** The most recent session ID. If a session is stopped and resumed, Claude will copy over the past context into a new session. This value is unique. */
 	currentId: string;
+	/** All session IDs that have been used for this session, including the current one. */
+	sessionIds: string[];
 	/** The timestamp when the first session was created. */
 	createdAt: string;
 	/** The timestamp when the session was last updated. */
