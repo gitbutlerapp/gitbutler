@@ -1,8 +1,8 @@
 //! A debug-CLI for making `but`-crates functionality available in real-world repositories.
 #![deny(rust_2018_idioms)]
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr};
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use but_workspace::HunkHeader;
 use command::parse_diff_spec;
 use gix::bstr::BString;
@@ -24,6 +24,15 @@ async fn main() -> Result<()> {
     let _op_span = tracing::info_span!("cli-op").entered();
 
     match &args.cmd {
+        args::Subcommands::AddProject {
+            switch_to_workspace,
+            path,
+        } => command::project::add(
+            data_dir(args.app_data_dir)?,
+            path.to_owned(),
+            switch_to_workspace.to_owned(),
+        ),
+
         args::Subcommands::RemoveReference {
             permit_empty_stacks,
             keep_metadata,
@@ -212,4 +221,19 @@ mod trace {
             .init();
         Ok(())
     }
+}
+
+pub fn data_dir(app_data_dir: Option<PathBuf>) -> anyhow::Result<PathBuf> {
+    let path = if let Some(dir) = app_data_dir {
+        std::fs::create_dir_all(&dir).context("Failed to assure the designated data-dir exists")?;
+        dir
+    } else {
+        dirs_next::data_dir()
+            .map(|dir| dir.join("com.gitbutler.app"))
+            .context("no data-directory available on this platform")?
+    };
+    if !path.is_dir() {
+        bail!("Path '{}' must be a valid directory", path.display());
+    }
+    Ok(path)
 }

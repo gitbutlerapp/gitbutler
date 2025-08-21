@@ -1195,6 +1195,7 @@ dependencies = [
  "gitbutler-filemonitor",
  "gitbutler-operating-modes",
  "gitbutler-project",
+ "gitbutler-reference",
  "gitbutler-stack",
  "gix",
  "itertools",

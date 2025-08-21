@@ -1,3 +1,4 @@
+use gitbutler_reference::RemoteRefname;
 use gitbutler_stack::StackId;
 use std::path::PathBuf;
 
@@ -35,6 +36,16 @@ pub struct Args {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
+    /// Add the given Git repository as project for use with GitButler.
+    AddProject {
+        /// The long name of the remote reference to track, like `refs/remotes/origin/main`,
+        /// when switching to the workspace branch.
+        #[clap(short = 's', long)]
+        switch_to_workspace: Option<RemoteRefname>,
+        /// The path at which the repository worktree is located.
+        #[clap(default_value = ".", value_name = "REPOSITORY")]
+        path: PathBuf,
+    },
     /// Commit or amend all worktree changes to a new commit.
     Commit {
         /// The repo-relative path to the changed file to commit.
