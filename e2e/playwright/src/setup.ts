@@ -1,11 +1,9 @@
+import { BUT_SERVER_PORT, BUT_TESTING, DESKTOP_PORT } from './env.ts';
 import { type BrowserContext } from '@playwright/test';
 import { ChildProcess, spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { Socket } from 'node:net';
 import path from 'node:path';
-
-const DESKTOP_PORT = process.env.DESKTOP_PORT || '3000';
-const BUTLER_PORT = process.env.BUTLER_PORT || '6978';
 
 export function getBaseURL() {
 	const parallelId = process.env.TEST_PARALLEL_INDEX ?? '0';
@@ -18,7 +16,7 @@ export function getBaseURL() {
 export function getButlerPort(): string {
 	const parallelId = process.env.TEST_PARALLEL_INDEX ?? '0';
 	const id = parseInt(parallelId, 10);
-	return `${parseInt(BUTLER_PORT, 10) + id}`;
+	return `${parseInt(BUT_SERVER_PORT, 10) + id}`;
 }
 
 export interface GitButler {
@@ -49,7 +47,7 @@ class GitButlerManager implements GitButler {
 		}
 
 		this.butServerProcess = spawnProcess('cargo', ['run', '-p', 'but-server'], this.rootDir, {
-			E2E_TEST_APP_DATA_DIR: this.configDir || path.join(this.workdir, 'config'),
+			E2E_TEST_APP_DATA_DIR: this.configDir,
 			BUTLER_PORT: getButlerPort()
 		});
 
@@ -69,9 +67,10 @@ class GitButlerManager implements GitButler {
 	}
 
 	async init() {
-		const butReady = await waitForServer(process.env.BUTLER_PORT || '6978', 'localhost');
+		const port = getButlerPort();
+		const butReady = await waitForServer(port, 'localhost');
 		if (!butReady) {
-			throw new Error(`Butler server failed to start on localhost:${process.env.BUTLER_PORT}`);
+			throw new Error(`Butler server failed to start on localhost:${port}`);
 		}
 	}
 
@@ -88,8 +87,14 @@ class GitButlerManager implements GitButler {
 		const scriptPath = path.resolve(this.scriptsDir, scriptName);
 		if (!existsSync(scriptPath)) log(`Script not found: ${scriptPath}`, colors.red);
 		const scriptArgs = args ?? [];
-		await runCommand('bash', [scriptPath, ...scriptArgs], this.workdir);
+		await runCommand('bash', [scriptPath, ...scriptArgs], this.workdir, {
+			GITBUTLER_CLI_DATA_DIR: getButlerDataDir(this.configDir)
+		});
 	}
+}
+
+function getButlerDataDir(configDir: string): string {
+	return path.join(configDir, 'com.gitbutler.app');
 }
 
 async function waitForServer(port: string, host = 'localhost', maxAttempts = 500) {
@@ -163,6 +168,7 @@ function spawnProcess(
 			...process.env,
 			ELECTRON_ENV: 'development',
 			VITE_BUILD_TARGET: 'web',
+			BUT_TESTING: BUT_TESTING,
 			VITE_HOST,
 			...env
 		}
@@ -192,11 +198,16 @@ async function setProjectPathCookie(context: BrowserContext, workdir: string): P
 	]);
 }
 
-async function runCommand(command: string, args: string[], cwd = process.cwd()) {
+async function runCommand(
+	command: string,
+	args: string[],
+	cwd = process.cwd(),
+	env: Record<string, string> = {}
+): Promise<void> {
 	return await new Promise<void>((resolve, reject) => {
 		log(`Running: ${command} ${args.join(' ')}`, colors.cyan);
 
-		const child = spawnProcess(command, args, cwd);
+		const child = spawnProcess(command, args, cwd, env);
 
 		child.on('message', (message) => {
 			log(`Child process message: ${message}`, colors.blue);
