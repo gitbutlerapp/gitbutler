@@ -136,9 +136,8 @@ export function initDependencies(args: {
 	const clientState = new ClientState(backend, gitHubClient, gitLabClient, ircClient, posthog);
 	const githubUserService = new GitHubUserService(backend, clientState['githubApi']);
 
-	const uiStateSlice = clientState.uiState;
 	const uiState = new UiState(
-		reactive(() => uiStateSlice),
+		reactive(() => clientState.uiState),
 		clientState.dispatch
 	);
 	const ircService = new IrcService(clientState, clientState.dispatch, ircClient);
