@@ -244,7 +244,7 @@
 				onclick={async () => await instalCLI()}
 				loading={installingCLI.current.isLoading}
 			>
-				>Install But CLI</Button
+				Install But CLI</Button
 			>
 			<Button
 				style="neutral"
