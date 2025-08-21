@@ -17,6 +17,7 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
+	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
 	import { Badge, Button } from '@gitbutler/ui';
 
@@ -28,6 +29,7 @@
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
+	const user = inject(USER);
 
 	const stacks = $derived(stackService.stacks(projectId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
@@ -159,7 +161,12 @@
 					>
 						{#snippet children([events, permissionRequests], { projectId: _projectId })}
 							{#each formatMessages(events, permissionRequests) as message}
-								<CodegenClaudeMessage {message} {onApproval} {onRejection} />
+								<CodegenClaudeMessage
+									{message}
+									{onApproval}
+									{onRejection}
+									userAvatarUrl={$user?.picture}
+								/>
 							{/each}
 							{@const lastUserMessageSent = lastUserMessageSentAt(events)}
 							{#if currentStatus(events) === 'running' && lastUserMessageSent}
