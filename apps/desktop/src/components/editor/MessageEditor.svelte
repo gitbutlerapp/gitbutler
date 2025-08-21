@@ -285,7 +285,6 @@
 	role="presentation"
 	class="editor-wrapper hide-native-scrollbar"
 	style:--lexical-input-client-text-wrap={useRuler && !forceSansFont ? 'nowrap' : 'normal'}
-	style:--extratoolbar-height={useFloatingBox.current ? '2.625rem' : '0'}
 	style:--code-block-font={useRuler && !forceSansFont
 		? $userSettings.diffFont
 		: 'var(--fontfamily-default)'}
