@@ -4,9 +4,13 @@
 	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
+	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import { AISecretHandle, AI_SERVICE, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
+	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
+	import { codegenEnabled } from '$lib/config/uiFeatureFlags';
 	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
@@ -194,6 +198,34 @@
 	run(() => {
 		if (form) form.modelKind.value = modelKind;
 	});
+
+	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const settingsStore = settingsService.appSettings;
+	let claudeExecutable = $state('');
+
+	// Initialize Claude executable from settings
+	$effect(() => {
+		if ($settingsStore?.claude) {
+			claudeExecutable = $settingsStore.claude.executable;
+		}
+	});
+
+	let recheckedAvailability = $state<'recheck-failed' | 'recheck-succeeded'>();
+	async function checkClaudeAvailability() {
+		const recheck = await claudeCodeService.fetchCheckAvailable(undefined, { forceRefetch: true });
+		if (recheck) {
+			recheckedAvailability = 'recheck-succeeded';
+		} else {
+			recheckedAvailability = 'recheck-failed';
+		}
+	}
+
+	async function updateClaudeExecutable(value: string) {
+		claudeExecutable = value;
+		recheckedAvailability = undefined;
+		await settingsService.updateClaude({ executable: value });
+	}
 </script>
 
 {#snippet shortNote(text: string)}
@@ -467,6 +499,30 @@
 		<AIPromptEdit promptUse="branches" />
 	</div>
 </Section>
+
+<Spacer />
+
+{#if $codegenEnabled}
+	<SectionCard orientation="column">
+		{#snippet title()}
+			Claude Code Configuration
+		{/snippet}
+
+		{#snippet caption()}
+			Configure the path to the Claude Code executable. This is used for AI-powered code generation
+			and editing.
+		{/snippet}
+
+		<ClaudeCheck
+			{claudeExecutable}
+			{recheckedAvailability}
+			onUpdateExecutable={updateClaudeExecutable}
+			onCheckAvailability={checkClaudeAvailability}
+			showInstallationGuide={false}
+			showTitle={false}
+		/>
+	</SectionCard>
+{/if}
 
 <style>
 	.ai-settings__about-text {
