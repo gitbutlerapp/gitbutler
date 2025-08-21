@@ -6,7 +6,10 @@ use serde_json::json;
 
 /// Formats the claude code config
 pub fn fmt_claude_settings() -> Result<String> {
-    let cli_cmd = format!("\"{}\"", get_cli_path()?.to_string_lossy());
+    let cli_cmd = format!(
+        "GITBUTLER_IN_GUI=1 \"{}\"",
+        get_cli_path()?.to_string_lossy()
+    );
     let pre_cmd = format!("{cli_cmd} claude pre-tool");
     let post_cmd = format!("{cli_cmd} claude post-tool");
     let stop_cmd = format!("{cli_cmd} claude stop");

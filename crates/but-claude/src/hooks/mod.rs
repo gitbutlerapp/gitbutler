@@ -88,6 +88,7 @@ pub struct ClaudeStopInput {
 pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
     let input: ClaudeStopInput = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+
     let transcript = Transcript::from_file(Path::new(&input.transcript_path))?;
     let cwd = transcript.dir()?;
     let repo = gix::discover(cwd)?;
@@ -118,6 +119,14 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let session_id = original_session_id(ctx, input.session_id.clone())?;
+
+    if should_exit_early(ctx, &input.session_id)? {
+        return Ok(ClaudeHookOutput {
+            do_continue: true,
+            stop_reason: "Session running in GUI, skipping hook".to_string(),
+            suppress_output: true,
+        });
+    }
 
     let defer = ClearLocksGuard {
         ctx,
@@ -295,6 +304,7 @@ pub struct ClaudePreToolUseInput {
 pub fn handle_pre_tool_call() -> anyhow::Result<ClaudeHookOutput> {
     let mut input: ClaudePreToolUseInput = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+
     let dir = std::path::Path::new(&input.tool_input.file_path)
         .parent()
         .ok_or(anyhow!("Failed to get parent directory of file path"))?;
@@ -311,6 +321,14 @@ pub fn handle_pre_tool_call() -> anyhow::Result<ClaudeHookOutput> {
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let session_id = original_session_id(ctx, input.session_id.clone())?;
+
+    if should_exit_early(ctx, &input.session_id)? {
+        return Ok(ClaudeHookOutput {
+            do_continue: true,
+            stop_reason: "Session running in GUI, skipping hook".to_string(),
+            suppress_output: true,
+        });
+    }
 
     file_lock::obtain(ctx, session_id, input.tool_input.file_path.clone())?;
 
@@ -356,6 +374,15 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
     input.tool_response.file_path = relative_file_path;
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+
+    if should_exit_early(ctx, &input.session_id)? {
+        return Ok(ClaudeHookOutput {
+            do_continue: true,
+            stop_reason: "Session running in GUI, skipping hook".to_string(),
+            suppress_output: true,
+        });
+    }
+
     let session_id = original_session_id(ctx, input.session_id.clone())?;
 
     let defer = ClearLocksGuard {
@@ -541,4 +568,19 @@ fn list_stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {
     } else {
         but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
     }
+}
+
+/// Returns true if the session has `is_gui` set to true, and `GUTBUTLER_IN_GUI` is unset
+fn should_exit_early(ctx: &mut CommandContext, session_id: &str) -> anyhow::Result<bool> {
+    let in_gui = std::env::var("GITBUTLER_IN_GUI").unwrap_or("0".into()) == "1";
+    if in_gui {
+        return Ok(false);
+    }
+
+    let session_uuid = Uuid::parse_str(session_id)?;
+    if let Ok(Some(session)) = crate::db::get_session_by_current_id(ctx, session_uuid) {
+        return Ok(session.in_gui);
+    }
+
+    Ok(false)
 }

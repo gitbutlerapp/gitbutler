@@ -311,9 +311,10 @@ async fn upsert_session(
 ) -> Result<crate::ClaudeSession> {
     let mut ctx = ctx.lock().await;
     let session = if let Some(session) = db::get_session_by_id(&mut ctx, session_id)? {
+        db::set_session_in_gui(&mut ctx, session_id, true)?;
         session
     } else {
-        let session = db::save_new_session(&mut ctx, session_id)?;
+        let session = db::save_new_session_with_gui_flag(&mut ctx, session_id, true)?;
         create_claude_assignment_rule(&mut ctx, session_id, stack_id)?;
         session
     };

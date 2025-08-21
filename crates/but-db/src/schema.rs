@@ -61,6 +61,7 @@ diesel::table! {
         current_id -> Text,
         created_at -> Timestamp,
         updated_at -> Timestamp,
+        in_gui -> Bool,
     }
 }
 

@@ -6,12 +6,22 @@ use crate::{ClaudePermissionRequest, ClaudeSession};
 
 /// Creates a new ClaudeSession with the session_id provided and saves it to the database.
 pub fn save_new_session(ctx: &mut CommandContext, id: Uuid) -> anyhow::Result<ClaudeSession> {
+    save_new_session_with_gui_flag(ctx, id, false)
+}
+
+/// Creates a new ClaudeSession with the session_id provided and saves it to the database.
+pub fn save_new_session_with_gui_flag(
+    ctx: &mut CommandContext,
+    id: Uuid,
+    in_gui: bool,
+) -> anyhow::Result<ClaudeSession> {
     let now = chrono::Utc::now().naive_utc();
     let session = ClaudeSession {
         id,
         current_id: id,
         created_at: now,
         updated_at: now,
+        in_gui,
     };
     ctx.db()?
         .claude_sessions()
@@ -27,7 +37,19 @@ pub fn set_session_current_id(
 ) -> anyhow::Result<()> {
     ctx.db()?
         .claude_sessions()
-        .update(&session_id.to_string(), &current_id.to_string())?;
+        .update_current_id(&session_id.to_string(), &current_id.to_string())?;
+    Ok(())
+}
+
+/// Updates the current session ID for a given session in the database.
+pub fn set_session_in_gui(
+    ctx: &mut CommandContext,
+    session_id: Uuid,
+    in_gui: bool,
+) -> anyhow::Result<()> {
+    ctx.db()?
+        .claude_sessions()
+        .update_in_gui(&session_id.to_string(), in_gui)?;
     Ok(())
 }
 
@@ -140,6 +162,7 @@ impl TryFrom<but_db::ClaudeSession> for crate::ClaudeSession {
             current_id: Uuid::parse_str(&value.current_id)?,
             created_at: value.created_at,
             updated_at: value.updated_at,
+            in_gui: value.in_gui,
         })
     }
 }
@@ -152,6 +175,7 @@ impl TryFrom<crate::ClaudeSession> for but_db::ClaudeSession {
             current_id: value.current_id.to_string(),
             created_at: value.created_at,
             updated_at: value.updated_at,
+            in_gui: value.in_gui,
         })
     }
 }
