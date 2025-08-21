@@ -18,6 +18,7 @@ pub struct ClaudeSession {
     pub current_id: String,
     pub created_at: chrono::NaiveDateTime,
     pub updated_at: chrono::NaiveDateTime,
+    pub in_gui: bool,
 }
 
 #[derive(
@@ -162,10 +163,24 @@ impl ClaudeSessionsHandle<'_> {
         Ok(())
     }
 
-    pub fn update(&mut self, id: &str, current_id: &str) -> Result<(), diesel::result::Error> {
+    pub fn update_current_id(
+        &mut self,
+        id: &str,
+        current_id: &str,
+    ) -> Result<(), diesel::result::Error> {
         diesel::update(claude_sessions.filter(crate::schema::claude_sessions::id.eq(id)))
             .set((
                 crate::schema::claude_sessions::current_id.eq(current_id),
+                crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
+            ))
+            .execute(&mut self.db.conn)?;
+        Ok(())
+    }
+
+    pub fn update_in_gui(&mut self, id: &str, in_gui: bool) -> Result<(), diesel::result::Error> {
+        diesel::update(claude_sessions.filter(crate::schema::claude_sessions::id.eq(id)))
+            .set((
+                crate::schema::claude_sessions::in_gui.eq(in_gui),
                 crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
             ))
             .execute(&mut self.db.conn)?;

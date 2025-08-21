@@ -23,6 +23,8 @@ pub struct ClaudeSession {
     created_at: chrono::NaiveDateTime,
     /// The timestamp when the session was last updated.
     updated_at: chrono::NaiveDateTime,
+    /// Whether this session is used by the GUI.
+    in_gui: bool,
 }
 
 /// Represents a message in a Claude session, referencing the stable session ID.
