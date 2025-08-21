@@ -242,8 +242,6 @@ export class AIService {
 
 	async validateConfiguration(): Promise<boolean> {
 		const modelKind = await this.getModelKind();
-		const openAIKey = await this.getOpenAIKey();
-		const anthropicKey = await this.getAnthropicKey();
 		const ollamaEndpoint = await this.getOllamaEndpoint();
 		const ollamaModelName = await this.getOllamaModelName();
 		const lmStudioEndpoint = await this.getLMStudioEndpoint();
@@ -251,8 +249,10 @@ export class AIService {
 
 		if (await this.usingGitButlerAPI()) return !!get(this.tokenMemoryService.token);
 
-		const openAIActiveAndKeyProvided = modelKind === ModelKind.OpenAI && !!openAIKey;
-		const anthropicActiveAndKeyProvided = modelKind === ModelKind.Anthropic && !!anthropicKey;
+		const openAIActiveAndKeyProvided =
+			modelKind === ModelKind.OpenAI && !!(await this.getOpenAIKey());
+		const anthropicActiveAndKeyProvided =
+			modelKind === ModelKind.Anthropic && !!(await this.getAnthropicKey());
 		const ollamaActiveAndEndpointProvided =
 			modelKind === ModelKind.Ollama && !!ollamaEndpoint && !!ollamaModelName;
 		const lmStudioActiveAndEndpointProvided =
