@@ -1,3 +1,4 @@
+import { BUT_SERVER_PORT, DESKTOP_PORT } from './src/env.ts';
 import { defineConfig, devices } from '@playwright/test';
 import path from 'node:path';
 
@@ -8,9 +9,6 @@ import path from 'node:path';
 // import dotenv from 'dotenv';
 // import path from 'path';
 // dotenv.config({ path: path.resolve(__dirname, '.env') });
-
-const BUT_SERVER_PORT = process.env.BUTLER_PORT || '6978';
-const DESKTOP_PORT = process.env.DESKTOP_PORT || '3000';
 
 const AMOUNT_OF_WORKERS = 2;
 
