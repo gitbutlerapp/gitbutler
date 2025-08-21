@@ -23,7 +23,7 @@ export function getButlerPort(): string {
 
 export interface GitButler {
 	pathInWorkdir: (filePath: string) => string;
-	runScript(scriptName: string): Promise<void>;
+	runScript(scriptName: string, args?: string[]): Promise<void>;
 	destroy(): void;
 }
 
@@ -84,10 +84,11 @@ class GitButlerManager implements GitButler {
 		return path.join(this.workdir, filePath);
 	}
 
-	async runScript(scriptName: string): Promise<void> {
+	async runScript(scriptName: string, args?: string[]): Promise<void> {
 		const scriptPath = path.resolve(this.scriptsDir, scriptName);
 		if (!existsSync(scriptPath)) log(`Script not found: ${scriptPath}`, colors.red);
-		await runCommand('bash', [scriptPath], this.workdir);
+		const scriptArgs = args ?? [];
+		await runCommand('bash', [scriptPath, ...scriptArgs], this.workdir);
 	}
 }
 
