@@ -185,7 +185,6 @@
 		parentMenuId={submenuCoordination.getMenuId()}
 		side={submenuSide}
 		align={submenuVerticalAlign === 'top' ? 'start' : 'end'}
-		offset={4}
 		onclose={() => {
 			isSubmenuOpen = false;
 		}}

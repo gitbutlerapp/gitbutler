@@ -51,6 +51,7 @@
 	import {
 		ContextMenu,
 		ContextMenuItem,
+		ContextMenuItemSubmenu,
 		ContextMenuSection,
 		KebabButton,
 		TestId
@@ -107,7 +108,7 @@
 		});
 	}
 
-	function close() {
+	function closeContextMenu() {
 		contextMenu?.close();
 	}
 </script>
@@ -139,25 +140,28 @@
 				<ContextMenuSection>
 					<ContextMenuItem
 						label="Uncommit"
+						icon="undo-small"
 						testId={TestId.CommitRowContextMenu_UncommitMenuButton}
 						onclick={(e: MouseEvent) => {
 							onUncommitClick?.(e);
-							close();
+							closeContextMenu();
 						}}
 					/>
 					<ContextMenuItem
 						label="Edit commit message"
+						icon="edit-message"
 						testId={TestId.CommitRowContextMenu_EditMessageMenuButton}
 						onclick={(e: MouseEvent) => {
 							onEditMessageClick?.(e);
-							close();
+							closeContextMenu();
 						}}
 					/>
 					<ContextMenuItem
 						label="Edit commit"
+						icon="edit"
 						onclick={(e: MouseEvent) => {
 							onPatchEditClick?.(e);
-							close();
+							closeContextMenu();
 						}}
 					/>
 				</ContextMenuSection>
@@ -166,80 +170,107 @@
 				{#if commitUrl}
 					<ContextMenuItem
 						label="Open in browser"
+						icon="open-link"
 						onclick={async () => {
 							await urlService.openExternalUrl(commitUrl);
-							close();
-						}}
-					/>
-					<ContextMenuItem
-						label="Copy commit link"
-						onclick={() => {
-							clipboardService.write(commitUrl);
-							close();
+							closeContextMenu();
 						}}
 					/>
 				{/if}
-				<ContextMenuItem
-					label="Copy commit hash"
-					onclick={() => {
-						clipboardService.write(commitId);
-						close();
-					}}
-				/>
-				<ContextMenuItem
-					label="Copy commit message"
-					onclick={() => {
-						clipboardService.write(commitMessage);
-						close();
-					}}
-				/>
+				<ContextMenuItemSubmenu label="Copy" icon="copy">
+					{#snippet submenu({ close })}
+						<ContextMenuSection>
+							{#if commitUrl}
+								<ContextMenuItem
+									label="Copy commit link"
+									onclick={() => {
+										clipboardService.write(commitUrl);
+										close();
+										closeContextMenu();
+									}}
+								/>
+							{/if}
+							<ContextMenuItem
+								label="Copy commit hash"
+								onclick={() => {
+									clipboardService.write(commitId);
+									close();
+									closeContextMenu();
+								}}
+							/>
+							<ContextMenuItem
+								label="Copy commit message"
+								onclick={() => {
+									clipboardService.write(commitMessage);
+									close();
+									closeContextMenu();
+								}}
+							/>
+						</ContextMenuSection>
+					{/snippet}
+				</ContextMenuItemSubmenu>
+				{#if contextData.commitStatus === 'LocalAndRemote' || contextData.commitStatus === 'LocalOnly'}
+					{@const stackId = contextData.stackId}
+
+					<ContextMenuItemSubmenu label="Add empty commit" icon="new-empty-commit">
+						{#snippet submenu({ close })}
+							<ContextMenuSection>
+								<ContextMenuItem
+									label="Add empty commit above"
+									disabled={commitInsertion.current.isLoading}
+									onclick={() => {
+										insertBlankCommit(ensureValue(stackId), commitId, 'above');
+										close();
+										closeContextMenu();
+									}}
+								/>
+								<ContextMenuItem
+									label="Add empty commit below"
+									disabled={commitInsertion.current.isLoading}
+									onclick={() => {
+										insertBlankCommit(ensureValue(stackId), commitId, 'below');
+										close();
+										closeContextMenu();
+									}}
+								/>
+							</ContextMenuSection>
+						{/snippet}
+					</ContextMenuItemSubmenu>
+					<ContextMenuItemSubmenu label="Create branch" icon="branch-remote">
+						{#snippet submenu({ close })}
+							<ContextMenuSection>
+								<ContextMenuItem
+									label="Branch from this commit"
+									disabled={refCreation.current.isLoading}
+									onclick={async () => {
+										await handleCreateNewRef(ensureValue(stackId), commitId, 'Above');
+										close();
+										closeContextMenu();
+									}}
+								/>
+								<ContextMenuItem
+									label="Branch after this commit"
+									disabled={refCreation.current.isLoading}
+									onclick={async () => {
+										await handleCreateNewRef(ensureValue(stackId), commitId, 'Below');
+										close();
+										closeContextMenu();
+									}}
+								/>
+							</ContextMenuSection>
+						{/snippet}
+					</ContextMenuItemSubmenu>
+				{/if}
 			</ContextMenuSection>
-			{#if contextData.commitStatus === 'LocalAndRemote' || contextData.commitStatus === 'LocalOnly'}
-				{@const stackId = contextData.stackId}
-				<ContextMenuSection>
-					<ContextMenuItem
-						label="Add empty commit above"
-						disabled={commitInsertion.current.isLoading}
-						onclick={() => {
-							insertBlankCommit(ensureValue(stackId), commitId, 'above');
-							close();
-						}}
-					/>
-					<ContextMenuItem
-						label="Add empty commit below"
-						disabled={commitInsertion.current.isLoading}
-						onclick={() => {
-							insertBlankCommit(ensureValue(stackId), commitId, 'below');
-							close();
-						}}
-					/>
-				</ContextMenuSection>
-				<ContextMenuSection>
-					<ContextMenuItem
-						label="Branch from this commit"
-						disabled={refCreation.current.isLoading}
-						onclick={async () => {
-							await handleCreateNewRef(ensureValue(stackId), commitId, 'Above');
-							close();
-						}}
-					/>
-					<ContextMenuItem
-						label="Branch after this commit"
-						disabled={refCreation.current.isLoading}
-						onclick={async () => {
-							await handleCreateNewRef(ensureValue(stackId), commitId, 'Below');
-							close();
-						}}
-					/>
-				</ContextMenuSection>
-			{/if}
+
 			<ContextMenuSection>
 				<ContextMenuItem
 					label={$rewrapCommitMessage ? 'Show original wrapping' : 'Rewrap message'}
+					icon="text-wrap"
 					disabled={commitInsertion.current.isLoading}
 					onclick={() => {
 						rewrapCommitMessage.set(!$rewrapCommitMessage);
-						close();
+						closeContextMenu();
 					}}
 				/>
 			</ContextMenuSection>
