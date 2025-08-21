@@ -289,7 +289,23 @@ pub(super) mod function {
             ref_target_id,
             PreviousValue::ExistingMustMatch(gix::refs::Target::Object(ref_target_id)),
             "Dependent branch by GitButler",
-        )?;
+        )
+        .map_err(|err| {
+            let code = match err {
+                gix::reference::edit::Error::FileTransactionCommit(
+                    gix::refs::file::transaction::commit::Error::CreateOrUpdateRefLog(
+                        gix::refs::file::log::create_or_update::Error::MissingCommitter,
+                    ),
+                ) => Some(gitbutler_error::error::Code::AuthorMissing),
+                _ => None,
+            };
+            let err = anyhow::Error::from(err);
+            if let Some(code) = code {
+                err.context(code)
+            } else {
+                err
+            }
+        })?;
         // Important to first update the workspace so we have the correct stack setup.
         if let Some(ws_meta) = updated_ws_meta {
             meta.set_workspace(&ws_meta)?;
