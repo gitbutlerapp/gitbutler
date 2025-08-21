@@ -111,6 +111,7 @@ pub use commit::commit;
 use gitbutler_command_context::CommandContext;
 
 pub mod diff;
+pub mod project;
 
 pub mod assignment {
     use crate::command::{debug_print, project_from_path};

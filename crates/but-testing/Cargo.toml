@@ -29,6 +29,7 @@ but-hunk-assignment.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-operating-modes.workspace = true
+gitbutler-reference.workspace = true
 
 gitbutler-commit = { workspace = true, optional = true, features = ["testing"] }
 
