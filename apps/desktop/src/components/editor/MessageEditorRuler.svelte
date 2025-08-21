@@ -37,7 +37,7 @@
 
 	.message-ruler-line {
 		position: absolute;
-		top: var(--extratoolbar-height);
+		top: 0;
 		bottom: var(--lexical-input-client-toolbar-height);
 		left: var(--ruler-position);
 		width: 1px;
