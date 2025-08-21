@@ -12,12 +12,46 @@ export function getByTestId(page: Page, testId: TestIdValues) {
 	return page.getByTestId(testId);
 }
 
+export async function waitForTestId(page: Page, testId: TestIdValues): Promise<Locator> {
+	const element = getByTestId(page, testId);
+	await element.waitFor();
+	return element;
+}
+
 /**
  * Click an element by test ID.
  */
 export async function clickByTestId(page: Page, testId: TestIdValues): Promise<Locator> {
-	const element = getByTestId(page, testId);
-	await element.waitFor();
+	const element = await waitForTestId(page, testId);
 	await element.click();
 	return element;
+}
+
+export async function fillByTestId(
+	page: Page,
+	testId: TestIdValues,
+	value: string
+): Promise<Locator> {
+	const element = await waitForTestId(page, testId);
+	await element.fill(value);
+	return element;
+}
+
+/**
+ * Type into the rich text editor by test ID.
+ *
+ * Only use this for the rich text editor, as this is a workaround for the fact that
+ * the rich text editor does not support the `fill` method.
+ *
+ * If you need to pass text into a norma input element, @see fillByTestId instead
+ */
+export async function textEditorFillByTestId(page: Page, testId: TestIdValues, value: string) {
+	const element = await waitForTestId(page, testId);
+	await element.click();
+	await element.pressSequentially(value);
+	return element;
+}
+
+export async function sleep(ms: number): Promise<void> {
+	return await new Promise((resolve) => setTimeout(resolve, ms));
 }

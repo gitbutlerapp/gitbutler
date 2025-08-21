@@ -1,6 +1,13 @@
+import { writeToFile } from '../src/file.ts';
 import { getBaseURL, type GitButler, startGitButler } from '../src/setup.ts';
-import { clickByTestId, getByTestId } from '../src/util.ts';
-import { test } from '@playwright/test';
+import {
+	clickByTestId,
+	fillByTestId,
+	getByTestId,
+	textEditorFillByTestId,
+	waitForTestId
+} from '../src/util.ts';
+import { expect, test } from '@playwright/test';
 
 let gitbutler: GitButler;
 
@@ -12,10 +19,12 @@ test.afterEach(async () => {
 	gitbutler?.destroy();
 });
 
-test('should start the application', async ({ page, context }, testInfo) => {
+test('should start the application and be able to commit', async ({ page, context }, testInfo) => {
 	const workdir = testInfo.outputPath('workdir');
 	const configdir = testInfo.outputPath('config');
 	gitbutler = await startGitButler(workdir, configdir, context);
+
+	const projectPath = gitbutler.pathInWorkdir('local-clone/');
 
 	await gitbutler.runScript('setup-empty-project.sh');
 
@@ -30,12 +39,10 @@ test('should start the application', async ({ page, context }, testInfo) => {
 	clickByTestId(page, 'add-local-project');
 
 	const fileChooser = await fileChooserPromise;
-	const projectPath = gitbutler.pathInWorkdir('local-clone/');
 	await fileChooser.setFiles(projectPath);
 
 	// Should see the set target page
-	const projectSetupPage = getByTestId(page, 'project-setup-page');
-	await projectSetupPage.waitFor();
+	await waitForTestId(page, 'project-setup-page');
 
 	clickByTestId(page, 'set-base-branch');
 
@@ -45,6 +52,35 @@ test('should start the application', async ({ page, context }, testInfo) => {
 	clickByTestId(page, 'accept-git-auth');
 
 	// Should load the workspace
-	const workspaceView = getByTestId(page, 'workspace-view');
-	await workspaceView.waitFor();
+	await waitForTestId(page, 'workspace-view');
+
+	// Let's write some files
+	const filePath = gitbutler.pathInWorkdir('local-clone/test-file.txt');
+	writeToFile(filePath, 'This is supper important content');
+
+	// Should see the uncommitted changes list
+	await waitForTestId(page, 'uncommitted-changes-file-list');
+	const files = getByTestId(page, 'file-list-item');
+
+	await expect(files).toHaveCount(1);
+	await expect(files.first()).toHaveText('test-file.txt');
+
+	// Click the commit button
+	await clickByTestId(page, 'commit-to-new-branch-button');
+
+	// Should see the commit drawer
+	await waitForTestId(page, 'new-commit-view');
+
+	const newCommitMessage = 'New commit message';
+	const newCommitMessageBody = 'This is the body of the commit message.';
+	// Write a commit message
+	await fillByTestId(page, 'commit-drawer-title-input', newCommitMessage);
+	await textEditorFillByTestId(page, 'commit-drawer-description-input', newCommitMessageBody);
+
+	// Click the commit button
+	await clickByTestId(page, 'commit-drawer-action-button');
+
+	const commitRows = getByTestId(page, 'commit-row');
+	await expect(commitRows).toHaveCount(1);
+	await expect(commitRows.first()).toHaveText(newCommitMessage);
 });
