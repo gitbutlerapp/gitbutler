@@ -9,6 +9,63 @@ use gix::prelude::ObjectIdExt;
 
 mod error_handling;
 
+mod commit {
+    mod store_author_globally_if_unset {
+        use crate::utils::{fixture, fixture_writable};
+        use but_rebase::commit;
+
+        #[test]
+        fn fail_if_nothing_can_be_written() -> anyhow::Result<()> {
+            let mut repo = fixture("four-commits")?;
+            {
+                let mut config = repo.config_snapshot_mut();
+                config.set_raw_value(&"user.name", "name")?;
+                config.set_raw_value(&"user.email", "email")?;
+            }
+            let err = commit::save_author_if_unset_in_repo(
+                &repo,
+                gix::config::Source::Local,
+                "user",
+                "email",
+            )
+            .unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                "Refusing to overwrite an existing user.name and user.email"
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn keep_comments_and_customizations() -> anyhow::Result<()> {
+            let (repo, _tmp) = fixture_writable("four-commits")?;
+            let local_config_path = repo.path().join("config");
+            std::fs::write(
+                &local_config_path,
+                b"# a comment\n[special] \nvalue=foo #value comment",
+            )?;
+
+            commit::save_author_if_unset_in_repo(
+                &repo,
+                gix::config::Source::Local,
+                "user",
+                "email",
+            )?;
+
+            // New values are written and everything else is still contained.
+            insta::assert_snapshot!(std::fs::read_to_string(local_config_path)?, @r"
+            # a comment
+            [special] 
+            value=foo #value comment
+            [user]
+            	name = user
+            	email = email
+            ");
+            Ok(())
+        }
+    }
+}
+
 #[test]
 fn single_stack_journey() -> Result<()> {
     assure_stable_env();
