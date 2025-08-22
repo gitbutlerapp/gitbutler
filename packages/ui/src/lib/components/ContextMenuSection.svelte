@@ -16,8 +16,16 @@
 		display: flex;
 		position: relative;
 		flex-direction: column;
-		padding: 4px;
+		padding: 6px 4px;
 		gap: 2px;
+
+		&:first-child {
+			padding-top: 4px;
+		}
+
+		&:last-child {
+			padding-bottom: 4px;
+		}
 
 		&:not(:first-child) {
 			border-top: 1px solid var(--clr-border-2);

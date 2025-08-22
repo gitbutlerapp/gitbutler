@@ -2,8 +2,12 @@
 	import Icon from '$components/Icon.svelte';
 	import Tooltip from '$components/Tooltip.svelte';
 	import { keysStringToArr } from '$lib/utils/hotkeys';
+	import { getContext } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
+
+	// Context key for submenu coordination
+	const SUBMENU_CONTEXT_KEY = 'contextmenu-submenu-coordination';
 
 	interface Props {
 		icon?: keyof typeof iconsJson | undefined;
@@ -18,6 +22,28 @@
 
 	const { onclick, icon, label, disabled, control, keyboardShortcut, testId, tooltip }: Props =
 		$props();
+
+	// Get submenu coordination context if available
+	const submenuCoordination:
+		| {
+				closeAll: () => void;
+				hasOpenSubmenus: () => boolean;
+				getMenuContainer: () => HTMLElement | undefined;
+				getMenuId: () => string;
+				closeEntireMenu: () => void;
+		  }
+		| undefined = getContext(SUBMENU_CONTEXT_KEY);
+
+	function handleMouseEnter() {
+		// Close any open submenus when hovering over a regular menu item
+		submenuCoordination?.closeAll();
+	}
+
+	function handleClick(e: MouseEvent) {
+		if (disabled) return;
+		e.stopPropagation();
+		onclick(e);
+	}
 </script>
 
 {#snippet button()}
@@ -27,7 +53,8 @@
 		class="menu-item focus-state no-select"
 		class:disabled
 		{disabled}
-		{onclick}
+		onclick={handleClick}
+		onmouseenter={handleMouseEnter}
 	>
 		{#if icon}
 			<div class="menu-item__icon">
@@ -63,22 +90,18 @@
 	.menu-item {
 		display: flex;
 		align-items: center;
-		padding: 6px 8px;
+		height: 26px;
+		padding: 0 8px;
 		gap: 10px;
 		border-radius: var(--radius-s);
 		color: var(--clr-text-1);
 		text-align: left;
 		cursor: pointer;
 		transition: background-color var(--transition-fast);
+
 		&:not(.disabled):hover {
 			background-color: var(--clr-bg-2-muted);
 			transition: none;
-		}
-		&:first-child {
-			margin-top: 2px;
-		}
-		&:last-child {
-			margin-bottom: 2px;
 		}
 
 		&.disabled {

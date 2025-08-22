@@ -126,7 +126,7 @@
 				<ContextMenuItem
 					label="Copy link"
 					onclick={() => {
-						clipboardService.write(pr.htmlUrl);
+						clipboardService.write(pr.htmlUrl, { message: 'PR link copied' });
 						contextMenuEl?.close();
 					}}
 				/>
@@ -153,7 +153,7 @@
 					<ContextMenuItem
 						label="Copy checks"
 						onclick={() => {
-							clipboardService.write(`${pr.htmlUrl}/checks`);
+							clipboardService.write(`${pr.htmlUrl}/checks`, { message: 'Checks link copied' });
 							contextMenuEl?.close();
 						}}
 					/>
@@ -179,7 +179,7 @@
 					icon="copy-small"
 					tooltip="Copy {abbr} link"
 					onclick={() => {
-						clipboardService.write(pr.htmlUrl);
+						clipboardService.write(pr.htmlUrl, { message: 'PR link copied' });
 					}}
 				/>
 				<Button

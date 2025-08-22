@@ -421,7 +421,6 @@
 				shrinkable
 				disabled={!canUseAI}
 				loading={aiIsLoading}
-				menuPosition="top"
 				onclick={handleGenerateMessage}
 				children={currentEditorWidth > DROPDOWN_BTN_BREAKPOINTS.short ? buttonText : undefined}
 				tooltip={getTooltipText()}

@@ -90,7 +90,7 @@
 	bind:this={ctxMenuUserEl}
 	leftClickTrigger={ctxUserTriggerButton}
 	side="right"
-	verticalAlign="bottom"
+	align="end"
 	ontoggle={(isOpen) => (isCtxMenuOpen = isOpen)}
 >
 	<ContextMenuSection>

@@ -93,7 +93,7 @@
 			You can apply your own custom prompts to the project. By default, the project uses GitButler
 			prompts, but you can create your own prompts in the general settings.
 		</p>
-		<Button kind="outline" icon="edit-text" onclick={async () => await goto('/settings/ai')}
+		<Button kind="outline" icon="edit" onclick={async () => await goto('/settings/ai')}
 			>Customize prompts</Button
 		>
 	</SectionCard>

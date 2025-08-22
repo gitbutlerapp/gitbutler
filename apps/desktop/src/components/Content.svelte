@@ -166,9 +166,7 @@
 						}}
 						icon="bin-small">Delete</Button
 					>
-					<Button kind="outline" icon="edit-text" onclick={() => (editing = true)}
-						>Edit prompt</Button
-					>
+					<Button kind="outline" icon="edit" onclick={() => (editing = true)}>Edit prompt</Button>
 				{/if}
 			</div>
 		{/if}

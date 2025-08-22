@@ -325,7 +325,7 @@
 								author={commit.author.name}
 								url={commitUrl}
 								onOpen={(url) => urlService.openExternalUrl(url)}
-								onCopy={() => clipboardService.write(commit.id)}
+								onCopy={() => clipboardService.write(commit.id, { message: 'Commit hash copied' })}
 							/>
 						{/each}
 					</ScrollableContainer>

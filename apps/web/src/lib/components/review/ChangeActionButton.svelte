@@ -137,8 +137,8 @@
 	<DropdownButton
 		bind:this={dropDownButton}
 		loading={isExecuting}
-		menuPosition="top"
 		{icon}
+		menuSide="top"
 		style={buttonColor}
 		onclick={() => handleClick(action)}
 	>

@@ -167,7 +167,7 @@
 {#snippet ruleActions()}
 	<div class="rule__actions">
 		<div class="rule__actions-buttons">
-			<Button icon="edit-text" size="tag" kind="ghost" onclick={editRule} tooltip="Edit rule" />
+			<Button icon="edit" size="tag" kind="ghost" onclick={editRule} tooltip="Edit rule" />
 			<Button
 				icon="remove-from-list"
 				style="error"
