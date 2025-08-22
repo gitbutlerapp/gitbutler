@@ -301,10 +301,7 @@ async fn spawn_command(
         let mut current_id = session_ids.pop().unwrap_or(session.current_id);
 
         while !session_ids.is_empty()
-            && !dbg!(fs::exists(Transcript::get_transcript_path(
-                &project_path,
-                current_id
-            )?)?)
+            && !fs::exists(Transcript::get_transcript_path(&project_path, current_id)?)?
         {
             current_id = session_ids.pop().unwrap_or(session.current_id);
         }
