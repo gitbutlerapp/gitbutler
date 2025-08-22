@@ -9,6 +9,26 @@ use std::io::Write;
 use std::path::Path;
 use std::process::Stdio;
 
+/// Represents the author information from the git configuration.
+pub struct AuthorInfo {
+    /// The name of the author.
+    pub name: Option<BString>,
+    /// The email of the author.
+    pub email: Option<BString>,
+}
+
+/// Get the author information from the repository's git configuration.
+pub fn get_author_info(repo: &gix::Repository) -> anyhow::Result<AuthorInfo> {
+    let config = repo.config_snapshot();
+    let name = config
+        .string(&gix::config::tree::User::NAME)
+        .map(|s| s.into_owned());
+    let email = config
+        .string(&gix::config::tree::User::EMAIL)
+        .map(|s| s.into_owned());
+    Ok(AuthorInfo { name, email })
+}
+
 /// What to do with the committer (actor) and the commit time when [creating a new commit](create()).
 #[derive(Debug, Copy, Clone)]
 pub enum DateMode {

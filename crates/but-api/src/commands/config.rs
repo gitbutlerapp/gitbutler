@@ -1,6 +1,6 @@
 use but_core::{RepositoryExt, settings::git::ui::GitConfigSettings};
 use gitbutler_project::ProjectId;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{App, error::Error};
 
@@ -54,4 +54,28 @@ pub fn store_author_globally_if_unset(
         email.as_str(),
     )?;
     Ok(())
+}
+
+/// Represents the author information from the git configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthorInfo {
+    /// The name of the author.
+    pub name: Option<String>,
+    /// The email of the author.
+    pub email: Option<String>,
+}
+
+impl From<but_rebase::commit::AuthorInfo> for AuthorInfo {
+    fn from(author: but_rebase::commit::AuthorInfo) -> Self {
+        Self {
+            name: author.name.map(|s| s.to_string()),
+            email: author.email.map(|s| s.to_string()),
+        }
+    }
+}
+
+pub fn get_author_info(_app: &App, project_id: ProjectId) -> Result<AuthorInfo, Error> {
+    let repo = but_core::open_repo(gitbutler_project::get(project_id)?.path)?;
+    let author = but_rebase::commit::get_author_info(&repo)?;
+    Ok(author.into())
 }

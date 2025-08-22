@@ -39,3 +39,12 @@ pub fn store_author_globally_if_unset(
         },
     )
 }
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub fn get_author_info(
+    app: State<App>,
+    project_id: ProjectId,
+) -> Result<config::AuthorInfo, Error> {
+    config::get_author_info(&app, project_id)
+}
