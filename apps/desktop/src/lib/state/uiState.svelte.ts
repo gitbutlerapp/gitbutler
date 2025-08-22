@@ -68,7 +68,7 @@ export type ProjectUiState = {
 	branchesToPoll: string[];
 };
 
-type GlobalModalType = 'commit-failed';
+type GlobalModalType = 'commit-failed' | 'author-missing';
 type BaseGlobalModalState = {
 	type: GlobalModalType;
 };
@@ -82,7 +82,14 @@ export type CommitFailedModalState = BaseGlobalModalState & {
 	pathsToRejectedChanges: Record<string, RejectionReason>;
 };
 
-export type GlobalModalState = CommitFailedModalState;
+export type AuthorMissingModalState = BaseGlobalModalState & {
+	type: 'author-missing';
+	projectId: string;
+	authorName: string | undefined;
+	authorEmail: string | undefined;
+};
+
+export type GlobalModalState = CommitFailedModalState | AuthorMissingModalState;
 
 export type GlobalUiState = {
 	drawerHeight: number;

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AuthorMissingModalContent from '$components/AuthorMissingModalContent.svelte';
 	import CommitFailedModalContent from '$components/CommitFailedModalContent.svelte';
 	import { type GlobalModalState, UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -27,6 +28,17 @@
 					}
 				};
 			}
+			case 'author-missing': {
+				return {
+					state: modalState,
+					props: {
+						testId: TestId.GlobalModal_AuthorMissing,
+						closeButton: true,
+						width: 420,
+						noPadding: true
+					}
+				};
+			}
 		}
 	}
 
@@ -39,6 +51,10 @@
 			modal?.show();
 		}
 	});
+
+	function closeModal() {
+		modal?.close();
+	}
 </script>
 
 {#if modalProps}
@@ -50,6 +66,8 @@
 	>
 		{#if modalProps.state.type === 'commit-failed'}
 			<CommitFailedModalContent data={modalProps.state} oncloseclick={() => modal?.close()} />
+		{:else if modalProps.state.type === 'author-missing'}
+			<AuthorMissingModalContent data={modalProps.state} close={closeModal} />
 		{/if}
 	</Modal>
 {/if}
