@@ -27,6 +27,7 @@ export { default as LineStats } from '$components/LineStats.svelte';
 export { default as LinkButton } from '$components/LinkButton.svelte';
 export { default as Modal, type ModalProps } from '$components/Modal.svelte';
 export { default as ModalHeader } from '$components/ModalHeader.svelte';
+export { default as ModalFooter } from '$components/ModalFooter.svelte';
 export { default as NotificationButton } from '$components/NotificationButton.svelte';
 export { default as PrStatusBadge, type PrStatusInfoType } from '$components/PrStatusBadge.svelte';
 export { default as RadioButton } from '$components/RadioButton.svelte';
