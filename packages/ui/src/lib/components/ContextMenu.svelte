@@ -386,10 +386,10 @@
 		margin-top: 4px;
 	}
 	.left-oriented {
-		margin-left: -4px;
+		margin-left: -2px;
 	}
 	.right-oriented {
-		margin-left: 4px;
+		margin-left: 2px;
 	}
 	.context-menu {
 		display: flex;
@@ -404,7 +404,7 @@
 		border-radius: var(--radius-m);
 		outline: none;
 		background: var(--clr-bg-2);
-		box-shadow: var(--fx-shadow-s);
+		box-shadow: var(--fx-shadow-l);
 		animation: fadeIn 0.08s ease-out forwards;
 		pointer-events: none;
 	}
