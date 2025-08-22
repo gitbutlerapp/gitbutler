@@ -27,12 +27,22 @@
 	const submenuCoordination:
 		| {
 				closeAll: () => void;
+				hasOpenSubmenus: () => boolean;
+				getMenuContainer: () => HTMLElement | undefined;
+				getMenuId: () => string;
+				closeEntireMenu: () => void;
 		  }
 		| undefined = getContext(SUBMENU_CONTEXT_KEY);
 
 	function handleMouseEnter() {
 		// Close any open submenus when hovering over a regular menu item
 		submenuCoordination?.closeAll();
+	}
+
+	function handleClick(e: MouseEvent) {
+		if (disabled) return;
+		e.stopPropagation();
+		onclick(e);
 	}
 </script>
 
@@ -43,7 +53,7 @@
 		class="menu-item focus-state no-select"
 		class:disabled
 		{disabled}
-		{onclick}
+		onclick={handleClick}
 		onmouseenter={handleMouseEnter}
 	>
 		{#if icon}
@@ -80,22 +90,18 @@
 	.menu-item {
 		display: flex;
 		align-items: center;
-		padding: 6px 8px;
+		height: 26px;
+		padding: 0 8px;
 		gap: 10px;
 		border-radius: var(--radius-s);
 		color: var(--clr-text-1);
 		text-align: left;
 		cursor: pointer;
 		transition: background-color var(--transition-fast);
+
 		&:not(.disabled):hover {
 			background-color: var(--clr-bg-2-muted);
 			transition: none;
-		}
-		&:first-child {
-			margin-top: 2px;
-		}
-		&:last-child {
-			margin-bottom: 2px;
 		}
 
 		&.disabled {

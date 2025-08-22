@@ -27,6 +27,6 @@
 	<Button kind="ghost" icon="smile" onclick={handleClick} />
 </div>
 
-<ContextMenu bind:this={picker} {leftClickTrigger} side="top" horizontalAlign="left">
+<ContextMenu bind:this={picker} {leftClickTrigger} side="top" align="start">
 	<EmojiPicker {onEmojiSelect} />
 </ContextMenu>

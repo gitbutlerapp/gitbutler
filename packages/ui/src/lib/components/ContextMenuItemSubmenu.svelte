@@ -42,9 +42,17 @@
 	const submenuCoordination: {
 		closeAll: () => void;
 		register: (closeCallback: () => void) => () => void;
+		hasOpenSubmenus: () => boolean;
+		getMenuContainer: () => HTMLElement | undefined;
+		getMenuId: () => string;
+		closeEntireMenu: () => void;
 	} = getContext(SUBMENU_CONTEXT_KEY) || {
 		closeAll: () => {},
-		register: () => () => {}
+		register: () => () => {},
+		hasOpenSubmenus: () => false,
+		getMenuContainer: () => undefined,
+		getMenuId: () => 'unknown',
+		closeEntireMenu: () => {}
 	};
 
 	// Register this submenu
@@ -77,7 +85,7 @@
 
 			isSubmenuOpen = true;
 			contextMenu?.open();
-		}, 150);
+		}, 100);
 	}
 
 	function handleMouseLeave() {
@@ -174,8 +182,9 @@
 	<ContextMenu
 		bind:this={contextMenu}
 		leftClickTrigger={menuItemElement}
+		parentMenuId={submenuCoordination.getMenuId()}
 		side={submenuSide}
-		verticalAlign={submenuVerticalAlign}
+		align={submenuVerticalAlign === 'top' ? 'start' : 'end'}
 		offset={4}
 		onclose={() => {
 			isSubmenuOpen = false;
