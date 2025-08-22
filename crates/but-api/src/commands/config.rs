@@ -1,5 +1,7 @@
 use but_core::{RepositoryExt, settings::git::ui::GitConfigSettings};
 use gitbutler_project::ProjectId;
+use gitbutler_serde::bstring_opt_lossy;
+use gix::bstr::BString;
 use serde::{Deserialize, Serialize};
 
 use crate::{App, error::Error};
@@ -57,21 +59,14 @@ pub fn store_author_globally_if_unset(
 }
 
 /// Represents the author information from the git configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AuthorInfo {
     /// The name of the author.
-    pub name: Option<String>,
+    #[serde(with = "bstring_opt_lossy")]
+    pub name: Option<BString>,
     /// The email of the author.
-    pub email: Option<String>,
-}
-
-impl From<but_rebase::commit::AuthorInfo> for AuthorInfo {
-    fn from(author: but_rebase::commit::AuthorInfo) -> Self {
-        Self {
-            name: author.name.map(|s| s.to_string()),
-            email: author.email.map(|s| s.to_string()),
-        }
-    }
+    #[serde(with = "bstring_opt_lossy")]
+    pub email: Option<BString>,
 }
 
 #[derive(Deserialize)]
@@ -80,8 +75,14 @@ pub struct GetAuthorInfoParams {
     pub project_id: ProjectId,
 }
 
+/// Return the Git author information as the project repository would see it.
 pub fn get_author_info(_app: &App, params: GetAuthorInfoParams) -> Result<AuthorInfo, Error> {
     let repo = but_core::open_repo(gitbutler_project::get(params.project_id)?.path)?;
-    let author = but_rebase::commit::get_author_info(&repo)?;
-    Ok(author.into())
+    let (name, email) = repo
+        .author()
+        .transpose()
+        .map_err(anyhow::Error::from)?
+        .map(|author| (Some(author.name.to_owned()), Some(author.email.to_owned())))
+        .unwrap_or_default();
+    Ok(AuthorInfo { name, email })
 }

@@ -880,6 +880,7 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-repo-actions",
  "gitbutler-secret",
+ "gitbutler-serde",
  "gitbutler-stack",
  "gitbutler-sync",
  "gitbutler-user",
