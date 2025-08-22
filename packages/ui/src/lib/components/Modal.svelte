@@ -32,6 +32,7 @@
 </script>
 
 <script lang="ts" generics="T extends undefined | any = any">
+	import ModalFooter from '$components/ModalFooter.svelte';
 	import ModalHeader from '$components/ModalHeader.svelte';
 	import { focusTrap } from '$lib/utils/focusTrap';
 	import { portal } from '$lib/utils/portal';
@@ -154,9 +155,9 @@
 			</div>
 
 			{#if controls}
-				<div class="modal__footer">
+				<ModalFooter>
 					{@render controls(close, item)}
-				</div>
+				</ModalFooter>
 			{/if}
 		</form>
 	</div>
