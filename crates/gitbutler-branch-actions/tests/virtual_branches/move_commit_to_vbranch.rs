@@ -463,7 +463,8 @@ fn target_commit_locked_to_ancestors() {
     assert_eq!(details.len(), 1);
     let source_branch_id = details[0].0;
 
-    gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add a", None).unwrap();
+    let depends_on_commit =
+        gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Add a", None).unwrap();
 
     std::fs::write(repo.path().join("a.txt"), "This is a \n\n Updated").unwrap();
     std::fs::write(repo.path().join("b.txt"), "This is b").unwrap();
@@ -486,10 +487,12 @@ fn target_commit_locked_to_ancestors() {
         source_branch_id,
     );
 
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        "Commit depends on other changes"
-    );
+    let illegal_move = result.unwrap().unwrap();
+
+    assert!(matches!(
+        illegal_move,
+        gitbutler_branch_actions::MoveCommitIllegalAction::DependsOnCommits(commits) if commits == vec![depends_on_commit.to_string()]
+    ));
 }
 
 #[test]
@@ -526,7 +529,8 @@ fn target_commit_locked_to_descendants() {
 
     std::fs::write(repo.path().join("b.txt"), "This is b and an update").unwrap();
 
-    gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Update b", None).unwrap();
+    let dependent_commit =
+        gitbutler_branch_actions::create_commit(ctx, source_branch_id, "Update b", None).unwrap();
 
     let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
@@ -542,10 +546,12 @@ fn target_commit_locked_to_descendants() {
         source_branch_id,
     );
 
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        "Commit has dependent changes"
-    );
+    let illegal_move = result.unwrap().unwrap();
+
+    assert!(matches!(
+        illegal_move,
+        gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentChanges(commits) if commits == vec![dependent_commit.to_string()]
+    ));
 }
 
 #[test]
