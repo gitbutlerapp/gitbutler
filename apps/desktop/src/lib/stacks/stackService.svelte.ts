@@ -29,7 +29,7 @@ import {
 } from '@reduxjs/toolkit';
 import type { StackOrder } from '$lib/branches/branch';
 import type { Commit, CommitDetails, UpstreamCommit } from '$lib/branches/v3';
-import type { CommitKey } from '$lib/commits/commit';
+import type { CommitKey, MoveCommitIllegalAction } from '$lib/commits/commit';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges, TreeStats } from '$lib/hunks/change';
 import type { DiffSpec } from '$lib/hunks/hunk';
@@ -1392,7 +1392,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				]
 			}),
 			moveCommit: build.mutation<
-				void,
+				MoveCommitIllegalAction | null,
 				{ projectId: string; sourceStackId: string; commitId: string; targetStackId: string }
 			>({
 				extraOptions: {
