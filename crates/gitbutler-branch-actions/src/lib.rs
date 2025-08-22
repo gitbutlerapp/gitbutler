@@ -74,5 +74,7 @@ pub use branch::{
 
 pub use integration::GITBUTLER_WORKSPACE_COMMIT_TITLE;
 
+pub use move_commits::MoveCommitIllegalAction;
+
 pub mod hooks;
 pub mod stack;

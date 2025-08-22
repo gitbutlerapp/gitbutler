@@ -8,8 +8,8 @@ use gitbutler_branch_actions::upstream_integration::{
     StackStatuses,
 };
 use gitbutler_branch_actions::{
-    BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranchData,
-    RemoteBranchFile, RemoteCommit, StackOrder,
+    BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, MoveCommitIllegalAction,
+    RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder,
 };
 use gitbutler_project::ProjectId;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -364,7 +364,7 @@ pub fn move_commit(
     commit_id: String,
     target_stack_id: StackId,
     source_stack_id: StackId,
-) -> Result<(), Error> {
+) -> Result<Option<MoveCommitIllegalAction>, Error> {
     virtual_branches::move_commit(
         &app,
         virtual_branches::MoveCommitParams {

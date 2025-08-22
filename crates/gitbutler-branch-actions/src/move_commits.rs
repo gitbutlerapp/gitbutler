@@ -13,6 +13,7 @@ use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
+use serde::{Deserialize, Serialize};
 
 /// move a commit from one stack to another
 ///
@@ -23,7 +24,7 @@ pub(crate) fn move_commit(
     subject_commit_oid: git2::Oid,
     perm: &mut WorktreeWritePermission,
     source_stack_id: StackId,
-) -> Result<()> {
+) -> Result<Option<MoveCommitIllegalAction>> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let vb_state = ctx.project().virtual_branches();
     let repo = ctx.repo();
@@ -59,12 +60,14 @@ pub(crate) fn move_commit(
         &applied_stacks,
     )?;
 
-    take_commit_from_source_stack(
+    if let Some(illegal_action) = take_commit_from_source_stack(
         ctx,
         &mut source_stack,
         subject_commit,
         &workspace_dependencies,
-    )?;
+    )? {
+        return Ok(Some(illegal_action));
+    }
 
     move_commit_to_destination_stack(&vb_state, ctx, destination_stack, subject_commit_oid)?;
 
@@ -74,7 +77,7 @@ pub(crate) fn move_commit(
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
 
-    Ok(())
+    Ok(None)
 }
 
 fn get_source_branch_diffs(
@@ -97,6 +100,17 @@ fn get_source_branch_diffs(
     Ok(uncommitted_changes_diff)
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum MoveCommitIllegalAction {
+    /// The commit being moved has dependencies on some of its parent commits.
+    DependsOnCommits(Vec<String>),
+    /// The commit being moves has dependent child commits.
+    HasDependentChanges(Vec<String>),
+    /// The commit being moved has dependent uncommitted changes. (This should not matter in the v3 worlds)
+    HasDependentUncommittedChanges,
+}
+
 /// Remove the commit from the source stack.
 ///
 /// Will fail if the commit is not in the source stack or if has dependent changes.
@@ -105,7 +119,7 @@ fn take_commit_from_source_stack(
     source_stack: &mut gitbutler_stack::Stack,
     subject_commit: git2::Commit<'_>,
     workspace_dependencies: &HunkDependencyResult,
-) -> Result<(), anyhow::Error> {
+) -> Result<Option<MoveCommitIllegalAction>, anyhow::Error> {
     let commit_dependencies = commit_dependencies_from_workspace(
         workspace_dependencies,
         source_stack.id,
@@ -113,15 +127,29 @@ fn take_commit_from_source_stack(
     );
 
     if !commit_dependencies.dependencies.is_empty() {
-        bail!("Commit depends on other changes");
+        return Ok(Some(MoveCommitIllegalAction::DependsOnCommits(
+            commit_dependencies
+                .dependencies
+                .iter()
+                .map(|d| d.to_string())
+                .collect(),
+        )));
     }
 
     if !commit_dependencies.reverse_dependencies.is_empty() {
-        bail!("Commit has dependent changes");
+        return Ok(Some(MoveCommitIllegalAction::HasDependentChanges(
+            commit_dependencies
+                .reverse_dependencies
+                .iter()
+                .map(|d| d.to_string())
+                .collect(),
+        )));
     }
 
     if !commit_dependencies.dependent_diffs.is_empty() {
-        bail!("Commit has dependent uncommitted changes");
+        return Ok(Some(
+            MoveCommitIllegalAction::HasDependentUncommittedChanges,
+        ));
     }
 
     let merge_base = source_stack.merge_base(ctx)?;
@@ -146,7 +174,7 @@ fn take_commit_from_source_stack(
     source_stack.set_heads_from_rebase_output(ctx, output.references)?;
     let vb_state = ctx.project().virtual_branches();
     source_stack.set_stack_head(&vb_state, &gix_repo, new_source_head, None)?;
-    Ok(())
+    Ok(None)
 }
 
 /// Move the commit to the destination stack.
