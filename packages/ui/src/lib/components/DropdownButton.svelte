@@ -19,7 +19,7 @@
 		autoClose?: boolean;
 		tooltip?: string;
 		type?: 'button' | 'submit' | 'reset';
-		menuPosition?: 'start' | 'center' | 'end';
+		menuSide?: 'top' | 'bottom' | 'left' | 'right';
 		shrinkable?: boolean;
 		hotkey?: string;
 		children?: Snippet;
@@ -39,8 +39,8 @@
 		width,
 		autoClose = false,
 		type,
+		menuSide,
 		tooltip,
-		menuPosition = 'start',
 		shrinkable,
 		hotkey,
 		children,
@@ -104,7 +104,7 @@
 	<ContextMenu
 		bind:this={contextMenu}
 		leftClickTrigger={iconEl}
-		align={menuPosition}
+		side={menuSide}
 		onclose={() => {
 			visible = false;
 		}}
