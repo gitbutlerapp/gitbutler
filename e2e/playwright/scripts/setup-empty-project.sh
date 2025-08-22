@@ -1,9 +1,8 @@
 #!/bin/bash
 
-export GIT_AUTHOR_NAME="Scott Chacon"
-export GIT_AUTHOR_EMAIL="git_overloard@example.com"
-export GIT_COMMITTER_NAME="Scott Chacon"
-export GIT_COMMITTER_EMAIL="git_overloard@example.com"
+echo "GIT CONFIG $GIT_CONFIG_GLOBAL"
+echo "DATA DIR $GITBUTLER_CLI_DATA_DIR"
+echo "BUT_TESTING $BUT_TESTING"
 
 # Setup a remote project.
 # GitButler currently requires projects to have a remote

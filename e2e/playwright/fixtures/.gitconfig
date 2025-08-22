@@ -1,0 +1,13 @@
+[user]
+	name = Branchy McBranchface
+	email = me@branchy.com
+[core]
+	editor = vim
+[gitbutler]
+	aiModelProvider = openai
+	aiOllamaModelName = ""
+	aiOpenAIKeyOption = butlerAPI
+	aiOpenAIModelName = gpt-5-mini
+	aiAnthropicKeyOption = bringYourOwn
+[init]
+	defaultBranch = main
