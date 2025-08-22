@@ -17,12 +17,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      GIT_CONFIG_GLOBAL: ${{ github.workspace }}/e2e/playwright/fixtures/.gitconfig
       DESKTOP_PORT: 3000
       BUTLER_PORT: 6978
       VITE_BUTLER_PORT: 6978
       VITE_BUTLER_HOST: 'localhost'
       VITE_BUILD_TARGET: 'web'
+      BUT_TESTING: ${{ github.workspace}}/target/debug/but-testing
+      GIT_CONFIG_GLOBAL: ${{ github.workspace }}/e2e/playwright/fixtures/.gitconfig
     steps:
       - uses: actions/checkout@v5
         if: ${{ github.event_name != 'workflow_dispatch' }}
@@ -74,6 +75,8 @@ jobs:
         run: cd e2e && pnpm exec playwright install --with-deps
       - name: Build but-server
         run: cargo build -p but-server
+      - name: Build but-testing
+        run: cargo build -p but-testing
       - name: Build SvelteKit
         run: pnpm build:desktop
       - name: Run Playwright tests
