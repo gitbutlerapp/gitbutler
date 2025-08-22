@@ -143,25 +143,26 @@
 				{/if}
 			</ContextMenuSection>
 			<ContextMenuSection>
-				{#if item.beforeLineNumber !== undefined || item.afterLineNumber !== undefined}
-					<ContextMenuItem
-						testId={TestId.HunkContextMenu_OpenInEditor}
-						label="Open in {$userSettings.defaultCodeEditor.displayName}"
-						icon="open-editor"
-						onclick={async () => {
-							const project = await projectService.fetchProject(projectId);
-							if (project?.path) {
-								const path = getEditorUri({
-									schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-									path: [vscodePath(project.path), filePath],
-									line: item.beforeLineNumber ?? item.afterLineNumber
-								});
-								urlService.openExternalUrl(path);
-							}
-							contextMenu?.close();
-						}}
-					/>
-				{/if}
+				<ContextMenuItem
+					testId={TestId.HunkContextMenu_OpenInEditor}
+					label="Open in {$userSettings.defaultCodeEditor.displayName}"
+					icon="open-editor"
+					onclick={async () => {
+						const project = await projectService.fetchProject(projectId);
+						if (project?.path) {
+							// Use specific line number if available, otherwise use hunk start line
+							const lineNumber =
+								item.beforeLineNumber ?? item.afterLineNumber ?? item.hunk.newStart;
+							const path = getEditorUri({
+								schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+								path: [vscodePath(project.path), filePath],
+								line: lineNumber
+							});
+							urlService.openExternalUrl(path);
+						}
+						contextMenu?.close();
+					}}
+				/>
 			</ContextMenuSection>
 
 			{#if $ircEnabled}
