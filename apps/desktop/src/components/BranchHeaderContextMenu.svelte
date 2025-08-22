@@ -189,7 +189,7 @@
 				icon="copy"
 				testId={TestId.BranchHeaderContextMenu_CopyBranchName}
 				onclick={() => {
-					clipboardService.write(branch?.name);
+					clipboardService.write(branch?.name, { message: 'Branch name copied' });
 					close();
 				}}
 			/>
@@ -326,7 +326,7 @@
 										label="Copy PR link"
 										testId={TestId.BranchHeaderContextMenu_CopyPRLink}
 										onclick={() => {
-											clipboardService.write(pr.htmlUrl);
+											clipboardService.write(pr.htmlUrl, { message: 'PR link copied' });
 											closeSubmenu();
 											close();
 										}}

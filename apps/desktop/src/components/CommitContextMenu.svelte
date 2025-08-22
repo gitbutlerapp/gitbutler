@@ -184,7 +184,7 @@
 								<ContextMenuItem
 									label="Copy commit link"
 									onclick={() => {
-										clipboardService.write(commitUrl);
+										clipboardService.write(commitUrl, { message: 'Commit link copied' });
 										close();
 										closeContextMenu();
 									}}
@@ -193,7 +193,7 @@
 							<ContextMenuItem
 								label="Copy commit hash"
 								onclick={() => {
-									clipboardService.write(commitId);
+									clipboardService.write(commitId, { message: 'Commit hash copied' });
 									close();
 									closeContextMenu();
 								}}
@@ -201,7 +201,7 @@
 							<ContextMenuItem
 								label="Copy commit message"
 								onclick={() => {
-									clipboardService.write(commitMessage);
+									clipboardService.write(commitMessage, { message: 'Commit message copied' });
 									close();
 									closeContextMenu();
 								}}

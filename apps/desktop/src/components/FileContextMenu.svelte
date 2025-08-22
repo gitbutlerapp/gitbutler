@@ -410,6 +410,7 @@
 											const absPath = await backend.joinPath(projectPath, item.changes[0]!.path);
 
 											await clipboardService.write(absPath, {
+												message: 'Absolute path copied',
 												errorMessage: 'Failed to copy absolute path'
 											});
 										}
@@ -421,6 +422,7 @@
 									label="Copy relative path"
 									onclick={async () => {
 										await clipboardService.write(item.changes[0]!.path, {
+											message: 'Relative path copied',
 											errorMessage: 'Failed to copy relative path'
 										});
 										closeSubmenu();
