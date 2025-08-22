@@ -162,7 +162,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			checkAvailable: build.query<boolean, undefined>({
 				extraOptions: { command: 'claude_check_available' },
-				query: (args) => args
+				query: (args) => args,
+				// For some unholy reason, this is represented in seconds. This
+				// can be a little slow, and the value is unlikely to change so,
+				// let's cache it for a long time.
+				keepUnusedDataFor: 60 * 60 * 24
 			})
 		})
 	});
