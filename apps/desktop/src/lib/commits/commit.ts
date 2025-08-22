@@ -159,3 +159,31 @@ export function commitStatusLabel(status: CommitStatusType): string {
 			return status;
 	}
 }
+
+export type MoveCommitIllegalAction =
+	| {
+			type: 'dependsOnCommits';
+			subject: string[];
+	  }
+	| {
+			type: 'hasDependentChanges';
+			subject: string[];
+	  }
+	| {
+			type: 'hasDependentUncommittedChanges';
+	  };
+
+function formatCommitIds(ids: string[]): string {
+	return ids.map((id) => id.slice(0, 7)).join('\n');
+}
+
+export function getMoveCommitIllegalActionMessage(action: MoveCommitIllegalAction): string {
+	switch (action.type) {
+		case 'dependsOnCommits':
+			return `Cannot move commit because it depends on the following commits: ${formatCommitIds(action.subject)}`;
+		case 'hasDependentChanges':
+			return `Cannot move commit because it has dependent changes: ${formatCommitIds(action.subject)}`;
+		case 'hasDependentUncommittedChanges':
+			return `Cannot move commit because it has dependent uncommitted changes`;
+	}
+}

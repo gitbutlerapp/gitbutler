@@ -1,6 +1,11 @@
+import {
+	getMoveCommitIllegalActionMessage,
+	type MoveCommitIllegalAction
+} from '$lib/commits/commit';
 import { changesToDiffSpec } from '$lib/commits/utils';
 import { ChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
 import { type HooksService } from '$lib/hooks/hooksService';
+import { showToast } from '$lib/notifications/toasts';
 import { untrack } from 'svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { StackService } from '$lib/stacks/stackService.svelte';
@@ -37,13 +42,27 @@ export class MoveCommitDzHandler implements DropzoneHandler {
 			data instanceof CommitDropData && data.stackId !== this.stackId && !data.commit.hasConflicts
 		);
 	}
+
+	private handleIllegalMoveResponse(illegalMove: MoveCommitIllegalAction | null) {
+		if (illegalMove) {
+			const message = getMoveCommitIllegalActionMessage(illegalMove);
+			showToast({
+				style: 'warning',
+				title: 'Cannot move commit',
+				message
+			});
+		}
+	}
+
 	ondrop(data: CommitDropData): void {
-		this.stackService.moveCommit({
-			projectId: this.projectId,
-			targetStackId: this.stackId,
-			commitId: data.commit.id,
-			sourceStackId: data.stackId
-		});
+		this.stackService
+			.moveCommit({
+				projectId: this.projectId,
+				targetStackId: this.stackId,
+				commitId: data.commit.id,
+				sourceStackId: data.stackId
+			})
+			.then((response) => this.handleIllegalMoveResponse(response));
 	}
 }
 

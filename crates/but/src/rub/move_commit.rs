@@ -32,13 +32,33 @@ pub(crate) fn to_branch(
             series.commit_ids.insert(0, git2_oid);
         }
         gitbutler_branch_actions::reorder_stack(ctx, source_stack_id, stack_order)?;
-    } else {
-        gitbutler_branch_actions::move_commit(
-            ctx,
-            target_stack_id,
-            oid.to_git2(),
-            source_stack_id,
-        )?;
+    } else if let Some(illegal_move) =
+        gitbutler_branch_actions::move_commit(ctx, target_stack_id, oid.to_git2(), source_stack_id)?
+    {
+        match illegal_move {
+            gitbutler_branch_actions::MoveCommitIllegalAction::DependsOnCommits(deps) => {
+                println!(
+                    "Cannot move commit {} because it depends on commits: {}",
+                    oid,
+                    deps.join(", ")
+                );
+            }
+            gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentChanges(deps) => {
+                println!(
+                    "Cannot move commit {} because it has dependent changes: {}",
+                    oid,
+                    deps.join(", ")
+                );
+            }
+            gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentUncommittedChanges => {
+                println!(
+                    "Cannot move commit {} because it has dependent uncommitted changes",
+                    oid
+                );
+            }
+        }
+
+        return Ok(());
     }
     println!(
         "Moved {} → {}",

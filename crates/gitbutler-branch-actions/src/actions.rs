@@ -1,7 +1,7 @@
 use super::r#virtual as vbranch;
 use crate::branch_upstream_integration;
 use crate::branch_upstream_integration::IntegrationStrategy;
-use crate::move_commits;
+use crate::move_commits::{self, MoveCommitIllegalAction};
 use crate::reorder::{self, StackOrder};
 use crate::upstream_integration::{
     self, BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
@@ -409,7 +409,7 @@ pub fn move_commit(
     target_stack_id: StackId,
     commit_oid: git2::Oid,
     source_stack_id: StackId,
-) -> Result<()> {
+) -> Result<Option<MoveCommitIllegalAction>> {
     let mut guard = ctx.project().exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx).context("Moving a commit requires open workspace mode")?;
