@@ -357,6 +357,10 @@ async fn handle_command(
         // Config management commands
         "get_gb_config" => run_cmd(&app, request.params, config::get_gb_config),
         "set_gb_config" => run_cmd(&app, request.params, config::set_gb_config),
+        "store_author_globally_if_unset" => {
+            run_cmd(&app, request.params, config::store_author_globally_if_unset)
+        }
+        "get_author_info" => run_cmd(&app, request.params, config::get_author_info),
         // Remotes management commands
         "list_remotes" => run_cmd(&app, request.params, remotes::list_remotes),
         "add_remote" => run_cmd(&app, request.params, remotes::add_remote),

@@ -13,7 +13,7 @@ mod add {
         let tmp = paths::data_dir();
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
-        let project = gitbutler_project::add_with_path(tmp.path(), path, None, None).unwrap();
+        let project = gitbutler_project::add_with_path(tmp.path(), path).unwrap();
         assert_eq!(project.path, path);
         assert_eq!(
             project.title,
@@ -29,8 +29,7 @@ mod add {
         fn non_bare_without_worktree() {
             let tmp = paths::data_dir();
             let root = repo_path_at("non-bare-without-worktree");
-            let err = gitbutler_project::add_with_path(tmp.path(), root.as_path(), None, None)
-                .unwrap_err();
+            let err = gitbutler_project::add_with_path(tmp.path(), root.as_path()).unwrap_err();
             assert_eq!(
                 err.to_string(),
                 "Cannot add non-bare repositories without a workdir"
@@ -41,8 +40,7 @@ mod add {
         fn submodule() {
             let tmp = paths::data_dir();
             let root = repo_path_at("with-submodule").join("submodule");
-            let err = gitbutler_project::add_with_path(tmp.path(), root.as_path(), None, None)
-                .unwrap_err();
+            let err = gitbutler_project::add_with_path(tmp.path(), root.as_path()).unwrap_err();
             assert_eq!(
                 err.to_string(),
                 "A git-repository without a `.git` directory cannot currently be added"
@@ -54,14 +52,9 @@ mod add {
             let data_dir = paths::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             assert_eq!(
-                gitbutler_project::add_with_path(
-                    data_dir.path(),
-                    &tmp.path().join("missing"),
-                    None,
-                    None
-                )
-                .unwrap_err()
-                .to_string(),
+                gitbutler_project::add_with_path(data_dir.path(), &tmp.path().join("missing"),)
+                    .unwrap_err()
+                    .to_string(),
                 "path not found"
             );
         }
@@ -73,7 +66,7 @@ mod add {
             let path = tmp.path();
             std::fs::write(path.join("file.txt"), "hello world").unwrap();
             assert_eq!(
-                gitbutler_project::add_with_path(data_dir.path(), path, None, None)
+                gitbutler_project::add_with_path(data_dir.path(), path)
                     .unwrap_err()
                     .to_string(),
                 "must be a Git repository"
@@ -84,8 +77,7 @@ mod add {
         fn empty() {
             let data_dir = paths::data_dir();
             let tmp = tempfile::tempdir().unwrap();
-            let err = gitbutler_project::add_with_path(data_dir.path(), tmp.path(), None, None)
-                .unwrap_err();
+            let err = gitbutler_project::add_with_path(data_dir.path(), tmp.path()).unwrap_err();
             assert_eq!(err.to_string(), "must be a Git repository");
         }
 
@@ -94,9 +86,9 @@ mod add {
             let data_dir = paths::data_dir();
             let repository = gitbutler_testsupport::TestProject::default();
             let path = repository.path();
-            gitbutler_project::add_with_path(data_dir.path(), path, None, None).unwrap();
+            gitbutler_project::add_with_path(data_dir.path(), path).unwrap();
             assert_eq!(
-                gitbutler_project::add_with_path(data_dir.path(), path, None, None)
+                gitbutler_project::add_with_path(data_dir.path(), path)
                     .unwrap_err()
                     .to_string(),
                 "project already exists"
@@ -113,8 +105,7 @@ mod add {
             create_initial_commit(&repo);
 
             let err =
-                gitbutler_project::add_with_path(data_dir.path(), repo_dir.as_path(), None, None)
-                    .unwrap_err();
+                gitbutler_project::add_with_path(data_dir.path(), repo_dir.as_path()).unwrap_err();
             assert_eq!(err.to_string(), "bare repositories are unsupported");
         }
 
@@ -130,8 +121,7 @@ mod add {
 
             let worktree = repo.worktree("feature", &worktree_dir, None).unwrap();
             let err =
-                gitbutler_project::add_with_path(data_dir.path(), worktree.path(), None, None)
-                    .unwrap_err();
+                gitbutler_project::add_with_path(data_dir.path(), worktree.path()).unwrap_err();
             assert_eq!(err.to_string(), "can only work in main worktrees");
         }
 
@@ -169,7 +159,7 @@ mod delete {
         let data_dir = paths::data_dir();
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
-        let project = gitbutler_project::add_with_path(data_dir.path(), path, None, None).unwrap();
+        let project = gitbutler_project::add_with_path(data_dir.path(), path).unwrap();
         assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok());
         assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok()); // idempotent
         assert!(gitbutler_project::get_with_path(data_dir.path(), project.id).is_err());

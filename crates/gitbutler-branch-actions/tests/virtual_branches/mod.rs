@@ -31,9 +31,8 @@ impl Default for Test {
         let data_dir = paths::data_dir();
 
         let test_project = TestProject::default();
-        let project =
-            gitbutler_project::add_with_path(data_dir.as_ref(), test_project.path(), None, None)
-                .expect("failed to add project");
+        let project = gitbutler_project::add_with_path(data_dir.as_ref(), test_project.path())
+            .expect("failed to add project");
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
 
         Self {

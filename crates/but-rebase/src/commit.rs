@@ -9,6 +9,26 @@ use std::io::Write;
 use std::path::Path;
 use std::process::Stdio;
 
+/// Represents the author information from the git configuration.
+pub struct AuthorInfo {
+    /// The name of the author.
+    pub name: Option<BString>,
+    /// The email of the author.
+    pub email: Option<BString>,
+}
+
+/// Get the author information from the repository's git configuration.
+pub fn get_author_info(repo: &gix::Repository) -> anyhow::Result<AuthorInfo> {
+    let config = repo.config_snapshot();
+    let name = config
+        .string(&gix::config::tree::User::NAME)
+        .map(|s| s.into_owned());
+    let email = config
+        .string(&gix::config::tree::User::EMAIL)
+        .map(|s| s.into_owned());
+    Ok(AuthorInfo { name, email })
+}
+
 /// What to do with the committer (actor) and the commit time when [creating a new commit](create()).
 #[derive(Debug, Copy, Clone)]
 pub enum DateMode {
@@ -18,6 +38,69 @@ pub enum DateMode {
     CommitterUpdateAuthorKeep,
     /// Keep the currently set committer-time and author-time.
     CommitterKeepAuthorKeep,
+}
+
+/// Set `user.name` to `name` if unset and `user.email` to `email` if unset, or error if both are already set
+/// as per `repo` configuration, and write the changes back to the file at `destination`, keeping
+/// user comments and custom formatting.
+pub fn save_author_if_unset_in_repo<'a, 'b>(
+    repo: &gix::Repository,
+    destination: gix::config::Source,
+    name: impl Into<&'a BStr>,
+    email: impl Into<&'b BStr>,
+) -> anyhow::Result<()> {
+    let config = repo.config_snapshot();
+    let name = config
+        .string(&gix::config::tree::User::NAME)
+        .is_none()
+        .then_some(name.into());
+    let email = config
+        .string(&gix::config::tree::User::EMAIL)
+        .is_none()
+        .then_some(email.into());
+    let config_path = destination
+        .storage_location(&mut |name| std::env::var_os(name))
+        .context("Failed to determine storage location for Git user configuration")?;
+    // TODO(gix): there should be a `gix::Repository` version of this that takes care of this detail.
+    let config_path = if config_path.is_relative() {
+        if destination == gix::config::Source::Local {
+            repo.common_dir().join(config_path)
+        } else {
+            repo.git_dir().join(config_path)
+        }
+    } else {
+        config_path.into_owned()
+    };
+
+    if !config_path.exists() {
+        std::fs::create_dir_all(config_path.parent().context("Git user config is never /")?)?;
+        std::fs::File::create(&config_path)?;
+    }
+
+    let mut config = gix::config::File::from_path_no_includes(config_path.clone(), destination)?;
+    let mut something_was_set = false;
+    if let Some(name) = name {
+        config.set_raw_value(&gix::config::tree::User::NAME, name)?;
+        something_was_set = true;
+    }
+    if let Some(email) = email {
+        config.set_raw_value(&gix::config::tree::User::EMAIL, email)?;
+        something_was_set = true;
+    }
+
+    if !something_was_set {
+        bail!("Refusing to overwrite an existing user.name and user.email");
+    }
+
+    config.write_to(
+        &mut std::fs::OpenOptions::new()
+            .write(true)
+            .create(false)
+            .truncate(true)
+            .open(config_path)?,
+    )?;
+
+    Ok(())
 }
 
 /// Use the given `commit` and possibly sign it, replacing a possibly existing signature,

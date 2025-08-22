@@ -60,12 +60,7 @@ impl Controller {
         }
     }
 
-    pub(crate) fn add<P: AsRef<Path>>(
-        &self,
-        path: P,
-        name: Option<String>,
-        email: Option<String>,
-    ) -> Result<Project> {
+    pub(crate) fn add<P: AsRef<Path>>(&self, path: P) -> Result<Project> {
         let path = path.as_ref();
         let all_projects = self
             .projects_storage
@@ -128,22 +123,6 @@ impl Controller {
         // Create a .git/gitbutler directory for app data
         if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
             tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project add", project.gb_dir());
-        }
-
-        let repo = gix::open(&project.path)?;
-        if repo.author().transpose()?.is_none() {
-            let git2_repo = git2::Repository::open(repo.path())?;
-            let config = git2_repo.config()?;
-
-            let mut local = config.open_level(git2::ConfigLevel::Local)?;
-            local.set_str(
-                "user.name",
-                &name.unwrap_or("Firstname Lastname".to_string()),
-            )?;
-            local.set_str(
-                "user.email",
-                &email.unwrap_or("name@example.com".to_string()),
-            )?;
         }
 
         Ok(project)

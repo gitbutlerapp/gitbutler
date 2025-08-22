@@ -860,6 +860,7 @@ dependencies = [
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
+ "but-rebase",
  "but-rules",
  "but-settings",
  "but-workspace",

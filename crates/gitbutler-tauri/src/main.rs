@@ -276,6 +276,8 @@ fn main() {
                     undo::snapshot_diff,
                     config::get_gb_config,
                     config::set_gb_config,
+                    config::store_author_globally_if_unset,
+                    config::get_author_info,
                     menu::menu_item_set_enabled,
                     github::init_device_oauth,
                     github::check_auth_status,

@@ -1,4 +1,4 @@
-import { BUT_SERVER_PORT, BUT_TESTING, DESKTOP_PORT } from './env.ts';
+import { BUT_SERVER_PORT, BUT_TESTING, DESKTOP_PORT, GIT_CONFIG_GLOBAL } from './env.ts';
 import { type BrowserContext } from '@playwright/test';
 import { ChildProcess, spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -21,7 +21,7 @@ export function getButlerPort(): string {
 
 export interface GitButler {
 	pathInWorkdir: (filePath: string) => string;
-	runScript(scriptName: string, args?: string[]): Promise<void>;
+	runScript(scriptName: string, args?: string[], env?: Record<string, string>): Promise<void>;
 	destroy(): void;
 }
 
@@ -31,12 +31,14 @@ class GitButlerManager implements GitButler {
 	private rootDir: string;
 	private scriptsDir: string;
 	private butServerProcess: ChildProcess;
+	private env: Record<string, string> | undefined;
 
-	constructor(workdir: string, configDir: string) {
+	constructor(workdir: string, configDir: string, env?: Record<string, string>) {
 		this.workdir = workdir;
 		this.configDir = configDir;
 		this.rootDir = path.resolve(import.meta.dirname, '../../..');
 		this.scriptsDir = path.resolve(this.rootDir, 'e2e/playwright/scripts');
+		this.env = env;
 
 		if (!existsSync(this.workdir)) {
 			mkdirSync(this.workdir, { recursive: true });
@@ -46,10 +48,19 @@ class GitButlerManager implements GitButler {
 			mkdirSync(this.configDir, { recursive: true });
 		}
 
-		this.butServerProcess = spawnProcess('cargo', ['run', '-p', 'but-server'], this.rootDir, {
+		const serverEnv = {
 			E2E_TEST_APP_DATA_DIR: this.configDir,
-			BUTLER_PORT: getButlerPort()
-		});
+			BUTLER_PORT: getButlerPort(),
+			GIT_CONFIG_GLOBAL,
+			...this.env
+		};
+
+		this.butServerProcess = spawnProcess(
+			'cargo',
+			['run', '-p', 'but-server'],
+			this.rootDir,
+			serverEnv
+		);
 
 		this.butServerProcess.on('message', (message) => {
 			log(`but-server message: ${message}`, colors.blue);
@@ -83,13 +94,23 @@ class GitButlerManager implements GitButler {
 		return path.join(this.workdir, filePath);
 	}
 
-	async runScript(scriptName: string, args?: string[]): Promise<void> {
+	async runScript(
+		scriptName: string,
+		args?: string[],
+		env?: Record<string, string>
+	): Promise<void> {
 		const scriptPath = path.resolve(this.scriptsDir, scriptName);
 		if (!existsSync(scriptPath)) log(`Script not found: ${scriptPath}`, colors.red);
 		const scriptArgs = args ?? [];
-		await runCommand('bash', [scriptPath, ...scriptArgs], this.workdir, {
-			GITBUTLER_CLI_DATA_DIR: getButlerDataDir(this.configDir)
-		});
+
+		const envVars = {
+			GITBUTLER_CLI_DATA_DIR: getButlerDataDir(this.configDir),
+			GIT_CONFIG_GLOBAL,
+			...this.env,
+			...env
+		};
+
+		await runCommand('bash', [scriptPath, ...scriptArgs], this.workdir, envVars);
 	}
 }
 
@@ -231,9 +252,10 @@ async function runCommand(
 export async function startGitButler(
 	workdir: string,
 	configDir: string,
-	context: BrowserContext
+	context: BrowserContext,
+	env?: Record<string, string>
 ): Promise<GitButler> {
-	const manager = new GitButlerManager(workdir, configDir);
+	const manager = new GitButlerManager(workdir, configDir, env);
 	await manager.init();
 	setProjectPathCookie(context, workdir);
 	return manager;

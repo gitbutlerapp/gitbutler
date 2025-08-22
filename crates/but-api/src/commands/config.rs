@@ -1,6 +1,6 @@
 use but_core::{RepositoryExt, settings::git::ui::GitConfigSettings};
 use gitbutler_project::ProjectId;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{App, error::Error};
 
@@ -28,4 +28,54 @@ pub fn set_gb_config(_app: &App, params: SetGbConfigParams) -> Result<(), Error>
     but_core::open_repo(gitbutler_project::get(params.project_id)?.path)?
         .set_git_settings(&params.config.into())
         .map_err(Into::into)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoreAuthorGloballyParams {
+    pub project_id: ProjectId,
+    pub name: String,
+    pub email: String,
+}
+
+pub fn store_author_globally_if_unset(
+    _app: &App,
+    StoreAuthorGloballyParams {
+        project_id,
+        name,
+        email,
+    }: StoreAuthorGloballyParams,
+) -> Result<(), Error> {
+    let repo = but_core::open_repo(gitbutler_project::get(project_id)?.path)?;
+    but_rebase::commit::save_author_if_unset_in_repo(
+        &repo,
+        gix::config::Source::User,
+        name.as_str(),
+        email.as_str(),
+    )?;
+    Ok(())
+}
+
+/// Represents the author information from the git configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthorInfo {
+    /// The name of the author.
+    pub name: Option<String>,
+    /// The email of the author.
+    pub email: Option<String>,
+}
+
+impl From<but_rebase::commit::AuthorInfo> for AuthorInfo {
+    fn from(author: but_rebase::commit::AuthorInfo) -> Self {
+        Self {
+            name: author.name.map(|s| s.to_string()),
+            email: author.email.map(|s| s.to_string()),
+        }
+    }
+}
+
+pub fn get_author_info(_app: &App, project_id: ProjectId) -> Result<AuthorInfo, Error> {
+    let repo = but_core::open_repo(gitbutler_project::get(project_id)?.path)?;
+    let author = but_rebase::commit::get_author_info(&repo)?;
+    Ok(author.into())
 }
