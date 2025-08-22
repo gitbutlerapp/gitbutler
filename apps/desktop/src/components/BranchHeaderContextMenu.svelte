@@ -26,6 +26,7 @@
 	import {
 		ContextMenu,
 		ContextMenuItem,
+		ContextMenuItemSubmenu,
 		ContextMenuSection,
 		KebabButton,
 		TestId
@@ -174,6 +175,7 @@
 			{#if branch.remoteTrackingBranch}
 				<ContextMenuItem
 					label="Open in browser"
+					icon="open-link"
 					testId={TestId.BranchHeaderContextMenu_OpenInBrowser}
 					onclick={() => {
 						const url = forge.current.branch(branchName)?.url;
@@ -184,36 +186,46 @@
 			{/if}
 			<ContextMenuItem
 				label="Copy branch name"
+				icon="copy"
 				testId={TestId.BranchHeaderContextMenu_CopyBranchName}
 				onclick={() => {
-					clipboardService.write(branch?.name);
+					clipboardService.write(branch?.name, { message: 'Branch name copied' });
 					close();
 				}}
 			/>
 		</ContextMenuSection>
 		{#if stackId}
 			<ContextMenuSection>
-				<ContextMenuItem
-					label="Create branch above"
+				<ContextMenuItemSubmenu
+					label="Create branch"
+					icon="new-dep-branch"
 					disabled={refCreation.current.isLoading}
-					testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
-					onclick={async () => {
-						await handleCreateNewRef(stackId, 'Above');
-						close();
-					}}
-				/>
-				<ContextMenuItem
-					label="Create branch below"
-					disabled={refCreation.current.isLoading}
-					onclick={async () => {
-						await handleCreateNewRef(stackId, 'Below');
-						close();
-					}}
-				/>
-			</ContextMenuSection>
-			<ContextMenuSection>
+				>
+					{#snippet submenu({ close: closeSubmenu })}
+						<ContextMenuSection>
+							<ContextMenuItem
+								label="Create branch above"
+								testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
+								onclick={async () => {
+									await handleCreateNewRef(stackId, 'Above');
+									closeSubmenu();
+									close();
+								}}
+							/>
+							<ContextMenuItem
+								label="Create branch below"
+								onclick={async () => {
+									await handleCreateNewRef(stackId, 'Below');
+									closeSubmenu();
+									close();
+								}}
+							/>
+						</ContextMenuSection>
+					{/snippet}
+				</ContextMenuItemSubmenu>
 				<ContextMenuItem
 					label="Add empty commit"
+					icon="new-empty-commit"
 					onclick={async () => {
 						await insertBlankCommitInBranch({
 							projectId,
@@ -228,6 +240,7 @@
 				{#if branch.commits.length > 1}
 					<ContextMenuItem
 						label="Squash all commits"
+						icon="squash-commits"
 						testId={TestId.BranchHeaderContextMenu_SquashAllCommits}
 						onclick={async () => {
 							await stackService.squashAllCommits({
@@ -241,9 +254,12 @@
 						tooltip={isConflicted ? 'This branch has conflicts' : undefined}
 					/>
 				{/if}
+			</ContextMenuSection>
+			<ContextMenuSection>
 				{#if $aiGenEnabled && aiConfigurationValid && !branch.remoteTrackingBranch && stackId}
 					<ContextMenuItem
 						label="Generate branch name"
+						icon="ai-edit"
 						testId={TestId.BranchHeaderContextMenu_GenerateBranchName}
 						onclick={() => {
 							generateBranchName(stackId, branchName);
@@ -254,6 +270,7 @@
 				{#if branchType !== 'Integrated'}
 					<ContextMenuItem
 						label="Rename"
+						icon="edit"
 						testId={TestId.BranchHeaderContextMenu_Rename}
 						onclick={async () => {
 							renameBranchModalContext = {
@@ -272,6 +289,7 @@
 				{#if stackLength && (stackLength > 1 || (stackLength === 1 && branch.commits.length === 0))}
 					<ContextMenuItem
 						label="Delete"
+						icon="bin"
 						testId={TestId.BranchHeaderContextMenu_Delete}
 						onclick={async () => {
 							deleteBranchModalContext = {
@@ -292,22 +310,30 @@
 			<ReduxResult {projectId} {stackId} result={prResult?.current}>
 				{#snippet children(pr)}
 					<ContextMenuSection>
-						<ContextMenuItem
-							label="Open PR in browser"
-							testId={TestId.BranchHeaderContextMenu_OpenPRInBrowser}
-							onclick={() => {
-								urlService.openExternalUrl(pr.htmlUrl);
-								close();
-							}}
-						/>
-						<ContextMenuItem
-							label="Copy PR link"
-							testId={TestId.BranchHeaderContextMenu_CopyPRLink}
-							onclick={() => {
-								clipboardService.write(pr.htmlUrl);
-								close();
-							}}
-						/>
+						<ContextMenuItemSubmenu label="Pull Request" icon="pr">
+							{#snippet submenu({ close: closeSubmenu })}
+								<ContextMenuSection>
+									<ContextMenuItem
+										label="Open PR in browser"
+										testId={TestId.BranchHeaderContextMenu_OpenPRInBrowser}
+										onclick={() => {
+											urlService.openExternalUrl(pr.htmlUrl);
+											closeSubmenu();
+											close();
+										}}
+									/>
+									<ContextMenuItem
+										label="Copy PR link"
+										testId={TestId.BranchHeaderContextMenu_CopyPRLink}
+										onclick={() => {
+											clipboardService.write(pr.htmlUrl, { message: 'PR link copied' });
+											closeSubmenu();
+											close();
+										}}
+									/>
+								</ContextMenuSection>
+							{/snippet}
+						</ContextMenuItemSubmenu>
 					</ContextMenuSection>
 				{/snippet}
 				<!-- For now, just swallow this error -->
@@ -319,6 +345,7 @@
 			<ContextMenuSection>
 				<ContextMenuItem
 					label="Unapply Stack"
+					icon="eject"
 					onclick={async () => {
 						await stackService.unapply({ projectId, stackId });
 						close();

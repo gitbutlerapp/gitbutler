@@ -199,7 +199,7 @@
 						testId={TestId.CommitDrawerActionEditMessage}
 						size="tag"
 						kind="ghost"
-						icon="edit-text"
+						icon="edit"
 						onclick={() => setMode('edit')}
 						tooltip="Edit commit message"
 					/>

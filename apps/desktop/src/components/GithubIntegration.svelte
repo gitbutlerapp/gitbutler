@@ -140,7 +140,7 @@
 						icon="copy"
 						disabled={codeCopied}
 						onclick={() => {
-							clipboardService.write(userCode);
+							clipboardService.write(userCode, { message: 'User code copied' });
 							codeCopied = true;
 						}}
 					>

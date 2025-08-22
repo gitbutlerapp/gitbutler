@@ -121,7 +121,7 @@
 			case 'SquashCommit':
 				return { text: 'Squash commit', icon: 'squash-commit' };
 			case 'UpdateCommitMessage':
-				return { text: 'Update commit message', icon: 'edit-text' };
+				return { text: 'Update commit message', icon: 'edit' };
 			case 'MoveCommit':
 				return { text: 'Move commit', icon: 'move-commit' };
 			case 'ReorderCommit':
@@ -152,7 +152,7 @@
 			case 'UpdateWorkspaceBase':
 				return { text: 'Update workspace base', icon: 'rebase' };
 			case 'EnterEditMode':
-				return { text: 'Enter Edit Mode', icon: 'edit-text' };
+				return { text: 'Enter Edit Mode', icon: 'edit' };
 			case 'RestoreFromSnapshot':
 				return { text: 'Revert snapshot' };
 			case 'SplitBranch':

@@ -24,6 +24,7 @@
 		Button,
 		ContextMenu,
 		ContextMenuItem,
+		ContextMenuItemSubmenu,
 		ContextMenuSection,
 		FileListItem,
 		Modal,
@@ -334,6 +335,7 @@
 					{#if isUncommitted}
 						<ContextMenuItem
 							label="Discard changes"
+							icon="bin"
 							onclick={() => {
 								confirmationModal?.show(item);
 								contextMenu.close();
@@ -343,6 +345,7 @@
 					{#if isUncommitted}
 						<ContextMenuItem
 							label="Stash into branch"
+							icon="stash"
 							onclick={() => {
 								stackService.fetchNewBranchName(projectId).then((name) => {
 									stashBranchName = name || '';
@@ -356,6 +359,7 @@
 						{@const commitId = selectionId.commitId}
 						<ContextMenuItem
 							label="Uncommit changes"
+							icon="undo-small"
 							onclick={async () => uncommitChanges(stackId, commitId, changes)}
 						/>
 					{/if}
@@ -371,6 +375,7 @@
 								{#if isConflicted === false}
 									<ContextMenuItem
 										label="Split off changes"
+										icon="split"
 										onclick={() => {
 											split(changes);
 											contextMenu.close();
@@ -378,6 +383,7 @@
 									/>
 									<ContextMenuItem
 										label="Split into dependent branch"
+										icon="new-dep-branch"
 										onclick={() => {
 											splitIntoDependentBranch(changes);
 											contextMenu.close();
@@ -392,35 +398,47 @@
 
 			{#if item.changes.length === 1}
 				<ContextMenuSection>
-					<ContextMenuItem
-						label="Copy Path"
-						onclick={async () => {
-							const project = await projectService.fetchProject(projectId);
-							const projectPath = project?.path;
-							if (projectPath) {
-								const absPath = await backend.joinPath(projectPath, item.changes[0]!.path);
-								await clipboardService.write(absPath, {
-									errorMessage: 'Failed to copy absolute path'
-								});
-							}
-							contextMenu.close();
-						}}
-					/>
-					<ContextMenuItem
-						label="Copy Relative Path"
-						onclick={async () => {
-							await clipboardService.write(item.changes[0]!.path, {
-								errorMessage: 'Failed to copy relative path'
-							});
-							contextMenu.close();
-						}}
-					/>
+					<ContextMenuItemSubmenu label="Copy path" icon="copy">
+						{#snippet submenu({ close: closeSubmenu })}
+							<ContextMenuSection>
+								<ContextMenuItem
+									label="Copy path"
+									onclick={async () => {
+										const project = await projectService.fetchProject(projectId);
+										const projectPath = project?.path;
+										if (projectPath) {
+											const absPath = await backend.joinPath(projectPath, item.changes[0]!.path);
+
+											await clipboardService.write(absPath, {
+												message: 'Absolute path copied',
+												errorMessage: 'Failed to copy absolute path'
+											});
+										}
+										closeSubmenu();
+										contextMenu.close();
+									}}
+								/>
+								<ContextMenuItem
+									label="Copy relative path"
+									onclick={async () => {
+										await clipboardService.write(item.changes[0]!.path, {
+											message: 'Relative path copied',
+											errorMessage: 'Failed to copy relative path'
+										});
+										closeSubmenu();
+										contextMenu.close();
+									}}
+								/>
+							</ContextMenuSection>
+						{/snippet}
+					</ContextMenuItemSubmenu>
 				</ContextMenuSection>
 			{/if}
 
 			<ContextMenuSection>
 				<ContextMenuItem
 					label="Open in {$userSettings.defaultCodeEditor.displayName}"
+					icon="open-editor"
 					disabled={deletion}
 					onclick={async () => {
 						try {
@@ -445,6 +463,7 @@
 				{#if item.changes.length === 1}
 					<ContextMenuItem
 						label={showInFolderLabel}
+						icon="open-folder"
 						onclick={async () => {
 							const project = await projectService.fetchProject(projectId);
 							const projectPath = project?.path;
@@ -459,34 +478,43 @@
 			</ContextMenuSection>
 
 			{#if canUseGBAI && isUncommitted}
-				<ContextMenuSection title="experimental stuff">
-					<ContextMenuItem
-						label="Auto commit 🧪"
-						tooltip="Try to figure out where to commit the changes. Can create new branches too."
-						onclick={async () => {
-							contextMenu.close();
-							triggerAutoCommit(item.changes);
-						}}
-						disabled={autoCommitting.current.isLoading}
-					/>
-					<ContextMenuItem
-						label="Branch changes 🧪"
-						tooltip="Create a new branch and commit the changes into it."
-						onclick={() => {
-							contextMenu.close();
-							triggerBranchChanges(item.changes);
-						}}
-						disabled={branchingChanges.current.isLoading}
-					/>
-					<ContextMenuItem
-						label="Absorb changes 🧪"
-						tooltip="Try to find the best place to absorb the changes into."
-						onclick={() => {
-							contextMenu.close();
-							triggerAbsorbChanges(item.changes);
-						}}
-						disabled={absorbingChanges.current.isLoading}
-					/>
+				<ContextMenuSection>
+					<ContextMenuItemSubmenu label="Experimental AI" icon="lab">
+						{#snippet submenu({ close: closeSubmenu })}
+							<ContextMenuSection>
+								<ContextMenuItem
+									label="Auto commit"
+									tooltip="Try to figure out where to commit the changes. Can create new branches too."
+									onclick={async () => {
+										closeSubmenu();
+										contextMenu.close();
+										triggerAutoCommit(item.changes);
+									}}
+									disabled={autoCommitting.current.isLoading}
+								/>
+								<ContextMenuItem
+									label="Branch changes"
+									tooltip="Create a new branch and commit the changes into it."
+									onclick={() => {
+										closeSubmenu();
+										contextMenu.close();
+										triggerBranchChanges(item.changes);
+									}}
+									disabled={branchingChanges.current.isLoading}
+								/>
+								<ContextMenuItem
+									label="Absorb changes"
+									tooltip="Try to find the best place to absorb the changes into."
+									onclick={() => {
+										closeSubmenu();
+										contextMenu.close();
+										triggerAbsorbChanges(item.changes);
+									}}
+									disabled={absorbingChanges.current.isLoading}
+								/>
+							</ContextMenuSection>
+						{/snippet}
+					</ContextMenuItemSubmenu>
 				</ContextMenuSection>
 			{/if}
 		{:else}

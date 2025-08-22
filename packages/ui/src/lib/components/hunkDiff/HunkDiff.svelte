@@ -85,6 +85,19 @@
 	const hunkHasLocks = $derived(lineLocks && lineLocks.length > 0);
 	const colspan = $derived(showingCheckboxes || hunkHasLocks ? 3 : 2);
 	let tableWrapperElem = $state<HTMLElement>();
+
+	function handleHunkContextMenu(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+
+		if (handleLineContextMenu) {
+			handleLineContextMenu({
+				event: e,
+				beforeLineNumber: undefined,
+				afterLineNumber: undefined
+			});
+		}
+	}
 </script>
 
 <div
@@ -109,6 +122,7 @@
 								onChangeStage?.(!staged);
 							}
 						}}
+						oncontextmenu={handleHunkContextMenu}
 					>
 						<div class="table__checkbox" class:staged>
 							{#if staged && !hideCheckboxes}
@@ -119,7 +133,7 @@
 						</div>
 					</th>
 
-					<th class="table__title-content" {colspan}>
+					<th class="table__title-content" {colspan} oncontextmenu={handleHunkContextMenu}>
 						<span>
 							{hunkSummary}
 						</span>
