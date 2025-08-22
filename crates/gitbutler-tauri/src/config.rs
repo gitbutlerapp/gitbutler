@@ -1,4 +1,4 @@
-use but_api::commands::config::StoreAuthorGloballyParams;
+use but_api::commands::config::{GetAuthorInfoParams, StoreAuthorGloballyParams};
 use but_api::error::Error;
 use but_api::{commands::config, App};
 use but_core::settings::git::ui::GitConfigSettings;
@@ -46,5 +46,5 @@ pub fn get_author_info(
     app: State<App>,
     project_id: ProjectId,
 ) -> Result<config::AuthorInfo, Error> {
-    config::get_author_info(&app, project_id)
+    config::get_author_info(&app, GetAuthorInfoParams { project_id })
 }

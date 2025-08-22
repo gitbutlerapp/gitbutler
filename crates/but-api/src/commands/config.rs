@@ -74,8 +74,14 @@ impl From<but_rebase::commit::AuthorInfo> for AuthorInfo {
     }
 }
 
-pub fn get_author_info(_app: &App, project_id: ProjectId) -> Result<AuthorInfo, Error> {
-    let repo = but_core::open_repo(gitbutler_project::get(project_id)?.path)?;
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetAuthorInfoParams {
+    pub project_id: ProjectId,
+}
+
+pub fn get_author_info(_app: &App, params: GetAuthorInfoParams) -> Result<AuthorInfo, Error> {
+    let repo = but_core::open_repo(gitbutler_project::get(params.project_id)?.path)?;
     let author = but_rebase::commit::get_author_info(&repo)?;
     Ok(author.into())
 }
