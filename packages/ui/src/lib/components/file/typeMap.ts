@@ -307,6 +307,7 @@ export const symbolFileExtensionsToIcons: { [key: string]: string } = {
 	vob: 'video',
 	vsix: 'puzzle',
 	vsixmanifest: 'puzzle',
+	vue: 'vue',
 	wav: 'audio',
 	webm: 'video',
 	webp: 'image',
