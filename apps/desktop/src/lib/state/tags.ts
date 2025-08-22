@@ -27,7 +27,8 @@ export enum ReduxTag {
 	ClaudePermissionRequests = 'ClaudePermissionPrompts',
 	ClaudeSessionDetails = 'ClaudeSessionDetails',
 	InitalEditListing = 'InitialEditListing',
-	EditChangesSinceInitial = 'EditChangesSinceInitial'
+	EditChangesSinceInitial = 'EditChangesSinceInitial',
+	AuthorInfo = 'AuthorInfo'
 }
 
 type Tag<T extends string | number> = {
