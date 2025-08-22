@@ -105,7 +105,7 @@
 			{/snippet}
 			{#snippet actions()}
 				<Toggle
-					id="rules"
+					id="single-branch"
 					checked={$settingsStore?.featureFlags.singleBranch}
 					onclick={() =>
 						settingsService.updateFeatureFlags({
