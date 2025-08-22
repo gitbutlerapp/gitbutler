@@ -123,6 +123,7 @@
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_DiscardChange}
 						label="Discard change"
+						icon="bin"
 						onclick={() => {
 							discardHunk(item);
 							contextMenu?.close();
@@ -133,13 +134,38 @@
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_DiscardLines}
 						label={getDiscardLineLabel(item)}
+						icon="discard-selected"
 						onclick={() => {
 							discardHunkLines(item);
 							contextMenu?.close();
 						}}
 					/>
 				{/if}
-				{#if $ircEnabled}
+			</ContextMenuSection>
+			<ContextMenuSection>
+				{#if item.beforeLineNumber !== undefined || item.afterLineNumber !== undefined}
+					<ContextMenuItem
+						testId={TestId.HunkContextMenu_OpenInEditor}
+						label="Open in {$userSettings.defaultCodeEditor.displayName}"
+						icon="open-editor"
+						onclick={async () => {
+							const project = await projectService.fetchProject(projectId);
+							if (project?.path) {
+								const path = getEditorUri({
+									schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+									path: [vscodePath(project.path), filePath],
+									line: item.beforeLineNumber ?? item.afterLineNumber
+								});
+								urlService.openExternalUrl(path);
+							}
+							contextMenu?.close();
+						}}
+					/>
+				{/if}
+			</ContextMenuSection>
+
+			{#if $ircEnabled}
+				<ContextMenuSection>
 					{#each ircUsers as ircUser}
 						<ContextMenuItem
 							label={ircUser}
@@ -162,26 +188,9 @@
 							}}
 						/>
 					{/each}
-				{/if}
-				{#if item.beforeLineNumber !== undefined || item.afterLineNumber !== undefined}
-					<ContextMenuItem
-						testId={TestId.HunkContextMenu_OpenInEditor}
-						label="Open in {$userSettings.defaultCodeEditor.displayName}"
-						onclick={async () => {
-							const project = await projectService.fetchProject(projectId);
-							if (project?.path) {
-								const path = getEditorUri({
-									schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-									path: [vscodePath(project.path), filePath],
-									line: item.beforeLineNumber ?? item.afterLineNumber
-								});
-								urlService.openExternalUrl(path);
-							}
-							contextMenu?.close();
-						}}
-					/>
-				{/if}
-			</ContextMenuSection>
+				</ContextMenuSection>
+			{/if}
+
 			{#if selectable}
 				<ContextMenuSection>
 					<ContextMenuItem
