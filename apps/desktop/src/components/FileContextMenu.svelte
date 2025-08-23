@@ -336,7 +336,7 @@
 					{@const changes = item.changes}
 					{#if isUncommitted}
 						<ContextMenuItem
-							label="Discard changes"
+							label="Discard changes…"
 							icon="bin"
 							onclick={() => {
 								confirmationModal?.show(item);
@@ -346,7 +346,7 @@
 					{/if}
 					{#if isUncommitted}
 						<ContextMenuItem
-							label="Stash into branch"
+							label="Stash into branch…"
 							icon="stash"
 							onclick={() => {
 								stackService.fetchNewBranchName(projectId).then((name) => {
