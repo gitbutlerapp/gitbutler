@@ -73,10 +73,8 @@ pub struct Options {
 pub(crate) mod function {
     use super::{Options, Outcome, WorkspaceReferenceNaming};
     use crate::ref_info::WorkspaceExt;
-    use anyhow::{Context, bail};
-    use but_core::ref_metadata::{StackId, ValueInfo, WorkspaceStack, WorkspaceStackBranch};
-    use but_core::{RefMetadata, ref_metadata};
-    use but_graph::init::Overlay;
+    use anyhow::bail;
+    use but_core::RefMetadata;
     use but_graph::projection::WorkspaceKind;
     use std::borrow::Cow;
 
@@ -104,11 +102,21 @@ pub(crate) mod function {
             workspace_reference_naming,
         }: Options,
     ) -> anyhow::Result<Outcome<'graph>> {
-        if workspace.refname_is_segment(branch) {
-            return Ok(Outcome {
-                graph: Cow::Borrowed(workspace.graph),
-                workspace_ref_created: false,
-            });
+        if workspace.is_reachable_from_entrypoint(branch) {
+            if workspace.is_entrypoint()
+                || workspace
+                    .stacks
+                    .iter()
+                    .flat_map(|s| s.segments.iter().filter_map(|s| s.ref_name.as_ref()))
+                    .any(|rn| rn.as_ref() == branch)
+            {
+                return Ok(Outcome {
+                    graph: Cow::Borrowed(workspace.graph),
+                    workspace_ref_created: false,
+                });
+            }
+        } else if workspace.refname_is_segment(branch) {
+            todo!("checkout workspace so the to-be-applied branch becomes visible")
         }
 
         if let Some(ws_ref_name) = workspace.ref_name() {
@@ -125,98 +133,86 @@ pub(crate) mod function {
             bail!("Refusing to work on workspace whose workspace commit isn't at the top");
         }
 
-        let (workspace_ref_name_to_update, ws_ref_metadata, branch_to_apply_metadata, graph) =
-            match &workspace.kind {
-                WorkspaceKind::Managed { ref_name }
-                | WorkspaceKind::ManagedMissingWorkspaceCommit { ref_name } => (
-                    ref_name.clone(),
-                    meta.workspace(ref_name.as_ref())?,
-                    None,
-                    Cow::Borrowed(workspace.graph),
-                ),
-                WorkspaceKind::AdHoc => {
-                    // We need to switch over to a possibly existing workspace.
-                    // We know that the current branch is *not* reachable from the workspace or isn't naturally included,
-                    // so it needs to be added as well.
-                    let next_ws_ref_name = match workspace_reference_naming {
-                        WorkspaceReferenceNaming::Default => {
-                            gix::refs::FullName::try_from("refs/heads/gitbutler/workspace")
-                                .expect("known statically")
-                        }
-                        WorkspaceReferenceNaming::Given(name) => name,
-                    };
-                    let ws_ref_id = match repo.try_find_reference(next_ws_ref_name.as_ref())? {
-                        None => {
-                            // Create a workspace reference later at the current AdHoc workspace id
-                            let ws_id = workspace
-                            .stacks
-                            .first()
-                            .and_then(|s| s.segments.first())
-                            .and_then(|s| s.commits.first().map(|c| c.id))
-                            .context("BUG: how can an empty ad-hoc workspace exist? Should have at least one stack-segment with commit")?;
-                            ws_id
-                        }
-                        Some(mut existing_workspace_reference) => {
-                            let id = existing_workspace_reference.peel_to_id_in_place()?;
-                            id.detach()
-                        }
-                    };
-
-                    // Get as close as possible to what would happen if the branch was already part of it (without merging),
-                    // and branch-metadata can disambiguate. Having this data also isn't harmful.
-                    // We want to see if the branch is naturally included in workspace already.
-                    let branch_md = meta.branch(branch)?;
-                    let (branch_md_override, branch_md_to_set) = if branch_md.is_default() {
-                        (
-                            Some((branch.to_owned(), (*branch_md).clone())),
-                            Some(branch_md),
-                        )
-                    } else {
-                        (None, None)
-                    };
-                    let mut ws_md = meta.workspace(next_ws_ref_name.as_ref())?;
-                    {
-                        let ws_mut: &mut ref_metadata::Workspace = &mut *ws_md;
-                        ws_mut.stacks.push(WorkspaceStack {
-                            id: StackId::generate(),
-                            branches: vec![WorkspaceStackBranch {
-                                ref_name: branch.to_owned(),
-                                archived: false,
-                            }],
-                        })
+        // In general, we only have to deal with one branch to apply. But when we are on an adhoc workspace,
+        // we need to assure both branches go into the existing or the new workspace.
+        let (workspace_ref_name_to_update, branches_to_apply) = match &workspace.kind {
+            WorkspaceKind::Managed { ref_name }
+            | WorkspaceKind::ManagedMissingWorkspaceCommit { ref_name } => {
+                (ref_name.clone(), vec![branch])
+            }
+            WorkspaceKind::AdHoc => {
+                // We need to switch over to a possibly existing workspace.
+                // We know that the current branch is *not* reachable from the workspace or isn't naturally included,
+                // so it needs to be added as well.
+                let next_ws_ref_name = match workspace_reference_naming {
+                    WorkspaceReferenceNaming::Default => {
+                        gix::refs::FullName::try_from("refs/heads/gitbutler/workspace")
+                            .expect("known statically")
                     }
-                    let ws_md_override = Some((next_ws_ref_name.clone(), (*ws_md).clone()));
+                    WorkspaceReferenceNaming::Given(name) => name,
+                };
+                (
+                    next_ws_ref_name,
+                    workspace
+                        .ref_name()
+                        .into_iter()
+                        .chain(Some(branch))
+                        .collect(),
+                )
+                // let ws_ref_id = match repo.try_find_reference(next_ws_ref_name.as_ref())? {
+                //     None => {
+                //         // Create a workspace reference later at the current AdHoc workspace id
+                //         let ws_id = workspace
+                //             .stacks
+                //             .first()
+                //             .and_then(|s| s.segments.first())
+                //             .and_then(|s| s.commits.first().map(|c| c.id))
+                //             .context("BUG: how can an empty ad-hoc workspace exist? Should have at least one stack-segment with commit")?;
+                //         ws_id
+                //     }
+                //     Some(mut existing_workspace_reference) => {
+                //         let id = existing_workspace_reference.peel_to_id_in_place()?;
+                //         id.detach()
+                //     }
+                // };
 
-                    let graph = workspace.graph.redo_traversal_with_overlay(
-                        repo,
-                        meta,
-                        Overlay::default()
-                            .with_entrypoint(ws_ref_id, Some(next_ws_ref_name))
-                            .with_branch_metadata_override(branch_md_override)
-                            .with_workspace_metadata_override(ws_md_override),
-                    )?;
+                // let mut ws_md = meta.workspace(next_ws_ref_name.as_ref())?;
+                // {
+                //     let ws_mut: &mut ref_metadata::Workspace = &mut *ws_md;
+                //     ws_mut.stacks.push(WorkspaceStack {
+                //         id: StackId::generate(),
+                //         branches: vec![WorkspaceStackBranch {
+                //             ref_name: branch.to_owned(),
+                //             archived: false,
+                //         }],
+                //     })
+                // }
+                // let ws_md_override = Some((next_ws_ref_name.clone(), (*ws_md).clone()));
 
-                    let ws = graph.to_workspace()?;
-                    if ws.refname_is_segment(branch) {
-                        todo!(
-                            "no need to add this branch, but we need to add the current ad-hoc branch instead"
-                        );
-                    }
-
-                    todo!("put current ad-hoc stack into ")
-                }
-            };
+                // let graph = workspace.graph.redo_traversal_with_overlay(
+                //     repo,
+                //     meta,
+                //     Overlay::default()
+                //         .with_entrypoint(ws_ref_id, Some(next_ws_ref_name))
+                //         .with_branch_metadata_override(branch_md_override)
+                //         .with_workspace_metadata_override(ws_md_override),
+                // )?;
+            }
+        };
 
         // Everything worked? Assure the ref exists now that (nearly nothing) can go wrong anymore.
-        let workspace_ref_created = false; // TODO: use rval of reference update to know if it existed.
+        let _workspace_ref_created = false; // TODO: use rval of reference update to know if it existed.
 
-        if let Some(branch_md) = branch_to_apply_metadata {
-            meta.set_branch(branch_md)?;
-        }
+        // if let Some(branch_md) = branch_to_apply_metadata {
+        //     meta.set_branch(branch_md)?;
+        // }
 
-        Ok(Outcome {
-            graph,
-            workspace_ref_created,
-        })
+        todo!(
+            "prepare outcome once all values were written out and the graph was regenerated - the simulation is now reality"
+        );
+        // Ok(Outcome {
+        //     graph: Cow::Borrowed(workspace.graph),
+        //     workspace_ref_created,
+        // })
     }
 }
