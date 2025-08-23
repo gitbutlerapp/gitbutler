@@ -31,6 +31,7 @@
 		Textbox,
 		chipToasts
 	} from '@gitbutler/ui';
+	import { slugify } from '@gitbutler/ui/utils/string';
 	import type { DiffSpec } from '$lib/hunks/hunk';
 	import type { SelectionId } from '$lib/selection/key';
 
@@ -133,6 +134,7 @@
 	}
 
 	let stashBranchName = $state<string>();
+	const slugifiedRefName = $derived(stashBranchName && slugify(stashBranchName));
 	async function confirmStashIntoBranch(item: FileItem, branchName: string | undefined) {
 		if (!branchName) {
 			return;
@@ -581,11 +583,14 @@
 			id="stashBranchName"
 			bind:value={stashBranchName}
 			autofocus
+			helperText={slugifiedRefName && slugifiedRefName !== stashBranchName
+				? `Will be created as '${slugifiedRefName}'`
+				: undefined}
 		/>
 
 		<span>
 			The selected changes will be stashed into branch <span class="text-bold"
-				>{stashBranchName}</span
+				>{slugifiedRefName}</span
 			> and removed from the workspace.
 		</span>
 		<span>
