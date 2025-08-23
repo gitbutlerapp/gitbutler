@@ -95,6 +95,7 @@ export const symbolFileExtensionsToIcons: { [key: string]: string } = {
 	gql: 'graphql',
 	gradle: 'gradle',
 	graphql: 'graphql',
+	graphqls: 'graphql',
 	h: 'h',
 	haml: 'haml',
 	heex: 'elixir',
