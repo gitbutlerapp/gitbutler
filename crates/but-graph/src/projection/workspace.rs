@@ -61,6 +61,13 @@ pub type CommitOwnerIndexes = (usize, usize, CommitIndex);
 
 /// Utilities
 impl Workspace<'_> {
+    /// Return `true` if the workspace itself is where `HEAD` is pointing to.
+    /// If `false`, one of the stack-segments is checked out instead.
+    pub fn is_entrypoint(&self) -> bool {
+        self.stacks
+            .iter()
+            .all(|s| s.segments.iter().all(|s| !s.is_entrypoint))
+    }
     /// Lookup a triple obtained by [`Self::find_owner_indexes_by_commit_id()`] or panic.
     pub fn lookup_commit(&self, (stack_idx, seg_idx, cidx): CommitOwnerIndexes) -> &StackCommit {
         &self.stacks[stack_idx].segments[seg_idx].commits[cidx]
@@ -152,6 +159,32 @@ impl Workspace<'_> {
     /// Return `true` if `name` is contained in the workspace as segment.
     pub fn refname_is_segment(&self, name: &gix::refs::FullNameRef) -> bool {
         self.find_segment_and_stack_by_refname(name).is_some()
+    }
+
+    /// Return `true` if the entrypoint.
+    pub fn is_reachable_from_entrypoint(&self, name: &gix::refs::FullNameRef) -> bool {
+        if self.is_entrypoint() {
+            self.refname_is_segment(name)
+        } else {
+            let Some((stack, segment_idx)) = self.stacks.iter().find_map(|stack| {
+                stack
+                    .segments
+                    .iter()
+                    .enumerate()
+                    .find_map(|(idx, segment)| segment.is_entrypoint.then_some((stack, idx)))
+            }) else {
+                return false;
+            };
+            stack
+                .segments
+                .get(segment_idx..)
+                .into_iter()
+                .any(|segments| {
+                    segments
+                        .iter()
+                        .any(|s| s.ref_name.as_ref().is_some_and(|rn| rn.as_ref() == name))
+                })
+        }
     }
 
     /// Try to find `name` in any named [`StackSegment`] and return it along with the stack containing it.
