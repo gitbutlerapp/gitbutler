@@ -226,7 +226,9 @@
 
 	<td
 		class="table__textContent"
-		style="--tab-size: {tabSize}; --wrap: {wrapText ? 'wrap' : 'nowrap'}"
+		style="--tab-size: {tabSize}; --wrap: {wrapText ? 'wrap' : 'nowrap'}; --pre-wrap: {wrapText
+			? 'pre-wrap'
+			: 'pre'}"
 		class:readonly={true}
 		data-no-drag
 		class:diff-line-deletion={row.type === SectionType.RemovedLines}
@@ -309,7 +311,7 @@
 		font-size: 12px;
 		line-height: 1.25;
 		text-wrap: var(--wrap);
-		white-space: pre;
+		white-space: var(--pre-wrap);
 		cursor: text;
 		tab-size: var(--tab-size);
 		user-select: text;
@@ -319,7 +321,7 @@
 		position: relative;
 		min-height: 18px;
 		text-wrap: var(--wrap);
-		white-space: pre;
+		white-space: var(--pre-wrap);
 		cursor: text;
 	}
 
