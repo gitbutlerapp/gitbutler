@@ -206,7 +206,13 @@
 				class:locked
 				class:staged
 			>
-				<InfoButton inheritColor size="small" icon="locked-extra-small" maxWidth="15rem">
+				<InfoButton
+					inheritColor
+					size="small"
+					icon="locked-extra-small"
+					maxWidth="15rem"
+					iconTopOffset="0"
+				>
 					{@render lockWarning(row.locks ?? [])}
 				</InfoButton>
 			</td>
@@ -389,7 +395,9 @@
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);
 		font-size: 11px;
+		line-height: 1.5; /* Visually centered with 12px font size that diff lines have */
 		text-align: right;
+		vertical-align: top;
 		touch-action: none;
 		user-select: none;
 
@@ -449,6 +457,8 @@
 		border-right: 1px solid var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);
+		line-height: 1;
+		vertical-align: top;
 
 		&.diff-line-addition {
 			border-color: var(--clr-diff-addition-count-border);
