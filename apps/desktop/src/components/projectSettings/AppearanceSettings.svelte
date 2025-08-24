@@ -21,7 +21,7 @@
 			on:branchSelected={async (e) => {
 -				selectedBranch = e.detail;
 -				if ($platformName === 'win32') {
-+				if ($platformName === 'win64') {
++				if ($platformName === 'win64' && $userSettings.enableAdvancedFeatures && project.hasRemoteOrigin) {
 					setTarget();
 				}
 			}}`;
