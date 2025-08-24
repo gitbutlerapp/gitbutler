@@ -206,7 +206,13 @@
 				class:locked
 				class:staged
 			>
-				<InfoButton inheritColor size="small" icon="locked-extra-small" maxWidth="15rem">
+				<InfoButton
+					inheritColor
+					size="small"
+					icon="locked-extra-small"
+					maxWidth="15rem"
+					iconTopOffset="0"
+				>
 					{@render lockWarning(row.locks ?? [])}
 				</InfoButton>
 			</td>
@@ -226,7 +232,7 @@
 
 	<td
 		class="table__textContent"
-		style="--tab-size: {tabSize}; --wrap: {wrapText ? 'wrap' : 'nowrap'}"
+		style="--tab-size: {tabSize}; --pre-wrap: {wrapText ? 'pre-wrap' : 'pre'}"
 		class:readonly={true}
 		data-no-drag
 		class:diff-line-deletion={row.type === SectionType.RemovedLines}
@@ -308,8 +314,7 @@
 		padding-left: 4px;
 		font-size: 12px;
 		line-height: 1.25;
-		text-wrap: var(--wrap);
-		white-space: pre;
+		white-space: var(--pre-wrap);
 		cursor: text;
 		tab-size: var(--tab-size);
 		user-select: text;
@@ -318,8 +323,7 @@
 	.table__row-header {
 		position: relative;
 		min-height: 18px;
-		text-wrap: var(--wrap);
-		white-space: pre;
+		white-space: var(--pre-wrap);
 		cursor: text;
 	}
 
@@ -391,7 +395,9 @@
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);
 		font-size: 11px;
+		line-height: 1.5; /* Visually centered with 12px font size that diff lines have */
 		text-align: right;
+		vertical-align: top;
 		touch-action: none;
 		user-select: none;
 
@@ -451,6 +457,8 @@
 		border-right: 1px solid var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);
+		line-height: 1;
+		vertical-align: top;
 
 		&.diff-line-addition {
 			border-color: var(--clr-diff-addition-count-border);
