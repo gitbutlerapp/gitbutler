@@ -138,10 +138,10 @@
 
 	<SectionCard labelFor="wrapText" orientation="row" roundedTop={false} roundedBottom={false}>
 		{#snippet title()}
-			Text wrap
+			Soft wrap
 		{/snippet}
 		{#snippet caption()}
-			Wrap text in the diff view once it hits the end of the viewport.
+			Soft wrap long lines in the diff view to fit within the viewport.
 		{/snippet}
 
 		{#snippet actions()}
