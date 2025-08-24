@@ -10,6 +10,7 @@
 		title?: string;
 		size?: 'small' | 'medium';
 		maxWidth?: string;
+		iconTopOffset?: string;
 		icon?: keyof typeof iconsJson;
 		inheritColor?: boolean;
 		children: Snippet;
@@ -19,6 +20,7 @@
 		title,
 		size = 'medium',
 		maxWidth = '16rem',
+		iconTopOffset = '10%',
 		icon,
 		children,
 		inheritColor
@@ -67,6 +69,8 @@
 	role="tooltip"
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}
+	style:--icon-top-offset={iconTopOffset}
+	style:--size={size === 'small' ? '12px' : '14px'}
 >
 	{#if icon}
 		<div class="info-custom-icon" class:inherit-color={inheritColor}>
@@ -104,12 +108,9 @@
 
 <style lang="postcss">
 	.wrapper {
-		--default-size: 14px;
-		--small-size: 12px;
-
 		display: inline-flex;
 		position: relative;
-		transform: translateY(10%);
+		transform: translateY(var(--icon-top-offset));
 	}
 
 	.info-custom-icon {
@@ -124,8 +125,9 @@
 
 	.info-button {
 		position: relative;
-		width: 50px;
-		border-radius: var(--default-size);
+		width: var(--size);
+		height: var(--size);
+		border-radius: var(--size);
 		box-shadow: inset 0 0 0 1.5px var(--clr-text-2);
 		color: var(--clr-text-2);
 		transition: box-shadow var(--transition-fast);
@@ -152,38 +154,28 @@
 	}
 
 	.wrapper.medium {
-		& .info-button {
-			width: var(--default-size);
-			height: var(--default-size);
-
-			&::before {
-				top: 3px;
-				width: 2px;
-				height: 2px;
-			}
-			&::after {
-				top: 6px;
-				width: 2px;
-				height: 5px;
-			}
+		& .info-button::before {
+			top: 3px;
+			width: 2px;
+			height: 2px;
+		}
+		& .info-button::after {
+			top: 6px;
+			width: 2px;
+			height: 5px;
 		}
 	}
 
 	.wrapper.small {
-		& .info-button {
-			width: var(--small-size);
-			height: var(--small-size);
-
-			&::before {
-				top: 3px;
-				width: 2px;
-				height: 2px;
-			}
-			&::after {
-				top: 6px;
-				width: 2px;
-				height: 3px;
-			}
+		& .info-button::before {
+			top: 3px;
+			width: 2px;
+			height: 2px;
+		}
+		& .info-button::after {
+			top: 6px;
+			width: 2px;
+			height: 3px;
 		}
 	}
 
