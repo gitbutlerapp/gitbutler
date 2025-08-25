@@ -22,7 +22,8 @@
 		Select,
 		SelectItem,
 		Spacer,
-		Textbox
+		Textbox,
+		Toggle
 	} from '@gitbutler/ui';
 
 	import { onMount, tick } from 'svelte';
@@ -203,11 +204,15 @@
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
 	let claudeExecutable = $state('');
+	let notifyOnCompletion = $state(false);
+	let notifyOnPermissionRequest = $state(false);
 
-	// Initialize Claude executable from settings
+	// Initialize Claude settings from store
 	$effect(() => {
 		if ($settingsStore?.claude) {
 			claudeExecutable = $settingsStore.claude.executable;
+			notifyOnCompletion = $settingsStore.claude.notifyOnCompletion;
+			notifyOnPermissionRequest = $settingsStore.claude.notifyOnPermissionRequest;
 		}
 	});
 
@@ -225,6 +230,16 @@
 		claudeExecutable = value;
 		recheckedAvailability = undefined;
 		await settingsService.updateClaude({ executable: value });
+	}
+
+	async function updateNotifyOnCompletion(value: boolean) {
+		notifyOnCompletion = value;
+		await settingsService.updateClaude({ notifyOnCompletion: value });
+	}
+
+	async function updateNotifyOnPermissionRequest(value: boolean) {
+		notifyOnPermissionRequest = value;
+		await settingsService.updateClaude({ notifyOnPermissionRequest: value });
 	}
 </script>
 
@@ -522,6 +537,25 @@
 			showTitle={false}
 		/>
 	</SectionCard>
+
+	<SectionCard orientation="row">
+		{#snippet title()}
+			Claude Code notifications
+		{/snippet}
+		{#snippet caption()}
+			<div class="notification-toggles">
+				<div class="notification-toggle">
+					<p>Notify when Claude Code finishes</p>
+					<Toggle checked={notifyOnCompletion} onchange={updateNotifyOnCompletion} />
+				</div>
+				<div class="notification-toggle">
+					<p>Notify when Claude Code needs permission</p>
+					<Toggle checked={notifyOnPermissionRequest} onchange={updateNotifyOnPermissionRequest} />
+				</div>
+			</div>
+		{/snippet}
+		{#snippet actions()}{/snippet}
+	</SectionCard>
 {/if}
 
 <style>
@@ -550,5 +584,17 @@
 	.ai-settings__section-text-block {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.notification-toggles {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.notification-toggle {
+		display: flex;
+		justify-content: space-between;
+		gap: 8px;
 	}
 </style>

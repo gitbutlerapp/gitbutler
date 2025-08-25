@@ -67,10 +67,16 @@ impl Mcp {
         req: crate::ClaudePermissionRequest,
         timeout: std::time::Duration,
     ) -> anyhow::Result<bool> {
-        let ctx = &mut CommandContext::open(
-            &self.project,
-            AppSettings::load_from_default_path_creating()?,
-        )?;
+        let app_settings = AppSettings::load_from_default_path_creating()?;
+
+        // Send notification for permission request
+        if let Err(e) =
+            crate::notifications::notify_permission_request(&app_settings, &req.tool_name)
+        {
+            tracing::warn!("Failed to send permission request notification: {}", e);
+        }
+
+        let ctx = &mut CommandContext::open(&self.project, app_settings)?;
         // Create a record that will be seen by the user in the UI
         ctx.db()?
             .claude_permission_requests()

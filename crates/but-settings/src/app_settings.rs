@@ -74,4 +74,8 @@ pub struct Fetch {
 pub struct Claude {
     /// Path to the Claude Code executable. Defaults to "claude" if not set.
     pub executable: String,
+    /// Whether to show notifications when Claude Code finishes.
+    pub notify_on_completion: bool,
+    /// Whether to show notifications when Claude Code needs permission.
+    pub notify_on_permission_request: bool,
 }

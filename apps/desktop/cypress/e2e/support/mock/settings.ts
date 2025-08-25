@@ -23,6 +23,8 @@ export const MOCK_APP_SETTINGS: AppSettings = {
 		autoFetchIntervalMinutes: 15
 	},
 	claude: {
-		executable: 'claude'
+		executable: 'claude',
+		notifyOnCompletion: false,
+		notifyOnPermissionRequest: false
 	}
 };

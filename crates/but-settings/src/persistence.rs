@@ -27,9 +27,7 @@ impl AppSettings {
     }
 
     pub fn load_from_default_path_creating() -> Result<Self> {
-        let config_dir = dirs::config_dir()
-            .expect("missing config dir")
-            .join("gitbutler");
+        let config_dir = but_path::app_config_dir()?;
         std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
         AppSettings::load(config_dir.join(SETTINGS_FILE).as_path())
     }

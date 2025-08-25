@@ -27,6 +27,8 @@ pub struct FeatureFlagsUpdate {
 /// Update request for [`crate::app_settings::Claude`].
 pub struct ClaudeUpdate {
     pub executable: Option<String>,
+    pub notify_on_completion: Option<bool>,
+    pub notify_on_permission_request: Option<bool>,
 }
 
 /// Mutation, immediately followed by writing everything to disk.
@@ -90,6 +92,12 @@ impl AppSettingsWithDiskSync {
         let mut settings = self.get_mut_enforce_save()?;
         if let Some(executable) = update.executable {
             settings.claude.executable = executable;
+        }
+        if let Some(notify_on_completion) = update.notify_on_completion {
+            settings.claude.notify_on_completion = notify_on_completion;
+        }
+        if let Some(notify_on_permission_request) = update.notify_on_permission_request {
+            settings.claude.notify_on_permission_request = notify_on_permission_request;
         }
         settings.save()
     }

@@ -15,6 +15,7 @@ notify = { version = "8.2.0" }
 tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
 dirs.workspace = true
+but-path.workspace = true
 
 [[test]]
 name = "settings"

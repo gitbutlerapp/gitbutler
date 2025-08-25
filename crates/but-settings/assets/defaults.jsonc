@@ -46,6 +46,10 @@
 	// Settings related to Claude Code.
 	"claude": {
 		// Path to the Claude Code executable. Defaults to "claude" if not set.
-		"executable": "claude"
+		"executable": "claude",
+		// Whether to show notifications when Claude Code finishes.
+		"notifyOnCompletion": false,
+		// Whether to show notifications when Claude Code needs permission.
+		"notifyOnPermissionRequest": false
 	}
 }

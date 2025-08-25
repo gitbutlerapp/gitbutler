@@ -18,7 +18,7 @@ pub fn app_config_dir() -> anyhow::Result<PathBuf> {
         .map(|dir| dir.join("gitbutler"))
 }
 
-fn identifier() -> &'static str {
+pub fn identifier() -> &'static str {
     option_env!("IDENTIFIER").unwrap_or_else(|| {
         if let Some(channel) = option_env!("CHANNEL") {
             match channel {

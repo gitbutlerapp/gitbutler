@@ -188,7 +188,7 @@ impl Claudes {
         self.requests.lock().await.remove(&stack_id);
 
         handle_exit(
-            ctx,
+            ctx.clone(),
             broadcaster,
             stack_id,
             session_id,
@@ -197,6 +197,12 @@ impl Claudes {
             cmd_exit,
         )
         .await?;
+
+        // Send completion notification
+        let app_settings = ctx.lock().await.app_settings().clone();
+        if let Err(e) = crate::notifications::notify_completion(&app_settings) {
+            tracing::warn!("Failed to send completion notification: {}", e);
+        }
 
         Ok(())
     }

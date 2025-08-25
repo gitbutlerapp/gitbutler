@@ -32,6 +32,7 @@ tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 tempfile = "3.14"
 rand = "0.9.2"
+notify-rust = "4.11.7"
 
 gitbutler-id = { path = "crates/gitbutler-id" }
 gitbutler-git = { path = "crates/gitbutler-git" }
