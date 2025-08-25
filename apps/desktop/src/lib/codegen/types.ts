@@ -154,3 +154,8 @@ export type ClaudePermissionRequest = {
 	/** The status of the request or null if not yet handled */
 	approved?: boolean;
 };
+
+export type ClaudeTodo = {
+	status: 'pending' | 'in_progress' | 'completed';
+	content: string;
+};
