@@ -29,7 +29,7 @@ import {
 } from '@reduxjs/toolkit';
 import type { StackOrder } from '$lib/branches/branch';
 import type { Commit, CommitDetails, UpstreamCommit } from '$lib/branches/v3';
-import type { CommitKey, MoveCommitIllegalAction } from '$lib/commits/commit';
+import type { MoveCommitIllegalAction } from '$lib/commits/commit';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges, TreeStats } from '$lib/hunks/change';
 import type { DiffSpec } from '$lib/hunks/hunk';
@@ -378,12 +378,13 @@ export class StackService {
 		);
 	}
 
-	commitById(projectId: string, commitKey: CommitKey) {
-		const { stackId, commitId } = commitKey;
+	commitById(projectId: string, stackId: string | undefined, commitId: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
-				transform: ({ commits }) => commitSelectors.selectById(commits, commitId)
+				transform: ({ commits, upstreamCommits }) =>
+					commitSelectors.selectById(commits, commitId) ??
+					upstreamCommitSelectors.selectById(upstreamCommits, commitId)
 			}
 		);
 	}
@@ -450,17 +451,6 @@ export class StackService {
 				transform: ({ branchDetails }) =>
 					branchDetailsSelectors.selectById(branchDetails, branchName)?.upstreamCommits[index] ??
 					null
-			}
-		);
-	}
-
-	upstreamCommitById(projectId: string, commitKey: CommitKey) {
-		const { stackId, commitId } = commitKey;
-		return this.api.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
-			{
-				transform: ({ upstreamCommits }) =>
-					upstreamCommitSelectors.selectById(upstreamCommits, commitId)
 			}
 		);
 	}
