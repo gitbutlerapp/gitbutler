@@ -19,6 +19,7 @@ jobs:
     env:
       DESKTOP_PORT: 3000
       BUTLER_PORT: 6978
+      VITE_E2E: 'true'
       VITE_BUTLER_PORT: 6978
       VITE_BUTLER_HOST: 'localhost'
       VITE_BUILD_TARGET: 'web'
