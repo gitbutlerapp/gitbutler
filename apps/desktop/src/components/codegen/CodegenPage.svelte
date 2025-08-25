@@ -21,6 +21,7 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
 	import { Badge, Button } from '@gitbutler/ui';
@@ -33,6 +34,7 @@
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
+	const uiState = inject(UI_STATE);
 	const user = inject(USER);
 
 	const stacks = $derived(stackService.stacks(projectId));
@@ -41,9 +43,11 @@
 	const settingsStore = settingsService.appSettings;
 
 	let message = $state('');
-	let selectedBranch = $state<{ stackId: string; head: string }>();
 	let claudeExecutable = $derived($settingsStore?.claude.executable || 'claude');
 	let updatingExecutable = $state(false);
+
+	const projectState = uiState.project(projectId);
+	const selectedBranch = $derived(projectState.selectedClaudeSession.current);
 
 	$effect(() => {
 		if (stacks.current.data) {
@@ -59,8 +63,6 @@
 			} else {
 				selectFirstBranch();
 			}
-		} else {
-			selectedBranch = undefined;
 		}
 	});
 
@@ -70,12 +72,12 @@
 		const firstStack = stacks.current.data[0];
 		const firstHead = firstStack?.heads[0];
 		if (firstHead && firstStack.id) {
-			selectedBranch = {
+			projectState.selectedClaudeSession.set({
 				stackId: firstStack.id,
 				head: firstHead.name
-			};
+			});
 		} else {
-			selectedBranch = undefined;
+			projectState.selectedClaudeSession.set(undefined);
 		}
 	}
 
@@ -260,7 +262,7 @@
 			{@const usage = usageStats(events)}
 			<CodegenSidebarEntry
 				onclick={() => {
-					selectedBranch = { stackId, head: branch.name };
+					projectState.selectedClaudeSession.set({ stackId, head: branch.name });
 				}}
 				selected={selectedBranch?.stackId === stackId && selectedBranch?.head === branch.name}
 				branchName={branch.name}
