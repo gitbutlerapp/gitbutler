@@ -203,11 +203,6 @@ pub fn split_into_dependent_branch(
         }
     }
 
-    println!(
-        "Dependent branch steps before filtering: {:?}",
-        dependent_branch_steps
-    );
-
     let steps = construct_source_steps(
         ctx,
         &repository,
@@ -218,16 +213,10 @@ pub fn split_into_dependent_branch(
         Some(&dependent_branch_steps),
     )?;
 
-    println!(
-        "Rebasing source branch '{}' with steps: {:?}",
-        source_branch_name, steps
-    );
-
     let mut source_rebase = Rebase::new(&repository, merge_base, None)?;
     source_rebase.steps(steps)?;
     source_rebase.rebase_noops(false);
     let source_result = source_rebase.rebase()?;
-    // let new_head = repo_git2.find_commit(source_result.top_commit.to_git2())?;
     let new_head = repository.find_commit(source_result.top_commit)?;
 
     let mut source_stack = source_stack;
