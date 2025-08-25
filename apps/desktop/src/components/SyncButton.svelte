@@ -50,16 +50,12 @@
 	}}
 >
 	{#if loading}
-		<div class="sync-btn__busy-label">busy…</div>
+		Fetching...
 	{:else if lastFetched}
-		<TimeAgo date={lastFetched} addSuffix={true} />
+		<span class="capitalize">
+			<TimeAgo date={lastFetched} addSuffix={true} />
+		</span>
 	{:else}
-		<span class="text-12 text-weak">Refetch</span>
+		Refetch
 	{/if}
 </Button>
-
-<style lang="postcss">
-	.sync-btn__busy-label {
-		padding-left: 4px;
-	}
-</style>
