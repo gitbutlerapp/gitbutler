@@ -66,6 +66,7 @@ export type ProjectUiState = {
 	branchesSelection: BranchesSelection;
 	showActions: boolean;
 	branchesToPoll: string[];
+	selectedClaudeSession: { stackId: string; head: string } | undefined;
 };
 
 type GlobalModalType = 'commit-failed' | 'author-missing';
@@ -136,7 +137,8 @@ export class UiState {
 		branchesSelection: {},
 		stackId: undefined,
 		showActions: false,
-		branchesToPoll: []
+		branchesToPoll: [],
+		selectedClaudeSession: undefined
 	});
 
 	/** Properties that are globally scoped. */

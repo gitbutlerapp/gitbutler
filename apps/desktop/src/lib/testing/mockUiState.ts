@@ -22,7 +22,8 @@ const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 	branchesSelection: { branchName: 'test' },
 	stackId: undefined,
 	showActions: false,
-	branchesToPoll: []
+	branchesToPoll: [],
+	selectedClaudeSession: undefined
 };
 
 const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
