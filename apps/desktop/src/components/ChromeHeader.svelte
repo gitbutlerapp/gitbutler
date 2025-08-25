@@ -264,7 +264,7 @@
 	}
 
 	:global(.chrome-header .actions-button) {
-		&:hover .actions-icon,
+		&:hover:not(:disabled) .actions-icon,
 		.actions-icon.activated {
 			opacity: 1;
 
