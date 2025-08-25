@@ -178,4 +178,8 @@ export type Fetch = {
 export type Claude = {
 	/** Path to the Claude Code executable. Defaults to "claude" if not set. */
 	executable: string;
+	/** Whether to show notifications when Claude Code finishes. */
+	notifyOnCompletion: boolean;
+	/** Whether to show notifications when Claude Code needs permission. */
+	notifyOnPermissionRequest: boolean;
 };
