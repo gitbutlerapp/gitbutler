@@ -31,3 +31,8 @@ updates:
     groups:
       rust-updates:
         update-types: [minor, patch]
+
+  - package-ecosystem: 'rust-toolchain'
+    directory: '/'
+    schedule:
+      interval: 'monthly'
