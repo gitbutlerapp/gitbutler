@@ -55,12 +55,7 @@ class GitButlerManager implements GitButler {
 			...this.env
 		};
 
-		this.butServerProcess = spawnProcess(
-			'cargo',
-			['run', '-p', 'but-server'],
-			this.rootDir,
-			serverEnv
-		);
+		this.butServerProcess = createButServcerProcess(this.rootDir, serverEnv);
 
 		this.butServerProcess.on('message', (message) => {
 			log(`but-server message: ${message}`, colors.blue);
@@ -112,6 +107,10 @@ class GitButlerManager implements GitButler {
 
 		await runCommand('bash', [scriptPath, ...scriptArgs], this.workdir, envVars);
 	}
+}
+
+function createButServcerProcess(rootDir: string, serverEnv: Record<string, string>): ChildProcess {
+	return spawnProcess('cargo', ['run', '-p', 'but-server'], rootDir, serverEnv);
 }
 
 function getButlerDataDir(configDir: string): string {
