@@ -1,16 +1,20 @@
 <script lang="ts">
+	import Drawer from '$components/Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import Resizer from '$components/Resizer.svelte';
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
 	import CodegenRunningMessage from '$components/codegen/CodegenRunningMessage.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
+	import CodegenTodo from '$components/codegen/CodegenTodo.svelte';
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import {
 		currentStatus,
 		formatMessages,
+		getTodos,
 		lastUserMessageSentAt,
 		usageStats
 	} from '$lib/codegen/messages';
@@ -119,6 +123,8 @@
 	const events = $derived(
 		claudeCodeService.messages({ projectId, stackId: selectedBranch?.stackId || '' })
 	);
+
+	let rightSidebarRef = $state<HTMLDivElement>();
 </script>
 
 <div class="page">
@@ -193,6 +199,33 @@
 					</ReduxResult>
 				{/snippet}
 			</CodegenChatLayout>
+
+			{@render rightSidebar()}
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet rightSidebar()}
+	<div class="right-sidebar" bind:this={rightSidebarRef}>
+		<Drawer title="Todos">
+			<ReduxResult result={events?.current} {projectId}>
+				{#snippet children(events, { projectId: _projectId })}
+					{@const todos = getTodos(events)}
+					{#each todos as todo}
+						<CodegenTodo {todo} />
+					{/each}
+				{/snippet}
+			</ReduxResult>
+		</Drawer>
+
+		{#if rightSidebarRef}
+			<Resizer
+				direction="left"
+				viewport={rightSidebarRef}
+				defaultValue={20}
+				minWidth={14}
+				persistId="resize-todo-right-sidebar"
+			/>
 		{/if}
 	</div>
 {/snippet}
@@ -269,8 +302,10 @@
 	}
 
 	.content {
+		display: flex;
 		/* TODO: This should be resizable */
 		flex-grow: 1;
+
 		height: 100%;
 
 		overflow: hidden;
@@ -297,5 +332,13 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
+	}
+
+	.right-sidebar {
+		display: flex;
+		position: relative;
+		height: 100%;
+
+		border-left: 1px solid var(--clr-border-2);
 	}
 </style>

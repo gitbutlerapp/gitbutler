@@ -3,7 +3,12 @@
  */
 
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import type { ClaudeMessage, ClaudePermissionRequest, ClaudeStatus } from '$lib/codegen/types';
+import type {
+	ClaudeMessage,
+	ClaudePermissionRequest,
+	ClaudeStatus,
+	ClaudeTodo
+} from '$lib/codegen/types';
 
 export type Message =
 	/* This is strictly only things that the real fleshy human has said */
@@ -249,4 +254,25 @@ export function lastUserMessageSentAt(events: ClaudeMessage[]): Date | undefined
 	}
 	if (!event) return;
 	return new Date(event.createdAt);
+}
+
+/**
+ * Extracts the TODO list from the message history.
+ *
+ * The TODOs are written when the "TodoWrite" command is called which replaces
+ * the entire TODO list each time it is called.
+ */
+export function getTodos(events: ClaudeMessage[]): ClaudeTodo[] {
+	let todos: ClaudeTodo[] | undefined;
+	for (let i = events.length - 1; i >= 0; --i) {
+		const content = events[i]!.content;
+		if (content.type !== 'claudeOutput') continue;
+		const subject = content.subject;
+		if (subject.type !== 'assistant') continue;
+		const msgContent = subject.message.content[0]!;
+		if (msgContent.type !== 'tool_use') continue;
+		if (msgContent.name !== 'TodoWrite') continue;
+		todos = (msgContent.input as { todos: ClaudeTodo[] }).todos;
+	}
+	return todos ?? [];
 }
