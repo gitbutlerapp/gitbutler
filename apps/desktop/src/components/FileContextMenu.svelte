@@ -331,8 +331,8 @@
 	{#snippet children(item: unknown)}
 		{#if isFileItem(item)}
 			{@const deletion = isDeleted(item)}
-			<ContextMenuSection>
-				{#if item.changes.length > 0}
+			{#if item.changes.length > 0 && !editMode}
+				<ContextMenuSection>
 					{@const changes = item.changes}
 					{#if isUncommitted}
 						<ContextMenuItem
@@ -395,8 +395,8 @@
 							{/snippet}
 						</ReduxResult>
 					{/if}
-				{/if}
-			</ContextMenuSection>
+				</ContextMenuSection>
+			{/if}
 
 			{#if item.changes.length === 1}
 				<ContextMenuSection>
