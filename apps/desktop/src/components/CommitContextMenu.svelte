@@ -149,7 +149,7 @@
 					/>
 					<ContextMenuItem
 						label="Edit commit message"
-						icon="edit-message"
+						icon="edit"
 						testId={TestId.CommitRowContextMenu_EditMessageMenuButton}
 						onclick={(e: MouseEvent) => {
 							onEditMessageClick?.(e);
@@ -158,7 +158,7 @@
 					/>
 					<ContextMenuItem
 						label="Edit commit"
-						icon="edit"
+						icon="edit-commit"
 						onclick={(e: MouseEvent) => {
 							onPatchEditClick?.(e);
 							closeContextMenu();
