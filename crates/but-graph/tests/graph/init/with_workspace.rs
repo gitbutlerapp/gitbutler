@@ -3252,6 +3252,60 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
 }
 
 #[test]
+fn two_dependent_branches_rebased_with_remotes_squash_merge_remote_ambiguous() -> anyhow::Result<()>
+{
+    let (repo, mut meta) = read_only_in_memory_scenario(
+        "ws/two-dependent-branches-rebased-with-remotes-squash-merge-one-remote-ambiguous",
+    )?;
+    // Each of the stacked branches has a remote, the remote branch was merged into main,
+    // and the remaining branch B was rebased onto the merge, simulating a workspace update.
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 1109eb2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 624e118 (D) D
+    * 0b6b861 (origin/main, main) A
+    | * 3045ea6 (origin/D) D
+    | * 1818c17 (origin/C, origin/B, origin/A) A
+    |/  
+    * 281456a init
+    ");
+
+    // The branch A, B, C are not in the workspace anymore, and we *could* signal it by removing metadata.
+    // But even with metadata, it still works fine.
+    add_stack_with_segments(&mut meta, 0, "D", StackState::InWorkspace, &["C", "B", "A"]);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ·1109eb2 (⌂|🏘️|1)
+    │       └── 📙►:3[1]:D <> origin/D →:4:
+    │           └── ·624e118 (⌂|🏘️|101)
+    │               └── ►:2[2]:main <> origin/main →:1:
+    │                   └── ·0b6b861 (⌂|🏘️|✓|111)
+    │                       └── ►:5[3]:anon:
+    │                           └── ·281456a (⌂|🏘️|✓|111)
+    ├── ►:1[0]:origin/main →:2:
+    │   └── →:2: (main →:1:)
+    └── ►:4[0]:origin/D →:3:
+        └── 🟣3045ea6
+            └── ►:6[1]:origin/A
+                └── 🟣1818c17
+                    └── →:5:
+    ");
+
+    // We want to let each remote on the path down own a commit, even if ownership would be ambiguous
+    // as we are in this situation because these ambiguous remotes don't actually matter as their
+    // local tracking branches aren't present anymore.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 0b6b861
+    └── ≡📙:3:D <> origin/D →:4:⇡1⇣1 on 0b6b861
+        └── 📙:3:D <> origin/D →:4:⇡1⇣1
+            ├── 🟣3045ea6
+            └── ·624e118 (🏘️)
+    ");
+    Ok(())
+}
+
+#[test]
 fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario(
         "ws/two-dependent-branches-rebased-with-remotes-squash-merge-one-remote",
