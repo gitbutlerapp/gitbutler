@@ -30,18 +30,6 @@ pub fn save_new_session_with_gui_flag(
     Ok(session)
 }
 
-/// Updates the current session ID for a given session in the database.
-pub fn set_session_current_id(
-    ctx: &mut CommandContext,
-    session_id: Uuid,
-    current_id: Uuid,
-) -> anyhow::Result<()> {
-    ctx.db()?
-        .claude_sessions()
-        .update_current_id(&session_id.to_string(), &current_id.to_string())?;
-    Ok(())
-}
-
 /// Adds a session ID to the list of session IDs for a given session.
 pub fn add_session_id(
     ctx: &mut CommandContext,

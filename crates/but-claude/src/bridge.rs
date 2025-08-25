@@ -356,7 +356,7 @@ fn spawn_response_streaming(
                     .unwrap();
                 let session = db::get_session_by_id(&mut ctx, session_id).unwrap();
                 if session.is_some() {
-                    db::set_session_current_id(&mut ctx, session_id, current_session_id).unwrap();
+                    db::add_session_id(&mut ctx, session_id, current_session_id).unwrap();
                 }
                 first = false;
             }
