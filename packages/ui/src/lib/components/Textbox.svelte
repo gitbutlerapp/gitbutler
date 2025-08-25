@@ -98,7 +98,6 @@
 		| 'password'
 		| 'number'
 		| 'select'
-		| 'email'
 		| 'tel'
 		| 'url'
 		| 'search'

@@ -34,7 +34,7 @@
 		argTypes: {
 			type: {
 				control: { type: 'select' },
-				options: ['text', 'password', 'number', 'email', 'tel', 'url', 'search', 'date', 'time']
+				options: ['text', 'password', 'number', 'tel', 'url', 'search', 'date', 'time']
 			},
 			size: {
 				control: { type: 'select' },
@@ -137,7 +137,7 @@
 				<h4>Left Icon</h4>
 				<Textbox
 					bind:value={emailValue}
-					type="email"
+					type="text"
 					iconLeft="mail"
 					placeholder="Enter email address"
 					label="Email"
@@ -392,7 +392,7 @@
 				<h4>Email</h4>
 				<Textbox
 					bind:value={emailValue}
-					type="email"
+					type="text"
 					iconLeft="mail"
 					placeholder="user@example.com"
 					label="Email"
@@ -476,7 +476,7 @@
 				<h4>Dynamic Email Validation (try fixing the email)</h4>
 				<Textbox
 					bind:value={emailErrorValue}
-					type="email"
+					type="text"
 					iconLeft="mail"
 					placeholder="user@example.com"
 					label="Email"
@@ -525,7 +525,6 @@
 				<h4>Normal Field with Helper Text (for comparison)</h4>
 				<Textbox
 					value="valid@example.com"
-					type="email"
 					iconLeft="mail"
 					placeholder="user@example.com"
 					label="Email"
@@ -543,7 +542,6 @@
 				<h4>Email Validation (uses browser validation + wiggle animation)</h4>
 				<Textbox
 					value="not-an-email"
-					type="email"
 					iconLeft="mail"
 					placeholder="user@example.com"
 					label="Email (HTML5)"

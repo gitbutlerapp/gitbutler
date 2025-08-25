@@ -1,8 +1,19 @@
 import { logErrorToFile } from '$lib/backend';
 import { SilentError } from '$lib/error/error';
+import { parseError } from '$lib/error/parser';
 import { showError } from '$lib/notifications/toasts';
 import { captureException } from '@sentry/sveltekit';
 import type { HandleClientError } from '@sveltejs/kit';
+
+const E2E_MESSAGES_TO_IGNORE = ['Unable to autolaunch a dbus-daemon without a $DISPLAY for X11'];
+
+function shouldIgnoreError(error: unknown): boolean {
+	if (import.meta.env.VITE_E2E === 'true') {
+		const { message } = parseError(error);
+		return E2E_MESSAGES_TO_IGNORE.includes(message);
+	}
+	return false;
+}
 
 // SvelteKit error handler.
 export function handleError({
@@ -44,6 +55,10 @@ window.onunhandledrejection = (e: PromiseRejectionEvent) => {
 };
 
 function logError(error: unknown) {
+	if (shouldIgnoreError(error)) {
+		return;
+	}
+
 	try {
 		captureException(error, {
 			mechanism: {

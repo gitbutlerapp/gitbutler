@@ -9,7 +9,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 
-	import { Button, Checkbox, Modal, Textarea, Textbox, chipToasts } from '@gitbutler/ui';
+	import { Button, Checkbox, Modal, Textarea, EmailTextbox, chipToasts } from '@gitbutler/ui';
 
 	type Feedback = {
 		id: number;
@@ -160,10 +160,9 @@
 		</p>
 
 		{#if !$user}
-			<Textbox
+			<EmailTextbox
 				label="Email"
 				placeholder="Provide an email so that we can get back to you"
-				type="email"
 				bind:value={emailInputValue}
 				required
 				autocomplete={false}

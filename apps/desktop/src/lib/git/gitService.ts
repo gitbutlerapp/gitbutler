@@ -1,10 +1,19 @@
+import { providesList, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/shared/context';
 import type { IBackend } from '$lib/backend';
+import type { BackendApi } from '$lib/state/clientState.svelte';
 
 export const GIT_SERVICE = new InjectionToken<GitService>('GitService');
 
 export class GitService {
-	constructor(private backend: IBackend) {}
+	private api: ReturnType<typeof injectEndpoints>;
+
+	constructor(
+		private backend: IBackend,
+		backendApi: BackendApi
+	) {
+		this.api = injectEndpoints(backendApi);
+	}
 
 	/**
 	 * Emits a new value when a fetch was detected by the back end.
@@ -29,4 +38,34 @@ export class GitService {
 			targetDir: dir
 		});
 	}
+
+	getAuthorInfo(projectId: string) {
+		return this.api.endpoints.authorInfo.useQuery({ projectId });
+	}
+
+	get setAuthorInfo() {
+		return this.api.endpoints.setAuthorInfo.useMutation();
+	}
 }
+
+function injectEndpoints(api: BackendApi) {
+	return api.injectEndpoints({
+		endpoints: (build) => ({
+			authorInfo: build.query<AuthorInfo, { projectId: string }>({
+				extraOptions: { command: 'get_author_info' },
+				query: (args) => args,
+				providesTags: [providesList(ReduxTag.AuthorInfo)]
+			}),
+			setAuthorInfo: build.mutation<void, { projectId: string; name: string; email: string }>({
+				extraOptions: { command: 'store_author_globally_if_unset' },
+				query: (args) => args,
+				invalidatesTags: [providesList(ReduxTag.AuthorInfo)]
+			})
+		})
+	});
+}
+
+export type AuthorInfo = {
+	name: string | null;
+	email: string | null;
+};

@@ -174,7 +174,7 @@ export function initDependencies(args: {
 	// GIT & VERSION CONTROL
 	// ============================================================================
 
-	const gitService = new GitService(backend);
+	const gitService = new GitService(backend, clientState.backendApi);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const branchService = new BranchService(clientState['backendApi']);
 	const remotesService = new RemotesService(backend);
