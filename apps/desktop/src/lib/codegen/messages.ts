@@ -120,7 +120,15 @@ export function formatMessages(
 					toolCall.result = 'Tool call aborted due to claude exit';
 				}
 				toolCalls = {};
-				lastAssistantMessage = undefined;
+				// We can drop the permissions requests if CC has exited.
+				if (lastAssistantMessage) {
+					lastAssistantMessage.toolCalls = [
+						...lastAssistantMessage.toolCalls,
+						...lastAssistantMessage.toolCallsPendingApproval
+					];
+					lastAssistantMessage.toolCallsPendingApproval = [];
+					lastAssistantMessage = undefined;
+				}
 			}
 
 			if (subject.type === 'claudeExit' && subject.subject.code !== 0) {
