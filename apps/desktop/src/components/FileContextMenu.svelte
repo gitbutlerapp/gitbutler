@@ -31,6 +31,7 @@
 		Textbox,
 		chipToasts
 	} from '@gitbutler/ui';
+	import { slugify } from '@gitbutler/ui/utils/string';
 	import type { DiffSpec } from '$lib/hunks/hunk';
 	import type { SelectionId } from '$lib/selection/key';
 
@@ -133,6 +134,7 @@
 	}
 
 	let stashBranchName = $state<string>();
+	const slugifiedRefName = $derived(stashBranchName && slugify(stashBranchName));
 	async function confirmStashIntoBranch(item: FileItem, branchName: string | undefined) {
 		if (!branchName) {
 			return;
@@ -329,12 +331,12 @@
 	{#snippet children(item: unknown)}
 		{#if isFileItem(item)}
 			{@const deletion = isDeleted(item)}
-			<ContextMenuSection>
-				{#if item.changes.length > 0}
+			{#if item.changes.length > 0 && !editMode}
+				<ContextMenuSection>
 					{@const changes = item.changes}
 					{#if isUncommitted}
 						<ContextMenuItem
-							label="Discard changes"
+							label="Discard changes…"
 							icon="bin"
 							onclick={() => {
 								confirmationModal?.show(item);
@@ -344,7 +346,7 @@
 					{/if}
 					{#if isUncommitted}
 						<ContextMenuItem
-							label="Stash into branch"
+							label="Stash into branch…"
 							icon="stash"
 							onclick={() => {
 								stackService.fetchNewBranchName(projectId).then((name) => {
@@ -393,8 +395,8 @@
 							{/snippet}
 						</ReduxResult>
 					{/if}
-				{/if}
-			</ContextMenuSection>
+				</ContextMenuSection>
+			{/if}
 
 			{#if item.changes.length === 1}
 				<ContextMenuSection>
@@ -570,32 +572,37 @@
 </Modal>
 
 <Modal
-	width={500}
+	width={434}
 	type="info"
+	title="Stash changes into a new branch"
 	bind:this={stashConfirmationModal}
 	onSubmit={(_, item) => isFileItem(item) && confirmStashIntoBranch(item, stashBranchName)}
 >
 	<div class="content-wrap">
 		<Textbox
-			label="New branch to stash into"
 			id="stashBranchName"
+			placeholder="Enter your branch name..."
 			bind:value={stashBranchName}
 			autofocus
+			helperText={slugifiedRefName && slugifiedRefName !== stashBranchName
+				? `Will be created as '${slugifiedRefName}'`
+				: undefined}
 		/>
 
-		<span>
-			The selected changes will be stashed into branch <span class="text-bold"
-				>{stashBranchName}</span
-			> and removed from the workspace.
-		</span>
-		<span>
-			You can re-apply them by re-applying the branch and "uncommitting" the stash commit.
-		</span>
+		<div class="explanation">
+			<p class="primary-text">
+				Your selected changes will be moved to a new branch called
+				<strong>{stashBranchName || '[branch name]'}</strong> and removed from your current workspace.
+				To get these changes back later, switch to the new branch and uncommit the stash.
+			</p>
+		</div>
 
-		<span class="text-12 text-body radio-aditional-info"
-			>└ This operation is a "macro" for creating a branch, committing changes and then unapplying
-			it. In the future, discovery and unstashing will be streamlined.</span
-		>
+		<div class="technical-note">
+			<p class="text-12 text-body clr-text-2">
+				💡 This creates a new branch, commits your changes, then unapplies the branch. Future
+				versions will have simpler stash management.
+			</p>
+		</div>
 	</div>
 
 	{#snippet controls(close, item)}
@@ -606,7 +613,7 @@
 			type="submit"
 			action={async () => await confirmStashIntoBranch(item, stashBranchName)}
 		>
-			Confirm
+			Stash into branch
 		</AsyncButton>
 	{/snippet}
 </Modal>
