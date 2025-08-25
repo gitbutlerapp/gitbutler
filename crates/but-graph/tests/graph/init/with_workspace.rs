@@ -3259,44 +3259,57 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::
     // Each of the stacked branches has a remote, the remote branch was merged into main,
     // and the remaining branch B was rebased onto the merge, simulating a workspace update.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * ee49c75 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * e0bd0a7 (B) B
+    * deeae50 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 353471f (D) D
+    * 8a4b945 C
+    * e0bd0a7 B
     * 0b6b861 (origin/main, main) A
+    | * bbd4ff6 (origin/D) D
+    | * e5f5a87 (origin/C) C
     | * da597e8 (origin/B) B
     | * 1818c17 (origin/A) A
     |/  
     * 281456a init
     ");
 
-    // The branch A is not in the workspace anymore, and we *could* signal it by removing metadata.
+    // The branch A, B, C are not in the workspace anymore, and we *could* signal it by removing metadata.
     // But even with metadata, it still works fine.
-    add_stack_with_segments(&mut meta, 0, "B", StackState::InWorkspace, &["A"]);
+    add_stack_with_segments(&mut meta, 0, "D", StackState::InWorkspace, &["C", "B", "A"]);
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
-    │   └── ·ee49c75 (⌂|🏘️|1)
-    │       └── 📙►:3[1]:B <> origin/B →:4:
+    │   └── ·deeae50 (⌂|🏘️|1)
+    │       └── 📙►:3[1]:D <> origin/D →:4:
+    │           ├── ·353471f (⌂|🏘️|101)
+    │           ├── ·8a4b945 (⌂|🏘️|101)
     │           └── ·e0bd0a7 (⌂|🏘️|101)
     │               └── ►:2[2]:main <> origin/main →:1:
     │                   └── ·0b6b861 (⌂|🏘️|✓|111)
-    │                       └── ►:5[3]:anon:
+    │                       └── ►:5[4]:anon:
     │                           └── ·281456a (⌂|🏘️|✓|111)
     ├── ►:1[0]:origin/main →:2:
     │   └── →:2: (main →:1:)
-    └── ►:4[0]:origin/B →:3:
-        └── 🟣da597e8
-            └── ►:6[1]:origin/A
-                └── 🟣1818c17
-                    └── →:5:
+    └── ►:4[0]:origin/D →:3:
+        └── 🟣bbd4ff6
+            └── ►:8[1]:origin/C
+                └── 🟣e5f5a87
+                    └── ►:7[2]:origin/B
+                        └── 🟣da597e8
+                            └── ►:6[3]:origin/A
+                                └── 🟣1818c17
+                                    └── →:5:
     ");
 
-    // We segment
+    // We let each remote on the path down own a commit so we only see one remote commit here,
+    // the one belonging to the last remaining associated remote tracking branch of D.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 0b6b861
-    └── ≡📙:3:B <> origin/B →:4:⇡1⇣1 on 0b6b861
-        └── 📙:3:B <> origin/B →:4:⇡1⇣1
-            ├── 🟣da597e8
+    └── ≡📙:3:D <> origin/D →:4:⇡3⇣1 on 0b6b861
+        └── 📙:3:D <> origin/D →:4:⇡3⇣1
+            ├── 🟣bbd4ff6
+            ├── ·353471f (🏘️)
+            ├── ·8a4b945 (🏘️)
             └── ·e0bd0a7 (🏘️)
     ");
     Ok(())

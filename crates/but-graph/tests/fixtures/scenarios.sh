@@ -826,25 +826,30 @@ EOF
     echo init>file && git add file && git commit -m "init"
     git checkout -b A && echo A >>file && git commit -am "A"
     git checkout -b B && echo B >>file && git commit -am "B"
+    git checkout -b C && echo C >>file && git commit -am "C"
+    git checkout -b D && echo D >>file && git commit -am "D"
 
     git checkout main
       tick
       # easy squash-merge simulation of only A
       git cherry-pick A
       setup_target_to_match_main
-    git checkout -b rebased-B
-      # rebase B on top
+    git checkout -b rebased-D
       git cherry-pick B
+      git cherry-pick C
+      git cherry-pick D
 
       # setup free-standing remotes that were previously pushed.
       # replace local branches as they don't matter there.
       setup_remote_tracking A A "move"
       setup_remote_tracking B B "move"
+      setup_remote_tracking C C "move"
+      setup_remote_tracking D D "move"
 
-      # get our rebased B back.
-      git branch -m B
+      # get our rebased tip back
+      git branch -m D
 
-    create_workspace_commit_once B
+    create_workspace_commit_once D
   )
 
   git init special-branches

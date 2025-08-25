@@ -136,7 +136,7 @@ impl Graph {
             }
         }
 
-        for (sidx, new_segment_start_idx, segment_name) in split_info {
+        for (sidx, new_segment_start_idx, segment_name) in split_info.into_iter().rev() {
             self.split_segment(sidx, new_segment_start_idx, Some(segment_name), None, meta)?;
         }
         Ok(())
