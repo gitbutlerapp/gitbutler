@@ -1,7 +1,7 @@
 use but_settings::AppSettings;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oplog::{entry::OperationKind, OplogExt};
+use gitbutler_oplog::{OplogExt, entry::OperationKind};
 use gitbutler_project::Project;
 use std::path::Path;
 

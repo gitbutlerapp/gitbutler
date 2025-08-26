@@ -173,7 +173,7 @@ pub fn stacks_v3(
             .flat_map(|stack| &stack.segments)
             .filter_map(|segment| segment.ref_name.as_ref())
             .collect();
-        
+
         for item in meta.iter() {
             let (ref_name, ref_meta) = item?;
             if !ref_meta.is::<but_core::ref_metadata::Branch>() {
@@ -224,7 +224,7 @@ pub fn stacks_v3(
     ) -> Vec<ui::StackEntry> {
         use std::collections::HashSet;
         let mut seen_ids = HashSet::new();
-        
+
         stacks
             .into_iter()
             .filter_map(|stack| try_from_stack_v3(repo, stack, meta).ok())
@@ -244,7 +244,7 @@ pub fn stacks_v3(
             let unapplied_stacks = unapplied_stacks(repo, meta, &info.stacks)?;
             let mut all_stacks = unapplied_stacks;
             all_stacks.extend(into_ui_stacks(repo, info.stacks, meta));
-            
+
             // Deduplicate by ID across both applied and unapplied stacks
             use std::collections::HashMap;
             let mut deduped: HashMap<Option<StackId>, ui::StackEntry> = HashMap::new();

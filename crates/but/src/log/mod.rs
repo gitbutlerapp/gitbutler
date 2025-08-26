@@ -81,7 +81,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool, short: bool) -> anyhow
                 );
                 let bend = if stacked { "├" } else { "╭" };
                 if j == branch.upstream_commits.len() - 1 {
-                    println!("{}{}─╯", "│ ".repeat(nesting), bend);
+                    println!("{}{}", "│ ".repeat(nesting), bend);
                 } else {
                     println!("{}  ┊", "│ ".repeat(nesting));
                 }
@@ -131,10 +131,10 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool, short: bool) -> anyhow
     if nesting > 0 {
         for _ in (0..nesting - 1).rev() {
             if nesting == 1 {
-                println!("└─╯");
+                println!("│");
             } else {
                 let prefix = "│ ".repeat(nesting - 2);
-                println!("{}├─╯", prefix);
+                println!("{}│", prefix);
             }
             nesting -= 1;
         }
@@ -152,10 +152,10 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool, short: bool) -> anyhow
 
 fn commit_graph_short(stacks: Vec<StackDetails>) -> anyhow::Result<()> {
     let mut nesting = 0;
-    
+
     for (_i, stack) in stacks.iter().enumerate() {
         let mut second_consecutive = false;
-        
+
         for branch in stack.branch_details.iter() {
             let line = if second_consecutive {
                 if branch.upstream_commits.is_empty() {
@@ -167,33 +167,37 @@ fn commit_graph_short(stacks: Vec<StackDetails>) -> anyhow::Result<()> {
                 '╭'
             };
             second_consecutive = branch.upstream_commits.is_empty();
-            
+
             let extra_space = if !branch.upstream_commits.is_empty() {
                 "  "
             } else {
                 ""
             };
-            
+
             let id = CliId::branch(&branch.name.to_string())
                 .to_string()
                 .underline()
                 .blue();
-            
+
             // Count commits
             let upstream_count = branch.upstream_commits.len();
             let local_count = branch.commits.len();
             let total_count = upstream_count + local_count;
-            
+
             let count_info = if total_count == 0 {
                 "no commits".dimmed()
             } else if upstream_count > 0 && local_count > 0 {
-                format!("{} commits ({} upstream, {} local)", total_count, upstream_count, local_count).cyan()
+                format!(
+                    "{} commits ({} upstream, {} local)",
+                    total_count, upstream_count, local_count
+                )
+                .cyan()
             } else if upstream_count > 0 {
                 format!("{} upstream commits", upstream_count).yellow()
             } else {
                 format!("{} local commits", local_count).green()
             };
-            
+
             println!(
                 "{}{}{} [{}] {} - {}",
                 "│ ".repeat(nesting),
@@ -206,22 +210,22 @@ fn commit_graph_short(stacks: Vec<StackDetails>) -> anyhow::Result<()> {
         }
         nesting += 1;
     }
-    
+
     if nesting > 0 {
         for _ in (0..nesting - 1).rev() {
             if nesting == 1 {
-                println!("└─╯");
+                println!("│");
             } else {
                 let prefix = "│ ".repeat(nesting - 2);
-                println!("{}├─╯", prefix);
+                println!("{}│", prefix);
             }
             nesting -= 1;
         }
     }
-    
+
     // Show the base commit (same as in detailed view)
     println!("● (base)");
-    
+
     Ok(())
 }
 
