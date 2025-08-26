@@ -37,10 +37,14 @@ const EVENT_NAME = 'tauri_command';
 export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 	api,
 	endpointName,
-	ctx: { getState, getDispatch }
+	command,
+	actionName,
+	ctx: { getState, getDispatch, posthog }
 }: {
 	api: Api<any, Definitions, any, any, CoreModule>;
 	endpointName: string;
+	command: string | undefined;
+	actionName: string | undefined;
 	ctx: HookContext;
 }) {
 	const endpoint = api.endpoints[endpointName]!;
@@ -48,10 +52,32 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 
 	const { initiate, select } = endpoint as ApiEndpointQuery<CustomQuery<any>, Definitions>;
 
+	function track(args: { failure: boolean; startTime: number; error?: unknown }) {
+		const durationMs = Date.now() - args.startTime;
+		posthog?.capture(EVENT_NAME, {
+			command,
+			actionName,
+			durationMs,
+			failure: args.failure,
+			error: args.error
+		});
+
+		/** TODO: How long do we need to send these duplicates? */
+		const legacyName = args.failure ? `${actionName} Failed` : `${actionName} Successful`;
+		posthog?.capture(legacyName, {
+			actionName,
+			command,
+			durationMs,
+			failure: args.failure,
+			error: args.error
+		});
+	}
+
 	async function fetch<T extends TranformerFn>(
 		queryArg: unknown,
 		options?: { transform?: T; forceRefetch?: boolean }
 	) {
+		const startTime = Date.now();
 		const dispatch = getDispatch();
 		const result = await dispatch(
 			initiate(queryArg, {
@@ -61,8 +87,10 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		);
 		const { data, error } = result;
 		if (result.error) {
+			track({ failure: true, startTime, error });
 			throw error;
 		}
+		track({ failure: false, startTime });
 		if (options?.transform && data) {
 			return options.transform(data, queryArg);
 		}
@@ -73,6 +101,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		queryArg: unknown,
 		options?: { transform?: T } & StartQueryActionCreatorOptions
 	) {
+		const startTime = Date.now();
 		const dispatch = getDispatch();
 		let subscription: QueryActionCreatorResult<any> | undefined;
 		$effect(() => {
@@ -98,7 +127,14 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		$effect(() => {
 			if (result.error) {
 				const error = result.error;
+				track({ failure: true, startTime, error });
 				emitQueryError(error);
+			}
+		});
+
+		$effect(() => {
+			if (result.data) {
+				track({ failure: false, startTime });
 			}
 		});
 
@@ -171,6 +207,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 				data
 			};
 		});
+
 		return reactive(() => output);
 	}
 
