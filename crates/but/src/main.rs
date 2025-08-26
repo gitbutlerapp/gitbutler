@@ -1,11 +1,12 @@
 use anyhow::{Context, Result};
 
 mod args;
-use args::{Args, CommandName, Subcommands, actions, claude};
+use args::{Args, BranchSubcommands, CommandName, Subcommands, actions, claude};
 use but_settings::AppSettings;
 use metrics::{Event, Metrics, Props, metrics_if_configured};
 
 use but_claude::hooks::OutputAsJson;
+mod branch;
 mod command;
 mod config;
 mod id;
@@ -107,6 +108,11 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Undo, props(start, &result)).ok();
             result
         }
+        Subcommands::Branch { cmd } => match cmd {
+            BranchSubcommands::New { branch_name, id } => {
+                branch::create_branch(&args.current_dir, args.json, branch_name, id.as_deref())
+            }
+        },
         Subcommands::Rub { source, target } => {
             let result = rub::handle(&args.current_dir, args.json, source, target)
                 .context("Rubbed the wrong way.");
