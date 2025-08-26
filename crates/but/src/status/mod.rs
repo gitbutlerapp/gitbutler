@@ -238,10 +238,10 @@ fn print_branch_sections(
         if !stack.branch_details.is_empty() {
             if i == stacks.len() - 1 {
                 // Last stack - close with simple ├─╯
-                println!("├─╯");
+                println!("│");
             } else {
                 // Not the last stack - close with ├─╯ and add blank line
-                println!("├─╯");
+                println!("│");
                 println!();
             }
         }

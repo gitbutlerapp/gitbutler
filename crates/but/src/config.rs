@@ -70,8 +70,8 @@ fn gather_config_info(current_dir: &Path, _app_settings: &AppSettings) -> Result
 }
 
 fn get_git_user_info(current_dir: &Path) -> Result<UserInfo> {
-    let git_repo = git2::Repository::discover(current_dir)
-        .context("Failed to find Git repository")?;
+    let git_repo =
+        git2::Repository::discover(current_dir).context("Failed to find Git repository")?;
     let config = Config::from(&git_repo);
 
     let name = config.user_name().unwrap_or(None);
@@ -112,8 +112,9 @@ fn get_ai_tooling_info() -> Result<AiToolingInfo> {
 fn check_openai_config() -> AiProviderInfo {
     let has_env_key = std::env::var("OPENAI_API_KEY").is_ok();
     let has_stored_key = secret::retrieve("openai_api_key", secret::Namespace::BuildKind).is_ok();
-    let has_gb_token = secret::retrieve("gitbutler_access_token", secret::Namespace::BuildKind).is_ok();
-    
+    let has_gb_token =
+        secret::retrieve("gitbutler_access_token", secret::Namespace::BuildKind).is_ok();
+
     let configured = has_env_key || has_stored_key || has_gb_token;
     let model = if configured {
         Some("gpt-4".to_string())
@@ -126,14 +127,14 @@ fn check_openai_config() -> AiProviderInfo {
 
 fn check_anthropic_config() -> AiProviderInfo {
     let has_key = secret::retrieve("anthropic_api_key", secret::Namespace::BuildKind).is_ok();
-    
+
     let model = if has_key {
         Some("claude-3-5-sonnet".to_string())
     } else {
         None
     };
 
-    AiProviderInfo { 
+    AiProviderInfo {
         configured: has_key,
         model,
     }
@@ -148,7 +149,7 @@ fn check_ollama_config() -> AiProviderInfo {
         .output()
         .map(|output| output.status.success())
         .unwrap_or(false);
-    
+
     let model = if configured {
         Some("llama2:7b".to_string())
     } else {
@@ -170,14 +171,22 @@ fn print_formatted_config(config: &ConfigInfo) {
     );
     println!(
         "  Email (user.email): {}",
-        config.user_info.email.as_deref().unwrap_or("Not configured")
+        config
+            .user_info
+            .email
+            .as_deref()
+            .unwrap_or("Not configured")
     );
     println!();
 
     println!("🚀 GitButler:");
     println!(
         "  Username (user.login): {}",
-        config.gitbutler_info.username.as_deref().unwrap_or("Not configured")
+        config
+            .gitbutler_info
+            .username
+            .as_deref()
+            .unwrap_or("Not configured")
     );
     println!("  Status:   {}", config.gitbutler_info.status);
     println!();
@@ -198,7 +207,11 @@ fn print_ai_provider(name: &str, provider: &AiProviderInfo) {
     println!(
         "  {:10} {}{}{}",
         format!("{}:", name),
-        if provider.configured { "Configured" } else { "Not configured" },
+        if provider.configured {
+            "Configured"
+        } else {
+            "Not configured"
+        },
         if provider.configured { " " } else { " " },
         if provider.configured { status } else { status }
     );
