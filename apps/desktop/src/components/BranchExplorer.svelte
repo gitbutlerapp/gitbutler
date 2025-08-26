@@ -74,11 +74,14 @@
 	const combined = $derived(
 		combineBranchesAndPrs(prs.current, branchesResult.current.data || [], selectedOption)
 	);
-	const groupedBranches = $derived(groupBranches(combined));
-	const searchedBranches = $derived(searchTerm.length >= 2 ? searchEngine.search(searchTerm) : []);
 
-	$effect(() => {
-		searchEngine.setCollection(combined);
+	const groupedBranches = $derived(groupBranches(combined));
+	const searchedBranches = $derived.by(() => {
+		if (searchTerm.length >= 2 && combined.length > 0) {
+			searchEngine.setCollection(combined);
+			return searchEngine.search(searchTerm);
+		}
+		return [];
 	});
 
 	function handleSearchKeyDown(e: KeyboardEvent) {
@@ -179,7 +182,7 @@
 
 		<SegmentControl fullWidth defaultIndex={selectedFilterIndex} onselect={setFilter}>
 			{#each Object.entries(filterOptions) as [segmentId, segmentCopy]}
-				<Segment id={segmentId} disabled={!!searchTerm}>{segmentCopy}</Segment>
+				<Segment id={segmentId}>{segmentCopy}</Segment>
 			{/each}
 		</SegmentControl>
 	</div>
