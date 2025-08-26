@@ -35,6 +35,12 @@ pub enum Subcommands {
     /// Undo the last operation by reverting to the previous snapshot.
     Undo,
 
+    /// Branch management operations.
+    Branch {
+        #[clap(subcommand)]
+        cmd: BranchSubcommands,
+    },
+
     /// Combines two entities together to perform an operation.
     #[clap(
         about = "Combines two entities together to perform an operation",
@@ -75,6 +81,17 @@ For examples see `but rub --help`."
         command_name: CommandName,
         #[clap(long)]
         props: String,
+    },
+}
+
+#[derive(Debug, clap::Subcommand)]
+pub enum BranchSubcommands {
+    /// Create a new virtual branch.
+    New {
+        /// The name of the new branch
+        branch_name: String,
+        /// Optional branch ID to create a stacked branch from
+        id: Option<String>,
     },
 }
 
