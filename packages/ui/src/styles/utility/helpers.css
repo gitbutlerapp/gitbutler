@@ -89,6 +89,13 @@ pre {
 	text-underline-offset: 3px;
 }
 
+.capitalize {
+	display: inline-block;
+}
+.capitalize:first-letter {
+	text-transform: capitalize;
+}
+
 /* ANIMATION */
 
 .wiggle-animation {
