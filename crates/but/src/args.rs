@@ -17,11 +17,19 @@ pub struct Args {
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// Provides an overview of the Workspace commit graph.
-    Log,
+    Log {
+        /// Show only branch topology with commit counts instead of detailed commits
+        #[clap(long, short = 's')]
+        short: bool,
+    },
     /// Overview of the oncommitted changes in the repository.
     Status,
     /// Display configuration information about the GitButler repository.
     Config,
+    /// Show operation history (last 20 entries).
+    Oplog,
+    /// Undo the last operation by reverting to the previous snapshot.
+    Undo,
 
     /// Combines two entities together to perform an operation.
     #[clap(
@@ -74,6 +82,10 @@ pub enum CommandName {
     Status,
     #[clap(alias = "config")]
     Config,
+    #[clap(alias = "oplog")]
+    Oplog,
+    #[clap(alias = "undo")]
+    Undo,
     #[clap(alias = "rub")]
     Rub,
     #[clap(
