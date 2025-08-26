@@ -87,8 +87,8 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Log, props(start, &result)).ok();
             Ok(())
         }
-        Subcommands::Status => {
-            let result = status::worktree(&args.current_dir, args.json);
+        Subcommands::Status { base } => {
+            let result = status::worktree(&args.current_dir, args.json, *base);
             metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
             Ok(())
         }
