@@ -6,19 +6,22 @@ use but_settings::AppSettings;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use gitbutler_stack;
 use std::collections::BTreeMap;
 use std::path::Path;
 pub(crate) mod assignment;
 
 use crate::id::CliId;
 
-pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
+pub(crate) fn worktree(repo_path: &Path, _json: bool, show_base: bool) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    // Print base information
-    print_base_info(ctx)?;
-    println!();
+    // Print base information only if requested
+    if show_base {
+        print_base_info(ctx)?;
+        println!();
+    }
 
     // Get stacks with detailed information
     let stack_entries = crate::log::stacks(ctx)?;
@@ -30,7 +33,7 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
         })
         .collect();
 
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes;
+    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path.clone())?.changes;
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
 
@@ -52,7 +55,7 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
 
     // Print branches with commits and assigned files
     if !stacks.is_empty() {
-        print_branch_sections(&stacks, &assignments_by_file, &changes)?;
+        print_branch_sections(&stacks, &assignments_by_file, &changes, &project)?;
     }
 
     // Print unassigned files
@@ -179,16 +182,56 @@ fn print_base_info(ctx: &CommandContext) -> anyhow::Result<()> {
 fn print_branch_sections(
     stacks: &[(Option<but_workspace::StackId>, but_workspace::ui::StackDetails)], 
     assignments_by_file: &BTreeMap<BString, FileAssignment>,
-    changes: &[TreeChange]
+    changes: &[TreeChange],
+    project: &Project
 ) -> anyhow::Result<()> {
-    for (stack_id, stack) in stacks {
-        for branch in &stack.branch_details {
+    let nesting = 0;
+    
+    for (i, (stack_id, stack)) in stacks.iter().enumerate() {
+        let mut first_branch = true;
+        
+        for (_j, branch) in stack.branch_details.iter().enumerate() {
             let branch_name = branch.name.to_string();
             let branch_id = CliId::branch(&branch_name).to_string().underline().blue();
             
-            println!("╭  {} [{}]", branch_id, branch_name.green().bold());
+            // Determine the connecting character for this branch
+            let prefix = "│ ".repeat(nesting);
+            let connector = if first_branch {
+                "╭"
+            } else {
+                "├"
+            };
             
-            // Show commits
+            println!("{}{}  {} [{}]", prefix, connector, branch_id, branch_name.green().bold());
+            
+            // Show assigned files first - only for the first (topmost) branch in a stack
+            // In GitButler's model, files are assigned to the stack, not individual branches
+            let has_files = if first_branch {
+                if let Some(stack_id) = stack_id {
+                    let branch_assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &Some(*stack_id));
+                    if !branch_assignments.is_empty() {
+                        for fa in &branch_assignments {
+                            let status_char = get_status_char(&fa.path, changes);
+                            let file_id = CliId::file_from_assignment(&fa.assignments[0])
+                                .to_string()
+                                .underline()
+                                .blue();
+                            
+                            println!("{}│  {} {} {}", prefix, file_id, status_char, fa.path.to_string().white());
+                        }
+                        println!("{}│", prefix);
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+            
+            // Show commits after files
             let has_commits = !branch.commits.is_empty() || !branch.upstream_commits.is_empty();
             if has_commits {
                 // Show upstream commits first
@@ -197,7 +240,7 @@ fn print_branch_sections(
                     let commit_id = CliId::commit(commit.id).to_string().underline().blue();
                     let message = commit.message.to_str_lossy();
                     let message_line = message.lines().next().unwrap_or("");
-                    println!("●  {} {} {}", commit_id, commit_short.blue(), message_line);
+                    println!("{}●  {} {} {}", prefix, commit_id, commit_short.blue(), message_line);
                 }
                 
                 // Show local commits
@@ -206,40 +249,40 @@ fn print_branch_sections(
                     let commit_id = CliId::commit(commit.id).to_string().underline().blue();
                     let message = commit.message.to_str_lossy();
                     let message_line = message.lines().next().unwrap_or("");
-                    println!("●  {} {} {}", commit_id, commit_short.blue(), message_line);
+                    println!("{}●  {} {} {}", prefix, commit_id, commit_short.blue(), message_line);
                 }
-                println!("│");
-            }
-            
-            // Show assigned files
-            let branch_assignments = if let Some(stack_id) = stack_id {
-                assignment::filter_by_stack_id(assignments_by_file.values(), &Some(*stack_id))
-            } else {
-                Vec::new()
-            };
-            
-            let has_files = !branch_assignments.is_empty();
-            if has_files {
-                for fa in &branch_assignments {
-                    let status_char = get_status_char(&fa.path, changes);
-                    let file_id = CliId::file_from_assignment(&fa.assignments[0])
-                        .to_string()
-                        .underline()
-                        .blue();
-                    
-                    println!("│  {} {} {}", file_id, status_char, fa.path.to_string().white());
-                }
-                println!("│");
+                println!("{}│", prefix);
             }
             
             if !has_commits && !has_files {
-                println!("│     (no commits)");
+                println!("{}│     (no commits)", prefix);
             }
             
-            println!("╯");
-            println!();
+            first_branch = false;
+        }
+        
+        // Close the current stack
+        if !stack.branch_details.is_empty() {
+            if i == stacks.len() - 1 {
+                // Last stack - close with simple ├─╯ 
+                println!("├─╯");
+            } else {
+                // Not the last stack - close with ├─╯ and add blank line
+                println!("├─╯");
+                println!();
+            }
         }
     }
+    
+    // Get and display the base commit
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir())
+        .get_default_target()?
+        .sha
+        .to_string()[..7]
+        .to_string();
+    println!("● {} (base)", common_merge_base);
+    
     Ok(())
 }
 
