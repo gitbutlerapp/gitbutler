@@ -25,6 +25,7 @@ export const MOCK_APP_SETTINGS: AppSettings = {
 	claude: {
 		executable: 'claude',
 		notifyOnCompletion: false,
-		notifyOnPermissionRequest: false
+		notifyOnPermissionRequest: false,
+		dangerouslyAllowAllPermissions: false
 	}
 };

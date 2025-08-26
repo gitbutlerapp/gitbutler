@@ -206,6 +206,7 @@
 	let claudeExecutable = $state('');
 	let notifyOnCompletion = $state(false);
 	let notifyOnPermissionRequest = $state(false);
+	let dangerouslyAllowAllPermissions = $state(false);
 
 	// Initialize Claude settings from store
 	$effect(() => {
@@ -213,6 +214,7 @@
 			claudeExecutable = $settingsStore.claude.executable;
 			notifyOnCompletion = $settingsStore.claude.notifyOnCompletion;
 			notifyOnPermissionRequest = $settingsStore.claude.notifyOnPermissionRequest;
+			dangerouslyAllowAllPermissions = $settingsStore.claude.dangerouslyAllowAllPermissions;
 		}
 	});
 
@@ -240,6 +242,11 @@
 	async function updateNotifyOnPermissionRequest(value: boolean) {
 		notifyOnPermissionRequest = value;
 		await settingsService.updateClaude({ notifyOnPermissionRequest: value });
+	}
+
+	async function updateDangerouslyAllowAllPermissions(value: boolean) {
+		dangerouslyAllowAllPermissions = value;
+		await settingsService.updateClaude({ dangerouslyAllowAllPermissions: value });
 	}
 </script>
 
@@ -555,6 +562,22 @@
 			</div>
 		{/snippet}
 		{#snippet actions()}{/snippet}
+	</SectionCard>
+
+	<SectionCard orientation="row">
+		{#snippet title()}
+			⚠️ Dangerously allow all permissions
+		{/snippet}
+		{#snippet caption()}
+			Skips all permission prompts and allows Claude Code unrestricted access. Use with extreme
+			caution.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				checked={dangerouslyAllowAllPermissions}
+				onchange={updateDangerouslyAllowAllPermissions}
+			/>
+		{/snippet}
 	</SectionCard>
 {/if}
 

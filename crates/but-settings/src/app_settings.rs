@@ -78,4 +78,6 @@ pub struct Claude {
     pub notify_on_completion: bool,
     /// Whether to show notifications when Claude Code needs permission.
     pub notify_on_permission_request: bool,
+    /// Whether to dangerously allow all permissions without prompting.
+    pub dangerously_allow_all_permissions: bool,
 }

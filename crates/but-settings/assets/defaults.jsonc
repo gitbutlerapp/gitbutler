@@ -50,6 +50,8 @@
 		// Whether to show notifications when Claude Code finishes.
 		"notifyOnCompletion": false,
 		// Whether to show notifications when Claude Code needs permission.
-		"notifyOnPermissionRequest": false
+		"notifyOnPermissionRequest": false,
+		// Whether to dangerously allow all permissions without prompting.
+		"dangerouslyAllowAllPermissions": false
 	}
 }
