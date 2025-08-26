@@ -285,21 +285,28 @@ async fn spawn_command(
     let settings = fmt_claude_settings()?;
     let mcp_config = fmt_claude_mcp()?;
 
-    let claude_executable = ctx.lock().await.app_settings().claude.executable.clone();
+    let app_settings = ctx.lock().await.app_settings().clone();
+    let claude_executable = app_settings.claude.executable.clone();
     let mut command = Command::new(claude_executable);
     command.stdout(writer);
     command.stderr(write_stderr);
     command.current_dir(&project_path);
+
     command.args([
         "-p",
         "--output-format=stream-json",
         "--verbose",
-        // "--dangerously-skip-permissions",
         &format!("--settings={settings}"),
         &format!("--mcp-config={mcp_config}"),
-        "--permission-prompt-tool=mcp__but-security__approval_prompt",
-        "--permission-mode=acceptEdits",
     ]);
+
+    if app_settings.claude.dangerously_allow_all_permissions {
+        command.arg("--dangerously-skip-permissions");
+    } else {
+        command.arg("--permission-prompt-tool=mcp__but-security__approval_prompt");
+        command.arg("--permission-mode=acceptEdits");
+    }
+
     if create_new {
         command.arg(format!("--session-id={}", session.id));
     } else {

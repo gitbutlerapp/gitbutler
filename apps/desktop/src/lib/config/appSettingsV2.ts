@@ -182,4 +182,6 @@ export type Claude = {
 	notifyOnCompletion: boolean;
 	/** Whether to show notifications when Claude Code needs permission. */
 	notifyOnPermissionRequest: boolean;
+	/** Whether to dangerously allow all permissions without prompting. */
+	dangerouslyAllowAllPermissions: boolean;
 };
