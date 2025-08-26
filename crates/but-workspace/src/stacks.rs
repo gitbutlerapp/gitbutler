@@ -167,20 +167,20 @@ pub fn stacks_v3(
         applied_stacks: &[branch::Stack],
     ) -> anyhow::Result<Vec<ui::StackEntry>> {
         let mut out = Vec::new();
+        // Create a set of all ref names that are in applied stacks for efficient lookup
+        let applied_ref_names: std::collections::HashSet<_> = applied_stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .filter_map(|segment| segment.ref_name.as_ref())
+            .collect();
+        
         for item in meta.iter() {
             let (ref_name, ref_meta) = item?;
             if !ref_meta.is::<but_core::ref_metadata::Branch>() {
                 continue;
             };
-            let is_applied = applied_stacks.iter().any(|stack| {
-                stack.segments.iter().any(|segment| {
-                    segment
-                        .ref_name
-                        .as_ref()
-                        .is_some_and(|name| name == &ref_name)
-                })
-            });
-            if is_applied {
+            // Check if this ref_name is in our applied_ref_names set
+            if applied_ref_names.contains(&ref_name) {
                 continue;
             }
 
@@ -222,21 +222,41 @@ pub fn stacks_v3(
         stacks: Vec<branch::Stack>,
         meta: &VirtualBranchesTomlMetadata,
     ) -> Vec<ui::StackEntry> {
+        use std::collections::HashSet;
+        let mut seen_ids = HashSet::new();
+        
         stacks
             .into_iter()
             .filter_map(|stack| try_from_stack_v3(repo, stack, meta).ok())
+            .filter(|entry| {
+                // Deduplicate by stack ID if present
+                match entry.id {
+                    Some(id) => seen_ids.insert(id),
+                    None => true, // Always include stacks without IDs
+                }
+            })
             .collect()
     }
 
-    let unapplied_stacks = unapplied_stacks(repo, meta, &info.stacks)?;
     Ok(match filter {
         StacksFilter::InWorkspace => into_ui_stacks(repo, info.stacks, meta),
         StacksFilter::All => {
+            let unapplied_stacks = unapplied_stacks(repo, meta, &info.stacks)?;
             let mut all_stacks = unapplied_stacks;
             all_stacks.extend(into_ui_stacks(repo, info.stacks, meta));
-            all_stacks
+            
+            // Deduplicate by ID across both applied and unapplied stacks
+            use std::collections::HashMap;
+            let mut deduped: HashMap<Option<StackId>, ui::StackEntry> = HashMap::new();
+            for stack in all_stacks {
+                deduped.insert(stack.id, stack);
+            }
+            deduped.into_values().collect()
         }
-        StacksFilter::Unapplied => unapplied_stacks,
+        StacksFilter::Unapplied => {
+            let unapplied_stacks = unapplied_stacks(repo, meta, &info.stacks)?;
+            unapplied_stacks
+        }
     })
 }
 
