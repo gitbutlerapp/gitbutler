@@ -42,6 +42,7 @@
 	type LocalAndRemoteDisabled = {
 		type: 'LocalAndRemote';
 		disableCommitActions: true;
+		diverged: boolean;
 	};
 
 	type WithStackId = {
@@ -110,7 +111,7 @@
 
 	<CommitLine
 		commitStatus={args.type}
-		diverged={args.type === 'LocalAndRemote' && !args.disableCommitActions ? args.diverged : false}
+		diverged={args.type === 'LocalAndRemote' ? (args.diverged ?? false) : false}
 		{tooltip}
 		{lastCommit}
 		{lastBranch}

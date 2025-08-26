@@ -101,6 +101,7 @@
 					<CommitRow
 						disableCommitActions
 						type="LocalAndRemote"
+						diverged={commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
 						{selected}
 						commitId={commit.id}
 						branchName={baseBranch.branchName}
