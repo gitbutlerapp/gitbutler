@@ -121,7 +121,7 @@ impl Graph {
                             if is_splittable {
                                 let info = (node.id, cidx, rn.clone());
                                 // This means we are more interested in the split than in representing every reference for now.
-                                if split_info.contains(&info) {
+                                if split_info.iter().any(|(a_sidx, a_cidx, _)| *a_sidx == node.id && *a_cidx == cidx) {
                                     tracing::debug!(?node.id, ?commit_with_refs.id, ?rn, "Ignoring remote reference which *should* have no effect");
                                 } else {
                                     split_info.push(info);
