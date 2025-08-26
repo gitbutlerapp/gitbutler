@@ -13,8 +13,10 @@ mod log;
 mod mcp;
 mod mcp_internal;
 mod metrics;
+mod oplog;
 mod rub;
 mod status;
+mod undo;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -80,8 +82,8 @@ async fn main() -> Result<()> {
                 but_claude::mcp::start(&args.current_dir).await
             }
         },
-        Subcommands::Log => {
-            let result = log::commit_graph(&args.current_dir, args.json);
+        Subcommands::Log { short } => {
+            let result = log::commit_graph(&args.current_dir, args.json, *short);
             metrics_if_configured(app_settings, CommandName::Log, props(start, &result)).ok();
             Ok(())
         }
@@ -93,6 +95,16 @@ async fn main() -> Result<()> {
         Subcommands::Config => {
             let result = config::show(&args.current_dir, &app_settings, args.json);
             metrics_if_configured(app_settings, CommandName::Config, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Oplog => {
+            let result = oplog::show_oplog(&args.current_dir, args.json);
+            metrics_if_configured(app_settings, CommandName::Oplog, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Undo => {
+            let result = undo::undo_last_operation(&args.current_dir, args.json);
+            metrics_if_configured(app_settings, CommandName::Undo, props(start, &result)).ok();
             result
         }
         Subcommands::Rub { source, target } => {
