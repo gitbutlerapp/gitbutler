@@ -80,7 +80,8 @@
 <div class="chrome-header" class:mac={backend.platformName === 'macos'} data-tauri-drag-region>
 	<div class="chrome-left" data-tauri-drag-region>
 		<div class="chrome-left-buttons" class:macos={backend.platformName === 'macos'}>
-			<SyncButton {projectId} size="button" disabled={actionsDisabled} />
+			<SyncButton {projectId} disabled={actionsDisabled} />
+
 			{#if isHasUpstreamCommits}
 				<Button
 					testId={TestId.IntegrateUpstreamCommitsButton}
