@@ -68,6 +68,30 @@ type CustomEndpoints<T> = {
 	[x: string]: EndpointDefinition<any, any, any, any> & { [K in keyof T]: T[K] };
 };
 
+function extractActionName(extraOptions: unknown): string | undefined {
+	if (
+		extraOptions &&
+		typeof extraOptions === 'object' &&
+		'actionName' in extraOptions &&
+		typeof extraOptions.actionName === 'string'
+	) {
+		return extraOptions.actionName;
+	}
+	return undefined;
+}
+
+function extractCommand(extraOptions: unknown): string | undefined {
+	if (
+		extraOptions &&
+		typeof extraOptions === 'object' &&
+		'command' in extraOptions &&
+		typeof extraOptions.command === 'string'
+	) {
+		return extraOptions.command;
+	}
+	return undefined;
+}
+
 export type ExtensionDefinitions = ApiModules<
 	TauriBaseQueryFn,
 	CustomEndpoints<
@@ -99,9 +123,13 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 				injectEndpoint(endpointName, definition) {
 					const endpoint = anyApi.endpoints[endpointName]!; // Known to exist.
 					if (isQueryDefinition(definition)) {
+						const command = extractCommand(definition.extraOptions);
+						const actionName = extractActionName(definition.extraOptions);
 						const { fetch, useQuery, useQueryState, useQueries, useQueryTimeStamp } =
 							buildQueryHooks({
 								endpointName,
+								command,
+								actionName,
 								api,
 								ctx
 							});
@@ -111,25 +139,9 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 						endpoint.useQueries = useQueries;
 						endpoint.useQueryTimeStamp = useQueryTimeStamp;
 					} else if (isMutationDefinition(definition)) {
-						// TODO: Find a way to get a typed `extraOptions` object.
-						let actionName = undefined;
-						if (
-							definition.extraOptions &&
-							typeof definition.extraOptions === 'object' &&
-							'actionName' in definition.extraOptions &&
-							typeof definition.extraOptions.actionName === 'string'
-						) {
-							actionName = definition.extraOptions.actionName;
-						}
-						let command = undefined;
-						if (
-							definition.extraOptions &&
-							typeof definition.extraOptions === 'object' &&
-							'command' in definition.extraOptions &&
-							typeof definition.extraOptions.command === 'string'
-						) {
-							command = definition.extraOptions.command;
-						}
+						const actionName = extractActionName(definition.extraOptions);
+						const command = extractCommand(definition.extraOptions);
+
 						const { mutate, useMutation } = buildMutationHook({
 							endpointName,
 							actionName,
