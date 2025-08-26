@@ -10,16 +10,17 @@
 		tooltip?: string;
 		lastCommit?: boolean;
 		lastBranch?: boolean;
+		slim?: boolean;
 	}
 
-	const { commitStatus, diverged, tooltip, lastCommit, lastBranch }: Props = $props();
+	const { commitStatus, diverged, tooltip, lastCommit, lastBranch, slim }: Props = $props();
 
 	const color = $derived(getColorFromCommitState(commitStatus, diverged));
 
 	const rhombus = $derived(commitStatus === 'LocalAndRemote');
 </script>
 
-<div class="commit-lines" style:--commit-color={color}>
+<div class="commit-lines" style:--commit-color={color} class:slim>
 	<div class="top"></div>
 	{#if diverged}
 		<div class="local-shadow-commit-dot">
@@ -56,6 +57,10 @@
 		align-items: center;
 		width: 42px;
 		gap: 3px;
+
+		&.slim {
+			width: 24px;
+		}
 	}
 
 	.top,
