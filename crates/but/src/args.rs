@@ -23,7 +23,11 @@ pub enum Subcommands {
         short: bool,
     },
     /// Overview of the oncommitted changes in the repository.
-    Status,
+    Status {
+        /// Show base branch and behind count information
+        #[clap(long, short = 'b')]
+        base: bool,
+    },
     /// Display configuration information about the GitButler repository.
     Config,
     /// Show operation history (last 20 entries).
