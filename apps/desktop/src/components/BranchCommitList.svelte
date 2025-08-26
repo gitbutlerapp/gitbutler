@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BranchIntegrationModal from '$components/BranchIntegrationModal.svelte';
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import CommitAction from '$components/CommitAction.svelte';
 	import CommitContextMenu from '$components/CommitContextMenu.svelte';
@@ -28,10 +29,9 @@
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
-	import { STACK_SERVICE, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { ensureValue } from '$lib/utils/validation';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, Modal, TestId } from '@gitbutler/ui';
 	import { DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
@@ -41,25 +41,6 @@
 	import type { Commit } from '$lib/branches/v3';
 	import type { CommitStatusType } from '$lib/commits/commit';
 	import type { BranchDetails } from '$lib/stacks/stack';
-
-	const integrationStrategies = {
-		default: {
-			label: 'Integrate upstream',
-			style: 'warning',
-			kind: 'solid',
-			icon: undefined,
-			action: () => integrate()
-		},
-		reset: {
-			label: 'Reset to remote…',
-			style: 'neutral',
-			kind: 'outline',
-			icon: 'warning-small',
-			action: confirmReset
-		}
-	} as const;
-
-	type IntegrationStrategy = keyof typeof integrationStrategies;
 
 	interface Props {
 		active: boolean;
@@ -106,7 +87,6 @@
 	const hooksService = inject(HOOKS_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
-	const [integrateUpstreamCommits, upstreamIntegration] = stackService.integrateUpstreamCommits;
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -130,20 +110,7 @@
 	const base = $derived(baseBranchResponse.current.data);
 	const baseSha = $derived(base?.baseSha);
 
-	let confirmResetModal = $state<ReturnType<typeof Modal>>();
-
-	async function integrate(strategy?: SeriesIntegrationStrategy): Promise<void> {
-		await integrateUpstreamCommits({
-			projectId,
-			stackId: ensureValue(stackId),
-			seriesName: branchName,
-			strategy
-		});
-	}
-
-	function confirmReset() {
-		confirmResetModal?.show();
-	}
+	let integrationModal = $state<Modal>();
 
 	function getAncestorMostConflicted(commits: Commit[]): Commit | undefined {
 		if (!commits.length) return undefined;
@@ -163,41 +130,23 @@
 		projectState.stackId.set(stackId);
 		onselect?.();
 	}
+
+	function kickOffIntegration() {
+		integrationModal?.show();
+	}
 </script>
 
-<Modal
-	bind:this={confirmResetModal}
-	title="Reset to remote"
-	type="warning"
-	width="small"
-	onSubmit={async (close) => {
-		await integrate('hardreset');
-		close();
-	}}
->
-	<p class="text-13 text-body helper-text">
-		This will reset the branch to the state of the remote branch. All local changes will be
-		overwritten.
-	</p>
-	{#snippet controls(close)}
-		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit">Reset</Button>
-	{/snippet}
-</Modal>
+<BranchIntegrationModal bind:modalRef={integrationModal} {projectId} {stackId} {branchName} />
 
-{#snippet integrateUpstreamButton(strategy: IntegrationStrategy)}
-	{@const { label, icon, style, kind, action } = integrationStrategies[strategy]}
+{#snippet integrateUpstreamButton()}
 	<Button
 		testId={TestId.UpstreamCommitsIntegrateButton}
-		{style}
-		{kind}
+		style="pop"
+		kind="solid"
 		grow
-		{icon}
-		reversedDirection
-		loading={upstreamIntegration.current.isLoading}
-		onclick={action}
+		onclick={kickOffIntegration}
 	>
-		{label}
+		Integrate changes...
 	</Button>
 {/snippet}
 
@@ -291,8 +240,7 @@
 
 						<CommitAction type="Remote" isLast={!hasCommits}>
 							{#snippet action()}
-								<!-- TODO: Ability to select other actions would be nice -->
-								{@render integrateUpstreamButton('default')}
+								{@render integrateUpstreamButton()}
 							{/snippet}
 						</CommitAction>
 					</CommitsAccordion>

@@ -726,6 +726,10 @@ export class StackService {
 		});
 	}
 
+	get integrateBranchWithSteps() {
+		return this.api.endpoints.integrateBranchWithSteps.useMutation();
+	}
+
 	get createVirtualBranchFromBranch() {
 		return this.api.endpoints.createVirtualBranchFromBranch.mutate;
 	}
@@ -1473,6 +1477,26 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				query: (args) => args,
 				providesTags: (_result, _error, { stackId, branchName }) =>
 					providesItem(ReduxTag.IntegrationSteps, (stackId ?? '--no stack ID--') + branchName)
+			}),
+			integrateBranchWithSteps: build.mutation<
+				void,
+				{
+					projectId: string;
+					stackId: string;
+					branchName: string;
+					steps: InteractiveIntegrationStep[];
+				}
+			>({
+				extraOptions: {
+					command: 'integrate_branch_with_steps',
+					actionName: 'Integrate Branch with Steps'
+				},
+				query: (args) => args,
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.IntegrationSteps, args.stackId + args.branchName),
+					invalidatesItem(ReduxTag.StackDetails, args.stackId),
+					invalidatesItem(ReduxTag.BranchDetails, args.branchName)
+				]
 			}),
 			createVirtualBranchFromBranch: build.mutation<
 				void,
