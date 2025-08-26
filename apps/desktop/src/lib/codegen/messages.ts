@@ -281,6 +281,7 @@ export function getTodos(events: ClaudeMessage[]): ClaudeTodo[] {
 		if (msgContent.type !== 'tool_use') continue;
 		if (msgContent.name !== 'TodoWrite') continue;
 		todos = (msgContent.input as { todos: ClaudeTodo[] }).todos;
+		break;
 	}
 	return todos ?? [];
 }
