@@ -98,7 +98,8 @@
 			<button
 				type="button"
 				class="chevron-btn focus-state"
-				onclick={() => {
+				onclick={(e) => {
+					e.stopPropagation();
 					if ($collapsed !== undefined) {
 						const newValue = !$collapsed;
 						collapsed.set(newValue);

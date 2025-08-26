@@ -96,6 +96,7 @@
 					<CommitRow
 						disableCommitActions
 						type={branch.commits.at(0)?.state.type || 'LocalOnly'}
+						diverged={commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
 						commitMessage={commit.message}
 						createdAt={commit.createdAt}
 						commitId={commit.id}

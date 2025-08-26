@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CommitRow from '$components/CommitRow.svelte';
 	import Drawer from '$components/Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
@@ -18,6 +19,7 @@
 		lastUserMessageSentAt,
 		usageStats
 	} from '$lib/codegen/messages';
+	import { commitStatusLabel } from '$lib/commits/commit';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
@@ -237,8 +239,14 @@
 		{#snippet children(stacks, { projectId })}
 			{#each stacks as stack}
 				{#if stack.id}
-					{#each stack.heads as head}
-						{@render sidebarContentEntry(projectId, stack.id, head.name)}
+					{#each stack.heads as head, headIndex}
+						{@render sidebarContentEntry(
+							projectId,
+							stack.id,
+							head.name,
+							headIndex,
+							stack.heads.length
+						)}
 					{/each}
 				{/if}
 			{/each}
@@ -246,7 +254,13 @@
 	</ReduxResult>
 {/snippet}
 
-{#snippet sidebarContentEntry(projectId: string, stackId: string, head: string)}
+{#snippet sidebarContentEntry(
+	projectId: string,
+	stackId: string,
+	head: string,
+	headIndex: number,
+	totalHeads: number
+)}
 	{@const branch = stackService.branchByName(projectId, stackId, head)}
 	{@const commits = stackService.commits(projectId, stackId, head)}
 	{@const events = claudeCodeService.messages({
@@ -275,7 +289,23 @@
 			<!-- defining this here so it's name doesn't conflict with the
 			variable commits -->
 			{#snippet commitsList()}
-				<p>There are commits, I swear</p>
+				{@const lastBranch = headIndex === totalHeads - 1}
+				{#each commits as commit, i}
+					<CommitRow
+						disableCommitActions
+						commitId={commit.id}
+						commitMessage={commit.message}
+						type={commit.state.type}
+						diverged={commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
+						hasConflicts={commit.hasConflicts}
+						createdAt={commit.createdAt}
+						branchName={branch.name}
+						first={i === 0}
+						lastCommit={i === commits.length - 1}
+						{lastBranch}
+						tooltip={commitStatusLabel(commit.state.type)}
+					/>
+				{/each}
 			{/snippet}
 		{/snippet}
 	</ReduxResult>
