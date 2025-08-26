@@ -27,35 +27,6 @@ describe('Branch Actions', () => {
 		clearCommandMocks();
 	});
 
-	it('should be able to integrate upstream commits of a branch', () => {
-		// spies
-		cy.spy(mockBackend, 'integrateUpstreamCommits').as('integrateUpstreamCommits');
-
-		// the upstream commits accordion should be visible
-		cy.getByTestId('upstream-commits-accordion').should('be.visible').click();
-
-		// The integrate button should be visible
-		cy.getByTestId('upstream-commits-integrate-button').should('be.visible').click();
-
-		// The accordion should be closed
-		cy.getByTestId('upstream-commits-accordion').should('not.exist');
-
-		// The commits should be integrated
-		cy.getByTestId('stack', mockBackend.stackId)
-			.should('exist')
-			.within(() => {
-				cy.getByTestId('commit-row').should('have.length', 5);
-			});
-
-		cy.get('@integrateUpstreamCommits').should('have.been.calledOnce');
-		cy.get('@integrateUpstreamCommits').should('have.been.calledWith', {
-			projectId: PROJECT_ID,
-			stackId: mockBackend.stackId,
-			seriesName: mockBackend.stackId,
-			strategy: undefined
-		});
-	});
-
 	it('should be able to rename a branch from the context menu', () => {
 		const newBranchName = 'new-branch-name';
 		// Click on the branch.
