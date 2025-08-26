@@ -799,7 +799,7 @@ dependencies = [
  "gitbutler-user",
  "gix",
  "posthog-rs",
- "reqwest 0.12.22",
+ "reqwest 0.12.23",
  "rmcp",
  "serde",
  "serde_json",
