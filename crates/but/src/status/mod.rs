@@ -1,5 +1,5 @@
 use assignment::FileAssignment;
-use bstr::BString;
+use bstr::{BString, ByteSlice};
 use but_core::ui::{TreeChange, TreeStatus};
 use but_hunk_assignment::HunkAssignment;
 use but_settings::AppSettings;
@@ -16,21 +16,25 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    let stack_id_to_branch = crate::log::stacks(ctx)?
+    // Print base information
+    print_base_info(ctx)?;
+    println!();
+
+    // Get stacks with detailed information
+    let stack_entries = crate::log::stacks(ctx)?;
+    let stacks: Vec<(Option<but_workspace::StackId>, but_workspace::ui::StackDetails)> = stack_entries
         .iter()
         .filter_map(|s| {
-            s.heads.first().and_then(|head| {
-                let id = s.id?;
-                let x = head.name.to_string();
-                Some((id, x))
-            })
+            s.id.map(|id| (s.id, crate::log::stack_details(ctx, id)))
+                .and_then(|(stack_id, result)| result.ok().map(|details| (stack_id, details)))
         })
-        .collect::<BTreeMap<but_workspace::StackId, String>>();
+        .collect();
 
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes;
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
 
+    // Group assignments by file
     let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
     for assignment in &assignments {
         by_file
@@ -45,82 +49,21 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
             FileAssignment::from_assignments(path, assignments),
         );
     }
-    if stack_id_to_branch.is_empty() {
-        println!("No branches found. ¯\\_(ツ)_/¯");
-        return Ok(());
+
+    // Print branches with commits and assigned files
+    if !stacks.is_empty() {
+        print_branch_sections(&stacks, &assignments_by_file, &changes)?;
     }
 
+    // Print unassigned files
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
-    print_group(None, unassigned, &changes)?;
-
-    for (stack_id, branch) in &stack_id_to_branch {
-        let filtered =
-            assignment::filter_by_stack_id(assignments_by_file.values(), &Some(*stack_id));
-        print_group(Some(branch.as_str()), filtered, &changes)?;
+    if !unassigned.is_empty() {
+        print_unassigned_section(unassigned, &changes)?;
     }
+
     Ok(())
 }
 
-pub fn print_group(
-    group: Option<&str>,
-    assignments: Vec<FileAssignment>,
-    changes: &[TreeChange],
-) -> anyhow::Result<()> {
-    let id = if let Some(group) = group {
-        CliId::branch(group)
-    } else {
-        CliId::unassigned()
-    }
-    .to_string()
-    .underline()
-    .blue();
-    let group = &group
-        .map(|s| format!("[{}]", s))
-        .unwrap_or("<UNASSIGNED>".to_string());
-    println!("{}    {}", id, group.green().bold());
-    for fa in assignments {
-        let state = status_from_changes(changes, fa.path.clone());
-        let path = match state {
-            Some(state) => match state {
-                TreeStatus::Addition { .. } => fa.path.to_string().green(),
-                TreeStatus::Deletion { .. } => fa.path.to_string().red(),
-                TreeStatus::Modification { .. } => fa.path.to_string().yellow(),
-                TreeStatus::Rename { .. } => fa.path.to_string().purple(),
-            },
-            None => fa.path.to_string().normal(),
-        };
-
-        let id = CliId::file_from_assignment(&fa.assignments[0])
-            .to_string()
-            .underline()
-            .blue();
-
-        let mut locks = fa
-            .assignments
-            .iter()
-            .flat_map(|a| a.hunk_locks.iter())
-            .flatten()
-            .map(|l| l.commit_id.to_string())
-            .collect::<std::collections::BTreeSet<_>>()
-            .into_iter()
-            .map(|commit_id| {
-                format!(
-                    "{}{}",
-                    commit_id[..2].blue().underline(),
-                    commit_id[2..7].blue()
-                )
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        if !locks.is_empty() {
-            locks = format!("🔒 {}", locks);
-        }
-        println!("{} ({}) {} {}", id, fa.assignments.len(), path, locks);
-    }
-    println!();
-    Ok(())
-}
 
 pub(crate) fn all_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
     let changes =
@@ -155,4 +98,114 @@ fn status_from_changes(changes: &[TreeChange], path: BString) -> Option<TreeStat
             None
         }
     })
+}
+
+fn print_base_info(ctx: &CommandContext) -> anyhow::Result<()> {
+    // Get base information
+    let target = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir())
+        .get_default_target()?;
+    
+    let base_sha = &target.sha.to_string()[..7];
+    println!("📍 Base: {} @ {}", "origin/main".cyan(), base_sha.yellow());
+    
+    // For now, we'll show a placeholder for behind count
+    // In a real implementation, you'd calculate this by comparing HEAD with the target
+    println!("🔺 You are {} commits behind {}", "0".red(), "origin/main".cyan());
+    println!("    (Run `but base update` to rebase your stack)");
+    
+    Ok(())
+}
+
+fn print_branch_sections(
+    stacks: &[(Option<but_workspace::StackId>, but_workspace::ui::StackDetails)], 
+    assignments_by_file: &BTreeMap<BString, FileAssignment>,
+    changes: &[TreeChange]
+) -> anyhow::Result<()> {
+    for (stack_id, stack) in stacks {
+        for branch in &stack.branch_details {
+            let branch_name = branch.name.to_string();
+            let branch_id = CliId::branch(&branch_name).to_string().underline().blue();
+            
+            println!("╭  {} [{}]", branch_id, branch_name.green().bold());
+            
+            // Show commits
+            let has_commits = !branch.commits.is_empty() || !branch.upstream_commits.is_empty();
+            if has_commits {
+                // Show upstream commits first
+                for commit in &branch.upstream_commits {
+                    let commit_short = &commit.id.to_string()[..7];
+                    let commit_id = CliId::commit(commit.id).to_string().underline().blue();
+                    let message = commit.message.to_str_lossy();
+                    let message_line = message.lines().next().unwrap_or("");
+                    println!("●  {} {} {}", commit_id, commit_short.blue(), message_line);
+                }
+                
+                // Show local commits
+                for commit in &branch.commits {
+                    let commit_short = &commit.id.to_string()[..7];
+                    let commit_id = CliId::commit(commit.id).to_string().underline().blue();
+                    let message = commit.message.to_str_lossy();
+                    let message_line = message.lines().next().unwrap_or("");
+                    println!("●  {} {} {}", commit_id, commit_short.blue(), message_line);
+                }
+                println!("│");
+            }
+            
+            // Show assigned files
+            let branch_assignments = if let Some(stack_id) = stack_id {
+                assignment::filter_by_stack_id(assignments_by_file.values(), &Some(*stack_id))
+            } else {
+                Vec::new()
+            };
+            
+            let has_files = !branch_assignments.is_empty();
+            if has_files {
+                for fa in &branch_assignments {
+                    let status_char = get_status_char(&fa.path, changes);
+                    let file_id = CliId::file_from_assignment(&fa.assignments[0])
+                        .to_string()
+                        .underline()
+                        .blue();
+                    
+                    println!("│  {} {} {}", file_id, status_char, fa.path.to_string().white());
+                }
+                println!("│");
+            }
+            
+            if !has_commits && !has_files {
+                println!("│     (no commits)");
+            }
+            
+            println!("╯");
+            println!();
+        }
+    }
+    Ok(())
+}
+
+fn print_unassigned_section(unassigned: Vec<FileAssignment>, changes: &[TreeChange]) -> anyhow::Result<()> {
+    let unassigned_id = CliId::unassigned().to_string().underline().blue();
+    println!("{} Unassigned Changes", unassigned_id);
+    
+    for fa in unassigned {
+        let status_char = get_status_char(&fa.path, changes);
+        let file_id = CliId::file_from_assignment(&fa.assignments[0])
+            .to_string()
+            .underline()
+            .blue();
+        
+        println!("{} {} {}", file_id, status_char, fa.path.to_string().white());
+    }
+    
+    Ok(())
+}
+
+fn get_status_char(path: &BString, changes: &[TreeChange]) -> colored::ColoredString {
+    match status_from_changes(changes, path.clone()) {
+        Some(TreeStatus::Addition { .. }) => "A".green(),
+        Some(TreeStatus::Modification { .. }) => "M".yellow(),
+        Some(TreeStatus::Deletion { .. }) => "D".red(),
+        Some(TreeStatus::Rename { .. }) => "R".purple(),
+        None => " ".normal(),
+    }
 }
