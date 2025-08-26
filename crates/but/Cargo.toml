@@ -51,6 +51,7 @@ gitbutler-secret.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-user.workspace = true
+gitbutler-oplog.workspace = true
 git2.workspace = true
 colored = "3.0.0"
 serde_json = "1.0.143"

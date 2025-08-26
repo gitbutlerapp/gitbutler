@@ -11,7 +11,7 @@ use std::path::Path;
 
 use crate::id::CliId;
 
-pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
+pub(crate) fn commit_graph(repo_path: &Path, _json: bool, short: bool) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let stacks = stacks(ctx)?
@@ -19,6 +19,10 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
         .filter_map(|s| s.id.map(|id| stack_details(ctx, id)))
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
+
+    if short {
+        return commit_graph_short(stacks);
+    }
 
     let mut nesting = 0;
     for (i, stack) in stacks.iter().enumerate() {
@@ -143,6 +147,81 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
         .to_string();
     println!("● {common_merge_base} (base)");
 
+    Ok(())
+}
+
+fn commit_graph_short(stacks: Vec<StackDetails>) -> anyhow::Result<()> {
+    let mut nesting = 0;
+    
+    for (_i, stack) in stacks.iter().enumerate() {
+        let mut second_consecutive = false;
+        
+        for branch in stack.branch_details.iter() {
+            let line = if second_consecutive {
+                if branch.upstream_commits.is_empty() {
+                    '├'
+                } else {
+                    '╭'
+                }
+            } else {
+                '╭'
+            };
+            second_consecutive = branch.upstream_commits.is_empty();
+            
+            let extra_space = if !branch.upstream_commits.is_empty() {
+                "  "
+            } else {
+                ""
+            };
+            
+            let id = CliId::branch(&branch.name.to_string())
+                .to_string()
+                .underline()
+                .blue();
+            
+            // Count commits
+            let upstream_count = branch.upstream_commits.len();
+            let local_count = branch.commits.len();
+            let total_count = upstream_count + local_count;
+            
+            let count_info = if total_count == 0 {
+                "no commits".dimmed()
+            } else if upstream_count > 0 && local_count > 0 {
+                format!("{} commits ({} upstream, {} local)", total_count, upstream_count, local_count).cyan()
+            } else if upstream_count > 0 {
+                format!("{} upstream commits", upstream_count).yellow()
+            } else {
+                format!("{} local commits", local_count).green()
+            };
+            
+            println!(
+                "{}{}{} [{}] {} - {}",
+                "│ ".repeat(nesting),
+                extra_space,
+                line,
+                branch.name.to_string().green().bold(),
+                id,
+                count_info
+            );
+        }
+        nesting += 1;
+    }
+    
+    if nesting > 0 {
+        for _ in (0..nesting - 1).rev() {
+            if nesting == 1 {
+                println!("└─╯");
+            } else {
+                let prefix = "│ ".repeat(nesting - 2);
+                println!("{}├─╯", prefix);
+            }
+            nesting -= 1;
+        }
+    }
+    
+    // Show the base commit (same as in detailed view)
+    println!("● (base)");
+    
     Ok(())
 }
 
