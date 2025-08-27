@@ -22,11 +22,11 @@ pub(crate) fn commit_graph(repo_path: &Path, json: bool, short: bool) -> anyhow:
         .collect::<Vec<_>>();
 
     if json {
-        return output_json(stacks);
+        return output_json(stacks.iter().map(|(_, d)| d).cloned().collect());
     }
 
     if short {
-        return commit_graph_short(stacks);
+        return commit_graph_short(stacks.iter().map(|(_, d)| d).cloned().collect());
     }
 
     let mut nesting = 0;
