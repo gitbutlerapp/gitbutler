@@ -267,7 +267,7 @@
 		}
 
 		if (optionsGroupBoundingRect && inputBoundingRect && popupAlign === 'center') {
-			return `${window.innerWidth / 2 - optionsGroupBoundingRect.width / 2}px`;
+			return `${inputBoundingRect.left + inputBoundingRect.width / 2 - optionsGroupBoundingRect.width / 2}px`;
 		}
 
 		if (inputBoundingRect?.left && optionsGroupBoundingRect && popupAlign === 'right') {
