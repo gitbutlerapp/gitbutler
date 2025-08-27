@@ -147,7 +147,7 @@ impl Display for CliId {
                 write!(f, "{}", hash(name))
             }
             CliId::Unassigned => {
-                write!(f, "gg")
+                write!(f, "00")
             }
             CliId::Commit { oid } => {
                 let oid_str = oid.to_string();
