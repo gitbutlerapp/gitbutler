@@ -100,6 +100,13 @@ pub(crate) fn commit_graph(repo_path: &Path, json: bool, short: bool) -> anyhow:
                 }
             }
             for commit in branch.commits.iter() {
+                let marked =
+                    crate::mark::commit_marked(ctx, commit.id.to_string()).unwrap_or_default();
+                let mark = if marked {
+                    Some("◀ Marked ▶".red().bold())
+                } else {
+                    None
+                };
                 let state_str = match commit.state {
                     but_workspace::ui::CommitState::LocalOnly => "{local}".normal(),
                     but_workspace::ui::CommitState::LocalAndRemote(_) => "{pushed}".cyan(),
@@ -115,14 +122,15 @@ pub(crate) fn commit_graph(repo_path: &Path, json: bool, short: bool) -> anyhow:
                     .format("%Y-%m-%d %H:%M:%S")
                     .to_string();
                 println!(
-                    "{}● {}{} {} {} {} {}",
+                    "{}● {}{} {} {} {} {} {}",
                     "│ ".repeat(nesting),
                     &commit.id.to_string()[..2].blue().underline(),
                     &commit.id.to_string()[2..7].blue(),
                     state_str,
                     conflicted_str,
                     commit.author.name,
-                    time_string.dimmed()
+                    time_string.dimmed(),
+                    mark.clone().unwrap_or_default()
                 );
                 println!(
                     "{}│ {}",

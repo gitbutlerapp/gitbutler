@@ -1,7 +1,7 @@
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
 use but_hunk_dependency::ui::HunkDependencies;
-use but_workspace::{StackId, StacksFilter, ui::StackEntry};
+use but_workspace::{DiffSpec, StackId, StacksFilter, commit_engine, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use itertools::Itertools;
 use std::str::FromStr;
@@ -26,6 +26,9 @@ pub fn process_workspace_rules(
             matches!(
                 &r.action,
                 super::Action::Explicit(super::Operation::Assign { .. })
+            ) || matches!(
+                &r.action,
+                super::Action::Explicit(super::Operation::Amend { .. })
             )
         })
         .collect_vec();
@@ -59,6 +62,10 @@ pub fn process_workspace_rules(
                     updates +=
                         handle_assign(ctx, assignments, dependencies.as_ref()).unwrap_or_default();
                 }
+            }
+            super::Action::Explicit(super::Operation::Amend { commit_id }) => {
+                let assignments = matching(assignments, rule.filters.clone());
+                handle_amend(ctx, assignments, commit_id).unwrap_or_default();
             }
             _ => continue,
         };
@@ -135,6 +142,32 @@ fn handle_assign(
     } else {
         Ok(0)
     }
+}
+
+fn handle_amend(
+    ctx: &mut CommandContext,
+    assignments: Vec<HunkAssignment>,
+    commit_id: String,
+) -> anyhow::Result<()> {
+    let changes: Vec<DiffSpec> = assignments.into_iter().map(|a| a.into()).collect();
+    let project = ctx.project();
+    let mut guard = project.exclusive_worktree_access();
+    let repo = but_core::open_repo_for_merging(project.worktree_path())?;
+    commit_engine::create_commit_and_update_refs_with_project(
+        &repo,
+        project,
+        None,
+        commit_engine::Destination::AmendCommit {
+            commit_id: gix::ObjectId::from_str(&commit_id)?,
+            // TODO: Expose this in the UI for 'edit message' functionality.
+            new_message: None,
+        },
+        None,
+        changes,
+        ctx.app_settings().context_lines,
+        guard.write_permission(),
+    )?;
+    Ok(())
 }
 
 fn matching(wt_assignments: &[HunkAssignment], filters: Vec<Filter>) -> Vec<HunkAssignment> {
