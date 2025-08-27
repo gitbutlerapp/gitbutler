@@ -175,32 +175,56 @@ where
 }
 
 fn print_grouped_help() {
+    use clap::CommandFactory;
+    use std::collections::HashSet;
+    
+    let cmd = Args::command();
+    let subcommands: Vec<_> = cmd.get_subcommands().collect();
+    
+    // Define command groupings and their order (excluding MISC)
+    let groups = [
+        ("INSPECTION", vec!["log", "status"]),
+        ("STACK OPERATIONS", vec!["commit", "new", "describe", "branch"]),
+        ("OPERATION HISTORY", vec!["oplog", "undo", "restore"]),
+    ];
+    
     println!("A GitButler CLI tool");
     println!();
     println!("Usage: but [OPTIONS] <COMMAND>");
     println!();
-    println!("INSPECTION:");
-    println!("  log       Provides an overview of the Workspace commit graph");
-    println!("  status    Overview of the oncommitted changes in the repository");
-    println!();
-    println!("BRANCH OPERATIONS:");
-    println!("  commit    Commit changes to a stack");
-    println!("  rub       Combines two entities together to perform an operation");
-    println!(
-        "  new       Insert a blank commit before the specified commit, or at the top of a stack"
-    );
-    println!("  describe  Edit the commit message of the specified commit");
-    println!("  branch    Branch management operations");
-    println!();
-    println!("OPERATION HISTORY:");
-    println!("  oplog     Show operation history (last 20 entries)");
-    println!("  undo      Undo the last operation by reverting to the previous snapshot");
-    println!("  restore   Restore to a specific oplog snapshot");
-    println!();
-    println!("MISC:");
-    println!("  config    Display configuration information about the GitButler repository");
-    println!("  help      Print this message or the help of the given subcommand(s)");
-    println!();
+    
+    // Keep track of which commands we've already printed
+    let mut printed_commands = HashSet::new();
+    
+    // Print grouped commands
+    for (group_name, command_names) in &groups {
+        println!("{}:", group_name);
+        for cmd_name in command_names {
+            if let Some(subcmd) = subcommands.iter().find(|c| c.get_name() == *cmd_name) {
+                let about = subcmd.get_about().unwrap_or_default();
+                println!("  {:<10}{}", cmd_name, about);
+                printed_commands.insert(cmd_name.to_string());
+            }
+        }
+        println!();
+    }
+    
+    // Collect any remaining commands not in the explicit groups
+    let misc_commands: Vec<_> = subcommands
+        .iter()
+        .filter(|subcmd| !printed_commands.contains(subcmd.get_name()) && !subcmd.is_hide_set())
+        .collect();
+    
+    // Print MISC section if there are any ungrouped commands
+    if !misc_commands.is_empty() {
+        println!("MISC:");
+        for subcmd in misc_commands {
+            let about = subcmd.get_about().unwrap_or_default();
+            println!("  {:<10}{}", subcmd.get_name(), about);
+        }
+        println!();
+    }
+    
     println!("Options:");
     println!(
         "  -C, --current-dir <PATH>  Run as if gitbutler-cli was started in PATH instead of the current working directory [default: .]"
