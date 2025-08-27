@@ -33,8 +33,6 @@ export function getTimeAgo(input: Date | number, addSuffix: boolean = true): str
 	const seconds = Math.round(Math.abs((new Date().getTime() - date.getTime()) / 1000.0));
 	if (seconds < 10) {
 		return 'just now';
-	} else if (seconds < 60) {
-		return `< 1 min${addSuffix ? ' ago' : ''}`;
 	} else {
 		return customFormatDistance(date, addSuffix);
 	}
