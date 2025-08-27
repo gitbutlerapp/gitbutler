@@ -84,7 +84,6 @@
 	);
 
 	let newProjectLoading = $state(false);
-	let cloneProjectLoading = $state(false);
 
 	const unreadCount = $derived(ircService.unreadCount());
 	const isNotificationsUnread = $derived(unreadCount.current > 0);
@@ -134,8 +133,8 @@
 				searchable
 				value={projectId}
 				options={mappedProjects}
-				loading={newProjectLoading || cloneProjectLoading}
-				disabled={newProjectLoading || cloneProjectLoading}
+				loading={newProjectLoading}
+				disabled={newProjectLoading}
 				onselect={(value: string, modifiers?) => {
 					if (modifiers?.meta) {
 						projectsService.openProjectInNewWindow(value);
@@ -192,14 +191,8 @@
 					</SelectItem>
 					<SelectItem
 						icon="clone"
-						loading={cloneProjectLoading}
-						onClick={async () => {
-							cloneProjectLoading = true;
-							try {
-								goto('/onboarding/clone');
-							} finally {
-								cloneProjectLoading = false;
-							}
+						onClick={() => {
+							goto('/onboarding/clone');
 						}}
 					>
 						Clone repository
