@@ -1,11 +1,14 @@
-use std::path::Path;
-use anyhow::Result;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::Project;
-use gitbutler_oxidize::ObjectIdExt;
-use gitbutler_oplog::{OplogExt, entry::{SnapshotDetails, OperationKind}};
-use but_settings::AppSettings;
 use crate::id::CliId;
+use anyhow::Result;
+use but_settings::AppSettings;
+use gitbutler_command_context::CommandContext;
+use gitbutler_oplog::{
+    OplogExt,
+    entry::{OperationKind, SnapshotDetails},
+};
+use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_project::Project;
+use std::path::Path;
 
 pub(crate) fn edit_commit_message(
     repo_path: &Path,
@@ -17,17 +20,21 @@ pub(crate) fn edit_commit_message(
 
     // Resolve the commit ID
     let cli_ids = CliId::from_str(&mut ctx, commit_target)?;
-    
+
     if cli_ids.is_empty() {
         anyhow::bail!("Commit '{}' not found", commit_target);
     }
-    
+
     if cli_ids.len() > 1 {
-        anyhow::bail!("Commit '{}' is ambiguous. Found {} matches", commit_target, cli_ids.len());
+        anyhow::bail!(
+            "Commit '{}' is ambiguous. Found {} matches",
+            commit_target,
+            cli_ids.len()
+        );
     }
 
     let cli_id = &cli_ids[0];
-    
+
     match cli_id {
         CliId::Commit { oid } => {
             edit_commit_message_by_id(&ctx, &project, *oid)?;
@@ -53,7 +60,7 @@ fn edit_commit_message_by_id(
     for stack_entry in &stacks {
         if let Some(sid) = stack_entry.id {
             let stack_details = crate::log::stack_details(ctx, sid)?;
-            
+
             // Check if this commit exists in any branch of this stack
             for branch_details in &stack_details.branch_details {
                 // Check local commits
@@ -64,7 +71,7 @@ fn edit_commit_message_by_id(
                         break;
                     }
                 }
-                
+
                 // Also check upstream commits
                 if found_commit_message.is_none() {
                     for commit in &branch_details.upstream_commits {
@@ -75,7 +82,7 @@ fn edit_commit_message_by_id(
                         }
                     }
                 }
-                
+
                 if found_commit_message.is_some() {
                     break;
                 }
@@ -85,14 +92,12 @@ fn edit_commit_message_by_id(
             }
         }
     }
-    
-    let commit_message = found_commit_message.ok_or_else(|| {
-        anyhow::anyhow!("Commit {} not found in any stack", commit_oid)
-    })?;
 
-    let stack_id = stack_id.ok_or_else(|| {
-        anyhow::anyhow!("Could not find stack for commit {}", commit_oid)
-    })?;
+    let commit_message = found_commit_message
+        .ok_or_else(|| anyhow::anyhow!("Commit {} not found in any stack", commit_oid))?;
+
+    let stack_id = stack_id
+        .ok_or_else(|| anyhow::anyhow!("Could not find stack for commit {}", commit_oid))?;
 
     // Get the files changed in this commit
     let changed_files = get_commit_changed_files(&ctx.repo(), commit_oid)?;
@@ -110,10 +115,12 @@ fn edit_commit_message_by_id(
 
     // Create a snapshot before making changes
     let mut guard = project.exclusive_worktree_access();
-    let _snapshot = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::AmendCommit),
-        guard.write_permission(),
-    ).ok(); // Ignore errors for snapshot creation
+    let _snapshot = ctx
+        .create_snapshot(
+            SnapshotDetails::new(OperationKind::AmendCommit),
+            guard.write_permission(),
+        )
+        .ok(); // Ignore errors for snapshot creation
 
     // Amend the commit with the new message
     let gix_repo = crate::mcp_internal::project::project_repo(&project.path)?;
@@ -125,9 +132,9 @@ fn edit_commit_message_by_id(
             commit_id: commit_oid,
             new_message: Some(new_message.clone()),
         },
-        None, // move_source
+        None,   // move_source
         vec![], // No file changes, just message
-        0, // context_lines
+        0,      // context_lines
         guard.write_permission(),
     )?;
 
@@ -138,16 +145,22 @@ fn edit_commit_message_by_id(
             &new_commit_id.to_string()[..7]
         );
     } else {
-        println!("Updated commit message for {}", &commit_oid.to_string()[..7]);
+        println!(
+            "Updated commit message for {}",
+            &commit_oid.to_string()[..7]
+        );
     }
 
     Ok(())
 }
 
-fn get_commit_changed_files(repo: &git2::Repository, commit_oid: gix::ObjectId) -> Result<Vec<String>> {
+fn get_commit_changed_files(
+    repo: &git2::Repository,
+    commit_oid: gix::ObjectId,
+) -> Result<Vec<String>> {
     let git2_oid = commit_oid.to_git2();
     let commit = repo.find_commit(git2_oid)?;
-    
+
     if commit.parent_count() == 0 {
         // Initial commit - show all files as new
         let tree = commit.tree()?;
@@ -174,8 +187,9 @@ fn get_commit_changed_files(repo: &git2::Repository, commit_oid: gix::ObjectId) 
     // Use git2 diff to get the changes with status information
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts.show_binary(true).ignore_submodules(true);
-    let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&commit_tree), Some(&mut diff_opts))?;
-    
+    let diff =
+        repo.diff_tree_to_tree(Some(&parent_tree), Some(&commit_tree), Some(&mut diff_opts))?;
+
     let mut files = Vec::new();
     diff.print(git2::DiffFormat::NameStatus, |delta, _hunk, _line| {
         let status = match delta.status() {
@@ -185,12 +199,15 @@ fn get_commit_changed_files(repo: &git2::Repository, commit_oid: gix::ObjectId) 
             _ => "modified:",
         };
         let file_path = delta.new_file().path().unwrap_or_else(|| {
-            delta.old_file().path().expect("failed to get file name from diff")
+            delta
+                .old_file()
+                .path()
+                .expect("failed to get file name from diff")
         });
         files.push(format!("{}   {}", status, file_path.display()));
         true // Continue iteration
     })?;
-    
+
     files.sort();
     Ok(files)
 }
@@ -201,11 +218,11 @@ fn get_commit_message_from_editor(
 ) -> Result<String> {
     // Get editor command
     let editor = get_editor_command()?;
-    
+
     // Create temporary file with current message and file list
     let temp_dir = std::env::temp_dir();
     let temp_file = temp_dir.join(format!("but_commit_msg_{}", std::process::id()));
-    
+
     // Generate commit message template with current message
     let mut template = String::new();
     template.push_str(&current_message);
@@ -216,7 +233,7 @@ fn get_commit_message_from_editor(
     template.push_str("# with '#' will be ignored, and an empty message aborts the commit.\n");
     template.push_str("#\n");
     template.push_str("# Changes in this commit:\n");
-    
+
     for file in changed_files {
         template.push_str(&format!("#\t{}\n", file));
     }
@@ -261,7 +278,7 @@ fn get_editor_command() -> Result<String> {
     // Try git config core.editor
     if let Ok(output) = std::process::Command::new("git")
         .args(&["config", "--get", "core.editor"])
-        .output() 
+        .output()
     {
         if output.status.success() {
             let editor = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -274,7 +291,7 @@ fn get_editor_command() -> Result<String> {
     // Fallback to platform defaults
     #[cfg(windows)]
     return Ok("notepad".to_string());
-    
+
     #[cfg(not(windows))]
     return Ok("vi".to_string());
 }

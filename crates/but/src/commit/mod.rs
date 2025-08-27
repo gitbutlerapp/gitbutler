@@ -115,7 +115,7 @@ pub(crate) fn commit(
         .find(|(id, _)| *id == target_stack_id)
         .unwrap()
         .1;
-    
+
     // If a branch hint was provided, find that specific branch; otherwise use first branch
     let target_branch = if let Some(hint) = branch_hint {
         // First try exact name match
@@ -218,7 +218,7 @@ fn select_stack(
                 }
             }
         }
-        
+
         // If no exact match, try to parse as CLI ID
         match crate::id::CliId::from_str(ctx, hint) {
             Ok(cli_ids) => {
@@ -239,7 +239,7 @@ fn select_stack(
                 // Ignore CLI ID parsing errors and continue with other methods
             }
         }
-        
+
         anyhow::bail!("Branch '{}' not found", hint);
     }
 

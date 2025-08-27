@@ -112,7 +112,13 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Subcommands::Config { key, value } => {
-            let result = config::handle(&args.current_dir, &app_settings, args.json, key.as_deref(), value.as_deref());
+            let result = config::handle(
+                &args.current_dir,
+                &app_settings,
+                args.json,
+                key.as_deref(),
+                value.as_deref(),
+            );
             metrics_if_configured(app_settings, CommandName::Config, props(start, &result)).ok();
             result
         }
@@ -131,7 +137,11 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Restore, props(start, &result)).ok();
             result
         }
-        Subcommands::Commit { message, branch, only } => {
+        Subcommands::Commit {
+            message,
+            branch,
+            only,
+        } => {
             let result = commit::commit(
                 &args.current_dir,
                 args.json,

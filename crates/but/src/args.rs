@@ -46,7 +46,7 @@ pub enum Subcommands {
         /// Value to set (if provided, sets the key to this value)
         value: Option<String>,
     },
-    
+
     /// Show operation history (last 20 entries).
     Oplog {
         /// Start from this oplog SHA instead of the head

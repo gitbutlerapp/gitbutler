@@ -13,7 +13,7 @@ pub(crate) fn show_oplog(repo_path: &Path, json: bool, since: Option<&str>) -> a
         // Get all snapshots first to find the starting point
         let all_snapshots = ctx.list_snapshots(1000, None, vec![])?; // Get a large number to find the SHA
         let mut found_index = None;
-        
+
         // Find the snapshot that matches the since SHA (partial match supported)
         for (index, snapshot) in all_snapshots.iter().enumerate() {
             let snapshot_sha = snapshot.commit_id.to_string();
@@ -22,14 +22,17 @@ pub(crate) fn show_oplog(repo_path: &Path, json: bool, since: Option<&str>) -> a
                 break;
             }
         }
-        
+
         match found_index {
             Some(index) => {
                 // Take 20 entries starting from the found index
                 all_snapshots.into_iter().skip(index).take(20).collect()
             }
             None => {
-                return Err(anyhow::anyhow!("No oplog entry found matching SHA: {}", since_sha));
+                return Err(anyhow::anyhow!(
+                    "No oplog entry found matching SHA: {}",
+                    since_sha
+                ));
             }
         }
     } else {

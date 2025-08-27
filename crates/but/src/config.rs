@@ -44,7 +44,13 @@ pub struct AiProviderInfo {
     pub model: Option<String>,
 }
 
-pub fn handle(current_dir: &Path, app_settings: &AppSettings, json: bool, key: Option<&str>, value: Option<&str>) -> Result<()> {
+pub fn handle(
+    current_dir: &Path,
+    app_settings: &AppSettings,
+    json: bool,
+    key: Option<&str>,
+    value: Option<&str>,
+) -> Result<()> {
     match (key, value) {
         // Set configuration value
         (Some(key), Some(value)) => {
@@ -74,9 +80,9 @@ pub fn handle(current_dir: &Path, app_settings: &AppSettings, json: bool, key: O
         // Show all configuration (existing behavior)
         (None, None) => show(current_dir, app_settings, json),
         // Invalid: value without key
-        (None, Some(_)) => {
-            Err(anyhow::anyhow!("Cannot set a value without specifying a key"))
-        }
+        (None, Some(_)) => Err(anyhow::anyhow!(
+            "Cannot set a value without specifying a key"
+        )),
     }
 }
 
@@ -257,19 +263,20 @@ fn print_ai_provider(name: &str, provider: &AiProviderInfo) {
 }
 
 fn set_config_value(current_dir: &Path, key: &str, value: &str) -> Result<()> {
-    let git_repo = git2::Repository::discover(current_dir)
-        .context("Failed to find Git repository")?;
+    let git_repo =
+        git2::Repository::discover(current_dir).context("Failed to find Git repository")?;
     let config = Config::from(&git_repo);
-    
-    config.set_local(key, value)
+
+    config
+        .set_local(key, value)
         .with_context(|| format!("Failed to set {} = {}", key, value))
 }
 
 fn get_config_value(current_dir: &Path, key: &str) -> Result<Option<String>> {
-    let git_repo = git2::Repository::discover(current_dir)
-        .context("Failed to find Git repository")?;
+    let git_repo =
+        git2::Repository::discover(current_dir).context("Failed to find Git repository")?;
     let config = Config::from(&git_repo);
-    
+
     // For getting values, use the same logic as the existing code
     // which checks the full git config hierarchy (local, global, system)
     match key {

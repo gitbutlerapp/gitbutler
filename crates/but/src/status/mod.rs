@@ -255,12 +255,22 @@ fn print_branch_sections(
     changes: &[TreeChange],
     project: &Project,
     show_files: bool,
-    ctx: &CommandContext,
+    ctx: &mut CommandContext,
 ) -> anyhow::Result<()> {
     let nesting = 0;
 
     for (i, (stack_id, stack)) in stacks.iter().enumerate() {
         let mut first_branch = true;
+
+        let mut stack_mark = stack_id
+            .map(|stack_id| {
+                if crate::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
+                    Some("◀ Marked ▶".red().bold())
+                } else {
+                    None
+                }
+            })
+            .flatten();
 
         for (_j, branch) in stack.branch_details.iter().enumerate() {
             let branch_name = branch.name.to_string();
@@ -271,12 +281,14 @@ fn print_branch_sections(
             let connector = if first_branch { "╭" } else { "├" };
 
             println!(
-                "{}{}  {} [{}]",
+                "{}{}  {} [{}] {}",
                 prefix,
                 connector,
                 branch_id,
-                branch_name.green().bold()
+                branch_name.green().bold(),
+                stack_mark.unwrap_or_default()
             );
+            stack_mark = None; // Only show the stack mark for the first branch
 
             // Show assigned files first - only for the first (topmost) branch in a stack
             // In GitButler's model, files are assigned to the stack, not individual branches
@@ -369,6 +381,13 @@ fn print_branch_sections(
 
                 // Show local commits (but skip ones already shown as upstream)
                 for commit in &branch.commits {
+                    let marked =
+                        crate::mark::commit_marked(ctx, commit.id.to_string()).unwrap_or_default();
+                    let mark = if marked {
+                        Some("◀ Marked ▶".red().bold())
+                    } else {
+                        None
+                    };
                     // Skip if this commit was already shown in upstream commits
                     let already_shown = branch
                         .upstream_commits
@@ -386,12 +405,13 @@ fn print_branch_sections(
                     let status_decoration = "L".green();
 
                     println!(
-                        "{}● {} {} {} {}",
+                        "{}● {} {} {} {} {}",
                         prefix,
                         status_decoration,
                         commit_id,
                         commit_short.blue(),
-                        message_line
+                        message_line,
+                        mark.unwrap_or_default()
                     );
 
                     // Show files modified in this commit if -f flag is used
