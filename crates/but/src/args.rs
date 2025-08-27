@@ -15,7 +15,6 @@ pub struct Args {
 }
 
 #[derive(Debug, clap::Subcommand)]
-#[clap(next_help_heading = "INSPECTION")]
 pub enum Subcommands {
     /// Provides an overview of the Workspace commit graph.
     Log {
@@ -33,7 +32,6 @@ pub enum Subcommands {
     Config,
     
     /// Show operation history (last 20 entries).
-    #[clap(next_help_heading = "OPERATION HISTORY")]
     Oplog {
         /// Start from this oplog SHA instead of the head
         #[clap(long)]
@@ -48,7 +46,6 @@ pub enum Subcommands {
     },
 
     /// Commit changes to a stack.
-    #[clap(next_help_heading = "STACK OPERATIONS")]
     Commit {
         /// Commit message
         #[clap(short = 'm', long = "message")]
@@ -75,7 +72,6 @@ pub enum Subcommands {
 
     /// Combines two entities together to perform an operation.
     #[clap(
-        next_help_heading = "MISC",
         about = "Combines two entities together to perform an operation",
         long_about = "Combines two entities together to perform an operation.
 

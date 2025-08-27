@@ -175,32 +175,36 @@ where
 }
 
 fn print_grouped_help() {
+    use clap::CommandFactory;
+    
+    let cmd = Args::command();
+    let subcommands: Vec<_> = cmd.get_subcommands().collect();
+    
+    // Define command groupings and their order
+    let groups = [
+        ("INSPECTION", vec!["log", "status"]),
+        ("STACK OPERATIONS", vec!["commit", "new", "describe", "branch"]),
+        ("OPERATION HISTORY", vec!["oplog", "undo", "restore"]),
+        ("MISC", vec!["rub", "config"]),
+    ];
+    
     println!("A GitButler CLI tool");
     println!();
     println!("Usage: but [OPTIONS] <COMMAND>");
     println!();
-    println!("INSPECTION:");
-    println!("  log       Provides an overview of the Workspace commit graph");
-    println!("  status    Overview of the oncommitted changes in the repository");
-    println!();
-    println!("BRANCH OPERATIONS:");
-    println!("  commit    Commit changes to a stack");
-    println!("  rub       Combines two entities together to perform an operation");
-    println!(
-        "  new       Insert a blank commit before the specified commit, or at the top of a stack"
-    );
-    println!("  describe  Edit the commit message of the specified commit");
-    println!("  branch    Branch management operations");
-    println!();
-    println!("OPERATION HISTORY:");
-    println!("  oplog     Show operation history (last 20 entries)");
-    println!("  undo      Undo the last operation by reverting to the previous snapshot");
-    println!("  restore   Restore to a specific oplog snapshot");
-    println!();
-    println!("MISC:");
-    println!("  config    Display configuration information about the GitButler repository");
-    println!("  help      Print this message or the help of the given subcommand(s)");
-    println!();
+    
+    // Print grouped commands
+    for (group_name, command_names) in &groups {
+        println!("{}:", group_name);
+        for cmd_name in command_names {
+            if let Some(subcmd) = subcommands.iter().find(|c| c.get_name() == *cmd_name) {
+                let about = subcmd.get_about().unwrap_or_default();
+                println!("  {:<10}{}", cmd_name, about);
+            }
+        }
+        println!();
+    }
+    
     println!("Options:");
     println!(
         "  -C, --current-dir <PATH>  Run as if gitbutler-cli was started in PATH instead of the current working directory [default: .]"
