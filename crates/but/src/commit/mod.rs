@@ -19,6 +19,7 @@ pub(crate) fn commit(
     _json: bool,
     message: Option<&str>,
     stack_hint: Option<&str>,
+    only: bool,
 ) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -78,10 +79,12 @@ pub(crate) fn commit(
     // Get files to commit: unassigned files + files assigned to target stack
     let mut files_to_commit = Vec::new();
 
-    // Add unassigned files
-    let unassigned =
-        crate::status::assignment::filter_by_stack_id(assignments_by_file.values(), &None);
-    files_to_commit.extend(unassigned);
+    if !only {
+        // Add unassigned files (unless --only flag is used)
+        let unassigned =
+            crate::status::assignment::filter_by_stack_id(assignments_by_file.values(), &None);
+        files_to_commit.extend(unassigned);
+    }
 
     // Add files assigned to target stack
     let stack_assigned = crate::status::assignment::filter_by_stack_id(

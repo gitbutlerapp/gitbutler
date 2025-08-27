@@ -130,12 +130,13 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Restore, props(start, &result)).ok();
             result
         }
-        Subcommands::Commit { message, stack } => {
+        Subcommands::Commit { message, stack, only } => {
             let result = commit::commit(
                 &args.current_dir,
                 args.json,
                 message.as_deref(),
                 stack.as_deref(),
+                *only,
             );
             metrics_if_configured(app_settings, CommandName::Commit, props(start, &result)).ok();
             result

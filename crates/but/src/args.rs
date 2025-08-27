@@ -64,6 +64,9 @@ pub enum Subcommands {
         /// Stack ID or name to commit to (if multiple stacks exist)
         #[clap(short = 's', long = "stack")]
         stack: Option<String>,
+        /// Only commit assigned files, not unassigned files
+        #[clap(short = 'o', long = "only")]
+        only: bool,
     },
     /// Insert a blank commit before the specified commit, or at the top of a stack.
     New {
