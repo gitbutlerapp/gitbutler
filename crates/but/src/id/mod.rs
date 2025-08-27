@@ -68,6 +68,42 @@ impl CliId {
         }
     }
 
+    fn find_branches_by_name(ctx: &CommandContext, name: &str) -> anyhow::Result<Vec<Self>> {
+        let stacks = crate::log::stacks(ctx)?;
+        let mut matches = Vec::new();
+        
+        for stack in stacks {
+            for head in &stack.heads {
+                let branch_name = head.name.to_string();
+                // Exact match or partial match
+                if branch_name == name || branch_name.contains(name) {
+                    matches.push(CliId::branch(&branch_name));
+                }
+            }
+        }
+        
+        Ok(matches)
+    }
+
+    fn find_commits_by_sha(ctx: &CommandContext, sha_prefix: &str) -> anyhow::Result<Vec<Self>> {
+        let mut matches = Vec::new();
+        
+        // Only try SHA matching if the input looks like a hex string
+        if sha_prefix.chars().all(|c| c.is_ascii_hexdigit()) && sha_prefix.len() >= 4 {
+            let all_commits = crate::log::all_commits(ctx)?;
+            for commit_id in all_commits {
+                if let CliId::Commit { oid } = &commit_id {
+                    let sha_string = oid.to_string();
+                    if sha_string.starts_with(sha_prefix) {
+                        matches.push(commit_id);
+                    }
+                }
+            }
+        }
+        
+        Ok(matches)
+    }
+
     pub fn matches(&self, s: &str) -> bool {
         s == self.to_string()
     }
@@ -84,71 +120,79 @@ impl CliId {
 
     pub fn from_str(ctx: &mut CommandContext, s: &str) -> anyhow::Result<Vec<Self>> {
         if s.len() < 2 {
-            return Err(anyhow::anyhow!("Id needs to be 3 characters long: {}", s));
+            return Err(anyhow::anyhow!("Id needs to be at least 2 characters long: {}", s));
         }
         
-        // First try with the full input string for prefix matching
+        let mut matches = Vec::new();
+        
+        // First, try exact branch name match
+        if let Ok(branch_matches) = Self::find_branches_by_name(ctx, s) {
+            matches.extend(branch_matches);
+        }
+        
+        // Then try partial SHA matches (for commits)
+        if let Ok(commit_matches) = Self::find_commits_by_sha(ctx, s) {
+            matches.extend(commit_matches);
+        }
+        
+        // Then try CliId matching (both prefix and exact)
         if s.len() > 2 {
-            let mut everything = Vec::new();
+            // For longer strings, try prefix matching on CliIds
+            let mut cli_matches = Vec::new();
             crate::status::all_files(ctx)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
-                .for_each(|id| everything.push(id));
+                .for_each(|id| cli_matches.push(id));
             crate::status::all_committed_files(ctx)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
-                .for_each(|id| everything.push(id));
+                .for_each(|id| cli_matches.push(id));
             crate::status::all_branches(ctx)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
-                .for_each(|id| everything.push(id));
+                .for_each(|id| cli_matches.push(id));
             crate::log::all_commits(ctx)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
-                .for_each(|id| everything.push(id));
+                .for_each(|id| cli_matches.push(id));
             if CliId::unassigned().matches_prefix(s) {
-                everything.push(CliId::unassigned());
+                cli_matches.push(CliId::unassigned());
             }
-            
-            // If we found exactly one match with the full prefix, return it
-            if everything.len() == 1 {
-                return Ok(everything);
+            matches.extend(cli_matches);
+        } else {
+            // For 2-character strings, try exact CliId matching
+            let mut cli_matches = Vec::new();
+            crate::status::all_files(ctx)?
+                .into_iter()
+                .filter(|id| id.matches(s))
+                .for_each(|id| cli_matches.push(id));
+            crate::status::all_committed_files(ctx)?
+                .into_iter()
+                .filter(|id| id.matches(s))
+                .for_each(|id| cli_matches.push(id));
+            crate::status::all_branches(ctx)?
+                .into_iter()
+                .filter(|id| id.matches(s))
+                .for_each(|id| cli_matches.push(id));
+            crate::log::all_commits(ctx)?
+                .into_iter()
+                .filter(|id| id.matches(s))
+                .for_each(|id| cli_matches.push(id));
+            if CliId::unassigned().matches(s) {
+                cli_matches.push(CliId::unassigned());
             }
-            // If we found multiple matches with the full prefix, return them all (ambiguous)
-            if everything.len() > 1 {
-                return Ok(everything);
-            }
-            // If no matches with full prefix, fall through to 2-char matching
+            matches.extend(cli_matches);
         }
         
-        // Fall back to original 2-character matching behavior
-        let s = &s[..2];
-        let mut everything = Vec::new();
-        crate::status::all_files(ctx)?
-            .into_iter()
-            .filter(|id| id.matches(s))
-            .for_each(|id| everything.push(id));
-        crate::status::all_committed_files(ctx)?
-            .into_iter()
-            .filter(|id| id.matches(s))
-            .for_each(|id| everything.push(id));
-        crate::status::all_branches(ctx)?
-            .into_iter()
-            .filter(|id| id.matches(s))
-            .for_each(|id| everything.push(id));
-        crate::log::all_commits(ctx)?
-            .into_iter()
-            .filter(|id| id.matches(s))
-            .for_each(|id| everything.push(id));
-        everything.push(CliId::unassigned());
-
-        let mut matches = Vec::new();
-        for id in everything {
-            if id.matches(s) {
-                matches.push(id);
+        // Remove duplicates while preserving order
+        let mut unique_matches = Vec::new();
+        for m in matches {
+            if !unique_matches.contains(&m) {
+                unique_matches.push(m);
             }
         }
-        Ok(matches)
+        
+        Ok(unique_matches)
     }
 }
 

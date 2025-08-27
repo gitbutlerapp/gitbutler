@@ -117,11 +117,12 @@ fn ids(ctx: &mut CommandContext, source: &str, target: &str) -> anyhow::Result<(
             let matches: Vec<String> = source_result.iter().map(|id| {
                 match id {
                     CliId::Commit { oid } => format!("{} (commit {})", id.to_string(), &oid.to_string()[..7]),
+                    CliId::Branch { name } => format!("{} (branch '{}')", id.to_string(), name),
                     _ => format!("{} ({})", id.to_string(), id.kind())
                 }
             }).collect();
             return Err(anyhow::anyhow!(
-                "Source '{}' is ambiguous. Matches: {}. Try using more characters to disambiguate.",
+                "Source '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",
                 source,
                 matches.join(", ")
             ));
@@ -135,11 +136,12 @@ fn ids(ctx: &mut CommandContext, source: &str, target: &str) -> anyhow::Result<(
             let matches: Vec<String> = target_result.iter().map(|id| {
                 match id {
                     CliId::Commit { oid } => format!("{} (commit {})", id.to_string(), &oid.to_string()[..7]),
+                    CliId::Branch { name } => format!("{} (branch '{}')", id.to_string(), name),
                     _ => format!("{} ({})", id.to_string(), id.kind())
                 }
             }).collect();
             return Err(anyhow::anyhow!(
-                "Target '{}' is ambiguous. Matches: {}. Try using more characters to disambiguate.",
+                "Target '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",
                 target,
                 matches.join(", ")
             ));
