@@ -85,7 +85,7 @@ export function parseBullet(text: string): Bullet | undefined {
 	const prefix = match[0];
 	const numberStr = match.groups?.['number'];
 	const number = numberStr ? parseInt(numberStr) : undefined;
-	const indent = number ? ' '.repeat(number.toString().length + 2) : spaces + '  ;';
+	const indent = number ? ' '.repeat(number.toString().length + 2) : spaces + '  ';
 	return { prefix, indent, number };
 }
 
