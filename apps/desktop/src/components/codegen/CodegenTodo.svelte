@@ -35,7 +35,6 @@
 		display: flex;
 		width: 100%;
 		min-height: 15px;
-		padding: 6px 14px;
 		gap: 9px;
 	}
 
