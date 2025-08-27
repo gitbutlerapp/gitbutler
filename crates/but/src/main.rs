@@ -8,6 +8,7 @@ use metrics::{Event, Metrics, Props, metrics_if_configured};
 use but_claude::hooks::OutputAsJson;
 mod branch;
 mod command;
+mod commit;
 mod config;
 mod id;
 mod log;
@@ -106,6 +107,16 @@ async fn main() -> Result<()> {
         Subcommands::Undo => {
             let result = undo::undo_last_operation(&args.current_dir, args.json);
             metrics_if_configured(app_settings, CommandName::Undo, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Commit { message, stack } => {
+            let result = commit::commit(
+                &args.current_dir,
+                args.json,
+                message.as_deref(),
+                stack.as_deref(),
+            );
+            metrics_if_configured(app_settings, CommandName::Commit, props(start, &result)).ok();
             result
         }
         Subcommands::Branch { cmd } => match cmd {

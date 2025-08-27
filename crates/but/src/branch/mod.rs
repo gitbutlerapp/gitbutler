@@ -24,7 +24,7 @@ pub(crate) fn create_branch(
         Some(id_str) => {
             // First try to resolve as CLI ID
             let cli_ids = CliId::from_str(&mut ctx, id_str)?;
-            
+
             let target_branch_name = if !cli_ids.is_empty() {
                 if cli_ids.len() > 1 {
                     return Err(anyhow::anyhow!(
@@ -50,7 +50,7 @@ pub(crate) fn create_branch(
             } else {
                 // If no CLI ID matches, try treating it as a direct branch name
                 let repo = ctx.repo();
-                
+
                 // Check if the branch exists as a local branch
                 if repo.find_branch(id_str, git2::BranchType::Local).is_ok() {
                     id_str.to_string()

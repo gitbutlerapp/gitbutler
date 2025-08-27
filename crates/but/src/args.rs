@@ -35,6 +35,16 @@ pub enum Subcommands {
     /// Undo the last operation by reverting to the previous snapshot.
     Undo,
 
+    /// Commit changes to a stack.
+    Commit {
+        /// Commit message
+        #[clap(short = 'm', long = "message")]
+        message: Option<String>,
+        /// Stack ID or name to commit to (if multiple stacks exist)
+        #[clap(short = 's', long = "stack")]
+        stack: Option<String>,
+    },
+
     /// Branch management operations.
     Branch {
         #[clap(subcommand)]
@@ -90,7 +100,9 @@ pub enum BranchSubcommands {
     New {
         /// The name of the new branch
         branch_name: String,
-        /// Optional branch ID to create a stacked branch from
+        /// Optional branch ID or branch name to create a stacked branch from.
+        /// Can be a 2-character CLI ID (e.g., "ab") or a full branch name (e.g., "main", "feature/auth").
+        /// Works with both virtual branches and regular Git branches.
         id: Option<String>,
     },
 }
@@ -107,6 +119,8 @@ pub enum CommandName {
     Oplog,
     #[clap(alias = "undo")]
     Undo,
+    #[clap(alias = "commit")]
+    Commit,
     #[clap(alias = "rub")]
     Rub,
     #[clap(
