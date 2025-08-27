@@ -10,6 +10,7 @@
 	import Resizer from '$components/Resizer.svelte';
 	import SelectionView from '$components/SelectionView.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
+	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
@@ -153,7 +154,7 @@
 		}
 	} as const;
 
-	function checkFilesForCommit() {
+	function checkSelectedFilesForCommit() {
 		const stackAssignments = stackId ? uncommittedService.getAssignmentsByStackId(stackId) : [];
 		if (stackId && stackAssignments.length > 0) {
 			// If there are assignments for this stack, we check those.
@@ -179,6 +180,41 @@
 			uncommittedService.checkFiles(null, selectedPaths);
 		} else {
 			uncommittedService.checkAll(null);
+		}
+	}
+
+	function uncheckAll() {
+		if (stackId) {
+			uncommittedService.uncheckAll(stackId);
+		}
+		uncommittedService.uncheckAll(null);
+	}
+
+	function checkAllFiles() {
+		const stackAssignments = stackId ? uncommittedService.getAssignmentsByStackId(stackId) : [];
+		if (stackId && stackAssignments.length > 0) {
+			// If there are assignments for this stack, we check those.
+			uncommittedService.checkAll(stackId);
+			// Uncheck the unassigned files.
+			uncommittedService.uncheckAll(null);
+			return;
+		}
+
+		uncommittedService.checkAll(null);
+	}
+
+	function checkFilesForCommit(): true {
+		switch ($stagingBehaviorFeature) {
+			case 'all':
+				checkAllFiles();
+				return true;
+			case 'selection':
+				// We only check the selected files.
+				checkSelectedFilesForCommit();
+				return true;
+			case 'none':
+				uncheckAll();
+				return true;
 		}
 	}
 
