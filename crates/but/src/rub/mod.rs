@@ -10,6 +10,7 @@ mod assign;
 mod move_commit;
 mod squash;
 mod undo;
+mod uncommit;
 
 use crate::id::CliId;
 
@@ -46,9 +47,8 @@ pub(crate) fn handle(
         (CliId::CommittedFile { .. }, CliId::CommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
         }
-        (CliId::CommittedFile { .. }, CliId::Unassigned) => {
-            // Extract file from commit to unassigned area - for now, not implemented
-            bail!("Extracting files from commits is not yet supported. Use git commands to extract file changes.")
+        (CliId::CommittedFile { path, commit_oid }, CliId::Unassigned) => {
+            uncommit::file_from_commit(ctx, path, commit_oid)
         }
         (CliId::CommittedFile { .. }, CliId::Branch { .. }) => {
             // Extract file from commit to branch - for now, not implemented  

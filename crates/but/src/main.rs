@@ -182,25 +182,28 @@ where
 fn print_grouped_help() {
     use clap::CommandFactory;
     use std::collections::HashSet;
-    
+
     let cmd = Args::command();
     let subcommands: Vec<_> = cmd.get_subcommands().collect();
-    
+
     // Define command groupings and their order (excluding MISC)
     let groups = [
         ("INSPECTION", vec!["log", "status"]),
-        ("STACK OPERATIONS", vec!["commit", "new", "describe", "branch"]),
+        (
+            "STACK OPERATIONS",
+            vec!["commit", "rub", "new", "describe", "branch"],
+        ),
         ("OPERATION HISTORY", vec!["oplog", "undo", "restore"]),
     ];
-    
+
     println!("A GitButler CLI tool");
     println!();
     println!("Usage: but [OPTIONS] <COMMAND>");
     println!();
-    
+
     // Keep track of which commands we've already printed
     let mut printed_commands = HashSet::new();
-    
+
     // Print grouped commands
     for (group_name, command_names) in &groups {
         println!("{}:", group_name);
@@ -213,13 +216,13 @@ fn print_grouped_help() {
         }
         println!();
     }
-    
+
     // Collect any remaining commands not in the explicit groups
     let misc_commands: Vec<_> = subcommands
         .iter()
         .filter(|subcmd| !printed_commands.contains(subcmd.get_name()) && !subcmd.is_hide_set())
         .collect();
-    
+
     // Print MISC section if there are any ungrouped commands
     if !misc_commands.is_empty() {
         println!("MISC:");
@@ -229,7 +232,7 @@ fn print_grouped_help() {
         }
         println!();
     }
-    
+
     println!("Options:");
     println!(
         "  -C, --current-dir <PATH>  Run as if gitbutler-cli was started in PATH instead of the current working directory [default: .]"

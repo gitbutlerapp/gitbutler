@@ -103,6 +103,48 @@ pub(crate) fn all_branches(ctx: &CommandContext) -> anyhow::Result<Vec<CliId>> {
     Ok(branches)
 }
 
+pub(crate) fn all_committed_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
+    let mut committed_files = Vec::new();
+    
+    // Get stacks with detailed information
+    let stack_entries = crate::log::stacks(ctx)?;
+    let stacks: Vec<(
+        Option<but_workspace::StackId>,
+        but_workspace::ui::StackDetails,
+    )> = stack_entries
+        .iter()
+        .filter_map(|s| {
+            s.id.map(|id| (s.id, crate::log::stack_details(ctx, id)))
+                .and_then(|(stack_id, result)| result.ok().map(|details| (stack_id, details)))
+        })
+        .collect();
+
+    // Iterate through all commits in all branches to get committed files
+    for (_stack_id, stack) in &stacks {
+        for branch in &stack.branch_details {
+            // Process upstream commits
+            for commit in &branch.upstream_commits {
+                if let Ok(commit_files) = get_commit_files(ctx, commit.id) {
+                    for (file_path, _status) in commit_files {
+                        committed_files.push(CliId::committed_file(&file_path, commit.id));
+                    }
+                }
+            }
+            
+            // Process local commits  
+            for commit in &branch.commits {
+                if let Ok(commit_files) = get_commit_files(ctx, commit.id) {
+                    for (file_path, _status) in commit_files {
+                        committed_files.push(CliId::committed_file(&file_path, commit.id));
+                    }
+                }
+            }
+        }
+    }
+    
+    Ok(committed_files)
+}
+
 fn get_commit_files(ctx: &CommandContext, commit_id: gix::ObjectId) -> anyhow::Result<Vec<(String, String)>> {
     let repo = ctx.repo();
     let git2_oid = gix_to_git2_oid(commit_id);
