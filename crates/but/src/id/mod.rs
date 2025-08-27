@@ -63,8 +63,8 @@ impl CliId {
     pub fn matches_prefix(&self, s: &str) -> bool {
         match self {
             CliId::Commit { oid } => {
-                let full_sha = oid.to_string();
-                full_sha.starts_with(s)
+                let oid_hash = hash(&oid.to_string());
+                oid_hash.starts_with(s)
             }
             _ => s == self.to_string()
         }
@@ -150,8 +150,8 @@ impl Display for CliId {
                 write!(f, "00")
             }
             CliId::Commit { oid } => {
-                let oid = oid.to_string();
-                write!(f, "{}", &oid[..2])
+                let oid_str = oid.to_string();
+                write!(f, "{}", hash(&oid_str))
             }
         }
     }
@@ -162,12 +162,15 @@ pub(crate) fn hash(input: &str) -> String {
     for byte in input.bytes() {
         hash = hash.wrapping_mul(31).wrapping_add(byte as u64);
     }
-    // Convert to base 36 (0-9, a-z)
-    let chars = "0123456789abcdefghijklmnopqrstuvwxyz";
-    let mut result = String::new();
-    for _ in 0..2 {
-        result.push(chars.chars().nth((hash % 36) as usize).unwrap());
-        hash /= 36;
-    }
-    result
+    
+    // First character: g-z (20 options)
+    let first_chars = "ghijklmnopqrstuvwxyz";
+    let first_char = first_chars.chars().nth((hash % 20) as usize).unwrap();
+    hash /= 20;
+    
+    // Second character: 0-9,a-z (36 options)
+    let second_chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+    let second_char = second_chars.chars().nth((hash % 36) as usize).unwrap();
+    
+    format!("{}{}", first_char, second_char)
 }
