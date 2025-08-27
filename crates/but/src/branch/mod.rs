@@ -1,13 +1,12 @@
 use but_settings::AppSettings;
 use colored::Colorize;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_branch_actions::{create_virtual_branch, create_virtual_branch_from_branch, unapply_stack};
+use gitbutler_branch_actions::{create_virtual_branch, unapply_stack};
 use gitbutler_command_context::CommandContext;
+use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_project::Project;
-use gitbutler_reference::Refname;
 use gitbutler_stack::VirtualBranchesHandle;
 use std::path::Path;
-use std::str::FromStr;
 
 use crate::id::CliId;
 
@@ -69,18 +68,61 @@ pub(crate) fn create_branch(
                 id_str.blue().underline()
             );
 
-            // Create a Refname from the branch name
-            let branch_ref = Refname::from_str(&format!("refs/heads/{}", target_branch_name))?;
-
-            let new_stack_id = create_virtual_branch_from_branch(&ctx, &branch_ref, None, None)?;
-
-            // Update the branch name if it's different
-            if branch_name != target_branch_name {
-                let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-                let mut stack = vb_state.get_stack(new_stack_id)?;
-                stack.name = branch_name.to_string();
-                vb_state.set_stack(stack)?;
+            // Find the target stack and get its current head commit
+            let stacks = crate::log::stacks(&ctx)?;
+            let target_stack = stacks.iter().find(|s| {
+                s.heads.iter().any(|head| head.name.to_string() == target_branch_name)
+            });
+            
+            let target_stack = match target_stack {
+                Some(s) => s,
+                None => return Err(anyhow::anyhow!("No stack found for branch '{}'", target_branch_name)),
+            };
+            
+            let target_stack_id = target_stack.id.ok_or_else(|| anyhow::anyhow!("Target stack has no ID"))?;
+            
+            // Get the stack details to find the head commit
+            let target_stack_details = crate::log::stack_details(&ctx, target_stack_id)?;
+            if target_stack_details.branch_details.is_empty() {
+                return Err(anyhow::anyhow!("Target stack has no branch details"));
             }
+            
+            // Find the target branch in the stack details
+            let target_branch_details = target_stack_details.branch_details.iter().find(|b| 
+                b.name == target_branch_name
+            ).ok_or_else(|| anyhow::anyhow!("Target branch '{}' not found in stack details", target_branch_name))?;
+            
+            // Get the head commit of the target branch
+            let target_head_oid = if !target_branch_details.commits.is_empty() {
+                // Use the last local commit
+                target_branch_details.commits.last().unwrap().id
+            } else if !target_branch_details.upstream_commits.is_empty() {
+                // If no local commits, use the last upstream commit
+                target_branch_details.upstream_commits.last().unwrap().id
+            } else {
+                return Err(anyhow::anyhow!("Target branch '{}' has no commits", target_branch_name));
+            };
+            
+            // Create a new virtual branch 
+            let mut guard = project.exclusive_worktree_access();
+            let create_request = BranchCreateRequest {
+                name: Some(branch_name.to_string()),
+                ownership: None,
+                order: None,
+                selected_for_changes: None,
+            };
+
+            let new_stack_id = create_virtual_branch(&ctx, &create_request, guard.write_permission())?;
+            
+            // Now set up the new branch to start from the target branch's head
+            let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+            let mut new_stack = vb_state.get_stack(new_stack_id.id)?;
+            
+            // Set the head of the new stack to be the target branch's head
+            // This creates the stacking relationship
+            let gix_repo = ctx.repo().to_gix()?;
+            new_stack.set_stack_head(&vb_state, &gix_repo, target_head_oid.to_git2(), None)?;
+            vb_state.set_stack(new_stack)?;
 
             println!(
                 "{} Stacked branch '{}' created successfully!",
