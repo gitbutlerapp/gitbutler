@@ -112,7 +112,10 @@ fn ids(ctx: &mut CommandContext, source: &str, target: &str) -> anyhow::Result<(
     let source_result = crate::id::CliId::from_str(ctx, source)?;
     if source_result.len() != 1 {
         if source_result.is_empty() {
-            return Err(anyhow::anyhow!("Source '{}' not found", source));
+            return Err(anyhow::anyhow!(
+                "Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.", 
+                source
+            ));
         } else {
             let matches: Vec<String> = source_result.iter().map(|id| {
                 match id {
@@ -131,7 +134,10 @@ fn ids(ctx: &mut CommandContext, source: &str, target: &str) -> anyhow::Result<(
     let target_result = crate::id::CliId::from_str(ctx, target)?;
     if target_result.len() != 1 {
         if target_result.is_empty() {
-            return Err(anyhow::anyhow!("Target '{}' not found", target));
+            return Err(anyhow::anyhow!(
+                "Target '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.", 
+                target
+            ));
         } else {
             let matches: Vec<String> = target_result.iter().map(|id| {
                 match id {
