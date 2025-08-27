@@ -18,7 +18,7 @@ pub(crate) fn commit(
     repo_path: &Path,
     _json: bool,
     message: Option<&str>,
-    stack_hint: Option<&str>,
+    branch_hint: Option<&str>,
     only: bool,
 ) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path)?;
@@ -46,7 +46,7 @@ pub(crate) fn commit(
         stacks[0].0
     } else {
         // Multiple stacks - need to select one
-        select_stack(&stacks, stack_hint)?
+        select_stack(&mut ctx, &stacks, branch_hint)?
     };
 
     // Get changes and assignments
@@ -172,12 +172,13 @@ pub(crate) fn commit(
 }
 
 fn select_stack(
+    ctx: &mut CommandContext,
     stacks: &[(but_workspace::StackId, but_workspace::ui::StackDetails)],
-    stack_hint: Option<&str>,
+    branch_hint: Option<&str>,
 ) -> anyhow::Result<but_workspace::StackId> {
-    // If a stack hint is provided, try to find it
-    if let Some(hint) = stack_hint {
-        // Try to match by branch name in stacks
+    // If a branch hint is provided, try to find it
+    if let Some(hint) = branch_hint {
+        // First, try to find by exact branch name match
         for (stack_id, stack_details) in stacks {
             for branch in &stack_details.branch_details {
                 if branch.name.to_string() == hint {
@@ -185,7 +186,29 @@ fn select_stack(
                 }
             }
         }
-        anyhow::bail!("Stack '{}' not found", hint);
+        
+        // If no exact match, try to parse as CLI ID
+        match crate::id::CliId::from_str(ctx, hint) {
+            Ok(cli_ids) => {
+                // Filter for branch CLI IDs and find corresponding stack
+                for cli_id in cli_ids {
+                    if let crate::id::CliId::Branch { name } = cli_id {
+                        for (stack_id, stack_details) in stacks {
+                            for branch in &stack_details.branch_details {
+                                if branch.name.to_string() == name {
+                                    return Ok(*stack_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Err(_) => {
+                // Ignore CLI ID parsing errors and continue with other methods
+            }
+        }
+        
+        anyhow::bail!("Branch '{}' not found", hint);
     }
 
     // No hint provided, show options and prompt

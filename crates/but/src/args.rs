@@ -61,9 +61,8 @@ pub enum Subcommands {
         /// Commit message
         #[clap(short = 'm', long = "message")]
         message: Option<String>,
-        /// Stack ID or name to commit to (if multiple stacks exist)
-        #[clap(short = 's', long = "stack")]
-        stack: Option<String>,
+        /// Branch CLI ID or name to derive the stack to commit to
+        branch: Option<String>,
         /// Only commit assigned files, not unassigned files
         #[clap(short = 'o', long = "only")]
         only: bool,
