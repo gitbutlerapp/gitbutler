@@ -67,6 +67,10 @@ pub(crate) fn worktree(repo_path: &Path, json: bool, show_base: bool, show_files
     // Print branches with commits and assigned files
     if !stacks.is_empty() {
         print_branch_sections(&stacks, &assignments_by_file, &changes, &project, show_files, ctx)?;
+        
+        // Print legend for commit status decorations
+        println!("Legend: {} Remote-only  {} Pushed  {} Local-only", 
+                "R".red(), "P".yellow(), "L".green());
     }
 
     // Print unassigned files
@@ -298,9 +302,19 @@ fn print_branch_sections(
                     let commit_short = &commit.id.to_string()[..7];
                     let commit_id = CliId::commit(commit.id).to_string().underline().blue();
                     let message_line = format_commit_message(&commit.message);
+                    
+                    // Check if this upstream commit also exists in local commits (pushed)
+                    let is_also_local = branch.commits.iter().any(|local| local.id == commit.id);
+                    let status_decoration = if is_also_local {
+                        "P".yellow() // Pushed (exists both upstream and locally)
+                    } else {
+                        "R".red()    // Remote-only (upstream only)
+                    };
+                    
                     println!(
-                        "{}●  {} {} {}",
+                        "{}● {} {} {} {}",
                         prefix,
+                        status_decoration,
                         commit_id,
                         commit_short.blue(),
                         message_line
@@ -330,14 +344,25 @@ fn print_branch_sections(
                     }
                 }
 
-                // Show local commits
+                // Show local commits (but skip ones already shown as upstream)
                 for commit in &branch.commits {
+                    // Skip if this commit was already shown in upstream commits
+                    let already_shown = branch.upstream_commits.iter().any(|upstream| upstream.id == commit.id);
+                    if already_shown {
+                        continue;
+                    }
+                    
                     let commit_short = &commit.id.to_string()[..7];
                     let commit_id = CliId::commit(commit.id).to_string().underline().blue();
                     let message_line = format_commit_message(&commit.message);
+                    
+                    // Local-only commits (not pushed)
+                    let status_decoration = "L".green();
+                    
                     println!(
-                        "{}●  {} {} {}",
+                        "{}● {} {} {} {}",
                         prefix,
+                        status_decoration,
                         commit_id,
                         commit_short.blue(),
                         message_line
