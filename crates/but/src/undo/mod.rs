@@ -9,7 +9,7 @@ pub(crate) fn undo_last_operation(repo_path: &Path, _json: bool) -> anyhow::Resu
     let project = Project::from_path(repo_path)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    // Get the last two snapshots to find the one to restore to
+    // Get the last two snapshots - restore to the second one back
     let snapshots = ctx.list_snapshots(2, None, vec![])?;
 
     if snapshots.len() < 2 {
@@ -17,15 +17,7 @@ pub(crate) fn undo_last_operation(repo_path: &Path, _json: bool) -> anyhow::Resu
         return Ok(());
     }
 
-    // Get the current (most recent) and previous snapshots
-    let current_snapshot = &snapshots[0];
     let target_snapshot = &snapshots[1];
-
-    let current_operation = current_snapshot
-        .details
-        .as_ref()
-        .map(|d| d.title.as_str())
-        .unwrap_or("Unknown operation");
 
     let target_operation = target_snapshot
         .details
@@ -39,7 +31,6 @@ pub(crate) fn undo_last_operation(repo_path: &Path, _json: bool) -> anyhow::Resu
         .to_string();
 
     println!("{}", "Undoing operation...".blue().bold());
-    println!("  Current: {}", current_operation.yellow());
     println!(
         "  Reverting to: {} ({})",
         target_operation.green(),
