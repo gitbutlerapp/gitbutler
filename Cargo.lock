@@ -788,6 +788,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
+ "gitbutler-commit",
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-secret",
