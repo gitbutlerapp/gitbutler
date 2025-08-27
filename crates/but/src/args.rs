@@ -15,6 +15,7 @@ pub struct Args {
 }
 
 #[derive(Debug, clap::Subcommand)]
+#[clap(next_help_heading = "INSPECTION")]
 pub enum Subcommands {
     /// Provides an overview of the Workspace commit graph.
     Log {
@@ -30,12 +31,24 @@ pub enum Subcommands {
     },
     /// Display configuration information about the GitButler repository.
     Config,
+    
     /// Show operation history (last 20 entries).
-    Oplog,
+    #[clap(next_help_heading = "OPERATION HISTORY")]
+    Oplog {
+        /// Start from this oplog SHA instead of the head
+        #[clap(long)]
+        since: Option<String>,
+    },
     /// Undo the last operation by reverting to the previous snapshot.
     Undo,
+    /// Restore to a specific oplog snapshot.
+    Restore {
+        /// Oplog SHA to restore to
+        oplog_sha: String,
+    },
 
     /// Commit changes to a stack.
+    #[clap(next_help_heading = "STACK OPERATIONS")]
     Commit {
         /// Commit message
         #[clap(short = 'm', long = "message")]
@@ -44,13 +57,16 @@ pub enum Subcommands {
         #[clap(short = 's', long = "stack")]
         stack: Option<String>,
     },
-
     /// Insert a blank commit before the specified commit, or at the top of a stack.
     New {
         /// Commit ID to insert before, or branch ID to insert at top of stack
         target: String,
     },
-
+    /// Edit the commit message of the specified commit.
+    Describe {
+        /// Commit ID to edit the message for
+        commit: String,
+    },
     /// Branch management operations.
     Branch {
         #[clap(subcommand)]
@@ -59,6 +75,7 @@ pub enum Subcommands {
 
     /// Combines two entities together to perform an operation.
     #[clap(
+        next_help_heading = "MISC",
         about = "Combines two entities together to perform an operation",
         long_about = "Combines two entities together to perform an operation.
 
@@ -125,10 +142,14 @@ pub enum CommandName {
     Oplog,
     #[clap(alias = "undo")]
     Undo,
+    #[clap(alias = "restore")]
+    Restore,
     #[clap(alias = "commit")]
     Commit,
     #[clap(alias = "new")]
     New,
+    #[clap(alias = "describe")]
+    Describe,
     #[clap(alias = "rub")]
     Rub,
     #[clap(

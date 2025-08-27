@@ -10,6 +10,7 @@ mod branch;
 mod command;
 mod commit;
 mod config;
+mod describe;
 mod id;
 mod log;
 mod mcp;
@@ -17,12 +18,21 @@ mod mcp_internal;
 mod metrics;
 mod new;
 mod oplog;
+mod restore;
 mod rub;
 mod status;
 mod undo;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Check if help is requested with no subcommand
+    if std::env::args().len() == 1
+        || std::env::args().any(|arg| arg == "--help" || arg == "-h") && std::env::args().len() == 2
+    {
+        print_grouped_help();
+        return Ok(());
+    }
+
     let args: Args = clap::Parser::parse();
     let app_settings = AppSettings::load_from_default_path_creating()?;
 
@@ -100,14 +110,19 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Config, props(start, &result)).ok();
             result
         }
-        Subcommands::Oplog => {
-            let result = oplog::show_oplog(&args.current_dir, args.json);
+        Subcommands::Oplog { since } => {
+            let result = oplog::show_oplog(&args.current_dir, args.json, since.as_deref());
             metrics_if_configured(app_settings, CommandName::Oplog, props(start, &result)).ok();
             result
         }
         Subcommands::Undo => {
             let result = undo::undo_last_operation(&args.current_dir, args.json);
             metrics_if_configured(app_settings, CommandName::Undo, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Restore { oplog_sha } => {
+            let result = restore::restore_to_oplog(&args.current_dir, args.json, oplog_sha);
+            metrics_if_configured(app_settings, CommandName::Restore, props(start, &result)).ok();
             result
         }
         Subcommands::Commit { message, stack } => {
@@ -123,6 +138,11 @@ async fn main() -> Result<()> {
         Subcommands::New { target } => {
             let result = new::insert_blank_commit(&args.current_dir, args.json, target);
             metrics_if_configured(app_settings, CommandName::New, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Describe { commit } => {
+            let result = describe::edit_commit_message(&args.current_dir, args.json, commit);
+            metrics_if_configured(app_settings, CommandName::Describe, props(start, &result)).ok();
             result
         }
         Subcommands::Branch { cmd } => match cmd {
@@ -152,4 +172,39 @@ where
     props.insert("durationMs", start.elapsed().as_millis());
     props.insert("error", error);
     props
+}
+
+fn print_grouped_help() {
+    println!("A GitButler CLI tool");
+    println!();
+    println!("Usage: but [OPTIONS] <COMMAND>");
+    println!();
+    println!("INSPECTION:");
+    println!("  log       Provides an overview of the Workspace commit graph");
+    println!("  status    Overview of the oncommitted changes in the repository");
+    println!();
+    println!("BRANCH OPERATIONS:");
+    println!("  commit    Commit changes to a stack");
+    println!("  rub       Combines two entities together to perform an operation");
+    println!(
+        "  new       Insert a blank commit before the specified commit, or at the top of a stack"
+    );
+    println!("  describe  Edit the commit message of the specified commit");
+    println!("  branch    Branch management operations");
+    println!();
+    println!("OPERATION HISTORY:");
+    println!("  oplog     Show operation history (last 20 entries)");
+    println!("  undo      Undo the last operation by reverting to the previous snapshot");
+    println!("  restore   Restore to a specific oplog snapshot");
+    println!();
+    println!("MISC:");
+    println!("  config    Display configuration information about the GitButler repository");
+    println!("  help      Print this message or the help of the given subcommand(s)");
+    println!();
+    println!("Options:");
+    println!(
+        "  -C, --current-dir <PATH>  Run as if gitbutler-cli was started in PATH instead of the current working directory [default: .]"
+    );
+    println!("  -j, --json                Whether to use JSON output format");
+    println!("  -h, --help                Print help");
 }
