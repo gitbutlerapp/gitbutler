@@ -100,8 +100,13 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Log, props(start, &result)).ok();
             Ok(())
         }
-        Subcommands::Status { base } => {
-            let result = status::worktree(&args.current_dir, args.json, *base);
+        Subcommands::Status { base, files } => {
+            let result = status::worktree(&args.current_dir, args.json, *base, *files);
+            metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
+            Ok(())
+        }
+        Subcommands::StatusFiles { base } => {
+            let result = status::worktree(&args.current_dir, args.json, *base, true);
             metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
             Ok(())
         }

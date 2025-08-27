@@ -23,7 +23,18 @@ pub enum Subcommands {
         short: bool,
     },
     /// Overview of the oncommitted changes in the repository.
+    #[clap(alias = "st")]
     Status {
+        /// Show base branch and behind count information
+        #[clap(long, short = 'b')]
+        base: bool,
+        /// Show modified files in each commit with shortcode IDs for rubbing
+        #[clap(long, short = 'f')]
+        files: bool,
+    },
+    /// Overview with modified files in each commit (equivalent to `status -f`).
+    #[clap(alias = "stf", hide = true)]
+    StatusFiles {
         /// Show base branch and behind count information
         #[clap(long, short = 'b')]
         base: bool,

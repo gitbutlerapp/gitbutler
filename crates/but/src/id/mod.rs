@@ -49,6 +49,13 @@ impl CliId {
         }
     }
 
+    pub fn file(path: &str) -> Self {
+        CliId::UncommittedFile {
+            path: path.to_string(),
+            assignment: None,
+        }
+    }
+
     pub fn matches(&self, s: &str) -> bool {
         s == self.to_string()
     }
