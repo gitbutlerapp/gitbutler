@@ -110,7 +110,12 @@ async fn main() -> Result<()> {
             result
         }
         Subcommands::Commit { message, stack } => {
-            let result = commit::commit(&args.current_dir, args.json, message.as_deref(), stack.as_deref());
+            let result = commit::commit(
+                &args.current_dir,
+                args.json,
+                message.as_deref(),
+                stack.as_deref(),
+            );
             metrics_if_configured(app_settings, CommandName::Commit, props(start, &result)).ok();
             result
         }
