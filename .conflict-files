@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/components/ChromeHeader.svelte"]
+ourEntries = ["apps/desktop/src/components/ChromeHeader.svelte"]
+theirEntries = ["apps/desktop/src/components/ChromeHeader.svelte"]
