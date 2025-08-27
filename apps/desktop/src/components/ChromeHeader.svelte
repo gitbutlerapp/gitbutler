@@ -7,6 +7,7 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
+	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { ircPath, projectPath, isWorkspacePath } from '$lib/routes/routes.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -18,7 +19,8 @@
 		OptionsGroup,
 		Select,
 		SelectItem,
-		TestId
+		TestId,
+		Tooltip
 	} from '@gitbutler/ui';
 
 	type Props = {
@@ -34,12 +36,38 @@
 	const ircService = inject(IRC_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const uiState = inject(UI_STATE);
+	const modeService = inject(MODE_SERVICE);
 	const baseReponse = $derived(projectId ? baseBranchService.baseBranch(projectId) : undefined);
 	const base = $derived(baseReponse?.current.data);
 	const settingsStore = $derived(settingsService.appSettings);
 	const isWorkspace = $derived(isWorkspacePath());
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 	const backend = inject(BACKEND);
+
+	const mode = $derived(modeService.mode({ projectId }));
+	const currentMode = $derived(mode.current.data);
+	const currentBranchName = $derived.by(() => {
+		if (currentMode?.type === 'OpenWorkspace') {
+			return 'gitbutler/workspace';
+		} else if (currentMode?.type === 'OutsideWorkspace') {
+			return currentMode.subject.branchName || 'detached HEAD';
+		} else if (currentMode?.type === 'Edit') {
+			return 'gitbutler/edit';
+		}
+		return 'gitbutler/workspace';
+	});
+
+	const isNotInWorkspace = $derived(currentBranchName !== 'gitbutler/workspace');
+	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
+
+	async function switchToWorkspace() {
+		if (base) {
+			await setBaseBranchTarget({
+				projectId,
+				branch: base.branchName
+			});
+		}
+	}
 
 	const upstreamCommits = $derived(base?.behind ?? 0);
 	const isHasUpstreamCommits = $derived(upstreamCommits > 0);
@@ -56,7 +84,6 @@
 	);
 
 	let newProjectLoading = $state(false);
-	let cloneProjectLoading = $state(false);
 
 	const unreadCount = $derived(ircService.unreadCount());
 	const isNotificationsUnread = $derived(unreadCount.current > 0);
@@ -80,7 +107,8 @@
 <div class="chrome-header" class:mac={backend.platformName === 'macos'} data-tauri-drag-region>
 	<div class="chrome-left" data-tauri-drag-region>
 		<div class="chrome-left-buttons" class:macos={backend.platformName === 'macos'}>
-			<SyncButton {projectId} size="button" disabled={actionsDisabled} />
+			<SyncButton {projectId} disabled={actionsDisabled} />
+
 			{#if isHasUpstreamCommits}
 				<Button
 					testId={TestId.IntegrateUpstreamCommitsButton}
@@ -98,74 +126,108 @@
 			{/if}
 		</div>
 	</div>
+
 	<div class="chrome-center" data-tauri-drag-region>
-		<Select
-			searchable
-			value={projectId}
-			options={mappedProjects}
-			loading={newProjectLoading || cloneProjectLoading}
-			disabled={newProjectLoading || cloneProjectLoading}
-			onselect={(value: string, modifiers?) => {
-				if (modifiers?.meta) {
-					projectsService.openProjectInNewWindow(value);
-				} else {
-					goto(projectPath(value));
-				}
-			}}
-			popupAlign="center"
-			customWidth={300}
-		>
-			{#snippet customSelectButton()}
-				<div class="selector-series-select">
-					<span class="text-13 text-bold">{projectTitle}</span>
-					<div class="selector-series-select__icon"><Icon name="chevron-down-small" /></div>
-				</div>
-			{/snippet}
+		<div class="chrome-selector-wrapper">
+			<Select
+				searchable
+				value={projectId}
+				options={mappedProjects}
+				loading={newProjectLoading}
+				disabled={newProjectLoading}
+				onselect={(value: string, modifiers?) => {
+					if (modifiers?.meta) {
+						projectsService.openProjectInNewWindow(value);
+					} else {
+						goto(projectPath(value));
+					}
+				}}
+				popupAlign="center"
+				customWidth={280}
+			>
+				{#snippet customSelectButton()}
+					<Button
+						reversedDirection
+						width="auto"
+						kind="outline"
+						icon="select-chevron"
+						class="project-selector-btn"
+					>
+						{#snippet custom()}
+							<div class="project-selector-btn__content">
+								<Icon name="repo-book-small" color="var(--clr-text-2)" />
+								<span class="text-12 text-bold">{projectTitle}</span>
+							</div>
+						{/snippet}
+					</Button>
+				{/snippet}
 
-			{#snippet itemSnippet({ item, highlighted })}
-				<SelectItem selected={item.value === projectId} {highlighted}>
-					{item.label}
-				</SelectItem>
-			{/snippet}
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === projectId} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
 
-			<OptionsGroup>
-				<SelectItem
-					icon="plus"
-					loading={newProjectLoading}
-					onClick={async () => {
-						newProjectLoading = true;
-						try {
-							const project = await projectsService.addProject();
-							if (!project) {
-								// User cancelled the project creation
+				<OptionsGroup>
+					<SelectItem
+						icon="plus"
+						loading={newProjectLoading}
+						onClick={async () => {
+							newProjectLoading = true;
+							try {
+								const project = await projectsService.addProject();
+								if (!project) {
+									// User cancelled the project creation
+									newProjectLoading = false;
+									return;
+								}
+								goto(projectPath(project.id));
+							} finally {
 								newProjectLoading = false;
-								return;
 							}
-							goto(projectPath(project.id));
-						} finally {
-							newProjectLoading = false;
-						}
-					}}
-				>
-					Add local repository
-				</SelectItem>
-				<SelectItem
-					icon="clone"
-					loading={cloneProjectLoading}
-					onClick={async () => {
-						cloneProjectLoading = true;
-						try {
+						}}
+					>
+						Add local repository
+					</SelectItem>
+					<SelectItem
+						icon="clone"
+						onClick={() => {
 							goto('/onboarding/clone');
-						} finally {
-							cloneProjectLoading = false;
-						}
-					}}
+						}}
+					>
+						Clone repository
+					</SelectItem>
+				</OptionsGroup>
+			</Select>
+			<Tooltip text="Current branch">
+				<div class="chrome-current-branch">
+					<div class="chrome-current-branch__content">
+						<Icon name="branch-remote" color="var(--clr-text-2)" />
+						<span class="text-12 text-semibold clr-text-1">{currentBranchName}</span>
+						{#if isNotInWorkspace}
+							<span class="text-12 text-semibold clr-text-2"> read-only </span>
+						{/if}
+					</div>
+				</div>
+			</Tooltip>
+		</div>
+
+		{#if isNotInWorkspace}
+			<Tooltip text="Switch back to gitButler/workspace">
+				<Button
+					kind="outline"
+					icon="undo"
+					style="warning"
+					onclick={switchToWorkspace}
+					reversedDirection
+					disabled={targetBranchSwitch.current.isLoading}
 				>
-					Clone repository
-				</SelectItem>
-			</OptionsGroup>
-		</Select>
+					Back to workspace
+				</Button>
+			</Tooltip>
+		{/if}
 	</div>
+
 	<div class="chrome-right" data-tauri-drag-region>
 		{#if $ircEnabled}
 			<NotificationButton
@@ -241,6 +303,7 @@
 		justify-content: space-between;
 		padding: 14px;
 		overflow: hidden;
+		gap: 12px;
 	}
 
 	.actions-icon {
@@ -281,13 +344,50 @@
 		}
 	}
 
+	.chrome-selector-wrapper {
+		display: flex;
+		position: relative;
+	}
+
+	:global(.chrome-header .project-selector-btn) {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	.project-selector-btn__content {
+		display: flex;
+		align-items: center;
+		padding-right: 2px;
+		gap: 6px;
+	}
+
+	.chrome-current-branch {
+		display: flex;
+		align-items: center;
+		padding: 0 10px 0 6px;
+		border: 1px solid var(--clr-border-2);
+		border-left: none;
+		border-top-right-radius: 100px;
+		border-bottom-right-radius: 100px;
+		background-color: var(--clr-bg-2-muted);
+	}
+
+	.chrome-current-branch__content {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		opacity: 0.7;
+	}
+
 	.chrome-left {
 		display: flex;
 		gap: 14px;
 	}
 
 	.chrome-center {
+		display: flex;
 		flex-shrink: 1;
+		gap: 8px;
 	}
 
 	.chrome-right {
@@ -301,6 +401,7 @@
 	.chrome-left {
 		flex-grow: 1;
 		flex-basis: 0;
+		min-width: max-content;
 	}
 
 	.chrome-left-buttons {
@@ -312,27 +413,6 @@
 	/** Mac padding added here to not affect header flex-box sizing. */
 	.mac .chrome-left-buttons {
 		padding-left: 70px;
-	}
-
-	.selector-series-select {
-		display: flex;
-		align-items: center;
-		padding: 2px 4px 2px 6px;
-		gap: 4px;
-		color: var(--clr-text-1);
-		text-wrap: nowrap;
-
-		&:hover {
-			& .selector-series-select__icon {
-				color: var(--clr-text-2);
-			}
-		}
-	}
-
-	.selector-series-select__icon {
-		display: flex;
-		color: var(--clr-text-3);
-		transition: opacity var(--transition-fast);
 	}
 
 	.chrome-you-are-up-to-date {
