@@ -246,7 +246,11 @@
 		{#if hasCommits || hasRemoteCommits}
 			<div
 				class="commit-list hide-when-empty"
-				use:focusable={{ id: DefinedFocusable.CommitList, list: true }}
+				use:focusable={{
+					id: DefinedFocusable.CommitList,
+					list: true,
+					disabled: localAndRemoteCommits.length <= 1
+				}}
 			>
 				{#if hasRemoteCommits}
 					<CommitsAccordion
