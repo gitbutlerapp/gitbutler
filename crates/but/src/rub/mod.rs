@@ -221,35 +221,82 @@ fn parse_range(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<Cli
     let start_id = &start_matches[0];
     let end_id = &end_matches[0];
 
-    // Get all files from status to find the range
-    let all_files = crate::status::all_files(ctx)?;
+    // Get all files in display order (same order as shown in status)
+    let all_files_in_order = get_all_files_in_display_order(ctx)?;
     
-    // Find the positions of start and end in the file list
-    let start_pos = all_files.iter().position(|id| id == start_id);
-    let end_pos = all_files.iter().position(|id| id == end_id);
+    // Find the positions of start and end in the ordered file list
+    let start_pos = all_files_in_order.iter().position(|id| id == start_id);
+    let end_pos = all_files_in_order.iter().position(|id| id == end_id);
 
     if let (Some(start_idx), Some(end_idx)) = (start_pos, end_pos) {
         if start_idx <= end_idx {
-            return Ok(all_files[start_idx..=end_idx].to_vec());
+            return Ok(all_files_in_order[start_idx..=end_idx].to_vec());
         } else {
-            return Ok(all_files[end_idx..=start_idx].to_vec());
+            return Ok(all_files_in_order[end_idx..=start_idx].to_vec());
         }
     }
 
-    // If not found in files, try committed files
-    let all_committed_files = crate::status::all_committed_files(ctx)?;
-    let start_pos = all_committed_files.iter().position(|id| id == start_id);
-    let end_pos = all_committed_files.iter().position(|id| id == end_id);
+    Err(anyhow::anyhow!("Could not find range from '{}' to '{}' in the displayed file list", start_str, end_str))
+}
 
-    if let (Some(start_idx), Some(end_idx)) = (start_pos, end_pos) {
-        if start_idx <= end_idx {
-            return Ok(all_committed_files[start_idx..=end_idx].to_vec());
-        } else {
-            return Ok(all_committed_files[end_idx..=start_idx].to_vec());
+fn get_all_files_in_display_order(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
+    use std::collections::BTreeMap;
+    use bstr::BString;
+    use but_hunk_assignment::HunkAssignment;
+
+    let project = gitbutler_project::Project::from_path(&ctx.project().path)?;
+    let changes =
+        but_core::diff::ui::worktree_changes_by_worktree_dir(project.path.clone())?.changes;
+    let (assignments, _) =
+        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
+
+    // Group assignments by file, same as status display logic
+    let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
+    for assignment in &assignments {
+        by_file
+            .entry(assignment.path_bytes.clone())
+            .or_default()
+            .push(assignment.clone());
+    }
+
+    let mut all_files = Vec::new();
+
+    // First, get files assigned to branches (they appear first in status display)
+    let stacks = crate::log::stacks(ctx)?;
+    for stack in stacks {
+        for (_stack_id, details_result) in stack.id.map(|id| (stack.id, crate::log::stack_details(ctx, id))) {
+            if let Ok(details) = details_result {
+                for branch in &details.branch_details {
+                    for (path_bytes, assignments) in &by_file {
+                        for assignment in assignments {
+                            if let Some(stack_id) = assignment.stack_id {
+                                if stack.id == Some(stack_id) {
+                                    let file_id = CliId::file_from_assignment(assignment);
+                                    if !all_files.contains(&file_id) {
+                                        all_files.push(file_id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
-    Err(anyhow::anyhow!("Could not find range from '{}' to '{}' in the same file list", start_str, end_str))
+    // Then add unassigned files (they appear last in status display)
+    for (path_bytes, assignments) in &by_file {
+        for assignment in assignments {
+            if assignment.stack_id.is_none() {
+                let file_id = CliId::file_from_assignment(assignment);
+                if !all_files.contains(&file_id) {
+                    all_files.push(file_id);
+                }
+            }
+        }
+    }
+
+    Ok(all_files)
 }
 
 fn parse_list(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
