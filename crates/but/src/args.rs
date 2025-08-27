@@ -39,8 +39,13 @@ pub enum Subcommands {
         #[clap(long, short = 'b')]
         base: bool,
     },
-    /// Display configuration information about the GitButler repository.
-    Config,
+    /// Display or set configuration values for the repository.
+    Config {
+        /// Configuration key to get or set (e.g., user.name, user.email)
+        key: Option<String>,
+        /// Value to set (if provided, sets the key to this value)
+        value: Option<String>,
+    },
     
     /// Show operation history (last 20 entries).
     Oplog {
