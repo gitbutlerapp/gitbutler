@@ -22,6 +22,7 @@ pub(crate) fn worktree(
 ) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
     // Get stacks with detailed information
     let stack_entries = crate::log::stacks(ctx)?;
