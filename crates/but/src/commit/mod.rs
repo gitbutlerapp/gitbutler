@@ -109,16 +109,45 @@ pub(crate) fn commit(
         anyhow::bail!("Aborting commit due to empty commit message.");
     }
 
-    // Find the target branch (first head of the target stack)
+    // Find the target stack and determine the target branch
     let target_stack = &stacks
         .iter()
         .find(|(id, _)| *id == target_stack_id)
         .unwrap()
         .1;
-    let target_branch = target_stack
-        .branch_details
-        .first()
-        .ok_or_else(|| anyhow::anyhow!("No branches found in target stack"))?;
+    
+    // If a branch hint was provided, find that specific branch; otherwise use first branch
+    let target_branch = if let Some(hint) = branch_hint {
+        // First try exact name match
+        target_stack
+            .branch_details
+            .iter()
+            .find(|branch| branch.name.to_string() == hint)
+            .or_else(|| {
+                // If no exact match, try to parse as CLI ID and match
+                if let Ok(cli_ids) = crate::id::CliId::from_str(&mut ctx, hint) {
+                    for cli_id in cli_ids {
+                        if let crate::id::CliId::Branch { name } = cli_id {
+                            if let Some(branch) = target_stack
+                                .branch_details
+                                .iter()
+                                .find(|b| b.name.to_string() == name)
+                            {
+                                return Some(branch);
+                            }
+                        }
+                    }
+                }
+                None
+            })
+            .ok_or_else(|| anyhow::anyhow!("Branch '{}' not found in target stack", hint))?
+    } else {
+        // No branch hint, use first branch (HEAD of stack)
+        target_stack
+            .branch_details
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("No branches found in target stack"))?
+    };
 
     // Convert files to DiffSpec
     let diff_specs: Vec<DiffSpec> = files_to_commit
@@ -139,6 +168,9 @@ pub(crate) fn commit(
         })
         .collect();
 
+    // Get the HEAD commit of the target branch to use as parent (preserves stacking)
+    let parent_commit_id = target_branch.tip;
+
     // Create a snapshot before committing
     let mut guard = project.exclusive_worktree_access();
     let _snapshot = ctx
@@ -148,11 +180,11 @@ pub(crate) fn commit(
         )
         .ok(); // Ignore errors for snapshot creation
 
-    // Commit using the simpler commit engine
+    // Commit using the simpler commit engine with explicit parent to preserve stacking
     let outcome = but_workspace::commit_engine::create_commit_simple(
         &ctx,
         target_stack_id,
-        None, // parent_id - let it auto-detect from branch head
+        Some(parent_commit_id), // Use the branch HEAD as parent to preserve stacking
         diff_specs,
         commit_message,
         target_branch.name.to_string(),
