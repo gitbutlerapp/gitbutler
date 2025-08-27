@@ -46,6 +46,14 @@ impl WorkspaceRule {
         }
     }
 
+    pub fn target_commit_id(&self) -> Option<String> {
+        if let Action::Explicit(Operation::Amend { commit_id }) = &self.action {
+            Some(commit_id.clone())
+        } else {
+            None
+        }
+    }
+
     pub fn id(&self) -> String {
         self.id.clone()
     }
