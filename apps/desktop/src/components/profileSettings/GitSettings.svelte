@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { Link, SectionCard, Toggle } from '@gitbutler/ui';
 
@@ -19,7 +20,7 @@
 	});
 </script>
 
-<SectionCard labelFor="committerSigning" orientation="row">
+<SectionCard labelFor="committerSigning" orientation="row" {focusable}>
 	{#snippet title()}
 		Credit GitButler as the committer
 	{/snippet}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Section from '$components/Section.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 	import { SectionCard, Textbox, Toggle } from '@gitbutler/ui';
@@ -13,7 +14,7 @@
 <ReduxResult {projectId} result={projectResult.current}>
 	{#snippet children(project)}
 		<Section gap={8}>
-			<SectionCard orientation="row" labelFor="omitCertificateCheck">
+			<SectionCard orientation="row" labelFor="omitCertificateCheck" {focusable}>
 				{#snippet title()}
 					Ignore host certificate checks
 				{/snippet}
@@ -34,7 +35,7 @@
 				{/snippet}
 			</SectionCard>
 
-			<SectionCard orientation="row" centerAlign>
+			<SectionCard orientation="row" centerAlign {focusable}>
 				{#snippet title()}
 					Snapshot lines threshold
 				{/snippet}

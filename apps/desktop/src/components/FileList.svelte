@@ -10,11 +10,13 @@
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
+	import { DefinedFocusable } from '$lib/focus/focusManager';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { type TreeChange, type Modification } from '$lib/hunks/change';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
-	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
+	import { selectFilesInList } from '$lib/selection/idSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
 	import { chunk } from '$lib/utils/array';
 	import { inject, injectOptional } from '@gitbutler/shared/context';
@@ -29,7 +31,6 @@
 		listMode: 'list' | 'tree';
 		showCheckboxes?: boolean;
 		selectionId: SelectionId;
-		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
 		ancestorMostConflictedCommitId?: string;
@@ -43,7 +44,6 @@
 		listMode,
 		selectionId,
 		showCheckboxes,
-		active,
 		stackId,
 		conflictEntries,
 		draggableFiles,
@@ -159,33 +159,6 @@
 		});
 	}
 
-	function handleKeyDown(e: KeyboardEvent) {
-		if (e.code === 'KeyB' && (e.ctrlKey || e.metaKey) && e.altKey) {
-			branchSelection();
-			e.preventDefault();
-			return;
-		}
-
-		if (e.code === 'KeyC' && (e.ctrlKey || e.metaKey) && e.altKey) {
-			autoCommitSelection();
-			e.preventDefault();
-			return;
-		}
-
-		updateSelection({
-			allowMultiple: true,
-			metaKey: e.metaKey,
-			shiftKey: e.shiftKey,
-			key: e.key,
-			targetElement: e.currentTarget as HTMLElement,
-			files: changes,
-			selectedFileIds: idSelection.values(selectionId),
-			fileIdSelection: idSelection,
-			selectionId: selectionId,
-			preventDefault: () => e.preventDefault()
-		});
-	}
-
 	function loadMore() {
 		if (currentDisplayIndex + 1 >= fileChunks.length) return;
 		currentDisplayIndex += 1;
@@ -204,30 +177,60 @@
 
 {#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0)}
 	{@const isExecutable = (change.status.subject as Modification).flags}
+	{@const selected = idSelection.has(change.path, selectionId)}
 	<FileListItemWrapper
 		{selectionId}
 		{change}
 		{projectId}
 		{stackId}
-		{active}
+		{selected}
 		{listMode}
 		{depth}
+		active={selected}
 		hideBorder={hideLastFileBorder && idx === visibleFiles.length - 1}
 		draggable={draggableFiles}
 		executable={!!isExecutable}
 		showCheckbox={showCheckboxes}
-		selected={idSelection.has(change.path, selectionId)}
+		focusableOpts={{
+			id: DefinedFocusable.FileItem,
+			onKeydown: (e) => {
+				if (e.key === 'Enter' || e.key === 'l') {
+					e.stopPropagation();
+					selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
+					onselect?.();
+					return true;
+				}
+			}
+		}}
 		onclick={(e) => {
 			e.stopPropagation();
 			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
 			onselect?.();
 		}}
+		onkeydown={(e) => {
+			if (e.key === 'Enter') {
+				selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
+				onselect?.();
+				return true;
+			}
+
+			if (e.code === 'KeyB' && (e.ctrlKey || e.metaKey) && e.altKey) {
+				branchSelection();
+				e.preventDefault();
+				return true;
+			}
+
+			if (e.code === 'KeyC' && (e.ctrlKey || e.metaKey) && e.altKey) {
+				autoCommitSelection();
+				e.preventDefault();
+				return true;
+			}
+		}}
 		{conflictEntries}
 	/>
 {/snippet}
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div onkeydown={handleKeyDown}>
+<div class="file-list" use:focusable={{ id: DefinedFocusable.FileList, list: true }}>
 	<!-- Conflicted changes -->
 	{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
 		<FileListItem

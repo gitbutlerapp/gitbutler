@@ -21,6 +21,7 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
 	import { isParsedError } from '$lib/error/parser';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { workspacePath } from '$lib/routes/routes.svelte';
 	import {
@@ -186,9 +187,13 @@
 			current.stackId || (current.branchName && !isTargetBranch)}
 		{@const isNonLocalPr = !isStackOrNormalBranchPreview && current.prNumber !== undefined}
 
-		<div class="branches-view">
+		<div class="branches-view" use:focusable>
 			<div class="relative overflow-hidden radius-ml">
-				<div bind:this={branchViewLeftEl} class="branches-view__left">
+				<div
+					bind:this={branchViewLeftEl}
+					class="branches-view__left"
+					use:focusable={{ list: true }}
+				>
 					<BranchesListGroup title="Current workspace target">
 						<!-- TODO: We need an API for `commitsCount`! -->
 						<CurrentOriginCard
@@ -271,7 +276,7 @@
 
 			<div class="branches-view__right">
 				<div class="right-wrapper hide-native-scrollbar dotted-pattern" bind:this={rightWrapper}>
-					<div class="branch-column" bind:this={branchColumn}>
+					<div class="branch-column" bind:this={branchColumn} use:focusable={{ list: true }}>
 						<!-- Apply branch -->
 						{#if !inWorkspaceOrTargetBranch && someBranchSelected && !isNonLocalPr}
 							{@const doesNotHaveLocalTooltip = current.hasLocal
@@ -326,7 +331,11 @@
 							</div>
 						{/if}
 
-						<div class="commits" class:target-branch={isTargetBranch}>
+						<div
+							class="commits"
+							class:target-branch={isTargetBranch}
+							use:focusable={{ list: true }}
+						>
 							{#if isTargetBranch}
 								<TargetCommitList {projectId} />
 							{:else if current.stackId}
@@ -359,7 +368,12 @@
 					</div>
 
 					{#if current.commitId || (current.branchName && ((current.inWorkspace && current.stackId) || !current.isTarget)) || current.prNumber}
-						<div class="commit-column" bind:this={commitColumn} class:non-local-pr={isNonLocalPr}>
+						<div
+							class="commit-column"
+							bind:this={commitColumn}
+							class:non-local-pr={isNonLocalPr}
+							use:focusable
+						>
 							{#if current.commitId}
 								<UnappliedCommitView {projectId} commitId={current.commitId} />
 								<Resizer
@@ -405,7 +419,7 @@
 					{/if}
 
 					{#if !isNonLocalPr}
-						<div class="preview-selection">
+						<div class="preview-selection" use:focusable>
 							<ConfigurableScrollableContainer
 								bind:viewport={selectionPreviewScrollContainer}
 								zIndex="var(--z-lifted)"
@@ -439,9 +453,12 @@
 
 	.branches-view__left,
 	.branches-view__right {
+		display: flex;
 		position: relative;
 		flex: 1;
+		flex-direction: column;
 		height: 100%;
+		max-height: 100%;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);

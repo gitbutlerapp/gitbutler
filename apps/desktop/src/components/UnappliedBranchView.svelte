@@ -102,7 +102,6 @@
 					title="All changed files"
 					projectId={env.projectId}
 					stackId={env.stackId}
-					active
 					autoselect
 					grow
 					{selectionId}

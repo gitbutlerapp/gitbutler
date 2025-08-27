@@ -11,6 +11,7 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { codegenEnabled } from '$lib/config/uiFeatureFlags';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
@@ -269,6 +270,7 @@
 		orientation="row"
 		labelFor="open-ai"
 		bottomBorder={modelKind !== ModelKind.OpenAI}
+		{focusable}
 	>
 		{#snippet title()}
 			Open AI
@@ -278,7 +280,7 @@
 		{/snippet}
 	</SectionCard>
 	{#if modelKind === ModelKind.OpenAI}
-		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
+		<SectionCard roundedTop={false} roundedBottom={false} topDivider {focusable}>
 			<Select
 				value={openAIKeyOption}
 				options={keyOptions}
@@ -337,6 +339,7 @@
 		orientation="row"
 		labelFor="anthropic"
 		bottomBorder={modelKind !== ModelKind.Anthropic}
+		{focusable}
 	>
 		{#snippet title()}
 			Anthropic
@@ -346,7 +349,7 @@
 		{/snippet}
 	</SectionCard>
 	{#if modelKind === ModelKind.Anthropic}
-		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
+		<SectionCard roundedTop={false} roundedBottom={false} topDivider {focusable}>
 			<Select
 				value={anthropicKeyOption}
 				options={keyOptions}
@@ -403,6 +406,7 @@
 		orientation="row"
 		labelFor="ollama"
 		bottomBorder={modelKind !== ModelKind.Ollama}
+		{focusable}
 	>
 		{#snippet title()}
 			Ollama 🦙
@@ -412,7 +416,7 @@
 		{/snippet}
 	</SectionCard>
 	{#if modelKind === ModelKind.Ollama}
-		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
+		<SectionCard roundedTop={false} roundedBottom={false} topDivider {focusable}>
 			<Textbox label="Endpoint" bind:value={ollamaEndpoint} placeholder="http://127.0.0.1:11434" />
 			<Textbox label="Model" bind:value={ollamaModel} placeholder="llama3" />
 			<InfoMessage filled outlined={false}>
@@ -436,6 +440,7 @@
 		orientation="row"
 		labelFor="lmstudio"
 		bottomBorder={modelKind !== ModelKind.LMStudio}
+		{focusable}
 	>
 		{#snippet title()}
 			LM Studio
@@ -445,7 +450,7 @@
 		{/snippet}
 	</SectionCard>
 	{#if modelKind === ModelKind.LMStudio}
-		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
+		<SectionCard roundedTop={false} roundedBottom={false} topDivider {focusable}>
 			<Textbox label="Endpoint" bind:value={lmStudioEndpoint} placeholder="http://127.0.0.1:1234" />
 			<Textbox label="Model" bind:value={lmStudioModel} placeholder="default" />
 			<InfoMessage filled outlined={false}>
@@ -477,14 +482,14 @@
 	{/if}
 
 	<!-- AI credential check -->
-	<SectionCard roundedTop={false}>
+	<SectionCard roundedTop={false} {focusable}>
 		<AiCredentialCheck />
 	</SectionCard>
 </form>
 
 <Spacer />
 
-<SectionCard orientation="row">
+<SectionCard orientation="row" {focusable}>
 	{#snippet title()}
 		Amount of provided context
 	{/snippet}
@@ -525,7 +530,7 @@
 <Spacer />
 
 {#if $codegenEnabled}
-	<SectionCard orientation="column">
+	<SectionCard orientation="column" {focusable}>
 		{#snippet title()}
 			Claude Code Configuration
 		{/snippet}
@@ -545,7 +550,7 @@
 		/>
 	</SectionCard>
 
-	<SectionCard orientation="row">
+	<SectionCard orientation="row" {focusable}>
 		{#snippet title()}
 			Claude Code notifications
 		{/snippet}
@@ -564,7 +569,7 @@
 		{#snippet actions()}{/snippet}
 	</SectionCard>
 
-	<SectionCard orientation="row">
+	<SectionCard orientation="row" {focusable}>
 		{#snippet title()}
 			⚠️ Dangerously allow all permissions
 		{/snippet}

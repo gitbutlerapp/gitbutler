@@ -6,7 +6,7 @@
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
-	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
@@ -17,10 +17,9 @@
 
 	interface Props {
 		projectId: string;
-		focus: DefinedFocusable;
 	}
 
-	const { projectId, focus }: Props = $props();
+	const { projectId }: Props = $props();
 
 	const selectionId = createWorktreeSelection({ stackId: undefined });
 
@@ -114,9 +113,6 @@
 				title="Unassigned"
 				{projectId}
 				stackId={undefined}
-				active={selectionId.type === 'worktree' &&
-					selectionId.stackId === undefined &&
-					focus === DefinedFocusable.ViewportLeft}
 				onscrollexists={(exists: boolean) => {
 					isScrollable = exists;
 				}}
@@ -175,6 +171,7 @@
 		class="unassigned-folded"
 		ondblclick={unfoldView}
 		class:changes-to-commit={changesToCommit}
+		use:focusable
 	>
 		<UnassignedFoldButton active={true} onclick={unfoldView} />
 

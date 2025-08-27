@@ -24,6 +24,7 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { BACKEND } from '$lib/backend';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, Icon } from '@gitbutler/ui';
@@ -63,11 +64,11 @@
 	const isWithExtraSpace = $derived(backend.platformName === 'macos' && isFullPage);
 </script>
 
-<div class="settings-wrap" class:chrome-page={!isFullPage}>
+<div class="settings-wrap" class:chrome-page={!isFullPage} use:focusable>
 	{#if isWithExtraSpace}
 		<div data-tauri-drag-region class="page-drag-bar"></div>
 	{/if}
-	<div class="settings-sidebar">
+	<div class="settings-sidebar" use:focusable={{ list: true }}>
 		<div class="settings-sidebar__title" class:top-margin={isWithExtraSpace}>
 			{#if onclose}
 				<Button icon="chevron-left" kind="ghost" onclick={onclose} />
@@ -98,7 +99,7 @@
 		{/if}
 	</div>
 
-	<section class="page-view">
+	<section class="page-view" use:focusable={{ list: true }}>
 		<ConfigurableScrollableContainer>
 			<div class="page-view__content">
 				{#if shownPage}

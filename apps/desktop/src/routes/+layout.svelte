@@ -4,6 +4,7 @@
 	import { afterNavigate, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import AppUpdater from '$components/AppUpdater.svelte';
+	import FocusCursor from '$components/FocusCursor.svelte';
 	import GlobalModal from '$components/GlobalModal.svelte';
 	import GlobalSettingsMenuAction from '$components/GlobalSettingsMenuAction.svelte';
 	import PromptModal from '$components/PromptModal.svelte';
@@ -19,6 +20,7 @@
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import { FOCUS_MANAGER } from '$lib/focus/focusManager';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import { IRC_CLIENT } from '$lib/irc/ircClient.svelte';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
@@ -140,10 +142,14 @@
 		}
 	});
 
+	const focusManager = inject(FOCUS_MANAGER);
+	$effect(() => focusManager.listen());
+
 	// Expose debugging objects to window
 	(window as any)['uiState'] = uiState;
 	(window as any)['idSelection'] = idSelection;
 	(window as any)['clientState'] = clientState;
+	(window as any)['focusManager'] = focusManager;
 </script>
 
 <svelte:window
@@ -165,6 +171,7 @@
 <ReloadMenuAction />
 <SwitchThemeMenuAction />
 <GlobalModal />
+<FocusCursor />
 
 {#if import.meta.env.MODE === 'development'}
 	<ReloadWarning />

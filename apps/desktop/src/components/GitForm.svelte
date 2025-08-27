@@ -4,6 +4,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Section from '$components/Section.svelte';
 	import { BACKEND } from '$lib/backend';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 	import { SectionCard, Spacer, Toggle } from '@gitbutler/ui';
@@ -34,7 +35,7 @@
 	<ReduxResult {projectId} result={projectResult.current}>
 		{#snippet children(project)}
 			<div class="stack-v">
-				<SectionCard orientation="row" labelFor="allowForcePush" roundedBottom={false}>
+				<SectionCard orientation="row" labelFor="allowForcePush" roundedBottom={false} {focusable}>
 					{#snippet title()}
 						Allow force pushing
 					{/snippet}
@@ -50,7 +51,12 @@
 						/>
 					{/snippet}
 				</SectionCard>
-				<SectionCard orientation="row" labelFor="forcePushProtection" roundedTop={false}>
+				<SectionCard
+					orientation="row"
+					labelFor="forcePushProtection"
+					roundedTop={false}
+					{focusable}
+				>
 					{#snippet title()}
 						Force push protection
 					{/snippet}

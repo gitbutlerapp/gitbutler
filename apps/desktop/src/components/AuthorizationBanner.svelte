@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Login from '$components/Login.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { Icon, SectionCard } from '@gitbutler/ui';
 
 	interface Props {
@@ -13,7 +14,7 @@
 	}: Props = $props();
 </script>
 
-<SectionCard orientation="row">
+<SectionCard orientation="row" {focusable}>
 	{#snippet iconSide()}
 		<Icon name="warning" color="warning" />
 	{/snippet}

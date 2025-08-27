@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import {
 		INTELLIGENT_SCROLLING_SERVICE,
 		scrollingAttachment,
@@ -86,6 +87,7 @@
 	class:grow
 	class:noshrink
 	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
+	use:focusable
 >
 	<div
 		bind:this={headerDiv}

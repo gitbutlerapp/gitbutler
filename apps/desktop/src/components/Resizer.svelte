@@ -5,6 +5,7 @@
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 	import { pxToRem, remToPx } from '@gitbutler/ui/utils/pxToRem';
+	import { on } from 'svelte/events';
 	import { writable } from 'svelte/store';
 	import type { ResizeGroup } from '$lib/utils/resizeGroup';
 
@@ -84,11 +85,14 @@
 	let dragging = $state(false);
 	let resizerDiv = $state<HTMLDivElement>();
 
+	let unsubUp: () => void;
+	let unsubMove: () => void;
+
 	function onMouseDown(e: MouseEvent) {
 		e.stopPropagation();
 		e.preventDefault();
-		document.addEventListener('mouseup', onMouseUp);
-		document.addEventListener('mousemove', onMouseMove);
+		unsubUp = on(document, 'pointerup', onMouseUp);
+		unsubMove = on(document, 'pointermove', onMouseMove);
 
 		if (direction === 'right') initial = e.clientX - viewport.clientWidth;
 		if (direction === 'left') initial = window.innerWidth - e.clientX - viewport.clientWidth;
@@ -134,7 +138,7 @@
 				offsetPx = document.body.scrollHeight - e.clientY - initial;
 				break;
 			case 'right':
-				offsetPx = e.clientX - initial + 2;
+				offsetPx = e.clientX - initial;
 				break;
 			case 'left':
 				offsetPx = document.body.scrollWidth - e.clientX - initial;
@@ -168,9 +172,14 @@
 
 	function onMouseUp() {
 		dragging = false;
-		document.removeEventListener('mouseup', onMouseUp);
-		document.removeEventListener('mousemove', onMouseMove);
+		unsubUp?.();
+		unsubMove?.();
 		onResizing?.(false);
+	}
+
+	function onclick(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
 	}
 
 	function updateDom(newValue?: number) {
@@ -282,11 +291,12 @@
 	role="presentation"
 	bind:this={resizerDiv}
 	data-remove-from-draggable
-	onmousedown={onMouseDown}
+	onpointerdown={onMouseDown}
 	ondblclick={() => {
 		onDblClick?.();
 		setValue(defaultValue);
 	}}
+	{onclick}
 	class:hidden
 	class="resizer"
 	class:dragging

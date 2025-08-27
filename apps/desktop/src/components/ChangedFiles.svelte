@@ -21,7 +21,6 @@
 		changes: TreeChange[];
 		title: string;
 		stats?: TreeStats;
-		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
 		grow?: boolean;
@@ -40,7 +39,6 @@
 		changes,
 		title,
 		stats,
-		active,
 		conflictEntries,
 		draggableFiles,
 		grow,
@@ -95,7 +93,6 @@
 				{stackId}
 				{changes}
 				{listMode}
-				{active}
 				{conflictEntries}
 				{draggableFiles}
 				{ancestorMostConflictedCommitId}

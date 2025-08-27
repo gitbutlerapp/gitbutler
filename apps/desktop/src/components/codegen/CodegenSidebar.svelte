@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -8,14 +9,14 @@
 	const { actions, content }: Props = $props();
 </script>
 
-<div class="sidebar">
-	<div class="sidebar-header">
+<div class="sidebar" use:focusable={{ list: true }}>
+	<div class="sidebar-header" use:focusable>
 		<p class="text-14 text-semibold">Current sessions</p>
 		<div class="sidebar-header-actions">
 			{@render actions()}
 		</div>
 	</div>
-	<div class="sidebar-content">
+	<div class="sidebar-content" use:focusable>
 		{@render content()}
 	</div>
 </div>

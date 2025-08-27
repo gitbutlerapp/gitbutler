@@ -11,6 +11,7 @@
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
 	import { REORDER_DROPZONE_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
@@ -125,7 +126,7 @@
 	const canPublishPR = $derived(forge.current.authenticated);
 </script>
 
-<div class="branches-wrapper">
+<div class="branches-wrapper" use:focusable={{ list: true, disabled: branches.length <= 1 }}>
 	{#each branches as branch, i}
 		{@const branchName = branch.name}
 		{@const localAndRemoteCommits = stackService.commits(projectId, stackId, branchName)}
