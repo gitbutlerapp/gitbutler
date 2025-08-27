@@ -230,7 +230,10 @@
 	/>
 {/snippet}
 
-<div class="file-list" use:focusable={{ id: DefinedFocusable.FileList, list: true }}>
+<div
+	class="file-list"
+	use:focusable={{ id: DefinedFocusable.FileList, list: true, disabled: visibleFiles.length <= 1 }}
+>
 	<!-- Conflicted changes -->
 	{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
 		<FileListItem
