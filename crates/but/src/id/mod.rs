@@ -87,6 +87,10 @@ impl CliId {
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
                 .for_each(|id| everything.push(id));
+            crate::status::all_committed_files(ctx)?
+                .into_iter()
+                .filter(|id| id.matches_prefix(s))
+                .for_each(|id| everything.push(id));
             crate::status::all_branches(ctx)?
                 .into_iter()
                 .filter(|id| id.matches_prefix(s))
@@ -114,6 +118,10 @@ impl CliId {
         let s = &s[..2];
         let mut everything = Vec::new();
         crate::status::all_files(ctx)?
+            .into_iter()
+            .filter(|id| id.matches(s))
+            .for_each(|id| everything.push(id));
+        crate::status::all_committed_files(ctx)?
             .into_iter()
             .filter(|id| id.matches(s))
             .for_each(|id| everything.push(id));
