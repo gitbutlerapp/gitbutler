@@ -82,7 +82,7 @@
 
 	type Props = DraftBranchProps | NormalBranchProps | StackBranchProps | PrBranchProps;
 
-	let { projectId, branchName, active, lineColor, readonly, ...args }: Props = $props();
+	let { projectId, branchName, lineColor, readonly, ...args }: Props = $props();
 
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
@@ -135,7 +135,17 @@
 	class:draft={args.type === 'draft-branch'}
 	data-series-name={branchName}
 	data-testid={TestId.BranchCard}
-	use:focusable={{ list: true }}
+	use:focusable={{
+		list: true,
+		onKeydown: (e) => {
+			if (e.key === 'Enter' || (!e.metaKey && e.key === 'ArrowRight')) {
+				if (args.type === 'normal-branch' || args.type === 'stack-branch') {
+					e.stopPropagation();
+					args.onclick();
+				}
+			}
+		}
+	}}
 >
 	{#if args.type === 'stack-branch'}
 		{@const moveHandler = args.stackId
@@ -168,7 +178,7 @@
 				{updateBranchName}
 				isUpdatingName={nameUpdate.current.isLoading}
 				failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-				{active}
+				active={selected}
 				{readonly}
 				{isPushed}
 				onclick={args.onclick}
@@ -243,7 +253,7 @@
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-			{active}
+			active={selected}
 			readonly
 			{isPushed}
 			onclick={args.onclick}
@@ -271,7 +281,7 @@
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-			{active}
+			active={selected}
 			readonly
 			isPushed
 		>
@@ -294,7 +304,7 @@
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-			{active}
+			active={selected}
 			readonly={false}
 			isPushed={false}
 		>
