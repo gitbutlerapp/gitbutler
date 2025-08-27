@@ -17,7 +17,7 @@ pub(crate) fn commit_graph(repo_path: &Path, json: bool, short: bool) -> anyhow:
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
     let stacks = stacks(ctx)?
         .iter()
-        .filter_map(|s| s.id.map(|id| stack_details(ctx, id)))
+        .filter_map(|s| s.id.map(|id| stack_details(ctx, id).map(|d| (id, d))))
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
 
@@ -30,7 +30,13 @@ pub(crate) fn commit_graph(repo_path: &Path, json: bool, short: bool) -> anyhow:
     }
 
     let mut nesting = 0;
-    for (i, stack) in stacks.iter().enumerate() {
+    for (i, (stack_id, stack)) in stacks.iter().enumerate() {
+        let marked = crate::mark::stack_marked(ctx, *stack_id).unwrap_or_default();
+        let mut mark = if marked {
+            Some("◀ Marked ▶".red().bold())
+        } else {
+            None
+        };
         let mut second_consecutive = false;
         let mut stacked = false;
         for branch in stack.branch_details.iter() {
@@ -54,13 +60,15 @@ pub(crate) fn commit_graph(repo_path: &Path, json: bool, short: bool) -> anyhow:
                 .underline()
                 .blue();
             println!(
-                "{}{}{} [{}] {}",
+                "{}{}{} [{}] {} {}",
                 "│ ".repeat(nesting),
                 extra_space,
                 line,
                 branch.name.to_string().green().bold(),
-                id
+                id,
+                mark.clone().unwrap_or_default()
             );
+            mark = None; // show this on the first branch in the stack
             for (j, commit) in branch.upstream_commits.iter().enumerate() {
                 let time_string = chrono::DateTime::from_timestamp_millis(commit.created_at as i64)
                     .ok_or(anyhow::anyhow!("Could not parse timestamp"))?

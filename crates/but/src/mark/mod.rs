@@ -4,6 +4,7 @@ use crate::rub::branch_name_to_stack_id;
 use anyhow::bail;
 use but_rules::Operation;
 use but_settings::AppSettings;
+use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 pub(crate) fn handle(
@@ -45,6 +46,7 @@ fn mark_branch(ctx: &mut CommandContext, branch_name: String, delete: bool) -> a
         println!("Mark was removed");
         return Ok(());
     }
+    // TODO: if there are other marks of this kind, get rid of them
     let stack_id = stack_id.expect("Cant find stack for this branch");
     let action = but_rules::Action::Explicit(Operation::Assign {
         target: but_rules::StackTarget::StackId(stack_id.to_string()),
@@ -59,4 +61,11 @@ fn mark_branch(ctx: &mut CommandContext, branch_name: String, delete: bool) -> a
     but_rules::create_rule(ctx, req)?;
     println!("Changes will be assigned to → {}", branch_name);
     Ok(())
+}
+
+pub(crate) fn stack_marked(ctx: &mut CommandContext, stack_id: StackId) -> anyhow::Result<bool> {
+    let rules = but_rules::list_rules(ctx)?
+        .iter()
+        .any(|r| r.target_stack_id() == Some(stack_id.to_string()));
+    Ok(rules)
 }
