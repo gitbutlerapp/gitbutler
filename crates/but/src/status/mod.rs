@@ -12,8 +12,9 @@ use std::path::Path;
 pub(crate) mod assignment;
 
 use crate::id::CliId;
+use gitbutler_oxidize::gix_to_git2_oid;
 
-pub(crate) fn worktree(repo_path: &Path, json: bool, show_base: bool) -> anyhow::Result<()> {
+pub(crate) fn worktree(repo_path: &Path, json: bool, show_base: bool, show_files: bool) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
@@ -54,7 +55,7 @@ pub(crate) fn worktree(repo_path: &Path, json: bool, show_base: bool) -> anyhow:
     // Handle JSON output
     if json {
         let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
-        return output_json(&stacks, &assignments_by_file, &unassigned, &changes, show_base, ctx);
+        return output_json(&stacks, &assignments_by_file, &unassigned, &changes, show_base, show_files, ctx);
     }
 
     // Print base information only if requested
@@ -65,7 +66,7 @@ pub(crate) fn worktree(repo_path: &Path, json: bool, show_base: bool) -> anyhow:
 
     // Print branches with commits and assigned files
     if !stacks.is_empty() {
-        print_branch_sections(&stacks, &assignments_by_file, &changes, &project)?;
+        print_branch_sections(&stacks, &assignments_by_file, &changes, &project, show_files, ctx)?;
     }
 
     // Print unassigned files
@@ -100,6 +101,53 @@ pub(crate) fn all_branches(ctx: &CommandContext) -> anyhow::Result<Vec<CliId>> {
         }
     }
     Ok(branches)
+}
+
+fn get_commit_files(ctx: &CommandContext, commit_id: gix::ObjectId) -> anyhow::Result<Vec<(String, String)>> {
+    let repo = ctx.repo();
+    let git2_oid = gix_to_git2_oid(commit_id);
+    let commit = repo.find_commit(git2_oid)?;
+    
+    // Get the commit's tree and parent's tree for comparison
+    let commit_tree = commit.tree()?;
+    
+    // If this is the first commit, compare against empty tree
+    let parent_tree = if commit.parent_count() == 0 {
+        None
+    } else {
+        Some(commit.parent(0)?.tree()?)
+    };
+    
+    let mut files = Vec::new();
+    
+    // Create a diff between parent and current commit
+    let diff = if let Some(parent_tree) = parent_tree {
+        repo.diff_tree_to_tree(Some(&parent_tree), Some(&commit_tree), None)?
+    } else {
+        repo.diff_tree_to_tree(None, Some(&commit_tree), None)?
+    };
+    
+    // Collect file changes
+    diff.foreach(
+        &mut |delta, _progress| {
+            if let Some(path) = delta.new_file().path() {
+                let status = match delta.status() {
+                    git2::Delta::Added => "A",
+                    git2::Delta::Modified => "M", 
+                    git2::Delta::Deleted => "D",
+                    git2::Delta::Renamed => "R",
+                    _ => "M",
+                };
+                files.push((path.to_string_lossy().to_string(), status.to_string()));
+            }
+            true
+        },
+        None,
+        None,
+        None,
+    )?;
+    
+    Ok(files)
 }
 
 fn status_from_changes(changes: &[TreeChange], path: BString) -> Option<TreeStatus> {
@@ -140,6 +188,8 @@ fn print_branch_sections(
     assignments_by_file: &BTreeMap<BString, FileAssignment>,
     changes: &[TreeChange],
     project: &Project,
+    show_files: bool,
+    ctx: &CommandContext,
 ) -> anyhow::Result<()> {
     let nesting = 0;
 
@@ -213,6 +263,29 @@ fn print_branch_sections(
                         commit_short.blue(),
                         message_line
                     );
+                    
+                    // Show files modified in this commit if -f flag is used
+                    if show_files {
+                        if let Ok(commit_files) = get_commit_files(ctx, commit.id) {
+                            for (file_path, status) in commit_files {
+                                let file_id = CliId::file(&file_path).to_string().underline().blue();
+                                let status_char = match status.as_str() {
+                                    "A" => "A".green(),
+                                    "M" => "M".yellow(), 
+                                    "D" => "D".red(),
+                                    "R" => "R".purple(),
+                                    _ => "M".yellow(),
+                                };
+                                println!(
+                                    "{}│      {} {} {}",
+                                    prefix,
+                                    file_id,
+                                    status_char,
+                                    file_path.white()
+                                );
+                            }
+                        }
+                    }
                 }
 
                 // Show local commits
@@ -227,6 +300,29 @@ fn print_branch_sections(
                         commit_short.blue(),
                         message_line
                     );
+                    
+                    // Show files modified in this commit if -f flag is used
+                    if show_files {
+                        if let Ok(commit_files) = get_commit_files(ctx, commit.id) {
+                            for (file_path, status) in commit_files {
+                                let file_id = CliId::file(&file_path).to_string().underline().blue();
+                                let status_char = match status.as_str() {
+                                    "A" => "A".green(),
+                                    "M" => "M".yellow(), 
+                                    "D" => "D".red(),
+                                    "R" => "R".purple(),
+                                    _ => "M".yellow(),
+                                };
+                                println!(
+                                    "{}│      {} {} {}",
+                                    prefix,
+                                    file_id,
+                                    status_char,
+                                    file_path.white()
+                                );
+                            }
+                        }
+                    }
                 }
                 println!("{}│", prefix);
             }
@@ -304,6 +400,7 @@ fn output_json(
     unassigned: &[FileAssignment],
     changes: &[TreeChange],
     show_base: bool,
+    _show_files: bool,
     ctx: &CommandContext,
 ) -> anyhow::Result<()> {
     use serde_json::json;

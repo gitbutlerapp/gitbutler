@@ -28,6 +28,9 @@ pub enum Subcommands {
         /// Show base branch and behind count information
         #[clap(long, short = 'b')]
         base: bool,
+        /// Show modified files in each commit with shortcode IDs for rubbing
+        #[clap(long, short = 'f')]
+        files: bool,
     },
     /// Display configuration information about the GitButler repository.
     Config,
