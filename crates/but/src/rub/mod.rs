@@ -134,29 +134,8 @@ fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
     )
 }
 
-fn ids(ctx: &mut CommandContext, source: &str, target: &str) -> anyhow::Result<(CliId, CliId)> {
-    let source_result = crate::id::CliId::from_str(ctx, source)?;
-    if source_result.len() != 1 {
-        if source_result.is_empty() {
-            return Err(anyhow::anyhow!(
-                "Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.", 
-                source
-            ));
-        } else {
-            let matches: Vec<String> = source_result.iter().map(|id| {
-                match id {
-                    CliId::Commit { oid } => format!("{} (commit {})", id.to_string(), &oid.to_string()[..7]),
-                    CliId::Branch { name } => format!("{} (branch '{}')", id.to_string(), name),
-                    _ => format!("{} ({})", id.to_string(), id.kind())
-                }
-            }).collect();
-            return Err(anyhow::anyhow!(
-                "Source '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",
-                source,
-                matches.join(", ")
-            ));
-        }
-    }
+fn ids(ctx: &mut CommandContext, source: &str, target: &str) -> anyhow::Result<(Vec<CliId>, CliId)> {
+    let sources = parse_sources(ctx, source)?;
     let target_result = crate::id::CliId::from_str(ctx, target)?;
     if target_result.len() != 1 {
         if target_result.is_empty() {
@@ -179,7 +158,124 @@ fn ids(ctx: &mut CommandContext, source: &str, target: &str) -> anyhow::Result<(
             ));
         }
     }
-    Ok((source_result[0].clone(), target_result[0].clone()))
+    Ok((sources, target_result[0].clone()))
+}
+
+fn parse_sources(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
+    // Check if it's a range (contains '-')
+    if source.contains('-') {
+        parse_range(ctx, source)
+    }
+    // Check if it's a list (contains ',')
+    else if source.contains(',') {
+        parse_list(ctx, source)
+    }
+    // Single source
+    else {
+        let source_result = crate::id::CliId::from_str(ctx, source)?;
+        if source_result.len() != 1 {
+            if source_result.is_empty() {
+                return Err(anyhow::anyhow!(
+                    "Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.", 
+                    source
+                ));
+            } else {
+                let matches: Vec<String> = source_result.iter().map(|id| {
+                    match id {
+                        CliId::Commit { oid } => format!("{} (commit {})", id.to_string(), &oid.to_string()[..7]),
+                        CliId::Branch { name } => format!("{} (branch '{}')", id.to_string(), name),
+                        _ => format!("{} ({})", id.to_string(), id.kind())
+                    }
+                }).collect();
+                return Err(anyhow::anyhow!(
+                    "Source '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",
+                    source,
+                    matches.join(", ")
+                ));
+            }
+        }
+        Ok(vec![source_result[0].clone()])
+    }
+}
+
+fn parse_range(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
+    let parts: Vec<&str> = source.split('-').collect();
+    if parts.len() != 2 {
+        return Err(anyhow::anyhow!("Range format should be 'start-end', got '{}'", source));
+    }
+
+    let start_str = parts[0];
+    let end_str = parts[1];
+
+    // Get the start and end IDs
+    let start_matches = crate::id::CliId::from_str(ctx, start_str)?;
+    let end_matches = crate::id::CliId::from_str(ctx, end_str)?;
+
+    if start_matches.len() != 1 {
+        return Err(anyhow::anyhow!("Start of range '{}' must match exactly one item", start_str));
+    }
+    if end_matches.len() != 1 {
+        return Err(anyhow::anyhow!("End of range '{}' must match exactly one item", end_str));
+    }
+
+    let start_id = &start_matches[0];
+    let end_id = &end_matches[0];
+
+    // Get all files from status to find the range
+    let all_files = crate::status::all_files(ctx)?;
+    
+    // Find the positions of start and end in the file list
+    let start_pos = all_files.iter().position(|id| id == start_id);
+    let end_pos = all_files.iter().position(|id| id == end_id);
+
+    if let (Some(start_idx), Some(end_idx)) = (start_pos, end_pos) {
+        if start_idx <= end_idx {
+            return Ok(all_files[start_idx..=end_idx].to_vec());
+        } else {
+            return Ok(all_files[end_idx..=start_idx].to_vec());
+        }
+    }
+
+    // If not found in files, try committed files
+    let all_committed_files = crate::status::all_committed_files(ctx)?;
+    let start_pos = all_committed_files.iter().position(|id| id == start_id);
+    let end_pos = all_committed_files.iter().position(|id| id == end_id);
+
+    if let (Some(start_idx), Some(end_idx)) = (start_pos, end_pos) {
+        if start_idx <= end_idx {
+            return Ok(all_committed_files[start_idx..=end_idx].to_vec());
+        } else {
+            return Ok(all_committed_files[end_idx..=start_idx].to_vec());
+        }
+    }
+
+    Err(anyhow::anyhow!("Could not find range from '{}' to '{}' in the same file list", start_str, end_str))
+}
+
+fn parse_list(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
+    let parts: Vec<&str> = source.split(',').collect();
+    let mut result = Vec::new();
+
+    for part in parts {
+        let part = part.trim();
+        let matches = crate::id::CliId::from_str(ctx, part)?;
+        if matches.len() != 1 {
+            if matches.is_empty() {
+                return Err(anyhow::anyhow!(
+                    "Item '{}' in list not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.", 
+                    part
+                ));
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Item '{}' in list is ambiguous. Try using more characters to disambiguate.", 
+                    part
+                ));
+            }
+        }
+        result.push(matches[0].clone());
+    }
+
+    Ok(result)
 }
 
 fn create_snapshot(ctx: &mut CommandContext, project: &Project, operation: OperationKind) {
