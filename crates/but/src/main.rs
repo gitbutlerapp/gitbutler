@@ -15,6 +15,7 @@ mod log;
 mod mcp;
 mod mcp_internal;
 mod metrics;
+mod new;
 mod oplog;
 mod rub;
 mod status;
@@ -117,6 +118,11 @@ async fn main() -> Result<()> {
                 stack.as_deref(),
             );
             metrics_if_configured(app_settings, CommandName::Commit, props(start, &result)).ok();
+            result
+        }
+        Subcommands::New { target } => {
+            let result = new::insert_blank_commit(&args.current_dir, args.json, target);
+            metrics_if_configured(app_settings, CommandName::New, props(start, &result)).ok();
             result
         }
         Subcommands::Branch { cmd } => match cmd {

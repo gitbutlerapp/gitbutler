@@ -45,6 +45,12 @@ pub enum Subcommands {
         stack: Option<String>,
     },
 
+    /// Insert a blank commit before the specified commit, or at the top of a stack.
+    New {
+        /// Commit ID to insert before, or branch ID to insert at top of stack
+        target: String,
+    },
+
     /// Branch management operations.
     Branch {
         #[clap(subcommand)]
@@ -121,6 +127,8 @@ pub enum CommandName {
     Undo,
     #[clap(alias = "commit")]
     Commit,
+    #[clap(alias = "new")]
+    New,
     #[clap(alias = "rub")]
     Rub,
     #[clap(
