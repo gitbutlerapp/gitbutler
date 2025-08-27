@@ -25,7 +25,7 @@ import {
 } from '$lib/dragging/stackingReorderDropzoneManager';
 import FeedFactory, { FEED_FACTORY } from '$lib/feed/feed';
 import { FILE_SERVICE, FileService } from '$lib/files/fileService';
-import { FOCUS_MANAGER, FocusManager } from '$lib/focus/focusManager.svelte';
+import { FOCUS_MANAGER, FocusManager } from '$lib/focus/focusManager';
 import { DefaultForgeFactory, DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 import { GITHUB_CLIENT, GitHubClient } from '$lib/forge/github/githubClient';
 import { GitHubUserService, GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';

@@ -41,7 +41,6 @@
 			{#snippet children(changes)}
 				<ChangedFiles
 					title="Changed files"
-					active
 					autoselect
 					grow
 					{projectId}

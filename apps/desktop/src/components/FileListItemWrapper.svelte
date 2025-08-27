@@ -7,6 +7,8 @@
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import { getFilename } from '$lib/files/utils';
+	import { type FocusableOptions } from '$lib/focus/focusManager';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { type TreeChange } from '$lib/hunks/change';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
@@ -33,6 +35,7 @@
 		linesRemoved?: number;
 		depth?: number;
 		executable?: boolean;
+		focusableOpts?: FocusableOptions<any>;
 		showCheckbox?: boolean;
 		draggable?: boolean;
 		transparent?: boolean;
@@ -61,6 +64,7 @@
 		conflictEntries,
 		draggable,
 		transparent,
+		focusableOpts,
 		onclick,
 		onkeydown,
 		onCloseClick,
@@ -205,6 +209,8 @@
 			{onclick}
 			oncheck={(e) => onCheck(e.currentTarget.checked)}
 			oncontextmenu={onContextMenu}
+			action={focusable}
+			actionOpts={focusableOpts}
 		/>
 	{/if}
 </div>

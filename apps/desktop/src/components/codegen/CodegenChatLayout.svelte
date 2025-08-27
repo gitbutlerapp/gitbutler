@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { Icon } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 
@@ -14,7 +15,7 @@
 	const { branchName, workspaceActions, contextActions, messages, input }: Props = $props();
 </script>
 
-<div class="chat">
+<div class="chat" use:focusable={{ list: true }}>
 	<div class="chat-header">
 		<div class="chat-header-section">
 			<div class="flex gap-8 items-center">

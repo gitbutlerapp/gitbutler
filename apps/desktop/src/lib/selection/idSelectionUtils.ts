@@ -188,7 +188,7 @@ export function updateSelection({
 }
 
 export function selectFilesInList(
-	e: MouseEvent,
+	e: MouseEvent | KeyboardEvent,
 	change: TreeChange,
 	sortedFiles: TreeChange[],
 	idSelection: IdSelection,

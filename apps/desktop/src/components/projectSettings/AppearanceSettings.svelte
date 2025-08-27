@@ -5,6 +5,7 @@
 		stagingBehaviorFeature,
 		type StagingBehavior
 	} from '$lib/config/uiFeatureFlags';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { SETTINGS, type ScrollbarVisilitySettings } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/shared/context';
 	import {
@@ -50,14 +51,14 @@
 	}
 </script>
 
-<SectionCard>
+<SectionCard {focusable}>
 	{#snippet title()}
 		Theme
 	{/snippet}
 	<ThemeSelector {userSettings} />
 </SectionCard>
 <div class="stack-v">
-	<SectionCard centerAlign roundedBottom={false}>
+	<SectionCard centerAlign roundedBottom={false} {focusable}>
 		{#snippet title()}
 			Diff preview
 		{/snippet}
@@ -74,7 +75,7 @@
 		/>
 	</SectionCard>
 
-	<SectionCard orientation="column" roundedTop={false} roundedBottom={false}>
+	<SectionCard orientation="column" roundedTop={false} roundedBottom={false} {focusable}>
 		{#snippet title()}
 			Font family
 		{/snippet}
@@ -101,6 +102,7 @@
 		orientation="row"
 		roundedTop={false}
 		roundedBottom={false}
+		{focusable}
 	>
 		{#snippet title()}
 			Allow font ligatures
@@ -119,7 +121,7 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard orientation="row" centerAlign roundedTop={false} roundedBottom={false}>
+	<SectionCard orientation="row" centerAlign roundedTop={false} roundedBottom={false} {focusable}>
 		{#snippet title()}
 			Tab size
 		{/snippet}
@@ -147,7 +149,13 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard labelFor="wrapText" orientation="row" roundedTop={false} roundedBottom={false}>
+	<SectionCard
+		labelFor="wrapText"
+		orientation="row"
+		roundedTop={false}
+		roundedBottom={false}
+		{focusable}
+	>
 		{#snippet title()}
 			Soft wrap
 		{/snippet}
@@ -169,7 +177,7 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard orientation="row" roundedTop={false} roundedBottom={false}>
+	<SectionCard orientation="row" roundedTop={false} roundedBottom={false} {focusable}>
 		{#snippet title()}
 			Lines contrast
 		{/snippet}
@@ -201,7 +209,7 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard labelFor="inlineUnifiedDiffs" orientation="row" roundedTop={false}>
+	<SectionCard labelFor="inlineUnifiedDiffs" orientation="row" roundedTop={false} {focusable}>
 		{#snippet title()}
 			Display word diffs inline
 		{/snippet}
@@ -225,7 +233,7 @@
 </div>
 
 <form class="stack-v" onchange={(e) => onScrollbarFormChange(e.currentTarget)}>
-	<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll">
+	<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll" {focusable}>
 		{#snippet title()}
 			Scrollbar-On-Scroll
 		{/snippet}
@@ -247,6 +255,7 @@
 		roundedBottom={false}
 		orientation="row"
 		labelFor="scrollbar-on-hover"
+		{focusable}
 	>
 		{#snippet title()}
 			Scrollbar-On-Hover
@@ -264,7 +273,7 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard roundedTop={false} orientation="row" labelFor="scrollbar-always">
+	<SectionCard roundedTop={false} orientation="row" labelFor="scrollbar-always" {focusable}>
 		{#snippet title()}
 			Always show scrollbar
 		{/snippet}
@@ -279,7 +288,7 @@
 	</SectionCard>
 </form>
 
-<SectionCard labelFor="branchLaneContents" orientation="row">
+<SectionCard labelFor="branchLaneContents" orientation="row" {focusable}>
 	{#snippet title()}
 		Auto-select text on branch/lane rename
 	{/snippet}
@@ -296,7 +305,7 @@
 </SectionCard>
 
 <form class="stack-v" onchange={(e) => onStagingBehaviorFormChange(e.currentTarget)}>
-	<SectionCard roundedBottom={false} orientation="row" labelFor="stage-all">
+	<SectionCard roundedBottom={false} orientation="row" labelFor="stage-all" {focusable}>
 		{#snippet title()}
 			Stage all files
 		{/snippet}
@@ -319,6 +328,7 @@
 		roundedBottom={false}
 		orientation="row"
 		labelFor="stage-selection"
+		{focusable}
 	>
 		{#snippet title()}
 			Stage selected files
@@ -339,7 +349,7 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard roundedTop={false} orientation="row" labelFor="stage-none">
+	<SectionCard roundedTop={false} orientation="row" labelFor="stage-none" {focusable}>
 		{#snippet title()}
 			Don't stage files automatically
 		{/snippet}

@@ -23,7 +23,6 @@
 	type Props = {
 		projectId: string;
 		stackId?: string;
-		active: boolean;
 		title: string;
 		mode?: 'unassigned' | 'assigned';
 		dropzoneVisible?: boolean;
@@ -37,7 +36,6 @@
 
 	let {
 		projectId,
-		active,
 		stackId,
 		title,
 		mode = 'unassigned',
@@ -106,7 +104,6 @@
 			changes={changes.current}
 			{projectId}
 			{listMode}
-			{active}
 			{stackId}
 			hideLastFileBorder={mode !== 'unassigned'}
 			{onselect}

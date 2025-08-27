@@ -4,6 +4,7 @@
 	import Section from '$components/Section.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, SectionCard, Spacer, Toggle } from '@gitbutler/ui';
@@ -32,7 +33,7 @@
 	{/if}
 
 	<div class="options">
-		<SectionCard labelFor="aiGenEnabled" orientation="row">
+		<SectionCard labelFor="aiGenEnabled" orientation="row" {focusable}>
 			{#snippet title()}
 				Enable branch and commit message generation
 			{/snippet}
@@ -54,7 +55,7 @@
 
 	{#if $aiGenEnabled}
 		<div class="options">
-			<SectionCard labelFor="aiExperimental" orientation="row">
+			<SectionCard labelFor="aiExperimental" orientation="row" {focusable}>
 				{#snippet title()}
 					Enable experimental AI features
 				{/snippet}
@@ -75,7 +76,7 @@
 		</div>
 	{/if}
 
-	<SectionCard>
+	<SectionCard {focusable}>
 		{#snippet title()}
 			Custom prompts
 		{/snippet}

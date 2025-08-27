@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Dropzone from '$components/Dropzone.svelte';
 	import MultiStackCreateNew from '$components/MultiStackCreateNew.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { OutsideLaneDzHandler } from '$lib/stacks/dropHandler';
@@ -31,6 +32,7 @@
 
 <div
 	class="hidden-dropzone"
+	use:focusable
 	use:intersectionObserver={{
 		callback: (entry) => {
 			if (entry?.isIntersecting) {

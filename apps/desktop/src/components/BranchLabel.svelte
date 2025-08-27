@@ -60,9 +60,10 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter' || e.key === 'Escape' || e.key === 'Tab') {
+		if (e.key === 'Enter' || e.key === 'Escape') {
 			inputEl?.blur();
 		}
+		e.stopPropagation();
 	}
 
 	function handleDoubleClick(e: MouseEvent) {

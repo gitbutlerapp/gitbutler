@@ -12,7 +12,6 @@
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
-	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import {
@@ -360,7 +359,6 @@
 {/snippet}
 
 {#snippet commitChangedFiles(commitId: string)}
-	{@const active = activeSelectionId?.type === 'commit' && focusedStackId === stackId}
 	{@const changesResult = stackService.commitChanges(projectId, commitId)}
 	<ReduxResult {projectId} {stackId} result={changesResult.current}>
 		{#snippet children(changes, { projectId, stackId })}
@@ -386,7 +384,6 @@
 				stats={changes.stats}
 				conflictEntries={changes.conflictEntries}
 				{ancestorMostConflictedCommitId}
-				{active}
 				resizer={{
 					persistId: `changed-files-${stackId}`,
 					direction: 'down',
@@ -401,7 +398,6 @@
 {/snippet}
 
 {#snippet branchChangedFiles(branchName: string)}
-	{@const active = activeSelectionId?.type === 'branch' && focusedStackId === stackId}
 	{@const changesResult = stackService.branchChanges({
 		projectId,
 		stackId: stackId,
@@ -422,7 +418,6 @@
 				}}
 				changes={changes.changes}
 				stats={changes.stats}
-				{active}
 				resizer={{
 					persistId: `changed-files-${stackId}`,
 					direction: 'down',
@@ -430,7 +425,7 @@
 					maxHeight: 32,
 					defaultValue: 16
 				}}
-			></ChangedFiles>
+			/>
 		{/snippet}
 	</ReduxResult>
 {/snippet}
@@ -454,10 +449,6 @@
 			threshold: 0.5,
 			root: lanesSrollableEl
 		}
-	}}
-	use:focusable={{
-		id: DefinedFocusable.Stack + ':' + stackId,
-		parentId: DefinedFocusable.ViewportMiddle
 	}}
 >
 	{#if !isCommitting}
@@ -493,7 +484,6 @@
 									{projectId}
 									{stackId}
 									mode="assigned"
-									active={focusedStackId === stackId}
 									dropzoneVisible={changes.current.length === 0 && !isCommitting}
 									onDropzoneActivated={(activated) => {
 										dropzoneActivated = activated;
@@ -581,59 +571,62 @@
 			bind:this={compactDiv}
 			data-details={stackId}
 			style:right="{DETAILS_RIGHT_PADDING_REM}rem"
+			use:focusable={{ list: true }}
 		>
-			<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
-			{#if branchName && commitId}
-				{@render commitView(branchName, commitId)}
-			{:else if branchName}
-				{@render branchView(branchName)}
-			{/if}
+			<div class="inner">
+				<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
+				{#if branchName && commitId}
+					{@render commitView(branchName, commitId)}
+				{:else if branchName}
+					{@render branchView(branchName)}
+				{/if}
 
-			<!-- MIDDLE SECTION: Changed Files (with resizer) -->
-			{#if branchName && commitId}
-				{@render commitChangedFiles(commitId)}
-			{:else if branchName}
-				{@render branchChangedFiles(branchName)}
-			{/if}
+				<!-- MIDDLE SECTION: Changed Files (with resizer) -->
+				{#if branchName && commitId}
+					{@render commitChangedFiles(commitId)}
+				{:else if branchName}
+					{@render branchChangedFiles(branchName)}
+				{/if}
 
-			<!-- BOTTOM SECTION: File Preview (no resizer) -->
-			{#if assignedStackId || selectedFile}
-				<ReduxResult {projectId} result={previewChangeResult?.current}>
-					{#snippet children(previewChange)}
-						{@const diffResult = diffService.getDiff(projectId, previewChange)}
-						{@const diffData = diffResult.current.data}
+				<!-- BOTTOM SECTION: File Preview (no resizer) -->
+				{#if assignedStackId || selectedFile}
+					<ReduxResult {projectId} result={previewChangeResult?.current}>
+						{#snippet children(previewChange)}
+							{@const diffResult = diffService.getDiff(projectId, previewChange)}
+							{@const diffData = diffResult.current.data}
 
-						<div class="file-preview-section">
-							{#if assignedStackId}
-								<ConfigurableScrollableContainer
-									zIndex="var(--z-lifted)"
-									bind:viewport={selectionPreviewScrollContainer}
-								>
-									{@render assignedChangePreview(assignedStackId)}
-								</ConfigurableScrollableContainer>
-							{:else if selectedFile}
-								<Drawer>
-									{#snippet header()}
-										<FileViewHeader
-											noPaddings
-											transparent
-											filePath={previewChange.path}
-											fileStatus={computeChangeStatus(previewChange)}
-											linesAdded={diffData?.type === 'Patch'
-												? diffData.subject.linesAdded
-												: undefined}
-											linesRemoved={diffData?.type === 'Patch'
-												? diffData.subject.linesRemoved
-												: undefined}
-										/>
-									{/snippet}
-									{@render otherChangePreview(selectedFile)}
-								</Drawer>
-							{/if}
-						</div>
-					{/snippet}
-				</ReduxResult>
-			{/if}
+							<div class="file-preview-section">
+								{#if assignedStackId}
+									<ConfigurableScrollableContainer
+										zIndex="var(--z-lifted)"
+										bind:viewport={selectionPreviewScrollContainer}
+									>
+										{@render assignedChangePreview(assignedStackId)}
+									</ConfigurableScrollableContainer>
+								{:else if selectedFile}
+									<Drawer>
+										{#snippet header()}
+											<FileViewHeader
+												noPaddings
+												transparent
+												filePath={previewChange.path}
+												fileStatus={computeChangeStatus(previewChange)}
+												linesAdded={diffData?.type === 'Patch'
+													? diffData.subject.linesAdded
+													: undefined}
+												linesRemoved={diffData?.type === 'Patch'
+													? diffData.subject.linesRemoved
+													: undefined}
+											/>
+										{/snippet}
+										{@render otherChangePreview(selectedFile)}
+									</Drawer>
+								{/if}
+							</div>
+						{/snippet}
+					</ReduxResult>
+				{/if}
+			</div>
 		</div>
 
 		<!-- DETAILS VIEW WIDTH RESIZER - Only show when details view is open -->
@@ -674,7 +667,6 @@
 		position: relative;
 		flex-shrink: 0;
 		flex-direction: column;
-		height: 100%;
 		padding: 0 12px;
 
 		/* Use CSS custom properties for details view width to avoid ResizeObserver errors */
@@ -745,6 +737,10 @@
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
 		box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
+	}
+
+	.inner {
+		position: relative;
 	}
 
 	:global(.dark) .details-view {

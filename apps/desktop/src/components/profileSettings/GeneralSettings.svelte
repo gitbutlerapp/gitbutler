@@ -5,6 +5,7 @@
 	import CliSymLink from '$components/profileSettings/CliSymLink.svelte';
 	import { CLI_MANAGER } from '$lib/cli/cli';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { SETTINGS, type CodeEditorSettings } from '$lib/settings/userSettings';
@@ -143,7 +144,7 @@
 </script>
 
 {#if $user}
-	<SectionCard>
+	<SectionCard {focusable}>
 		<form onsubmit={onSubmit} class="profile-form">
 			<label id="profile-picture" class="profile-pic-wrapper focus-state" for="picture">
 				<input
@@ -177,7 +178,7 @@
 {/if}
 <Spacer />
 
-<SectionCard orientation="row" centerAlign>
+<SectionCard orientation="row" centerAlign {focusable}>
 	{#snippet title()}
 		Default code editor
 	{/snippet}
@@ -204,7 +205,7 @@
 	{/snippet}
 </SectionCard>
 
-<SectionCard labelFor="disable-auto-checks" orientation="row">
+<SectionCard labelFor="disable-auto-checks" orientation="row" {focusable}>
 	{#snippet title()}
 		Automatically check for updates
 	{/snippet}
@@ -222,7 +223,7 @@
 	{/snippet}
 </SectionCard>
 
-<SectionCard orientation="column">
+<SectionCard orientation="column" {focusable}>
 	{#snippet title()}
 		Install the GitButler CLI (but)
 	{/snippet}
@@ -259,7 +260,7 @@
 <Spacer />
 
 {#if $user}
-	<SectionCard orientation="row">
+	<SectionCard orientation="row" {focusable}>
 		{#snippet title()}
 			Signing out
 		{/snippet}
@@ -271,7 +272,7 @@
 	</SectionCard>
 {/if}
 
-<SectionCard orientation="row">
+<SectionCard orientation="row" {focusable}>
 	{#snippet title()}
 		Remove all projects
 	{/snippet}

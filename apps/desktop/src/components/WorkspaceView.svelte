@@ -8,22 +8,12 @@
 	import UnassignedView from '$components/UnassignedView.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import {
-		DefinedFocusable,
-		FOCUS_MANAGER,
-		parseFocusableId,
-		stackFocusableId,
-		uncommittedFocusableId
-	} from '$lib/focus/focusManager.svelte';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE, type ExclusiveAction } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { TestId } from '@gitbutler/ui';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import { setContext } from 'svelte';
-	import { writable } from 'svelte/store';
 
 	interface Props {
 		projectId: string;
@@ -34,7 +24,6 @@
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(ID_SELECTION);
-	const focusManager = inject(FOCUS_MANAGER);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 
@@ -48,41 +37,6 @@
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
 	const baseSha = $derived(baseBranchResult.current.data?.baseSha);
-
-	const snapshotFocusables = writable<string[]>([]);
-	setContext('snapshot-focusables', snapshotFocusables);
-
-	const stackFocusables = $derived(
-		stacksResult.current?.data
-			? stacksResult.current.data
-					.map((stack) => (stack.id ? stackFocusableId(stack.id) : undefined))
-					.filter(isDefined)
-			: []
-	);
-
-	const uncommittedFocusables = $derived(
-		stacksResult.current?.data
-			? stacksResult.current.data
-					.map((stack) => (stack.id ? uncommittedFocusableId(stack.id) : undefined))
-					.filter(isDefined)
-			: []
-	);
-
-	let focusGroup = $derived(
-		focusManager.radioGroup({
-			triggers: [
-				DefinedFocusable.ViewportLeft,
-				DefinedFocusable.Drawer,
-				...stackFocusables,
-				...$snapshotFocusables,
-				...uncommittedFocusables
-			]
-		})
-	);
-
-	const focusedStackId = $derived(
-		focusGroup.current ? parseFocusableId(focusGroup.current) : undefined
-	);
 
 	const lastAdded = $derived(worktreeSelection.lastAdded);
 	const previewOpen = $derived(!!$lastAdded?.key);
@@ -167,7 +121,7 @@
 	rightWidth={{ default: 320, min: 220 }}
 >
 	{#snippet left()}
-		<UnassignedView {projectId} focus={focusGroup.current as DefinedFocusable} />
+		<UnassignedView {projectId} />
 	{/snippet}
 	{#snippet middle()}
 		<ReduxResult {projectId} result={stacksResult?.current}>
@@ -175,7 +129,7 @@
 				<div class="stacks-view-skeleton"></div>
 			{/snippet}
 			{#snippet children(stacks, { projectId })}
-				<MultiStackView {projectId} {stacks} {selectionId} {focusedStackId} />
+				<MultiStackView {projectId} {stacks} {selectionId} />
 			{/snippet}
 		</ReduxResult>
 	{/snippet}

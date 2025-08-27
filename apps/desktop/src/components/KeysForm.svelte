@@ -4,6 +4,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Section from '$components/Section.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { type AuthKey, type KeyType } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -115,7 +116,12 @@
 						onFormChange(selectedType);
 					}}
 				>
-					<SectionCard roundedBottom={false} orientation="row" labelFor="git-executable">
+					<SectionCard
+						roundedBottom={false}
+						orientation="row"
+						labelFor="git-executable"
+						{focusable}
+					>
 						{#snippet title()}
 							Use a Git executable <span style="color: var(--clr-text-2)">(default)</span>
 						{/snippet}
@@ -137,6 +143,7 @@
 						bottomBorder={selectedType !== 'local'}
 						orientation="row"
 						labelFor="credential-local"
+						{focusable}
 					>
 						{#snippet title()}
 							Use existing SSH key
@@ -154,7 +161,13 @@
 					</SectionCard>
 
 					{#if selectedType === 'local'}
-						<SectionCard topDivider roundedTop={false} roundedBottom={false} orientation="row">
+						<SectionCard
+							topDivider
+							roundedTop={false}
+							roundedBottom={false}
+							orientation="row"
+							{focusable}
+						>
 							<div class="inputs-group">
 								<Textbox
 									label="Path to private key"
@@ -173,6 +186,7 @@
 						roundedBottom={false}
 						orientation="row"
 						labelFor="credential-helper"
+						{focusable}
 					>
 						{#snippet title()}
 							Use a Git credentials helper
@@ -200,7 +214,7 @@
 						{/snippet}
 					</SectionCard>
 
-					<SectionCard roundedTop={false} orientation="row">
+					<SectionCard roundedTop={false} orientation="row" {focusable}>
 						<CredentialCheck
 							bind:this={credentialCheck}
 							disabled={selectedType === 'local' && privateKeyPath.trim() === ''}

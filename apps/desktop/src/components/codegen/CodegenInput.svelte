@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { Button, Textarea } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 
@@ -26,7 +27,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="input" onkeypress={handleKeypress}>
+<div class="input" onkeypress={handleKeypress} use:focusable>
 	<Textarea
 		bind:value
 		placeholder="What would you like to make..."

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 	import { SectionCard, Spacer, Textarea, Textbox, Toggle } from '@gitbutler/ui';
@@ -13,7 +14,7 @@
 	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
 </script>
 
-<SectionCard>
+<SectionCard {focusable}>
 	<ReduxResult {projectId} result={projectResult.current}>
 		{#snippet children(project)}
 			<form>
@@ -50,7 +51,7 @@
 
 <Spacer />
 
-<SectionCard labelFor="runHooks" orientation="row">
+<SectionCard labelFor="runHooks" orientation="row" {focusable}>
 	{#snippet title()}
 		Run commit hooks
 	{/snippet}

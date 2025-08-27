@@ -9,6 +9,7 @@
 	import SelectionView from '$components/SelectionView.svelte';
 	import SnapshotCard from '$components/SnapshotCard.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { HISTORY_SERVICE, createdOnDay } from '$lib/history/history';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { createSnapshotSelection, type SelectionId } from '$lib/selection/key';
@@ -181,7 +182,7 @@
 
 <div class="history-view">
 	<div class="relative overflow-hidden radius-ml">
-		<div bind:this={sidebarEl} class="history-view__snapshots">
+		<div bind:this={sidebarEl} class="history-view__snapshots" use:focusable={{ list: true }}>
 			<div class="history-view__snapshots-header">
 				<h3 class="history-view__snapshots-header-title text-15 text-bold">Operations history</h3>
 			</div>
@@ -197,7 +198,7 @@
 		/>
 	</div>
 
-	<div class="history-view__preview dotted-pattern">
+	<div class="history-view__preview dotted-pattern" use:focusable>
 		{#if selectedFile}
 			<div class="history-view__preview-file">
 				<ConfigurableScrollableContainer bind:viewport={scrollContainer}>

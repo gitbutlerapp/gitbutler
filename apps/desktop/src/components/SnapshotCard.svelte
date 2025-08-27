@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { createdOnDay, HISTORY_SERVICE } from '$lib/history/history';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { toHumanReadableTime } from '$lib/utils/time';
@@ -177,6 +178,9 @@
 <div
 	class="snapshot-card show-restore-on-hover"
 	class:restored-snapshot={isRestoreSnapshot || isWithinRestore}
+	use:focusable={{
+		list: true
+	}}
 >
 	<div class="snapshot-right-container">
 		<div class="restore-btn">
@@ -224,13 +228,26 @@
 					<SnapshotAttachment foldable={files.length > 2} foldedAmount={files.length}>
 						<div class="files-attacment">
 							{#each files as file, idx}
-								<FileListItem
-									listMode="list"
-									filePath={file.path}
-									onclick={() => onDiffClick(file.path)}
-									selected={selectedFile?.path === file.path && selectedFile?.entryId === entry.id}
-									hideBorder={idx === files.length - 1}
-								/>
+								<div
+									use:focusable={{
+										onKeydown: (e) => {
+											if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
+												onDiffClick(file.path);
+												e.stopPropagation();
+												return true;
+											}
+										}
+									}}
+								>
+									<FileListItem
+										listMode="list"
+										filePath={file.path}
+										onclick={() => onDiffClick(file.path)}
+										selected={selectedFile?.path === file.path &&
+											selectedFile?.entryId === entry.id}
+										hideBorder={idx === files.length - 1}
+									/>
+								</div>
 							{/each}
 						</div>
 					</SnapshotAttachment>

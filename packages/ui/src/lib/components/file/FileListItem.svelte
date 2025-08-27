@@ -9,6 +9,7 @@
 	import FileName from '$components/file/FileName.svelte';
 	import FileStatusBadge from '$components/file/FileStatusBadge.svelte';
 	import type { FileStatus } from '$components/file/types';
+	import type { Action } from 'svelte/action';
 
 	interface Props {
 		ref?: HTMLDivElement;
@@ -44,6 +45,8 @@
 		onresolveclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		oncontextmenu?: (e: MouseEvent) => void;
+		action?: Action<HTMLDivElement, any>;
+		actionOpts?: unknown;
 	}
 
 	let {
@@ -69,6 +72,8 @@
 		listMode = 'list',
 		depth,
 		executable,
+		action,
+		actionOpts,
 		oncheck,
 		oncheckclick,
 		onclick,
@@ -79,6 +84,7 @@
 	}: Props = $props();
 
 	const showIndent = $derived(depth && depth > 0);
+	const action2 = action || (() => ({}));
 </script>
 
 <div
@@ -95,10 +101,11 @@
 	class:list-mode={listMode === 'list'}
 	aria-selected={selected}
 	role="option"
-	tabindex="-1"
+	tabindex="0"
 	{onclick}
 	{ondblclick}
 	{onkeydown}
+	use:action2={actionOpts}
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
 			e.preventDefault();

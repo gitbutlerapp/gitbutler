@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -12,7 +13,22 @@
 	const { content, details, selected, onclick, testId }: Props = $props();
 </script>
 
-<div data-testid={testId} role="presentation" {onclick} class="branches-list-card" class:selected>
+<div
+	data-testid={testId}
+	role="presentation"
+	{onclick}
+	class="branches-list-card"
+	class:selected
+	use:focusable={{
+		onKeydown: (e) => {
+			if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
+				onclick?.();
+				e.stopPropagation();
+				return true;
+			}
+		}
+	}}
+>
 	<div class="branches-list-card__content">
 		{@render content()}
 	</div>

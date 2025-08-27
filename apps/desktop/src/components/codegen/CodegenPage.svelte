@@ -21,6 +21,7 @@
 	} from '$lib/codegen/messages';
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -131,7 +132,7 @@
 	let rightSidebarRef = $state<HTMLDivElement>();
 </script>
 
-<div class="page">
+<div class="page" use:focusable>
 	<ReduxResult result={claudeAvailable.current} {projectId}>
 		{#snippet children(claudeAvailable, { projectId })}
 			{#if claudeAvailable}

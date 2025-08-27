@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { URL_SERVICE } from '$lib/utils/url';
@@ -77,7 +78,7 @@
 {#if minimal}
 	<Button style="pop" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 {:else}
-	<SectionCard orientation="row">
+	<SectionCard orientation="row" {focusable}>
 		{#snippet iconSide()}
 			<div class="icon-wrapper">
 				{#if $user?.github_access_token}
