@@ -107,7 +107,7 @@ on fetching and pushing for ways to resolve the problem.
 	}
 }
 
-export type SeriesIntegrationStrategy = 'merge' | 'rebase' | 'hardreset';
+export type SeriesIntegrationStrategy = 'merge' | 'rebase';
 
 export interface BranchPushResult {
 	/**
