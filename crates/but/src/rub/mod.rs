@@ -8,10 +8,11 @@ use gitbutler_project::Project;
 use gitbutler_oplog::{OplogExt, entry::{OperationKind, SnapshotDetails}};
 mod amend;
 mod assign;
+mod commits;
 mod move_commit;
 mod squash;
-mod undo;
 mod uncommit;
+mod undo;
 
 use crate::id::CliId;
 
@@ -58,12 +59,20 @@ pub(crate) fn handle(
                 uncommit::file_from_commit(ctx, path, commit_oid)?;
             }
             (CliId::CommittedFile { .. }, CliId::Branch { .. }) => {
-                // Extract file from commit to branch - for now, not implemented  
-                bail!("Extracting files from commits is not yet supported. Use git commands to extract file changes.")
+                // Extract file from commit to branch - for now, not implemented
+                bail!(
+                    "Extracting files from commits is not yet supported. Use git commands to extract file changes."
+                )
             }
-            (CliId::CommittedFile { .. }, CliId::Commit { .. }) => {
-                // Move file from one commit to another - for now, not implemented
-                bail!("Moving files between commits is not yet supported. Use git commands to modify commits.")
+            (
+                CliId::CommittedFile {
+                    path,
+                    commit_oid: source_id,
+                },
+                CliId::Commit { oid: target_id },
+            ) => {
+                create_snapshot(ctx, &project, OperationKind::FileChanges);
+                commits::commited_file_to_another_commit(ctx, path, *source_id, *target_id)?;
             }
             (CliId::Unassigned, CliId::UncommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
@@ -74,11 +83,11 @@ pub(crate) fn handle(
             (CliId::Unassigned, CliId::Commit { oid }) => {
                 create_snapshot(ctx, &project, OperationKind::AmendCommit);
                 amend::assignments_to_commit(ctx, None, oid)?;
-            },
+            }
             (CliId::Unassigned, CliId::Branch { name: to }) => {
                 create_snapshot(ctx, &project, OperationKind::MoveHunk);
                 assign::assign_all(ctx, None, Some(to))?;
-            },
+            }
             (CliId::Unassigned, CliId::CommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
             }
@@ -91,7 +100,7 @@ pub(crate) fn handle(
             (CliId::Commit { oid }, CliId::Unassigned) => {
                 create_snapshot(ctx, &project, OperationKind::UndoCommit);
                 undo::commit(ctx, oid)?;
-            },
+            }
             (CliId::Commit { oid: source_oid }, CliId::Commit { oid: destination }) => {
                 create_snapshot(ctx, &project, OperationKind::SquashCommit);
                 squash::commits(ctx, source_oid, destination)?;
@@ -99,7 +108,7 @@ pub(crate) fn handle(
             (CliId::Commit { oid }, CliId::Branch { name }) => {
                 create_snapshot(ctx, &project, OperationKind::MoveCommit);
                 move_commit::to_branch(ctx, oid, name)?;
-            },
+            }
             (CliId::Branch { .. }, CliId::UncommittedFile { .. }) => {
                 bail!(makes_no_sense_error(&source, &target))
             }
@@ -140,17 +149,20 @@ fn ids(ctx: &mut CommandContext, source: &str, target: &str) -> anyhow::Result<(
     if target_result.len() != 1 {
         if target_result.is_empty() {
             return Err(anyhow::anyhow!(
-                "Target '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.", 
+                "Target '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
                 target
             ));
         } else {
-            let matches: Vec<String> = target_result.iter().map(|id| {
-                match id {
-                    CliId::Commit { oid } => format!("{} (commit {})", id.to_string(), &oid.to_string()[..7]),
+            let matches: Vec<String> = target_result
+                .iter()
+                .map(|id| match id {
+                    CliId::Commit { oid } => {
+                        format!("{} (commit {})", id.to_string(), &oid.to_string()[..7])
+                    }
                     CliId::Branch { name } => format!("{} (branch '{}')", id.to_string(), name),
-                    _ => format!("{} ({})", id.to_string(), id.kind())
-                }
-            }).collect();
+                    _ => format!("{} ({})", id.to_string(), id.kind()),
+                })
+                .collect();
             return Err(anyhow::anyhow!(
                 "Target '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",
                 target,
