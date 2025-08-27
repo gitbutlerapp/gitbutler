@@ -135,6 +135,12 @@ pub enum BranchSubcommands {
         /// Works with both virtual branches and regular Git branches.
         id: Option<String>,
     },
+    /// Unapply a virtual branch.
+    Unapply {
+        /// Branch ID or branch name to unapply.
+        /// Can be a 2-character CLI ID (e.g., "ab") or a full branch name.
+        branch_id: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]

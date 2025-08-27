@@ -14,7 +14,12 @@ pub(crate) mod assignment;
 use crate::id::CliId;
 use gitbutler_oxidize::gix_to_git2_oid;
 
-pub(crate) fn worktree(repo_path: &Path, json: bool, show_base: bool, show_files: bool) -> anyhow::Result<()> {
+pub(crate) fn worktree(
+    repo_path: &Path,
+    json: bool,
+    show_base: bool,
+    show_files: bool,
+) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
@@ -55,7 +60,15 @@ pub(crate) fn worktree(repo_path: &Path, json: bool, show_base: bool, show_files
     // Handle JSON output
     if json {
         let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
-        return output_json(&stacks, &assignments_by_file, &unassigned, &changes, show_base, show_files, ctx);
+        return output_json(
+            &stacks,
+            &assignments_by_file,
+            &unassigned,
+            &changes,
+            show_base,
+            show_files,
+            ctx,
+        );
     }
 
     // Print base information only if requested
@@ -66,11 +79,14 @@ pub(crate) fn worktree(repo_path: &Path, json: bool, show_base: bool, show_files
 
     // Print branches with commits and assigned files
     if !stacks.is_empty() {
-        print_branch_sections(&stacks, &assignments_by_file, &changes, &project, show_files, ctx)?;
-        
-        // Print legend for commit status decorations
-        println!("Legend: {} Remote-only  {} Pushed  {} Local-only", 
-                "R".red(), "P".yellow(), "L".green());
+        print_branch_sections(
+            &stacks,
+            &assignments_by_file,
+            &changes,
+            &project,
+            show_files,
+            ctx,
+        )?;
     }
 
     // Print unassigned files
@@ -109,7 +125,7 @@ pub(crate) fn all_branches(ctx: &CommandContext) -> anyhow::Result<Vec<CliId>> {
 
 pub(crate) fn all_committed_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
     let mut committed_files = Vec::new();
-    
+
     // Get stacks with detailed information
     let stack_entries = crate::log::stacks(ctx)?;
     let stacks: Vec<(
@@ -134,8 +150,8 @@ pub(crate) fn all_committed_files(ctx: &mut CommandContext) -> anyhow::Result<Ve
                     }
                 }
             }
-            
-            // Process local commits  
+
+            // Process local commits
             for commit in &branch.commits {
                 if let Ok(commit_files) = get_commit_files(ctx, commit.id) {
                     for (file_path, _status) in commit_files {
@@ -145,41 +161,44 @@ pub(crate) fn all_committed_files(ctx: &mut CommandContext) -> anyhow::Result<Ve
             }
         }
     }
-    
+
     Ok(committed_files)
 }
 
-fn get_commit_files(ctx: &CommandContext, commit_id: gix::ObjectId) -> anyhow::Result<Vec<(String, String)>> {
+fn get_commit_files(
+    ctx: &CommandContext,
+    commit_id: gix::ObjectId,
+) -> anyhow::Result<Vec<(String, String)>> {
     let repo = ctx.repo();
     let git2_oid = gix_to_git2_oid(commit_id);
     let commit = repo.find_commit(git2_oid)?;
-    
+
     // Get the commit's tree and parent's tree for comparison
     let commit_tree = commit.tree()?;
-    
+
     // If this is the first commit, compare against empty tree
     let parent_tree = if commit.parent_count() == 0 {
         None
     } else {
         Some(commit.parent(0)?.tree()?)
     };
-    
+
     let mut files = Vec::new();
-    
+
     // Create a diff between parent and current commit
     let diff = if let Some(parent_tree) = parent_tree {
         repo.diff_tree_to_tree(Some(&parent_tree), Some(&commit_tree), None)?
     } else {
         repo.diff_tree_to_tree(None, Some(&commit_tree), None)?
     };
-    
+
     // Collect file changes
     diff.foreach(
         &mut |delta, _progress| {
             if let Some(path) = delta.new_file().path() {
                 let status = match delta.status() {
                     git2::Delta::Added => "A",
-                    git2::Delta::Modified => "M", 
+                    git2::Delta::Modified => "M",
                     git2::Delta::Deleted => "D",
                     git2::Delta::Renamed => "R",
                     _ => "M",
@@ -192,7 +211,7 @@ fn get_commit_files(ctx: &CommandContext, commit_id: gix::ObjectId) -> anyhow::R
         None,
         None,
     )?;
-    
+
     Ok(files)
 }
 
@@ -302,15 +321,15 @@ fn print_branch_sections(
                     let commit_short = &commit.id.to_string()[..7];
                     let commit_id = CliId::commit(commit.id).to_string().underline().blue();
                     let message_line = format_commit_message(&commit.message);
-                    
+
                     // Check if this upstream commit also exists in local commits (pushed)
                     let is_also_local = branch.commits.iter().any(|local| local.id == commit.id);
                     let status_decoration = if is_also_local {
                         "P".yellow() // Pushed (exists both upstream and locally)
                     } else {
-                        "R".red()    // Remote-only (upstream only)
+                        "R".red() // Remote-only (upstream only)
                     };
-                    
+
                     println!(
                         "{}● {} {} {} {}",
                         prefix,
@@ -319,15 +338,18 @@ fn print_branch_sections(
                         commit_short.blue(),
                         message_line
                     );
-                    
+
                     // Show files modified in this commit if -f flag is used
                     if show_files {
                         if let Ok(commit_files) = get_commit_files(ctx, commit.id) {
                             for (file_path, status) in commit_files {
-                                let file_id = CliId::committed_file(&file_path, commit.id).to_string().underline().blue();
+                                let file_id = CliId::committed_file(&file_path, commit.id)
+                                    .to_string()
+                                    .underline()
+                                    .blue();
                                 let status_char = match status.as_str() {
                                     "A" => "A".green(),
-                                    "M" => "M".yellow(), 
+                                    "M" => "M".yellow(),
                                     "D" => "D".red(),
                                     "R" => "R".purple(),
                                     _ => "M".yellow(),
@@ -347,18 +369,21 @@ fn print_branch_sections(
                 // Show local commits (but skip ones already shown as upstream)
                 for commit in &branch.commits {
                     // Skip if this commit was already shown in upstream commits
-                    let already_shown = branch.upstream_commits.iter().any(|upstream| upstream.id == commit.id);
+                    let already_shown = branch
+                        .upstream_commits
+                        .iter()
+                        .any(|upstream| upstream.id == commit.id);
                     if already_shown {
                         continue;
                     }
-                    
+
                     let commit_short = &commit.id.to_string()[..7];
                     let commit_id = CliId::commit(commit.id).to_string().underline().blue();
                     let message_line = format_commit_message(&commit.message);
-                    
+
                     // Local-only commits (not pushed)
                     let status_decoration = "L".green();
-                    
+
                     println!(
                         "{}● {} {} {} {}",
                         prefix,
@@ -367,15 +392,18 @@ fn print_branch_sections(
                         commit_short.blue(),
                         message_line
                     );
-                    
+
                     // Show files modified in this commit if -f flag is used
                     if show_files {
                         if let Ok(commit_files) = get_commit_files(ctx, commit.id) {
                             for (file_path, status) in commit_files {
-                                let file_id = CliId::committed_file(&file_path, commit.id).to_string().underline().blue();
+                                let file_id = CliId::committed_file(&file_path, commit.id)
+                                    .to_string()
+                                    .underline()
+                                    .blue();
                                 let status_char = match status.as_str() {
                                     "A" => "A".green(),
-                                    "M" => "M".yellow(), 
+                                    "M" => "M".yellow(),
                                     "D" => "D".red(),
                                     "R" => "R".purple(),
                                     _ => "M".yellow(),
@@ -462,7 +490,10 @@ fn get_status_char(path: &BString, changes: &[TreeChange]) -> colored::ColoredSt
 }
 
 fn output_json(
-    stacks: &[(Option<but_workspace::StackId>, but_workspace::ui::StackDetails)],
+    stacks: &[(
+        Option<but_workspace::StackId>,
+        but_workspace::ui::StackDetails,
+    )],
     assignments_by_file: &std::collections::BTreeMap<BString, FileAssignment>,
     unassigned: &[FileAssignment],
     changes: &[TreeChange],
@@ -471,15 +502,19 @@ fn output_json(
     ctx: &CommandContext,
 ) -> anyhow::Result<()> {
     use serde_json::json;
-    
+
     // Get base information if requested
     let base_info = if show_base {
-        let target = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir()).get_default_target().ok();
-        target.map(|t| json!({
-            "branch": "origin/main", // TODO: Get actual base branch name
-            "sha": t.sha.to_string()[..7].to_string(),
-            "behind_count": 0 // TODO: Calculate actual behind count
-        }))
+        let target = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir())
+            .get_default_target()
+            .ok();
+        target.map(|t| {
+            json!({
+                "branch": "origin/main", // TODO: Get actual base branch name
+                "sha": t.sha.to_string()[..7].to_string(),
+                "behind_count": 0 // TODO: Calculate actual behind count
+            })
+        })
     } else {
         None
     };
@@ -488,7 +523,7 @@ fn output_json(
     let mut stacks_json = Vec::new();
     for (stack_id, stack_details) in stacks {
         let mut branches_json = Vec::new();
-        
+
         for branch_details in &stack_details.branch_details {
             let branch_name = branch_details.name.to_string();
             let branch_cli_id = CliId::branch(&branch_name).to_string();
@@ -500,7 +535,8 @@ fn output_json(
                         .into_iter()
                         .map(|fa| {
                             let status = get_status_string(&fa.path, changes);
-                            let file_cli_id = CliId::file_from_assignment(&fa.assignments[0]).to_string();
+                            let file_cli_id =
+                                CliId::file_from_assignment(&fa.assignments[0]).to_string();
                             json!({
                                 "id": file_cli_id,
                                 "path": fa.path.to_string(),
@@ -517,7 +553,7 @@ fn output_json(
 
             // Process commits
             let mut commits_json = Vec::new();
-            
+
             // Add upstream commits
             for commit in &branch_details.upstream_commits {
                 let commit_cli_id = CliId::commit(commit.id).to_string();
@@ -528,7 +564,7 @@ fn output_json(
                     "type": "upstream"
                 }));
             }
-            
+
             // Add local commits
             for commit in &branch_details.commits {
                 let commit_cli_id = CliId::commit(commit.id).to_string();

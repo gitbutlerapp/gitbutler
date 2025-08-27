@@ -1,7 +1,7 @@
 use but_settings::AppSettings;
 use colored::Colorize;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_branch_actions::{create_virtual_branch, create_virtual_branch_from_branch};
+use gitbutler_branch_actions::{create_virtual_branch, create_virtual_branch_from_branch, unapply_stack};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use gitbutler_reference::Refname;
@@ -113,5 +113,88 @@ pub(crate) fn create_branch(
         }
     }
 
+    Ok(())
+}
+
+pub(crate) fn unapply_branch(
+    repo_path: &Path,
+    _json: bool,
+    branch_id: &str,
+) -> anyhow::Result<()> {
+    let project = Project::from_path(repo_path)?;
+    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    
+    // Try to resolve the branch ID
+    let cli_ids = CliId::from_str(&mut ctx, branch_id)?;
+    
+    if cli_ids.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Branch '{}' not found. Try using a branch CLI ID or full branch name.",
+            branch_id
+        ));
+    }
+    
+    if cli_ids.len() > 1 {
+        let matches: Vec<String> = cli_ids.iter().map(|id| {
+            match id {
+                CliId::Branch { name } => format!("{} (branch '{}')", id.to_string(), name),
+                _ => format!("{} ({})", id.to_string(), id.kind())
+            }
+        }).collect();
+        return Err(anyhow::anyhow!(
+            "Branch '{}' is ambiguous. Matches: {}. Try using more characters or the full branch name.",
+            branch_id,
+            matches.join(", ")
+        ));
+    }
+    
+    let cli_id = &cli_ids[0];
+    let stack_id = match cli_id {
+        CliId::Branch { .. } => {
+            // Find the stack ID for this branch
+            let stacks = crate::log::stacks(&ctx)?;
+            let stack = stacks.iter().find(|s| {
+                s.heads.iter().any(|head| {
+                    if let CliId::Branch { name } = cli_id {
+                        head.name.to_string() == *name
+                    } else {
+                        false
+                    }
+                })
+            });
+            
+            match stack {
+                Some(s) => s.id.ok_or_else(|| anyhow::anyhow!("Stack has no ID"))?,
+                None => return Err(anyhow::anyhow!("No stack found for branch '{}'", branch_id)),
+            }
+        }
+        _ => {
+            return Err(anyhow::anyhow!(
+                "ID '{}' does not refer to a branch (it's {})",
+                branch_id,
+                cli_id.kind()
+            ));
+        }
+    };
+    
+    let branch_name = match cli_id {
+        CliId::Branch { name } => name,
+        _ => unreachable!(),
+    };
+    
+    println!(
+        "Unapplying branch '{}' ({})",
+        branch_name.yellow().bold(),
+        branch_id.blue().underline()
+    );
+    
+    unapply_stack(&ctx, stack_id, Vec::new())?;
+    
+    println!(
+        "{} Branch '{}' unapplied successfully!",
+        "✓".green().bold(),
+        branch_name.yellow().bold()
+    );
+    
     Ok(())
 }
