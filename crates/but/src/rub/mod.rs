@@ -58,11 +58,17 @@ pub(crate) fn handle(
                 create_snapshot(ctx, &project, OperationKind::FileChanges);
                 uncommit::file_from_commit(ctx, path, commit_oid)?;
             }
-            (CliId::CommittedFile { .. }, CliId::Branch { .. }) => {
-                // Extract file from commit to branch - for now, not implemented
-                bail!(
-                    "Extracting files from commits is not yet supported. Use git commands to extract file changes."
-                )
+            (
+                CliId::CommittedFile {
+                    path,
+                    commit_oid: source_id,
+                },
+                CliId::Branch {
+                    name: target_branch,
+                },
+            ) => {
+                create_snapshot(ctx, &project, OperationKind::FileChanges);
+                commits::commited_file_to_unassigned_stack(ctx, path, *source_id, target_branch)?;
             }
             (
                 CliId::CommittedFile {
