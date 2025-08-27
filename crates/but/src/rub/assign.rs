@@ -3,8 +3,6 @@ use but_workspace::StackId;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 
-use crate::command;
-
 pub(crate) fn assign_file_to_branch(
     ctx: &mut CommandContext,
     path: &str,
@@ -79,7 +77,12 @@ fn do_assignments(
 ) -> anyhow::Result<()> {
     let rejections = but_hunk_assignment::assign(ctx, reqs, None)?;
     if !rejections.is_empty() {
-        command::print(&rejections, false)?;
+        // Don't print the debug output, instead provide a clear error
+        anyhow::bail!(
+            "Cannot assign file - it is locked to {} commit{}. Files are locked when they have changes in commits that conflict with the requested assignment. Use git commands to modify commits or move the changes.",
+            if rejections.len() == 1 { "a" } else { "other" },
+            if rejections.len() == 1 { "" } else { "s" }
+        );
     }
     Ok(())
 }
