@@ -205,7 +205,7 @@
 				<div class="chrome-current-branch">
 					<div class="chrome-current-branch__content">
 						<Icon name="branch-remote" color="var(--clr-text-2)" />
-						<span class="text-12 text-semibold clr-text-1">{currentBranchName}</span>
+						<span class="text-12 text-semibold clr-text-1 truncate">{currentBranchName}</span>
 						{#if isNotInWorkspace}
 							<span class="text-12 text-semibold clr-text-2"> read-only </span>
 						{/if}
@@ -349,6 +349,7 @@
 	.chrome-selector-wrapper {
 		display: flex;
 		position: relative;
+		overflow: hidden;
 	}
 
 	:global(.chrome-header .project-selector-btn) {
@@ -361,12 +362,14 @@
 		align-items: center;
 		padding-right: 2px;
 		gap: 6px;
+		text-wrap: nowrap;
 	}
 
 	.chrome-current-branch {
 		display: flex;
 		align-items: center;
 		padding: 0 10px 0 6px;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-left: none;
 		border-top-right-radius: 100px;
@@ -377,7 +380,9 @@
 	.chrome-current-branch__content {
 		display: flex;
 		align-items: center;
+		overflow: hidden;
 		gap: 4px;
+		text-wrap: nowrap;
 		opacity: 0.7;
 	}
 
@@ -389,6 +394,7 @@
 	.chrome-center {
 		display: flex;
 		flex-shrink: 1;
+		overflow: hidden;
 		gap: 8px;
 	}
 
