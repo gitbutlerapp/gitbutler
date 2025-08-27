@@ -176,22 +176,25 @@ where
 
 fn print_grouped_help() {
     use clap::CommandFactory;
+    use std::collections::HashSet;
     
     let cmd = Args::command();
     let subcommands: Vec<_> = cmd.get_subcommands().collect();
     
-    // Define command groupings and their order
+    // Define command groupings and their order (excluding MISC)
     let groups = [
         ("INSPECTION", vec!["log", "status"]),
         ("STACK OPERATIONS", vec!["commit", "new", "describe", "branch"]),
         ("OPERATION HISTORY", vec!["oplog", "undo", "restore"]),
-        ("MISC", vec!["rub", "config"]),
     ];
     
     println!("A GitButler CLI tool");
     println!();
     println!("Usage: but [OPTIONS] <COMMAND>");
     println!();
+    
+    // Keep track of which commands we've already printed
+    let mut printed_commands = HashSet::new();
     
     // Print grouped commands
     for (group_name, command_names) in &groups {
@@ -200,7 +203,24 @@ fn print_grouped_help() {
             if let Some(subcmd) = subcommands.iter().find(|c| c.get_name() == *cmd_name) {
                 let about = subcmd.get_about().unwrap_or_default();
                 println!("  {:<10}{}", cmd_name, about);
+                printed_commands.insert(cmd_name.to_string());
             }
+        }
+        println!();
+    }
+    
+    // Collect any remaining commands not in the explicit groups
+    let misc_commands: Vec<_> = subcommands
+        .iter()
+        .filter(|subcmd| !printed_commands.contains(subcmd.get_name()) && !subcmd.is_hide_set())
+        .collect();
+    
+    // Print MISC section if there are any ungrouped commands
+    if !misc_commands.is_empty() {
+        println!("MISC:");
+        for subcmd in misc_commands {
+            let about = subcmd.get_about().unwrap_or_default();
+            println!("  {:<10}{}", subcmd.get_name(), about);
         }
         println!();
     }
