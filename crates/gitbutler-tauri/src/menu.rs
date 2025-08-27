@@ -158,7 +158,11 @@ pub fn build<R: Runtime>(
                 .build(handle)?,
         )
         .separator()
-        .text("project/open-in-vscode", "Open in Editor");
+        .item(
+            &MenuItemBuilder::with_id("project/open-in-vscode", "Open in Editor")
+                .accelerator("CmdOrCtrl+Shift+A")
+                .build(handle)?,
+        );
 
     #[cfg(target_os = "macos")]
     {
