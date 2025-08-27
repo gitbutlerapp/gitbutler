@@ -44,6 +44,42 @@ pub struct AiProviderInfo {
     pub model: Option<String>,
 }
 
+pub fn handle(current_dir: &Path, app_settings: &AppSettings, json: bool, key: Option<&str>, value: Option<&str>) -> Result<()> {
+    match (key, value) {
+        // Set configuration value
+        (Some(key), Some(value)) => {
+            set_config_value(current_dir, key, value)?;
+            if !json {
+                println!("Set {} = {}", key, value);
+            }
+            Ok(())
+        }
+        // Get specific configuration value
+        (Some(key), None) => {
+            let config_value = get_config_value(current_dir, key)?;
+            if json {
+                let result = serde_json::json!({
+                    "key": key,
+                    "value": config_value
+                });
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            } else {
+                match config_value {
+                    Some(val) => println!("{}", val),
+                    None => println!("{} is not set", key),
+                }
+            }
+            Ok(())
+        }
+        // Show all configuration (existing behavior)
+        (None, None) => show(current_dir, app_settings, json),
+        // Invalid: value without key
+        (None, Some(_)) => {
+            Err(anyhow::anyhow!("Cannot set a value without specifying a key"))
+        }
+    }
+}
+
 pub fn show(current_dir: &Path, app_settings: &AppSettings, json: bool) -> Result<()> {
     let config_info = gather_config_info(current_dir, app_settings)?;
 
@@ -217,5 +253,38 @@ fn print_ai_provider(name: &str, provider: &AiProviderInfo) {
     );
     if !model_info.is_empty() && provider.configured {
         println!("             {}", model_info.trim_start());
+    }
+}
+
+fn set_config_value(current_dir: &Path, key: &str, value: &str) -> Result<()> {
+    let git_repo = git2::Repository::discover(current_dir)
+        .context("Failed to find Git repository")?;
+    let config = Config::from(&git_repo);
+    
+    config.set_local(key, value)
+        .with_context(|| format!("Failed to set {} = {}", key, value))
+}
+
+fn get_config_value(current_dir: &Path, key: &str) -> Result<Option<String>> {
+    let git_repo = git2::Repository::discover(current_dir)
+        .context("Failed to find Git repository")?;
+    let config = Config::from(&git_repo);
+    
+    // For getting values, use the same logic as the existing code
+    // which checks the full git config hierarchy (local, global, system)
+    match key {
+        "user.name" => config.user_name(),
+        "user.email" => config.user_email(),
+        _ => {
+            // For other keys, try to get the value from git config
+            let git_config = git_repo.config()?;
+            match git_config.get_string(key) {
+                Ok(value) => Ok(Some(value)),
+                Err(err) => match err.code() {
+                    git2::ErrorCode::NotFound => Ok(None),
+                    _ => Err(err.into()),
+                },
+            }
+        }
     }
 }
