@@ -5,6 +5,7 @@ use but_settings::AppSettings;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use gitbutler_oplog::{OplogExt, entry::{OperationKind, SnapshotDetails}};
 mod amend;
 mod assign;
 mod move_commit;
@@ -29,12 +30,15 @@ pub(crate) fn handle(
             bail!(makes_no_sense_error(&source, &target))
         }
         (CliId::UncommittedFile { path, .. }, CliId::Unassigned) => {
+            create_snapshot(ctx, &project, OperationKind::MoveHunk);
             assign::unassign_file(ctx, path)
         }
         (CliId::UncommittedFile { path, assignment }, CliId::Commit { oid }) => {
+            create_snapshot(ctx, &project, OperationKind::AmendCommit);
             amend::file_to_commit(ctx, path, *assignment, oid)
         }
         (CliId::UncommittedFile { path, .. }, CliId::Branch { name }) => {
+            create_snapshot(ctx, &project, OperationKind::MoveHunk);
             assign::assign_file_to_branch(ctx, path, name)
         }
         (CliId::UncommittedFile { .. }, CliId::CommittedFile { .. }) => {
@@ -48,6 +52,7 @@ pub(crate) fn handle(
             bail!(makes_no_sense_error(&source, &target))
         }
         (CliId::CommittedFile { path, commit_oid }, CliId::Unassigned) => {
+            create_snapshot(ctx, &project, OperationKind::FileChanges);
             uncommit::file_from_commit(ctx, path, commit_oid)
         }
         (CliId::CommittedFile { .. }, CliId::Branch { .. }) => {
@@ -64,8 +69,14 @@ pub(crate) fn handle(
         (CliId::Unassigned, CliId::Unassigned) => {
             bail!(makes_no_sense_error(&source, &target))
         }
-        (CliId::Unassigned, CliId::Commit { oid }) => amend::assignments_to_commit(ctx, None, oid),
-        (CliId::Unassigned, CliId::Branch { name: to }) => assign::assign_all(ctx, None, Some(to)),
+        (CliId::Unassigned, CliId::Commit { oid }) => {
+            create_snapshot(ctx, &project, OperationKind::AmendCommit);
+            amend::assignments_to_commit(ctx, None, oid)
+        },
+        (CliId::Unassigned, CliId::Branch { name: to }) => {
+            create_snapshot(ctx, &project, OperationKind::MoveHunk);
+            assign::assign_all(ctx, None, Some(to))
+        },
         (CliId::Unassigned, CliId::CommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
         }
@@ -75,11 +86,18 @@ pub(crate) fn handle(
         (CliId::Commit { .. }, CliId::CommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
         }
-        (CliId::Commit { oid }, CliId::Unassigned) => undo::commit(ctx, oid),
+        (CliId::Commit { oid }, CliId::Unassigned) => {
+            create_snapshot(ctx, &project, OperationKind::UndoCommit);
+            undo::commit(ctx, oid)
+        },
         (CliId::Commit { oid: source }, CliId::Commit { oid: destination }) => {
+            create_snapshot(ctx, &project, OperationKind::SquashCommit);
             squash::commits(ctx, source, destination)
         }
-        (CliId::Commit { oid }, CliId::Branch { name }) => move_commit::to_branch(ctx, oid, name),
+        (CliId::Commit { oid }, CliId::Branch { name }) => {
+            create_snapshot(ctx, &project, OperationKind::MoveCommit);
+            move_commit::to_branch(ctx, oid, name)
+        },
         (CliId::Branch { .. }, CliId::UncommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
         }
@@ -87,12 +105,15 @@ pub(crate) fn handle(
             bail!(makes_no_sense_error(&source, &target))
         }
         (CliId::Branch { name: from }, CliId::Unassigned) => {
+            create_snapshot(ctx, &project, OperationKind::MoveHunk);
             assign::assign_all(ctx, Some(from), None)
         }
         (CliId::Branch { name }, CliId::Commit { oid }) => {
+            create_snapshot(ctx, &project, OperationKind::AmendCommit);
             amend::assignments_to_commit(ctx, Some(name), oid)
         }
         (CliId::Branch { name: from }, CliId::Branch { name: to }) => {
+            create_snapshot(ctx, &project, OperationKind::MoveHunk);
             assign::assign_all(ctx, Some(from), Some(to))
         }
     }
@@ -154,4 +175,14 @@ fn ids(ctx: &mut CommandContext, source: &str, target: &str) -> anyhow::Result<(
         }
     }
     Ok((source_result[0].clone(), target_result[0].clone()))
+}
+
+fn create_snapshot(ctx: &mut CommandContext, project: &Project, operation: OperationKind) {
+    let mut guard = project.exclusive_worktree_access();
+    let _snapshot = ctx
+        .create_snapshot(
+            SnapshotDetails::new(operation),
+            guard.write_permission(),
+        )
+        .ok(); // Ignore errors for snapshot creation
 }
