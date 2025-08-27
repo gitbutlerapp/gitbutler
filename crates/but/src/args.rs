@@ -23,6 +23,7 @@ pub enum Subcommands {
         short: bool,
     },
     /// Overview of the oncommitted changes in the repository.
+    #[clap(alias = "st")]
     Status {
         /// Show base branch and behind count information
         #[clap(long, short = 'b')]
