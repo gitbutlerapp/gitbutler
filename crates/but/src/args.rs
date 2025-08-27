@@ -32,6 +32,13 @@ pub enum Subcommands {
         #[clap(long, short = 'f')]
         files: bool,
     },
+    /// Overview with modified files in each commit (equivalent to `status -f`).
+    #[clap(alias = "stf", hide = true)]
+    StatusFiles {
+        /// Show base branch and behind count information
+        #[clap(long, short = 'b')]
+        base: bool,
+    },
     /// Display configuration information about the GitButler repository.
     Config,
     
