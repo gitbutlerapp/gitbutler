@@ -9,6 +9,7 @@ use but_claude::hooks::OutputAsJson;
 mod command;
 mod id;
 mod log;
+mod mark;
 mod mcp;
 mod mcp_internal;
 mod metrics;
@@ -92,6 +93,15 @@ async fn main() -> Result<()> {
         Subcommands::Rub { source, target } => {
             let result = rub::handle(&args.current_dir, args.json, source, target)
                 .context("Rubbed the wrong way.");
+            if let Err(e) = &result {
+                eprintln!("{} {}", e, e.root_cause());
+            }
+            metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
+            Ok(())
+        }
+        Subcommands::Mark { target } => {
+            let result = mark::handle(&args.current_dir, args.json, target)
+                .context("Can't mark this. Taaaa-na-na-na. Can't mark this.");
             if let Err(e) = &result {
                 eprintln!("{} {}", e, e.root_cause());
             }

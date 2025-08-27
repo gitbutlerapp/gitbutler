@@ -15,6 +15,7 @@ use crate::id::CliId;
 pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
     let stack_id_to_branch = crate::log::stacks(ctx)?
         .iter()

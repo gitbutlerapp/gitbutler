@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::bail;
+pub(crate) use assign::branch_name_to_stack_id;
 use but_settings::AppSettings;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;

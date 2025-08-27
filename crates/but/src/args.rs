@@ -42,6 +42,11 @@ For examples see `but rub --help`."
         /// The target entity to combine with the source
         target: String,
     },
+    /// Creates a rule for auto-assigning or auto-comitting
+    Mark {
+        /// The target entity that will be marked
+        target: String,
+    },
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
