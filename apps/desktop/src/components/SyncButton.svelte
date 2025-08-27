@@ -47,16 +47,6 @@
 		}
 	}}
 >
-	<!-- {#if loading}
-		Fetching...
-	{:else if lastFetched}
-		<span class="capitalize">
-			<TimeAgo date={lastFetched} addSuffix={true} />
-		</span>
-	{:else}
-		Refetch
-	{/if} -->
-
 	{#snippet custom()}
 		<span class="text-12 text-semibold capitalize fetch-status">
 			{#if loading}
@@ -87,6 +77,7 @@
 	.target-branch {
 		display: inline-flex;
 		align-items: center;
+		padding-right: 2px;
 		gap: 4px;
 		color: var(--clr-text-2);
 
