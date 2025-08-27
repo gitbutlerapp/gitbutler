@@ -9,15 +9,15 @@ pub(crate) fn undo_last_operation(repo_path: &Path, _json: bool) -> anyhow::Resu
     let project = Project::from_path(repo_path)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    // Get the oplog head snapshot (the last operation before current state)
-    let snapshots = ctx.list_snapshots(1, None, vec![])?;
+    // Get the last two snapshots - restore to the second one back
+    let snapshots = ctx.list_snapshots(2, None, vec![])?;
 
-    if snapshots.is_empty() {
+    if snapshots.len() < 2 {
         println!("{}", "No previous operations to undo.".yellow());
         return Ok(());
     }
 
-    let target_snapshot = &snapshots[0];
+    let target_snapshot = &snapshots[1];
 
     let target_operation = target_snapshot
         .details
