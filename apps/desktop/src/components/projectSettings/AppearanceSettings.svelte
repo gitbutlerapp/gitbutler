@@ -1,6 +1,10 @@
 <script lang="ts">
 	import ThemeSelector from '$components/ThemeSelector.svelte';
-	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
+	import {
+		autoSelectBranchNameFeature,
+		stagingBehaviorFeature,
+		type StagingBehavior
+	} from '$lib/config/uiFeatureFlags';
 	import { SETTINGS, type ScrollbarVisilitySettings } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/shared/context';
 	import {
@@ -36,6 +40,13 @@
 			...s,
 			scrollbarVisibilityState: selectedScrollbarVisibility
 		}));
+	}
+
+	function onStagingBehaviorFormChange(form: HTMLFormElement) {
+		const formData = new FormData(form);
+		const selectedStagingBehavior = formData.get('stagingBehaviorType') as StagingBehavior | null;
+		if (!selectedStagingBehavior) return;
+		stagingBehaviorFeature.set(selectedStagingBehavior);
 	}
 </script>
 
@@ -283,3 +294,67 @@
 		/>
 	{/snippet}
 </SectionCard>
+
+<form class="stack-v" onchange={(e) => onStagingBehaviorFormChange(e.currentTarget)}>
+	<SectionCard roundedBottom={false} orientation="row" labelFor="stage-all">
+		{#snippet title()}
+			Stage all files
+		{/snippet}
+		{#snippet caption()}
+			Stage all files assigned to the stack on commit. If no files are staged, all unassinged files
+			will be staged.
+		{/snippet}
+		{#snippet actions()}
+			<RadioButton
+				name="stagingBehaviorType"
+				value="all"
+				id="stage-all"
+				checked={$stagingBehaviorFeature === 'all'}
+			/>
+		{/snippet}
+	</SectionCard>
+
+	<SectionCard
+		roundedTop={false}
+		roundedBottom={false}
+		orientation="row"
+		labelFor="stage-selection"
+	>
+		{#snippet title()}
+			Stage selected files
+		{/snippet}
+		{#snippet caption()}
+			Stage the selected assigned files to the stack on commit. If no files are selected, stage all
+			files. If there are no assigned files, stage all selected unassigned files.
+			<br />
+			Aaand if no files are selected, stage all unassigned files.
+		{/snippet}
+		{#snippet actions()}
+			<RadioButton
+				name="stagingBehaviorType"
+				value="selection"
+				id="stage-selection"
+				checked={$stagingBehaviorFeature === 'selection'}
+			/>
+		{/snippet}
+	</SectionCard>
+
+	<SectionCard roundedTop={false} orientation="row" labelFor="stage-none">
+		{#snippet title()}
+			Don't stage files automatically
+		{/snippet}
+		{#snippet caption()}
+			Do not stage any files automatically.
+			<br />
+			You're more of a DIY developer in that way.
+		{/snippet}
+		{#snippet actions()}
+			<RadioButton
+				name="stagingBehaviorType"
+				value="none"
+				id="stage-none"
+				checked={$stagingBehaviorFeature === 'none'}
+			/>
+		{/snippet}
+	</SectionCard>
+</form>
