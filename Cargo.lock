@@ -1131,6 +1131,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-project",
  "gitbutler-stack",
+ "gix",
  "itertools",
  "regex",
  "serde",
