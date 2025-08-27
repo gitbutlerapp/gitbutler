@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
@@ -165,6 +165,9 @@ impl RepoActionsExt for CommandContext {
         askpass_broker: Option<Option<StackId>>,
     ) -> Result<()> {
         let use_git_executable = self.project().preferred_key == AuthKey::SystemExecutable;
+        if !use_git_executable && force_push_protection {
+            bail!("Force push protection is only supported when 'Using the Git executable'");
+        }
         let refspec = refspec.unwrap_or_else(|| {
             // The Git executable has flags set related to force, and these flags don't play well
             // with the refspec force-format which seems to override them, leading to incorrect results
