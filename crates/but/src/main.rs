@@ -154,6 +154,9 @@ async fn main() -> Result<()> {
             BranchSubcommands::New { branch_name, id } => {
                 branch::create_branch(&args.current_dir, args.json, branch_name, id.as_deref())
             }
+            BranchSubcommands::Unapply { branch_id } => {
+                branch::unapply_branch(&args.current_dir, args.json, branch_id)
+            }
         },
         Subcommands::Rub { source, target } => {
             let result = rub::handle(&args.current_dir, args.json, source, target)
