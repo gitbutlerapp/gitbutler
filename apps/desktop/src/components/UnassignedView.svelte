@@ -5,6 +5,7 @@
 	import WorktreeTipsFooter from '$components/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
@@ -58,7 +59,7 @@
 		unassignedSidebaFolded.set(true);
 	}
 
-	function checkFilesForCommit() {
+	function checkSelectedFilesForCommit() {
 		const selectionId = createWorktreeSelection({});
 		const selectedPaths = idSelection.values(selectionId).map((entry) => entry.path);
 
@@ -67,6 +68,29 @@
 			uncommittedService.checkFiles(null, selectedPaths);
 		} else {
 			uncommittedService.checkAll(null);
+		}
+	}
+
+	function uncheckAll() {
+		uncommittedService.uncheckAll(null);
+	}
+
+	function checkAllFiles() {
+		uncommittedService.checkAll(null);
+	}
+
+	function checkFilesForCommit(): true {
+		switch ($stagingBehaviorFeature) {
+			case 'all':
+				checkAllFiles();
+				return true;
+			case 'selection':
+				// We only check the selected files.
+				checkSelectedFilesForCommit();
+				return true;
+			case 'none':
+				uncheckAll();
+				return true;
 		}
 	}
 </script>
