@@ -1,8 +1,10 @@
+import { autoSelectBranchNameFeature, stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 import { getFilterCountMap, getStackTargetTypeCountMap, type WorkspaceRule } from '$lib/rules/rule';
 import { StackService } from '$lib/stacks/stackService.svelte';
 import { UiState } from '$lib/state/uiState.svelte';
 import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 import { InjectionToken } from '@gitbutler/shared/context';
+import { get } from 'svelte/store';
 import type { Commit } from '$lib/branches/v3';
 import type { HunkAssignment } from '$lib/hunks/hunk';
 import type RulesService from '$lib/rules/rulesService.svelte';
@@ -85,7 +87,9 @@ export class CommitAnalytics {
 				// Total number of files that have not been assigned
 				totalUnassignedFiles: this.getUnassignedFiles(assignments).length,
 				// Rule metrics
-				...this.getRuleMetrics(rules)
+				...this.getRuleMetrics(rules),
+				// Behavior metrics
+				...this.getBehaviorMetrics()
 			};
 		} catch (error) {
 			console.error('Failed to fetch commit analytics:', error);
@@ -172,6 +176,18 @@ export class CommitAnalytics {
 		};
 
 		return namespaceProps(ruleMetrics, 'workspaceRules');
+	}
+
+	private getBehaviorMetrics(): EventProperties {
+		// Placeholder for future behavior metrics
+		const stagingBehavior = get(stagingBehaviorFeature);
+		const autoSelectBranchName = get(autoSelectBranchNameFeature);
+		const behaviorMetrics = {
+			stagingBehavior,
+			autoSelectBranchName
+		};
+
+		return namespaceProps(behaviorMetrics, 'behavior');
 	}
 }
 
