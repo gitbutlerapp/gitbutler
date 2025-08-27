@@ -3,15 +3,14 @@
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { Button, TimeAgo, type ButtonProps } from '@gitbutler/ui';
+	import { Button, TimeAgo, Icon } from '@gitbutler/ui';
 
 	interface Props {
 		projectId: string;
-		size?: ButtonProps['size'];
 		disabled?: boolean;
 	}
 
-	const { projectId, size = 'tag', disabled = false }: Props = $props();
+	const { projectId, disabled = false }: Props = $props();
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const branchService = inject(BRANCH_SERVICE);
@@ -26,13 +25,12 @@
 </script>
 
 <Button
-	{size}
-	reversedDirection
 	kind="outline"
-	icon="update"
+	width="auto"
 	tooltip="Last fetch from upstream"
 	{loading}
 	{disabled}
+	icon="update"
 	onmousedown={async (e: MouseEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
@@ -49,13 +47,48 @@
 		}
 	}}
 >
-	{#if loading}
-		Fetching...
-	{:else if lastFetched}
-		<span class="capitalize">
-			<TimeAgo date={lastFetched} addSuffix={true} />
+	{#snippet custom()}
+		<span class="text-12 text-semibold capitalize fetch-status">
+			{#if loading}
+				Fetching...
+			{:else if lastFetched}
+				<TimeAgo date={lastFetched} addSuffix={true} />
+			{:else}
+				Refetch
+			{/if}
 		</span>
-	{:else}
-		Refetch
-	{/if}
+
+		{#if baseBranch.current.data}
+			<div class="target-branch">
+				<Icon name="remote-target-branch" color="var(--clr-text-2)" />
+				<span class="text-12 text-semibold">
+					{baseBranch.current.data.remoteName}/{baseBranch.current.data.shortName}
+				</span>
+			</div>
+		{/if}
+	{/snippet}
 </Button>
+
+<style lang="postcss">
+	.fetch-status {
+		padding: 0 2px;
+	}
+
+	.target-branch {
+		display: inline-flex;
+		align-items: center;
+		padding-right: 2px;
+		gap: 4px;
+		color: var(--clr-text-2);
+
+		&:before {
+			display: inline-block;
+			width: 1px;
+			height: 12px;
+			margin: 0 2px 0 4px;
+			background-color: var(--clr-text-2);
+			content: '';
+			opacity: 0.5;
+		}
+	}
+</style>

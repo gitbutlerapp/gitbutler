@@ -206,15 +206,31 @@
 		user-select: none;
 
 		/* Consolidated outline and ghost styles */
-		&.outline,
-		&.ghost {
+
+		/* All outline buttons except neutral get a slight background by default */
+		&.outline:not(.neutral) {
+			--opacity-btn-bg: 0.1;
+			--icon-opacity: var(--opacity-btn-icon-outline);
+		}
+
+		/* Ghost buttons and neutral outline buttons keep transparent background by default */
+		&.ghost,
+		&.outline.neutral {
 			--opacity-btn-bg: 0;
 			--icon-opacity: var(--opacity-btn-icon-outline);
 		}
 
-		&.outline:not(:disabled):hover,
+		/* Outline buttons (except neutral) hover with darker background */
+		&.outline:not(.neutral):not(:disabled):hover,
+		&.outline:not(.neutral).activated {
+			--icon-opacity: var(--opacity-btn-icon-outline-hover);
+			--opacity-btn-bg: 0.25;
+		}
+
+		/* Neutral outline and ghost buttons hover */
+		&.outline.neutral:not(:disabled):hover,
 		&.ghost:not(:disabled):hover,
-		&.outline.activated,
+		&.outline.neutral.activated,
 		&.ghost.activated {
 			--icon-opacity: var(--opacity-btn-icon-outline-hover);
 			--opacity-btn-bg: var(--opacity-btn-outline-bg-hover);
