@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 describe.concurrent('timeAgo without suffix', () => {
 	it('should format 30s ago correctly', () => {
 		const date = dayjs().subtract(30, 'second').toDate();
-		expect(getTimeAgo(date, false)).toBe('< 1 min');
+		expect(getTimeAgo(date, false)).toBe('a few sec');
 	});
 
 	it('should format 3 hours ago correctly', () => {
@@ -27,7 +27,7 @@ describe.concurrent('timeAgo', () => {
 
 	it('should format 30s ago correctly', () => {
 		const date = dayjs().subtract(30, 'second').toDate();
-		expect(getTimeAgo(date)).toBe('< 1 min ago');
+		expect(getTimeAgo(date)).toBe('a few sec ago');
 	});
 
 	it('should format 3 mins ago correctly', () => {
