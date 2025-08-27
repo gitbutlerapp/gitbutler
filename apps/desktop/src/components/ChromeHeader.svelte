@@ -57,7 +57,9 @@
 		return 'gitbutler/workspace';
 	});
 
-	const isNotInWorkspace = $derived(currentBranchName !== 'gitbutler/workspace');
+	const isNotInWorkspace = $derived(
+		currentMode?.type !== 'OpenWorkspace' && currentMode?.type !== 'Edit'
+	);
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 
 	async function switchToWorkspace() {
