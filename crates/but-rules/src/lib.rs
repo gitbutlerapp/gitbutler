@@ -292,7 +292,7 @@ pub fn list_rules(ctx: &mut CommandContext) -> anyhow::Result<Vec<WorkspaceRule>
     Ok(rules)
 }
 
-fn process_rules(ctx: &mut CommandContext) -> anyhow::Result<()> {
+pub fn process_rules(ctx: &mut CommandContext) -> anyhow::Result<()> {
     let wt_changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
 
     let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(

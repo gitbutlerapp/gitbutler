@@ -30,6 +30,7 @@ anyhow.workspace = true
 rmcp.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 sysinfo = "0.37.0"
+regex = "1.11.1"
 gitbutler-project.workspace = true
 gix.workspace = true
 but-core.workspace = true
@@ -42,6 +43,7 @@ but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
 but-claude.workspace = true
 but-tools.workspace = true
+but-rules.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-stack.workspace = true
