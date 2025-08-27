@@ -77,7 +77,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool, short: bool) -> anyhow
                     "{}{}┊ {}",
                     "│ ".repeat(nesting),
                     extra_space,
-                    commit.message.to_string().lines().next().unwrap_or("")
+                    format_commit_message(&commit.message.to_string())
                 );
                 let bend = if stacked { "├" } else { "╭" };
                 if j == branch.upstream_commits.len() - 1 {
@@ -114,7 +114,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool, short: bool) -> anyhow
                 println!(
                     "{}│ {}",
                     "│ ".repeat(nesting),
-                    commit.message.to_string().lines().next().unwrap_or("")
+                    format_commit_message(&commit.message.to_string())
                 );
                 if i == stacks.len() - 1 {
                     if nesting == 0 {
@@ -273,5 +273,14 @@ pub(crate) fn stack_details(
         but_workspace::stack_details_v3(Some(stack_id), &repo, &meta)
     } else {
         but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
+    }
+}
+
+fn format_commit_message(message: &str) -> String {
+    let message_line = message.lines().next().unwrap_or("");
+    if message_line.trim().is_empty() {
+        "(blank message)".to_string()
+    } else {
+        message_line.to_string()
     }
 }

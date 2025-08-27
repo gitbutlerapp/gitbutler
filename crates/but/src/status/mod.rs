@@ -199,8 +199,7 @@ fn print_branch_sections(
                 for commit in &branch.upstream_commits {
                     let commit_short = &commit.id.to_string()[..7];
                     let commit_id = CliId::commit(commit.id).to_string().underline().blue();
-                    let message = commit.message.to_str_lossy();
-                    let message_line = message.lines().next().unwrap_or("");
+                    let message_line = format_commit_message(&commit.message);
                     println!(
                         "{}●  {} {} {}",
                         prefix,
@@ -214,8 +213,7 @@ fn print_branch_sections(
                 for commit in &branch.commits {
                     let commit_short = &commit.id.to_string()[..7];
                     let commit_id = CliId::commit(commit.id).to_string().underline().blue();
-                    let message = commit.message.to_str_lossy();
-                    let message_line = message.lines().next().unwrap_or("");
+                    let message_line = format_commit_message(&commit.message);
                     println!(
                         "{}●  {} {} {}",
                         prefix,
@@ -291,5 +289,15 @@ fn get_status_char(path: &BString, changes: &[TreeChange]) -> colored::ColoredSt
         Some(TreeStatus::Deletion { .. }) => "D".red(),
         Some(TreeStatus::Rename { .. }) => "R".purple(),
         None => " ".normal(),
+    }
+}
+
+fn format_commit_message(message: &BString) -> String {
+    let message_str = message.to_str_lossy();
+    let message_line = message_str.lines().next().unwrap_or("");
+    if message_line.trim().is_empty() {
+        "(blank message)".to_string()
+    } else {
+        message_line.to_string()
     }
 }
