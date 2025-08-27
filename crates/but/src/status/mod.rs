@@ -268,7 +268,7 @@ fn print_branch_sections(
                     if show_files {
                         if let Ok(commit_files) = get_commit_files(ctx, commit.id) {
                             for (file_path, status) in commit_files {
-                                let file_id = CliId::file(&file_path).to_string().underline().blue();
+                                let file_id = CliId::committed_file(&file_path, commit.id).to_string().underline().blue();
                                 let status_char = match status.as_str() {
                                     "A" => "A".green(),
                                     "M" => "M".yellow(), 
@@ -305,7 +305,7 @@ fn print_branch_sections(
                     if show_files {
                         if let Ok(commit_files) = get_commit_files(ctx, commit.id) {
                             for (file_path, status) in commit_files {
-                                let file_id = CliId::file(&file_path).to_string().underline().blue();
+                                let file_id = CliId::committed_file(&file_path, commit.id).to_string().underline().blue();
                                 let status_char = match status.as_str() {
                                     "A" => "A".green(),
                                     "M" => "M".yellow(), 
