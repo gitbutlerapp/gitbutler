@@ -80,19 +80,39 @@ fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
 fn ids(ctx: &mut CommandContext, source: &str, target: &str) -> anyhow::Result<(CliId, CliId)> {
     let source_result = crate::id::CliId::from_str(ctx, source)?;
     if source_result.len() != 1 {
-        return Err(anyhow::anyhow!(
-            "Source {} is ambiguous: {:?}",
-            source,
-            source_result
-        ));
+        if source_result.is_empty() {
+            return Err(anyhow::anyhow!("Source '{}' not found", source));
+        } else {
+            let matches: Vec<String> = source_result.iter().map(|id| {
+                match id {
+                    CliId::Commit { oid } => format!("{} (commit {})", id.to_string(), &oid.to_string()[..7]),
+                    _ => format!("{} ({})", id.to_string(), id.kind())
+                }
+            }).collect();
+            return Err(anyhow::anyhow!(
+                "Source '{}' is ambiguous. Matches: {}. Try using more characters to disambiguate.",
+                source,
+                matches.join(", ")
+            ));
+        }
     }
     let target_result = crate::id::CliId::from_str(ctx, target)?;
     if target_result.len() != 1 {
-        return Err(anyhow::anyhow!(
-            "Target {} is ambiguous: {:?}",
-            target,
-            target_result
-        ));
+        if target_result.is_empty() {
+            return Err(anyhow::anyhow!("Target '{}' not found", target));
+        } else {
+            let matches: Vec<String> = target_result.iter().map(|id| {
+                match id {
+                    CliId::Commit { oid } => format!("{} (commit {})", id.to_string(), &oid.to_string()[..7]),
+                    _ => format!("{} ({})", id.to_string(), id.kind())
+                }
+            }).collect();
+            return Err(anyhow::anyhow!(
+                "Target '{}' is ambiguous. Matches: {}. Try using more characters to disambiguate.",
+                target,
+                matches.join(", ")
+            ));
+        }
     }
     Ok((source_result[0].clone(), target_result[0].clone()))
 }

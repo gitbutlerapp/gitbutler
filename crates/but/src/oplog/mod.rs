@@ -5,11 +5,36 @@ use gitbutler_oplog::{OplogExt, entry::OperationKind};
 use gitbutler_project::Project;
 use std::path::Path;
 
-pub(crate) fn show_oplog(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
+pub(crate) fn show_oplog(repo_path: &Path, _json: bool, since: Option<&str>) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    let snapshots = ctx.list_snapshots(20, None, vec![])?;
+    let snapshots = if let Some(since_sha) = since {
+        // Get all snapshots first to find the starting point
+        let all_snapshots = ctx.list_snapshots(1000, None, vec![])?; // Get a large number to find the SHA
+        let mut found_index = None;
+        
+        // Find the snapshot that matches the since SHA (partial match supported)
+        for (index, snapshot) in all_snapshots.iter().enumerate() {
+            let snapshot_sha = snapshot.commit_id.to_string();
+            if snapshot_sha.starts_with(since_sha) {
+                found_index = Some(index);
+                break;
+            }
+        }
+        
+        match found_index {
+            Some(index) => {
+                // Take 20 entries starting from the found index
+                all_snapshots.into_iter().skip(index).take(20).collect()
+            }
+            None => {
+                return Err(anyhow::anyhow!("No oplog entry found matching SHA: {}", since_sha));
+            }
+        }
+    } else {
+        ctx.list_snapshots(20, None, vec![])?
+    };
 
     if snapshots.is_empty() {
         println!("No operations found in history.");

@@ -11,7 +11,7 @@ use std::path::Path;
 
 use crate::id::CliId;
 
-pub(crate) fn commit_graph(repo_path: &Path, _json: bool, short: bool) -> anyhow::Result<()> {
+pub(crate) fn commit_graph(repo_path: &Path, json: bool, short: bool) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let stacks = stacks(ctx)?
@@ -19,6 +19,10 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool, short: bool) -> anyhow
         .filter_map(|s| s.id.map(|id| stack_details(ctx, id)))
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
+
+    if json {
+        return output_json(stacks);
+    }
 
     if short {
         return commit_graph_short(stacks);
@@ -274,6 +278,12 @@ pub(crate) fn stack_details(
     } else {
         but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
     }
+}
+
+fn output_json(stacks: Vec<but_workspace::ui::StackDetails>) -> anyhow::Result<()> {
+    let json_output = serde_json::to_string_pretty(&stacks)?;
+    println!("{}", json_output);
+    Ok(())
 }
 
 fn format_commit_message(message: &str) -> String {

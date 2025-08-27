@@ -53,10 +53,52 @@ impl CliId {
         s == self.to_string()
     }
 
+    pub fn matches_prefix(&self, s: &str) -> bool {
+        match self {
+            CliId::Commit { oid } => {
+                let full_sha = oid.to_string();
+                full_sha.starts_with(s)
+            }
+            _ => s == self.to_string()
+        }
+    }
+
     pub fn from_str(ctx: &mut CommandContext, s: &str) -> anyhow::Result<Vec<Self>> {
         if s.len() < 2 {
             return Err(anyhow::anyhow!("Id needs to be 3 characters long: {}", s));
         }
+        
+        // First try with the full input string for prefix matching
+        if s.len() > 2 {
+            let mut everything = Vec::new();
+            crate::status::all_files(ctx)?
+                .into_iter()
+                .filter(|id| id.matches_prefix(s))
+                .for_each(|id| everything.push(id));
+            crate::status::all_branches(ctx)?
+                .into_iter()
+                .filter(|id| id.matches_prefix(s))
+                .for_each(|id| everything.push(id));
+            crate::log::all_commits(ctx)?
+                .into_iter()
+                .filter(|id| id.matches_prefix(s))
+                .for_each(|id| everything.push(id));
+            if CliId::unassigned().matches_prefix(s) {
+                everything.push(CliId::unassigned());
+            }
+            
+            // If we found exactly one match with the full prefix, return it
+            if everything.len() == 1 {
+                return Ok(everything);
+            }
+            // If we found multiple matches with the full prefix, return them all (ambiguous)
+            if everything.len() > 1 {
+                return Ok(everything);
+            }
+            // If no matches with full prefix, fall through to 2-char matching
+        }
+        
+        // Fall back to original 2-character matching behavior
         let s = &s[..2];
         let mut everything = Vec::new();
         crate::status::all_files(ctx)?
