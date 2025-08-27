@@ -169,8 +169,8 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
             Ok(())
         }
-        Subcommands::Mark { target } => {
-            let result = mark::handle(&args.current_dir, args.json, target)
+        Subcommands::Mark { target, delete } => {
+            let result = mark::handle(&args.current_dir, args.json, target, *delete)
                 .context("Can't mark this. Taaaa-na-na-na. Can't mark this.");
             if let Err(e) = &result {
                 eprintln!("{} {}", e, e.root_cause());
