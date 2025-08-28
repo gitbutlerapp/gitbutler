@@ -433,7 +433,15 @@ export class FocusManager {
 	}
 
 	handleKeydown(event: KeyboardEvent) {
-		if (!this._currentElement) return;
+		// Ignore keyboard navigation if user is focused on an
+		// input element, or no current element.
+		if (
+			event.target instanceof HTMLInputElement ||
+			event.target instanceof HTMLTextAreaElement ||
+			!this._currentElement
+		) {
+			return;
+		}
 
 		const metadata = this.getCurrentMetadata();
 		if (!metadata) return;

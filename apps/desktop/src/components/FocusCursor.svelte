@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { FOCUS_MANAGER } from '$lib/focus/focusManager';
 	import { inject } from '@gitbutler/shared/context';
-	import { on } from 'svelte/events';
 
 	const { cursor: target, outline } = inject(FOCUS_MANAGER);
 
@@ -55,15 +54,6 @@
 				element.remove();
 				observer.disconnect();
 			};
-		}
-	});
-	$effect(() => {
-		if ($target) {
-			return on(document, 'keypress', (e) => {
-				if (e.key === '?') {
-					outline.set(!$outline);
-				}
-			});
 		}
 	});
 </script>
