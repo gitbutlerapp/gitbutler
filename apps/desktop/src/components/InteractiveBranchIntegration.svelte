@@ -45,21 +45,15 @@
 	}
 
 	function skipStepById(stepId: string, commitId: string) {
-		editableSteps = editableSteps.map((step) => {
-			if (step.subject.id === stepId) {
-				return { type: 'skip', subject: { id: stepId, commitId } };
-			}
-			return step;
-		});
+		editableSteps = editableSteps.map((step) =>
+			step.subject.id === stepId ? { type: 'skip', subject: { id: stepId, commitId } } : step
+		);
 	}
 
 	function pickStepById(stepId: string, commitId: string) {
-		editableSteps = editableSteps.map((step) => {
-			if (step.subject.id === stepId) {
-				return { type: 'pick', subject: { id: stepId, commitId } };
-			}
-			return step;
-		});
+		editableSteps = editableSteps.map((step) =>
+			step.subject.id === stepId ? { type: 'pick', subject: { id: stepId, commitId } } : step
+		);
 	}
 
 	async function getCommitMessage(commitIds: string[]): Promise<string> {
@@ -81,8 +75,9 @@
 
 	async function squashStepById(stepId: string, commitIds: string[]) {
 		const stepIndex = editableSteps.findIndex((step) => step.subject.id === stepId);
-		if (stepIndex === -1 || stepIndex === stepIndex - 1) {
-			// Only squash downwards
+		// Fix: stepIndex === stepIndex - 1 is always false, should check if it's the last item
+		if (stepIndex === -1 || stepIndex === editableSteps.length - 1) {
+			// Only squash downwards, can't squash the last item
 			return;
 		}
 
@@ -90,11 +85,7 @@
 		const stepToSquash = newSteps[stepIndex];
 		const stepToBeSquashedInto = newSteps[stepIndex + 1];
 
-		if (stepToSquash === undefined) {
-			return;
-		}
-
-		if (stepToBeSquashedInto === undefined) {
+		if (!stepToSquash || !stepToBeSquashedInto) {
 			return;
 		}
 
@@ -116,33 +107,24 @@
 
 	async function splitOffCommitFromStep(stepId: string, commitId: string) {
 		const stepIndex = editableSteps.findIndex((step) => step.subject.id === stepId);
-		if (stepIndex === -1) {
-			return;
-		}
+		if (stepIndex === -1) return;
 
 		const newSteps = structuredClone(editableSteps);
 		const stepToSplit = newSteps[stepIndex];
 
-		if (stepToSplit === undefined) {
-			return;
-		}
-
-		if (stepToSplit.type !== 'squash') {
+		if (!stepToSplit || stepToSplit.type !== 'squash') {
 			// Can only split off from a squash step
 			return;
 		}
 
 		const commits = stepToSplit.subject.commits;
-
 		if (commits.length <= 1) {
 			// Can't split off if there's only one commit
 			return;
 		}
 
 		const commitIndex = commits.indexOf(commitId);
-		if (commitIndex === -1) {
-			return;
-		}
+		if (commitIndex === -1) return;
 
 		const newSquashCommits = commits.filter((c) => c !== commitId);
 		const message = await getCommitMessage(newSquashCommits);
@@ -168,56 +150,88 @@
 		editableSteps = newSteps;
 	}
 
-	function canShiftStepUp(stepId: string): boolean {
-		const index = editableSteps.findIndex((step) => step.subject.id === stepId);
-		return index > 0;
+	// Drag and drop state
+	let draggedStepId: string | null = $state(null);
+	let draggedOverIndex: number | null = $state(null);
+	let draggedIndex: number = $state(-1);
+
+	// Compute drag states for performance
+	const isDragActive = $derived(draggedStepId !== null);
+	const dragDirection = $derived(() => {
+		if (!isDragActive || draggedOverIndex === null || draggedIndex === -1) return null;
+		return draggedIndex > draggedOverIndex ? 'above' : 'below';
+	});
+
+	function handleDragStart(event: DragEvent, stepId: string) {
+		if (!event.dataTransfer) return;
+
+		draggedStepId = stepId;
+		draggedIndex = editableSteps.findIndex((step) => step.subject.id === stepId);
+		event.dataTransfer.effectAllowed = 'move';
+		event.dataTransfer.setData('text/plain', stepId);
+
+		// Hide the default drag preview by creating an empty image
+		const emptyImg = new Image();
+		emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=';
+		event.dataTransfer.setDragImage(emptyImg, 0, 0);
 	}
 
-	function canShiftStepDown(stepId: string): boolean {
-		const index = editableSteps.findIndex((step) => step.subject.id === stepId);
-		return index !== -1 && index < editableSteps.length - 1;
+	function handleDragEnd(_event: DragEvent) {
+		draggedStepId = null;
+		draggedOverIndex = null;
+		draggedIndex = -1;
 	}
 
-	function shiftStepDown(stepId: string) {
-		const index = editableSteps.findIndex((step) => step.subject.id === stepId);
-		if (index === -1 || index === editableSteps.length - 1) {
+	function handleDragOver(event: DragEvent, targetIndex: number) {
+		event.preventDefault();
+		if (!event.dataTransfer) return;
+
+		event.dataTransfer.dropEffect = 'move';
+		draggedOverIndex = targetIndex;
+	}
+
+	function handleDragLeave() {
+		draggedOverIndex = null;
+	}
+
+	function handleDrop(event: DragEvent, targetIndex: number) {
+		event.preventDefault();
+
+		if (!draggedStepId || draggedIndex === -1 || draggedIndex === targetIndex) {
 			return;
 		}
+
+		// Get the drag direction to determine where to insert
+		const direction = draggedIndex > targetIndex ? 'above' : 'below';
+
+		// Reorder the array
 		const newSteps = structuredClone(editableSteps);
-		const temp = newSteps[index];
-		const other = newSteps[index + 1];
+		const draggedStep = newSteps[draggedIndex];
 
-		if (temp === undefined) {
-			return;
-		}
-		if (other === undefined) {
-			return;
+		if (!draggedStep) return;
+
+		// Remove the dragged item first
+		newSteps.splice(draggedIndex, 1);
+
+		// Calculate insertion index based on direction and whether we removed an item before target
+		let insertIndex = targetIndex;
+
+		if (direction === 'below') {
+			// Dragging down: if we removed an item before target, adjust target index down
+			insertIndex = draggedIndex < targetIndex ? targetIndex : targetIndex + 1;
+		} else {
+			// Dragging up: insert at target position
+			insertIndex = targetIndex;
 		}
 
-		newSteps[index] = other;
-		newSteps[index + 1] = temp;
+		newSteps.splice(insertIndex, 0, draggedStep);
+
 		editableSteps = newSteps;
-	}
 
-	function shiftStepUp(stepId: string) {
-		const index = editableSteps.findIndex((step) => step.subject.id === stepId);
-		if (index <= 0) {
-			return;
-		}
-		const newSteps = structuredClone(editableSteps);
-		const temp = newSteps[index];
-		const other = newSteps[index - 1];
-
-		if (temp === undefined) {
-			return;
-		}
-		if (other === undefined) {
-			return;
-		}
-
-		newSteps[index] = other;
-		newSteps[index - 1] = temp;
-		editableSteps = newSteps;
+		// Reset state
+		draggedStepId = null;
+		draggedOverIndex = null;
+		draggedIndex = -1;
 	}
 
 	async function handleIntegrate() {
@@ -240,14 +254,24 @@
 		integration if needed.
 	</p>
 
-	<ScrollableContainer maxHeight="70vh">
+	<ScrollableContainer maxHeight="40vh">
 		<div class="branch-integration__steps">
 			<ReduxResult {projectId} result={initialIntegrationSteps.current}>
 				{#snippet children(_)}
 					<!-- Use ReduxResult in order to gracefully load and handle the results of the API call. -->
 					<!-- But use the editable steps in order to show which are the steps that will be sent to the rust-end -->
-					{#each editableSteps as step (step.subject.id)}
-						<div animate:flip={{ duration: 150 }}>
+					{#each editableSteps as step, index (step.subject.id)}
+						<div
+							animate:flip={{ duration: 150 }}
+							role="region"
+							ondragover={(e) => handleDragOver(e, index)}
+							ondragleave={handleDragLeave}
+							ondrop={(e) => handleDrop(e, index)}
+							class="draggable-step"
+							class:drag-over-above={draggedOverIndex === index && dragDirection() === 'above'}
+							class:drag-over-below={draggedOverIndex === index && dragDirection() === 'below'}
+							class:being-dragged={draggedStepId === step.subject.id}
+						>
 							{#if step.type === 'pick'}
 								{@render pickStep(step.subject.id, step.subject.commitId)}
 							{:else if step.type === 'skip'}
@@ -361,24 +385,17 @@
 	</ReduxResult>
 {/snippet}
 
-{#snippet shiftActions(id: string)}
-	<div class="branch-integration__step-shift">
-		<Button
-			kind="ghost"
-			tooltip="Move this commit up"
-			size="tag"
-			icon="chevron-up"
-			disabled={!canShiftStepUp(id)}
-			onclick={() => shiftStepUp(id)}
-		/>
-		<Button
-			kind="ghost"
-			tooltip="Move this commit down"
-			size="tag"
-			icon="chevron-down"
-			disabled={!canShiftStepDown(id)}
-			onclick={() => shiftStepDown(id)}
-		/>
+{#snippet shiftActions(stepId: string)}
+	<div
+		class="branch-integration__step-shift"
+		draggable="true"
+		role="button"
+		tabindex="0"
+		ondragstart={(e) => handleDragStart(e, stepId)}
+		ondragend={handleDragEnd}
+	>
+		<Icon name="draggable" color="var(--clr-text-3)" />
+		<span class="text-12 text-muted">Drag to reorder</span>
 	</div>
 {/snippet}
 
@@ -441,11 +458,9 @@
 
 	.branch-integration__step {
 		display: flex;
-		padding: 8px;
 		padding-left: 4px;
 		gap: 4px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
+		border-bottom: 1px solid var(--clr-border-2);
 
 		&.skipped {
 			background-color: var(--clr-bg-2);
@@ -476,6 +491,45 @@
 	.branch-integration__step-shift {
 		display: flex;
 		flex-direction: column;
+		align-items: center;
+		padding: 4px;
+		gap: 2px;
+		cursor: grab;
+
+		&:hover {
+			color: var(--clr-text-1);
+		}
+	}
+
+	.draggable-step {
+		position: relative;
+		transition:
+			transform 0.15s ease,
+			opacity 0.15s ease;
+
+		&.drag-over-above::before,
+		&.drag-over-below::after {
+			z-index: 10;
+			position: absolute;
+			right: 0;
+			left: 0;
+			height: 2px;
+			background-color: var(--clr-theme-pop-element);
+			content: '';
+		}
+
+		&.drag-over-above::before {
+			top: -2px;
+		}
+
+		&.drag-over-below::after {
+			bottom: -2px;
+		}
+
+		&.being-dragged {
+			transform: scale(0.98);
+			opacity: 0.4;
+		}
 	}
 
 	.commit-info {
