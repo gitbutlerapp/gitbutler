@@ -2,11 +2,6 @@
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import { focusable } from '$lib/focus/focusable';
-	import {
-		INTELLIGENT_SCROLLING_SERVICE,
-		scrollingAttachment,
-		type TargetType
-	} from '$lib/intelligentScrolling/service';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
@@ -26,8 +21,6 @@
 		persistId?: string;
 		bottomBorder?: boolean;
 		transparent?: boolean;
-		scrollToId?: string;
-		scrollToType?: TargetType;
 		grow?: boolean;
 		noshrink?: boolean;
 		clientHeight?: number;
@@ -47,8 +40,6 @@
 		persistId,
 		bottomBorder,
 		transparent,
-		scrollToId,
-		scrollToType,
 		grow,
 		noshrink,
 		resizer,
@@ -58,7 +49,6 @@
 		onclose
 	}: Props = $props();
 
-	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
 	const userSettings = inject(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
 
@@ -86,7 +76,6 @@
 	class:transparent
 	class:grow
 	class:noshrink
-	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
 	use:focusable
 >
 	<div

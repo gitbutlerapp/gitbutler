@@ -13,7 +13,6 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { Icon, TestId, Tooltip } from '@gitbutler/ui';
 
-	import type { TargetType } from '$lib/intelligentScrolling/service';
 	import type { ComponentProps } from 'svelte';
 
 	interface Props {
@@ -22,8 +21,6 @@
 		projectId: string;
 		branchName: string;
 		active?: boolean;
-		scrollToType?: TargetType;
-		scrollToId?: string;
 		grow?: boolean;
 		clientHeight?: number;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
@@ -37,8 +34,6 @@
 		laneId,
 		projectId,
 		branchName,
-		scrollToId,
-		scrollToType,
 		grow,
 		clientHeight = $bindable(),
 		resizer,
@@ -69,8 +64,6 @@
 		<Drawer
 			bind:clientHeight
 			testId={TestId.BranchView}
-			{scrollToId}
-			{scrollToType}
 			{resizer}
 			{grow}
 			{onclose}

@@ -13,7 +13,6 @@
 		onDragOver
 	} from '$lib/dragging/reordering';
 	import { WorkspaceAutoPanner } from '$lib/dragging/workspaceAutoPanner';
-	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { branchesPath } from '$lib/routes/routes.svelte';
 	import { type SelectionId } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -35,7 +34,6 @@
 
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
-	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 
 	let lanesScrollableEl = $state<HTMLDivElement>();
@@ -146,8 +144,6 @@
 	`StackView` instead of being set imperatively in the dragstart handler.
 	 -->
 		{#each mutableStacks as stack, i (stack.id)}
-			<!-- TODO: What fallback id should we use? -->
-			{@const laneId = stack.id || 'fallback-id'}
 			<div
 				class="reorderable-stack"
 				role="presentation"
@@ -157,7 +153,6 @@
 					if (!stack.id) return;
 					onReorderStart(e, stack.id, () => {
 						draggingStack = true;
-						intelligentScrollingService.show(projectId, laneId, 'stack');
 					});
 				}}
 				ondragover={(e) => {

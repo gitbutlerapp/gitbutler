@@ -14,10 +14,6 @@
 	import { isParsedError } from '$lib/error/parser';
 	import { focusable } from '$lib/focus/focusable';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
-	import {
-		INTELLIGENT_SCROLLING_SERVICE,
-		scrollingAttachment
-	} from '$lib/intelligentScrolling/service';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import {
 		createBranchSelection,
@@ -68,7 +64,6 @@
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const uiState = inject(UI_STATE);
-	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
 	const idSelection = inject(ID_SELECTION);
 
 	const projectState = $derived(uiState.project(projectId));
@@ -229,7 +224,6 @@
 
 	export function onclose() {
 		selection.set(undefined);
-		intelligentScrollingService.show(projectId, laneId, 'stack');
 	}
 
 	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stackId));
@@ -303,7 +297,6 @@
 		selectionId={createWorktreeSelection({ stackId })}
 		onclose={() => {
 			idSelection.clear(createWorktreeSelection({ stackId: stackId }));
-			intelligentScrollingService.show(projectId, laneId, 'stack');
 		}}
 		draggableFiles
 	/>
@@ -315,9 +308,7 @@
 		{projectId}
 		{selectionId}
 		diffOnly={true}
-		onclose={() => {
-			intelligentScrollingService.show(projectId, laneId, 'details');
-		}}
+		onclose={() => {}}
 		draggableFiles={selectionId.type === 'commit'}
 	/>
 {/snippet}
@@ -331,8 +322,6 @@
 		active={selectedFile?.type === 'branch' &&
 			selectedFile.branchName === branchName &&
 			focusedStackId === stackId}
-		scrollToType="details"
-		scrollToId={stackId}
 		{onerror}
 		{onclose}
 	/>
@@ -351,8 +340,6 @@
 		}}
 		draggableFiles
 		active={selectedFile?.type === 'commit' && focusedStackId === stackId}
-		scrollToType="details"
-		scrollToId={stackId}
 		{onerror}
 		{onclose}
 	/>
@@ -461,7 +448,6 @@
 		<div
 			class="stack-view"
 			class:details-open={isDetailsViewOpen}
-			{@attach scrollingAttachment(intelligentScrollingService, stackId, 'stack')}
 			style:width="{$persistedStackWidth}rem"
 			bind:this={stackViewEl}
 		>
@@ -491,7 +477,6 @@
 									onselect={() => {
 										// Clear one selection when you modify the other.
 										laneState?.selection.set(undefined);
-										intelligentScrollingService.show(projectId, laneId, 'diff');
 									}}
 								>
 									{#snippet emptyPlaceholder()}
@@ -538,7 +523,6 @@
 							onselect={() => {
 								// Clear one selection when you modify the other.
 								idSelection.clear({ type: 'worktree', stackId: stackId });
-								intelligentScrollingService.show(projectId, laneId, 'details');
 							}}
 						/>
 					</div>
