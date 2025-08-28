@@ -449,6 +449,7 @@
 			class="stack-view"
 			class:details-open={isDetailsViewOpen}
 			style:width="{$persistedStackWidth}rem"
+			use:focusable={{ list: true }}
 			bind:this={stackViewEl}
 		>
 			<ReduxResult {projectId} result={branchesResult.current}>
@@ -458,6 +459,7 @@
 						<div
 							class="assignments-wrap"
 							class:assignments__empty={changes.current.length === 0 && !isCommitting}
+							use:focusable
 						>
 							<div
 								class="worktree-wrap"
@@ -557,7 +559,7 @@
 			style:right="{DETAILS_RIGHT_PADDING_REM}rem"
 			use:focusable={{ list: true }}
 		>
-			<div class="inner">
+			<div class="details-view__inner">
 				<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
 				{#if branchName && commitId}
 					{@render commitView(branchName, commitId)}
@@ -723,8 +725,12 @@
 		box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
 	}
 
-	.inner {
+	/* Needed for `focusCursor.svelte` to work correctly on `Drawer` components . */
+	.details-view__inner {
+		display: flex;
 		position: relative;
+		flex-direction: column;
+		overflow: hidden;
 	}
 
 	:global(.dark) .details-view {
