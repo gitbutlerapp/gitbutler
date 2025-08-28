@@ -22,7 +22,7 @@ pub enum DateMode {
 
 /// Set `user.name` to `name` if unset and `user.email` to `email` if unset, or error if both are already set
 /// as per `repo` configuration, and write the changes back to the file at `destination`, keeping
-/// user comments and custom formatting.
+/// user comments and custom formatting. If writing to `destination` fails, falls back to global and then system levels.
 pub fn save_author_if_unset_in_repo<'a, 'b>(
     repo: &gix::Repository,
     destination: gix::config::Source,
@@ -38,6 +38,51 @@ pub fn save_author_if_unset_in_repo<'a, 'b>(
         .string(&gix::config::tree::User::EMAIL)
         .is_none()
         .then_some(email.into());
+
+    // Check if anything needs to be set
+    if name.is_none() && email.is_none() {
+        bail!("Refusing to overwrite an existing user.name and user.email");
+    }
+
+    // Try to write to the specified destination first, then fall back to global and system levels
+    let fallback_destinations = match destination {
+        gix::config::Source::Local => vec![
+            gix::config::Source::Local,
+            gix::config::Source::User,
+            gix::config::Source::System,
+        ],
+        gix::config::Source::User => vec![
+            gix::config::Source::User,
+            gix::config::Source::System,
+        ],
+        gix::config::Source::System => vec![gix::config::Source::System],
+        // For other sources, just try the specified level with no fallback
+        _ => vec![destination],
+    };
+
+    let mut last_error = None;
+    
+    for current_destination in fallback_destinations {
+        match try_write_config(repo, current_destination, name, email) {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                last_error = Some(e);
+                continue;
+            }
+        }
+    }
+
+    // If we get here, all attempts failed
+    Err(last_error.unwrap_or_else(|| anyhow!("Failed to write configuration to any level")))
+}
+
+/// Helper function to try writing config to a specific destination
+fn try_write_config<'a, 'b>(
+    repo: &gix::Repository,
+    destination: gix::config::Source,
+    name: Option<&'a BStr>,
+    email: Option<&'b BStr>,
+) -> anyhow::Result<()> {
     let config_path = destination
         .storage_location(&mut |name| std::env::var_os(name))
         .context("Failed to determine storage location for Git user configuration")?;
@@ -68,17 +113,15 @@ pub fn save_author_if_unset_in_repo<'a, 'b>(
         something_was_set = true;
     }
 
-    if !something_was_set {
-        bail!("Refusing to overwrite an existing user.name and user.email");
+    if something_was_set {
+        config.write_to(
+            &mut std::fs::OpenOptions::new()
+                .write(true)
+                .create(false)
+                .truncate(true)
+                .open(config_path)?,
+        )?;
     }
-
-    config.write_to(
-        &mut std::fs::OpenOptions::new()
-            .write(true)
-            .create(false)
-            .truncate(true)
-            .open(config_path)?,
-    )?;
 
     Ok(())
 }
