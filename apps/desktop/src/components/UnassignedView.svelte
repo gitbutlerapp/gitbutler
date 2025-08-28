@@ -7,7 +7,6 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { focusable } from '$lib/focus/focusable';
-	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
@@ -25,7 +24,6 @@
 
 	const uiState = inject(UI_STATE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
-	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
 	const idSelection = inject(ID_SELECTION);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = $derived(settingsService.appSettings);
@@ -118,9 +116,6 @@
 				}}
 				overflow
 				mode="unassigned"
-				onselect={() => {
-					intelligentScrollingService.unassignedFileClicked(projectId);
-				}}
 				foldButton={$settingsStore?.featureFlags.rules ? undefined : foldButton}
 			>
 				{#snippet emptyPlaceholder()}
