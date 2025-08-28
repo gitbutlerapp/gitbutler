@@ -1,4 +1,4 @@
-import { FOCUS_MANAGER, type FocusableOptions } from '$lib/focus/focusManager';
+import { FOCUS_MANAGER, type FocusableOptions, type Payload } from '$lib/focus/focusManager';
 import { inject } from '@gitbutler/shared/context';
 import type { Action } from 'svelte/action';
 
@@ -14,13 +14,10 @@ import type { Action } from 'svelte/action';
  *   onFocus: (context) => highlightStack(context.payload.stackId)
  * }}>
  */
-export function focusable<TPayload extends object>(
+export function focusable(
 	element: HTMLElement,
-	options?: FocusableOptions<TPayload>
-): ReturnType<Action<HTMLElement, FocusableOptions<TPayload>>> {
-	if (!options) {
-		options = {};
-	}
+	options: FocusableOptions = {}
+): ReturnType<Action<HTMLElement, FocusableOptions>> {
 	const focus = inject(FOCUS_MANAGER);
 
 	let currentOptions = options;
@@ -40,7 +37,6 @@ export function focusable<TPayload extends object>(
 		isRegistered = false;
 	}
 
-	// Initial registration
 	if (!options.disabled) {
 		register();
 	}
@@ -50,11 +46,11 @@ export function focusable<TPayload extends object>(
 			unregister();
 		},
 
-		update(newOptions: FocusableOptions<TPayload>) {
-			// If the ID changed, we need to unregister and re-register
+		update(newOptions: FocusableOptions<Payload>) {
 			const oldId = currentOptions.id;
 			const newId = newOptions.id;
 
+			// If the ID changed, we need to unregister and re-register
 			if (oldId !== newId) {
 				unregister();
 				currentOptions = newOptions;
@@ -62,7 +58,6 @@ export function focusable<TPayload extends object>(
 					register();
 				}
 			} else {
-				// Same ID - we can update in place
 				if (!currentOptions.disabled && newOptions.disabled) {
 					unregister();
 				}
