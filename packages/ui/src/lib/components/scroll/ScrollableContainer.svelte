@@ -121,19 +121,19 @@
 		>
 			{@render children()}
 		</div>
-		<Scrollbar
-			{whenToShow}
-			{viewport}
-			{initiallyVisible}
-			{padding}
-			{shift}
-			{thickness}
-			{zIndex}
-			{horz}
-			{onscrollexists}
-			{onthumbdrag}
-		/>
 	</div>
+	<Scrollbar
+		{whenToShow}
+		{viewport}
+		{initiallyVisible}
+		{padding}
+		{shift}
+		{thickness}
+		{zIndex}
+		{horz}
+		{onscrollexists}
+		{onthumbdrag}
+	/>
 </div>
 
 <style lang="postcss">
