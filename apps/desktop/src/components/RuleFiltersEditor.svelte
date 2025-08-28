@@ -208,24 +208,22 @@
 
 <!-- Claude Code Session ID -->
 {#snippet claudeCodeSessionIdFilter(sessionId: string)}
-	<div class="rule__pill expand">
-		<ClaudeSessionDescriptor {projectId} {sessionId}>
-			{#snippet fallback()}
-				<Textbox value={sessionId} readonly>
-					{#snippet customIconLeft()}
-						<Icon name="ai" />
-					{/snippet}
-				</Textbox>
-			{/snippet}
-			{#snippet children(descriptor)}
-				<Textbox value={descriptor} readonly>
-					{#snippet customIconLeft()}
-						<Icon name="ai" />
-					{/snippet}
-				</Textbox>
-			{/snippet}
-		</ClaudeSessionDescriptor>
-	</div>
+	<ClaudeSessionDescriptor {projectId} {sessionId}>
+		{#snippet fallback()}
+			<Textbox value={sessionId} readonly wide>
+				{#snippet customIconLeft()}
+					<Icon name="ai" />
+				{/snippet}
+			</Textbox>
+		{/snippet}
+		{#snippet children(descriptor)}
+			<Textbox value={descriptor} readonly wide>
+				{#snippet customIconLeft()}
+					<Icon name="ai" />
+				{/snippet}
+			</Textbox>
+		{/snippet}
+	</ClaudeSessionDescriptor>
 {/snippet}
 
 <!-- This is the parent component,
