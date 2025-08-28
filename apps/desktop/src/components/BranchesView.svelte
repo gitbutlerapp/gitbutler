@@ -21,7 +21,7 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
 	import { isParsedError } from '$lib/error/parser';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { workspacePath } from '$lib/routes/routes.svelte';
 	import {

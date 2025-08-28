@@ -8,7 +8,7 @@
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import { getFilename } from '$lib/files/utils';
 	import { type FocusableOptions } from '$lib/focus/focusManager';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { type TreeChange } from '$lib/hunks/change';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';

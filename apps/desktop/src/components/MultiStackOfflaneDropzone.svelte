@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Dropzone from '$components/Dropzone.svelte';
 	import MultiStackCreateNew from '$components/MultiStackCreateNew.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { OutsideLaneDzHandler } from '$lib/stacks/dropHandler';

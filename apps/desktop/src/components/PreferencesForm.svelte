@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Section from '$components/Section.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 	import { SectionCard, Textbox, Toggle } from '@gitbutler/ui';

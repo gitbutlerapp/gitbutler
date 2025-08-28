@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { Icon } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 

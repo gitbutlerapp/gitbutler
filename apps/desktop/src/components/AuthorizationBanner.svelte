@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Login from '$components/Login.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { Icon, SectionCard } from '@gitbutler/ui';
 
 	interface Props {

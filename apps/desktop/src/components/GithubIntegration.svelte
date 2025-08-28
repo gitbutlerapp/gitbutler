@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { URL_SERVICE } from '$lib/utils/url';

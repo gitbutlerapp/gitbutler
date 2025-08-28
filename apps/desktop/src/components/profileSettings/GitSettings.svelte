@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { inject } from '@gitbutler/shared/context';
 	import { Link, SectionCard, Toggle } from '@gitbutler/ui';
 

@@ -11,7 +11,7 @@
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
 	import { REORDER_DROPZONE_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
