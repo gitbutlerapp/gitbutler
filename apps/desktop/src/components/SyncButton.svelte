@@ -31,6 +31,7 @@
 	{loading}
 	{disabled}
 	icon="update"
+	reversedDirection
 	onmousedown={async (e: MouseEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
@@ -47,17 +48,17 @@
 		}
 	}}
 >
-	{#snippet custom()}
-		<span class="text-12 text-semibold capitalize fetch-status">
-			{#if loading}
-				Fetching...
-			{:else if lastFetched}
-				<TimeAgo date={lastFetched} addSuffix={true} />
-			{:else}
-				Refetch
-			{/if}
-		</span>
+	<span class="capitalize">
+		{#if loading}
+			Fetching...
+		{:else if lastFetched}
+			<TimeAgo date={lastFetched} addSuffix={true} />
+		{:else}
+			Refetch
+		{/if}
+	</span>
 
+	{#snippet custom()}
 		{#if baseBranch.current.data}
 			<div class="target-branch">
 				<Icon name="remote-target-branch" color="var(--clr-text-2)" />
@@ -70,10 +71,6 @@
 </Button>
 
 <style lang="postcss">
-	.fetch-status {
-		padding: 0 2px;
-	}
-
 	.target-branch {
 		display: inline-flex;
 		align-items: center;
@@ -81,7 +78,7 @@
 		gap: 4px;
 		color: var(--clr-text-2);
 
-		&:before {
+		&:after {
 			display: inline-block;
 			width: 1px;
 			height: 12px;
