@@ -27,6 +27,7 @@
 		isOpen?: boolean;
 		active?: boolean;
 		hasConflicts?: boolean;
+		disabled?: boolean;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		onclick?: () => void;
 	};
@@ -71,9 +72,10 @@
 		opacity,
 		borderTop,
 		isOpen,
+		disabled,
+		hasConflicts,
 		onclick,
 		menu,
-		hasConflicts,
 		...args
 	}: Props = $props();
 
@@ -96,10 +98,13 @@
 	style:opacity
 	class:border-top={borderTop || first}
 	class:last={lastCommit}
+	class:disabled
 	{onclick}
 	use:focusable={{
 		id: DefinedFocusable.Commit,
 		onKeydown: (e) => {
+			if (disabled) return false;
+
 			if (e.key === 'Enter' || e.key === ' ' || (!e.metaKey && e.key === 'ArrowRight')) {
 				e.stopPropagation();
 				onclick?.();
@@ -186,6 +191,10 @@
 
 		&.active.selected {
 			background-color: var(--clr-selected-in-focus-bg);
+		}
+
+		&.disabled {
+			pointer-events: none;
 		}
 	}
 

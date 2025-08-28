@@ -16,6 +16,7 @@
 		currentStatus,
 		formatMessages,
 		getTodos,
+		lastInteractionTime,
 		lastUserMessageSentAt,
 		usageStats
 	} from '$lib/codegen/messages';
@@ -147,7 +148,9 @@
 {#snippet main({ projectId }: { projectId: string })}
 	<CodegenSidebar content={sidebarContent}>
 		{#snippet actions()}
-			<Button disabled kind="outline" icon="plus-small" size="tag">Create new</Button>
+			<Button disabled kind="outline" size="tag" icon="plus-small" reversedDirection>Add new</Button
+			>
+			<Button kind="ghost" icon="settings" size="tag" />
 		{/snippet}
 	</CodegenSidebar>
 
@@ -285,6 +288,7 @@
 				tokensUsed={usage.tokens}
 				cost={usage.cost}
 				commitCount={commits.length}
+				lastInteractionTime={lastInteractionTime(events)}
 				commits={commitsList}
 			/>
 			<!-- defining this here so it's name doesn't conflict with the
@@ -293,6 +297,7 @@
 				{@const lastBranch = headIndex === totalHeads - 1}
 				{#each commits as commit, i}
 					<CommitRow
+						disabled
 						disableCommitActions
 						commitId={commit.id}
 						commitMessage={commit.message}

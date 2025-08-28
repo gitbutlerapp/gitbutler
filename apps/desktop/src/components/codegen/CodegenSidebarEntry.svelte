@@ -1,6 +1,7 @@
 <script lang="ts">
-	import Drawer from '$components/Drawer.svelte';
-	import { Badge, Icon } from '@gitbutler/ui';
+	import { Badge, Icon, Tooltip } from '@gitbutler/ui';
+	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import { slide } from 'svelte/transition';
 	import type { ClaudeStatus } from '$lib/codegen/types';
 	import type { Snippet } from 'svelte';
 
@@ -11,54 +12,105 @@
 		tokensUsed: number;
 		cost: number;
 		commitCount: number;
+		lastInteractionTime?: Date;
 
 		commits: Snippet;
 		onclick: (e: MouseEvent) => void;
 	};
 
-	const { selected, status, branchName, tokensUsed, cost, commitCount, commits, onclick }: Props =
-		$props();
+	const {
+		selected,
+		status,
+		branchName,
+		tokensUsed,
+		cost,
+		commitCount,
+		lastInteractionTime,
+		commits,
+		onclick
+	}: Props = $props();
+
+	let isOpen = $state(false);
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<div class="sidebar-entry" {onclick}>
-	<div class="sidebar-entry-header" class:selected>
+<div class="sidebar-entry">
+	<button class="sidebar-entry-header" class:selected type="button" {onclick}>
+		{#if selected}
+			<div class="entry-active-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+		{/if}
 		<div class="sidebar-entry-header-left">
-			<Icon name="branch-remote" />
-			<p class="text-13 text-semibold">{branchName}</p>
+			<Icon name="branch-remote" opacity={0.5} />
+			<p class="text-13 text-semibold truncate full-width">{branchName}</p>
+			{@render vibeIcon()}
 		</div>
-		{@render vibeIcon()}
-	</div>
-	<Drawer children={commits} defaultCollapsed>
-		{#snippet header()}
-			<div class="sidebar-entry-drawer">
-				<div class="flex gap-6 items-center">
-					<p class="text-14 text-semibold">Commits</p>
-					<Badge>{commitCount}</Badge>
-				</div>
-				{#if status !== 'disabled'}
-					<div class="flex gap-8 items-center">
-						<p class="text-12">{tokensUsed}</p>
-						<div class="iddy-biddy-line"></div>
-						<p class="text-12">${cost.toFixed(2)}</p>
+
+		{#if status !== 'disabled'}
+			<div class="sidebar-entry-drawer__header-info text-12">
+				<Tooltip text="Total tokens used and cost">
+					<div class="flex gap-4 items-center">
+						<p>{tokensUsed}</p>
+						<svg
+							width="0.875rem"
+							height="0.875rem"
+							viewBox="0 0 13 14"
+							fill="none"
+							opacity="0.6"
+							xmlns="http://www.w3.org/2000/svg"
+						>
+							<circle cx="6.28" cy="6.99973" r="5.28" stroke="currentColor" stroke-width="1.5" />
+							<circle
+								cx="6.27973"
+								cy="7"
+								r="2.80422"
+								transform="rotate(-45 6.27973 7)"
+								stroke="currentColor"
+								stroke-width="1.5"
+								stroke-dasharray="1"
+							/>
+						</svg>
+						<div class="sidebar-entry-drawer__header-info__divider"></div>
+						<p>${cost.toFixed(2)}</p>
 					</div>
+				</Tooltip>
+
+				{#if lastInteractionTime}
+					<p class="text-11 sidebar-entry-drawer__tima-ago opacity-60">
+						{getTimeAgo(lastInteractionTime, true)}
+					</p>
 				{/if}
 			</div>
-		{/snippet}
-	</Drawer>
+		{/if}
+	</button>
+
+	{#if commitCount > 0}
+		<div class="sidebar-entry-drawer">
+			<button class="sidebar-entry-drawer__header" onclick={() => (isOpen = !isOpen)} type="button">
+				<div class="sidebar-entry-drawer__header-commits">
+					<div class="sidebar-entry-drawer__header-commits__fold-icon" class:open={isOpen}>
+						<Icon name="chevron-right" />
+					</div>
+					<p class="text-13 text-semibold full-width">Commits</p>
+					<Badge kind="soft">{commitCount}</Badge>
+				</div>
+			</button>
+
+			{#if isOpen}
+				<div class="stack-v full-width" transition:slide|local={{ duration: 150, axis: 'y' }}>
+					<div class="sidebar-entry-drawer__commits">
+						{@render commits()}
+					</div>
+				</div>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 {#snippet vibeIcon()}
 	<div class="vibe-icon {status}">
-		{#if status === 'enabled'}
-			<Icon name="ai" />
-		{:else if status === 'running'}
+		{#if status === 'running'}
 			<Icon name="running-man" />
 		{:else if status === 'completed'}
 			<Icon name="success" />
-			<!-- {:else if status === 'assistance-required'}
-			<Icon name="error" /> -->
 		{/if}
 	</div>
 {/snippet}
@@ -68,66 +120,105 @@
 		flex-shrink: 0;
 		width: 100%;
 		overflow: hidden;
-
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 	}
 
 	.sidebar-entry-header {
 		display: flex;
-
 		position: relative;
-		align-items: flex-start;
-		align-self: stretch;
-		justify-content: center;
-		padding: 12px 12px 12px 14px;
-		gap: 12px;
-
-		border-bottom: 1px solid var(--clr-border-2);
+		flex-direction: column;
+		width: 100%;
+		padding: 12px;
+		overflow: hidden;
+		gap: 10px;
+		text-align: left;
 
 		&.selected {
 			background-color: var(--clr-selected-in-focus-bg);
-			&::before {
-				position: absolute;
+		}
 
-				top: 50%;
-				left: 0px;
-
-				width: 6px;
-				height: 21px;
-
-				transform: translateY(-50%);
-
-				border-radius: 0 10px 10px 0;
-
-				background-color: var(--clr-selected-in-focus-element);
-				content: '';
-			}
+		&:not(.selected):hover {
+			background-color: var(--clr-bg-1-muted);
 		}
 	}
 
 	.sidebar-entry-header-left {
 		display: flex;
-		flex: 1 0 0;
 		align-items: center;
+		width: 100%;
+		overflow: hidden;
 		gap: 8px;
 	}
 
-	.sidebar-entry-drawer {
+	.last-interaction {
 		display: flex;
-		flex-grow: 1;
-
-		align-items: center;
-		justify-content: space-between;
+		padding: 8px 12px 6px 12px;
+		border-top: 1px solid var(--clr-border-3);
+		background-color: var(--clr-bg-1-muted);
+		opacity: 0.8;
 	}
 
-	.iddy-biddy-line {
+	/* DRAWER */
+	.sidebar-entry-drawer {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		border-top: 1px solid var(--clr-border-2);
+	}
+
+	.sidebar-entry-drawer__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 10px 12px;
+		background-color: color-mix(in srgb, var(--clr-bg-2) 60%, transparent);
+	}
+
+	.sidebar-entry-drawer__header-commits {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.sidebar-entry-drawer__header-commits__fold-icon {
+		display: flex;
+		color: var(--clr-text-3);
+		transition: transform 0.15s ease-in-out;
+
+		&.open {
+			transform: rotate(90deg);
+		}
+	}
+
+	.sidebar-entry-drawer__header-info {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding-left: 22px;
+		gap: 4px;
+		opacity: 0.7;
+	}
+
+	.sidebar-entry-drawer__header-info__divider {
 		width: 1px;
-		height: 11px;
-		background-color: var(--clr-text-3);
+		height: 12px;
+		margin: 0 4px;
+		background-color: var(--clr-text-1);
+		opacity: 0.3;
+	}
+
+	.sidebar-entry-drawer__commits {
+		display: flex;
+		flex-direction: column;
+		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.vibe-icon {
+		display: flex;
+
 		&.enabled {
 			color: var(--clr-theme-pop-element);
 		}
@@ -137,8 +228,16 @@
 		&.completed {
 			color: var(--clr-theme-succ-element);
 		}
-		/* &.assistance-required {
-			color: var(--clr-theme-err-element);
-		} */
+	}
+
+	.entry-active-indicator {
+		position: absolute;
+		top: 10px;
+		left: 0;
+		width: 12px;
+		height: 18px;
+		transform: translateX(-50%);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-theme-pop-element);
 	}
 </style>

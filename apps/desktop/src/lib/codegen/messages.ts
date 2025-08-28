@@ -265,6 +265,15 @@ export function lastUserMessageSentAt(events: ClaudeMessage[]): Date | undefined
 }
 
 /**
+ * Gets the timestamp of the last interaction (any message) in the chat
+ */
+export function lastInteractionTime(events: ClaudeMessage[]): Date | undefined {
+	if (events.length === 0) return undefined;
+	const lastEvent = events[events.length - 1];
+	return lastEvent ? new Date(lastEvent.createdAt) : undefined;
+}
+
+/**
  * Extracts the TODO list from the message history.
  *
  * The TODOs are written when the "TodoWrite" command is called which replaces
