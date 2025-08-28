@@ -631,9 +631,6 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 	}
-	.radio-aditional-info {
-		color: var(--clr-text-2);
-	}
 	/* MODAL WINDOW */
 	.content-wrap {
 		display: flex;

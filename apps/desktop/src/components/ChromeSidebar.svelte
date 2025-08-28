@@ -476,7 +476,6 @@
 		transform: translateX(-50%) translateY(50%);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-pop-element);
-		content: '';
 	}
 
 	/* OVERRIDE BUTTON STYLES */
