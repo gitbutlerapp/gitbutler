@@ -21,7 +21,6 @@
 	import { inject, injectOptional } from '@gitbutler/shared/context';
 	import { AsyncButton, Button, TestId } from '@gitbutler/ui';
 
-	import type { TargetType } from '$lib/intelligentScrolling/service';
 	import type { ComponentProps } from 'svelte';
 
 	type Props = {
@@ -31,8 +30,6 @@
 		commitKey: CommitKey;
 		active?: boolean;
 		draggableFiles: boolean;
-		scrollToType?: TargetType;
-		scrollToId?: string;
 		grow?: boolean;
 		clientHeight?: number;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
@@ -46,8 +43,6 @@
 		stackId,
 		laneId,
 		commitKey,
-		scrollToId,
-		scrollToType,
 		grow,
 		clientHeight = $bindable(),
 		resizer,
@@ -162,8 +157,6 @@
 		<Drawer
 			bind:clientHeight
 			testId={TestId.CommitDrawer}
-			{scrollToId}
-			{scrollToType}
 			{resizer}
 			{grow}
 			{ontoggle}

@@ -4,10 +4,6 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UnifiedDiffView from '$components/UnifiedDiffView.svelte';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
-	import {
-		INTELLIGENT_SCROLLING_SERVICE,
-		scrollingAttachment
-	} from '$lib/intelligentScrolling/service';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { readKey, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/shared/context';
@@ -36,7 +32,6 @@
 
 	const idSelection = inject(ID_SELECTION);
 	const diffService = inject(DIFF_SERVICE);
-	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
 
 	const selection = $derived(selectionId ? idSelection.valuesReactive(selectionId) : undefined);
 	const lastAdded = $derived(selectionId ? idSelection.getById(selectionId).lastAdded : undefined);
@@ -55,11 +50,7 @@
 	const selectable = $derived(selectionId?.type === 'worktree');
 </script>
 
-<div
-	class="selection-view"
-	data-testid={testId}
-	{@attach scrollingAttachment(intelligentScrollingService, stackId, 'diff')}
->
+<div class="selection-view" data-testid={testId}>
 	{#if selectedFile}
 		{@const changeResult = idSelection.changeByKey(projectId, selectedFile)}
 		<ReduxResult {projectId} result={changeResult.current}>

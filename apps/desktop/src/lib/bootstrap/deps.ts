@@ -35,10 +35,6 @@ import { HISTORY_SERVICE, HistoryService } from '$lib/history/history';
 import { OplogService, OPLOG_SERVICE } from '$lib/history/oplogService.svelte';
 import { HOOKS_SERVICE, HooksService } from '$lib/hooks/hooksService';
 import { DiffService, DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
-import {
-	IntelligentScrollingService,
-	INTELLIGENT_SCROLLING_SERVICE
-} from '$lib/intelligentScrolling/service';
 import { IrcClient, IRC_CLIENT } from '$lib/irc/ircClient.svelte';
 import { IrcService, IRC_SERVICE } from '$lib/irc/ircService.svelte';
 import { ModeService, MODE_SERVICE } from '$lib/mode/modeService';
@@ -259,7 +255,6 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const focusManager = new FocusManager();
-	const intelligentScrollingService = new IntelligentScrollingService(uiState);
 	const reorderDropzoneFactory = new ReorderDropzoneFactory(stackService);
 	const shortcutService = new ShortcutService(backend);
 	const dragStateService = new DragStateService();
@@ -322,7 +317,6 @@ export function initDependencies(args: {
 		[HOOKS_SERVICE, hooksService],
 		[HTTP_CLIENT, httpClient],
 		[ID_SELECTION, idSelection],
-		[INTELLIGENT_SCROLLING_SERVICE, intelligentScrollingService],
 		[IRC_CLIENT, ircClient],
 		[IRC_SERVICE, ircService],
 		[MODE_SERVICE, modeService],
