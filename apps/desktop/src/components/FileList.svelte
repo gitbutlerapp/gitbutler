@@ -11,7 +11,7 @@
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
 	import { DefinedFocusable } from '$lib/focus/focusManager';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { type TreeChange, type Modification } from '$lib/hunks/change';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';

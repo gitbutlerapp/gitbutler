@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import {
 		INTELLIGENT_SCROLLING_SERVICE,
 		scrollingAttachment,

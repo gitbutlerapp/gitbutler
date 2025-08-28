@@ -10,7 +10,7 @@
 	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';

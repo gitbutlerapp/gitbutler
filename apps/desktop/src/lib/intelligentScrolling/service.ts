@@ -63,12 +63,11 @@ export function scrollingAttachment(
 ) {
 	if (!id || !type) return;
 	return (el: Element) => {
-		const registration = intelligentScrollingService.register({
-			element: el,
-			type,
-			id
-		});
-
-		return () => registration();
+		// const registration = intelligentScrollingService.register({
+		// 	element: el,
+		// 	type,
+		// 	id
+		// });
+		// return () => registration();
 	};
 }

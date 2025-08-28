@@ -3,7 +3,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Rule from '$components/Rule.svelte';
 	import RuleFiltersEditor from '$components/RuleFiltersEditor.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import {
 		type WorkspaceRuleId,
 		type RuleFilterMap,

@@ -9,7 +9,7 @@
 	import SelectionView from '$components/SelectionView.svelte';
 	import SnapshotCard from '$components/SnapshotCard.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { HISTORY_SERVICE, createdOnDay } from '$lib/history/history';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { createSnapshotSelection, type SelectionId } from '$lib/selection/key';
@@ -312,9 +312,5 @@
 		flex-direction: column;
 		overflow: hidden;
 		background-color: var(--clr-bg-1);
-	}
-
-	.history-view__file-header {
-		display: flex;
 	}
 </style>
