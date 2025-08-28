@@ -116,6 +116,12 @@
 		></div>
 	{/if}
 
+	{#if !selected && !args.disableCommitActions}
+		<div class="commit-row__drag-handle">
+			<Icon name="draggable-narrow" />
+		</div>
+	{/if}
+
 	<CommitLine
 		commitStatus={args.type}
 		diverged={args.type === 'LocalAndRemote' ? (args.diverged ?? false) : false}
@@ -163,6 +169,11 @@
 		&:hover,
 		&.menu-shown {
 			background-color: var(--clr-bg-1-muted);
+		}
+
+		&:hover .commit-row__drag-handle {
+			opacity: 1;
+			pointer-events: auto;
 		}
 
 		&:not(.last) {
@@ -218,5 +229,15 @@
 		display: flex;
 		margin-right: 4px;
 		color: var(--clr-theme-err-element);
+	}
+
+	.commit-row__drag-handle {
+		position: absolute;
+		top: 50%;
+		left: 0;
+		transform: translateY(-50%);
+		color: var(--clr-text-3);
+		opacity: 0;
+		pointer-events: none;
 	}
 </style>
