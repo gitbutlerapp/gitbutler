@@ -1,17 +1,12 @@
-interface FocusOptions {
-	/** Whether to wrap to the first element when reaching the end */
+export type FocusOptions = {
+	container: HTMLElement;
 	wrap?: boolean;
-	/** Container element to limit the search scope */
-	container?: HTMLElement;
-	/** Additional custom selector for focusable elements */
 	customSelector?: string;
-}
+	forward?: boolean;
+};
 
-export function focusNextTabIndex(
-	currentElement: HTMLElement,
-	options: FocusOptions = {}
-): boolean {
-	const { wrap = true, container = document.documentElement, customSelector = '' } = options;
+export function focusNextTabIndex(options: FocusOptions): boolean {
+	const { container, forward, wrap = true, customSelector = '' } = options;
 
 	// Build selector array
 	const focusableSelectors: string[] = [
@@ -58,12 +53,21 @@ export function focusNextTabIndex(
 	const indexOf = document.activeElement
 		? focusableArray.indexOf(document.activeElement)
 		: undefined;
-	let nextIndex = indexOf === undefined ? 0 : indexOf + 1;
 
-	// Handle wrap behavior
+	let nextIndex = forward
+		? indexOf === undefined
+			? 0
+			: indexOf + 1
+		: indexOf === undefined
+			? focusableArray.length - 1
+			: indexOf - 1;
+
 	if (nextIndex >= focusableArray.length) {
 		if (!wrap) return false;
 		nextIndex = 0;
+	} else if (nextIndex < 0) {
+		if (!wrap) return false;
+		nextIndex = focusableArray.length - 1;
 	}
 
 	const nextElement: Element | undefined = focusableArray[nextIndex];

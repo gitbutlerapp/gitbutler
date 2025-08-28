@@ -1,4 +1,10 @@
 import { focusNextTabIndex } from '$lib/focus/tabbable';
+import {
+	addToArray,
+	removeFromArray,
+	scrollIntoViewIfNeeded,
+	sortByDomOrder
+} from '$lib/focus/utils';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { on } from 'svelte/events';
@@ -29,7 +35,9 @@ export enum DefinedFocusable {
 	Rules = 'rules'
 }
 
-type Payload = Record<string, any>;
+export type Payload = Record<string, unknown>;
+
+type NavigationAction = 'tab' | 'prev' | 'next' | 'exit' | 'enter';
 
 // Common payload types for type safety
 export interface StackPayload {
@@ -76,7 +84,7 @@ export type KeyboardHandler<T extends Payload> = (
 	context: FocusContext<T>
 ) => boolean | void;
 
-export interface FocusableOptions<T extends Payload> {
+export interface FocusableOptions<T extends Payload = Payload> {
 	id?: DefinedFocusable;
 	tabIndex?: number; // Custom tab order within siblings
 	disabled?: boolean; // Skip this element during navigation
@@ -162,7 +170,7 @@ export class FocusManager {
 		return this._currentElement ? this.getMetadata(this._currentElement) : undefined;
 	}
 
-	register<T extends object>(options: FocusableOptions<T>, element: HTMLElement) {
+	register<T extends Payload>(options: FocusableOptions<T>, element: HTMLElement) {
 		const { id: logicalId } = options;
 		this.unregisterElement(element);
 
@@ -233,23 +241,21 @@ export class FocusManager {
 	}
 
 	private unregisterElement(element: HTMLElement) {
-		const existing = this.metadata.get(element);
-		if (!existing) return;
+		const meta = this.metadata.get(element);
+		if (!meta) return;
 
-		const parentElement = existing.parentElement;
+		const parentElement = meta.parentElement;
 		const parentMeta = parentElement ? this.metadata.get(parentElement) : undefined;
 
-		if (existing.parentElement) {
-			if (parentMeta) {
-				removeFromArray(parentMeta.children, element);
-			}
+		if (meta.parentElement && parentMeta) {
+			removeFromArray(parentMeta.children, element);
 		}
 
-		existing.children.forEach((child) => {
+		for (const child of meta.children) {
 			const childMeta = this.getMetadataOrThrow(child);
 			childMeta.parentElement = parentElement;
 			parentMeta?.children.push(child);
-		});
+		}
 
 		this.metadata.delete(element);
 	}
@@ -305,27 +311,6 @@ export class FocusManager {
 		}
 	}
 
-	private sortSiblingsByTabOrder(siblings: HTMLElement[]): HTMLElement[] {
-		return siblings
-			.filter((sibling) => {
-				const meta = this.getMetadata(sibling);
-				return meta && !meta.options.disabled;
-			})
-			.sort((a, b) => {
-				const metaA = this.getMetadataOrThrow(a);
-				const metaB = this.getMetadataOrThrow(b);
-
-				const tabA = metaA.options.tabIndex ?? 0;
-				const tabB = metaB.options.tabIndex ?? 0;
-
-				// First sort by tabIndex
-				if (tabA !== tabB) return tabA - tabB;
-
-				// Then by registration order (already in array order)
-				return siblings.indexOf(a) - siblings.indexOf(b);
-			});
-	}
-
 	private findNext(
 		searchElement: HTMLElement,
 		searchType: DefinedFocusable,
@@ -375,8 +360,7 @@ export class FocusManager {
 		const parentMeta = metadata?.parentElement && this.getMetadata(metadata.parentElement);
 		if (!parentMeta) return false;
 
-		// const siblings = this.sortSiblingsByTabOrder(parentMeta.children);
-		const siblings = this.sortSiblingsByTabOrder(sortByDomOrder(parentMeta.children));
+		const siblings = parentMeta.children;
 		const currentIndex = siblings.indexOf(this._currentElement!);
 		const nextIndex = forward ? currentIndex + 1 : currentIndex - 1;
 
@@ -405,7 +389,6 @@ export class FocusManager {
 				document.activeElement.blur();
 			}
 		}
-
 		scrollIntoViewIfNeeded(element);
 	}
 
@@ -450,83 +433,113 @@ export class FocusManager {
 	}
 
 	handleKeydown(event: KeyboardEvent) {
-		// Try custom handler first if current element has one
-		if (this._currentElement) {
-			const metadata = this.getCurrentMetadata();
-			if (!metadata) return;
+		if (!this._currentElement) return;
 
-			const parentElement = metadata?.parentElement;
-			const parentData = parentElement ? this.getMetadataOrThrow(parentElement) : undefined;
+		const metadata = this.getCurrentMetadata();
+		if (!metadata) return;
 
-			const keyHandlers = this.getKeydownHandlers(this._currentElement);
-			const context = this.createContext(this._currentElement, metadata);
-			for (const keyHandler of keyHandlers) {
-				const handled = keyHandler(event, context);
-				if (handled === true) {
-					// If handler returns false, continue with default behavior
-					event.preventDefault();
-					event.stopPropagation();
-					return;
-				}
+		// Try custom handlers first
+		if (this.tryCustomHandlers(event, metadata)) {
+			return;
+		}
+
+		// Handle built-in navigation
+		if (this.handleBuiltinNavigation(event, metadata)) {
+			this.outline.set(true);
+		}
+	}
+
+	private tryCustomHandlers(event: KeyboardEvent, metadata: FocusableData): boolean {
+		const keyHandlers = this.getKeydownHandlers(this._currentElement!);
+		const context = this.createContext(this._currentElement!, metadata);
+
+		for (const keyHandler of keyHandlers) {
+			const handled = keyHandler(event, context);
+			if (handled === true) {
+				event.preventDefault();
+				event.stopPropagation();
+				return true;
 			}
+		}
+		return false;
+	}
 
-			let ignored = false;
-			const list = parentData ? parentData.options.list : false;
-			// TODO: Allow j/k by making sure they don't interfere with `input` elements.
-			const prev = event.key === 'ArrowLeft'; // || event.key === 'h';
-			const next = event.key === 'ArrowRight'; // || event.key === 'l';
-			const exit = event.key === 'ArrowUp'; // || event.key === 'k';
-			const enter = event.key === 'ArrowDown'; // || event.key === 'j';
+	private handleBuiltinNavigation(event: KeyboardEvent, metadata: FocusableData): boolean {
+		const parentElement = metadata?.parentElement;
+		const parentData = parentElement ? this.getMetadataOrThrow(parentElement) : undefined;
+		const list = parentData?.options.list ?? false;
 
-			if (event.key === 'Tab') {
-				event.preventDefault();
-				event.stopPropagation();
-				focusNextTabIndex(this._currentElement, { container: this._currentElement });
-			} else if ((!list && prev) || (list && exit)) {
-				event.preventDefault();
-				event.stopPropagation();
-				if (!list && event.metaKey) {
+		const navigationAction = this.getNavigationAction(event.key, list);
+		if (!navigationAction) return false;
+
+		event.preventDefault();
+		event.stopPropagation();
+
+		this.executeNavigationAction(navigationAction, {
+			metaKey: event.metaKey,
+			forward: !event.shiftKey,
+			list
+		});
+		return true;
+	}
+
+	private getNavigationAction(key: string, isList: boolean): NavigationAction | null {
+		const keyMap: Record<string, NavigationAction> = {
+			Tab: 'tab',
+			ArrowLeft: isList ? 'exit' : 'prev',
+			ArrowRight: isList ? 'enter' : 'next',
+			ArrowUp: isList ? 'prev' : 'exit',
+			ArrowDown: isList ? 'next' : 'enter'
+		};
+		return keyMap[key] ?? null;
+	}
+
+	private executeNavigationAction(
+		action: NavigationAction,
+		options: {
+			metaKey: boolean;
+			list: boolean;
+			forward: boolean;
+		}
+	): void {
+		const { metaKey, list: isList, forward = true } = options;
+		switch (action) {
+			case 'tab':
+				if (this._currentElement) {
+					focusNextTabIndex({ container: this._currentElement, forward });
+				}
+				break;
+			case 'prev':
+				if (metaKey && !isList) {
 					this.focusCousin(false);
-				} else {
-					if (!this.focusSibling(false)) {
-						this.focusParent();
-					}
+				} else if (!this.focusSibling(false)) {
+					this.focusParent();
 				}
-			} else if ((!list && next) || (list && enter)) {
-				event.preventDefault();
-				event.stopPropagation();
-				if (!list && event.metaKey) {
+				break;
+
+			case 'next':
+				if (metaKey && !isList) {
 					this.focusCousin(true);
-				} else {
-					if (!this.focusSibling(true)) {
-						this.focusFirstChild();
-					}
+				} else if (!this.focusSibling(true)) {
+					this.focusFirstChild();
 				}
-			} else if ((!list && exit) || (list && prev)) {
-				event.preventDefault();
-				event.stopPropagation();
-				if (list && event.metaKey) {
+				break;
+
+			case 'exit':
+				if (metaKey && isList) {
 					this.focusCousin(false);
 				} else {
 					this.focusParent();
 				}
-			} else if ((!list && enter) || (list && next)) {
-				event.preventDefault();
-				event.stopPropagation();
-				if (list && event.metaKey) {
-					this.focusCousin(true);
-				} else {
-					if (!this.focusFirstChild()) {
-						this.focusSibling(true);
-					}
-				}
-			} else {
-				ignored = true;
-			}
+				break;
 
-			if (!ignored) {
-				this.outline.set(true);
-			}
+			case 'enter':
+				if (metaKey && isList) {
+					this.focusCousin(true);
+				} else if (!this.focusFirstChild()) {
+					this.focusSibling(true);
+				}
+				break;
 		}
 	}
 
@@ -544,92 +557,3 @@ export class FocusManager {
 		return true;
 	}
 }
-
-// Helper methods for managing arrays without duplicates while preserving order
-function addToArray<T>(array: T[], item: T) {
-	if (!array.includes(item)) {
-		array.push(item);
-	}
-}
-
-function removeFromArray<T>(array: T[], item: T) {
-	const index = array.indexOf(item);
-	if (index !== -1) {
-		array.splice(index, 1);
-	}
-}
-
-function sortByDomOrder<T extends Element>(elements: T[]): T[] {
-	return elements.sort((a, b) => {
-		if (a === b) return 0;
-		const pos = a.compareDocumentPosition(b);
-
-		if (pos & Node.DOCUMENT_POSITION_FOLLOWING) {
-			return -1; // a comes before b
-		}
-		if (pos & Node.DOCUMENT_POSITION_PRECEDING) {
-			return 1; // a comes after b
-		}
-		return 0;
-	});
-}
-
-// function scrollIntoViewIfNeeded(el: HTMLElement, behavior: ScrollBehavior = 'smooth') {
-// 	const rect = el.getBoundingClientRect();
-
-// 	const fullyVisible =
-// 		rect.top >= 0 &&
-// 		rect.left >= 0 &&
-// 		rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-// 		rect.right <= (window.innerWidth || document.documentElement.clientWidth);
-
-// 	if (!fullyVisible) {
-// 		el.scrollIntoView({ behavior, block: 'nearest', inline: 'nearest' });
-// 	}
-// }
-
-export async function scrollIntoViewIfNeeded(
-	el: HTMLElement,
-	behavior: ScrollBehavior = 'smooth',
-	root: HTMLElement | null = null // optional scroll container
-): Promise<void> {
-	return await new Promise((resolve) => {
-		// Create observer
-		const observer = new IntersectionObserver(
-			(entries) => {
-				const entry = entries[0];
-				if (entry?.isIntersecting && entry.intersectionRatio === 1) {
-					observer.disconnect();
-					resolve();
-				} else {
-					el.scrollIntoView({ behavior, block: 'nearest', inline: 'nearest' });
-					observer.disconnect();
-					resolve();
-				}
-			},
-			{
-				root, // if null, defaults to viewport. Otherwise pass scroll container.
-				threshold: 1.0 // require 100% visibility
-			}
-		);
-
-		observer.observe(el);
-	});
-}
-
-// export function scrollIntoViewIfNeeded(el: HTMLElement, behavior: ScrollBehavior = 'smooth') {
-// 	const rect = el.getBoundingClientRect();
-// 	const vh = window.innerHeight || document.documentElement.clientHeight;
-// 	const vw = window.innerWidth || document.documentElement.clientWidth;
-
-// 	const fullyVisible = rect.top >= 0 && rect.bottom <= vh && rect.left >= 0 && rect.right <= vw;
-
-// 	if (fullyVisible) return;
-
-// 	const block: ScrollLogicalPosition =
-// 		rect.top < 0 ? 'start' : rect.bottom > vh ? 'end' : 'nearest';
-// 	const inline: ScrollLogicalPosition =
-// 		rect.left < 0 ? 'start' : rect.right > vw ? 'end' : 'nearest';
-
-// 	el.scrollIntoView({ behavior, block, inline });
-// }
