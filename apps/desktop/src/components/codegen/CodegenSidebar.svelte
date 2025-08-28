@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { focusable } from '$lib/focus/focusable';
 	import type { Snippet } from 'svelte';
 
@@ -16,9 +17,12 @@
 			{@render actions()}
 		</div>
 	</div>
-	<div class="sidebar-content" use:focusable>
-		{@render content()}
-	</div>
+
+	<ConfigurableScrollableContainer>
+		<div class="sidebar-content" use:focusable>
+			{@render content()}
+		</div>
+	</ConfigurableScrollableContainer>
 </div>
 
 <style lang="postcss">
@@ -28,7 +32,7 @@
 		flex-direction: column;
 
 		/* TODO: This should be resizable */
-		width: 350px;
+		width: 320px;
 		height: 100%;
 
 		overflow: hidden;
@@ -46,7 +50,6 @@
 		justify-content: space-between;
 		height: 40px;
 		padding: 0 10px 0 14px;
-
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
 	}
@@ -59,13 +62,9 @@
 
 	.sidebar-content {
 		display: flex;
-		flex-grow: 1;
+		position: relative;
 		flex-direction: column;
-		align-items: flex-start;
-		align-self: stretch;
 		padding: 12px;
-
-		overflow: auto;
 		gap: 8px;
 	}
 </style>
