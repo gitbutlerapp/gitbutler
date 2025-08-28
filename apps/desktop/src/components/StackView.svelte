@@ -12,7 +12,7 @@
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import {
 		INTELLIGENT_SCROLLING_SERVICE,

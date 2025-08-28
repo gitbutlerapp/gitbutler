@@ -5,7 +5,7 @@
 		stagingBehaviorFeature,
 		type StagingBehavior
 	} from '$lib/config/uiFeatureFlags';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { SETTINGS, type ScrollbarVisilitySettings } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/shared/context';
 	import {

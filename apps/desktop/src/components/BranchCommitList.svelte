@@ -27,7 +27,7 @@
 		ReorderCommitDzHandler
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefinedFocusable } from '$lib/focus/focusManager';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
 	import { STACK_SERVICE, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';

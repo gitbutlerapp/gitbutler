@@ -25,7 +25,7 @@ the window, then enlarge it and retain the original widths of the layout.
 -->
 <script lang="ts">
 	import Resizer from '$components/Resizer.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';

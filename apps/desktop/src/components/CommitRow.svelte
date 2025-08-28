@@ -3,7 +3,7 @@
 	import CommitTitle from '$components/CommitTitle.svelte';
 	import { type CommitStatusType } from '$lib/commits/commit';
 	import { DefinedFocusable } from '$lib/focus/focusManager';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { Avatar, Icon, TestId } from '@gitbutler/ui';
 
 	import { slide } from 'svelte/transition';

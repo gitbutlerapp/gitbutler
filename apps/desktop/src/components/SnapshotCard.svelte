@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { createdOnDay, HISTORY_SERVICE } from '$lib/history/history';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { toHumanReadableTime } from '$lib/utils/time';

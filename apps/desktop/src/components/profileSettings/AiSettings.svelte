@@ -11,7 +11,7 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { codegenEnabled } from '$lib/config/uiFeatureFlags';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';

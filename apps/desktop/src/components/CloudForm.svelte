@@ -4,7 +4,7 @@
 	import Section from '$components/Section.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, SectionCard, Spacer, Toggle } from '@gitbutler/ui';

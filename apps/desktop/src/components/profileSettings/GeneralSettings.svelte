@@ -5,7 +5,7 @@
 	import CliSymLink from '$components/profileSettings/CliSymLink.svelte';
 	import { CLI_MANAGER } from '$lib/cli/cli';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { SETTINGS, type CodeEditorSettings } from '$lib/settings/userSettings';

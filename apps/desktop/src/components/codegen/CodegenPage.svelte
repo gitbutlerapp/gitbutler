@@ -21,7 +21,7 @@
 	} from '$lib/codegen/messages';
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
