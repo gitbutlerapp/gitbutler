@@ -43,6 +43,7 @@
 	const settingsStore = $derived(settingsService.appSettings);
 	const isWorkspace = $derived(isWorkspacePath());
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
+	const singleBranchMode = $derived($settingsStore?.featureFlags.singleBranch ?? false);
 	const backend = inject(BACKEND);
 
 	const mode = $derived(modeService.mode({ projectId }));
@@ -111,6 +112,7 @@
 	class="chrome-header"
 	class:mac={backend.platformName === 'macos'}
 	data-tauri-drag-region
+	class:single-branch={singleBranchMode}
 	use:focusable
 >
 	<div class="chrome-left" data-tauri-drag-region>
@@ -207,17 +209,19 @@
 					</SelectItem>
 				</OptionsGroup>
 			</Select>
-			<Tooltip text="Current branch">
-				<div class="chrome-current-branch">
-					<div class="chrome-current-branch__content">
-						<Icon name="branch-remote" color="var(--clr-text-2)" />
-						<span class="text-12 text-semibold clr-text-1 truncate">{currentBranchName}</span>
-						{#if isNotInWorkspace}
-							<span class="text-12 text-semibold clr-text-2"> read-only </span>
-						{/if}
+			{#if singleBranchMode}
+				<Tooltip text="Current branch">
+					<div class="chrome-current-branch">
+						<div class="chrome-current-branch__content">
+							<Icon name="branch-remote" color="var(--clr-text-2)" />
+							<span class="text-12 text-semibold clr-text-1 truncate">{currentBranchName}</span>
+							{#if isNotInWorkspace}
+								<span class="text-12 text-semibold clr-text-2"> read-only </span>
+							{/if}
+						</div>
 					</div>
-				</div>
-			</Tooltip>
+				</Tooltip>
+			{/if}
 		</div>
 
 		{#if isNotInWorkspace}
@@ -358,7 +362,7 @@
 		overflow: hidden;
 	}
 
-	:global(.chrome-header .project-selector-btn) {
+	:global(.chrome-header.single-branch .project-selector-btn) {
 		border-top-right-radius: 0;
 		border-bottom-right-radius: 0;
 	}
