@@ -23,7 +23,11 @@ pub fn prepare_with_shell_on_windows(program: impl Into<OsString>) -> gix::comma
 /// Launch the login shell and try to extract their environment variables, or `None` if the shell couldn't be determined,
 /// or if it couldn't be launched, or if the environment extraction failed.
 pub fn extract_interactive_login_shell_environment() -> Option<Vec<(OsString, OsString)>> {
-    let shell_path: PathBuf = std::env::var_os("SHELL")?.into();
+    let shell_path: PathBuf = if cfg!(windows) {
+        gix::path::env::shell().into()
+    } else {
+        std::env::var_os("SHELL")?.into()
+    };
     let stdout = std::process::Command::new(shell_path)
         .args(["-i", "-l", "-c", "env"])
         .stderr(Stdio::null())
