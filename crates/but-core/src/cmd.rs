@@ -2,6 +2,7 @@ use bstr::BStr;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::Stdio;
+use tracing::instrument;
 
 /// Prepare `program` for invocation with a Git-compatible shell to help it pick up more of the usual environment on Windows.
 ///
@@ -22,14 +23,22 @@ pub fn prepare_with_shell_on_windows(program: impl Into<OsString>) -> gix::comma
 
 /// Launch the login shell and try to extract their environment variables, or `None` if the shell couldn't be determined,
 /// or if it couldn't be launched, or if the environment extraction failed.
+#[instrument()]
 pub fn extract_interactive_login_shell_environment() -> Option<Vec<(OsString, OsString)>> {
-    let shell_path: PathBuf = std::env::var_os("SHELL")?.into();
-    let stdout = std::process::Command::new(shell_path)
-        .args(["-i", "-l", "-c", "env"])
-        .stderr(Stdio::null())
-        .output()
-        .ok()?
-        .stdout;
+    let shell_path: PathBuf = if cfg!(windows) {
+        gix::path::env::shell().into()
+    } else {
+        std::env::var_os("SHELL")?.into()
+    };
+    let stdout = std::process::Command::from(
+        // This automatically prevents a Window from popping up on Windows.
+        gix::command::prepare(shell_path)
+            .args(["-i", "-l", "-c", "env"])
+            .stderr(Stdio::null()),
+    )
+    .output()
+    .ok()?
+    .stdout;
 
     let vars = parse_key_value_pairs(stdout.as_slice());
     (!vars.is_empty()).then_some(vars)
