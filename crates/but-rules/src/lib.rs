@@ -46,6 +46,14 @@ impl WorkspaceRule {
         }
     }
 
+    pub fn target_commit_id(&self) -> Option<String> {
+        if let Action::Explicit(Operation::Amend { change_id }) = &self.action {
+            Some(change_id.clone())
+        } else {
+            None
+        }
+    }
+
     pub fn id(&self) -> String {
         self.id.clone()
     }
@@ -139,7 +147,7 @@ pub enum Operation {
     /// Assign the matched changes to a specific stack ID.
     Assign { target: StackTarget },
     /// Amend the matched changes into a specific commit.
-    Amend { commit_id: String },
+    Amend { change_id: String },
     /// Create a new commit with the matched changes on a specific branch.
     NewCommit { branch_name: String },
 }
@@ -292,7 +300,7 @@ pub fn list_rules(ctx: &mut CommandContext) -> anyhow::Result<Vec<WorkspaceRule>
     Ok(rules)
 }
 
-fn process_rules(ctx: &mut CommandContext) -> anyhow::Result<()> {
+pub fn process_rules(ctx: &mut CommandContext) -> anyhow::Result<()> {
     let wt_changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
 
     let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(

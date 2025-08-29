@@ -15,6 +15,7 @@ use crate::id::CliId;
 pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
     let stack_id_to_branch = crate::log::stacks(ctx)?
         .iter()
@@ -51,12 +52,13 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
     }
 
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
-    print_group(None, unassigned, &changes)?;
+    print_group(None, unassigned, &changes, false)?;
 
     for (stack_id, branch) in &stack_id_to_branch {
         let filtered =
             assignment::filter_by_stack_id(assignments_by_file.values(), &Some(*stack_id));
-        print_group(Some(branch.as_str()), filtered, &changes)?;
+        let marked = crate::mark::stack_marked(ctx, *stack_id).unwrap_or_default();
+        print_group(Some(branch.as_str()), filtered, &changes, marked)?;
     }
     Ok(())
 }
@@ -65,6 +67,7 @@ pub fn print_group(
     group: Option<&str>,
     assignments: Vec<FileAssignment>,
     changes: &[TreeChange],
+    marked: bool,
 ) -> anyhow::Result<()> {
     let id = if let Some(group) = group {
         CliId::branch(group)
@@ -77,7 +80,17 @@ pub fn print_group(
     let group = &group
         .map(|s| format!("[{}]", s))
         .unwrap_or("<UNASSIGNED>".to_string());
-    println!("{}    {}", id, group.green().bold());
+    let mark = if marked {
+        Some("◀ Marked ▶".red().bold())
+    } else {
+        None
+    };
+    println!(
+        "{}    {} {}",
+        id,
+        group.green().bold(),
+        mark.unwrap_or_default()
+    );
     for fa in assignments {
         let state = status_from_changes(changes, fa.path.clone());
         let path = match state {
