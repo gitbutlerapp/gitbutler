@@ -25,11 +25,8 @@ pub fn prepare_with_shell_on_windows(program: impl Into<OsString>) -> gix::comma
 /// or if it couldn't be launched, or if the environment extraction failed.
 #[instrument()]
 pub fn extract_interactive_login_shell_environment() -> Option<Vec<(OsString, OsString)>> {
-    let shell_path: PathBuf = if cfg!(windows) {
-        gix::path::env::shell().into()
-    } else {
-        std::env::var_os("SHELL")?.into()
-    };
+    // NOTE that `SHELL` isn't usually set on Windows, so this will not usually run there.
+    let shell_path: PathBuf = std::env::var_os("SHELL")?.into();
     let stdout = std::process::Command::from(
         // This automatically prevents a Window from popping up on Windows.
         gix::command::prepare(shell_path)
