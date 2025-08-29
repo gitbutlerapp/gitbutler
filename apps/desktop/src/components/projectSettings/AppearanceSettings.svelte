@@ -335,9 +335,8 @@
 		{/snippet}
 		{#snippet caption()}
 			Stage the selected assigned files to the stack on commit. If no files are selected, stage all
-			files. If there are no assigned files, stage all selected unassigned files.
-			<br />
-			Aaand if no files are selected, stage all unassigned files.
+			files. If there are no assigned files, stage all selected unassigned files. And if no files
+			are selected, stage all unassigned files.
 		{/snippet}
 		{#snippet actions()}
 			<RadioButton
