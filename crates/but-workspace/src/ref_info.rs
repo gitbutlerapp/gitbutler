@@ -2,6 +2,26 @@
 // TODO: rename this module to `workspace`, make it private, and pub-use all content in the top-level, as we now literally
 //       get the workspace, while possibly processing it for use in the UI.
 
+use gix::Repository;
+
+/// Additional workspace functionality that can't easily be implemented in `but-graph`.
+pub trait WorkspaceExt {
+    /// Return `true` if this workspace has a workspace commit that the workspace reference isn't directly pointing to.
+    fn has_workspace_commit_in_ancestry(&self, repo: &gix::Repository) -> bool;
+}
+
+impl WorkspaceExt for but_graph::projection::Workspace<'_> {
+    fn has_workspace_commit_in_ancestry(&self, repo: &Repository) -> bool {
+        function::find_ancestor_workspace_commit(
+            self.graph,
+            repo,
+            self.id,
+            self.lower_bound_segment_id,
+        )
+        .is_some()
+    }
+}
+
 /// Options for the [`ref_info()`](crate::ref_info) call.
 #[derive(Default, Debug, Clone)]
 pub struct Options {
@@ -327,7 +347,7 @@ pub(crate) mod function {
     use but_core::ref_metadata::ValueInfo;
     use but_graph::petgraph::Direction;
     use but_graph::{
-        Graph, is_workspace_ref_name,
+        Graph, SegmentIndex, is_workspace_ref_name,
         projection::{StackCommit, WorkspaceKind},
     };
     use gix::prelude::ObjectIdExt;
@@ -371,6 +391,44 @@ pub(crate) mod function {
         graph_to_ref_info(graph, repo, opts)
     }
 
+    pub(crate) fn find_ancestor_workspace_commit(
+        graph: &Graph,
+        repo: &gix::Repository,
+        workspace_id: SegmentIndex,
+        lower_bound_segment_id: Option<SegmentIndex>,
+    ) -> Option<AncestorWorkspaceCommit> {
+        let lower_bound_generation = lower_bound_segment_id.map(|sidx| graph[sidx].generation);
+
+        let mut commits_outside = Vec::new();
+        let mut sidx_and_cidx = None;
+        graph.visit_all_segments_excluding_start_until(workspace_id, Direction::Outgoing, |s| {
+            if sidx_and_cidx.is_some()
+                || lower_bound_generation.is_some_and(|max_gen| s.generation > max_gen)
+            {
+                return true;
+            }
+            for (cidx, graph_commit) in s.commits.iter().enumerate() {
+                let Ok(commit) = WorkspaceCommit::from_id(graph_commit.id.attach(repo)) else {
+                    continue;
+                };
+                if commit.is_managed() {
+                    sidx_and_cidx = Some((s.id, cidx));
+                    return true;
+                }
+                commits_outside.push(ui::Commit::from_commit_ahead_of_workspace_commit(
+                    commit.inner,
+                    graph_commit,
+                ));
+            }
+            false
+        });
+        sidx_and_cidx.map(|(sidx, cidx)| AncestorWorkspaceCommit {
+            commits_outside,
+            segment_with_managed_commit: sidx,
+            commit_index_of_managed_commit: cidx,
+        })
+    }
+
     fn graph_to_ref_info(
         graph: Graph,
         repo: &gix::Repository,
@@ -391,42 +449,9 @@ pub(crate) mod function {
         let (workspace_ref_name, is_managed_commit, ancestor_workspace_commit) = match kind {
             WorkspaceKind::Managed { ref_name } => (Some(ref_name), true, None),
             WorkspaceKind::ManagedMissingWorkspaceCommit { ref_name } => {
-                let lower_bound_generation =
-                    lower_bound_segment_id.map(|sidx| graph[sidx].generation);
-
-                let mut commits_outside = Vec::new();
-                let mut sidx_and_cidx = None;
-                graph.visit_all_segments_excluding_start_until(id, Direction::Outgoing, |s| {
-                    if sidx_and_cidx.is_some()
-                        || lower_bound_generation.is_some_and(|max_gen| s.generation > max_gen)
-                    {
-                        return true;
-                    }
-                    for (cidx, graph_commit) in s.commits.iter().enumerate() {
-                        let Ok(commit) = WorkspaceCommit::from_id(graph_commit.id.attach(repo))
-                        else {
-                            continue;
-                        };
-                        if commit.is_managed() {
-                            sidx_and_cidx = Some((s.id, cidx));
-                            return true;
-                        }
-                        commits_outside.push(ui::Commit::from_commit_ahead_of_workspace_commit(
-                            commit.inner,
-                            graph_commit,
-                        ));
-                    }
-                    false
-                });
-                (
-                    Some(ref_name),
-                    false,
-                    sidx_and_cidx.map(|(sidx, cidx)| AncestorWorkspaceCommit {
-                        commits_outside,
-                        segment_with_managed_commit: sidx,
-                        commit_index_of_managed_commit: cidx,
-                    }),
-                )
+                let maybe_ancestor_workspace_commit =
+                    find_ancestor_workspace_commit(graph, repo, id, lower_bound_segment_id);
+                (Some(ref_name), false, maybe_ancestor_workspace_commit)
             }
             WorkspaceKind::AdHoc => (graph[id].ref_name.clone(), false, None),
         };

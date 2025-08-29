@@ -2,7 +2,7 @@ mod create_reference {
     use but_api::commands::stack::create_reference;
     use but_api::commands::stack::create_reference::{Params, Request};
     use but_api::hex_hash::HexHash;
-    use but_workspace::branch::ReferencePosition;
+    use but_workspace::branch::create_reference::Position;
     use gitbutler_project::ProjectId;
     use std::str::FromStr;
 
@@ -34,7 +34,7 @@ mod create_reference {
                         gix::ObjectId::from_str("5c69907b1244089142905dba380371728e2e8160")
                             .unwrap(),
                     ),
-                    position: ReferencePosition::Above,
+                    position: Position::Above,
                 }),
             },
         };
@@ -60,7 +60,7 @@ mod create_reference {
                 new_name: "new-branch".to_string(),
                 anchor: Some(create_reference::Anchor::AtReference {
                     short_name: "anchor-ref".into(),
-                    position: ReferencePosition::Above,
+                    position: Position::Above,
                 }),
             },
         };
