@@ -3,6 +3,7 @@
 	import Drawer from '$components/Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
+	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
@@ -28,7 +29,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
-	import { Badge, Button } from '@gitbutler/ui';
+	import { Badge, Button, ContextMenu, ContextMenuItem, ContextMenuSection } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
@@ -49,6 +50,48 @@
 	let message = $state('');
 	let claudeExecutable = $derived($settingsStore?.claude.executable || 'claude');
 	let updatingExecutable = $state(false);
+	let settingsModal: ClaudeCodeSettingsModal | undefined;
+	let modelContextMenu = $state<ContextMenu>();
+	let modelTrigger = $state<HTMLButtonElement>();
+	let selectedModel = $state('Claude 3.5 Sonnet');
+	let thinkingModeContextMenu = $state<ContextMenu>();
+	let thinkingModeTrigger = $state<HTMLButtonElement>();
+	let selectedThinkingMode = $state('Normal');
+	let templateContextMenu = $state<ContextMenu>();
+	let templateTrigger = $state<HTMLButtonElement>();
+
+	const modelOptions = [
+		'Claude 3.5 Sonnet',
+		'Claude 3.5 Haiku',
+		'Claude 3 Opus',
+		'Claude 3 Sonnet',
+		'Claude 3 Haiku'
+	];
+
+	const thinkingModeOptions = ['Normal', 'Think', 'Mega Think', 'Ultra Think'];
+
+	const templateSnippets = [
+		{
+			label: 'Bug Fix',
+			template:
+				'Please fix the bug in this code:\n\n```\n// Your code here\n```\n\nExpected behavior:\nActual behavior:\nSteps to reproduce:'
+		},
+		{
+			label: 'Code Review',
+			template:
+				'Please review this code for:\n- Performance issues\n- Security vulnerabilities\n- Best practices\n- Code style\n\n```\n// Your code here\n```'
+		},
+		{
+			label: 'Refactor',
+			template:
+				'Please refactor this code to improve:\n- Readability\n- Performance\n- Maintainability\n\n```\n// Your code here\n```\n\nRequirements:'
+		},
+		{
+			label: 'Add Tests',
+			template:
+				'Please write comprehensive tests for this code:\n\n```\n// Your code here\n```\n\nTest cases should cover:\n- Happy path\n- Edge cases\n- Error conditions'
+		}
+	];
 
 	const projectState = uiState.project(projectId);
 	const selectedBranch = $derived(projectState.selectedClaudeSession.current);
@@ -126,6 +169,26 @@
 		await settingsService.updateClaude({ executable: value });
 	}
 
+	function selectModel(model: string) {
+		selectedModel = model;
+		modelContextMenu?.close();
+	}
+
+	function selectThinkingMode(mode: string) {
+		selectedThinkingMode = mode;
+		thinkingModeContextMenu?.close();
+	}
+
+	function insertTemplate(template: string) {
+		message = message + (message ? '\n\n' : '') + template;
+		templateContextMenu?.close();
+	}
+
+	function configureTemplates() {
+		// TODO: Open template configuration modal/page
+		templateContextMenu?.close();
+	}
+
 	const events = $derived(
 		claudeCodeService.messages({ projectId, stackId: selectedBranch?.stackId || '' })
 	);
@@ -150,7 +213,7 @@
 		{#snippet actions()}
 			<Button disabled kind="outline" size="tag" icon="plus-small" reversedDirection>Add new</Button
 			>
-			<Button kind="ghost" icon="settings" size="tag" />
+			<Button kind="ghost" icon="settings" size="tag" onclick={() => settingsModal?.show()} />
 		{/snippet}
 	</CodegenSidebar>
 
@@ -184,7 +247,7 @@
 							{/each}
 							{@const lastUserMessageSent = lastUserMessageSentAt(events)}
 							{#if currentStatus(events) === 'running' && lastUserMessageSent}
-								<CodegenRunningMessage {lastUserMessageSent} {onAbort} />
+								<CodegenRunningMessage {lastUserMessageSent} />
 							{/if}
 						{/snippet}
 					</ReduxResult>
@@ -196,11 +259,40 @@
 								bind:value={message}
 								loading={currentStatus(events) === 'running'}
 								onsubmit={sendMessage}
+								{onAbort}
 							>
 								{#snippet actions()}
-									<Button disabled kind="outline" icon="attachment" reversedDirection
-										>Context</Button
+									<Button
+										bind:el={modelTrigger}
+										kind="ghost"
+										icon="chevron-down"
+										onclick={() => modelContextMenu?.toggle()}
 									>
+										{selectedModel}
+									</Button>
+
+									<div class="flex m-left-8 gap-4">
+										<Button disabled kind="outline" icon="attachment" reversedDirection
+											>Context</Button
+										>
+										<Button
+											bind:el={thinkingModeTrigger}
+											kind="outline"
+											icon="brain"
+											reversedDirection
+											onclick={() => thinkingModeContextMenu?.toggle()}
+											tooltip="Thinking Mode"
+											children={selectedThinkingMode === 'Normal' ? undefined : thinkingBtnText}
+										/>
+
+										<Button
+											bind:el={templateTrigger}
+											kind="outline"
+											icon="script"
+											tooltip="Insert template"
+											onclick={() => templateContextMenu?.toggle()}
+										/>
+									</div>
 								{/snippet}
 							</CodegenInput>
 						{/snippet}
@@ -329,6 +421,39 @@
 		</div>
 	</div>
 {/snippet}
+
+{#snippet thinkingBtnText()}
+	{selectedThinkingMode}
+{/snippet}
+
+<ClaudeCodeSettingsModal bind:this={settingsModal} onClose={() => {}} />
+
+<ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top">
+	<ContextMenuSection>
+		{#each modelOptions as model}
+			<ContextMenuItem label={model} onclick={() => selectModel(model)} />
+		{/each}
+	</ContextMenuSection>
+</ContextMenu>
+
+<ContextMenu bind:this={thinkingModeContextMenu} leftClickTrigger={thinkingModeTrigger} side="top">
+	<ContextMenuSection title="Thinking Mode">
+		{#each thinkingModeOptions as mode}
+			<ContextMenuItem label={mode} onclick={() => selectThinkingMode(mode)} />
+		{/each}
+	</ContextMenuSection>
+</ContextMenu>
+
+<ContextMenu bind:this={templateContextMenu} leftClickTrigger={templateTrigger} side="top">
+	<ContextMenuSection title="Templates">
+		{#each templateSnippets as snippet}
+			<ContextMenuItem label={snippet.label} onclick={() => insertTemplate(snippet.template)} />
+		{/each}
+	</ContextMenuSection>
+	<ContextMenuSection>
+		<ContextMenuItem label="Configure templates..." onclick={configureTemplates} />
+	</ContextMenuSection>
+</ContextMenu>
 
 <style lang="postcss">
 	.page {

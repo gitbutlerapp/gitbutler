@@ -43,7 +43,7 @@
 			charsCount = input.value.length;
 			oninput?.(e);
 		}}
-		unstyled
+		borderless
 		onchange={(e) => onchange?.(e.currentTarget.value)}
 		{onkeydown}
 	/>

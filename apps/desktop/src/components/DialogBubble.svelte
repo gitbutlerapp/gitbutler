@@ -47,7 +47,7 @@
 		{#if editing}
 			<div class="textarea" class:is-error={isError}>
 				<Textarea
-					unstyled
+					borderless
 					bind:value={promptMessage}
 					oninput={(e: Event) => {
 						const target = e.currentTarget as HTMLTextAreaElement;
