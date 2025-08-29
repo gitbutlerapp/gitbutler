@@ -17,6 +17,7 @@ import {
 	type RootState,
 	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
+import { createSubscriber } from 'svelte/reactivity';
 import type { CustomQuery, CustomResult, ExtensionDefinitions } from '$lib/state/butlerModule';
 import type { HookContext } from '$lib/state/context';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
@@ -103,9 +104,9 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 	) {
 		const startTime = Date.now();
 		const dispatch = getDispatch();
-		let subscription: QueryActionCreatorResult<any> | undefined;
-		$effect(() => {
-			subscription = dispatch(
+		let query: QueryActionCreatorResult<any> | undefined;
+		const subscribe = createSubscriber(() => {
+			query = dispatch(
 				initiate(queryArg, {
 					subscribe: options?.subscribe,
 					subscriptionOptions: options?.subscriptionOptions,
@@ -113,33 +114,27 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 				})
 			);
 			return () => {
-				subscription?.unsubscribe();
+				query?.unsubscribe();
 			};
 		});
 
 		async function refetch() {
-			await subscription?.refetch();
+			await query?.refetch();
 		}
 
 		const selector = $derived(select(queryArg));
 		const result = $derived(selector(state()));
 
-		$effect(() => {
+		const output = $derived.by(() => {
+			let data = result.data;
+			if (result.data) {
+				track({ failure: false, startTime });
+			}
 			if (result.error) {
 				const error = result.error;
 				track({ failure: true, startTime, error });
 				emitQueryError(error);
 			}
-		});
-
-		$effect(() => {
-			if (result.data) {
-				track({ failure: false, startTime });
-			}
-		});
-
-		const output = $derived.by(() => {
-			let data = result.data;
 			if (options?.transform && data) {
 				data = options.transform(data, queryArg);
 			}
@@ -150,7 +145,10 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 			};
 		});
 
-		return reactive(() => output);
+		return reactive(() => {
+			subscribe();
+			return output;
+		});
 	}
 
 	function useQueries<T extends TranformerFn, D extends CustomQuery<any>>(
@@ -160,9 +158,9 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>[]
 	> {
 		const dispatch = getDispatch();
-		let subscriptions: QueryActionCreatorResult<any>[];
-		$effect(() => {
-			subscriptions = queryArgs.map((queryArg) =>
+		let queries: QueryActionCreatorResult<any>[];
+		const subscribe = createSubscriber(() => {
+			queries = queryArgs.map((queryArg) =>
 				dispatch(
 					initiate(queryArg, {
 						subscribe: options?.subscribe,
@@ -172,7 +170,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 				)
 			);
 			return () => {
-				subscriptions.forEach((subscription) => subscription.unsubscribe());
+				queries.forEach((subscription) => subscription.unsubscribe());
 			};
 		});
 
@@ -191,7 +189,10 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 			});
 			return reactive(() => output);
 		});
-		return reactive(() => results.map((results) => results.current));
+		return reactive(() => {
+			subscribe();
+			return results.map((results) => results.current);
+		});
 	}
 
 	function useQueryState<T extends TranformerFn>(queryArg: unknown, options?: { transform?: T }) {
@@ -446,7 +447,7 @@ export function buildMutationHook<
 		const selector = $derived(select({ requestId: promise?.requestId, fixedCacheKey }));
 		const result = $derived(selector(state()));
 
-		$effect(() => {
+		const subscribe = createSubscriber(() => {
 			return () => {
 				if (promise && !promise.arg.fixedCacheKey) {
 					// If there is no fixedCacheKey,
@@ -456,7 +457,14 @@ export function buildMutationHook<
 			};
 		});
 
-		return [triggerMutation, reactive(() => result), reset] as const;
+		return [
+			triggerMutation,
+			reactive(() => {
+				subscribe();
+				return result;
+			}),
+			reset
+		] as const;
 	}
 
 	return {
