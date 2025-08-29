@@ -17,9 +17,76 @@ pub struct Args {
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// Provides an overview of the Workspace commit graph.
-    Log,
+    Log {
+        /// Show only branch topology with commit counts instead of detailed commits
+        #[clap(long, short = 's')]
+        short: bool,
+    },
     /// Overview of the oncommitted changes in the repository.
-    Status,
+    #[clap(alias = "st")]
+    Status {
+        /// Show base branch and behind count information
+        #[clap(long, short = 'b')]
+        base: bool,
+        /// Show modified files in each commit with shortcode IDs for rubbing
+        #[clap(long, short = 'f')]
+        files: bool,
+    },
+    /// Overview with modified files in each commit (equivalent to `status -f`).
+    #[clap(alias = "stf", hide = true)]
+    StatusFiles {
+        /// Show base branch and behind count information
+        #[clap(long, short = 'b')]
+        base: bool,
+    },
+    /// Display or set configuration values for the repository.
+    Config {
+        /// Configuration key to get or set (e.g., user.name, user.email)
+        key: Option<String>,
+        /// Value to set (if provided, sets the key to this value)
+        value: Option<String>,
+    },
+
+    /// Show operation history (last 20 entries).
+    Oplog {
+        /// Start from this oplog SHA instead of the head
+        #[clap(long)]
+        since: Option<String>,
+    },
+    /// Undo the last operation by reverting to the previous snapshot.
+    Undo,
+    /// Restore to a specific oplog snapshot.
+    Restore {
+        /// Oplog SHA to restore to
+        oplog_sha: String,
+    },
+
+    /// Commit changes to a stack.
+    Commit {
+        /// Commit message
+        #[clap(short = 'm', long = "message")]
+        message: Option<String>,
+        /// Branch CLI ID or name to derive the stack to commit to
+        branch: Option<String>,
+        /// Only commit assigned files, not unassigned files
+        #[clap(short = 'o', long = "only")]
+        only: bool,
+    },
+    /// Insert a blank commit before the specified commit, or at the top of a stack.
+    New {
+        /// Commit ID to insert before, or branch ID to insert at top of stack
+        target: String,
+    },
+    /// Edit the commit message of the specified commit.
+    Describe {
+        /// Commit ID to edit the message for
+        commit: String,
+    },
+    /// Branch management operations.
+    Branch {
+        #[clap(subcommand)]
+        cmd: BranchSubcommands,
+    },
 
     /// Combines two entities together to perform an operation.
     #[clap(
@@ -41,6 +108,14 @@ For examples see `but rub --help`."
         source: String,
         /// The target entity to combine with the source
         target: String,
+    },
+    /// Creates or removes a rule for auto-assigning or auto-comitting
+    Mark {
+        /// The target entity that will be marked
+        target: String,
+        /// Deletes a mark
+        #[clap(long, short = 'd')]
+        delete: bool,
     },
     /// Starts up the MCP server.
     Mcp {
@@ -64,12 +139,45 @@ For examples see `but rub --help`."
     },
 }
 
+#[derive(Debug, clap::Subcommand)]
+pub enum BranchSubcommands {
+    /// Create a new virtual branch.
+    New {
+        /// The name of the new branch
+        branch_name: String,
+        /// Optional branch ID or branch name to create a stacked branch from.
+        /// Can be a 2-character CLI ID (e.g., "ab") or a full branch name (e.g., "main", "feature/auth").
+        /// Works with both virtual branches and regular Git branches.
+        id: Option<String>,
+    },
+    /// Unapply a virtual branch.
+    Unapply {
+        /// Branch ID or branch name to unapply.
+        /// Can be a 2-character CLI ID (e.g., "ab") or a full branch name.
+        branch_id: String,
+    },
+}
+
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
 pub enum CommandName {
     #[clap(alias = "log")]
     Log,
     #[clap(alias = "status")]
     Status,
+    #[clap(alias = "config")]
+    Config,
+    #[clap(alias = "oplog")]
+    Oplog,
+    #[clap(alias = "undo")]
+    Undo,
+    #[clap(alias = "restore")]
+    Restore,
+    #[clap(alias = "commit")]
+    Commit,
+    #[clap(alias = "new")]
+    New,
+    #[clap(alias = "describe")]
+    Describe,
     #[clap(alias = "rub")]
     Rub,
     #[clap(

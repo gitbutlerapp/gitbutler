@@ -11,17 +11,32 @@ use std::path::Path;
 
 use crate::id::CliId;
 
-pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
+pub(crate) fn commit_graph(repo_path: &Path, json: bool, short: bool) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
     let stacks = stacks(ctx)?
         .iter()
-        .filter_map(|s| s.id.map(|id| stack_details(ctx, id)))
+        .filter_map(|s| s.id.map(|id| stack_details(ctx, id).map(|d| (id, d))))
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
 
+    if json {
+        return output_json(stacks.iter().map(|(_, d)| d).cloned().collect());
+    }
+
+    if short {
+        return commit_graph_short(stacks.iter().map(|(_, d)| d).cloned().collect());
+    }
+
     let mut nesting = 0;
-    for (i, stack) in stacks.iter().enumerate() {
+    for (i, (stack_id, stack)) in stacks.iter().enumerate() {
+        let marked = crate::mark::stack_marked(ctx, *stack_id).unwrap_or_default();
+        let mut mark = if marked {
+            Some("◀ Marked ▶".red().bold())
+        } else {
+            None
+        };
         let mut second_consecutive = false;
         let mut stacked = false;
         for branch in stack.branch_details.iter() {
@@ -45,13 +60,15 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
                 .underline()
                 .blue();
             println!(
-                "{}{}{} [{}] {}",
+                "{}{}{} [{}] {} {}",
                 "│ ".repeat(nesting),
                 extra_space,
                 line,
                 branch.name.to_string().green().bold(),
-                id
+                id,
+                mark.clone().unwrap_or_default()
             );
+            mark = None; // show this on the first branch in the stack
             for (j, commit) in branch.upstream_commits.iter().enumerate() {
                 let time_string = chrono::DateTime::from_timestamp_millis(commit.created_at as i64)
                     .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
@@ -73,16 +90,23 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
                     "{}{}┊ {}",
                     "│ ".repeat(nesting),
                     extra_space,
-                    commit.message.to_string().lines().next().unwrap_or("")
+                    format_commit_message(&commit.message.to_string())
                 );
                 let bend = if stacked { "├" } else { "╭" };
                 if j == branch.upstream_commits.len() - 1 {
-                    println!("{}{}─╯", "│ ".repeat(nesting), bend);
+                    println!("{}{}", "│ ".repeat(nesting), bend);
                 } else {
                     println!("{}  ┊", "│ ".repeat(nesting));
                 }
             }
             for commit in branch.commits.iter() {
+                let marked =
+                    crate::mark::commit_marked(ctx, commit.id.to_string()).unwrap_or_default();
+                let mark = if marked {
+                    Some("◀ Marked ▶".red().bold())
+                } else {
+                    None
+                };
                 let state_str = match commit.state {
                     but_workspace::ui::CommitState::LocalOnly => "{local}".normal(),
                     but_workspace::ui::CommitState::LocalAndRemote(_) => "{pushed}".cyan(),
@@ -98,19 +122,20 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
                     .format("%Y-%m-%d %H:%M:%S")
                     .to_string();
                 println!(
-                    "{}● {}{} {} {} {} {}",
+                    "{}● {}{} {} {} {} {} {}",
                     "│ ".repeat(nesting),
                     &commit.id.to_string()[..2].blue().underline(),
                     &commit.id.to_string()[2..7].blue(),
                     state_str,
                     conflicted_str,
                     commit.author.name,
-                    time_string.dimmed()
+                    time_string.dimmed(),
+                    mark.clone().unwrap_or_default()
                 );
                 println!(
                     "{}│ {}",
                     "│ ".repeat(nesting),
-                    commit.message.to_string().lines().next().unwrap_or("")
+                    format_commit_message(&commit.message.to_string())
                 );
                 if i == stacks.len() - 1 {
                     if nesting == 0 {
@@ -127,10 +152,10 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
     if nesting > 0 {
         for _ in (0..nesting - 1).rev() {
             if nesting == 1 {
-                println!("└─╯");
+                println!("│");
             } else {
                 let prefix = "│ ".repeat(nesting - 2);
-                println!("{}├─╯", prefix);
+                println!("{}│", prefix);
             }
             nesting -= 1;
         }
@@ -142,6 +167,85 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
         .to_string()[..7]
         .to_string();
     println!("● {} (base)", common_merge_base);
+
+    Ok(())
+}
+
+fn commit_graph_short(stacks: Vec<StackDetails>) -> anyhow::Result<()> {
+    let mut nesting = 0;
+
+    for (_i, stack) in stacks.iter().enumerate() {
+        let mut second_consecutive = false;
+
+        for branch in stack.branch_details.iter() {
+            let line = if second_consecutive {
+                if branch.upstream_commits.is_empty() {
+                    '├'
+                } else {
+                    '╭'
+                }
+            } else {
+                '╭'
+            };
+            second_consecutive = branch.upstream_commits.is_empty();
+
+            let extra_space = if !branch.upstream_commits.is_empty() {
+                "  "
+            } else {
+                ""
+            };
+
+            let id = CliId::branch(&branch.name.to_string())
+                .to_string()
+                .underline()
+                .blue();
+
+            // Count commits
+            let upstream_count = branch.upstream_commits.len();
+            let local_count = branch.commits.len();
+            let total_count = upstream_count + local_count;
+
+            let count_info = if total_count == 0 {
+                "no commits".dimmed()
+            } else if upstream_count > 0 && local_count > 0 {
+                format!(
+                    "{} commits ({} upstream, {} local)",
+                    total_count, upstream_count, local_count
+                )
+                .cyan()
+            } else if upstream_count > 0 {
+                format!("{} upstream commits", upstream_count).yellow()
+            } else {
+                format!("{} local commits", local_count).green()
+            };
+
+            println!(
+                "{}{}{} [{}] {} - {}",
+                "│ ".repeat(nesting),
+                extra_space,
+                line,
+                branch.name.to_string().green().bold(),
+                id,
+                count_info
+            );
+        }
+        nesting += 1;
+    }
+
+    if nesting > 0 {
+        for _ in (0..nesting - 1).rev() {
+            if nesting == 1 {
+                println!("│");
+            } else {
+                let prefix = "│ ".repeat(nesting - 2);
+                println!("{}│", prefix);
+            }
+            nesting -= 1;
+        }
+    }
+
+    // Show the base commit (same as in detailed view)
+    println!("● (base)");
 
     Ok(())
 }
@@ -190,5 +294,20 @@ pub(crate) fn stack_details(
         but_workspace::stack_details_v3(Some(stack_id), &repo, &meta)
     } else {
         but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
+    }
+}
+
+fn output_json(stacks: Vec<but_workspace::ui::StackDetails>) -> anyhow::Result<()> {
+    let json_output = serde_json::to_string_pretty(&stacks)?;
+    println!("{}", json_output);
+    Ok(())
+}
+
+fn format_commit_message(message: &str) -> String {
+    let message_line = message.lines().next().unwrap_or("");
+    if message_line.trim().is_empty() {
+        "(blank message)".to_string()
+    } else {
+        message_line.to_string()
     }
 }

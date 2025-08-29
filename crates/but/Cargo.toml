@@ -30,6 +30,7 @@ anyhow.workspace = true
 rmcp.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 sysinfo = "0.36.0"
+regex = "1.11.1"
 gitbutler-project.workspace = true
 gix.workspace = true
 but-core.workspace = true
@@ -42,15 +43,24 @@ but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
 but-claude.workspace = true
 but-tools.workspace = true
+but-rules.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-stack.workspace = true
+gitbutler-commit.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
+gitbutler-reference.workspace = true
 gitbutler-secret.workspace = true
 gitbutler-oxidize.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-user.workspace = true
+gitbutler-oplog.workspace = true
+gitbutler-diff.workspace = true
+git2.workspace = true
 colored = "3.0.0"
 serde_json = "1.0.142"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",
