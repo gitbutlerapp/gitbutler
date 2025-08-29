@@ -17,9 +17,29 @@ pub struct Args {
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// Provides an overview of the Workspace commit graph.
-    Log,
+    Log {
+        /// Show only branch topology with commit counts instead of detailed commits
+        #[clap(long, short = 's')]
+        short: bool,
+    },
     /// Overview of the oncommitted changes in the repository.
-    Status,
+    Status {
+        /// Show base branch and behind count information
+        #[clap(long, short = 'b')]
+        base: bool,
+    },
+    /// Display configuration information about the GitButler repository.
+    Config,
+    /// Show operation history (last 20 entries).
+    Oplog,
+    /// Undo the last operation by reverting to the previous snapshot.
+    Undo,
+
+    /// Branch management operations.
+    Branch {
+        #[clap(subcommand)]
+        cmd: BranchSubcommands,
+    },
 
     /// Combines two entities together to perform an operation.
     #[clap(
@@ -64,12 +84,29 @@ For examples see `but rub --help`."
     },
 }
 
+#[derive(Debug, clap::Subcommand)]
+pub enum BranchSubcommands {
+    /// Create a new virtual branch.
+    New {
+        /// The name of the new branch
+        branch_name: String,
+        /// Optional branch ID to create a stacked branch from
+        id: Option<String>,
+    },
+}
+
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
 pub enum CommandName {
     #[clap(alias = "log")]
     Log,
     #[clap(alias = "status")]
     Status,
+    #[clap(alias = "config")]
+    Config,
+    #[clap(alias = "oplog")]
+    Oplog,
+    #[clap(alias = "undo")]
+    Undo,
     #[clap(alias = "rub")]
     Rub,
     #[clap(

@@ -1,19 +1,23 @@
 use anyhow::{Context, Result};
 
 mod args;
-use args::{Args, CommandName, Subcommands, actions, claude};
+use args::{Args, BranchSubcommands, CommandName, Subcommands, actions, claude};
 use but_settings::AppSettings;
 use metrics::{Event, Metrics, Props, metrics_if_configured};
 
 use but_claude::hooks::OutputAsJson;
+mod branch;
 mod command;
+mod config;
 mod id;
 mod log;
 mod mcp;
 mod mcp_internal;
 mod metrics;
+mod oplog;
 mod rub;
 mod status;
+mod undo;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -79,16 +83,36 @@ async fn main() -> Result<()> {
                 but_claude::mcp::start(&args.current_dir).await
             }
         },
-        Subcommands::Log => {
-            let result = log::commit_graph(&args.current_dir, args.json);
+        Subcommands::Log { short } => {
+            let result = log::commit_graph(&args.current_dir, args.json, *short);
             metrics_if_configured(app_settings, CommandName::Log, props(start, &result)).ok();
             Ok(())
         }
-        Subcommands::Status => {
-            let result = status::worktree(&args.current_dir, args.json);
+        Subcommands::Status { base } => {
+            let result = status::worktree(&args.current_dir, args.json, *base);
             metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
             Ok(())
         }
+        Subcommands::Config => {
+            let result = config::show(&args.current_dir, &app_settings, args.json);
+            metrics_if_configured(app_settings, CommandName::Config, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Oplog => {
+            let result = oplog::show_oplog(&args.current_dir, args.json);
+            metrics_if_configured(app_settings, CommandName::Oplog, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Undo => {
+            let result = undo::undo_last_operation(&args.current_dir, args.json);
+            metrics_if_configured(app_settings, CommandName::Undo, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Branch { cmd } => match cmd {
+            BranchSubcommands::New { branch_name, id } => {
+                branch::create_branch(&args.current_dir, args.json, branch_name, id.as_deref())
+            }
+        },
         Subcommands::Rub { source, target } => {
             let result = rub::handle(&args.current_dir, args.json, source, target)
                 .context("Rubbed the wrong way.");
