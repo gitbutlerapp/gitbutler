@@ -3,6 +3,7 @@
 	import Drawer from '$components/Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
+	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
@@ -49,6 +50,7 @@
 	let message = $state('');
 	let claudeExecutable = $derived($settingsStore?.claude.executable || 'claude');
 	let updatingExecutable = $state(false);
+	let settingsModal: ClaudeCodeSettingsModal | undefined;
 
 	const projectState = uiState.project(projectId);
 	const selectedBranch = $derived(projectState.selectedClaudeSession.current);
@@ -150,7 +152,7 @@
 		{#snippet actions()}
 			<Button disabled kind="outline" size="tag" icon="plus-small" reversedDirection>Add new</Button
 			>
-			<Button kind="ghost" icon="settings" size="tag" />
+			<Button kind="ghost" icon="settings" size="tag" onclick={() => settingsModal?.show()} />
 		{/snippet}
 	</CodegenSidebar>
 
@@ -330,6 +332,8 @@
 		</div>
 	</div>
 {/snippet}
+
+<ClaudeCodeSettingsModal bind:this={settingsModal} onClose={() => {}} />
 
 <style lang="postcss">
 	.page {

@@ -4,13 +4,9 @@
 	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
-	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import { AISecretHandle, AI_SERVICE, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
-	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { codegenEnabled } from '$lib/config/uiFeatureFlags';
 	import { focusable } from '$lib/focus/focusable';
 	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
 	import { USER_SERVICE } from '$lib/user/userService';
@@ -23,8 +19,7 @@
 		Select,
 		SelectItem,
 		Spacer,
-		Textbox,
-		Toggle
+		Textbox
 	} from '@gitbutler/ui';
 
 	import { onMount, tick } from 'svelte';
@@ -200,55 +195,6 @@
 	run(() => {
 		if (form) form.modelKind.value = modelKind;
 	});
-
-	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
-	const settingsService = inject(SETTINGS_SERVICE);
-	const settingsStore = settingsService.appSettings;
-	let claudeExecutable = $state('');
-	let notifyOnCompletion = $state(false);
-	let notifyOnPermissionRequest = $state(false);
-	let dangerouslyAllowAllPermissions = $state(false);
-
-	// Initialize Claude settings from store
-	$effect(() => {
-		if ($settingsStore?.claude) {
-			claudeExecutable = $settingsStore.claude.executable;
-			notifyOnCompletion = $settingsStore.claude.notifyOnCompletion;
-			notifyOnPermissionRequest = $settingsStore.claude.notifyOnPermissionRequest;
-			dangerouslyAllowAllPermissions = $settingsStore.claude.dangerouslyAllowAllPermissions;
-		}
-	});
-
-	let recheckedAvailability = $state<'recheck-failed' | 'recheck-succeeded'>();
-	async function checkClaudeAvailability() {
-		const recheck = await claudeCodeService.fetchCheckAvailable(undefined, { forceRefetch: true });
-		if (recheck) {
-			recheckedAvailability = 'recheck-succeeded';
-		} else {
-			recheckedAvailability = 'recheck-failed';
-		}
-	}
-
-	async function updateClaudeExecutable(value: string) {
-		claudeExecutable = value;
-		recheckedAvailability = undefined;
-		await settingsService.updateClaude({ executable: value });
-	}
-
-	async function updateNotifyOnCompletion(value: boolean) {
-		notifyOnCompletion = value;
-		await settingsService.updateClaude({ notifyOnCompletion: value });
-	}
-
-	async function updateNotifyOnPermissionRequest(value: boolean) {
-		notifyOnPermissionRequest = value;
-		await settingsService.updateClaude({ notifyOnPermissionRequest: value });
-	}
-
-	async function updateDangerouslyAllowAllPermissions(value: boolean) {
-		dangerouslyAllowAllPermissions = value;
-		await settingsService.updateClaude({ dangerouslyAllowAllPermissions: value });
-	}
 </script>
 
 {#snippet shortNote(text: string)}
@@ -529,63 +475,6 @@
 
 <Spacer />
 
-{#if $codegenEnabled}
-	<SectionCard orientation="column" {focusable}>
-		{#snippet title()}
-			Claude Code Configuration
-		{/snippet}
-
-		{#snippet caption()}
-			Configure the path to the Claude Code executable. This is used for AI-powered code generation
-			and editing.
-		{/snippet}
-
-		<ClaudeCheck
-			{claudeExecutable}
-			{recheckedAvailability}
-			onUpdateExecutable={updateClaudeExecutable}
-			onCheckAvailability={checkClaudeAvailability}
-			showInstallationGuide={false}
-			showTitle={false}
-		/>
-	</SectionCard>
-
-	<SectionCard orientation="row" {focusable}>
-		{#snippet title()}
-			Claude Code notifications
-		{/snippet}
-		{#snippet caption()}
-			<div class="notification-toggles">
-				<div class="notification-toggle">
-					<p>Notify when Claude Code finishes</p>
-					<Toggle checked={notifyOnCompletion} onchange={updateNotifyOnCompletion} />
-				</div>
-				<div class="notification-toggle">
-					<p>Notify when Claude Code needs permission</p>
-					<Toggle checked={notifyOnPermissionRequest} onchange={updateNotifyOnPermissionRequest} />
-				</div>
-			</div>
-		{/snippet}
-		{#snippet actions()}{/snippet}
-	</SectionCard>
-
-	<SectionCard orientation="row" {focusable}>
-		{#snippet title()}
-			⚠️ Dangerously allow all permissions
-		{/snippet}
-		{#snippet caption()}
-			Skips all permission prompts and allows Claude Code unrestricted access. Use with extreme
-			caution.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				checked={dangerouslyAllowAllPermissions}
-				onchange={updateDangerouslyAllowAllPermissions}
-			/>
-		{/snippet}
-	</SectionCard>
-{/if}
-
 <style>
 	.ai-settings__about-text {
 		margin-bottom: 12px;
@@ -612,17 +501,5 @@
 	.ai-settings__section-text-block {
 		display: flex;
 		flex-direction: column;
-	}
-
-	.notification-toggles {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-
-	.notification-toggle {
-		display: flex;
-		justify-content: space-between;
-		gap: 8px;
 	}
 </style>
