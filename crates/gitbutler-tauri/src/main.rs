@@ -400,8 +400,7 @@ fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
         return;
     }
 
-    // This can be slow on Windows, background it.
-    std::thread::spawn(|| {
+    fn doit() {
         if let Some(terminal_vars) = but_core::cmd::extract_interactive_login_shell_environment() {
             tracing::info!("Inheriting static interactive shell environment, valid for the entire runtime of the application");
             for (key, value) in terminal_vars {
@@ -412,5 +411,13 @@ fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
                 "SHELL variable isn't set - launching with default GUI application environment "
             );
         }
-    });
+    }
+    if cfg!(windows) {
+        // This can be slow on Windows IF it runs, so background it.
+        // This could also trigger a race, so let's only do it when we must, and hope that this works
+        // in the few occasions where it may run.
+        std::thread::spawn(doit);
+    } else {
+        doit();
+    }
 }
