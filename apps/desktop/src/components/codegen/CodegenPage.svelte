@@ -184,7 +184,7 @@
 							{/each}
 							{@const lastUserMessageSent = lastUserMessageSentAt(events)}
 							{#if currentStatus(events) === 'running' && lastUserMessageSent}
-								<CodegenRunningMessage {lastUserMessageSent} {onAbort} />
+								<CodegenRunningMessage {lastUserMessageSent} />
 							{/if}
 						{/snippet}
 					</ReduxResult>
@@ -196,6 +196,7 @@
 								bind:value={message}
 								loading={currentStatus(events) === 'running'}
 								onsubmit={sendMessage}
+								{onAbort}
 							>
 								{#snippet actions()}
 									<Button disabled kind="outline" icon="attachment" reversedDirection

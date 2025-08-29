@@ -14,10 +14,10 @@
 		class?: string;
 		flex?: string;
 		padding?: {
-			top: number;
-			right: number;
-			bottom: number;
-			left: number;
+			top?: number;
+			right?: number;
+			bottom?: number;
+			left?: number;
 		};
 		borderTop?: boolean;
 		borderRight?: boolean;
@@ -42,8 +42,7 @@
 		class: className = '',
 		fontWeight = 'regular',
 		flex,
-		padding = { top: 12, right: 12, bottom: 12, left: 12 },
-
+		padding = {},
 		borderTop = true,
 		borderRight = true,
 		borderBottom = true,
@@ -57,8 +56,21 @@
 		onkeydown
 	}: Props = $props();
 
-	// Use zero padding if unstyled, otherwise use provided padding
-	const effectivePadding = $derived(unstyled ? { top: 0, right: 0, bottom: 0, left: 0 } : padding);
+	// Default padding values
+	const defaultPadding = { top: 12, right: 12, bottom: 12, left: 12 };
+
+	// Merge provided padding with defaults
+	const mergedPadding = $derived({
+		top: padding.top ?? defaultPadding.top,
+		right: padding.right ?? defaultPadding.right,
+		bottom: padding.bottom ?? defaultPadding.bottom,
+		left: padding.left ?? defaultPadding.left
+	});
+
+	// Use zero padding if unstyled, otherwise use merged padding
+	const effectivePadding = $derived(
+		unstyled ? { top: 0, right: 0, bottom: 0, left: 0 } : mergedPadding
+	);
 
 	let measureEl: HTMLPreElement | undefined = $state();
 
