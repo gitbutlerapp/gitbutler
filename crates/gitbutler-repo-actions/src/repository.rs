@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
@@ -164,8 +164,18 @@ impl RepoActionsExt for CommandContext {
         refspec: Option<String>,
         askpass_broker: Option<Option<StackId>>,
     ) -> Result<()> {
+        let use_git_executable = self.project().preferred_key == AuthKey::SystemExecutable;
+        if !use_git_executable && force_push_protection {
+            bail!("Force push protection is only supported when 'Using the Git executable'");
+        }
         let refspec = refspec.unwrap_or_else(|| {
-            format!("{}:refs/heads/{}", head, branch.branch()) // for force pushing we previously had "+{}:refs/heads/{}" which was removed because it bypasses the force push protection flags as it is equivalent to --force
+            // The Git executable has flags set related to force, and these flags don't play well
+            // with the refspec force-format which seems to override them, leading to incorrect results
+            // in conjunction with `force_push_protection`.
+            let prefix = (with_force && !use_git_executable)
+                .then_some("+")
+                .unwrap_or_default();
+            format!("{prefix}{}:refs/heads/{}", head, branch.branch())
         });
 
         // NOTE(qix-): This is a nasty hack, however the codebase isn't structured
@@ -173,10 +183,10 @@ impl RepoActionsExt for CommandContext {
         // NOTE(qix-): without a lot of work. This is a temporary measure to
         // NOTE(qix-): work around a time-sensitive change that was necessary
         // NOTE(qix-): without having to refactor a large portion of the codebase.
-        if self.project().preferred_key == AuthKey::SystemExecutable {
+        if use_git_executable {
             let path = self.project().worktree_path();
             let remote = branch.remote().to_string();
-            return std::thread::spawn(move || {
+            std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
                     .unwrap()
                     .block_on(gitbutler_git::push(
@@ -200,63 +210,65 @@ impl RepoActionsExt for CommandContext {
                     },
                     _ => err.into()
                 }
-            });
-        }
-
-        let auth_flows = credentials::help(self, branch.remote())?;
-        for (mut remote, callbacks) in auth_flows {
-            let mut update_refs_error: Option<git2::Error> = None;
-            for callback in callbacks {
-                let mut cbs: git2::RemoteCallbacks = callback.into();
-                if self.project().omit_certificate_check.unwrap_or(false) {
-                    cbs.certificate_check(|_, _| Ok(git2::CertificateCheckStatus::CertificateOk));
-                }
-                cbs.push_update_reference(|_reference: &str, status: Option<&str>| {
-                    if let Some(status) = status {
-                        update_refs_error = Some(git2::Error::from_str(status));
-                        return Err(git2::Error::from_str(status));
-                    };
-                    Ok(())
-                });
-
-                let push_result = remote.push(
-                    &[refspec.as_str()],
-                    Some(&mut git2::PushOptions::new().remote_callbacks(cbs)),
-                );
-                match push_result {
-                    Ok(()) => {
-                        tracing::info!(
-                            project_id = %self.project().id,
-                            remote = %branch.remote(),
-                            %head,
-                            branch = branch.branch(),
-                            "pushed git branch"
-                        );
-                        return Ok(());
+            })
+        } else {
+            let auth_flows = credentials::help(self, branch.remote())?;
+            for (mut remote, callbacks) in auth_flows {
+                let mut update_refs_error: Option<git2::Error> = None;
+                for callback in callbacks {
+                    let mut cbs: git2::RemoteCallbacks = callback.into();
+                    if self.project().omit_certificate_check.unwrap_or(false) {
+                        cbs.certificate_check(|_, _| {
+                            Ok(git2::CertificateCheckStatus::CertificateOk)
+                        });
                     }
-                    Err(err) => match err.class() {
-                        git2::ErrorClass::Net | git2::ErrorClass::Http => {
-                            tracing::warn!(project_id = %self.project().id, ?err, "push failed due to network");
-                            continue;
+                    cbs.push_update_reference(|_reference: &str, status: Option<&str>| {
+                        if let Some(status) = status {
+                            update_refs_error = Some(git2::Error::from_str(status));
+                            return Err(git2::Error::from_str(status));
+                        };
+                        Ok(())
+                    });
+
+                    let push_result = remote.push(
+                        &[refspec.as_str()],
+                        Some(&mut git2::PushOptions::new().remote_callbacks(cbs)),
+                    );
+                    match push_result {
+                        Ok(()) => {
+                            tracing::info!(
+                                project_id = %self.project().id,
+                                remote = %branch.remote(),
+                                %head,
+                                branch = branch.branch(),
+                                "pushed git branch"
+                            );
+                            return Ok(());
                         }
-                        _ => match err.code() {
-                            git2::ErrorCode::Auth => {
-                                tracing::warn!(project_id = %self.project().id, ?err, "push failed due to auth");
+                        Err(err) => match err.class() {
+                            git2::ErrorClass::Net | git2::ErrorClass::Http => {
+                                tracing::warn!(project_id = %self.project().id, ?err, "push failed due to network");
                                 continue;
                             }
-                            _ => {
-                                if let Some(update_refs_err) = update_refs_error {
-                                    return Err(update_refs_err).context(err);
+                            _ => match err.code() {
+                                git2::ErrorCode::Auth => {
+                                    tracing::warn!(project_id = %self.project().id, ?err, "push failed due to auth");
+                                    continue;
                                 }
-                                return Err(err.into());
-                            }
+                                _ => {
+                                    if let Some(update_refs_err) = update_refs_error {
+                                        return Err(update_refs_err).context(err);
+                                    }
+                                    return Err(err.into());
+                                }
+                            },
                         },
-                    },
+                    }
                 }
             }
-        }
 
-        Err(anyhow!("authentication failed").context(Code::ProjectGitAuth))
+            Err(anyhow!("authentication failed").context(Code::ProjectGitAuth))
+        }
     }
 
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()> {
