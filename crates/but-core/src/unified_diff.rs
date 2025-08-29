@@ -2,7 +2,7 @@ use super::{ChangeState, UnifiedDiff};
 use bstr::{BStr, BString, ByteSlice};
 use gix::diff::blob::ResourceKind;
 use gix::diff::blob::platform::prepare_diff::Operation;
-use gix::diff::blob::unified_diff::ContextSize;
+use gix::diff::blob::unified_diff::{ConsumeBinaryHunk, ContextSize, HunkHeader};
 use serde::Serialize;
 
 /// A hunk as used in a [UnifiedDiff], which also contains all added and removed lines.
@@ -154,45 +154,35 @@ impl UnifiedDiff {
                 struct ProduceDiffHunk {
                     hunks: Vec<DiffHunk>,
                 }
-                impl gix::diff::blob::unified_diff::ConsumeHunk for ProduceDiffHunk {
-                    type Out = Vec<DiffHunk>;
-
-                    fn consume_hunk(
+                impl gix::diff::blob::unified_diff::ConsumeBinaryHunkDelegate for ProduceDiffHunk {
+                    fn consume_binary_hunk(
                         &mut self,
-                        before_hunk_start: u32,
-                        before_hunk_len: u32,
-                        after_hunk_start: u32,
-                        after_hunk_len: u32,
-                        header: &str,
+                        header: HunkHeader,
+                        header_str: &str,
                         hunk: &[u8],
                     ) -> std::io::Result<()> {
                         self.hunks.push(DiffHunk {
-                            old_start: before_hunk_start,
-                            old_lines: before_hunk_len,
-                            new_start: after_hunk_start,
-                            new_lines: after_hunk_len,
+                            old_start: header.before_hunk_start,
+                            old_lines: header.before_hunk_len,
+                            new_start: header.after_hunk_start,
+                            new_lines: header.after_hunk_len,
                             diff: {
-                                let mut buf = Vec::with_capacity(header.len() + hunk.len());
-                                buf.extend_from_slice(header.as_bytes());
+                                let mut buf = Vec::with_capacity(header_str.len() + hunk.len());
+                                buf.extend_from_slice(header_str.as_bytes());
                                 buf.extend_from_slice(hunk);
                                 buf.into()
                             },
                         });
                         Ok(())
                     }
-
-                    fn finish(self) -> Self::Out {
-                        self.hunks
-                    }
                 }
                 let input = prep.interned_input();
                 let uni_diff = gix::diff::blob::UnifiedDiff::new(
                     &input,
-                    ProduceDiffHunk::default(),
-                    gix::diff::blob::unified_diff::NewlineSeparator::AfterHeaderAndWhenNeeded("\n"),
+                    ConsumeBinaryHunk::new(ProduceDiffHunk::default(), "\n"),
                     ContextSize::symmetrical(context_lines),
                 );
-                let hunks = gix::diff::blob::diff(algorithm, &input, uni_diff)?;
+                let hunks = gix::diff::blob::diff(algorithm, &input, uni_diff)?.hunks;
                 let (lines_added, lines_removed) = compute_line_changes(&hunks);
                 UnifiedDiff::Patch {
                     is_result_of_binary_to_text_conversion: prep.old_or_new_is_derived,
