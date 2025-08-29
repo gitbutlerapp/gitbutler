@@ -24,7 +24,7 @@
 
 	const {
 		text,
-		delay = 700,
+		delay = 500,
 		disabled,
 		align,
 		position: requestedPosition = 'bottom',
