@@ -19,11 +19,11 @@
 			bottom: number;
 			left: number;
 		};
-		borderless?: boolean;
 		borderTop?: boolean;
 		borderRight?: boolean;
 		borderBottom?: boolean;
 		borderLeft?: boolean;
+		borderless?: boolean;
 		unstyled?: boolean;
 	}
 
@@ -43,18 +43,22 @@
 		fontWeight = 'regular',
 		flex,
 		padding = { top: 12, right: 12, bottom: 12, left: 12 },
-		borderless,
+
 		borderTop = true,
 		borderRight = true,
 		borderBottom = true,
 		borderLeft = true,
 		unstyled,
+		borderless,
 		oninput,
 		onchange,
 		onfocus,
 		onblur,
 		onkeydown
 	}: Props = $props();
+
+	// Use zero padding if unstyled, otherwise use provided padding
+	const effectivePadding = $derived(unstyled ? { top: 0, right: 0, bottom: 0, left: 0 } : padding);
 
 	let measureEl: HTMLPreElement | undefined = $state();
 
@@ -81,8 +85,8 @@
 
 	const lineHeight = 1.6;
 
-	const maxHeight = $derived(fontSize * maxRows + padding.top + padding.bottom);
-	const minHeight = $derived(fontSize * minRows + padding.top + padding.bottom);
+	const maxHeight = $derived(fontSize * maxRows + effectivePadding.top + effectivePadding.bottom);
+	const minHeight = $derived(fontSize * minRows + effectivePadding.top + effectivePadding.bottom);
 
 	let measureElHeight = $state(0);
 </script>
@@ -92,10 +96,10 @@
 	style:--placeholder-text={`"${placeholder && placeholder !== '' ? placeholder : 'Type here...'}"`}
 	style:--min-rows={minRows}
 	style:--max-rows={maxRows}
-	style:--padding-top="{pxToRem(padding.top)}rem"
-	style:--padding-right="{pxToRem(padding.right)}rem"
-	style:--padding-bottom="{pxToRem(padding.bottom)}rem"
-	style:--padding-left="{pxToRem(padding.left)}rem"
+	style:--padding-top="{pxToRem(effectivePadding.top)}rem"
+	style:--padding-right="{pxToRem(effectivePadding.right)}rem"
+	style:--padding-bottom="{pxToRem(effectivePadding.bottom)}rem"
+	style:--padding-left="{pxToRem(effectivePadding.left)}rem"
 	style:--lineheight-ratio={1.6}
 	style:flex
 >

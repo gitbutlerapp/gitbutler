@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { focusable } from '$lib/focus/focusable';
 	import { Button, Textarea } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 
@@ -14,8 +13,14 @@
 
 	let { value = $bindable(), loading, onsubmit, actions }: Props = $props();
 
+	let textareaElement = $state<HTMLTextAreaElement>();
+
 	async function handleSubmit() {
 		await onsubmit();
+	}
+
+	function handleDialogClick() {
+		textareaElement?.focus();
 	}
 
 	async function handleKeypress(e: KeyboardEvent) {
@@ -27,22 +32,19 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="input" onkeypress={handleKeypress} use:focusable>
+<div class="text-input dialog-input" onkeypress={handleKeypress} onclick={handleDialogClick}>
 	<Textarea
 		bind:value
+		bind:textBoxEl={textareaElement}
 		placeholder="What would you like to make..."
 		borderless
-		padding={{
-			top: 0,
-			left: 0,
-			right: 0,
-			bottom: 0
-		}}
 	/>
-	<div class="flex justify-between items-center">
+
+	<div class="dialog-input__actions">
 		<div class="flex gap-4 items-center">
 			{@render actions()}
 		</div>
+
 		<Button disabled={loading} {loading} style="pop" onclick={handleSubmit}>
 			{#if !loading}
 				<div class="svg-container">
@@ -78,17 +80,16 @@
 </div>
 
 <style lang="postcss">
-	.input {
+	.dialog-input {
 		display: flex;
 		flex-direction: column;
-		padding: 12px;
-
-		gap: 16px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
+		padding: 0;
 	}
 
-	.svg-container {
-		margin: 0 -3px;
+	.dialog-input__actions {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 12px;
 	}
 </style>
