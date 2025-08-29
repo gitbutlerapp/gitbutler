@@ -24,8 +24,6 @@ pub enum DateMode {
 /// Set `user.name` to `name` if unset and `user.email` to `email` if unset, or error if both are already set
 /// as per `repo` configuration, and write the changes back to the file at `destination`, keeping
 /// user comments and custom formatting.
-/// `destination` will possibly use a fallback if the destination isn't available, possibly writing into
-/// other global files in the process.
 pub fn save_author_if_unset_in_repo<'a, 'b>(
     repo: &gix::Repository,
     destination: Source,
@@ -41,16 +39,8 @@ pub fn save_author_if_unset_in_repo<'a, 'b>(
         .string(&gix::config::tree::User::EMAIL)
         .is_none()
         .then_some(email.into());
-    let config_path = Some(destination)
-        .into_iter()
-        .chain(match destination {
-            Source::System => Some(Source::Git),
-            Source::Git => Some(Source::User),
-            Source::User => Some(Source::Git),
-            _ => None,
-        })
-        .filter_map(|source| source.storage_location(&mut |name| std::env::var_os(name)))
-        .next()
+    let config_path = destination
+        .storage_location(&mut |name| std::env::var_os(name))
         .context("Failed to determine storage location for Git user configuration")?;
     // TODO(gix): there should be a `gix::Repository` version of this that takes care of this detail.
     let config_path = if config_path.is_relative() {
