@@ -92,7 +92,11 @@ fn main() {
                         "system git executable for fetch/push: {git:?}",
                         git = gix::path::env::exe_invocation(),
                     );
-                    tracing::info!("system git bash: {git:?}", git = gix::path::env::shell(),);
+                    if cfg!(windows) {
+                        tracing::info!("system git bash: {bash:?}", bash = gix::path::env::shell());
+                    } else {
+                        tracing::info!("SHELL env: {var:?}", var = std::env::var_os("SHELL"));
+                    }
 
                     // On MacOS, in dev mode with debug assertions, we encounter popups each time
                     // the binary is rebuilt. To counter that, use a git-credential based implementation.
@@ -395,14 +399,18 @@ fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
         );
         return;
     }
-    if let Some(terminal_vars) = but_core::cmd::extract_interactive_login_shell_environment() {
-        tracing::info!("Inheriting static interactive shell environment, valid for the entire runtime of the application");
-        for (key, value) in terminal_vars {
-            std::env::set_var(key, value);
+
+    // This can be slow on Windows, background it.
+    std::thread::spawn(|| {
+        if let Some(terminal_vars) = but_core::cmd::extract_interactive_login_shell_environment() {
+            tracing::info!("Inheriting static interactive shell environment, valid for the entire runtime of the application");
+            for (key, value) in terminal_vars {
+                std::env::set_var(key, value);
+            }
+        } else {
+            tracing::info!(
+                "SHELL variable isn't set - launching with default GUI application environment "
+            );
         }
-    } else {
-        tracing::info!(
-            "SHELL variable isn't set - launching with default GUI application environment "
-        );
-    }
+    });
 }
