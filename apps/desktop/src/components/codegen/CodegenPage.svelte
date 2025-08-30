@@ -11,6 +11,7 @@
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
 	import CodegenTodo from '$components/codegen/CodegenTodo.svelte';
+	import CodegenUsageStat from '$components/codegen/CodegenUsageStat.svelte';
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import {
@@ -307,13 +308,31 @@
 
 {#snippet rightSidebar()}
 	<div class="right-sidebar" bind:this={rightSidebarRef}>
-		<Drawer title="Todos">
+		<Drawer title="Todos" bottomBorder>
 			<ReduxResult result={events?.current} {projectId}>
 				{#snippet children(events, { projectId: _projectId })}
 					{@const todos = getTodos(events)}
-					{#each todos as todo}
-						<CodegenTodo {todo} />
-					{/each}
+					<div class="right-sidebar-list">
+						{#each todos as todo}
+							<CodegenTodo {todo} />
+						{/each}
+					</div>
+				{/snippet}
+			</ReduxResult>
+		</Drawer>
+
+		<Drawer title="Usage">
+			<ReduxResult result={events?.current} {projectId}>
+				{#snippet children(events, { projectId: _projectId })}
+					{@const usage = usageStats(events)}
+					<div class="right-sidebar-list">
+						<CodegenUsageStat label="Tokens used:" value={usage.tokens.toString()} />
+						<CodegenUsageStat
+							label="Total cost:"
+							value={`$${usage.cost.toFixed(2)}`}
+							valueSize="large"
+						/>
+					</div>
 				{/snippet}
 			</ReduxResult>
 		</Drawer>
@@ -500,8 +519,17 @@
 	.right-sidebar {
 		display: flex;
 		position: relative;
+		flex-direction: column;
 		height: 100%;
 
 		border-left: 1px solid var(--clr-border-2);
+	}
+
+	.right-sidebar-list {
+		display: flex;
+		flex-direction: column;
+
+		padding: 14px;
+		gap: 12px;
 	}
 </style>

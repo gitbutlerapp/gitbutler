@@ -192,7 +192,10 @@ const webRequestCost = 10;
  * For some reason the final quantity of tokens ends up slightly greater than if
  * you were using the result. I'm not entirly sure where the discrepency is.
  */
-export function usageStats(events: ClaudeMessage[]): { tokens: number; cost: number } {
+export function usageStats(events: ClaudeMessage[]): {
+	tokens: number;
+	cost: number;
+} {
 	let tokens = 0;
 	let cost = 0;
 	for (const event of events) {
