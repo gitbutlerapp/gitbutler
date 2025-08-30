@@ -1,4 +1,4 @@
-import { getTimeAgo } from '$lib/utils/timeAgo';
+import { getTimeAgo, getAbsoluteTimestamp } from '$lib/utils/timeAgo';
 import dayjs from 'dayjs';
 import { describe, it, expect } from 'vitest';
 
@@ -73,5 +73,30 @@ describe.concurrent('timeAgo', () => {
 	it('should format 2 years ago correctly', () => {
 		const date = dayjs().subtract(2, 'year').toDate();
 		expect(getTimeAgo(date)).toBe('2 yr ago');
+	});
+});
+
+describe.concurrent('getAbsoluteTimestamp', () => {
+	it('should format a date correctly', () => {
+		const date = new Date('2024-01-15T15:45:30.000Z');
+		const result = getAbsoluteTimestamp(date);
+		expect(result).toMatch(/January 15, 2024 at \d{1,2}:\d{2} [AP]M/);
+	});
+
+	it('should format a timestamp correctly', () => {
+		const timestamp = new Date('2024-12-25T09:30:00.000Z').getTime();
+		const result = getAbsoluteTimestamp(timestamp);
+		expect(result).toMatch(/December 25, 2024 at \d{1,2}:\d{2} [AP]M/);
+	});
+
+	it('should handle different times of day', () => {
+		const morningDate = new Date('2024-03-10T08:15:00.000Z');
+		const eveningDate = new Date('2024-03-10T20:30:00.000Z');
+
+		const morningResult = getAbsoluteTimestamp(morningDate);
+		const eveningResult = getAbsoluteTimestamp(eveningDate);
+
+		expect(morningResult).toMatch(/March 10, 2024 at \d{1,2}:\d{2} [AP]M/);
+		expect(eveningResult).toMatch(/March 10, 2024 at \d{1,2}:\d{2} [AP]M/);
 	});
 });

@@ -65,6 +65,17 @@ export function createTimeAgoStore(
 	});
 }
 
+/**
+ * Formats a date into an absolute timestamp in a common, easy-to-read format
+ * Example: "January 15, 2024 at 3:45 PM"
+ */
+export function getAbsoluteTimestamp(input: Date | number): string {
+	const date = typeof input === 'number' ? new Date(input) : input;
+
+	// Format the date in a readable format
+	return dayjs(date).format('MMMM D, YYYY [at] h:mm A');
+}
+
 // SHORTHAND WORDS
 const unitShorthandMap: Record<string, string> = {
 	second: 'sec',

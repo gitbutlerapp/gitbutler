@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchBadge from '$components/BranchBadge.svelte';
-	import { Icon, AvatarGroup } from '@gitbutler/ui';
-	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import { Icon, AvatarGroup, TimeAgo } from '@gitbutler/ui';
 	import type { BranchDetails } from '$lib/stacks/stack';
 	import type { Snippet } from 'svelte';
 
@@ -43,7 +42,7 @@
 
 		{#if branch.lastUpdatedAt}
 			<div class="factoid-wrap">
-				<span class="truncate">{getTimeAgo(branch.lastUpdatedAt)}</span>
+				<TimeAgo date={new Date(branch.lastUpdatedAt)} />
 			</div>
 		{/if}
 	</div>
