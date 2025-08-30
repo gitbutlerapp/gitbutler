@@ -826,18 +826,3 @@ pub(crate) fn as_buckets(steps: Vec<RebaseStep>) -> Vec<(but_core::Reference, Ve
     }
     buckets
 }
-
-pub(crate) fn flatten_buckets(
-    buckets: Vec<(but_core::Reference, Vec<RebaseStep>)>,
-) -> Vec<RebaseStep> {
-    // flatten the buckets, including the reference step after the pick steps
-    buckets
-        .into_iter()
-        .flat_map(|(reference, steps)| {
-            let mut steps = steps;
-            steps.push(RebaseStep::Reference(reference));
-            steps
-        })
-        .collect()
-    // buckets.into_iter().flat_map(|(_, steps)| steps).collect()
-}

@@ -62,9 +62,7 @@
 	const branchName = $derived(selected.current?.branchName);
 
 	const commitResult = $derived(
-		commitKey.upstream
-			? stackService.upstreamCommitById(projectId, commitKey)
-			: stackService.commitById(projectId, commitKey)
+		stackService.commitById(projectId, commitKey.stackId, commitKey.commitId)
 	);
 
 	const [updateCommitMessage, messageUpdateResult] = stackService.updateCommitMessage;

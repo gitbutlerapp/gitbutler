@@ -542,6 +542,41 @@
 	{/snippet}
 </Story>
 
+<Story name="With caption">
+	{#snippet template(args)}
+		<div class="wrap">
+			<Button
+				kind="outline"
+				bind:el={contextTrigger}
+				onclick={() => {
+					contextMenu?.toggle();
+				}}>Context menu with caption</Button
+			>
+		</div>
+
+		<ContextMenu bind:this={contextMenu} leftClickTrigger={contextTrigger} side="bottom" {...args}>
+			<ContextMenuSection title="Item with caption">
+				<ContextMenuItem
+					label="Rebase"
+					caption="Move your commits on top of upstream changes. Creates clean, linear history."
+					onclick={() => {
+						console.log('Copy');
+						contextMenu?.close();
+					}}
+				/>
+				<ContextMenuItem
+					label="Paste"
+					caption="Paste from clipboard"
+					onclick={() => {
+						console.log('Paste');
+						contextMenu?.close();
+					}}
+				/>
+			</ContextMenuSection>
+		</ContextMenu>
+	{/snippet}
+</Story>
+
 <style>
 	.wrap {
 		display: flex;
