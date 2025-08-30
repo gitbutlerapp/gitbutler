@@ -25,6 +25,7 @@
 		wrapText?: boolean;
 		diffFont?: string;
 		inlineUnifiedDiffs?: boolean;
+		colorScheme?: 'default' | 'colorblind-friendly';
 		selectedLines?: LineSelector[];
 		lineLocks?: LineLock[];
 		onLineClick?: (params: LineSelectionParams) => void;
@@ -51,6 +52,7 @@
 		diffFont,
 		tabSize = 4,
 		inlineUnifiedDiffs = false,
+		colorScheme: _colorScheme = 'default',
 		selectedLines,
 		lineLocks,
 		numberHeaderWidth,

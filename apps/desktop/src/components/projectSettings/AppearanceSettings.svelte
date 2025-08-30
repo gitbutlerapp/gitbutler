@@ -70,6 +70,7 @@
 			diffFont={$userSettings.diffFont}
 			diffLigatures={$userSettings.diffLigatures}
 			diffContrast={$userSettings.diffContrast}
+			colorScheme={$userSettings.colorScheme}
 			inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 			hunkStr={diff}
 		/>
@@ -202,6 +203,38 @@
 			>
 				{#snippet itemSnippet({ item, highlighted })}
 					<SelectItem selected={item.value === $userSettings.diffContrast} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		{/snippet}
+	</SectionCard>
+
+	<SectionCard orientation="row" roundedTop={false} roundedBottom={false} {focusable}>
+		{#snippet title()}
+			Color scheme
+		{/snippet}
+		{#snippet caption()}
+			Choose colors optimized for different visual needs. Color-blind friendly avoids red-green
+			combinations.
+		{/snippet}
+		{#snippet actions()}
+			<Select
+				maxWidth={140}
+				value={$userSettings.colorScheme}
+				options={[
+					{ label: 'Default', value: 'default' },
+					{ label: 'Color-blind friendly', value: 'colorblind-friendly' }
+				]}
+				onselect={(value) => {
+					userSettings.update((s) => ({
+						...s,
+						colorScheme: value as 'default' | 'colorblind-friendly'
+					}));
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === $userSettings.colorScheme} {highlighted}>
 						{item.label}
 					</SelectItem>
 				{/snippet}

@@ -16,6 +16,7 @@ export interface Settings {
 	bottomPanelHeight: number;
 	peekTrayWidth: number;
 	theme?: string;
+	colorScheme: 'default' | 'colorblind-friendly';
 	trayWidth: number;
 	stashedBranchesHeight: number;
 	defaultLaneWidth: number;
@@ -43,6 +44,7 @@ const defaults: Settings = {
 	defaultTreeHeight: 100,
 	stashedBranchesHeight: 150,
 	zoom: 1,
+	colorScheme: 'default',
 	scrollbarVisibilityState: 'scroll',
 	tabSize: 4,
 	wrapText: false,

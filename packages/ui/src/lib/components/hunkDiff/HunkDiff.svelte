@@ -27,6 +27,7 @@
 		diffLigatures?: boolean;
 		inlineUnifiedDiffs?: boolean;
 		diffContrast?: 'light' | 'medium' | 'strong';
+		colorScheme?: 'default' | 'colorblind-friendly';
 		staged?: boolean;
 		stagedLines?: LineId[];
 		hideCheckboxes?: boolean;
@@ -51,6 +52,7 @@
 		diffFont = 'var(--fontfamily-mono)',
 		diffLigatures = true,
 		diffContrast = 'medium',
+		colorScheme = 'default',
 		inlineUnifiedDiffs = false,
 		staged,
 		stagedLines,
@@ -102,7 +104,7 @@
 
 <div
 	bind:this={tableWrapperElem}
-	class="table__wrapper hide-native-scrollbar contrast-{diffContrast}"
+	class="table__wrapper hide-native-scrollbar contrast-{diffContrast} color-scheme-{colorScheme}"
 	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
 	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
 >
@@ -166,6 +168,7 @@
 					{tabSize}
 					{diffFont}
 					{inlineUnifiedDiffs}
+					{colorScheme}
 					{selectedLines}
 					{lineLocks}
 					{numberHeaderWidth}
@@ -397,5 +400,56 @@
 		--clr-diff-locked-count-bg: var(--clr-diff-locked-contrast-3-count-bg);
 		--clr-diff-locked-count-text: var(--clr-diff-locked-contrast-3-count-text);
 		--clr-diff-locked-count-border: var(--clr-diff-locked-contrast-3-count-border);
+	}
+
+	/* COLOR SCHEME MODIFIERS */
+	.color-scheme-colorblind-friendly {
+		/* Use blue instead of green for additions */
+		--clr-diff-addition-line-bg: color(srgb 0.8 0.9 1); /* Light blue background */
+		--clr-diff-addition-line-highlight: color(srgb 0.6 0.8 1); /* Medium blue highlight */
+		--clr-diff-addition-count-bg: color(srgb 0.7 0.85 1); /* Blue count background */
+		--clr-diff-addition-count-text: color(srgb 0.2 0.4 0.8); /* Dark blue text */
+		--clr-diff-addition-count-border: color(srgb 0.5 0.7 0.9); /* Blue border */
+		--clr-diff-addition-count-checkmark: color(srgb 0.2 0.4 0.8); /* Dark blue checkmark */
+
+		/* Use orange instead of red for deletions */
+		--clr-diff-deletion-line-bg: color(srgb 1 0.9 0.8); /* Light orange background */
+		--clr-diff-deletion-line-highlight: color(srgb 1 0.8 0.6); /* Medium orange highlight */
+		--clr-diff-deletion-count-bg: color(srgb 1 0.85 0.7); /* Orange count background */
+		--clr-diff-deletion-count-text: color(srgb 0.8 0.4 0.1); /* Dark orange text */
+		--clr-diff-deletion-count-border: color(srgb 0.9 0.6 0.3); /* Orange border */
+		--clr-diff-deletion-count-checkmark: color(srgb 0.8 0.4 0.1); /* Dark orange checkmark */
+	}
+
+	.color-scheme-colorblind-friendly.contrast-medium {
+		/* Use blue instead of green for additions - medium contrast */
+		--clr-diff-addition-line-bg: color(srgb 0.7 0.85 1); /* Slightly darker blue */
+		--clr-diff-addition-line-highlight: color(srgb 0.5 0.75 1);
+		--clr-diff-addition-count-bg: color(srgb 0.6 0.8 1);
+		--clr-diff-addition-count-text: color(srgb 0.1 0.3 0.7);
+		--clr-diff-addition-count-border: color(srgb 0.4 0.6 0.8);
+
+		/* Use orange instead of red for deletions - medium contrast */
+		--clr-diff-deletion-line-bg: color(srgb 1 0.85 0.7);
+		--clr-diff-deletion-line-highlight: color(srgb 1 0.75 0.5);
+		--clr-diff-deletion-count-bg: color(srgb 1 0.8 0.6);
+		--clr-diff-deletion-count-text: color(srgb 0.7 0.3 0.05);
+		--clr-diff-deletion-count-border: color(srgb 0.8 0.5 0.2);
+	}
+
+	.color-scheme-colorblind-friendly.contrast-strong {
+		/* Use blue instead of green for additions - strong contrast */
+		--clr-diff-addition-line-bg: color(srgb 0.6 0.8 1);
+		--clr-diff-addition-line-highlight: color(srgb 0.4 0.7 1);
+		--clr-diff-addition-count-bg: color(srgb 0.5 0.75 1);
+		--clr-diff-addition-count-text: color(srgb 0.05 0.2 0.6);
+		--clr-diff-addition-count-border: color(srgb 0.3 0.5 0.7);
+
+		/* Use orange instead of red for deletions - strong contrast */
+		--clr-diff-deletion-line-bg: color(srgb 1 0.8 0.6);
+		--clr-diff-deletion-line-highlight: color(srgb 1 0.7 0.4);
+		--clr-diff-deletion-count-bg: color(srgb 1 0.75 0.5);
+		--clr-diff-deletion-count-text: color(srgb 0.6 0.2 0);
+		--clr-diff-deletion-count-border: color(srgb 0.7 0.4 0.1);
 	}
 </style>
