@@ -855,7 +855,7 @@ mod with_workspace {
 
         let bottom_ref = rc("refs/heads/bottom");
         let bottom_id = id_by_rev(&repo, ":/A1");
-        let err = but_workspace::branch::create_reference(
+        let graph = but_workspace::branch::create_reference(
             bottom_ref,
             ReferenceAnchor::AtCommit {
                 commit_id: bottom_id.detach(),
@@ -864,15 +864,97 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
-        )
-        .unwrap_err();
+        )?;
 
-        assert_eq!(
-            err.to_string(),
-            "Reference 'bottom' cannot be created as segment at 3183e43ff482a2c4c8ff531d595453b64f58d90b",
-            "TODO: it should actually be possible to put dependent branches at the very bottom,\
-                but the graph processing doesn't pick these up below the stack."
-        );
+        let ws = graph.to_workspace()?;
+        insta::assert_snapshot!(graph_workspace(&ws), @r"
+        📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        └── ≡📙:3:A on 3183e43
+            ├── 📙:3:A
+            │   ├── ·c2878fb (🏘️)
+            │   └── ·49d4b34 (🏘️)
+            └── 📙:4:bottom
+        ");
+        Ok(())
+    }
+
+    #[test]
+    fn journey_multi_branch_commit_anchor() -> anyhow::Result<()> {
+        let (_tmp, repo, mut meta) = named_writable_scenario("multi-branch-with-ws-commit")?;
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        *   eaf2834 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+        |\  
+        | * 49d4b34 (A) A1
+        * | f57c528 (B) B1
+        |/  
+        * 3183e43 (origin/main, main) M1
+        ");
+
+        add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+        add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
+
+        let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+        let ws = graph.to_workspace()?;
+
+        insta::assert_snapshot!(graph_workspace(&ws), @r"
+        📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        ├── ≡📙:4:B on 3183e43
+        │   └── 📙:4:B
+        │       └── ·f57c528 (🏘️)
+        └── ≡📙:3:A on 3183e43
+            └── 📙:3:A
+                └── ·49d4b34 (🏘️)
+        ");
+
+        let bottom_ref_a = rc("refs/heads/a-bottom");
+        let bottom_a_id = id_by_rev(&repo, ":/A1");
+        let graph = but_workspace::branch::create_reference(
+            bottom_ref_a,
+            ReferenceAnchor::AtCommit {
+                commit_id: bottom_a_id.detach(),
+                position: Below,
+            },
+            &repo,
+            &ws,
+            &mut meta,
+        )?;
+        let ws = graph.to_workspace()?;
+        insta::assert_snapshot!(graph_workspace(&ws), @r"
+        📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        ├── ≡📙:4:B on 3183e43
+        │   └── 📙:4:B
+        │       └── ·f57c528 (🏘️)
+        └── ≡📙:3:A on 3183e43
+            ├── 📙:3:A
+            │   └── ·49d4b34 (🏘️)
+            └── 📙:5:a-bottom
+        ");
+
+        let bottom_ref_b = rc("refs/heads/b-bottom");
+        let bottom_b_id = id_by_rev(&repo, ":/B1");
+        let graph = but_workspace::branch::create_reference(
+            bottom_ref_b,
+            ReferenceAnchor::AtCommit {
+                commit_id: bottom_b_id.detach(),
+                position: Below,
+            },
+            &repo,
+            &ws,
+            &mut meta,
+        )?;
+
+        let ws = graph.to_workspace()?;
+        insta::assert_snapshot!(graph_workspace(&ws), @r"
+        📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        ├── ≡📙:4:B on 3183e43
+        │   ├── 📙:4:B
+        │   │   └── ·f57c528 (🏘️)
+        │   └── 📙:6:b-bottom
+        └── ≡📙:3:A on 3183e43
+            ├── 📙:3:A
+            │   └── ·49d4b34 (🏘️)
+            └── 📙:5:a-bottom
+        ");
         Ok(())
     }
 
