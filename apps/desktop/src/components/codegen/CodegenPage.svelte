@@ -13,6 +13,8 @@
 	import CodegenTodo from '$components/codegen/CodegenTodo.svelte';
 	import CodegenUsageStat from '$components/codegen/CodegenUsageStat.svelte';
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
+	import filesAndChecksSvg from '$lib/assets/empty-state/files-and-checks.svg?raw';
+	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import {
 		currentStatus,
@@ -30,7 +32,15 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
-	import { Badge, Button, ContextMenu, ContextMenuItem, ContextMenuSection } from '@gitbutler/ui';
+	import {
+		Badge,
+		Button,
+		ContextMenu,
+		ContextMenuItem,
+		ContextMenuSection,
+		EmptyStatePlaceholder
+	} from '@gitbutler/ui';
+	import type { ClaudeMessage } from '$lib/codegen/types';
 
 	type Props = {
 		projectId: string;
@@ -218,44 +228,59 @@
 		{/snippet}
 	</CodegenSidebar>
 
-	<div class="content">
+	<div class="chat-view">
 		{#if selectedBranch}
-			<CodegenChatLayout branchName={selectedBranch.head}>
-				{#snippet workspaceActions()}
-					<Button disabled kind="outline" size="tag" icon="workbench" reversedDirection
-						>Show in workspace</Button
-					>
-					<Button disabled kind="outline" size="tag" icon="chevron-down">Open in editor</Button>
-				{/snippet}
-				{#snippet contextActions()}
-					<Badge kind="soft">69% used context</Badge>
-					<Button disabled kind="outline" size="tag">Clear context</Button>
-					<Button disabled kind="ghost" size="tag" icon="kebab" />
-				{/snippet}
-				{#snippet messages()}
-					<ReduxResult
-						result={combineResults(events?.current, permissionRequests.current)}
-						{projectId}
-					>
-						{#snippet children([events, permissionRequests], { projectId: _projectId })}
-							{#each formatMessages(events, permissionRequests) as message}
-								<CodegenClaudeMessage
-									{message}
-									{onApproval}
-									{onRejection}
-									userAvatarUrl={$user?.picture}
-								/>
-							{/each}
-							{@const lastUserMessageSent = lastUserMessageSentAt(events)}
+			<ReduxResult result={combineResults(events?.current, permissionRequests.current)} {projectId}>
+				{#snippet children([events, permissionRequests], { projectId: _projectId })}
+					{@const formattedMessages = formatMessages(events, permissionRequests)}
+					{@const lastUserMessageSent = lastUserMessageSentAt(events)}
+
+					<CodegenChatLayout branchName={selectedBranch.head}>
+						{#snippet workspaceActions()}
+							<Button disabled kind="outline" size="tag" icon="workbench" reversedDirection
+								>Show in workspace</Button
+							>
+							<Button disabled kind="outline" size="tag" icon="chevron-down">Open in editor</Button>
+						{/snippet}
+						{#snippet contextActions()}
+							<Badge kind="soft" size="tag">69% used context</Badge>
+							<Button disabled kind="outline" size="tag" icon="clear-small">Clear context</Button>
+						{/snippet}
+						{#snippet messages()}
+							{#if formattedMessages.length === 0}
+								<div class="chat-view__placeholder">
+									<EmptyStatePlaceholder
+										image={laneNewSvg}
+										width={320}
+										topBottomPadding={0}
+										bottomMargin={0}
+									>
+										{#snippet title()}
+											Ready to code with AI
+										{/snippet}
+										{#snippet caption()}
+											Your branch is ready for AI-powered development. Describe what you'd like to
+											build, and I'll generate the code to get you started.
+										{/snippet}
+									</EmptyStatePlaceholder>
+								</div>
+							{:else}
+								{#each formattedMessages as message}
+									<CodegenClaudeMessage
+										{message}
+										{onApproval}
+										{onRejection}
+										userAvatarUrl={$user?.picture}
+									/>
+								{/each}
+							{/if}
+
 							{#if currentStatus(events) === 'running' && lastUserMessageSent}
 								<CodegenRunningMessage {lastUserMessageSent} />
 							{/if}
 						{/snippet}
-					</ReduxResult>
-				{/snippet}
-				{#snippet input()}
-					<ReduxResult result={events?.current} {projectId}>
-						{#snippet children(events, { projectId: _projectId })}
+
+						{#snippet input()}
 							<CodegenInput
 								bind:value={message}
 								loading={currentStatus(events) === 'running'}
@@ -264,9 +289,14 @@
 							>
 								{#snippet actions()}
 									<div class="flex m-right-4 gap-4">
-										<Button disabled kind="outline" icon="attachment" reversedDirection
-											>Context</Button
-										>
+										<Button disabled kind="outline" icon="attachment" reversedDirection />
+										<Button
+											bind:el={templateTrigger}
+											kind="outline"
+											icon="script"
+											tooltip="Insert template"
+											onclick={() => templateContextMenu?.toggle()}
+										/>
 										<Button
 											bind:el={thinkingModeTrigger}
 											kind="outline"
@@ -276,20 +306,13 @@
 											tooltip="Thinking Mode"
 											children={selectedThinkingMode === 'Normal' ? undefined : thinkingBtnText}
 										/>
-
-										<Button
-											bind:el={templateTrigger}
-											kind="outline"
-											icon="script"
-											tooltip="Insert template"
-											onclick={() => templateContextMenu?.toggle()}
-										/>
 									</div>
 
 									<Button
 										bind:el={modelTrigger}
 										kind="ghost"
 										icon="chevron-down"
+										shrinkable
 										onclick={() => modelContextMenu?.toggle()}
 									>
 										{selectedModel}
@@ -297,45 +320,52 @@
 								{/snippet}
 							</CodegenInput>
 						{/snippet}
-					</ReduxResult>
-				{/snippet}
-			</CodegenChatLayout>
+					</CodegenChatLayout>
 
-			{@render rightSidebar()}
+					{@render rightSidebar(events, formattedMessages.length > 0)}
+				{/snippet}
+			</ReduxResult>
 		{/if}
 	</div>
 {/snippet}
 
-{#snippet rightSidebar()}
+{#snippet rightSidebar(events: ClaudeMessage[], hasMessages: boolean)}
 	<div class="right-sidebar" bind:this={rightSidebarRef}>
-		<Drawer title="Todos" bottomBorder>
-			<ReduxResult result={events?.current} {projectId}>
-				{#snippet children(events, { projectId: _projectId })}
-					{@const todos = getTodos(events)}
-					<div class="right-sidebar-list">
-						{#each todos as todo}
-							<CodegenTodo {todo} />
-						{/each}
-					</div>
-				{/snippet}
-			</ReduxResult>
-		</Drawer>
+		{#if !hasMessages}
+			<div class="right-sidebar__placeholder">
+				<EmptyStatePlaceholder
+					image={filesAndChecksSvg}
+					width={240}
+					topBottomPadding={0}
+					bottomMargin={0}
+				>
+					{#snippet caption()}
+						Once you begin a conversation, you'll see todos and usage statistics here.
+					{/snippet}
+				</EmptyStatePlaceholder>
+			</div>
+		{:else}
+			<Drawer title="Todos" bottomBorder>
+				{@const todos = getTodos(events)}
+				<div class="right-sidebar-list">
+					{#each todos as todo}
+						<CodegenTodo {todo} />
+					{/each}
+				</div>
+			</Drawer>
 
-		<Drawer title="Usage">
-			<ReduxResult result={events?.current} {projectId}>
-				{#snippet children(events, { projectId: _projectId })}
-					{@const usage = usageStats(events)}
-					<div class="right-sidebar-list">
-						<CodegenUsageStat label="Tokens used:" value={usage.tokens.toString()} />
-						<CodegenUsageStat
-							label="Total cost:"
-							value={`$${usage.cost.toFixed(2)}`}
-							valueSize="large"
-						/>
-					</div>
-				{/snippet}
-			</ReduxResult>
-		</Drawer>
+			<Drawer title="Usage">
+				{@const usage = usageStats(events)}
+				<div class="right-sidebar-list">
+					<CodegenUsageStat label="Tokens used:" value={usage.tokens.toString()} />
+					<CodegenUsageStat
+						label="Total cost:"
+						value={`$${usage.cost.toFixed(2)}`}
+						valueSize="large"
+					/>
+				</div>
+			</Drawer>
+		{/if}
 
 		<Resizer
 			direction="left"
@@ -482,7 +512,7 @@
 		gap: 8px;
 	}
 
-	.content {
+	.chat-view {
 		display: flex;
 		flex: 1;
 		height: 100%;
@@ -492,24 +522,12 @@
 		background-color: var(--clr-bg-1);
 	}
 
-	.not-available {
+	.chat-view__placeholder {
 		display: flex;
 		flex: 1;
 		align-items: center;
 		justify-content: center;
-		height: 100%;
-	}
-
-	.not-available-form {
-		display: flex;
-		flex-direction: column;
-		max-width: 400px;
-		padding: 20px;
-		overflow: hidden;
-		gap: 12px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-l);
-		background-color: var(--clr-bg-1);
+		padding: 0 32px;
 	}
 
 	.right-sidebar {
@@ -520,10 +538,53 @@
 		border-left: 1px solid var(--clr-border-2);
 	}
 
+	.right-sidebar__placeholder {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		background-color: var(--clr-bg-2);
+	}
+
+	.right-sidebar__placeholder-image {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		justify-content: center;
+		padding: 24px 0 12px 0;
+	}
+
+	.right-sidebar__placeholder-text {
+		max-width: 240px;
+		margin: 0 auto;
+		padding: 0 12px 40px 12px;
+		color: var(--clr-text-3);
+		text-align: center;
+	}
+
 	.right-sidebar-list {
 		display: flex;
 		flex-direction: column;
 		padding: 14px;
 		gap: 12px;
+	}
+
+	/* NO CC AVAILABLE */
+	.not-available {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+	}
+	.not-available-form {
+		display: flex;
+		flex-direction: column;
+		max-width: 400px;
+		padding: 20px;
+		overflow: hidden;
+		gap: 12px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-l);
+		background-color: var(--clr-bg-1);
 	}
 </style>

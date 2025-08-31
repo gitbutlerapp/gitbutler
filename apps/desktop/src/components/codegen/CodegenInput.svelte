@@ -62,13 +62,7 @@
 		<div class="dialog-input__actions-item">
 			{#if showAbortButton && onAbort}
 				<div class="flex" in:fade={{ duration: 150 }} out:fade={{ duration: 100 }}>
-					<AsyncButton
-						kind="outline"
-						style="warning"
-						action={onAbort}
-						icon="stop"
-						reversedDirection
-					>
+					<AsyncButton kind="outline" style="error" action={onAbort} icon="stop" reversedDirection>
 						Stop
 					</AsyncButton>
 				</div>
@@ -144,6 +138,7 @@
 		justify-content: space-between;
 		width: 100%;
 		padding: 12px;
+
 		gap: 8px;
 		pointer-events: none;
 	}
@@ -151,6 +146,7 @@
 	.dialog-input__actions-item {
 		display: flex;
 		align-items: center;
+		overflow: hidden;
 		gap: 4px;
 		pointer-events: all;
 	}
@@ -159,6 +155,7 @@
 	.send-button {
 		display: flex;
 		position: relative;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
 		width: var(--size-button);
