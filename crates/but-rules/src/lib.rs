@@ -2,6 +2,76 @@ use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree
 use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
 
+/// A wrapper around gix-glob pattern that implements serde traits
+#[derive(Debug, Clone)]
+pub struct GlobPattern {
+    pattern: gix::glob::Pattern,
+    case_sensitive: bool,
+}
+
+impl GlobPattern {
+    pub fn new(pattern: &str, case_sensitive: bool) -> Result<Self, String> {
+        let pattern = gix::glob::Pattern::from_bytes(pattern.as_bytes())
+            .ok_or_else(|| "Empty pattern".to_string())?;
+        Ok(Self {
+            pattern,
+            case_sensitive,
+        })
+    }
+
+    pub fn is_match(&self, text: &str) -> bool {
+        use bstr::BStr;
+        let value = BStr::new(text.as_bytes());
+        let case = if self.case_sensitive {
+            gix::glob::pattern::Case::Sensitive
+        } else {
+            gix::glob::pattern::Case::Fold
+        };
+        
+        // Use matches_repo_relative_path for proper case handling
+        self.pattern.matches_repo_relative_path(
+            value,
+            None, // basename_start_pos
+            None, // is_dir
+            case,
+            gix::glob::wildmatch::Mode::NO_MATCH_SLASH_LITERAL
+        )
+    }
+
+    pub fn pattern_str(&self) -> String {
+        String::from_utf8_lossy(&self.pattern.text).to_string()
+    }
+}
+
+impl Serialize for GlobPattern {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("GlobPattern", 2)?;
+        state.serialize_field("pattern", &self.pattern_str())?;
+        state.serialize_field("case_sensitive", &self.case_sensitive)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for GlobPattern {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct GlobPatternData {
+            pattern: String,
+            case_sensitive: bool,
+        }
+
+        let data = GlobPatternData::deserialize(deserializer)?;
+        Self::new(&data.pattern, data.case_sensitive).map_err(serde::de::Error::custom)
+    }
+}
+
 pub mod db;
 pub mod handler;
 
@@ -19,7 +89,7 @@ pub struct WorkspaceRule {
     /// These filtes determine what files or changes the rule applies to.
     /// Within a rule, multiple filters are combined with AND logic (i.e. all conditions must be met).
     /// This allows for the expressions of rules like "If a file is modified, its path matches
-    /// the regex 'src/.*', and its content matches the regex 'TODO', then do something."
+    /// the glob pattern 'src/**/*.rs', and its content matches the regex 'TODO', then do something."
     filters: Vec<Filter>,
     /// The action determines what happens to the files or changes that matched the filters.
     action: Action,
@@ -74,10 +144,13 @@ pub enum Trigger {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum Filter {
-    /// Matches the file path (relative to the repository root).
+    /// Matches the file path (relative to the repository root) using glob patterns.
+    PathMatchesGlob(GlobPattern),
+    /// Legacy: Matches the file path (relative to the repository root) using regular expressions.
+    /// Deprecated in favor of PathMatchesGlob for better gitignore-style pattern support.
     #[serde(with = "serde_regex")]
     PathMatchesRegex(regex::Regex),
-    /// Match the file content.
+    /// Match the file content using regular expressions.
     #[serde(with = "serde_regex")]
     ContentMatchesRegex(regex::Regex),
     /// Matches the file change operation type (e.g. addition, deletion, modification, rename)
@@ -312,4 +385,106 @@ fn process_rules(ctx: &mut CommandContext) -> anyhow::Result<()> {
 
     handler::process_workspace_rules(ctx, &assignments, &Some(dependencies))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_glob_pattern_basic_matching() {
+        // Test basic glob pattern matching
+        let pattern = GlobPattern::new("*.rs", true).unwrap();
+        assert!(pattern.is_match("main.rs"));
+        assert!(pattern.is_match("lib.rs"));
+        assert!(!pattern.is_match("main.txt"));
+        assert!(!pattern.is_match("main"));
+    }
+
+    #[test]
+    fn test_glob_pattern_case_sensitive() {
+        let pattern_sensitive = GlobPattern::new("*.RS", true).unwrap();
+        let pattern_insensitive = GlobPattern::new("*.RS", false).unwrap();
+        
+        assert!(!pattern_sensitive.is_match("main.rs")); // Case sensitive, should not match
+        assert!(pattern_insensitive.is_match("main.rs")); // Case insensitive, should match
+        assert!(pattern_sensitive.is_match("main.RS")); // Exact case match
+        assert!(pattern_insensitive.is_match("main.RS")); // Exact case match
+    }
+
+    #[test]
+    fn test_glob_pattern_path_matching() {
+        let pattern = GlobPattern::new("src/**/*.rs", true).unwrap();
+        assert!(pattern.is_match("src/main.rs"));
+        assert!(pattern.is_match("src/lib/mod.rs"));
+        assert!(pattern.is_match("src/deep/nested/file.rs"));
+        assert!(!pattern.is_match("tests/main.rs"));
+        assert!(!pattern.is_match("src/main.txt"));
+    }
+
+    #[test]
+    fn test_glob_pattern_serialization() {
+        let pattern = GlobPattern::new("*.rs", true).unwrap();
+        let serialized = serde_json::to_string(&pattern).unwrap();
+        let deserialized: GlobPattern = serde_json::from_str(&serialized).unwrap();
+        
+        assert_eq!(pattern.pattern_str(), deserialized.pattern_str());
+        assert_eq!(pattern.case_sensitive, deserialized.case_sensitive);
+        assert!(deserialized.is_match("main.rs"));
+    }
+
+    #[test]
+    fn test_filter_path_matches_glob() {
+        let pattern = GlobPattern::new("*.rs", true).unwrap();
+        let filter = Filter::PathMatchesGlob(pattern);
+        
+        // Test that the filter can be serialized and deserialized
+        let serialized = serde_json::to_string(&filter).unwrap();
+        let deserialized: Filter = serde_json::from_str(&serialized).unwrap();
+        
+        match deserialized {
+            Filter::PathMatchesGlob(glob) => {
+                assert!(glob.is_match("main.rs"));
+                assert!(!glob.is_match("main.txt"));
+            }
+            _ => panic!("Expected PathMatchesGlob filter"),
+        }
+    }
+
+    #[test]
+    fn test_backward_compatibility_regex_filter() {
+        use regex::Regex;
+        
+        // Test that the old PathMatchesRegex filter still works
+        let regex = Regex::new(r".*\.rs$").unwrap();
+        let filter = Filter::PathMatchesRegex(regex);
+        
+        // Test that the filter can be serialized and deserialized
+        let serialized = serde_json::to_string(&filter).unwrap();
+        let deserialized: Filter = serde_json::from_str(&serialized).unwrap();
+        
+        match deserialized {
+            Filter::PathMatchesRegex(regex) => {
+                assert!(regex.is_match("main.rs"));
+                assert!(!regex.is_match("main.txt"));
+            }
+            _ => panic!("Expected PathMatchesRegex filter"),
+        }
+    }
+
+    #[test]
+    fn test_core_ignore_case_integration() {
+        // Test that patterns respect case sensitivity configuration
+        let case_sensitive_pattern = GlobPattern::new("*.RS", true).unwrap();
+        let case_insensitive_pattern = GlobPattern::new("*.RS", false).unwrap();
+        
+        // Case sensitive should not match lowercase extension
+        assert!(!case_sensitive_pattern.is_match("main.rs"));
+        assert!(case_sensitive_pattern.is_match("main.RS"));
+        
+        // Case insensitive should match both
+        assert!(case_insensitive_pattern.is_match("main.rs"));
+        assert!(case_insensitive_pattern.is_match("main.RS"));
+        assert!(case_insensitive_pattern.is_match("main.Rs"));
+    }
 }

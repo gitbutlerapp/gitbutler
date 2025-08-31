@@ -35,6 +35,7 @@ pub fn process_workspace_rules(
     }
 
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
+    let ignore_case = get_core_ignore_case(&repo)?;
     let stacks_in_ws = if ctx.app_settings().feature_flags.ws3 {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project().gb_dir().join("virtual_branches.toml"),
@@ -48,7 +49,7 @@ pub fn process_workspace_rules(
         match rule.action {
             super::Action::Explicit(super::Operation::Assign { target }) => {
                 if let Some(stack_id) = get_or_create_stack_id(ctx, target, &stacks_in_ws) {
-                    let assignments = matching(assignments, rule.filters.clone())
+                    let assignments = matching(assignments, rule.filters.clone(), ignore_case)
                         .into_iter()
                         .filter(|e| e.stack_id != Some(stack_id))
                         .map(|mut e| {
@@ -137,14 +138,29 @@ fn handle_assign(
     }
 }
 
-fn matching(wt_assignments: &[HunkAssignment], filters: Vec<Filter>) -> Vec<HunkAssignment> {
+fn matching(wt_assignments: &[HunkAssignment], filters: Vec<Filter>, ignore_case: bool) -> Vec<HunkAssignment> {
     if filters.is_empty() {
         return wt_assignments.to_vec();
     }
     let mut assignments = Vec::new();
     for filter in filters {
         match filter {
+            Filter::PathMatchesGlob(mut glob_pattern) => {
+                // Override the case sensitivity based on the git config if needed
+                if ignore_case && glob_pattern.case_sensitive {
+                    // Recreate the pattern with case insensitive matching
+                    if let Ok(new_pattern) = super::GlobPattern::new(&glob_pattern.pattern_str(), false) {
+                        glob_pattern = new_pattern;
+                    }
+                }
+                for change in wt_assignments.iter() {
+                    if glob_pattern.is_match(&change.path) {
+                        assignments.push(change.clone());
+                    }
+                }
+            }
             Filter::PathMatchesRegex(regex) => {
+                // Legacy support for regex patterns - keep for backward compatibility
                 for change in wt_assignments.iter() {
                     if regex.is_match(&change.path) {
                         assignments.push(change.clone());
@@ -169,4 +185,12 @@ fn matching(wt_assignments: &[HunkAssignment], filters: Vec<Filter>) -> Vec<Hunk
         }
     }
     assignments
+}
+
+/// Get the core.ignoreCase configuration from git
+fn get_core_ignore_case(repo: &gix::Repository) -> anyhow::Result<bool> {
+    let config = repo.config_snapshot();
+    Ok(config
+        .boolean("core.ignoreCase")
+        .unwrap_or(false))
 }
