@@ -189,6 +189,13 @@ pub(super) mod function {
                         .as_ref()
                         .filter(|_| !id_out_of_workspace)
                         .map(|_| instruction_by_named_anchor_for_commit(workspace, commit_id))
+                        .or_else(|| {
+                            let (stack_idx, _seg_idx, _cidx) = indexes;
+                            workspace.stacks[stack_idx]
+                                .id
+                                .map(Instruction::DependentInStack)
+                                .map(Ok)
+                        })
                         .transpose()?;
 
                     (validate_id, ref_target_id, instruction)
@@ -455,6 +462,7 @@ pub(super) mod function {
         Ok(instruction)
     }
 
+    #[derive(Debug)]
     enum Instruction<'a> {
         Independent,
         DependentInStack(StackId),
