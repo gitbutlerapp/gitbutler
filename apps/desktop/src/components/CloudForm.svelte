@@ -5,6 +5,7 @@
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
 	import { focusable } from '$lib/focus/focusable';
+	import { newSettingsPath } from '$lib/routes/routes.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, SectionCard, Spacer, Toggle } from '@gitbutler/ui';
@@ -90,7 +91,7 @@
 			You can apply your own custom prompts to the project. By default, the project uses GitButler
 			prompts, but you can create your own prompts in the general settings.
 		</p>
-		<Button kind="outline" icon="edit" onclick={async () => await goto('/settings/ai')}
+		<Button kind="outline" icon="edit" onclick={() => goto(newSettingsPath('ai'))}
 			>Customize prompts</Button
 		>
 	</SectionCard>
