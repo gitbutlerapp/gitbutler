@@ -263,16 +263,7 @@
 								{onAbort}
 							>
 								{#snippet actions()}
-									<Button
-										bind:el={modelTrigger}
-										kind="ghost"
-										icon="chevron-down"
-										onclick={() => modelContextMenu?.toggle()}
-									>
-										{selectedModel}
-									</Button>
-
-									<div class="flex m-left-8 gap-4">
+									<div class="flex m-right-4 gap-4">
 										<Button disabled kind="outline" icon="attachment" reversedDirection
 											>Context</Button
 										>
@@ -294,6 +285,15 @@
 											onclick={() => templateContextMenu?.toggle()}
 										/>
 									</div>
+
+									<Button
+										bind:el={modelTrigger}
+										kind="ghost"
+										icon="chevron-down"
+										onclick={() => modelContextMenu?.toggle()}
+									>
+										{selectedModel}
+									</Button>
 								{/snippet}
 							</CodegenInput>
 						{/snippet}
