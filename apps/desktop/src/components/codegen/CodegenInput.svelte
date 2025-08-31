@@ -16,10 +16,11 @@
 	let showAbortButton = $state(false);
 
 	$effect(() => {
+		// Show abort button if loading for more than 1 second
 		if (loading && onAbort) {
 			const timer = setTimeout(() => {
 				showAbortButton = true;
-			}, 1500);
+			}, 1000);
 
 			return () => {
 				clearTimeout(timer);
