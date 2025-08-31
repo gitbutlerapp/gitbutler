@@ -337,15 +337,14 @@
 			</ReduxResult>
 		</Drawer>
 
-		{#if rightSidebarRef}
-			<Resizer
-				direction="left"
-				viewport={rightSidebarRef}
-				defaultValue={20}
-				minWidth={14}
-				persistId="resize-todo-right-sidebar"
-			/>
-		{/if}
+		<Resizer
+			direction="left"
+			viewport={rightSidebarRef}
+			defaultValue={24}
+			minWidth={20}
+			maxWidth={35}
+			persistId="resizer-codegenRight"
+		/>
 	</div>
 {/snippet}
 
@@ -485,11 +484,8 @@
 
 	.content {
 		display: flex;
-		/* TODO: This should be resizable */
-		flex-grow: 1;
-
+		flex: 1;
 		height: 100%;
-
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-l);
@@ -498,7 +494,7 @@
 
 	.not-available {
 		display: flex;
-		flex-grow: 1;
+		flex: 1;
 		align-items: center;
 		justify-content: center;
 		height: 100%;
@@ -521,14 +517,12 @@
 		position: relative;
 		flex-direction: column;
 		height: 100%;
-
 		border-left: 1px solid var(--clr-border-2);
 	}
 
 	.right-sidebar-list {
 		display: flex;
 		flex-direction: column;
-
 		padding: 14px;
 		gap: 12px;
 	}

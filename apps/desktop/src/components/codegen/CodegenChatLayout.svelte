@@ -45,6 +45,8 @@
 <style lang="postcss">
 	.chat {
 		display: flex;
+		position: relative;
+		flex: 1;
 		flex-direction: column;
 
 		width: 100%;
