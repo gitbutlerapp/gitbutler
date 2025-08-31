@@ -20,13 +20,13 @@ export function projectSettingsPath(projectId: string) {
 
 export function newProjectSettingsPath(projectId: string, page?: string) {
 	if (page) {
-		return `/${projectId}/new-settings/${page}`;
+		return `/${projectId}/settings/${page}`;
 	}
-	return `/${projectId}/new-settings`;
+	return `/${projectId}/settings`;
 }
 
 export function isNewProjectSettingsPath() {
-	return isUrl<{ projectId: string }>('/[projectId]/new-settings/[[selectedId]]');
+	return isUrl<{ projectId: string }>('/[projectId]/settings/[[selectedId]]');
 }
 
 export function isProjectSettingsPath() {
@@ -95,9 +95,9 @@ export function settingsPath() {
 
 export function newSettingsPath(page?: string) {
 	if (page) {
-		return `/new-settings/${page}`;
+		return `/settings/${page}`;
 	}
-	return `/new-settings`;
+	return `/settings`;
 }
 
 export function clonePath() {
