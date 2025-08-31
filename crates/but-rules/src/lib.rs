@@ -146,10 +146,6 @@ pub enum Trigger {
 pub enum Filter {
     /// Matches the file path (relative to the repository root) using glob patterns.
     PathMatchesGlob(GlobPattern),
-    /// Legacy: Matches the file path (relative to the repository root) using regular expressions.
-    /// Deprecated in favor of PathMatchesGlob for better gitignore-style pattern support.
-    #[serde(with = "serde_regex")]
-    PathMatchesRegex(regex::Regex),
     /// Match the file content using regular expressions.
     #[serde(with = "serde_regex")]
     ContentMatchesRegex(regex::Regex),
@@ -451,26 +447,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_backward_compatibility_regex_filter() {
-        use regex::Regex;
-        
-        // Test that the old PathMatchesRegex filter still works
-        let regex = Regex::new(r".*\.rs$").unwrap();
-        let filter = Filter::PathMatchesRegex(regex);
-        
-        // Test that the filter can be serialized and deserialized
-        let serialized = serde_json::to_string(&filter).unwrap();
-        let deserialized: Filter = serde_json::from_str(&serialized).unwrap();
-        
-        match deserialized {
-            Filter::PathMatchesRegex(regex) => {
-                assert!(regex.is_match("main.rs"));
-                assert!(!regex.is_match("main.txt"));
-            }
-            _ => panic!("Expected PathMatchesRegex filter"),
-        }
-    }
+
 
     #[test]
     fn test_core_ignore_case_integration() {

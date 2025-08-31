@@ -159,14 +159,6 @@ fn matching(wt_assignments: &[HunkAssignment], filters: Vec<Filter>, ignore_case
                     }
                 }
             }
-            Filter::PathMatchesRegex(regex) => {
-                // Legacy support for regex patterns - keep for backward compatibility
-                for change in wt_assignments.iter() {
-                    if regex.is_match(&change.path) {
-                        assignments.push(change.clone());
-                    }
-                }
-            }
             Filter::ContentMatchesRegex(regex) => {
                 for change in wt_assignments.iter() {
                     if let Some(diff) = change.diff.clone() {
