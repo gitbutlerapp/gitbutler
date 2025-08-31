@@ -1,0 +1,438 @@
+:root {
+	--markdown-generic-bottom-margin: 16px;
+}
+
+.lexical-container.plain-text {
+	--fontfamily-default: var(--code-block-font, var(--fontfamily-mono));
+	font-variant-ligatures: var(--code-block-ligatures, normal);
+}
+
+/* text alignment */
+.StandardTheme__ltr {
+	text-align: left;
+}
+.StandardTheme__rtl {
+	text-align: right;
+}
+
+/* headers */
+.StandardTheme__h1,
+.StandardTheme__h2,
+.StandardTheme__h3 {
+	margin-bottom: 12px;
+	font-weight: var(--text-weight-bold);
+	line-height: var(--text-lineheight-heading);
+	font-family: var(--fontfamily-default);
+}
+
+.StandardTheme__h1 {
+	font-size: 24px;
+}
+.StandardTheme__h2 {
+	font-size: 22px;
+}
+.StandardTheme__h3 {
+	font-size: 20px;
+}
+
+.StandardTheme__paragraph {
+	margin-bottom: var(--markdown-generic-bottom-margin);
+	font-weight: var(--text-weight-regular);
+	font-size: var(--lexical-default-font-size);
+	line-height: var(--text-lineheight-body);
+	font-family: var(--fontfamily-default);
+	text-wrap: var(--lexical-input-client-text-wrap, normal);
+}
+
+.StandardTheme__quote {
+	position: relative;
+	margin-bottom: var(--markdown-generic-bottom-margin);
+	padding: 8px 8px 8px 16px;
+	overflow: hidden;
+	border-radius: var(--radius-m);
+	background-color: var(--clr-bg-2);
+	font-weight: var(--text-weight-regular);
+	font-size: var(--lexical-default-font-size);
+	line-height: var(--text-lineheight-body);
+	font-family: var(--fontfamily-default);
+
+	& > span {
+		opacity: 0.6;
+	}
+
+	&:before {
+		display: block;
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 4px;
+		height: 100%;
+		background-color: var(--clr-border-1);
+		content: '';
+	}
+}
+
+.StandardTheme__indent {
+	--lexical-indent-base-value: 40px;
+}
+
+.StandardTheme__textBold {
+	font-weight: bold;
+}
+
+.StandardTheme__textItalic {
+	font-style: italic;
+}
+
+.StandardTheme__textUnderline {
+	text-decoration: underline;
+}
+
+.StandardTheme__textStrikethrough {
+	text-decoration: line-through;
+}
+
+.StandardTheme__textUnderlineStrikethrough {
+	text-decoration: underline line-through;
+}
+
+.StandardTheme__textSubscript {
+	font-size: 0.8em;
+	vertical-align: sub !important;
+}
+
+.StandardTheme__textSuperscript {
+	font-size: 0.8em;
+	vertical-align: super;
+}
+
+.StandardTheme__textCode {
+	padding: 2px 3px;
+	border-radius: var(--radius-s);
+	background-color: var(--clr-theme-ntrl-soft);
+	font-size: 96%;
+	font-family: var(--code-block-font, var(--fontfamily-mono));
+	font-variant-ligatures: var(--code-block-ligatures, normal);
+}
+
+.StandardTheme__hashtag {
+	border-bottom: 1px solid rgba(88, 144, 255, 0.3);
+	background-color: rgba(88, 144, 255, 0.15);
+}
+
+.StandardTheme__link {
+	color: rgb(33, 111, 219);
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.StandardTheme__link:hover {
+	text-decoration: none;
+}
+
+.StandardTheme__blockCursor {
+	display: block;
+	position: absolute;
+	pointer-events: none;
+}
+.StandardTheme__blockCursor:after {
+	display: block;
+	position: absolute;
+	top: -2px;
+	width: 20px;
+	border-top: 1px solid black;
+	content: '';
+	animation: CursorBlink 1.1s steps(2, start) infinite;
+}
+
+@keyframes CursorBlink {
+	to {
+		visibility: hidden;
+	}
+}
+
+/* CODE */
+.StandardTheme__code {
+	display: block;
+	position: relative;
+	margin-top: 8px;
+	margin-bottom: var(--markdown-generic-bottom-margin);
+	padding: 8px 8px 8px 46px;
+	overflow-x: auto;
+	border: 1px solid var(--clr-border-2);
+	border-radius: var(--radius-m);
+	background-color: var(--clr-bg-1);
+	font-size: var(--lexical-default-font-size);
+	line-height: 1.53;
+	font-family: var(--code-block-font, var(--fontfamily-mono));
+	font-variant-ligatures: var(--code-block-ligatures, normal);
+	tab-size: var(--code-block-tab-size, 2);
+}
+
+.StandardTheme__code:before {
+	position: absolute;
+	top: 0;
+	left: 0;
+	min-width: 25px;
+	padding: 8px;
+	border-right: 1px solid var(--clr-border-2);
+	background-color: var(--clr-bg-1);
+	content: attr(data-gutter);
+	color: var(--clr-text-2);
+	letter-spacing: -1px;
+	text-align: right;
+	white-space: pre-wrap;
+	opacity: 0.6;
+}
+
+/* TABLES */
+.StandardTheme__table {
+	width: max-content;
+	margin: 0px 25px 30px 0px;
+	overflow-x: scroll;
+	overflow-y: scroll;
+	border-collapse: collapse;
+	border-spacing: 0;
+	table-layout: fixed;
+}
+
+.StandardTheme__tableSelection *::selection {
+	background-color: transparent;
+}
+
+.StandardTheme__tableSelected {
+	outline: 2px solid rgb(60, 132, 244);
+}
+
+.StandardTheme__tableCell {
+	position: relative;
+	width: 75px;
+	min-width: 75px;
+	padding: 6px 8px;
+	border: 1px solid #bbb;
+	outline: none;
+	text-align: start;
+	vertical-align: top;
+}
+
+.StandardTheme__tableCellSortedIndicator {
+	display: block;
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	height: 4px;
+	background-color: #999;
+	opacity: 0.5;
+}
+
+.StandardTheme__tableCellResizer {
+	z-index: 10;
+	position: absolute;
+	top: 0;
+	right: -4px;
+	width: 8px;
+	height: 100%;
+	cursor: ew-resize;
+}
+
+/* LISTS */
+.StandardTheme__ul,
+.StandardTheme__ol1,
+.StandardTheme__ol2,
+.StandardTheme__ol3,
+.StandardTheme__ol4,
+.StandardTheme__ol5 {
+	display: block;
+	margin-top: 4px;
+	margin-bottom: 16px;
+	font-size: var(--lexical-default-font-size);
+	line-height: var(--text-lineheight-body);
+	font-family: var(--fontfamily-default);
+}
+
+.StandardTheme__ul {
+	list-style-position: outside;
+	list-style-type: disc;
+}
+
+.StandardTheme__listItem {
+	margin: 0 20px;
+	margin-bottom: 2px;
+	padding-left: 4px;
+}
+
+/* Numbered nested lists */
+.StandardTheme__ol1 {
+	list-style-type: decimal;
+}
+
+.StandardTheme__ol2 {
+	list-style-type: upper-alpha;
+}
+
+.StandardTheme__ol3 {
+	list-style-type: lower-alpha;
+}
+
+.StandardTheme__ol4 {
+	list-style-type: upper-roman;
+}
+
+.StandardTheme__ol5 {
+	list-style-type: lower-roman;
+}
+
+.StandardTheme__listItemChecked,
+.StandardTheme__listItemUnchecked {
+	position: relative;
+	margin-left: 3px;
+	padding-right: 24px;
+	padding-left: 24px;
+	outline: none;
+	list-style-type: none;
+}
+
+.StandardTheme__listItemChecked {
+	text-decoration: line-through;
+}
+
+.StandardTheme__listItemUnchecked:before,
+.StandardTheme__listItemChecked:before {
+	display: block;
+	position: absolute;
+	top: 3px;
+	left: 0;
+	width: 14px;
+	height: 14px;
+	border-radius: var(--radius-s);
+	content: '';
+	cursor: pointer;
+}
+
+.StandardTheme__listItemUnchecked[dir='rtl']:before,
+.StandardTheme__listItemChecked[dir='rtl']:before {
+	right: 0;
+	left: auto;
+}
+
+.StandardTheme__listItemUnchecked:focus-within:before,
+.StandardTheme__listItemChecked:focus-within:before {
+	outline: 1px solid var(--focus-color);
+	outline-offset: 1px;
+}
+
+.StandardTheme__listItemUnchecked:before {
+	border: 1px solid var(--clr-border-2);
+}
+
+.StandardTheme__listItemChecked:before {
+	border: 1px solid var(--clr-theme-pop-element);
+	background-repeat: no-repeat;
+	background-color: var(--clr-theme-pop-element);
+}
+
+.StandardTheme__listItemChecked:after {
+	display: block;
+	position: absolute;
+	top: 5px;
+	right: 7px;
+	left: 5px;
+	width: 5px;
+	height: 8px;
+	transform: rotate(45deg);
+	border-width: 0 2px 2px 0;
+	border-bottom-right-radius: 2px;
+	border-color: #fff;
+	content: '';
+	cursor: pointer;
+}
+
+.StandardTheme__nestedListItem {
+	list-style-type: none;
+}
+
+.StandardTheme__nestedListItem:before,
+.StandardTheme__nestedListItem:after {
+	display: none;
+}
+
+/* CODE LINES */
+.StandardTheme__tokenComment {
+	color: slategray;
+}
+
+.StandardTheme__tokenPunctuation {
+	color: #999;
+}
+
+.StandardTheme__tokenProperty {
+	color: #905;
+}
+
+.StandardTheme__tokenSelector {
+	color: #690;
+}
+
+.StandardTheme__tokenOperator {
+	color: #9a6e3a;
+}
+
+.StandardTheme__tokenAttr {
+	color: #07a;
+}
+
+.StandardTheme__tokenVariable {
+	color: #e90;
+}
+
+.StandardTheme__tokenFunction {
+	color: #dd4a68;
+}
+
+.StandardTheme__mark {
+	padding-bottom: 2px;
+	border-bottom: 2px solid rgba(255, 212, 0, 0.3);
+	background: rgba(255, 212, 0, 0.14);
+}
+
+.StandardTheme__markOverlap {
+	border-bottom: 2px solid rgba(255, 212, 0, 0.7);
+	background: rgba(255, 212, 0, 0.3);
+}
+
+.StandardTheme__mark.selected {
+	border-bottom: 2px solid rgba(255, 212, 0, 1);
+	background: rgba(255, 212, 0, 0.5);
+}
+
+.StandardTheme__markOverlap.selected {
+	border-bottom: 2px solid rgba(255, 212, 0, 0.7);
+	background: rgba(255, 212, 0, 0.7);
+}
+
+.StandardTheme__autocomplete {
+	color: #ccc;
+}
+
+/* DIVIDER */
+.StandardTheme__hr {
+	margin: 20px 0;
+	padding: 4px 0;
+	border: none;
+}
+
+.StandardTheme__hr:after {
+	display: block;
+	height: 1px;
+	background-color: var(--clr-border-2);
+	content: '';
+}
+
+.StandardTheme__hr.selected {
+	outline: 2px solid rgb(60, 132, 244);
+	user-select: none;
+}
+
+/* TODO: unify with .mardown styles */
+/* currently used to render the markdown preview */
