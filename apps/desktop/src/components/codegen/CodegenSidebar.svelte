@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import Resizer from '$components/Resizer.svelte';
 	import { focusable } from '$lib/focus/focusable';
 	import type { Snippet } from 'svelte';
 
@@ -8,9 +9,11 @@
 		content: Snippet;
 	};
 	const { actions, content }: Props = $props();
+
+	let sidebarViewportRef = $state<HTMLDivElement>();
 </script>
 
-<div class="sidebar" use:focusable={{ list: true }}>
+<div class="sidebar" bind:this={sidebarViewportRef} use:focusable={{ list: true }}>
 	<div class="sidebar-header" use:focusable>
 		<p class="text-14 text-semibold">Current sessions</p>
 		<div class="sidebar-header-actions">
@@ -23,11 +26,21 @@
 			{@render content()}
 		</div>
 	</ConfigurableScrollableContainer>
+
+	<Resizer
+		direction="right"
+		viewport={sidebarViewportRef}
+		defaultValue={20}
+		minWidth={20}
+		maxWidth={35}
+		persistId="resizer-codegenLeft"
+	/>
 </div>
 
 <style lang="postcss">
 	.sidebar {
 		display: flex;
+		position: relative;
 		flex-shrink: 0;
 		flex-direction: column;
 

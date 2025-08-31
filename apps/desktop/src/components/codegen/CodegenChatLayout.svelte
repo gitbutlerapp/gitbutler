@@ -5,7 +5,6 @@
 
 	type Props = {
 		branchName: string;
-
 		workspaceActions: Snippet;
 		contextActions: Snippet;
 		messages: Snippet;
@@ -17,25 +16,23 @@
 
 <div class="chat" use:focusable={{ list: true }}>
 	<div class="chat-header">
-		<div class="chat-header-section">
-			<div class="flex gap-8 items-center">
+		<div class="chat-header__top">
+			<div class="flex gap-8 items-center overflow-hidden">
 				<Icon name="branch-remote" />
-				<p class="text-14 text-bold">{branchName}</p>
+				<p class="text-14 text-bold truncate">{branchName}</p>
 			</div>
-			<div class="flex gap-4 items-center">
-				{@render workspaceActions()}
-			</div>
-		</div>
-		<div class="chat-header-section">
+
 			<div class="flex gap-4 items-center">
 				{@render contextActions()}
 			</div>
 		</div>
+
+		<div class="flex gap-4 items-center">
+			{@render workspaceActions()}
+		</div>
 	</div>
 	<div class="chat-messages">
-		<div>
-			{@render messages()}
-		</div>
+		{@render messages()}
 	</div>
 	<div class="chat-footer">
 		{@render input()}
@@ -45,28 +42,28 @@
 <style lang="postcss">
 	.chat {
 		display: flex;
+		position: relative;
+		flex: 1;
 		flex-direction: column;
-
 		width: 100%;
 		height: 100%;
-
 		overflow: hidden;
 	}
 
 	.chat-header {
 		display: flex;
-		justify-content: space-between;
+		flex-direction: column;
 		width: 100%;
-
 		padding: 16px;
-
+		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-3);
 	}
 
-	.chat-header-section {
+	.chat-header__top {
 		display: flex;
-		flex-direction: column;
-		gap: 12px;
+		justify-content: space-between;
+		width: 100%;
+		gap: 20px;
 	}
 
 	.chat-messages {
@@ -74,7 +71,6 @@
 		flex-grow: 1;
 		flex-direction: column-reverse;
 		width: 100%;
-
 		overflow: auto;
 	}
 
