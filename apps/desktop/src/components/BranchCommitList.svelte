@@ -5,8 +5,8 @@
 	import CommitContextMenu from '$components/CommitContextMenu.svelte';
 	import CommitGoesHere from '$components/CommitGoesHere.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
-	import CommitsAccordion from '$components/CommitsAccordion.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
+
 	import LineOverlay from '$components/LineOverlay.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { hasConflicts, isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
@@ -34,13 +34,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import {
-		ContextMenuItem,
-		ContextMenuSection,
-		DropdownButton,
-		Modal,
-		TestId
-	} from '@gitbutler/ui';
+	import { Button, Modal, RadioButton, TestId } from '@gitbutler/ui';
 	import { DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
@@ -172,49 +166,64 @@
 	function getLabelForIntegrationMode(mode: IntegrationMode): string {
 		switch (mode) {
 			case 'rebase':
-				return 'Rebase upstream changes';
+				return 'Rebase';
 			case 'interactive':
-				return 'Interactive integration';
+				return 'Configure integration…';
 		}
 	}
-
-	let itegrationOptionDropdown: ReturnType<typeof DropdownButton> | undefined;
 </script>
 
 <BranchIntegrationModal bind:modalRef={integrationModal} {projectId} {stackId} {branchName} />
 
-{#snippet integrateUpstreamButton()}
-	<DropdownButton
-		bind:this={itegrationOptionDropdown}
-		testId={TestId.UpstreamCommitsIntegrateButton}
-		style="warning"
-		kind="solid"
-		grow
-		loading={integrating.current.isLoading}
-		onclick={() => integrate($integrationMode)}
+{#snippet integrateUpstreamAction()}
+	<form
+		class="uppstream-integration-actions"
+		onsubmit={() => {
+			integrate($integrationMode);
+		}}
 	>
-		{getLabelForIntegrationMode($integrationMode)}
-		{#snippet contextMenuSlot()}
-			<ContextMenuSection>
-				<ContextMenuItem
-					label="Rebase upstream changes"
-					caption="Move your commits on top of upstream changes. Creates clean, linear history."
-					onclick={() => {
-						integrationMode.set('rebase');
-						itegrationOptionDropdown?.close();
-					}}
+		<div class="uppstream-integration-actions__radio-container">
+			<label class="integration-radio-option" class:selected={$integrationMode === 'rebase'}>
+				<div class="integration-radio-content">
+					<h4 class="text-12 text-semibold">Rebase upstream changes</h4>
+					<p class="text-11 text-body clr-text-2">
+						Move your commits on top of upstream changes. Creates clean, linear history.
+					</p>
+				</div>
+				<RadioButton
+					class="integration-radio-option__radio"
+					name="integrationMode"
+					value="rebase"
+					checked={$integrationMode === 'rebase'}
+					onchange={() => integrationMode.set('rebase')}
 				/>
-				<ContextMenuItem
-					label="Interactive integration"
-					caption="Review and resolve any conflicts before completing the integration."
-					onclick={() => {
-						integrationMode.set('interactive');
-						itegrationOptionDropdown?.close();
-					}}
+			</label>
+			<label class="integration-radio-option" class:selected={$integrationMode === 'interactive'}>
+				<div class="integration-radio-content">
+					<h4 class="text-12 text-semibold">Interactive integration</h4>
+					<p class="text-11 text-body clr-text-2">
+						Review and resolve any conflicts before completing the integration.
+					</p>
+				</div>
+				<RadioButton
+					class="integration-radio-option__radio"
+					name="integrationMode"
+					value="interactive"
+					checked={$integrationMode === 'interactive'}
+					onchange={() => integrationMode.set('interactive')}
 				/>
-			</ContextMenuSection>
-		{/snippet}
-	</DropdownButton>
+			</label>
+		</div>
+
+		<Button
+			type="submit"
+			style="warning"
+			disabled={integrating.current.isLoading}
+			testId={TestId.UpstreamCommitsIntegrateButton}
+		>
+			{getLabelForIntegrationMode($integrationMode)}
+		</Button>
+	</form>
 {/snippet}
 
 {#snippet commitReorderDz(dropzone: ReorderCommitDzHandler)}
@@ -269,48 +278,39 @@
 				}}
 			>
 				{#if hasRemoteCommits}
-					<CommitsAccordion
-						testId={TestId.UpstreamCommitsAccordion}
-						count={Math.min(upstreamOnlyCommits.length, 3)}
-						isLast={!hasCommits}
-						type="upstream"
-						displayHeader={upstreamOnlyCommits.length > 1}
-					>
-						{#snippet title()}
-							<span class="text-13 text-body text-semibold">Upstream commits</span>
+					{#each upstreamOnlyCommits as commit, i (commit.id)}
+						{@const first = i === 0}
+						{@const lastCommit = i === upstreamOnlyCommits.length - 1}
+						{@const selected = commit.id === selectedCommitId && branchName === selectedBranchName}
+						{@const commitId = commit.id}
+						{#if !isCommitting}
+							<CommitRow
+								type="Remote"
+								{stackId}
+								{commitId}
+								commitMessage={commit.message}
+								createdAt={commit.createdAt}
+								tooltip="Upstream"
+								{branchName}
+								{first}
+								{lastCommit}
+								{selected}
+								{active}
+								onclick={() => handleCommitClick(commit.id, true)}
+								disableCommitActions={false}
+							/>
+						{/if}
+					{/each}
+
+					<CommitAction type="Remote" isLast={!hasCommits} kind="warning">
+						{#snippet action()}
+							<h3 class="text-13 text-semibold m-bottom-4">Upstream has new commits</h3>
+							<p class="text-12 text-body clr-text-2 m-bottom-14">
+								Update your branch to stay current.
+							</p>
+							{@render integrateUpstreamAction()}
 						{/snippet}
-
-						{#each upstreamOnlyCommits as commit, i (commit.id)}
-							{@const first = i === 0}
-							{@const lastCommit = i === upstreamOnlyCommits.length - 1}
-							{@const selected =
-								commit.id === selectedCommitId && branchName === selectedBranchName}
-							{@const commitId = commit.id}
-							{#if !isCommitting}
-								<CommitRow
-									type="Remote"
-									{stackId}
-									{commitId}
-									commitMessage={commit.message}
-									createdAt={commit.createdAt}
-									tooltip="Upstream"
-									{branchName}
-									{first}
-									{lastCommit}
-									{selected}
-									{active}
-									onclick={() => handleCommitClick(commit.id, true)}
-									disableCommitActions={false}
-								/>
-							{/if}
-						{/each}
-
-						<CommitAction type="Remote" isLast={!hasCommits}>
-							{#snippet action()}
-								{@render integrateUpstreamButton()}
-							{/snippet}
-						</CommitAction>
-					</CommitsAccordion>
+					</CommitAction>
 				{/if}
 
 				{#each localAndRemoteCommits as commit, i (commit.id)}
@@ -488,4 +488,104 @@
 		flex-direction: column;
 		border-top: 1px solid var(--clr-border-2);
 	}
+
+	.uppstream-integration-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+
+	.uppstream-integration-actions__radio-container {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.integration-radio-option {
+		display: flex;
+		z-index: 0;
+		position: relative;
+		padding: 14px;
+		gap: 20px;
+		border: 1px solid var(--clr-border-2);
+		background: var(--clr-bg-1);
+		cursor: pointer;
+
+		&:not(.selected):hover {
+			background: var(--clr-bg-1-muted);
+		}
+
+		&:first-child {
+			border-top-right-radius: var(--radius-m);
+			border-top-left-radius: var(--radius-m);
+		}
+		&:last-child {
+			margin-top: -1px;
+			border-bottom-right-radius: var(--radius-m);
+			border-bottom-left-radius: var(--radius-m);
+		}
+
+		&.selected {
+			z-index: 1;
+			border-color: var(--clr-theme-pop-element);
+			background: var(--clr-theme-pop-bg);
+		}
+	}
+
+	:global(.integration-radio-option__radio) {
+		flex-shrink: 0;
+	}
+
+	.integration-radio-content {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	/* .integration-radio-option {
+		display: flex;
+		align-items: flex-start;
+		margin-bottom: 0;
+		padding: 12px 16px;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+	.integration-radio-option input[type='radio'] {
+		width: 18px;
+		height: 18px;
+		margin-top: 2px;
+		margin-right: 12px;
+		accent-color: var(--clr-accent-1, #009688);
+	}
+	.integration-radio-content {
+		display: flex;
+		flex-direction: column;
+	}
+	.integration-radio-title {
+		margin-bottom: 2px;
+		color: var(--clr-text-1);
+		font-weight: 600;
+		font-size: 15px;
+	}
+	.integration-radio-caption {
+		color: var(--clr-text-2);
+		font-size: 13px;
+	}
+	.integration-rebase-btn {
+		width: 100%;
+		margin-top: 8px;
+		padding: 12px 0;
+		border: none;
+		border-radius: 8px;
+		background: #e6a23c;
+		color: #fff;
+		font-weight: 600;
+		font-size: 16px;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+	.integration-rebase-btn:disabled {
+		cursor: not-allowed;
+		opacity: 0.7;
+	} */
 </style>

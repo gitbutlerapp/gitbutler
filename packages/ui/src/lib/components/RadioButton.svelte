@@ -5,6 +5,7 @@
 		disabled?: boolean;
 		value?: string;
 		id?: string;
+		class?: string;
 		checked?: boolean;
 		onchange?: (e: Event) => void;
 	}
@@ -15,6 +16,7 @@
 		disabled = false,
 		value = '',
 		id = '',
+		class: className = '',
 		checked = $bindable(),
 		onchange
 	}: Props = $props();
@@ -22,7 +24,7 @@
 
 <input
 	type="radio"
-	class="focus-state radio"
+	class="focus-state radio {className}"
 	class:small
 	{id}
 	{value}
