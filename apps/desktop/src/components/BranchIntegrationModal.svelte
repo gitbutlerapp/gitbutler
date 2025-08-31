@@ -15,6 +15,6 @@
 	}
 </script>
 
-<Modal bind:this={modalRef} title="Integrate the upstream changes" noPadding width="medium">
+<Modal bind:this={modalRef} title="Integrate the upstream changes" noPadding width={500}>
 	<InteractiveBranchIntegration {projectId} {stackId} {branchName} {closeModal} />
 </Modal>

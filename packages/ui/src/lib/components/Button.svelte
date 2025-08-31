@@ -21,7 +21,6 @@
 		// Style props
 		style?: ComponentColorType;
 		kind?: ComponentKindType;
-		solidBackground?: boolean;
 		class?: string | (string | undefined)[] | Record<string, string>;
 		iconClass?: string;
 		customStyle?: string;
@@ -73,7 +72,6 @@
 		style = 'neutral',
 		kind = 'solid',
 		hotkey,
-		solidBackground = false,
 		class: className = '',
 		iconClass = '',
 		customStyle,
@@ -120,7 +118,6 @@
 			grow && 'grow',
 			wide && 'wide',
 			shrinkable && 'shrinkable',
-			solidBackground && 'solidBackground',
 			reversedDirection && 'reversed-direction',
 			dropdownChild && 'is-dropdown',
 			!children && !wide && 'fixed-width',
@@ -237,12 +234,11 @@
 		}
 
 		&.outline {
-			--btn-border-opacity: var(--opacity-btn-outline);
 			border: 1px solid
 				color-mix(
 					in srgb,
 					var(--btn-border-clr, transparent),
-					transparent calc((1 - var(--btn-border-opacity, 1)) * 100%)
+					transparent calc((1 - var(--opacity-btn-outline, 1)) * 100%)
 				);
 		}
 

@@ -1,14 +1,13 @@
 <script lang="ts">
 	import CommitLine from '$components/CommitLine.svelte';
-	import CommitTitle from '$components/CommitTitle.svelte';
+
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { isCommit, type Commit, type UpstreamCommit } from '$lib/branches/v3';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
+
 	import { inject } from '@gitbutler/shared/context';
-	import { Avatar, Button, Icon, ModalFooter, ScrollableContainer, Tooltip } from '@gitbutler/ui';
-	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import { Button, ModalFooter, ScrollableContainer, SimpleCommitRow } from '@gitbutler/ui';
 	import { flip } from 'svelte/animate';
 	import type { InteractiveIntegrationStep } from '$lib/stacks/stack';
 
@@ -21,8 +20,6 @@
 
 	const { projectId, stackId, branchName, closeModal }: Props = $props();
 
-	const userService = inject(USER_SERVICE);
-	const user = $derived(userService.user);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const [integrate, integrating] = stackService.integrateBranchWithSteps;
@@ -34,80 +31,83 @@
 
 	let editableSteps = $derived(initialIntegrationSteps.current?.data ?? []);
 
-	function getGravatarUrl(email: string, existingGravatarUrl: string): string {
-		if ($user?.email === undefined) {
-			return existingGravatarUrl;
-		}
-		if (email === $user.email) {
-			return $user.picture ?? existingGravatarUrl;
-		}
-		return existingGravatarUrl;
+	// Constants
+	const FLIP_ANIMATION_DURATION = 150;
+	const MAX_SCROLL_HEIGHT = '50vh';
+
+	// Helper functions for step manipulation
+
+	/** Updates a step to be either a 'pick' or 'skip' type */
+	function updateStepType(stepId: string, commitId: string, newType: 'pick' | 'skip') {
+		editableSteps = editableSteps.map((step) => {
+			if (step.subject.id === stepId) {
+				return { type: newType, subject: { id: stepId, commitId } };
+			}
+			return step;
+		});
 	}
 
+	/** Marks a step to be skipped during integration */
 	function skipStepById(stepId: string, commitId: string) {
-		editableSteps = editableSteps.map((step) => {
-			if (step.subject.id === stepId) {
-				return { type: 'skip', subject: { id: stepId, commitId } };
-			}
-			return step;
-		});
+		updateStepType(stepId, commitId, 'skip');
 	}
 
+	/** Marks a step to be picked during integration */
 	function pickStepById(stepId: string, commitId: string) {
-		editableSteps = editableSteps.map((step) => {
-			if (step.subject.id === stepId) {
-				return { type: 'pick', subject: { id: stepId, commitId } };
-			}
-			return step;
-		});
+		updateStepType(stepId, commitId, 'pick');
 	}
 
+	/** Fetches and combines commit messages for multiple commits */
 	async function getCommitMessage(commitIds: string[]): Promise<string> {
 		if (stackId === undefined) return '';
 		const commitDetails = await stackService.fetchCommitsByIds(projectId, stackId, commitIds);
 		return commitDetails.map((c) => c.message).join('\n\n');
 	}
 
-	function getCommitsAndIdFromStep(step: InteractiveIntegrationStep): [string, string[]] {
+	/** Extracts commit information from a step regardless of its type */
+	function getStepCommitInfo(step: InteractiveIntegrationStep): {
+		id: string;
+		commitIds: string[];
+	} {
 		const id = step.subject.id;
 		switch (step.type) {
 			case 'pick':
 			case 'skip':
-				return [id, [step.subject.commitId]];
+				return { id, commitIds: [step.subject.commitId] };
 			case 'squash':
-				return [id, step.subject.commits];
+				return { id, commitIds: step.subject.commits };
 		}
 	}
 
+	// Step manipulation functions
+
+	/** Squashes a step with the step below it, combining their commits */
 	async function squashStepById(stepId: string, commitIds: string[]) {
 		const stepIndex = editableSteps.findIndex((step) => step.subject.id === stepId);
-		if (stepIndex === -1 || stepIndex === stepIndex - 1) {
-			// Only squash downwards
-			return;
+		const isValidSquashOperation = stepIndex !== -1 && stepIndex < editableSteps.length - 1;
+
+		if (!isValidSquashOperation) {
+			return; // Can only squash downwards into an existing step
 		}
 
 		const newSteps = structuredClone(editableSteps);
 		const stepToSquash = newSteps[stepIndex];
 		const stepToBeSquashedInto = newSteps[stepIndex + 1];
 
-		if (stepToSquash === undefined) {
+		if (!stepToSquash || !stepToBeSquashedInto) {
 			return;
 		}
 
-		if (stepToBeSquashedInto === undefined) {
-			return;
-		}
-
-		const [id, commits] = getCommitsAndIdFromStep(stepToBeSquashedInto);
-		const newCommits = [...commitIds, ...commits];
-		const message = await getCommitMessage(newCommits);
+		const targetStepInfo = getStepCommitInfo(stepToBeSquashedInto);
+		const combinedCommits = [...commitIds, ...targetStepInfo.commitIds];
+		const squashMessage = await getCommitMessage(combinedCommits);
 
 		newSteps.splice(stepIndex, 2, {
 			type: 'squash',
 			subject: {
-				id,
-				commits: newCommits,
-				message
+				id: targetStepInfo.id,
+				commits: combinedCommits,
+				message: squashMessage
 			}
 		});
 
@@ -116,110 +116,130 @@
 
 	async function splitOffCommitFromStep(stepId: string, commitId: string) {
 		const stepIndex = editableSteps.findIndex((step) => step.subject.id === stepId);
-		if (stepIndex === -1) {
-			return;
-		}
+		if (stepIndex === -1) return;
 
 		const newSteps = structuredClone(editableSteps);
 		const stepToSplit = newSteps[stepIndex];
 
-		if (stepToSplit === undefined) {
-			return;
+		if (!stepToSplit || stepToSplit.type !== 'squash') {
+			return; // Can only split off from a squash step
 		}
 
-		if (stepToSplit.type !== 'squash') {
-			// Can only split off from a squash step
-			return;
-		}
+		const { commits } = stepToSplit.subject;
+		const canSplitCommits = commits.length > 1 && commits.includes(commitId);
 
-		const commits = stepToSplit.subject.commits;
+		if (!canSplitCommits) return;
 
-		if (commits.length <= 1) {
-			// Can't split off if there's only one commit
-			return;
-		}
-
+		// Find the position of the clicked commit to determine split point
 		const commitIndex = commits.indexOf(commitId);
-		if (commitIndex === -1) {
-			return;
+		if (commitIndex === -1) return;
+
+		// Split commits into two groups:
+		// - firstGroup: from start up to but NOT including the clicked commit
+		// - secondGroup: from the clicked commit to the end
+		const firstGroup = commits.slice(0, commitIndex);
+		const secondGroup = commits.slice(commitIndex);
+
+		// If there's no first group, we can't split (clicking on first commit)
+		if (firstGroup.length === 0) return;
+
+		// Update the original step with the first group
+		if (firstGroup.length === 1) {
+			// Convert to pick step if only one commit remains
+			newSteps[stepIndex] = {
+				type: 'pick',
+				subject: { id: stepId, commitId: firstGroup[0]! }
+			};
+		} else {
+			// Keep as squash step with first group
+			const firstGroupMessage = await getCommitMessage(firstGroup);
+			newSteps[stepIndex] = {
+				type: 'squash',
+				subject: {
+					id: stepId,
+					commits: firstGroup,
+					message: firstGroupMessage
+				}
+			};
 		}
 
-		const newSquashCommits = commits.filter((c) => c !== commitId);
-		const message = await getCommitMessage(newSquashCommits);
-
-		newSteps.splice(stepIndex, 1, {
-			type: 'squash',
-			subject: {
-				id: stepId,
-				commits: newSquashCommits,
-				message: message
-			}
-		});
-
-		newSteps.splice(stepIndex + 1, 0, {
-			type: 'pick',
-			subject: {
-				// This is not ideal, since all steps are ided in the backend. It's fine for now though
-				id: crypto.randomUUID(),
-				commitId
-			}
-		});
+		// Create new step(s) for the second group
+		if (secondGroup.length === 1) {
+			// Single commit becomes a pick step
+			const newPickStep = {
+				type: 'pick' as const,
+				subject: {
+					id: crypto.randomUUID(), // TODO: Consider using backend-generated IDs
+					commitId: secondGroup[0]!
+				}
+			};
+			newSteps.splice(stepIndex + 1, 0, newPickStep);
+		} else {
+			// Multiple commits become a squash step
+			const secondGroupMessage = await getCommitMessage(secondGroup);
+			const newSquashStep = {
+				type: 'squash' as const,
+				subject: {
+					id: crypto.randomUUID(), // TODO: Consider using backend-generated IDs
+					commits: secondGroup,
+					message: secondGroupMessage
+				}
+			};
+			newSteps.splice(stepIndex + 1, 0, newSquashStep);
+		}
 
 		editableSteps = newSteps;
 	}
 
+	// Step movement functions
+
+	function getStepIndex(stepId: string): number {
+		return editableSteps.findIndex((step) => step.subject.id === stepId);
+	}
+
 	function canShiftStepUp(stepId: string): boolean {
-		const index = editableSteps.findIndex((step) => step.subject.id === stepId);
+		const index = getStepIndex(stepId);
 		return index > 0;
 	}
 
 	function canShiftStepDown(stepId: string): boolean {
-		const index = editableSteps.findIndex((step) => step.subject.id === stepId);
+		const index = getStepIndex(stepId);
 		return index !== -1 && index < editableSteps.length - 1;
 	}
 
-	function shiftStepDown(stepId: string) {
-		const index = editableSteps.findIndex((step) => step.subject.id === stepId);
-		if (index === -1 || index === editableSteps.length - 1) {
-			return;
-		}
+	function swapSteps(indexA: number, indexB: number) {
 		const newSteps = structuredClone(editableSteps);
-		const temp = newSteps[index];
-		const other = newSteps[index + 1];
+		const stepA = newSteps[indexA];
+		const stepB = newSteps[indexB];
 
-		if (temp === undefined) {
-			return;
-		}
-		if (other === undefined) {
-			return;
-		}
+		if (!stepA || !stepB) return;
 
-		newSteps[index] = other;
-		newSteps[index + 1] = temp;
+		newSteps[indexA] = stepB;
+		newSteps[indexB] = stepA;
 		editableSteps = newSteps;
+	}
+
+	function shiftStepDown(stepId: string) {
+		const currentIndex = getStepIndex(stepId);
+		const isValidShift = currentIndex !== -1 && currentIndex < editableSteps.length - 1;
+
+		if (isValidShift) {
+			swapSteps(currentIndex, currentIndex + 1);
+		}
 	}
 
 	function shiftStepUp(stepId: string) {
-		const index = editableSteps.findIndex((step) => step.subject.id === stepId);
-		if (index <= 0) {
-			return;
-		}
-		const newSteps = structuredClone(editableSteps);
-		const temp = newSteps[index];
-		const other = newSteps[index - 1];
+		const currentIndex = getStepIndex(stepId);
+		const isValidShift = currentIndex > 0;
 
-		if (temp === undefined) {
-			return;
+		if (isValidShift) {
+			swapSteps(currentIndex, currentIndex - 1);
 		}
-		if (other === undefined) {
-			return;
-		}
-
-		newSteps[index] = other;
-		newSteps[index - 1] = temp;
-		editableSteps = newSteps;
 	}
 
+	// Main integration handler
+
+	/** Executes the integration with the current steps configuration */
 	async function handleIntegrate() {
 		if (stackId === undefined) {
 			throw new Error('Stack ID is undefined');
@@ -236,31 +256,23 @@
 
 <div class="branch-integration__content">
 	<p class="text=13">
-		This is what the outcome of the integration will look like. Please review and adjust the
-		integration if needed.
+		Review and adjust the integration if needed.
+		<br />
+		This is what the outcome of the integration will look like.
 	</p>
 
-	<ScrollableContainer maxHeight="70vh">
-		<div class="branch-integration__steps">
-			<ReduxResult {projectId} result={initialIntegrationSteps.current}>
-				{#snippet children(_)}
-					<!-- Use ReduxResult in order to gracefully load and handle the results of the API call. -->
-					<!-- But use the editable steps in order to show which are the steps that will be sent to the rust-end -->
-					{#each editableSteps as step (step.subject.id)}
-						<div animate:flip={{ duration: 150 }}>
-							{#if step.type === 'pick'}
-								{@render pickStep(step.subject.id, step.subject.commitId)}
-							{:else if step.type === 'skip'}
-								{@render skipStep(step.subject.id, step.subject.commitId)}
-							{:else if step.type === 'squash'}
-								{@render squashStepDown(step.subject.id, step.subject.commits)}
-							{/if}
-						</div>
-					{/each}
-				{/snippet}
-			</ReduxResult>
-		</div>
-	</ScrollableContainer>
+	<div class="branch-integration__steps">
+		<ScrollableContainer maxHeight={MAX_SCROLL_HEIGHT}>
+			{#each editableSteps as step (step.subject.id)}
+				<div
+					class="branch-integration__commit-wrap"
+					animate:flip={{ duration: FLIP_ANIMATION_DURATION }}
+				>
+					{@render genericStep(step)}
+				</div>
+			{/each}
+		</ScrollableContainer>
+	</div>
 </div>
 
 <ModalFooter>
@@ -269,160 +281,204 @@
 		style="pop"
 		type="submit"
 		onclick={handleIntegrate}
-		loading={integrating.current.isLoading}>Integrate</Button
+		loading={integrating.current.isLoading}>Integrate changes</Button
 	>
 </ModalFooter>
 
-{#snippet pickStep(id: string, commitId: string)}
-	{@const commitDetails = stackService.commitById(projectId, stackId, commitId)}
-	<ReduxResult {projectId} result={commitDetails.current}>
-		{#snippet children(commit)}
-			<div class="branch-integration__step">
-				{@render commitLine(commit)}
-				<div class="commit-info">
-					<CommitTitle commitMessage={commit.message} truncate className="text-13 text-semibold" />
-					{@render commitMetadata(commit)}
-				</div>
-				<div class="branch-integration__step-actions">
-					<Button
-						kind="ghost"
-						tooltip="Squash this commit into the one below"
-						onclick={() => squashStepById(id, [commitId])}>squash down</Button
-					>
-					<Button
-						kind="ghost"
-						tooltip="Don't pick this commit"
-						onclick={() => skipStepById(id, commitId)}>skip</Button
-					>
-					{@render shiftActions(id)}
-				</div>
+{#snippet commitItemTemplate(
+	commit: Commit | UpstreamCommit,
+	stepId: string,
+	commitId: string,
+	stepType: 'pick' | 'skip' | 'squash',
+	isLastInSquash: boolean = false,
+	isFirstInSquash: boolean = false,
+	squashCommits: string[] = []
+)}
+	{@const isSkipStep = stepType === 'skip'}
+	{@const hideCommitDot = stepType === 'squash' && !isFirstInSquash}
+	{@render commitLine(commit, hideCommitDot)}
+
+	<div class="branch-integration__commit-content">
+		<SimpleCommitRow
+			author={commit.author.name}
+			date={new Date(commit.createdAt)}
+			title={commit.message}
+			sha={commit.id}
+			onCopy={() => {
+				clipboardService.write(commit.id, {
+					message: 'Commit SHA copied'
+				});
+			}}
+			onlyContent
+		/>
+
+		<!-- Split off action for non-first commits in squash (including last) -->
+		{#if stepType === 'squash' && !isFirstInSquash}
+			<div class="branch-integration__split-off-button">
+				<Button
+					icon="cut"
+					kind="outline"
+					size="tag"
+					reversedDirection
+					tooltip="Split squashed commits at this point"
+					onclick={() => splitOffCommitFromStep(stepId, commit.id)}
+					disabled={isSkipStep}
+				>
+					Split off
+				</Button>
 			</div>
-		{/snippet}
-	</ReduxResult>
+		{/if}
+
+		<div class="branch-integration__commit-actions">
+			<!-- Squash step: only last commit gets actions -->
+			{#if stepType === 'squash' && isLastInSquash}
+				<Button
+					kind="outline"
+					size="tag"
+					tooltip="Squash these commits into below"
+					icon="squash-commit"
+					onclick={() => squashStepById(stepId, squashCommits)}
+					disabled={isSkipStep}
+				>
+					Squash down
+				</Button>
+				{@render shiftActions(stepId, isSkipStep)}
+			{/if}
+
+			<!-- Individual step: show all actions, but disable if skipped -->
+			{#if stepType === 'skip'}
+				<Button
+					kind="outline"
+					size="tag"
+					tooltip="Pick this commit"
+					icon="eye-shown"
+					onclick={() => pickStepById(stepId, commitId)}
+					disabled={false}
+				>
+					Pick
+				</Button>
+				{@render commitActions(stepId, commitId, true)}
+				{@render shiftActions(stepId, true)}
+			{:else if stepType === 'pick'}
+				{@render commitActions(stepId, commitId, false)}
+				{@render shiftActions(stepId, false)}
+			{/if}
+		</div>
+	</div>
 {/snippet}
 
-{#snippet skipStep(id: string, commitId: string)}
-	{@const commitDetails = stackService.commitById(projectId, stackId, commitId)}
-	<ReduxResult {projectId} result={commitDetails.current}>
-		{#snippet children(commit)}
-			<div class="branch-integration__step skipped">
-				{@render commitLine(commit)}
-				<div class="commit-info">
-					<CommitTitle commitMessage={commit.message} truncate className="text-13" />
-					{@render commitMetadata(commit)}
+{#snippet genericStep(step: InteractiveIntegrationStep)}
+	{@const isSquashStep = step.type === 'squash'}
+	{@const isIndividualStep = step.type === 'pick' || step.type === 'skip'}
+
+	{#if isSquashStep}
+		{@const commitsResult = stackService.commitsByIds(projectId, stackId, step.subject.commits)}
+		<ReduxResult {projectId} result={commitsResult.current}>
+			{#snippet children(commits)}
+				{#each commits as commit, commitIndex (commit.id)}
+					{@const isLastCommit = commitIndex === commits.length - 1}
+					{@const isFirstCommit = commitIndex === 0}
+
+					<div class="branch-integration__commit">
+						{@render commitItemTemplate(
+							commit,
+							step.subject.id,
+							commit.id,
+							'squash',
+							isLastCommit,
+							isFirstCommit,
+							step.subject.commits
+						)}
+					</div>
+					{#if !isLastCommit}
+						<div class="branch-integration__commit-divider dotted"></div>
+					{/if}
+				{/each}
+			{/snippet}
+		</ReduxResult>
+	{:else if isIndividualStep}
+		{@const commitDetails = stackService.commitById(projectId, stackId, step.subject.commitId)}
+		<ReduxResult {projectId} result={commitDetails.current}>
+			{#snippet children(commit)}
+				{@const isSkipStep = step.type === 'skip'}
+
+				<div class="branch-integration__commit" class:skipped={isSkipStep}>
+					{@render commitItemTemplate(
+						commit,
+						step.subject.id,
+						step.subject.commitId,
+						step.type,
+						false,
+						false
+					)}
 				</div>
-				<div class="branch-integration__step-actions">
-					<Button kind="ghost" tooltip="Pick this commit" onclick={() => pickStepById(id, commitId)}
-						>pick</Button
-					>
-				</div>
-			</div>
-		{/snippet}
-	</ReduxResult>
+				<!-- <div class="branch-integration__commit-divider"></div> -->
+			{/snippet}
+		</ReduxResult>
+	{/if}
 {/snippet}
 
-{#snippet squashStepDown(id: string, commitIds: string[])}
-	{@const commits = stackService.commitsByIds(projectId, stackId, commitIds)}
-	<ReduxResult {projectId} result={commits.current}>
-		{#snippet children(commits)}
-			<div class="branch-integration__step">
-				<div class="branch-integration__squash">
-					{#each commits as commit (commit.id)}
-						<div class="branch-integration__squash-item">
-							{@render commitLine(commit)}
-							<div class="commit-info">
-								<CommitTitle
-									commitMessage={commit.message}
-									truncate
-									className="text-13 text-semibold"
-								/>
-								{@render commitMetadata(commit)}
-							</div>
-							<dir>
-								<Button
-									kind="ghost"
-									tooltip="Split off this commit"
-									onclick={() => splitOffCommitFromStep(id, commit.id)}>split off</Button
-								>
-							</dir>
-						</div>
-					{/each}
-				</div>
-				<div class="branch-integration__step-actions">
-					<Button
-						kind="ghost"
-						tooltip="Squash these commits into below"
-						onclick={() => squashStepById(id, commitIds)}>squash down</Button
-					>
-					{@render shiftActions(id)}
-				</div>
-			</div>
-		{/snippet}
-	</ReduxResult>
-{/snippet}
-
-{#snippet shiftActions(id: string)}
-	<div class="branch-integration__step-shift">
+{#snippet commitActions(stepId: string, commitId: string, disabled: boolean = false)}
+	{#if !disabled}
 		<Button
-			kind="ghost"
-			tooltip="Move this commit up"
+			kind="outline"
 			size="tag"
-			icon="chevron-up"
-			disabled={!canShiftStepUp(id)}
-			onclick={() => shiftStepUp(id)}
+			icon="eye-hidden"
+			tooltip="Don't pick this commit"
+			onclick={() => skipStepById(stepId, commitId)}
+			{disabled}
+		>
+			Skip
+		</Button>
+	{/if}
+	<Button
+		kind="outline"
+		size="tag"
+		icon="squash-commit"
+		tooltip="Squash this commit into the one below"
+		onclick={() => squashStepById(stepId, [commitId])}
+		{disabled}
+	>
+		Squash down
+	</Button>
+{/snippet}
+
+{#snippet shiftActions(stepId: string, disabled: boolean = false)}
+	<div class="branch-integration__move-buttons">
+		<Button
+			kind="outline"
+			tooltip="Move this commit up"
+			class="branch-integration__move-buttons__up"
+			size="tag"
+			icon="move-up"
+			disabled={!canShiftStepUp(stepId) || disabled}
+			onclick={() => shiftStepUp(stepId)}
 		/>
 		<Button
-			kind="ghost"
+			kind="outline"
 			tooltip="Move this commit down"
+			class="branch-integration__move-buttons__down"
 			size="tag"
-			icon="chevron-down"
-			disabled={!canShiftStepDown(id)}
-			onclick={() => shiftStepDown(id)}
+			icon="move-down"
+			disabled={!canShiftStepDown(stepId) || disabled}
+			onclick={() => shiftStepDown(stepId)}
 		/>
 	</div>
 {/snippet}
 
-{#snippet commitLine(commit: Commit | UpstreamCommit)}
+{#snippet commitLine(commit: Commit | UpstreamCommit, hideCommitDot: boolean = true)}
 	{#if isCommit(commit)}
 		<!-- Local and Remote commmit -->
 		<CommitLine
-			slim
 			commitStatus={commit.state.type}
+			alignDot="start"
+			hideDot={hideCommitDot}
 			diverged={commit.state.type === 'LocalAndRemote' && commit.state.subject !== commit.id}
 		/>
 	{:else}
 		<!-- Upstream Only commit -->
-		<CommitLine slim commitStatus="Remote" diverged={false} />
+		<CommitLine hideDot={hideCommitDot} alignDot="start" commitStatus="Remote" diverged={false} />
 	{/if}
-{/snippet}
-
-{#snippet commitMetadata(commit: Commit | UpstreamCommit)}
-	<div class="commit-metadata text-12">
-		<Avatar
-			size="medium"
-			tooltip={commit.author.name}
-			srcUrl={getGravatarUrl(commit.author.email, commit.author.gravatarUrl)}
-		/>
-		<span class="divider">•</span>
-		<span>{getTimeAgo(new Date(commit.createdAt))}</span>
-		<span class="divider">•</span>
-		<Tooltip text="Copy commit SHA">
-			<button
-				type="button"
-				class="copy-sha underline-dotted"
-				onclick={() => {
-					clipboardService.write(commit.id, {
-						message: 'Commit SHA copied'
-					});
-				}}
-			>
-				<span>
-					{commit.id.substring(0, 7)}
-				</span>
-				<Icon name="copy-small" />
-			</button>
-		</Tooltip>
-	</div>
 {/snippet}
 
 <style lang="postcss">
@@ -436,72 +492,83 @@
 	.branch-integration__steps {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
 	}
 
-	.branch-integration__step {
+	.branch-integration__commit-wrap {
+		border-bottom: 1px solid var(--clr-border-2);
+
+		&:last-child {
+			border-bottom: none;
+		}
+	}
+
+	.branch-integration__commit {
 		display: flex;
-		padding: 8px;
-		padding-left: 4px;
-		gap: 4px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
+		z-index: var(--z-ground);
+		position: relative;
 
 		&.skipped {
 			background-color: var(--clr-bg-2);
 		}
 	}
 
-	.branch-integration__squash {
-		display: flex;
-		flex-grow: 1;
-		flex-shrink: 0;
-		flex-direction: column;
-		gap: 8px;
-	}
+	.branch-integration__commit-divider {
+		height: 0;
+		border-bottom: 1px solid var(--clr-border-2);
 
-	.branch-integration__squash-item {
-		display: flex;
-		gap: 4px;
-	}
-
-	.branch-integration__step-actions {
-		display: flex;
-		flex-grow: 1;
-		flex-shrink: 0;
-		align-items: center;
-		justify-content: flex-end;
-	}
-
-	.branch-integration__step-shift {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.commit-info {
-		display: flex;
-		flex-grow: 1;
-		flex-shrink: 0;
-		flex-direction: column;
-		gap: 4px;
-	}
-
-	.commit-metadata {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		color: var(--clr-text-2);
-
-		& .divider {
-			font-size: 12px;
-			opacity: 0.4;
+		&.dotted {
+			height: 1px;
+			border-bottom: none;
+			background: repeating-linear-gradient(
+				to right,
+				var(--clr-border-2) 0px,
+				var(--clr-border-2) 2px,
+				transparent 2px,
+				transparent 4px
+			);
 		}
 	}
 
-	.copy-sha {
+	.branch-integration__split-off-button {
+		z-index: var(--z-lifted);
+		position: absolute;
+		top: 0;
+		right: 20px;
+		transform: translateY(-50%);
+		border-radius: var(--radius-btn);
+		background-color: var(--clr-bg-1);
+	}
+
+	.branch-integration__commit-content {
+		display: flex;
+		flex-direction: column;
+		padding: 14px;
+		padding-left: 0;
+		overflow: hidden;
+		gap: 12px;
+	}
+
+	.branch-integration__commit-actions {
 		display: flex;
 		align-items: center;
-		gap: 2px;
-		text-decoration: underline dotted;
+		gap: 4px;
+	}
+
+	.branch-integration__move-buttons {
+		display: flex;
+	}
+
+	:global(.branch-integration__move-buttons__up) {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	:global(.branch-integration__move-buttons__down) {
+		border-left: none !important;
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
 	}
 </style>

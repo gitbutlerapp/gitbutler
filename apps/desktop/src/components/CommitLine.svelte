@@ -10,43 +10,56 @@
 		tooltip?: string;
 		lastCommit?: boolean;
 		lastBranch?: boolean;
-		slim?: boolean;
+		alignDot?: 'center' | 'start';
+		hideDot?: boolean;
 	}
 
-	const { commitStatus, diverged, tooltip, lastCommit, lastBranch, slim }: Props = $props();
+	const {
+		commitStatus,
+		diverged,
+		tooltip,
+		lastCommit,
+		lastBranch,
+		alignDot = 'center',
+		hideDot = false
+	}: Props = $props();
 
 	const color = $derived(getColorFromCommitState(commitStatus, diverged));
 
 	const rhombus = $derived(commitStatus === 'LocalAndRemote');
 </script>
 
-<div class="commit-lines" style:--commit-color={color} class:slim>
-	<div class="top"></div>
-	{#if diverged}
-		<div class="local-shadow-commit-dot">
-			<Tooltip text="Diverged">
-				<svg class="shadow-dot" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
-					<path
-						d="M0.827119 6.41372C0.0460709 5.63267 0.0460709 4.36634 0.827119 3.58529L3.70602 0.706392C4.48707 -0.0746567 5.7534 -0.0746567 6.53445 0.706392L9.41335 3.58529C10.1944 4.36634 10.1944 5.63267 9.41335 6.41372L6.53445 9.29262C5.7534 10.0737 4.48707 10.0737 3.70602 9.29262L0.827119 6.41372Z"
-					/>
-				</svg>
-			</Tooltip>
-			<Tooltip text="Diverged">
-				<svg class="local-dot" viewBox="0 0 11 10" xmlns="http://www.w3.org/2000/svg">
-					<path
-						fill-rule="evenodd"
-						clip-rule="evenodd"
-						d="M0.740712 8.93256C1.59096 9.60118 2.66337 10 3.82893 10H5.82893C8.59035 10 10.8289 7.76142 10.8289 5C10.8289 2.23858 8.59035 0 5.82893 0H3.82893C2.66237 0 1.58912 0.399504 0.738525 1.06916L1.84289 2.17353C3.40499 3.73562 3.40499 6.26828 1.84289 7.83038L0.740712 8.93256Z"
-					/>
-				</svg>
-			</Tooltip>
-		</div>
+<div class="commit-lines align-{alignDot}" style:--commit-color={color}>
+	{#if hideDot}
+		<div class="single-line" class:dashed={lastCommit && lastBranch}></div>
 	{:else}
-		<Tooltip text={tooltip}>
-			<div class="middle" class:rhombus></div>
-		</Tooltip>
+		<div class="top"></div>
+		{#if diverged}
+			<div class="local-shadow-commit-dot">
+				<Tooltip text="Diverged">
+					<svg class="shadow-dot" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+						<path
+							d="M0.827119 6.41372C0.0460709 5.63267 0.0460709 4.36634 0.827119 3.58529L3.70602 0.706392C4.48707 -0.0746567 5.7534 -0.0746567 6.53445 0.706392L9.41335 3.58529C10.1944 4.36634 10.1944 5.63267 9.41335 6.41372L6.53445 9.29262C5.7534 10.0737 4.48707 10.0737 3.70602 9.29262L0.827119 6.41372Z"
+						/>
+					</svg>
+				</Tooltip>
+				<Tooltip text="Diverged">
+					<svg class="local-dot" viewBox="0 0 11 10" xmlns="http://www.w3.org/2000/svg">
+						<path
+							fill-rule="evenodd"
+							clip-rule="evenodd"
+							d="M0.740712 8.93256C1.59096 9.60118 2.66337 10 3.82893 10H5.82893C8.59035 10 10.8289 7.76142 10.8289 5C10.8289 2.23858 8.59035 0 5.82893 0H3.82893C2.66237 0 1.58912 0.399504 0.738525 1.06916L1.84289 2.17353C3.40499 3.73562 3.40499 6.26828 1.84289 7.83038L0.740712 8.93256Z"
+						/>
+					</svg>
+				</Tooltip>
+			</div>
+		{:else}
+			<Tooltip text={tooltip}>
+				<div class="middle" class:rhombus></div>
+			</Tooltip>
+		{/if}
+		<div class="bottom" class:dashed={lastCommit && lastBranch}></div>
 	{/if}
-	<div class="bottom" class:dashed={lastCommit && lastBranch}></div>
 </div>
 
 <style lang="postcss">
@@ -58,13 +71,22 @@
 		width: 42px;
 		gap: 3px;
 
-		&.slim {
-			width: 24px;
+		&.align-start {
+			.top {
+				flex: 0 0 13px;
+			}
+		}
+
+		&.align-center {
+			.top {
+				flex: 1;
+			}
 		}
 	}
 
 	.top,
-	.bottom {
+	.bottom,
+	.single-line {
 		flex: 1;
 		width: 2px;
 		background-color: var(--commit-color);
