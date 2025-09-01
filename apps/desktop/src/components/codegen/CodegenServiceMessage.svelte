@@ -59,14 +59,14 @@
 
 	function milisToEnglish(milis: number) {
 		if (milis === 0) return 'now';
-		const seconds = Math.floor(milis / 1000) % 60;
-		const minutes = Math.floor(milis / (1000 * 60)) % 60;
-		const hours = Math.floor(milis / (1000 * 60 * 60)) % 60;
-		let out = '';
-		if (hours !== 0) out += `${hours}h `;
-		if (minutes !== 0) out += `${minutes}m `;
-		if (seconds !== 0) out += `${seconds}s`;
-		return out.trim();
+
+		const seconds = milis / 1000;
+		const minutes = Math.floor(seconds / 60);
+		const hours = Math.floor(minutes / 60);
+
+		if (hours > 0) return `${hours}h ${minutes % 60}m`;
+		if (minutes > 0) return `${minutes}m ${(seconds % 60).toFixed(1)}s`;
+		return `${seconds.toFixed(1)}s`;
 	}
 
 	function getUTCNow() {
@@ -85,7 +85,7 @@
 
 		const updateTimeInterval = setInterval(() => {
 			currentDuration = milisToEnglish(getUTCNow() - lastUserMessageSent.getTime());
-		}, 1000);
+		}, 100);
 
 		return () => {
 			clearInterval(updateWordInterval);
@@ -122,6 +122,7 @@
 	}
 	.service-message__bubble {
 		display: flex;
+		max-width: var(--message-max-width);
 		padding: 8px 12px;
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-2);

@@ -84,27 +84,25 @@
 		class:bottom-border={!$collapsed}
 		bind:clientHeight={headerHeight}
 	>
-		{#if $collapsed !== undefined}
-			{@const name = $collapsed ? 'chevron-right' : ('chevron-down' as const)}
-			<button
-				type="button"
-				class="chevron-btn focus-state"
-				onclick={(e) => {
-					e.stopPropagation();
-					if ($collapsed !== undefined) {
-						const newValue = !$collapsed;
-						collapsed.set(newValue);
-						ontoggle?.(newValue);
-					}
-				}}
-			>
-				<Icon {name} />
-			</button>
-		{/if}
+		<button
+			type="button"
+			class="chevron-btn focus-state"
+			class:expanded={!$collapsed}
+			onclick={(e) => {
+				e.stopPropagation();
+				if ($collapsed !== undefined) {
+					const newValue = !$collapsed;
+					collapsed.set(newValue);
+					ontoggle?.(newValue);
+				}
+			}}
+		>
+			<Icon name="chevron-right" />
+		</button>
 
 		<div class="drawer-header__title">
 			{#if title}
-				<h3 class="text-15 text-bold truncate">
+				<h3 class="text-14 text-semibold truncate">
 					{title}
 				</h3>
 			{/if}
@@ -229,10 +227,16 @@
 		align-items: center;
 		justify-content: center;
 		color: var(--clr-text-3);
-		transition: color var(--transition-fast);
+		transition:
+			color var(--transition-fast),
+			transform var(--transition-medium);
 
 		&:hover {
 			color: var(--clr-text-2);
+		}
+
+		&.expanded {
+			transform: rotate(90deg);
 		}
 	}
 </style>

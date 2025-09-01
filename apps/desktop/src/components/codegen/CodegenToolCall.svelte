@@ -18,12 +18,9 @@
 
 <div class="tool-call">
 	<div class="tool-call-header">
-		<Button
-			kind="ghost"
-			icon={expanded ? 'chevron-down' : 'chevron-right'}
-			size="tag"
-			onclick={() => (expanded = !expanded)}
-		/>
+		<div class="tool-call-header__arrow" class:expanded>
+			<Button kind="ghost" icon="chevron-right" size="tag" onclick={() => (expanded = !expanded)} />
+		</div>
 		{#if requiresApproval}
 			<div class="flex items-center justify-between grow gap-12">
 				<p>{toolCall.name} requires approval</p>
@@ -45,17 +42,14 @@
 			<p>{toolCall.name}</p>
 		{/if}
 	</div>
+
 	{#if expanded}
 		<div class="tool-call-content">
-			<p class="text-14 text-semibold">Request</p>
-			<div class="tool-call-markdown">
-				<Markdown content={`\`\`\`\n${JSON.stringify(toolCall.input)}\n\`\`\``} />
-			</div>
+			<Markdown content={`\`\`\`\nRequest:\n${JSON.stringify(toolCall.input)}\n\`\`\``} />
 			{#if toolCall.result}
-				<p class="text-14 text-semibold">Response</p>
-				<div class="tool-call-markdown">
-					<Markdown content={`\`\`\`\n${toolCall.result.replaceAll('```', '\\`\\`\\`')}\n\`\`\``} />
-				</div>
+				<Markdown
+					content={`\`\`\`\nResponse:\n${toolCall.result.replaceAll('```', '\\`\\`\\`')}\n\`\`\``}
+				/>
 			{/if}
 		</div>
 	{/if}
@@ -66,9 +60,7 @@
 		display: flex;
 		flex-direction: column;
 		padding: 8px;
-
 		gap: 12px;
-
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 	}
@@ -79,10 +71,25 @@
 		gap: 8px;
 	}
 
-	.tool-call-markdown {
-		max-width: 100%;
-		max-height: 160px;
+	.tool-call-header__arrow {
+		display: flex;
+		color: var(--clr-text-3);
+		transition: color var(--transition-fast);
 
-		overflow: auto;
+		&.expanded {
+			transform: rotate(90deg);
+			color: var(--clr-text-1);
+		}
+	}
+
+	.tool-call-content {
+		display: flex;
+		flex-direction: column;
+		max-width: 100%;
+		gap: 8px;
+	}
+
+	.tool-call-content :global(pre) {
+		margin: 0;
 	}
 </style>

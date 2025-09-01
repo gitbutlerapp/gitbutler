@@ -49,25 +49,28 @@
 				<Tooltip text="Total tokens used and cost">
 					<div class="flex gap-4 items-center">
 						<p>{tokensUsed}</p>
+
 						<svg
-							width="0.875rem"
-							height="0.875rem"
-							viewBox="0 0 13 14"
+							width="0.938rem"
+							height="0.938rem"
+							viewBox="0 0 15 15"
 							fill="none"
-							opacity="0.6"
+							class="m-bottom-2"
 							xmlns="http://www.w3.org/2000/svg"
+							opacity="0.6"
 						>
-							<circle cx="6.28" cy="6.99973" r="5.28" stroke="currentColor" stroke-width="1.5" />
+							<circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.5" />
 							<circle
-								cx="6.27973"
-								cy="7"
-								r="2.80422"
-								transform="rotate(-45 6.27973 7)"
+								cx="7.50015"
+								cy="7.5"
+								r="2.92106"
+								transform="rotate(-45 7.50015 7.5)"
 								stroke="currentColor"
 								stroke-width="1.5"
-								stroke-dasharray="1"
+								stroke-dasharray="2 1"
 							/>
 						</svg>
+
 						<div class="sidebar-entry-drawer__header-info__divider"></div>
 						<p>${cost.toFixed(2)}</p>
 					</div>
@@ -131,7 +134,7 @@
 		width: 100%;
 		padding: 12px;
 		overflow: hidden;
-		gap: 10px;
+		gap: 8px;
 		text-align: left;
 
 		&.selected {
