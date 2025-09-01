@@ -12,8 +12,8 @@
 		position: relative;
 		align-items: center;
 		justify-content: center;
-		width: 26px;
-		height: 26px;
+		width: 28px;
+		height: 28px;
 	}
 
 	:global(.but-agent-avatar svg) {

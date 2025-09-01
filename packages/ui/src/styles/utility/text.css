@@ -126,3 +126,12 @@
 .text-balance {
 	text-wrap: balance;
 }
+
+.text-pre {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.text-italic {
+	font-style: italic;
+}
