@@ -5,7 +5,8 @@
 	"type": "module",
 	"scripts": {
 		"check": "tsc --noEmit",
-		"build": "tsc -p tsconfig.json"
+		"build": "tsc -p tsconfig.json",
+		"package": "tsc -p tsconfig.json"
 	},
 	"exports": {
 		"./*": {
