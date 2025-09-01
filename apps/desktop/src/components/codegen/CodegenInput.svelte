@@ -47,6 +47,7 @@
 <div class="text-input dialog-input" onkeypress={handleKeypress}>
 	<Textarea
 		bind:value
+		autofocus
 		placeholder="What would you like to make..."
 		borderless
 		padding={{

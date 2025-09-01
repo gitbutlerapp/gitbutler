@@ -60,7 +60,7 @@
 		flex-direction: column;
 		width: 100%;
 		padding: 16px;
-		gap: 12px;
+		gap: 10px;
 		border-bottom: 1px solid var(--clr-border-3);
 	}
 
