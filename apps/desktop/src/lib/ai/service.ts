@@ -29,7 +29,7 @@ import {
 	type FileChange
 } from '$lib/ai/types';
 import { splitMessage } from '$lib/utils/commitMessage';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { get } from 'svelte/store';
 import type { GitConfigService } from '$lib/config/gitConfigService';
 import type { SecretsService } from '$lib/secrets/secretsService';

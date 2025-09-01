@@ -19,7 +19,7 @@
 	import { selectFilesInList } from '$lib/selection/idSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
 	import { chunk } from '$lib/utils/array';
-	import { inject, injectOptional } from '@gitbutler/shared/context';
+	import { inject, injectOptional } from '@gitbutler/core/context';
 	import { FileListItem } from '@gitbutler/ui';
 
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';

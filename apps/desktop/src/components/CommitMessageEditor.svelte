@@ -15,7 +15,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, TestId } from '@gitbutler/ui';
 
 	import { tick } from 'svelte';

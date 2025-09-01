@@ -8,7 +8,7 @@
 
 <script lang="ts">
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, Modal, TestId } from '@gitbutler/ui';
 
 	const { projectId, stackId, branchName }: DeleteBranchModalProps = $props();

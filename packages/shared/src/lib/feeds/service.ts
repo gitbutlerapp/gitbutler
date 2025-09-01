@@ -1,4 +1,3 @@
-import { InjectionToken } from '$lib/context';
 import { feedAppend, feedPrepend } from '$lib/feeds/feedsSlice';
 import { upsertPost, upsertPosts } from '$lib/feeds/postsSlice';
 import { apiToPost, type ApiPost, type ApiPostWithReplies, type Post } from '$lib/feeds/types';
@@ -7,10 +6,11 @@ import { POLLING_FAST, POLLING_REGULAR } from '$lib/polling';
 import { guardReadableTrue } from '$lib/storeUtils';
 import { apiToUser, type LoadableUser } from '$lib/users/types';
 import { userTable } from '$lib/users/usersSlice';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
-export const FEED_SERVICE = new InjectionToken<FeedService>('FeedService');
+export const FEED_SERVICE: InjectionToken<FeedService> = new InjectionToken('FeedService');
 
 export class FeedService {
 	private readonly feedInterests = new InterestStore<{ identifier: string }>(POLLING_REGULAR);

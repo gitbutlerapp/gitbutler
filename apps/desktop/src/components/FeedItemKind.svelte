@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getToolCallIcon, parseToolCall, type ToolCall } from '$lib/ai/tool';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, Icon } from '@gitbutler/ui';
 
 	import type { WorkflowKind } from '$lib/actions/types';

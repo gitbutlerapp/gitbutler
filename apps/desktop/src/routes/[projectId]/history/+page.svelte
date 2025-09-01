@@ -13,7 +13,7 @@
 	import { HISTORY_SERVICE, createdOnDay } from '$lib/history/history';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { createSnapshotSelection, type SelectionId } from '$lib/selection/key';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { EmptyStatePlaceholder, Icon } from '@gitbutler/ui';
 	import type { Snapshot } from '$lib/history/types';
 

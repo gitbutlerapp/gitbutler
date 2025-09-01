@@ -2,7 +2,7 @@
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Link, SectionCard, Select, SelectItem, Spacer, Textbox } from '@gitbutler/ui';
 
 	import type { ForgeName } from '$lib/forge/interface/forge';

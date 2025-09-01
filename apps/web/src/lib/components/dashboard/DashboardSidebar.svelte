@@ -3,7 +3,7 @@
 	import DashboardSidebarReviews from '$lib/components/dashboard/DashboardSidebarReviews.svelte';
 	import { dashboardSidebarSetTab, type SidebarTab } from '$lib/dashboard/sidebar.svelte';
 	import { WEB_STATE } from '$lib/redux/store.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	const webState = inject(WEB_STATE);
 	const webDispatch = webState.appDispatch;

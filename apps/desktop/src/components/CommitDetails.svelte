@@ -6,7 +6,7 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { rejoinParagraphs, truncate } from '$lib/utils/string';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	import { Avatar, Icon, TestId, Tooltip } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Toggle, Select, SelectItem, TestId } from '@gitbutler/ui';
 	import type { Writable } from 'svelte/store';
 

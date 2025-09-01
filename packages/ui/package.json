@@ -45,6 +45,7 @@
 		"@codemirror/language": "^6.11.2",
 		"@codemirror/legacy-modes": "^6.5.1",
 		"@csstools/postcss-bundler": "^2.0.8",
+		"@gitbutler/core": "workspace:*",
 		"@lezer/common": "^1.2.3",
 		"@lezer/highlight": "^1.2.1",
 		"@replit/codemirror-lang-svelte": "^6.0.0",

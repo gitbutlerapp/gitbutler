@@ -28,7 +28,7 @@
 
 	import { createBranchRef } from '$lib/utils/branch';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 
 	import { Button, FileViewHeader, Icon, TestId } from '@gitbutler/ui';

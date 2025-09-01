@@ -1,5 +1,5 @@
 import { FOCUS_MANAGER, type FocusableOptions, type Payload } from '$lib/focus/focusManager';
-import { inject } from '@gitbutler/shared/context';
+import { inject } from '@gitbutler/core/context';
 import type { Action } from 'svelte/action';
 
 /**

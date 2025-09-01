@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { BUTLER_AI_CLIENT, MessageRole } from '$lib/ai/service';
 	import { parseDiffPatchToDiffString } from '$lib/chat/diffPatch';
-	import { inject } from '@gitbutler/shared/context';
-	import { RULES_SERVICE } from '@gitbutler/shared/rules/rulesService';
+	import { inject } from '@gitbutler/core/context';
 
+	import { RULES_SERVICE } from '@gitbutler/shared/rules/rulesService';
 	import { Button, Modal, ScrollableContainer, Textarea } from '@gitbutler/ui';
 	import { tick } from 'svelte';
 	import type { ChatMessage } from '@gitbutler/shared/chat/types';

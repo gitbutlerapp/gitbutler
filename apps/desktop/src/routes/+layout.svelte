@@ -32,7 +32,7 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { ChipToastContainer } from '@gitbutler/ui';
 	import { setExternalLinkService } from '@gitbutler/ui/utils/externalLinkService';
 	import { type Snippet } from 'svelte';

@@ -2,7 +2,7 @@
 	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
 	import GithubIntegration from '$components/GithubIntegration.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Spacer } from '@gitbutler/ui';
 
 	const userService = inject(USER_SERVICE);

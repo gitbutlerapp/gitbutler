@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { showToast } from '$lib/notifications/toasts';
 	import { UPDATER_SERVICE, type InstallStatus } from '$lib/updater/updater';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 	import { env } from '$env/dynamic/public';

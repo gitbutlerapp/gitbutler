@@ -9,7 +9,7 @@
 	import { BACKEND } from '$lib/backend';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, TestId } from '@gitbutler/ui';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 

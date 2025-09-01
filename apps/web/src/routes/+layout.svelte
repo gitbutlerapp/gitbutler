@@ -12,7 +12,7 @@
 	import Hero from '$home/sections/Hero.svelte';
 	import { AuthService, AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
-	import { provide } from '@gitbutler/shared/context';
+	import { provide } from '@gitbutler/core/context';
 	import { WebRoutesService, WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { type Snippet } from 'svelte';
 	import { get } from 'svelte/store';

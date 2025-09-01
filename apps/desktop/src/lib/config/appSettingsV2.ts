@@ -1,4 +1,4 @@
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { getStorageItem, setStorageItem } from '@gitbutler/shared/persisted';
 import { writable } from 'svelte/store';
 import type { IBackend } from '$lib/backend';

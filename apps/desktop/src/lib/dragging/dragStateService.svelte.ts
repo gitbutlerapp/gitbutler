@@ -1,4 +1,4 @@
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { writable, type Readable } from 'svelte/store';
 
 export const DRAG_STATE_SERVICE = new InjectionToken<DragStateService>('DragStateService');

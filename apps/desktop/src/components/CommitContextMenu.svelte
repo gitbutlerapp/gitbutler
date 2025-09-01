@@ -47,7 +47,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { ensureValue } from '$lib/utils/validation';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import {
 		ContextMenu,
 		ContextMenuItem,

@@ -15,7 +15,7 @@ import {
 	type CheckboxStatus,
 	uncommittedActions
 } from '$lib/selection/uncommitted';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { type Reactive } from '@gitbutler/shared/storeUtils';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';

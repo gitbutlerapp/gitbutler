@@ -4,7 +4,7 @@
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { GIT_SERVICE } from '$lib/git/gitService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, Link, SectionCard, Select, SelectItem, Textbox, Toggle } from '@gitbutler/ui';
 
 	import { onMount } from 'svelte';

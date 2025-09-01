@@ -1,7 +1,7 @@
 <script lang="ts">
 	import TableRow from '$lib/components/table/TableRow.svelte';
+	import { inject } from '@gitbutler/core/context';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
-	import { inject } from '@gitbutler/shared/context';
 	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';

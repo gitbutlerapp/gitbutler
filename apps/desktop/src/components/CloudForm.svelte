@@ -7,7 +7,7 @@
 	import { focusable } from '$lib/focus/focusable';
 	import { newSettingsPath } from '$lib/routes/routes.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, SectionCard, Spacer, Toggle } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();

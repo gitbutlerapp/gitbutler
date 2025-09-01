@@ -10,7 +10,7 @@ attached to posthog events.
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	const { projectId }: { projectId: string } = $props();
 

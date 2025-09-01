@@ -5,7 +5,7 @@
 	import { createdOnDay, HISTORY_SERVICE } from '$lib/history/history';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { toHumanReadableTime } from '$lib/utils/time';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, Icon, FileListItem } from '@gitbutler/ui';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';

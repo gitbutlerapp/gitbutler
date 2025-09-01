@@ -2,7 +2,7 @@
 	import DashboardSidebarProject from '$lib/components/dashboard/DashboardSidebarProject.svelte';
 	import { WEB_STATE } from '$lib/redux/store.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import { getOrganizations } from '@gitbutler/shared/organizations/organizationsPreview.svelte';

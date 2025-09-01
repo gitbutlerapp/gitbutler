@@ -1,6 +1,6 @@
 import Tauri, { tauriLogErrorToFile, tauriPathSeparator } from '$lib/backend/tauri';
 import Web, { webLogErrorToFile, webPathSeparator } from '$lib/backend/web';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { IBackend } from '$lib/backend/backend';
 
 export const BACKEND = new InjectionToken<IBackend>('Backend');

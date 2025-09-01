@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { ScrollableContainer, type ScrollableProps } from '@gitbutler/ui';
 
 	let {

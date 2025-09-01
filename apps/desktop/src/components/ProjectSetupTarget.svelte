@@ -9,7 +9,7 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { unique } from '$lib/utils/array';
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, Toggle, Select, SelectItem, TestId } from '@gitbutler/ui';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 

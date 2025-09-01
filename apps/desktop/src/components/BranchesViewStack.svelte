@@ -4,7 +4,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getStackBranchNames } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	type Props = {
 		projectId: string;

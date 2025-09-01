@@ -8,7 +8,7 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 
 	const { projectId }: { projectId: string } = $props();

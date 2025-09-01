@@ -11,7 +11,7 @@
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { getStackName } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, FileStatusBadge, Icon, Modal, Tooltip } from '@gitbutler/ui';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 

@@ -6,6 +6,7 @@
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
+	import { inject } from '@gitbutler/core/context';
 	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
 	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
 	import { BRANCH_SERVICE } from '@gitbutler/shared/branches/branchService';
@@ -14,7 +15,6 @@
 	import { LATEST_BRANCH_LOOKUP_SERVICE } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { BranchStatus, type Branch } from '@gitbutler/shared/branches/types';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
-	import { inject } from '@gitbutler/shared/context';
 	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound, and, isError, map } from '@gitbutler/shared/network/loadable';

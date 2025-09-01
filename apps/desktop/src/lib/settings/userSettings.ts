@@ -1,4 +1,4 @@
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { get, writable, type Writable } from 'svelte/store';
 
 const SETTINGS_KEY = 'settings-json';

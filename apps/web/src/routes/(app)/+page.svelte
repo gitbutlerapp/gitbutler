@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { isFound } from '@gitbutler/shared/network/loadable';
 	import { getRecentlyPushedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';

@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { newSettingsPath } from '$lib/routes/routes.svelte';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	const shortcutService = inject(SHORTCUT_SERVICE);
 	$effect(() =>

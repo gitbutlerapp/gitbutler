@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { HunkDiff, FileListItem } from '@gitbutler/ui';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { DiffHunk } from '$lib/hunks/hunk';

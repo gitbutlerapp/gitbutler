@@ -1,6 +1,6 @@
 import { ProjectsService } from '$lib/project/projectsService';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { ClientState } from '$lib/state/clientState.svelte';

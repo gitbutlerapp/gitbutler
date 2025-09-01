@@ -6,7 +6,7 @@ import {
 	scrollIntoViewIfNeeded,
 	sortByDomOrder
 } from '$lib/focus/utils';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { on } from 'svelte/events';
 import { writable } from 'svelte/store';

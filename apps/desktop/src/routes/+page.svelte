@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	const projectsService = inject(PROJECTS_SERVICE);
 

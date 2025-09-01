@@ -1,0 +1,26 @@
+{
+	"name": "@gitbutler/core",
+	"version": "0.0.1",
+	"description": "Core utilities and types shared across GitButler packages",
+	"type": "module",
+	"scripts": {
+		"check": "tsc --noEmit",
+		"build": "tsc -p tsconfig.json"
+	},
+	"exports": {
+		"./*": {
+			"import": "./dist/*.js",
+			"types": "./dist/*.d.ts"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"devDependencies": {
+		"typescript": "catalog:",
+		"svelte": "catalog:svelte"
+	},
+	"dependencies": {
+		"svelte": "catalog:svelte"
+	}
+}

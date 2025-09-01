@@ -3,7 +3,7 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { clonePath, projectPath } from '$lib/routes/routes.svelte';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 
 	const projectsService = inject(PROJECTS_SERVICE);

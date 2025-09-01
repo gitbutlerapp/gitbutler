@@ -9,7 +9,7 @@
 	import { type AuthKey, type KeyType } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { debounce } from '$lib/utils/debounce';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Link, RadioButton, SectionCard, TestId, Textbox } from '@gitbutler/ui';
 
 	import { onMount } from 'svelte';

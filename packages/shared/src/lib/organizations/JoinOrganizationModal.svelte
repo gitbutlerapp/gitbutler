@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { inject } from '$lib/context';
 	import { ORGANIZATION_SERVICE } from '$lib/organizations/organizationService';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, Modal, Textbox } from '@gitbutler/ui';
 
 	const organizationService = inject(ORGANIZATION_SERVICE);

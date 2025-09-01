@@ -32,7 +32,7 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { debounce } from '$lib/utils/debounce';
 	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
-	import { inject, provide } from '@gitbutler/shared/context';
+	import { inject, provide } from '@gitbutler/core/context';
 	import { onDestroy, untrack, type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 

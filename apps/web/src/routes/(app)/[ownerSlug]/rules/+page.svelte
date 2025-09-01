@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
+	import { inject } from '@gitbutler/core/context';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
-	import { inject } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';

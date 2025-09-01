@@ -8,8 +8,8 @@
 		type ChangesType
 	} from '$lib/components/table/types';
 	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/core/context';
 	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
-	import { inject } from '@gitbutler/shared/context';
 	import { AvatarGroup, CommitStatusBadge, Icon, type CommitStatusType } from '@gitbutler/ui';
 
 	import dayjs from 'dayjs';

@@ -4,7 +4,7 @@
 	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	import { Button, Icon, Modal, SectionCard, chipToasts as toasts } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';

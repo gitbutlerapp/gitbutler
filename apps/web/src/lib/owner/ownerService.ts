@@ -1,4 +1,4 @@
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { writable, type Writable } from 'svelte/store';
 import type {
 	OwnerResponse,

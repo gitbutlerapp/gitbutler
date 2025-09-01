@@ -3,7 +3,7 @@
 	import Resizer from '$components/Resizer.svelte';
 	import { focusable } from '$lib/focus/focusable';
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 
 	import { Button, Icon } from '@gitbutler/ui';

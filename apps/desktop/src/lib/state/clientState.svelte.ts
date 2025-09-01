@@ -2,7 +2,7 @@ import { tauriBaseQuery } from '$lib/state/backendQuery';
 import { butlerModule } from '$lib/state/butlerModule';
 import { ReduxTag } from '$lib/state/tags';
 import { uiStateSlice } from '$lib/state/uiState.svelte';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { combineSlices, configureStore, type Reducer } from '@reduxjs/toolkit';
 import {

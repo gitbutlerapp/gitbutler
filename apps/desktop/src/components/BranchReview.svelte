@@ -5,7 +5,7 @@
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
 	import StackedPullRequestCard from '$components/StackedPullRequestCard.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, Modal } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 

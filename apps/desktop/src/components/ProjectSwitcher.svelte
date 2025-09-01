@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { projectPath } from '$lib/routes/routes.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, OptionsGroup, Select, SelectItem } from '@gitbutler/ui';
 
 	const { projectId }: { projectId?: string } = $props();

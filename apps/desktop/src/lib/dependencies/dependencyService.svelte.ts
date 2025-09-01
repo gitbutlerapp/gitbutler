@@ -4,7 +4,7 @@ import {
 	type HunkDependencies
 } from '$lib/dependencies/dependencies';
 import { createSelectByIds } from '$lib/state/customSelectors';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { createEntityAdapter } from '@reduxjs/toolkit';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 

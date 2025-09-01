@@ -2,7 +2,7 @@
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Modal, SectionCard, Toggle } from '@gitbutler/ui';
 	import type { Modal as ModalType } from '@gitbutler/ui';
 

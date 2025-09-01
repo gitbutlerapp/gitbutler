@@ -12,7 +12,7 @@
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE, type ExclusiveAction } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { TestId } from '@gitbutler/ui';
 
 	interface Props {

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { inject } from '$lib/context';
 	import { ORGANIZATION_SERVICE } from '$lib/organizations/organizationService';
+	import { inject } from '@gitbutler/core/context';
 
 	import { Button, Modal, Textarea, Textbox } from '@gitbutler/ui';
 	import { slugify } from '@gitbutler/ui/utils/string';

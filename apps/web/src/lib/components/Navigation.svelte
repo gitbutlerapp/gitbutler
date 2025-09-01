@@ -4,7 +4,7 @@
 	import Breadcrumbs from '$lib/components/chat/Breadcrumbs.svelte';
 	import { featureShowOrganizations } from '$lib/featureFlags';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { Button, ContextMenu, ContextMenuItem, ContextMenuSection, Icon } from '@gitbutler/ui';
 

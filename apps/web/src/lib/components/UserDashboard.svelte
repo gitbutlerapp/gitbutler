@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	const authService = inject(AUTH_SERVICE);
 	const userService = inject(USER_SERVICE);

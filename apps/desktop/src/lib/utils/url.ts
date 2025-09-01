@@ -1,5 +1,5 @@
 import { showToast } from '$lib/notifications/toasts';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { IBackend } from '$lib/backend';
 
 const SEPARATOR = '/';

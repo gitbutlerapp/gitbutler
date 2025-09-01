@@ -22,7 +22,7 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { USER } from '$lib/user/user';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import {
 		Button,
 		ContextMenu,

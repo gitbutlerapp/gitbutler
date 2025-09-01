@@ -4,7 +4,7 @@
 	import { featureShowOrganizations, featureShowProjectPage } from '$lib/featureFlags';
 	import { SSH_KEY_SERVICE, type SshKey } from '$lib/sshKeyService';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { NOTIFICATION_SETTINGS_SERVICE } from '@gitbutler/shared/settings/notificationSettingsService';

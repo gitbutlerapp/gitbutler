@@ -2,7 +2,7 @@
 	import WelcomeAction from '$components/WelcomeAction.svelte';
 	import signinSvg from '$lib/assets/signin.svg?raw';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, LinkButton } from '@gitbutler/ui';
 
 	import { writable } from 'svelte/store';

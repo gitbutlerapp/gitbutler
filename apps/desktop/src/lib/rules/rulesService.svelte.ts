@@ -1,6 +1,6 @@
 import { hasBackendExtra } from '$lib/state/backendQuery';
 import { invalidatesItem, invalidatesList, providesItems, ReduxTag } from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type {
 	CreateRuleRequest,

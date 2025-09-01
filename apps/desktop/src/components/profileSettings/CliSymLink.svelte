@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CLI_MANAGER } from '$lib/cli/cli';
+	import { inject } from '@gitbutler/core/context';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
-	import { inject } from '@gitbutler/shared/context';
 	import { Icon } from '@gitbutler/ui';
 
 	interface Props {

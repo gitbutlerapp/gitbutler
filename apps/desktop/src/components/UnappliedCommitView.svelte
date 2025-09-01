@@ -7,7 +7,7 @@
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { createCommitSelection } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	type Props = {
 		projectId: string;

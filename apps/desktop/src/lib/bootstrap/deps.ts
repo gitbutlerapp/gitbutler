@@ -63,7 +63,7 @@ import { USER_SERVICE, UserService } from '$lib/user/userService';
 import { ResizeSync, RESIZE_SYNC } from '$lib/utils/resizeSync';
 import URLService, { URL_SERVICE } from '$lib/utils/url';
 import { WorktreeService, WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
-import { provideAll } from '@gitbutler/shared/context';
+import { provideAll } from '@gitbutler/core/context';
 import { FeedService, FEED_SERVICE } from '@gitbutler/shared/feeds/service';
 import { HttpClient, HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 import {

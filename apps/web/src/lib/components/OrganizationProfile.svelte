@@ -5,7 +5,7 @@
 	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
 	import { OWNER_SERVICE } from '$lib/owner/ownerService';
 	import { UserService, USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import { Button, Modal } from '@gitbutler/ui';
 

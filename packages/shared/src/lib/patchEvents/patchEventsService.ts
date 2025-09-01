@@ -1,4 +1,3 @@
-import { InjectionToken } from '$lib/context';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable, isFound } from '$lib/network/loadable';
 import { patchEventsSelectors, upsertPatchEvent } from '$lib/patchEvents/patchEventsSlice';
@@ -13,6 +12,7 @@ import {
 import { patchCommitTable } from '$lib/patches/patchCommitsSlice';
 import { playSound } from '$lib/sounds';
 import { asyncToSyncSignals, writableDerived } from '$lib/storeUtils';
+import { InjectionToken } from '@gitbutler/core/context';
 import { createConsumer } from '@rails/actioncable';
 import { type Readable } from 'svelte/store';
 import type { HttpClient } from '$lib/network/httpClient';
@@ -32,7 +32,9 @@ function getActionCableEndpoint(token: string | undefined, baseUrl: string): str
 	return url.toString();
 }
 
-export const PATCH_EVENTS_SERVICE = new InjectionToken<PatchEventsService>('PatchEventsService');
+export const PATCH_EVENTS_SERVICE: InjectionToken<PatchEventsService> = new InjectionToken(
+	'PatchEventsService'
+);
 
 export class PatchEventsService {
 	private userId: number | undefined;

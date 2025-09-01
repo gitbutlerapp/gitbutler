@@ -1,0 +1,24 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"lib": ["dom", "dom.iterable", "ES2021"],
+		"allowJs": true,
+		"checkJs": false,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": true,
+		"experimentalDecorators": true,
+		"moduleResolution": "bundler",
+		"declaration": true,
+		"declarationMap": true,
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
+		"outDir": "dist",
+		"rootDir": "src",
+		"mapRoot": "../../dist"
+	},
+	"include": ["src/**/*"],
+	"exclude": ["dist", "node_modules", "**/*.test.ts", "**/*.spec.ts"]
+}

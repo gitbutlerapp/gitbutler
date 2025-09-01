@@ -9,7 +9,7 @@
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	import { Icon, Spacer, chipToasts } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';

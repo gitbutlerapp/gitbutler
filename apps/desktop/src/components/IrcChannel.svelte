@@ -4,7 +4,7 @@
 	import IrcNames from '$components/IrcNames.svelte';
 	import { IRC_CLIENT } from '$lib/irc/ircClient.svelte';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import type { Snippet } from 'svelte';
 
 	type Props = {

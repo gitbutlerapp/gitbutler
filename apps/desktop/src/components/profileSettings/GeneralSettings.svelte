@@ -12,7 +12,7 @@
 	import { UPDATER_SERVICE } from '$lib/updater/updater';
 	import { USER_SERVICE } from '$lib/user/userService';
 
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	import {
 		Button,

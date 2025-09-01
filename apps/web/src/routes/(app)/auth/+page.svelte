@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	// import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 

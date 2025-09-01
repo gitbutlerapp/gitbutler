@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { WEB_STATE } from '$lib/redux/store.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';

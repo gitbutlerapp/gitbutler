@@ -2,7 +2,7 @@
 	import AuthorMissingModalContent from '$components/AuthorMissingModalContent.svelte';
 	import CommitFailedModalContent from '$components/CommitFailedModalContent.svelte';
 	import { type GlobalModalState, UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Modal, TestId } from '@gitbutler/ui';
 	import type { ModalProps } from '@gitbutler/ui';
 

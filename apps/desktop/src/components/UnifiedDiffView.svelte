@@ -21,7 +21,7 @@
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	import { EmptyStatePlaceholder, HunkDiff, TestId } from '@gitbutler/ui';
 	import { parseHunk } from '@gitbutler/ui/utils/diffParsing';

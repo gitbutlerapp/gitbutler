@@ -1,7 +1,7 @@
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { showError } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
 import { derived, get, readable, writable, type Readable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';

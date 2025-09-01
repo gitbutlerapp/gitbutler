@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { shortcuts } from '$lib/utils/hotkeys';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	import { Modal } from '@gitbutler/ui';
 	import { keysStringToArr } from '@gitbutler/ui/utils/hotkeys';

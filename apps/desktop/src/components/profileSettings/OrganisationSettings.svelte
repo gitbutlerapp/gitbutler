@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Section from '$components/Section.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
