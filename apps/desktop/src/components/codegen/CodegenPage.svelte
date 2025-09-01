@@ -40,7 +40,7 @@
 		ContextMenuSection,
 		EmptyStatePlaceholder
 	} from '@gitbutler/ui';
-	import type { ClaudeMessage } from '$lib/codegen/types';
+	import type { ClaudeMessage, ThinkingLevel } from '$lib/codegen/types';
 
 	type Props = {
 		projectId: string;
@@ -67,7 +67,6 @@
 	let selectedModel = $state('Claude 3.5 Sonnet');
 	let thinkingModeContextMenu = $state<ContextMenu>();
 	let thinkingModeTrigger = $state<HTMLButtonElement>();
-	let selectedThinkingMode = $state('Normal');
 	let templateContextMenu = $state<ContextMenu>();
 	let templateTrigger = $state<HTMLButtonElement>();
 
@@ -79,7 +78,7 @@
 		'Claude 3 Haiku'
 	];
 
-	const thinkingModeOptions = ['Normal', 'Think', 'Mega Think', 'Ultra Think'];
+	const thinkingLevels: ThinkingLevel[] = ['normal', 'think', 'megaThink', 'ultraThink'];
 
 	const templateSnippets = [
 		{
@@ -106,6 +105,7 @@
 
 	const projectState = uiState.project(projectId);
 	const selectedBranch = $derived(projectState.selectedClaudeSession.current);
+	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
 
 	$effect(() => {
 		if (stacks.current.data) {
@@ -145,7 +145,8 @@
 		const promise = claudeCodeService.sendMessage({
 			projectId,
 			stackId: selectedBranch.stackId,
-			message
+			message,
+			thinkingLevel: selectedThinkingLevel
 		});
 		message = '';
 		await promise;
@@ -185,9 +186,24 @@
 		modelContextMenu?.close();
 	}
 
-	function selectThinkingMode(mode: string) {
-		selectedThinkingMode = mode;
+	function selectThinkingLevel(level: ThinkingLevel) {
+		projectState.thinkingLevel.set(level);
 		thinkingModeContextMenu?.close();
+	}
+
+	function thinkingLevelToUiLabel(level: ThinkingLevel): string {
+		switch (level) {
+			case 'normal':
+				return 'Normal';
+			case 'think':
+				return 'Think';
+			case 'megaThink':
+				return 'Mega Think';
+			case 'ultraThink':
+				return 'Ultra Think';
+			default:
+				return 'Normal';
+		}
 	}
 
 	function insertTemplate(template: string) {
@@ -304,7 +320,7 @@
 											reversedDirection
 											onclick={() => thinkingModeContextMenu?.toggle()}
 											tooltip="Thinking Mode"
-											children={selectedThinkingMode === 'Normal' ? undefined : thinkingBtnText}
+											children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
 										/>
 									</div>
 
@@ -471,7 +487,7 @@
 {/snippet}
 
 {#snippet thinkingBtnText()}
-	{selectedThinkingMode}
+	{thinkingLevelToUiLabel(selectedThinkingLevel)}
 {/snippet}
 
 <ClaudeCodeSettingsModal bind:this={settingsModal} onClose={() => {}} />
@@ -486,8 +502,11 @@
 
 <ContextMenu bind:this={thinkingModeContextMenu} leftClickTrigger={thinkingModeTrigger} side="top">
 	<ContextMenuSection title="Thinking Mode">
-		{#each thinkingModeOptions as mode}
-			<ContextMenuItem label={mode} onclick={() => selectThinkingMode(mode)} />
+		{#each thinkingLevels as level}
+			<ContextMenuItem
+				label={thinkingLevelToUiLabel(level)}
+				onclick={() => selectThinkingLevel(level)}
+			/>
 		{/each}
 	</ContextMenuSection>
 </ContextMenu>

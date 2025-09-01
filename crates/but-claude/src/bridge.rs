@@ -20,7 +20,7 @@
 //!   more complex with more unknowns.
 
 use crate::{
-    ClaudeMessage, ClaudeMessageContent, Transcript, UserInput,
+    ClaudeMessage, ClaudeMessageContent, ThinkingLevel, Transcript, UserInput,
     claude_config::{fmt_claude_mcp, fmt_claude_settings},
     db,
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
@@ -69,12 +69,19 @@ impl Claudes {
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
         stack_id: StackId,
         message: &str,
+        thinking_level: ThinkingLevel,
     ) -> Result<()> {
         if self.requests.lock().await.contains_key(&stack_id) {
             bail!("Claude is thinking, back off!!!")
         } else {
-            self.spawn_claude(ctx, broadcaster, stack_id, message.to_owned())
-                .await?
+            self.spawn_claude(
+                ctx,
+                broadcaster,
+                stack_id,
+                message.to_owned(),
+                thinking_level,
+            )
+            .await?
         };
 
         Ok(())
@@ -117,6 +124,7 @@ impl Claudes {
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
         stack_id: StackId,
         message: String,
+        thinking_level: ThinkingLevel,
     ) -> Result<()> {
         let (send_kill, mut recv_kill) = unbounded_channel();
         self.requests
@@ -176,6 +184,7 @@ impl Claudes {
             session,
             project.path.clone(),
             ctx.clone(),
+            thinking_level,
         )
         .await?;
         let cmd_exit = tokio::select! {
@@ -272,6 +281,7 @@ enum Exit {
 }
 
 /// Spawns the actual claude code command
+#[allow(clippy::too_many_arguments)]
 async fn spawn_command(
     message: String,
     create_new: bool,
@@ -280,6 +290,7 @@ async fn spawn_command(
     session: crate::ClaudeSession,
     project_path: std::path::PathBuf,
     ctx: Arc<Mutex<CommandContext>>,
+    thinking_level: ThinkingLevel,
 ) -> Result<Child> {
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
@@ -321,8 +332,24 @@ async fn spawn_command(
 
         command.arg(format!("--resume={}", current_id));
     }
-    command.arg(message);
+    command.arg(format_message(&message, thinking_level));
     Ok(command.spawn()?)
+}
+
+fn format_message(message: &str, thinking_level: ThinkingLevel) -> String {
+    // Add thinking level argument
+    match thinking_level {
+        ThinkingLevel::Normal => message.to_owned(),
+        ThinkingLevel::Think => {
+            format!("{message}\n\nPlease think before taking any actions")
+        }
+        ThinkingLevel::MegaThink => {
+            format!("{message}\n\nPlease megathink before taking any actions")
+        }
+        ThinkingLevel::UltraThink => {
+            format!("{message}\n\nPlease ultrathink before taking any actions")
+        }
+    }
 }
 
 /// If a session exists, it just returns it, otherwise it creates a new session

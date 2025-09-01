@@ -1,7 +1,8 @@
 import {
 	type ClaudeMessage,
 	type ClaudePermissionRequest,
-	type ClaudeSessionDetails
+	type ClaudeSessionDetails,
+	type ThinkingLevel
 } from '$lib/codegen/types';
 import { hasBackendExtra } from '$lib/state/backendQuery';
 import { invalidatesItem, providesItem, ReduxTag } from '$lib/state/tags';
@@ -62,6 +63,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					projectId: string;
 					stackId: string;
 					message: string;
+					thinkingLevel: ThinkingLevel;
 				}
 			>({
 				extraOptions: {
