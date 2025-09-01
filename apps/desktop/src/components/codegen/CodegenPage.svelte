@@ -10,6 +10,7 @@
 	import CodegenRunningMessage from '$components/codegen/CodegenRunningMessage.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
+	import CodegenSidebarEntryDisabled from '$components/codegen/CodegenSidebarEntryDisabled.svelte';
 	import CodegenTodo from '$components/codegen/CodegenTodo.svelte';
 	import CodegenUsageStat from '$components/codegen/CodegenUsageStat.svelte';
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
@@ -405,7 +406,8 @@
 							stack.id,
 							head.name,
 							headIndex,
-							stack.heads.length
+							stack.heads.length,
+							headIndex === 0
 						)}
 					{/each}
 				{/if}
@@ -419,58 +421,69 @@
 	stackId: string,
 	head: string,
 	headIndex: number,
-	totalHeads: number
+	totalHeads: number,
+	isFirstBranch: boolean
 )}
-	{@const branch = stackService.branchByName(projectId, stackId, head)}
-	{@const commits = stackService.commits(projectId, stackId, head)}
-	{@const events = claudeCodeService.messages({
-		projectId,
-		stackId
-	})}
-	<ReduxResult
-		result={combineResults(branch.current, commits.current, events.current)}
-		{projectId}
-		{stackId}
-	>
-		{#snippet children([branch, commits, events], { projectId: _projectId, stackId })}
-			{@const usage = usageStats(events)}
-			<CodegenSidebarEntry
-				onclick={() => {
-					projectState.selectedClaudeSession.set({ stackId, head: branch.name });
-				}}
-				selected={selectedBranch?.stackId === stackId && selectedBranch?.head === branch.name}
-				branchName={branch.name}
-				status={currentStatus(events)}
-				tokensUsed={usage.tokens}
-				cost={usage.cost}
-				commitCount={commits.length}
-				lastInteractionTime={lastInteractionTime(events)}
-				commits={commitsList}
-			/>
-			<!-- defining this here so it's name doesn't conflict with the
-			variable commits -->
-			{#snippet commitsList()}
-				{@const lastBranch = headIndex === totalHeads - 1}
-				{#each commits as commit, i}
-					<CommitRow
-						disabled
-						disableCommitActions
-						commitId={commit.id}
-						commitMessage={commit.message}
-						type={commit.state.type}
-						diverged={commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
-						hasConflicts={commit.hasConflicts}
-						createdAt={commit.createdAt}
-						branchName={branch.name}
-						first={i === 0}
-						lastCommit={i === commits.length - 1}
-						{lastBranch}
-						tooltip={commitStatusLabel(commit.state.type)}
-					/>
-				{/each}
+	{#if isFirstBranch}
+		{@const branch = stackService.branchByName(projectId, stackId, head)}
+		{@const commits = stackService.commits(projectId, stackId, head)}
+		{@const events = claudeCodeService.messages({
+			projectId,
+			stackId
+		})}
+		<ReduxResult
+			result={combineResults(branch.current, commits.current, events.current)}
+			{projectId}
+			{stackId}
+		>
+			{#snippet children([branch, commits, events], { projectId: _projectId, stackId })}
+				{@const usage = usageStats(events)}
+				<CodegenSidebarEntry
+					onclick={() => {
+						projectState.selectedClaudeSession.set({ stackId, head: branch.name });
+					}}
+					selected={selectedBranch?.stackId === stackId && selectedBranch?.head === branch.name}
+					branchName={branch.name}
+					status={currentStatus(events)}
+					tokensUsed={usage.tokens}
+					cost={usage.cost}
+					commitCount={commits.length}
+					lastInteractionTime={lastInteractionTime(events)}
+					commits={commitsList}
+				/>
+				<!-- defining this here so it's name doesn't conflict with the
+				variable commits -->
+				{#snippet commitsList()}
+					{@const lastBranch = headIndex === totalHeads - 1}
+					{#each commits as commit, i}
+						<CommitRow
+							disabled
+							disableCommitActions
+							commitId={commit.id}
+							commitMessage={commit.message}
+							type={commit.state.type}
+							diverged={commit.state.type === 'LocalAndRemote' &&
+								commit.id !== commit.state.subject}
+							hasConflicts={commit.hasConflicts}
+							createdAt={commit.createdAt}
+							branchName={branch.name}
+							first={i === 0}
+							lastCommit={i === commits.length - 1}
+							{lastBranch}
+							tooltip={commitStatusLabel(commit.state.type)}
+						/>
+					{/each}
+				{/snippet}
 			{/snippet}
-		{/snippet}
-	</ReduxResult>
+		</ReduxResult>
+	{:else}
+		{@const branch = stackService.branchByName(projectId, stackId, head)}
+		<ReduxResult result={branch.current} {projectId} {stackId}>
+			{#snippet children(branch, { projectId: _projectId, stackId: _stackId })}
+				<CodegenSidebarEntryDisabled branchName={branch.name} />
+			{/snippet}
+		</ReduxResult>
+	{/if}
 {/snippet}
 
 {#snippet claudeNotAvailable()}
