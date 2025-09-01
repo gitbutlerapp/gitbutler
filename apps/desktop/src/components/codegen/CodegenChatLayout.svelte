@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { focusable } from '$lib/focus/focusable';
 	import { Icon } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
@@ -31,13 +32,13 @@
 			{@render workspaceActions()}
 		</div>
 	</div>
-	<div class="chat-messages">
-		<!-- This div is required so the column-reverse gives us the right
-		scrolling behaviour, but doesn't flip the order of the messages -->
-		<div>
+
+	<ConfigurableScrollableContainer childrenWrapHeight="100%">
+		<div class="chat-messages hide-native-scrollbar">
 			{@render messages()}
 		</div>
-	</div>
+	</ConfigurableScrollableContainer>
+
 	<div class="chat-footer">
 		{@render input()}
 	</div>
@@ -72,10 +73,10 @@
 
 	.chat-messages {
 		display: flex;
-		flex-grow: 1;
-		flex-direction: column-reverse;
+		flex-direction: column;
+		justify-content: flex-end;
 		width: 100%;
-		overflow: auto;
+		min-height: 100%;
 	}
 
 	.chat-footer {
