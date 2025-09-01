@@ -1110,6 +1110,7 @@ name = "but-rules"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bstr",
  "but-core",
  "but-db",
  "but-graph",
@@ -1122,6 +1123,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-project",
  "gitbutler-stack",
+ "gix",
  "itertools",
  "regex",
  "serde",
