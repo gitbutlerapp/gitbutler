@@ -13,6 +13,15 @@
 	};
 
 	const { branchName, workspaceActions, contextActions, messages, input }: Props = $props();
+
+	let scrollableContainer: ConfigurableScrollableContainer;
+
+	// Export method to scroll to bottom
+	export function scrollToBottom() {
+		if (scrollableContainer?.scrollToBottom) {
+			scrollableContainer.scrollToBottom();
+		}
+	}
 </script>
 
 <div class="chat" use:focusable={{ list: true }}>
@@ -33,7 +42,7 @@
 		</div>
 	</div>
 
-	<ConfigurableScrollableContainer childrenWrapHeight="100%">
+	<ConfigurableScrollableContainer bind:this={scrollableContainer} childrenWrapHeight="100%">
 		<div class="chat-messages hide-native-scrollbar">
 			{@render messages()}
 		</div>
@@ -77,6 +86,7 @@
 		justify-content: flex-end;
 		width: 100%;
 		min-height: 100%;
+		padding: 8px 20px;
 	}
 
 	.chat-footer {

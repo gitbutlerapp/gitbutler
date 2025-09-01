@@ -10,12 +10,18 @@
 	}: ScrollableProps = $props();
 
 	const userSettings = inject(SETTINGS);
+	let scrollableContainer: ScrollableContainer;
 
-	let scroller: ScrollableContainer;
+	// Export method to scroll to bottom
+	export function scrollToBottom() {
+		if (scrollableContainer?.scrollToBottom) {
+			scrollableContainer.scrollToBottom();
+		}
+	}
 </script>
 
 <ScrollableContainer
-	bind:this={scroller}
+	bind:this={scrollableContainer}
 	bind:viewport
 	bind:viewportHeight
 	whenToShow={$userSettings.scrollbarVisibilityState}

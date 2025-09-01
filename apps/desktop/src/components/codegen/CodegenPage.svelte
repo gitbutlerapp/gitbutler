@@ -9,7 +9,7 @@
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
-	import CodegenRunningMessage from '$components/codegen/CodegenRunningMessage.svelte';
+	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
 	import CodegenSidebarEntryDisabled from '$components/codegen/CodegenSidebarEntryDisabled.svelte';
@@ -231,6 +231,16 @@
 
 	let rightSidebarRef = $state<HTMLDivElement>();
 	let createBranchModal = $state<CreateBranchModal>();
+	let chatLayout = $state<CodegenChatLayout>();
+
+	// Auto-scroll when new messages are added
+	$effect(() => {
+		if (events?.current.data) {
+			setTimeout(() => {
+				chatLayout?.scrollToBottom();
+			}, 100);
+		}
+	});
 </script>
 
 <div class="page" use:focusable>
@@ -266,7 +276,7 @@
 					{@const formattedMessages = formatMessages(events, permissionRequests)}
 					{@const lastUserMessageSent = lastUserMessageSentAt(events)}
 
-					<CodegenChatLayout branchName={selectedBranch.head}>
+					<CodegenChatLayout bind:this={chatLayout} branchName={selectedBranch.head}>
 						{#snippet workspaceActions()}
 							<Button
 								kind="outline"
@@ -311,7 +321,7 @@
 							{/if}
 
 							{#if currentStatus(events) === 'running' && lastUserMessageSent}
-								<CodegenRunningMessage {lastUserMessageSent} />
+								<CodegenServiceMessage {lastUserMessageSent} />
 							{/if}
 						{/snippet}
 
