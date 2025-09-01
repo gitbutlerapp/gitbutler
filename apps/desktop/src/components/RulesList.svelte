@@ -19,7 +19,7 @@
 	import { getStackName } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { typedKeys } from '$lib/utils/object';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, chipToasts, Select, SelectItem, Icon } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { Snippet } from 'svelte';

@@ -1,4 +1,3 @@
-import { InjectionToken } from '$lib/context';
 import { InterestStore } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { POLLING_GLACIALLY } from '$lib/polling';
@@ -10,12 +9,13 @@ import {
 	type CreateRuleParams,
 	type LoadableRule
 } from '$lib/rules/types';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
 const USER_RULE_LIST_KEY = 'me';
 
-export const RULES_SERVICE = new InjectionToken<RulesService>('RulesService');
+export const RULES_SERVICE: InjectionToken<RulesService> = new InjectionToken('RulesService');
 
 export class RulesService {
 	private readonly rulesListInterest = new InterestStore<{ owner: string }>(POLLING_GLACIALLY);

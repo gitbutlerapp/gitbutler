@@ -3,7 +3,7 @@
 	import { AI_SERVICE, type DiffInput } from '$lib/ai/service';
 	import { ModelKind } from '$lib/ai/types';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, Link } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 

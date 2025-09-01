@@ -2,7 +2,7 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, Icon, Link } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 

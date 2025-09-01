@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { APP_SETTINGS } from '$lib/config/appSettings';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { SectionCard, Toggle, Link, TestId } from '@gitbutler/ui';
 
 	const appSettings = inject(APP_SETTINGS);

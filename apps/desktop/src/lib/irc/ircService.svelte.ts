@@ -20,7 +20,7 @@ import {
 	clearNames
 } from '$lib/irc/ircSlice';
 import { showError } from '$lib/notifications/toasts';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import persistReducer from 'redux-persist/es/persistReducer';
 import storage from 'redux-persist/lib/storage';

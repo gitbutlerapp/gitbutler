@@ -6,7 +6,7 @@ import {
 } from '$lib/codegen/types';
 import { hasBackendExtra } from '$lib/state/backendQuery';
 import { invalidatesItem, providesItem, ReduxTag } from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { ClientState } from '$lib/state/clientState.svelte';
 
 export const CLAUDE_CODE_SERVICE = new InjectionToken<ClaudeCodeService>('Claude code service');

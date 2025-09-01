@@ -1,5 +1,5 @@
 import { providesList, ReduxTag } from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { IBackend } from '$lib/backend';
 import type { BackendApi } from '$lib/state/clientState.svelte';
 

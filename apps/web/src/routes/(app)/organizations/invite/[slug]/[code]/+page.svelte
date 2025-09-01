@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { Button } from '@gitbutler/ui';

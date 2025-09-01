@@ -1,4 +1,4 @@
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { IBackend } from '$lib/backend';
 
 export const SHORTCUT_SERVICE = new InjectionToken<ShortcutService>('ShortcutService');

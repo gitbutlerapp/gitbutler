@@ -15,7 +15,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { uploadFiles } from '@gitbutler/shared/dom';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { UPLOADS_SERVICE } from '@gitbutler/shared/uploads/uploadsService';

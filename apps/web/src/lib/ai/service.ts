@@ -1,4 +1,4 @@
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { stringStreamGenerator } from '@gitbutler/shared/utils/promise';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 

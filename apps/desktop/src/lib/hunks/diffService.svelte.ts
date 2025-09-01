@@ -1,5 +1,5 @@
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { TreeChange } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';

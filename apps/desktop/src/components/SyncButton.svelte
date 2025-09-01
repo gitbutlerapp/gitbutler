@@ -2,7 +2,7 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, TimeAgo, Icon } from '@gitbutler/ui';
 
 	interface Props {

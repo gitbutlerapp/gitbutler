@@ -14,7 +14,8 @@
 		"experimentalDecorators": true,
 		"declaration": true,
 		"composite": true,
-		"declarationMap": true
+		"declarationMap": true,
+		"moduleResolution": "bundler"
 	},
 	// Path aliases are handled by https://kit.svelte.dev/docs/configuration#alias
 	// except $lib which is handled by https://kit.svelte.dev/docs/configuration#files

@@ -1,4 +1,3 @@
-import { InjectionToken } from '$lib/context';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { POLLING_GLACIALLY } from '$lib/polling';
@@ -11,6 +10,7 @@ import {
 	type LoadableNotificationSettings,
 	type PatchNotificationSettingsParams
 } from '$lib/settings/types';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
@@ -62,6 +62,5 @@ export class NotificationSettingsService {
 	}
 }
 
-export const NOTIFICATION_SETTINGS_SERVICE = new InjectionToken<NotificationSettingsService>(
-	'NotificationSettingsService'
-);
+export const NOTIFICATION_SETTINGS_SERVICE: InjectionToken<NotificationSettingsService> =
+	new InjectionToken('NotificationSettingsService');

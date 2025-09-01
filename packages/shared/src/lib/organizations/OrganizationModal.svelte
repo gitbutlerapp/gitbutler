@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { inject } from '$lib/context';
 	import Loading from '$lib/network/Loading.svelte';
 	import { isFound } from '$lib/network/loadable';
 	import { ORGANIZATION_SERVICE } from '$lib/organizations/organizationService';
@@ -8,6 +7,7 @@
 	import { APP_STATE } from '$lib/redux/store.svelte';
 	import { USER_SERVICE } from '$lib/users/userService';
 	import { getUserByLogin } from '$lib/users/usersPreview.svelte';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, Modal, SectionCard, Textbox, Avatar } from '@gitbutler/ui';
 
 	type Props = {

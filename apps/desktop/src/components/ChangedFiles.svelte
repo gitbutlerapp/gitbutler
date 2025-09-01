@@ -5,7 +5,7 @@
 	import Resizer from '$components/Resizer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Badge, EmptyStatePlaceholder, LineStats } from '@gitbutler/ui';
 
 	import { untrack, type ComponentProps } from 'svelte';

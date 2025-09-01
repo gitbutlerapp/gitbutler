@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import EditMode from '$components/EditMode.svelte';
 	import { MODE_SERVICE, type EditModeMetadata } from '$lib/mode/modeService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	// TODO: Refactor so we don't need non-null assertion.

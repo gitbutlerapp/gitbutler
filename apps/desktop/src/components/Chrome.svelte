@@ -6,7 +6,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { focusable } from '$lib/focus/focusable';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import type { Snippet } from 'svelte';
 
 	const {

@@ -2,7 +2,7 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { ircEnabled, ircServer, codegenEnabled } from '$lib/config/uiFeatureFlags';
 	import { USER } from '$lib/user/user';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { SectionCard, Spacer, Textbox, Toggle } from '@gitbutler/ui';
 
 	const settingsService = inject(SETTINGS_SERVICE);

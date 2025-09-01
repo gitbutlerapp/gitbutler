@@ -13,7 +13,7 @@
 	import prList from '$lib/forge/prPolling.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { debounce } from '$lib/utils/debounce';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { Badge, Button, EmptyStatePlaceholder, Segment, SegmentControl } from '@gitbutler/ui';
 

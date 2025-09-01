@@ -1,7 +1,7 @@
 <script lang="ts">
 	import LoginModal from '$lib/components/LoginModal.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { PATCH_COMMIT_SERVICE } from '@gitbutler/shared/patches/patchCommitService';
 	import { type PatchCommit } from '@gitbutler/shared/patches/types';
 	import {

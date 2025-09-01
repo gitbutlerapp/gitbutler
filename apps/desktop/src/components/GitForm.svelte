@@ -6,7 +6,7 @@
 	import { BACKEND } from '$lib/backend';
 	import { focusable } from '$lib/focus/focusable';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { SectionCard, Spacer, Toggle } from '@gitbutler/ui';
 	import type { Project } from '$lib/project/project';
 

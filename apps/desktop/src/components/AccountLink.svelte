@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { newSettingsPath } from '$lib/routes/routes.svelte';
 	import { USER } from '$lib/user/user';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Icon } from '@gitbutler/ui';
 
 	interface Props {

@@ -3,7 +3,7 @@
 	import HeaderMobileLink from '$home/components/HeaderMobileLink.svelte';
 	import * as jsonLinks from '$home/data/links.json';
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { fly } from 'svelte/transition';
 	import { env } from '$env/dynamic/public';
 

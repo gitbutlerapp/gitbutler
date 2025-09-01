@@ -1,6 +1,6 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
 import { providesList, ReduxTag } from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { IBackend } from '$lib/backend';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
 import type { RestEndpointMethodTypes } from '@octokit/rest';

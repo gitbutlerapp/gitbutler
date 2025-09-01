@@ -26,7 +26,7 @@
 	import { BACKEND } from '$lib/backend';
 	import { focusable } from '$lib/focus/focusable';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, Icon } from '@gitbutler/ui';
 
 	type Props = {

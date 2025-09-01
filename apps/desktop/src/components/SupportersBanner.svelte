@@ -1,7 +1,7 @@
 <script lang="ts">
 	import bannerImgSVG from '$lib/assets/supporters.svg?raw';
 	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	const urlService = inject(URL_SERVICE);
 </script>

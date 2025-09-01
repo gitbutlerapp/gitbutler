@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { nodePath, type TreeNode } from '$lib/files/filetreeV3';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { FolderListItem } from '@gitbutler/ui';
 
 	type Props = {

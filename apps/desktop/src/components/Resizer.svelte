@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { RESIZE_SYNC } from '$lib/utils/resizeSync';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 	import { pxToRem, remToPx } from '@gitbutler/ui/utils/pxToRem';

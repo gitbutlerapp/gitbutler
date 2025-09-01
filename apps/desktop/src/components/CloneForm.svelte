@@ -8,7 +8,7 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { projectPath } from '$lib/routes/routes.svelte';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { Button, Spacer, Textbox } from '@gitbutler/ui';
 

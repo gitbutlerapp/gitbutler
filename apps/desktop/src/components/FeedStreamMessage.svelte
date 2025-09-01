@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FeedItemKind from '$components/FeedItemKind.svelte';
 	import { FEED_FACTORY, type InProgressAssistantMessage, type TodoState } from '$lib/feed/feed';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Icon, Markdown } from '@gitbutler/ui';
 
 	import type { ToolCall } from '$lib/ai/tool';

@@ -6,7 +6,7 @@
 	import { pushStatusToColor, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 
 	type Props = {

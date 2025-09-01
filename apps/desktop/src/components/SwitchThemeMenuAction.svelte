@@ -3,7 +3,7 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { initTheme } from '$lib/utils/theme';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	const userSettings = inject(SETTINGS);
 	const shortcutService = inject(SHORTCUT_SERVICE);

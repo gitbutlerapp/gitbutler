@@ -1,7 +1,7 @@
 import { ActionListing, ButlerAction, Workflow, WorkflowList } from '$lib/actions/types';
 import { Snapshot } from '$lib/history/types';
 import Mutex from '$lib/utils/mutex';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { deduplicateBy } from '@gitbutler/shared/utils/array';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';

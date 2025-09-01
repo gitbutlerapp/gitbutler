@@ -19,8 +19,8 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { ensureValue } from '$lib/utils/validation';
+	import { inject } from '@gitbutler/core/context';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
-	import { inject } from '@gitbutler/shared/context';
 
 	import { Button, Modal, TestId } from '@gitbutler/ui';
 	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';

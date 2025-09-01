@@ -5,7 +5,7 @@
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import {
 		Button,
 		ContextMenu,

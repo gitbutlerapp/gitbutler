@@ -1,5 +1,5 @@
 import { rateLimit } from '$lib/utils/ratelimit';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { Octokit } from '@octokit/rest';
 import type { ApiClient } from '$lib/forge/interface/apiClient';
 

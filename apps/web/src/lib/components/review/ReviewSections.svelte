@@ -12,7 +12,7 @@
 		getAfterVersion
 	} from '$lib/interdiffRangeQuery.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getPatchIdableSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import {

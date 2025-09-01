@@ -1,4 +1,4 @@
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { BackendApi } from '$lib/state/clientState.svelte';
 
 export const DATA_SHARING_SERVICE = new InjectionToken<DataSharingService>('DataSharingService');

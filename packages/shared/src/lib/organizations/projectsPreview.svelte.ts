@@ -1,4 +1,3 @@
-import { inject } from '$lib/context';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { isFound, map } from '$lib/network/loadable';
 import { PROJECT_SERVICE } from '$lib/organizations/projectService';
@@ -7,6 +6,7 @@ import { lookupProject } from '$lib/organizations/repositoryIdLookupPreview.svel
 import { reactive } from '$lib/reactiveUtils.svelte';
 import { APP_STATE } from '$lib/redux/store.svelte';
 import { type Reactive } from '$lib/storeUtils';
+import { inject } from '@gitbutler/core/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { Loadable } from '$lib/network/types';
 import type { LoadableProject } from '$lib/organizations/types';

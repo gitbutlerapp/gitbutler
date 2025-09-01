@@ -1,4 +1,4 @@
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { persisted } from '@gitbutler/shared/persisted';
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { type Readable } from 'svelte/store';

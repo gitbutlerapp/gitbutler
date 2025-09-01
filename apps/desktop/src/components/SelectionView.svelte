@@ -6,7 +6,7 @@
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { readKey, type SelectionId } from '$lib/selection/key';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	type Props = {
 		projectId: string;

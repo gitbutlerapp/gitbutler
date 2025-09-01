@@ -9,7 +9,7 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { FEED_FACTORY } from '$lib/feed/feed';
 	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Badge, Button, Icon, RichTextEditor, Spacer, Link } from '@gitbutler/ui';
 	import { tick } from 'svelte';
 
