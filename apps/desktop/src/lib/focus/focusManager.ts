@@ -436,8 +436,9 @@ export class FocusManager {
 		// Ignore keyboard navigation if user is focused on an
 		// input element, or no current element.
 		if (
-			event.target instanceof HTMLInputElement ||
+			(event.target instanceof HTMLElement && event.target.contentEditable) ||
 			event.target instanceof HTMLTextAreaElement ||
+			event.target instanceof HTMLInputElement ||
 			!this._currentElement
 		) {
 			return;
