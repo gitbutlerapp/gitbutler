@@ -1,7 +1,6 @@
 import { isReduxError } from '$lib/state/reduxError';
 import { getCookie } from '$lib/utils/cookies';
 import { readable } from 'svelte/store';
-import path from 'path';
 import type {
 	AppInfo,
 	DiskStore,
@@ -83,7 +82,7 @@ async function webHomeDirectory(): Promise<string> {
 async function webJoinPath(pathSegment: string, ...paths: string[]): Promise<string> {
 	// TODO: We might want to expose some endpoint in the backedn to handle path joining in the right way.
 	// This will break on windows
-	return await Promise.resolve(path.join(pathSegment, ...paths));
+	return await Promise.resolve([pathSegment, ...paths].join(webPathSeparator()));
 }
 
 async function webDocumentDir(): Promise<string> {
