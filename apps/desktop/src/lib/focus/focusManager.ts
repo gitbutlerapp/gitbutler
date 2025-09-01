@@ -1,6 +1,7 @@
 import { focusNextTabIndex } from '$lib/focus/tabbable';
 import {
 	addToArray,
+	isContentEditable,
 	removeFromArray,
 	scrollIntoViewIfNeeded,
 	sortByDomOrder
@@ -436,7 +437,7 @@ export class FocusManager {
 		// Ignore keyboard navigation if user is focused on an
 		// input element, or no current element.
 		if (
-			(event.target instanceof HTMLElement && event.target.contentEditable) ||
+			(event.target instanceof HTMLElement && isContentEditable(event.target)) ||
 			event.target instanceof HTMLTextAreaElement ||
 			event.target instanceof HTMLInputElement ||
 			!this._currentElement
