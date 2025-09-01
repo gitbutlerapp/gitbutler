@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import CommitRow from '$components/CommitRow.svelte';
+	import CreateBranchModal from '$components/CreateBranchModal.svelte';
 	import Drawer from '$components/Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
@@ -229,6 +230,7 @@
 	);
 
 	let rightSidebarRef = $state<HTMLDivElement>();
+	let createBranchModal = $state<CreateBranchModal>();
 </script>
 
 <div class="page" use:focusable>
@@ -246,7 +248,12 @@
 {#snippet main({ projectId }: { projectId: string })}
 	<CodegenSidebar content={sidebarContent}>
 		{#snippet actions()}
-			<Button disabled kind="outline" size="tag" icon="plus-small" reversedDirection>Add new</Button
+			<Button
+				kind="outline"
+				size="tag"
+				icon="plus-small"
+				reversedDirection
+				onclick={() => createBranchModal?.show()}>Add new</Button
 			>
 			<Button kind="ghost" icon="settings" size="tag" onclick={() => settingsModal?.show()} />
 		{/snippet}
@@ -516,6 +523,8 @@
 
 <ClaudeCodeSettingsModal bind:this={settingsModal} onClose={() => {}} />
 
+<CreateBranchModal bind:this={createBranchModal} {projectId} stackId={selectedBranch?.stackId} />
+
 <ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top">
 	<ContextMenuSection>
 		{#each modelOptions as model}
@@ -579,29 +588,6 @@
 		flex-direction: column;
 		height: 100%;
 		border-left: 1px solid var(--clr-border-2);
-	}
-
-	.right-sidebar__placeholder {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		background-color: var(--clr-bg-2);
-	}
-
-	.right-sidebar__placeholder-image {
-		display: flex;
-		flex: 1;
-		align-items: center;
-		justify-content: center;
-		padding: 24px 0 12px 0;
-	}
-
-	.right-sidebar__placeholder-text {
-		max-width: 240px;
-		margin: 0 auto;
-		padding: 0 12px 40px 12px;
-		color: var(--clr-text-3);
-		text-align: center;
 	}
 
 	.right-sidebar-list {
