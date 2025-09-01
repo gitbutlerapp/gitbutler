@@ -28,7 +28,6 @@
 
 <script lang="ts">
 	import Scrollbar, { type ScrollbarPaddingType } from '$components/scroll/Scrollbar.svelte';
-	import { useAutoScroll } from '$lib/utils/autoscroll';
 	import type { Snippet } from 'svelte';
 
 	let {
@@ -40,7 +39,6 @@
 		thickness,
 		horz,
 		whenToShow = 'hover',
-		autoScroll,
 		children,
 		onthumbdrag,
 		onscroll,
@@ -103,12 +101,21 @@
 			onscrollEnd?.(false);
 		}
 	});
+
+	// Export method to programmatically scroll to bottom
+	export function scrollToBottom() {
+		if (viewport) {
+			viewport.scrollTo({
+				top: viewport.scrollHeight,
+				behavior: 'smooth'
+			});
+		}
+	}
 </script>
 
 <div class="scrollable" style:flex-grow={wide ? 1 : 0} style:max-height={maxHeight}>
 	<div
 		bind:this={viewport}
-		use:useAutoScroll={{ enabled: autoScroll }}
 		bind:offsetHeight={viewportHeight}
 		onscroll={handleScroll}
 		class="viewport hide-native-scrollbar"

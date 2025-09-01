@@ -50,7 +50,7 @@
 		display: flex;
 		align-items: flex-end;
 		width: 100%;
-		padding: 8px 16px 16px 16px;
+		padding: 8px 0 16px;
 
 		&:not(.bubble) {
 			gap: 12px;

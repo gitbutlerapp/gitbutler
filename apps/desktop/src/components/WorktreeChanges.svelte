@@ -156,7 +156,6 @@
 		{#if changes.current.length > 0}
 			<ScrollableContainer
 				{onscrollexists}
-				autoScroll={false}
 				onscrollTop={(visible) => {
 					scrollTopIsVisible = visible;
 				}}

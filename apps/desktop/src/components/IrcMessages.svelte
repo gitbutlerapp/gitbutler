@@ -15,6 +15,14 @@
 
 	const userSettings = inject(SETTINGS);
 	let scroller: ConfigurableScrollableContainer;
+
+	// Auto-scroll when new logs are added
+	$effect(() => {
+		if (logs && logs.length > 0) {
+			// Use setTimeout to ensure the DOM is updated before scrolling
+			setTimeout(() => scroller?.scrollToBottom(), 0);
+		}
+	});
 </script>
 
 {#snippet logTemplate(log: IrcLog)}
@@ -58,7 +66,7 @@
 {/snippet}
 
 <div class="messages">
-	<ConfigurableScrollableContainer bind:this={scroller} autoScroll>
+	<ConfigurableScrollableContainer bind:this={scroller}>
 		{#each logs || [] as log}
 			{@render logTemplate(log)}
 		{/each}

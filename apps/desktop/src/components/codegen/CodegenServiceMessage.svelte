@@ -1,5 +1,6 @@
 <script lang="ts">
-	import CodegenMessage from '$components/codegen/CodegenMessage.svelte';
+	import { AgentAvatar } from '@gitbutler/ui';
+	import { fade } from 'svelte/transition';
 
 	type Props = {
 		lastUserMessageSent: Date;
@@ -93,4 +94,37 @@
 	});
 </script>
 
-<CodegenMessage content="Claude is {currentWord}... {currentDuration}" side="left" bubble />
+<div class="service-message__wrapper">
+	<div class="service-message">
+		<AgentAvatar />
+		<div class="service-message__bubble">
+			<span class="text-13 text-italic">
+				Claude is
+				{#key currentWord}
+					<span class="animated-word" in:fade={{ duration: 150 }}>{currentWord}</span>
+				{/key}
+				... {currentDuration}
+			</span>
+		</div>
+	</div>
+</div>
+
+<style lang="postcss">
+	.service-message__wrapper {
+		display: flex;
+		width: 100%;
+		padding: 8px 0 16px;
+	}
+	.service-message {
+		display: flex;
+		align-items: flex-end;
+		gap: 16px;
+	}
+	.service-message__bubble {
+		display: flex;
+		padding: 8px 12px;
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-2);
+		color: var(--clr-text-2);
+	}
+</style>
