@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/components/codegen/CodegenPage.svelte"]
-ourEntries = ["apps/desktop/src/components/codegen/CodegenPage.svelte"]
-theirEntries = ["apps/desktop/src/components/codegen/CodegenPage.svelte"]
