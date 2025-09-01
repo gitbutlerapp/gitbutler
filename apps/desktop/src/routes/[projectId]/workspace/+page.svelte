@@ -16,11 +16,18 @@
 	const projectState = $derived(uiState.project(projectId));
 	const stackId = $derived(projectState.stackId.current);
 
+	// Check for stackId in URL query parameters
+	const urlStackId = $derived(page.url.searchParams.get('stackId'));
+	let scrollToStackId = $state<string | undefined>(undefined);
+
 	const firstStackResult = $derived(stackService.stackAt(projectId, 0));
 	const firstStack = $derived(firstStackResult.current.data);
 
 	$effect(() => {
-		if (stackId === undefined && firstStack) {
+		if (urlStackId) {
+			projectState.stackId.set(urlStackId);
+			scrollToStackId = urlStackId;
+		} else if (stackId === undefined && firstStack) {
 			projectState.stackId.set(firstStack.id);
 		}
 	});
@@ -35,6 +42,13 @@
 			gotoEdit();
 		}
 	});
+
+	function onScrollComplete() {
+		scrollToStackId = undefined;
+		const newUrl = new URL(page.url);
+		newUrl.searchParams.delete('stackId');
+		goto(newUrl.toString(), { replaceState: false });
+	}
 </script>
 
-<WorkspaceView {projectId} />
+<WorkspaceView {projectId} {scrollToStackId} {onScrollComplete} />

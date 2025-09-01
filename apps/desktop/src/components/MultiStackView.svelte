@@ -28,9 +28,11 @@
 		stacks: Stack[];
 		selectionId: SelectionId;
 		focusedStackId?: string;
+		scrollToStackId?: string;
+		onScrollComplete?: () => void;
 	};
 
-	let { projectId, stacks, focusedStackId }: Props = $props();
+	let { projectId, stacks, focusedStackId, scrollToStackId, onScrollComplete }: Props = $props();
 
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
@@ -39,6 +41,7 @@
 	let lanesScrollableEl = $state<HTMLDivElement>();
 	let lanesScrollableWidth = $state<number>(0);
 	let lanesScrollableHeight = $state<number>(0);
+	let stackElements = $state<Record<string, HTMLElement>>({});
 
 	let laneWidths = $state<number[]>([]);
 	let lineHights = $state<number[]>([]);
@@ -98,6 +101,19 @@
 			return () => unsub?.();
 		}
 	});
+
+	// Scroll to stack when scrollToStackId is set
+	$effect(() => {
+		if (scrollToStackId && stacks.length > 0 && lanesScrollableEl) {
+			setTimeout(() => {
+				const stackEl = stackElements[scrollToStackId];
+				if (stackEl) {
+					stackEl.scrollIntoView({ behavior: 'smooth' });
+				}
+				onScrollComplete?.();
+			}, 50);
+		}
+	});
 </script>
 
 {#if isNotEnoughHorzSpace}
@@ -145,6 +161,7 @@
 	 -->
 		{#each mutableStacks as stack, i (stack.id)}
 			<div
+				bind:this={stackElements[stack.id || 'branchless']}
 				class="reorderable-stack"
 				role="presentation"
 				animate:flip={{ duration: 150 }}

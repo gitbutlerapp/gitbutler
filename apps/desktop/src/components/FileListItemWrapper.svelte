@@ -121,18 +121,20 @@
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
 	const draggableDisabled = $derived(!draggable || showCheckbox);
 
-	let timeoutId: any;
+	// This was causing other scrolling problems. I'm really not sure if this
+	// scroll behaviour belongs here.
+	// let timeoutId: any;
 
-	$effect(() => {
-		if (selected && draggableEl && active) {
-			if (timeoutId) {
-				clearTimeout(timeoutId);
-			}
-			timeoutId = setTimeout(() => {
-				draggableEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-			}, 50);
-		}
-	});
+	// $effect(() => {
+	// 	if (selected && draggableEl && active) {
+	// 		if (timeoutId) {
+	// 			clearTimeout(timeoutId);
+	// 		}
+	// 		timeoutId = setTimeout(() => {
+	// 			draggableEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+	// 		}, 50);
+	// 	}
+	// });
 </script>
 
 <div
