@@ -3,6 +3,7 @@
 	import CommitRow from '$components/CommitRow.svelte';
 	import CreateBranchModal from '$components/CreateBranchModal.svelte';
 	import Drawer from '$components/Drawer.svelte';
+	import FileList from '$components/FileList.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
@@ -31,10 +32,12 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { focusable } from '$lib/focus/focusable';
 	import { workspacePath } from '$lib/routes/routes.svelte';
+	import { createWorktreeSelection } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { USER } from '$lib/user/user';
+	import { createBranchRef } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/shared/context';
 	import {
 		Badge,
@@ -110,6 +113,18 @@
 	const projectState = uiState.project(projectId);
 	const selectedBranch = $derived(projectState.selectedClaudeSession.current);
 	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
+
+	// File list data
+	const branchChanges = $derived(
+		selectedBranch
+			? stackService.branchChanges({
+					projectId,
+					stackId: selectedBranch.stackId,
+					branch: createBranchRef(selectedBranch.head, undefined)
+				})
+			: undefined
+	);
+	const selectionId = $derived(createWorktreeSelection({ stackId: selectedBranch?.stackId }));
 
 	$effect(() => {
 		if (stacks.current.data) {
@@ -380,7 +395,17 @@
 				</EmptyStatePlaceholder>
 			</div>
 		{:else}
-			<Drawer title="Todos" bottomBorder>
+			<Drawer
+				title="Todos"
+				bottomBorder
+				resizer={{
+					persistId: 'codegen-todos',
+					direction: 'down',
+					minHeight: 8,
+					maxHeight: 32,
+					defaultValue: 16
+				}}
+			>
 				{@const todos = getTodos(events)}
 				<div class="right-sidebar-list">
 					{#each todos as todo}
@@ -388,6 +413,37 @@
 					{/each}
 				</div>
 			</Drawer>
+
+			{#if branchChanges && selectedBranch}
+				<ReduxResult result={branchChanges.current} {projectId}>
+					{#snippet children({ changes }, { projectId })}
+						<Drawer
+							title="Files"
+							bottomBorder
+							resizer={{
+								persistId: 'codegen-files',
+								direction: 'down',
+								minHeight: 8,
+								maxHeight: 38,
+								defaultValue: 16
+							}}
+						>
+							<div class="file-list-container">
+								<FileList
+									{projectId}
+									stackId={selectedBranch.stackId}
+									{changes}
+									listMode="list"
+									{selectionId}
+									showCheckboxes={false}
+									draggableFiles={false}
+									hideLastFileBorder={true}
+								/>
+							</div>
+						</Drawer>
+					{/snippet}
+				</ReduxResult>
+			{/if}
 
 			<Drawer title="Usage">
 				{@const usage = usageStats(events)}
@@ -595,6 +651,19 @@
 		flex-direction: column;
 		padding: 14px;
 		gap: 12px;
+	}
+
+	.right-sidebar__placeholder {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		background-color: var(--clr-bg-2);
+	}
+	.file-list-container {
+		display: flex;
+		flex-direction: column;
+		max-height: 200px;
+		overflow-y: auto;
 	}
 
 	.right-sidebar__placeholder {
