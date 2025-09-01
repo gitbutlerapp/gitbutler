@@ -597,6 +597,14 @@
 		gap: 12px;
 	}
 
+	.right-sidebar__placeholder {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		justify-content: center;
+		background-color: var(--clr-bg-2);
+	}
+
 	/* NO CC AVAILABLE */
 	.not-available {
 		display: flex;
