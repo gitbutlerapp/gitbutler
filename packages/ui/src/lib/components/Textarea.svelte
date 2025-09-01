@@ -56,33 +56,30 @@
 		onkeydown
 	}: Props = $props();
 
-	// Default padding values
-	const defaultPadding = { top: 12, right: 12, bottom: 12, left: 12 };
-
-	// Merge provided padding with defaults
-	const mergedPadding = $derived({
-		top: padding.top ?? defaultPadding.top,
-		right: padding.right ?? defaultPadding.right,
-		bottom: padding.bottom ?? defaultPadding.bottom,
-		left: padding.left ?? defaultPadding.left
-	});
-
-	// Use zero padding if unstyled, otherwise use merged padding
+	// Compute effective padding in one step
 	const effectivePadding = $derived(
-		unstyled ? { top: 0, right: 0, bottom: 0, left: 0 } : mergedPadding
+		unstyled
+			? { top: 0, right: 0, bottom: 0, left: 0 }
+			: {
+					top: padding.top ?? 12,
+					right: padding.right ?? 12,
+					bottom: padding.bottom ?? 12,
+					left: padding.left ?? 12
+				}
 	);
 
 	let measureEl: HTMLPreElement | undefined = $state();
 
 	$effect(() => {
-		// mock textarea style
+		// Sync measure element styles with textarea
 		if (textBoxEl && measureEl) {
-			const textBoxElStyles = window.getComputedStyle(textBoxEl);
-
-			measureEl.style.fontFamily = textBoxElStyles.fontFamily;
-			measureEl.style.fontSize = textBoxElStyles.fontSize;
-			measureEl.style.fontWeight = textBoxElStyles.fontWeight;
-			measureEl.style.border = textBoxElStyles.border;
+			const styles = window.getComputedStyle(textBoxEl);
+			Object.assign(measureEl.style, {
+				fontFamily: styles.fontFamily,
+				fontSize: styles.fontSize,
+				fontWeight: styles.fontWeight,
+				border: styles.border
+			});
 		}
 	});
 
@@ -97,15 +94,25 @@
 
 	const lineHeight = 1.6;
 
-	const maxHeight = $derived(fontSize * maxRows + effectivePadding.top + effectivePadding.bottom);
-	const minHeight = $derived(fontSize * minRows + effectivePadding.top + effectivePadding.bottom);
+	const minHeight = $derived(
+		fontSize * lineHeight * minRows + effectivePadding.top + effectivePadding.bottom
+	);
+	const maxHeight = $derived(
+		fontSize * lineHeight * maxRows + effectivePadding.top + effectivePadding.bottom
+	);
 
-	let measureElHeight = $state(0);
+	// Initialize with approximate minHeight to prevent initial scroll flash
+	let measureElHeight = $state(fontSize * lineHeight * minRows + 24);
+
+	// Ensure measureElHeight never goes below minHeight
+	$effect(() => {
+		if (measureElHeight < minHeight) measureElHeight = minHeight;
+	});
 </script>
 
 <div
 	class="textarea-container"
-	style:--placeholder-text={`"${placeholder && placeholder !== '' ? placeholder : 'Type here...'}"`}
+	style:--placeholder-text={`"${placeholder || 'Type here...'}"`}
 	style:--min-rows={minRows}
 	style:--max-rows={maxRows}
 	style:--padding-top="{pxToRem(effectivePadding.top)}rem"
@@ -138,16 +145,16 @@
 		class:text-input={!unstyled}
 		class:textarea-unstyled={unstyled}
 		class:hide-scrollbar={measureElHeight < maxHeight}
-		style:height="{pxToRem(measureElHeight)}rem"
+		style:height="{pxToRem(Math.max(measureElHeight, minHeight))}rem"
 		style:font-size="{pxToRem(fontSize)}rem"
 		style:border-top-width={borderTop && !borderless ? '1px' : '0'}
 		style:border-right-width={borderRight && !borderless ? '1px' : '0'}
 		style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
 		style:border-left-width={borderLeft && !borderless ? '1px' : '0'}
-		style:border-top-right-radius={!borderTop || !borderRight ? '0' : undefined}
-		style:border-top-left-radius={!borderTop || !borderLeft ? '0' : undefined}
-		style:border-bottom-right-radius={!borderBottom || !borderRight ? '0' : undefined}
-		style:border-bottom-left-radius={!borderBottom || !borderLeft ? '0' : undefined}
+		style:border-top-right-radius={borderTop && borderRight ? undefined : '0'}
+		style:border-top-left-radius={borderTop && borderLeft ? undefined : '0'}
+		style:border-bottom-right-radius={borderBottom && borderRight ? undefined : '0'}
+		style:border-bottom-left-radius={borderBottom && borderLeft ? undefined : '0'}
 		{placeholder}
 		bind:value
 		{disabled}
