@@ -25,7 +25,7 @@
 			{@render happyPC()}
 		{/if}
 	</div>
-	<div class="message-content">
+	<div class="message-content text-14">
 		{#if content}
 			{#if bubble}
 				<div class="message-user-bubble">
