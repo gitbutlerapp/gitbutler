@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import CommitRow from '$components/CommitRow.svelte';
 	import Drawer from '$components/Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -28,6 +29,7 @@
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { focusable } from '$lib/focus/focusable';
+	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -217,6 +219,11 @@
 		templateContextMenu?.close();
 	}
 
+	function showInWorkspace() {
+		if (!selectedBranch) return;
+		goto(`${workspacePath(projectId)}?stackId=${selectedBranch.stackId}`);
+	}
+
 	const events = $derived(
 		claudeCodeService.messages({ projectId, stackId: selectedBranch?.stackId || '' })
 	);
@@ -254,8 +261,12 @@
 
 					<CodegenChatLayout branchName={selectedBranch.head}>
 						{#snippet workspaceActions()}
-							<Button disabled kind="outline" size="tag" icon="workbench" reversedDirection
-								>Show in workspace</Button
+							<Button
+								kind="outline"
+								size="tag"
+								icon="workbench"
+								reversedDirection
+								onclick={showInWorkspace}>Show in workspace</Button
 							>
 							<Button disabled kind="outline" size="tag" icon="chevron-down">Open in editor</Button>
 						{/snippet}

@@ -17,9 +17,11 @@
 
 	interface Props {
 		projectId: string;
+		scrollToStackId?: string;
+		onScrollComplete?: () => void;
 	}
 
-	const { projectId }: Props = $props();
+	const { projectId, scrollToStackId, onScrollComplete }: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
@@ -129,7 +131,7 @@
 				<div class="stacks-view-skeleton"></div>
 			{/snippet}
 			{#snippet children(stacks, { projectId })}
-				<MultiStackView {projectId} {stacks} {selectionId} />
+				<MultiStackView {projectId} {stacks} {selectionId} {scrollToStackId} {onScrollComplete} />
 			{/snippet}
 		</ReduxResult>
 	{/snippet}
