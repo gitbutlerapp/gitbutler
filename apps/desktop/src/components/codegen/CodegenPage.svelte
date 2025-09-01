@@ -253,7 +253,7 @@
 		if (events?.current.data) {
 			setTimeout(() => {
 				chatLayout?.scrollToBottom();
-			}, 100);
+			}, 50);
 		}
 	});
 </script>
