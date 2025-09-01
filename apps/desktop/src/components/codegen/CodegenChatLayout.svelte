@@ -32,7 +32,11 @@
 		</div>
 	</div>
 	<div class="chat-messages">
-		{@render messages()}
+		<!-- This div is required so the column-reverse gives us the right
+		scrolling behaviour, but doesn't flip the order of the messages -->
+		<div>
+			{@render messages()}
+		</div>
 	</div>
 	<div class="chat-footer">
 		{@render input()}
