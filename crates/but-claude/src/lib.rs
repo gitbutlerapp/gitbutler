@@ -99,3 +99,13 @@ pub struct ClaudePermissionRequest {
     /// The status of the request or None if not yet handled
     pub approved: Option<bool>,
 }
+
+/// Represents the thinking level for Claude Code.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum ThinkingLevel {
+    Normal,
+    Think,
+    MegaThink,
+    UltraThink,
+}

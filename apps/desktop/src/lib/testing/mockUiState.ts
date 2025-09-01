@@ -23,7 +23,8 @@ const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 	stackId: undefined,
 	showActions: false,
 	branchesToPoll: [],
-	selectedClaudeSession: undefined
+	selectedClaudeSession: undefined,
+	thinkingLevel: 'normal'
 };
 
 const MOCK_GLOBAL_UI_STATE: GlobalUiState = {

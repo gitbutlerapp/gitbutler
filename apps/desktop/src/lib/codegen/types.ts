@@ -159,3 +159,5 @@ export type ClaudeTodo = {
 	status: 'pending' | 'in_progress' | 'completed';
 	content: string;
 };
+
+export type ThinkingLevel = 'normal' | 'think' | 'megaThink' | 'ultraThink';
