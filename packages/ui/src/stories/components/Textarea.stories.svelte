@@ -27,16 +27,19 @@
 <script lang="ts">
 </script>
 
-<Story name="default">
-	{#snippet template(args)}
+<Story name="Custom Padding">
+	{#snippet template()}
 		<div class="wrapper">
 			<Textarea
-				{...args}
 				onkeydown={handleDescriptionKeyDown}
 				onfocus={(e) => {
 					// eslint-disable-next-line no-console
 					console.log('focus', e);
 				}}
+				padding={{
+					bottom: 60
+				}}
+				placeholder="Custom bottom padding…"
 			/>
 		</div>
 	{/snippet}
