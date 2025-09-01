@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { inject } from '$lib/context';
 	import Loading from '$lib/network/Loading.svelte';
 	import { PROJECT_SERVICE } from '$lib/organizations/projectService';
 	import { getProjectByRepositoryId } from '$lib/organizations/projectsPreview.svelte';
 	import { ShareLevel } from '$lib/permissions';
+	import { inject } from '@gitbutler/core/context';
 	import { ContextMenuItem, ContextMenuSection, DropdownButton } from '@gitbutler/ui';
 
 	type Props = {

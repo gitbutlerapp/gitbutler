@@ -3,7 +3,7 @@
 	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { flattenAndDeduplicate } from '@gitbutler/shared/utils/array';
 	import { FileListItem } from '@gitbutler/ui';
 

@@ -5,7 +5,7 @@
 <script lang="ts" generics="T">
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { chunk } from '$lib/utils/array';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { ScrollableContainer } from '@gitbutler/ui';
 
 	import { tick, type Snippet } from 'svelte';

@@ -18,7 +18,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { ensureValue } from '$lib/utils/validation';
-	import { inject, injectOptional } from '@gitbutler/shared/context';
+	import { inject, injectOptional } from '@gitbutler/core/context';
 	import { AsyncButton, Button, TestId } from '@gitbutler/ui';
 
 	import type { ComponentProps } from 'svelte';

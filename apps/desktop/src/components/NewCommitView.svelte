@@ -9,7 +9,7 @@
 	import { COMMIT_ANALYTICS } from '$lib/soup/commitAnalytics';
 	import { STACK_SERVICE, type RejectionReason } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE, type NewCommitMessage } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { TestId } from '@gitbutler/ui';
 	import { tick } from 'svelte';
 

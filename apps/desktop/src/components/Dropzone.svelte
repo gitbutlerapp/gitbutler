@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { dropzone, type HoverArgs } from '$lib/dragging/dropzone';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
 	import type { Snippet } from 'svelte';
 

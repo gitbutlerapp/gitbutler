@@ -10,7 +10,7 @@
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Icon, TestId, Tooltip } from '@gitbutler/ui';
 
 	import type { ComponentProps } from 'svelte';

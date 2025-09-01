@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	const ircService = inject(IRC_SERVICE);
 	const uiState = inject(UI_STATE);

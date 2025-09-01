@@ -4,7 +4,7 @@
 	import UserProfile from '$lib/components/UserProfile.svelte';
 	import { featureShowProjectPage } from '$lib/featureFlags';
 	import { OWNER_SERVICE } from '$lib/owner/ownerService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import type { OwnerParameters } from '@gitbutler/shared/routing/webRoutes.svelte';
 

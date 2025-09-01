@@ -8,7 +8,7 @@
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { sleep } from '$lib/utils/sleep';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { TestId } from '@gitbutler/ui';
 
 	const appSettings = inject(APP_SETTINGS);

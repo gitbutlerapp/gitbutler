@@ -1,5 +1,5 @@
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
 

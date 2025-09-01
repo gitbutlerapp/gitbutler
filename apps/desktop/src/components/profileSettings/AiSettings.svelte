@@ -10,7 +10,7 @@
 	import { focusable } from '$lib/focus/focusable';
 	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import {
 		Icon,
 		Link,

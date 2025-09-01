@@ -1,5 +1,5 @@
 import { dashboardSidebarReducer } from '$lib/dashboard/sidebar.svelte';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 import { configureStore, createSelector } from '@reduxjs/toolkit';
 

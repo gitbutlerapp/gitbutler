@@ -17,7 +17,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	import {
 		AsyncButton,

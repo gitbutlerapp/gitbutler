@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
 	import {

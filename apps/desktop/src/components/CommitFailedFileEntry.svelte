@@ -4,7 +4,7 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { type RejectionReason } from '$lib/stacks/stackService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { FileName, HunkDiff, Icon, Tooltip } from '@gitbutler/ui';
 
 	type Props = {

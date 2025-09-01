@@ -7,9 +7,9 @@
 	import MentionSuggestions from '$lib/components/chat/MentionSuggestions.svelte';
 	import { type DiffSelection } from '$lib/diff/lineSelection.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/core/context';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
 	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
-	import { inject } from '@gitbutler/shared/context';
 	import { uploadFiles } from '@gitbutler/shared/dom';
 	import { PATCH_COMMIT_SERVICE } from '@gitbutler/shared/patches/patchCommitService';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';

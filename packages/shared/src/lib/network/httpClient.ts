@@ -1,8 +1,8 @@
-import { InjectionToken } from '$lib/context';
 import { ApiError } from '$lib/network/types';
+import { InjectionToken } from '@gitbutler/core/context';
 import { derived, get, type Readable } from 'svelte/store';
 
-export const HTTP_CLIENT = new InjectionToken<HttpClient>('HttpClient');
+export const HTTP_CLIENT: InjectionToken<HttpClient> = new InjectionToken('HttpClient');
 
 export const DEFAULT_HEADERS = {
 	'Content-Type': 'application/json'

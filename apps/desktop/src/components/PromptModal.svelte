@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { PROMPT_SERVICE } from '$lib/prompt/promptService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, Modal, Textbox } from '@gitbutler/ui';
 
 	const promptService = inject(PROMPT_SERVICE);

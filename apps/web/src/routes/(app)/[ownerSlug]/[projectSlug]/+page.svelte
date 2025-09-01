@@ -4,7 +4,7 @@
 	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
 	import { featureShowProjectPage } from '$lib/featureFlags';
 	import { getTimeSince } from '$lib/utils/dateUtils';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import PermissionsSelector from '@gitbutler/shared/organizations/PermissionsSelector.svelte';
 	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
 	import {

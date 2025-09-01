@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 
 	import { Button, Modal, Textarea, Textbox, chipToasts } from '@gitbutler/ui';

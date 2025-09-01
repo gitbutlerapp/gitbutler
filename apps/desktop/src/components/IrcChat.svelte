@@ -3,7 +3,7 @@
 	import IrcChannels from '$components/IrcChannels.svelte';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button } from '@gitbutler/ui';
 
 	const ircService = inject(IRC_SERVICE);

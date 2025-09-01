@@ -7,10 +7,10 @@ import {
 	type Branch,
 	type LoadableBranch
 } from '$lib/branches/types';
-import { inject } from '$lib/context';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { isFound } from '$lib/network/loadable';
 import { APP_STATE } from '$lib/redux/store.svelte';
+import { inject } from '@gitbutler/core/context';
 import type { Loadable } from '$lib/network/types';
 import type { Reactive } from '$lib/storeUtils';
 

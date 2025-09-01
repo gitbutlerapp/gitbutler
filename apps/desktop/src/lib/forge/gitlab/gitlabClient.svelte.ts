@@ -1,5 +1,5 @@
 import { Gitlab } from '@gitbeaker/rest';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { derived } from 'svelte/store';
 import type { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
 

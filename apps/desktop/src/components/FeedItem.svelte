@@ -18,7 +18,7 @@
 	import { HISTORY_SERVICE } from '$lib/history/history';
 	import { Snapshot } from '$lib/history/types';
 	import { USER } from '$lib/user/user';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { AgentAvatar, EditorLogo, Markdown, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { Icon, type IconName } from '@gitbutler/ui';
 	type Props = {

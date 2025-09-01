@@ -33,7 +33,7 @@
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { sleep } from '$lib/utils/sleep';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { chipToasts, TestId } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';

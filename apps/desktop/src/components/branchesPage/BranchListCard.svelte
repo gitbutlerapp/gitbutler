@@ -4,7 +4,7 @@
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TestId, TimeAgo } from '@gitbutler/ui';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/components/avatar/gravatar';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Icon } from '@gitbutler/ui';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';

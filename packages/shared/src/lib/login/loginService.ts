@@ -1,4 +1,4 @@
-import { InjectionToken } from '$lib/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { isStr } from '@gitbutler/ui/utils/string';
 import type { HttpClient } from '$lib/network/httpClient';
 
@@ -20,7 +20,7 @@ interface ErrorLoginResponse extends BaseLoginResponse {
 
 type LoginResponse<T = void> = SuccessLoginResponse<T> | ErrorLoginResponse;
 
-export const LOGIN_SERVICE = new InjectionToken<LoginService>('LoginService');
+export const LOGIN_SERVICE: InjectionToken<LoginService> = new InjectionToken('LoginService');
 export default class LoginService {
 	constructor(private readonly httpClient: HttpClient) {}
 

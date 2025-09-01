@@ -1,4 +1,4 @@
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { chipToasts } from '@gitbutler/ui';
 import type { IBackend } from '$lib/backend';
 import type { DiffSpec } from '$lib/hunks/hunk';

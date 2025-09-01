@@ -5,7 +5,7 @@
  * TODO: Rewrite this to be an injectable object so we don't need `storeInstance`.
  */
 
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { persisted } from '@gitbutler/shared/persisted';
 import { get, writable, type Writable } from 'svelte/store';
 import type { DiskStore, IBackend } from '$lib/backend';

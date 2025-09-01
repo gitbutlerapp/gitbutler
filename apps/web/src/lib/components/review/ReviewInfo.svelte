@@ -1,10 +1,10 @@
 <script lang="ts">
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
+	import { inject } from '@gitbutler/core/context';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
 	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
-	import { inject } from '@gitbutler/shared/context';
 	import {
 		getUsersWithAvatars,
 		getPatchApproversWithAvatars,

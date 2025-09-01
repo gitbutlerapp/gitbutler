@@ -8,12 +8,12 @@ import {
 	type Branch,
 	type LoadableBranch
 } from '$lib/branches/types';
-import { InjectionToken } from '$lib/context';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { patchCommitTable } from '$lib/patches/patchCommitsSlice';
 import { apiToPatch, type LoadablePatchCommit } from '$lib/patches/types';
 import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
@@ -25,7 +25,7 @@ type BranchUpdateParams = {
 	forgeDescription?: string;
 };
 
-export const BRANCH_SERVICE = new InjectionToken<BranchService>('BranchService');
+export const BRANCH_SERVICE: InjectionToken<BranchService> = new InjectionToken('BranchService');
 
 export class BranchService {
 	private readonly branchesInterests = new InterestStore<{

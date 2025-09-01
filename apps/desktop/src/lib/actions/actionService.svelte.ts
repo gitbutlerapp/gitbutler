@@ -1,5 +1,5 @@
 import { invalidatesList, ReduxTag } from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { TreeChange } from '$lib/hunks/change';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
 

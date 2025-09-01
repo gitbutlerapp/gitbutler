@@ -21,10 +21,10 @@
 	import MessageMarkdown from '$lib/components/chat/MessageMarkdown.svelte';
 	import { parseDiffPatchToEncodedSelection } from '$lib/diff/lineSelection.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/core/context';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
 	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
 	import { type ChatMessageReaction } from '@gitbutler/shared/chat/types';
-	import { inject } from '@gitbutler/shared/context';
 
 	import {
 		Badge,

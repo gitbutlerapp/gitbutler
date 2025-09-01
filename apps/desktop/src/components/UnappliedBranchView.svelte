@@ -8,7 +8,7 @@
 	import { createBranchSelection, type SelectionId } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { createBranchRef } from '$lib/utils/branch';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Icon, TestId, Tooltip } from '@gitbutler/ui';
 
 	interface Props {

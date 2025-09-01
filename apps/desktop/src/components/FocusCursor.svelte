@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { FOCUS_MANAGER } from '$lib/focus/focusManager';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	const { cursor: target, outline } = inject(FOCUS_MANAGER);
 

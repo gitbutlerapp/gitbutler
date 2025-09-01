@@ -2,7 +2,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { sessionMessage, type ClaudeSessionDetails } from '$lib/codegen/types';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import type { Snippet } from 'svelte';
 
 	type Props = {

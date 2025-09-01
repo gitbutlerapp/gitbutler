@@ -14,7 +14,7 @@
 	import { key, type SelectionId } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { FileListItem, FileViewHeader, TestId } from '@gitbutler/ui';
 	import { sticky as stickyAction } from '@gitbutler/ui/utils/sticky';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';

@@ -6,7 +6,7 @@
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { DATA_SHARING_SERVICE } from '$lib/support/dataSharing';
 	import { USER } from '$lib/user/user';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 
 	import { Button, Checkbox, Modal, Textarea, EmailTextbox, chipToasts } from '@gitbutler/ui';

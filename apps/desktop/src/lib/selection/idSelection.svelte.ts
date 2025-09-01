@@ -8,7 +8,7 @@ import {
 	type SelectedFile
 } from '$lib/selection/key';
 import { createBranchRef } from '$lib/utils/branch';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import { get, writable, type Writable } from 'svelte/store';

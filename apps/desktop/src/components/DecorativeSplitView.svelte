@@ -3,7 +3,7 @@
 	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
 	import { USER } from '$lib/user/user';
 	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Icon } from '@gitbutler/ui';
 	import { type Snippet } from 'svelte';
 

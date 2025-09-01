@@ -4,7 +4,7 @@
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 
 	import { SectionCard, chipToasts } from '@gitbutler/ui';
 

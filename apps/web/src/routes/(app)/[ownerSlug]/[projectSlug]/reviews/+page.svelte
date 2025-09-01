@@ -4,9 +4,9 @@
 	import BranchIndexCard from '$lib/components/branches/BranchIndexCard.svelte';
 	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { inject } from '@gitbutler/core/context';
 	import { getBranchReviewsForRepository } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { BranchStatus } from '@gitbutler/shared/branches/types';
-	import { inject } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getProject } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { type ProjectParameters } from '@gitbutler/shared/routing/webRoutes.svelte';

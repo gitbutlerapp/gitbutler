@@ -1,6 +1,6 @@
 import { setSentryUser } from '$lib/analytics/sentry';
+import { InjectionToken } from '@gitbutler/core/context';
 import { apiToBranch } from '@gitbutler/shared/branches/types';
-import { InjectionToken } from '@gitbutler/shared/context';
 import { get, writable, type Writable } from 'svelte/store';
 import type { ApiBranch, Branch } from '@gitbutler/shared/branches/types';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';

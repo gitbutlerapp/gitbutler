@@ -1,9 +1,9 @@
-import { inject } from '$lib/context';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { REPOSITORY_ID_LOOKUP_SERVICE } from '$lib/organizations/repositoryIdLookupService';
 import { repositoryIdLookupTable } from '$lib/organizations/repositoryIdLookupsSlice';
 import { stringifyProjectIdentity, type LoadableRepositoryId } from '$lib/organizations/types';
 import { APP_STATE } from '$lib/redux/store.svelte';
+import { inject } from '@gitbutler/core/context';
 import type { Reactive } from '$lib/storeUtils';
 
 export function lookupProject(

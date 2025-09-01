@@ -1,5 +1,5 @@
 import { page } from '$app/state';
-import { InjectionToken } from '$lib/context';
+import { InjectionToken } from '@gitbutler/core/context';
 
 export interface OwnerParameters {
 	ownerSlug: string;
@@ -33,7 +33,9 @@ function isUrlSubset<T>(isWeb: boolean, id: string): T | undefined {
 	}
 }
 
-export const WEB_ROUTES_SERVICE = new InjectionToken<WebRoutesService>('WebRoutesService');
+export const WEB_ROUTES_SERVICE: InjectionToken<WebRoutesService> = new InjectionToken(
+	'WebRoutesService'
+);
 
 export class WebRoutesService {
 	constructor(

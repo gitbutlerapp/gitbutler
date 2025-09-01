@@ -1,4 +1,4 @@
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
 
 export interface SshKey {

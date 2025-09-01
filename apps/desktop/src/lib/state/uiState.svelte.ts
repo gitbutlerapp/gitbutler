@@ -1,5 +1,5 @@
 import { type SnapPositionName } from '$lib/floating/types';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { type Reactive } from '@gitbutler/shared/storeUtils';
 import { isStr } from '@gitbutler/ui/utils/string';

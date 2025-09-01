@@ -1,5 +1,5 @@
 import { Snapshot } from '$lib/history/types';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';

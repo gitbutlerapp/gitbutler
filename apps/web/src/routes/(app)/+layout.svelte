@@ -9,6 +9,7 @@
 	import { WebState, WEB_STATE } from '$lib/redux/store.svelte';
 	import { SshKeyService, SSH_KEY_SERVICE } from '$lib/sshKeyService';
 	import { UserService, USER_SERVICE } from '$lib/user/userService';
+	import { inject, provide } from '@gitbutler/core/context';
 	import { BranchService, BRANCH_SERVICE } from '@gitbutler/shared/branches/branchService';
 	import {
 		LatestBranchLookupService,
@@ -18,7 +19,6 @@
 		ChatChannelsService,
 		CHAT_CHANNELS_SERVICE
 	} from '@gitbutler/shared/chat/chatChannelsService';
-	import { inject, provide } from '@gitbutler/shared/context';
 	import { FeedService, FEED_SERVICE } from '@gitbutler/shared/feeds/service';
 	import { HttpClient, HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 	import {

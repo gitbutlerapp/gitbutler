@@ -9,14 +9,16 @@ import {
 	type PatchChatMessageParams,
 	type SendChatMessageParams
 } from '$lib/chat/types';
-import { InjectionToken } from '$lib/context';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { POLLING_GLACIALLY } from '$lib/polling';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
-export const CHAT_CHANNELS_SERVICE = new InjectionToken<ChatChannelsService>('ChatChannelsService');
+export const CHAT_CHANNELS_SERVICE: InjectionToken<ChatChannelsService> = new InjectionToken(
+	'ChatChannelsService'
+);
 
 export class ChatChannelsService {
 	private readonly chatMessagesInterests = new InterestStore<{

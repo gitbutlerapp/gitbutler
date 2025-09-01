@@ -2,7 +2,7 @@ import { showError } from '$lib/notifications/toasts';
 import { type Project } from '$lib/project/project';
 import { invalidatesList, providesItem, providesList, ReduxTag } from '$lib/state/tags';
 import { getCookie } from '$lib/utils/cookies';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { persisted } from '@gitbutler/shared/persisted';
 import { chipToasts } from '@gitbutler/ui';
 import { get } from 'svelte/store';

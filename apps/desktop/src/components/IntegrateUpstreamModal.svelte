@@ -16,7 +16,7 @@
 	} from '$lib/upstream/types';
 	import { UPSTREAM_INTEGRATION_SERVICE } from '$lib/upstream/upstreamIntegrationService.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import {
 		Badge,
 		Button,

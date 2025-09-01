@@ -19,7 +19,7 @@ import {
 	updateStaleStackState
 } from '$lib/state/uiState.svelte';
 import { getBranchNameFromRef, type BranchRef } from '$lib/utils/branch';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import {
 	createEntityAdapter,

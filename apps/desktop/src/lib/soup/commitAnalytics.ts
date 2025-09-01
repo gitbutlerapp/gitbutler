@@ -3,7 +3,7 @@ import { getFilterCountMap, getStackTargetTypeCountMap, type WorkspaceRule } fro
 import { StackService } from '$lib/stacks/stackService.svelte';
 import { UiState } from '$lib/state/uiState.svelte';
 import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { get } from 'svelte/store';
 import type { Commit } from '$lib/branches/v3';
 import type { HunkAssignment } from '$lib/hunks/hunk';

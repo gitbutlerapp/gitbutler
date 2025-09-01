@@ -1,4 +1,3 @@
-import { inject } from '$lib/context';
 import { registerInterest } from '$lib/interest/registerInterestFunction.svelte';
 import { PATCH_IDABLE_SERVICE } from '$lib/patches/patchIdableService';
 import { patchIdableTable } from '$lib/patches/patchIdablesSlice';
@@ -6,6 +5,7 @@ import { patchIdableId, type LoadablePatchIdable } from '$lib/patches/types';
 import { reactive } from '$lib/reactiveUtils.svelte';
 import { APP_STATE } from '$lib/redux/store.svelte';
 import { type Reactive } from '$lib/storeUtils';
+import { inject } from '@gitbutler/core/context';
 
 export function getPatchIdable(
 	branchUuid: string,

@@ -1,5 +1,5 @@
 import { Cmd, parseIRCMessage, toIrcEvent, type IrcEvent } from '$lib/irc/parser';
-import { InjectionToken } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/core/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import ReconnectingWebSocket, { type CloseEvent, type ErrorEvent } from 'reconnecting-websocket';
 

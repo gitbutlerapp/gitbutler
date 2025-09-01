@@ -3,7 +3,7 @@
 	import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { APP_SETTINGS } from '$lib/config/appSettings';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { Button, TestId } from '@gitbutler/ui';
 
 	const appSettings = inject(APP_SETTINGS);
