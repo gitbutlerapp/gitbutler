@@ -78,6 +78,7 @@
 		overflow: auto;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-2);
+		font-size: 92%;
 
 		& code {
 			padding: 0;

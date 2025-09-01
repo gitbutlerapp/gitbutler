@@ -238,7 +238,7 @@
 		if (events?.current.data) {
 			setTimeout(() => {
 				chatLayout?.scrollToBottom();
-			}, 100);
+			}, 50);
 		}
 	});
 </script>
@@ -570,8 +570,10 @@
 		display: flex;
 		width: 100%;
 		height: 100%;
-
 		gap: 8px;
+
+		/* SHARABLE */
+		--message-max-width: 520px;
 	}
 
 	.chat-view {
