@@ -53,3 +53,8 @@ export async function scrollIntoViewIfNeeded(
 		observer.observe(el);
 	});
 }
+
+export function isContentEditable(element: HTMLElement): boolean {
+	const contentEditableValue = element.contentEditable.toLowerCase();
+	return contentEditableValue === 'true' || contentEditableValue === 'plaintext-only';
+}
