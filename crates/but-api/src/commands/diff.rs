@@ -26,14 +26,15 @@ pub struct TreeChangeDiffsParams {
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
 pub fn tree_change_diffs(
-    app: &App,
+    _app: &App,
     params: TreeChangeDiffsParams,
 ) -> anyhow::Result<but_core::UnifiedDiff, Error> {
     let change: but_core::TreeChange = params.change.into();
     let project = gitbutler_project::get(params.project_id)?;
+    let app_settings = AppSettings::load_from_default_path_creating()?;
     let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
     Ok(change
-        .unified_diff(&repo, app.app_settings.get()?.context_lines)?
+        .unified_diff(&repo, app_settings.context_lines)?
         .context("TODO: Submodules must be handled specifically in the UI")?)
 }
 

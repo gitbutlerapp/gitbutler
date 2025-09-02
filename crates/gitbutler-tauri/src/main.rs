@@ -165,12 +165,12 @@ fn main() {
                         logs_dir: app_log_dir.clone(),
                     });
                     let app = App {
-                        app_settings: Arc::new(app_settings),
                         broadcaster: broadcaster.clone(),
                         archival: archival.clone(),
                         claudes: Default::default(),
                     };
 
+                    app_handle.manage(app_settings);
                     app_handle.manage(app);
 
                     tauri_app.on_menu_event(move |handle, event| {

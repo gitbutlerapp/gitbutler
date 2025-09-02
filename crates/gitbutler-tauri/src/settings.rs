@@ -2,7 +2,7 @@
 use but_api::NoParams;
 use but_api::{commands::settings, App};
 use but_settings::api::{ClaudeUpdate, FeatureFlagsUpdate, TelemetryUpdate};
-use but_settings::AppSettings;
+use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use tauri::State;
 use tracing::instrument;
 
@@ -15,37 +15,71 @@ pub fn get_app_settings(app: State<'_, App>) -> Result<AppSettings, Error> {
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
-pub fn update_onboarding_complete(app: State<'_, App>, update: bool) -> Result<(), Error> {
-    settings::update_onboarding_complete(&app, settings::UpdateOnboardingCompleteParams { update })
+#[instrument(skip(app, app_settings_sync), err(Debug))]
+pub fn update_onboarding_complete(
+    app: State<'_, App>,
+    app_settings_sync: State<'_, AppSettingsWithDiskSync>,
+    update: bool,
+) -> Result<(), Error> {
+    settings::update_onboarding_complete(
+        &app,
+        &app_settings_sync,
+        settings::UpdateOnboardingCompleteParams { update },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
-pub fn update_telemetry(app: State<'_, App>, update: TelemetryUpdate) -> Result<(), Error> {
-    settings::update_telemetry(&app, settings::UpdateTelemetryParams { update })
+#[instrument(skip(app, app_settings_sync), err(Debug))]
+pub fn update_telemetry(
+    app: State<'_, App>,
+    app_settings_sync: State<'_, AppSettingsWithDiskSync>,
+    update: TelemetryUpdate,
+) -> Result<(), Error> {
+    settings::update_telemetry(
+        &app,
+        &app_settings_sync,
+        settings::UpdateTelemetryParams { update },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
+#[instrument(skip(app, app_settings_sync), err(Debug))]
 pub fn update_telemetry_distinct_id(
     app: State<'_, App>,
+    app_settings_sync: State<'_, AppSettingsWithDiskSync>,
     app_distinct_id: Option<String>,
 ) -> Result<(), Error> {
     settings::update_telemetry_distinct_id(
         &app,
+        &app_settings_sync,
         settings::UpdateTelemetryDistinctIdParams { app_distinct_id },
     )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
-pub fn update_feature_flags(app: State<'_, App>, update: FeatureFlagsUpdate) -> Result<(), Error> {
-    settings::update_feature_flags(&app, settings::UpdateFeatureFlagsParams { update })
+#[instrument(skip(app, app_settings_sync), err(Debug))]
+pub fn update_feature_flags(
+    app: State<'_, App>,
+    app_settings_sync: State<'_, AppSettingsWithDiskSync>,
+    update: FeatureFlagsUpdate,
+) -> Result<(), Error> {
+    settings::update_feature_flags(
+        &app,
+        &app_settings_sync,
+        settings::UpdateFeatureFlagsParams { update },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
-pub fn update_claude(app: State<'_, App>, update: ClaudeUpdate) -> Result<(), Error> {
-    settings::update_claude(&app, settings::UpdateClaudeParams { update })
+#[instrument(skip(app, app_settings_sync), err(Debug))]
+pub fn update_claude(
+    app: State<'_, App>,
+    app_settings_sync: State<'_, AppSettingsWithDiskSync>,
+    update: ClaudeUpdate,
+) -> Result<(), Error> {
+    settings::update_claude(
+        &app,
+        &app_settings_sync,
+        settings::UpdateClaudeParams { update },
+    )
 }

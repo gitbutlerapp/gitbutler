@@ -228,12 +228,13 @@ pub struct AmendCommitFromWorktreeChangesParams {
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
 pub fn amend_commit_from_worktree_changes(
-    app: &App,
+    _app: &App,
     params: AmendCommitFromWorktreeChangesParams,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let mut guard = project.exclusive_worktree_access();
     let repo = but_core::open_repo_for_merging(project.worktree_path())?;
+    let app_settings = AppSettings::load_from_default_path_creating()?;
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project,
@@ -245,7 +246,7 @@ pub fn amend_commit_from_worktree_changes(
         },
         None,
         params.worktree_changes,
-        app.app_settings.get()?.context_lines,
+        app_settings.context_lines,
         guard.write_permission(),
     )?;
     if !outcome.rejected_specs.is_empty() {
@@ -267,7 +268,7 @@ pub struct DiscardWorktreeChangesParams {
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
 pub fn discard_worktree_changes(
-    app: &App,
+    _app: &App,
     params: DiscardWorktreeChangesParams,
 ) -> Result<Vec<but_workspace::DiffSpec>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -282,7 +283,7 @@ pub fn discard_worktree_changes(
     let refused = but_workspace::discard_workspace_changes(
         &repo,
         params.worktree_changes,
-        app.app_settings.get()?.context_lines,
+        ctx.app_settings().context_lines,
     )?;
     if !refused.is_empty() {
         tracing::warn!(?refused, "Failed to discard at least one hunk");
@@ -320,7 +321,7 @@ pub struct MoveChangesBetweenCommitsParams {
 }
 
 pub fn move_changes_between_commits(
-    app: &App,
+    _app: &App,
     params: MoveChangesBetweenCommitsParams,
 ) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -338,7 +339,7 @@ pub fn move_changes_between_commits(
         params.destination_stack_id,
         params.destination_commit_id.into(),
         params.changes,
-        app.app_settings.get()?.context_lines,
+        ctx.app_settings().context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -357,7 +358,7 @@ pub struct SplitBranchParams {
     pub file_changes_to_split_off: Vec<String>,
 }
 
-pub fn split_branch(app: &App, params: SplitBranchParams) -> Result<UIMoveChangesResult, Error> {
+pub fn split_branch(_app: &App, params: SplitBranchParams) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -373,7 +374,7 @@ pub fn split_branch(app: &App, params: SplitBranchParams) -> Result<UIMoveChange
         params.source_branch_name,
         params.new_branch_name.clone(),
         &params.file_changes_to_split_off,
-        app.app_settings.get()?.context_lines,
+        ctx.app_settings().context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -402,7 +403,7 @@ pub struct SplitBranchIntoDependentBranchParams {
 }
 
 pub fn split_branch_into_dependent_branch(
-    app: &App,
+    _app: &App,
     params: SplitBranchIntoDependentBranchParams,
 ) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -420,7 +421,7 @@ pub fn split_branch_into_dependent_branch(
         params.source_branch_name,
         params.new_branch_name.clone(),
         &params.file_changes_to_split_off,
-        app.app_settings.get()?.context_lines,
+        ctx.app_settings().context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -445,7 +446,7 @@ pub struct UncommitChangesParams {
 /// specified.
 /// If `assign_to` is not provided, the changes will be unassigned.
 pub fn uncommit_changes(
-    app: &App,
+    _app: &App,
     params: UncommitChangesParams,
 ) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -482,7 +483,7 @@ pub fn uncommit_changes(
         params.stack_id,
         params.commit_id.into(),
         params.changes,
-        app.app_settings.get()?.context_lines,
+        ctx.app_settings().context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -530,7 +531,7 @@ pub struct StashIntoBranchParams {
 /// Immediatelly after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
 /// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
 pub fn stash_into_branch(
-    app: &App,
+    _app: &App,
     params: StashIntoBranchParams,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -570,7 +571,7 @@ pub fn stash_into_branch(
         },
         None,
         params.worktree_changes,
-        app.app_settings.get()?.context_lines,
+        ctx.app_settings().context_lines,
         perm,
     );
 

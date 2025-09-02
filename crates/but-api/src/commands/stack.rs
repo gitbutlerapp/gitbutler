@@ -101,10 +101,10 @@ pub fn create_reference(_app: &App, params: create_reference::Params) -> Result<
     Ok(())
 }
 
-pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error> {
+pub fn create_branch(_app: &App, params: CreateBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    if app.app_settings.get()?.feature_flags.ws3 {
+    if ctx.app_settings().feature_flags.ws3 {
         use ReferencePosition::Above;
         let mut guard = project.exclusive_worktree_access();
         let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
@@ -165,11 +165,11 @@ pub struct RemoveBranchParams {
     pub branch_name: String,
 }
 
-pub fn remove_branch(app: &App, params: RemoveBranchParams) -> Result<(), Error> {
+pub fn remove_branch(_app: &App, params: RemoveBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
-    if app.app_settings.get()?.feature_flags.ws3 {
+    if ctx.app_settings().feature_flags.ws3 {
         let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
         let ws = graph.to_workspace()?;
         let ref_name = Category::LocalBranch

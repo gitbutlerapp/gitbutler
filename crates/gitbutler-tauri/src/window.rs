@@ -203,7 +203,7 @@ pub(crate) mod state {
             &self,
             window: &WindowLabelRef,
             project: &projects::Project,
-            app_settings: AppSettingsWithDiskSync,
+            app_settings: &AppSettingsWithDiskSync,
             ctx: &mut CommandContext,
         ) -> Result<ProjectAccessMode> {
             let mut state_by_label = self.state.lock();
@@ -224,7 +224,7 @@ pub(crate) mod state {
                 handler,
                 worktree_dir,
                 project_id,
-                app_settings,
+                app_settings.clone(),
             )?;
 
             let db = ctx.db()?;

@@ -142,7 +142,7 @@ pub struct PreCommitHookDiffspecsParams {
 }
 
 pub fn pre_commit_hook_diffspecs(
-    app: &App,
+    _app: &App,
     params: PreCommitHookDiffspecsParams,
 ) -> Result<HookResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -153,7 +153,7 @@ pub fn pre_commit_hook_diffspecs(
         .head_tree_id_or_empty()
         .context("Failed to get head tree")?;
 
-    let context_lines = app.app_settings.get()?.context_lines;
+    let context_lines = ctx.app_settings().context_lines;
 
     let mut changes = params.changes.into_iter().map(Ok).collect::<Vec<_>>();
 

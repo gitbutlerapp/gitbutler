@@ -41,8 +41,8 @@ pub fn create_virtual_branch(
     params: CreateVirtualBranchParams,
 ) -> Result<StackEntryNoOpt, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ws3_enabled = app.app_settings.get()?.feature_flags.ws3;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ws3_enabled = ctx.app_settings().feature_flags.ws3;
     let stack_entry = if ws3_enabled {
         let mut guard = project.exclusive_worktree_access();
         let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
