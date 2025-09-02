@@ -16,7 +16,6 @@
 		Textbox,
 		Toggle
 	} from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	const userSettings = inject(SETTINGS);
 	const diff = `@@ -56,10 +56,9 @@
@@ -51,14 +50,14 @@
 	}
 </script>
 
-<SectionCard {focusable}>
+<SectionCard>
 	{#snippet title()}
 		Theme
 	{/snippet}
 	<ThemeSelector {userSettings} />
 </SectionCard>
 <div class="stack-v">
-	<SectionCard centerAlign roundedBottom={false} {focusable}>
+	<SectionCard centerAlign roundedBottom={false}>
 		{#snippet title()}
 			Diff preview
 		{/snippet}
@@ -75,7 +74,7 @@
 		/>
 	</SectionCard>
 
-	<SectionCard orientation="column" roundedTop={false} roundedBottom={false} {focusable}>
+	<SectionCard orientation="column" roundedTop={false} roundedBottom={false}>
 		{#snippet title()}
 			Font family
 		{/snippet}
@@ -102,7 +101,6 @@
 		orientation="row"
 		roundedTop={false}
 		roundedBottom={false}
-		{focusable}
 	>
 		{#snippet title()}
 			Allow font ligatures
@@ -121,7 +119,7 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard orientation="row" centerAlign roundedTop={false} roundedBottom={false} {focusable}>
+	<SectionCard orientation="row" centerAlign roundedTop={false} roundedBottom={false}>
 		{#snippet title()}
 			Tab size
 		{/snippet}
@@ -149,13 +147,7 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard
-		labelFor="wrapText"
-		orientation="row"
-		roundedTop={false}
-		roundedBottom={false}
-		{focusable}
-	>
+	<SectionCard labelFor="wrapText" orientation="row" roundedTop={false} roundedBottom={false}>
 		{#snippet title()}
 			Soft wrap
 		{/snippet}
@@ -177,7 +169,7 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard orientation="row" roundedTop={false} roundedBottom={false} {focusable}>
+	<SectionCard orientation="row" roundedTop={false} roundedBottom={false}>
 		{#snippet title()}
 			Lines contrast
 		{/snippet}
@@ -209,7 +201,7 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard labelFor="inlineUnifiedDiffs" orientation="row" roundedTop={false} {focusable}>
+	<SectionCard labelFor="inlineUnifiedDiffs" orientation="row" roundedTop={false}>
 		{#snippet title()}
 			Display word diffs inline
 		{/snippet}
@@ -233,7 +225,7 @@
 </div>
 
 <form class="stack-v" onchange={(e) => onScrollbarFormChange(e.currentTarget)}>
-	<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll" {focusable}>
+	<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll">
 		{#snippet title()}
 			Scrollbar-On-Scroll
 		{/snippet}
@@ -255,7 +247,6 @@
 		roundedBottom={false}
 		orientation="row"
 		labelFor="scrollbar-on-hover"
-		{focusable}
 	>
 		{#snippet title()}
 			Scrollbar-On-Hover
@@ -273,7 +264,7 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard roundedTop={false} orientation="row" labelFor="scrollbar-always" {focusable}>
+	<SectionCard roundedTop={false} orientation="row" labelFor="scrollbar-always">
 		{#snippet title()}
 			Always show scrollbar
 		{/snippet}
@@ -288,7 +279,7 @@
 	</SectionCard>
 </form>
 
-<SectionCard labelFor="branchLaneContents" orientation="row" {focusable}>
+<SectionCard labelFor="branchLaneContents" orientation="row">
 	{#snippet title()}
 		Auto-select text on branch/lane rename
 	{/snippet}
@@ -305,7 +296,7 @@
 </SectionCard>
 
 <form class="stack-v" onchange={(e) => onStagingBehaviorFormChange(e.currentTarget)}>
-	<SectionCard roundedBottom={false} orientation="row" labelFor="stage-all" {focusable}>
+	<SectionCard roundedBottom={false} orientation="row" labelFor="stage-all">
 		{#snippet title()}
 			Stage all files
 		{/snippet}
@@ -328,7 +319,6 @@
 		roundedBottom={false}
 		orientation="row"
 		labelFor="stage-selection"
-		{focusable}
 	>
 		{#snippet title()}
 			Stage selected files
@@ -348,7 +338,7 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard roundedTop={false} orientation="row" labelFor="stage-none" {focusable}>
+	<SectionCard roundedTop={false} orientation="row" labelFor="stage-none">
 		{#snippet title()}
 			Don't stage files automatically
 		{/snippet}

@@ -1,6 +1,6 @@
 <script lang="ts">
+	import { focusable } from '$lib/focus/focusable';
 	import type { Snippet } from 'svelte';
-	import type { Action } from 'svelte/action';
 
 	interface Props {
 		orientation?: 'row' | 'column';
@@ -21,7 +21,6 @@
 		children?: Snippet;
 		actions?: Snippet;
 		onclick?: (e: MouseEvent) => void;
-		focusable?: Action<HTMLElement, object>;
 	}
 
 	let {
@@ -42,10 +41,8 @@
 		caption,
 		children,
 		actions,
-		focusable,
 		onclick
 	}: Props = $props();
-	const focusableWithFallback = focusable || (() => {});
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -66,7 +63,7 @@
 	class:error={background === 'error'}
 	class:clickable={labelFor !== '' || clickable}
 	class:disabled
-	use:focusableWithFallback={{}}
+	use:focusable
 	{onclick}
 >
 	{#if iconSide}

@@ -8,8 +8,9 @@
 	import FileIndent from '$components/file/FileIndent.svelte';
 	import FileName from '$components/file/FileName.svelte';
 	import FileStatusBadge from '$components/file/FileStatusBadge.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import type { FileStatus } from '$components/file/types';
-	import type { Action } from 'svelte/action';
+	import type { FocusableOptions } from '$lib/focus/focusManager';
 
 	interface Props {
 		ref?: HTMLDivElement;
@@ -34,6 +35,7 @@
 		active?: boolean;
 		hideBorder?: boolean;
 		executable?: boolean;
+		actionOpts?: FocusableOptions;
 		oncheckclick?: (e: MouseEvent) => void;
 		oncheck?: (
 			e: Event & {
@@ -45,8 +47,6 @@
 		onresolveclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		oncontextmenu?: (e: MouseEvent) => void;
-		action?: Action<HTMLDivElement, any>;
-		actionOpts?: unknown;
 	}
 
 	let {
@@ -72,7 +72,6 @@
 		listMode = 'list',
 		depth,
 		executable,
-		action,
 		actionOpts,
 		oncheck,
 		oncheckclick,
@@ -84,7 +83,6 @@
 	}: Props = $props();
 
 	const showIndent = $derived(depth && depth > 0);
-	const action2 = action || (() => ({}));
 </script>
 
 <div
@@ -105,7 +103,7 @@
 	{onclick}
 	{ondblclick}
 	{onkeydown}
-	use:action2={actionOpts}
+	use:focusable={actionOpts}
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
 			e.preventDefault();

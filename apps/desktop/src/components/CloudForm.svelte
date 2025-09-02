@@ -8,7 +8,6 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, SectionCard, Spacer, Toggle } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -34,7 +33,7 @@
 	{/if}
 
 	<div class="options">
-		<SectionCard labelFor="aiGenEnabled" orientation="row" {focusable}>
+		<SectionCard labelFor="aiGenEnabled" orientation="row">
 			{#snippet title()}
 				Enable branch and commit message generation
 			{/snippet}
@@ -56,7 +55,7 @@
 
 	{#if $aiGenEnabled}
 		<div class="options">
-			<SectionCard labelFor="aiExperimental" orientation="row" {focusable}>
+			<SectionCard labelFor="aiExperimental" orientation="row">
 				{#snippet title()}
 					Enable experimental AI features
 				{/snippet}
@@ -77,7 +76,7 @@
 		</div>
 	{/if}
 
-	<SectionCard {focusable}>
+	<SectionCard>
 		{#snippet title()}
 			Custom prompts
 		{/snippet}

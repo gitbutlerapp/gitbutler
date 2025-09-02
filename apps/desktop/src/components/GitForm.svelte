@@ -7,7 +7,6 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
 	import { SectionCard, Spacer, Toggle } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Project } from '$lib/project/project';
 
 	const { projectId }: { projectId: string } = $props();
@@ -35,7 +34,7 @@
 	<ReduxResult {projectId} result={projectResult.current}>
 		{#snippet children(project)}
 			<div class="stack-v">
-				<SectionCard orientation="row" labelFor="allowForcePush" roundedBottom={false} {focusable}>
+				<SectionCard orientation="row" labelFor="allowForcePush" roundedBottom={false}>
 					{#snippet title()}
 						Allow force pushing
 					{/snippet}
@@ -51,12 +50,7 @@
 						/>
 					{/snippet}
 				</SectionCard>
-				<SectionCard
-					orientation="row"
-					labelFor="forcePushProtection"
-					roundedTop={false}
-					{focusable}
-				>
+				<SectionCard orientation="row" labelFor="forcePushProtection" roundedTop={false}>
 					{#snippet title()}
 						Force push protection
 					{/snippet}
