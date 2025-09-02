@@ -9,7 +9,7 @@ import {
 import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { InjectionToken } from '@gitbutler/core/context';
 import { on } from 'svelte/events';
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 
 export const FOCUS_MANAGER: InjectionToken<FocusManager> = new InjectionToken('FocusManager');
 
@@ -92,7 +92,9 @@ export interface FocusableOptions<T extends Payload = Payload> {
 	payload?: T;
 	skip?: boolean;
 	list?: boolean;
-	default?: boolean;
+	trap?: boolean;
+	activate?: boolean;
+
 	onKeydown?: KeyboardHandler<T>;
 	onFocus?: (context: FocusContext<T>) => void;
 	onBlur?: (context: FocusContext<T>) => void;
@@ -127,13 +129,15 @@ export class FocusManager {
 
 	private handleMouse = this.handleClick.bind(this);
 	private handleKeys = this.handleKeydown.bind(this);
+	private handleFocus = this.handleFocusIn.bind(this);
 
 	constructor() {}
 
 	listen() {
 		return mergeUnlisten(
 			on(document, 'click', this.handleMouse, { capture: true }),
-			on(document, 'keydown', this.handleKeys)
+			on(document, 'keydown', this.handleKeys),
+			on(document, 'focusin', this.handleFocus)
 		);
 	}
 
@@ -220,9 +224,10 @@ export class FocusManager {
 			this.pendingRelationships.push(element);
 		}
 
-		if (options.default) {
+		if (options.activate) {
 			this.setActive(element);
 		}
+
 		// Trigger onFocus if this becomes the current element
 		if (options.onFocus && this._currentElement === element) {
 			options.onFocus(this.createContext(element, metadata));
@@ -434,14 +439,7 @@ export class FocusManager {
 	}
 
 	handleKeydown(event: KeyboardEvent) {
-		// Ignore keyboard navigation if user is focused on an
-		// input element, or no current element.
-		if (
-			(event.target instanceof HTMLElement && isContentEditable(event.target)) ||
-			event.target instanceof HTMLTextAreaElement ||
-			event.target instanceof HTMLInputElement ||
-			!this._currentElement
-		) {
+		if (this.ignoreKeys()) {
 			return;
 		}
 
@@ -456,6 +454,30 @@ export class FocusManager {
 		// Handle built-in navigation
 		if (this.handleBuiltinNavigation(event, metadata)) {
 			this.outline.set(true);
+		}
+	}
+
+	/**
+	 * This is a hack to make the focus manager interact better with context
+	 * menus, and should be refactored. Ideally we deprecate `focusTrap` and
+	 * adapt the focusable to work well with menus.
+	 */
+	ignoreKeys() {
+		return (
+			document.activeElement &&
+			document.activeElement !== document.body &&
+			this._currentElement &&
+			!this._currentElement.contains(document.activeElement)
+		);
+	}
+
+	handleFocusIn(event: FocusEvent) {
+		const target = event.target;
+		if (target instanceof HTMLElement) {
+			const parentElement = this.findParent(target);
+			if (parentElement && parentElement !== this._currentElement) {
+				this.outline.set(true);
+			}
 		}
 	}
 
@@ -482,15 +504,35 @@ export class FocusManager {
 		const navigationAction = this.getNavigationAction(event.key, list);
 		if (!navigationAction) return false;
 
+		const isInput =
+			(event.target instanceof HTMLElement && isContentEditable(event.target)) ||
+			event.target instanceof HTMLTextAreaElement ||
+			event.target instanceof HTMLInputElement ||
+			!this._currentElement;
+
+		if (isInput && navigationAction !== 'tab') {
+			return false;
+		}
+
+		// It feels more predictable to make the outline visible on the first
+		// keyboard interaction, rather than potentially moving the cursor and
+		// then making it visible.
+		if (!get(this.outline) && navigationAction !== 'tab') {
+			this.outline.set(true);
+			event.stopPropagation();
+			event.preventDefault();
+			return false;
+		}
+
 		event.preventDefault();
 		event.stopPropagation();
 
-		this.executeNavigationAction(navigationAction, {
+		return this.executeNavigationAction(navigationAction, {
 			metaKey: event.metaKey,
 			forward: !event.shiftKey,
+			trap: metadata.options.trap,
 			list
 		});
-		return true;
 	}
 
 	private getNavigationAction(key: string, isList: boolean): NavigationAction | null {
@@ -510,16 +552,19 @@ export class FocusManager {
 			metaKey: boolean;
 			list: boolean;
 			forward: boolean;
+			trap?: boolean;
 		}
-	): void {
-		const { metaKey, list: isList, forward = true } = options;
+	): boolean {
+		const { metaKey, list: isList, forward = true, trap } = options;
 		switch (action) {
 			case 'tab':
 				if (this._currentElement) {
 					focusNextTabIndex({ container: this._currentElement, forward });
 				}
-				break;
+				return false; // do not toggle outline
+
 			case 'prev':
+				if (trap) return true;
 				if (metaKey && !isList) {
 					this.focusCousin(false);
 				} else if (!this.focusSibling(false)) {
@@ -528,6 +573,7 @@ export class FocusManager {
 				break;
 
 			case 'next':
+				if (trap) return true;
 				if (metaKey && !isList) {
 					this.focusCousin(true);
 				} else if (!this.focusSibling(true)) {
@@ -536,6 +582,7 @@ export class FocusManager {
 				break;
 
 			case 'exit':
+				if (trap) return true;
 				if (metaKey && isList) {
 					this.focusCousin(false);
 				} else {
@@ -544,6 +591,7 @@ export class FocusManager {
 				break;
 
 			case 'enter':
+				if (trap) return true;
 				if (metaKey && isList) {
 					this.focusCousin(true);
 				} else if (!this.focusFirstChild()) {
@@ -551,6 +599,7 @@ export class FocusManager {
 				}
 				break;
 		}
+		return true;
 	}
 
 	getOptions<T extends Payload>(element: HTMLElement): FocusableOptions<T> | null {

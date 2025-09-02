@@ -20,7 +20,6 @@
 		Spacer,
 		Textbox
 	} from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	import { onMount, tick } from 'svelte';
 	import { run } from 'svelte/legacy';
@@ -216,7 +215,6 @@
 		orientation="row"
 		labelFor="open-ai"
 		bottomBorder={modelKind !== ModelKind.OpenAI}
-		{focusable}
 	>
 		{#snippet title()}
 			Open AI
@@ -226,7 +224,7 @@
 		{/snippet}
 	</SectionCard>
 	{#if modelKind === ModelKind.OpenAI}
-		<SectionCard roundedTop={false} roundedBottom={false} topDivider {focusable}>
+		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
 			<Select
 				value={openAIKeyOption}
 				options={keyOptions}
@@ -285,7 +283,6 @@
 		orientation="row"
 		labelFor="anthropic"
 		bottomBorder={modelKind !== ModelKind.Anthropic}
-		{focusable}
 	>
 		{#snippet title()}
 			Anthropic
@@ -295,7 +292,7 @@
 		{/snippet}
 	</SectionCard>
 	{#if modelKind === ModelKind.Anthropic}
-		<SectionCard roundedTop={false} roundedBottom={false} topDivider {focusable}>
+		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
 			<Select
 				value={anthropicKeyOption}
 				options={keyOptions}
@@ -352,7 +349,6 @@
 		orientation="row"
 		labelFor="ollama"
 		bottomBorder={modelKind !== ModelKind.Ollama}
-		{focusable}
 	>
 		{#snippet title()}
 			Ollama 🦙
@@ -362,7 +358,7 @@
 		{/snippet}
 	</SectionCard>
 	{#if modelKind === ModelKind.Ollama}
-		<SectionCard roundedTop={false} roundedBottom={false} topDivider {focusable}>
+		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
 			<Textbox label="Endpoint" bind:value={ollamaEndpoint} placeholder="http://127.0.0.1:11434" />
 			<Textbox label="Model" bind:value={ollamaModel} placeholder="llama3" />
 			<InfoMessage filled outlined={false}>
@@ -386,7 +382,6 @@
 		orientation="row"
 		labelFor="lmstudio"
 		bottomBorder={modelKind !== ModelKind.LMStudio}
-		{focusable}
 	>
 		{#snippet title()}
 			LM Studio
@@ -396,7 +391,7 @@
 		{/snippet}
 	</SectionCard>
 	{#if modelKind === ModelKind.LMStudio}
-		<SectionCard roundedTop={false} roundedBottom={false} topDivider {focusable}>
+		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
 			<Textbox label="Endpoint" bind:value={lmStudioEndpoint} placeholder="http://127.0.0.1:1234" />
 			<Textbox label="Model" bind:value={lmStudioModel} placeholder="default" />
 			<InfoMessage filled outlined={false}>
@@ -428,14 +423,14 @@
 	{/if}
 
 	<!-- AI credential check -->
-	<SectionCard roundedTop={false} {focusable}>
+	<SectionCard roundedTop={false}>
 		<AiCredentialCheck />
 	</SectionCard>
 </form>
 
 <Spacer />
 
-<SectionCard orientation="row" {focusable}>
+<SectionCard orientation="row">
 	{#snippet title()}
 		Amount of provided context
 	{/snippet}

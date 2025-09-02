@@ -15,7 +15,6 @@
 	import { inject } from '@gitbutler/core/context';
 	import { FileListItem, FileViewHeader, TestId } from '@gitbutler/ui';
 	import { type FocusableOptions } from '@gitbutler/ui/focus/focusManager';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { sticky as stickyAction } from '@gitbutler/ui/utils/sticky';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { Rename } from '$lib/hunks/change';
@@ -35,7 +34,7 @@
 		linesRemoved?: number;
 		depth?: number;
 		executable?: boolean;
-		focusableOpts?: FocusableOptions<any>;
+		focusableOpts?: FocusableOptions;
 		showCheckbox?: boolean;
 		draggable?: boolean;
 		transparent?: boolean;
@@ -211,7 +210,6 @@
 			{onclick}
 			oncheck={(e) => onCheck(e.currentTarget.checked)}
 			oncontextmenu={onContextMenu}
-			action={focusable}
 			actionOpts={focusableOpts}
 		/>
 	{/if}

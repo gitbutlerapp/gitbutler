@@ -145,55 +145,48 @@
 	}
 </script>
 
-{#snippet submenuButton()}
-	<div
-		bind:this={menuItemElement}
-		class="submenu-wrapper"
-		class:active={isSubmenuOpen}
-		onmouseenter={handleMouseEnter}
-		onmouseleave={handleMouseLeave}
-		onkeydown={handleKeyDown}
-		role="menuitem"
-		aria-haspopup="menu"
-		aria-expanded={isSubmenuOpen}
-		tabindex="-1"
+<div
+	bind:this={menuItemElement}
+	class="submenu-wrapper"
+	class:active={isSubmenuOpen}
+	onmouseenter={handleMouseEnter}
+	onmouseleave={handleMouseLeave}
+	onkeydown={handleKeyDown}
+	role="menuitem"
+	aria-haspopup="menu"
+	aria-expanded={isSubmenuOpen}
+	tabindex="-1"
+>
+	<ContextMenuItem
+		{icon}
+		{label}
+		{disabled}
+		{keyboardShortcut}
+		{testId}
+		{tooltip}
+		onclick={handleClick}
 	>
-		<ContextMenuItem
-			{icon}
-			{label}
-			{disabled}
-			{keyboardShortcut}
-			{testId}
-			{tooltip}
-			onclick={handleClick}
-		>
-			{#snippet control()}
-				<div class="submenu-chevron">
-					<Icon name="chevron-right-small" />
-				</div>
-			{/snippet}
-		</ContextMenuItem>
-	</div>
-{/snippet}
+		{#snippet control()}
+			<div class="submenu-chevron">
+				<Icon name="chevron-right-small" />
+			</div>
+		{/snippet}
+	</ContextMenuItem>
+</div>
 
-{#snippet menuContent()}
-	{@render submenuButton()}
-
-	<ContextMenu
-		bind:this={contextMenu}
-		leftClickTrigger={menuItemElement}
-		parentMenuId={submenuCoordination.getMenuId()}
-		side={submenuSide}
-		align={submenuVerticalAlign === 'top' ? 'start' : 'end'}
-		onclose={() => {
-			isSubmenuOpen = false;
-		}}
-	>
-		{@render submenu({ close: closeSubmenu })}
-	</ContextMenu>
-{/snippet}
-
-{@render menuContent()}
+<ContextMenu
+	bind:this={contextMenu}
+	leftClickTrigger={menuItemElement}
+	parentMenuId={submenuCoordination.getMenuId()}
+	side={submenuSide}
+	align={submenuVerticalAlign === 'top' ? 'start' : 'end'}
+	onclose={() => {
+		isSubmenuOpen = false;
+		menuItemElement?.focus();
+	}}
+>
+	{@render submenu({ close: closeSubmenu })}
+</ContextMenu>
 
 <style lang="postcss">
 	.submenu-wrapper {

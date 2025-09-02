@@ -6,7 +6,6 @@
 	import { inject } from '@gitbutler/core/context';
 
 	import { Button, Icon, Modal, SectionCard, chipToasts as toasts } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
@@ -78,7 +77,7 @@
 {#if minimal}
 	<Button style="pop" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 {:else}
-	<SectionCard orientation="row" {focusable}>
+	<SectionCard orientation="row">
 		{#snippet iconSide()}
 			<div class="icon-wrapper">
 				{#if $user?.github_access_token}

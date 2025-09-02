@@ -7,7 +7,10 @@
 	function findNearestRelativeDiv(element: HTMLElement): HTMLElement | undefined {
 		let current = element.parentElement;
 
-		while (current && current !== document.body) {
+		while (current) {
+			if (current === document.body) {
+				return current;
+			}
 			if (isRelativePos(current)) {
 				return current;
 			}
@@ -32,8 +35,8 @@
 	function copyPosition(from: HTMLElement, to: HTMLElement) {
 		const left = from.offsetLeft;
 		const top = from.offsetTop;
-		const width = from.clientWidth;
-		const height = from.clientHeight;
+		const width = from.offsetWidth;
+		const height = from.offsetHeight;
 
 		to.style.left = left ? left + 'px' : '0';
 		to.style.top = top ? top + 'px' : '0';
@@ -60,7 +63,7 @@
 
 <style lang="postcss">
 	:global(.focus-cursor) {
-		z-index: var(--z-lifted);
+		z-index: var(--z-blocker);
 		position: absolute;
 
 		/* Focus outline frame */
