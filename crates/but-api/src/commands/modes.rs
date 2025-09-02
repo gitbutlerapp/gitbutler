@@ -1,6 +1,7 @@
 //! In place of commands.rs
 use anyhow::Context;
 use but_core::ui::TreeChange;
+use but_settings::AppSettings;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_edit_mode::ConflictEntryPresence;
@@ -16,9 +17,9 @@ pub struct OperatingModeParams {
     pub project_id: ProjectId,
 }
 
-pub fn operating_mode(app: &App, params: OperatingModeParams) -> Result<OperatingMode, Error> {
+pub fn operating_mode(_app: &App, params: OperatingModeParams) -> Result<OperatingMode, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_operating_modes::operating_mode(&ctx))
 }
 
@@ -30,9 +31,9 @@ pub struct EnterEditModeParams {
     pub stack_id: StackId,
 }
 
-pub fn enter_edit_mode(app: &App, params: EnterEditModeParams) -> Result<EditModeMetadata, Error> {
+pub fn enter_edit_mode(_app: &App, params: EnterEditModeParams) -> Result<EditModeMetadata, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit = git2::Oid::from_str(&params.commit_id).context("Failed to parse commit oid")?;
 
     gitbutler_edit_mode::commands::enter_edit_mode(&ctx, commit, params.stack_id)
@@ -46,11 +47,11 @@ pub struct AbortEditAndReturnToWorkspaceParams {
 }
 
 pub fn abort_edit_and_return_to_workspace(
-    app: &App,
+    _app: &App,
     params: AbortEditAndReturnToWorkspaceParams,
 ) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     gitbutler_edit_mode::commands::abort_and_return_to_workspace(&ctx)?;
 
@@ -64,11 +65,11 @@ pub struct SaveEditAndReturnToWorkspaceParams {
 }
 
 pub fn save_edit_and_return_to_workspace(
-    app: &App,
+    _app: &App,
     params: SaveEditAndReturnToWorkspaceParams,
 ) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     gitbutler_edit_mode::commands::save_and_return_to_workspace(&ctx)?;
 
@@ -82,11 +83,11 @@ pub struct EditInitialIndexStateParams {
 }
 
 pub fn edit_initial_index_state(
-    app: &App,
+    _app: &App,
     params: EditInitialIndexStateParams,
 ) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     gitbutler_edit_mode::commands::starting_index_state(&ctx).map_err(Into::into)
 }
@@ -98,11 +99,11 @@ pub struct EditChangesFromInitialParams {
 }
 
 pub fn edit_changes_from_initial(
-    app: &App,
+    _app: &App,
     params: EditChangesFromInitialParams,
 ) -> Result<Vec<TreeChange>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     gitbutler_edit_mode::commands::changes_from_initial(&ctx).map_err(Into::into)
 }

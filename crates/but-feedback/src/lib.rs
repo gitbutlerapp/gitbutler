@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use but_settings::AppSettings;
 use gitbutler_project::ProjectId;
 
 /// A utility to keep important paths to make archival/zip-file creation easier later.
@@ -31,7 +32,10 @@ impl Archival {
     /// Create an archive commit graph behind `project_id` such that it doesn't reveal PII.
     pub fn zip_anonymous_graph(&self, project_id: ProjectId) -> Result<PathBuf> {
         let project = gitbutler_project::get(project_id)?;
-        let ctx = gitbutler_command_context::CommandContext::open(&project, Default::default())?;
+        let ctx = gitbutler_command_context::CommandContext::open(
+            &project,
+            AppSettings::load_from_default_path_creating()?,
+        )?;
         let guard = project.shared_worktree_access();
         let repo = ctx.gix_repo()?;
         let meta = ctx.meta(guard.read_permission())?;

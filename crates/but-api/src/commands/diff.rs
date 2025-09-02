@@ -8,6 +8,7 @@ use but_core::{
 };
 use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeChanges};
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
+use but_settings::AppSettings;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
@@ -25,14 +26,15 @@ pub struct TreeChangeDiffsParams {
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
 pub fn tree_change_diffs(
-    app: &App,
+    _app: &App,
     params: TreeChangeDiffsParams,
 ) -> anyhow::Result<but_core::UnifiedDiff, Error> {
     let change: but_core::TreeChange = params.change.into();
     let project = gitbutler_project::get(params.project_id)?;
+    let app_settings = AppSettings::load_from_default_path_creating()?;
     let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
     Ok(change
-        .unified_diff(&repo, app.app_settings.get()?.context_lines)?
+        .unified_diff(&repo, app_settings.context_lines)?
         .context("TODO: Submodules must be handled specifically in the UI")?)
 }
 
@@ -87,11 +89,11 @@ pub struct ChangesInBranchParams {
 /// Note that `stack_id` is deprecated in favor of `branch_name`
 /// *(which should be a full ref-name as well and make `remote` unnecessary)*
 pub fn changes_in_branch(
-    app: &App,
+    _app: &App,
     params: ChangesInBranchParams,
 ) -> anyhow::Result<TreeChanges, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     changes_in_branch_inner(ctx, params.branch).map_err(Into::into)
 }
 
@@ -128,11 +130,11 @@ pub struct ChangesInWorktreeParams {
 }
 
 pub fn changes_in_worktree(
-    app: &App,
+    _app: &App,
     params: ChangesInWorktreeParams,
 ) -> anyhow::Result<WorktreeChanges, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = &mut CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
 
     let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
@@ -184,11 +186,11 @@ pub struct AssignHunkParams {
 }
 
 pub fn assign_hunk(
-    app: &App,
+    _app: &App,
     params: AssignHunkParams,
 ) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = &mut CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let rejections = but_hunk_assignment::assign(ctx, params.assignments, None)?;
     Ok(rejections)
 }

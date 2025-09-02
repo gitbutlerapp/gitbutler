@@ -1,6 +1,7 @@
 use crate::commands::stack::create_reference::Anchor;
 use crate::{App, error::Error};
 use anyhow::{Context, anyhow};
+use but_settings::AppSettings;
 use but_workspace::branch::{ReferenceAnchor, ReferencePosition};
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
@@ -56,9 +57,9 @@ pub mod create_reference {
     }
 }
 
-pub fn create_reference(app: &App, params: create_reference::Params) -> Result<(), Error> {
+pub fn create_reference(_app: &App, params: create_reference::Params) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let create_reference::Request { new_name, anchor } = params.request;
     let new_ref = Category::LocalBranch
         .to_full_name(new_name.as_str())
@@ -100,10 +101,10 @@ pub fn create_reference(app: &App, params: create_reference::Params) -> Result<(
     Ok(())
 }
 
-pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error> {
+pub fn create_branch(_app: &App, params: CreateBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    if app.app_settings.get()?.feature_flags.ws3 {
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    if ctx.app_settings().feature_flags.ws3 {
         use ReferencePosition::Above;
         let mut guard = project.exclusive_worktree_access();
         let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
@@ -164,11 +165,11 @@ pub struct RemoveBranchParams {
     pub branch_name: String,
 }
 
-pub fn remove_branch(app: &App, params: RemoveBranchParams) -> Result<(), Error> {
+pub fn remove_branch(_app: &App, params: RemoveBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
-    if app.app_settings.get()?.feature_flags.ws3 {
+    if ctx.app_settings().feature_flags.ws3 {
         let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
         let ws = graph.to_workspace()?;
         let ref_name = Category::LocalBranch
@@ -204,9 +205,9 @@ pub struct UpdateBranchNameParams {
     pub new_name: String,
 }
 
-pub fn update_branch_name(app: &App, params: UpdateBranchNameParams) -> Result<(), Error> {
+pub fn update_branch_name(_app: &App, params: UpdateBranchNameParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::update_branch_name(
         &ctx,
         params.stack_id,
@@ -226,11 +227,11 @@ pub struct UpdateBranchDescriptionParams {
 }
 
 pub fn update_branch_description(
-    app: &App,
+    _app: &App,
     params: UpdateBranchDescriptionParams,
 ) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::update_branch_description(
         &ctx,
         params.stack_id,
@@ -249,9 +250,12 @@ pub struct UpdateBranchPrNumberParams {
     pub pr_number: Option<usize>,
 }
 
-pub fn update_branch_pr_number(app: &App, params: UpdateBranchPrNumberParams) -> Result<(), Error> {
+pub fn update_branch_pr_number(
+    _app: &App,
+    params: UpdateBranchPrNumberParams,
+) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::update_branch_pr_number(
         &ctx,
         params.stack_id,
@@ -271,9 +275,9 @@ pub struct PushStackParams {
     pub branch: String,
 }
 
-pub fn push_stack(app: &App, params: PushStackParams) -> Result<PushResult, Error> {
+pub fn push_stack(_app: &App, params: PushStackParams) -> Result<PushResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::push_stack(
         &ctx,
         params.stack_id,
@@ -293,9 +297,9 @@ pub struct PushStackToReviewParams {
     pub user: User,
 }
 
-pub fn push_stack_to_review(app: &App, params: PushStackToReviewParams) -> Result<String, Error> {
+pub fn push_stack_to_review(_app: &App, params: PushStackToReviewParams) -> Result<String, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let review_id = gitbutler_sync::stack_upload::push_stack_to_review(
         &ctx,
         &params.user,

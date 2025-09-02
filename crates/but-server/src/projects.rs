@@ -2,6 +2,7 @@ use crate::Extra;
 use anyhow::{Context as _, Result};
 use but_api::{App, error::ToError};
 use but_broadcaster::FrontendEvent;
+use but_settings::AppSettingsWithDiskSync;
 use gitbutler_project::{Project, ProjectId};
 use gitbutler_watcher::{Change, WatcherHandle};
 use serde::Deserialize;
@@ -25,7 +26,12 @@ impl ActiveProjects {
         }
     }
 
-    pub fn set_active(&mut self, project: &Project, ctx: &App) -> Result<()> {
+    pub fn set_active(
+        &mut self,
+        project: &Project,
+        ctx: &App,
+        app_settings_sync: AppSettingsWithDiskSync,
+    ) -> Result<()> {
         if self.projects.contains_key(&project.id) {
             return Ok(());
         }
@@ -71,7 +77,7 @@ impl ActiveProjects {
             handler,
             project.worktree_path(),
             project.id,
-            (*ctx.app_settings).clone(),
+            app_settings_sync,
         )?;
 
         self.projects.insert(project.id, watcher);
@@ -108,6 +114,7 @@ pub async fn list_projects(extra: &Extra) -> Result<serde_json::Value, but_api::
 pub async fn set_project_active(
     ctx: &App,
     extra: &Extra,
+    app_settings_sync: AppSettingsWithDiskSync,
     params: serde_json::Value,
 ) -> Result<serde_json::Value, but_api::error::Error> {
     let params: SetProjectActiveParams = serde_json::from_value(params).to_error()?;
@@ -117,7 +124,7 @@ pub async fn set_project_active(
     // knowledge around how many unique tabs are looking at it
 
     let mut active_projects = extra.active_projects.lock().await;
-    active_projects.set_active(&project, ctx)?;
+    active_projects.set_active(&project, ctx, app_settings_sync)?;
 
     // let is_exclusive = !active_projects.projects.contains(&params.id);
 

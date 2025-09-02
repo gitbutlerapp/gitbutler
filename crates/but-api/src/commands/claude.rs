@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use but_claude::{ClaudeMessage, ThinkingLevel};
+use but_settings::AppSettings;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
@@ -22,7 +23,7 @@ pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = Arc::new(Mutex::new(CommandContext::open(
         &project,
-        app.app_settings.get()?.clone(),
+        AppSettings::load_from_default_path_creating()?,
     )?));
     app.claudes
         .send_message(
@@ -48,7 +49,7 @@ pub fn claude_get_messages(
     params: GetMessagesParams,
 ) -> Result<Vec<ClaudeMessage>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let mut ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let messages = app.claudes.get_messages(&mut ctx, params.stack_id)?;
     Ok(messages)
 }
@@ -81,11 +82,11 @@ pub struct ListPermissionRequestsParams {
 }
 
 pub fn claude_list_permission_requests(
-    app: &App,
+    _app: &App,
     params: ListPermissionRequestsParams,
 ) -> Result<Vec<but_claude::ClaudePermissionRequest>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let mut ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(but_claude::db::list_all_permission_requests(&mut ctx)?)
 }
 
@@ -98,11 +99,11 @@ pub struct UpdatePermissionRequestParams {
 }
 
 pub fn claude_update_permission_request(
-    app: &App,
+    _app: &App,
     params: UpdatePermissionRequestParams,
 ) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let mut ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(but_claude::db::update_permission_request(
         &mut ctx,
         &params.request_id,
@@ -122,8 +123,9 @@ pub async fn claude_cancel_session(app: &App, params: CancelSessionParams) -> Re
     Ok(cancelled)
 }
 
-pub async fn claude_check_available(app: &App, _params: NoParams) -> Result<bool, Error> {
-    let claude_executable = app.app_settings.get()?.claude.executable.clone();
+pub async fn claude_check_available(_app: &App, _params: NoParams) -> Result<bool, Error> {
+    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let claude_executable = app_settings.claude.executable.clone();
     let is_available = but_claude::bridge::check_claude_available(&claude_executable).await;
     Ok(is_available)
 }

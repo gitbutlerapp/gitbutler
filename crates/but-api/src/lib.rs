@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 use but_broadcaster::Broadcaster;
 use but_claude::bridge::Claudes;
-use but_settings::AppSettingsWithDiskSync;
 use serde::Deserialize;
 use tokio::sync::Mutex;
 
@@ -19,7 +18,6 @@ pub mod hex_hash;
 
 #[derive(Clone)]
 pub struct App {
-    pub app_settings: Arc<AppSettingsWithDiskSync>,
     pub broadcaster: Arc<Mutex<Broadcaster>>,
     pub archival: Arc<but_feedback::Archival>,
     pub claudes: Arc<Claudes>,

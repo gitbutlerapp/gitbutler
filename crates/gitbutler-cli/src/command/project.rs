@@ -27,7 +27,7 @@ pub fn add(data_dir: PathBuf, path: PathBuf, refname: Option<RemoteRefname>) -> 
         .to_owned()
         .canonicalize()?;
     let project = gitbutler_project::add_with_path(data_dir, path)?;
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     if let Some(refname) = refname {
         gitbutler_branch_actions::set_base_branch(
             &ctx,
@@ -40,7 +40,7 @@ pub fn add(data_dir: PathBuf, path: PathBuf, refname: Option<RemoteRefname>) -> 
 }
 
 pub fn switch_to_workspace(project: Project, refname: RemoteRefname) -> Result<()> {
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     debug_print(gitbutler_branch_actions::set_base_branch(
         &ctx,
         &refname,

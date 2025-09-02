@@ -3,6 +3,7 @@ use but_api::commands::projects::{
     self, AddProjectParams, DeleteProjectParams, GetProjectParams, UpdateProjectParams,
 };
 use but_api::error::Error;
+use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, ProjectId};
 use gix::bstr::ByteSlice;
@@ -89,10 +90,11 @@ pub struct ProjectInfo {
 ///
 /// We use it to start watching for filesystem events.
 #[tauri::command(async)]
-#[instrument(skip(window_state, window, app), err(Debug), ret)]
+#[instrument(skip(window_state, window, _app, app_settings_sync), err(Debug), ret)]
 pub fn set_project_active(
     window_state: State<'_, WindowState>,
-    app: tauri::State<'_, but_api::App>,
+    _app: tauri::State<'_, but_api::App>,
+    app_settings_sync: tauri::State<'_, AppSettingsWithDiskSync>,
     window: Window,
     id: ProjectId,
 ) -> Result<Option<ProjectInfo>, Error> {
@@ -103,13 +105,9 @@ pub fn set_project_active(
             return Ok(None);
         }
     };
-    let ctx = &mut CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    let mode = window_state.set_project_to_window(
-        window.label(),
-        &project,
-        (*app.app_settings).clone(),
-        ctx,
-    )?;
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mode =
+        window_state.set_project_to_window(window.label(), &project, &app_settings_sync, ctx)?;
     let db_error = assure_database_valid(project.gb_dir())?;
     let filter_error = warn_about_filters_and_git_lfs(ctx.gix_repo_local_only()?)?;
     for err in [&db_error, &filter_error] {

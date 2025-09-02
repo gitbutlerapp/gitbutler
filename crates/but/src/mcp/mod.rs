@@ -132,7 +132,9 @@ impl Mcp {
 
         let repo_path = PathBuf::from(request.current_working_directory.clone());
         let project = Project::from_path(&repo_path).expect("Failed to create project from path");
-        let ctx = &mut CommandContext::open(&project, self.app_settings.clone())
+        let settings = AppSettings::load_from_default_path_creating()
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        let ctx = &mut CommandContext::open(&project, settings)
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let (id, outcome) = but_action::handle_changes(

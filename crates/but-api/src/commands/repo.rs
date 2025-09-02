@@ -1,5 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_graph::virtual_branches_legacy_types::BranchOwnershipClaims;
+use but_settings::AppSettings;
 use but_workspace::DiffSpec;
 use gitbutler_branch_actions::{RemoteBranchFile, hooks};
 use gitbutler_command_context::CommandContext;
@@ -85,11 +86,11 @@ pub struct GetUncommittedFilesParams {
 }
 
 pub fn get_uncommitted_files(
-    app: &App,
+    _app: &App,
     params: GetUncommittedFilesParams,
 ) -> Result<Vec<RemoteBranchFile>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_branch_actions::get_uncommited_files(&ctx)?)
 }
 
@@ -126,9 +127,9 @@ pub struct PreCommitHookParams {
     pub ownership: BranchOwnershipClaims,
 }
 
-pub fn pre_commit_hook(app: &App, params: PreCommitHookParams) -> Result<HookResult, Error> {
+pub fn pre_commit_hook(_app: &App, params: PreCommitHookParams) -> Result<HookResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let claim = params.ownership.into();
     Ok(hooks::pre_commit(&ctx, &claim)?)
 }
@@ -141,18 +142,18 @@ pub struct PreCommitHookDiffspecsParams {
 }
 
 pub fn pre_commit_hook_diffspecs(
-    app: &App,
+    _app: &App,
     params: PreCommitHookDiffspecsParams,
 ) -> Result<HookResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     let repository = ctx.gix_repo()?;
     let head = repository
         .head_tree_id_or_empty()
         .context("Failed to get head tree")?;
 
-    let context_lines = app.app_settings.get()?.context_lines;
+    let context_lines = ctx.app_settings().context_lines;
 
     let mut changes = params.changes.into_iter().map(Ok).collect::<Vec<_>>();
 
@@ -172,9 +173,9 @@ pub struct PostCommitHookParams {
     pub project_id: ProjectId,
 }
 
-pub fn post_commit_hook(app: &App, params: PostCommitHookParams) -> Result<HookResult, Error> {
+pub fn post_commit_hook(_app: &App, params: PostCommitHookParams) -> Result<HookResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_repo::hooks::post_commit(&ctx)?)
 }
 
@@ -185,8 +186,8 @@ pub struct MessageHookParams {
     pub message: String,
 }
 
-pub fn message_hook(app: &App, params: MessageHookParams) -> Result<MessageHookResult, Error> {
+pub fn message_hook(_app: &App, params: MessageHookParams) -> Result<MessageHookResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_repo::hooks::commit_msg(&ctx, params.message)?)
 }

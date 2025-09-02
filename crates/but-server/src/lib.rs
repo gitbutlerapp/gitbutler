@@ -62,12 +62,11 @@ pub async fn run() {
     let extra = Extra {
         active_projects: Arc::new(Mutex::new(ActiveProjects::new())),
     };
+    // TODO: This needs to watch and send events accordingly (it's done in the Tauri main but not here)
+    let app_settings =
+        AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings");
 
     let app = App {
-        app_settings: Arc::new(
-            AppSettingsWithDiskSync::new(config_dir.clone())
-                .expect("failed to create app settings"),
-        ),
         broadcaster: broadcaster.clone(),
         archival: Arc::new(but_feedback::Archival {
             cache_dir: app_data_dir.join("cache").clone(),
@@ -83,7 +82,7 @@ pub async fn run() {
             get(|| async { "Hello, World!" }).post({
                 let app = app.clone();
                 let extra = extra.clone();
-                move |req| handle_command(req, app, extra)
+                move |req| handle_command(req, app, extra, app_settings)
             }),
         )
         .route(
@@ -156,6 +155,7 @@ async fn handle_command(
     Json(request): Json<Request>,
     app: App,
     extra: Extra,
+    app_settings_sync: AppSettingsWithDiskSync,
 ) -> Json<serde_json::Value> {
     let command: &str = &request.command;
     let result = match command {
@@ -212,14 +212,39 @@ async fn handle_command(
         // App settings
         "get_app_settings" => run_cmd(&app, request.params, settings::get_app_settings),
         "update_onboarding_complete" => {
-            run_cmd(&app, request.params, settings::update_onboarding_complete)
+            serde_json::from_value(request.params)
+                .to_error()
+                .and_then(|params| {
+                    settings::update_onboarding_complete(&app, &app_settings_sync, params)
+                        .map(|r| json!(r))
+                })
         }
-        "update_telemetry" => run_cmd(&app, request.params, settings::update_telemetry),
-        "update_telemetry_distinct_id" => {
-            run_cmd(&app, request.params, settings::update_telemetry_distinct_id)
+        "update_telemetry" => {
+            serde_json::from_value(request.params)
+                .to_error()
+                .and_then(|params| {
+                    settings::update_telemetry(&app, &app_settings_sync, params).map(|r| json!(r))
+                })
         }
-        "update_feature_flags" => run_cmd(&app, request.params, settings::update_feature_flags),
-        "update_claude" => run_cmd(&app, request.params, settings::update_claude),
+        "update_telemetry_distinct_id" => serde_json::from_value(request.params)
+            .to_error()
+            .and_then(|params| {
+                settings::update_telemetry_distinct_id(&app, &app_settings_sync, params)
+                    .map(|r| json!(r))
+            }),
+        "update_feature_flags" => {
+            serde_json::from_value(request.params)
+                .to_error()
+                .and_then(|params| {
+                    settings::update_feature_flags(&app, &app_settings_sync, params)
+                        .map(|r| json!(r))
+                })
+        }
+        "update_claude" => serde_json::from_value(request.params)
+            .to_error()
+            .and_then(|params| {
+                settings::update_claude(&app, &app_settings_sync, params).map(|r| json!(r))
+            }),
         // Secret management
         "secret_get_global" => run_cmd(&app, request.params, secret::secret_get_global),
         "secret_set_global" => run_cmd(&app, request.params, secret::secret_set_global),
@@ -233,7 +258,9 @@ async fn handle_command(
         "get_project" => run_cmd(&app, request.params, iprojects::get_project),
         "delete_project" => run_cmd(&app, request.params, iprojects::delete_project),
         "list_projects" => projects::list_projects(&extra).await,
-        "set_project_active" => projects::set_project_active(&app, &extra, request.params).await,
+        "set_project_active" => {
+            projects::set_project_active(&app, &extra, app_settings_sync, request.params).await
+        }
         // Virtual branches commands
         "normalize_branch_name" => run_cmd(
             &app,

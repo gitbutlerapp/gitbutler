@@ -27,20 +27,7 @@ pub fn create_stack_with_branch(
     current_dir: &Path,
 ) -> anyhow::Result<but_workspace::ui::StackEntryNoOpt> {
     let project = super::project::project_from_path(current_dir)?;
-    // Enable v3 feature flags for the command context
-    let app_settings = AppSettings {
-        feature_flags: but_settings::app_settings::FeatureFlags {
-            // Keep this off until it caught up at least.
-            ws3: false,
-            undo: false,
-            actions: false,
-            butbot: false,
-            rules: false,
-            single_branch: false,
-        },
-        ..AppSettings::load_from_default_path_creating()?
-    };
-    let ctx = CommandContext::open(&project, app_settings)?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     let creation_request = gitbutler_branch::BranchCreateRequest {
         name: Some(name.to_string()),

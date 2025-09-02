@@ -21,7 +21,7 @@ pub mod workspace {
             UpdateMode::Unapply => upstream_integration::ResolutionApproach::Unapply,
             UpdateMode::Delete => upstream_integration::ResolutionApproach::Delete,
         };
-        let ctx = CommandContext::open(&project, AppSettings::default())?;
+        let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
         let resolutions: Vec<_> = super::vbranch::stacks(&ctx)?
             .into_iter()
             .map(|(id, _details)| upstream_integration::Resolution {
