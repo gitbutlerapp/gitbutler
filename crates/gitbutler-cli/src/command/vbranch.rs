@@ -13,7 +13,7 @@ use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use crate::command::debug_print;
 
 pub fn list_commit_files(project: Project, commit_id_hex: String) -> Result<()> {
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit_id = gix::ObjectId::from_hex(commit_id_hex.as_bytes())?;
     debug_print(gitbutler_branch_actions::list_commit_files(
         &ctx,
@@ -22,7 +22,7 @@ pub fn list_commit_files(project: Project, commit_id_hex: String) -> Result<()> 
 }
 
 pub fn set_base(project: Project, short_tracking_branch_name: String) -> Result<()> {
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let branch_name = format!("refs/remotes/{short_tracking_branch_name}")
         .parse()
         .context("Invalid branch name")?;
@@ -35,12 +35,12 @@ pub fn set_base(project: Project, short_tracking_branch_name: String) -> Result<
 }
 
 pub fn list_all(project: Project) -> Result<()> {
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     debug_print(list_branches(&ctx, None, None)?)
 }
 
 pub fn details(project: Project, branch_names: Vec<BranchIdentity>) -> Result<()> {
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     debug_print(get_branch_listing_details(&ctx, branch_names)?)
 }
 
@@ -62,7 +62,7 @@ pub fn list(project: Project) -> Result<()> {
 }
 
 pub fn status(project: Project) -> Result<()> {
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     debug_print(stacks(&ctx))
 }
 
@@ -97,7 +97,7 @@ pub(crate) fn stacks(ctx: &CommandContext) -> Result<Vec<(StackId, StackDetails)
 }
 
 pub fn unapply(project: Project, branch_name: String) -> Result<()> {
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let stack = stack_by_name(&project, &branch_name)?;
     debug_print(gitbutler_branch_actions::unapply_stack(
         &ctx,
@@ -116,7 +116,7 @@ pub fn apply(project: Project, branch_name: String, from_branch: bool) -> Result
 
 fn apply_by_name(project: Project, branch_name: String) -> Result<()> {
     let stack = stack_by_name(&project, &branch_name)?;
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
     debug_print(
         ctx.branch_manager().create_virtual_branch_from_branch(
@@ -141,7 +141,7 @@ fn apply_from_branch(project: Project, branch_name: String) -> Result<()> {
         refname
     };
 
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     let mut guard = project.exclusive_worktree_access();
     debug_print(ctx.branch_manager().create_virtual_branch_from_branch(
@@ -153,7 +153,7 @@ fn apply_from_branch(project: Project, branch_name: String) -> Result<()> {
 }
 
 pub fn create(project: Project, branch_name: String, set_default: bool) -> Result<()> {
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let new_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         &ctx,
         &BranchCreateRequest {
@@ -175,7 +175,7 @@ pub fn set_default(project: Project, branch_name: String) -> Result<()> {
 }
 
 fn set_default_branch(project: &Project, stack: &Stack) -> Result<()> {
-    let ctx = CommandContext::open(project, AppSettings::default())?;
+    let ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::update_virtual_branch(
         &ctx,
         BranchUpdateRequest {
@@ -193,13 +193,13 @@ fn set_default_branch(project: &Project, stack: &Stack) -> Result<()> {
 
 pub fn series(project: Project, stack_name: String, new_series_name: String) -> Result<()> {
     let mut stack = stack_by_name(&project, &stack_name)?;
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     stack.add_series_top_of_stack(&ctx, new_series_name, None)?;
     Ok(())
 }
 
 pub fn commit(project: Project, branch_name: String, message: String) -> Result<()> {
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let stack = stack_by_name(&project, &branch_name)?;
     let (_, d) = stacks(&ctx)?
         .into_iter()

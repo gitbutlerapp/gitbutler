@@ -24,7 +24,10 @@ pub async fn commit(
     client: &Client<OpenAIConfig>,
     event: CommitEvent,
 ) -> anyhow::Result<Option<(gix::ObjectId, String)>> {
-    let ctx = &mut CommandContext::open(&event.project, event.app_settings)?;
+    let ctx = &mut CommandContext::open(
+        &event.project,
+        AppSettings::load_from_default_path_creating()?,
+    )?;
     let repo = &ctx.gix_repo_for_merging_non_persisting()?;
     let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, event.commit_id)?;
     let diff = changes.try_as_unidiff_string(repo, ctx.app_settings().context_lines)?;

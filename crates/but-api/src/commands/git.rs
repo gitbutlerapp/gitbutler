@@ -1,6 +1,7 @@
 //! In place of commands.rs
 use anyhow::Context;
 use anyhow::anyhow;
+use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
@@ -19,11 +20,11 @@ pub struct GitRemoteBranchesParams {
 }
 
 pub fn git_remote_branches(
-    app: &App,
+    _app: &App,
     params: GitRemoteBranchesParams,
 ) -> Result<Vec<RemoteRefname>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(ctx.repo().remote_branches()?)
 }
 
@@ -35,9 +36,9 @@ pub struct GitTestPushParams {
     pub branch_name: String,
 }
 
-pub fn git_test_push(app: &App, params: GitTestPushParams) -> Result<(), Error> {
+pub fn git_test_push(_app: &App, params: GitTestPushParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     ctx.git_test_push(&params.remote_name, &params.branch_name, Some(None))?;
     Ok(())
 }
@@ -50,9 +51,9 @@ pub struct GitTestFetchParams {
     pub action: Option<String>,
 }
 
-pub fn git_test_fetch(app: &App, params: GitTestFetchParams) -> Result<(), Error> {
+pub fn git_test_fetch(_app: &App, params: GitTestFetchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     ctx.fetch(
         &params.remote_name,
         Some(params.action.unwrap_or_else(|| "test".to_string())),
@@ -66,9 +67,9 @@ pub struct GitIndexSizeParams {
     pub project_id: ProjectId,
 }
 
-pub fn git_index_size(app: &App, params: GitIndexSizeParams) -> Result<usize, Error> {
+pub fn git_index_size(_app: &App, params: GitIndexSizeParams) -> Result<usize, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let size = ctx
         .repo()
         .index()
@@ -83,9 +84,9 @@ pub struct GitHeadParams {
     pub project_id: ProjectId,
 }
 
-pub fn git_head(app: &App, params: GitHeadParams) -> Result<String, Error> {
+pub fn git_head(_app: &App, params: GitHeadParams) -> Result<String, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let head = ctx.repo().head().context("failed to get repository head")?;
     Ok(head.name().unwrap().to_string())
 }

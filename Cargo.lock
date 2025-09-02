@@ -1002,6 +1002,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-graph",
+ "but-settings",
  "chrono",
  "gitbutler-command-context",
  "gitbutler-project",

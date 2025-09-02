@@ -3,6 +3,7 @@ use but_api::commands::projects::{
     self, AddProjectParams, DeleteProjectParams, GetProjectParams, UpdateProjectParams,
 };
 use but_api::error::Error;
+use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, ProjectId};
 use gix::bstr::ByteSlice;
@@ -103,7 +104,7 @@ pub fn set_project_active(
             return Ok(None);
         }
     };
-    let ctx = &mut CommandContext::open(&project, app.app_settings.get()?.clone())?;
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mode = window_state.set_project_to_window(
         window.label(),
         &project,
