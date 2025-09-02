@@ -34,6 +34,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { ChipToastContainer } from '@gitbutler/ui';
 	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { setExternalLinkService } from '@gitbutler/ui/utils/externalLinkService';
 	import { type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
@@ -157,6 +158,7 @@
 	ondragover={(e) => e.preventDefault()}
 	onkeydown={handleKeyDown}
 />
+<svelte:body use:focusable={{ activate: true }} />
 
 <div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
 	{@render children()}

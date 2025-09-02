@@ -16,8 +16,7 @@
 		"verbatimModuleSyntax": true,
 		"isolatedModules": true,
 		"outDir": "dist",
-		"rootDir": "src",
-		"mapRoot": "../../dist"
+		"rootDir": "src"
 	},
 	"include": ["src/**/*"],
 	"exclude": ["dist", "node_modules", "**/*.test.ts", "**/*.spec.ts"]

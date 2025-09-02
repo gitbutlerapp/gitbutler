@@ -10,7 +10,6 @@
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/core/context';
 	import { Link, RadioButton, SectionCard, TestId, Textbox } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	import { onMount } from 'svelte';
 
@@ -116,12 +115,7 @@
 						onFormChange(selectedType);
 					}}
 				>
-					<SectionCard
-						roundedBottom={false}
-						orientation="row"
-						labelFor="git-executable"
-						{focusable}
-					>
+					<SectionCard roundedBottom={false} orientation="row" labelFor="git-executable">
 						{#snippet title()}
 							Use a Git executable <span style="color: var(--clr-text-2)">(default)</span>
 						{/snippet}
@@ -143,7 +137,6 @@
 						bottomBorder={selectedType !== 'local'}
 						orientation="row"
 						labelFor="credential-local"
-						{focusable}
 					>
 						{#snippet title()}
 							Use existing SSH key
@@ -161,13 +154,7 @@
 					</SectionCard>
 
 					{#if selectedType === 'local'}
-						<SectionCard
-							topDivider
-							roundedTop={false}
-							roundedBottom={false}
-							orientation="row"
-							{focusable}
-						>
+						<SectionCard topDivider roundedTop={false} roundedBottom={false} orientation="row">
 							<div class="inputs-group">
 								<Textbox
 									label="Path to private key"
@@ -186,7 +173,6 @@
 						roundedBottom={false}
 						orientation="row"
 						labelFor="credential-helper"
-						{focusable}
 					>
 						{#snippet title()}
 							Use a Git credentials helper
@@ -214,7 +200,7 @@
 						{/snippet}
 					</SectionCard>
 
-					<SectionCard roundedTop={false} orientation="row" {focusable}>
+					<SectionCard roundedTop={false} orientation="row">
 						<CredentialCheck
 							bind:this={credentialCheck}
 							disabled={selectedType === 'local' && privateKeyPath.trim() === ''}

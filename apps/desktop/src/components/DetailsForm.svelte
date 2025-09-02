@@ -4,7 +4,6 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
 	import { SectionCard, Spacer, Textarea, Textbox, Toggle } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -14,7 +13,7 @@
 	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
 </script>
 
-<SectionCard {focusable}>
+<SectionCard>
 	<ReduxResult {projectId} result={projectResult.current}>
 		{#snippet children(project)}
 			<form>
@@ -51,7 +50,7 @@
 
 <Spacer />
 
-<SectionCard labelFor="runHooks" orientation="row" {focusable}>
+<SectionCard labelFor="runHooks" orientation="row">
 	{#snippet title()}
 		Run commit hooks
 	{/snippet}

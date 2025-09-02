@@ -34,7 +34,7 @@
 <script lang="ts" generics="T extends undefined | any = any">
 	import ModalFooter from '$components/ModalFooter.svelte';
 	import ModalHeader from '$components/ModalHeader.svelte';
-	import { focusTrap } from '$lib/utils/focusTrap';
+	import { focusable } from '$lib/focus/focusable';
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { onDestroy } from 'svelte';
@@ -126,13 +126,13 @@
 		onkeydown={onKeyDown}
 	>
 		<form
-			use:focusTrap
 			class="modal-form"
 			class:medium={width === 'medium'}
 			class:large={width === 'large'}
 			class:small={width === 'small'}
 			class:xsmall={width === 'xsmall'}
 			style:width={typeof width === 'number' ? `${pxToRem(width)}rem` : undefined}
+			use:focusable={{ trap: true, activate: true }}
 			onsubmit={(e) => {
 				e.preventDefault();
 				onSubmit?.(close, item);

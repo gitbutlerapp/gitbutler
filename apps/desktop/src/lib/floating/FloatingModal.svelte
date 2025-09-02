@@ -192,7 +192,7 @@
 <div
 	bind:this={modalEl}
 	use:portal={'body'}
-	use:focusable
+	use:focusable={{ trap: true, activate: true }}
 	class="floating-modal"
 	class:snapping
 	class:resizing={dragResizeHandler.isResizing}

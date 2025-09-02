@@ -1,5 +1,5 @@
 import { FOCUS_MANAGER, type FocusableOptions, type Payload } from '$lib/focus/focusManager';
-import { inject } from '@gitbutler/core/context';
+import { injectOptional } from '@gitbutler/core/context';
 import type { Action } from 'svelte/action';
 
 /**
@@ -18,22 +18,23 @@ export function focusable(
 	element: HTMLElement,
 	options: FocusableOptions = {}
 ): ReturnType<Action<HTMLElement, FocusableOptions>> {
-	const focus = inject(FOCUS_MANAGER);
+	const focusManager = injectOptional(FOCUS_MANAGER, undefined);
+	if (!focusManager) return;
 
 	let currentOptions = options;
 	let isRegistered = false;
 
 	function register() {
-		if (isRegistered) return;
+		if (isRegistered || !focusManager) return;
 
-		focus.register(currentOptions, element);
+		focusManager.register(currentOptions, element);
 		isRegistered = true;
 	}
 
 	function unregister() {
-		if (!isRegistered) return;
+		if (!isRegistered || !focusManager) return;
 
-		focus.unregister(currentOptions.id, element);
+		focusManager.unregister(currentOptions.id, element);
 		isRegistered = false;
 	}
 
@@ -64,7 +65,7 @@ export function focusable(
 				currentOptions = newOptions;
 
 				// Update the existing registration
-				focus.updateElementOptions(element, newOptions);
+				focusManager.updateElementOptions(element, newOptions);
 			}
 		}
 	};

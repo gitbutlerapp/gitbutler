@@ -1,14 +1,12 @@
 export type FocusOptions = {
 	container: HTMLElement;
-	wrap?: boolean;
-	customSelector?: string;
 	forward?: boolean;
+	wrap?: boolean;
 };
 
 export function focusNextTabIndex(options: FocusOptions): boolean {
-	const { container, forward, wrap = true, customSelector = '' } = options;
+	const { container, forward, wrap = true } = options;
 
-	// Build selector array
 	const focusableSelectors: string[] = [
 		'a[href]',
 		'button:not([disabled])',
@@ -18,10 +16,6 @@ export function focusNextTabIndex(options: FocusOptions): boolean {
 		'[tabindex]:not([tabindex="-1"])',
 		'[contenteditable="true"]'
 	];
-
-	if (customSelector) {
-		focusableSelectors.push(customSelector);
-	}
 
 	const focusableElements: NodeListOf<Element> = container.querySelectorAll(
 		focusableSelectors.join(',')
@@ -71,8 +65,21 @@ export function focusNextTabIndex(options: FocusOptions): boolean {
 	}
 
 	const nextElement: Element | undefined = focusableArray[nextIndex];
+
 	if (nextElement instanceof HTMLElement) {
 		nextElement.focus();
+		// We don't want an outline when clicking elements with a mouse, and the
+		// built-in `:focus-visible` isn't triggered when programatically focusing
+		// elements. We therefore need this explicit class in order to show the
+		// outline when tabbing through elements.
+		nextElement.classList.add('focus-visible');
+		nextElement.addEventListener(
+			'focusout',
+			() => {
+				nextElement.classList.remove('focus-visible');
+			},
+			{ once: true }
+		);
 		return true;
 	}
 

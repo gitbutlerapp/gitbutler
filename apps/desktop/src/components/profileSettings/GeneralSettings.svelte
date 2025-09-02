@@ -10,9 +10,7 @@
 	import { SETTINGS, type CodeEditorSettings } from '$lib/settings/userSettings';
 	import { UPDATER_SERVICE } from '$lib/updater/updater';
 	import { USER_SERVICE } from '$lib/user/userService';
-
 	import { inject } from '@gitbutler/core/context';
-
 	import {
 		Button,
 		Modal,
@@ -24,7 +22,6 @@
 		Toggle,
 		chipToasts
 	} from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { User } from '$lib/user/user';
 
 	const userService = inject(USER_SERVICE);
@@ -144,7 +141,7 @@
 </script>
 
 {#if $user}
-	<SectionCard {focusable}>
+	<SectionCard>
 		<form onsubmit={onSubmit} class="profile-form">
 			<label id="profile-picture" class="profile-pic-wrapper focus-state" for="picture">
 				<input
@@ -178,7 +175,7 @@
 {/if}
 <Spacer />
 
-<SectionCard orientation="row" centerAlign {focusable}>
+<SectionCard orientation="row" centerAlign>
 	{#snippet title()}
 		Default code editor
 	{/snippet}
@@ -205,7 +202,7 @@
 	{/snippet}
 </SectionCard>
 
-<SectionCard labelFor="disable-auto-checks" orientation="row" {focusable}>
+<SectionCard labelFor="disable-auto-checks" orientation="row">
 	{#snippet title()}
 		Automatically check for updates
 	{/snippet}
@@ -223,7 +220,7 @@
 	{/snippet}
 </SectionCard>
 
-<SectionCard orientation="column" {focusable}>
+<SectionCard orientation="column">
 	{#snippet title()}
 		Install the GitButler CLI (but)
 	{/snippet}
@@ -260,7 +257,7 @@
 <Spacer />
 
 {#if $user}
-	<SectionCard orientation="row" {focusable}>
+	<SectionCard orientation="row">
 		{#snippet title()}
 			Signing out
 		{/snippet}
@@ -272,7 +269,7 @@
 	</SectionCard>
 {/if}
 
-<SectionCard orientation="row" {focusable}>
+<SectionCard orientation="row">
 	{#snippet title()}
 		Remove all projects
 	{/snippet}

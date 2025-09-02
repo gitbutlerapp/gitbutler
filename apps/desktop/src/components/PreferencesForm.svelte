@@ -4,7 +4,6 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
 	import { SectionCard, Textbox, Toggle } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	const { projectId }: { projectId: string } = $props();
 	const projectsService = inject(PROJECTS_SERVICE);
@@ -14,7 +13,7 @@
 <ReduxResult {projectId} result={projectResult.current}>
 	{#snippet children(project)}
 		<Section gap={8}>
-			<SectionCard orientation="row" labelFor="omitCertificateCheck" {focusable}>
+			<SectionCard orientation="row" labelFor="omitCertificateCheck">
 				{#snippet title()}
 					Ignore host certificate checks
 				{/snippet}
@@ -35,7 +34,7 @@
 				{/snippet}
 			</SectionCard>
 
-			<SectionCard orientation="row" centerAlign {focusable}>
+			<SectionCard orientation="row" centerAlign>
 				{#snippet title()}
 					Snapshot lines threshold
 				{/snippet}
