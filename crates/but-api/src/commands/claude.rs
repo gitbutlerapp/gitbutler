@@ -127,3 +127,15 @@ pub async fn claude_check_available(app: &App, _params: NoParams) -> Result<bool
     let is_available = but_claude::bridge::check_claude_available(&claude_executable).await;
     Ok(is_available)
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IsStackActiveParams {
+    pub project_id: ProjectId,
+    pub stack_id: StackId,
+}
+
+pub async fn claude_is_stack_active(app: &App, params: IsStackActiveParams) -> Result<bool, Error> {
+    let is_active = app.claudes.is_stack_active(params.stack_id).await;
+    Ok(is_active)
+}

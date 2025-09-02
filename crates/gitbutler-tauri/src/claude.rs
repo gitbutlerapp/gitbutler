@@ -1,5 +1,7 @@
 use but_api::{
-    commands::claude::{self, CancelSessionParams, GetMessagesParams, SendMessageParams},
+    commands::claude::{
+        self, CancelSessionParams, GetMessagesParams, IsStackActiveParams, SendMessageParams,
+    },
     error::Error,
     App,
 };
@@ -113,4 +115,21 @@ pub async fn claude_cancel_session(
 #[instrument(skip(app), err(Debug))]
 pub async fn claude_check_available(app: State<'_, App>) -> Result<bool, Error> {
     claude::claude_check_available(&app, but_api::NoParams {}).await
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub async fn claude_is_stack_active(
+    app: State<'_, App>,
+    project_id: ProjectId,
+    stack_id: StackId,
+) -> Result<bool, Error> {
+    claude::claude_is_stack_active(
+        &app,
+        IsStackActiveParams {
+            project_id,
+            stack_id,
+        },
+    )
+    .await
 }

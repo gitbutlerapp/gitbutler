@@ -468,6 +468,16 @@ async fn handle_command(
             let result = claude::claude_check_available(&app, NoParams {}).await;
             result.map(|r| json!(r))
         }
+        "claude_is_stack_active" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = claude::claude_is_stack_active(&app, params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
 
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
     };

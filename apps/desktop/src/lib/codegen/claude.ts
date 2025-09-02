@@ -5,7 +5,13 @@ import {
 	type ThinkingLevel
 } from '$lib/codegen/types';
 import { hasBackendExtra } from '$lib/state/backendQuery';
-import { invalidatesItem, providesItem, ReduxTag } from '$lib/state/tags';
+import {
+	invalidatesItem,
+	invalidatesList,
+	providesItem,
+	providesList,
+	ReduxTag
+} from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/core/context';
 import type { ClientState } from '$lib/state/clientState.svelte';
 
@@ -46,6 +52,17 @@ export class ClaudeCodeService {
 		return this.api.endpoints.checkAvailable.fetch;
 	}
 
+	isStackActive(projectId: string, stackId: string) {
+		return this.api.endpoints.isStackActive.useQuery({
+			projectId,
+			stackId
+		});
+	}
+
+	get fetchIsStackActive() {
+		return this.api.endpoints.isStackActive.fetch;
+	}
+
 	sessionDetails(projectId: string, sessionId: string) {
 		return this.api.endpoints.getSessionDetails.useQuery({
 			projectId,
@@ -70,7 +87,13 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'claude_send_message',
 					actionName: 'Send message'
 				},
-				query: (args) => args
+				query: (args) => args,
+				invalidatesTags: [invalidatesList(ReduxTag.ClaudeStackActive)],
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					api.util.invalidateTags([invalidatesList(ReduxTag.ClaudeStackActive)]);
+					await lifecycleApi.cacheDataLoaded;
+					api.util.invalidateTags([invalidatesList(ReduxTag.ClaudeStackActive)]);
+				}
 			}),
 			getSessionDetails: build.query<
 				ClaudeSessionDetails,
@@ -93,13 +116,18 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						throw new Error('Redux dependency Backend not found!');
 					}
 					const { listen } = lifecycleApi.extra.backend;
+					api.util.invalidateTags([invalidatesList(ReduxTag.ClaudeStackActive)]);
 					await lifecycleApi.cacheDataLoaded;
+
 					const unsubscribe = listen<ClaudeMessage>(
 						`project://${arg.projectId}/claude/${arg.stackId}/message_recieved`,
 						async (event) => {
+							const message = event.payload;
 							lifecycleApi.updateCachedData((events) => {
-								events.push(event.payload);
+								events.push(message);
 							});
+
+							api.util.invalidateTags([invalidatesList(ReduxTag.ClaudeStackActive)]);
 						}
 					);
 					await lifecycleApi.cacheEntryRemoved;
@@ -160,7 +188,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'claude_cancel_session',
 					actionName: 'Cancel Session'
 				},
-				query: (args) => args
+				query: (args) => args,
+				invalidatesTags: [invalidatesList(ReduxTag.ClaudeStackActive)]
 			}),
 			checkAvailable: build.query<boolean, undefined>({
 				extraOptions: { command: 'claude_check_available' },
@@ -169,6 +198,29 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				// can be a little slow, and the value is unlikely to change so,
 				// let's cache it for a long time.
 				keepUnusedDataFor: 60 * 60 * 24
+			}),
+			isStackActive: build.query<boolean, { projectId: string; stackId: string }>({
+				extraOptions: { command: 'claude_is_stack_active' },
+				query: (args) => args,
+				providesTags: [providesList(ReduxTag.ClaudeStackActive)],
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Backend not found!');
+					}
+					const { listen, invoke } = lifecycleApi.extra.backend;
+					api.util.invalidateTags([invalidatesList(ReduxTag.ClaudeStackActive)]);
+					await lifecycleApi.cacheDataLoaded;
+
+					const unsubscribe = listen<ClaudeMessage>(
+						`project://${arg.projectId}/claude/${arg.stackId}/message_recieved`,
+						async () => {
+							const active = await invoke<boolean>('claude_is_stack_active', arg);
+							lifecycleApi.updateCachedData(() => active);
+						}
+					);
+					await lifecycleApi.cacheEntryRemoved;
+					unsubscribe();
+				}
 			})
 		})
 	});

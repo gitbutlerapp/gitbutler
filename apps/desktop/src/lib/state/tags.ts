@@ -26,6 +26,7 @@ export enum ReduxTag {
 	ClaudeCodeTranscript = 'ClaudeCodeTranscript',
 	ClaudePermissionRequests = 'ClaudePermissionPrompts',
 	ClaudeSessionDetails = 'ClaudeSessionDetails',
+	ClaudeStackActive = 'ClaudeStackActive',
 	InitalEditListing = 'InitialEditListing',
 	EditChangesSinceInitial = 'EditChangesSinceInitial',
 	AuthorInfo = 'AuthorInfo'

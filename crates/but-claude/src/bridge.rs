@@ -118,6 +118,12 @@ impl Claudes {
         }
     }
 
+    /// Check if there is an active Claude session for the given stack ID
+    pub async fn is_stack_active(&self, stack_id: StackId) -> bool {
+        let requests = self.requests.lock().await;
+        requests.contains_key(&stack_id)
+    }
+
     async fn spawn_claude(
         &self,
         ctx: Arc<Mutex<CommandContext>>,
@@ -337,7 +343,6 @@ async fn spawn_command(
 }
 
 fn format_message(message: &str, thinking_level: ThinkingLevel) -> String {
-    // Add thinking level argument
     match thinking_level {
         ThinkingLevel::Normal => message.to_owned(),
         ThinkingLevel::Think => {
