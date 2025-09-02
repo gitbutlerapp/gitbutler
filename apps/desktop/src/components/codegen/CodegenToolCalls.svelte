@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
 	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
+	import { getToolIcon } from '$lib/utils/codegenTools';
 	import { Icon } from '@gitbutler/ui';
 
 	type Props = {
@@ -45,6 +46,7 @@
 					{#if toolCallLoading(toolCall)}
 						<Icon name="spinner" />
 					{/if}
+					<Icon name={getToolIcon(toolCall.name)} color="var(--clr-text-3)" />
 					<span>{toolCall.name}</span>
 					{#if idx !== toolsToDisplay.length - 1}
 						<span class="separator">•</span>
@@ -52,6 +54,7 @@
 				{/each}
 
 				{#if toolCalls.length > toolDisplayLimit}
+					<span class="separator">•</span>
 					<span>+{toolCalls.length - toolDisplayLimit} more</span>
 				{/if}
 			</div>

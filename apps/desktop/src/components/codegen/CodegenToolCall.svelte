@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
+	import { getToolIcon } from '$lib/utils/codegenTools';
 	import { AsyncButton, Icon, Markdown } from '@gitbutler/ui';
 
 	export type RequiresApproval = {
@@ -33,6 +34,7 @@
 			<Icon name="spinner" size={14} />
 			<p>{toolCall.name}</p>
 		{:else}
+			<Icon name={getToolIcon(toolCall.name)} size={14} color="var(--clr-text-3)" />
 			<p class="text-13 text-left full-width">{toolCall.name}</p>
 
 			{#if requiresApproval}
@@ -85,6 +87,8 @@
 		background-color: var(--clr-bg-2);
 
 		&:hover {
+			background-color: var(--clr-bg-2-muted);
+
 			.tool-call-header__arrow {
 				color: var(--clr-text-2);
 			}
