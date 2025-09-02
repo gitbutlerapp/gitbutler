@@ -17,9 +17,9 @@ diesel = { version = "2.2.12", features = [
 ] }
 # Bundled libsqlite3 for Windows
 libsqlite3-sys = { version = "0.29", features = ["bundled"] }
-bitflags = "2.9.1"
+bitflags = "2.9.3"
 serde = { workspace = true, features = ["std"] }
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 diesel_migrations = { version = "2.0.0", features = ["sqlite"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 # other things
@@ -27,4 +27,4 @@ tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot", "time"
 tracing.workspace = true
 
 [dev-dependencies]
-tempfile = "3.20.0"
+tempfile = "3.21.0"

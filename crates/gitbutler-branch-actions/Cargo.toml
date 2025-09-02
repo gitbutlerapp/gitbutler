@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 tracing.workspace = true
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 git2.workspace = true
 gix = { workspace = true, features = ["blob-diff", "revision", "merge"] }
 tokio.workspace = true
@@ -51,7 +51,7 @@ but-graph.workspace = true
 gitbutler-testsupport.workspace = true
 gitbutler-workspace.workspace = true
 gix = { workspace = true, features = [] }
-glob = "0.3.2"
+glob = "0.3.3"
 tempfile.workspace = true
 but-hunk-assignment.workspace = true
 gitbutler-git = { workspace = true, features = [

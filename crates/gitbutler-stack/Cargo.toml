@@ -10,7 +10,7 @@ autotests = false
 git2.workspace = true
 gix = { workspace = true, features = [] }
 itertools = "0.14"
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 serde = { workspace = true, features = ["std"] }
 toml.workspace = true
 gitbutler-reference.workspace = true

@@ -17,7 +17,7 @@ gix = { workspace = true, features = ["revision"] }
 bstr.workspace = true
 petgraph = { version = "0.8.2", default-features = false, features = ["stable_graph", "std"] }
 anyhow.workspace = true
-bitflags = "2.9.1"
+bitflags = "2.9.3"
 
 # For `VirtualBranchesTomlRefMetadata` and legacy types
 tracing.workspace = true

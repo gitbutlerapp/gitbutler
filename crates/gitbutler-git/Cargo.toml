@@ -42,7 +42,7 @@ tokio = { workspace = true, optional = true, features = [
 uuid = { workspace = true, features = ["fast-rng"] }
 rand.workspace = true
 futures.workspace = true
-sysinfo = "0.36.0"
+sysinfo = "0.37.0"
 gix.workspace = true
 gitbutler-error.workspace = true
 
