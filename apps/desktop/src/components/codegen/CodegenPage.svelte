@@ -456,12 +456,12 @@
 			<div class="right-sidebar__placeholder">
 				<EmptyStatePlaceholder
 					image={filesAndChecksSvg}
-					width={240}
+					width={250}
 					topBottomPadding={0}
 					bottomMargin={0}
 				>
 					{#snippet caption()}
-						Once you begin a conversation, you'll see todos and usage statistics here.
+						Once you begin a conversation, you'll see file changes, usage and todos here.
 					{/snippet}
 				</EmptyStatePlaceholder>
 			</div>
