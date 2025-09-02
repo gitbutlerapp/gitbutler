@@ -107,3 +107,27 @@ pub enum ThinkingLevel {
     MegaThink,
     UltraThink,
 }
+
+/// Represents the model type for Claude Code.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum ModelType {
+    Sonnet,
+    #[serde(rename = "sonnet[1m]")]
+    Sonnet1m,
+    Opus,
+    #[serde(rename = "opusplan")]
+    OpusPlan,
+}
+
+impl ModelType {
+    /// Convert the model type to the CLI argument string format.
+    pub fn to_cli_string(&self) -> &str {
+        match self {
+            ModelType::Sonnet => "sonnet",
+            ModelType::Sonnet1m => "sonnet[1m]",
+            ModelType::Opus => "opus",
+            ModelType::OpusPlan => "opusplan",
+        }
+    }
+}

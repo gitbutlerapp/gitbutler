@@ -10,7 +10,7 @@ import {
 	type ThunkDispatch,
 	type UnknownAction
 } from '@reduxjs/toolkit';
-import type { ThinkingLevel } from '$lib/codegen/types';
+import type { ThinkingLevel, ModelType } from '$lib/codegen/types';
 import type { PullRequest } from '$lib/forge/interface/types';
 import type { StackDetails } from '$lib/stacks/stack';
 import type { RejectionReason } from '$lib/stacks/stackService.svelte';
@@ -69,6 +69,7 @@ export type ProjectUiState = {
 	branchesToPoll: string[];
 	selectedClaudeSession: { stackId: string; head: string } | undefined;
 	thinkingLevel: ThinkingLevel;
+	selectedModel: ModelType;
 };
 
 type GlobalModalType = 'commit-failed' | 'author-missing';
@@ -141,7 +142,8 @@ export class UiState {
 		showActions: false,
 		branchesToPoll: [],
 		selectedClaudeSession: undefined,
-		thinkingLevel: 'normal'
+		thinkingLevel: 'normal',
+		selectedModel: 'sonnet'
 	});
 
 	/** Properties that are globally scoped. */

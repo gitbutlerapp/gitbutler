@@ -24,7 +24,8 @@ const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 	showActions: false,
 	branchesToPoll: [],
 	selectedClaudeSession: undefined,
-	thinkingLevel: 'normal'
+	thinkingLevel: 'normal',
+	selectedModel: 'sonnet'
 };
 
 const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
