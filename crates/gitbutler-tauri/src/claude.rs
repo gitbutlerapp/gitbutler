@@ -5,7 +5,7 @@ use but_api::{
     error::Error,
     App,
 };
-use but_claude::{ClaudeMessage, ThinkingLevel};
+use but_claude::{ClaudeMessage, ModelType, ThinkingLevel};
 use but_workspace::StackId;
 use gitbutler_project::ProjectId;
 use tauri::State;
@@ -19,6 +19,7 @@ pub async fn claude_send_message(
     stack_id: StackId,
     message: String,
     thinking_level: ThinkingLevel,
+    model: ModelType,
 ) -> Result<(), Error> {
     claude::claude_send_message(
         &app,
@@ -27,6 +28,7 @@ pub async fn claude_send_message(
             stack_id,
             message,
             thinking_level,
+            model,
         },
     )
     .await

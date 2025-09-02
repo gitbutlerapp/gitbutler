@@ -47,7 +47,7 @@
 		EmptyStatePlaceholder
 	} from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import type { ClaudeMessage, ThinkingLevel } from '$lib/codegen/types';
+	import type { ClaudeMessage, ThinkingLevel, ModelType } from '$lib/codegen/types';
 
 	type Props = {
 		projectId: string;
@@ -71,18 +71,16 @@
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
 	let modelContextMenu = $state<ContextMenu>();
 	let modelTrigger = $state<HTMLButtonElement>();
-	let selectedModel = $state('Claude 3.5 Sonnet');
 	let thinkingModeContextMenu = $state<ContextMenu>();
 	let thinkingModeTrigger = $state<HTMLButtonElement>();
 	let templateContextMenu = $state<ContextMenu>();
 	let templateTrigger = $state<HTMLButtonElement>();
 
-	const modelOptions = [
-		'Claude 3.5 Sonnet',
-		'Claude 3.5 Haiku',
-		'Claude 3 Opus',
-		'Claude 3 Sonnet',
-		'Claude 3 Haiku'
+	const modelOptions: { label: string; value: ModelType }[] = [
+		{ label: 'Sonnet', value: 'sonnet' },
+		{ label: 'Sonnet 1m', value: 'sonnet[1m]' },
+		{ label: 'Opus', value: 'opus' },
+		{ label: 'Opus Planning', value: 'opusplan' }
 	];
 
 	const thinkingLevels: ThinkingLevel[] = ['normal', 'think', 'megaThink', 'ultraThink'];
@@ -113,6 +111,7 @@
 	const projectState = uiState.project(projectId);
 	const selectedBranch = $derived(projectState.selectedClaudeSession.current);
 	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
+	const selectedModel = $derived(projectState.selectedModel.current);
 
 	// File list data
 	const branchChanges = $derived(
@@ -165,7 +164,8 @@
 			projectId,
 			stackId: selectedBranch.stackId,
 			message,
-			thinkingLevel: selectedThinkingLevel
+			thinkingLevel: selectedThinkingLevel,
+			model: selectedModel
 		});
 		message = '';
 		await promise;
@@ -200,8 +200,8 @@
 		await settingsService.updateClaude({ executable: value });
 	}
 
-	function selectModel(model: string) {
-		selectedModel = model;
+	function selectModel(model: ModelType) {
+		projectState.selectedModel.set(model);
 		modelContextMenu?.close();
 	}
 
@@ -379,7 +379,7 @@
 										shrinkable
 										onclick={() => modelContextMenu?.toggle()}
 									>
-										{selectedModel}
+										{modelOptions.find((a) => a.value === selectedModel)?.label}
 									</Button>
 								{/snippet}
 							</CodegenInput>
@@ -603,8 +603,8 @@
 
 <ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top">
 	<ContextMenuSection>
-		{#each modelOptions as model}
-			<ContextMenuItem label={model} onclick={() => selectModel(model)} />
+		{#each modelOptions as option}
+			<ContextMenuItem label={option.label} onclick={() => selectModel(option.value)} />
 		{/each}
 	</ContextMenuSection>
 </ContextMenu>

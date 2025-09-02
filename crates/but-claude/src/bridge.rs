@@ -20,7 +20,7 @@
 //!   more complex with more unknowns.
 
 use crate::{
-    ClaudeMessage, ClaudeMessageContent, ThinkingLevel, Transcript, UserInput,
+    ClaudeMessage, ClaudeMessageContent, ModelType, ThinkingLevel, Transcript, UserInput,
     claude_config::{fmt_claude_mcp, fmt_claude_settings},
     db,
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
@@ -70,6 +70,7 @@ impl Claudes {
         stack_id: StackId,
         message: &str,
         thinking_level: ThinkingLevel,
+        model: ModelType,
     ) -> Result<()> {
         if self.requests.lock().await.contains_key(&stack_id) {
             bail!("Claude is thinking, back off!!!")
@@ -80,6 +81,7 @@ impl Claudes {
                 stack_id,
                 message.to_owned(),
                 thinking_level,
+                model,
             )
             .await?
         };
@@ -131,6 +133,7 @@ impl Claudes {
         stack_id: StackId,
         message: String,
         thinking_level: ThinkingLevel,
+        model: ModelType,
     ) -> Result<()> {
         let (send_kill, mut recv_kill) = unbounded_channel();
         self.requests
@@ -191,6 +194,7 @@ impl Claudes {
             project.path.clone(),
             ctx.clone(),
             thinking_level,
+            model,
         )
         .await?;
         let cmd_exit = tokio::select! {
@@ -297,6 +301,7 @@ async fn spawn_command(
     project_path: std::path::PathBuf,
     ctx: Arc<Mutex<CommandContext>>,
     thinking_level: ThinkingLevel,
+    model: ModelType,
 ) -> Result<Child> {
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
@@ -315,6 +320,7 @@ async fn spawn_command(
         "--verbose",
         &format!("--settings={settings}"),
         &format!("--mcp-config={mcp_config}"),
+        &format!("--model={}", model.to_cli_string()),
     ]);
 
     if app_settings.claude.dangerously_allow_all_permissions {

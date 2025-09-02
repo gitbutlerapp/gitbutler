@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use but_claude::{ClaudeMessage, ThinkingLevel};
+use but_claude::{ClaudeMessage, ModelType, ThinkingLevel};
 use but_settings::AppSettings;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
@@ -17,6 +17,7 @@ pub struct SendMessageParams {
     pub stack_id: StackId,
     pub message: String,
     pub thinking_level: ThinkingLevel,
+    pub model: ModelType,
 }
 
 pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result<(), Error> {
@@ -32,6 +33,7 @@ pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result
             params.stack_id,
             &params.message,
             params.thinking_level,
+            params.model,
         )
         .await?;
     Ok(())
