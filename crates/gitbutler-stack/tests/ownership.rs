@@ -297,6 +297,6 @@ fn equal() {
             false,
         ),
     ] {
-        assert_eq!(a == b, expected, "{:#?} == {:#?}", a, b);
+        assert_eq!(a == b, expected, "{a:#?} == {b:#?}");
     }
 }

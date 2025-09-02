@@ -57,11 +57,11 @@ pub(crate) fn assignments_to_commit(
     if let Some(branch_name) = branch_name {
         println!(
             "Amended assigned files {} → {}",
-            format!("[{}]", branch_name).green(),
+            format!("[{branch_name}]").green(),
             new_commit,
         );
     } else {
-        println!("Amended unassigned files → {}", new_commit,)
+        println!("Amended unassigned files → {new_commit}",)
     }
     Ok(())
 }

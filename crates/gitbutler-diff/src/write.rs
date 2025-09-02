@@ -188,7 +188,7 @@ where
                 }
                 let patch = Patch::from_bytes(&all_diffs)?;
                 blob_contents = apply(&blob_contents, &patch)
-                    .context(format!("failed to apply {}", all_diffs))?;
+                    .context(format!("failed to apply {all_diffs}"))?;
 
                 // create a blob
                 let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
@@ -207,7 +207,7 @@ where
                 }
                 let patch = Patch::from_bytes(&all_diffs)?;
                 let blob_contents =
-                    apply([], &patch).context(format!("failed to apply {}", all_diffs))?;
+                    apply([], &patch).context(format!("failed to apply {all_diffs}"))?;
 
                 let new_blob_oid = git_repository.blob(&blob_contents)?;
                 builder.upsert(rel_path, new_blob_oid, filemode);

@@ -46,8 +46,7 @@ pub async fn commit_message(
     let system_message =
         "You are a version control assistant that helps with Git branch committing.".to_string();
     let user_message = format!(
-        "Extract the git commit data from the prompt, summary and diff output. Return the commit message. Determine from this AI prompt, summary and diff output what the git commit data should be.\n\n{}\n\nHere is the data:\n\nPrompt: {}\n\nSummary: {}\n\nDiff:\n```\n{}\n```\n\n",
-        DEFAULT_COMMIT_MESSAGE_INSTRUCTIONS, external_prompt, external_summary, diff
+        "Extract the git commit data from the prompt, summary and diff output. Return the commit message. Determine from this AI prompt, summary and diff output what the git commit data should be.\n\n{DEFAULT_COMMIT_MESSAGE_INSTRUCTIONS}\n\nHere is the data:\n\nPrompt: {external_prompt}\n\nSummary: {external_summary}\n\nDiff:\n```\n{diff}\n```\n\n"
     );
 
     let schema = schema_for!(StructuredOutput);

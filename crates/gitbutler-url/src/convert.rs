@@ -88,7 +88,7 @@ mod tests {
         ] {
             let url = input.parse().unwrap();
             let https_url = to_https_url(&url).unwrap();
-            assert_eq!(https_url.to_string(), expected, "test case {}", url);
+            assert_eq!(https_url.to_string(), expected, "test case {url}");
         }
     }
 
@@ -122,7 +122,7 @@ mod tests {
         ] {
             let url = input.parse().unwrap();
             let ssh_url = to_ssh_url(&url).unwrap();
-            assert_eq!(ssh_url.to_string(), expected, "test case {}", url);
+            assert_eq!(ssh_url.to_string(), expected, "test case {url}");
         }
     }
 }

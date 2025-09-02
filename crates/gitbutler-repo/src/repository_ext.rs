@@ -78,7 +78,7 @@ impl RepositoryExt for git2::Repository {
         }
     }
 
-    fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>> {
+    fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch<'_>>> {
         let branch = self.find_branch(
             &name.simple_name(),
             match name {
@@ -95,7 +95,7 @@ impl RepositoryExt for git2::Repository {
         }
     }
 
-    fn find_branch_by_refname(&self, name: &Refname) -> Result<git2::Branch> {
+    fn find_branch_by_refname(&self, name: &Refname) -> Result<git2::Branch<'_>> {
         let branch = self.find_branch(
             &name.simple_name(),
             match name {
@@ -112,7 +112,7 @@ impl RepositoryExt for git2::Repository {
     /// Creates a tree containing the uncommited changes in the project.
     /// This includes files in the index that are considered conflicted.
     #[instrument(level = tracing::Level::DEBUG, skip(self, untracked_limit_in_bytes), err(Debug))]
-    fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> Result<Tree> {
+    fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> Result<Tree<'_>> {
         let repo = gix::open_opts(
             self.path(),
             gix::open::Options::default().permissions(gix::open::Permissions {
@@ -229,7 +229,7 @@ impl RepositoryExt for git2::Repository {
             .collect::<Result<Vec<_>>>()
     }
 
-    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
+    fn signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)> {
         let repo = gix::open(self.path())?;
 
         let author = repo

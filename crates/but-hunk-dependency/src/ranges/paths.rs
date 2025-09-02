@@ -274,12 +274,10 @@ impl PathRanges {
 
     /// Look for the commit that created the file.
     fn find_file_creation_commit(&mut self) -> Option<gix::ObjectId> {
-        let file_creation_commit = self
-            .hunk_ranges
+        self.hunk_ranges
             .iter()
             .find(|h| h.change_type == TreeStatusKind::Addition)
-            .map(|h| h.commit_id);
-        file_creation_commit
+            .map(|h| h.commit_id)
     }
 
     fn handle_add_all_hunks(

@@ -302,24 +302,24 @@ pub async fn tool_calling_stream(
             }
 
             // If finished streaming the tool calls, return them.
-            if let Some(finish_reason) = &chat_choice.finish_reason {
-                if matches!(finish_reason, async_openai::types::FinishReason::ToolCalls) {
-                    let tool_call_states_clone = tool_call_states.clone();
+            if let Some(finish_reason) = &chat_choice.finish_reason
+                && matches!(finish_reason, async_openai::types::FinishReason::ToolCalls)
+            {
+                let tool_call_states_clone = tool_call_states.clone();
 
-                    let tool_calls_to_process = {
-                        let states_lock = tool_call_states_clone.lock().await;
-                        states_lock
-                            .values()
-                            .map(|state| ToolCall {
-                                id: state.id.clone(),
-                                name: state.name.clone(),
-                                arguments: state.arguments.clone(),
-                            })
-                            .collect::<Vec<ToolCall>>()
-                    };
+                let tool_calls_to_process = {
+                    let states_lock = tool_call_states_clone.lock().await;
+                    states_lock
+                        .values()
+                        .map(|state| ToolCall {
+                            id: state.id.clone(),
+                            name: state.name.clone(),
+                            arguments: state.arguments.clone(),
+                        })
+                        .collect::<Vec<ToolCall>>()
+                };
 
-                    return Ok((Some(tool_calls_to_process), response_text));
-                }
+                return Ok((Some(tool_calls_to_process), response_text));
             }
 
             // If there is any text content in the response, call the on_token callback
@@ -456,8 +456,8 @@ fn clamp_result_content(result: &ToolResponseContent) -> String {
 impl Display for ChatMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ChatMessage::User(content) => write!(f, "<user_message>\n{}\n</user_message>", content),
-            ChatMessage::Assistant(content) => write!(f, "<but-bot\n{}\n</but-bot>", content),
+            ChatMessage::User(content) => write!(f, "<user_message>\n{content}\n</user_message>"),
+            ChatMessage::Assistant(content) => write!(f, "<but-bot\n{content}\n</but-bot>"),
             ChatMessage::ToolCall(content) => write!(
                 f,
                 "

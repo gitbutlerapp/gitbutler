@@ -119,7 +119,7 @@ fn state(
         state
             .errors
             .iter()
-            .map(|e| format!("{:?}", e))
+            .map(|e| format!("{e:?}"))
             .collect::<Vec<_>>(),
         expected_errors
             .iter()

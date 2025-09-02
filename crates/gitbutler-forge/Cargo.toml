@@ -7,5 +7,5 @@ publish = false
 
 [dependencies]
 serde = { workspace = true, features = ["std"] }
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 gitbutler-fs.workspace = true

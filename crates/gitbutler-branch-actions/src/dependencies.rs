@@ -137,7 +137,7 @@ pub fn commit_dependencies_from_workspace(
         .get(&commit_id)
         .map(|v| {
             v.iter()
-                .map(|hunk_hash| format!("{:x}", hunk_hash).to_string())
+                .map(|hunk_hash| format!("{hunk_hash:x}").to_string())
                 .collect()
         })
         .unwrap_or_default();

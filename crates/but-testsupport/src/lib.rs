@@ -308,7 +308,7 @@ pub fn sanitize_uuids_and_timestamps(input: String) -> String {
 
 /// Save a `format!` invocation
 pub fn debug_str(input: &dyn std::fmt::Debug) -> String {
-    format!("{:#?}", input)
+    format!("{input:#?}")
 }
 
 mod graph;

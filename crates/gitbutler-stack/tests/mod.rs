@@ -76,7 +76,7 @@ fn add_series_top_base() -> Result<()> {
         &ctx.gix_repo()?,
     )?;
     let result = test_ctx.stack.add_series(&ctx, reference, None);
-    println!("{:?}", result);
+    println!("{result:?}");
     // Assert persisted
     assert_eq!(
         test_ctx.stack,
@@ -259,10 +259,7 @@ fn add_series_target_commit_not_in_stack() -> Result<()> {
     let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
     assert_eq!(
         result.err().unwrap().to_string(),
-        format!(
-            "The commit {} is not between the stack head and the stack base",
-            other_commit_id
-        )
+        format!("The commit {other_commit_id} is not between the stack head and the stack base")
     );
     Ok(())
 }
@@ -808,7 +805,7 @@ fn head_names(test_ctx: &TestContext) -> Vec<String> {
         .collect_vec()
 }
 
-fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
+fn test_ctx(ctx: &CommandContext) -> Result<TestContext<'_>> {
     let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let stacks = handle.list_all_stacks()?;
     let stack = stacks.iter().find(|b| b.name == "virtual").unwrap();

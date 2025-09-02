@@ -330,7 +330,7 @@ async fn spawn_command(
             current_id = session_ids.pop().unwrap_or(session.current_id);
         }
 
-        command.arg(format!("--resume={}", current_id));
+        command.arg(format!("--resume={current_id}"));
     }
     command.arg(format_message(&message, thinking_level));
     Ok(command.spawn()?)

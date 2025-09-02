@@ -138,7 +138,7 @@ fn normalize_stack_segment_ref(
     let full_name = if stack_segment_ref.starts_with("refs/heads/") {
         stack_segment_ref.to_string()
     } else {
-        format!("refs/heads/{}", stack_segment_ref)
+        format!("refs/heads/{stack_segment_ref}")
     };
     gix::refs::FullName::try_from(full_name)
 }

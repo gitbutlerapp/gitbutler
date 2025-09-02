@@ -51,10 +51,7 @@ pub(crate) fn to_branch(
                 );
             }
             gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentUncommittedChanges => {
-                println!(
-                    "Cannot move commit {} because it has dependent uncommitted changes",
-                    oid
-                );
+                println!("Cannot move commit {oid} because it has dependent uncommitted changes");
             }
         }
 
@@ -63,7 +60,7 @@ pub(crate) fn to_branch(
     println!(
         "Moved {} → {}",
         oid.to_string()[..7].blue(),
-        format!("[{}]", branch_name).green()
+        format!("[{branch_name}]").green()
     );
     Ok(())
 }

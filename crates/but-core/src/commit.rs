@@ -251,16 +251,14 @@ impl<'repo> Commit<'repo> {
     /// instead.
     pub fn tree_id_or_kind(&self, kind: TreeKind) -> anyhow::Result<gix::Id<'repo>> {
         Ok(if self.is_conflicted() {
-            let our_tree = self
-                .inner
+            self.inner
                 .tree
                 .attach(self.id.repo)
                 .object()?
                 .into_tree()
                 .find_entry(kind.as_tree_entry_name())
                 .with_context(|| format!("Unexpected tree in conflicting commit {}", self.id))?
-                .id();
-            our_tree
+                .id()
         } else {
             self.inner.tree.attach(self.id.repo)
         })

@@ -10,7 +10,7 @@ autotests = false
 git2.workspace = true
 git2-hooks.workspace = true
 gix = { workspace = true, features = ["merge", "status", "tree-editor"] }
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 bstr.workspace = true
 tracing.workspace = true
 tempfile.workspace = true

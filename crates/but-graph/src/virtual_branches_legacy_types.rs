@@ -241,7 +241,7 @@ mod stack {
     impl fmt::Display for BranchOwnershipClaims {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             for file in &self.claims {
-                writeln!(f, "{}", file)?;
+                writeln!(f, "{file}")?;
             }
             Ok(())
         }
@@ -291,7 +291,7 @@ mod stack {
                     file_path: file_path_parts
                         .join(":")
                         .parse()
-                        .context(format!("failed to parse file path from {}", value))?,
+                        .context(format!("failed to parse file path from {value}"))?,
                     hunks: ranges.clone(),
                 })
             }
@@ -340,7 +340,7 @@ mod stack {
             let start = if let Some(raw_start) = range.next() {
                 raw_start
                     .parse::<u32>()
-                    .context(format!("failed to parse start of range: {}", s))
+                    .context(format!("failed to parse start of range: {s}"))
             } else {
                 Err(anyhow!("invalid range: {}", s))
             }?;
@@ -348,7 +348,7 @@ mod stack {
             let end = if let Some(raw_end) = range.next() {
                 raw_end
                     .parse::<u32>()
-                    .context(format!("failed to parse end of range: {}", s))
+                    .context(format!("failed to parse end of range: {s}"))
             } else {
                 Err(anyhow!("invalid range: {}", s))
             }?;
@@ -396,7 +396,7 @@ mod stack {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "{}-{}", self.start, self.end)?;
             match &self.hash {
-                Some(hash) => write!(f, "-{:x}", hash),
+                Some(hash) => write!(f, "-{hash:x}"),
                 None => Ok(()),
             }
         }

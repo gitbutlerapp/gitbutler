@@ -122,9 +122,9 @@ impl From<CommitOrChangeId> for virtual_branches_legacy_types::CommitOrChangeId 
 impl Display for CommitOrChangeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CommitOrChangeId::CommitId(id) => write!(f, "CommitId: {}", id),
+            CommitOrChangeId::CommitId(id) => write!(f, "CommitId: {id}"),
             #[expect(deprecated)]
-            CommitOrChangeId::ChangeId(id) => write!(f, "ChangeId: {}", id),
+            CommitOrChangeId::ChangeId(id) => write!(f, "ChangeId: {id}"),
         }
     }
 }
@@ -467,7 +467,7 @@ impl StackBranch {
 
 /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
 pub fn remote_reference(name: &String, remote: &str) -> String {
-    format!("refs/remotes/{}/{}", remote, name)
+    format!("refs/remotes/{remote}/{name}")
 }
 
 /// Returns a fully qualified reference name e.g. `refs/heads/my-branch`

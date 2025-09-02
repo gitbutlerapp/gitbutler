@@ -17,7 +17,7 @@ pub struct HunkAssignment {
 }
 
 impl DbHandle {
-    pub fn hunk_assignments(&mut self) -> HunkAssignmentsHandle {
+    pub fn hunk_assignments(&mut self) -> HunkAssignmentsHandle<'_> {
         HunkAssignmentsHandle { db: self }
     }
 }

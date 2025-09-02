@@ -419,9 +419,9 @@ fn write_patch_header(parsed_header: &PatchHeaderInfo) -> BString {
 
     let mut buf = BString::default();
     buf.push_str("@@ ");
-    buf.push_str(format!("-{},{}", old_start, old_lines));
+    buf.push_str(format!("-{old_start},{old_lines}"));
     buf.push_str(" +");
-    buf.push_str(format!("{},{}", new_start, new_lines));
+    buf.push_str(format!("{new_start},{new_lines}"));
     buf.push_str(" @@");
     if !rest.is_empty() {
         buf.push(b' ');

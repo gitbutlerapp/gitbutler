@@ -130,7 +130,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
                 println!("└─╯");
             } else {
                 let prefix = "│ ".repeat(nesting - 2);
-                println!("{}├─╯", prefix);
+                println!("{prefix}├─╯");
             }
             nesting -= 1;
         }
@@ -141,7 +141,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
         .sha
         .to_string()[..7]
         .to_string();
-    println!("● {} (base)", common_merge_base);
+    println!("● {common_merge_base} (base)");
 
     Ok(())
 }

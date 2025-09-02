@@ -30,10 +30,10 @@ pub fn rewrite(
     for (old, new) in changed_commits {
         let mut already_updated_refs = Vec::<BString>::new();
         for stack in &mut stacks_ordered {
-            if let Some(stack_segment) = stack_segment {
-                if stack_segment.stack_id != stack.id {
-                    continue; // Dont rewrite refs for other stacks
-                }
+            if let Some(stack_segment) = stack_segment
+                && stack_segment.stack_id != stack.id
+            {
+                continue; // Dont rewrite refs for other stacks
             }
             if stack.head_oid(repo)? == old {
                 // The actual head will be updated later.

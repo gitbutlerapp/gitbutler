@@ -798,8 +798,7 @@ fn assert_hunk_lock_matches_by_message(
     let commit_message = get_commit_message(ctx, actual_hunk_lock.commit_id);
     assert_eq!(
         commit_message, expected_commit_message,
-        "should have same commit message - {}",
-        message
+        "should have same commit message - {message}"
     );
 }
 
@@ -829,32 +828,24 @@ fn assert_commit_map_matches_by_message(
     assert_eq!(
         actual_messages.len(),
         expected.len(),
-        "should have same size {}",
-        message
+        "should have same size {message}"
     );
 
     for (key, values) in expected {
         assert!(
             actual_messages.contains_key(&key),
-            "should contain key '{}' - {}",
-            key,
-            message
+            "should contain key '{key}' - {message}"
         );
         let actual_values = actual_messages.get(&key).unwrap();
         assert_eq!(
             actual_values.len(),
             values.len(),
-            "should have same length '{}' - {}",
-            key,
-            message
+            "should have same length '{key}' - {message}"
         );
         for value in values {
             assert!(
                 actual_values.contains(&value.to_string()),
-                "'{}' should contain '{}' - {}",
-                key,
-                value,
-                message
+                "'{key}' should contain '{value}' - {message}"
             );
         }
     }

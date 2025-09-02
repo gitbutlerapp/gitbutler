@@ -110,7 +110,7 @@ mod frontend {
         fn no_context_or_code_shows_root_error() {
             let err = anyhow!("err msg");
             assert_eq!(
-                format!("{:#}", err),
+                format!("{err:#}"),
                 "err msg",
                 "just one error on display here"
             );
@@ -125,7 +125,7 @@ mod frontend {
         fn find_code() {
             let err = anyhow!("err msg").context(Code::Validation);
             assert_eq!(
-                format!("{:#}", err),
+                format!("{err:#}"),
                 "errors.validation: err msg",
                 "note how the context becomes an error, in front of the original one"
             );
@@ -138,13 +138,13 @@ mod frontend {
 
         #[test]
         fn find_code_after_cause() {
-            let original_err = std::io::Error::new(std::io::ErrorKind::Other, "actual cause");
+            let original_err = std::io::Error::other("actual cause");
             let err = anyhow::Error::from(original_err)
                 .context("err msg")
                 .context(Code::Validation);
 
             assert_eq!(
-                format!("{:#}", err),
+                format!("{err:#}"),
                 "errors.validation: err msg: actual cause",
                 "an even longer chain, with the cause as root as one might expect"
             );
@@ -158,7 +158,7 @@ mod frontend {
         #[test]
         fn find_context() {
             let err = anyhow!("err msg").context(Context::new_static(Code::Validation, "ctx msg"));
-            assert_eq!(format!("{:#}", err), "ctx msg: err msg");
+            assert_eq!(format!("{err:#}"), "ctx msg: err msg");
             assert_eq!(
                 json(err),
                 "{\"code\":\"errors.validation\",\"message\":\"ctx msg\"}",
@@ -170,7 +170,7 @@ mod frontend {
         fn find_context_without_message() {
             let err = anyhow!("err msg").context(Context::from(Code::Validation));
             assert_eq!(
-                format!("{:#}", err),
+                format!("{err:#}"),
                 "Something went wrong: err msg",
                 "on display, `Context` does just insert a generic message"
             );
@@ -187,7 +187,7 @@ mod frontend {
                 .context("top msg")
                 .context(Code::Validation);
             assert_eq!(
-                format!("{:#}", err),
+                format!("{err:#}"),
                 "errors.validation: top msg: bottom msg",
                 "now it's clear why bottom is bottom"
             );
@@ -205,7 +205,7 @@ mod frontend {
                 .context("top msg")
                 .context(Code::Validation);
             assert_eq!(
-                format!("{:#}", err),
+                format!("{err:#}"),
                 "errors.validation: top msg: errors.projects.git.auth: bottom msg",
                 "each code is treated like its own error in the chain"
             );

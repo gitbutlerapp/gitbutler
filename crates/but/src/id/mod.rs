@@ -88,8 +88,8 @@ impl Display for CliId {
         match self {
             CliId::UncommittedFile { path, assignment } => {
                 if let Some(assignment) = assignment {
-                    let value = hash(&format!("{}{}", assignment, path));
-                    write!(f, "{}", value)
+                    let value = hash(&format!("{assignment}{path}"));
+                    write!(f, "{value}")
                 } else {
                     write!(f, "{}", hash(path))
                 }

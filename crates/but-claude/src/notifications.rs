@@ -35,8 +35,7 @@ pub fn notify_permission_request(settings: &AppSettings, tool_name: &str) -> Res
     Notification::new()
         .summary("Claude Code Needs Permission")
         .body(&format!(
-            "Claude Code is requesting permission to use: {}",
-            tool_name
+            "Claude Code is requesting permission to use: {tool_name}"
         ))
         .show()?;
 

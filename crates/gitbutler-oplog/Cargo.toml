@@ -7,7 +7,7 @@ publish = false
 autotests = false
 
 [dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 git2.workspace = true
 gitbutler-repo.workspace = true
 serde = { workspace = true, features = ["std"] }

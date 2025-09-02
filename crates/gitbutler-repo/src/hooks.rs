@@ -131,5 +131,5 @@ fn join_output(stdout: String, stderr: String) -> String {
     } else if stderr.is_empty() {
         return stdout;
     }
-    format!("stdout:\n{}\n\nstderr:\n{}", stdout, stderr)
+    format!("stdout:\n{stdout}\n\nstderr:\n{stderr}")
 }

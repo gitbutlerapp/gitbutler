@@ -300,7 +300,7 @@ impl BranchManager<'_> {
         // Branch is out of date, merge or rebase it
         let merge_base_tree_id = repo
             .find_commit(merge_base)
-            .context(format!("failed to find merge base commit {}", merge_base))?
+            .context(format!("failed to find merge base commit {merge_base}"))?
             .tree()
             .context("failed to find merge base tree")?
             .id();

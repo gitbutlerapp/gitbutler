@@ -151,7 +151,7 @@ fn commit_with_project(
     if use_json {
         let outcome = but_workspace::commit_engine::ui::CreateCommitOutcome::from(outcome);
         let json = serde_json::to_string_pretty(&outcome)?;
-        println!("{}", json);
+        println!("{json}");
     } else {
         debug_print(outcome)?;
     }
@@ -208,7 +208,7 @@ fn commit_without_project(
     if use_json {
         let outcome = but_workspace::commit_engine::ui::CreateCommitOutcome::from(outcome);
         let json = serde_json::to_string_pretty(&outcome)?;
-        println!("{}", json);
+        println!("{json}");
     } else {
         debug_print(outcome)?;
     }
@@ -276,7 +276,7 @@ fn normalize_stack_segment_ref(
     let full_name = if stack_segment_ref.starts_with("refs/heads/") {
         stack_segment_ref.to_string()
     } else {
-        format!("refs/heads/{}", stack_segment_ref)
+        format!("refs/heads/{stack_segment_ref}")
     };
     gix::refs::FullName::try_from(full_name)
 }

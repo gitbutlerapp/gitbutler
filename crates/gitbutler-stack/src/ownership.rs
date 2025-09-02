@@ -31,7 +31,7 @@ impl From<BranchOwnershipClaims> for virtual_branches_legacy_types::BranchOwners
 impl fmt::Display for BranchOwnershipClaims {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for file in &self.claims {
-            writeln!(f, "{}", file)?;
+            writeln!(f, "{file}")?;
         }
         Ok(())
     }

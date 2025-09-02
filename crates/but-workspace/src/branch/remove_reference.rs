@@ -90,32 +90,31 @@ pub(crate) mod function {
                 // The whole stack is gone, so nothing that could be anonymous.
                 return Ok(Some(graph));
             };
-            if avoid_anonymous_stacks {
-                if let Some(commit) = stack
+            if avoid_anonymous_stacks
+                && let Some(commit) = stack
                     .segments
                     .first()
                     .and_then(|s| s.commits.first().filter(|_| s.ref_name.is_none()))
-                {
-                    let (name_of_segment_below, target_id) = stack
-                        .segments
-                        .iter()
-                        .find_map(|s| {
-                            let rn = s.ref_name.as_ref()?;
-                            workspace.graph.tip_skip_empty(s.id).map(|c| (rn, c.id))
-                        })
-                        .with_context(|| {
-                            "BUG: should not try to delete branch if anon \
+            {
+                let (name_of_segment_below, target_id) = stack
+                    .segments
+                    .iter()
+                    .find_map(|s| {
+                        let rn = s.ref_name.as_ref()?;
+                        workspace.graph.tip_skip_empty(s.id).map(|c| (rn, c.id))
+                    })
+                    .with_context(|| {
+                        "BUG: should not try to delete branch if anon \
                     segments aren't allows and there is no named segment left"
-                        })?;
+                    })?;
 
-                    repo.reference(
-                        name_of_segment_below.as_ref(),
-                        commit.id,
-                        PreviousValue::MustExistAndMatch(gix::refs::Target::Object(target_id)),
-                        "move segment reference up to avoid anonymous stack",
-                    )?;
-                    graph = graph.redo_traversal_with_overlay(repo, meta, Default::default())?;
-                }
+                repo.reference(
+                    name_of_segment_below.as_ref(),
+                    commit.id,
+                    PreviousValue::MustExistAndMatch(gix::refs::Target::Object(target_id)),
+                    "move segment reference up to avoid anonymous stack",
+                )?;
+                graph = graph.redo_traversal_with_overlay(repo, meta, Default::default())?;
             }
         }
 

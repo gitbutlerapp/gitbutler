@@ -12,7 +12,7 @@ pub trait BranchManagerExt {
 }
 
 impl BranchManagerExt for CommandContext {
-    fn branch_manager(&self) -> BranchManager {
+    fn branch_manager(&self) -> BranchManager<'_> {
         BranchManager { ctx: self }
     }
 }

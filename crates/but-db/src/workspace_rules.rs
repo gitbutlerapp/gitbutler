@@ -18,7 +18,7 @@ pub struct WorkspaceRule {
 }
 
 impl DbHandle {
-    pub fn workspace_rules(&mut self) -> WorkspaceRulesHandle {
+    pub fn workspace_rules(&mut self) -> WorkspaceRulesHandle<'_> {
         WorkspaceRulesHandle { db: self }
     }
 }

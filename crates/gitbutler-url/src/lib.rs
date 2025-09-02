@@ -62,7 +62,7 @@ impl std::fmt::Display for Url {
             }
         };
         if let Some(port) = &self.port {
-            f.write_str(&format!(":{}", port))?;
+            f.write_str(&format!(":{port}"))?;
         }
         if self.serialize_alternative_form && self.scheme == Scheme::Ssh {
             f.write_str(":")?;

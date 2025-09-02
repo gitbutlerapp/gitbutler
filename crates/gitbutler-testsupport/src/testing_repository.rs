@@ -181,7 +181,7 @@ impl TestingRepository {
     pub fn persist(self) {
         let path = self.tempdir.keep();
 
-        println!("Persisting test repository at {:?}", path);
+        println!("Persisting test repository at {path:?}");
     }
 }
 
@@ -242,14 +242,14 @@ pub fn assert_tree_matches_with_mode(
 
         for entry_attribute in *entry_attributes {
             match entry_attribute {
-                EntryAttribute::Tree => assert!(tree_entry.mode().is_tree(), "{} is a tree", path),
+                EntryAttribute::Tree => assert!(tree_entry.mode().is_tree(), "{path} is a tree"),
                 EntryAttribute::Commit => {
-                    assert!(tree_entry.mode().is_commit(), "{} is a commit", path)
+                    assert!(tree_entry.mode().is_commit(), "{path} is a commit")
                 }
-                EntryAttribute::Link => assert!(tree_entry.mode().is_link(), "{} is a link", path),
-                EntryAttribute::Blob => assert!(tree_entry.mode().is_blob(), "{} is a blob", path),
+                EntryAttribute::Link => assert!(tree_entry.mode().is_link(), "{path} is a link"),
+                EntryAttribute::Blob => assert!(tree_entry.mode().is_blob(), "{path} is a blob"),
                 EntryAttribute::Executable => {
-                    assert!(tree_entry.mode().is_executable(), "{} is executable", path)
+                    assert!(tree_entry.mode().is_executable(), "{path} is executable")
                 }
             }
         }

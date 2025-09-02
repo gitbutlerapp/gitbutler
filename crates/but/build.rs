@@ -8,5 +8,5 @@ fn main() {
     } else {
         "com.gitbutler.app"
     };
-    println!("cargo:rustc-env=IDENTIFIER={}", identifier);
+    println!("cargo:rustc-env=IDENTIFIER={identifier}");
 }

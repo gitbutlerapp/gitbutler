@@ -126,7 +126,7 @@ impl std::fmt::Display for ConflictErrorContext {
             "{} was/were conflicted when merging",
             self.paths
                 .iter()
-                .filter_map(|p| p.to_str().ok().map(|p| format!("{:?}", p)))
+                .filter_map(|p| p.to_str().ok().map(|p| format!("{p:?}")))
                 .collect::<Vec<_>>()
                 .join(", ")
         )

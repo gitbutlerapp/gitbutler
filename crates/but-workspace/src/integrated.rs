@@ -75,10 +75,10 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             return Ok(false);
         }
 
-        if let Some(change_id) = commit.change_id() {
-            if self.upstream_change_ids.binary_search(&change_id).is_ok() {
-                return Ok(true);
-            }
+        if let Some(change_id) = commit.change_id()
+            && self.upstream_change_ids.binary_search(&change_id).is_ok()
+        {
+            return Ok(true);
         }
 
         if self

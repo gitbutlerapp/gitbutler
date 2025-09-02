@@ -91,7 +91,7 @@ pub fn repo_and_maybe_project_and_graph(
 }
 
 fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
-    println!("{:#?}", this);
+    println!("{this:#?}");
     Ok(())
 }
 
@@ -166,16 +166,6 @@ pub mod stacks {
     use gix::bstr::ByteSlice;
     use gix::refs::Category;
     use std::path::Path;
-
-    /// A collection of all the commits that are part of a branch.
-    #[derive(Debug, Clone, serde::Serialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct BranchCommits {
-        /// The commits that are local and optionally remote.
-        pub local_and_remote: Vec<ui::Commit>,
-        /// The commits that are only at the remote.
-        pub upstream_commits: Vec<ui::UpstreamCommit>,
-    }
 
     pub fn list(
         current_dir: &Path,
@@ -557,7 +547,7 @@ pub fn graph(
                 .sum::<usize>(),
         );
     } else {
-        eprintln!("{:#?}", workspace);
+        eprintln!("{workspace:#?}");
     }
     if debug_graph {
         eprintln!("{graph:#?}");

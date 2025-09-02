@@ -82,7 +82,7 @@ fn changes_to_unidiff_string(
             }
             TreeStatus::Rename { previous_path, .. } => {
                 let previous_path = previous_path.to_string();
-                builder.push_str(&format!("rename from {}\n", previous_path));
+                builder.push_str(&format!("rename from {previous_path}\n"));
                 builder.push_str(&format!("rename to {}\n", &change.path.to_string()));
             }
         }

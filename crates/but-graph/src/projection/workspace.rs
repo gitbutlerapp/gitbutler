@@ -338,8 +338,7 @@ impl Graph {
                             })
                             .with_context(|| {
                                 format!(
-                                    "BUG: should have found upstream workspace segment from {:?} as commit is marked as such",
-                                    sidx_of_flags
+                                    "BUG: should have found upstream workspace segment from {sidx_of_flags:?} as commit is marked as such"
                                 )
                             })?;
 
@@ -418,35 +417,33 @@ impl Graph {
                     && entrypoint_first_commit_flags.contains(CommitFlags::Integrated)
             })
             .zip(entrypoint_sidx)
-        {
-            if ep_sidx == lowest_base_sidx
+            && (ep_sidx == lowest_base_sidx
                 || self
                     .find_map_downwards_along_first_parent(ep_sidx, |s| {
                         (s.id == lowest_base_sidx).then_some(())
                     })
-                    .is_none()
-            {
-                // We cannot reach the lowest workspace base, by definition reachable through any path downward,
-                // so we are outside the workspace limits which is above us. Turn the data back into entrypoint-only.
-                let Workspace {
-                    graph: _,
-                    id,
-                    kind: head,
-                    stacks: _,
-                    target,
-                    metadata,
-                    extra_target: _,
-                    lower_bound,
-                    lower_bound_segment_id,
-                } = &mut ws;
-                *id = ep_sidx;
-                *head = WorkspaceKind::AdHoc;
-                *target = None;
-                *metadata = None;
-                ws_tip_segment = &self[ep_sidx];
-                *lower_bound = None;
-                *lower_bound_segment_id = None;
-            }
+                    .is_none())
+        {
+            // We cannot reach the lowest workspace base, by definition reachable through any path downward,
+            // so we are outside the workspace limits which is above us. Turn the data back into entrypoint-only.
+            let Workspace {
+                graph: _,
+                id,
+                kind: head,
+                stacks: _,
+                target,
+                metadata,
+                extra_target: _,
+                lower_bound,
+                lower_bound_segment_id,
+            } = &mut ws;
+            *id = ep_sidx;
+            *head = WorkspaceKind::AdHoc;
+            *target = None;
+            *metadata = None;
+            ws_tip_segment = &self[ep_sidx];
+            *lower_bound = None;
+            *lower_bound_segment_id = None;
         }
 
         if ws.has_managed_ref() && self[ws.id].commits.is_empty() {

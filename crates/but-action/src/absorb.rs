@@ -91,14 +91,14 @@ pub fn absorb(
 
         Here are the file changes to absorb:
         <file_changes>
-                {}
+                {path_strings}
         </file_changes>
 
         Here is the project status:
         <project_status>
-                {}
+                {serialized_status}
         </project_status>
-    ", path_strings,  serialized_status);
+    ");
 
     // Now we trigger the tool calling loop to absorb the remaining changes.
     crate::openai::tool_calling_loop(
@@ -214,8 +214,7 @@ fn absorb_locked_changes(
             files,
         )
         .context(format!(
-            "Failed to absorb changes into commit {} in stack {}",
-            commit_id, stack_id
+            "Failed to absorb changes into commit {commit_id} in stack {stack_id}"
         ))?;
 
         if let Some(rebase_output) = outcome.rebase_output {

@@ -29,7 +29,7 @@ pub(crate) mod state {
             fn from(value: Change) -> Self {
                 match value {
                     Change::GitFetch(project_id) => ChangeForFrontend {
-                        name: format!("project://{}/git/fetch", project_id),
+                        name: format!("project://{project_id}/git/fetch"),
                         payload: serde_json::json!({}),
                         project_id,
                     },
@@ -38,12 +38,12 @@ pub(crate) mod state {
                         head,
                         operating_mode,
                     } => ChangeForFrontend {
-                        name: format!("project://{}/git/head", project_id),
+                        name: format!("project://{project_id}/git/head"),
                         payload: serde_json::json!({ "head": head, "operatingMode": operating_mode }),
                         project_id,
                     },
                     Change::GitActivity(project_id) => ChangeForFrontend {
-                        name: format!("project://{}/git/activity", project_id),
+                        name: format!("project://{project_id}/git/activity"),
                         payload: serde_json::json!({}),
                         project_id,
                     },
@@ -51,7 +51,7 @@ pub(crate) mod state {
                         project_id,
                         changes,
                     } => ChangeForFrontend {
-                        name: format!("project://{}/worktree_changes", project_id),
+                        name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
                         project_id,
                     },
@@ -75,44 +75,44 @@ pub(crate) mod state {
                 let (project_id, item) = project_item;
                 match item {
                     ItemKind::Actions => ChangeForFrontend {
-                        name: format!("project://{}/db-updates", project_id),
+                        name: format!("project://{project_id}/db-updates"),
                         payload: serde_json::json!({
                             "kind": "actions"
                         }),
                         project_id,
                     },
                     ItemKind::Workflows => ChangeForFrontend {
-                        name: format!("project://{}/db-updates", project_id),
+                        name: format!("project://{project_id}/db-updates"),
                         payload: serde_json::json!({
                             "kind": "workflows"
                         }),
                         project_id,
                     },
                     ItemKind::Assignments => ChangeForFrontend {
-                        name: format!("project://{}/hunk-assignment-update", project_id),
+                        name: format!("project://{project_id}/hunk-assignment-update"),
                         payload: serde_json::json!({
                             "kind": "hunk-assignments"
                         }),
                         project_id,
                     },
                     ItemKind::Rules => ChangeForFrontend {
-                        name: format!("project://{}/rule-updates", project_id),
+                        name: format!("project://{project_id}/rule-updates"),
                         payload: serde_json::json!({
                             "kind": "rules"
                         }),
                         project_id,
                     },
                     ItemKind::ClaudePermissionRequests => ChangeForFrontend {
-                        name: format!("project://{}/claude-permission-requests", project_id),
+                        name: format!("project://{project_id}/claude-permission-requests"),
                         payload: serde_json::json!({
                             "kind": "claude-permission-requests"
                         }),
                         project_id,
                     },
                     _ => {
-                        tracing::warn!("Unhandled ItemKind in ChangeForFrontend: {:?}", item);
+                        tracing::warn!("Unhandled ItemKind in ChangeForFrontend: {item:?}");
                         ChangeForFrontend {
-                            name: format!("project://{}/db-updates", project_id),
+                            name: format!("project://{project_id}/db-updates"),
                             payload: serde_json::json!({
                                 "kind": "unknown",
                                 "item": format!("{:?}", item)

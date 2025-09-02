@@ -26,6 +26,7 @@ pub struct AssistantMessage {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
+#[allow(clippy::large_enum_variant)]
 pub enum Record {
     #[serde(rename = "summary")]
     Summary {
@@ -165,12 +166,10 @@ impl Transcript {
             if let Record::User {
                 message: Some(msg), ..
             } = record
+                && let Some(content) = &msg.content
+                && let Some(text) = content.as_str()
             {
-                if let Some(content) = &msg.content {
-                    if let Some(text) = content.as_str() {
-                        return Some(text.to_string());
-                    }
-                }
+                return Some(text.to_string());
             }
         }
         None

@@ -10,7 +10,7 @@ test = false
 doctest = false
 
 [dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 zip = "2.2.0"
 walkdir = "2.5.0"
 chrono = { version = "0.4.41" }

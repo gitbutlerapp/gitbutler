@@ -281,7 +281,7 @@ pub fn commit(
         ))?;
     let tree = git_repo
         .find_tree(tree_oid)
-        .context(format!("failed to find tree {:?}", tree_oid))?;
+        .context(format!("failed to find tree {tree_oid:?}"))?;
 
     let commit_oid = ctx.commit(message, &tree, &[&parent_commit], None)?;
 
