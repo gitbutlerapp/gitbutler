@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
-	import { AsyncButton, Button, Icon, Markdown } from '@gitbutler/ui';
+	import { getToolIcon } from '$lib/utils/codegenTools';
+	import { AsyncButton, Icon, Markdown } from '@gitbutler/ui';
 
 	export type RequiresApproval = {
 		onApproval: (id: string) => Promise<void>;
@@ -17,31 +18,41 @@
 </script>
 
 <div class="tool-call">
-	<div class="tool-call-header">
-		<div class="tool-call-header__arrow" class:expanded>
-			<Button kind="ghost" icon="chevron-right" size="tag" onclick={() => (expanded = !expanded)} />
+	<button
+		type="button"
+		class="tool-call-header"
+		class:expanded
+		onclick={() => (expanded = !expanded)}
+	>
+		<div class="tool-call-header__sublevel"></div>
+
+		<div class="tool-call-header__arrow">
+			<Icon name="chevron-right" />
 		</div>
-		{#if requiresApproval}
-			<div class="flex items-center justify-between grow gap-12">
-				<p>{toolCall.name} requires approval</p>
-				<div class="flex gap-8">
+
+		{#if toolCallLoading(toolCall)}
+			<Icon name="spinner" size={14} />
+			<p>{toolCall.name}</p>
+		{:else}
+			<Icon name={getToolIcon(toolCall.name)} size={14} color="var(--clr-text-3)" />
+			<p class="text-13 text-left full-width">{toolCall.name}</p>
+
+			{#if requiresApproval}
+				<div class="flex gap-4">
 					<AsyncButton
 						kind="outline"
+						size="tag"
 						action={async () => await requiresApproval.onRejection(toolCall.id)}>Reject</AsyncButton
 					>
 					<AsyncButton
 						style="pop"
+						size="tag"
 						action={async () => await requiresApproval.onApproval(toolCall.id)}>Approve</AsyncButton
 					>
 				</div>
-			</div>
-		{:else if toolCallLoading(toolCall)}
-			<p>{toolCall.name}</p>
-			<Icon name="spinner" />
-		{:else}
-			<p>{toolCall.name}</p>
+			{/if}
 		{/if}
-	</div>
+	</button>
 
 	{#if expanded}
 		<div class="tool-call-content">
@@ -59,33 +70,61 @@
 	.tool-call {
 		display: flex;
 		flex-direction: column;
-		padding: 8px;
-		gap: 12px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
+		overflow: hidden;
+		border-bottom: 1px solid var(--clr-border-2);
+
+		&:last-child {
+			border-bottom: none;
+		}
 	}
 
 	.tool-call-header {
 		display: flex;
+		position: relative;
 		align-items: center;
+		padding: 10px 10px 10px 22px;
 		gap: 8px;
+		background-color: var(--clr-bg-2);
+
+		&:hover {
+			background-color: var(--clr-bg-2-muted);
+
+			.tool-call-header__arrow {
+				color: var(--clr-text-2);
+			}
+		}
+
+		&.expanded {
+			border-bottom: 1px solid var(--clr-border-3);
+
+			.tool-call-header__arrow {
+				transform: rotate(90deg);
+			}
+		}
+	}
+
+	.tool-call-header__sublevel {
+		position: absolute;
+		top: 0;
+		left: 15px;
+		width: 1px;
+		height: 100%;
+		background-color: var(--clr-border-2);
 	}
 
 	.tool-call-header__arrow {
 		display: flex;
 		color: var(--clr-text-3);
-		transition: color var(--transition-fast);
-
-		&.expanded {
-			transform: rotate(90deg);
-			color: var(--clr-text-1);
-		}
+		transition:
+			color var(--transition-fast),
+			transform var(--transition-medium);
 	}
 
 	.tool-call-content {
 		display: flex;
 		flex-direction: column;
 		max-width: 100%;
+		padding: 12px;
 		gap: 8px;
 	}
 

@@ -26,6 +26,8 @@
 		clientHeight?: number;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		defaultCollapsed?: boolean;
+		notFoldable?: boolean;
+		notScrollable?: boolean;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 	};
@@ -45,6 +47,8 @@
 		resizer,
 		clientHeight = $bindable(),
 		defaultCollapsed = false,
+		notFoldable: disableFold,
+		notScrollable = false,
 		ontoggle,
 		onclose
 	}: Props = $props();
@@ -55,6 +59,9 @@
 	let headerDiv = $state<HTMLDivElement>();
 	let containerDiv = $state<HTMLDivElement>();
 	let collapsed: Writable<boolean | undefined> = $derived.by(() => {
+		if (disableFold) {
+			return writable(false);
+		}
 		if (persistId) {
 			return persistWithExpiration<boolean>(defaultCollapsed, persistId, 1440);
 		}
@@ -84,21 +91,23 @@
 		class:bottom-border={!$collapsed}
 		bind:clientHeight={headerHeight}
 	>
-		<button
-			type="button"
-			class="chevron-btn focus-state"
-			class:expanded={!$collapsed}
-			onclick={(e) => {
-				e.stopPropagation();
-				if ($collapsed !== undefined) {
-					const newValue = !$collapsed;
-					collapsed.set(newValue);
-					ontoggle?.(newValue);
-				}
-			}}
-		>
-			<Icon name="chevron-right" />
-		</button>
+		{#if !disableFold}
+			<button
+				type="button"
+				class="chevron-btn focus-state"
+				class:expanded={!$collapsed}
+				onclick={(e) => {
+					e.stopPropagation();
+					if (!disableFold && $collapsed !== undefined) {
+						const newValue = !$collapsed;
+						collapsed.set(newValue);
+						ontoggle?.(newValue);
+					}
+				}}
+			>
+				<Icon name="chevron-right" />
+			</button>
+		{/if}
 
 		<div class="drawer-header__title">
 			{#if title}
@@ -129,11 +138,17 @@
 	</div>
 
 	{#if !$collapsed}
-		<ConfigurableScrollableContainer>
+		{#if notScrollable}
 			<div class="drawer__content" bind:clientHeight={contentHeight}>
 				{@render children()}
 			</div>
-		</ConfigurableScrollableContainer>
+		{:else}
+			<ConfigurableScrollableContainer>
+				<div class="drawer__content" bind:clientHeight={contentHeight}>
+					{@render children()}
+				</div>
+			</ConfigurableScrollableContainer>
+		{/if}
 	{/if}
 	{#if resizer}
 		<!--
@@ -219,6 +234,7 @@
 		container-type: inline-size;
 		display: flex;
 		position: relative;
+		flex-grow: 1;
 		flex-direction: column;
 	}
 

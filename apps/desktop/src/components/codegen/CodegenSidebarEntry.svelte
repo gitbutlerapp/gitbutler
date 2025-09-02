@@ -40,7 +40,7 @@
 		{/if}
 		<div class="sidebar-entry-header-left">
 			<Icon name="branch-remote" opacity={0.5} />
-			<p class="text-13 text-semibold truncate full-width">{branchName}</p>
+			<p class="text-13 text-bold truncate full-width">{branchName}</p>
 			{@render vibeIcon()}
 		</div>
 
@@ -55,7 +55,6 @@
 							height="0.938rem"
 							viewBox="0 0 15 15"
 							fill="none"
-							class="m-bottom-2"
 							xmlns="http://www.w3.org/2000/svg"
 							opacity="0.6"
 						>
@@ -88,13 +87,11 @@
 	{#if commitCount > 0}
 		<div class="sidebar-entry-drawer">
 			<button class="sidebar-entry-drawer__header" onclick={() => (isOpen = !isOpen)} type="button">
-				<div class="sidebar-entry-drawer__header-commits">
-					<div class="sidebar-entry-drawer__header-commits__fold-icon" class:open={isOpen}>
-						<Icon name="chevron-right" />
-					</div>
-					<p class="text-13 text-semibold full-width">Commits</p>
-					<Badge kind="soft">{commitCount}</Badge>
+				<div class="sidebar-entry-drawer__header__fold-icon" class:open={isOpen}>
+					<Icon name="chevron-right" />
 				</div>
+				<p class="text-13 text-semibold">Commits</p>
+				<Badge kind="soft">{commitCount}</Badge>
 			</button>
 
 			{#if isOpen}
@@ -173,22 +170,24 @@
 	.sidebar-entry-drawer__header {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
 		width: 100%;
 		padding: 10px 12px;
-		background-color: color-mix(in srgb, var(--clr-bg-2) 60%, transparent);
-	}
-
-	.sidebar-entry-drawer__header-commits {
-		display: flex;
-		align-items: center;
 		gap: 6px;
+		background-color: color-mix(in srgb, var(--clr-bg-2) 60%, transparent);
+
+		&:hover {
+			.sidebar-entry-drawer__header__fold-icon {
+				color: var(--clr-text-2);
+			}
+		}
 	}
 
-	.sidebar-entry-drawer__header-commits__fold-icon {
+	.sidebar-entry-drawer__header__fold-icon {
 		display: flex;
 		color: var(--clr-text-3);
-		transition: transform 0.15s ease-in-out;
+		transition:
+			transform 0.15s ease-in-out,
+			color var(--transition-fast);
 
 		&.open {
 			transform: rotate(90deg);
