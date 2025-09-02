@@ -53,7 +53,7 @@ fn handle_unified_diff(
     if use_json {
         let serializable: but_core::ui::UnifiedWorktreeChanges = (worktree, &diff).into();
         let json = serde_json::to_string_pretty(&serializable)?;
-        println!("{}", json);
+        println!("{json}");
         Ok(())
     } else {
         debug_print((diff, worktree.ignored_changes))
@@ -64,7 +64,7 @@ fn handle_normal_diff(worktree: but_core::WorktreeChanges, use_json: bool) -> an
     if use_json {
         let worktree: but_core::ui::WorktreeChanges = worktree.into();
         let json = serde_json::to_string_pretty(&worktree)?;
-        println!("{}", json);
+        println!("{json}");
         Ok(())
     } else {
         debug_print(worktree)
@@ -104,7 +104,7 @@ fn process_simple_dependencies(
         HunkDependencies::try_from_workspace_ranges(repo, ranges, worktree_changes.changes)?;
     if use_json {
         let json = serde_json::to_string_pretty(&dependencies)?;
-        println!("{}", json);
+        println!("{json}");
         Ok(())
     } else {
         debug_print(dependencies)

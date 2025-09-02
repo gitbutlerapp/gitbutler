@@ -63,7 +63,7 @@ pub fn push_stack_to_review(
 }
 
 fn format_refspec(sha: &gix::ObjectId) -> String {
-    format!("+{}:refs/review/publish", sha)
+    format!("+{sha}:refs/review/publish")
 }
 
 struct BranchHead {
@@ -79,7 +79,7 @@ fn generate_review_id() -> String {
     let letters = (0..8)
         .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
         .collect::<String>();
-    format!("{}{}", digit, letters)
+    format!("{digit}{letters}")
 }
 
 /// Fetch the stack heads in order and attach a review_id if not already present.

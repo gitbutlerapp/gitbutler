@@ -15,7 +15,7 @@ pub(crate) fn assign_file_to_branch(
     println!(
         "Assigned {} → {}.",
         path.bold(),
-        format!("[{}]", branch_name).green()
+        format!("[{branch_name}]").green()
     );
     Ok(())
 }
@@ -56,17 +56,17 @@ pub(crate) fn assign_all(
         println!(
             "Assigned all {} changes to {}.",
             from_branch
-                .map(|b| format!("[{}]", b).green())
+                .map(|b| format!("[{b}]").green())
                 .unwrap_or_else(|| "unassigned".to_string().bold()),
             to_branch
-                .map(|b| format!("[{}]", b).green())
+                .map(|b| format!("[{b}]").green())
                 .unwrap_or_else(|| "unassigned".to_string().bold())
         );
     } else {
         println!(
             "Unassigned all {} changes.",
             from_branch
-                .map(|b| format!("[{}]", b).green())
+                .map(|b| format!("[{b}]").green())
                 .unwrap_or_else(|| "unassigned".to_string().bold())
         );
     }

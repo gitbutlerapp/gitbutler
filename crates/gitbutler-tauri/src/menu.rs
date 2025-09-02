@@ -24,7 +24,7 @@ pub fn menu_item_set_enabled(handle: AppHandle, id: &str, enabled: bool) -> Resu
         .menu()
         .context("menu not found")?
         .get(id)
-        .with_context(|| error::Context::new(format!("menu item not found: {}", id)))?;
+        .with_context(|| error::Context::new(format!("menu item not found: {id}")))?;
 
     menu_item
         .as_menuitem()

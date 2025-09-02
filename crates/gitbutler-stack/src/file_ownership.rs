@@ -120,7 +120,7 @@ impl FromStr for OwnershipClaim {
                 file_path: file_path_parts
                     .join(":")
                     .parse()
-                    .context(format!("failed to parse file path from {}", value))?,
+                    .context(format!("failed to parse file path from {value}"))?,
                 hunks: ranges.clone(),
             })
         }

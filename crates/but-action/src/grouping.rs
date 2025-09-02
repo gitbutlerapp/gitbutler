@@ -90,10 +90,9 @@ pub fn group(openai: &OpenAiProvider, project_status: &ProjectStatus) -> anyhow:
 
         Here is the status of the project:
         <project_status>
-        {}
+        {serialized_project_status}
         </project_status>
-            ",
-        serialized_project_status
+            "
     );
 
     let messages = vec![ChatMessage::User(user_message)];

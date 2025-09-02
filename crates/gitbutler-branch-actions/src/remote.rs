@@ -58,7 +58,7 @@ pub fn find_git_branches(ctx: &CommandContext, branch_name: &str) -> Result<Vec<
     let mut all_branches: Vec<RemoteBranchData> = remotes
         .iter()
         .filter_map(|remote_name| {
-            let branch_name = format!("{}/{}", remote_name, branch_name);
+            let branch_name = format!("{remote_name}/{branch_name}");
             let blah = repo
                 .find_branch(&branch_name, BranchType::Remote)
                 .ok()

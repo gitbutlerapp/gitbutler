@@ -138,10 +138,9 @@ Please, take a look at the provided conversation and return which is the route t
             "
 Take a look at the conversation, specifically, the last user request below, and choose the best route to take.
 <CONVERSATION>
-{}
+{conversation}
 </CONVERSATION>
-            ",
-             conversation
+            "
         ))];
 
         let response = but_action::structured_output_blocking::<ButButRouteResponse>(
@@ -181,10 +180,9 @@ Add items to the todo list based on the plan.
 Reference relevant resources from the project status (e.g. branches, commits, file changes) when creating the todo items.
 
 <CONVERSATION>
-{}
+{conversation}
 </CONVERSATION>
-",
-            conversation
+"
         );
 
         let internal_chat_messages: Vec<but_action::ChatMessage> = vec![
@@ -233,15 +231,14 @@ Reference relevant resources from the project status (e.g. branches, commits, fi
 Based on the conversation below and the project status, please update the status of the todo item.
 
 <TODO_ITEM_TO_UPDATE>
-{}
+{todo}
 </TODO_ITEM_TO_UPDATE>
 
 
 <CONVERSATION>
-{}
+{conversation}
 </CONVERSATION>
-",
-            todo, conversation
+"
         );
 
         let internal_chat_messages: Vec<but_action::ChatMessage> = vec![

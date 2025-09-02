@@ -90,8 +90,8 @@ pub(crate) mod function {
                 // The whole stack is gone, so nothing that could be anonymous.
                 return Ok(Some(graph));
             };
-            if avoid_anonymous_stacks {
-                if let Some(commit) = stack
+            if avoid_anonymous_stacks
+                && let Some(commit) = stack
                     .segments
                     .first()
                     .and_then(|s| s.commits.first().filter(|_| s.ref_name.is_none()))
@@ -116,7 +116,6 @@ pub(crate) mod function {
                     )?;
                     graph = graph.redo_traversal_with_overlay(repo, meta, Default::default())?;
                 }
-            }
         }
 
         Ok(Some(graph))

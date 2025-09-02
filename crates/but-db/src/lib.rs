@@ -91,7 +91,7 @@ fn improve_concurrency(conn: &mut SqliteConnection) -> anyhow::Result<()> {
 
 fn run_migrations(
     connection: &mut SqliteConnection,
-) -> Result<Vec<diesel::migration::MigrationVersion>> {
+) -> Result<Vec<diesel::migration::MigrationVersion<'_>>> {
     match connection.run_pending_migrations(MIGRATIONS) {
         Ok(migrations) => Ok(migrations),
         Err(e) => anyhow::bail!("Failed to run migrations: {}", e),

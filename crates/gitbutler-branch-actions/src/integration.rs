@@ -46,7 +46,7 @@ fn read_workspace_file(path: &PathBuf) -> Result<Option<PreviousHead>> {
 
 fn write_workspace_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
     let sha = head.target().unwrap().to_string();
-    std::fs::write(path, format!(":{}", sha))?;
+    std::fs::write(path, format!(":{sha}"))?;
     Ok(())
 }
 #[instrument(level = tracing::Level::DEBUG, skip(vb_state, ctx), err(Debug))]
@@ -284,8 +284,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
             ))?;
 
         let rebased_commit = ctx.repo().find_commit(rebased_commit_oid).context(format!(
-            "failed to find rebased commit {}",
-            rebased_commit_oid
+            "failed to find rebased commit {rebased_commit_oid}"
         ))?;
 
         new_branch.set_stack_head(

@@ -182,7 +182,7 @@ pub fn write_sequence(
             invalid => panic!("invalid sequence: {invalid:?}"),
         };
         for num in start..=end {
-            writeln!(&mut out, "{}", num)?;
+            writeln!(&mut out, "{num}")?;
         }
     }
     std::fs::write(

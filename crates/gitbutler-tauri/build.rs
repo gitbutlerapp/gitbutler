@@ -18,11 +18,7 @@ fn main() {
         // NOTE(qix-): already exists, and we want to fail if not (for some reason).
         #[expect(clippy::expect_fun_call, clippy::create_dir)]
         std::fs::create_dir(&build_dir).expect(
-            format!(
-                "failed to create apps/desktop/build directory: {:?}",
-                build_dir
-            )
-            .as_str(),
+            format!("failed to create apps/desktop/build directory: {build_dir:?}").as_str(),
         );
     }
     let identifier = if let Ok(channel) = std::env::var("CHANNEL") {
@@ -34,7 +30,7 @@ fn main() {
     } else {
         "com.gitbutler.app.dev"
     };
-    println!("cargo:rustc-env=IDENTIFIER={}", identifier);
+    println!("cargo:rustc-env=IDENTIFIER={identifier}");
 
     tauri_build::build();
 }

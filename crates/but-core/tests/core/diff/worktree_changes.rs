@@ -1810,7 +1810,7 @@ fn unified_diffs(
 }
 
 pub fn repo_in(fixture_name: &str, name: &str) -> anyhow::Result<gix::Repository> {
-    let root = gix_testtools::scripted_fixture_read_only(format!("{}.sh", fixture_name))
+    let root = gix_testtools::scripted_fixture_read_only(format!("{fixture_name}.sh"))
         .map_err(anyhow::Error::from_boxed)?;
     let worktree_root = root.join(name);
     Ok(gix::open_opts(

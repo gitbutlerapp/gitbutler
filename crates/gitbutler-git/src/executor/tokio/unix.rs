@@ -20,8 +20,7 @@ impl Socket for BufStream<UnixStream> {
             .peer_cred()
             .unwrap()
             .pid()
-            .ok_or(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            .ok_or(std::io::Error::other(
                 "no pid available for peer connection",
             ))
     }

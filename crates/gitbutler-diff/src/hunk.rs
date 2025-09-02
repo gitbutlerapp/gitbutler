@@ -85,7 +85,7 @@ impl FromStr for Hunk {
         let start = if let Some(raw_start) = range.next() {
             raw_start
                 .parse::<u32>()
-                .context(format!("failed to parse start of range: {}", s))
+                .context(format!("failed to parse start of range: {s}"))
         } else {
             Err(anyhow!("invalid range: {}", s))
         }?;
@@ -93,7 +93,7 @@ impl FromStr for Hunk {
         let end = if let Some(raw_end) = range.next() {
             raw_end
                 .parse::<u32>()
-                .context(format!("failed to parse end of range: {}", s))
+                .context(format!("failed to parse end of range: {s}"))
         } else {
             Err(anyhow!("invalid range: {}", s))
         }?;
@@ -118,7 +118,7 @@ impl Display for Hunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}-{}", self.start, self.end)?;
         match &self.hash {
-            Some(hash) => write!(f, "-{:x}", hash),
+            Some(hash) => write!(f, "-{hash:x}"),
             None => Ok(()),
         }
     }

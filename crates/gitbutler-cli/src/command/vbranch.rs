@@ -23,7 +23,7 @@ pub fn list_commit_files(project: Project, commit_id_hex: String) -> Result<()> 
 
 pub fn set_base(project: Project, short_tracking_branch_name: String) -> Result<()> {
     let ctx = CommandContext::open(&project, AppSettings::default())?;
-    let branch_name = format!("refs/remotes/{}", short_tracking_branch_name)
+    let branch_name = format!("refs/remotes/{short_tracking_branch_name}")
         .parse()
         .context("Invalid branch name")?;
     debug_print(gitbutler_branch_actions::set_base_branch(

@@ -109,9 +109,9 @@ pub fn operating_mode(ctx: &CommandContext) -> OperatingMode {
                     "Failed to open in edit mode, falling back to outside workspace {}",
                     error
                 );
-                return OperatingMode::OutsideWorkspace(
+                OperatingMode::OutsideWorkspace(
                     outside_workspace_metadata(ctx).unwrap_or_default(),
-                );
+                )
             }
         }
     } else {

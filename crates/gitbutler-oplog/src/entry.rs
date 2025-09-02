@@ -107,12 +107,12 @@ impl Display for SnapshotDetails {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         writeln!(f, "{}\n", self.title)?;
         if let Some(body) = &self.body {
-            writeln!(f, "{}\n", body)?;
+            writeln!(f, "{body}\n")?;
         }
         writeln!(f, "Version: {}", self.version)?;
         writeln!(f, "Operation: {}", self.operation)?;
         for line in &self.trailers {
-            writeln!(f, "{}", line)?;
+            writeln!(f, "{line}")?;
         }
         Ok(())
     }

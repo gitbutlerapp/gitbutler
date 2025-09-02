@@ -75,7 +75,7 @@ pub fn git_log(path: &Path, options: &LogOptions) {
     command.arg("--decorate=short");
     command.arg(options.reference.clone());
     let result = command.output().unwrap().stdout;
-    println!("{:?}", command);
+    println!("{command:?}");
     println!("{}", std::str::from_utf8(&result).unwrap());
 }
 
@@ -126,7 +126,7 @@ pub fn git_ls_tree(path: &Path, options: &LsTreeOptions) {
     }
     command.arg(options.reference.clone());
     let result = command.output().unwrap().stdout;
-    println!("{:?}", command);
+    println!("{command:?}");
     println!("{}", std::str::from_utf8(&result).unwrap());
 }
 
@@ -142,6 +142,6 @@ pub fn git_status(path: &Path) {
     command.current_dir(path);
     command.arg("status");
     let result = command.output().unwrap().stdout;
-    println!("{:?}", command);
+    println!("{command:?}");
     println!("{}", std::str::from_utf8(&result).unwrap());
 }

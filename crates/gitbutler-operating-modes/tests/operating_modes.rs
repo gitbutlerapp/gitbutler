@@ -13,7 +13,7 @@ fn create_and_checkout_branch(ctx: &CommandContext, branch_name: &str) {
         .unwrap();
 
     repository
-        .set_head(format!("refs/heads/{}", branch_name).as_str())
+        .set_head(format!("refs/heads/{branch_name}").as_str())
         .unwrap();
 }
 

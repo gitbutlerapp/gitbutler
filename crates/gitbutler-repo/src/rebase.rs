@@ -178,8 +178,7 @@ pub fn gitbutler_merge_commits<'repo>(
         target_commit.id().to_gix(),
         incoming_commit.id().to_gix(),
         &format!(
-            "Merge `{}` into `{}`",
-            incoming_branch_name, target_branch_name
+            "Merge `{incoming_branch_name}` into `{target_branch_name}`"
         ),
     )?;
 

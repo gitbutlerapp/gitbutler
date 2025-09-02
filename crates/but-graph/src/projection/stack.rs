@@ -278,11 +278,9 @@ impl StackSegment {
         if let Some(commits) = commits_by_segment
             .last_mut()
             .and_then(|(sidx, commits)| graph.is_early_end_of_traversal(*sidx).then_some(commits))
-        {
-            if let Some(commit) = commits.last_mut() {
+            && let Some(commit) = commits.last_mut() {
                 commit.flags |= StackCommitFlags::EarlyEnd;
             }
-        }
 
         Ok(StackSegment {
             ref_name: ref_name.clone(),
@@ -506,7 +504,7 @@ impl StackCommitFlags {
         if flags.is_empty() {
             "".into()
         } else {
-            let string = format!("{:?}", flags);
+            let string = format!("{flags:?}");
             let out = &string["StackCommitFlags(".len()..];
             out[..out.len() - 1]
                 .to_string()

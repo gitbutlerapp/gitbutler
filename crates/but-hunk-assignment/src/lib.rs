@@ -671,9 +671,7 @@ mod tests {
     fn assert_eq(a: Vec<HunkAssignment>, b: Vec<HunkAssignment>) {
         assert!(
             a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| deep_eq(x, y)),
-            "HunkAssignment vectors are not deeply equal.\nLeft: {:#?}\nRight: {:#?}",
-            a,
-            b
+            "HunkAssignment vectors are not deeply equal.\nLeft: {a:#?}\nRight: {b:#?}"
         );
     }
 

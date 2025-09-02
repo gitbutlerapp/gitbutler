@@ -36,8 +36,8 @@ pub fn add_session_id(
     session_id: Uuid,
     new_session_id: Uuid,
 ) -> anyhow::Result<()> {
-    if let Some(mut session) = get_session_by_id(ctx, session_id)? {
-        if !session.session_ids.contains(&new_session_id) {
+    if let Some(mut session) = get_session_by_id(ctx, session_id)?
+        && !session.session_ids.contains(&new_session_id) {
             session.session_ids.push(new_session_id);
             session.current_id = new_session_id;
 
@@ -50,7 +50,6 @@ pub fn add_session_id(
                 .claude_sessions()
                 .update_current_id(&session_id.to_string(), &new_session_id.to_string())?;
         }
-    }
     Ok(())
 }
 

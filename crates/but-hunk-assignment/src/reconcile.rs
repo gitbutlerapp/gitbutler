@@ -43,11 +43,10 @@ impl HunkAssignment {
             }
         }
         // If the self.stack_id is set, ensure that it is a value that is still in the applied_stack_ids. If not, reset it to None.
-        if let Some(stack_id) = self.stack_id {
-            if !applied_stack_ids.contains(&stack_id) {
+        if let Some(stack_id) = self.stack_id
+            && !applied_stack_ids.contains(&stack_id) {
                 self.stack_id = None;
             }
-        }
     }
 }
 

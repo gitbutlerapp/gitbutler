@@ -251,7 +251,7 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
         } else {
             let stderr = BString::new(output.stderr);
             let stdout = BString::new(output.stdout);
-            let std_both = format!("{} {}", stdout, stderr);
+            let std_both = format!("{stdout} {stderr}");
             bail!("Failed to sign SSH: {}", std_both);
         }
     } else {
@@ -282,7 +282,7 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
                 )
             }
             Err(err) => {
-                return Err(err).context(format!("Could not execute GPG program using {:?}", cmd));
+                return Err(err).context(format!("Could not execute GPG program using {cmd:?}"));
             }
         };
         child.stdin.take().expect("configured").write_all(buffer)?;
@@ -295,7 +295,7 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
         } else {
             let stderr = BString::new(output.stderr);
             let stdout = BString::new(output.stdout);
-            let std_both = format!("{} {}", stdout, stderr);
+            let std_both = format!("{stdout} {stderr}");
             bail!("Failed to sign GPG: {}", std_both);
         }
     }

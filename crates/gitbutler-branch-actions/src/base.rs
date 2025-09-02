@@ -198,7 +198,7 @@ pub(crate) fn set_base_branch(
                         Err(err) if err.code() == git2::ErrorCode::NotFound => Ok((None, None)),
                         Err(error) => Err(error),
                     }
-                    .context(format!("failed to find upstream for {}", head_name))?
+                    .context(format!("failed to find upstream for {head_name}"))?
                 }
             } else {
                 (None, None)
@@ -239,7 +239,7 @@ pub(crate) fn set_target_push_remote(ctx: &CommandContext, push_remote_name: &st
     let remote = ctx
         .repo()
         .find_remote(push_remote_name)
-        .context(format!("failed to find remote {}", push_remote_name))?;
+        .context(format!("failed to find remote {push_remote_name}"))?;
 
     // if target exists, and it is the same as the requested branch, we should go back
     let mut target = default_target(&ctx.project().gb_dir())?;
@@ -276,7 +276,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
         let blob = object.as_blob().context("failed to get blob")?;
         // convert content to string
         if let Ok(content) = std::str::from_utf8(blob.content()) {
-            println!("    blob: {}", content);
+            println!("    blob: {content}");
         } else {
             println!("    blob: BINARY");
         }

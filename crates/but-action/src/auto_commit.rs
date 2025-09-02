@@ -50,9 +50,9 @@ pub fn auto_commit(
 
         Here is the project status:
         <project_status>
-                {}
+                {serialized_status}
         </project_status>
-    ", serialized_status);
+    ");
 
     crate::openai::tool_calling_loop(
         openai,

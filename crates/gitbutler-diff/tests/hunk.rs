@@ -120,6 +120,6 @@ fn eq() {
             true,
         ),
     ] {
-        assert_eq!(a == b, expected, "comparing {} and {}", a, b);
+        assert_eq!(a == b, expected, "comparing {a} and {b}");
     }
 }

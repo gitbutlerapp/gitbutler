@@ -30,10 +30,8 @@ impl RepositoryExt for git2::Repository {
                 }
                 revwalk
                     .push(from)
-                    .context(format!("failed to push {}", from))?;
-                revwalk
-                    .hide(oid)
-                    .context(format!("failed to hide {}", oid))?;
+                    .context(format!("failed to push {from}"))?;
+                revwalk.hide(oid).context(format!("failed to hide {oid}"))?;
                 revwalk.collect::<Result<Vec<_>, _>>()
             }
             LogUntil::Take(n) => {
@@ -43,7 +41,7 @@ impl RepositoryExt for git2::Repository {
                 }
                 revwalk
                     .push(from)
-                    .context(format!("failed to push {}", from))?;
+                    .context(format!("failed to push {from}"))?;
                 revwalk.take(n).collect::<Result<Vec<_>, _>>()
             }
             LogUntil::When(cond) => {
@@ -53,7 +51,7 @@ impl RepositoryExt for git2::Repository {
                 }
                 revwalk
                     .push(from)
-                    .context(format!("failed to push {}", from))?;
+                    .context(format!("failed to push {from}"))?;
                 let mut oids: Vec<git2::Oid> = vec![];
                 for oid in revwalk {
                     let oid = oid.context("failed to get oid")?;
@@ -74,14 +72,14 @@ impl RepositoryExt for git2::Repository {
                 }
                 revwalk
                     .push(from)
-                    .context(format!("failed to push {}", from))?;
+                    .context(format!("failed to push {from}"))?;
                 revwalk.collect::<Result<Vec<_>, _>>()
             }
         }
         .context("failed to collect oids")
     }
 
-    fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>> {
+    fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit<'_>>> {
         Ok(self
             .l(from, LogUntil::Commit(to), false)?
             .into_iter()
@@ -95,7 +93,7 @@ impl RepositoryExt for git2::Repository {
         from: git2::Oid,
         to: LogUntil,
         include_all_parents: bool,
-    ) -> Result<Vec<git2::Commit>> {
+    ) -> Result<Vec<git2::Commit<'_>>> {
         self.l(from, to, include_all_parents)?
             .into_iter()
             .map(|oid| self.find_commit(oid))

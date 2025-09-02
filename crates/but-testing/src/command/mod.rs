@@ -91,7 +91,7 @@ pub fn repo_and_maybe_project_and_graph(
 }
 
 fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
-    println!("{:#?}", this);
+    println!("{this:#?}");
     Ok(())
 }
 
@@ -557,7 +557,7 @@ pub fn graph(
                 .sum::<usize>(),
         );
     } else {
-        eprintln!("{:#?}", workspace);
+        eprintln!("{workspace:#?}");
     }
     if debug_graph {
         eprintln!("{graph:#?}");

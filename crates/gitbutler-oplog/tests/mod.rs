@@ -10,7 +10,7 @@ mod trailer {
             key: "foo".to_string(),
             value: "bar".to_string(),
         };
-        assert_eq!(format!("{}", trailer), "foo: bar");
+        assert_eq!(format!("{trailer}"), "foo: bar");
     }
 
     #[test]

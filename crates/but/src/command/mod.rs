@@ -54,7 +54,7 @@ where
         let json = serde_json::to_string_pretty(&this)?;
         println!("{json}");
     } else {
-        println!("{:#?}", this);
+        println!("{this:#?}");
     }
     Ok(())
 }

@@ -69,7 +69,7 @@ impl Graph {
                     let num_remotes = remote_mapping.len();
                     let new_remote_name = remote_mapping
                         .entry(remote_name.as_bstr().to_owned())
-                        .or_insert_with(|| format!("remote-{}", num_remotes).into());
+                        .or_insert_with(|| format!("remote-{num_remotes}").into());
                     new_name.push_str(new_remote_name);
 
                     let num_names = name_mapping.len();

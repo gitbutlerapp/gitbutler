@@ -30,7 +30,7 @@ pub struct Workflow {
 }
 
 impl DbHandle {
-    pub fn workflows(&mut self) -> WorkflowsHandle {
+    pub fn workflows(&mut self) -> WorkflowsHandle<'_> {
         WorkflowsHandle { db: self }
     }
 }

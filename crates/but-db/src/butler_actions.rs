@@ -34,7 +34,7 @@ pub struct ButlerAction {
 }
 
 impl DbHandle {
-    pub fn butler_actions(&mut self) -> ButlerActionsHandle {
+    pub fn butler_actions(&mut self) -> ButlerActionsHandle<'_> {
         ButlerActionsHandle { db: self }
     }
 }

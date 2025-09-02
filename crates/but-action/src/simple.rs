@@ -146,7 +146,7 @@ fn handle_changes_simple_inner(
     let mut updated_branches = vec![];
 
     let commit_message = if let Some(prompt) = external_prompt {
-        format!("{}\n\n{}", prompt, change_summary)
+        format!("{prompt}\n\n{change_summary}")
     } else {
         change_summary.to_string()
     };
@@ -155,11 +155,10 @@ fn handle_changes_simple_inner(
         if diff_specs.is_empty() {
             continue;
         }
-        if let Some(exclusive_stack) = exclusive_stack {
-            if exclusive_stack != stack_id {
+        if let Some(exclusive_stack) = exclusive_stack
+            && exclusive_stack != stack_id {
                 continue; // Skip stacks that are not the exclusive stack.
             }
-        }
 
         let stack_branch_name = stacks
             .iter()

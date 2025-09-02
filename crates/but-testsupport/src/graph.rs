@@ -10,11 +10,9 @@ type StringTree = Tree<String>;
 
 /// Visualize `graph` as a tree.
 pub fn graph_workspace(workspace: &but_graph::projection::Workspace<'_>) -> StringTree {
-    let commit_flags = workspace
+    let commit_flags = if workspace
         .graph
-        .hard_limit_hit()
-        .then_some(StackCommitDebugFlags::HardLimitReached)
-        .unwrap_or_default();
+        .hard_limit_hit() { StackCommitDebugFlags::HardLimitReached } else { Default::default() };
     let mut root = Tree::new(workspace.debug_string());
     for stack in &workspace.stacks {
         root.push(tree_for_stack(stack, commit_flags));

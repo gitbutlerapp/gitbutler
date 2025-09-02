@@ -75,7 +75,7 @@ pub fn print_group(
     .underline()
     .blue();
     let group = &group
-        .map(|s| format!("[{}]", s))
+        .map(|s| format!("[{s}]"))
         .unwrap_or("<UNASSIGNED>".to_string());
     println!("{}    {}", id, group.green().bold());
     for fa in assignments {
@@ -114,7 +114,7 @@ pub fn print_group(
             .join(", ");
 
         if !locks.is_empty() {
-            locks = format!("🔒 {}", locks);
+            locks = format!("🔒 {locks}");
         }
         println!("{} ({}) {} {}", id, fa.assignments.len(), path, locks);
     }

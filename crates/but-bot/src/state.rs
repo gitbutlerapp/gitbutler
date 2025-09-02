@@ -67,8 +67,8 @@ impl Display for TodoStatus {
         match self {
             TodoStatus::Waiting => write!(f, "Waiting"),
             TodoStatus::InProgress => write!(f, "InProgress"),
-            TodoStatus::Success { message } => write!(f, "Success({})", message),
-            TodoStatus::Failed { message } => write!(f, "Failed({})", message),
+            TodoStatus::Success { message } => write!(f, "Success({message})"),
+            TodoStatus::Failed { message } => write!(f, "Failed({message})"),
         }
     }
 }

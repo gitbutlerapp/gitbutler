@@ -52,7 +52,7 @@ impl RepoActionsExt for CommandContext {
         askpass: Option<Option<StackId>>,
     ) -> Result<()> {
         let target_branch_refname =
-            Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
+            Refname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}"))?;
         let branch = self
             .repo()
             .maybe_find_branch_by_refname(&target_branch_refname)?
@@ -71,7 +71,7 @@ impl RepoActionsExt for CommandContext {
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
 
-        let empty_refspec = Some(format!(":refs/heads/{}", branch_name));
+        let empty_refspec = Some(format!(":refs/heads/{branch_name}"));
         match self.push(commit_id, &refname, false, false, empty_refspec, askpass) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
@@ -172,9 +172,7 @@ impl RepoActionsExt for CommandContext {
             // The Git executable has flags set related to force, and these flags don't play well
             // with the refspec force-format which seems to override them, leading to incorrect results
             // in conjunction with `force_push_protection`.
-            let prefix = (with_force && !use_git_executable)
-                .then_some("+")
-                .unwrap_or_default();
+            let prefix = if with_force && !use_git_executable { "+" } else { Default::default() };
             format!("{prefix}{}:refs/heads/{}", head, branch.branch())
         });
 
@@ -272,7 +270,7 @@ impl RepoActionsExt for CommandContext {
     }
 
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()> {
-        let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
+        let refspec = format!("+refs/heads/*:refs/remotes/{remote_name}/*");
 
         // NOTE(qix-): This is a nasty hack, however the codebase isn't structured
         // NOTE(qix-): in a way that allows us to really incorporate new backends

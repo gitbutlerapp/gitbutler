@@ -47,7 +47,7 @@ pub fn push_oplog(ctx: &CommandContext, user: &users::User) -> Result<()> {
     // Push Oplog head
     let oplog_refspec = ctx
         .oplog_head()?
-        .map(|sha| format!("+{}:refs/gitbutler/oplog", sha));
+        .map(|sha| format!("+{sha}:refs/gitbutler/oplog"));
 
     if let Some(oplog_refspec) = oplog_refspec {
         push_to_gitbutler_server(
@@ -84,7 +84,7 @@ fn push_target(
     let remote = remote(ctx, RemoteKind::Code)?;
     let id_count = ids.len();
     for (idx, id) in ids.iter().enumerate().rev() {
-        let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
+        let refspec = format!("+{id}:refs/push-tmp/{project_id}");
 
         push_to_gitbutler_server(ctx, Some(user), &[&refspec], remote.clone())?;
         update_project(project_id, *id)?;
@@ -121,11 +121,9 @@ fn batch_rev_walk(
     let mut revwalk = repo.revwalk().context("failed to create revwalk")?;
     revwalk
         .push(from)
-        .context(format!("failed to push {}", from))?;
+        .context(format!("failed to push {from}"))?;
     if let Some(oid) = until {
-        revwalk
-            .hide(oid)
-            .context(format!("failed to hide {}", oid))?;
+        revwalk.hide(oid).context(format!("failed to hide {oid}"))?;
     }
     let mut oids = Vec::new();
     oids.push(from);
@@ -166,7 +164,7 @@ fn push_all_refs(
                 Refname::Remote(_) | Refname::Virtual(_) | Refname::Local(_)
             )
         })
-        .map(|r| format!("+{}:{}", r, r))
+        .map(|r| format!("+{r}:{r}"))
         .collect();
 
     let all_refs: Vec<_> = all_refs.iter().map(String::as_str).collect();
@@ -258,7 +256,7 @@ pub(crate) enum RemoteKind {
     Code,
     Oplog,
 }
-pub(crate) fn remote(ctx: &CommandContext, kind: RemoteKind) -> Result<git2::Remote> {
+pub(crate) fn remote(ctx: &CommandContext, kind: RemoteKind) -> Result<git2::Remote<'_>> {
     let api_project = ctx.project().api.as_ref().context("api not set")?;
     let url = match kind {
         RemoteKind::Code => {

@@ -15,7 +15,7 @@ pub struct FileWriteLock {
 }
 
 impl DbHandle {
-    pub fn file_write_locks(&mut self) -> FileWriteLocksHandle {
+    pub fn file_write_locks(&mut self) -> FileWriteLocksHandle<'_> {
         FileWriteLocksHandle { db: self }
     }
 }

@@ -205,7 +205,7 @@ impl TestProject {
                     "refs/heads/master",
                     last_rebase_head,
                     true,
-                    &format!("rebase: {}", branch_name),
+                    &format!("rebase: {branch_name}"),
                 )
                 .unwrap();
         } else {
@@ -259,7 +259,7 @@ impl TestProject {
             Some(&"refs/heads/master".parse()?),
             &branch_commit.author(),
             &branch_commit.committer(),
-            &format!("Merge pull request from {}", branch_name),
+            &format!("Merge pull request from {branch_name}"),
             &merge_tree,
             &[&master_branch_commit, &branch_commit],
             None,
@@ -303,7 +303,7 @@ impl TestProject {
             //         .unwrap();
             //     head_commit.tree().unwrap()
             // }
-            Err(error) => panic!("{:?}", error),
+            Err(error) => panic!("{error:?}"),
         };
         self.local_repo.set_head(&refname.to_string()).unwrap();
         self.local_repo
@@ -380,7 +380,7 @@ impl TestProject {
     }
 
     pub fn gen_file(&self, path: &str, line_count: i32) -> Vec<String> {
-        let lines: Vec<_> = (0_i32..line_count).map(|i| format!("line {}", i)).collect();
+        let lines: Vec<_> = (0_i32..line_count).map(|i| format!("line {i}")).collect();
         self.write_file(path, &lines);
         lines
     }

@@ -60,15 +60,15 @@ pub struct ClaudePermissionRequest {
 }
 
 impl DbHandle {
-    pub fn claude_sessions(&mut self) -> ClaudeSessionsHandle {
+    pub fn claude_sessions(&mut self) -> ClaudeSessionsHandle<'_> {
         ClaudeSessionsHandle { db: self }
     }
 
-    pub fn claude_messages(&mut self) -> ClaudeMessagesHandle {
+    pub fn claude_messages(&mut self) -> ClaudeMessagesHandle<'_> {
         ClaudeMessagesHandle { db: self }
     }
 
-    pub fn claude_permission_requests(&mut self) -> ClaudePermissionRequestsHandle {
+    pub fn claude_permission_requests(&mut self) -> ClaudePermissionRequestsHandle<'_> {
         ClaudePermissionRequestsHandle { db: self }
     }
 

@@ -282,7 +282,7 @@ mod set_target_ref {
 
         let first_line = lines[0];
         assert_signature(first_line.signature);
-        let first_line_message = format!("branch: Created from {}", commit_id);
+        let first_line_message = format!("branch: Created from {commit_id}");
         let expected_line = gix::refs::file::log::LineRef {
             previous_oid: "0000000000000000000000000000000000000000".into(),
             new_oid: commit_id_hex,

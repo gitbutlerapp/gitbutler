@@ -20,10 +20,7 @@ pub fn main() {
 
             let waited_pid = unsafe { wait(&mut status as *mut _) };
             if waited_pid != child.as_raw() {
-                panic!(
-                    "wait(): unexpected child process; got {}, expected {}",
-                    waited_pid, child
-                );
+                panic!("wait(): unexpected child process; got {waited_pid}, expected {child}");
             }
 
             if WIFEXITED(status) {
@@ -41,7 +38,7 @@ pub fn main() {
 
             let err = process::Command::new(&args[0]).args(&args[1..]).exec();
 
-            panic!("exec(): {}", err);
+            panic!("exec(): {err}");
         }
     }
 }

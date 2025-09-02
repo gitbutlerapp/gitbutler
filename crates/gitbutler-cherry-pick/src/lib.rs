@@ -67,7 +67,11 @@ pub trait GixRepositoryExt {
 }
 
 impl RepositoryExt for git2::Repository {
-    fn find_real_tree(&self, commit: &git2::Commit, side: ConflictedTreeKey) -> Result<git2::Tree> {
+    fn find_real_tree(
+        &self,
+        commit: &git2::Commit,
+        side: ConflictedTreeKey,
+    ) -> Result<git2::Tree<'_>> {
         let tree = commit.tree()?;
         if commit.is_conflicted() {
             let conflicted_side = tree

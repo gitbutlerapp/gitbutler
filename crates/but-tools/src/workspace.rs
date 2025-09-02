@@ -1791,7 +1791,7 @@ pub fn get_filtered_changes(
         worktree
             .changes
             .into_iter()
-            .filter(|change| filter.iter().any(|f| *f == change.path))
+            .filter(|change| filter.contains(&change.path))
             .collect::<Vec<_>>()
     } else {
         worktree.changes.clone()
@@ -1865,7 +1865,7 @@ fn get_file_changes(
                     but_core::TreeStatus::Deletion { .. } => "deleted".to_string(),
                     but_core::TreeStatus::Modification { .. } => "modified".to_string(),
                     but_core::TreeStatus::Rename { previous_path, .. } => {
-                        format!("renamed from {}", previous_path)
+                        format!("renamed from {previous_path}")
                     }
                 };
 
@@ -1971,7 +1971,7 @@ fn commit_and_base_from_stack(
 
     // Find the head that matches the branch name - the commit contained is our commit_id
     let start_commit_id = repo
-        .find_reference(start.with_context(|| format!("Branch {} not found", branch_name))?)?
+        .find_reference(start.with_context(|| format!("Branch {branch_name} not found"))?)?
         .peel_to_commit()?
         .id;
 

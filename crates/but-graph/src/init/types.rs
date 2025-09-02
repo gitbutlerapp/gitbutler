@@ -75,11 +75,10 @@ impl Limit {
     /// Thanks to flag-propagation there can be no runaways.
     pub fn is_exhausted_or_decrement(&mut self, flags: CommitFlags, next: &Queue) -> bool {
         // Keep going if the goal wasn't seen yet, unlimited gas.
-        if let Some(maybe_goal) = self.goal_reachable(flags) {
-            if maybe_goal.is_empty() || self.set_single_goal_reached_keep_searching(maybe_goal) {
+        if let Some(maybe_goal) = self.goal_reachable(flags)
+            && (maybe_goal.is_empty() || self.set_single_goal_reached_keep_searching(maybe_goal)) {
                 return false;
             }
-        }
         // Do not let *any* non-goal tip consume gas as long as there is still anything with a goal in the queue
         // that need to meet their local branches.
         // This is effectively only affecting the entrypoint tips, which isn't setup with a goal.

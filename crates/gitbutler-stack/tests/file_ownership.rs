@@ -68,8 +68,7 @@ fn plus() {
         let got = a.plus(b.clone());
         assert_eq!(
             got, expected,
-            "{} plus {}, expected {}, got {}",
-            a, b, expected, got
+            "{a} plus {b}, expected {expected}, got {got}"
         );
     });
 }
@@ -123,8 +122,7 @@ fn minus() {
         let got = a.minus(&b);
         assert_eq!(
             got, expected,
-            "{} minus {}, expected {:?}, got {:?}",
-            a, b, expected, got
+            "{a} minus {b}, expected {expected:?}, got {got:?}"
         );
     });
 }
@@ -146,6 +144,6 @@ fn equal() {
         )
     })
     .for_each(|(a, b, expected)| {
-        assert_eq!(a == b, expected, "{} == {}, expected {}", a, b, expected);
+        assert_eq!(a == b, expected, "{a} == {b}, expected {expected}");
     });
 }

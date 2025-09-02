@@ -48,10 +48,9 @@ pub fn split_branch(
     let branch_head = push_details.head;
 
     // Create a new branch from the source branch's head
-    let new_branch_ref_name = format!("refs/heads/{}", new_branch_name);
+    let new_branch_ref_name = format!("refs/heads/{new_branch_name}");
     let new_branch_log_message = format!(
-        "Split off changes from branch '{}' into new branch '{}'",
-        source_branch_name, new_branch_name
+        "Split off changes from branch '{source_branch_name}' into new branch '{new_branch_name}'"
     );
 
     let mut new_ref = repository.reference(
@@ -162,10 +161,9 @@ pub fn split_into_dependent_branch(
     let branch_head = push_details.head;
 
     // Create a new branch reference
-    let new_branch_ref_name = format!("refs/heads/{}", new_branch_name);
+    let new_branch_ref_name = format!("refs/heads/{new_branch_name}");
     let new_branch_log_message = format!(
-        "Split off changes from branch '{}' into new dependent branch '{}'",
-        source_branch_name, new_branch_name
+        "Split off changes from branch '{source_branch_name}' into new dependent branch '{new_branch_name}'"
     );
 
     let new_ref = repository.reference(
@@ -337,12 +335,11 @@ fn construct_source_steps(
         }
 
         // Insert steps just above the branch reference step
-        if !inserted_steps {
-            if let Some(steps_to_insert) = steps_to_insert {
+        if !inserted_steps
+            && let Some(steps_to_insert) = steps_to_insert {
                 inserted_steps = true;
                 new_source_steps.extend(steps_to_insert.iter().cloned());
             }
-        }
 
         if let RebaseStep::Pick { commit_id, .. } = &step {
             match remove_file_changes_from_commit(

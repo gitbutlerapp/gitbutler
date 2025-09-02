@@ -36,7 +36,7 @@ impl ActiveProjects {
             move |value| {
                 let frontend_event = match value {
                     Change::GitFetch(project_id) => FrontendEvent {
-                        name: format!("project://{}/git/fetch", project_id),
+                        name: format!("project://{project_id}/git/fetch"),
                         payload: serde_json::json!({}),
                     },
                     Change::GitHead {
@@ -44,18 +44,18 @@ impl ActiveProjects {
                         head,
                         operating_mode,
                     } => FrontendEvent {
-                        name: format!("project://{}/git/head", project_id),
+                        name: format!("project://{project_id}/git/head"),
                         payload: serde_json::json!({ "head": head, "operatingMode": operating_mode }),
                     },
                     Change::GitActivity(project_id) => FrontendEvent {
-                        name: format!("project://{}/git/activity", project_id),
+                        name: format!("project://{project_id}/git/activity"),
                         payload: serde_json::json!({}),
                     },
                     Change::WorktreeChanges {
                         project_id,
                         changes,
                     } => FrontendEvent {
-                        name: format!("project://{}/worktree_changes", project_id),
+                        name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
                     },
                 };

@@ -463,7 +463,7 @@ impl Stack {
                 .next_back()
                 .and_then(|last| last.parse::<u32>().ok())
                 .map(|last| format!("{}-{}", left, last + 1)) //take everything except last, and append last + 1
-                .unwrap_or_else(|| format!("{}-1", name));
+                .unwrap_or_else(|| format!("{name}-1"));
         }
         Ok(name)
     }

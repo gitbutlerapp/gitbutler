@@ -65,7 +65,7 @@ impl CommitFlags {
         } else {
             let flags = *self & Self::all();
             let extra = (self.bits() & !Self::all().bits()) >> Self::all().iter().count();
-            let string = format!("{:?}", flags);
+            let string = format!("{flags:?}");
             let out = &string["CommitFlags(".len()..];
             let mut out = out[..out.len() - 1]
                 .to_string()
@@ -74,7 +74,7 @@ impl CommitFlags {
                 .replace("Integrated", "✓")
                 .replace(" ", "");
             if extra != 0 {
-                out.push_str(&format!("|{:b}", extra));
+                out.push_str(&format!("|{extra:b}"));
             }
             out
         }
