@@ -23,7 +23,7 @@
 </script>
 
 {#if toolCalls.length > 0}
-	<div class="tool-calls-container">
+	<div class="tool-calls-container" class:expanded>
 		<!-- Header -->
 		<button type="button" class="tool-calls-header" onclick={toggleExpanded}>
 			<div class="tool-calls-header__arrow" class:expanded>
@@ -66,13 +66,17 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
+
+		&.expanded {
+			width: 100%;
+		}
 	}
 
 	.tool-calls-header {
 		display: flex;
 		align-items: center;
 		width: 100%;
-		padding: 8px 10px;
+		padding: 8px 12px 8px 8px;
 		gap: 8px;
 		border: none;
 		cursor: pointer;
@@ -112,8 +116,8 @@
 	.tool-calls-expanded {
 		display: flex;
 		flex-direction: column;
-		padding: 8px;
-		gap: 10px;
+		width: 100%;
+		overflow: hidden;
 		border-top: 1px solid var(--clr-border-2);
 	}
 
