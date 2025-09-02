@@ -8,6 +8,7 @@ pub mod db;
 pub mod hooks;
 pub mod mcp;
 pub mod notifications;
+pub mod prompt_templates;
 mod rules;
 
 /// Represents a Claude Code session that GitButler is tracking.

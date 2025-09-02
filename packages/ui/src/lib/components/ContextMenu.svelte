@@ -213,7 +213,7 @@
 			menuContainer.offsetHeight > 0
 		) {
 			// Recalculate with proper dimensions
-			const isRightClick = Boolean(rightClickTrigger && savedMouseEvent);
+			const isRightClick = rightClickTrigger && savedMouseEvent;
 			const target = isRightClick ? savedMouseEvent : leftClickTrigger;
 			if (target) {
 				if (isRightClick) {
@@ -270,6 +270,7 @@
 		onopen?.();
 		if (ontoggle) executeByTrigger(ontoggle);
 	}
+
 	export function close() {
 		if (!isVisible) return;
 
@@ -339,6 +340,24 @@
 				break;
 		}
 	}
+
+	$effect(() => {
+		if (!menuContainer) return;
+		const config = { attributes: false, childList: true, subtree: true };
+
+		const observer = new MutationObserver((mutationList) => {
+			for (const mutation of mutationList) {
+				if (mutation.type === 'childList') {
+					if (isVisible && savedMouseEvent) {
+						setPosition(savedMouseEvent);
+					}
+				}
+			}
+		});
+		observer.observe(menuContainer, config);
+
+		return () => observer.disconnect();
+	});
 </script>
 
 {#if isVisible}

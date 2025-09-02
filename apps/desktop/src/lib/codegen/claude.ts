@@ -3,7 +3,8 @@ import {
 	type ClaudePermissionRequest,
 	type ClaudeSessionDetails,
 	type ThinkingLevel,
-	type ModelType
+	type ModelType,
+	type PromptTemplates
 } from '$lib/codegen/types';
 import { hasBackendExtra } from '$lib/state/backendQuery';
 import {
@@ -73,6 +74,26 @@ export class ClaudeCodeService {
 			projectId,
 			sessionId
 		});
+	}
+
+	get promptTemplates() {
+		return this.api.endpoints.getPromptTemplates.useQuery;
+	}
+
+	get fetchPromptTemplates() {
+		return this.api.endpoints.getPromptTemplates.fetch;
+	}
+
+	get writePromptTemplates() {
+		return this.api.endpoints.writePromptTemplates.mutate;
+	}
+
+	get promptTemplatesPath() {
+		return this.api.endpoints.getPromptTemplatesPath.useQuery;
+	}
+
+	get fetchPromptTemplatesPath() {
+		return this.api.endpoints.getPromptTemplatesPath.fetch;
 	}
 }
 
@@ -227,6 +248,26 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					await lifecycleApi.cacheEntryRemoved;
 					unsubscribe();
 				}
+			}),
+			getPromptTemplates: build.query<PromptTemplates, undefined>({
+				extraOptions: { command: 'claude_get_prompt_templates' },
+				query: () => undefined
+			}),
+			writePromptTemplates: build.mutation<
+				undefined,
+				{
+					templates: PromptTemplates;
+				}
+			>({
+				extraOptions: {
+					command: 'claude_write_prompt_templates',
+					actionName: 'Write Prompt Templates'
+				},
+				query: (args) => args
+			}),
+			getPromptTemplatesPath: build.query<string, undefined>({
+				extraOptions: { command: 'claude_get_prompt_templates_path' },
+				query: () => undefined
 			})
 		})
 	});

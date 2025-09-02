@@ -505,6 +505,17 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "claude_get_prompt_templates" => {
+            run_cmd(&app, request.params, claude::claude_get_prompt_templates)
+        }
+        "claude_write_prompt_templates" => {
+            run_cmd(&app, request.params, claude::claude_write_prompt_templates)
+        }
+        "claude_get_prompt_templates_path" => run_cmd(
+            &app,
+            request.params,
+            claude::claude_get_prompt_templates_path,
+        ),
 
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
     };

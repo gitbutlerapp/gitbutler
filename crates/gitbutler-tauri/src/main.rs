@@ -349,7 +349,10 @@ fn main() {
                     claude::claude_update_permission_request,
                     claude::claude_cancel_session,
                     claude::claude_check_available,
-                    claude::claude_is_stack_active
+                    claude::claude_is_stack_active,
+                    claude::claude_get_prompt_templates,
+                    claude::claude_write_prompt_templates,
+                    claude::claude_get_prompt_templates_path
                 ])
                 .menu(move |handle| menu::build(handle, &app_settings_for_menu))
                 .on_window_event(|window, event| match event {

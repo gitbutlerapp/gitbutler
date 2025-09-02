@@ -1,11 +1,12 @@
 use but_api::{
     commands::claude::{
         self, CancelSessionParams, GetMessagesParams, IsStackActiveParams, SendMessageParams,
+        WritePromptTemplatesParams,
     },
     error::Error,
-    App,
+    App, NoParams,
 };
-use but_claude::{ClaudeMessage, ModelType, ThinkingLevel};
+use but_claude::{prompt_templates::PromptTemplates, ClaudeMessage, ModelType, ThinkingLevel};
 use but_workspace::StackId;
 use gitbutler_project::ProjectId;
 use tauri::State;
@@ -134,4 +135,25 @@ pub async fn claude_is_stack_active(
         },
     )
     .await
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub fn claude_get_prompt_templates(app: State<'_, App>) -> Result<PromptTemplates, Error> {
+    claude::claude_get_prompt_templates(&app, NoParams {})
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub fn claude_write_prompt_templates(
+    app: State<'_, App>,
+    templates: PromptTemplates,
+) -> Result<(), Error> {
+    claude::claude_write_prompt_templates(&app, WritePromptTemplatesParams { templates })
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub fn claude_get_prompt_templates_path(app: State<'_, App>) -> Result<String, Error> {
+    claude::claude_get_prompt_templates_path(&app, NoParams {})
 }
