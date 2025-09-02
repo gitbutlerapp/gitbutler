@@ -278,9 +278,10 @@ impl StackSegment {
         if let Some(commits) = commits_by_segment
             .last_mut()
             .and_then(|(sidx, commits)| graph.is_early_end_of_traversal(*sidx).then_some(commits))
-            && let Some(commit) = commits.last_mut() {
-                commit.flags |= StackCommitFlags::EarlyEnd;
-            }
+            && let Some(commit) = commits.last_mut()
+        {
+            commit.flags |= StackCommitFlags::EarlyEnd;
+        }
 
         Ok(StackSegment {
             ref_name: ref_name.clone(),

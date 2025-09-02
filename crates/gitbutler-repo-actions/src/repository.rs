@@ -172,7 +172,11 @@ impl RepoActionsExt for CommandContext {
             // The Git executable has flags set related to force, and these flags don't play well
             // with the refspec force-format which seems to override them, leading to incorrect results
             // in conjunction with `force_push_protection`.
-            let prefix = if with_force && !use_git_executable { "+" } else { Default::default() };
+            let prefix = if with_force && !use_git_executable {
+                "+"
+            } else {
+                Default::default()
+            };
             format!("{prefix}{}:refs/heads/{}", head, branch.branch())
         });
 

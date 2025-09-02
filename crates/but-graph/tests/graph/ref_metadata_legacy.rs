@@ -977,9 +977,10 @@ fn roundtrip_journey(metadata: &mut impl RefMetadata) -> anyhow::Result<()> {
             let ws = metadata.workspace(ref_name.as_ref())?;
             assert!(!ws.is_default(), "default data won't be iterated");
             if let Err(err) = metadata.set_workspace(&ws)
-                && err.to_string().contains("unsupported") {
-                    continue;
-                }
+                && err.to_string().contains("unsupported")
+            {
+                continue;
+            }
             assert_eq!(
                 &*metadata.workspace(ref_name.as_ref())?,
                 ws_from_iter,

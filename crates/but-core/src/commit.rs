@@ -251,9 +251,7 @@ impl<'repo> Commit<'repo> {
     /// instead.
     pub fn tree_id_or_kind(&self, kind: TreeKind) -> anyhow::Result<gix::Id<'repo>> {
         Ok(if self.is_conflicted() {
-            
-            self
-                .inner
+            self.inner
                 .tree
                 .attach(self.id.repo)
                 .object()?

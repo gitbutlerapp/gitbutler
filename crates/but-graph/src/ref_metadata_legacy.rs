@@ -531,7 +531,6 @@ impl VirtualBranchesTomlMetadata {
         let mut stacks: Vec<_> = data.branches.values().cloned().collect();
         stacks.sort_by_key(|s| s.order);
 
-        
         Workspace {
             ref_info: managed_ref_info(),
             stacks: stacks

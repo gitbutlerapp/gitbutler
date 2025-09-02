@@ -812,9 +812,9 @@ fn find_all_desired_stack_refs_in_commit<'a>(
                 .iter()
                 .filter(|s| !s.segments.iter().any(|s| candidates.contains(&s.id)))
                 .any(|existing_stack| existing_stack.id == Some(stack.id))
-            {
-                return None;
-            }
+        {
+            return None;
+        }
         let matching_refs: Vec<_> = stack
             .branches
             .iter()
@@ -943,10 +943,11 @@ fn create_independent_segments<T: RefMetadata>(
                 graph[new_segment_sidx].sibling_segment_id = sibling;
 
                 if let Some((ep_sidx, ep_commit_idx)) = graph.entrypoint.as_mut()
-                    && *ep_sidx == below_idx {
-                        *ep_sidx = new_segment_sidx;
-                        *ep_commit_idx = None;
-                    }
+                    && *ep_sidx == below_idx
+                {
+                    *ep_sidx = new_segment_sidx;
+                    *ep_commit_idx = None;
+                }
             }
             Some(pos) => {
                 new_refs.remove(pos);

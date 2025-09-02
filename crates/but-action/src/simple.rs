@@ -156,9 +156,10 @@ fn handle_changes_simple_inner(
             continue;
         }
         if let Some(exclusive_stack) = exclusive_stack
-            && exclusive_stack != stack_id {
-                continue; // Skip stacks that are not the exclusive stack.
-            }
+            && exclusive_stack != stack_id
+        {
+            continue; // Skip stacks that are not the exclusive stack.
+        }
 
         let stack_branch_name = stacks
             .iter()

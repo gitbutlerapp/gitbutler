@@ -37,19 +37,20 @@ pub fn add_session_id(
     new_session_id: Uuid,
 ) -> anyhow::Result<()> {
     if let Some(mut session) = get_session_by_id(ctx, session_id)?
-        && !session.session_ids.contains(&new_session_id) {
-            session.session_ids.push(new_session_id);
-            session.current_id = new_session_id;
+        && !session.session_ids.contains(&new_session_id)
+    {
+        session.session_ids.push(new_session_id);
+        session.current_id = new_session_id;
 
-            let json = serde_json::to_string(&session.session_ids)?;
+        let json = serde_json::to_string(&session.session_ids)?;
 
-            ctx.db()?
-                .claude_sessions()
-                .update_session_ids(&session_id.to_string(), &json)?;
-            ctx.db()?
-                .claude_sessions()
-                .update_current_id(&session_id.to_string(), &new_session_id.to_string())?;
-        }
+        ctx.db()?
+            .claude_sessions()
+            .update_session_ids(&session_id.to_string(), &json)?;
+        ctx.db()?
+            .claude_sessions()
+            .update_current_id(&session_id.to_string(), &new_session_id.to_string())?;
+    }
     Ok(())
 }
 

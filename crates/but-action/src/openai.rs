@@ -303,23 +303,24 @@ pub async fn tool_calling_stream(
 
             // If finished streaming the tool calls, return them.
             if let Some(finish_reason) = &chat_choice.finish_reason
-                && matches!(finish_reason, async_openai::types::FinishReason::ToolCalls) {
-                    let tool_call_states_clone = tool_call_states.clone();
+                && matches!(finish_reason, async_openai::types::FinishReason::ToolCalls)
+            {
+                let tool_call_states_clone = tool_call_states.clone();
 
-                    let tool_calls_to_process = {
-                        let states_lock = tool_call_states_clone.lock().await;
-                        states_lock
-                            .values()
-                            .map(|state| ToolCall {
-                                id: state.id.clone(),
-                                name: state.name.clone(),
-                                arguments: state.arguments.clone(),
-                            })
-                            .collect::<Vec<ToolCall>>()
-                    };
+                let tool_calls_to_process = {
+                    let states_lock = tool_call_states_clone.lock().await;
+                    states_lock
+                        .values()
+                        .map(|state| ToolCall {
+                            id: state.id.clone(),
+                            name: state.name.clone(),
+                            arguments: state.arguments.clone(),
+                        })
+                        .collect::<Vec<ToolCall>>()
+                };
 
-                    return Ok((Some(tool_calls_to_process), response_text));
-                }
+                return Ok((Some(tool_calls_to_process), response_text));
+            }
 
             // If there is any text content in the response, call the on_token callback
             if let Some(content) = &chat_choice.delta.content {

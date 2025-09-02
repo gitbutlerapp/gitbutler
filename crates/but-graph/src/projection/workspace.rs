@@ -423,28 +423,28 @@ impl Graph {
                         (s.id == lowest_base_sidx).then_some(())
                     })
                     .is_none())
-            {
-                // We cannot reach the lowest workspace base, by definition reachable through any path downward,
-                // so we are outside the workspace limits which is above us. Turn the data back into entrypoint-only.
-                let Workspace {
-                    graph: _,
-                    id,
-                    kind: head,
-                    stacks: _,
-                    target,
-                    metadata,
-                    extra_target: _,
-                    lower_bound,
-                    lower_bound_segment_id,
-                } = &mut ws;
-                *id = ep_sidx;
-                *head = WorkspaceKind::AdHoc;
-                *target = None;
-                *metadata = None;
-                ws_tip_segment = &self[ep_sidx];
-                *lower_bound = None;
-                *lower_bound_segment_id = None;
-            }
+        {
+            // We cannot reach the lowest workspace base, by definition reachable through any path downward,
+            // so we are outside the workspace limits which is above us. Turn the data back into entrypoint-only.
+            let Workspace {
+                graph: _,
+                id,
+                kind: head,
+                stacks: _,
+                target,
+                metadata,
+                extra_target: _,
+                lower_bound,
+                lower_bound_segment_id,
+            } = &mut ws;
+            *id = ep_sidx;
+            *head = WorkspaceKind::AdHoc;
+            *target = None;
+            *metadata = None;
+            ws_tip_segment = &self[ep_sidx];
+            *lower_bound = None;
+            *lower_bound_segment_id = None;
+        }
 
         if ws.has_managed_ref() && self[ws.id].commits.is_empty() {
             ws.kind = WorkspaceKind::ManagedMissingWorkspaceCommit {
