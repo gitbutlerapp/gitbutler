@@ -29,25 +29,26 @@
 			<Icon name="chevron-right" />
 		</div>
 
-		{#if requiresApproval}
-			<div class="flex items-center justify-between grow gap-12">
-				<p>{toolCall.name} requires approval</p>
-				<div class="flex gap-8">
+		{#if toolCallLoading(toolCall)}
+			<Icon name="spinner" size={14} />
+			<p>{toolCall.name}</p>
+		{:else}
+			<p class="text-13 text-left full-width">{toolCall.name}</p>
+
+			{#if requiresApproval}
+				<div class="flex gap-4">
 					<AsyncButton
 						kind="outline"
+						size="tag"
 						action={async () => await requiresApproval.onRejection(toolCall.id)}>Reject</AsyncButton
 					>
 					<AsyncButton
 						style="pop"
+						size="tag"
 						action={async () => await requiresApproval.onApproval(toolCall.id)}>Approve</AsyncButton
 					>
 				</div>
-			</div>
-		{:else if toolCallLoading(toolCall)}
-			<p>{toolCall.name}</p>
-			<Icon name="spinner" />
-		{:else}
-			<p class="text-13">{toolCall.name}</p>
+			{/if}
 		{/if}
 	</button>
 
@@ -79,7 +80,7 @@
 		display: flex;
 		position: relative;
 		align-items: center;
-		padding: 8px 16px 8px 22px;
+		padding: 10px 10px 10px 22px;
 		gap: 8px;
 		background-color: var(--clr-bg-2);
 
