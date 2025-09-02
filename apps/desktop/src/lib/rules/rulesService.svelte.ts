@@ -27,6 +27,10 @@ export default class RulesService {
 		return this.api.endpoints.deleteWorkspaceRule.useMutation();
 	}
 
+	get deleteWorkspaceRuleMutate() {
+		return this.api.endpoints.deleteWorkspaceRule.mutate;
+	}
+
 	get updateWorkspaceRule() {
 		return this.api.endpoints.updateWorkspaceRule.useMutation();
 	}
@@ -64,7 +68,13 @@ function injectEndpoints(api: BackendApi) {
 			deleteWorkspaceRule: build.mutation<void, { projectId: string; id: WorkspaceRuleId }>({
 				extraOptions: { command: 'delete_workspace_rule' },
 				query: (args) => args,
-				invalidatesTags: () => [invalidatesList(ReduxTag.WorkspaceRules)]
+				invalidatesTags: [
+					invalidatesList(ReduxTag.WorkspaceRules),
+					invalidatesList(ReduxTag.ClaudeCodeTranscript),
+					invalidatesList(ReduxTag.ClaudePermissionRequests),
+					invalidatesList(ReduxTag.ClaudeSessionDetails),
+					invalidatesList(ReduxTag.ClaudeStackActive)
+				]
 			}),
 			updateWorkspaceRule: build.mutation<
 				WorkspaceRule,

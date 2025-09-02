@@ -33,6 +33,10 @@ export class ClaudeCodeService {
 		return this.api.endpoints.getMessages.useQuery;
 	}
 
+	get fetchMessages() {
+		return this.api.endpoints.getMessages.fetch;
+	}
+
 	get permissionRequests() {
 		return this.api.endpoints.getPermissionRequests.useQuery;
 	}
