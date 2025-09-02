@@ -120,7 +120,7 @@
 					<div class="branch-view__empty-state__image">
 						{@html newBranchSmolSVG}
 					</div>
-					<h3 class="text-18 text-semibold branch-view__empty-state__title">
+					<h3 class="text-16 text-semibold branch-view__empty-state__title">
 						This is a new branch
 					</h3>
 					<p class="text-13 text-body branch-view__empty-state__description">

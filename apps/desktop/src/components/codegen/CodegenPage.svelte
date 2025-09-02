@@ -17,6 +17,7 @@
 	import CodegenTodo from '$components/codegen/CodegenTodo.svelte';
 	import CodegenUsageStat from '$components/codegen/CodegenUsageStat.svelte';
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
+	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import filesAndChecksSvg from '$lib/assets/empty-state/files-and-checks.svg?raw';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
@@ -466,40 +467,24 @@
 				</EmptyStatePlaceholder>
 			</div>
 		{:else}
-			<Drawer
-				title="Todos"
-				bottomBorder
-				resizer={{
-					persistId: 'codegen-todos',
-					direction: 'down',
-					minHeight: 8,
-					maxHeight: 32,
-					defaultValue: 16
-				}}
-			>
-				{@const todos = getTodos(events)}
-				<div class="right-sidebar-list">
-					{#each todos as todo}
-						<CodegenTodo {todo} />
-					{/each}
-				</div>
-			</Drawer>
-
 			{#if branchChanges && selectedBranch}
 				<ReduxResult result={branchChanges.current} {projectId}>
 					{#snippet children({ changes }, { projectId })}
+						<!-- {#if changes.length > 0} -->
+						{@const todos = getTodos(events)}
 						<Drawer
-							title="Files"
 							bottomBorder
-							resizer={{
-								persistId: 'codegen-files',
-								direction: 'down',
-								minHeight: 8,
-								maxHeight: 38,
-								defaultValue: 16
-							}}
+							grow
+							defaultCollapsed={todos.length > 0}
+							notFoldable
+							notScrollable={changes.length === 0}
 						>
-							<div class="file-list-container">
+							{#snippet header()}
+								<h4 class="text-14 text-semibold truncate">Changed files</h4>
+								<Badge>{changes.length}</Badge>
+							{/snippet}
+
+							{#if changes.length > 0}
 								<FileList
 									{projectId}
 									stackId={selectedBranch.stackId}
@@ -510,10 +495,43 @@
 									draggableFiles={false}
 									hideLastFileBorder={true}
 								/>
-							</div>
+							{:else}
+								<div class="right-sidebar__changes-placeholder">
+									<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
+										{#snippet caption()}
+											No files changed
+										{/snippet}
+									</EmptyStatePlaceholder>
+								</div>
+							{/if}
 						</Drawer>
+						<!-- {:else}
+							<div class="right-sidebar__placeholder">
+							<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
+								{#snippet caption()}
+									No files changed
+								{/snippet}
+							</EmptyStatePlaceholder>
+							</div>
+						{/if} -->
 					{/snippet}
 				</ReduxResult>
+			{/if}
+
+			{@const todos = getTodos(events)}
+			{#if todos.length > 0}
+				<Drawer bottomBorder defaultCollapsed={false}>
+					{#snippet header()}
+						<h4 class="text-14 text-semibold truncate">Todos</h4>
+						<Badge>{todos.length}</Badge>
+					{/snippet}
+
+					<div class="right-sidebar-list">
+						{#each todos as todo}
+							<CodegenTodo {todo} />
+						{/each}
+					</div>
+				</Drawer>
 			{/if}
 
 			<Drawer title="Usage">
@@ -765,21 +783,17 @@
 	.right-sidebar__placeholder {
 		display: flex;
 		flex: 1;
-		flex-direction: column;
+		align-items: center;
+		justify-content: center;
 		background-color: var(--clr-bg-2);
 	}
-	.file-list-container {
-		display: flex;
-		flex-direction: column;
-		max-height: 200px;
-		overflow-y: auto;
-	}
 
-	.right-sidebar__placeholder {
+	.right-sidebar__changes-placeholder {
 		display: flex;
 		flex: 1;
 		align-items: center;
 		justify-content: center;
+		padding: 20px;
 		background-color: var(--clr-bg-2);
 	}
 
