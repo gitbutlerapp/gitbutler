@@ -5,7 +5,11 @@ use gitbutler_oplog::OplogExt;
 use gitbutler_project::Project;
 use std::path::Path;
 
-pub(crate) fn restore_to_oplog(repo_path: &Path, _json: bool, oplog_sha: &str) -> anyhow::Result<()> {
+pub(crate) fn restore_to_oplog(
+    repo_path: &Path,
+    _json: bool,
+    oplog_sha: &str,
+) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
@@ -13,7 +17,7 @@ pub(crate) fn restore_to_oplog(repo_path: &Path, _json: bool, oplog_sha: &str) -
     let commit_id = if oplog_sha.len() >= 7 {
         // Try to find a snapshot that starts with this SHA
         let snapshots = ctx.list_snapshots(100, None, vec![])?;
-        
+
         let matching_snapshot = snapshots
             .iter()
             .find(|snapshot| snapshot.commit_id.to_string().starts_with(oplog_sha))
@@ -54,14 +58,19 @@ pub(crate) fn restore_to_oplog(repo_path: &Path, _json: bool, oplog_sha: &str) -
     );
 
     // Confirm the restoration (safety check)
-    println!("\n{}", "⚠️  This will overwrite your current workspace state.".yellow().bold());
+    println!(
+        "\n{}",
+        "⚠️  This will overwrite your current workspace state."
+            .yellow()
+            .bold()
+    );
     print!("Continue with restore? [y/N]: ");
     use std::io::{self, Write};
     io::stdout().flush()?;
-    
+
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
-    
+
     let input = input.trim().to_lowercase();
     if input != "y" && input != "yes" {
         println!("{}", "Restore cancelled.".yellow());
@@ -86,7 +95,10 @@ pub(crate) fn restore_to_oplog(repo_path: &Path, _json: bool, oplog_sha: &str) -
         restore_commit_short
     );
 
-    println!("{}", "\nWorkspace has been restored to the selected snapshot.".green());
+    println!(
+        "{}",
+        "\nWorkspace has been restored to the selected snapshot.".green()
+    );
 
     Ok(())
 }

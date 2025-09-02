@@ -64,7 +64,7 @@ impl CliId {
     fn find_branches_by_name(ctx: &CommandContext, name: &str) -> anyhow::Result<Vec<Self>> {
         let stacks = crate::log::stacks(ctx)?;
         let mut matches = Vec::new();
-        
+
         for stack in stacks {
             for head in &stack.heads {
                 let branch_name = head.name.to_string();
@@ -74,13 +74,13 @@ impl CliId {
                 }
             }
         }
-        
+
         Ok(matches)
     }
 
     fn find_commits_by_sha(ctx: &CommandContext, sha_prefix: &str) -> anyhow::Result<Vec<Self>> {
         let mut matches = Vec::new();
-        
+
         // Only try SHA matching if the input looks like a hex string
         if sha_prefix.chars().all(|c| c.is_ascii_hexdigit()) && sha_prefix.len() >= 4 {
             let all_commits = crate::log::all_commits(ctx)?;
@@ -93,7 +93,7 @@ impl CliId {
                 }
             }
         }
-        
+
         Ok(matches)
     }
 
@@ -107,27 +107,30 @@ impl CliId {
                 let oid_hash = hash(&oid.to_string());
                 oid_hash.starts_with(s)
             }
-            _ => self.to_string().starts_with(s)
+            _ => self.to_string().starts_with(s),
         }
     }
 
     pub fn from_str(ctx: &mut CommandContext, s: &str) -> anyhow::Result<Vec<Self>> {
         if s.len() < 2 {
-            return Err(anyhow::anyhow!("Id needs to be at least 2 characters long: {}", s));
+            return Err(anyhow::anyhow!(
+                "Id needs to be at least 2 characters long: {}",
+                s
+            ));
         }
-        
+
         let mut matches = Vec::new();
-        
+
         // First, try exact branch name match
         if let Ok(branch_matches) = Self::find_branches_by_name(ctx, s) {
             matches.extend(branch_matches);
         }
-        
+
         // Then try partial SHA matches (for commits)
         if let Ok(commit_matches) = Self::find_commits_by_sha(ctx, s) {
             matches.extend(commit_matches);
         }
-        
+
         // Then try CliId matching (both prefix and exact)
         if s.len() > 2 {
             // For longer strings, try prefix matching on CliIds
@@ -176,7 +179,7 @@ impl CliId {
             }
             matches.extend(cli_matches);
         }
-        
+
         // Remove duplicates while preserving order
         let mut unique_matches = Vec::new();
         for m in matches {
@@ -184,7 +187,7 @@ impl CliId {
                 unique_matches.push(m);
             }
         }
-        
+
         Ok(unique_matches)
     }
 }
@@ -223,15 +226,15 @@ pub(crate) fn hash(input: &str) -> String {
     for byte in input.bytes() {
         hash = hash.wrapping_mul(31).wrapping_add(byte as u64);
     }
-    
+
     // First character: g-z (20 options)
     let first_chars = "ghijklmnopqrstuvwxyz";
     let first_char = first_chars.chars().nth((hash % 20) as usize).unwrap();
     hash /= 20;
-    
+
     // Second character: 0-9,a-z (36 options)
     let second_chars = "0123456789abcdefghijklmnopqrstuvwxyz";
     let second_char = second_chars.chars().nth((hash % 36) as usize).unwrap();
-    
+
     format!("{}{}", first_char, second_char)
 }

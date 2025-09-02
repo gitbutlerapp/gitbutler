@@ -11,11 +11,14 @@ pub(crate) fn commits(
     destination: &ObjectId,
 ) -> anyhow::Result<()> {
     // Validate both commits exist in stacks before proceeding
-    let source_stack = stack_id_by_commit_id(ctx, source).map_err(|e| {
-        anyhow::anyhow!("Source commit {}: {}", &source.to_string()[..7], e)
-    })?;
+    let source_stack = stack_id_by_commit_id(ctx, source)
+        .map_err(|e| anyhow::anyhow!("Source commit {}: {}", &source.to_string()[..7], e))?;
     let destination_stack = stack_id_by_commit_id(ctx, destination).map_err(|e| {
-        anyhow::anyhow!("Destination commit {}: {}", &destination.to_string()[..7], e)
+        anyhow::anyhow!(
+            "Destination commit {}: {}",
+            &destination.to_string()[..7],
+            e
+        )
     })?;
     if source_stack != destination_stack {
         anyhow::bail!("Cannot squash commits from different stacks");

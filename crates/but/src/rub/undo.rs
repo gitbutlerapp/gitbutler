@@ -30,7 +30,7 @@ pub(crate) fn stack_id_by_commit_id(
         return Ok(*id);
     }
     anyhow::bail!(
-        "No stack found for commit {}. The commit may have been removed by a previous operation (e.g., squash, rebase). Try refreshing with 'but status' to see the current state.", 
+        "No stack found for commit {}. The commit may have been removed by a previous operation (e.g., squash, rebase). Try refreshing with 'but status' to see the current state.",
         &oid.to_string()[..7]
     )
 }

@@ -71,27 +71,43 @@ pub(crate) fn create_branch(
             // Find the target stack and get its current head commit
             let stacks = crate::log::stacks(&ctx)?;
             let target_stack = stacks.iter().find(|s| {
-                s.heads.iter().any(|head| head.name.to_string() == target_branch_name)
+                s.heads
+                    .iter()
+                    .any(|head| head.name.to_string() == target_branch_name)
             });
-            
+
             let target_stack = match target_stack {
                 Some(s) => s,
-                None => return Err(anyhow::anyhow!("No stack found for branch '{}'", target_branch_name)),
+                None => {
+                    return Err(anyhow::anyhow!(
+                        "No stack found for branch '{}'",
+                        target_branch_name
+                    ));
+                }
             };
-            
-            let target_stack_id = target_stack.id.ok_or_else(|| anyhow::anyhow!("Target stack has no ID"))?;
-            
+
+            let target_stack_id = target_stack
+                .id
+                .ok_or_else(|| anyhow::anyhow!("Target stack has no ID"))?;
+
             // Get the stack details to find the head commit
             let target_stack_details = crate::log::stack_details(&ctx, target_stack_id)?;
             if target_stack_details.branch_details.is_empty() {
                 return Err(anyhow::anyhow!("Target stack has no branch details"));
             }
-            
+
             // Find the target branch in the stack details
-            let target_branch_details = target_stack_details.branch_details.iter().find(|b| 
-                b.name == target_branch_name
-            ).ok_or_else(|| anyhow::anyhow!("Target branch '{}' not found in stack details", target_branch_name))?;
-            
+            let target_branch_details = target_stack_details
+                .branch_details
+                .iter()
+                .find(|b| b.name == target_branch_name)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Target branch '{}' not found in stack details",
+                        target_branch_name
+                    )
+                })?;
+
             // Get the head commit of the target branch
             let target_head_oid = if !target_branch_details.commits.is_empty() {
                 // Use the last local commit
@@ -100,10 +116,13 @@ pub(crate) fn create_branch(
                 // If no local commits, use the last upstream commit
                 target_branch_details.upstream_commits.last().unwrap().id
             } else {
-                return Err(anyhow::anyhow!("Target branch '{}' has no commits", target_branch_name));
+                return Err(anyhow::anyhow!(
+                    "Target branch '{}' has no commits",
+                    target_branch_name
+                ));
             };
-            
-            // Create a new virtual branch 
+
+            // Create a new virtual branch
             let mut guard = project.exclusive_worktree_access();
             let create_request = BranchCreateRequest {
                 name: Some(branch_name.to_string()),
@@ -112,12 +131,13 @@ pub(crate) fn create_branch(
                 selected_for_changes: None,
             };
 
-            let new_stack_id = create_virtual_branch(&ctx, &create_request, guard.write_permission())?;
-            
+            let new_stack_id =
+                create_virtual_branch(&ctx, &create_request, guard.write_permission())?;
+
             // Now set up the new branch to start from the target branch's head
             let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
             let mut new_stack = vb_state.get_stack(new_stack_id.id)?;
-            
+
             // Set the head of the new stack to be the target branch's head
             // This creates the stacking relationship
             let gix_repo = ctx.repo().to_gix()?;
@@ -158,38 +178,35 @@ pub(crate) fn create_branch(
     Ok(())
 }
 
-pub(crate) fn unapply_branch(
-    repo_path: &Path,
-    _json: bool,
-    branch_id: &str,
-) -> anyhow::Result<()> {
+pub(crate) fn unapply_branch(repo_path: &Path, _json: bool, branch_id: &str) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    
+
     // Try to resolve the branch ID
     let cli_ids = CliId::from_str(&mut ctx, branch_id)?;
-    
+
     if cli_ids.is_empty() {
         return Err(anyhow::anyhow!(
             "Branch '{}' not found. Try using a branch CLI ID or full branch name.",
             branch_id
         ));
     }
-    
+
     if cli_ids.len() > 1 {
-        let matches: Vec<String> = cli_ids.iter().map(|id| {
-            match id {
+        let matches: Vec<String> = cli_ids
+            .iter()
+            .map(|id| match id {
                 CliId::Branch { name } => format!("{} (branch '{}')", id.to_string(), name),
-                _ => format!("{} ({})", id.to_string(), id.kind())
-            }
-        }).collect();
+                _ => format!("{} ({})", id.to_string(), id.kind()),
+            })
+            .collect();
         return Err(anyhow::anyhow!(
             "Branch '{}' is ambiguous. Matches: {}. Try using more characters or the full branch name.",
             branch_id,
             matches.join(", ")
         ));
     }
-    
+
     let cli_id = &cli_ids[0];
     let stack_id = match cli_id {
         CliId::Branch { .. } => {
@@ -204,7 +221,7 @@ pub(crate) fn unapply_branch(
                     }
                 })
             });
-            
+
             match stack {
                 Some(s) => s.id.ok_or_else(|| anyhow::anyhow!("Stack has no ID"))?,
                 None => return Err(anyhow::anyhow!("No stack found for branch '{}'", branch_id)),
@@ -218,25 +235,25 @@ pub(crate) fn unapply_branch(
             ));
         }
     };
-    
+
     let branch_name = match cli_id {
         CliId::Branch { name } => name,
         _ => unreachable!(),
     };
-    
+
     println!(
         "Unapplying branch '{}' ({})",
         branch_name.yellow().bold(),
         branch_id.blue().underline()
     );
-    
+
     unapply_stack(&ctx, stack_id, Vec::new())?;
-    
+
     println!(
         "{} Branch '{}' unapplied successfully!",
         "✓".green().bold(),
         branch_name.yellow().bold()
     );
-    
+
     Ok(())
 }

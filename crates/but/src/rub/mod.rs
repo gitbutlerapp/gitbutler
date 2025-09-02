@@ -5,8 +5,11 @@ pub(crate) use assign::branch_name_to_stack_id;
 use but_settings::AppSettings;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
+use gitbutler_oplog::{
+    OplogExt,
+    entry::{OperationKind, SnapshotDetails},
+};
 use gitbutler_project::Project;
-use gitbutler_oplog::{OplogExt, entry::{OperationKind, SnapshotDetails}};
 mod amend;
 mod assign;
 mod commits;
@@ -150,7 +153,11 @@ fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
     )
 }
 
-fn ids(ctx: &mut CommandContext, source: &str, target: &str) -> anyhow::Result<(Vec<CliId>, CliId)> {
+fn ids(
+    ctx: &mut CommandContext,
+    source: &str,
+    target: &str,
+) -> anyhow::Result<(Vec<CliId>, CliId)> {
     let sources = parse_sources(ctx, source)?;
     let target_result = crate::id::CliId::from_str(ctx, target)?;
     if target_result.len() != 1 {
@@ -195,17 +202,20 @@ fn parse_sources(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<C
         if source_result.len() != 1 {
             if source_result.is_empty() {
                 return Err(anyhow::anyhow!(
-                    "Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.", 
+                    "Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
                     source
                 ));
             } else {
-                let matches: Vec<String> = source_result.iter().map(|id| {
-                    match id {
-                        CliId::Commit { oid } => format!("{} (commit {})", id.to_string(), &oid.to_string()[..7]),
+                let matches: Vec<String> = source_result
+                    .iter()
+                    .map(|id| match id {
+                        CliId::Commit { oid } => {
+                            format!("{} (commit {})", id.to_string(), &oid.to_string()[..7])
+                        }
                         CliId::Branch { name } => format!("{} (branch '{}')", id.to_string(), name),
-                        _ => format!("{} ({})", id.to_string(), id.kind())
-                    }
-                }).collect();
+                        _ => format!("{} ({})", id.to_string(), id.kind()),
+                    })
+                    .collect();
                 return Err(anyhow::anyhow!(
                     "Source '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",
                     source,
@@ -220,7 +230,10 @@ fn parse_sources(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<C
 fn parse_range(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split('-').collect();
     if parts.len() != 2 {
-        return Err(anyhow::anyhow!("Range format should be 'start-end', got '{}'", source));
+        return Err(anyhow::anyhow!(
+            "Range format should be 'start-end', got '{}'",
+            source
+        ));
     }
 
     let start_str = parts[0];
@@ -231,10 +244,16 @@ fn parse_range(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<Cli
     let end_matches = crate::id::CliId::from_str(ctx, end_str)?;
 
     if start_matches.len() != 1 {
-        return Err(anyhow::anyhow!("Start of range '{}' must match exactly one item", start_str));
+        return Err(anyhow::anyhow!(
+            "Start of range '{}' must match exactly one item",
+            start_str
+        ));
     }
     if end_matches.len() != 1 {
-        return Err(anyhow::anyhow!("End of range '{}' must match exactly one item", end_str));
+        return Err(anyhow::anyhow!(
+            "End of range '{}' must match exactly one item",
+            end_str
+        ));
     }
 
     let start_id = &start_matches[0];
@@ -242,7 +261,7 @@ fn parse_range(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<Cli
 
     // Get all files in display order (same order as shown in status)
     let all_files_in_order = get_all_files_in_display_order(ctx)?;
-    
+
     // Find the positions of start and end in the ordered file list
     let start_pos = all_files_in_order.iter().position(|id| id == start_id);
     let end_pos = all_files_in_order.iter().position(|id| id == end_id);
@@ -255,13 +274,17 @@ fn parse_range(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<Cli
         }
     }
 
-    Err(anyhow::anyhow!("Could not find range from '{}' to '{}' in the displayed file list", start_str, end_str))
+    Err(anyhow::anyhow!(
+        "Could not find range from '{}' to '{}' in the displayed file list",
+        start_str,
+        end_str
+    ))
 }
 
 fn get_all_files_in_display_order(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
-    use std::collections::BTreeMap;
     use bstr::BString;
     use but_hunk_assignment::HunkAssignment;
+    use std::collections::BTreeMap;
 
     let project = gitbutler_project::Project::from_path(&ctx.project().path)?;
     let changes =
@@ -283,18 +306,20 @@ fn get_all_files_in_display_order(ctx: &mut CommandContext) -> anyhow::Result<Ve
     // First, get files assigned to branches (they appear first in status display)
     let stacks = crate::log::stacks(ctx)?;
     for stack in stacks {
-        for (_stack_id, details_result) in stack.id.map(|id| (stack.id, crate::log::stack_details(ctx, id))) {
-            if let Ok(details) = details_result {
-                for branch in &details.branch_details {
-                    for (path_bytes, assignments) in &by_file {
-                        for assignment in assignments {
-                            if let Some(stack_id) = assignment.stack_id {
-                                if stack.id == Some(stack_id) {
-                                    let file_id = CliId::file_from_assignment(assignment);
-                                    if !all_files.contains(&file_id) {
-                                        all_files.push(file_id);
-                                    }
-                                }
+        if let Some((_stack_id, details_result)) = stack
+            .id
+            .map(|id| (stack.id, crate::log::stack_details(ctx, id)))
+            && let Ok(details) = details_result
+        {
+            for _branch in &details.branch_details {
+                for (_path_bytes, assignments) in &by_file {
+                    for assignment in assignments {
+                        if let Some(stack_id) = assignment.stack_id
+                            && stack.id == Some(stack_id)
+                        {
+                            let file_id = CliId::file_from_assignment(assignment);
+                            if !all_files.contains(&file_id) {
+                                all_files.push(file_id);
                             }
                         }
                     }
@@ -304,7 +329,7 @@ fn get_all_files_in_display_order(ctx: &mut CommandContext) -> anyhow::Result<Ve
     }
 
     // Then add unassigned files (they appear last in status display)
-    for (path_bytes, assignments) in &by_file {
+    for (_path_bytes, assignments) in &by_file {
         for assignment in assignments {
             if assignment.stack_id.is_none() {
                 let file_id = CliId::file_from_assignment(assignment);
@@ -328,12 +353,12 @@ fn parse_list(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliI
         if matches.len() != 1 {
             if matches.is_empty() {
                 return Err(anyhow::anyhow!(
-                    "Item '{}' in list not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.", 
+                    "Item '{}' in list not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
                     part
                 ));
             } else {
                 return Err(anyhow::anyhow!(
-                    "Item '{}' in list is ambiguous. Try using more characters to disambiguate.", 
+                    "Item '{}' in list is ambiguous. Try using more characters to disambiguate.",
                     part
                 ));
             }
@@ -347,9 +372,6 @@ fn parse_list(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliI
 fn create_snapshot(ctx: &mut CommandContext, project: &Project, operation: OperationKind) {
     let mut guard = project.exclusive_worktree_access();
     let _snapshot = ctx
-        .create_snapshot(
-            SnapshotDetails::new(operation),
-            guard.write_permission(),
-        )
+        .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
         .ok(); // Ignore errors for snapshot creation
 }
