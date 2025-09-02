@@ -40,7 +40,7 @@
 		{/if}
 		<div class="sidebar-entry-header-left">
 			<Icon name="branch-remote" opacity={0.5} />
-			<p class="text-13 text-semibold truncate full-width">{branchName}</p>
+			<p class="text-13 text-bold truncate full-width">{branchName}</p>
 			{@render vibeIcon()}
 		</div>
 
