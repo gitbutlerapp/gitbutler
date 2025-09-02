@@ -167,16 +167,6 @@ pub mod stacks {
     use gix::refs::Category;
     use std::path::Path;
 
-    /// A collection of all the commits that are part of a branch.
-    #[derive(Debug, Clone, serde::Serialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct BranchCommits {
-        /// The commits that are local and optionally remote.
-        pub local_and_remote: Vec<ui::Commit>,
-        /// The commits that are only at the remote.
-        pub upstream_commits: Vec<ui::UpstreamCommit>,
-    }
-
     pub fn list(
         current_dir: &Path,
         use_json: bool,
