@@ -1,0 +1,35 @@
+{
+	"extends": "./.svelte-kit/tsconfig.json",
+	"compilerOptions": {
+		"target": "ES2022",
+		"lib": ["dom", "dom.iterable", "ES2021"],
+		"allowJs": true,
+		"checkJs": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"noUncheckedIndexedAccess": true,
+		"resolveJsonModule": true,
+		"verbatimModuleSyntax": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": true,
+		"experimentalDecorators": true,
+		"noFallthroughCasesInSwitch": true,
+		"types": ["vitest/importMeta", "vitest/jsdom"]
+	},
+	"include": [
+		"vitest-setup.js",
+		".svelte-kit/ambient.d.ts",
+		".svelte-kit/non-ambient.d.ts",
+		".svelte-kit/types/**/$types.d.ts",
+		"vite.config.js",
+		"vite.config.ts",
+		"postcss.config.js",
+		"src/**/*.js",
+		"src/**/*.ts",
+		"src/**/*.svelte",
+		"cypress.config.ts",
+		"cypress/**/*.ts",
+		"src/**/electron.d.ts"
+	]
+}

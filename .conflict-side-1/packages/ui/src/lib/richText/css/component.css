@@ -1,0 +1,278 @@
+/* GENERAL */
+.lexical-container {
+	--lexical-default-font-size: var(--lexical-input-font-size);
+}
+
+.ContentEditable__root {
+	/* Override css from svelte-lexical. */
+	min-height: unset;
+	padding: var(--lexical-input-padding);
+	font-size: var(--lexical-default-font-size);
+}
+
+.Placeholder__root {
+	top: var(--lexical-input-padding) !important;
+	left: var(--lexical-input-padding) !important;
+	color: var(--clr-text-3) !important;
+	font-size: var(--lexical-default-font-size) !important;
+	line-height: var(--text-lineheight-body);
+	font-family: var(--fontfamily-default) !important;
+}
+
+/* STYLE CONTEXT */
+.lexical-client-editor {
+	--lexical-input-padding: var(--lexical-input-client-padding);
+	/* here we take out the height of the inner toolbar */
+	height: calc(100% - var(--lexical-input-client-toolbar-height));
+
+	& .ContentEditable__root {
+		height: 100%;
+		min-height: unset;
+		overflow: hidden;
+	}
+}
+
+.lexical-chat-input {
+	--lexical-input-padding: 12px;
+}
+
+/* REST UNREVIWED STYLES */
+.link-editor .button.active,
+.toolbar .button.active {
+	background-color: rgb(223, 232, 250);
+}
+
+.link-editor .link-input {
+	display: block;
+	position: relative;
+	width: calc(100% - 75px);
+	padding: 6px;
+	border: 1px solid var(--clr-border-1);
+	border-radius: var(--radius-m);
+	background-color: var(--clr-bg-1);
+	font-family: inherit;
+}
+
+.link-editor .link-view {
+	display: block;
+	position: relative;
+	width: calc(100% - 24px);
+	margin: 8px 12px;
+	padding: 8px 12px;
+	border: 0;
+	border-radius: 15px;
+	outline: 0;
+	color: rgb(5, 5, 5);
+	font-size: 15px;
+	font-family: inherit;
+}
+
+.link-editor .link-view a {
+	display: block;
+	width: calc(100% - 33px);
+	word-break: break-word;
+}
+
+.link-editor div.link-edit {
+	position: absolute;
+	top: 0;
+	right: 30px;
+	bottom: 0;
+	width: 35px;
+	background-image: url(/images/icons/pencil-fill.svg);
+	background-position: center;
+	background-size: 16px;
+	background-repeat: no-repeat;
+	vertical-align: -0.25em;
+	cursor: pointer;
+}
+
+.link-editor div.link-trash {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 35px;
+	background-image: url(/images/icons/trash.svg);
+	background-position: center;
+	background-size: 16px;
+	background-repeat: no-repeat;
+	vertical-align: -0.25em;
+	cursor: pointer;
+}
+
+.link-editor div.link-cancel {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 35px;
+	margin-right: 28px;
+	background-image: url(/images/icons/close.svg);
+	background-position: center;
+	background-size: 16px;
+	background-repeat: no-repeat;
+	vertical-align: -0.25em;
+	cursor: pointer;
+}
+
+.link-editor div.link-confirm {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 35px;
+	margin-right: 2px;
+	background-image: url(/images/icons/success-alt.svg);
+	background-position: center;
+	background-size: 16px;
+	background-repeat: no-repeat;
+	vertical-align: -0.25em;
+	cursor: pointer;
+}
+
+.link-editor .link-input a {
+	margin-right: 30px;
+	overflow: hidden;
+	color: rgb(33, 111, 219);
+	text-decoration: underline;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.link-editor .link-input a:hover {
+	text-decoration: underline;
+}
+
+.link-editor .font-size-wrapper,
+.link-editor .font-family-wrapper {
+	display: flex;
+	margin: 0 4px;
+}
+
+.link-editor select {
+	padding: 6px;
+	border: none;
+	border-radius: 4px;
+	background-color: rgba(0, 0, 0, 0.075);
+}
+
+.mention:focus {
+	outline: none;
+	box-shadow: rgb(180 213 255) 0px 0px 0px 2px;
+}
+
+.editor-shell .dropdown {
+	display: block;
+	z-index: 100;
+	position: fixed;
+	min-height: 40px;
+	border-radius: var(--radius-s);
+	background-color: var(--clr-bg-1);
+	box-shadow:
+		0 12px 28px 0 rgba(0, 0, 0, 0.2),
+		0 2px 4px 0 rgba(0, 0, 0, 0.1),
+		inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.dropdown .item {
+	display: flex;
+	flex-shrink: 0;
+	flex-direction: row;
+	align-content: center;
+	justify-content: space-between;
+	min-width: 100px;
+	max-width: 250px;
+	margin: 0 8px 0 8px;
+	padding: 8px;
+	border: 0;
+	border-radius: 8px;
+	background-color: var(--clr-bg-1);
+	color: #050505;
+	font-size: 15px;
+	line-height: 16px;
+	cursor: pointer;
+}
+
+.dropdown .item.fontsize-item,
+.dropdown .item.fontsize-item .text {
+	min-width: unset;
+}
+
+.dropdown .item .active {
+	display: flex;
+	width: 20px;
+	height: 20px;
+	background-size: contain;
+}
+
+.dropdown .item:first-child {
+	margin-top: 8px;
+}
+
+.dropdown .item:last-child {
+	margin-bottom: 8px;
+}
+
+.dropdown .item:hover {
+	background-color: #eee;
+}
+
+.dropdown .item .text {
+	display: flex;
+	flex-grow: 1;
+	min-width: 150px;
+	line-height: 20px;
+}
+
+.dropdown .item .icon {
+	display: flex;
+	width: 20px;
+	height: 20px;
+	margin-right: 12px;
+	background-position: center;
+	background-size: contain;
+	background-repeat: no-repeat;
+	line-height: 16px;
+	user-select: none;
+}
+
+@media screen and (max-width: 1100px) {
+	.dropdown-button-text {
+		display: none !important;
+	}
+	.dialog-dropdown > .dropdown-button-text {
+		display: flex !important;
+	}
+	.font-size .dropdown-button-text {
+		display: flex !important;
+	}
+	.code-language .dropdown-button-text {
+		display: flex !important;
+	}
+}
+
+.mention {
+	padding: 0px 4px;
+	gap: 10px;
+	border-radius: var(--radius-s);
+	background: var(--clr-theme-pop-bg-muted);
+	color: var(--clr-theme-pop-on-soft);
+}
+
+@keyframes ghost-transition-fly {
+	0% {
+		transform: translateY(3px);
+		opacity: 0;
+	}
+	100% {
+		transform: translateY(0);
+		opacity: 0.5;
+	}
+}
+
+.ghost-text {
+	display: inline-block;
+	animation: ghost-transition-fly 300ms forwards ease-in-out;
+	opacity: 0;
+}

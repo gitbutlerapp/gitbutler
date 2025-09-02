@@ -1,0 +1,19 @@
+[package]
+name = "but-testsupport"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+
+[dependencies]
+gix.workspace = true
+anyhow.workspace = true
+termtree = "0.5.1"
+gix-testtools.workspace = true
+but-graph.workspace = true
+regex = "1.11.1"
+
+[dev-dependencies]

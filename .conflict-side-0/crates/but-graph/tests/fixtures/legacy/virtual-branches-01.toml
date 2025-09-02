@@ -1,0 +1,178 @@
+[default_target]
+branchName = "master"
+remoteName = "origin"
+remoteUrl = "https://github.com/Byron/small"
+sha = "267d3974c43329e98d67818c15316b92cea4ef81"
+pushRemoteName = "origin"
+
+[branch_targets]
+
+[branches.702ffd01-134b-46a1-9230-56d01c210ad0]
+id = "702ffd01-134b-46a1-9230-56d01c210ad0"
+name = "Lane 5"
+notes = ""
+created_timestamp_ms = "1740394788617"
+updated_timestamp_ms = "1740394788617"
+tree = "7fa7a9f8d8c85292908e170458241700839a995a"
+head = "267d3974c43329e98d67818c15316b92cea4ef81"
+ownership = ""
+order = 3
+allow_rebasing = true
+in_workspace = true
+post_commits = false
+
+[[branches.702ffd01-134b-46a1-9230-56d01c210ad0.heads]]
+name = "D"
+archived = false
+
+[branches.702ffd01-134b-46a1-9230-56d01c210ad0.heads.head]
+CommitId = "267d3974c43329e98d67818c15316b92cea4ef81"
+
+[[branches.702ffd01-134b-46a1-9230-56d01c210ad0.heads]]
+name = "D-top"
+archived = false
+
+[branches.702ffd01-134b-46a1-9230-56d01c210ad0.heads.head]
+CommitId = "267d3974c43329e98d67818c15316b92cea4ef81"
+
+[branches.ed8161c6-0559-4265-9fb5-baa0267b7654]
+id = "ed8161c6-0559-4265-9fb5-baa0267b7654"
+name = "Lane 6"
+notes = ""
+created_timestamp_ms = "1740394801307"
+updated_timestamp_ms = "1740394801307"
+tree = "7fa7a9f8d8c85292908e170458241700839a995a"
+head = "267d3974c43329e98d67818c15316b92cea4ef81"
+ownership = ""
+order = 4
+allow_rebasing = true
+in_workspace = true
+post_commits = false
+
+[[branches.ed8161c6-0559-4265-9fb5-baa0267b7654.heads]]
+name = "E"
+archived = false
+
+[branches.ed8161c6-0559-4265-9fb5-baa0267b7654.heads.head]
+CommitId = "267d3974c43329e98d67818c15316b92cea4ef81"
+
+[branches.c9ec92d4-caa9-457c-bfd8-2f60a6f57fd1]
+id = "c9ec92d4-caa9-457c-bfd8-2f60a6f57fd1"
+name = "Lane 4"
+notes = ""
+created_timestamp_ms = "1740394683828"
+updated_timestamp_ms = "1740394757463"
+tree = "bc096ab1005a594d4c66dcf3d08355e1f35f9971"
+head = "e7fce5d8c8004dbe584ae752e41b2532c1733873"
+ownership = ""
+order = 0
+selected_for_changes = 1740394683827
+allow_rebasing = true
+in_workspace = true
+post_commits = false
+
+[[branches.c9ec92d4-caa9-457c-bfd8-2f60a6f57fd1.heads]]
+name = "A"
+pr_number = 12
+archived = false
+
+[branches.c9ec92d4-caa9-457c-bfd8-2f60a6f57fd1.heads.head]
+CommitId = "e7fce5d8c8004dbe584ae752e41b2532c1733873"
+
+[branches.837d404d-c9c8-4bc6-8978-498e88004b52]
+id = "837d404d-c9c8-4bc6-8978-498e88004b52"
+name = "Lane 3"
+notes = ""
+created_timestamp_ms = "1740326704077"
+updated_timestamp_ms = "1740394670855"
+tree = "7fa7a9f8d8c85292908e170458241700839a995a"
+head = "267d3974c43329e98d67818c15316b92cea4ef81"
+ownership = ""
+order = 2
+allow_rebasing = true
+in_workspace = true
+post_commits = false
+
+[[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads]]
+name = "D-empty"
+archived = true
+
+[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads.head]
+CommitId = "25b76a17cda5140e885302923f63409ef48453e0"
+
+[[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads]]
+name = "D-middle-empty"
+archived = true
+
+[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads.head]
+CommitId = "25b76a17cda5140e885302923f63409ef48453e0"
+
+[[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads]]
+name = "D-top-empty"
+archived = true
+
+[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads.head]
+CommitId = "267d3974c43329e98d67818c15316b92cea4ef81"
+
+[[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads]]
+name = "C"
+archived = false
+
+[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads.head]
+CommitId = "267d3974c43329e98d67818c15316b92cea4ef81"
+
+[[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads]]
+name = "C-middle"
+archived = false
+
+[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads.head]
+CommitId = "267d3974c43329e98d67818c15316b92cea4ef81"
+
+[[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads]]
+name = "C-top"
+archived = false
+
+[branches.837d404d-c9c8-4bc6-8978-498e88004b52.heads.head]
+CommitId = "267d3974c43329e98d67818c15316b92cea4ef81"
+
+[branches.f6291523-56b1-45fc-85ac-8782b2f13227]
+id = "f6291523-56b1-45fc-85ac-8782b2f13227"
+name = "Lane 2"
+notes = ""
+created_timestamp_ms = "1740326670101"
+updated_timestamp_ms = "1740394727921"
+tree = "305791a43f9acd5362f6eede4ee0f0185032213e"
+head = "703e506fa1c22d8cac601d33de90e7a5df7fdd05"
+ownership = ""
+order = 1
+allow_rebasing = true
+in_workspace = true
+post_commits = false
+
+[[branches.f6291523-56b1-45fc-85ac-8782b2f13227.heads]]
+name = "C-empty"
+archived = true
+
+[branches.f6291523-56b1-45fc-85ac-8782b2f13227.heads.head]
+CommitId = "25b76a17cda5140e885302923f63409ef48453e0"
+
+[[branches.f6291523-56b1-45fc-85ac-8782b2f13227.heads]]
+name = "C-top-empty"
+archived = true
+
+[branches.f6291523-56b1-45fc-85ac-8782b2f13227.heads.head]
+CommitId = "267d3974c43329e98d67818c15316b92cea4ef81"
+
+[[branches.f6291523-56b1-45fc-85ac-8782b2f13227.heads]]
+name = "B"
+archived = false
+
+[branches.f6291523-56b1-45fc-85ac-8782b2f13227.heads.head]
+CommitId = "703e506fa1c22d8cac601d33de90e7a5df7fdd05"
+
+[[branches.f6291523-56b1-45fc-85ac-8782b2f13227.heads]]
+name = "B-top"
+archived = false
+
+[branches.f6291523-56b1-45fc-85ac-8782b2f13227.heads.head]
+CommitId = "703e506fa1c22d8cac601d33de90e7a5df7fdd05"
