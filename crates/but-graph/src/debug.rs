@@ -132,7 +132,7 @@ impl Graph {
             "{ep}{end}{kind}{hex}{flags}{refs}",
             ep = if is_entrypoint { "👉" } else { "" },
             end = if is_early_end {
-                if hard_limit { "❌" } else { "✂️" }
+                if hard_limit { "❌" } else { "✂" }
             } else {
                 ""
             },

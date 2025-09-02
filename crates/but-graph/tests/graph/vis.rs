@@ -82,12 +82,12 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     └── 👉📕►►►:0[0]:main <> origin/main
         ├── ►:1[0]:new-stack
         ├── ►:2[0]:origin/main
-        │   └── ✂️🟣ccccccc
+        │   └── ✂🟣ccccccc
         └── ►:3[2]:A <> origin/A →:1:
-            ├── 🟣aaaaaaa (🏘️)
-            └── 🟣febafeb (🏘️)
+            ├── 🟣aaaaaaa (🏘)
+            └── 🟣febafeb (🏘)
                 └── ►:4[0]:origin/A
-                    └── ✂️🟣bbbbbbb
+                    └── ✂🟣bbbbbbb
     ");
 
     Ok(())

@@ -70,7 +70,7 @@ impl CommitFlags {
             let mut out = out[..out.len() - 1]
                 .to_string()
                 .replace("NotInRemote", "⌂")
-                .replace("InWorkspace", "🏘️")
+                .replace("InWorkspace", "🏘")
                 .replace("Integrated", "✓")
                 .replace(" ", "");
             if extra != 0 {
