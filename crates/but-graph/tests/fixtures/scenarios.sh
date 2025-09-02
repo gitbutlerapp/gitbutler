@@ -239,6 +239,23 @@ mkdir ws
      create_workspace_commit_once B
   )
 
+  git init single-merge-into-main
+  (cd single-merge-into-main
+     commit init
+       git branch B
+     git checkout -b A
+       commit A
+     git checkout B
+       commit B
+     git checkout -b merge
+       git merge --no-ff A
+       cp .git/refs/heads/merge .git/refs/heads/main
+       setup_target_to_match_main
+     git checkout -b C
+       commit C
+     create_workspace_commit_once C
+  )
+
   git init dual-merge
   (cd dual-merge
      commit init
