@@ -606,7 +606,7 @@ mod with_workspace {
             │   └── ·c2878fb (🏘️)
             ├── 📙:3:above-bottom
             │   └── ·49d4b34 (🏘️)
-            └── 📙:4:bottom
+            └── 📙:7:bottom
         ");
 
         let above_a_ref = rc("refs/heads/above-A");
@@ -633,7 +633,7 @@ mod with_workspace {
             │   └── ·c2878fb (🏘️)
             ├── 📙:3:above-bottom
             │   └── ·49d4b34 (🏘️)
-            └── 📙:4:bottom
+            └── 📙:8:bottom
         ");
 
         // Idempotency!
@@ -660,7 +660,7 @@ mod with_workspace {
             │   └── ·c2878fb (🏘️)
             ├── 📙:3:above-bottom
             │   └── ·49d4b34 (🏘️)
-            └── 📙:4:bottom
+            └── 📙:8:bottom
         ");
 
         let below_a_commit_ref = rc("refs/heads/below-A-commit");
@@ -684,9 +684,9 @@ mod with_workspace {
             ├── 📙:7:above-A-commit
             │   └── ·c2878fb (🏘️)
             ├── 📙:3:below-A-commit
-            ├── 📙:4:above-bottom
+            ├── 📙:8:above-bottom
             │   └── ·49d4b34 (🏘️)
-            └── 📙:8:bottom
+            └── 📙:9:bottom
         ");
 
         let below_a_ref = rc("refs/heads/below-A");
@@ -709,10 +709,10 @@ mod with_workspace {
             ├── 📙:7:above-A-commit
             │   └── ·c2878fb (🏘️)
             ├── 📙:3:below-A
-            ├── 📙:4:below-A-commit
-            ├── 📙:8:above-bottom
+            ├── 📙:8:below-A-commit
+            ├── 📙:9:above-bottom
             │   └── ·49d4b34 (🏘️)
-            └── 📙:9:bottom
+            └── 📙:10:bottom
         ");
 
         // create a new stack for good measure.
@@ -729,10 +729,10 @@ mod with_workspace {
             ├── 📙:8:above-A-commit
             │   └── ·c2878fb (🏘️)
             ├── 📙:3:below-A
-            ├── 📙:4:below-A-commit
-            ├── 📙:9:above-bottom
+            ├── 📙:9:below-A-commit
+            ├── 📙:10:above-bottom
             │   └── ·49d4b34 (🏘️)
-            └── 📙:10:bottom
+            └── 📙:11:bottom
         ");
 
         // create a new dependent branch by segment above (commit can't be done).
@@ -759,10 +759,10 @@ mod with_workspace {
             ├── 📙:9:above-A-commit
             │   └── ·c2878fb (🏘️)
             ├── 📙:3:below-A
-            ├── 📙:4:below-A-commit
-            ├── 📙:10:above-bottom
+            ├── 📙:10:below-A-commit
+            ├── 📙:11:above-bottom
             │   └── ·49d4b34 (🏘️)
-            └── 📙:11:bottom
+            └── 📙:12:bottom
         ");
 
         // create a new dependent branch by segment below
@@ -792,10 +792,10 @@ mod with_workspace {
             ├── 📙:10:above-A-commit
             │   └── ·c2878fb (🏘️)
             ├── 📙:3:below-A
-            ├── 📙:4:below-A-commit
-            ├── 📙:11:above-bottom
+            ├── 📙:11:below-A-commit
+            ├── 📙:12:above-bottom
             │   └── ·49d4b34 (🏘️)
-            └── 📙:12:bottom
+            └── 📙:13:bottom
         ");
 
         // Finally, assure the data looks correct. Can't afford bugs in the translation.
@@ -816,10 +816,10 @@ mod with_workspace {
             ├── 📙:10:above-A-commit
             │   └── ·c2878fb (🏘️)
             ├── 📙:3:below-A
-            ├── 📙:4:below-A-commit
-            ├── 📙:11:above-bottom
+            ├── 📙:11:below-A-commit
+            ├── 📙:12:above-bottom
             │   └── ·49d4b34 (🏘️)
-            └── 📙:12:bottom
+            └── 📙:13:bottom
         ");
 
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"

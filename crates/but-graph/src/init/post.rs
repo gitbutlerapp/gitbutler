@@ -454,6 +454,7 @@ impl Graph {
         // Note that we can still source names from previously used stacks just to be able to capture more
         // of the original intent, despite the graph having changed. This works because in the end, we are consuming
         // refs on commits that can't be re-used once they have been moved into their own segment.
+        let mut segments_to_possibly_delete = Vec::new();
         for stack in &ws_stacks {
             let mut last_created_segment = None;
             for ws_segment_sidx in stack
@@ -500,7 +501,7 @@ impl Graph {
                     let segment = &mut self[ws_segment_sidx];
                     // Keep only the commits that weren't reassigned to other segments.
                     segment.commits.truncate(truncate_from);
-                    delete_anon_if_empty_and_reconnect(self, ws_segment_sidx);
+                    segments_to_possibly_delete.push(ws_segment_sidx);
                 }
                 last_created_segment = Some(current_above);
             }
@@ -549,6 +550,10 @@ impl Graph {
                     (new_sidx_above_base_sidx, None),
                 );
             }
+        }
+
+        for sidx in segments_to_possibly_delete {
+            delete_anon_if_empty_and_reconnect(self, sidx);
         }
 
         // Redo workspace outgoing connections according to desired stack order.
@@ -901,6 +906,9 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
         .filter(|ep_sidx| **ep_sidx == sidx)
     {
         *ep_sidx = new_target;
+    }
+    if let Some(extra_target) = graph.extra_target.as_mut() {
+        *extra_target = new_target;
     }
 }
 
