@@ -20,7 +20,6 @@
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
-	import { FOCUS_MANAGER } from '$lib/focus/focusManager';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import { IRC_CLIENT } from '$lib/irc/ircClient.svelte';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
@@ -34,6 +33,7 @@
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 	import { ChipToastContainer } from '@gitbutler/ui';
+	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
 	import { setExternalLinkService } from '@gitbutler/ui/utils/externalLinkService';
 	import { type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';

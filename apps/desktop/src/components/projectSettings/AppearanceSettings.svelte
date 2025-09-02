@@ -5,7 +5,6 @@
 		stagingBehaviorFeature,
 		type StagingBehavior
 	} from '$lib/config/uiFeatureFlags';
-	import { focusable } from '$lib/focus/focusable';
 	import { SETTINGS, type ScrollbarVisilitySettings } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/core/context';
 	import {
@@ -17,6 +16,7 @@
 		Textbox,
 		Toggle
 	} from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	const userSettings = inject(SETTINGS);
 	const diff = `@@ -56,10 +56,9 @@

@@ -30,7 +30,6 @@
 	} from '$lib/codegen/messages';
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { focusable } from '$lib/focus/focusable';
 	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -47,6 +46,7 @@
 		ContextMenuSection,
 		EmptyStatePlaceholder
 	} from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { ClaudeMessage, ThinkingLevel } from '$lib/codegen/types';
 
 	type Props = {

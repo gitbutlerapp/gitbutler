@@ -7,8 +7,6 @@
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import { getFilename } from '$lib/files/utils';
-	import { type FocusableOptions } from '$lib/focus/focusManager';
-	import { focusable } from '$lib/focus/focusable';
 	import { type TreeChange } from '$lib/hunks/change';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
@@ -16,6 +14,8 @@
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/core/context';
 	import { FileListItem, FileViewHeader, TestId } from '@gitbutler/ui';
+	import { type FocusableOptions } from '@gitbutler/ui/focus/focusManager';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { sticky as stickyAction } from '@gitbutler/ui/utils/sticky';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { Rename } from '$lib/hunks/change';

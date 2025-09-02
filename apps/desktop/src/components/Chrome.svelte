@@ -4,9 +4,9 @@
 	import ChromeSidebar from '$components/ChromeSidebar.svelte';
 	import EnsureAuthorInfo from '$components/EnsureAuthorInfo.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { focusable } from '$lib/focus/focusable';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snippet } from 'svelte';
 
 	const {

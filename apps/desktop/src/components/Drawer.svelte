@@ -1,12 +1,12 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import { focusable } from '$lib/focus/focusable';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/core/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 
 	import { Button, Icon } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { writable, type Writable } from 'svelte/store';
 	import type { ComponentProps, Snippet } from 'svelte';

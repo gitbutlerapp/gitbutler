@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { focusable } from '$lib/focus/focusable';
 	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 
 	import { Button, Icon, Modal, SectionCard, chipToasts as toasts } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
