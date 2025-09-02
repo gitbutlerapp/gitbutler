@@ -31,6 +31,7 @@
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { workspacePath } from '$lib/routes/routes.svelte';
+	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
@@ -44,7 +45,8 @@
 		ContextMenu,
 		ContextMenuItem,
 		ContextMenuSection,
-		EmptyStatePlaceholder
+		EmptyStatePlaceholder,
+		Modal
 	} from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { ClaudeMessage, ThinkingLevel, ModelType } from '$lib/codegen/types';
@@ -57,6 +59,7 @@
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
+	const rulesService = inject(RULES_SERVICE);
 	const uiState = inject(UI_STATE);
 	const user = inject(USER);
 
@@ -69,6 +72,7 @@
 	let claudeExecutable = $derived($settingsStore?.claude.executable || 'claude');
 	let updatingExecutable = $state(false);
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
+	let clearContextModal = $state<Modal>();
 	let modelContextMenu = $state<ContextMenu>();
 	let modelTrigger = $state<HTMLButtonElement>();
 	let thinkingModeContextMenu = $state<ContextMenu>();
@@ -240,6 +244,43 @@
 		goto(`${workspacePath(projectId)}?stackId=${selectedBranch.stackId}`);
 	}
 
+	function getCurrentSessionId(events: ClaudeMessage[]): string | undefined {
+		// Get the most recent session ID from the messages
+		if (events.length === 0) return undefined;
+		const lastEvent = events[events.length - 1];
+		return lastEvent?.sessionId;
+	}
+
+	function clearContextAndRules() {
+		clearContextModal?.show();
+	}
+
+	async function performClearContextAndRules() {
+		if (!selectedBranch) return;
+
+		const events = await claudeCodeService.fetchMessages({
+			projectId,
+			stackId: selectedBranch.stackId
+		});
+		const sessionId = getCurrentSessionId(events);
+		if (!sessionId) return;
+
+		const rules = await rulesService.fetchListWorkspaceRules(projectId);
+
+		const toDelete = rules.filter((rule) =>
+			rule.filters.some(
+				(filter) => filter.type === 'claudeCodeSessionId' && filter.subject === sessionId
+			)
+		);
+
+		for (const rule of toDelete) {
+			await rulesService.deleteWorkspaceRuleMutate({
+				projectId,
+				id: rule.id
+			});
+		}
+	}
+
 	const events = $derived(
 		claudeCodeService.messages({ projectId, stackId: selectedBranch?.stackId || '' })
 	);
@@ -247,6 +288,21 @@
 		selectedBranch ? claudeCodeService.isStackActive(projectId, selectedBranch.stackId) : undefined
 	);
 	const isStackActive = $derived(isStackActiveResult?.current?.data || false);
+
+	// Check if there are rules to delete for the current session
+	const rules = $derived(rulesService.workspaceRules(projectId));
+	const hasRulesToClear = $derived(() => {
+		if (!events?.current.data || !rules.current.data) return false;
+
+		const sessionId = getCurrentSessionId(events.current.data);
+		if (!sessionId) return false;
+
+		return rules.current.data.some((rule) =>
+			rule.filters.some(
+				(filter) => filter.type === 'claudeCodeSessionId' && filter.subject === sessionId
+			)
+		);
+	});
 
 	let rightSidebarRef = $state<HTMLDivElement>();
 	let createBranchModal = $state<CreateBranchModal>();
@@ -308,7 +364,15 @@
 						{/snippet}
 						{#snippet contextActions()}
 							<Badge kind="soft" size="tag">69% used context</Badge>
-							<Button disabled kind="outline" size="tag" icon="clear-small">Clear context</Button>
+							<Button
+								disabled={!hasRulesToClear}
+								kind="outline"
+								size="tag"
+								icon="clear-small"
+								onclick={clearContextAndRules}
+							>
+								Clear context
+							</Button>
 						{/snippet}
 						{#snippet messages()}
 							{#if formattedMessages.length === 0}
@@ -600,6 +664,25 @@
 <ClaudeCodeSettingsModal bind:this={settingsModal} onClose={() => {}} />
 
 <CreateBranchModal bind:this={createBranchModal} {projectId} stackId={selectedBranch?.stackId} />
+
+<Modal
+	bind:this={clearContextModal}
+	width="small"
+	type="warning"
+	title="Clear context"
+	onSubmit={async (close) => {
+		await performClearContextAndRules();
+		close();
+	}}
+>
+	Are you sure you want to clear the context and delete all rules associated with this Claude
+	session? This action cannot be undone.
+
+	{#snippet controls(close)}
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<Button style="error" type="submit">Clear context</Button>
+	{/snippet}
+</Modal>
 
 <ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top">
 	<ContextMenuSection>
