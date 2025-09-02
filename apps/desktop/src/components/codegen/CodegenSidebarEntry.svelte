@@ -55,7 +55,6 @@
 							height="0.938rem"
 							viewBox="0 0 15 15"
 							fill="none"
-							class="m-bottom-2"
 							xmlns="http://www.w3.org/2000/svg"
 							opacity="0.6"
 						>
