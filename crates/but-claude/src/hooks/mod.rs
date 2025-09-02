@@ -134,6 +134,14 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
         file_path: None,
     };
 
+    if !defer.ctx.app_settings().claude.auto_commit_after_completion {
+        return Ok(ClaudeHookOutput {
+            do_continue: true,
+            stop_reason: "No after-hook behaviour required.".to_string(),
+            suppress_output: true,
+        });
+    }
+
     let vb_state = &VirtualBranchesHandle::new(defer.ctx.project().gb_dir());
 
     let stacks = list_stacks(defer.ctx)?;

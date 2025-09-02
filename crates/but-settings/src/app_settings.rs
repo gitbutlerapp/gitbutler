@@ -80,4 +80,7 @@ pub struct Claude {
     pub notify_on_permission_request: bool,
     /// Whether to dangerously allow all permissions without prompting.
     pub dangerously_allow_all_permissions: bool,
+    /// Whether to automatically commit changes and rename branches after completion.
+    #[serde(default = "default_true")]
+    pub auto_commit_after_completion: bool,
 }

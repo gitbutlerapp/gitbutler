@@ -19,6 +19,7 @@
 	let notifyOnCompletion = $state(false);
 	let notifyOnPermissionRequest = $state(false);
 	let dangerouslyAllowAllPermissions = $state(false);
+	let autoCommitAfterCompletion = $state(true);
 
 	// Initialize Claude settings from store
 	$effect(() => {
@@ -27,6 +28,7 @@
 			notifyOnCompletion = $settingsStore.claude.notifyOnCompletion;
 			notifyOnPermissionRequest = $settingsStore.claude.notifyOnPermissionRequest;
 			dangerouslyAllowAllPermissions = $settingsStore.claude.dangerouslyAllowAllPermissions;
+			autoCommitAfterCompletion = $settingsStore.claude.autoCommitAfterCompletion;
 		}
 	});
 
@@ -59,6 +61,11 @@
 	async function updateDangerouslyAllowAllPermissions(value: boolean) {
 		dangerouslyAllowAllPermissions = value;
 		await settingsService.updateClaude({ dangerouslyAllowAllPermissions: value });
+	}
+
+	async function updateAutoCommitAfterCompletion(value: boolean) {
+		autoCommitAfterCompletion = value;
+		await settingsService.updateClaude({ autoCommitAfterCompletion: value });
 	}
 
 	let modal: ModalType;
@@ -115,6 +122,19 @@
 					</div>
 				{/snippet}
 				{#snippet actions()}{/snippet}
+			</SectionCard>
+
+			<SectionCard orientation="row">
+				{#snippet title()}
+					Auto-commit after completion
+				{/snippet}
+				{#snippet caption()}
+					Automatically commit changes and rename branches when Claude Code finishes. Disable this
+					to manually review changes before committing.
+				{/snippet}
+				{#snippet actions()}
+					<Toggle checked={autoCommitAfterCompletion} onchange={updateAutoCommitAfterCompletion} />
+				{/snippet}
 			</SectionCard>
 
 			<SectionCard orientation="row">
