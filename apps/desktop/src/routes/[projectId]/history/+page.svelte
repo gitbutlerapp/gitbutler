@@ -9,12 +9,12 @@
 	import SelectionView from '$components/SelectionView.svelte';
 	import SnapshotCard from '$components/SnapshotCard.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
-	import { focusable } from '$lib/focus/focusable';
 	import { HISTORY_SERVICE, createdOnDay } from '$lib/history/history';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { createSnapshotSelection, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/core/context';
 	import { EmptyStatePlaceholder, Icon } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snapshot } from '$lib/history/types';
 
 	// TODO: Refactor so we don't need non-null assertion.

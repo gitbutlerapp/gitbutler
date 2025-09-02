@@ -1,17 +1,17 @@
-import { focusNextTabIndex } from '$lib/focus/tabbable';
+import { focusNextTabIndex } from '@gitbutler/ui/focus/tabbable';
 import {
 	addToArray,
 	isContentEditable,
 	removeFromArray,
 	scrollIntoViewIfNeeded,
 	sortByDomOrder
-} from '$lib/focus/utils';
-import { InjectionToken } from '@gitbutler/core/context';
+} from '@gitbutler/ui/focus/utils';
 import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
+import { InjectionToken } from '@gitbutler/core/context';
 import { on } from 'svelte/events';
 import { writable } from 'svelte/store';
 
-export const FOCUS_MANAGER = new InjectionToken<FocusManager>('FocusManager');
+export const FOCUS_MANAGER: InjectionToken<FocusManager> = new InjectionToken('FocusManager');
 
 export enum DefinedFocusable {
 	MainViewport = 'viewport',

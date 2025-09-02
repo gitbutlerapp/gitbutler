@@ -3,6 +3,7 @@
 	import { DragResizeHandler } from '$lib/floating/dragResizeHandler';
 	import { ResizeCalculator } from '$lib/floating/resizeCalculator';
 	import { SnapPointManager } from '$lib/floating/snapPointManager';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { portal } from '@gitbutler/ui/utils/portal';
 	import { onMount, type Snippet } from 'svelte';
 	import type { SnapPositionName } from '$lib/floating/types';
@@ -191,6 +192,7 @@
 <div
 	bind:this={modalEl}
 	use:portal={'body'}
+	use:focusable
 	class="floating-modal"
 	class:snapping
 	class:resizing={dragResizeHandler.isResizing}

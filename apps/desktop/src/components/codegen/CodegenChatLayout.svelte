@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { focusable } from '$lib/focus/focusable';
 	import { Icon } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snippet } from 'svelte';
 
 	type Props = {

@@ -24,10 +24,10 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { BACKEND } from '$lib/backend';
-	import { focusable } from '$lib/focus/focusable';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, Icon } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	type Props = {
 		projectId?: string;

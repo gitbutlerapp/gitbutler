@@ -12,7 +12,6 @@
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
-	import { focusable } from '$lib/focus/focusable';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import {
@@ -32,6 +31,7 @@
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 
 	import { Button, FileViewHeader, Icon, TestId } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import { fly } from 'svelte/transition';
 	import type { Commit } from '$lib/branches/v3';

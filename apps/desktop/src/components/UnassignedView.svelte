@@ -6,13 +6,13 @@
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
-	import { focusable } from '$lib/focus/focusable';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Badge, Button, TestId } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	interface Props {
 		projectId: string;

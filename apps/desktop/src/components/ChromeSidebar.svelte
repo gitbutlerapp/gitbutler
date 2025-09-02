@@ -3,7 +3,6 @@
 	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import { ircEnabled, codegenEnabled } from '$lib/config/uiFeatureFlags';
-	import { focusable } from '$lib/focus/focusable';
 	import {
 		branchesPath,
 		ircPath,
@@ -31,6 +30,7 @@
 		Icon,
 		TestId
 	} from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	import { slide } from 'svelte/transition';
 

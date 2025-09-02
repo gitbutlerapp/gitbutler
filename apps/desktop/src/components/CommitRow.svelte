@@ -2,9 +2,9 @@
 	import CommitLine from '$components/CommitLine.svelte';
 	import CommitTitle from '$components/CommitTitle.svelte';
 	import { type CommitStatusType } from '$lib/commits/commit';
-	import { DefinedFocusable } from '$lib/focus/focusManager';
-	import { focusable } from '$lib/focus/focusable';
 	import { Avatar, Icon, TestId } from '@gitbutler/ui';
+	import { DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	import { slide } from 'svelte/transition';
 	import type { Snippet } from 'svelte';

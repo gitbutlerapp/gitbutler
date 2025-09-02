@@ -21,7 +21,6 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
 	import { isParsedError } from '$lib/error/parser';
-	import { focusable } from '$lib/focus/focusable';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { workspacePath } from '$lib/routes/routes.svelte';
 	import {
@@ -34,6 +33,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { AsyncButton, Button, Modal, TestId } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { SidebarEntrySubject } from '$lib/branches/branchListing';
 

@@ -1,12 +1,12 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
-	import { focusable } from '$lib/focus/focusable';
 	import { createdOnDay, HISTORY_SERVICE } from '$lib/history/history';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { toHumanReadableTime } from '$lib/utils/time';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, Icon, FileListItem } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 

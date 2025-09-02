@@ -26,8 +26,6 @@
 		ReorderCommitDzFactory,
 		ReorderCommitDzHandler
 	} from '$lib/dragging/stackingReorderDropzoneManager';
-	import { DefinedFocusable } from '$lib/focus/focusManager';
-	import { focusable } from '$lib/focus/focusable';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
 	import { STACK_SERVICE, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
@@ -36,6 +34,8 @@
 	import { ensureValue } from '$lib/utils/validation';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, Modal, TestId } from '@gitbutler/ui';
+	import { DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { Commit } from '$lib/branches/v3';

@@ -6,7 +6,6 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
-	import { focusable } from '$lib/focus/focusable';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -23,6 +22,7 @@
 		TestId,
 		Tooltip
 	} from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	type Props = {
 		projectId: string;

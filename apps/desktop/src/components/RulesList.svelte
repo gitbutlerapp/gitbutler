@@ -3,7 +3,6 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Rule from '$components/Rule.svelte';
 	import RuleFiltersEditor from '$components/RuleFiltersEditor.svelte';
-	import { focusable } from '$lib/focus/focusable';
 	import {
 		type WorkspaceRuleId,
 		type RuleFilterMap,
@@ -21,6 +20,7 @@
 	import { typedKeys } from '$lib/utils/object';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, chipToasts, Select, SelectItem, Icon } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { Snippet } from 'svelte';
 
