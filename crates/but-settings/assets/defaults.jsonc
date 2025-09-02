@@ -52,6 +52,8 @@
 		// Whether to show notifications when Claude Code needs permission.
 		"notifyOnPermissionRequest": false,
 		// Whether to dangerously allow all permissions without prompting.
-		"dangerouslyAllowAllPermissions": false
+		"dangerouslyAllowAllPermissions": false,
+		// Whether to automatically commit changes and rename branches after completion.
+		"autoCommitAfterCompletion": true
 	}
 }

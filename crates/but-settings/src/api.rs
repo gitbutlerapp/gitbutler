@@ -30,6 +30,7 @@ pub struct ClaudeUpdate {
     pub notify_on_completion: Option<bool>,
     pub notify_on_permission_request: Option<bool>,
     pub dangerously_allow_all_permissions: Option<bool>,
+    pub auto_commit_after_completion: Option<bool>,
 }
 
 /// Mutation, immediately followed by writing everything to disk.
@@ -102,6 +103,9 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(dangerously_allow_all_permissions) = update.dangerously_allow_all_permissions {
             settings.claude.dangerously_allow_all_permissions = dangerously_allow_all_permissions;
+        }
+        if let Some(auto_commit_after_completion) = update.auto_commit_after_completion {
+            settings.claude.auto_commit_after_completion = auto_commit_after_completion;
         }
         settings.save()
     }

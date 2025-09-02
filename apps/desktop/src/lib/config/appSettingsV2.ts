@@ -184,4 +184,6 @@ export type Claude = {
 	notifyOnPermissionRequest: boolean;
 	/** Whether to dangerously allow all permissions without prompting. */
 	dangerouslyAllowAllPermissions: boolean;
+	/** Whether to automatically commit changes and rename branches after completion. */
+	autoCommitAfterCompletion: boolean;
 };
