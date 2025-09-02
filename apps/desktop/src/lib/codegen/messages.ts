@@ -37,7 +37,8 @@ export function toolCallLoading(toolCall: ToolCall): boolean {
 
 export function formatMessages(
 	events: ClaudeMessage[],
-	permissionRequests: ClaudePermissionRequest[]
+	permissionRequests: ClaudePermissionRequest[],
+	isActive: boolean
 ): Message[] {
 	const permReqsById: Record<string, ClaudePermissionRequest> = {};
 	for (const request of permissionRequests) {
@@ -51,6 +52,7 @@ export function formatMessages(
 
 	for (const event of events) {
 		if (event.content.type === 'userInput') {
+			wrapUpAgentSide();
 			out.push({
 				type: 'user',
 				message: event.content.subject.message
@@ -115,20 +117,7 @@ export function formatMessages(
 		} else if (event.content.type === 'gitButlerMessage') {
 			const subject = event.content.subject;
 			if (subject.type === 'claudeExit' || subject.type === 'userAbort') {
-				for (const toolCall of Object.values(toolCalls)) {
-					if (toolCall.result) continue;
-					toolCall.result = 'Tool call aborted due to claude exit';
-				}
-				toolCalls = {};
-				// We can drop the permissions requests if CC has exited.
-				if (lastAssistantMessage) {
-					lastAssistantMessage.toolCalls = [
-						...lastAssistantMessage.toolCalls,
-						...lastAssistantMessage.toolCallsPendingApproval
-					];
-					lastAssistantMessage.toolCallsPendingApproval = [];
-					lastAssistantMessage = undefined;
-				}
+				wrapUpAgentSide();
 			}
 
 			if (subject.type === 'claudeExit' && subject.subject.code !== 0) {
@@ -149,6 +138,28 @@ export function formatMessages(
 				};
 				out.push(message);
 			}
+		}
+	}
+
+	// If the stack is not active, treat it as if the conversation has stopped
+	if (!isActive) {
+		wrapUpAgentSide();
+	}
+
+	function wrapUpAgentSide() {
+		// Mark all pending tool calls as aborted (similar to claudeExit/userAbort)
+		for (const toolCall of Object.values(toolCalls)) {
+			if (toolCall.result) continue;
+			toolCall.result = 'Tool call aborted - session is no longer active';
+		}
+		toolCalls = {};
+		// Move pending approval tool calls to completed tool calls
+		if (lastAssistantMessage?.type === 'claude') {
+			lastAssistantMessage.toolCalls = [
+				...lastAssistantMessage.toolCalls,
+				...lastAssistantMessage.toolCallsPendingApproval
+			];
+			lastAssistantMessage.toolCallsPendingApproval = [];
 		}
 	}
 
@@ -232,7 +243,7 @@ function findModelPricing(name: string) {
 /**
  * Based on the current event log, determine the current status
  */
-export function currentStatus(events: ClaudeMessage[]): ClaudeStatus {
+export function currentStatus(events: ClaudeMessage[], isActive: boolean): ClaudeStatus {
 	if (events.length === 0) return 'disabled';
 	const lastEvent = events.at(-1)!;
 	if (lastEvent.content.type === 'claudeOutput' && lastEvent.content.subject.type === 'result') {
@@ -247,6 +258,10 @@ export function currentStatus(events: ClaudeMessage[]): ClaudeStatus {
 	) {
 		// Once we have the TODOs, if all the TODOs are completed, we can change
 		// this to conditionally return 'enabled' or 'completed'
+		return 'enabled';
+	}
+	// If the stack is not active, consider it no longer running
+	if (!isActive) {
 		return 'enabled';
 	}
 	return 'running';

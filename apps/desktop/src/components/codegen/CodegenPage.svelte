@@ -243,6 +243,10 @@
 	const events = $derived(
 		claudeCodeService.messages({ projectId, stackId: selectedBranch?.stackId || '' })
 	);
+	const isStackActiveResult = $derived(
+		selectedBranch ? claudeCodeService.isStackActive(projectId, selectedBranch.stackId) : undefined
+	);
+	const isStackActive = $derived(isStackActiveResult?.current?.data || false);
 
 	let rightSidebarRef = $state<HTMLDivElement>();
 	let createBranchModal = $state<CreateBranchModal>();
@@ -288,7 +292,7 @@
 		{#if selectedBranch}
 			<ReduxResult result={combineResults(events?.current, permissionRequests.current)} {projectId}>
 				{#snippet children([events, permissionRequests], { projectId: _projectId })}
-					{@const formattedMessages = formatMessages(events, permissionRequests)}
+					{@const formattedMessages = formatMessages(events, permissionRequests, isStackActive)}
 					{@const lastUserMessageSent = lastUserMessageSentAt(events)}
 
 					<CodegenChatLayout bind:this={chatLayout} branchName={selectedBranch.head}>
@@ -335,7 +339,7 @@
 								{/each}
 							{/if}
 
-							{#if currentStatus(events) === 'running' && lastUserMessageSent}
+							{#if currentStatus(events, isStackActive) === 'running' && lastUserMessageSent}
 								<CodegenServiceMessage {lastUserMessageSent} />
 							{/if}
 						{/snippet}
@@ -343,7 +347,7 @@
 						{#snippet input()}
 							<CodegenInput
 								bind:value={message}
-								loading={currentStatus(events) === 'running'}
+								loading={currentStatus(events, isStackActive) === 'running'}
 								onsubmit={sendMessage}
 								{onAbort}
 							>
@@ -515,12 +519,18 @@
 			projectId,
 			stackId
 		})}
+		{@const sidebarIsStackActive = claudeCodeService.isStackActive(projectId, stackId)}
 		<ReduxResult
-			result={combineResults(branch.current, commits.current, events.current)}
+			result={combineResults(
+				branch.current,
+				commits.current,
+				events.current,
+				sidebarIsStackActive.current
+			)}
 			{projectId}
 			{stackId}
 		>
-			{#snippet children([branch, commits, events], { projectId: _projectId, stackId })}
+			{#snippet children([branch, commits, events, isActive], { projectId: _projectId, stackId })}
 				{@const usage = usageStats(events)}
 				<CodegenSidebarEntry
 					onclick={() => {
@@ -528,7 +538,7 @@
 					}}
 					selected={selectedBranch?.stackId === stackId && selectedBranch?.head === branch.name}
 					branchName={branch.name}
-					status={currentStatus(events)}
+					status={currentStatus(events, isActive ?? false)}
 					tokensUsed={usage.tokens}
 					cost={usage.cost}
 					commitCount={commits.length}

@@ -348,7 +348,8 @@ fn main() {
                     claude::claude_list_permission_requests,
                     claude::claude_update_permission_request,
                     claude::claude_cancel_session,
-                    claude::claude_check_available
+                    claude::claude_check_available,
+                    claude::claude_is_stack_active
                 ])
                 .menu(move |handle| menu::build(handle, &app_settings_for_menu))
                 .on_window_event(|window, event| match event {
