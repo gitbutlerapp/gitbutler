@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use but_claude::{ClaudeMessage, ModelType, ThinkingLevel};
+use but_claude::{ClaudeMessage, ModelType, ThinkingLevel, prompt_templates};
 use but_settings::AppSettings;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
@@ -142,4 +142,31 @@ pub struct IsStackActiveParams {
 pub async fn claude_is_stack_active(app: &App, params: IsStackActiveParams) -> Result<bool, Error> {
     let is_active = app.claudes.is_stack_active(params.stack_id).await;
     Ok(is_active)
+}
+
+pub fn claude_get_prompt_templates(
+    _app: &App,
+    _params: NoParams,
+) -> Result<prompt_templates::PromptTemplates, Error> {
+    let templates = prompt_templates::load_prompt_templates()?;
+    Ok(templates)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WritePromptTemplatesParams {
+    pub templates: prompt_templates::PromptTemplates,
+}
+
+pub fn claude_write_prompt_templates(
+    _app: &App,
+    params: WritePromptTemplatesParams,
+) -> Result<(), Error> {
+    prompt_templates::write_prompt_templates(&params.templates)?;
+    Ok(())
+}
+
+pub fn claude_get_prompt_templates_path(_app: &App, _params: NoParams) -> Result<String, Error> {
+    let path = prompt_templates::get_prompt_templates_path_string()?;
+    Ok(path)
 }

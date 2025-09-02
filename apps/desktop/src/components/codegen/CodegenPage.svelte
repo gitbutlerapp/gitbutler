@@ -33,11 +33,13 @@
 	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { USER } from '$lib/user/user';
 	import { createBranchRef } from '$lib/utils/branch';
+	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 	import {
 		Badge,
@@ -62,6 +64,8 @@
 	const rulesService = inject(RULES_SERVICE);
 	const uiState = inject(UI_STATE);
 	const user = inject(USER);
+	const urlService = inject(URL_SERVICE);
+	const userSettings = inject(SETTINGS);
 
 	const stacks = $derived(stackService.stacks(projectId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
@@ -89,28 +93,7 @@
 
 	const thinkingLevels: ThinkingLevel[] = ['normal', 'think', 'megaThink', 'ultraThink'];
 
-	const templateSnippets = [
-		{
-			label: 'Bug Fix',
-			template:
-				'Please fix the bug in this code:\n\n```\n// Your code here\n```\n\nExpected behavior:\nActual behavior:\nSteps to reproduce:'
-		},
-		{
-			label: 'Code Review',
-			template:
-				'Please review this code for:\n- Performance issues\n- Security vulnerabilities\n- Best practices\n- Code style\n\n```\n// Your code here\n```'
-		},
-		{
-			label: 'Refactor',
-			template:
-				'Please refactor this code to improve:\n- Readability\n- Performance\n- Maintainability\n\n```\n// Your code here\n```\n\nRequirements:'
-		},
-		{
-			label: 'Add Tests',
-			template:
-				'Please write comprehensive tests for this code:\n\n```\n// Your code here\n```\n\nTest cases should cover:\n- Happy path\n- Edge cases\n- Error conditions'
-		}
-	];
+	const promptTemplates = $derived(claudeCodeService.promptTemplates(undefined));
 
 	const projectState = uiState.project(projectId);
 	const selectedBranch = $derived(projectState.selectedClaudeSession.current);
@@ -234,9 +217,19 @@
 		templateContextMenu?.close();
 	}
 
-	function configureTemplates() {
-		// TODO: Open template configuration modal/page
+	async function configureTemplates() {
 		templateContextMenu?.close();
+
+		const templatesPath = await claudeCodeService.fetchPromptTemplatesPath(undefined);
+
+		if (templatesPath) {
+			const editorUri = getEditorUri({
+				schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+				path: [templatesPath]
+			});
+
+			urlService.openExternalUrl(editorUri);
+		}
 	}
 
 	function showInWorkspace() {
@@ -423,7 +416,7 @@
 											kind="outline"
 											icon="script"
 											tooltip="Insert template"
-											onclick={() => templateContextMenu?.toggle()}
+											onclick={(e) => templateContextMenu?.toggle(e)}
 										/>
 										<Button
 											bind:el={thinkingModeTrigger}
@@ -705,12 +698,23 @@
 
 <ContextMenu bind:this={templateContextMenu} leftClickTrigger={templateTrigger} side="top">
 	<ContextMenuSection title="Templates">
-		{#each templateSnippets as snippet}
-			<ContextMenuItem label={snippet.label} onclick={() => insertTemplate(snippet.template)} />
-		{/each}
+		<ReduxResult result={promptTemplates.current} {projectId}>
+			{#snippet children(promptTemplates, { projectId: _projectId })}
+				{#each promptTemplates.templates as template}
+					<ContextMenuItem
+						label={template.label}
+						onclick={() => insertTemplate(template.template)}
+					/>
+				{/each}
+			{/snippet}
+		</ReduxResult>
 	</ContextMenuSection>
 	<ContextMenuSection>
-		<ContextMenuItem label="Configure templates..." onclick={configureTemplates} />
+		<ContextMenuItem
+			label="Edit templates in {$userSettings.defaultCodeEditor.displayName}"
+			icon="open-editor"
+			onclick={configureTemplates}
+		/>
 	</ContextMenuSection>
 </ContextMenu>
 
