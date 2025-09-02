@@ -47,6 +47,7 @@
 							wrapText={$userSettings.wrapText}
 							diffFont={$userSettings.diffFont}
 							diffContrast={$userSettings.diffContrast}
+							colorScheme={$userSettings.colorScheme}
 							inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 						/>
 					</div>
