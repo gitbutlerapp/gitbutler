@@ -36,6 +36,28 @@ pub(crate) fn handle(
         (CliId::UncommittedFile { path, .. }, CliId::Branch { name }) => {
             assign::assign_file_to_branch(ctx, path, name)
         }
+        (CliId::UncommittedFile { .. }, CliId::CommittedFile { .. }) => {
+            bail!(makes_no_sense_error(&source, &target))
+        }
+        // CommittedFile operations
+        (CliId::CommittedFile { .. }, CliId::UncommittedFile { .. }) => {
+            bail!(makes_no_sense_error(&source, &target))
+        }
+        (CliId::CommittedFile { .. }, CliId::CommittedFile { .. }) => {
+            bail!(makes_no_sense_error(&source, &target))
+        }
+        (CliId::CommittedFile { .. }, CliId::Unassigned) => {
+            // Extract file from commit to unassigned area - for now, not implemented
+            bail!("Extracting files from commits is not yet supported. Use git commands to extract file changes.")
+        }
+        (CliId::CommittedFile { .. }, CliId::Branch { .. }) => {
+            // Extract file from commit to branch - for now, not implemented  
+            bail!("Extracting files from commits is not yet supported. Use git commands to extract file changes.")
+        }
+        (CliId::CommittedFile { .. }, CliId::Commit { .. }) => {
+            // Move file from one commit to another - for now, not implemented
+            bail!("Moving files between commits is not yet supported. Use git commands to modify commits.")
+        }
         (CliId::Unassigned, CliId::UncommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
         }
@@ -44,7 +66,13 @@ pub(crate) fn handle(
         }
         (CliId::Unassigned, CliId::Commit { oid }) => amend::assignments_to_commit(ctx, None, oid),
         (CliId::Unassigned, CliId::Branch { name: to }) => assign::assign_all(ctx, None, Some(to)),
+        (CliId::Unassigned, CliId::CommittedFile { .. }) => {
+            bail!(makes_no_sense_error(&source, &target))
+        }
         (CliId::Commit { .. }, CliId::UncommittedFile { .. }) => {
+            bail!(makes_no_sense_error(&source, &target))
+        }
+        (CliId::Commit { .. }, CliId::CommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
         }
         (CliId::Commit { oid }, CliId::Unassigned) => undo::commit(ctx, oid),
@@ -53,6 +81,9 @@ pub(crate) fn handle(
         }
         (CliId::Commit { oid }, CliId::Branch { name }) => move_commit::to_branch(ctx, oid, name),
         (CliId::Branch { .. }, CliId::UncommittedFile { .. }) => {
+            bail!(makes_no_sense_error(&source, &target))
+        }
+        (CliId::Branch { .. }, CliId::CommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
         }
         (CliId::Branch { name: from }, CliId::Unassigned) => {
