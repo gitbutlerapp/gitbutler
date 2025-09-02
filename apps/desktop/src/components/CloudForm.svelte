@@ -4,11 +4,11 @@
 	import Section from '$components/Section.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
-	import { focusable } from '$lib/focus/focusable';
 	import { newSettingsPath } from '$lib/routes/routes.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, SectionCard, Spacer, Toggle } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	const { projectId }: { projectId: string } = $props();
 

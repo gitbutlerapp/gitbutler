@@ -4,13 +4,13 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Section from '$components/Section.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { focusable } from '$lib/focus/focusable';
 	import { showError } from '$lib/notifications/toasts';
 	import { type AuthKey, type KeyType } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/core/context';
 	import { Link, RadioButton, SectionCard, TestId, Textbox } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	import { onMount } from 'svelte';
 

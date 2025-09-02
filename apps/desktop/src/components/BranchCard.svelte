@@ -10,12 +10,12 @@
 	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
-	import { focusable } from '$lib/focus/focusable';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { ReviewBadge, Icon, Tooltip, TestId } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
 	import type { PushStatus } from '$lib/stacks/stack';

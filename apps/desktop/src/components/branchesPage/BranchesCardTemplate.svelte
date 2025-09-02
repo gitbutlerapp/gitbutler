@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { focusable } from '$lib/focus/focusable';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snippet } from 'svelte';
 
 	type Props = {

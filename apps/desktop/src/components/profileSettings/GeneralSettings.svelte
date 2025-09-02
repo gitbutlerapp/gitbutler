@@ -5,7 +5,6 @@
 	import CliSymLink from '$components/profileSettings/CliSymLink.svelte';
 	import { CLI_MANAGER } from '$lib/cli/cli';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { focusable } from '$lib/focus/focusable';
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { SETTINGS, type CodeEditorSettings } from '$lib/settings/userSettings';
@@ -25,6 +24,7 @@
 		Toggle,
 		chipToasts
 	} from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { User } from '$lib/user/user';
 
 	const userService = inject(USER_SERVICE);

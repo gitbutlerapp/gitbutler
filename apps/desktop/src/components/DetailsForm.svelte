@@ -1,10 +1,10 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
-	import { focusable } from '$lib/focus/focusable';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
 	import { SectionCard, Spacer, Textarea, Textbox, Toggle } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	const { projectId }: { projectId: string } = $props();
 

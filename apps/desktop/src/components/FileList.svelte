@@ -10,8 +10,6 @@
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
-	import { DefinedFocusable } from '$lib/focus/focusManager';
-	import { focusable } from '$lib/focus/focusable';
 	import { type TreeChange, type Modification } from '$lib/hunks/change';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
@@ -21,6 +19,8 @@
 	import { chunk } from '$lib/utils/array';
 	import { inject, injectOptional } from '@gitbutler/core/context';
 	import { FileListItem } from '@gitbutler/ui';
+	import { DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 
