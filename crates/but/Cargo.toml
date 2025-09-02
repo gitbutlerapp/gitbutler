@@ -47,6 +47,7 @@ gitbutler-serde.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
+gitbutler-reference.workspace = true
 gitbutler-secret.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-repo.workspace = true
