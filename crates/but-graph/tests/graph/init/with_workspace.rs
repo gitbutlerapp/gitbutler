@@ -419,6 +419,53 @@ fn single_stack() -> anyhow::Result<()> {
 }
 
 #[test]
+fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-merge-into-main")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 866c905 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * c6d714c (C) C
+    *   0cc5a6f (origin/main, merge, main) Merge branch 'A' into merge
+    |\  
+    | * e255adc (A) A
+    * | 7fdb58d (B) B
+    |/  
+    * fafd9d0 init
+    ");
+
+    let stack_id = add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &["merge"]);
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+
+    // By default, everything with metadata on the branch will show up, even if on the base.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 0cc5a6f
+    └── ≡📙:3:C on 0cc5a6f
+        ├── 📙:3:C
+        │   └── ·c6d714c (🏘️)
+        └── 📙:7:merge
+    ");
+
+    // But even if everything is marked as archived, only the ones that matter are hidden.
+    for head in &mut meta
+        .data_mut()
+        .branches
+        .get_mut(&stack_id)
+        .expect("just added")
+        .heads
+    {
+        head.archived = true;
+    }
+
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Default::default())?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 0cc5a6f
+    └── ≡📙:3:C
+        └── 📙:3:C
+            └── ·c6d714c (🏘️)
+    ");
+    Ok(())
+}
+
+#[test]
 fn minimal_merge_no_refs() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("ws/dual-merge-no-refs")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -661,8 +708,8 @@ fn just_init_with_branches() -> anyhow::Result<()> {
             └── ❄️fafd9d0 (🏘️|✓) ►A, ►B, ►C, ►D, ►E, ►F
     ");
 
-    let (id, ref_name) = id_at(&repo, "gitbutler/workspace");
-    let graph = Graph::from_commit_traversal(id, ref_name.clone(), &*meta, standard_options())?
+    let (id, ws_ref_name) = id_at(&repo, "gitbutler/workspace");
+    let graph = Graph::from_commit_traversal(id, ws_ref_name.clone(), &*meta, standard_options())?
         .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
@@ -704,8 +751,9 @@ fn just_init_with_branches() -> anyhow::Result<()> {
             └── ❄️fafd9d0 (🏘️|✓)
     ");
 
-    let mut graph = Graph::from_commit_traversal(id, ref_name.clone(), &*meta, standard_options())?
-        .validated()?;
+    let mut graph =
+        Graph::from_commit_traversal(id, ws_ref_name.clone(), &*meta, standard_options())?
+            .validated()?;
     // Now the dependent segments are applied, and so is the separate stack.
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
@@ -749,7 +797,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
 
     let graph = Graph::from_commit_traversal(
         id,
-        ref_name,
+        ws_ref_name,
         &*meta,
         but_graph::init::Options {
             dangerously_skip_postprocessing_for_debugging: true,
@@ -768,6 +816,57 @@ fn just_init_with_branches() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0");
 
+    Ok(())
+}
+
+#[test]
+fn just_init_with_archived_branches() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
+    // Note the dedicated workspace branch without a workspace commit.
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* fafd9d0 (HEAD -> main, origin/main, gitbutler/workspace, F, E, D, C, B, A) init");
+
+    let stack_id = add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &["B", "A"]);
+
+    let (id, ws_ref_name) = id_at(&repo, "gitbutler/workspace");
+    let graph = Graph::from_commit_traversal(id, ws_ref_name.clone(), &*meta, standard_options())?
+        .validated()?;
+
+    // By default, we see both stacks as they are configured, which disambiguates them.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    └── ≡📙:3:C on fafd9d0
+        ├── 📙:3:C
+        ├── 📙:4:B
+        └── 📙:5:A
+    ");
+
+    meta.data_mut()
+        .branches
+        .get_mut(&stack_id)
+        .expect("just added")
+        .heads[1]
+        .archived = true;
+
+    // The first archived segment causes everything else to be hidden.
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Default::default())?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    └── ≡📙:3:C
+        └── 📙:3:C
+    ");
+
+    let heads = &mut meta.data_mut().branches.get_mut(&stack_id).unwrap().heads;
+    heads[0].archived = true;
+    heads[1].archived = false;
+
+    // Now only the first one is archived.
+    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, Default::default())?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    └── ≡📙:3:C
+        ├── 📙:3:C
+        └── 📙:4:B
+    ");
     Ok(())
 }
 

@@ -550,6 +550,8 @@ impl Graph {
         if let Some(target) = ws.target.as_mut() {
             target.compute_and_set_commits_ahead(self, ws.lower_bound_segment_id);
         }
+
+        ws.prune_archived_segments();
         ws.mark_remote_reachability()?;
         Ok(ws)
     }
@@ -863,13 +865,41 @@ impl Graph {
 
 /// More processing
 impl Workspace<'_> {
-    // NOTE: it's a disadvantage to not do this on graph level - then all we'd need is
-    //       - a sibling_sidx to know which segment belongs to our remote tracking ref (for ease of use)
-    //       - an identity set for each remote ref
-    //       - a field that tells us the identity bit on the remote segment, so we can check if it's set.
-    //       Now we basically re-do the remote tracking in the workspace projection, which is always a bit
-    //       awkward to do.
-    //      And… that's why we do it on graph level, but map back to the workspace using segment ids.
+    /// Match the archived flag from our workspace metadata by name with actual segments and prune them,
+    /// top to bottom, but only if they are empty all the way down for safety.
+    /// Doing so naturally shows segments that we have to show, independently of the archived flag.
+    ///
+    /// Match the archived flag by name, that's all we have.
+    /// Note that we chose to not make `archived` intrusive and a member of the respective segment data
+    /// despite other portions of the code possibly being in a good position to do that. Ultimately, they
+    /// all match by name, and we just keep the 'archived' handling localised
+    /// (possibly allowing it to be turned off, etc).
+    fn prune_archived_segments(&mut self) {
+        let Some(md) = &self.metadata else { return };
+        let archived_stack_branches = md.stacks.iter().flat_map(|s| {
+            s.branches
+                .iter()
+                .filter_map(|s| s.archived.then_some(s.ref_name.as_ref()))
+        });
+        for archived_ref_name in archived_stack_branches {
+            let Some((stack_idx, segment_idx)) =
+                self.find_segment_owner_indexes_by_refname(archived_ref_name)
+            else {
+                continue;
+            };
+            let stack = &mut self.stacks[stack_idx];
+            let all_downwards_are_empty = stack.segments[segment_idx..]
+                .iter()
+                .all(|s| s.commits.is_empty());
+            if !all_downwards_are_empty {
+                continue;
+            }
+            stack.segments.truncate(segment_idx);
+        }
+    }
+
+    /// Trace the remotes of each segments down to their segment or other segments and set the commit flags accordingly
+    /// to indicate if a commit in the workspace is reachable, and how.
     fn mark_remote_reachability(&mut self) -> anyhow::Result<()> {
         let remote_refs: Vec<_> = self
             .stacks
@@ -922,18 +952,18 @@ impl Workspace<'_> {
 
                         let mut first_commit_index = Some(first_commit_index);
                         for segment in &mut stack.segments[first_segment..] {
-                            let remote_reachable = StackCommitFlags::ReachableByRemote
-                                | if segment.remote_tracking_ref_name.as_ref()
+                            let remote_reachable_flags =
+                                if segment.remote_tracking_ref_name.as_ref()
                                     == Some(&remote_tracking_ref_name)
                                 {
                                     StackCommitFlags::ReachableByMatchingRemote
                                 } else {
                                     StackCommitFlags::empty()
-                                };
+                                } | StackCommitFlags::ReachableByRemote;
                             for commit in &mut segment.commits
                                 [first_commit_index.take().unwrap_or_default()..]
                             {
-                                commit.flags |= remote_reachable;
+                                commit.flags |= remote_reachable_flags;
                             }
                         }
                         // keep looking - other stacks can repeat the segment!

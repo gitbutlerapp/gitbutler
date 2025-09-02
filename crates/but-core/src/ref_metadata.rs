@@ -200,8 +200,9 @@ pub struct WorkspaceStackBranch {
     /// If `true`, the branch is now underneath the lower-base of the workspace after a workspace update.
     /// This means it's not interesting anymore, by all means, but we'd still have to keep it available and list
     /// these segments as being part of the workspace when creating PRs. Their descriptions contain references
-    /// to archived segments, which simply shouldn't disappear just yet.
-    /// However, they may disappear once the whole stack has been integrated and the workspace has moved past it.
+    /// to archived segments, which simply shouldn't disappear from PRs just yet.
+    /// However, they must disappear once the whole stack has been integrated and the workspace has moved past it.
+    /// Note that this flag must be stored with the workspace as it must survive the deletion of a reference.
     pub archived: bool,
 }
 
