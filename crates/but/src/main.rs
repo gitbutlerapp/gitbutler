@@ -7,6 +7,7 @@ use metrics::{Event, Metrics, Props, metrics_if_configured};
 
 use but_claude::hooks::OutputAsJson;
 mod command;
+mod config;
 mod id;
 mod log;
 mod mcp;
@@ -88,6 +89,11 @@ async fn main() -> Result<()> {
             let result = status::worktree(&args.current_dir, args.json);
             metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
             Ok(())
+        }
+        Subcommands::Config => {
+            let result = config::show(&args.current_dir, &app_settings, args.json);
+            metrics_if_configured(app_settings, CommandName::Config, props(start, &result)).ok();
+            result
         }
         Subcommands::Rub { source, target } => {
             let result = rub::handle(&args.current_dir, args.json, source, target)

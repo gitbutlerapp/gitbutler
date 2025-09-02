@@ -20,6 +20,8 @@ pub enum Subcommands {
     Log,
     /// Overview of the oncommitted changes in the repository.
     Status,
+    /// Display configuration information about the GitButler repository.
+    Config,
 
     /// Combines two entities together to perform an operation.
     #[clap(
@@ -70,6 +72,8 @@ pub enum CommandName {
     Log,
     #[clap(alias = "status")]
     Status,
+    #[clap(alias = "config")]
+    Config,
     #[clap(alias = "rub")]
     Rub,
     #[clap(

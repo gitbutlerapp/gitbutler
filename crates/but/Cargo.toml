@@ -49,8 +49,12 @@ gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-secret.workspace = true
 gitbutler-oxidize.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-user.workspace = true
+git2.workspace = true
 colored = "3.0.0"
 serde_json = "1.0.143"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",
