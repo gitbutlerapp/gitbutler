@@ -41,7 +41,6 @@
 		stackId?: string;
 		laneId: string;
 		topBranch?: string;
-		focusedStackId?: string;
 		onVisible: (visible: boolean) => void;
 		clientWidth?: number;
 		clientHeight?: number;
@@ -52,7 +51,6 @@
 		stackId,
 		laneId,
 		topBranch,
-		focusedStackId,
 		clientHeight = $bindable(),
 		clientWidth = $bindable(),
 		onVisible
@@ -314,17 +312,7 @@
 {/snippet}
 
 {#snippet branchView(branchName: string)}
-	<BranchView
-		{stackId}
-		{laneId}
-		{projectId}
-		{branchName}
-		active={selectedFile?.type === 'branch' &&
-			selectedFile.branchName === branchName &&
-			focusedStackId === stackId}
-		{onerror}
-		{onclose}
-	/>
+	<BranchView {stackId} {laneId} {projectId} {branchName} {onerror} {onclose} />
 {/snippet}
 
 {#snippet commitView(branchName: string, commitId: string)}
@@ -339,7 +327,6 @@
 			upstream: !!upstream
 		}}
 		draggableFiles
-		active={selectedFile?.type === 'commit' && focusedStackId === stackId}
 		{onerror}
 		{onclose}
 	/>
@@ -521,7 +508,6 @@
 							{branches}
 							{laneId}
 							{stackId}
-							{focusedStackId}
 							onselect={() => {
 								// Clear one selection when you modify the other.
 								idSelection.clear({ type: 'worktree', stackId: stackId });

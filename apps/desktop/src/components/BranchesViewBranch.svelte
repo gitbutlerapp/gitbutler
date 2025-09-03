@@ -52,7 +52,6 @@
 		lineColor={commitColor}
 		projectId={env.projectId}
 		branchName={branch.name}
-		active
 		{isTopBranch}
 		isNewBranch={branch.commits?.length === 0}
 		iconName={pushStatusToIcon(branch.pushStatus)}

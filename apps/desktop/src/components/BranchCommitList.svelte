@@ -44,7 +44,6 @@
 	import type { BranchDetails } from '$lib/stacks/stack';
 
 	interface Props {
-		active: boolean;
 		projectId: string;
 		stackId?: string;
 		laneId: string;
@@ -66,7 +65,6 @@
 	}
 
 	let {
-		active,
 		projectId,
 		stackId,
 		laneId,
@@ -295,7 +293,6 @@
 								{first}
 								{lastCommit}
 								{selected}
-								{active}
 								onclick={() => handleCommitClick(commit.id, true)}
 								disableCommitActions={false}
 							/>
@@ -429,7 +426,6 @@
 								{lastBranch}
 								{selected}
 								{tooltip}
-								{active}
 								onclick={() => handleCommitClick(commit.id, false)}
 								disableCommitActions={false}
 							>

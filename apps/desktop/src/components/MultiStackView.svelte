@@ -27,12 +27,11 @@
 		projectId: string;
 		stacks: Stack[];
 		selectionId: SelectionId;
-		focusedStackId?: string;
 		scrollToStackId?: string;
 		onScrollComplete?: () => void;
 	};
 
-	let { projectId, stacks, focusedStackId, scrollToStackId, onScrollComplete }: Props = $props();
+	let { projectId, stacks, scrollToStackId, onScrollComplete }: Props = $props();
 
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
@@ -122,8 +121,10 @@
 			length={stacks.length}
 			{visibleIndexes}
 			{isCreateNewVisible}
-			selectedBranchIndex={stacks.findIndex((s) => {
-				return s.id === focusedStackId;
+			selectedBranchIndex={stacks.findIndex(() => {
+				return false;
+				// TODO: Integrate this with new focusables
+				// return s.id === focusedStackId;
 			})}
 			onPageClick={(index) => scrollToLane(lanesScrollableEl, index)}
 			onCreateNewClick={() => {
@@ -186,7 +187,6 @@
 					laneId={stack.id || 'banana'}
 					stackId={stack.id}
 					topBranch={stack.heads.at(0)?.name}
-					{focusedStackId}
 					bind:clientWidth={laneWidths[i]}
 					bind:clientHeight={lineHights[i]}
 					onVisible={(visible) => {

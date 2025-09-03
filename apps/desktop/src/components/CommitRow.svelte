@@ -79,7 +79,7 @@
 		...args
 	}: Props = $props();
 
-	const active = $derived(selected);
+	let active = $state(false);
 	let container = $state<HTMLDivElement>();
 </script>
 
@@ -111,7 +111,9 @@
 				onclick?.();
 				return true;
 			}
-		}
+		},
+		onFocus: () => (active = true),
+		onBlur: () => (active = false)
 	}}
 >
 	{#if selected}
