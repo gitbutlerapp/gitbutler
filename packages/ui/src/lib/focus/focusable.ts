@@ -51,9 +51,15 @@ export function focusable(
 		}
 	}
 
-	if (!options.disabled) {
-		register();
+	function handleRegistration(shouldRegister: boolean) {
+		if (shouldRegister && !isRegistered) {
+			register();
+		} else if (!shouldRegister && isRegistered) {
+			unregister();
+		}
 	}
+
+	handleRegistration(!options.disabled);
 
 	return {
 		destroy() {
@@ -61,33 +67,24 @@ export function focusable(
 		},
 
 		update(newOptions: FocusableOptions) {
-			const oldId = currentOptions.id;
-			const newId = newOptions.id;
-			const wasDisabled = currentOptions.disabled;
+			const idChanged = currentOptions.id !== newOptions.id;
 			const isDisabled = newOptions.disabled;
 
 			// If the ID changed, we need to unregister and re-register
-			if (oldId !== newId) {
+			if (idChanged) {
 				unregister();
 				currentOptions = newOptions;
-				if (!currentOptions.disabled) {
-					register();
-				}
-			} else {
-				// Handle disabled state changes
-				if (!wasDisabled && isDisabled) {
-					unregister();
-				} else if (wasDisabled && !isDisabled) {
-					currentOptions = newOptions;
-					register();
-				} else {
-					currentOptions = newOptions;
-				}
+				handleRegistration(!isDisabled);
+				return;
+			}
 
-				// Update the existing registration if still registered
-				if (isRegistered) {
-					focusManager.updateElementOptions(element, newOptions);
-				}
+			// Update options and handle registration state
+			currentOptions = newOptions;
+			handleRegistration(!isDisabled);
+
+			// Update existing registration if still registered
+			if (isRegistered && focusManager) {
+				focusManager.updateElementOptions(element, newOptions);
 			}
 		}
 	};
