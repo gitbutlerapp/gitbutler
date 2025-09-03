@@ -63,6 +63,7 @@ export function mrToInstance(pr: MergeRequestSchema): PullRequest {
 
 	const reviewers =
 		pr.reviewers?.map((reviewer) => ({
+			id: reviewer.id,
 			srcUrl: reviewer.avatar_url,
 			name: reviewer.name
 		})) || [];
