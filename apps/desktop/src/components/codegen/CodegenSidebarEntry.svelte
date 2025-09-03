@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { Badge, Icon, Tooltip } from '@gitbutler/ui';
-	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import { Badge, Icon, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 	import type { ClaudeStatus } from '$lib/codegen/types';
 	import type { Snippet } from 'svelte';
@@ -77,7 +76,7 @@
 
 				{#if lastInteractionTime}
 					<p class="text-11 sidebar-entry-drawer__tima-ago opacity-60">
-						{getTimeAgo(lastInteractionTime, true)}
+						<TimeAgo date={lastInteractionTime} addSuffix />
 					</p>
 				{/if}
 			</div>
