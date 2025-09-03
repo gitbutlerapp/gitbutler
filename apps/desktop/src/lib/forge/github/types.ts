@@ -109,6 +109,7 @@ export function ghResponseToInstance(pr: PullRequestListItem): PullRequest {
 		body: pr.body || undefined,
 		author: pr.user
 			? {
+					id: pr.user.id,
 					name: pr.user.login || undefined,
 					email: pr.user.email || undefined,
 					isBot: pr.user.type.toLowerCase() === 'bot',

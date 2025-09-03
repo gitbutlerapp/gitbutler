@@ -75,6 +75,7 @@ export function mrToInstance(pr: MergeRequestSchema): PullRequest {
 		body: pr.description || undefined,
 		author: pr.author
 			? {
+					id: pr.author.id,
 					name: pr.author.name || undefined,
 					email: pr.author.username || undefined,
 					isBot: false,

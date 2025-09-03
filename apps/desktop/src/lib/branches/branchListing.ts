@@ -3,10 +3,10 @@ import 'reflect-metadata';
 
 import { msSinceDaysAgo } from '$lib/utils/time';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import type { PullRequest } from '$lib/forge/interface/types';
+import type { ForgeUser, PullRequest } from '$lib/forge/interface/types';
 
 export type GroupedSidebarEntries = Record<
-	'applied' | 'today' | 'yesterday' | 'lastWeek' | 'older',
+	'applied' | 'authored' | 'review' | 'today' | 'yesterday' | 'lastWeek' | 'older',
 	SidebarEntrySubject[]
 >;
 
@@ -122,6 +122,15 @@ type BranchListingEntrySubject = {
 
 export type SidebarEntrySubject = PullRequestEntrySubject | BranchListingEntrySubject;
 
+export const BRANCH_FILTER_OPTIONS = ['all', 'pullRequest', 'local'] as const;
+export type BranchFilterOption = (typeof BRANCH_FILTER_OPTIONS)[number];
+
+export function isBranchFilterOption(something: unknown): something is BranchFilterOption {
+	return (
+		typeof something === 'string' && BRANCH_FILTER_OPTIONS.includes(something as BranchFilterOption)
+	);
+}
+
 function getEntryUpdatedDate(entry: SidebarEntrySubject) {
 	return new Date(
 		entry.type === 'branchListing' ? entry.subject.updatedAt : entry.subject.modifiedAt
@@ -136,10 +145,26 @@ function getEntryWorkspaceStatus(entry: SidebarEntrySubject) {
 	return entry.type === 'branchListing' ? entry.subject.stack?.inWorkspace : undefined;
 }
 
+function isReviewerOfEntry(userId: number | undefined, entry: SidebarEntrySubject): boolean {
+	if (userId === undefined) return false;
+	if (entry.type === 'pullRequest') {
+		return entry.subject.reviewers.some((r) => r.id === userId);
+	}
+	return entry.prs.some((pr) => pr.reviewers.some((r) => r.id === userId));
+}
+
+function isAuthoreOfEntry(userId: number | undefined, entry: SidebarEntrySubject): boolean {
+	if (userId === undefined) return false;
+	if (entry.type === 'pullRequest') {
+		return entry.subject.author?.id === userId;
+	}
+	return entry.prs.some((pr) => pr.author?.id === userId);
+}
+
 export function combineBranchesAndPrs(
 	pullRequests: PullRequest[],
 	branchList: BranchListing[],
-	selectedOption: 'all' | 'pullRequest' | 'local'
+	selectedOption: BranchFilterOption
 ) {
 	const prMap = Object.fromEntries(pullRequests.map((pr) => [pr.sourceBranch, pr]));
 
@@ -208,9 +233,11 @@ function containsPullRequestBranch(branchListing: BranchListing, sourceBranch: s
 	return false;
 }
 
-export function groupBranches(branches: SidebarEntrySubject[]) {
+export function groupBranches(branches: SidebarEntrySubject[], user: ForgeUser | undefined) {
 	const grouped: GroupedSidebarEntries = {
 		applied: [],
+		authored: [],
+		review: [],
 		today: [],
 		yesterday: [],
 		lastWeek: [],
@@ -219,26 +246,49 @@ export function groupBranches(branches: SidebarEntrySubject[]) {
 
 	const now = Date.now();
 
-	branches.forEach((b) => {
+	for (let i = 0; i < branches.length; i++) {
+		const b = branches[i];
+		if (!b) continue;
+
 		if (!getEntryUpdatedDate(b)) {
 			grouped.older.push(b);
-			return;
+			continue;
 		}
 
 		const msSinceLastCommit = now - getEntryUpdatedDate(b).getTime();
 
 		if (getEntryWorkspaceStatus(b)) {
 			grouped.applied.push(b);
-		} else if (msSinceLastCommit < msSinceDaysAgo(1)) {
-			grouped.today.push(b);
-		} else if (msSinceLastCommit < msSinceDaysAgo(2)) {
-			grouped.yesterday.push(b);
-		} else if (msSinceLastCommit < msSinceDaysAgo(7)) {
-			grouped.lastWeek.push(b);
-		} else {
-			grouped.older.push(b);
+			continue;
 		}
-	});
+
+		if (isAuthoreOfEntry(user?.id, b)) {
+			grouped.authored.push(b);
+			continue;
+		}
+
+		if (isReviewerOfEntry(user?.id, b)) {
+			grouped.review.push(b);
+			continue;
+		}
+
+		if (msSinceLastCommit < msSinceDaysAgo(1)) {
+			grouped.today.push(b);
+			continue;
+		}
+
+		if (msSinceLastCommit < msSinceDaysAgo(2)) {
+			grouped.yesterday.push(b);
+			continue;
+		}
+
+		if (msSinceLastCommit < msSinceDaysAgo(7)) {
+			grouped.lastWeek.push(b);
+			continue;
+		}
+
+		grouped.older.push(b);
+	}
 
 	return grouped;
 }
