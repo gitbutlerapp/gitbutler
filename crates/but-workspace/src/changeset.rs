@@ -12,9 +12,11 @@ use crate::{
     },
     ui::PushStatus,
 };
+use bstr::{BStr, BString, ByteSlice, ByteVec};
 use but_core::{ChangeState, commit::TreeKind};
-use gix::diff::tree::recorder::Change;
-use gix::{ObjectId, Repository, object::tree::EntryKind, prelude::ObjectIdExt};
+use gix::diff::tree::{Visit, visit};
+use gix::{object::tree::EntryKind, prelude::ObjectIdExt};
+use std::collections::VecDeque;
 use std::ops::Deref;
 use std::time::Duration;
 use std::{
@@ -44,7 +46,6 @@ impl RefInfo {
     ///     - stack commits
     ///     - the squash-merge between all stack-tips (ST) and the target branch to simulate squash merges
     ///       as they could have happened.
-    ///     - the squash-merge between all remote stack tips and the target branch
     ///
     /// Matches from the first two cheap stages will speed up the expensive stage, as fewer commits or combinations
     /// are left to test.
@@ -310,7 +311,7 @@ fn lookup_similar<'a>(
 
 /// Returns the fully-loaded commits suitable to be passed to UI, to have better re-use.
 fn create_similarity_lut(
-    repo: &Repository,
+    repo: &gix::Repository,
     commits: impl Iterator<Item = impl Borrow<ui::Commit>>,
     (max_commits, num_tracked_files): (usize, usize),
     expensive: bool,
@@ -470,99 +471,135 @@ fn id_for_tree_diff(
     if no_changes {
         return Ok(None);
     }
-    // TODO(perf): use plumbing directly to avoid resource-cache overhead.
-    //             consider parallelization
-    //             really needs caching to be practical, in-memory might suffice for now.
+
+    #[derive(Default)]
+    struct Delegate {
+        path_deque: VecDeque<BString>,
+        path: BString,
+        hash: Option<gix::hash::Hasher>,
+    }
+
+    impl Delegate {
+        fn pop_element(&mut self) {
+            if let Some(pos) = self.path.rfind_byte(b'/') {
+                self.path.resize(pos, 0);
+            } else {
+                self.path.clear();
+            }
+        }
+
+        fn push_element(&mut self, name: &BStr) {
+            if name.is_empty() {
+                return;
+            }
+            if !self.path.is_empty() {
+                self.path.push(b'/');
+            }
+            self.path.push_str(name);
+        }
+    }
+
+    impl Visit for Delegate {
+        fn pop_front_tracked_path_and_set_current(&mut self) {
+            self.path = self
+                .path_deque
+                .pop_front()
+                .expect("every parent is set only once");
+        }
+
+        fn push_back_tracked_path_component(&mut self, component: &BStr) {
+            self.push_element(component);
+            self.path_deque.push_back(self.path.clone());
+        }
+
+        fn push_path_component(&mut self, component: &BStr) {
+            self.push_element(component);
+        }
+
+        fn pop_path_component(&mut self) {
+            self.pop_element();
+        }
+
+        fn visit(&mut self, change: visit::Change) -> visit::Action {
+            let hash = self.hash.get_or_insert_with(|| {
+                let mut hash = gix::hash::hasher(gix::hash::Kind::Sha1);
+                hash.update(&[CURRENT_VERSION as u8]);
+                hash
+            });
+
+            if change.entry_mode().is_tree() {
+                return visit::Action::Continue;
+            }
+
+            // must hash all fields, even if None for unambiguous hashes.
+            hash.update(self.path.as_ref());
+            match change {
+                visit::Change::Addition {
+                    entry_mode, oid, ..
+                } => {
+                    hash.update(b"A");
+                    hash_change_state(
+                        hash,
+                        ChangeState {
+                            id: oid,
+                            kind: entry_mode.kind(),
+                        },
+                    )
+                }
+                visit::Change::Deletion {
+                    entry_mode, oid, ..
+                } => {
+                    hash.update(b"D");
+                    hash_change_state(
+                        hash,
+                        ChangeState {
+                            id: oid,
+                            kind: entry_mode.kind(),
+                        },
+                    );
+                }
+                visit::Change::Modification {
+                    previous_entry_mode,
+                    previous_oid,
+                    entry_mode,
+                    oid,
+                    ..
+                } => {
+                    hash.update(b"M");
+                    hash_change_state(
+                        hash,
+                        ChangeState {
+                            id: previous_oid,
+                            kind: previous_entry_mode.kind(),
+                        },
+                    );
+                    hash_change_state(
+                        hash,
+                        ChangeState {
+                            id: oid,
+                            kind: entry_mode.kind(),
+                        },
+                    );
+                }
+            }
+            visit::Action::Continue
+        }
+    }
 
     let empty_tree = repo.empty_tree();
     let mut state = Default::default();
-    let mut recorder = gix::diff::tree::Recorder::default()
-        .track_location(Some(gix::diff::tree::recorder::Location::Path));
+    let mut delegate = Delegate::default();
     gix::diff::tree(
         gix::objs::TreeRefIter::from_bytes(&lhs_tree.unwrap_or(empty_tree).data),
         gix::objs::TreeRefIter::from_bytes(&rhs_tree.data),
         &mut state,
         repo.objects.deref(),
-        &mut recorder,
+        &mut delegate,
     )?;
-    let changes = recorder.records;
-    if changes.is_empty() {
+    let Some(hasher) = delegate.hash.take() else {
         return Ok(None);
-    }
-
-    let mut hash = gix::hash::hasher(gix::hash::Kind::Sha1);
-    hash.update(&[CURRENT_VERSION as u8]);
-
-    // We rely on the diff order, it's consistent as rewrites are disabled.
-    for c in changes {
-        let (entry_mode, location) = match &c {
-            Change::Addition {
-                entry_mode, path, ..
-            }
-            | Change::Deletion {
-                entry_mode, path, ..
-            }
-            | Change::Modification {
-                entry_mode, path, ..
-            } => (*entry_mode, path),
-        };
-        if entry_mode.is_tree() {
-            continue;
-        }
-        // must hash all fields, even if None for unambiguous hashes.
-        hash.update(location);
-        match c {
-            Change::Addition {
-                entry_mode, oid, ..
-            } => {
-                hash.update(b"A");
-                hash_change_state(
-                    &mut hash,
-                    ChangeState {
-                        id: oid,
-                        kind: entry_mode.kind(),
-                    },
-                )
-            }
-            Change::Deletion {
-                entry_mode, oid, ..
-            } => {
-                hash.update(b"D");
-                hash_change_state(
-                    &mut hash,
-                    ChangeState {
-                        id: oid,
-                        kind: entry_mode.kind(),
-                    },
-                );
-            }
-            Change::Modification {
-                previous_entry_mode,
-                previous_oid,
-                entry_mode,
-                oid,
-                ..
-            } => {
-                hash.update(b"M");
-                hash_change_state(
-                    &mut hash,
-                    ChangeState {
-                        id: previous_oid,
-                        kind: previous_entry_mode.kind(),
-                    },
-                );
-                hash_change_state(
-                    &mut hash,
-                    ChangeState {
-                        id: oid,
-                        kind: entry_mode.kind(),
-                    },
-                );
-            }
-        }
-    }
-
-    Ok(Some(hash.try_finalize()?))
+    };
+    Ok(Some(hasher.try_finalize()?))
 }
 
 // TODO: use `peel_to_tree()` once special conflict commits aren't needed anymore.
@@ -626,4 +663,4 @@ fn commit_data_id(c: &ui::Commit) -> anyhow::Result<Identifier> {
     Ok(Identifier::CommitData(hasher.try_finalize()?))
 }
 
-type Identity = HashMap<Identifier, ObjectId>;
+type Identity = HashMap<Identifier, gix::ObjectId>;
