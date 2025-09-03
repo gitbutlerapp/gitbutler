@@ -72,6 +72,7 @@ export class GitHubPrService implements ForgePrService {
 				this.loading.set(false);
 			}
 		}
+		this.posthog?.capture('PR Failure');
 		throw lastError;
 	}
 
