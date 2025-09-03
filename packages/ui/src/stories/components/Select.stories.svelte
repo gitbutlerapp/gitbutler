@@ -37,7 +37,7 @@
 				{
 					value: '2',
 					label:
-						'Another extremely long option with lots of text to see how the component handles lengthy content and text wrapping scenarios'
+						'Super another extremely long option with lots of text to see how the component handles lengthy content and text wrapping scenarios'
 				},
 				{
 					value: '3',
@@ -82,7 +82,7 @@
 	let selectedItem = $state<string>('1');
 	let selectedWithIcon = $state<string>('js');
 	let selectedWithEmoji = $state<string>('happy');
-	let selectedLongOption = $state<string>('1');
+	let selectedLongOption = $state<string>();
 	let selectedWithSeparators = $state<string>('new');
 </script>
 
@@ -101,7 +101,7 @@
 				}}
 			>
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={highlighted} {highlighted}>
+					<SelectItem selected={item.value === selectedItem} {highlighted}>
 						{item.label}
 					</SelectItem>
 				{/snippet}
@@ -131,7 +131,7 @@
 					</Button>
 				{/snippet}
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={highlighted} {highlighted}>
+					<SelectItem selected={item.value === selectedItem} {highlighted}>
 						{item.label}
 					</SelectItem>
 				{/snippet}
@@ -152,7 +152,7 @@
 				}}
 			>
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={highlighted} {highlighted}>
+					<SelectItem selected={item.value === selectedWithIcon} {highlighted}>
 						{#snippet iconSnippet()}
 							<Icon name={item.icon} />
 						{/snippet}
@@ -176,7 +176,7 @@
 				}}
 			>
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={highlighted} {highlighted}>
+					<SelectItem selected={item.value === selectedWithEmoji} {highlighted}>
 						{#snippet iconSnippet()}
 							<span class="emoji">{item.emoji}</span>
 						{/snippet}
@@ -205,18 +205,18 @@
 			>
 				{#snippet itemSnippet({ item, highlighted })}
 					{#if item.value === 'builtin'}
-						<SelectItem selected={highlighted} {highlighted} icon="ai">
+						<SelectItem selected={item.value === selectedWithIcon} {highlighted} icon="ai">
 							{item.label}
 						</SelectItem>
 					{:else if item.value === 'emoji'}
-						<SelectItem selected={highlighted} {highlighted}>
+						<SelectItem selected={item.value === selectedWithIcon} {highlighted}>
 							{#snippet iconSnippet()}
 								<span class="emoji">{item.emoji}</span>
 							{/snippet}
 							{item.label}
 						</SelectItem>
 					{:else}
-						<SelectItem selected={highlighted} {highlighted}>
+						<SelectItem selected={item.value === selectedWithIcon} {highlighted}>
 							{#snippet iconSnippet()}
 								<div class="custom-component">
 									<Icon name="plus-small" />
@@ -244,7 +244,7 @@
 				}}
 			>
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={highlighted} {highlighted}>
+					<SelectItem selected={item.value === selectedLongOption} {highlighted}>
 						{item.label}
 					</SelectItem>
 				{/snippet}
@@ -266,7 +266,7 @@
 				placeholder="Choose an action..."
 			>
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={highlighted} {highlighted}>
+					<SelectItem selected={item.value === selectedWithSeparators} {highlighted}>
 						{item.label}
 					</SelectItem>
 				{/snippet}
@@ -303,18 +303,22 @@
 			>
 				{#snippet itemSnippet({ item, highlighted })}
 					{#if item.icon}
-						<SelectItem selected={highlighted} {highlighted} icon={item.icon}>
+						<SelectItem
+							selected={item.value === selectedWithSeparators}
+							{highlighted}
+							icon={item.icon}
+						>
 							{item.label}
 						</SelectItem>
 					{:else if item.emoji}
-						<SelectItem selected={highlighted} {highlighted}>
+						<SelectItem selected={item.value === selectedWithSeparators} {highlighted}>
 							{#snippet iconSnippet()}
 								<span class="emoji">{item.emoji}</span>
 							{/snippet}
 							{item.label}
 						</SelectItem>
 					{:else}
-						<SelectItem selected={highlighted} {highlighted}>
+						<SelectItem selected={item.value === selectedWithSeparators} {highlighted}>
 							{item.label}
 						</SelectItem>
 					{/if}

@@ -82,6 +82,8 @@
 
 	let selectWrapperEl: HTMLElement;
 	let optionsGroupEl = $state<HTMLElement>();
+	let searchItemEl = $state<SearchItem>();
+	let selectTriggerEl = $state<HTMLElement | { focus(): void }>();
 
 	let highlightedIndex: number | undefined = $state(undefined);
 	let searchValue = $state('');
@@ -120,6 +122,15 @@
 	const selectableOptions = $derived.by(
 		() => filteredOptions.filter((item) => !item.separator) as SelectItem<T>[]
 	);
+
+	// Auto-highlight first option when search results change, reset when search is cleared
+	$effect(() => {
+		if (listOpen && selectableOptions.length > 0 && searchValue.length > 0) {
+			highlightedIndex = 0;
+		} else if (listOpen && searchValue.length === 0) {
+			highlightedIndex = undefined;
+		}
+	});
 	let maxHeightState = $state(maxHeight);
 	let listOpen = $state(false);
 	let inputBoundingRect = $state<DOMRect>();
@@ -137,11 +148,25 @@
 		setMaxHeight();
 		listOpen = true;
 		ontoggle?.(true);
+
+		// Auto-focus search input when dropdown opens and search is available
+		if (searchable && options.length > 5) {
+			setTimeout(() => {
+				searchItemEl?.focus();
+			}, 0);
+		}
 	}
 
-	function closeList() {
+	function closeList(maintainFocus: boolean = false) {
 		listOpen = false;
 		ontoggle?.(false);
+
+		// Maintain focus on the select trigger if requested
+		if (maintainFocus && selectTriggerEl) {
+			setTimeout(() => {
+				selectTriggerEl?.focus();
+			}, 0);
+		}
 	}
 
 	function clickOutside(e: MouseEvent) {
@@ -179,13 +204,19 @@
 				}
 			: undefined;
 		onselect?.(value, modifiers);
-		closeList();
+
+		// Maintain focus if selection was made via keyboard
+		const isKeyboardSelection = event instanceof KeyboardEvent;
+		closeList(isKeyboardSelection);
 	}
 
 	function handleEnter(event: KeyboardEvent) {
 		const option = highlightedIndex !== undefined ? selectableOptions[highlightedIndex] : undefined;
 		if (option) {
 			handleSelect(option, event);
+		} else if (selectableOptions.length > 0) {
+			// If no option is highlighted but options exist, select the first one
+			handleSelect(selectableOptions[0], event);
 		}
 	}
 
@@ -300,6 +331,7 @@
 	{/if}
 	{#if customSelectButton}
 		<div
+			bind:this={selectTriggerEl}
 			role="presentation"
 			class="select__custom-button"
 			onmousedown={toggleList}
@@ -309,6 +341,7 @@
 		</div>
 	{:else}
 		<Textbox
+			bind:this={selectTriggerEl}
 			{id}
 			{placeholder}
 			readonly
@@ -341,10 +374,13 @@
 				style:top={getTopStyle()}
 				style:left={getLeftStyle()}
 				style:max-height={maxHeightState && `${maxHeightState}px`}
+				role="listbox"
+				tabindex="-1"
+				onkeydown={(ev: KeyboardEvent) => handleKeyDown(ev)}
 			>
 				<ScrollableContainer whenToShow="scroll">
 					{#if searchable && options.length > 5}
-						<SearchItem bind:searchValue />
+						<SearchItem bind:this={searchItemEl} bind:searchValue />
 					{/if}
 					{#if groupedOptions.length === 0}
 						<OptionsGroup>
