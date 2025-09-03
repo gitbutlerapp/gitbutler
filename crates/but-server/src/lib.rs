@@ -290,6 +290,11 @@ async fn handle_command(
             request.params,
             virtual_branches::get_initial_integration_steps_for_branch,
         ),
+        "integrate_branch_with_steps" => run_cmd(
+            &app,
+            request.params,
+            virtual_branches::integrate_branch_with_steps,
+        ),
         "get_base_branch_data" => {
             run_cmd(&app, request.params, virtual_branches::get_base_branch_data)
         }

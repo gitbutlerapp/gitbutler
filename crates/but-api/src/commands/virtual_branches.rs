@@ -195,6 +195,31 @@ pub fn get_initial_integration_steps_for_branch(
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct IntegrateBranchWithStepsParams {
+    pub project_id: ProjectId,
+    pub stack_id: StackId,
+    pub branch_name: String,
+    pub steps:
+        Vec<gitbutler_branch_actions::branch_upstream_integration::InteractiveIntegrationStep>,
+}
+
+pub fn integrate_branch_with_steps(
+    _app: &App,
+    params: IntegrateBranchWithStepsParams,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(params.project_id)?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    gitbutler_branch_actions::integrate_branch_with_steps(
+        &ctx,
+        params.stack_id,
+        params.branch_name,
+        params.steps,
+    )
+    .map_err(Into::into)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetBaseBranchDataParams {
     pub project_id: ProjectId,
 }

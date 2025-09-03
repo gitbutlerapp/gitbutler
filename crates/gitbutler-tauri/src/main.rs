@@ -259,6 +259,7 @@ fn main() {
                     virtual_branches::find_git_branches,
                     virtual_branches::list_branches,
                     virtual_branches::get_branch_listing_details,
+                    virtual_branches::integrate_branch_with_steps,
                     virtual_branches::squash_commits,
                     virtual_branches::fetch_from_remotes,
                     virtual_branches::move_commit,
