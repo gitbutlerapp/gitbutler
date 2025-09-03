@@ -1,5 +1,5 @@
 <script lang="ts" generics="T = any">
-	import { focusTrap } from '$lib/utils/focusTrap';
+	import { focusable } from '$lib/focus/focusable';
 	import { menuManager } from '$lib/utils/menuManager';
 	import { portal } from '$lib/utils/portal';
 	import { setContext, onDestroy } from 'svelte';
@@ -367,7 +367,7 @@
 			data-testid={testId}
 			bind:this={menuContainer}
 			tabindex="-1"
-			use:focusTrap
+			use:focusable={{ activate: true, isolate: true }}
 			autofocus
 			{onclick}
 			{onkeypress}
