@@ -170,6 +170,56 @@ pub fn integrate_upstream_commits(
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GetInitialIntegrationStepsForBranchParams {
+    pub project_id: ProjectId,
+    pub stack_id: Option<StackId>,
+    pub branch_name: String,
+}
+
+pub fn get_initial_integration_steps_for_branch(
+    _app: &App,
+    params: GetInitialIntegrationStepsForBranchParams,
+) -> Result<
+    Vec<gitbutler_branch_actions::branch_upstream_integration::InteractiveIntegrationStep>,
+    Error,
+> {
+    let project = gitbutler_project::get(params.project_id)?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let steps = gitbutler_branch_actions::branch_upstream_integration::get_initial_integration_steps_for_branch(
+        &ctx,
+        params.stack_id,
+        params.branch_name,
+    )?;
+    Ok(steps)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IntegrateBranchWithStepsParams {
+    pub project_id: ProjectId,
+    pub stack_id: StackId,
+    pub branch_name: String,
+    pub steps:
+        Vec<gitbutler_branch_actions::branch_upstream_integration::InteractiveIntegrationStep>,
+}
+
+pub fn integrate_branch_with_steps(
+    _app: &App,
+    params: IntegrateBranchWithStepsParams,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(params.project_id)?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    gitbutler_branch_actions::integrate_branch_with_steps(
+        &ctx,
+        params.stack_id,
+        params.branch_name,
+        params.steps,
+    )
+    .map_err(Into::into)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetBaseBranchDataParams {
     pub project_id: ProjectId,
 }

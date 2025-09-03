@@ -1,11 +1,12 @@
 <script lang="ts">
+	import BranchIntegrationModal from '$components/BranchIntegrationModal.svelte';
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import CommitAction from '$components/CommitAction.svelte';
 	import CommitContextMenu from '$components/CommitContextMenu.svelte';
 	import CommitGoesHere from '$components/CommitGoesHere.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
-	import CommitsAccordion from '$components/CommitsAccordion.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
+
 	import LineOverlay from '$components/LineOverlay.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { hasConflicts, isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
@@ -28,12 +29,12 @@
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
-	import { STACK_SERVICE, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { ensureValue } from '$lib/utils/validation';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, Modal, TestId } from '@gitbutler/ui';
+	import { persisted } from '@gitbutler/shared/persisted';
+	import { Button, Modal, RadioButton, TestId } from '@gitbutler/ui';
 	import { DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
@@ -41,25 +42,6 @@
 	import type { Commit } from '$lib/branches/v3';
 	import type { CommitStatusType } from '$lib/commits/commit';
 	import type { BranchDetails } from '$lib/stacks/stack';
-
-	const integrationStrategies = {
-		default: {
-			label: 'Integrate upstream',
-			style: 'warning',
-			kind: 'solid',
-			icon: undefined,
-			action: () => integrate()
-		},
-		reset: {
-			label: 'Reset to remote…',
-			style: 'neutral',
-			kind: 'outline',
-			icon: 'warning-small',
-			action: confirmReset
-		}
-	} as const;
-
-	type IntegrationStrategy = keyof typeof integrationStrategies;
 
 	interface Props {
 		active: boolean;
@@ -106,7 +88,8 @@
 	const hooksService = inject(HOOKS_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
-	const [integrateUpstreamCommits, upstreamIntegration] = stackService.integrateUpstreamCommits;
+
+	const [integrateUpstreamCommits, integrating] = stackService.integrateUpstreamCommits;
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -130,20 +113,7 @@
 	const base = $derived(baseBranchResponse.current.data);
 	const baseSha = $derived(base?.baseSha);
 
-	let confirmResetModal = $state<ReturnType<typeof Modal>>();
-
-	async function integrate(strategy?: SeriesIntegrationStrategy): Promise<void> {
-		await integrateUpstreamCommits({
-			projectId,
-			stackId: ensureValue(stackId),
-			seriesName: branchName,
-			strategy
-		});
-	}
-
-	function confirmReset() {
-		confirmResetModal?.show();
-	}
+	let integrationModal = $state<Modal>();
 
 	function getAncestorMostConflicted(commits: Commit[]): Commit | undefined {
 		if (!commits.length) return undefined;
@@ -163,42 +133,97 @@
 		projectState.stackId.set(stackId);
 		onselect?.();
 	}
+
+	function kickOffIntegration() {
+		integrationModal?.show();
+	}
+
+	function handleRebaseIntegration() {
+		if (!stackId) return;
+		integrateUpstreamCommits({
+			projectId,
+			stackId,
+			seriesName: branchName,
+			strategy: 'rebase'
+		});
+	}
+
+	type IntegrationMode = 'rebase' | 'interactive';
+
+	const integrationMode = persisted<IntegrationMode>('rebase', 'branchUpstreamIntegrationMode');
+
+	function integrate(mode: IntegrationMode) {
+		switch (mode) {
+			case 'rebase':
+				handleRebaseIntegration();
+				break;
+			case 'interactive':
+				kickOffIntegration();
+				break;
+		}
+	}
+
+	function getLabelForIntegrationMode(mode: IntegrationMode): string {
+		switch (mode) {
+			case 'rebase':
+				return 'Rebase';
+			case 'interactive':
+				return 'Configure integration…';
+		}
+	}
 </script>
 
-<Modal
-	bind:this={confirmResetModal}
-	title="Reset to remote"
-	type="warning"
-	width="small"
-	onSubmit={async (close) => {
-		await integrate('hardreset');
-		close();
-	}}
->
-	<p class="text-13 text-body helper-text">
-		This will reset the branch to the state of the remote branch. All local changes will be
-		overwritten.
-	</p>
-	{#snippet controls(close)}
-		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit">Reset</Button>
-	{/snippet}
-</Modal>
+<BranchIntegrationModal bind:modalRef={integrationModal} {projectId} {stackId} {branchName} />
 
-{#snippet integrateUpstreamButton(strategy: IntegrationStrategy)}
-	{@const { label, icon, style, kind, action } = integrationStrategies[strategy]}
-	<Button
-		testId={TestId.UpstreamCommitsIntegrateButton}
-		{style}
-		{kind}
-		grow
-		{icon}
-		reversedDirection
-		loading={upstreamIntegration.current.isLoading}
-		onclick={action}
+{#snippet integrateUpstreamAction()}
+	<form
+		class="uppstream-integration-actions"
+		onsubmit={() => {
+			integrate($integrationMode);
+		}}
 	>
-		{label}
-	</Button>
+		<div class="uppstream-integration-actions__radio-container">
+			<label class="integration-radio-option" class:selected={$integrationMode === 'rebase'}>
+				<div class="integration-radio-content">
+					<h4 class="text-12 text-semibold">Rebase upstream changes</h4>
+					<p class="text-11 text-body clr-text-2">
+						Move your commits on top of upstream changes. Creates clean, linear history.
+					</p>
+				</div>
+				<RadioButton
+					class="integration-radio-option__radio"
+					name="integrationMode"
+					value="rebase"
+					checked={$integrationMode === 'rebase'}
+					onchange={() => integrationMode.set('rebase')}
+				/>
+			</label>
+			<label class="integration-radio-option" class:selected={$integrationMode === 'interactive'}>
+				<div class="integration-radio-content">
+					<h4 class="text-12 text-semibold">Interactive integration</h4>
+					<p class="text-11 text-body clr-text-2">
+						Review and resolve any conflicts before completing the integration.
+					</p>
+				</div>
+				<RadioButton
+					class="integration-radio-option__radio"
+					name="integrationMode"
+					value="interactive"
+					checked={$integrationMode === 'interactive'}
+					onchange={() => integrationMode.set('interactive')}
+				/>
+			</label>
+		</div>
+
+		<Button
+			type="submit"
+			style="warning"
+			disabled={integrating.current.isLoading}
+			testId={TestId.UpstreamCommitsIntegrateButton}
+		>
+			{getLabelForIntegrationMode($integrationMode)}
+		</Button>
+	</form>
 {/snippet}
 
 {#snippet commitReorderDz(dropzone: ReorderCommitDzHandler)}
@@ -253,49 +278,39 @@
 				}}
 			>
 				{#if hasRemoteCommits}
-					<CommitsAccordion
-						testId={TestId.UpstreamCommitsAccordion}
-						count={Math.min(upstreamOnlyCommits.length, 3)}
-						isLast={!hasCommits}
-						type="upstream"
-						displayHeader={upstreamOnlyCommits.length > 1}
-					>
-						{#snippet title()}
-							<span class="text-13 text-body text-semibold">Upstream commits</span>
+					{#each upstreamOnlyCommits as commit, i (commit.id)}
+						{@const first = i === 0}
+						{@const lastCommit = i === upstreamOnlyCommits.length - 1}
+						{@const selected = commit.id === selectedCommitId && branchName === selectedBranchName}
+						{@const commitId = commit.id}
+						{#if !isCommitting}
+							<CommitRow
+								type="Remote"
+								{stackId}
+								{commitId}
+								commitMessage={commit.message}
+								createdAt={commit.createdAt}
+								tooltip="Upstream"
+								{branchName}
+								{first}
+								{lastCommit}
+								{selected}
+								{active}
+								onclick={() => handleCommitClick(commit.id, true)}
+								disableCommitActions={false}
+							/>
+						{/if}
+					{/each}
+
+					<CommitAction type="Remote" isLast={!hasCommits} kind="warning">
+						{#snippet action()}
+							<h3 class="text-13 text-semibold m-bottom-4">Upstream has new commits</h3>
+							<p class="text-12 text-body clr-text-2 m-bottom-14">
+								Update your branch to stay current.
+							</p>
+							{@render integrateUpstreamAction()}
 						{/snippet}
-
-						{#each upstreamOnlyCommits as commit, i (commit.id)}
-							{@const first = i === 0}
-							{@const lastCommit = i === upstreamOnlyCommits.length - 1}
-							{@const selected =
-								commit.id === selectedCommitId && branchName === selectedBranchName}
-							{@const commitId = commit.id}
-							{#if !isCommitting}
-								<CommitRow
-									type="Remote"
-									{stackId}
-									{commitId}
-									commitMessage={commit.message}
-									createdAt={commit.createdAt}
-									tooltip="Upstream"
-									{branchName}
-									{first}
-									{lastCommit}
-									{selected}
-									{active}
-									onclick={() => handleCommitClick(commit.id, true)}
-									disableCommitActions={false}
-								/>
-							{/if}
-						{/each}
-
-						<CommitAction type="Remote" isLast={!hasCommits}>
-							{#snippet action()}
-								<!-- TODO: Ability to select other actions would be nice -->
-								{@render integrateUpstreamButton('default')}
-							{/snippet}
-						</CommitAction>
-					</CommitsAccordion>
+					</CommitAction>
 				{/if}
 
 				{#each localAndRemoteCommits as commit, i (commit.id)}
@@ -473,4 +488,104 @@
 		flex-direction: column;
 		border-top: 1px solid var(--clr-border-2);
 	}
+
+	.uppstream-integration-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+
+	.uppstream-integration-actions__radio-container {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.integration-radio-option {
+		display: flex;
+		z-index: 0;
+		position: relative;
+		padding: 14px;
+		gap: 20px;
+		border: 1px solid var(--clr-border-2);
+		background: var(--clr-bg-1);
+		cursor: pointer;
+
+		&:not(.selected):hover {
+			background: var(--clr-bg-1-muted);
+		}
+
+		&:first-child {
+			border-top-right-radius: var(--radius-m);
+			border-top-left-radius: var(--radius-m);
+		}
+		&:last-child {
+			margin-top: -1px;
+			border-bottom-right-radius: var(--radius-m);
+			border-bottom-left-radius: var(--radius-m);
+		}
+
+		&.selected {
+			z-index: 1;
+			border-color: var(--clr-theme-pop-element);
+			background: var(--clr-theme-pop-bg);
+		}
+	}
+
+	:global(.integration-radio-option__radio) {
+		flex-shrink: 0;
+	}
+
+	.integration-radio-content {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	/* .integration-radio-option {
+		display: flex;
+		align-items: flex-start;
+		margin-bottom: 0;
+		padding: 12px 16px;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+	.integration-radio-option input[type='radio'] {
+		width: 18px;
+		height: 18px;
+		margin-top: 2px;
+		margin-right: 12px;
+		accent-color: var(--clr-accent-1, #009688);
+	}
+	.integration-radio-content {
+		display: flex;
+		flex-direction: column;
+	}
+	.integration-radio-title {
+		margin-bottom: 2px;
+		color: var(--clr-text-1);
+		font-weight: 600;
+		font-size: 15px;
+	}
+	.integration-radio-caption {
+		color: var(--clr-text-2);
+		font-size: 13px;
+	}
+	.integration-rebase-btn {
+		width: 100%;
+		margin-top: 8px;
+		padding: 12px 0;
+		border: none;
+		border-radius: 8px;
+		background: #e6a23c;
+		color: #fff;
+		font-weight: 600;
+		font-size: 16px;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+	.integration-rebase-btn:disabled {
+		cursor: not-allowed;
+		opacity: 0.7;
+	} */
 </style>

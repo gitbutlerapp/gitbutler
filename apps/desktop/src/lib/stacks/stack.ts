@@ -284,3 +284,27 @@ export type CreateRefRequest = {
 	newName: string;
 	anchor: CreateRefAnchor;
 };
+
+export type InteractiveIntegrationStep =
+	| {
+			type: 'skip';
+			subject: {
+				id: string;
+				commitId: string;
+			};
+	  }
+	| {
+			type: 'pick';
+			subject: {
+				id: string;
+				commitId: string;
+			};
+	  }
+	| {
+			type: 'squash';
+			subject: {
+				id: string;
+				commits: string[];
+				message: string | null;
+			};
+	  };

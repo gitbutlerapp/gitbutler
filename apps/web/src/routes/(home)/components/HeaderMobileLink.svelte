@@ -48,13 +48,13 @@
 			xmlns="http://www.w3.org/2000/svg"
 		>
 			<path
-				class="dropdown-icon__arrow-top"
+				class="dropdown-icon__arrow-up"
 				d="M10.5156 10L6.01562 14L1.51562 10"
 				stroke="black"
 				stroke-width="1.5"
 			/>
 			<path
-				class="dropdown-icon__arrow-bottom"
+				class="dropdown-icon__arrow-down"
 				d="M10.5156 6L6.01563 2L1.51562 6"
 				stroke="black"
 				stroke-width="1.5"

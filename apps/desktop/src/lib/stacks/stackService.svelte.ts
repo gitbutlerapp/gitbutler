@@ -29,11 +29,17 @@ import {
 } from '@reduxjs/toolkit';
 import type { StackOrder } from '$lib/branches/branch';
 import type { Commit, CommitDetails, UpstreamCommit } from '$lib/branches/v3';
-import type { CommitKey, MoveCommitIllegalAction } from '$lib/commits/commit';
+import type { MoveCommitIllegalAction } from '$lib/commits/commit';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges, TreeStats } from '$lib/hunks/change';
 import type { DiffSpec } from '$lib/hunks/hunk';
-import type { BranchDetails, Stack, StackDetails, CreateRefRequest } from '$lib/stacks/stack';
+import type {
+	BranchDetails,
+	Stack,
+	StackDetails,
+	CreateRefRequest,
+	InteractiveIntegrationStep
+} from '$lib/stacks/stack';
 import type { ReduxError } from '$lib/state/reduxError';
 
 type BranchParams = {
@@ -101,7 +107,7 @@ on fetching and pushing for ways to resolve the problem.
 	}
 }
 
-export type SeriesIntegrationStrategy = 'merge' | 'rebase' | 'hardreset';
+export type SeriesIntegrationStrategy = 'merge' | 'rebase';
 
 export interface BranchPushResult {
 	/**
@@ -372,12 +378,30 @@ export class StackService {
 		);
 	}
 
-	commitById(projectId: string, commitKey: CommitKey) {
-		const { stackId, commitId } = commitKey;
+	commitById(projectId: string, stackId: string | undefined, commitId: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
-				transform: ({ commits }) => commitSelectors.selectById(commits, commitId)
+				transform: ({ commits, upstreamCommits }) =>
+					commitSelectors.selectById(commits, commitId) ??
+					upstreamCommitSelectors.selectById(upstreamCommits, commitId)
+			}
+		);
+	}
+
+	commitsByIds(projectId: string, stackId: string | undefined, commitIds: string[]) {
+		return this.api.endpoints.stackDetails.useQuery(
+			{ projectId, stackId },
+			{
+				transform: ({ commits, upstreamCommits }) => {
+					const commitDetails = commitIds.map((id) => {
+						return (
+							commitSelectors.selectById(commits, id) ??
+							upstreamCommitSelectors.selectById(upstreamCommits, id)
+						);
+					});
+					return commitDetails.filter(isDefined);
+				}
 			}
 		);
 	}
@@ -386,7 +410,26 @@ export class StackService {
 		return this.api.endpoints.stackDetails.fetch(
 			{ projectId, stackId },
 			{
-				transform: ({ commits }) => commitSelectors.selectById(commits, commitId)
+				transform: ({ commits, upstreamCommits }) =>
+					commitSelectors.selectById(commits, commitId) ??
+					upstreamCommitSelectors.selectById(upstreamCommits, commitId)
+			}
+		);
+	}
+
+	fetchCommitsByIds(projectId: string, stackId: string, commitIds: string[]) {
+		return this.api.endpoints.stackDetails.fetch(
+			{ projectId, stackId },
+			{
+				transform: ({ commits, upstreamCommits }) => {
+					const commitDetails = commitIds.map((id) => {
+						return (
+							commitSelectors.selectById(commits, id) ??
+							upstreamCommitSelectors.selectById(upstreamCommits, id)
+						);
+					});
+					return commitDetails.filter(isDefined);
+				}
 			}
 		);
 	}
@@ -408,17 +451,6 @@ export class StackService {
 				transform: ({ branchDetails }) =>
 					branchDetailsSelectors.selectById(branchDetails, branchName)?.upstreamCommits[index] ??
 					null
-			}
-		);
-	}
-
-	upstreamCommitById(projectId: string, commitKey: CommitKey) {
-		const { stackId, commitId } = commitKey;
-		return this.api.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
-			{
-				transform: ({ upstreamCommits }) =>
-					upstreamCommitSelectors.selectById(upstreamCommits, commitId)
 			}
 		);
 	}
@@ -684,6 +716,18 @@ export class StackService {
 
 	get integrateUpstreamCommits() {
 		return this.api.endpoints.integrateUpstreamCommits.useMutation();
+	}
+
+	initialIntegrationSteps(projectId: string, stackId: string | undefined, branchName: string) {
+		return this.api.endpoints.getInitialIntegrationSteps.useQuery({
+			projectId,
+			stackId,
+			branchName
+		});
+	}
+
+	get integrateBranchWithSteps() {
+		return this.api.endpoints.integrateBranchWithSteps.useMutation();
 	}
 
 	get createVirtualBranchFromBranch() {
@@ -1423,6 +1467,35 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
+				]
+			}),
+			getInitialIntegrationSteps: build.query<
+				InteractiveIntegrationStep[],
+				{ projectId: string; stackId: string | undefined; branchName: string }
+			>({
+				extraOptions: { command: 'get_initial_integration_steps_for_branch' },
+				query: (args) => args,
+				providesTags: (_result, _error, { stackId, branchName }) =>
+					providesItem(ReduxTag.IntegrationSteps, (stackId ?? '--no stack ID--') + branchName)
+			}),
+			integrateBranchWithSteps: build.mutation<
+				void,
+				{
+					projectId: string;
+					stackId: string;
+					branchName: string;
+					steps: InteractiveIntegrationStep[];
+				}
+			>({
+				extraOptions: {
+					command: 'integrate_branch_with_steps',
+					actionName: 'Integrate Branch with Steps'
+				},
+				query: (args) => args,
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.IntegrationSteps, args.stackId + args.branchName),
+					invalidatesItem(ReduxTag.StackDetails, args.stackId),
+					invalidatesItem(ReduxTag.BranchDetails, args.branchName)
 				]
 			}),
 			createVirtualBranchFromBranch: build.mutation<

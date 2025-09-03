@@ -174,6 +174,43 @@ pub fn integrate_upstream_commits(
     )
 }
 
+pub fn get_initial_integration_steps_for_branch(
+    ctx: &CommandContext,
+    stack_id: Option<StackId>,
+    branch_name: String,
+) -> Result<Vec<branch_upstream_integration::InteractiveIntegrationStep>> {
+    ensure_open_workspace_mode(ctx)
+        .context("Getting initial integration steps requires open workspace mode")?;
+    branch_upstream_integration::get_initial_integration_steps_for_branch(
+        ctx,
+        stack_id,
+        branch_name,
+    )
+}
+
+pub fn integrate_branch_with_steps(
+    ctx: &CommandContext,
+    stack_id: StackId,
+    branch_name: String,
+    steps: Vec<branch_upstream_integration::InteractiveIntegrationStep>,
+) -> Result<()> {
+    let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    ensure_open_workspace_mode(ctx)
+        .context("Integrating a branch with steps requires open workspace mode")?;
+    let _ = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::MergeUpstream),
+        guard.write_permission(),
+    );
+    branch_upstream_integration::integrate_branch_with_steps(
+        ctx,
+        stack_id,
+        branch_name,
+        steps,
+        guard.write_permission(),
+    )
+}
+
 pub fn update_virtual_branch(
     ctx: &CommandContext,
     branch_update: BranchUpdateRequest,

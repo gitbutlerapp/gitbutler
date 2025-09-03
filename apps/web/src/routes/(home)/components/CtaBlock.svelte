@@ -162,8 +162,8 @@
 					fill="none"
 					xmlns="http://www.w3.org/2000/svg"
 				>
-					<path class="arrow-top" d="M16 13L10 17L4 13" stroke="black" stroke-width="1.5" />
-					<path class="arrow-bottom" d="M16 7L10 3L4 7" stroke="black" stroke-width="1.5" />
+					<path class="arrow-up" d="M16 13L10 17L4 13" stroke="black" stroke-width="1.5" />
+					<path class="arrow-down" d="M16 7L10 3L4 7" stroke="black" stroke-width="1.5" />
 				</svg>
 			</div>
 		</div>
@@ -309,8 +309,8 @@
 		}
 	}
 
-	.arrow-top,
-	.arrow-bottom {
+	.arrow-up,
+	.arrow-down {
 		transition: transform 0.1s ease-in-out;
 	}
 
@@ -332,11 +332,11 @@
 		}
 
 		&:hover {
-			.arrow-top {
+			.arrow-up {
 				transform: translateY(-1px);
 			}
 
-			.arrow-bottom {
+			.arrow-down {
 				transform: translateY(1px);
 			}
 		}
