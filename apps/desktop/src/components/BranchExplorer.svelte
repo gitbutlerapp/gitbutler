@@ -4,8 +4,11 @@
 	import BranchesListGroup from '$components/branchesPage/BranchesListGroup.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import {
+		BRANCH_FILTER_OPTIONS,
 		combineBranchesAndPrs,
 		groupBranches,
+		isBranchFilterOption,
+		type BranchFilterOption,
 		type SidebarEntrySubject
 	} from '$lib/branches/branchListing';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
@@ -18,16 +21,16 @@
 	import { Badge, Button, EmptyStatePlaceholder, Segment, SegmentControl } from '@gitbutler/ui';
 
 	import Fuse from 'fuse.js';
+	import type { ForgeUser } from '$lib/forge/interface/types';
 	import type { Snippet } from 'svelte';
-
-	export type SelectedOption = 'all' | 'pullRequest' | 'local';
 
 	type Props = {
 		projectId: string;
-		selectedOption: SelectedOption;
+		forgeUser: ForgeUser | undefined;
+		selectedOption: BranchFilterOption;
 		sidebarEntry: Snippet<[SidebarEntrySubject]>;
 	};
-	let { projectId, selectedOption = $bindable(), sidebarEntry }: Props = $props();
+	let { projectId, forgeUser, selectedOption = $bindable(), sidebarEntry }: Props = $props();
 
 	const searchEngine = new Fuse([] as SidebarEntrySubject[], {
 		keys: [
@@ -75,7 +78,7 @@
 		combineBranchesAndPrs(prs.current, branchesResult.current.data || [], selectedOption)
 	);
 
-	const groupedBranches = $derived(groupBranches(combined));
+	const groupedBranches = $derived(groupBranches(combined, forgeUser));
 	const searchedBranches = $derived.by(() => {
 		if (searchTerm.length >= 2 && combined.length > 0) {
 			searchEngine.setCollection(combined);
@@ -110,7 +113,7 @@
 		}
 	}
 
-	const filterOptions = $derived.by(() => {
+	const filterOptions = $derived.by<Partial<Record<BranchFilterOption, string>>>(() => {
 		if (forge.current.listService) {
 			return {
 				all: 'All',
@@ -126,14 +129,14 @@
 	});
 
 	const selectedFilterIndex = $derived.by(() => {
-		const index = Object.keys(filterOptions).findIndex((item) => selectedOption === item);
+		const index = BRANCH_FILTER_OPTIONS.findIndex((item) => selectedOption === item);
 		if (index === -1) return 0;
 		return index;
 	});
 
 	function setFilter(id: string) {
-		if (Object.keys(filterOptions).includes(id)) {
-			selectedOption = id as SelectedOption;
+		if (isBranchFilterOption(id)) {
+			selectedOption = id;
 		}
 	}
 
@@ -199,6 +202,15 @@
 						</div>
 					{:else}
 						{@render branchGroup({ title: 'Applied', children: groupedBranches.applied })}
+
+						{#if groupedBranches.authored.length > 0}
+							{@render branchGroup({ title: 'Mine', children: groupedBranches.authored })}
+						{/if}
+
+						{#if groupedBranches.review.length > 0}
+							{@render branchGroup({ title: 'Review Requested', children: groupedBranches.review })}
+						{/if}
+
 						{@render branchGroup({ title: 'Today', children: groupedBranches.today })}
 						{@render branchGroup({ title: 'Yesterday', children: groupedBranches.yesterday })}
 						{@render branchGroup({ title: 'Last week', children: groupedBranches.lastWeek })}
