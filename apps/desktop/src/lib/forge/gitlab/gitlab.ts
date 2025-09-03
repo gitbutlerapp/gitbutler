@@ -35,7 +35,11 @@ export class GitLab implements Forge {
 		}
 	) {
 		const { api, client, baseBranch, forkStr, authenticated, repo } = this.params;
-		this.baseUrl = `https://${repo.domain}/${repo.owner}/${repo.name}`;
+		// Use the protocol from repo if available, otherwise default to https
+		const protocol = repo.protocol?.endsWith(':')
+			? repo.protocol.slice(0, -1)
+			: repo.protocol || 'https';
+		this.baseUrl = `${protocol}://${repo.domain}/${repo.owner}/${repo.name}`;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
 		this.authenticated = authenticated;
