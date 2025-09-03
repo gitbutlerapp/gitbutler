@@ -229,7 +229,7 @@
 						<div class="review-main__title">
 							{#if headerIsStuck}
 								<div class="scroll-to-top">
-									<Button kind="outline" icon="arrow-top" onclick={scrollToTop} />
+									<Button kind="outline" icon="arrow-up" onclick={scrollToTop} />
 								</div>
 							{/if}
 							<div class="review-main__title-wrapper">

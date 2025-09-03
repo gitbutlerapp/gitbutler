@@ -263,7 +263,7 @@
 					<div class="feed__input-commands">
 						<Button
 							style="pop"
-							icon="arrow-top"
+							icon="arrow-up"
 							onclick={sendCommand}
 							loading={botting.current.isLoading}
 						></Button>
