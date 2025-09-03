@@ -14,64 +14,15 @@ import { get, writable } from 'svelte/store';
 export const FOCUS_MANAGER: InjectionToken<FocusManager> = new InjectionToken('FocusManager');
 
 export enum DefinedFocusable {
-	MainViewport = 'viewport',
-	ViewportLeft = 'viewport-left',
-	ViewportRight = 'viewport-right',
-	ViewportDrawerRight = 'viewport-drawer-right',
-	ViewportMiddle = 'viewport-middle',
-	UncommittedChanges = 'uncommitted-changes',
-	Drawer = 'drawer',
-	Branches = 'branches',
-	Branch = 'branch',
-	Stack = 'stack',
-	Preview = 'preview',
-	ChangedFiles = 'changed-files',
 	Commit = 'commit',
 	CommitList = 'commit-list',
 	FileItem = 'file-item',
-	FileList = 'file-list',
-	ChromeSidebar = 'chrome-sidebar',
-	ChromeHeader = 'chrome-header',
-	Chrome = 'chrome',
-	Rules = 'rules'
+	FileList = 'file-list'
 }
 
 export type Payload = Record<string, unknown>;
 
 type NavigationAction = 'tab' | 'prev' | 'next' | 'exit' | 'enter';
-
-// Common payload types for type safety
-export interface StackPayload {
-	stackId: string;
-	branchName?: string;
-	isActive?: boolean;
-}
-
-export interface ItemPayload {
-	itemId: string;
-	index: number;
-	data?: any;
-}
-
-export interface FilePayload {
-	filePath: string;
-	isModified?: boolean;
-	lineCount?: number;
-}
-
-export interface BranchPayload {
-	branchName: string;
-	stackId?: string;
-	isActive?: boolean;
-	commitId?: string;
-}
-
-export interface CommitPayload {
-	commitId: string;
-	stackId?: string;
-	branchName?: string;
-	message?: string;
-}
 
 export interface FocusContext<T extends Payload> {
 	element: HTMLElement;
@@ -86,17 +37,28 @@ export type KeyboardHandler<T extends Payload> = (
 ) => boolean | void;
 
 export interface FocusableOptions<T extends Payload = Payload> {
+	// Identifier for this focusable element, used by custom navigation code
 	id?: DefinedFocusable;
-	tabIndex?: number; // Custom tab order within siblings
-	disabled?: boolean; // Skip this element during navigation
+	// Custom tab order within siblings (overrides default DOM order)
+	tabIndex?: number;
+	// Keep focusable inactive and outside navigation hierarchy
+	disabled?: boolean;
+	// Custom data attached to this focusable element, passed to event handlers
 	payload?: T;
-	skip?: boolean;
+	// Treat children as a list (changes arrow key behavior)
 	list?: boolean;
+	// Prevent keyboard navigation from leaving this element
 	trap?: boolean;
+	// Automatically focus this element when registered
 	activate?: boolean;
+	// Don't establish parent-child relationships with other focusables
+	isolate?: boolean;
 
+	// Custom keyboard event handler, can prevent default navigation
 	onKeydown?: KeyboardHandler<T>;
+	// Called when this element becomes the active focus
 	onFocus?: (context: FocusContext<T>) => void;
+	// Called when this element loses focus to another element
 	onBlur?: (context: FocusContext<T>) => void;
 }
 
@@ -124,20 +86,51 @@ export class FocusManager {
 	// Current focused element (physical)
 	private _currentElement: HTMLElement | undefined;
 
+	// Previously focused elements (most recent first, limited to 10 items).
+	private _previousElements: HTMLElement[] = [];
+
 	readonly cursor = writable<HTMLElement | undefined>();
 	readonly outline = writable(false);
 
 	private handleMouse = this.handleClick.bind(this);
 	private handleKeys = this.handleKeydown.bind(this);
-	private handleFocus = this.handleFocusIn.bind(this);
 
 	constructor() {}
+
+	private addToPreviousElements(element: HTMLElement) {
+		// Remove element if it already exists in the array
+		const existingIndex = this._previousElements.indexOf(element);
+		if (existingIndex !== -1) {
+			this._previousElements.splice(existingIndex, 1);
+		}
+
+		// Add to front
+		this._previousElements.unshift(element);
+
+		// Limit to 10 items
+		if (this._previousElements.length > 10) {
+			this._previousElements.length = 10;
+		}
+	}
+
+	private getNextValidPreviousElement(): HTMLElement | undefined {
+		// Find the first connected element in the history
+		for (let i = 0; i < this._previousElements.length; i++) {
+			const element = this._previousElements[i];
+			if (element.isConnected) {
+				return element;
+			}
+		}
+
+		// Clean up disconnected elements
+		this._previousElements = this._previousElements.filter((el) => el.isConnected);
+		return undefined;
+	}
 
 	listen() {
 		return mergeUnlisten(
 			on(document, 'click', this.handleMouse, { capture: true }),
-			on(document, 'keydown', this.handleKeys),
-			on(document, 'focusin', this.handleFocus)
+			on(document, 'keydown', this.handleKeys)
 		);
 	}
 
@@ -179,7 +172,7 @@ export class FocusManager {
 		const { id: logicalId } = options;
 		this.unregisterElement(element);
 
-		const parentElement = this.findParent(element);
+		const parentElement = options.isolate ? undefined : this.findParent(element);
 		const parentMeta = parentElement ? this.getMetadata(parentElement) : undefined;
 
 		const metadata: FocusableData = {
@@ -220,7 +213,7 @@ export class FocusManager {
 			(p) => !this.getMetadataOrThrow(p).parentElement
 		);
 
-		if (!parentMeta) {
+		if (!parentMeta && !options.isolate) {
 			this.pendingRelationships.push(element);
 		}
 
@@ -277,23 +270,34 @@ export class FocusManager {
 		}
 	}
 
-	unregister(logicalId?: DefinedFocusable, element?: HTMLElement) {
+	unregister(element: HTMLElement) {
 		if (element) {
-			// Unregister specific element
 			this.unregisterElement(element);
 		}
 
 		// Remove pending relationships
 		this.pendingRelationships = this.pendingRelationships.filter((p) => p !== element);
 
+		// Remove from history array
+		const historyIndex = this._previousElements.indexOf(element);
+		if (historyIndex !== -1) {
+			this._previousElements.splice(historyIndex, 1);
+		}
+
 		// Clear current if it matches
-		if (this._currentElement) {
-			const currentMeta = this.getMetadata(this._currentElement);
-			if (!currentMeta || (element && this._currentElement === element)) {
+		if (this._currentElement === element) {
+			const nextElement = this.getNextValidPreviousElement();
+			if (nextElement) {
+				this._currentElement = nextElement;
+				// Remove the selected element from history since it's now current
+				const index = this._previousElements.indexOf(nextElement);
+				if (index !== -1) {
+					this._previousElements.splice(index, 1);
+				}
+			} else {
 				this._currentElement = undefined;
-				// Hide cursor when current element is unregistered
-				this.cursor.set(undefined);
 			}
+			this.cursor.set(this._currentElement);
 		}
 	}
 
@@ -307,6 +311,10 @@ export class FocusManager {
 				previousMeta.options.onBlur(this.createContext(previousElement, previousMeta));
 			}
 
+			// Add current element to history before changing
+			if (this._currentElement) {
+				this.addToPreviousElements(this._currentElement);
+			}
 			this._currentElement = element;
 
 			if (newMeta.options.onFocus) {
@@ -399,32 +407,23 @@ export class FocusManager {
 	}
 
 	focusParent() {
-		let element = this.getCurrentMetadata()?.parentElement;
+		const element = this.getCurrentMetadata()?.parentElement;
 		if (element) {
-			let parentData = this.getMetadata(element);
-			while (parentData?.options.skip) {
-				element = parentData.parentElement;
-				parentData = element ? this.getMetadata(element) : undefined;
-			}
-			if (element) {
-				this.activateAndFocus(element);
-			}
+			this.activateAndFocus(element);
 		}
 	}
 
 	focusFirstChild(): boolean {
 		const metadata = this.getCurrentMetadata();
-		let firstChild = metadata?.children.at(0);
-		let childData = firstChild ? this.getMetadataOrThrow(firstChild) : undefined;
-
-		while (childData?.options.skip) {
-			firstChild = childData.children.at(0);
-			childData = firstChild ? this.getMetadataOrThrow(firstChild) : undefined;
-		}
+		const firstChild = metadata?.children.at(0);
 		return firstChild ? this.activateAndFocus(firstChild) : false;
 	}
 
-	handleClick(e: Event) {
+	handleClick(e: MouseEvent) {
+		// Ignore keyboard initiated clicks.
+		if (e.detail === 0) {
+			return;
+		}
 		if (e.target instanceof HTMLElement) {
 			let pointer: HTMLElement | null = e.target;
 			while (pointer) {
@@ -439,10 +438,6 @@ export class FocusManager {
 	}
 
 	handleKeydown(event: KeyboardEvent) {
-		if (this.ignoreKeys()) {
-			return;
-		}
-
 		const metadata = this.getCurrentMetadata();
 		if (!metadata) return;
 
@@ -469,16 +464,6 @@ export class FocusManager {
 			this._currentElement &&
 			!this._currentElement.contains(document.activeElement)
 		);
-	}
-
-	handleFocusIn(event: FocusEvent) {
-		const target = event.target;
-		if (target instanceof HTMLElement) {
-			const parentElement = this.findParent(target);
-			if (parentElement && parentElement !== this._currentElement) {
-				this.outline.set(true);
-			}
-		}
 	}
 
 	private tryCustomHandlers(event: KeyboardEvent, metadata: FocusableData): boolean {
