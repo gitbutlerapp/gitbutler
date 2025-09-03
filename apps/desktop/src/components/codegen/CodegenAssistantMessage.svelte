@@ -47,11 +47,12 @@
 		display: flex;
 		flex-direction: column;
 		width: fit-content;
+		max-width: 100%;
 		padding: 10px 14px;
+		overflow: hidden;
 		gap: 16px;
 		border: 1px solid var(--clr-border-3);
 		border-radius: var(--radius-ml);
-		/* background-color: var(--clr-bg-2); */
 		text-wrap: wrap;
 	}
 </style>
