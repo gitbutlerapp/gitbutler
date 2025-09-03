@@ -78,3 +78,21 @@ export function parseError(error: unknown): ParsedError {
 
 	return { message: JSON.stringify(error, null, 2) };
 }
+
+const CommonErrorMessageStart: Record<string, string> = {
+	'Although you appear to have the correct authorization credentials,':
+		'GitHub Organizations OAuth Error'
+};
+/**
+ * Returns an unified title for common error messages.
+ *
+ * This is used mainly to group errors unders a readable title and be able to graph them into the same group.
+ */
+export function getTitleFromCommonErrorMessage(errorMessage: string): string | undefined {
+	for (const [start, title] of Object.entries(CommonErrorMessageStart)) {
+		if (errorMessage.startsWith(start)) {
+			return title;
+		}
+	}
+	return undefined;
+}
