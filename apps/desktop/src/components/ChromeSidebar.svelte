@@ -30,7 +30,6 @@
 		Icon,
 		TestId
 	} from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	import { slide } from 'svelte/transition';
 
@@ -47,7 +46,7 @@
 	const userSettings = inject(SETTINGS);
 </script>
 
-<div class="sidebar" use:focusable>
+<div class="sidebar">
 	<div class="top">
 		<div>
 			{#if isWorkspacePath()}

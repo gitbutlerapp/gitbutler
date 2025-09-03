@@ -34,7 +34,7 @@ export function focusable(
 	function unregister() {
 		if (!isRegistered || !focusManager) return;
 
-		focusManager.unregister(currentOptions.id, element);
+		focusManager.unregister(element);
 		isRegistered = false;
 	}
 
