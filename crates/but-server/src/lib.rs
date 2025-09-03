@@ -285,6 +285,11 @@ async fn handle_command(
             request.params,
             virtual_branches::integrate_upstream_commits,
         ),
+        "get_initial_integration_steps_for_branch" => run_cmd(
+            &app,
+            request.params,
+            virtual_branches::get_initial_integration_steps_for_branch,
+        ),
         "get_base_branch_data" => {
             run_cmd(&app, request.params, virtual_branches::get_base_branch_data)
         }

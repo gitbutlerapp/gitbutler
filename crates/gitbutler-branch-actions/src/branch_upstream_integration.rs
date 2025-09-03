@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, Result};
+use but_graph::VirtualBranchesTomlMetadata;
 use but_rebase::{RebaseOutput, RebaseStep};
 use but_workspace::stack_ext::StackExt;
 use gitbutler_command_context::CommandContext;
@@ -14,14 +15,83 @@ use gitbutler_repo::{
 };
 use gitbutler_stack::StackId;
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
-use gix::refs::FullName;
+use gix::{refs::FullName, ObjectId};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{
     upstream_integration::{as_buckets, flatten_buckets},
     VirtualBranchesExt as _,
 };
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type", content = "subject", rename_all = "camelCase")]
+pub enum InteractiveIntegrationStep {
+    Skip {
+        id: Uuid,
+        #[serde(with = "gitbutler_serde::object_id", rename = "commitId")]
+        commit_id: ObjectId,
+    },
+    Pick {
+        id: Uuid,
+        #[serde(with = "gitbutler_serde::object_id", rename = "commitId")]
+        commit_id: ObjectId,
+    },
+    Squash {
+        id: Uuid,
+        #[serde(with = "gitbutler_serde::object_id", rename = "commitA")]
+        commit_a: ObjectId,
+        #[serde(with = "gitbutler_serde::object_id", rename = "commitB")]
+        commit_b: ObjectId,
+    },
+}
+
+/// Get the initial integration steps for a branch.
+///
+/// This basically just lists the upstream and local commits in the display order (child to parent) and creates a `Pick` step for each.
+/// The user can then modify this in the UI.
+pub fn get_initial_integration_steps_for_branch(
+    ctx: &CommandContext,
+    stack_id: Option<StackId>,
+    branch_name: String,
+) -> Result<Vec<InteractiveIntegrationStep>> {
+    let repo = ctx.gix_repo()?;
+    let project = ctx.project();
+    let meta =
+        VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
+    let stack_details = but_workspace::stack_details_v3(stack_id, &repo, &meta)?;
+
+    let branch_details = stack_details
+        .branch_details
+        .into_iter()
+        .find(|b| b.name == branch_name)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "Series '{}' not found in stack '{:?}'",
+                branch_name,
+                stack_id
+            )
+        })?;
+
+    let mut initial_steps = vec![];
+
+    for upstream_commit in branch_details.upstream_commits {
+        initial_steps.push(InteractiveIntegrationStep::Pick {
+            id: Uuid::new_v4(),
+            commit_id: upstream_commit.id,
+        });
+    }
+
+    for commit in branch_details.commits {
+        initial_steps.push(InteractiveIntegrationStep::Pick {
+            id: Uuid::new_v4(),
+            commit_id: commit.id,
+        });
+    }
+
+    Ok(initial_steps)
+}
 
 pub fn integrate_upstream_commits_for_series(
     ctx: &CommandContext,

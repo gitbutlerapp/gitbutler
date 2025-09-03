@@ -98,6 +98,27 @@ pub fn integrate_upstream_commits(
 
 #[tauri::command(async)]
 #[instrument(skip(app), err(Debug))]
+pub fn get_initial_integration_steps_for_branch(
+    app: State<App>,
+    project_id: ProjectId,
+    stack_id: Option<StackId>,
+    branch_name: String,
+) -> Result<
+    Vec<gitbutler_branch_actions::branch_upstream_integration::InteractiveIntegrationStep>,
+    Error,
+> {
+    virtual_branches::get_initial_integration_steps_for_branch(
+        &app,
+        virtual_branches::GetInitialIntegrationStepsForBranchParams {
+            project_id,
+            stack_id,
+            branch_name,
+        },
+    )
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
 pub fn get_base_branch_data(
     app: State<App>,
     project_id: ProjectId,

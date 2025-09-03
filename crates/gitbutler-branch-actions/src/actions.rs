@@ -174,6 +174,20 @@ pub fn integrate_upstream_commits(
     )
 }
 
+pub fn get_initial_integration_steps_for_branch(
+    ctx: &CommandContext,
+    stack_id: Option<StackId>,
+    branch_name: String,
+) -> Result<Vec<branch_upstream_integration::InteractiveIntegrationStep>> {
+    ensure_open_workspace_mode(ctx)
+        .context("Getting initial integration steps requires open workspace mode")?;
+    branch_upstream_integration::get_initial_integration_steps_for_branch(
+        ctx,
+        stack_id,
+        branch_name,
+    )
+}
+
 pub fn update_virtual_branch(
     ctx: &CommandContext,
     branch_update: BranchUpdateRequest,
