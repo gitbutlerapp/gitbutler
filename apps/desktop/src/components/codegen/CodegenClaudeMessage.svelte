@@ -24,6 +24,7 @@
 			{#if message.toolCallsPendingApproval.length > 0}
 				{#each message.toolCallsPendingApproval as toolCall}
 					<CodegenToolCall
+						style="standalone"
 						{toolCall}
 						requiresApproval={{
 							onApproval: async (id) => await onApproval?.(id),
