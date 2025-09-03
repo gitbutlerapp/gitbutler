@@ -12,7 +12,6 @@
 		cost: number;
 		commitCount: number;
 		lastInteractionTime?: Date;
-
 		commits: Snippet;
 		onclick: (e: MouseEvent) => void;
 	};
@@ -107,7 +106,7 @@
 {#snippet vibeIcon()}
 	<div class="vibe-icon {status}">
 		{#if status === 'running'}
-			<Icon name="running-man" />
+			<Icon name="spinner" />
 		{:else if status === 'completed'}
 			<Icon name="success" />
 		{/if}
@@ -221,13 +220,13 @@
 		display: flex;
 
 		&.enabled {
-			color: var(--clr-theme-pop-element);
+			/* color: var(--clr-theme-pop-element); */
 		}
 		&.running {
-			color: var(--clr-theme-pop-element);
+			/* color: var(--clr-theme-pop-element); */
 		}
 		&.completed {
-			color: var(--clr-theme-succ-element);
+			/* color: var(--clr-theme-succ-element); */
 		}
 	}
 

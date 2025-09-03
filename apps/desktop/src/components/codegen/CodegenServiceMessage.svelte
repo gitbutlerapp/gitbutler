@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { AgentAvatar } from '@gitbutler/ui';
-	import { fade } from 'svelte/transition';
+	import { ButPcAvatar } from '@gitbutler/ui';
+	import { popIn } from '@gitbutler/ui/utils/transitions';
 
 	type Props = {
 		lastUserMessageSent: Date;
@@ -96,12 +96,12 @@
 
 <div class="service-message__wrapper">
 	<div class="service-message">
-		<AgentAvatar />
-		<div class="service-message__bubble">
+		<ButPcAvatar mode="thinking" />
+		<div class="service-message__bubble" in:popIn>
 			<span class="text-13 text-italic">
 				Claude is
 				{#key currentWord}
-					<span class="animated-word" in:fade={{ duration: 150 }}>{currentWord}</span>
+					<span class="animated-word">{currentWord}</span>
 				{/key}
 				... {currentDuration}
 			</span>

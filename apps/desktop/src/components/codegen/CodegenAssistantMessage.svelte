@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Markdown, AgentAvatar } from '@gitbutler/ui';
+	import { Markdown, ButPcAvatar } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -11,7 +11,7 @@
 </script>
 
 <div class="message-assistant">
-	<AgentAvatar />
+	<ButPcAvatar />
 
 	<div class="text-13 text-body message-content">
 		{#if content}

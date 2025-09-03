@@ -19,7 +19,7 @@
 	import { Snapshot } from '$lib/history/types';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/core/context';
-	import { AgentAvatar, EditorLogo, Markdown, TimeAgo, Tooltip } from '@gitbutler/ui';
+	import { ButPcAvatar, EditorLogo, Markdown, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { Icon, type IconName } from '@gitbutler/ui';
 	type Props = {
 		projectId: string;
@@ -167,7 +167,7 @@
 		{@const iconName = workflowTriggerIcon(action)}
 		{@const tooltip = workflowTriggerTooltip(action)}
 		<div>
-			<AgentAvatar />
+			<ButPcAvatar />
 		</div>
 		<div class="action-item__content">
 			<div class="action-item__content__header">
@@ -194,7 +194,7 @@
 	{:else if isFeedMessage(action)}
 		{#if action.type === 'assistant'}
 			<div>
-				<AgentAvatar />
+				<ButPcAvatar />
 			</div>
 		{:else}
 			<div class="action-item__picture">
@@ -238,7 +238,7 @@
 		</div>
 	{:else if isInProgressAssistantMessage(action)}
 		<div>
-			<AgentAvatar />
+			<ButPcAvatar />
 		</div>
 		<div class="action-item__content">
 			<div class="action-item__content__header">
