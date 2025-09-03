@@ -12,6 +12,7 @@ export enum ReduxTag {
 	 * should not require much invalidation.
 	 */
 	BranchChanges = 'BranchChanges',
+	ForgeUser = 'ForgeUser',
 	PullRequests = 'PullRequests',
 	GitLabPullRequests = 'GitLabPullRequests',
 	Checks = 'Checks',
