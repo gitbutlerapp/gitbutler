@@ -8,9 +8,8 @@
 	import { rejoinParagraphs, truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Avatar, Icon, TestId, Tooltip } from '@gitbutler/ui';
+	import { Avatar, Icon, TestId, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 
 	type Props = {
 		commit: UpstreamCommit | Commit;
@@ -63,7 +62,7 @@
 			srcUrl={getGravatarUrl(commit.author.email, commit.author.gravatarUrl)}
 		/>
 		<span class="divider">•</span>
-		<span>{getTimeAgo(new Date(commit.createdAt))}</span>
+		<TimeAgo date={new Date(commit.createdAt)} />
 		<span class="divider">•</span>
 		<Tooltip text="Copy commit SHA">
 			<button

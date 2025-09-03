@@ -8,9 +8,8 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 
-	import { TestId, Tooltip } from '@gitbutler/ui';
+	import { TestId, TimeAgo } from '@gitbutler/ui';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
-	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { onMount } from 'svelte';
 	import type { Commit } from '$lib/branches/v3';
 
@@ -86,11 +85,9 @@
 
 				<div class="target-branch-header__content-details">
 					<p class="text-12 target-branch-header__caption truncate">Current workspace target</p>
-					<Tooltip text="Last update {new Date(lastUpdate).toLocaleString()}">
-						<p class="text-12 target-branch-header__caption">
-							{getTimeAgo(new Date(lastUpdate))}
-						</p>
-					</Tooltip>
+					<p class="text-12 target-branch-header__caption">
+						<TimeAgo date={new Date(lastUpdate)} />
+					</p>
 				</div>
 			</div>
 		</div>
