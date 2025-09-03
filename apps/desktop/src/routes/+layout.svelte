@@ -19,7 +19,7 @@
 	import { initDependencies } from '$lib/bootstrap/deps';
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, ircServer, codegenEnabled } from '$lib/config/uiFeatureFlags';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import { IRC_CLIENT } from '$lib/irc/ircClient.svelte';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
@@ -140,6 +140,10 @@
 			(window as any).tauriEnv = env;
 			// eslint-disable-next-line no-console
 			console.log('Also written to window.tauriEnv');
+		},
+		// Toggle codegen feature flag
+		'c o d e g e n': () => {
+			$codegenEnabled = !$codegenEnabled;
 		}
 	});
 
