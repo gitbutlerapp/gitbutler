@@ -1,4 +1,4 @@
-import { emitQueryError, SilentError } from '$lib/error/error';
+import { emitQueryError, parseQueryError, SilentError } from '$lib/error/error';
 import { isReduxError, type ReduxError } from '$lib/state/reduxError';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { type Reactive } from '@gitbutler/shared/storeUtils';
@@ -55,12 +55,17 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 
 	function track(args: { failure: boolean; startTime: number; error?: unknown }) {
 		const durationMs = Date.now() - args.startTime;
+		const parsedError = args.error !== undefined ? parseQueryError(args.error) : undefined;
+
 		posthog?.capture(EVENT_NAME, {
 			command,
 			actionName,
 			durationMs,
 			failure: args.failure,
-			error: args.error
+			error: args.error,
+			error_title: parsedError?.name,
+			error_message: parsedError?.message,
+			error_code: parsedError?.code
 		});
 
 		/** TODO: How long do we need to send these duplicates? */
@@ -350,13 +355,17 @@ export function buildMutationHook<
 		error?: unknown;
 	}) {
 		const durationMs = Date.now() - args.startTime;
+		const parsedError = args.error !== undefined ? parseQueryError(args.error) : undefined;
 		posthog?.capture(EVENT_NAME, {
 			...args.properties,
 			command,
 			actionName,
 			durationMs,
 			failure: args.failure,
-			error: args.error
+			error: args.error,
+			error_title: parsedError?.name,
+			error_message: parsedError?.message,
+			error_code: parsedError?.code
 		});
 
 		/** TODO: How long do we need to send these duplicates? */
