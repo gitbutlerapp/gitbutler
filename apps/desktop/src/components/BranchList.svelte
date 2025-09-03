@@ -34,11 +34,10 @@
 		stackId?: string;
 		laneId: string;
 		branches: BranchDetails[];
-		focusedStackId?: string;
 		onselect?: () => void;
 	};
 
-	const { projectId, branches, stackId, laneId, focusedStackId, onselect }: Props = $props();
+	const { projectId, branches, stackId, laneId, onselect }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
@@ -183,7 +182,6 @@
 					{reviewId}
 					{prNumber}
 					dropzones={[stackingReorderDropzoneManager.top(branchName)]}
-					active={focusedStackId === stackId}
 					trackingBranch={branch.remoteTrackingBranch ?? undefined}
 					readonly={!!branch.remoteTrackingBranch}
 					onclick={() => {
@@ -302,7 +300,6 @@
 						<BranchCommitList
 							{firstBranch}
 							{lastBranch}
-							active={focusedStackId === stackId}
 							{projectId}
 							{stackId}
 							{laneId}

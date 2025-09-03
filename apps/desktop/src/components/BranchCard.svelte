@@ -31,7 +31,6 @@
 		lineColor: string;
 		readonly: boolean;
 		first?: boolean;
-		active?: boolean;
 	}
 
 	interface DraftBranchProps extends BranchCardProps {
@@ -105,6 +104,8 @@
 	const selected = $derived(selection?.branchName === branchName);
 	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
 
+	let active = $state(false);
+
 	async function updateBranchName(title: string) {
 		if (args.type === 'draft-branch') {
 			uiState.global.draftBranchName.set(title);
@@ -144,7 +145,9 @@
 					args.onclick();
 				}
 			}
-		}
+		},
+		onFocus: () => (active = true),
+		onBlur: () => (active = false)
 	}}
 >
 	{#if args.type === 'stack-branch'}
@@ -178,7 +181,7 @@
 				{updateBranchName}
 				isUpdatingName={nameUpdate.current.isLoading}
 				failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-				active={selected}
+				{active}
 				{readonly}
 				{isPushed}
 				onclick={args.onclick}
@@ -253,7 +256,7 @@
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-			active={selected}
+			{active}
 			readonly
 			{isPushed}
 			onclick={args.onclick}
@@ -281,7 +284,7 @@
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-			active={selected}
+			{active}
 			readonly
 			isPushed
 		>
@@ -304,7 +307,7 @@
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-			active={selected}
+			{active}
 			readonly={false}
 			isPushed={false}
 		>

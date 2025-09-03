@@ -28,7 +28,6 @@
 		selectionId: SelectionId;
 		selected?: boolean;
 		isHeader?: boolean;
-		active?: boolean;
 		listMode: 'list' | 'tree';
 		linesAdded?: number;
 		linesRemoved?: number;
@@ -55,7 +54,6 @@
 		stackId,
 		selected,
 		isHeader,
-		active,
 		listMode,
 		depth,
 		executable,
@@ -120,20 +118,7 @@
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
 	const draggableDisabled = $derived(!draggable || showCheckbox);
 
-	// This was causing other scrolling problems. I'm really not sure if this
-	// scroll behaviour belongs here.
-	// let timeoutId: any;
-
-	// $effect(() => {
-	// 	if (selected && draggableEl && active) {
-	// 		if (timeoutId) {
-	// 			clearTimeout(timeoutId);
-	// 		}
-	// 		timeoutId = setTimeout(() => {
-	// 			draggableEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-	// 		}, 50);
-	// 	}
-	// });
+	let active = $state(false);
 </script>
 
 <div
@@ -210,7 +195,11 @@
 			{onclick}
 			oncheck={(e) => onCheck(e.currentTarget.checked)}
 			oncontextmenu={onContextMenu}
-			actionOpts={focusableOpts}
+			actionOpts={{
+				...focusableOpts,
+				onFocus: () => (active = true),
+				onBlur: () => (active = false)
+			}}
 		/>
 	{/if}
 </div>
