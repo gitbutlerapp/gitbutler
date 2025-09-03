@@ -43,6 +43,9 @@
 	async function handleKeypress(e: KeyboardEvent) {
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
+
+			if (loading || value.trim().length === 0) return;
+
 			await handleSubmit();
 		}
 	}

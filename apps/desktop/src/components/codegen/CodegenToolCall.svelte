@@ -9,15 +9,16 @@
 	};
 
 	type Props = {
+		style?: 'nested' | 'standalone';
 		toolCall: ToolCall;
 		requiresApproval?: RequiresApproval;
 	};
-	const { toolCall, requiresApproval = undefined }: Props = $props();
+	const { toolCall, style, requiresApproval = undefined }: Props = $props();
 
 	let expanded = $derived(!!requiresApproval);
 </script>
 
-<div class="tool-call">
+<div class="tool-call {style}">
 	<button
 		type="button"
 		class="tool-call-header"
@@ -130,5 +131,20 @@
 
 	.tool-call-content :global(pre) {
 		margin: 0;
+	}
+
+	/* STANDALONE MODE */
+	.tool-call.standalone {
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+
+		.tool-call-header {
+			padding-left: 12px;
+			border-radius: var(--radius-ml) var(--radius-ml) 0 0;
+		}
+
+		.tool-call-header__sublevel {
+			display: none;
+		}
 	}
 </style>

@@ -12,7 +12,6 @@
 		cost: number;
 		commitCount: number;
 		lastInteractionTime?: Date;
-
 		commits: Snippet;
 		onclick: (e: MouseEvent) => void;
 	};
@@ -38,7 +37,7 @@
 			<div class="entry-active-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 		{/if}
 		<div class="sidebar-entry-header-left">
-			<Icon name="branch-remote" opacity={0.5} />
+			<Icon name="branch-remote" />
 			<p class="text-13 text-bold truncate full-width">{branchName}</p>
 			{@render vibeIcon()}
 		</div>
@@ -107,7 +106,7 @@
 {#snippet vibeIcon()}
 	<div class="vibe-icon {status}">
 		{#if status === 'running'}
-			<Icon name="running-man" />
+			<Icon name="spinner" />
 		{:else if status === 'completed'}
 			<Icon name="success" />
 		{/if}
@@ -198,7 +197,7 @@
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
-		padding-left: 22px;
+		padding-left: 2px;
 		gap: 4px;
 		opacity: 0.7;
 	}
@@ -221,13 +220,13 @@
 		display: flex;
 
 		&.enabled {
-			color: var(--clr-theme-pop-element);
+			/* color: var(--clr-theme-pop-element); */
 		}
 		&.running {
-			color: var(--clr-theme-pop-element);
+			/* color: var(--clr-theme-pop-element); */
 		}
 		&.completed {
-			color: var(--clr-theme-succ-element);
+			/* color: var(--clr-theme-succ-element); */
 		}
 	}
 

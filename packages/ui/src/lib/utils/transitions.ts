@@ -13,6 +13,12 @@ export function slideFade(node: Element, options: SlideParams): TransitionConfig
 	};
 }
 
+// Constants moved outside function for better performance
+const DEFAULT_Y = -6;
+const DEFAULT_SCALE_START = 0.94;
+const DEFAULT_DURATION = 200;
+const DEFAULT_POSITION = 'top';
+
 export function flyScale(
 	node: Element,
 	params: {
@@ -23,30 +29,60 @@ export function flyScale(
 		position?: 'top' | 'bottom';
 	} = {}
 ): TransitionConfig {
+	// Pre-calculate static values
 	const nodeStyle = getComputedStyle(node);
 	const transformX = new WebKitCSSMatrix(nodeStyle.transform).m41;
 
-	// Default values
-	const DEFAULT_Y = -6;
-	const DEFAULT_SCALE_START = 0.94;
-	const DEFAULT_DURATION = 200;
-	const DEFAULT_POSITION = 'top';
+	// Use destructuring with defaults for cleaner code
+	const {
+		y = DEFAULT_Y,
+		start: startScale = DEFAULT_SCALE_START,
+		duration = DEFAULT_DURATION,
+		position = DEFAULT_POSITION
+	} = params;
 
-	// Extracting and using default values
-	const y = params.y ?? DEFAULT_Y;
-	const startScale = params.start ?? DEFAULT_SCALE_START;
-	const duration = params.duration ?? DEFAULT_DURATION;
-	const position = params.position ?? DEFAULT_POSITION;
+	// Pre-calculate position multiplier to avoid repeated conditional checks
+	const positionMultiplier = position === 'top' ? -1 : 1;
+	const scaleRange = 1 - startScale;
 
 	return {
 		duration,
 		css: (t) => {
 			const translateY = y * (1 - t);
-			const scale = startScale + t * (1 - startScale);
+			const scale = startScale + t * scaleRange;
+			const translateYRem = pxToRem(positionMultiplier * translateY);
 
-			return `transform: translate3d(${transformX}px, ${pxToRem(position === 'top' ? -translateY : translateY)}rem, 0) scale(${scale});
-			        opacity: ${t};`;
+			return `transform: translate3d(${transformX}px, ${translateYRem}rem, 0) scale(${scale}); opacity: ${t};`;
 		},
 		easing: cubicOut
+	};
+}
+
+export function popIn(
+	node: Element,
+	{
+		delay = 100,
+		duration = 200,
+		transformOrigin = 'left bottom'
+	}: {
+		delay?: number;
+		duration?: number;
+		transformOrigin?: string;
+	} = {}
+) {
+	return {
+		delay,
+		duration,
+		easing: cubicOut,
+		css: (t: number) => {
+			const scale = 0.2 + 0.8 * t;
+			const y = 15 * (1 - t);
+			const rotate = -8 * (1 - t);
+			return `
+					transform-origin: ${transformOrigin};
+					transform: scale(${scale}) translateY(${y}px) rotate(${rotate}deg);
+					opacity: ${t};
+				`;
+		}
 	};
 }

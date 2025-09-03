@@ -127,8 +127,4 @@
 	.separator {
 		color: var(--clr-text-3);
 	}
-
-	.more-indicator {
-		color: var(--clr-text-2);
-	}
 </style>

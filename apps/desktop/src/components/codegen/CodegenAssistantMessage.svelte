@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Markdown, AgentAvatar } from '@gitbutler/ui';
+	import { Markdown, ButPcAvatar } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -11,7 +11,7 @@
 </script>
 
 <div class="message-assistant">
-	<AgentAvatar />
+	<ButPcAvatar />
 
 	<div class="text-13 text-body message-content">
 		{#if content}
@@ -47,11 +47,12 @@
 		display: flex;
 		flex-direction: column;
 		width: fit-content;
+		max-width: 100%;
 		padding: 10px 14px;
+		overflow: hidden;
 		gap: 16px;
 		border: 1px solid var(--clr-border-3);
 		border-radius: var(--radius-ml);
-		/* background-color: var(--clr-bg-2); */
 		text-wrap: wrap;
 	}
 </style>
