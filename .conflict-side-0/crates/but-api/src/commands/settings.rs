@@ -1,0 +1,92 @@
+//! In place of commands.rs
+use but_settings::api::{ClaudeUpdate, FeatureFlagsUpdate, TelemetryUpdate};
+use but_settings::{AppSettings, AppSettingsWithDiskSync};
+use serde::Deserialize;
+
+use crate::NoParams;
+use crate::{App, error::Error};
+
+pub fn get_app_settings(_app: &App, _params: NoParams) -> Result<AppSettings, Error> {
+    let app_settings = AppSettings::load_from_default_path_creating()?;
+    Ok(app_settings)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateOnboardingCompleteParams {
+    pub update: bool,
+}
+
+pub fn update_onboarding_complete(
+    _app: &App,
+    app_settings_sync: &AppSettingsWithDiskSync,
+    params: UpdateOnboardingCompleteParams,
+) -> Result<(), Error> {
+    app_settings_sync
+        .update_onboarding_complete(params.update)
+        .map_err(|e| e.into())
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateTelemetryParams {
+    pub update: TelemetryUpdate,
+}
+
+pub fn update_telemetry(
+    _app: &App,
+    app_settings_sync: &AppSettingsWithDiskSync,
+    params: UpdateTelemetryParams,
+) -> Result<(), Error> {
+    app_settings_sync
+        .update_telemetry(params.update)
+        .map_err(|e| e.into())
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateTelemetryDistinctIdParams {
+    pub app_distinct_id: Option<String>,
+}
+
+pub fn update_telemetry_distinct_id(
+    _app: &App,
+    app_settings_sync: &AppSettingsWithDiskSync,
+    params: UpdateTelemetryDistinctIdParams,
+) -> Result<(), Error> {
+    app_settings_sync
+        .update_telemetry_distinct_id(params.app_distinct_id)
+        .map_err(|e| e.into())
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateFeatureFlagsParams {
+    pub update: FeatureFlagsUpdate,
+}
+
+pub fn update_feature_flags(
+    _app: &App,
+    app_settings_sync: &AppSettingsWithDiskSync,
+    params: UpdateFeatureFlagsParams,
+) -> Result<(), Error> {
+    app_settings_sync
+        .update_feature_flags(params.update)
+        .map_err(|e| e.into())
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateClaudeParams {
+    pub update: ClaudeUpdate,
+}
+
+pub fn update_claude(
+    _app: &App,
+    app_settings_sync: &AppSettingsWithDiskSync,
+    params: UpdateClaudeParams,
+) -> Result<(), Error> {
+    app_settings_sync
+        .update_claude(params.update)
+        .map_err(|e| e.into())
+}
