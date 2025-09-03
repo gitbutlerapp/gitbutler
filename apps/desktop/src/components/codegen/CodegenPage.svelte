@@ -76,7 +76,6 @@
 	const settingsStore = settingsService.appSettings;
 	const [sendClaudeMessage] = claudeCodeService.sendMessage;
 
-	let message = $state('');
 	let claudeExecutable = $derived($settingsStore?.claude.executable || 'claude');
 	let updatingExecutable = $state(false);
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
@@ -103,6 +102,14 @@
 	const selectedBranch = $derived(projectState.selectedClaudeSession.current);
 	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
 	const selectedModel = $derived(projectState.selectedModel.current);
+
+	const prompt = $derived(
+		selectedBranch ? uiState.lane(selectedBranch.stackId).prompt.current : ''
+	);
+	function setPrompt(prompt: string) {
+		if (!selectedBranch) return;
+		uiState.lane(selectedBranch.stackId).prompt.set(prompt);
+	}
 
 	// File list data
 	const branchChanges = $derived(
@@ -150,13 +157,13 @@
 
 	async function sendMessage() {
 		if (!selectedBranch) return;
-		if (!message) return;
+		if (!prompt) return;
 
 		// Await analytics data before sending message
 		const analyticsProperties = await codegenAnalytics.getCodegenProperties({
 			projectId,
 			stackId: selectedBranch.stackId,
-			message,
+			message: prompt,
 			thinkingLevel: selectedThinkingLevel,
 			model: selectedModel
 		});
@@ -165,14 +172,14 @@
 			{
 				projectId,
 				stackId: selectedBranch.stackId,
-				message,
+				message: prompt,
 				thinkingLevel: selectedThinkingLevel,
 				model: selectedModel
 			},
 			{ properties: analyticsProperties }
 		);
 
-		message = '';
+		setPrompt('');
 		await promise;
 	}
 
@@ -231,7 +238,7 @@
 	}
 
 	function insertTemplate(template: string) {
-		message = message + (message ? '\n\n' : '') + template;
+		setPrompt(prompt + (prompt ? '\n\n' : '') + template);
 		templateContextMenu?.close();
 	}
 
@@ -421,7 +428,8 @@
 
 						{#snippet input()}
 							<CodegenInput
-								bind:value={message}
+								value={prompt}
+								onChange={(prompt) => setPrompt(prompt)}
 								loading={currentStatus(events, isStackActive) === 'running'}
 								onsubmit={sendMessage}
 								{onAbort}
