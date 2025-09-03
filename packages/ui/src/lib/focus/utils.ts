@@ -55,6 +55,45 @@ export async function scrollIntoViewIfNeeded(
 }
 
 export function isContentEditable(element: HTMLElement): boolean {
+	if (!(element instanceof HTMLElement)) {
+		return false;
+	}
 	const contentEditableValue = element.contentEditable.toLowerCase();
 	return contentEditableValue === 'true' || contentEditableValue === 'plaintext-only';
+}
+
+/**
+ * Safely removes an element from an array and returns whether it was found
+ */
+export function safeRemoveFromArray<T>(array: T[], item: T): boolean {
+	const index = array.indexOf(item);
+	if (index !== -1) {
+		array.splice(index, 1);
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Adds an element to an array and sorts by DOM order
+ */
+export function addAndSortByDomOrder<T extends Element>(array: T[], item: T): void {
+	addToArray(array, item);
+	sortByDomOrder(array);
+}
+
+/**
+ * Moves an element from one array to another and sorts the destination array
+ */
+export function moveElementBetweenArrays<T extends Element>(
+	sourceArray: T[],
+	destinationArray: T[],
+	item: T
+): boolean {
+	if (safeRemoveFromArray(sourceArray, item)) {
+		destinationArray.push(item);
+		sortByDomOrder(destinationArray);
+		return true;
+	}
+	return false;
 }
