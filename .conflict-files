@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/components/BranchCommitList.svelte"]
-ourEntries = ["apps/desktop/src/components/BranchCommitList.svelte"]
-theirEntries = ["apps/desktop/src/components/BranchCommitList.svelte"]
