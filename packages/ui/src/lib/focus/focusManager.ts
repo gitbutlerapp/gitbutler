@@ -1,10 +1,10 @@
 import { focusNextTabIndex } from '@gitbutler/ui/focus/tabbable';
 import {
-	addToArray,
+	addAndSortByDomOrder,
 	isContentEditable,
+	moveElementBetweenArrays,
 	removeFromArray,
-	scrollIntoViewIfNeeded,
-	sortByDomOrder
+	scrollIntoViewIfNeeded
 } from '@gitbutler/ui/focus/utils';
 import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { InjectionToken } from '@gitbutler/core/context';
@@ -13,6 +13,8 @@ import { get, writable } from 'svelte/store';
 
 export const FOCUS_MANAGER: InjectionToken<FocusManager> = new InjectionToken('FocusManager');
 
+const MAX_HISTORY_SIZE = 10;
+
 export enum DefinedFocusable {
 	Commit = 'commit',
 	CommitList = 'commit-list',
@@ -20,31 +22,17 @@ export enum DefinedFocusable {
 	FileList = 'file-list'
 }
 
-export type Payload = Record<string, unknown>;
-
 type NavigationAction = 'tab' | 'prev' | 'next' | 'exit' | 'enter';
 
-export interface FocusContext<T extends Payload> {
-	element: HTMLElement;
-	logicalId?: DefinedFocusable;
-	payload: T;
-	manager: FocusManager;
-}
+export type KeyboardHandler = (event: KeyboardEvent) => boolean | void;
 
-export type KeyboardHandler<T extends Payload> = (
-	event: KeyboardEvent,
-	context: FocusContext<T>
-) => boolean | void;
-
-export interface FocusableOptions<T extends Payload = Payload> {
+export interface FocusableOptions {
 	// Identifier for this focusable element, used by custom navigation code
 	id?: DefinedFocusable;
 	// Custom tab order within siblings (overrides default DOM order)
 	tabIndex?: number;
 	// Keep focusable inactive and outside navigation hierarchy
 	disabled?: boolean;
-	// Custom data attached to this focusable element, passed to event handlers
-	payload?: T;
 	// Treat children as a list (changes arrow key behavior)
 	list?: boolean;
 	// Prevent keyboard navigation from leaving this element
@@ -55,19 +43,19 @@ export interface FocusableOptions<T extends Payload = Payload> {
 	isolate?: boolean;
 
 	// Custom keyboard event handler, can prevent default navigation
-	onKeydown?: KeyboardHandler<T>;
+	onKeydown?: KeyboardHandler;
 	// Called when this element becomes the active focus
-	onFocus?: (context: FocusContext<T>) => void;
+	onFocus?: () => void;
 	// Called when this element loses focus to another element
-	onBlur?: (context: FocusContext<T>) => void;
+	onBlur?: () => void;
 }
 
-interface FocusableData<T extends Payload = any> {
+interface FocusableData {
 	logicalId?: DefinedFocusable;
 	parentElement?: HTMLElement;
 	children: HTMLElement[]; // Preserve registration order
 	// Extended options
-	options: FocusableOptions<T>;
+	options: FocusableOptions;
 }
 
 /**
@@ -107,9 +95,9 @@ export class FocusManager {
 		// Add to front
 		this._previousElements.unshift(element);
 
-		// Limit to 10 items
-		if (this._previousElements.length > 10) {
-			this._previousElements.length = 10;
+		// Limit to MAX_HISTORY_SIZE items
+		if (this._previousElements.length > MAX_HISTORY_SIZE) {
+			this._previousElements.length = MAX_HISTORY_SIZE;
 		}
 	}
 
@@ -138,7 +126,7 @@ export class FocusManager {
 		return this.metadata.get(element);
 	}
 
-	private getKeydownHandlers(element: HTMLElement): KeyboardHandler<any>[] {
+	private getKeydownHandlers(element: HTMLElement): KeyboardHandler[] {
 		let metadata = this.metadata.get(element);
 		const handlers = [];
 
@@ -168,7 +156,12 @@ export class FocusManager {
 		return this._currentElement ? this.getMetadata(this._currentElement) : undefined;
 	}
 
-	register<T extends Payload>(options: FocusableOptions<T>, element: HTMLElement) {
+	register(options: FocusableOptions, element: HTMLElement) {
+		if (!element || !element.isConnected) {
+			console.warn('Attempted to register invalid or disconnected element');
+			return;
+		}
+
 		const { id: logicalId } = options;
 		this.unregisterElement(element);
 
@@ -182,40 +175,10 @@ export class FocusManager {
 			options
 		};
 
-		if (parentMeta) {
-			const parentChildren = parentMeta.children;
-			const myChildren = parentChildren.filter((c) => element.contains(c));
-			for (const child of myChildren) {
-				parentChildren.splice(parentChildren.indexOf(child), 1);
-
-				metadata.children.push(child);
-				sortByDomOrder(metadata.children);
-				const childMeta = this.getMetadataOrThrow(child);
-				childMeta.parentElement = element;
-			}
-			addToArray(parentChildren, element);
-			sortByDomOrder(parentMeta.children);
-		}
-
+		this.establishParentChildRelationships(element, metadata, parentMeta);
 		this.metadata.set(element, metadata);
-
-		for (const pending of this.pendingRelationships) {
-			const parent = this.findParent(pending);
-			if (parent) {
-				const pendingMeta = this.getMetadataOrThrow(pending);
-				pendingMeta.parentElement = parent;
-				const parentMeta = this.getMetadataOrThrow(parent);
-				parentMeta.children.push(pending);
-				sortByDomOrder(parentMeta.children);
-			}
-		}
-		this.pendingRelationships = this.pendingRelationships.filter(
-			(p) => !this.getMetadataOrThrow(p).parentElement
-		);
-
-		if (!parentMeta && !options.isolate) {
-			this.pendingRelationships.push(element);
-		}
+		this.resolvePendingRelationships();
+		this.handlePendingRegistration(element, parentMeta, options);
 
 		if (options.activate) {
 			this.setActive(element);
@@ -223,20 +186,66 @@ export class FocusManager {
 
 		// Trigger onFocus if this becomes the current element
 		if (options.onFocus && this._currentElement === element) {
-			options.onFocus(this.createContext(element, metadata));
+			try {
+				options.onFocus();
+			} catch (error) {
+				console.warn('Error in onFocus', error);
+			}
 		}
 	}
 
-	private createContext<T extends Payload>(
+	private establishParentChildRelationships(
 		element: HTMLElement,
-		metadata: FocusableData<T>
-	): FocusContext<T> {
-		return {
-			element,
-			logicalId: metadata.logicalId,
-			payload: metadata.options.payload as T,
-			manager: this
-		};
+		metadata: FocusableData,
+		parentMeta?: FocusableData
+	) {
+		if (!parentMeta) return;
+
+		const parentChildren = parentMeta.children;
+		const myChildren = parentChildren.filter((c) => element.contains(c));
+
+		for (const child of myChildren) {
+			this.moveChildToNewParent(child, parentChildren, metadata, element);
+		}
+
+		addAndSortByDomOrder(parentChildren, element);
+	}
+
+	private moveChildToNewParent(
+		child: HTMLElement,
+		parentChildren: HTMLElement[],
+		newParentMetadata: FocusableData,
+		newParentElement: HTMLElement
+	) {
+		moveElementBetweenArrays(parentChildren, newParentMetadata.children, child);
+
+		const childMeta = this.getMetadataOrThrow(child);
+		childMeta.parentElement = newParentElement;
+	}
+
+	private resolvePendingRelationships() {
+		for (const pending of this.pendingRelationships) {
+			const parent = this.findParent(pending);
+			if (parent) {
+				const pendingMeta = this.getMetadataOrThrow(pending);
+				pendingMeta.parentElement = parent;
+				const parentMeta = this.getMetadataOrThrow(parent);
+				addAndSortByDomOrder(parentMeta.children, pending);
+			}
+		}
+		this.pendingRelationships = this.pendingRelationships.filter(
+			(p) => !this.getMetadataOrThrow(p).parentElement
+		);
+	}
+
+	private handlePendingRegistration(
+		element: HTMLElement,
+		parentMeta: FocusableData | undefined,
+		options: FocusableOptions
+	) {
+		if (!parentMeta && !options.isolate) {
+			this.pendingRelationships.push(element);
+		}
 	}
 
 	private unregisterElement(element: HTMLElement) {
@@ -260,29 +269,32 @@ export class FocusManager {
 	}
 
 	private findParent(element: HTMLElement): HTMLElement | undefined {
+		if (!element || !element.isConnected) return undefined;
+
 		let current = element.parentElement;
-		while (current) {
+		let depth = 0;
+		const MAX_DEPTH = 100; // Prevent infinite loops
+
+		while (current && depth < MAX_DEPTH) {
 			const focusable = this.getMetadata(current);
 			if (focusable) {
 				return current;
 			}
 			current = current.parentElement;
+			depth++;
 		}
+
+		return undefined;
 	}
 
 	unregister(element: HTMLElement) {
-		if (element) {
-			this.unregisterElement(element);
-		}
+		this.unregisterElement(element);
 
 		// Remove pending relationships
 		this.pendingRelationships = this.pendingRelationships.filter((p) => p !== element);
 
 		// Remove from history array
-		const historyIndex = this._previousElements.indexOf(element);
-		if (historyIndex !== -1) {
-			this._previousElements.splice(historyIndex, 1);
-		}
+		removeFromArray(this._previousElements, element);
 
 		// Clear current if it matches
 		if (this._currentElement === element) {
@@ -290,10 +302,7 @@ export class FocusManager {
 			if (nextElement) {
 				this._currentElement = nextElement;
 				// Remove the selected element from history since it's now current
-				const index = this._previousElements.indexOf(nextElement);
-				if (index !== -1) {
-					this._previousElements.splice(index, 1);
-				}
+				removeFromArray(this._previousElements, nextElement);
 			} else {
 				this._currentElement = undefined;
 			}
@@ -302,29 +311,44 @@ export class FocusManager {
 	}
 
 	setActive(element: HTMLElement) {
-		if (this.isElementRegistered(element)) {
-			const previousElement = this._currentElement;
-			const previousMeta = previousElement ? this.getMetadata(previousElement) : null;
-			const newMeta = this.getMetadataOrThrow(element);
-
-			if (previousElement && previousMeta?.options.onBlur) {
-				previousMeta.options.onBlur(this.createContext(previousElement, previousMeta));
-			}
-
-			// Add current element to history before changing
-			if (this._currentElement) {
-				this.addToPreviousElements(this._currentElement);
-			}
-			this._currentElement = element;
-
-			if (newMeta.options.onFocus) {
-				newMeta.options.onFocus(this.createContext(element, newMeta));
-			}
-
-			this.cursor.set(element);
+		if (!element || !element.isConnected || !this.isElementRegistered(element)) {
+			return;
 		}
+
+		const previousElement = this._currentElement;
+		const previousMeta = previousElement ? this.getMetadata(previousElement) : null;
+		const newMeta = this.getMetadataOrThrow(element);
+
+		try {
+			previousMeta?.options.onBlur?.();
+		} catch (error) {
+			console.warn('Error in onBlur callback:', error);
+		}
+
+		// Add current element to history before changing
+		if (this._currentElement) {
+			this.addToPreviousElements(this._currentElement);
+		}
+		this._currentElement = element;
+
+		try {
+			newMeta.options.onFocus?.();
+		} catch (error) {
+			console.warn('Error in onFocus:', error);
+		}
+
+		this.cursor.set(element);
 	}
 
+	/**
+	 * Recursively searches for the next focusable element of a specific type
+	 * by traversing up the hierarchy and checking sibling branches
+	 *
+	 * @param searchElement - Current element to search from
+	 * @param searchType - Type of focusable element to find
+	 * @param forward - Whether to search forward or backward through siblings
+	 * @returns The next matching element or undefined if none found
+	 */
 	private findNext(
 		searchElement: HTMLElement,
 		searchType: DefinedFocusable,
@@ -347,6 +371,13 @@ export class FocusManager {
 		return this.findNext(currentMeta.parentElement!, searchType, forward);
 	}
 
+	/**
+	 * Recursively searches within an element's children for a specific focusable type
+	 *
+	 * @param element - Parent element to search within
+	 * @param searchType - Type of focusable element to find
+	 * @returns The first matching child element or undefined if none found
+	 */
 	private findWithin(element: HTMLElement, searchType: DefinedFocusable): HTMLElement | undefined {
 		const metadata = this.getMetadata(element);
 		if (!metadata) return;
@@ -383,6 +414,14 @@ export class FocusManager {
 			: false;
 	}
 
+	/**
+	 * Focuses a "cousin" element - an element of the same type in a different branch
+	 * of the focus tree. Used for navigating between similar elements across different
+	 * sections (e.g., from one commit list to another commit list).
+	 *
+	 * @param forward - Whether to search forward or backward in the tree
+	 * @returns True if a cousin was found and focused, false otherwise
+	 */
 	focusCousin(forward: boolean) {
 		const metadata = this.getCurrentMetadata();
 		if (!metadata?.parentElement || !this._currentElement) return false;
@@ -396,6 +435,8 @@ export class FocusManager {
 	}
 
 	focusElement(element: HTMLElement) {
+		if (!element || !element.isConnected) return;
+
 		if (element.tabIndex !== -1) {
 			element.focus();
 		} else {
@@ -442,7 +483,7 @@ export class FocusManager {
 		if (!metadata) return;
 
 		// Try custom handlers first
-		if (this.tryCustomHandlers(event, metadata)) {
+		if (this.tryCustomHandlers(event)) {
 			return;
 		}
 
@@ -466,60 +507,102 @@ export class FocusManager {
 		);
 	}
 
-	private tryCustomHandlers(event: KeyboardEvent, metadata: FocusableData): boolean {
-		const keyHandlers = this.getKeydownHandlers(this._currentElement!);
-		const context = this.createContext(this._currentElement!, metadata);
+	private tryCustomHandlers(event: KeyboardEvent): boolean {
+		if (!this._currentElement) return false;
+
+		const keyHandlers = this.getKeydownHandlers(this._currentElement);
 
 		for (const keyHandler of keyHandlers) {
-			const handled = keyHandler(event, context);
-			if (handled === true) {
-				event.preventDefault();
-				event.stopPropagation();
-				return true;
+			try {
+				const handled = keyHandler(event);
+				if (handled === true) {
+					event.preventDefault();
+					event.stopPropagation();
+					return true;
+				}
+			} catch (error) {
+				console.warn('Error in key handler', error);
 			}
 		}
 		return false;
 	}
 
 	private handleBuiltinNavigation(event: KeyboardEvent, metadata: FocusableData): boolean {
-		const parentElement = metadata?.parentElement;
-		const parentData = parentElement ? this.getMetadataOrThrow(parentElement) : undefined;
-		const list = parentData?.options.list ?? false;
+		const navigationContext = this.buildNavigationContext(event, metadata);
+		if (!navigationContext.action) return false;
 
-		const navigationAction = this.getNavigationAction(event.key, list);
-		if (!navigationAction) return false;
-
-		const isInput =
-			(event.target instanceof HTMLElement && isContentEditable(event.target)) ||
-			event.target instanceof HTMLTextAreaElement ||
-			event.target instanceof HTMLInputElement ||
-			!this._currentElement;
-
-		if (isInput && navigationAction !== 'tab') {
-			return false;
-		}
-
-		// It feels more predictable to make the outline visible on the first
-		// keyboard interaction, rather than potentially moving the cursor and
-		// then making it visible.
-		if (!get(this.outline) && navigationAction !== 'tab') {
-			this.outline.set(true);
-			event.stopPropagation();
-			event.preventDefault();
+		if (this.shouldIgnoreNavigationForInput(navigationContext)) {
 			return false;
 		}
 
 		event.preventDefault();
 		event.stopPropagation();
 
-		return this.executeNavigationAction(navigationAction, {
+		if (this.shouldShowOutlineOnly(navigationContext)) {
+			this.outline.set(true);
+			return false;
+		}
+
+		return this.executeNavigationAction(navigationContext.action, {
 			metaKey: event.metaKey,
 			forward: !event.shiftKey,
 			trap: metadata.options.trap,
-			list
+			list: navigationContext.isList
 		});
 	}
 
+	private buildNavigationContext(event: KeyboardEvent, metadata: FocusableData) {
+		const parentElement = metadata?.parentElement;
+		const parentData = parentElement ? this.getMetadataOrThrow(parentElement) : undefined;
+		const isList = parentData?.options.list ?? false;
+		const action = this.getNavigationAction(event.key, isList);
+
+		return {
+			action,
+			isList,
+			isInput: this.isInputElement(event.target),
+			hasOutline: get(this.outline)
+		};
+	}
+
+	private isInputElement(target: EventTarget | null): boolean {
+		return (
+			(target instanceof HTMLElement && isContentEditable(target)) ||
+			target instanceof HTMLTextAreaElement ||
+			target instanceof HTMLInputElement ||
+			!this._currentElement
+		);
+	}
+
+	private shouldIgnoreNavigationForInput(context: {
+		action: NavigationAction | null;
+		isInput: boolean;
+	}): boolean {
+		return context.isInput && context.action !== 'tab';
+	}
+
+	private shouldShowOutlineOnly(context: {
+		action: NavigationAction | null;
+		hasOutline: boolean;
+	}): boolean {
+		return !context.hasOutline && context.action !== 'tab';
+	}
+
+	/**
+	 * Maps keyboard keys to navigation actions based on context
+	 *
+	 * In list contexts:
+	 * - Left/Up: Navigate to previous item or exit list
+	 * - Right/Down: Navigate to next item or enter child
+	 *
+	 * In non-list contexts:
+	 * - Left/Up: Navigate to parent or previous sibling
+	 * - Right/Down: Navigate to child or next sibling
+	 *
+	 * @param key - The keyboard key that was pressed
+	 * @param isList - Whether the current element is in a list context
+	 * @returns The navigation action to perform, or null if key is not handled
+	 */
 	private getNavigationAction(key: string, isList: boolean): NavigationAction | null {
 		const keyMap: Record<string, NavigationAction> = {
 			Tab: 'tab',
@@ -531,6 +614,19 @@ export class FocusManager {
 		return keyMap[key] ?? null;
 	}
 
+	/**
+	 * Executes a navigation action with the given options
+	 *
+	 * Navigation behaviors:
+	 * - tab: Uses native tab navigation within current element
+	 * - prev/next: Navigate to sibling elements, or parent/child if no siblings
+	 * - exit: Navigate to parent (or cousin with metaKey in lists)
+	 * - enter: Navigate to first child (or cousin with metaKey in lists)
+	 *
+	 * @param action - The navigation action to perform
+	 * @param options - Navigation context options
+	 * @returns True if outline should be shown, false otherwise
+	 */
 	private executeNavigationAction(
 		action: NavigationAction,
 		options: {
@@ -587,14 +683,11 @@ export class FocusManager {
 		return true;
 	}
 
-	getOptions<T extends Payload>(element: HTMLElement): FocusableOptions<T> | null {
+	getOptions(element: HTMLElement): FocusableOptions | null {
 		return element ? this.getMetadata(element)?.options || null : null;
 	}
 
-	updateElementOptions<T extends Payload>(
-		element: HTMLElement,
-		updates: Partial<FocusableOptions<T>>
-	): boolean {
+	updateElementOptions(element: HTMLElement, updates: Partial<FocusableOptions>): boolean {
 		const metadata = this.getMetadata(element);
 		if (!metadata) return false;
 		metadata.options = { ...metadata.options, ...updates };
