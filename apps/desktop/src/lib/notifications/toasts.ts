@@ -1,4 +1,4 @@
-import { isBundlingError, parseError } from '$lib/error/parser';
+import { getTitleFromCommonErrorMessage, isBundlingError, parseError } from '$lib/error/parser';
 import posthog from 'posthog-js';
 import { writable, type Writable } from 'svelte/store';
 import type { MessageStyle } from '$components/InfoMessage.svelte';
@@ -47,8 +47,9 @@ export function showError(title: string, error: unknown, extraAction?: ExtraActi
 		return;
 	}
 	if (!ignored) {
+		const commonErrorTitle = getTitleFromCommonErrorMessage(message);
 		showToast({
-			title: name || title,
+			title: name || commonErrorTitle || title,
 			message: description,
 			error: message,
 			style: 'error',
