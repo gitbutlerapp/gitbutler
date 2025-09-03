@@ -3294,6 +3294,7 @@ dependencies = [
  "rand 0.9.2",
  "serde",
  "sysinfo",
+ "tempfile",
  "thiserror 2.0.16",
  "tokio",
  "tracing",
