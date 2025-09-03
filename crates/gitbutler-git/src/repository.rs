@@ -345,6 +345,7 @@ pub async fn push<P, F, Fut, E, Extra>(
     refspec: RefSpec,
     force: bool,
     force_push_protection: bool,
+    push_options: Option<&[&str]>,
     on_prompt: F,
     extra: Extra,
 ) -> Result<(), crate::Error<Error<E>>>
@@ -368,6 +369,14 @@ where
             args.push("--force-if-includes");
         } else {
             args.push("--force");
+        }
+    }
+
+    // Add push options if provided
+    if let Some(options) = push_options {
+        for option in options {
+            args.push("-o");
+            args.push(option);
         }
     }
 

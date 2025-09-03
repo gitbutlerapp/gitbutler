@@ -25,6 +25,7 @@ pub trait RepoActionsExt {
         force_push_protection: bool,
         refspec: Option<String>,
         askpass_broker: Option<Option<StackId>>,
+        push_options: Option<Vec<String>>,
     ) -> Result<()>;
     fn commit(
         &self,
@@ -66,13 +67,13 @@ impl RepoActionsExt for CommandContext {
         let refname =
             RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
 
-        match self.push(commit_id, &refname, false, false, None, askpass) {
+        match self.push(commit_id, &refname, false, false, None, askpass, None) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
 
         let empty_refspec = Some(format!(":refs/heads/{branch_name}"));
-        match self.push(commit_id, &refname, false, false, empty_refspec, askpass) {
+        match self.push(commit_id, &refname, false, false, empty_refspec, askpass, None) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
@@ -163,6 +164,7 @@ impl RepoActionsExt for CommandContext {
         force_push_protection: bool,
         refspec: Option<String>,
         askpass_broker: Option<Option<StackId>>,
+        push_options: Option<Vec<String>>,
     ) -> Result<()> {
         let use_git_executable = self.project().preferred_key == AuthKey::SystemExecutable;
         if !use_git_executable && force_push_protection {
@@ -188,7 +190,12 @@ impl RepoActionsExt for CommandContext {
         if use_git_executable {
             let path = self.project().worktree_path();
             let remote = branch.remote().to_string();
+            // Clone the push options to move into the thread
+            let push_options_clone = push_options.clone();
             std::thread::spawn(move || {
+                let push_options_refs: Option<Vec<&str>> = push_options_clone.as_ref().map(|opts| {
+                    opts.iter().map(|s| s.as_str()).collect()
+                });
                 tokio::runtime::Runtime::new()
                     .unwrap()
                     .block_on(gitbutler_git::push(
@@ -198,6 +205,7 @@ impl RepoActionsExt for CommandContext {
                         gitbutler_git::RefSpec::parse(refspec).unwrap(),
                         with_force,
                         force_push_protection,
+                        push_options_refs.as_deref(),
                         handle_git_prompt_push,
                         askpass_broker,
                     ))
@@ -216,7 +224,6 @@ impl RepoActionsExt for CommandContext {
         } else {
             let auth_flows = credentials::help(self, branch.remote())?;
             for (mut remote, callbacks) in auth_flows {
-                let mut update_refs_error: Option<git2::Error> = None;
                 for callback in callbacks {
                     let mut cbs: git2::RemoteCallbacks = callback.into();
                     if self.project().omit_certificate_check.unwrap_or(false) {
@@ -226,15 +233,23 @@ impl RepoActionsExt for CommandContext {
                     }
                     cbs.push_update_reference(|_reference: &str, status: Option<&str>| {
                         if let Some(status) = status {
-                            update_refs_error = Some(git2::Error::from_str(status));
                             return Err(git2::Error::from_str(status));
                         };
                         Ok(())
                     });
 
+                    let mut push_opts = git2::PushOptions::new();
+                    push_opts.remote_callbacks(cbs);
+                    
+                    // Add push options if provided
+                    if let Some(options) = &push_options {
+                        let option_strs: Vec<&str> = options.iter().map(|s| s.as_str()).collect();
+                        push_opts.remote_push_options(&option_strs);
+                    }
+
                     let push_result = remote.push(
                         &[refspec.as_str()],
-                        Some(&mut git2::PushOptions::new().remote_callbacks(cbs)),
+                        Some(&mut push_opts),
                     );
                     match push_result {
                         Ok(()) => {
@@ -258,9 +273,6 @@ impl RepoActionsExt for CommandContext {
                                     continue;
                                 }
                                 _ => {
-                                    if let Some(update_refs_err) = update_refs_error {
-                                        return Err(update_refs_err).context(err);
-                                    }
                                     return Err(err.into());
                                 }
                             },

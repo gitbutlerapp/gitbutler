@@ -382,6 +382,7 @@ pub(crate) fn push(ctx: &CommandContext, with_force: bool) -> Result<()> {
         ctx.project().force_push_protection,
         None,
         None,
+        None, // push_options
     );
     Ok(())
 }

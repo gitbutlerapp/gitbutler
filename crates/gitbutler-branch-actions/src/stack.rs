@@ -211,6 +211,7 @@ pub fn push_stack(
             force_push_protection,
             None,
             Some(Some(stack.id)),
+            None, // push_options
         )?;
 
         result.branch_to_remote.push((
