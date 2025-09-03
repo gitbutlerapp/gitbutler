@@ -1,4 +1,4 @@
-import { FOCUS_MANAGER, type FocusableOptions, type Payload } from '$lib/focus/focusManager';
+import { FOCUS_MANAGER, type FocusableOptions } from '$lib/focus/focusManager';
 import { injectOptional } from '@gitbutler/core/context';
 import type { Action } from 'svelte/action';
 
@@ -10,8 +10,8 @@ import type { Action } from 'svelte/action';
  *   id: 'stack',
  *   parentId: 'workspace',
  *   payload: { stackId: 'abc123', branchName: 'feature' },
- *   onKeydown: (event, context) => handleStackKeys(event, context.payload),
- *   onFocus: (context) => highlightStack(context.payload.stackId)
+ *   onKeydown: (event) => handleKey(event),
+ *   onFocus: (context) => handleFocus()
  * }}>
  */
 export function focusable(
@@ -19,7 +19,12 @@ export function focusable(
 	options: FocusableOptions = {}
 ): ReturnType<Action<HTMLElement, FocusableOptions>> {
 	const focusManager = injectOptional(FOCUS_MANAGER, undefined);
-	if (!focusManager) return;
+	if (!focusManager) {
+		return {
+			destroy() {},
+			update() {}
+		};
+	}
 
 	let currentOptions = options;
 	let isRegistered = false;
@@ -27,15 +32,23 @@ export function focusable(
 	function register() {
 		if (isRegistered || !focusManager) return;
 
-		focusManager.register(currentOptions, element);
-		isRegistered = true;
+		try {
+			focusManager.register(currentOptions, element);
+			isRegistered = true;
+		} catch (error) {
+			console.warn('Error registering focusable element:', error);
+		}
 	}
 
 	function unregister() {
 		if (!isRegistered || !focusManager) return;
 
-		focusManager.unregister(element);
-		isRegistered = false;
+		try {
+			focusManager.unregister(element);
+			isRegistered = false;
+		} catch (error) {
+			console.warn('Error unregistering focusable element:', error);
+		}
 	}
 
 	if (!options.disabled) {
@@ -47,9 +60,11 @@ export function focusable(
 			unregister();
 		},
 
-		update(newOptions: FocusableOptions<Payload>) {
+		update(newOptions: FocusableOptions) {
 			const oldId = currentOptions.id;
 			const newId = newOptions.id;
+			const wasDisabled = currentOptions.disabled;
+			const isDisabled = newOptions.disabled;
 
 			// If the ID changed, we need to unregister and re-register
 			if (oldId !== newId) {
@@ -59,13 +74,20 @@ export function focusable(
 					register();
 				}
 			} else {
-				if (!currentOptions.disabled && newOptions.disabled) {
+				// Handle disabled state changes
+				if (!wasDisabled && isDisabled) {
 					unregister();
+				} else if (wasDisabled && !isDisabled) {
+					currentOptions = newOptions;
+					register();
+				} else {
+					currentOptions = newOptions;
 				}
-				currentOptions = newOptions;
 
-				// Update the existing registration
-				focusManager.updateElementOptions(element, newOptions);
+				// Update the existing registration if still registered
+				if (isRegistered) {
+					focusManager.updateElementOptions(element, newOptions);
+				}
 			}
 		}
 	};
