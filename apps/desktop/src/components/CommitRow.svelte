@@ -102,6 +102,7 @@
 	{onclick}
 	use:focusable={{
 		id: DefinedFocusable.Commit,
+		linkToIds: [DefinedFocusable.FileItem, DefinedFocusable.Commit],
 		onKeydown: (e) => {
 			if (disabled) return false;
 

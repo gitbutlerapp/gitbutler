@@ -14,6 +14,7 @@ import { get, writable } from 'svelte/store';
 export const FOCUS_MANAGER: InjectionToken<FocusManager> = new InjectionToken('FocusManager');
 
 const MAX_HISTORY_SIZE = 10;
+const MAX_PARENT_SEARCH_DEPTH = 100;
 
 export enum DefinedFocusable {
 	Commit = 'commit',
@@ -41,6 +42,8 @@ export interface FocusableOptions {
 	activate?: boolean;
 	// Don't establish parent-child relationships with other focusables
 	isolate?: boolean;
+	// Link to other focusable types for boundary navigation
+	linkToIds?: DefinedFocusable[];
 
 	// Custom keyboard event handler, can prevent default navigation
 	onKeydown?: KeyboardHandler;
@@ -83,8 +86,6 @@ export class FocusManager {
 	private handleMouse = this.handleClick.bind(this);
 	private handleKeys = this.handleKeydown.bind(this);
 
-	constructor() {}
-
 	private addToPreviousElements(element: HTMLElement) {
 		// Remove element if it already exists in the array
 		const existingIndex = this._previousElements.indexOf(element);
@@ -97,7 +98,7 @@ export class FocusManager {
 
 		// Limit to MAX_HISTORY_SIZE items
 		if (this._previousElements.length > MAX_HISTORY_SIZE) {
-			this._previousElements.length = MAX_HISTORY_SIZE;
+			this._previousElements.splice(MAX_HISTORY_SIZE);
 		}
 	}
 
@@ -273,9 +274,8 @@ export class FocusManager {
 
 		let current = element.parentElement;
 		let depth = 0;
-		const MAX_DEPTH = 100; // Prevent infinite loops
-
-		while (current && depth < MAX_DEPTH) {
+		// Prevent infinite loops
+		while (current && depth < MAX_PARENT_SEARCH_DEPTH) {
 			const focusable = this.getMetadata(current);
 			if (focusable) {
 				return current;
@@ -341,52 +341,70 @@ export class FocusManager {
 	}
 
 	/**
-	 * Recursively searches for the next focusable element of a specific type
-	 * by traversing up the hierarchy and checking sibling branches
+	 * Recursively searches for the next focusable element of specific types
+	 * by traversing up the hierarchy and checking sibling branches.
+	 * Finds the nearest element of any of the specified types.
 	 *
 	 * @param searchElement - Current element to search from
-	 * @param searchType - Type of focusable element to find
+	 * @param searchTypes - Types of focusable elements to find (can be single type or array)
 	 * @param forward - Whether to search forward or backward through siblings
 	 * @returns The next matching element or undefined if none found
 	 */
 	private findNext(
 		searchElement: HTMLElement,
-		searchType: DefinedFocusable,
+		searchTypes: DefinedFocusable | DefinedFocusable[],
 		forward: boolean
 	): HTMLElement | undefined {
 		const currentMeta = this.getMetadata(searchElement);
 		const parentMeta = currentMeta?.parentElement && this.getMetadata(currentMeta.parentElement);
 		if (!parentMeta || !this._currentElement) return;
 
+		// Normalize searchTypes to always be an array
+		const typesToSearch = Array.isArray(searchTypes) ? searchTypes : [searchTypes];
+
 		const excludeIndex = parentMeta.children.indexOf(searchElement);
 		const nextChildren = forward
 			? parentMeta.children.slice(excludeIndex + 1)
 			: parentMeta.children.slice(0, excludeIndex);
 
-		for (const nextChild of nextChildren) {
-			const result = this.findWithin(nextChild, searchType);
+		// When searching backward, iterate in reverse order to find the closest previous element
+		const childrenToSearch = forward ? nextChildren : nextChildren.reverse();
+
+		for (const nextChild of childrenToSearch) {
+			const result = this.findWithin(nextChild, typesToSearch, forward);
 			if (result) return result;
 		}
 
-		return this.findNext(currentMeta.parentElement!, searchType, forward);
+		return this.findNext(currentMeta.parentElement!, searchTypes, forward);
 	}
 
 	/**
-	 * Recursively searches within an element's children for a specific focusable type
+	 * Recursively searches within an element's children for specific focusable types
 	 *
 	 * @param element - Parent element to search within
-	 * @param searchType - Type of focusable element to find
-	 * @returns The first matching child element or undefined if none found
+	 * @param searchTypes - Types of focusable elements to find (can be single type or array)
+	 * @param forward - Whether to search forward (first match) or backward (last match)
+	 * @returns The matching child element or undefined if none found
 	 */
-	private findWithin(element: HTMLElement, searchType: DefinedFocusable): HTMLElement | undefined {
+	private findWithin(
+		element: HTMLElement,
+		searchTypes: DefinedFocusable | DefinedFocusable[],
+		forward: boolean = true
+	): HTMLElement | undefined {
 		const metadata = this.getMetadata(element);
 		if (!metadata) return;
-		for (const child of metadata.children) {
+
+		// Normalize searchTypes to always be an array
+		const typesToSearch = Array.isArray(searchTypes) ? searchTypes : [searchTypes];
+
+		const children = forward ? metadata.children : metadata.children.slice().reverse();
+
+		for (const child of children) {
 			const childMeta = this.getMetadata(child);
-			if (childMeta?.logicalId === searchType) {
+			if (childMeta?.logicalId && typesToSearch.includes(childMeta.logicalId)) {
 				return child;
 			}
-			const subchild = this.findWithin(child, searchType);
+			const subchild = this.findWithin(child, searchTypes, forward);
 			if (subchild) {
 				return subchild;
 			}
@@ -409,9 +427,22 @@ export class FocusManager {
 		const currentIndex = siblings.indexOf(this._currentElement!);
 		const nextIndex = forward ? currentIndex + 1 : currentIndex - 1;
 
-		return currentIndex !== -1 && nextIndex >= 0 && nextIndex < siblings.length
-			? this.activateAndFocus(siblings[nextIndex])
-			: false;
+		// Check if we can navigate to a sibling
+		if (currentIndex !== -1 && nextIndex >= 0 && nextIndex < siblings.length) {
+			return this.activateAndFocus(siblings[nextIndex]);
+		}
+
+		// Check if we're in a list and have reached a boundary
+		if (parentMeta.options.list && metadata?.options.linkToIds) {
+			const isAtStart = !forward && currentIndex === 0;
+			const isAtEnd = forward && currentIndex === siblings.length - 1;
+
+			if (isAtStart || isAtEnd) {
+				return this.focusLinked(forward);
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -432,6 +463,27 @@ export class FocusManager {
 			forward
 		);
 		return this.activateAndFocus(cousinTarget);
+	}
+
+	/**
+	 * Focuses a linked element when navigating past list boundaries.
+	 * Used for navigating to the next/previous item of a different type when
+	 * reaching the end/beginning of a list. Finds the nearest element of any
+	 * of the specified target types.
+	 *
+	 * @param forward - Whether to search forward or backward in the tree
+	 * @returns True if a linked element was found and focused, false otherwise
+	 */
+	focusLinked(forward: boolean): boolean {
+		const metadata = this.getCurrentMetadata();
+		if (!metadata?.parentElement || !this._currentElement) return false;
+
+		const linkToIds = metadata.options.linkToIds;
+		if (!linkToIds || linkToIds.length === 0) return false;
+
+		// Find the nearest element of any of the target types
+		const linkedTarget = this.findNext(this._currentElement, linkToIds, forward);
+		return this.activateAndFocus(linkedTarget);
 	}
 
 	focusElement(element: HTMLElement) {
