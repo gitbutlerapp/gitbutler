@@ -34,6 +34,7 @@
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { SETTINGS } from '$lib/settings/userSettings';
+	import { CODEGEN_ANALYTICS } from '$lib/soup/codegenAnalytics';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -62,6 +63,7 @@
 	const stackService = inject(STACK_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
+	const codegenAnalytics = inject(CODEGEN_ANALYTICS);
 	const uiState = inject(UI_STATE);
 	const user = inject(USER);
 	const urlService = inject(URL_SERVICE);
@@ -71,6 +73,7 @@
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
 	const settingsStore = settingsService.appSettings;
+	const [sendClaudeMessage] = claudeCodeService.sendMessage;
 
 	let message = $state('');
 	let claudeExecutable = $derived($settingsStore?.claude.executable || 'claude');
@@ -147,13 +150,27 @@
 	async function sendMessage() {
 		if (!selectedBranch) return;
 		if (!message) return;
-		const promise = claudeCodeService.sendMessage({
+
+		// Await analytics data before sending message
+		const analyticsProperties = await codegenAnalytics.getCodegenProperties({
 			projectId,
 			stackId: selectedBranch.stackId,
 			message,
 			thinkingLevel: selectedThinkingLevel,
 			model: selectedModel
 		});
+
+		const promise = sendClaudeMessage(
+			{
+				projectId,
+				stackId: selectedBranch.stackId,
+				message,
+				thinkingLevel: selectedThinkingLevel,
+				model: selectedModel
+			},
+			{ properties: analyticsProperties }
+		);
+
 		message = '';
 		await promise;
 	}

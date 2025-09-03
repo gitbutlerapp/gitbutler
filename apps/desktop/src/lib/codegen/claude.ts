@@ -26,8 +26,12 @@ export class ClaudeCodeService {
 		this.api = injectEndpoints(clientState);
 	}
 
-	get sendMessage() {
+	get sendMessageMutate() {
 		return this.api.endpoints.sendMessage.mutate;
+	}
+
+	get sendMessage() {
+		return this.api.endpoints.sendMessage.useMutation();
 	}
 
 	get messages() {

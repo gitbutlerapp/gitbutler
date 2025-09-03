@@ -46,6 +46,7 @@ import { IdSelection, ID_SELECTION } from '$lib/selection/idSelection.svelte';
 import { UncommittedService, UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 import { loadUserSettings, SETTINGS } from '$lib/settings/userSettings';
 import { ShortcutService, SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
+import { CodegenAnalytics, CODEGEN_ANALYTICS } from '$lib/soup/codegenAnalytics';
 import { CommitAnalytics, COMMIT_ANALYTICS } from '$lib/soup/commitAnalytics';
 import { StackService, STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 import { ClientState, CLIENT_STATE } from '$lib/state/clientState.svelte';
@@ -204,6 +205,7 @@ export function initDependencies(args: {
 	const historyService = new HistoryService(backend, clientState['backendApi']);
 	const oplogService = new OplogService(clientState['backendApi']);
 	const commitAnalytics = new CommitAnalytics(stackService, uiState, worktreeService, rulesService);
+	const codegenAnalytics = new CodegenAnalytics(claudeCodeService, settingsService);
 
 	// ============================================================================
 	// SELECTION & EDITING
@@ -297,6 +299,7 @@ export function initDependencies(args: {
 		[CLI_MANAGER, cliManager],
 		[CLOUD_USER_SERVICE, cloudUserService],
 		[COMMIT_ANALYTICS, commitAnalytics],
+		[CODEGEN_ANALYTICS, codegenAnalytics],
 		[DATA_SHARING_SERVICE, dataSharingService],
 		[DEFAULT_FORGE_FACTORY, forgeFactory],
 		[DEPENDENCY_SERVICE, dependencyService],
