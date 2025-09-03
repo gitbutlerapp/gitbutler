@@ -116,6 +116,10 @@ export class FocusManager {
 		return undefined;
 	}
 
+	/**
+	 * Sets up global event listeners for mouse clicks and keyboard events.
+	 * Must be called to enable focus management functionality.
+	 */
 	listen() {
 		return mergeUnlisten(
 			on(document, 'click', this.handleMouse, { capture: true }),
@@ -125,6 +129,12 @@ export class FocusManager {
 
 	private getMetadata(element: HTMLElement): FocusableData | undefined {
 		return this.metadata.get(element);
+	}
+
+	private normalizeSearchTypes(
+		searchTypes: DefinedFocusable | DefinedFocusable[]
+	): DefinedFocusable[] {
+		return Array.isArray(searchTypes) ? searchTypes : [searchTypes];
 	}
 
 	private getKeydownHandlers(element: HTMLElement): KeyboardHandler[] {
@@ -157,6 +167,11 @@ export class FocusManager {
 		return this._currentElement ? this.getMetadata(this._currentElement) : undefined;
 	}
 
+	/**
+	 * Registers an HTML element as focusable within the focus management system.
+	 * Establishes parent-child relationships, handles deferred linking, and
+	 * optionally activates the element immediately upon registration.
+	 */
 	register(options: FocusableOptions, element: HTMLElement) {
 		if (!element || !element.isConnected) {
 			console.warn('Attempted to register invalid or disconnected element');
@@ -287,6 +302,11 @@ export class FocusManager {
 		return undefined;
 	}
 
+	/**
+	 * Removes an element from the focus management system. Cleans up parent-child
+	 * relationships, removes from history, and handles focus transfer if the
+	 * unregistered element was currently active.
+	 */
 	unregister(element: HTMLElement) {
 		this.unregisterElement(element);
 
@@ -310,6 +330,11 @@ export class FocusManager {
 		}
 	}
 
+	/**
+	 * Sets the specified element as the currently active (focused) element.
+	 * Triggers onBlur callback for the previously active element and onFocus
+	 * callback for the newly active element. Updates focus history.
+	 */
 	setActive(element: HTMLElement) {
 		if (!element || !element.isConnected || !this.isElementRegistered(element)) {
 			return;
@@ -359,8 +384,7 @@ export class FocusManager {
 		const parentMeta = currentMeta?.parentElement && this.getMetadata(currentMeta.parentElement);
 		if (!parentMeta || !this._currentElement) return;
 
-		// Normalize searchTypes to always be an array
-		const typesToSearch = Array.isArray(searchTypes) ? searchTypes : [searchTypes];
+		const typesToSearch = this.normalizeSearchTypes(searchTypes);
 
 		const excludeIndex = parentMeta.children.indexOf(searchElement);
 		const nextChildren = forward
@@ -394,8 +418,7 @@ export class FocusManager {
 		const metadata = this.getMetadata(element);
 		if (!metadata) return;
 
-		// Normalize searchTypes to always be an array
-		const typesToSearch = Array.isArray(searchTypes) ? searchTypes : [searchTypes];
+		const typesToSearch = this.normalizeSearchTypes(searchTypes);
 
 		const children = forward ? metadata.children : metadata.children.slice().reverse();
 
@@ -418,26 +441,41 @@ export class FocusManager {
 		return true;
 	}
 
+	/**
+	 * Navigates to the next or previous sibling element. If no sibling exists
+	 * and we're at a list boundary with linked types configured, attempts
+	 * boundary navigation to linked element types.
+	 *
+	 * @param forward - Whether to navigate to next (true) or previous (false) sibling
+	 * @returns True if navigation succeeded, false otherwise
+	 */
 	focusSibling(forward = true): boolean {
-		const metadata = this.getCurrentMetadata();
-		const parentMeta = metadata?.parentElement && this.getMetadata(metadata.parentElement);
-		if (!parentMeta) return false;
+		const currentMetadata = this.getCurrentMetadata();
+		const parentMetadata =
+			currentMetadata?.parentElement && this.getMetadata(currentMetadata.parentElement);
+		if (!parentMetadata || !this._currentElement) return false;
 
-		const siblings = parentMeta.children;
-		const currentIndex = siblings.indexOf(this._currentElement!);
-		const nextIndex = forward ? currentIndex + 1 : currentIndex - 1;
+		const siblings = parentMetadata.children;
+		const currentIndex = siblings.indexOf(this._currentElement);
 
-		// Check if we can navigate to a sibling
-		if (currentIndex !== -1 && nextIndex >= 0 && nextIndex < siblings.length) {
-			return this.activateAndFocus(siblings[nextIndex]);
+		// Early validation
+		if (currentIndex === -1) return false;
+
+		const targetIndex = forward ? currentIndex + 1 : currentIndex - 1;
+		const hasValidSibling = targetIndex >= 0 && targetIndex < siblings.length;
+
+		// Navigate to sibling if available
+		if (hasValidSibling) {
+			return this.activateAndFocus(siblings[targetIndex]);
 		}
 
-		// Check if we're in a list and have reached a boundary
-		if (parentMeta.options.list && metadata?.options.linkToIds) {
-			const isAtStart = !forward && currentIndex === 0;
-			const isAtEnd = forward && currentIndex === siblings.length - 1;
+		// Handle boundary navigation in lists with linked types
+		const isListWithLinks = parentMetadata.options.list && currentMetadata?.options.linkToIds;
+		if (isListWithLinks) {
+			const isAtBoundary =
+				(forward && currentIndex === siblings.length - 1) || (!forward && currentIndex === 0);
 
-			if (isAtStart || isAtEnd) {
+			if (isAtBoundary) {
 				return this.focusLinked(forward);
 			}
 		}
@@ -453,7 +491,7 @@ export class FocusManager {
 	 * @param forward - Whether to search forward or backward in the tree
 	 * @returns True if a cousin was found and focused, false otherwise
 	 */
-	focusCousin(forward: boolean) {
+	focusCousin(forward: boolean): boolean {
 		const metadata = this.getCurrentMetadata();
 		if (!metadata?.parentElement || !this._currentElement) return false;
 
@@ -486,7 +524,7 @@ export class FocusManager {
 		return this.activateAndFocus(linkedTarget);
 	}
 
-	focusElement(element: HTMLElement) {
+	focusElement(element: HTMLElement): void {
 		if (!element || !element.isConnected) return;
 
 		if (element.tabIndex !== -1) {
@@ -499,19 +537,26 @@ export class FocusManager {
 		scrollIntoViewIfNeeded(element);
 	}
 
-	focusParent() {
+	focusParent(): void {
 		const element = this.getCurrentMetadata()?.parentElement;
 		if (element) {
 			this.activateAndFocus(element);
 		}
 	}
 
+	/**
+	 * Navigates focus to the first child element of the currently focused element.
+	 */
 	focusFirstChild(): boolean {
 		const metadata = this.getCurrentMetadata();
 		const firstChild = metadata?.children.at(0);
 		return firstChild ? this.activateAndFocus(firstChild) : false;
 	}
 
+	/**
+	 * Handles mouse click events to update focus. Traverses up the DOM tree
+	 * from the clicked element to find the nearest registered focusable element.
+	 */
 	handleClick(e: MouseEvent) {
 		// Ignore keyboard initiated clicks.
 		if (e.detail === 0) {
@@ -530,6 +575,10 @@ export class FocusManager {
 		}
 	}
 
+	/**
+	 * Handles keyboard events for focus navigation. Processes both custom
+	 * key handlers and built-in navigation commands like arrow keys and Tab.
+	 */
 	handleKeydown(event: KeyboardEvent) {
 		const metadata = this.getCurrentMetadata();
 		if (!metadata) return;
@@ -540,23 +589,9 @@ export class FocusManager {
 		}
 
 		// Handle built-in navigation
-		if (this.handleBuiltinNavigation(event, metadata)) {
+		if (this.processStandardNavigation(event, metadata)) {
 			this.outline.set(true);
 		}
-	}
-
-	/**
-	 * This is a hack to make the focus manager interact better with context
-	 * menus, and should be refactored. Ideally we deprecate `focusTrap` and
-	 * adapt the focusable to work well with menus.
-	 */
-	ignoreKeys() {
-		return (
-			document.activeElement &&
-			document.activeElement !== document.body &&
-			this._currentElement &&
-			!this._currentElement.contains(document.activeElement)
-		);
 	}
 
 	private tryCustomHandlers(event: KeyboardEvent): boolean {
@@ -579,7 +614,12 @@ export class FocusManager {
 		return false;
 	}
 
-	private handleBuiltinNavigation(event: KeyboardEvent, metadata: FocusableData): boolean {
+	/**
+	 * Processes standard keyboard navigation commands (arrow keys, Tab) that are
+	 * built into the focus system. Handles input validation, outline visibility,
+	 * and delegates to the appropriate navigation action.
+	 */
+	private processStandardNavigation(event: KeyboardEvent, metadata: FocusableData): boolean {
 		const navigationContext = this.buildNavigationContext(event, metadata);
 		if (!navigationContext.action) return false;
 
@@ -739,6 +779,10 @@ export class FocusManager {
 		return element ? this.getMetadata(element)?.options || null : null;
 	}
 
+	/**
+	 * Updates the focus options for an already registered element.
+	 * Useful for dynamically changing focus behavior without re-registration.
+	 */
 	updateElementOptions(element: HTMLElement, updates: Partial<FocusableOptions>): boolean {
 		const metadata = this.getMetadata(element);
 		if (!metadata) return false;
