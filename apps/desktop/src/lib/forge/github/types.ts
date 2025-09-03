@@ -97,6 +97,7 @@ export function ghResponseToInstance(pr: PullRequestListItem): PullRequest {
 
 	const reviewers =
 		pr.requested_reviewers?.map((reviewer) => ({
+			id: reviewer.id,
 			srcUrl: reviewer.avatar_url,
 			name: reviewer.name || reviewer.login
 		})) || [];
