@@ -260,10 +260,6 @@ export class StackService {
 		return this.api.endpoints.createStack.mutate;
 	}
 
-	get updateStack() {
-		return this.api.endpoints.updateStack.mutate;
-	}
-
 	get updateStackOrder() {
 		return this.api.endpoints.updateStackOrder.mutate;
 	}
@@ -960,22 +956,6 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				extraOptions: {
 					command: 'create_virtual_branch',
 					actionName: 'Create Stack'
-				},
-				query: (args) => args,
-				invalidatesTags: (result, _error) => [
-					invalidatesItem(ReduxTag.StackDetails, result?.id),
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
-					invalidatesList(ReduxTag.BranchListing)
-				]
-			}),
-			updateStack: build.mutation<
-				Stack,
-				{ projectId: string; branch: BranchParams & { id: string } }
-			>({
-				extraOptions: {
-					command: 'update_virtual_branch',
-					actionName: 'Update Stack'
 				},
 				query: (args) => args,
 				invalidatesTags: (result, _error) => [
