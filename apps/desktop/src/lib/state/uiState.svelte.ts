@@ -29,6 +29,8 @@ export type NewCommitMessage = {
 export type StackState = {
 	selection: StackSelection | undefined;
 	newCommitMessage: NewCommitMessage;
+	// The current codegen prompt
+	prompt: string;
 };
 
 type BranchesSelection = {
@@ -131,7 +133,8 @@ export class UiState {
 	/** Properties scoped to a specific stack. */
 	readonly lane = this.buildScopedProps<StackState>(this.scopesCache.lanes, {
 		selection: undefined,
-		newCommitMessage: { title: '', description: '' }
+		newCommitMessage: { title: '', description: '' },
+		prompt: ''
 	});
 
 	/** Properties scoped to a specific project. */

@@ -8,10 +8,15 @@
 		loading: boolean;
 		onsubmit: () => Promise<void>;
 		onAbort?: () => Promise<void>;
+		onChange: (value: string) => void;
 		actions: Snippet;
 	};
 
-	let { value = $bindable(), loading, onsubmit, onAbort, actions }: Props = $props();
+	let { value = $bindable(), loading, onsubmit, onAbort, actions, onChange }: Props = $props();
+
+	$effect(() => {
+		onChange(value);
+	});
 
 	let showAbortButton = $state(false);
 
