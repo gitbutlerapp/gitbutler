@@ -1,12 +1,13 @@
 import { GitLabBranch } from '$lib/forge/gitlab/gitlabBranch';
+import { gitlab, type GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import { GitLabListingService } from '$lib/forge/gitlab/gitlabListingService.svelte';
 import { GitLabPrService } from '$lib/forge/gitlab/gitlabPrService.svelte';
+import { providesList, ReduxTag } from '$lib/state/tags';
+import { toSerializable } from '@gitbutler/shared/network/types';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
-import type { ForgeArguments } from '$lib/forge/interface/types';
+import type { ForgeArguments, ForgeUser } from '$lib/forge/interface/types';
 import type { GitLabApi } from '$lib/state/clientState.svelte';
-import type { ReduxTag } from '$lib/state/tags';
 import type { TagDescription } from '@reduxjs/toolkit/query';
 
 export const GITLAB_DOMAIN = 'gitlab.com';
@@ -24,6 +25,7 @@ export class GitLab implements Forge {
 	private baseUrl: string;
 	private baseBranch: string;
 	private forkStr?: string;
+	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
 		private params: ForgeArguments & {
@@ -38,6 +40,8 @@ export class GitLab implements Forge {
 		this.forkStr = forkStr;
 		this.authenticated = authenticated;
 
+		this.api = injectEndpoints(api);
+
 		// Reset the API when the token changes.
 		client.onReset(() => api.util.resetApiState());
 	}
@@ -48,6 +52,10 @@ export class GitLab implements Forge {
 
 	commitUrl(id: string): string {
 		return `${this.baseUrl}/-/commit/${id}`;
+	}
+
+	get user() {
+		return this.api.endpoints.getGitLabUser.useQuery();
 	}
 
 	get listService() {
@@ -81,4 +89,27 @@ export class GitLab implements Forge {
 	invalidate(tags: TagDescription<ReduxTag>[]) {
 		return this.params.api.util.invalidateTags(tags);
 	}
+}
+function injectEndpoints(api: GitLabApi) {
+	return api.injectEndpoints({
+		endpoints: (build) => ({
+			getGitLabUser: build.query<ForgeUser, void>({
+				queryFn: async (args, query) => {
+					try {
+						const { api } = gitlab(query.extra);
+						const user = await api.Users.showCurrentUser();
+						const data = {
+							id: user.id,
+							name: user.name,
+							srcUrl: user.avatar_url
+						};
+						return { data };
+					} catch (e: unknown) {
+						return { error: toSerializable(e) };
+					}
+				},
+				providesTags: [providesList(ReduxTag.ForgeUser)]
+			})
+		})
+	});
 }

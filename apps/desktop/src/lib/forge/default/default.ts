@@ -5,6 +5,8 @@ import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 import type { ForgeRepoService } from '$lib/forge/interface/forgeRepoService';
+import type { ForgeUser } from '$lib/forge/interface/types';
+import type { ReactiveResult } from '$lib/state/butlerModule';
 import type { ReduxTag } from '$lib/state/tags';
 import type { TagDescription } from '@reduxjs/toolkit/query';
 
@@ -36,6 +38,11 @@ export class DefaultForge implements Forge {
 	}
 	commitUrl(_id: string): string | undefined {
 		return undefined;
+	}
+	get user() {
+		return {
+			current: { status: 'uninitialized' as const, data: undefined }
+		} as ReactiveResult<ForgeUser>;
 	}
 	invalidate(_tags: TagDescription<ReduxTag>[]) {
 		return undefined;
