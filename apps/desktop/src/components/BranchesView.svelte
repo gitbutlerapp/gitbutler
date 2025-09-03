@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import BranchExplorer, { type SelectedOption } from '$components/BranchExplorer.svelte';
+	import BranchExplorer from '$components/BranchExplorer.svelte';
 	import BranchView from '$components/BranchView.svelte';
 	import BranchesViewBranch from '$components/BranchesViewBranch.svelte';
 	import BranchesViewPr from '$components/BranchesViewPR.svelte';
@@ -35,8 +35,7 @@
 	import { AsyncButton, Button, Modal, TestId } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
-	import type { SidebarEntrySubject } from '$lib/branches/branchListing';
-
+	import type { BranchFilterOption, SidebarEntrySubject } from '$lib/branches/branchListing';
 	type Props = {
 		projectId: string;
 	};
@@ -47,6 +46,7 @@
 	const stackService = inject(STACK_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const forgeUserQuery = $derived(forge.current.user);
 	const prService = $derived(forge.current.prService);
 	const prUnit = $derived(prService?.unit);
 
@@ -55,7 +55,10 @@
 
 	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
 
-	const selectedOption = persisted<SelectedOption>('all', `branches-selectedOption-${projectId}`);
+	const selectedOption = persisted<BranchFilterOption>(
+		'all',
+		`branches-selectedOption-${projectId}`
+	);
 
 	let branchColumn = $state<HTMLDivElement>();
 	let commitColumn = $state<HTMLDivElement>();
@@ -214,7 +217,11 @@
 								current.prNumber === undefined}
 						/>
 					</BranchesListGroup>
-					<BranchExplorer {projectId} bind:selectedOption={$selectedOption}>
+					<BranchExplorer
+						{projectId}
+						bind:selectedOption={$selectedOption}
+						forgeUser={forgeUserQuery.current.data}
+					>
 						{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
 							{#if sidebarEntrySubject.type === 'branchListing'}
 								<BranchListCard

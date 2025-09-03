@@ -63,6 +63,7 @@ export function mrToInstance(pr: MergeRequestSchema): PullRequest {
 
 	const reviewers =
 		pr.reviewers?.map((reviewer) => ({
+			id: reviewer.id,
 			srcUrl: reviewer.avatar_url,
 			name: reviewer.name
 		})) || [];
@@ -74,6 +75,7 @@ export function mrToInstance(pr: MergeRequestSchema): PullRequest {
 		body: pr.description || undefined,
 		author: pr.author
 			? {
+					id: pr.author.id,
 					name: pr.author.name || undefined,
 					email: pr.author.username || undefined,
 					isBot: false,

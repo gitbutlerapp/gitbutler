@@ -6,7 +6,7 @@ import { GitLab } from '$lib/forge/gitlab/gitlab';
 import { type GitHubApi } from '$lib/state/clientState.svelte';
 import { mockCreateBackend } from '$lib/testing/mockBackend';
 import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
-import { expect, test, describe } from 'vitest';
+import { expect, test, describe, vi } from 'vitest';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
@@ -24,7 +24,7 @@ describe.concurrent('DefaultforgeFactory', () => {
 		util: undefined as any,
 		reducer: undefined as any,
 		middleware: undefined as any,
-		injectEndpoints: undefined as any,
+		injectEndpoints: vi.fn(),
 		enhanceEndpoints: undefined as any
 	};
 	const gitHubClient = { onReset: () => {} } as any as GitHubClient;
@@ -32,7 +32,9 @@ describe.concurrent('DefaultforgeFactory', () => {
 
 	// TODO: Replace with a better mock.
 	const dispatch = (() => {}) as ThunkDispatch<any, any, UnknownAction>;
-	const gitLabApi: any = {};
+	const gitLabApi: any = {
+		injectEndpoints: vi.fn()
+	};
 
 	test('Create GitHub service', async () => {
 		const factory = new DefaultForgeFactory({

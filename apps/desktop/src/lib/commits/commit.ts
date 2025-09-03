@@ -127,6 +127,7 @@ export class Commit {
 export type AnyCommit = DetailedCommit | Commit;
 
 export interface Author {
+	id?: number;
 	email?: string;
 	name?: string;
 	gravatarUrl?: string;

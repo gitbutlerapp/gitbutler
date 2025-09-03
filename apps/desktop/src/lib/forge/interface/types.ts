@@ -7,6 +7,12 @@ export interface Label {
 	color: string;
 }
 
+export type ForgeUser = {
+	id: number;
+	srcUrl: string;
+	name: string;
+};
+
 export interface PullRequest {
 	htmlUrl: string;
 	number: number;
@@ -25,7 +31,7 @@ export interface PullRequest {
 	repositorySshUrl?: string;
 	repositoryHttpsUrl?: string;
 	repoOwner?: string;
-	reviewers: { srcUrl: string; name: string }[];
+	reviewers: ForgeUser[];
 }
 
 export interface PullRequestPermissions {

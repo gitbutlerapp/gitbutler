@@ -47,7 +47,7 @@ function injectEndpoints(api: GitHubApi) {
 						action: 'getAuthenticated',
 						extra: api.extra
 					}),
-				providesTags: [providesList(ReduxTag.PullRequests)]
+				providesTags: [providesList(ReduxTag.ForgeUser)]
 			})
 		})
 	});

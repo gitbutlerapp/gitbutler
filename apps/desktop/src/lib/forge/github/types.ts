@@ -97,6 +97,7 @@ export function ghResponseToInstance(pr: PullRequestListItem): PullRequest {
 
 	const reviewers =
 		pr.requested_reviewers?.map((reviewer) => ({
+			id: reviewer.id,
 			srcUrl: reviewer.avatar_url,
 			name: reviewer.name || reviewer.login
 		})) || [];
@@ -108,6 +109,7 @@ export function ghResponseToInstance(pr: PullRequestListItem): PullRequest {
 		body: pr.body || undefined,
 		author: pr.user
 			? {
+					id: pr.user.id,
 					name: pr.user.login || undefined,
 					email: pr.user.email || undefined,
 					isBot: pr.user.type.toLowerCase() === 'bot',
