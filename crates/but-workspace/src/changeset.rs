@@ -16,6 +16,7 @@ use but_core::{ChangeState, commit::TreeKind};
 use gix::diff::tree::recorder::Change;
 use gix::{ObjectId, Repository, object::tree::EntryKind, prelude::ObjectIdExt};
 use std::ops::Deref;
+use std::time::Duration;
 use std::{
     borrow::Borrow,
     collections::{HashMap, HashSet, hash_map::Entry},
@@ -101,6 +102,7 @@ impl RefInfo {
 
         // Cheap checks to see which local commits belong to rebased remote or upstream commits.
         // We check by change-id and by author-signature + message combination.
+        let mut time_used = std::time::Duration::default();
         'next_stack: for stack in &mut self.stacks {
             for segment in &mut stack.segments {
                 // At first, these are all commits that aren't also available by identity as local commits.
@@ -127,7 +129,8 @@ impl RefInfo {
                         )
                     })
                 {
-                    let expensive = changeset_identifier(repo, expensive.then_some(local))?;
+                    let expensive =
+                        changeset_identifier(repo, expensive.then_some(local), &mut time_used)?;
                     if let Some(upstream_commit_id) =
                         lookup_similar(&upstream_lut, local, expensive.as_ref(), ChangeId::Skip)
                     {
@@ -149,7 +152,7 @@ impl RefInfo {
                     !is_used_in_local_commits
                         // It shouldn't be integrated (by rebase) either.
                         && lookup_similar(&upstream_lut, rc,
-                                          changeset_identifier(repo, expensive.then_some(rc)).ok().flatten().as_ref(),
+                                          changeset_identifier(repo, expensive.then_some(rc), &mut time_used).ok().flatten().as_ref(),
                                           ChangeId::Skip).is_none()
                 });
             }
@@ -259,14 +262,26 @@ impl PushStatus {
 fn changeset_identifier(
     repo: &gix::Repository,
     commit: Option<&ui::Commit>,
+    elapsed: &mut Duration,
 ) -> anyhow::Result<Option<Identifier>> {
     let Some(commit) = commit else {
         return Ok(None);
     };
-    Ok(
-        id_for_tree_diff(repo, commit.parent_ids.first().cloned(), commit.id)?
-            .map(Identifier::ChangesetId),
-    )
+    if *elapsed > MAX_COMPUTE_WALLCLOCK_DURATION {
+        return Ok(None);
+    }
+
+    let start = std::time::Instant::now();
+    let res = id_for_tree_diff(repo, commit.parent_ids.first().cloned(), commit.id)?;
+    *elapsed += start.elapsed();
+
+    if *elapsed > MAX_COMPUTE_WALLCLOCK_DURATION {
+        tracing::warn!(
+            "Stopping expensive main-thread changeset computation after {}s - integration checks may not be correct",
+            elapsed.as_secs()
+        );
+    }
+    Ok(res.map(Identifier::ChangesetId))
 }
 
 enum ChangeId {
@@ -331,19 +346,6 @@ fn create_similarity_lut(
         }
     };
 
-    let should_stop = |start: std::time::Instant, commit_idx: usize| {
-        const MAX_DURATION: std::time::Duration = std::time::Duration::from_secs(1);
-        let out_of_time = start.elapsed() > MAX_DURATION;
-        if out_of_time {
-            tracing::warn!(
-                "Stopping expensive changeset computation after {}s and {commit_idx} diffs computed ({throughput:02} diffs/s)",
-                MAX_DURATION.as_secs(),
-                throughput = commit_idx as f32 / start.elapsed().as_secs_f32(),
-            );
-        }
-        out_of_time
-    };
-
     if num_threads <= 1 || !expensive {
         let mut expensive = expensive.then(std::time::Instant::now);
         for (idx, commit) in commits.enumerate() {
@@ -352,6 +354,7 @@ fn create_similarity_lut(
                 insert_or_expell_ambiguous(Identifier::ChangeId(*change_id), commit.id);
             }
             insert_or_expell_ambiguous(commit_data_id(commit)?, commit.id);
+
             if let Some(start) = expensive {
                 let Some(changeset_id) =
                     id_for_tree_diff(repo, commit.parent_ids.first().cloned(), commit.id)?
@@ -384,13 +387,9 @@ fn create_similarity_lut(
                                 ),
                             );
                             for (idx, lhs, rhs) in in_rx {
-                                if out_tx
-                                    .send(
-                                        id_for_tree_diff(&repo, lhs, rhs)
-                                            .map(|opt| opt.map(|cs_id| (idx, cs_id, rhs))),
-                                    )
-                                    .is_err()
-                                {
+                                let res = id_for_tree_diff(&repo, lhs, rhs)
+                                    .map(|opt| opt.map(|cs_id| (idx, cs_id, rhs)));
+                                if out_tx.send(res).is_err() {
                                     break;
                                 }
                             }
@@ -435,6 +434,21 @@ fn create_similarity_lut(
     }
 
     Ok(similarity_lut)
+}
+
+/// The total amount of time we should be able to use for expensive changeset computation.
+const MAX_COMPUTE_WALLCLOCK_DURATION: std::time::Duration = std::time::Duration::from_secs(1);
+
+fn should_stop(start: std::time::Instant, commit_idx: usize) -> bool {
+    let out_of_time = start.elapsed() > MAX_COMPUTE_WALLCLOCK_DURATION;
+    if out_of_time {
+        tracing::warn!(
+            "Stopping expensive changeset computation after {}s and {commit_idx} diffs computed ({throughput:02} diffs/s)",
+            MAX_COMPUTE_WALLCLOCK_DURATION.as_secs(),
+            throughput = commit_idx as f32 / start.elapsed().as_secs_f32(),
+        );
+    }
+    out_of_time
 }
 
 /// Produce a changeset ID to represent the changes between `lhs` and `rhs`, where `lhs` is
@@ -551,7 +565,7 @@ fn id_for_tree_diff(
     Ok(Some(hash.try_finalize()?))
 }
 
-// TODO: use `peel_to_tree()` once special conflict markers aren't needed anymore.
+// TODO: use `peel_to_tree()` once special conflict commits aren't needed anymore.
 fn id_to_tree(repo: &gix::Repository, id: gix::ObjectId) -> anyhow::Result<gix::Tree<'_>> {
     let object = repo.find_object(id)?;
     if object.kind == gix::object::Kind::Commit {
