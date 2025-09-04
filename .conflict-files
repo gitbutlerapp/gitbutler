@@ -1,0 +1,3 @@
+ancestorEntries = ["packages/ui/src/lib/components/ContextMenuItem.svelte"]
+ourEntries = ["packages/ui/src/lib/components/ContextMenuItem.svelte"]
+theirEntries = ["packages/ui/src/lib/components/ContextMenuItem.svelte"]
