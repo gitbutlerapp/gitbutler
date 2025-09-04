@@ -25,6 +25,13 @@ export enum DefinedFocusable {
 	FileList = 'file-list'
 }
 
+export const DEFAULT_LINKS = [
+	DefinedFocusable.FileItem,
+	DefinedFocusable.Commit,
+	DefinedFocusable.Branch,
+	DefinedFocusable.Assignments
+];
+
 type NavigationAction = 'tab' | 'prev' | 'next' | 'exit' | 'enter';
 
 export type KeyboardHandler = (event: KeyboardEvent) => boolean | void;
