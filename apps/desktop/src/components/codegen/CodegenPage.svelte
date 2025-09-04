@@ -511,7 +511,6 @@
 			{#if branchChanges && selectedBranch}
 				<ReduxResult result={branchChanges.current} {projectId}>
 					{#snippet children({ changes }, { projectId })}
-						<!-- {#if changes.length > 0} -->
 						{@const todos = getTodos(events)}
 						<Drawer
 							bottomBorder
@@ -552,7 +551,7 @@
 
 			{@const todos = getTodos(events)}
 			{#if todos.length > 0}
-				<Drawer bottomBorder defaultCollapsed={false}>
+				<Drawer bottomBorder defaultCollapsed={false} noshrink>
 					{#snippet header()}
 						<h4 class="text-14 text-semibold truncate">Todos</h4>
 						<Badge>{todos.length}</Badge>
@@ -566,7 +565,7 @@
 				</Drawer>
 			{/if}
 
-			<Drawer title="Usage">
+			<Drawer title="Usage" noshrink>
 				{@const usage = usageStats(events)}
 				<div class="right-sidebar-list">
 					<CodegenUsageStat label="Tokens used:" value={usage.tokens.toString()} />
