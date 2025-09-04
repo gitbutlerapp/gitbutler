@@ -162,9 +162,13 @@
 	ondragover={(e) => e.preventDefault()}
 	onkeydown={handleKeyDown}
 />
-<svelte:body use:focusable={{ activate: true }} />
 
-<div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
+<div
+	use:focusable={{ activate: true }}
+	class="app-root"
+	role="application"
+	oncontextmenu={(e) => !dev && e.preventDefault()}
+>
 	{@render children()}
 </div>
 <ShareIssueModal />
