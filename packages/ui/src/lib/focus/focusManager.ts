@@ -807,4 +807,83 @@ export class FocusManager {
 		metadata.options = { ...metadata.options, ...updates };
 		return true;
 	}
+
+	/**
+	 * Pretty prints the focus tree structure to console.
+	 * Shows the hierarchical relationships between focusable elements.
+	 */
+	debugPrintTree(logElements: boolean): void {
+		const rootElements: HTMLElement[] = [];
+		for (const [element, metadata] of this.metadata) {
+			if (!metadata.parentElement) {
+				rootElements.push(element);
+			}
+		}
+
+		if (rootElements.length === 0) {
+			return;
+		}
+
+		for (const root of rootElements) {
+			this.printTreeNode(root, logElements, 0);
+		}
+	}
+
+	private printTreeNode(element: HTMLElement, logElements: boolean, depth: number): void {
+		const metadata = this.getMetadata(element);
+		if (!metadata) return;
+
+		// Build indentation
+		const indent = '  '.repeat(depth);
+
+		// Build node description
+		const description = this.getElementDescription(element);
+		const isCurrent = this._currentElement === element;
+		const marker = isCurrent ? ' ◀── CURRENT' : '';
+
+		// Build status indicators
+		const flags: string[] = [];
+		if (metadata.logicalId) flags.push(`id:${metadata.logicalId}`);
+		if (metadata.options.disabled) flags.push('disabled');
+		if (metadata.options.trap) flags.push('trap');
+		if (metadata.options.list) flags.push('list');
+		if (metadata.options.isolate) flags.push('isolate');
+		const flagsStr = flags.length > 0 ? ` [${flags.join(', ')}]` : '';
+
+		// Print current node with the actual element for hovering
+		const log = `${indent}${description}${flagsStr}${marker}`;
+		if (logElements) {
+			// eslint-disable-next-line no-console
+			console.log(log, element);
+		} else {
+			// eslint-disable-next-line no-console
+			console.log(log);
+		}
+
+		// Print children
+		const children = metadata.children;
+		for (const child of children) {
+			this.printTreeNode(child, logElements, depth + 1);
+		}
+	}
+
+	private getElementDescription(element: HTMLElement | undefined): string {
+		if (!element) return '(none)';
+
+		const tag = element.tagName.toLowerCase();
+		const classes = element.className
+			? `.${element.className
+					.split(' ')
+					.filter((c) => c)
+					.join('.')}`
+			: '';
+		const htmlId = element.id ? `#${element.id}` : '';
+
+		// Truncate long class names
+		const maxClassLength = 50;
+		const displayClasses =
+			classes.length > maxClassLength ? classes.substring(0, maxClassLength) + '...' : classes;
+
+		return `${tag}${htmlId}${displayClasses}`.trim() || tag;
+	}
 }
