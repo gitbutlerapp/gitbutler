@@ -17,6 +17,8 @@ const MAX_HISTORY_SIZE = 10;
 const MAX_PARENT_SEARCH_DEPTH = 100;
 
 export enum DefinedFocusable {
+	Assignments = 'assignments',
+	Branch = 'branch',
 	Commit = 'commit',
 	CommitList = 'commit-list',
 	FileItem = 'file-item',
@@ -47,10 +49,8 @@ export interface FocusableOptions {
 
 	// Custom keyboard event handler, can prevent default navigation
 	onKeydown?: KeyboardHandler;
-	// Called when this element becomes the active focus
-	onFocus?: () => void;
-	// Called when this element loses focus to another element
-	onBlur?: () => void;
+	// Called when this element becomes the active focus or loses it
+	onActive?: (value: boolean) => void;
 }
 
 interface FocusableData {
@@ -201,9 +201,9 @@ export class FocusManager {
 		}
 
 		// Trigger onFocus if this becomes the current element
-		if (options.onFocus && this._currentElement === element) {
+		if (options.onActive && this._currentElement === element) {
 			try {
-				options.onFocus();
+				options.onActive(true);
 			} catch (error) {
 				console.warn('Error in onFocus', error);
 			}
@@ -345,7 +345,7 @@ export class FocusManager {
 		const newMeta = this.getMetadataOrThrow(element);
 
 		try {
-			previousMeta?.options.onBlur?.();
+			previousMeta?.options.onActive?.(false);
 		} catch (error) {
 			console.warn('Error in onBlur callback:', error);
 		}
@@ -357,7 +357,7 @@ export class FocusManager {
 		this._currentElement = element;
 
 		try {
-			newMeta.options.onFocus?.();
+			newMeta.options.onActive?.(true);
 		} catch (error) {
 			console.warn('Error in onFocus:', error);
 		}
@@ -627,6 +627,10 @@ export class FocusManager {
 			return false;
 		}
 
+		if (navigationContext.hasSelection) {
+			return false;
+		}
+
 		event.preventDefault();
 		event.stopPropagation();
 
@@ -653,6 +657,7 @@ export class FocusManager {
 			action,
 			isList,
 			isInput: this.isInputElement(event.target),
+			hasSelection: this.hasTextSelection(),
 			hasOutline: get(this.outline)
 		};
 	}
@@ -664,6 +669,11 @@ export class FocusManager {
 			target instanceof HTMLInputElement ||
 			!this._currentElement
 		);
+	}
+
+	private hasTextSelection(): boolean {
+		const selection = window.getSelection();
+		return !!selection && selection.rangeCount > 0 && !selection.isCollapsed;
 	}
 
 	private shouldIgnoreNavigationForInput(context: {
