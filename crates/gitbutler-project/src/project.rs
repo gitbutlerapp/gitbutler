@@ -162,3 +162,55 @@ impl Project {
         self.path.clone()
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum AddProjectOutcome {
+    Added(Project),
+    AlreadyExists(Project),
+    PathNotFound,
+    NotADirectory,
+    BareRepository,
+    NonMainWorktree,
+    NoWorkdir,
+    NoDotGitDirectory,
+    NotAGitRepository(String),
+}
+
+impl AddProjectOutcome {
+    /// This is for tests only.
+    ///
+    /// Unwraps the `Project` if the project was actually added.
+    /// Panics if it was not.
+    pub fn unwrap_project(self) -> Project {
+        match self {
+            AddProjectOutcome::Added(p) => p,
+            _ => panic!("called `AddProjectOutcome::unwrap_project()` on a non-project outcome"),
+        }
+    }
+
+    /// Try to get the `Project`, returning an error if it was not added.
+    pub fn try_project(self) -> anyhow::Result<Project> {
+        match self {
+            AddProjectOutcome::Added(p) => Ok(p),
+            AddProjectOutcome::AlreadyExists(_) => Err(anyhow::anyhow!("project already exists")),
+            AddProjectOutcome::PathNotFound => Err(anyhow::anyhow!("project path not found")),
+            AddProjectOutcome::NotADirectory => {
+                Err(anyhow::anyhow!("project path is not a directory"))
+            }
+            AddProjectOutcome::BareRepository => {
+                Err(anyhow::anyhow!("bare repositories are not supported"))
+            }
+            AddProjectOutcome::NonMainWorktree => {
+                Err(anyhow::anyhow!("non-main worktrees are not supported"))
+            }
+            AddProjectOutcome::NoWorkdir => Err(anyhow::anyhow!("no workdir found for repository")),
+            AddProjectOutcome::NoDotGitDirectory => {
+                Err(anyhow::anyhow!("no .git directory found in repository"))
+            }
+            AddProjectOutcome::NotAGitRepository(msg) => {
+                Err(anyhow::anyhow!("not a git repository: {}", msg))
+            }
+        }
+    }
+}
