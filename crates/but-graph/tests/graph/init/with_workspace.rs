@@ -682,6 +682,58 @@ fn minimal_merge() -> anyhow::Result<()> {
 }
 
 #[test]
+fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* fafd9d0 (HEAD -> gitbutler/workspace, main, B, A) init");
+
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options_with_extra_target(&repo, "main"),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    └── 👉📕►►►:0[0]:gitbutler/workspace
+        ├── 📙►:2[1]:A
+        │   └── ►:1[2]:anon:
+        │       └── ·fafd9d0 (⌂|🏘️|1) ►main
+        └── 📙►:3[1]:B
+            └── →:1:
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:0:gitbutler/workspace <> ✓! on fafd9d0
+    ├── ≡📙:3:B on fafd9d0
+    │   └── 📙:3:B
+    └── ≡📙:2:A on fafd9d0
+        └── 📙:2:A
+    ");
+
+    let (id, ref_name) = id_at(&repo, "B");
+    let graph = Graph::from_commit_traversal(id, ref_name.clone(), &*meta, standard_options())?
+        .validated()?;
+    // TODO: it shouldn't create a dependent branch here, but instead see A as a stack.
+    //       problem is that for stack creation, there is no candidate.
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    └── 📕►►►:1[0]:gitbutler/workspace
+        └── 👉📙►:0[1]:B
+            └── 📙►:2[2]:A
+                └── ·fafd9d0 (⌂|🏘️|1) ►main
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:1:gitbutler/workspace <> ✓!
+    └── ≡👉📙:0:B
+        ├── 👉📙:0:B
+        └── 📙:2:A
+            └── ·fafd9d0 (🏘️) ►main
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn just_init_with_branches() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
     // Note the dedicated workspace branch without a workspace commit.

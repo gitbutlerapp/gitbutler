@@ -298,6 +298,14 @@ mkdir ws
      create_workspace_commit_once main
   )
 
+  git init just-init-with-two-branches
+  (cd just-init-with-two-branches
+    commit init
+    git branch A
+    git branch B
+    git checkout -b gitbutler/workspace
+  )
+
   git init just-init-with-branches
   (cd just-init-with-branches
     commit init && setup_target_to_match_main
