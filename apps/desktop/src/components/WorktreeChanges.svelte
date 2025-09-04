@@ -75,13 +75,7 @@
 	let scrollTopIsVisible = $state(true);
 
 	const assignmentDZHandler = $derived(
-		new AssignmentDropHandler(
-			projectId,
-			diffService,
-			uncommittedService,
-			stackId || null,
-			idSelection
-		)
+		new AssignmentDropHandler(projectId, diffService, uncommittedService, stackId, idSelection)
 	);
 
 	function getDropzoneLabel(handler: DropzoneHandler | undefined): string {
