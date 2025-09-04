@@ -197,8 +197,7 @@
 			oncontextmenu={onContextMenu}
 			actionOpts={{
 				...focusableOpts,
-				onFocus: () => (active = true),
-				onBlur: () => (active = false)
+				onActive: (value) => (active = value)
 			}}
 		/>
 	{/if}

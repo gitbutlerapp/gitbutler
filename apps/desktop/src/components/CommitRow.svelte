@@ -102,7 +102,12 @@
 	{onclick}
 	use:focusable={{
 		id: DefinedFocusable.Commit,
-		linkToIds: [DefinedFocusable.FileItem, DefinedFocusable.Commit],
+		linkToIds: [
+			DefinedFocusable.FileItem,
+			DefinedFocusable.Commit,
+			DefinedFocusable.Branch,
+			DefinedFocusable.Assignments
+		],
 		onKeydown: (e) => {
 			if (disabled) return false;
 
@@ -112,8 +117,7 @@
 				return true;
 			}
 		},
-		onFocus: () => (active = true),
-		onBlur: () => (active = false)
+		onActive: (value) => (active = value)
 	}}
 >
 	{#if selected}

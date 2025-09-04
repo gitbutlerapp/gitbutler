@@ -4,6 +4,8 @@
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import BranchLabel from '$components/BranchLabel.svelte';
 	import { TestId } from '@gitbutler/ui';
+	import { DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { slide } from 'svelte/transition';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
@@ -12,7 +14,6 @@
 		branchName: string;
 		isEmpty: boolean | undefined;
 		selected: boolean;
-		active: boolean | undefined;
 		readonly: boolean;
 		draft: boolean;
 		isCommitting?: boolean;
@@ -34,7 +35,6 @@
 		isEmpty = false,
 		selected,
 		draft,
-		active,
 		isCommitting,
 		isUpdatingName,
 		failedMisserablyToUpdateBranchName,
@@ -51,75 +51,100 @@
 	}: Props = $props();
 
 	let rightClickTrigger = $state<HTMLDivElement>();
+	let active = $state(false);
 
 	const actionsVisible = $derived(!draft && !isCommitting && (buttons || menu));
 </script>
 
 <div
-	data-testid={TestId.BranchHeader}
-	data-testid-branch-header={branchName}
-	bind:this={rightClickTrigger}
-	role="button"
-	class="branch-header"
-	class:selected
-	class:active
-	class:draft
-	class:commiting={isCommitting}
-	{onclick}
-	onkeypress={onclick}
-	tabindex="0"
+	class="header-wrapper"
+	use:focusable={{
+		id: DefinedFocusable.Branch,
+		linkToIds: [
+			DefinedFocusable.FileItem,
+			DefinedFocusable.Commit,
+			DefinedFocusable.Branch,
+			DefinedFocusable.Assignments
+		],
+		list: true,
+		onKeydown: (e) => {
+			if (e.key === 'Enter' || (!e.metaKey && e.key === 'ArrowRight')) {
+				e.stopPropagation();
+				onclick?.();
+			}
+		},
+		onActive: (value) => (active = value)
+	}}
 >
-	{#if selected && !draft}
-		<div
-			class="branch-header__select-indicator"
-			in:slide={{ axis: 'x', duration: 150 }}
-			class:active
-		></div>
-	{/if}
-
-	<div class="branch-header__content">
-		<div class="branch-header__title text-14 text-bold">
-			<div class="branch-header__title-content flex gap-6">
-				<BranchHeaderIcon color={lineColor} {iconName} />
-				<BranchLabel
-					name={branchName}
-					fontSize="15"
-					disabled={isUpdatingName}
-					error={failedMisserablyToUpdateBranchName}
-					readonly={readonly || isPushed}
-					onChange={(name) => updateBranchName(name)}
-				/>
-			</div>
-		</div>
-
-		{#if isEmpty}
-			<p class="text-12 text-body branch-header__empty-state">
-				{@render emptyState?.()}
-			</p>
-		{:else if content}
-			<div class="text-12 branch-header__details">
-				{@render content()}
-			</div>
+	<div
+		data-testid={TestId.BranchHeader}
+		data-testid-branch-header={branchName}
+		bind:this={rightClickTrigger}
+		role="button"
+		class="branch-header"
+		class:selected
+		class:active
+		class:draft
+		class:commiting={isCommitting}
+		{onclick}
+		onkeypress={onclick}
+		tabindex="0"
+	>
+		{#if selected && !draft}
+			<div
+				class="branch-header__select-indicator"
+				in:slide={{ axis: 'x', duration: 150 }}
+				class:active
+			></div>
 		{/if}
+
+		<div class="branch-header__content">
+			<div class="branch-header__title text-14 text-bold">
+				<div class="branch-header__title-content flex gap-6">
+					<BranchHeaderIcon color={lineColor} {iconName} />
+					<BranchLabel
+						name={branchName}
+						fontSize="15"
+						disabled={isUpdatingName}
+						error={failedMisserablyToUpdateBranchName}
+						readonly={readonly || isPushed}
+						onChange={(name) => updateBranchName(name)}
+					/>
+				</div>
+			</div>
+
+			{#if isEmpty}
+				<p class="text-12 text-body branch-header__empty-state">
+					{@render emptyState?.()}
+				</p>
+			{:else if content}
+				<div class="text-12 branch-header__details">
+					{@render content()}
+				</div>
+			{/if}
+		</div>
 	</div>
+
+	{#if actionsVisible}
+		<div class="branch-hedaer__actions-row" class:draft class:new-branch={isEmpty}>
+			{#if buttons}
+				<div class="text-12 branch-header__actions">
+					{@render buttons()}
+				</div>
+			{/if}
+			{#if menu}
+				<div class="branch-header__menu">
+					{@render menu({ rightClickTrigger })}
+				</div>
+			{/if}
+		</div>
+	{/if}
 </div>
 
-{#if actionsVisible}
-	<div class="branch-hedaer__actions-row" class:draft class:new-branch={isEmpty}>
-		{#if buttons}
-			<div class="text-12 branch-header__actions">
-				{@render buttons()}
-			</div>
-		{/if}
-		{#if menu}
-			<div class="branch-header__menu">
-				{@render menu({ rightClickTrigger })}
-			</div>
-		{/if}
-	</div>
-{/if}
-
 <style lang="postcss">
+	.header-wrapper {
+	}
+
 	.branch-header {
 		--branch-selected-bg: var(--clr-bg-1);
 		--branch-selected-element-bg: var(--clr-selected-not-in-focus-element);

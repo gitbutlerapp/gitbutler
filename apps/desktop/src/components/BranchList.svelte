@@ -22,7 +22,6 @@
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 
 	import { Button, Modal, TestId } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import { tick } from 'svelte';
@@ -123,7 +122,7 @@
 	const canPublishPR = $derived(forge.current.authenticated);
 </script>
 
-<div class="branches-wrapper" use:focusable={{ list: true, disabled: branches.length <= 1 }}>
+<div class="branches-wrapper">
 	{#each branches as branch, i}
 		{@const branchName = branch.name}
 		{@const localAndRemoteCommits = stackService.commits(projectId, stackId, branchName)}

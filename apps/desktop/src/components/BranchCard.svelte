@@ -15,7 +15,6 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { ReviewBadge, Icon, Tooltip, TestId } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
 	import type { PushStatus } from '$lib/stacks/stack';
@@ -104,8 +103,6 @@
 	const selected = $derived(selection?.branchName === branchName);
 	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
 
-	let active = $state(false);
-
 	async function updateBranchName(title: string) {
 		if (args.type === 'draft-branch') {
 			uiState.global.draftBranchName.set(title);
@@ -136,19 +133,6 @@
 	class:draft={args.type === 'draft-branch'}
 	data-series-name={branchName}
 	data-testid={TestId.BranchCard}
-	use:focusable={{
-		list: true,
-		onKeydown: (e) => {
-			if (e.key === 'Enter' || (!e.metaKey && e.key === 'ArrowRight')) {
-				if (args.type === 'normal-branch' || args.type === 'stack-branch') {
-					e.stopPropagation();
-					args.onclick();
-				}
-			}
-		},
-		onFocus: () => (active = true),
-		onBlur: () => (active = false)
-	}}
 >
 	{#if args.type === 'stack-branch'}
 		{@const moveHandler = args.stackId
@@ -181,7 +165,6 @@
 				{updateBranchName}
 				isUpdatingName={nameUpdate.current.isLoading}
 				failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-				{active}
 				{readonly}
 				{isPushed}
 				onclick={args.onclick}
@@ -256,7 +239,6 @@
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-			{active}
 			readonly
 			{isPushed}
 			onclick={args.onclick}
@@ -284,7 +266,6 @@
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-			{active}
 			readonly
 			isPushed
 		>
@@ -307,7 +288,6 @@
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-			{active}
 			readonly={false}
 			isPushed={false}
 		>

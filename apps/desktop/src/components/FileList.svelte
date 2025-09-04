@@ -192,7 +192,12 @@
 		showCheckbox={showCheckboxes}
 		focusableOpts={{
 			id: DefinedFocusable.FileItem,
-			linkToIds: [DefinedFocusable.Commit, DefinedFocusable.FileItem],
+			linkToIds: [
+				DefinedFocusable.FileItem,
+				DefinedFocusable.Commit,
+				DefinedFocusable.Branch,
+				DefinedFocusable.Assignments
+			],
 			onKeydown: (e) => {
 				if (e.key === 'Enter' || e.key === 'l') {
 					e.stopPropagation();
