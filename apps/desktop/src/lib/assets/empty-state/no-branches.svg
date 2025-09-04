@@ -1,18 +1,26 @@
-<svg width="120" height="100" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path opacity="0.18" fill-rule="evenodd" clip-rule="evenodd" d="M26.1057 3.1272C31.6285 3.12727 36.1056 7.60447 36.1055 13.1273L36.1052 32.1278L50.1049 32.1272L50.1055 52.1272L36.106 52.1277C25.0599 52.1281 16.1051 43.1735 16.1053 32.1274L16.1055 13.1271C16.1056 7.60422 20.5828 3.12713 26.1057 3.1272Z" fill="var(--clr-core-ntrl-60)"/>
-<path opacity="0.19" fill-rule="evenodd" clip-rule="evenodd" d="M95.1057 23.1272C89.5828 23.1273 85.1057 27.6045 85.1058 33.1273L85.1061 48.1278L70.1059 48.1272L70.1053 68.1272L85.1053 68.1277C96.1514 68.1281 105.106 59.1735 105.106 48.1274L105.106 33.1271C105.106 27.6042 100.629 23.1271 95.1057 23.1272Z" fill="var(--clr-core-ntrl-60)"/>
-<path opacity="0.38" fill-rule="evenodd" clip-rule="evenodd" d="M60 9C65.5228 9 70 12.8082 70 17.5057L70 83L50 83L50 17.5057C50 12.8082 54.4772 9 60 9Z" fill="var(--clr-core-ntrl-60)"/>
-<g opacity="0.27">
-<rect x="85" y="90" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)"/>
-<rect x="74" y="95" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)"/>
-<rect x="101" y="83" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)"/>
-<rect x="52" y="97" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)"/>
-<rect x="62" y="90" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)"/>
-<rect x="41" y="90" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)"/>
-<rect x="26" y="92" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)"/>
-<rect x="34" y="81" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)"/>
-<rect x="102" y="96" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)"/>
-<rect x="82" y="80" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)"/>
-<rect x="12" y="90" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)"/>
-<rect x="20" y="78" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)"/>
+<svg width="7.5rem" height="6.25rem" viewBox="0 0 120 100" fill="none"
+  xmlns="http://www.w3.org/2000/svg">
+  <path opacity="0.18" fill-rule="evenodd" clip-rule="evenodd"
+    d="M26.1057 3.1272C31.6285 3.12727 36.1056 7.60447 36.1055 13.1273L36.1052 32.1278L50.1049 32.1272L50.1055 52.1272L36.106 52.1277C25.0599 52.1281 16.1051 43.1735 16.1053 32.1274L16.1055 13.1271C16.1056 7.60422 20.5828 3.12713 26.1057 3.1272Z"
+    fill="var(--clr-core-ntrl-60)" />
+  <path opacity="0.19" fill-rule="evenodd" clip-rule="evenodd"
+    d="M95.1057 23.1272C89.5828 23.1273 85.1057 27.6045 85.1058 33.1273L85.1061 48.1278L70.1059 48.1272L70.1053 68.1272L85.1053 68.1277C96.1514 68.1281 105.106 59.1735 105.106 48.1274L105.106 33.1271C105.106 27.6042 100.629 23.1271 95.1057 23.1272Z"
+    fill="var(--clr-core-ntrl-60)" />
+  <path opacity="0.38" fill-rule="evenodd" clip-rule="evenodd"
+    d="M60 9C65.5228 9 70 12.8082 70 17.5057L70 83L50 83L50 17.5057C50 12.8082 54.4772 9 60 9Z"
+    fill="var(--clr-core-ntrl-60)" />
+  <g opacity="0.27">
+    <rect x="85" y="90" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)" />
+    <rect x="74" y="95" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)" />
+    <rect x="101" y="83" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)" />
+    <rect x="52" y="97" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)" />
+    <rect x="62" y="90" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)" />
+    <rect x="41" y="90" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)" />
+    <rect x="26" y="92" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)" />
+    <rect x="34" y="81" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)" />
+    <rect x="102" y="96" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)" />
+    <rect x="82" y="80" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)" />
+    <rect x="12" y="90" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)" />
+    <rect x="20" y="78" width="3.20122" height="3.20122" fill="var(--clr-core-ntrl-60)" />
+  </g>
 </svg>

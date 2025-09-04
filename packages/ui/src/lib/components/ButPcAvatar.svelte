@@ -76,6 +76,7 @@
 <style lang="postcss">
 	.but-face-wrapper {
 		position: relative;
+		flex-shrink: 0;
 		width: 28px;
 		height: 28px;
 	}
