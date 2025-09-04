@@ -5,6 +5,7 @@
 	interface Props {
 		title?: Snippet;
 		caption?: Snippet;
+		actions?: Snippet;
 		image?: string;
 		width?: number;
 		bottomMargin?: number;
@@ -23,6 +24,7 @@
 		gap = 16,
 		title,
 		caption,
+		actions,
 		background = 'none'
 	}: Props = $props();
 </script>
@@ -37,9 +39,7 @@
 		style:background
 	>
 		{#if image}
-			<div class="empty-state__image">
-				{@html image}
-			</div>
+			{@html image}
 		{/if}
 
 		<div class="empty-state__content">
@@ -54,6 +54,12 @@
 				</p>
 			{/if}
 		</div>
+
+		{#if actions}
+			<div class="empty-state__actions">
+				{@render actions()}
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -99,7 +105,13 @@
 		text-align: center;
 	}
 
-	.empty-state__image {
-		width: 120px;
+	.empty-state__actions {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		margin-top: 8px;
+		gap: 8px;
 	}
 </style>

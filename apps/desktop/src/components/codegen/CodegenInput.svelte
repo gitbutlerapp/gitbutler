@@ -155,7 +155,6 @@
 	.dialog-input__actions-item {
 		display: flex;
 		align-items: center;
-		overflow: hidden;
 		gap: 4px;
 		pointer-events: all;
 	}
