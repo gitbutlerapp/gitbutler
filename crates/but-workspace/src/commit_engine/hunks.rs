@@ -30,7 +30,12 @@ pub fn apply_hunks(
     for selected_hunk in hunks {
         let old_skips = (selected_hunk.old_start as usize)
             .checked_sub(old_cursor)
-            .context("hunks must be in order from top to bottom of the file")?;
+            .with_context(|| {
+                format!(
+                    "`old_skips = start({start}) - cursor({old_cursor})` mut be >= 0, hunk = {selected_hunk:?}",
+                    start = selected_hunk.old_start
+                )
+            })?;
         let catchup_base_lines = old_iter.by_ref().take(old_skips);
         for old_line in catchup_base_lines {
             result_image.extend_from_slice(old_line);
