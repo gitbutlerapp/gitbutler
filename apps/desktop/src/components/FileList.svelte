@@ -19,7 +19,7 @@
 	import { chunk } from '$lib/utils/array';
 	import { inject, injectOptional } from '@gitbutler/core/context';
 	import { FileListItem } from '@gitbutler/ui';
-	import { DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
+	import { DEFAULT_LINKS, DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
@@ -192,12 +192,7 @@
 		showCheckbox={showCheckboxes}
 		focusableOpts={{
 			id: DefinedFocusable.FileItem,
-			linkToIds: [
-				DefinedFocusable.FileItem,
-				DefinedFocusable.Commit,
-				DefinedFocusable.Branch,
-				DefinedFocusable.Assignments
-			],
+			linkToIds: DEFAULT_LINKS,
 			onKeydown: (e) => {
 				if (e.key === 'Enter' || e.key === 'l') {
 					e.stopPropagation();

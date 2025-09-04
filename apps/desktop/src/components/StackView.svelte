@@ -31,7 +31,7 @@
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 
 	import { Button, FileViewHeader, Icon, TestId } from '@gitbutler/ui';
-	import { DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
+	import { DEFAULT_LINKS, DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import { fly } from 'svelte/transition';
@@ -449,12 +449,7 @@
 							class:assignments__empty={changes.current.length === 0 && !isCommitting}
 							use:focusable={{
 								id: DefinedFocusable.Assignments,
-								linkToIds: [
-									DefinedFocusable.FileItem,
-									DefinedFocusable.Commit,
-									DefinedFocusable.Branch,
-									DefinedFocusable.Assignments
-								]
+								linkToIds: DEFAULT_LINKS
 							}}
 						>
 							<div
