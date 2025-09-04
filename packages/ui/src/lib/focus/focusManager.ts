@@ -465,7 +465,7 @@ export class FocusManager {
 
 		const siblings = parentMetadata.children;
 		const currentIndex = siblings.indexOf(this._currentElement);
-		const isListWithLinks = parentMetadata.options.list && currentMetadata?.options.linkToIds;
+		const isListWithLinks = currentMetadata?.options.linkToIds;
 
 		if (isListWithLinks && meta) {
 			return this.focusLinked(forward);
