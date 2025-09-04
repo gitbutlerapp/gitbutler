@@ -1,25 +1,35 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import BranchBadge from '$components/BranchBadge.svelte';
 	import BranchDividerLine from '$components/BranchDividerLine.svelte';
 	import BranchHeader from '$components/BranchHeader.svelte';
 	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import ChecksPolling from '$components/ChecksPolling.svelte';
+	import ClaudeSessionDescriptor from '$components/ClaudeSessionDescriptor.svelte';
 	import CreateReviewBox from '$components/CreateReviewBox.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
+	import { CodegenRuleDropData, CodegenRuleDropHandler } from '$lib/codegen/dropzone';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
+	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
+	import { draggableChips } from '$lib/dragging/draggable';
+	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { codegenPath } from '$lib/routes/routes.svelte';
+	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { ReviewBadge, Icon, Tooltip, TestId } from '@gitbutler/ui';
+	import { ReviewBadge, Icon, Tooltip, TestId, Button } from '@gitbutler/ui';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
+	import type { RuleFilter } from '$lib/rules/rule';
 	import type { PushStatus } from '$lib/stacks/stack';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
-
 	import type { Snippet } from 'svelte';
 
 	interface BranchCardProps {
@@ -85,6 +95,10 @@
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const rulesService = inject(RULES_SERVICE);
+	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
+	const dragStateService = inject(DRAG_STATE_SERVICE);
+
 	const prService = $derived(forge.current.prService);
 	const prUnit = $derived(prService?.unit);
 
@@ -141,8 +155,17 @@
 		{#if !args.prNumber && args.stackId}
 			<PrNumberUpdater {projectId} stackId={args.stackId} {branchName} />
 		{/if}
+		{@const rule = args.stackId
+			? rulesService.aiRuleForStack({ projectId, stackId: args.stackId })
+			: undefined}
+		{@const codegenRuleHandler = args.stackId
+			? new CodegenRuleDropHandler(projectId, args.stackId, rulesService)
+			: undefined}
+
 		<Dropzone
-			handlers={args.first && moveHandler ? [moveHandler, ...args.dropzones] : args.dropzones}
+			handlers={args.first
+				? [moveHandler, codegenRuleHandler, ...args.dropzones].filter(isDefined)
+				: args.dropzones}
 		>
 			{#snippet overlay({ hovered, activated, handler })}
 				{@const label =
@@ -150,7 +173,9 @@
 						? 'Move here'
 						: handler instanceof ReorderCommitDzHandler
 							? 'Reorder here'
-							: 'Start commit'}
+							: handler instanceof CodegenRuleDropHandler
+								? 'Move here'
+								: 'Start commit'}
 				<CardOverlay {hovered} {activated} {label} />
 			{/snippet}
 
@@ -169,8 +194,63 @@
 				{isPushed}
 				onclick={args.onclick}
 				menu={args.menu}
-				buttons={args.buttons}
 			>
+				{#snippet buttons()}
+					{#if args.buttons}
+						{@render args.buttons()}
+					{/if}
+					{#if args.first && rule}
+						<ReduxResult result={rule?.current} {projectId} stackId={args.stackId}>
+							{#snippet children({ rule }, { projectId: _projectId, stackId: _stackId })}
+								{#if rule}
+									{#snippet button(text: string, tooltip?: string)}
+										<Tooltip text={tooltip}>
+											<Button
+												icon="ai"
+												style="purple"
+												size="tag"
+												kind="outline"
+												onclick={() => {
+													if (!args.stackId) return;
+													projectState.selectedClaudeSession.set({
+														stackId: args.stackId,
+														head: branchName
+													});
+													goto(codegenPath(projectId));
+												}}
+											>
+												{text}
+											</Button>
+										</Tooltip>
+									{/snippet}
+									<div
+										use:draggableChips={{
+											label: 'Codegen',
+											data: new CodegenRuleDropData(rule),
+											chipType: 'file',
+											dropzoneRegistry,
+											dragStateService
+										}}
+									>
+										<ClaudeSessionDescriptor
+											{projectId}
+											sessionId={(rule.filters[0]! as RuleFilter & { type: 'claudeCodeSessionId' })
+												.subject}
+										>
+											{#snippet fallback()}
+												{@render button('Codegen')}
+											{/snippet}
+											{#snippet children(descriptor)}
+												{@render button(`${descriptor.slice(0, 6)}...`, descriptor)}
+											{/snippet}
+										</ClaudeSessionDescriptor>
+									</div>
+								{/if}
+							{/snippet}
+						</ReduxResult>
+					{/if}
+				{/snippet}
+
 				{#snippet emptyState()}
 					<span class="branch-header__empty-state-span">This is an empty branch.</span>
 					<span class="branch-header__empty-state-span">Click for details.</span>

@@ -28,6 +28,23 @@ export interface WorkspaceRule {
 	action: RuleAction;
 }
 
+export type AiRule = WorkspaceRule & {
+	trigger: 'claudeCodeHook';
+	action: {
+		type: 'explicit';
+		filters: (RuleFilter & { type: 'claudeCodeSessionId' })[];
+		subject: { type: 'assign'; subject: { target: { type: 'stackId' } } };
+	};
+};
+
+export function isAiRule(rule: WorkspaceRule): rule is AiRule {
+	if (rule.trigger !== 'claudeCodeHook') return false;
+	if (rule.action.type !== 'explicit') return false;
+	if (rule.action.subject.type !== 'assign') return false;
+	if (rule.action.subject.subject.target.type !== 'stackId') return false;
+	return true;
+}
+
 /**
  * Represents the kinds of events in the app that can cause a rule to be evaluated.
  */
