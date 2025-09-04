@@ -240,25 +240,6 @@
 			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
 			onselect?.();
 		}}
-		onkeydown={(e) => {
-			if (e.key === 'Enter') {
-				selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
-				onselect?.();
-				return true;
-			}
-
-			if (e.code === 'KeyB' && (e.ctrlKey || e.metaKey) && e.altKey) {
-				branchSelection();
-				e.preventDefault();
-				return true;
-			}
-
-			if (e.code === 'KeyC' && (e.ctrlKey || e.metaKey) && e.altKey) {
-				autoCommitSelection();
-				e.preventDefault();
-				return true;
-			}
-		}}
 		{conflictEntries}
 	/>
 {/snippet}

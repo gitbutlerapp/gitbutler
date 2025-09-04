@@ -83,7 +83,7 @@
 	class:transparent
 	class:grow
 	class:noshrink
-	use:focusable
+	use:focusable={{ list: true }}
 >
 	<div
 		bind:this={headerDiv}
