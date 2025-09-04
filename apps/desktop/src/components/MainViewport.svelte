@@ -130,7 +130,6 @@ the window, then enlarge it and retain the original widths of the layout.
 
 <div
 	class="main-viewport"
-	use:focusable
 	bind:clientWidth={containerBindWidth}
 	data-testid={testId}
 	class:left-sideview-open={!!preview}
