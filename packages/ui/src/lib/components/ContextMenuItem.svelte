@@ -61,7 +61,7 @@
 		data-testid={testId}
 		type="button"
 		class="menu-item focus-state no-select"
-		style:--item-height={caption ? 'auto' : '26px'}
+		style:--item-height={caption ? 'auto' : '1.625rem'}
 		class:disabled
 		{disabled}
 		onclick={handleClick}
