@@ -4,9 +4,9 @@ use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use serde::Deserialize;
 
 use crate::NoParams;
-use crate::{App, error::Error};
+use crate::error::Error;
 
-pub fn get_app_settings(_app: &App, _params: NoParams) -> Result<AppSettings, Error> {
+pub fn get_app_settings(_params: NoParams) -> Result<AppSettings, Error> {
     let app_settings = AppSettings::load_from_default_path_creating()?;
     Ok(app_settings)
 }
@@ -18,7 +18,6 @@ pub struct UpdateOnboardingCompleteParams {
 }
 
 pub fn update_onboarding_complete(
-    _app: &App,
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateOnboardingCompleteParams,
 ) -> Result<(), Error> {
@@ -34,7 +33,6 @@ pub struct UpdateTelemetryParams {
 }
 
 pub fn update_telemetry(
-    _app: &App,
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateTelemetryParams,
 ) -> Result<(), Error> {
@@ -50,7 +48,6 @@ pub struct UpdateTelemetryDistinctIdParams {
 }
 
 pub fn update_telemetry_distinct_id(
-    _app: &App,
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateTelemetryDistinctIdParams,
 ) -> Result<(), Error> {
@@ -66,7 +63,6 @@ pub struct UpdateFeatureFlagsParams {
 }
 
 pub fn update_feature_flags(
-    _app: &App,
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateFeatureFlagsParams,
 ) -> Result<(), Error> {
@@ -82,7 +78,6 @@ pub struct UpdateClaudeParams {
 }
 
 pub fn update_claude(
-    _app: &App,
     app_settings_sync: &AppSettingsWithDiskSync,
     params: UpdateClaudeParams,
 ) -> Result<(), Error> {

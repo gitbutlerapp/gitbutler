@@ -52,49 +52,37 @@ pub fn claude_get_messages(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
+#[instrument(err(Debug))]
 pub fn claude_get_session_details(
-    app: State<'_, App>,
     project_id: ProjectId,
     session_id: String,
 ) -> Result<but_claude::ClaudeSessionDetails, Error> {
-    claude::claude_get_session_details(
-        &app,
-        claude::GetSessionDetailsParams {
-            project_id,
-            session_id,
-        },
-    )
+    claude::claude_get_session_details(claude::GetSessionDetailsParams {
+        project_id,
+        session_id,
+    })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
+#[instrument(err(Debug))]
 pub fn claude_list_permission_requests(
-    app: State<'_, App>,
     project_id: ProjectId,
 ) -> Result<Vec<but_claude::ClaudePermissionRequest>, Error> {
-    claude::claude_list_permission_requests(
-        &app,
-        claude::ListPermissionRequestsParams { project_id },
-    )
+    claude::claude_list_permission_requests(claude::ListPermissionRequestsParams { project_id })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
+#[instrument(err(Debug))]
 pub fn claude_update_permission_request(
-    app: State<'_, App>,
     project_id: ProjectId,
     request_id: String,
     approval: bool,
 ) -> Result<(), Error> {
-    claude::claude_update_permission_request(
-        &app,
-        claude::UpdatePermissionRequestParams {
-            project_id,
-            request_id,
-            approval,
-        },
-    )
+    claude::claude_update_permission_request(claude::UpdatePermissionRequestParams {
+        project_id,
+        request_id,
+        approval,
+    })
 }
 
 #[tauri::command(async)]
@@ -115,9 +103,9 @@ pub async fn claude_cancel_session(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
-pub async fn claude_check_available(app: State<'_, App>) -> Result<bool, Error> {
-    claude::claude_check_available(&app, but_api::NoParams {}).await
+#[instrument(err(Debug))]
+pub async fn claude_check_available() -> Result<bool, Error> {
+    claude::claude_check_available(but_api::NoParams {}).await
 }
 
 #[tauri::command(async)]
@@ -138,22 +126,19 @@ pub async fn claude_is_stack_active(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
-pub fn claude_get_prompt_templates(app: State<'_, App>) -> Result<PromptTemplates, Error> {
-    claude::claude_get_prompt_templates(&app, NoParams {})
+#[instrument(err(Debug))]
+pub fn claude_get_prompt_templates() -> Result<PromptTemplates, Error> {
+    claude::claude_get_prompt_templates(NoParams {})
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
-pub fn claude_write_prompt_templates(
-    app: State<'_, App>,
-    templates: PromptTemplates,
-) -> Result<(), Error> {
-    claude::claude_write_prompt_templates(&app, WritePromptTemplatesParams { templates })
+#[instrument(err(Debug))]
+pub fn claude_write_prompt_templates(templates: PromptTemplates) -> Result<(), Error> {
+    claude::claude_write_prompt_templates(WritePromptTemplatesParams { templates })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
-pub fn claude_get_prompt_templates_path(app: State<'_, App>) -> Result<String, Error> {
-    claude::claude_get_prompt_templates_path(&app, NoParams {})
+#[instrument(err(Debug))]
+pub fn claude_get_prompt_templates_path() -> Result<String, Error> {
+    claude::claude_get_prompt_templates_path(NoParams {})
 }

@@ -8,9 +8,8 @@ use tauri::Emitter;
 use tracing::instrument;
 
 #[tauri::command(async)]
-#[instrument(skip(_app), err(Debug))]
+#[instrument(err(Debug))]
 pub fn list_actions(
-    _app: tauri::State<'_, but_api::App>,
     project_id: ProjectId,
     offset: i64,
     limit: i64,
@@ -21,9 +20,8 @@ pub fn list_actions(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(_app), err(Debug))]
+#[instrument(err(Debug))]
 pub fn handle_changes(
-    _app: tauri::State<'_, but_api::App>,
     project_id: ProjectId,
     change_summary: String,
     handler: but_action::ActionHandler,
@@ -43,9 +41,8 @@ pub fn handle_changes(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(_app), err(Debug))]
+#[instrument(err(Debug))]
 pub fn list_workflows(
-    _app: tauri::State<'_, but_api::App>,
     project_id: ProjectId,
     offset: i64,
     limit: i64,
@@ -56,10 +53,9 @@ pub fn list_workflows(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app_handle, _app), err(Debug))]
+#[instrument(skip(app_handle), err(Debug))]
 pub fn auto_commit(
     app_handle: tauri::AppHandle,
-    _app: tauri::State<'_, but_api::App>,
     project_id: ProjectId,
     changes: Vec<TreeChange>,
 ) -> anyhow::Result<(), Error> {
@@ -86,10 +82,9 @@ pub fn auto_commit(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app_handle, _app), err(Debug))]
+#[instrument(skip(app_handle), err(Debug))]
 pub fn auto_branch_changes(
     app_handle: tauri::AppHandle,
-    _app: tauri::State<'_, but_api::App>,
     project_id: ProjectId,
     changes: Vec<TreeChange>,
 ) -> anyhow::Result<(), Error> {
@@ -116,10 +111,9 @@ pub fn auto_branch_changes(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app_handle, _app), err(Debug))]
+#[instrument(skip(app_handle), err(Debug))]
 pub fn absorb(
     app_handle: tauri::AppHandle,
-    _app: tauri::State<'_, but_api::App>,
     project_id: ProjectId,
     changes: Vec<TreeChange>,
 ) -> anyhow::Result<(), Error> {
@@ -146,10 +140,9 @@ pub fn absorb(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app_handle, _app), err(Debug))]
+#[instrument(skip(app_handle), err(Debug))]
 pub fn freestyle(
     app_handle: tauri::AppHandle,
-    _app: tauri::State<'_, but_api::App>,
     project_id: ProjectId,
     message_id: String,
     chat_messages: Vec<but_action::ChatMessage>,

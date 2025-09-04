@@ -138,7 +138,7 @@ async fn handle_websocket(socket: WebSocket, broadcaster: Arc<Mutex<Broadcaster>
     broadcaster.lock().await.deregister_sender(&id);
 }
 
-fn run_cmd<
+fn run_cmd_with_app<
     D: DeserializeOwned,
     S: Serialize,
     Fun: Fn(&App, D) -> Result<S, but_api::error::Error>,
@@ -151,6 +151,14 @@ fn run_cmd<
     Ok(json!(result))
 }
 
+fn run_cmd<D: DeserializeOwned, S: Serialize, Fun: Fn(D) -> Result<S, but_api::error::Error>>(
+    params: serde_json::Value,
+    fun: Fun,
+) -> Result<serde_json::Value, but_api::error::Error> {
+    let result = fun(serde_json::from_value(params).to_error()?)?;
+    Ok(json!(result))
+}
+
 async fn handle_command(
     Json(request): Json<Request>,
     app: App,
@@ -160,62 +168,55 @@ async fn handle_command(
     let command: &str = &request.command;
     let result = match command {
         // General commands
-        "git_remote_branches" => run_cmd(&app, request.params, git::git_remote_branches),
-        "git_test_push" => run_cmd(&app, request.params, git::git_test_push),
-        "git_test_fetch" => run_cmd(&app, request.params, git::git_test_fetch),
-        "git_index_size" => run_cmd(&app, request.params, git::git_index_size),
-        "git_head" => run_cmd(&app, request.params, git::git_head),
-        "delete_all_data" => run_cmd(&app, request.params, git::delete_all_data),
-        "git_set_global_config" => run_cmd(&app, request.params, git::git_set_global_config),
-        "git_remove_global_config" => run_cmd(&app, request.params, git::git_remove_global_config),
-        "git_get_global_config" => run_cmd(&app, request.params, git::git_get_global_config),
+        "git_remote_branches" => run_cmd(request.params, git::git_remote_branches),
+        "git_test_push" => run_cmd(request.params, git::git_test_push),
+        "git_test_fetch" => run_cmd(request.params, git::git_test_fetch),
+        "git_index_size" => run_cmd(request.params, git::git_index_size),
+        "git_head" => run_cmd(request.params, git::git_head),
+        "delete_all_data" => run_cmd(request.params, git::delete_all_data),
+        "git_set_global_config" => run_cmd(request.params, git::git_set_global_config),
+        "git_remove_global_config" => run_cmd(request.params, git::git_remove_global_config),
+        "git_get_global_config" => run_cmd(request.params, git::git_get_global_config),
         // Diff commands
-        "tree_change_diffs" => run_cmd(&app, request.params, diff::tree_change_diffs),
-        "commit_details" => run_cmd(&app, request.params, diff::commit_details),
-        "changes_in_branch" => run_cmd(&app, request.params, diff::changes_in_branch),
-        "changes_in_worktree" => run_cmd(&app, request.params, diff::changes_in_worktree),
-        "assign_hunk" => run_cmd(&app, request.params, diff::assign_hunk),
+        "tree_change_diffs" => run_cmd(request.params, diff::tree_change_diffs),
+        "commit_details" => run_cmd(request.params, diff::commit_details),
+        "changes_in_branch" => run_cmd(request.params, diff::changes_in_branch),
+        "changes_in_worktree" => run_cmd(request.params, diff::changes_in_worktree),
+        "assign_hunk" => run_cmd(request.params, diff::assign_hunk),
         // Workspace commands
-        "stacks" => run_cmd(&app, request.params, workspace::stacks),
+        "stacks" => run_cmd(request.params, workspace::stacks),
         #[cfg(unix)]
-        "show_graph_svg" => run_cmd(&app, request.params, workspace::show_graph_svg),
-        "stack_details" => run_cmd(&app, request.params, workspace::stack_details),
-        "branch_details" => run_cmd(&app, request.params, workspace::branch_details),
+        "show_graph_svg" => run_cmd(request.params, workspace::show_graph_svg),
+        "stack_details" => run_cmd(request.params, workspace::stack_details),
+        "branch_details" => run_cmd(request.params, workspace::branch_details),
         "create_commit_from_worktree_changes" => run_cmd(
-            &app,
             request.params,
             workspace::create_commit_from_worktree_changes,
         ),
         "amend_commit_from_worktree_changes" => run_cmd(
-            &app,
             request.params,
             workspace::amend_commit_from_worktree_changes,
         ),
-        "discard_worktree_changes" => {
-            run_cmd(&app, request.params, workspace::discard_worktree_changes)
+        "discard_worktree_changes" => run_cmd(request.params, workspace::discard_worktree_changes),
+        "move_changes_between_commits" => {
+            run_cmd(request.params, workspace::move_changes_between_commits)
         }
-        "move_changes_between_commits" => run_cmd(
-            &app,
-            request.params,
-            workspace::move_changes_between_commits,
-        ),
-        "split_branch" => run_cmd(&app, request.params, workspace::split_branch),
+        "split_branch" => run_cmd(request.params, workspace::split_branch),
         "split_branch_into_dependent_branch" => run_cmd(
-            &app,
             request.params,
             workspace::split_branch_into_dependent_branch,
         ),
-        "uncommit_changes" => run_cmd(&app, request.params, workspace::uncommit_changes),
-        "stash_into_branch" => run_cmd(&app, request.params, workspace::stash_into_branch),
-        "canned_branch_name" => run_cmd(&app, request.params, workspace::canned_branch_name),
-        "target_commits" => run_cmd(&app, request.params, workspace::target_commits),
+        "uncommit_changes" => run_cmd(request.params, workspace::uncommit_changes),
+        "stash_into_branch" => run_cmd(request.params, workspace::stash_into_branch),
+        "canned_branch_name" => run_cmd(request.params, workspace::canned_branch_name),
+        "target_commits" => run_cmd(request.params, workspace::target_commits),
         // App settings
-        "get_app_settings" => run_cmd(&app, request.params, settings::get_app_settings),
+        "get_app_settings" => run_cmd(request.params, settings::get_app_settings),
         "update_onboarding_complete" => {
             serde_json::from_value(request.params)
                 .to_error()
                 .and_then(|params| {
-                    settings::update_onboarding_complete(&app, &app_settings_sync, params)
+                    settings::update_onboarding_complete(&app_settings_sync, params)
                         .map(|r| json!(r))
                 })
         }
@@ -223,225 +224,180 @@ async fn handle_command(
             serde_json::from_value(request.params)
                 .to_error()
                 .and_then(|params| {
-                    settings::update_telemetry(&app, &app_settings_sync, params).map(|r| json!(r))
+                    settings::update_telemetry(&app_settings_sync, params).map(|r| json!(r))
                 })
         }
         "update_telemetry_distinct_id" => serde_json::from_value(request.params)
             .to_error()
             .and_then(|params| {
-                settings::update_telemetry_distinct_id(&app, &app_settings_sync, params)
-                    .map(|r| json!(r))
+                settings::update_telemetry_distinct_id(&app_settings_sync, params).map(|r| json!(r))
             }),
         "update_feature_flags" => {
             serde_json::from_value(request.params)
                 .to_error()
                 .and_then(|params| {
-                    settings::update_feature_flags(&app, &app_settings_sync, params)
-                        .map(|r| json!(r))
+                    settings::update_feature_flags(&app_settings_sync, params).map(|r| json!(r))
                 })
         }
         "update_claude" => serde_json::from_value(request.params)
             .to_error()
             .and_then(|params| {
-                settings::update_claude(&app, &app_settings_sync, params).map(|r| json!(r))
+                settings::update_claude(&app_settings_sync, params).map(|r| json!(r))
             }),
         // Secret management
-        "secret_get_global" => run_cmd(&app, request.params, secret::secret_get_global),
-        "secret_set_global" => run_cmd(&app, request.params, secret::secret_set_global),
+        "secret_get_global" => run_cmd(request.params, secret::secret_get_global),
+        "secret_set_global" => run_cmd(request.params, secret::secret_set_global),
         // User management
-        "get_user" => run_cmd(&app, request.params, users::get_user),
-        "set_user" => run_cmd(&app, request.params, users::set_user),
-        "delete_user" => run_cmd(&app, request.params, users::delete_user),
+        "get_user" => run_cmd(request.params, users::get_user),
+        "set_user" => run_cmd(request.params, users::set_user),
+        "delete_user" => run_cmd(request.params, users::delete_user),
         // Project management
-        "update_project" => run_cmd(&app, request.params, iprojects::update_project),
-        "add_project" => run_cmd(&app, request.params, iprojects::add_project),
-        "get_project" => run_cmd(&app, request.params, iprojects::get_project),
-        "delete_project" => run_cmd(&app, request.params, iprojects::delete_project),
+        "update_project" => run_cmd(request.params, iprojects::update_project),
+        "add_project" => run_cmd(request.params, iprojects::add_project),
+        "get_project" => run_cmd(request.params, iprojects::get_project),
+        "delete_project" => run_cmd(request.params, iprojects::delete_project),
         "list_projects" => projects::list_projects(&extra).await,
         "set_project_active" => {
             projects::set_project_active(&app, &extra, app_settings_sync, request.params).await
         }
         // Virtual branches commands
-        "normalize_branch_name" => run_cmd(
-            &app,
-            request.params,
-            virtual_branches::normalize_branch_name,
-        ),
-        "create_virtual_branch" => run_cmd(
-            &app,
-            request.params,
-            virtual_branches::create_virtual_branch,
-        ),
-        "delete_local_branch" => {
-            run_cmd(&app, request.params, virtual_branches::delete_local_branch)
-        }
+        "normalize_branch_name" => run_cmd(request.params, virtual_branches::normalize_branch_name),
+        "create_virtual_branch" => run_cmd(request.params, virtual_branches::create_virtual_branch),
+        "delete_local_branch" => run_cmd(request.params, virtual_branches::delete_local_branch),
         "create_virtual_branch_from_branch" => run_cmd(
-            &app,
             request.params,
             virtual_branches::create_virtual_branch_from_branch,
         ),
-        "integrate_upstream_commits" => run_cmd(
-            &app,
-            request.params,
-            virtual_branches::integrate_upstream_commits,
-        ),
+        "integrate_upstream_commits" => {
+            run_cmd(request.params, virtual_branches::integrate_upstream_commits)
+        }
         "get_initial_integration_steps_for_branch" => run_cmd(
-            &app,
             request.params,
             virtual_branches::get_initial_integration_steps_for_branch,
         ),
         "integrate_branch_with_steps" => run_cmd(
-            &app,
             request.params,
             virtual_branches::integrate_branch_with_steps,
         ),
-        "get_base_branch_data" => {
-            run_cmd(&app, request.params, virtual_branches::get_base_branch_data)
+        "get_base_branch_data" => run_cmd(request.params, virtual_branches::get_base_branch_data),
+        "set_base_branch" => run_cmd(request.params, virtual_branches::set_base_branch),
+        "push_base_branch" => run_cmd(request.params, virtual_branches::push_base_branch),
+        "update_stack_order" => run_cmd(request.params, virtual_branches::update_stack_order),
+        "unapply_stack" => run_cmd(request.params, virtual_branches::unapply_stack),
+        "can_apply_remote_branch" => {
+            run_cmd(request.params, virtual_branches::can_apply_remote_branch)
         }
-        "set_base_branch" => run_cmd(&app, request.params, virtual_branches::set_base_branch),
-        "push_base_branch" => run_cmd(&app, request.params, virtual_branches::push_base_branch),
-        "update_stack_order" => run_cmd(&app, request.params, virtual_branches::update_stack_order),
-        "unapply_stack" => run_cmd(&app, request.params, virtual_branches::unapply_stack),
-        "can_apply_remote_branch" => run_cmd(
-            &app,
-            request.params,
-            virtual_branches::can_apply_remote_branch,
-        ),
-        "list_commit_files" => run_cmd(&app, request.params, virtual_branches::list_commit_files),
-        "amend_virtual_branch" => {
-            run_cmd(&app, request.params, virtual_branches::amend_virtual_branch)
+        "list_commit_files" => run_cmd(request.params, virtual_branches::list_commit_files),
+        "amend_virtual_branch" => run_cmd(request.params, virtual_branches::amend_virtual_branch),
+        "undo_commit" => run_cmd(request.params, virtual_branches::undo_commit),
+        "insert_blank_commit" => run_cmd(request.params, virtual_branches::insert_blank_commit),
+        "reorder_stack" => run_cmd(request.params, virtual_branches::reorder_stack),
+        "find_git_branches" => run_cmd(request.params, virtual_branches::find_git_branches),
+        "list_branches" => run_cmd(request.params, virtual_branches::list_branches),
+        "get_branch_listing_details" => {
+            run_cmd(request.params, virtual_branches::get_branch_listing_details)
         }
-        "undo_commit" => run_cmd(&app, request.params, virtual_branches::undo_commit),
-        "insert_blank_commit" => {
-            run_cmd(&app, request.params, virtual_branches::insert_blank_commit)
-        }
-        "reorder_stack" => run_cmd(&app, request.params, virtual_branches::reorder_stack),
-        "find_git_branches" => run_cmd(&app, request.params, virtual_branches::find_git_branches),
-        "list_branches" => run_cmd(&app, request.params, virtual_branches::list_branches),
-        "get_branch_listing_details" => run_cmd(
-            &app,
-            request.params,
-            virtual_branches::get_branch_listing_details,
-        ),
-        "squash_commits" => run_cmd(&app, request.params, virtual_branches::squash_commits),
-        "fetch_from_remotes" => run_cmd(&app, request.params, virtual_branches::fetch_from_remotes),
-        "move_commit" => run_cmd(&app, request.params, virtual_branches::move_commit),
-        "update_commit_message" => run_cmd(
-            &app,
-            request.params,
-            virtual_branches::update_commit_message,
-        ),
-        "find_commit" => run_cmd(&app, request.params, virtual_branches::find_commit),
+        "squash_commits" => run_cmd(request.params, virtual_branches::squash_commits),
+        "fetch_from_remotes" => run_cmd(request.params, virtual_branches::fetch_from_remotes),
+        "move_commit" => run_cmd(request.params, virtual_branches::move_commit),
+        "update_commit_message" => run_cmd(request.params, virtual_branches::update_commit_message),
+        "find_commit" => run_cmd(request.params, virtual_branches::find_commit),
         "upstream_integration_statuses" => run_cmd(
-            &app,
             request.params,
             virtual_branches::upstream_integration_statuses,
         ),
-        "integrate_upstream" => run_cmd(&app, request.params, virtual_branches::integrate_upstream),
+        "integrate_upstream" => run_cmd(request.params, virtual_branches::integrate_upstream),
         "resolve_upstream_integration" => run_cmd(
-            &app,
             request.params,
             virtual_branches::resolve_upstream_integration,
         ),
         // Operating modes commands
-        "operating_mode" => run_cmd(&app, request.params, modes::operating_mode),
-        "enter_edit_mode" => run_cmd(&app, request.params, modes::enter_edit_mode),
-        "abort_edit_and_return_to_workspace" => run_cmd(
-            &app,
-            request.params,
-            modes::abort_edit_and_return_to_workspace,
-        ),
-        "save_edit_and_return_to_workspace" => run_cmd(
-            &app,
-            request.params,
-            modes::save_edit_and_return_to_workspace,
-        ),
-        "edit_initial_index_state" => {
-            run_cmd(&app, request.params, modes::edit_initial_index_state)
+        "operating_mode" => run_cmd(request.params, modes::operating_mode),
+        "enter_edit_mode" => run_cmd(request.params, modes::enter_edit_mode),
+        "abort_edit_and_return_to_workspace" => {
+            run_cmd(request.params, modes::abort_edit_and_return_to_workspace)
         }
-        "edit_changes_from_initial" => {
-            run_cmd(&app, request.params, modes::edit_changes_from_initial)
+        "save_edit_and_return_to_workspace" => {
+            run_cmd(request.params, modes::save_edit_and_return_to_workspace)
         }
+        "edit_initial_index_state" => run_cmd(request.params, modes::edit_initial_index_state),
+        "edit_changes_from_initial" => run_cmd(request.params, modes::edit_changes_from_initial),
         // Repository commands
-        "git_get_local_config" => run_cmd(&app, request.params, repo::git_get_local_config),
-        "git_set_local_config" => run_cmd(&app, request.params, repo::git_set_local_config),
-        "check_signing_settings" => run_cmd(&app, request.params, repo::check_signing_settings),
-        "git_clone_repository" => run_cmd(&app, request.params, repo::git_clone_repository),
-        "get_uncommited_files" => run_cmd(&app, request.params, repo::get_uncommitted_files),
-        "get_commit_file" => run_cmd(&app, request.params, repo::get_commit_file),
-        "get_workspace_file" => run_cmd(&app, request.params, repo::get_workspace_file),
-        "pre_commit_hook" => run_cmd(&app, request.params, repo::pre_commit_hook),
-        "pre_commit_hook_diffspecs" => {
-            run_cmd(&app, request.params, repo::pre_commit_hook_diffspecs)
-        }
-        "post_commit_hook" => run_cmd(&app, request.params, repo::post_commit_hook),
-        "message_hook" => run_cmd(&app, request.params, repo::message_hook),
+        "git_get_local_config" => run_cmd(request.params, repo::git_get_local_config),
+        "git_set_local_config" => run_cmd(request.params, repo::git_set_local_config),
+        "check_signing_settings" => run_cmd(request.params, repo::check_signing_settings),
+        "git_clone_repository" => run_cmd(request.params, repo::git_clone_repository),
+        "get_uncommited_files" => run_cmd(request.params, repo::get_uncommitted_files),
+        "get_commit_file" => run_cmd(request.params, repo::get_commit_file),
+        "get_workspace_file" => run_cmd(request.params, repo::get_workspace_file),
+        "pre_commit_hook" => run_cmd(request.params, repo::pre_commit_hook),
+        "pre_commit_hook_diffspecs" => run_cmd(request.params, repo::pre_commit_hook_diffspecs),
+        "post_commit_hook" => run_cmd(request.params, repo::post_commit_hook),
+        "message_hook" => run_cmd(request.params, repo::message_hook),
         // Stack management commands
-        "create_branch" => run_cmd(&app, request.params, stack::create_branch),
-        "remove_branch" => run_cmd(&app, request.params, stack::remove_branch),
-        "update_branch_name" => run_cmd(&app, request.params, stack::update_branch_name),
-        "update_branch_description" => {
-            run_cmd(&app, request.params, stack::update_branch_description)
-        }
-        "update_branch_pr_number" => run_cmd(&app, request.params, stack::update_branch_pr_number),
-        "push_stack" => run_cmd(&app, request.params, stack::push_stack),
-        "push_stack_to_review" => run_cmd(&app, request.params, stack::push_stack_to_review),
+        "create_branch" => run_cmd(request.params, stack::create_branch),
+        "remove_branch" => run_cmd(request.params, stack::remove_branch),
+        "update_branch_name" => run_cmd(request.params, stack::update_branch_name),
+        "update_branch_description" => run_cmd(request.params, stack::update_branch_description),
+        "update_branch_pr_number" => run_cmd(request.params, stack::update_branch_pr_number),
+        "push_stack" => run_cmd(request.params, stack::push_stack),
+        "push_stack_to_review" => run_cmd(request.params, stack::push_stack_to_review),
         // Undo/Snapshot commands
-        "list_snapshots" => run_cmd(&app, request.params, undo::list_snapshots),
-        "restore_snapshot" => run_cmd(&app, request.params, undo::restore_snapshot),
-        "snapshot_diff" => run_cmd(&app, request.params, undo::snapshot_diff),
+        "list_snapshots" => run_cmd(request.params, undo::list_snapshots),
+        "restore_snapshot" => run_cmd(request.params, undo::restore_snapshot),
+        "snapshot_diff" => run_cmd(request.params, undo::snapshot_diff),
         // "oplog_diff_worktrees" => undo::oplog_diff_worktrees(&ctx, request.params),
         // Config management commands
-        "get_gb_config" => run_cmd(&app, request.params, config::get_gb_config),
-        "set_gb_config" => run_cmd(&app, request.params, config::set_gb_config),
+        "get_gb_config" => run_cmd(request.params, config::get_gb_config),
+        "set_gb_config" => run_cmd(request.params, config::set_gb_config),
         "store_author_globally_if_unset" => {
-            run_cmd(&app, request.params, config::store_author_globally_if_unset)
+            run_cmd(request.params, config::store_author_globally_if_unset)
         }
-        "get_author_info" => run_cmd(&app, request.params, config::get_author_info),
+        "get_author_info" => run_cmd(request.params, config::get_author_info),
         // Remotes management commands
-        "list_remotes" => run_cmd(&app, request.params, remotes::list_remotes),
-        "add_remote" => run_cmd(&app, request.params, remotes::add_remote),
+        "list_remotes" => run_cmd(request.params, remotes::list_remotes),
+        "add_remote" => run_cmd(request.params, remotes::add_remote),
         // Rules/Workspace rules commands
-        "create_workspace_rule" => run_cmd(&app, request.params, rules::create_workspace_rule),
-        "delete_workspace_rule" => run_cmd(&app, request.params, rules::delete_workspace_rule),
-        "update_workspace_rule" => run_cmd(&app, request.params, rules::update_workspace_rule),
-        "list_workspace_rules" => run_cmd(&app, request.params, rules::list_workspace_rules),
+        "create_workspace_rule" => run_cmd(request.params, rules::create_workspace_rule),
+        "delete_workspace_rule" => run_cmd(request.params, rules::delete_workspace_rule),
+        "update_workspace_rule" => run_cmd(request.params, rules::update_workspace_rule),
+        "list_workspace_rules" => run_cmd(request.params, rules::list_workspace_rules),
         "init_device_oauth" => {
-            let result = github::init_device_oauth(&app, NoParams {}).await;
+            let result = github::init_device_oauth(NoParams {}).await;
             result.map(|r| json!(r))
         }
         "check_auth_status" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = github::check_auth_status(&app, params).await;
+                    let result = github::check_auth_status(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
             }
         }
         // Forge commands
-        "pr_templates" => run_cmd(&app, request.params, forge::pr_templates),
-        "pr_template" => run_cmd(&app, request.params, forge::pr_template),
+        "pr_templates" => run_cmd(request.params, forge::pr_templates),
+        "pr_template" => run_cmd(request.params, forge::pr_template),
         // // Menu commands (limited - no menu_item_set_enabled as it's Tauri-specific)
         // "get_editor_link_scheme" => menu::get_editor_link_scheme(&ctx, request.params),
         // CLI commands
-        "install_cli" => run_cmd(&app, request.params, cli::install_cli),
-        "cli_path" => run_cmd(&app, request.params, cli::cli_path),
+        "install_cli" => run_cmd(request.params, cli::install_cli),
+        "cli_path" => run_cmd(request.params, cli::cli_path),
         // Askpass commands (async)
         "submit_prompt_response" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = askpass::submit_prompt_response(&app, params).await;
+                    let result = askpass::submit_prompt_response(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
             }
         }
         // Open/System commands (limited - no open_project_in_window as it's Tauri-specific)
-        "open_url" => run_cmd(&app, request.params, open::open_url),
-        "show_in_finder" => run_cmd(&app, request.params, open::show_in_finder),
+        "open_url" => run_cmd(request.params, open::open_url),
+        "show_in_finder" => run_cmd(request.params, open::show_in_finder),
 
         // TODO: Tauri-specific commands that cannot be ported to HTTP API:
         //
@@ -456,8 +412,12 @@ async fn handle_command(
         // - "open_project_in_window" => projects::open_project_in_window() // Requires Tauri window creation
         //
         // Zip/Archive commands
-        "get_project_archive_path" => run_cmd(&app, request.params, zip::get_project_archive_path),
-        "get_logs_archive_path" => run_cmd(&app, request.params, zip::get_logs_archive_path),
+        "get_project_archive_path" => {
+            run_cmd_with_app(&app, request.params, zip::get_project_archive_path)
+        }
+        "get_logs_archive_path" => {
+            run_cmd_with_app(&app, request.params, zip::get_logs_archive_path)
+        }
         "claude_send_message" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {
@@ -478,19 +438,13 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
-        "claude_get_session_details" => {
-            run_cmd(&app, request.params, claude::claude_get_session_details)
+        "claude_get_session_details" => run_cmd(request.params, claude::claude_get_session_details),
+        "claude_list_permission_requests" => {
+            run_cmd(request.params, claude::claude_list_permission_requests)
         }
-        "claude_list_permission_requests" => run_cmd(
-            &app,
-            request.params,
-            claude::claude_list_permission_requests,
-        ),
-        "claude_update_permission_request" => run_cmd(
-            &app,
-            request.params,
-            claude::claude_update_permission_request,
-        ),
+        "claude_update_permission_request" => {
+            run_cmd(request.params, claude::claude_update_permission_request)
+        }
         "claude_cancel_session" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {
@@ -502,7 +456,7 @@ async fn handle_command(
             }
         }
         "claude_check_available" => {
-            let result = claude::claude_check_available(&app, NoParams {}).await;
+            let result = claude::claude_check_available(NoParams {}).await;
             result.map(|r| json!(r))
         }
         "claude_is_stack_active" => {
@@ -516,16 +470,14 @@ async fn handle_command(
             }
         }
         "claude_get_prompt_templates" => {
-            run_cmd(&app, request.params, claude::claude_get_prompt_templates)
+            run_cmd(request.params, claude::claude_get_prompt_templates)
         }
         "claude_write_prompt_templates" => {
-            run_cmd(&app, request.params, claude::claude_write_prompt_templates)
+            run_cmd(request.params, claude::claude_write_prompt_templates)
         }
-        "claude_get_prompt_templates_path" => run_cmd(
-            &app,
-            request.params,
-            claude::claude_get_prompt_templates_path,
-        ),
+        "claude_get_prompt_templates_path" => {
+            run_cmd(request.params, claude::claude_get_prompt_templates_path)
+        }
 
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
     };

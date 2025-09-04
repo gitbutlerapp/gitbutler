@@ -64,7 +64,6 @@ pub struct GetSessionDetailsParams {
 }
 
 pub fn claude_get_session_details(
-    _app: &App,
     params: GetSessionDetailsParams,
 ) -> Result<but_claude::ClaudeSessionDetails, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -84,7 +83,6 @@ pub struct ListPermissionRequestsParams {
 }
 
 pub fn claude_list_permission_requests(
-    _app: &App,
     params: ListPermissionRequestsParams,
 ) -> Result<Vec<but_claude::ClaudePermissionRequest>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -101,7 +99,6 @@ pub struct UpdatePermissionRequestParams {
 }
 
 pub fn claude_update_permission_request(
-    _app: &App,
     params: UpdatePermissionRequestParams,
 ) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -125,7 +122,7 @@ pub async fn claude_cancel_session(app: &App, params: CancelSessionParams) -> Re
     Ok(cancelled)
 }
 
-pub async fn claude_check_available(_app: &App, _params: NoParams) -> Result<bool, Error> {
+pub async fn claude_check_available(_params: NoParams) -> Result<bool, Error> {
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let claude_executable = app_settings.claude.executable.clone();
     let is_available = but_claude::bridge::check_claude_available(&claude_executable).await;
@@ -145,7 +142,6 @@ pub async fn claude_is_stack_active(app: &App, params: IsStackActiveParams) -> R
 }
 
 pub fn claude_get_prompt_templates(
-    _app: &App,
     _params: NoParams,
 ) -> Result<prompt_templates::PromptTemplates, Error> {
     let templates = prompt_templates::load_prompt_templates()?;
@@ -158,15 +154,12 @@ pub struct WritePromptTemplatesParams {
     pub templates: prompt_templates::PromptTemplates,
 }
 
-pub fn claude_write_prompt_templates(
-    _app: &App,
-    params: WritePromptTemplatesParams,
-) -> Result<(), Error> {
+pub fn claude_write_prompt_templates(params: WritePromptTemplatesParams) -> Result<(), Error> {
     prompt_templates::write_prompt_templates(&params.templates)?;
     Ok(())
 }
 
-pub fn claude_get_prompt_templates_path(_app: &App, _params: NoParams) -> Result<String, Error> {
+pub fn claude_get_prompt_templates_path(_params: NoParams) -> Result<String, Error> {
     let path = prompt_templates::get_prompt_templates_path_string()?;
     Ok(path)
 }

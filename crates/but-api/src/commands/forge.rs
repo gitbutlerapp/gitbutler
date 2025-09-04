@@ -10,7 +10,7 @@ use gitbutler_project::ProjectId;
 use gitbutler_repo::RepoCommands;
 use serde::Deserialize;
 
-use crate::{App, error::Error};
+use crate::error::Error;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,7 +19,7 @@ pub struct PrTemplatesParams {
     pub forge: ForgeName,
 }
 
-pub fn pr_templates(_app: &App, params: PrTemplatesParams) -> Result<Vec<String>, Error> {
+pub fn pr_templates(params: PrTemplatesParams) -> Result<Vec<String>, Error> {
     let project = gitbutler_project::get_validated(params.project_id)?;
     Ok(available_review_templates(&project.path, &params.forge))
 }
@@ -32,7 +32,7 @@ pub struct PrTemplateParams {
     pub forge: ForgeName,
 }
 
-pub fn pr_template(_app: &App, params: PrTemplateParams) -> Result<String, Error> {
+pub fn pr_template(params: PrTemplateParams) -> Result<String, Error> {
     let project = gitbutler_project::get_validated(params.project_id)?;
 
     let ReviewTemplateFunctions {

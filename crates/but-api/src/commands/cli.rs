@@ -2,13 +2,13 @@
 
 use but_action::cli::{do_install_cli, get_cli_path};
 
-use crate::{App, NoParams, error::Error};
+use crate::{NoParams, error::Error};
 
-pub fn install_cli(_app: &App, _params: NoParams) -> Result<(), Error> {
+pub fn install_cli(_params: NoParams) -> Result<(), Error> {
     do_install_cli().map_err(Error::from)
 }
 
-pub fn cli_path(_app: &App, _params: NoParams) -> Result<String, Error> {
+pub fn cli_path(_params: NoParams) -> Result<String, Error> {
     let cli_path = get_cli_path()?;
     if !cli_path.exists() {
         return Err(anyhow::anyhow!(

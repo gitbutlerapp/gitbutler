@@ -2,7 +2,7 @@ use anyhow::Result;
 use gitbutler_user::User;
 use serde::{Deserialize, Serialize};
 
-use crate::{App, NoParams, error::Error};
+use crate::{NoParams, error::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -62,7 +62,7 @@ impl TryFrom<User> for UserWithSecrets {
     }
 }
 
-pub fn get_user(_app: &App, _params: NoParams) -> Result<Option<UserWithSecrets>, Error> {
+pub fn get_user(_params: NoParams) -> Result<Option<UserWithSecrets>, Error> {
     match gitbutler_user::get_user()? {
         Some(user) => {
             if let Err(err) = user.access_token() {
@@ -75,12 +75,12 @@ pub fn get_user(_app: &App, _params: NoParams) -> Result<Option<UserWithSecrets>
     }
 }
 
-pub fn set_user(_app: &App, params: SetUserParams) -> Result<User, Error> {
+pub fn set_user(params: SetUserParams) -> Result<User, Error> {
     gitbutler_user::set_user(&params.user)?;
     Ok(params.user)
 }
 
-pub fn delete_user(_app: &App, _params: NoParams) -> Result<(), Error> {
+pub fn delete_user(_params: NoParams) -> Result<(), Error> {
     gitbutler_user::delete_user()?;
     Ok(())
 }

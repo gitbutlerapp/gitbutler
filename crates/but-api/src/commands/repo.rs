@@ -12,8 +12,8 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 
+use crate::error::Error;
 use crate::error::ToError;
-use crate::{App, error::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,10 +22,7 @@ pub struct GitGetLocalConfigParams {
     pub key: String,
 }
 
-pub fn git_get_local_config(
-    _app: &App,
-    params: GitGetLocalConfigParams,
-) -> Result<Option<String>, Error> {
+pub fn git_get_local_config(params: GitGetLocalConfigParams) -> Result<Option<String>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     Ok(project.get_local_config(&params.key)?)
 }
@@ -38,7 +35,7 @@ pub struct GitSetLocalConfigParams {
     pub value: String,
 }
 
-pub fn git_set_local_config(_app: &App, params: GitSetLocalConfigParams) -> Result<(), Error> {
+pub fn git_set_local_config(params: GitSetLocalConfigParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     project
         .set_local_config(&params.key, &params.value)
@@ -51,10 +48,7 @@ pub struct CheckSigningSettingsParams {
     pub project_id: ProjectId,
 }
 
-pub fn check_signing_settings(
-    _app: &App,
-    params: CheckSigningSettingsParams,
-) -> Result<bool, Error> {
+pub fn check_signing_settings(params: CheckSigningSettingsParams) -> Result<bool, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     project.check_signing_settings().map_err(Into::into)
 }
@@ -66,7 +60,7 @@ pub struct GitCloneRepositoryParams {
     pub target_dir: PathBuf,
 }
 
-pub fn git_clone_repository(_app: &App, params: GitCloneRepositoryParams) -> Result<(), Error> {
+pub fn git_clone_repository(params: GitCloneRepositoryParams) -> Result<(), Error> {
     let should_interrupt = AtomicBool::new(false);
 
     gix::prepare_clone(params.repository_url.as_str(), &params.target_dir)
@@ -86,7 +80,6 @@ pub struct GetUncommittedFilesParams {
 }
 
 pub fn get_uncommitted_files(
-    _app: &App,
     params: GetUncommittedFilesParams,
 ) -> Result<Vec<RemoteBranchFile>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -102,7 +95,7 @@ pub struct GetCommitFileParams {
     pub commit_id: String,
 }
 
-pub fn get_commit_file(_app: &App, params: GetCommitFileParams) -> Result<FileInfo, Error> {
+pub fn get_commit_file(params: GetCommitFileParams) -> Result<FileInfo, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let commit_id = git2::Oid::from_str(&params.commit_id).map_err(anyhow::Error::from)?;
     Ok(project.read_file_from_commit(commit_id, &params.relative_path)?)
@@ -115,7 +108,7 @@ pub struct GetWorkspaceFileParams {
     pub relative_path: PathBuf,
 }
 
-pub fn get_workspace_file(_app: &App, params: GetWorkspaceFileParams) -> Result<FileInfo, Error> {
+pub fn get_workspace_file(params: GetWorkspaceFileParams) -> Result<FileInfo, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     Ok(project.read_file_from_workspace(&params.relative_path)?)
 }
@@ -127,7 +120,7 @@ pub struct PreCommitHookParams {
     pub ownership: BranchOwnershipClaims,
 }
 
-pub fn pre_commit_hook(_app: &App, params: PreCommitHookParams) -> Result<HookResult, Error> {
+pub fn pre_commit_hook(params: PreCommitHookParams) -> Result<HookResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let claim = params.ownership.into();
@@ -142,7 +135,6 @@ pub struct PreCommitHookDiffspecsParams {
 }
 
 pub fn pre_commit_hook_diffspecs(
-    _app: &App,
     params: PreCommitHookDiffspecsParams,
 ) -> Result<HookResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -173,7 +165,7 @@ pub struct PostCommitHookParams {
     pub project_id: ProjectId,
 }
 
-pub fn post_commit_hook(_app: &App, params: PostCommitHookParams) -> Result<HookResult, Error> {
+pub fn post_commit_hook(params: PostCommitHookParams) -> Result<HookResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_repo::hooks::post_commit(&ctx)?)
@@ -186,7 +178,7 @@ pub struct MessageHookParams {
     pub message: String,
 }
 
-pub fn message_hook(_app: &App, params: MessageHookParams) -> Result<MessageHookResult, Error> {
+pub fn message_hook(params: MessageHookParams) -> Result<MessageHookResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_repo::hooks::commit_msg(&ctx, params.message)?)

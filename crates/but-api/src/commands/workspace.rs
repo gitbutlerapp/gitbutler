@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
+use crate::error::Error;
 use crate::hex_hash::HexHash;
-use crate::{App, error::Error};
 use anyhow::Context;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
@@ -17,7 +17,6 @@ use gitbutler_project::{Project, ProjectId};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use serde::{Deserialize, Serialize};
-
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
 }
@@ -29,7 +28,7 @@ pub struct StacksParams {
     pub filter: Option<but_workspace::StacksFilter>,
 }
 
-pub fn stacks(_app: &App, params: StacksParams) -> Result<Vec<StackEntry>, Error> {
+pub fn stacks(params: StacksParams) -> Result<Vec<StackEntry>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
@@ -54,7 +53,7 @@ pub struct ShowGraphSvgParams {
 }
 
 #[cfg(unix)]
-pub fn show_graph_svg(_app: &App, params: ShowGraphSvgParams) -> Result<(), Error> {
+pub fn show_graph_svg(params: ShowGraphSvgParams) -> Result<(), Error> {
     use but_settings::AppSettings;
 
     let project = gitbutler_project::get(params.project_id)?;
@@ -102,10 +101,7 @@ pub struct StackDetailsParams {
     pub stack_id: Option<StackId>,
 }
 
-pub fn stack_details(
-    _app: &App,
-    params: StackDetailsParams,
-) -> Result<but_workspace::ui::StackDetails, Error> {
+pub fn stack_details(params: StackDetailsParams) -> Result<but_workspace::ui::StackDetails, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     if ctx.app_settings().feature_flags.ws3 {
@@ -131,7 +127,6 @@ pub struct BranchDetailsParams {
 }
 
 pub fn branch_details(
-    _app: &App,
     params: BranchDetailsParams,
 ) -> Result<but_workspace::ui::BranchDetails, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -181,7 +176,6 @@ pub struct CreateCommitFromWorktreeChangesParams {
 /// `stack_branch_name` is the short name of the reference that the UI knows is present in a given segment.
 /// It is necessary to insert the new commit into the right bucket.
 pub fn create_commit_from_worktree_changes(
-    _app: &App,
     params: CreateCommitFromWorktreeChangesParams,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -228,7 +222,6 @@ pub struct AmendCommitFromWorktreeChangesParams {
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
 pub fn amend_commit_from_worktree_changes(
-    _app: &App,
     params: AmendCommitFromWorktreeChangesParams,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -268,7 +261,6 @@ pub struct DiscardWorktreeChangesParams {
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
 pub fn discard_worktree_changes(
-    _app: &App,
     params: DiscardWorktreeChangesParams,
 ) -> Result<Vec<but_workspace::DiffSpec>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -321,7 +313,6 @@ pub struct MoveChangesBetweenCommitsParams {
 }
 
 pub fn move_changes_between_commits(
-    _app: &App,
     params: MoveChangesBetweenCommitsParams,
 ) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -358,7 +349,7 @@ pub struct SplitBranchParams {
     pub file_changes_to_split_off: Vec<String>,
 }
 
-pub fn split_branch(_app: &App, params: SplitBranchParams) -> Result<UIMoveChangesResult, Error> {
+pub fn split_branch(params: SplitBranchParams) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -403,7 +394,6 @@ pub struct SplitBranchIntoDependentBranchParams {
 }
 
 pub fn split_branch_into_dependent_branch(
-    _app: &App,
     params: SplitBranchIntoDependentBranchParams,
 ) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -445,10 +435,7 @@ pub struct UncommitChangesParams {
 /// If `assign_to` is provided, the changes will be assigned to the stack
 /// specified.
 /// If `assign_to` is not provided, the changes will be unassigned.
-pub fn uncommit_changes(
-    _app: &App,
-    params: UncommitChangesParams,
-) -> Result<UIMoveChangesResult, Error> {
+pub fn uncommit_changes(params: UncommitChangesParams) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -531,7 +518,6 @@ pub struct StashIntoBranchParams {
 /// Immediatelly after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
 /// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
 pub fn stash_into_branch(
-    _app: &App,
     params: StashIntoBranchParams,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -593,7 +579,7 @@ pub struct CannedBranchNameParams {
 
 /// Returns a new available branch name based on a simple template - user_initials-branch-count
 /// The main point of this is to be able to provide branch names that are not already taken.
-pub fn canned_branch_name(_app: &App, params: CannedBranchNameParams) -> Result<String, Error> {
+pub fn canned_branch_name(params: CannedBranchNameParams) -> Result<String, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
@@ -611,7 +597,6 @@ pub struct TargetCommitsParams {
 }
 
 pub fn target_commits(
-    _app: &App,
     params: TargetCommitsParams,
 ) -> Result<Vec<but_workspace::ui::Commit>, Error> {
     let project = gitbutler_project::get(params.project_id)?;

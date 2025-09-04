@@ -4,7 +4,7 @@ use gitbutler_serde::bstring_opt_lossy;
 use gix::bstr::BString;
 use serde::{Deserialize, Serialize};
 
-use crate::{App, error::Error};
+use crate::error::Error;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -12,7 +12,7 @@ pub struct GetGbConfigParams {
     pub project_id: ProjectId,
 }
 
-pub fn get_gb_config(_app: &App, params: GetGbConfigParams) -> Result<GitConfigSettings, Error> {
+pub fn get_gb_config(params: GetGbConfigParams) -> Result<GitConfigSettings, Error> {
     but_core::open_repo(gitbutler_project::get(params.project_id)?.path)?
         .git_settings()
         .map(Into::into)
@@ -26,7 +26,7 @@ pub struct SetGbConfigParams {
     pub config: GitConfigSettings,
 }
 
-pub fn set_gb_config(_app: &App, params: SetGbConfigParams) -> Result<(), Error> {
+pub fn set_gb_config(params: SetGbConfigParams) -> Result<(), Error> {
     but_core::open_repo(gitbutler_project::get(params.project_id)?.path)?
         .set_git_settings(&params.config.into())
         .map_err(Into::into)
@@ -41,7 +41,6 @@ pub struct StoreAuthorGloballyParams {
 }
 
 pub fn store_author_globally_if_unset(
-    _app: &App,
     StoreAuthorGloballyParams {
         project_id,
         name,
@@ -76,7 +75,7 @@ pub struct GetAuthorInfoParams {
 }
 
 /// Return the Git author information as the project repository would see it.
-pub fn get_author_info(_app: &App, params: GetAuthorInfoParams) -> Result<AuthorInfo, Error> {
+pub fn get_author_info(params: GetAuthorInfoParams) -> Result<AuthorInfo, Error> {
     let repo = but_core::open_repo(gitbutler_project::get(params.project_id)?.path)?;
     let (name, email) = repo
         .author()

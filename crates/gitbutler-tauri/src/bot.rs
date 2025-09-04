@@ -7,10 +7,9 @@ use tauri::Emitter;
 use tracing::instrument;
 
 #[tauri::command(async)]
-#[instrument(skip(app_handle, _app), err(Debug))]
+#[instrument(skip(app_handle), err(Debug))]
 pub fn bot(
     app_handle: tauri::AppHandle,
-    _app: tauri::State<'_, but_api::App>,
     project_id: ProjectId,
     message_id: String,
     chat_messages: Vec<but_action::ChatMessage>,
