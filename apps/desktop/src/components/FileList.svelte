@@ -14,7 +14,7 @@
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
-	import { selectFilesInList } from '$lib/selection/idSelectionUtils';
+	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
 	import { chunk } from '$lib/utils/array';
 	import { inject, injectOptional } from '@gitbutler/core/context';
@@ -173,6 +173,46 @@
 			)
 		);
 	});
+
+	function handleKeyDown(change: TreeChange, idx: number, e: KeyboardEvent) {
+		if (e.key === 'Enter' || e.key === 'l') {
+			e.stopPropagation();
+			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
+			onselect?.();
+			return true;
+		}
+
+		if (e.code === 'KeyB' && (e.ctrlKey || e.metaKey) && e.altKey) {
+			branchSelection();
+			e.preventDefault();
+			return;
+		}
+
+		if (e.code === 'KeyC' && (e.ctrlKey || e.metaKey) && e.altKey) {
+			autoCommitSelection();
+			e.preventDefault();
+			return;
+		}
+
+		// If we want to keep the behavior where focus can change while
+		// not automatically selecting the item, then we should remove
+		// that code from `updateSelection` rather than checkinf for
+		// modifier keys here.
+		if (e.shiftKey || e.metaKey) {
+			updateSelection({
+				allowMultiple: true,
+				metaKey: e.metaKey,
+				shiftKey: e.shiftKey,
+				key: e.key,
+				targetElement: e.currentTarget as HTMLElement,
+				files: changes,
+				selectedFileIds: idSelection.values(selectionId),
+				fileIdSelection: idSelection,
+				selectionId: selectionId,
+				preventDefault: () => e.preventDefault()
+			});
+		}
+	}
 </script>
 
 {#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0)}
@@ -193,14 +233,7 @@
 		focusableOpts={{
 			id: DefinedFocusable.FileItem,
 			linkToIds: DEFAULT_LINKS,
-			onKeydown: (e) => {
-				if (e.key === 'Enter' || e.key === 'l') {
-					e.stopPropagation();
-					selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
-					onselect?.();
-					return true;
-				}
-			}
+			onKeydown: (e) => handleKeyDown(change, idx, e)
 		}}
 		onclick={(e) => {
 			e.stopPropagation();
