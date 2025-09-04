@@ -64,14 +64,14 @@ impl Suite {
         }
         commit_all(&repository);
 
-        (
-            gitbutler_project::add_with_path(
-                self.local_app_data(),
-                repository.path().parent().unwrap(),
-            )
-            .expect("failed to add project"),
-            tmp,
-        )
+        let outcome = gitbutler_project::add_with_path(
+            self.local_app_data(),
+            repository.path().parent().unwrap(),
+        );
+
+        let project = outcome.expect("failed to add project").unwrap_project();
+
+        (project, tmp)
     }
 
     pub fn new_case_with_files(&self, fs: HashMap<PathBuf, &str>) -> Case {
