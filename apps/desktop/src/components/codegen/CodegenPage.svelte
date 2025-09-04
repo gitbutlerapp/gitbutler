@@ -52,7 +52,6 @@
 		EmptyStatePlaceholder,
 		Modal
 	} from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { ClaudeMessage, ThinkingLevel, ModelType } from '$lib/codegen/types';
 
 	type Props = {
@@ -336,7 +335,7 @@
 	});
 </script>
 
-<div class="page" use:focusable>
+<div class="page">
 	<ReduxResult result={claudeAvailable.current} {projectId}>
 		{#snippet children(claudeAvailable, { projectId })}
 			{#if claudeAvailable}
