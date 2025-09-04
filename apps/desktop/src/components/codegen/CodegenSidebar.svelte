@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	// import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snippet } from 'svelte';
@@ -21,11 +21,7 @@
 		</div>
 	</div>
 
-	<ConfigurableScrollableContainer>
-		<div class="sidebar-content" use:focusable>
-			{@render content()}
-		</div>
-	</ConfigurableScrollableContainer>
+	{@render content()}
 
 	<Resizer
 		direction="right"
@@ -70,14 +66,6 @@
 	.sidebar-header-actions {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-	}
-
-	.sidebar-content {
-		display: flex;
-		position: relative;
-		flex-direction: column;
-		padding: 12px;
 		gap: 8px;
 	}
 </style>

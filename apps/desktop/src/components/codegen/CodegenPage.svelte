@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import CommitRow from '$components/CommitRow.svelte';
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import CreateBranchModal from '$components/CreateBranchModal.svelte';
 	import Drawer from '$components/Drawer.svelte';
 	import FileList from '$components/FileList.svelte';
@@ -17,6 +18,8 @@
 	import CodegenTodo from '$components/codegen/CodegenTodo.svelte';
 	import CodegenUsageStat from '$components/codegen/CodegenUsageStat.svelte';
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
+	import appClickSvg from '$lib/assets/empty-state/app-click.svg?raw';
+	import codegenSvg from '$lib/assets/empty-state/codegen.svg?raw';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import filesAndChecksSvg from '$lib/assets/empty-state/files-and-checks.svg?raw';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
@@ -348,7 +351,7 @@
 </div>
 
 {#snippet main({ projectId }: { projectId: string })}
-	<CodegenSidebar content={sidebarContent}>
+	<CodegenSidebar>
 		{#snippet actions()}
 			<Button
 				kind="outline"
@@ -358,6 +361,10 @@
 				onclick={() => createBranchModal?.show()}>Add new</Button
 			>
 			<Button kind="ghost" icon="settings" size="tag" onclick={() => settingsModal?.show()} />
+		{/snippet}
+
+		{#snippet content()}
+			{@render sidebarContent()}
 		{/snippet}
 	</CodegenSidebar>
 
@@ -401,7 +408,7 @@
 										bottomMargin={0}
 									>
 										{#snippet title()}
-											Ready to code with AI
+											Let's build something amazing
 										{/snippet}
 										{#snippet caption()}
 											Your branch is ready for AI-powered development. Describe what you'd like to
@@ -471,6 +478,16 @@
 					{@render rightSidebar(events, formattedMessages.length > 0)}
 				{/snippet}
 			</ReduxResult>
+		{:else}
+			<div class="chat-view__no-branches-placeholder">
+				<EmptyStatePlaceholder image={codegenSvg} width={250} gap={24}>
+					{#snippet caption()}
+						Choose a branch from the sidebar
+						<br />
+						to begin your coding session
+					{/snippet}
+				</EmptyStatePlaceholder>
+			</div>
 		{/if}
 	</div>
 {/snippet}
@@ -486,7 +503,7 @@
 					bottomMargin={0}
 				>
 					{#snippet caption()}
-						Once you begin a conversation, you'll see file changes, usage and todos here.
+						File changes, usage stats, and tasks will appear here during your coding session.
 					{/snippet}
 				</EmptyStatePlaceholder>
 			</div>
@@ -523,21 +540,12 @@
 								<div class="right-sidebar__changes-placeholder">
 									<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
 										{#snippet caption()}
-											No files changed
+											No changes yet
 										{/snippet}
 									</EmptyStatePlaceholder>
 								</div>
 							{/if}
 						</Drawer>
-						<!-- {:else}
-							<div class="right-sidebar__placeholder">
-							<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
-								{#snippet caption()}
-									No files changed
-								{/snippet}
-							</EmptyStatePlaceholder>
-							</div>
-						{/if} -->
 					{/snippet}
 				</ReduxResult>
 			{/if}
@@ -585,20 +593,42 @@
 {#snippet sidebarContent()}
 	<ReduxResult result={stacks.current} {projectId}>
 		{#snippet children(stacks, { projectId })}
-			{#each stacks as stack}
-				{#if stack.id}
-					{#each stack.heads as head, headIndex}
-						{@render sidebarContentEntry(
-							projectId,
-							stack.id,
-							head.name,
-							headIndex,
-							stack.heads.length,
-							headIndex === 0
-						)}
-					{/each}
-				{/if}
-			{/each}
+			{#if stacks.length === 0}
+				<div class="sidebar_placeholder">
+					<EmptyStatePlaceholder image={appClickSvg} width={200} bottomMargin={20}>
+						{#snippet title()}
+							Start your first session
+						{/snippet}
+						{#snippet caption()}
+							Create your first branch to begin building with AI assistance
+						{/snippet}
+						{#snippet actions()}
+							<Button kind="outline" icon="plus-small" onclick={() => createBranchModal?.show()}
+								>Add new branch</Button
+							>
+						{/snippet}
+					</EmptyStatePlaceholder>
+				</div>
+			{:else}
+				<ConfigurableScrollableContainer>
+					<div class="sidebar-content">
+						{#each stacks as stack}
+							{#if stack.id}
+								{#each stack.heads as head, headIndex}
+									{@render sidebarContentEntry(
+										projectId,
+										stack.id,
+										head.name,
+										headIndex,
+										stack.heads.length,
+										headIndex === 0
+									)}
+								{/each}
+							{/if}
+						{/each}
+					</div>
+				</ConfigurableScrollableContainer>
+			{/if}
 		{/snippet}
 	</ReduxResult>
 {/snippet}
@@ -781,12 +811,17 @@
 		background-color: var(--clr-bg-1);
 	}
 
-	.chat-view__placeholder {
+	.chat-view__placeholder,
+	.chat-view__no-branches-placeholder {
 		display: flex;
 		flex: 1;
 		align-items: center;
 		justify-content: center;
 		padding: 0 32px;
+	}
+
+	.chat-view__no-branches-placeholder {
+		background-color: var(--clr-bg-2);
 	}
 
 	.right-sidebar {
@@ -827,17 +862,37 @@
 		flex: 1;
 		align-items: center;
 		justify-content: center;
+		width: 100%;
 		height: 100%;
 	}
+
 	.not-available-form {
 		display: flex;
 		flex-direction: column;
-		max-width: 400px;
-		padding: 20px;
-		overflow: hidden;
-		gap: 12px;
+		align-items: center;
+		padding: 24px;
+		gap: 16px;
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-l);
-		background-color: var(--clr-bg-1);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
+		box-shadow: var(--shadow-elevation-low);
+	}
+
+	.sidebar-content {
+		display: flex;
+		position: relative;
+		flex-direction: column;
+		padding: 12px;
+		gap: 8px;
+	}
+
+	.sidebar_placeholder {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 0 16px;
+		gap: 16px;
 	}
 </style>
