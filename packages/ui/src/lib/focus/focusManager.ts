@@ -456,7 +456,8 @@ export class FocusManager {
 	 * @param forward - Whether to navigate to next (true) or previous (false) sibling
 	 * @returns True if navigation succeeded, false otherwise
 	 */
-	focusSibling(forward = true): boolean {
+	focusSibling(options: { forward: boolean; metaKey: boolean }): boolean {
+		const { forward, metaKey: meta } = options;
 		const currentMetadata = this.getCurrentMetadata();
 		const parentMetadata =
 			currentMetadata?.parentElement && this.getMetadata(currentMetadata.parentElement);
@@ -464,6 +465,11 @@ export class FocusManager {
 
 		const siblings = parentMetadata.children;
 		const currentIndex = siblings.indexOf(this._currentElement);
+		const isListWithLinks = parentMetadata.options.list && currentMetadata?.options.linkToIds;
+
+		if (isListWithLinks && meta) {
+			return this.focusLinked(forward);
+		}
 
 		// Early validation
 		if (currentIndex === -1) return false;
@@ -475,16 +481,11 @@ export class FocusManager {
 		if (hasValidSibling) {
 			return this.activateAndFocus(siblings[targetIndex]);
 		}
+		const isAtBoundary =
+			(forward && currentIndex === siblings.length - 1) || (!forward && currentIndex === 0);
 
-		// Handle boundary navigation in lists with linked types
-		const isListWithLinks = parentMetadata.options.list && currentMetadata?.options.linkToIds;
-		if (isListWithLinks) {
-			const isAtBoundary =
-				(forward && currentIndex === siblings.length - 1) || (!forward && currentIndex === 0);
-
-			if (isAtBoundary) {
-				return this.focusLinked(forward);
-			}
+		if (isListWithLinks && isAtBoundary) {
+			return this.focusLinked(forward);
 		}
 
 		return false;
@@ -756,8 +757,8 @@ export class FocusManager {
 			case 'prev':
 				if (trap) return true;
 				if (metaKey && !isList) {
-					this.focusCousin(false);
-				} else if (!this.focusSibling(false)) {
+					this.focusSibling({ forward: false, metaKey });
+				} else if (!this.focusSibling({ forward: false, metaKey })) {
 					this.focusParent();
 				}
 				break;
@@ -766,7 +767,7 @@ export class FocusManager {
 				if (trap) return true;
 				if (metaKey && !isList) {
 					this.focusCousin(true);
-				} else if (!this.focusSibling(true)) {
+				} else if (!this.focusSibling({ forward: true, metaKey })) {
 					this.focusFirstChild();
 				}
 				break;
@@ -785,7 +786,7 @@ export class FocusManager {
 				if (metaKey && isList) {
 					this.focusCousin(true);
 				} else if (!this.focusFirstChild()) {
-					this.focusSibling(true);
+					this.focusSibling({ forward: true, metaKey });
 				}
 				break;
 		}
