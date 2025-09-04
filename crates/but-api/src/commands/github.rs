@@ -4,7 +4,7 @@ use but_settings::AppSettings;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::{App, NoParams, error::Error};
+use crate::{NoParams, error::Error};
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Verification {
@@ -12,7 +12,7 @@ pub struct Verification {
     pub device_code: String,
 }
 
-pub async fn init_device_oauth(_app: &App, _params: NoParams) -> Result<Verification, Error> {
+pub async fn init_device_oauth(_params: NoParams) -> Result<Verification, Error> {
     let mut req_body = HashMap::new();
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let client_id = app_settings.github_oauth_app.oauth_client_id.clone();
@@ -47,7 +47,7 @@ pub struct CheckAuthStatusParams {
     pub device_code: String,
 }
 
-pub async fn check_auth_status(_app: &App, params: CheckAuthStatusParams) -> Result<String, Error> {
+pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<String, Error> {
     #[derive(Debug, Deserialize, Serialize, Clone, Default)]
     struct AccessTokenContainer {
         access_token: String,

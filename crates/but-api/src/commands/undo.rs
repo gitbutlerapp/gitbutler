@@ -6,7 +6,7 @@ use gitbutler_oplog::{OplogExt, entry::Snapshot};
 use gitbutler_project::ProjectId;
 use serde::Deserialize;
 
-use crate::{App, error::Error};
+use crate::error::Error;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,7 +17,7 @@ pub struct ListSnapshotsParams {
     pub exclude_kind: Option<Vec<OperationKind>>,
 }
 
-pub fn list_snapshots(_app: &App, params: ListSnapshotsParams) -> Result<Vec<Snapshot>, Error> {
+pub fn list_snapshots(params: ListSnapshotsParams) -> Result<Vec<Snapshot>, Error> {
     let project = gitbutler_project::get(params.project_id).context("failed to get project")?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let snapshots = ctx.list_snapshots(
@@ -38,7 +38,7 @@ pub struct RestoreSnapshotParams {
     pub sha: String,
 }
 
-pub fn restore_snapshot(_app: &App, params: RestoreSnapshotParams) -> Result<(), Error> {
+pub fn restore_snapshot(params: RestoreSnapshotParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id).context("failed to get project")?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -56,10 +56,7 @@ pub struct SnapshotDiffParams {
     pub sha: String,
 }
 
-pub fn snapshot_diff(
-    _app: &App,
-    params: SnapshotDiffParams,
-) -> Result<Vec<but_core::ui::TreeChange>, Error> {
+pub fn snapshot_diff(params: SnapshotDiffParams) -> Result<Vec<but_core::ui::TreeChange>, Error> {
     let project = gitbutler_project::get(params.project_id).context("failed to get project")?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let diff = ctx.snapshot_diff(params.sha.parse().map_err(anyhow::Error::from)?)?;

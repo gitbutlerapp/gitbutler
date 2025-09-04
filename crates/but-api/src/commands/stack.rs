@@ -1,5 +1,5 @@
 use crate::commands::stack::create_reference::Anchor;
-use crate::{App, error::Error};
+use crate::error::Error;
 use anyhow::{Context, anyhow};
 use but_settings::AppSettings;
 use but_workspace::branch::{ReferenceAnchor, ReferencePosition};
@@ -57,7 +57,7 @@ pub mod create_reference {
     }
 }
 
-pub fn create_reference(_app: &App, params: create_reference::Params) -> Result<(), Error> {
+pub fn create_reference(params: create_reference::Params) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let create_reference::Request { new_name, anchor } = params.request;
@@ -101,7 +101,7 @@ pub fn create_reference(_app: &App, params: create_reference::Params) -> Result<
     Ok(())
 }
 
-pub fn create_branch(_app: &App, params: CreateBranchParams) -> Result<(), Error> {
+pub fn create_branch(params: CreateBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     if ctx.app_settings().feature_flags.ws3 {
@@ -165,7 +165,7 @@ pub struct RemoveBranchParams {
     pub branch_name: String,
 }
 
-pub fn remove_branch(_app: &App, params: RemoveBranchParams) -> Result<(), Error> {
+pub fn remove_branch(params: RemoveBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
@@ -205,7 +205,7 @@ pub struct UpdateBranchNameParams {
     pub new_name: String,
 }
 
-pub fn update_branch_name(_app: &App, params: UpdateBranchNameParams) -> Result<(), Error> {
+pub fn update_branch_name(params: UpdateBranchNameParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::update_branch_name(
@@ -226,10 +226,7 @@ pub struct UpdateBranchDescriptionParams {
     pub description: Option<String>,
 }
 
-pub fn update_branch_description(
-    _app: &App,
-    params: UpdateBranchDescriptionParams,
-) -> Result<(), Error> {
+pub fn update_branch_description(params: UpdateBranchDescriptionParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::update_branch_description(
@@ -250,10 +247,7 @@ pub struct UpdateBranchPrNumberParams {
     pub pr_number: Option<usize>,
 }
 
-pub fn update_branch_pr_number(
-    _app: &App,
-    params: UpdateBranchPrNumberParams,
-) -> Result<(), Error> {
+pub fn update_branch_pr_number(params: UpdateBranchPrNumberParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::update_branch_pr_number(
@@ -275,7 +269,7 @@ pub struct PushStackParams {
     pub branch: String,
 }
 
-pub fn push_stack(_app: &App, params: PushStackParams) -> Result<PushResult, Error> {
+pub fn push_stack(params: PushStackParams) -> Result<PushResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::push_stack(
@@ -297,7 +291,7 @@ pub struct PushStackToReviewParams {
     pub user: User,
 }
 
-pub fn push_stack_to_review(_app: &App, params: PushStackToReviewParams) -> Result<String, Error> {
+pub fn push_stack_to_review(params: PushStackToReviewParams) -> Result<String, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let review_id = gitbutler_sync::stack_upload::push_stack_to_review(

@@ -10,8 +10,8 @@ use gitbutler_repo_actions::RepoActionsExt as _;
 use serde::Deserialize;
 
 use crate::NoParams;
+use crate::error::Error;
 use crate::error::ToError as _;
-use crate::{App, error::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,10 +19,7 @@ pub struct GitRemoteBranchesParams {
     pub project_id: ProjectId,
 }
 
-pub fn git_remote_branches(
-    _app: &App,
-    params: GitRemoteBranchesParams,
-) -> Result<Vec<RemoteRefname>, Error> {
+pub fn git_remote_branches(params: GitRemoteBranchesParams) -> Result<Vec<RemoteRefname>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(ctx.repo().remote_branches()?)
@@ -36,7 +33,7 @@ pub struct GitTestPushParams {
     pub branch_name: String,
 }
 
-pub fn git_test_push(_app: &App, params: GitTestPushParams) -> Result<(), Error> {
+pub fn git_test_push(params: GitTestPushParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     ctx.git_test_push(&params.remote_name, &params.branch_name, Some(None))?;
@@ -51,7 +48,7 @@ pub struct GitTestFetchParams {
     pub action: Option<String>,
 }
 
-pub fn git_test_fetch(_app: &App, params: GitTestFetchParams) -> Result<(), Error> {
+pub fn git_test_fetch(params: GitTestFetchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     ctx.fetch(
@@ -67,7 +64,7 @@ pub struct GitIndexSizeParams {
     pub project_id: ProjectId,
 }
 
-pub fn git_index_size(_app: &App, params: GitIndexSizeParams) -> Result<usize, Error> {
+pub fn git_index_size(params: GitIndexSizeParams) -> Result<usize, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let size = ctx
@@ -84,14 +81,14 @@ pub struct GitHeadParams {
     pub project_id: ProjectId,
 }
 
-pub fn git_head(_app: &App, params: GitHeadParams) -> Result<String, Error> {
+pub fn git_head(params: GitHeadParams) -> Result<String, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let head = ctx.repo().head().context("failed to get repository head")?;
     Ok(head.name().unwrap().to_string())
 }
 
-pub fn delete_all_data(_app: &App, _params: NoParams) -> Result<(), Error> {
+pub fn delete_all_data(_params: NoParams) -> Result<(), Error> {
     for project in gitbutler_project::list().context("failed to list projects")? {
         gitbutler_project::delete(project.id)
             .map_err(|err| err.context("failed to delete project"))?;
@@ -106,10 +103,7 @@ pub struct GitSetGlobalConfigParams {
     pub value: String,
 }
 
-pub fn git_set_global_config(
-    _app: &App,
-    params: GitSetGlobalConfigParams,
-) -> Result<String, Error> {
+pub fn git_set_global_config(params: GitSetGlobalConfigParams) -> Result<String, Error> {
     let mut config = git2::Config::open_default().to_error()?;
     config.set_str(&params.key, &params.value).to_error()?;
     Ok(params.value)
@@ -121,10 +115,7 @@ pub struct GitRemoveGlobalConfigParams {
     pub key: String,
 }
 
-pub fn git_remove_global_config(
-    _app: &App,
-    params: GitRemoveGlobalConfigParams,
-) -> Result<(), Error> {
+pub fn git_remove_global_config(params: GitRemoveGlobalConfigParams) -> Result<(), Error> {
     let mut config = git2::Config::open_default().to_error()?;
     config.remove(&params.key).to_error()?;
     Ok(())
@@ -136,10 +127,7 @@ pub struct GitGetGlobalConfigParams {
     pub key: String,
 }
 
-pub fn git_get_global_config(
-    _app: &App,
-    params: GitGetGlobalConfigParams,
-) -> Result<Option<String>, Error> {
+pub fn git_get_global_config(params: GitGetGlobalConfigParams) -> Result<Option<String>, Error> {
     let config = git2::Config::open_default().to_error()?;
     let value = config.get_string(&params.key);
     match value {

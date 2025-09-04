@@ -9,7 +9,7 @@ use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};
 use gitbutler_project::ProjectId;
 use serde::Deserialize;
 
-use crate::{App, error::Error};
+use crate::error::Error;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,7 +17,7 @@ pub struct OperatingModeParams {
     pub project_id: ProjectId,
 }
 
-pub fn operating_mode(_app: &App, params: OperatingModeParams) -> Result<OperatingMode, Error> {
+pub fn operating_mode(params: OperatingModeParams) -> Result<OperatingMode, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_operating_modes::operating_mode(&ctx))
@@ -31,7 +31,7 @@ pub struct EnterEditModeParams {
     pub stack_id: StackId,
 }
 
-pub fn enter_edit_mode(_app: &App, params: EnterEditModeParams) -> Result<EditModeMetadata, Error> {
+pub fn enter_edit_mode(params: EnterEditModeParams) -> Result<EditModeMetadata, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let commit = git2::Oid::from_str(&params.commit_id).context("Failed to parse commit oid")?;
@@ -47,7 +47,6 @@ pub struct AbortEditAndReturnToWorkspaceParams {
 }
 
 pub fn abort_edit_and_return_to_workspace(
-    _app: &App,
     params: AbortEditAndReturnToWorkspaceParams,
 ) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -65,7 +64,6 @@ pub struct SaveEditAndReturnToWorkspaceParams {
 }
 
 pub fn save_edit_and_return_to_workspace(
-    _app: &App,
     params: SaveEditAndReturnToWorkspaceParams,
 ) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -83,7 +81,6 @@ pub struct EditInitialIndexStateParams {
 }
 
 pub fn edit_initial_index_state(
-    _app: &App,
     params: EditInitialIndexStateParams,
 ) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -99,7 +96,6 @@ pub struct EditChangesFromInitialParams {
 }
 
 pub fn edit_changes_from_initial(
-    _app: &App,
     params: EditChangesFromInitialParams,
 ) -> Result<Vec<TreeChange>, Error> {
     let project = gitbutler_project::get(params.project_id)?;

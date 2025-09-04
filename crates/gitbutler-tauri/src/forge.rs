@@ -1,36 +1,27 @@
-use but_api::{commands::forge, App};
+use but_api::commands::forge;
 use gitbutler_forge::forge::ForgeName;
 use gitbutler_project::ProjectId;
 use std::path::PathBuf;
-use tauri::State;
 use tracing::instrument;
 
 use but_api::error::Error;
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
-pub fn pr_templates(
-    app: State<'_, App>,
-    project_id: ProjectId,
-    forge: ForgeName,
-) -> Result<Vec<String>, Error> {
-    forge::pr_templates(&app, forge::PrTemplatesParams { project_id, forge })
+#[instrument(err(Debug))]
+pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<String>, Error> {
+    forge::pr_templates(forge::PrTemplatesParams { project_id, forge })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app))]
+#[instrument(err(Debug))]
 pub fn pr_template(
-    app: State<'_, App>,
     project_id: ProjectId,
     relative_path: PathBuf,
     forge: ForgeName,
 ) -> Result<String, Error> {
-    forge::pr_template(
-        &app,
-        forge::PrTemplateParams {
-            project_id,
-            relative_path,
-            forge,
-        },
-    )
+    forge::pr_template(forge::PrTemplateParams {
+        project_id,
+        relative_path,
+        forge,
+    })
 }

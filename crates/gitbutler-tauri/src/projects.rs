@@ -17,42 +17,31 @@ use crate::window::state::ProjectAccessMode;
 use crate::{window, WindowState};
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
+#[instrument(err(Debug))]
 pub fn update_project(
-    app: State<'_, but_api::App>,
     project: gitbutler_project::UpdateRequest,
 ) -> Result<gitbutler_project::Project, Error> {
-    projects::update_project(&app, UpdateProjectParams { project })
+    projects::update_project(UpdateProjectParams { project })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
-pub fn add_project(
-    app: State<'_, but_api::App>,
-    path: &path::Path,
-) -> Result<gitbutler_project::Project, Error> {
-    projects::add_project(
-        &app,
-        AddProjectParams {
-            path: path.to_path_buf(),
-        },
-    )
+#[instrument(err(Debug))]
+pub fn add_project(path: &path::Path) -> Result<gitbutler_project::Project, Error> {
+    projects::add_project(AddProjectParams {
+        path: path.to_path_buf(),
+    })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
+#[instrument(err(Debug))]
 pub fn get_project(
-    app: State<'_, but_api::App>,
     project_id: ProjectId,
     no_validation: Option<bool>,
 ) -> Result<gitbutler_project::Project, Error> {
-    projects::get_project(
-        &app,
-        GetProjectParams {
-            project_id,
-            no_validation,
-        },
-    )
+    projects::get_project(GetProjectParams {
+        project_id,
+        no_validation,
+    })
 }
 
 #[tauri::command(async)]
@@ -90,10 +79,9 @@ pub struct ProjectInfo {
 ///
 /// We use it to start watching for filesystem events.
 #[tauri::command(async)]
-#[instrument(skip(window_state, window, _app, app_settings_sync), err(Debug), ret)]
+#[instrument(skip(window_state, window, app_settings_sync), err(Debug), ret)]
 pub fn set_project_active(
     window_state: State<'_, WindowState>,
-    _app: tauri::State<'_, but_api::App>,
     app_settings_sync: tauri::State<'_, AppSettingsWithDiskSync>,
     window: Window,
     id: ProjectId,
@@ -143,9 +131,9 @@ pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
-pub fn delete_project(app: State<'_, but_api::App>, project_id: ProjectId) -> Result<(), Error> {
-    projects::delete_project(&app, DeleteProjectParams { project_id })
+#[instrument(err(Debug))]
+pub fn delete_project(project_id: ProjectId) -> Result<(), Error> {
+    projects::delete_project(DeleteProjectParams { project_id })
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]

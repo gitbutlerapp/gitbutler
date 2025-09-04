@@ -8,7 +8,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use serde::Deserialize;
 
-use crate::{App, error::Error};
+use crate::error::Error;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,10 +17,7 @@ pub struct CreateWorkspaceRuleParams {
     pub request: CreateRuleRequest,
 }
 
-pub fn create_workspace_rule(
-    _app: &App,
-    params: CreateWorkspaceRuleParams,
-) -> Result<WorkspaceRule, Error> {
+pub fn create_workspace_rule(params: CreateWorkspaceRuleParams) -> Result<WorkspaceRule, Error> {
     let ctx = &mut CommandContext::open(
         &gitbutler_project::get(params.project_id)?,
         AppSettings::load_from_default_path_creating()?,
@@ -35,7 +32,7 @@ pub struct DeleteWorkspaceRuleParams {
     pub id: String,
 }
 
-pub fn delete_workspace_rule(_app: &App, params: DeleteWorkspaceRuleParams) -> Result<(), Error> {
+pub fn delete_workspace_rule(params: DeleteWorkspaceRuleParams) -> Result<(), Error> {
     let ctx = &mut CommandContext::open(
         &gitbutler_project::get(params.project_id)?,
         AppSettings::load_from_default_path_creating()?,
@@ -50,10 +47,7 @@ pub struct UpdateWorkspaceRuleParams {
     pub request: UpdateRuleRequest,
 }
 
-pub fn update_workspace_rule(
-    _app: &App,
-    params: UpdateWorkspaceRuleParams,
-) -> Result<WorkspaceRule, Error> {
+pub fn update_workspace_rule(params: UpdateWorkspaceRuleParams) -> Result<WorkspaceRule, Error> {
     let ctx = &mut CommandContext::open(
         &gitbutler_project::get(params.project_id)?,
         AppSettings::load_from_default_path_creating()?,
@@ -67,10 +61,7 @@ pub struct ListWorkspaceRulesParams {
     pub project_id: ProjectId,
 }
 
-pub fn list_workspace_rules(
-    _app: &App,
-    params: ListWorkspaceRulesParams,
-) -> Result<Vec<WorkspaceRule>, Error> {
+pub fn list_workspace_rules(params: ListWorkspaceRulesParams) -> Result<Vec<WorkspaceRule>, Error> {
     let ctx = &mut CommandContext::open(
         &gitbutler_project::get(params.project_id)?,
         AppSettings::load_from_default_path_creating()?,

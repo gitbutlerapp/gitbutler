@@ -1,5 +1,5 @@
+use crate::error::Error;
 use crate::hex_hash::HexHash;
-use crate::{App, error::Error};
 use anyhow::Context;
 use but_core::{
     Commit,
@@ -26,7 +26,6 @@ pub struct TreeChangeDiffsParams {
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
 pub fn tree_change_diffs(
-    _app: &App,
     params: TreeChangeDiffsParams,
 ) -> anyhow::Result<but_core::UnifiedDiff, Error> {
     let change: but_core::TreeChange = params.change.into();
@@ -45,10 +44,7 @@ pub struct CommitDetailsParams {
     pub commit_id: HexHash,
 }
 
-pub fn commit_details(
-    _app: &App,
-    params: CommitDetailsParams,
-) -> anyhow::Result<CommitDetails, Error> {
+pub fn commit_details(params: CommitDetailsParams) -> anyhow::Result<CommitDetails, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let repo = &gix::open(&project.path).context("Failed to open repo")?;
     let commit = repo
@@ -88,10 +84,7 @@ pub struct ChangesInBranchParams {
 /// Otherwise, if stack_id is not provided, this will include all changes as compared to the target branch
 /// Note that `stack_id` is deprecated in favor of `branch_name`
 /// *(which should be a full ref-name as well and make `remote` unnecessary)*
-pub fn changes_in_branch(
-    _app: &App,
-    params: ChangesInBranchParams,
-) -> anyhow::Result<TreeChanges, Error> {
+pub fn changes_in_branch(params: ChangesInBranchParams) -> anyhow::Result<TreeChanges, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     changes_in_branch_inner(ctx, params.branch).map_err(Into::into)
@@ -130,7 +123,6 @@ pub struct ChangesInWorktreeParams {
 }
 
 pub fn changes_in_worktree(
-    _app: &App,
     params: ChangesInWorktreeParams,
 ) -> anyhow::Result<WorktreeChanges, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -185,10 +177,7 @@ pub struct AssignHunkParams {
     pub assignments: Vec<HunkAssignmentRequest>,
 }
 
-pub fn assign_hunk(
-    _app: &App,
-    params: AssignHunkParams,
-) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
+pub fn assign_hunk(params: AssignHunkParams) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let rejections = but_hunk_assignment::assign(ctx, params.assignments, None)?;
