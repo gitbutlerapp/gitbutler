@@ -7,7 +7,9 @@ mod storage;
 use std::path::Path;
 
 use controller::Controller;
-pub use project::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
+pub use project::{
+    AddProjectOutcome, ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId,
+};
 pub use storage::UpdateRequest;
 
 /// A utility to be used from applications to optimize `git2` configuration.
@@ -60,13 +62,13 @@ pub fn update_with_path<P: AsRef<Path>>(
     controller.update(project)
 }
 
-pub fn add<P: AsRef<Path>>(path: P) -> anyhow::Result<Project> {
+pub fn add<P: AsRef<Path>>(path: P) -> anyhow::Result<AddProjectOutcome> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.add(path)
 }
 
 /// Testing purpose only.
-pub fn add_with_path<P: AsRef<Path>>(data_dir: P, path: P) -> anyhow::Result<Project> {
+pub fn add_with_path<P: AsRef<Path>>(data_dir: P, path: P) -> anyhow::Result<AddProjectOutcome> {
     let controller = Controller::from_path(data_dir.as_ref());
     controller.add(path)
 }
