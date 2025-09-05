@@ -242,8 +242,8 @@ async fn handle_command(
                 settings::update_claude(&app_settings_sync, params).map(|r| json!(r))
             }),
         // Secret management
-        "secret_get_global" => run_cmd(request.params, secret::secret_get_global),
-        "secret_set_global" => run_cmd(request.params, secret::secret_set_global),
+        "secret_get_global" => secret::secret_get_global_cmd(request.params),
+        "secret_set_global" => secret::secret_set_global_cmd(request.params),
         // User management
         "get_user" => run_cmd(request.params, users::get_user),
         "set_user" => run_cmd(request.params, users::set_user),
