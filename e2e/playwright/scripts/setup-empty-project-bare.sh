@@ -16,11 +16,4 @@ popd
 
 # Clone the remote into a folder.
 # This is what we are going to add in the client
-git clone remote-project local-clone
-
-mkdir not-a-git-repo
-pushd not-a-git-repo
-  echo "I am not a git repository" > another_file
-popd
-
-mkdir empty-dir
+git clone --bare remote-project local-clone
