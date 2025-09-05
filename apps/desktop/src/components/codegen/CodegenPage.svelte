@@ -16,7 +16,6 @@
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
 	import CodegenSidebarEntryDisabled from '$components/codegen/CodegenSidebarEntryDisabled.svelte';
 	import CodegenTodo from '$components/codegen/CodegenTodo.svelte';
-	import CodegenUsageStat from '$components/codegen/CodegenUsageStat.svelte';
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import appClickSvg from '$lib/assets/empty-state/app-click.svg?raw';
 	import codegenSvg from '$lib/assets/empty-state/codegen.svg?raw';
@@ -585,7 +584,7 @@
 
 			{@const todos = getTodos(events)}
 			{#if todos.length > 0}
-				<Drawer bottomBorder defaultCollapsed={false} noshrink>
+				<Drawer defaultCollapsed={false} noshrink>
 					{#snippet header()}
 						<h4 class="text-14 text-semibold truncate">Todos</h4>
 						<Badge>{todos.length}</Badge>
@@ -598,18 +597,6 @@
 					</div>
 				</Drawer>
 			{/if}
-
-			<Drawer title="Usage" noshrink>
-				{@const usage = usageStats(events)}
-				<div class="right-sidebar-list">
-					<CodegenUsageStat label="Tokens used:" value={usage.tokens.toString()} />
-					<CodegenUsageStat
-						label="Total cost:"
-						value={`$${usage.cost.toFixed(2)}`}
-						valueSize="large"
-					/>
-				</div>
-			</Drawer>
 		{/if}
 
 		<Resizer
