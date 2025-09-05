@@ -45,7 +45,8 @@
 	<div class="create-review-box" data-testid={TestId.CreateReviewBox}>
 		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} onClose={close} />
 		<ReviewCreationControls
-			isSubmitting={!!reviewCreation?.imports.isLoading}
+			isCreatingPR={!!reviewCreation?.imports.isLoading}
+			isFormBusy={!!reviewCreation?.imports.isExecuting}
 			{canPublishPR}
 			{reviewUnit}
 			onCancel={() => {
