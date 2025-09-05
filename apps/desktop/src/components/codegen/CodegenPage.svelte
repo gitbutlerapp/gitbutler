@@ -408,24 +408,25 @@
 
 					<CodegenChatLayout bind:this={chatLayout} branchName={selectedBranch.head}>
 						{#snippet workspaceActions()}
+							<Button kind="outline" size="tag" icon="workbench-small" onclick={showInWorkspace}
+								>Show in workspace</Button
+							>
 							<Button
 								kind="outline"
+								icon="open-editor-small"
 								size="tag"
-								icon="workbench"
-								reversedDirection
-								onclick={showInWorkspace}>Show in workspace</Button
-							>
-							<Button kind="outline" size="tag" reversedDirection onclick={openInEditor}>
-								Open in editor
-							</Button>
+								tooltip="Open in editor
+							"
+								onclick={openInEditor}
+							/>
 						{/snippet}
 						{#snippet contextActions()}
-							<Badge kind="soft" size="tag">69% used context</Badge>
 							<Button
 								disabled={!hasRulesToClear}
 								kind="outline"
 								size="tag"
 								icon="clear-small"
+								reversedDirection
 								onclick={clearContextAndRules}
 							>
 								Clear context
