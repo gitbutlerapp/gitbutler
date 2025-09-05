@@ -1,7 +1,9 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
+	import { projectRunPushHooks } from '$lib/config/config';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
 	import {
 		branchHasConflicts,
 		branchHasUnpushedCommits,
@@ -48,6 +50,9 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
+	const hooksService = inject(HOOKS_SERVICE);
+
+	const runPushHooks = $derived(projectRunPushHooks(projectId));
 
 	const branchDetails = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
@@ -69,6 +74,16 @@
 	async function push(args: { withForce: boolean; skipForcePushProtection: boolean }) {
 		const { withForce, skipForcePushProtection } = args;
 		try {
+			// Run pre-push hooks if enabled
+			if ($runPushHooks) {
+				// TODO: Get actual remote name and URL from the project configuration
+				// For now, using default values that should work for most cases
+				const remoteName = 'origin';
+				const remoteUrl = 'https://github.com/example/repo.git'; // This should be fetched from project config
+				
+				await hooksService.runPrePushHooks(projectId, remoteName, remoteUrl);
+			}
+
 			const pushResult = await pushStack({
 				projectId,
 				stackId,
