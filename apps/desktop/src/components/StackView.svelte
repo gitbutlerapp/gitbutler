@@ -65,6 +65,9 @@
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(ID_SELECTION);
 
+	// Component is read-only when stackId is undefined
+	const isReadOnly = $derived(!stackId);
+
 	const projectState = $derived(uiState.project(projectId));
 
 	const action = $derived(projectState.exclusiveAction.current);
@@ -493,7 +496,10 @@
 											style={changes.current.length > 0 ? 'pop' : 'neutral'}
 											type="button"
 											wide
-											disabled={defaultBranch === null || !!projectState.exclusiveAction.current}
+											disabled={isReadOnly ||
+												defaultBranch === null ||
+												!!projectState.exclusiveAction.current}
+											tooltip={isReadOnly ? 'Read-only mode' : undefined}
 											onclick={() => {
 												if (defaultBranch) startCommit(defaultBranch);
 											}}

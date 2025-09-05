@@ -74,6 +74,13 @@
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 	const [createRef, refCreation] = stackService.createReference;
 
+	// Component is read-only when stackId is undefined
+	const isReadOnly = $derived(
+		contextData?.commitStatus === 'LocalAndRemote' || contextData?.commitStatus === 'LocalOnly'
+			? !contextData.stackId
+			: false
+	);
+
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let kebabButtonElement = $state<HTMLElement>();
 
@@ -142,26 +149,35 @@
 						label="Uncommit"
 						icon="undo-small"
 						testId={TestId.CommitRowContextMenu_UncommitMenuButton}
+						disabled={isReadOnly}
 						onclick={(e: MouseEvent) => {
-							onUncommitClick?.(e);
-							closeContextMenu();
+							if (!isReadOnly) {
+								onUncommitClick?.(e);
+								closeContextMenu();
+							}
 						}}
 					/>
 					<ContextMenuItem
 						label="Edit commit message"
 						icon="edit"
 						testId={TestId.CommitRowContextMenu_EditMessageMenuButton}
+						disabled={isReadOnly}
 						onclick={(e: MouseEvent) => {
-							onEditMessageClick?.(e);
-							closeContextMenu();
+							if (!isReadOnly) {
+								onEditMessageClick?.(e);
+								closeContextMenu();
+							}
 						}}
 					/>
 					<ContextMenuItem
 						label="Edit commit"
 						icon="edit-commit"
+						disabled={isReadOnly}
 						onclick={(e: MouseEvent) => {
-							onPatchEditClick?.(e);
-							closeContextMenu();
+							if (!isReadOnly) {
+								onPatchEditClick?.(e);
+								closeContextMenu();
+							}
 						}}
 					/>
 				</ContextMenuSection>
@@ -217,7 +233,7 @@
 							<ContextMenuSection>
 								<ContextMenuItem
 									label="Add empty commit above"
-									disabled={commitInsertion.current.isLoading}
+									disabled={isReadOnly || commitInsertion.current.isLoading}
 									onclick={() => {
 										insertBlankCommit(ensureValue(stackId), commitId, 'above');
 										close();
@@ -226,7 +242,7 @@
 								/>
 								<ContextMenuItem
 									label="Add empty commit below"
-									disabled={commitInsertion.current.isLoading}
+									disabled={isReadOnly || commitInsertion.current.isLoading}
 									onclick={() => {
 										insertBlankCommit(ensureValue(stackId), commitId, 'below');
 										close();
@@ -241,20 +257,24 @@
 							<ContextMenuSection>
 								<ContextMenuItem
 									label="Branch from this commit"
-									disabled={refCreation.current.isLoading}
+									disabled={isReadOnly || refCreation.current.isLoading}
 									onclick={async () => {
-										await handleCreateNewRef(ensureValue(stackId), commitId, 'Above');
-										close();
-										closeContextMenu();
+										if (!isReadOnly) {
+											await handleCreateNewRef(ensureValue(stackId), commitId, 'Above');
+											close();
+											closeContextMenu();
+										}
 									}}
 								/>
 								<ContextMenuItem
 									label="Branch after this commit"
-									disabled={refCreation.current.isLoading}
+									disabled={isReadOnly || refCreation.current.isLoading}
 									onclick={async () => {
-										await handleCreateNewRef(ensureValue(stackId), commitId, 'Below');
-										close();
-										closeContextMenu();
+										if (!isReadOnly) {
+											await handleCreateNewRef(ensureValue(stackId), commitId, 'Below');
+											close();
+											closeContextMenu();
+										}
 									}}
 								/>
 							</ContextMenuSection>
