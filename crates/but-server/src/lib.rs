@@ -333,6 +333,7 @@ async fn handle_command(
         "pre_commit_hook" => run_cmd(request.params, repo::pre_commit_hook),
         "pre_commit_hook_diffspecs" => run_cmd(request.params, repo::pre_commit_hook_diffspecs),
         "post_commit_hook" => run_cmd(request.params, repo::post_commit_hook),
+        "pre_push_hook" => run_cmd(request.params, repo::pre_push_hook),
         "message_hook" => run_cmd(request.params, repo::message_hook),
         // Stack management commands
         "create_branch" => run_cmd(request.params, stack::create_branch),

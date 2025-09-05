@@ -123,6 +123,58 @@ pub fn post_commit(ctx: &CommandContext) -> Result<HookResult> {
     }
 }
 
+pub fn pre_push(
+    ctx: &CommandContext,
+    remote_name: &str,
+    remote_url: &str,
+) -> Result<HookResult> {
+    // Implement pre-push hook following the same pattern as git2-hooks
+    // Pre-push hooks receive the remote name and URL as parameters
+    use std::process::Command;
+    
+    let repo = ctx.repo();
+    
+    // Look for pre-push hook in .git/hooks/ and .husky/
+    let git_dir = repo.path();
+    let hooks_dir = git_dir.join("hooks");
+    let hook_path = hooks_dir.join("pre-push");
+    
+    // Also check .husky directory (relative to repo root)
+    let repo_root = git_dir.parent().unwrap_or(git_dir);
+    let husky_hook_path = repo_root.join(".husky").join("pre-push");
+    
+    let hook_to_run = if hook_path.exists() && hook_path.is_file() {
+        Some(hook_path)
+    } else if husky_hook_path.exists() && husky_hook_path.is_file() {
+        Some(husky_hook_path)
+    } else {
+        None
+    };
+    
+    let Some(hook_path) = hook_to_run else {
+        return Ok(HookResult::NotConfigured);
+    };
+    
+    // Pre-push hooks receive remote name and URL as environment variables
+    // and on stdin receive lines like: <local ref> <local sha1> <remote ref> <remote sha1>
+    let mut cmd = Command::new(&hook_path);
+    cmd.current_dir(repo_root);
+    cmd.env("GIT_DIR", git_dir);
+    cmd.arg(remote_name);
+    cmd.arg(remote_url);
+    
+    let output = cmd.output().map_err(|e| anyhow::anyhow!("Failed to execute pre-push hook: {}", e))?;
+    
+    if output.status.success() {
+        Ok(HookResult::Success)
+    } else {
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let error = join_output(stdout, stderr);
+        Ok(HookResult::Failure(ErrorData { error }))
+    }
+}
+
 fn join_output(stdout: String, stderr: String) -> String {
     if stdout.is_empty() && stderr.is_ascii() {
         return "hook produced no output".to_owned();

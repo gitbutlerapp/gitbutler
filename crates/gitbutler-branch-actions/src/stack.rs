@@ -5,6 +5,7 @@ use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
+use gitbutler_repo::hooks;
 use gitbutler_stack::StackId;
 use gitbutler_stack::{PatchReferenceUpdate, StackBranch};
 use serde::{Deserialize, Serialize};
@@ -178,6 +179,33 @@ pub fn push_stack(
         &default_target.push_remote_name(),
         Some("push_stack".into()),
     )?;
+
+    // Run pre-push hooks if configured
+    // Note: For now, using the main remote_url. This could be refined to get the actual push remote URL.
+    let remote_name = default_target.push_remote_name();
+    let remote_url = &default_target.remote_url;
+    
+    // Check if we should run pre-push hooks based on project settings
+    // For now, we'll run them if any branches are going to be pushed
+    let has_branches_to_push = stack.branches().iter().any(|branch| !branch.archived);
+    
+    if has_branches_to_push {
+        // Run pre-push hooks
+        match hooks::pre_push(ctx, &remote_name, remote_url) {
+            Ok(hooks::HookResult::Success) => {
+                // Continue with push
+            }
+            Ok(hooks::HookResult::NotConfigured) => {
+                // No hook configured, continue
+            }
+            Ok(hooks::HookResult::Failure(error_data)) => {
+                anyhow::bail!("Pre-push hook failed: {}", error_data.error);
+            }
+            Err(e) => {
+                anyhow::bail!("Failed to run pre-push hook: {}", e);
+            }
+        }
+    }
     let gix_repo = ctx.gix_repo_for_merging_non_persisting()?;
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());

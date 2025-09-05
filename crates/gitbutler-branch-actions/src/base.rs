@@ -375,6 +375,26 @@ fn default_target(base_path: &Path) -> Result<Target> {
 
 pub(crate) fn push(ctx: &CommandContext, with_force: bool) -> Result<()> {
     let target = default_target(&ctx.project().gb_dir())?;
+    
+    // Run pre-push hooks before pushing
+    let remote_name = target.push_remote_name();
+    let remote_url = &target.remote_url;
+    
+    match gitbutler_repo::hooks::pre_push(ctx, &remote_name, remote_url) {
+        Ok(gitbutler_repo::hooks::HookResult::Success) => {
+            // Continue with push
+        }
+        Ok(gitbutler_repo::hooks::HookResult::NotConfigured) => {
+            // No hook configured, continue
+        }
+        Ok(gitbutler_repo::hooks::HookResult::Failure(error_data)) => {
+            anyhow::bail!("Pre-push hook failed: {}", error_data.error);
+        }
+        Err(e) => {
+            anyhow::bail!("Failed to run pre-push hook: {}", e);
+        }
+    }
+    
     let _ = ctx.push(
         target.sha,
         &target.branch,

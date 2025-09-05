@@ -31,6 +31,11 @@ export function projectRunCommitHooks(projectId: string): Persisted<boolean> {
 	return persisted(false, key + projectId);
 }
 
+export function projectRunPushHooks(projectId: string): Persisted<boolean> {
+	const key = 'projectRunPushHooks_';
+	return persisted(false, key + projectId);
+}
+
 export function persistedChatModelName<T extends string>(
 	projectId: string,
 	defaultValue: T

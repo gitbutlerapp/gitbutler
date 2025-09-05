@@ -93,4 +93,31 @@ export class HooksService {
 			throw e;
 		}
 	}
+
+	async prePush(projectId: string, remoteName: string, remoteUrl: string) {
+		return await this.backend.invoke<HookStatus>('pre_push_hook', {
+			projectId,
+			remoteName,
+			remoteUrl
+		});
+	}
+
+	async runPrePushHooks(projectId: string, remoteName: string, remoteUrl: string): Promise<void> {
+		const loadingToastId = chipToasts.loading('Started pre-push hooks');
+
+		try {
+			const result = await this.prePush(projectId, remoteName, remoteUrl);
+
+			if (result?.status === 'failure') {
+				chipToasts.removeChipToast(loadingToastId);
+				throw new Error(result.error);
+			}
+
+			chipToasts.removeChipToast(loadingToastId);
+			chipToasts.success('Pre-push hooks succeeded');
+		} catch (e: unknown) {
+			chipToasts.removeChipToast(loadingToastId);
+			throw e;
+		}
+	}
 }

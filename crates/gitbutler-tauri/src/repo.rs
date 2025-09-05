@@ -106,6 +106,20 @@ pub fn post_commit_hook(project_id: ProjectId) -> Result<HookResult, Error> {
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
+pub fn pre_push_hook(
+    project_id: ProjectId,
+    remote_name: String,
+    remote_url: String,
+) -> Result<HookResult, Error> {
+    repo::pre_push_hook(repo::PrePushHookParams {
+        project_id,
+        remote_name,
+        remote_url,
+    })
+}
+
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn message_hook(project_id: ProjectId, message: String) -> Result<MessageHookResult, Error> {
     repo::message_hook(repo::MessageHookParams {
         project_id,

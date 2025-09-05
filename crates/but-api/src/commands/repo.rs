@@ -183,3 +183,17 @@ pub fn message_hook(params: MessageHookParams) -> Result<MessageHookResult, Erro
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_repo::hooks::commit_msg(&ctx, params.message)?)
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrePushHookParams {
+    pub project_id: ProjectId,
+    pub remote_name: String,
+    pub remote_url: String,
+}
+
+pub fn pre_push_hook(params: PrePushHookParams) -> Result<HookResult, Error> {
+    let project = gitbutler_project::get(params.project_id)?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    Ok(gitbutler_repo::hooks::pre_push(&ctx, &params.remote_name, &params.remote_url)?)
+}

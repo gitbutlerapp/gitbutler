@@ -238,6 +238,7 @@ fn main() {
                     repo::pre_commit_hook,
                     repo::pre_commit_hook_diffspecs,
                     repo::post_commit_hook,
+                    repo::pre_push_hook,
                     repo::message_hook,
                     virtual_branches::create_virtual_branch,
                     virtual_branches::delete_local_branch,
