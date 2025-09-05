@@ -9,7 +9,7 @@ use but_api::error::Error;
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<String>, Error> {
-    forge::pr_templates(forge::PrTemplatesParams { project_id, forge })
+    forge::pr_templates(project_id, forge)
 }
 
 #[tauri::command(async)]
@@ -19,9 +19,5 @@ pub fn pr_template(
     relative_path: PathBuf,
     forge: ForgeName,
 ) -> Result<String, Error> {
-    forge::pr_template(forge::PrTemplateParams {
-        project_id,
-        relative_path,
-        forge,
-    })
+    forge::pr_template(project_id, relative_path, forge)
 }

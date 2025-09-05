@@ -367,8 +367,8 @@ async fn handle_command(
             }
         }
         // Forge commands
-        "pr_templates" => run_cmd(request.params, forge::pr_templates),
-        "pr_template" => run_cmd(request.params, forge::pr_template),
+        "pr_templates" => forge::pr_templates_cmd(request.params),
+        "pr_template" => forge::pr_template_cmd(request.params),
         // // Menu commands (limited - no menu_item_set_enabled as it's Tauri-specific)
         // "get_editor_link_scheme" => menu::get_editor_link_scheme(&ctx, request.params),
         // CLI commands
