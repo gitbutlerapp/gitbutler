@@ -1,30 +1,18 @@
 //! In place of commands.rs
+use but_api_macros::api_cmd;
 use gitbutler_project::ProjectId;
 use gitbutler_repo::{GitRemote, RepoCommands};
-use serde::Deserialize;
 
 use crate::error::Error;
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListRemotesParams {
-    pub project_id: ProjectId,
-}
-
-pub fn list_remotes(params: ListRemotesParams) -> Result<Vec<GitRemote>, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn list_remotes(project_id: ProjectId) -> Result<Vec<GitRemote>, Error> {
+    let project = gitbutler_project::get(project_id)?;
     Ok(project.remotes()?)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AddRemoteParams {
-    pub project_id: ProjectId,
-    pub name: String,
-    pub url: String,
-}
-
-pub fn add_remote(params: AddRemoteParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
-    Ok(project.add_remote(&params.name, &params.url)?)
+#[api_cmd]
+pub fn add_remote(project_id: ProjectId, name: String, url: String) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
+    Ok(project.add_remote(&name, &url)?)
 }

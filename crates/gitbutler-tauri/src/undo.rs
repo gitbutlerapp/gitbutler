@@ -14,18 +14,13 @@ pub fn list_snapshots(
     sha: Option<String>,
     exclude_kind: Option<Vec<OperationKind>>,
 ) -> Result<Vec<Snapshot>, Error> {
-    undo::list_snapshots(undo::ListSnapshotsParams {
-        project_id,
-        limit,
-        sha,
-        exclude_kind,
-    })
+    undo::list_snapshots(project_id, limit, sha, exclude_kind)
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<(), Error> {
-    undo::restore_snapshot(undo::RestoreSnapshotParams { project_id, sha })
+    undo::restore_snapshot(project_id, sha)
 }
 
 #[tauri::command(async)]
@@ -34,5 +29,5 @@ pub fn snapshot_diff(
     project_id: ProjectId,
     sha: String,
 ) -> Result<Vec<but_core::ui::TreeChange>, Error> {
-    undo::snapshot_diff(undo::SnapshotDiffParams { project_id, sha })
+    undo::snapshot_diff(project_id, sha)
 }

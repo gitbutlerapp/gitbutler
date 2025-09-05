@@ -1,49 +1,31 @@
 use crate::error::Error;
+use but_api_macros::api_cmd;
 use gitbutler_project::{self as projects, ProjectId};
-use serde::Deserialize;
 use std::path::PathBuf;
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateProjectParams {
-    pub project: projects::UpdateRequest,
+#[api_cmd]
+pub fn update_project(project: projects::UpdateRequest) -> Result<projects::Project, Error> {
+    Ok(gitbutler_project::update(&project)?)
 }
 
-pub fn update_project(params: UpdateProjectParams) -> Result<projects::Project, Error> {
-    Ok(gitbutler_project::update(&params.project)?)
+#[api_cmd]
+pub fn add_project(path: PathBuf) -> Result<projects::Project, Error> {
+    Ok(gitbutler_project::add(&path)?)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AddProjectParams {
-    pub path: PathBuf,
-}
-
-pub fn add_project(params: AddProjectParams) -> Result<projects::Project, Error> {
-    Ok(gitbutler_project::add(&params.path)?)
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetProjectParams {
-    pub project_id: ProjectId,
-    pub no_validation: Option<bool>,
-}
-
-pub fn get_project(params: GetProjectParams) -> Result<projects::Project, Error> {
-    if params.no_validation.unwrap_or(false) {
-        Ok(gitbutler_project::get_raw(params.project_id)?)
+#[api_cmd]
+pub fn get_project(
+    project_id: ProjectId,
+    no_validation: Option<bool>,
+) -> Result<projects::Project, Error> {
+    if no_validation.unwrap_or(false) {
+        Ok(gitbutler_project::get_raw(project_id)?)
     } else {
-        Ok(gitbutler_project::get_validated(params.project_id)?)
+        Ok(gitbutler_project::get_validated(project_id)?)
     }
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DeleteProjectParams {
-    pub project_id: ProjectId,
-}
-
-pub fn delete_project(params: DeleteProjectParams) -> Result<(), Error> {
-    gitbutler_project::delete(params.project_id).map_err(Into::into)
+#[api_cmd]
+pub fn delete_project(project_id: ProjectId) -> Result<(), Error> {
+    gitbutler_project::delete(project_id).map_err(Into::into)
 }

@@ -1,7 +1,4 @@
-use but_api::commands::diff::{
-    self, AssignHunkParams, ChangesInBranchParams, ChangesInWorktreeParams, CommitDetails,
-    CommitDetailsParams, TreeChangeDiffsParams,
-};
+use but_api::commands::diff::{self, CommitDetails};
 use but_api::error::Error;
 use but_api::hex_hash::HexHash;
 use but_core::ui::{TreeChange, TreeChanges};
@@ -18,7 +15,7 @@ pub fn tree_change_diffs(
     project_id: ProjectId,
     change: TreeChange,
 ) -> anyhow::Result<but_core::UnifiedDiff, Error> {
-    diff::tree_change_diffs(TreeChangeDiffsParams { project_id, change })
+    diff::tree_change_diffs(project_id, change)
 }
 
 #[tauri::command(async)]
@@ -27,10 +24,7 @@ pub fn commit_details(
     project_id: ProjectId,
     commit_id: HexHash,
 ) -> anyhow::Result<CommitDetails, Error> {
-    diff::commit_details(CommitDetailsParams {
-        project_id,
-        commit_id,
-    })
+    diff::commit_details(project_id, commit_id)
 }
 
 /// Gets the changes for a given branch.
@@ -47,11 +41,7 @@ pub fn changes_in_branch(
     _stack_id: Option<StackId>,
     branch: Refname,
 ) -> anyhow::Result<TreeChanges, Error> {
-    diff::changes_in_branch(ChangesInBranchParams {
-        project_id,
-        _stack_id,
-        branch,
-    })
+    diff::changes_in_branch(project_id, _stack_id, branch)
 }
 
 /// This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
@@ -66,7 +56,7 @@ pub fn changes_in_branch(
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChanges, Error> {
-    diff::changes_in_worktree(ChangesInWorktreeParams { project_id })
+    diff::changes_in_worktree(project_id)
 }
 
 #[tauri::command(async)]
@@ -75,8 +65,5 @@ pub fn assign_hunk(
     project_id: ProjectId,
     assignments: Vec<HunkAssignmentRequest>,
 ) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
-    diff::assign_hunk(AssignHunkParams {
-        project_id,
-        assignments,
-    })
+    diff::assign_hunk(project_id, assignments)
 }

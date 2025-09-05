@@ -1,12 +1,13 @@
 //! In place of commands.rs
+use but_api_macros::api_cmd;
 use but_settings::api::{ClaudeUpdate, FeatureFlagsUpdate, TelemetryUpdate};
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use serde::Deserialize;
 
-use crate::NoParams;
 use crate::error::Error;
 
-pub fn get_app_settings(_params: NoParams) -> Result<AppSettings, Error> {
+#[api_cmd]
+pub fn get_app_settings() -> Result<AppSettings, Error> {
     let app_settings = AppSettings::load_from_default_path_creating()?;
     Ok(app_settings)
 }

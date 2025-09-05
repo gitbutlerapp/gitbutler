@@ -1,6 +1,6 @@
 //! In place of commands.rs
 use anyhow::{Context, bail};
-use serde::Deserialize;
+use but_api_macros::api_cmd;
 use std::env;
 use url::Url;
 
@@ -82,23 +82,13 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OpenUrlParams {
-    pub url: String,
+#[api_cmd]
+pub fn open_url(url: String) -> Result<(), Error> {
+    Ok(open_that(&url)?)
 }
 
-pub fn open_url(params: OpenUrlParams) -> Result<(), Error> {
-    Ok(open_that(&params.url)?)
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ShowInFinderParams {
-    pub path: String,
-}
-
-pub fn show_in_finder(params: ShowInFinderParams) -> Result<(), Error> {
+#[api_cmd]
+pub fn show_in_finder(path: String) -> Result<(), Error> {
     // Cross-platform implementation to open file/directory in the default file manager
     // macOS: Opens in Finder (with -R flag to reveal the item)
     // Windows: Opens in File Explorer
@@ -109,9 +99,9 @@ pub fn show_in_finder(params: ShowInFinderParams) -> Result<(), Error> {
         use std::process::Command;
         Command::new("open")
             .arg("-R")
-            .arg(&params.path)
+            .arg(&path)
             .status()
-            .with_context(|| format!("Failed to show '{}' in Finder", params.path))?;
+            .with_context(|| format!("Failed to show '{path}' in Finder"))?;
     }
 
     #[cfg(target_os = "windows")]
@@ -119,31 +109,27 @@ pub fn show_in_finder(params: ShowInFinderParams) -> Result<(), Error> {
         use std::process::Command;
         Command::new("explorer")
             .arg("/select,")
-            .arg(&params.path)
+            .arg(&path)
             .status()
-            .with_context(|| format!("Failed to show '{}' in Explorer", params.path))?;
+            .with_context(|| format!("Failed to show '{path}' in Explorer"))?;
     }
 
     #[cfg(target_os = "linux")]
     {
         // For directories, open the directory directly
-        if std::path::Path::new(&params.path).is_dir() {
-            open_that(&params.path).with_context(|| {
-                format!("Failed to open directory '{}' in file manager", params.path)
-            })?;
+        if std::path::Path::new(&path).is_dir() {
+            open_that(&path)
+                .with_context(|| format!("Failed to open directory '{path}' in file manager"))?;
         } else {
             // For files, try to open the parent directory
-            if let Some(parent) = std::path::Path::new(&params.path).parent() {
+            if let Some(parent) = std::path::Path::new(&path).parent() {
                 let parent_str = parent.to_string_lossy();
                 open_that(&parent_str).with_context(|| {
-                    format!(
-                        "Failed to open parent directory of '{}' in file manager",
-                        params.path
-                    )
+                    format!("Failed to open parent directory of '{path}' in file manager",)
                 })?;
             } else {
-                open_that(&params.path)
-                    .with_context(|| format!("Failed to open '{}' in file manager", params.path))?;
+                open_that(&path)
+                    .with_context(|| format!("Failed to open '{path}' in file manager"))?;
             }
         }
     }

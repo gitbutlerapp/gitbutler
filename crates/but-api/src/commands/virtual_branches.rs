@@ -24,6 +24,7 @@ use crate::commands::workspace::canned_branch_name;
 use crate::error::Error;
 // Parameter structs for all functions
 
+#[api_cmd]
 pub fn normalize_branch_name(name: String) -> Result<String, Error> {
     Ok(normalize_name(&name)?)
 }

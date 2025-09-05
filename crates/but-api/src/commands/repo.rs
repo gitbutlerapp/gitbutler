@@ -1,4 +1,5 @@
 use anyhow::{Context as _, Result};
+use but_api_macros::api_cmd;
 use but_graph::virtual_branches_legacy_types::BranchOwnershipClaims;
 use but_settings::AppSettings;
 use but_workspace::DiffSpec;
@@ -8,62 +9,39 @@ use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::ProjectId;
 use gitbutler_repo::hooks::{HookResult, MessageHookResult};
 use gitbutler_repo::{FileInfo, RepoCommands};
-use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 
 use crate::error::Error;
 use crate::error::ToError;
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitGetLocalConfigParams {
-    pub project_id: ProjectId,
-    pub key: String,
+#[api_cmd]
+pub fn git_get_local_config(project_id: ProjectId, key: String) -> Result<Option<String>, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    Ok(project.get_local_config(&key)?)
 }
 
-pub fn git_get_local_config(params: GitGetLocalConfigParams) -> Result<Option<String>, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
-    Ok(project.get_local_config(&params.key)?)
+#[api_cmd]
+pub fn git_set_local_config(
+    project_id: ProjectId,
+    key: String,
+    value: String,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
+    project.set_local_config(&key, &value).map_err(Into::into)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitSetLocalConfigParams {
-    pub project_id: ProjectId,
-    pub key: String,
-    pub value: String,
-}
-
-pub fn git_set_local_config(params: GitSetLocalConfigParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
-    project
-        .set_local_config(&params.key, &params.value)
-        .map_err(Into::into)
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CheckSigningSettingsParams {
-    pub project_id: ProjectId,
-}
-
-pub fn check_signing_settings(params: CheckSigningSettingsParams) -> Result<bool, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn check_signing_settings(project_id: ProjectId) -> Result<bool, Error> {
+    let project = gitbutler_project::get(project_id)?;
     project.check_signing_settings().map_err(Into::into)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitCloneRepositoryParams {
-    pub repository_url: String,
-    pub target_dir: PathBuf,
-}
-
-pub fn git_clone_repository(params: GitCloneRepositoryParams) -> Result<(), Error> {
+#[api_cmd]
+pub fn git_clone_repository(repository_url: String, target_dir: PathBuf) -> Result<(), Error> {
     let should_interrupt = AtomicBool::new(false);
 
-    gix::prepare_clone(params.repository_url.as_str(), &params.target_dir)
+    gix::prepare_clone(repository_url.as_str(), &target_dir)
         .to_error()?
         .fetch_then_checkout(gix::progress::Discard, &should_interrupt)
         .map(|(checkout, _outcome)| checkout)
@@ -73,71 +51,50 @@ pub fn git_clone_repository(params: GitCloneRepositoryParams) -> Result<(), Erro
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetUncommittedFilesParams {
-    pub project_id: ProjectId,
-}
-
-pub fn get_uncommitted_files(
-    params: GetUncommittedFilesParams,
-) -> Result<Vec<RemoteBranchFile>, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn get_uncommitted_files(project_id: ProjectId) -> Result<Vec<RemoteBranchFile>, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_branch_actions::get_uncommited_files(&ctx)?)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetCommitFileParams {
-    pub project_id: ProjectId,
-    pub relative_path: PathBuf,
-    pub commit_id: String,
+#[api_cmd]
+pub fn get_commit_file(
+    project_id: ProjectId,
+    relative_path: PathBuf,
+    commit_id: String,
+) -> Result<FileInfo, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let commit_id = git2::Oid::from_str(&commit_id).map_err(anyhow::Error::from)?;
+    Ok(project.read_file_from_commit(commit_id, &relative_path)?)
 }
 
-pub fn get_commit_file(params: GetCommitFileParams) -> Result<FileInfo, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
-    let commit_id = git2::Oid::from_str(&params.commit_id).map_err(anyhow::Error::from)?;
-    Ok(project.read_file_from_commit(commit_id, &params.relative_path)?)
+#[api_cmd]
+pub fn get_workspace_file(
+    project_id: ProjectId,
+    relative_path: PathBuf,
+) -> Result<FileInfo, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    Ok(project.read_file_from_workspace(&relative_path)?)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetWorkspaceFileParams {
-    pub project_id: ProjectId,
-    pub relative_path: PathBuf,
-}
-
-pub fn get_workspace_file(params: GetWorkspaceFileParams) -> Result<FileInfo, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
-    Ok(project.read_file_from_workspace(&params.relative_path)?)
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PreCommitHookParams {
-    pub project_id: ProjectId,
-    pub ownership: BranchOwnershipClaims,
-}
-
-pub fn pre_commit_hook(params: PreCommitHookParams) -> Result<HookResult, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn pre_commit_hook(
+    project_id: ProjectId,
+    ownership: BranchOwnershipClaims,
+) -> Result<HookResult, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let claim = params.ownership.into();
+    let claim = ownership.into();
     Ok(hooks::pre_commit(&ctx, &claim)?)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PreCommitHookDiffspecsParams {
-    pub project_id: ProjectId,
-    pub changes: Vec<DiffSpec>,
-}
-
+#[api_cmd]
 pub fn pre_commit_hook_diffspecs(
-    params: PreCommitHookDiffspecsParams,
+    project_id: ProjectId,
+    changes: Vec<DiffSpec>,
 ) -> Result<HookResult, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     let repository = ctx.gix_repo()?;
@@ -147,7 +104,7 @@ pub fn pre_commit_hook_diffspecs(
 
     let context_lines = ctx.app_settings().context_lines;
 
-    let mut changes = params.changes.into_iter().map(Ok).collect::<Vec<_>>();
+    let mut changes = changes.into_iter().map(Ok).collect::<Vec<_>>();
 
     let (new_tree, ..) = but_workspace::commit_engine::apply_worktree_changes(
         head.detach(),
@@ -159,27 +116,16 @@ pub fn pre_commit_hook_diffspecs(
     Ok(hooks::pre_commit_with_tree(&ctx, new_tree.to_git2())?)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PostCommitHookParams {
-    pub project_id: ProjectId,
-}
-
-pub fn post_commit_hook(params: PostCommitHookParams) -> Result<HookResult, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn post_commit_hook(project_id: ProjectId) -> Result<HookResult, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_repo::hooks::post_commit(&ctx)?)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MessageHookParams {
-    pub project_id: ProjectId,
-    pub message: String,
-}
-
-pub fn message_hook(params: MessageHookParams) -> Result<MessageHookResult, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn message_hook(project_id: ProjectId, message: String) -> Result<MessageHookResult, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    Ok(gitbutler_repo::hooks::commit_msg(&ctx, params.message)?)
+    Ok(gitbutler_repo::hooks::commit_msg(&ctx, message)?)
 }
