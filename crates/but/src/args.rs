@@ -42,6 +42,12 @@ For examples see `but rub --help`."
         /// The target entity to combine with the source
         target: String,
     },
+    /// Initializes a GitButler project from a git repository in the current directory.
+    Init {
+        /// Also initializes a git repository in the current directory if one does not exist.
+        #[clap(long, short = 'r')]
+        repo: bool,
+    },
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
