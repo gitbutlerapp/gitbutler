@@ -106,6 +106,7 @@
 
 	let isCreatingReview = $state<boolean>(false);
 	const isExecuting = $derived(stackPush.current.isLoading || aiIsLoading || isCreatingReview);
+	const isSubmittingReview = $derived(stackPush.current.isLoading || isCreatingReview);
 
 	async function getDefaultTitle(commits: Commit[]): Promise<string> {
 		if (commits.length === 1) {
@@ -358,6 +359,9 @@
 
 	export const imports = {
 		get isLoading() {
+			return isSubmittingReview;
+		},
+		get isExecuting() {
 			return isExecuting;
 		}
 	};

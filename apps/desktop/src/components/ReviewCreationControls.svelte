@@ -10,16 +10,24 @@
 	} from '@gitbutler/ui';
 
 	interface Props {
-		isSubmitting: boolean;
+		isCreatingPR: boolean;
 		canPublishPR: boolean;
 		submitDisabled?: boolean;
+		isFormBusy?: boolean;
 		reviewUnit: string | undefined;
 		onCancel: () => void;
 		onSubmit: () => void;
 	}
 
-	let { canPublishPR, submitDisabled, isSubmitting, onCancel, onSubmit, reviewUnit }: Props =
-		$props();
+	let {
+		canPublishPR,
+		submitDisabled,
+		isCreatingPR,
+		isFormBusy,
+		onCancel,
+		onSubmit,
+		reviewUnit
+	}: Props = $props();
 
 	const unit = $derived(reviewUnit ?? 'PR');
 	let commitButton = $state<DropdownButton>();
@@ -31,7 +39,7 @@
 	<Button
 		testId={TestId.ReviewCancelButton}
 		kind="outline"
-		disabled={isSubmitting}
+		disabled={isFormBusy || isCreatingPR}
 		width={120}
 		onclick={onCancel}>Cancel</Button
 	>
@@ -40,13 +48,13 @@
 		testId={TestId.ReviewCreateButton}
 		bind:this={commitButton}
 		onclick={() => {
-			if (isSubmitting) return;
+			if (isFormBusy || isCreatingPR) return;
 			onSubmit();
 		}}
 		wide
 		style="pop"
-		loading={isSubmitting}
-		disabled={submitDisabled}
+		loading={isCreatingPR}
+		disabled={submitDisabled || isFormBusy}
 		hotkey="⌘↵"
 	>
 		{$createDraft ? `Create ${unit} draft` : `Create ${unit}`}
