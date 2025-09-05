@@ -9,7 +9,9 @@ echo "BUT_TESTING $BUT_TESTING"
 mkdir remote-project
 pushd remote-project
 git init -b master --object-format=sha1
-echo "foo\nbar\nbaz" > a_file
+echo "foo" >> a_file
+echo "bar" >> a_file
+echo "baz" >> a_file
 git add a_file
 git commit -am "Hey, look! A commit."
 popd

@@ -77,6 +77,7 @@ export enum TestId {
 	LargeDiffMessageButton = 'large-diff-message-button',
 	UpstreamCommitsAccordion = 'upstream-commits-accordion',
 	UpstreamCommitsIntegrateButton = 'upstream-commits-integrate-button',
+	UpstreamCommitsCommitAction = 'upstream-commits-commit-action',
 	CreateReviewButton = 'create-review-button',
 	CreateReviewBox = 'create-review-box',
 	ReviewTitleInput = 'create-review-box-title-input',
