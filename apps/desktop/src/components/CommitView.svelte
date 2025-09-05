@@ -54,6 +54,9 @@
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 
+	// Component is read-only when stackId is undefined
+	const isReadOnly = $derived(!stackId);
+
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const modeService = injectOptional(MODE_SERVICE, undefined);
 	const laneState = $derived(uiState.lane(laneId));
@@ -131,10 +134,11 @@
 	}
 
 	function canEdit() {
-		return modeService !== undefined;
+		return modeService !== undefined && !isReadOnly;
 	}
 
 	async function handleEditPatch() {
+		if (isReadOnly) return; // Prevent action in read-only mode
 		await editPatch({
 			modeService,
 			commitId: commitKey.commitId,
@@ -179,7 +183,8 @@
 						class="m-right-4"
 						action={handleEditPatch}
 						icon="warning-small"
-						tooltip="Resolve conflicts"
+						tooltip={isReadOnly ? 'Read-only mode' : 'Resolve conflicts'}
+						disabled={isReadOnly}
 					>
 						Resolve
 					</AsyncButton>
@@ -192,7 +197,8 @@
 						kind="ghost"
 						icon="edit"
 						onclick={() => setMode('edit')}
-						tooltip="Edit commit message"
+						tooltip={isReadOnly ? 'Read-only mode' : 'Edit commit message'}
+						disabled={isReadOnly}
 					/>
 				{/if}
 			{/snippet}

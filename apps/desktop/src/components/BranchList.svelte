@@ -43,6 +43,9 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const urlService = inject(URL_SERVICE);
 
+	// Component is read-only when stackId is undefined
+	const isReadOnly = $derived(!stackId);
+
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 
 	let addDependentBranchModalContext = $state<AddDependentBranchModalProps>();
@@ -85,6 +88,7 @@
 		hasConflicts: boolean;
 		isAncestorMostConflicted: boolean;
 	}) {
+		if (isReadOnly) return;
 		if (args.type === 'LocalAndRemote' && args.hasConflicts && !args.isAncestorMostConflicted) {
 			conflictResolutionConfirmationModal?.show();
 			return;
@@ -193,7 +197,7 @@
 							icon="new-empty-commit"
 							size="tag"
 							kind="outline"
-							tooltip="Create empty commit"
+							tooltip={isReadOnly ? 'Read-only mode' : 'Create empty commit'}
 							onclick={async () => {
 								await insertBlankCommitInBranch({
 									projectId,
@@ -202,7 +206,7 @@
 									offset: -1
 								});
 							}}
-							disabled={commitInsertion.current.isLoading}
+							disabled={isReadOnly || commitInsertion.current.isLoading}
 						/>
 						<Button
 							icon="copy-small"
@@ -218,7 +222,7 @@
 								icon="new-dep-branch"
 								size="tag"
 								kind="outline"
-								tooltip="Create new branch"
+								tooltip={isReadOnly ? 'Read-only mode' : 'Create new branch'}
 								onclick={async () => {
 									addDependentBranchModalContext = {
 										projectId,
@@ -228,6 +232,7 @@
 									await tick();
 									addDependentBranchModal?.show();
 								}}
+								disabled={isReadOnly}
 							/>
 						{/if}
 
