@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use but_api_macros::api_cmd;
 use but_claude::{ClaudeMessage, ModelType, ThinkingLevel, prompt_templates};
 use but_settings::AppSettings;
 use but_workspace::StackId;
@@ -56,18 +57,13 @@ pub fn claude_get_messages(
     Ok(messages)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetSessionDetailsParams {
-    pub project_id: ProjectId,
-    pub session_id: String,
-}
-
+#[api_cmd]
 pub fn claude_get_session_details(
-    params: GetSessionDetailsParams,
+    project_id: ProjectId,
+    session_id: String,
 ) -> Result<but_claude::ClaudeSessionDetails, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
-    let session_id = uuid::Uuid::parse_str(&params.session_id).map_err(anyhow::Error::from)?;
+    let project = gitbutler_project::get(project_id)?;
+    let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
     let transcript_path = but_claude::Transcript::get_transcript_path(&project.path, session_id)?;
     let transcript = but_claude::Transcript::from_file(&transcript_path)?;
     Ok(but_claude::ClaudeSessionDetails {
@@ -76,37 +72,26 @@ pub fn claude_get_session_details(
     })
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListPermissionRequestsParams {
-    pub project_id: ProjectId,
-}
-
+#[api_cmd]
 pub fn claude_list_permission_requests(
-    params: ListPermissionRequestsParams,
+    project_id: ProjectId,
 ) -> Result<Vec<but_claude::ClaudePermissionRequest>, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(but_claude::db::list_all_permission_requests(&mut ctx)?)
 }
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdatePermissionRequestParams {
-    pub project_id: ProjectId,
-    pub request_id: String,
-    pub approval: bool,
-}
-
+#[api_cmd]
 pub fn claude_update_permission_request(
-    params: UpdatePermissionRequestParams,
+    project_id: ProjectId,
+    request_id: String,
+    approval: bool,
 ) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(but_claude::db::update_permission_request(
         &mut ctx,
-        &params.request_id,
-        params.approval,
+        &request_id,
+        approval,
     )?)
 }
 
@@ -141,25 +126,22 @@ pub async fn claude_is_stack_active(app: &App, params: IsStackActiveParams) -> R
     Ok(is_active)
 }
 
-pub fn claude_get_prompt_templates(
-    _params: NoParams,
-) -> Result<prompt_templates::PromptTemplates, Error> {
+#[api_cmd]
+pub fn claude_get_prompt_templates() -> Result<prompt_templates::PromptTemplates, Error> {
     let templates = prompt_templates::load_prompt_templates()?;
     Ok(templates)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WritePromptTemplatesParams {
-    pub templates: prompt_templates::PromptTemplates,
-}
-
-pub fn claude_write_prompt_templates(params: WritePromptTemplatesParams) -> Result<(), Error> {
-    prompt_templates::write_prompt_templates(&params.templates)?;
+#[api_cmd]
+pub fn claude_write_prompt_templates(
+    templates: prompt_templates::PromptTemplates,
+) -> Result<(), Error> {
+    prompt_templates::write_prompt_templates(&templates)?;
     Ok(())
 }
 
-pub fn claude_get_prompt_templates_path(_params: NoParams) -> Result<String, Error> {
+#[api_cmd]
+pub fn claude_get_prompt_templates_path() -> Result<String, Error> {
     let path = prompt_templates::get_prompt_templates_path_string()?;
     Ok(path)
 }

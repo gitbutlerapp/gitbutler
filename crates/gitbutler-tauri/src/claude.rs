@@ -1,10 +1,9 @@
 use but_api::{
     commands::claude::{
         self, CancelSessionParams, GetMessagesParams, IsStackActiveParams, SendMessageParams,
-        WritePromptTemplatesParams,
     },
     error::Error,
-    App, NoParams,
+    App,
 };
 use but_claude::{prompt_templates::PromptTemplates, ClaudeMessage, ModelType, ThinkingLevel};
 use but_workspace::StackId;
@@ -50,17 +49,13 @@ pub fn claude_get_messages(
         },
     )
 }
-
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn claude_get_session_details(
     project_id: ProjectId,
     session_id: String,
 ) -> Result<but_claude::ClaudeSessionDetails, Error> {
-    claude::claude_get_session_details(claude::GetSessionDetailsParams {
-        project_id,
-        session_id,
-    })
+    claude::claude_get_session_details(project_id, session_id)
 }
 
 #[tauri::command(async)]
@@ -68,7 +63,7 @@ pub fn claude_get_session_details(
 pub fn claude_list_permission_requests(
     project_id: ProjectId,
 ) -> Result<Vec<but_claude::ClaudePermissionRequest>, Error> {
-    claude::claude_list_permission_requests(claude::ListPermissionRequestsParams { project_id })
+    claude::claude_list_permission_requests(project_id)
 }
 
 #[tauri::command(async)]
@@ -78,11 +73,7 @@ pub fn claude_update_permission_request(
     request_id: String,
     approval: bool,
 ) -> Result<(), Error> {
-    claude::claude_update_permission_request(claude::UpdatePermissionRequestParams {
-        project_id,
-        request_id,
-        approval,
-    })
+    claude::claude_update_permission_request(project_id, request_id, approval)
 }
 
 #[tauri::command(async)]
@@ -128,17 +119,17 @@ pub async fn claude_is_stack_active(
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn claude_get_prompt_templates() -> Result<PromptTemplates, Error> {
-    claude::claude_get_prompt_templates(NoParams {})
+    claude::claude_get_prompt_templates()
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn claude_write_prompt_templates(templates: PromptTemplates) -> Result<(), Error> {
-    claude::claude_write_prompt_templates(WritePromptTemplatesParams { templates })
+    claude::claude_write_prompt_templates(templates)
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn claude_get_prompt_templates_path() -> Result<String, Error> {
-    claude::claude_get_prompt_templates_path(NoParams {})
+    claude::claude_get_prompt_templates_path()
 }

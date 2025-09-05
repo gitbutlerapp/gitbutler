@@ -151,14 +151,6 @@ fn run_cmd_with_app<
     Ok(json!(result))
 }
 
-fn run_cmd<D: DeserializeOwned, S: Serialize, Fun: Fn(D) -> Result<S, but_api::error::Error>>(
-    params: serde_json::Value,
-    fun: Fun,
-) -> Result<serde_json::Value, but_api::error::Error> {
-    let result = fun(serde_json::from_value(params).to_error()?)?;
-    Ok(json!(result))
-}
-
 async fn handle_command(
     Json(request): Json<Request>,
     app: App,
@@ -428,12 +420,12 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
-        "claude_get_session_details" => run_cmd(request.params, claude::claude_get_session_details),
+        "claude_get_session_details" => claude::claude_get_session_details_cmd(request.params),
         "claude_list_permission_requests" => {
-            run_cmd(request.params, claude::claude_list_permission_requests)
+            claude::claude_list_permission_requests_cmd(request.params)
         }
         "claude_update_permission_request" => {
-            run_cmd(request.params, claude::claude_update_permission_request)
+            claude::claude_update_permission_request_cmd(request.params)
         }
         "claude_cancel_session" => {
             let params = serde_json::from_value(request.params).to_error();
@@ -459,14 +451,12 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
-        "claude_get_prompt_templates" => {
-            run_cmd(request.params, claude::claude_get_prompt_templates)
-        }
+        "claude_get_prompt_templates" => claude::claude_get_prompt_templates_cmd(request.params),
         "claude_write_prompt_templates" => {
-            run_cmd(request.params, claude::claude_write_prompt_templates)
+            claude::claude_write_prompt_templates_cmd(request.params)
         }
         "claude_get_prompt_templates_path" => {
-            run_cmd(request.params, claude::claude_get_prompt_templates_path)
+            claude::claude_get_prompt_templates_path_cmd(request.params)
         }
 
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
