@@ -11,16 +11,13 @@ pub fn create_workspace_rule(
     project_id: ProjectId,
     request: CreateRuleRequest,
 ) -> Result<WorkspaceRule, Error> {
-    rules::create_workspace_rule(rules::CreateWorkspaceRuleParams {
-        project_id,
-        request,
-    })
+    rules::create_workspace_rule(project_id, request)
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn delete_workspace_rule(project_id: ProjectId, id: String) -> Result<(), Error> {
-    rules::delete_workspace_rule(rules::DeleteWorkspaceRuleParams { project_id, id })
+    rules::delete_workspace_rule(project_id, id)
 }
 
 #[tauri::command(async)]
@@ -29,14 +26,11 @@ pub fn update_workspace_rule(
     project_id: ProjectId,
     request: UpdateRuleRequest,
 ) -> Result<WorkspaceRule, Error> {
-    rules::update_workspace_rule(rules::UpdateWorkspaceRuleParams {
-        project_id,
-        request,
-    })
+    rules::update_workspace_rule(project_id, request)
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn list_workspace_rules(project_id: ProjectId) -> Result<Vec<WorkspaceRule>, Error> {
-    rules::list_workspace_rules(rules::ListWorkspaceRulesParams { project_id })
+    rules::list_workspace_rules(project_id)
 }

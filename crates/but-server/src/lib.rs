@@ -348,10 +348,10 @@ async fn handle_command(
         "list_remotes" => run_cmd(request.params, remotes::list_remotes),
         "add_remote" => run_cmd(request.params, remotes::add_remote),
         // Rules/Workspace rules commands
-        "create_workspace_rule" => run_cmd(request.params, rules::create_workspace_rule),
-        "delete_workspace_rule" => run_cmd(request.params, rules::delete_workspace_rule),
-        "update_workspace_rule" => run_cmd(request.params, rules::update_workspace_rule),
-        "list_workspace_rules" => run_cmd(request.params, rules::list_workspace_rules),
+        "create_workspace_rule" => rules::create_workspace_rule_cmd(request.params),
+        "delete_workspace_rule" => rules::delete_workspace_rule_cmd(request.params),
+        "update_workspace_rule" => rules::update_workspace_rule_cmd(request.params),
+        "list_workspace_rules" => rules::list_workspace_rules_cmd(request.params),
         "init_device_oauth" => {
             let result = github::init_device_oauth(NoParams {}).await;
             result.map(|r| json!(r))
