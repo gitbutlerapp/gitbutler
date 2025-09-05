@@ -1,5 +1,3 @@
-#![deny(rust_2018_idioms)]
-
 use bstr::{BString, ByteSlice as _, ByteVec as _};
 
 pub struct CommitMessage {

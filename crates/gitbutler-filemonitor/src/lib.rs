@@ -1,5 +1,5 @@
 //! Implement the file-monitoring agent that informs about changes in interesting locations.
-#![deny(unsafe_code, rust_2018_idioms)]
+#![deny(unsafe_code)]
 #![allow(clippy::doc_markdown, clippy::missing_errors_doc)]
 
 mod events;

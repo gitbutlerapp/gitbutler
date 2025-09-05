@@ -1,4 +1,3 @@
-#![forbid(rust_2018_idioms)]
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
 use but_graph::VirtualBranchesTomlMetadata;

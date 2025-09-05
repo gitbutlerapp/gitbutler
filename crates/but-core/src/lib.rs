@@ -1,4 +1,4 @@
-#![deny(missing_docs, rust_2018_idioms)]
+#![deny(missing_docs)]
 //! The basic primitives that GitButler is built around.
 //!
 //! It also is a catch-all for code until it's worth putting it into its own crate.

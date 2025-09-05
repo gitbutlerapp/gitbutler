@@ -1,5 +1,4 @@
 //! A debug-CLI for making `but`-crates functionality available in real-world repositories.
-#![deny(rust_2018_idioms)]
 use std::{path::PathBuf, str::FromStr};
 
 use anyhow::{Context, Result, bail};
