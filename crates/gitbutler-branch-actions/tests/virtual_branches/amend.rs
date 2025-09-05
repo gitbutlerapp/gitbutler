@@ -61,6 +61,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         false,
         false,
         stack_entry.name().map(|s| s.to_string()).unwrap(),
+        false, // run_hooks
     )
     .unwrap();
 

@@ -78,6 +78,7 @@ pub fn push_stack(
     with_force: bool,
     skip_force_push_protection: bool,
     branch: String,
+    run_hooks: bool,
 ) -> Result<PushResult, Error> {
     stack::push_stack(
         project_id,
@@ -85,6 +86,7 @@ pub fn push_stack(
         with_force,
         skip_force_push_protection,
         branch,
+        run_hooks,
     )
 }
 

@@ -179,6 +179,7 @@ fn forcepush_allowed() {
         false,
         false,
         stack_entry.name().map(|n| n.to_string()).unwrap(),
+        false, // run_hooks
     )
     .unwrap();
 

@@ -16,7 +16,7 @@
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { type Commit } from '$lib/branches/v3';
-	import { projectAiGenEnabled } from '$lib/config/config';
+	import { projectAiGenEnabled, projectRunCommitHooks } from '$lib/config/config';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { GitHubPrService } from '$lib/forge/github/githubPrService.svelte';
@@ -79,6 +79,7 @@
 	const branchDetails = $derived(branchDetailsResult.current.data);
 	const commitsResult = $derived(stackService.commits(projectId, stackId, branchName));
 	const commits = $derived(commitsResult.current.data || []);
+	const runHooks = $derived(projectRunCommitHooks(projectId));
 
 	const forgeBranch = $derived(branchName ? forge.current.branch(branchName) : undefined);
 
@@ -160,7 +161,8 @@
 				stackId,
 				withForce,
 				skipForcePushProtection: false, // override available for regular push
-				branch: branchName
+				branch: branchName,
+				runHooks: $runHooks
 			});
 
 			if (firstPush) {

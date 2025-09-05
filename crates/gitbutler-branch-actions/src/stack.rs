@@ -4,6 +4,7 @@ use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_reference::normalize_branch_name;
+use gitbutler_repo::hooks;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::StackId;
 use gitbutler_stack::{PatchReferenceUpdate, StackBranch};
@@ -160,6 +161,7 @@ pub fn push_stack(
     with_force: bool,
     skip_force_push_protection: bool,
     branch_limit: String,
+    run_hooks: bool,
 ) -> Result<PushResult> {
     ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
     ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
@@ -204,6 +206,30 @@ pub fn push_stack(
             continue;
         }
         let push_details = stack.push_details(ctx, branch.name().to_owned())?;
+
+        if run_hooks {
+            let remote_name = default_target.push_remote_name();
+            let remote = ctx.repo().find_remote(&remote_name)?;
+            let url = &remote
+                .url()
+                .with_context(|| format!("Remote named {remote_name} didn't have a URL"))?;
+            match hooks::pre_push(
+                ctx.repo(),
+                &remote_name,
+                url,
+                push_details.head,
+                &push_details.remote_refname,
+            )? {
+                hooks::HookResult::Success | hooks::HookResult::NotConfigured => {}
+                hooks::HookResult::Failure(error_data) => {
+                    return Err(anyhow::anyhow!(
+                        "pre-push hook failed: {}",
+                        error_data.error
+                    ));
+                }
+            }
+        }
+
         ctx.push(
             push_details.head,
             &push_details.remote_refname,
