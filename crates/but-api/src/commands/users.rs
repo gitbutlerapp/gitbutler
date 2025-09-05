@@ -1,14 +1,9 @@
 use anyhow::Result;
+use but_api_macros::api_cmd;
 use gitbutler_user::User;
 use serde::{Deserialize, Serialize};
 
-use crate::{NoParams, error::Error};
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SetUserParams {
-    pub user: User,
-}
+use crate::error::Error;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UserWithSecrets {
@@ -62,7 +57,8 @@ impl TryFrom<User> for UserWithSecrets {
     }
 }
 
-pub fn get_user(_params: NoParams) -> Result<Option<UserWithSecrets>, Error> {
+#[api_cmd]
+pub fn get_user() -> Result<Option<UserWithSecrets>, Error> {
     match gitbutler_user::get_user()? {
         Some(user) => {
             if let Err(err) = user.access_token() {
@@ -75,12 +71,14 @@ pub fn get_user(_params: NoParams) -> Result<Option<UserWithSecrets>, Error> {
     }
 }
 
-pub fn set_user(params: SetUserParams) -> Result<User, Error> {
-    gitbutler_user::set_user(&params.user)?;
-    Ok(params.user)
+#[api_cmd]
+pub fn set_user(user: User) -> Result<User, Error> {
+    gitbutler_user::set_user(&user)?;
+    Ok(user)
 }
 
-pub fn delete_user(_params: NoParams) -> Result<(), Error> {
+#[api_cmd]
+pub fn delete_user() -> Result<(), Error> {
     gitbutler_user::delete_user()?;
     Ok(())
 }

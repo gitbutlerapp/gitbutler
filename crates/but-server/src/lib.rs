@@ -245,9 +245,9 @@ async fn handle_command(
         "secret_get_global" => secret::secret_get_global_cmd(request.params),
         "secret_set_global" => secret::secret_set_global_cmd(request.params),
         // User management
-        "get_user" => run_cmd(request.params, users::get_user),
-        "set_user" => run_cmd(request.params, users::set_user),
-        "delete_user" => run_cmd(request.params, users::delete_user),
+        "get_user" => users::get_user_cmd(request.params),
+        "set_user" => users::set_user_cmd(request.params),
+        "delete_user" => users::delete_user_cmd(request.params),
         // Project management
         "update_project" => run_cmd(request.params, iprojects::update_project),
         "add_project" => run_cmd(request.params, iprojects::add_project),
