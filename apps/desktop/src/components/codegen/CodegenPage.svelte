@@ -34,6 +34,8 @@
 	} from '$lib/codegen/messages';
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { vscodePath } from '$lib/project/project';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
@@ -66,6 +68,7 @@
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
+	const projectsService = inject(PROJECTS_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
 	const codegenAnalytics = inject(CODEGEN_ANALYTICS);
 	const uiState = inject(UI_STATE);
@@ -271,6 +274,21 @@
 		goto(`${workspacePath(projectId)}?stackId=${selectedBranch.stackId}`);
 	}
 
+	async function openInEditor() {
+		const project = await projectsService.fetchProject(projectId);
+		if (!project) {
+			chipToasts.error('Project not found');
+			return;
+		}
+		urlService.openExternalUrl(
+			getEditorUri({
+				schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+				path: [vscodePath(project.path)],
+				searchParams: { windowId: '_blank' }
+			})
+		);
+	}
+
 	function getCurrentSessionId(events: ClaudeMessage[]): string | undefined {
 		// Get the most recent session ID from the messages
 		if (events.length === 0) return undefined;
@@ -398,7 +416,9 @@
 								reversedDirection
 								onclick={showInWorkspace}>Show in workspace</Button
 							>
-							<Button disabled kind="outline" size="tag" icon="chevron-down">Open in editor</Button>
+							<Button kind="outline" size="tag" reversedDirection onclick={openInEditor}>
+								Open in editor
+							</Button>
 						{/snippet}
 						{#snippet contextActions()}
 							<Badge kind="soft" size="tag">69% used context</Badge>
