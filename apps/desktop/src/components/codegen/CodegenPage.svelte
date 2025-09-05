@@ -49,6 +49,7 @@
 	import {
 		Badge,
 		Button,
+		chipToasts,
 		ContextMenu,
 		ContextMenuItem,
 		ContextMenuSection,
@@ -160,6 +161,12 @@
 	async function sendMessage() {
 		if (!selectedBranch) return;
 		if (!prompt) return;
+
+		if (prompt.startsWith('/')) {
+			chipToasts.warning('Slash commands are not yet supported');
+			setPrompt('');
+			return;
+		}
 
 		// Await analytics data before sending message
 		const analyticsProperties = await codegenAnalytics.getCodegenProperties({
@@ -335,6 +342,13 @@
 				chatLayout?.scrollToBottom();
 			}, 50);
 		}
+	});
+
+	$effect(() => {
+		void selectedBranch;
+		setTimeout(() => {
+			chatLayout?.scrollToBottom();
+		}, 50);
 	});
 </script>
 
