@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::hex_hash::HexHash;
 use anyhow::Context;
+use but_api_macros::api_cmd;
 use but_core::{
     Commit,
     commit::ConflictEntries,
@@ -14,50 +15,22 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::Refname;
 use gix::refs::Category;
-use serde::{Deserialize, Serialize};
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TreeChangeDiffsParams {
-    pub project_id: ProjectId,
-    pub change: TreeChange,
-}
+use serde::Serialize;
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
+#[api_cmd]
 pub fn tree_change_diffs(
-    params: TreeChangeDiffsParams,
+    project_id: ProjectId,
+    change: TreeChange,
 ) -> anyhow::Result<but_core::UnifiedDiff, Error> {
-    let change: but_core::TreeChange = params.change.into();
-    let project = gitbutler_project::get(params.project_id)?;
+    let change: but_core::TreeChange = change.into();
+    let project = gitbutler_project::get(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
     Ok(change
         .unified_diff(&repo, app_settings.context_lines)?
         .context("TODO: Submodules must be handled specifically in the UI")?)
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CommitDetailsParams {
-    pub project_id: ProjectId,
-    pub commit_id: HexHash,
-}
-
-pub fn commit_details(params: CommitDetailsParams) -> anyhow::Result<CommitDetails, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
-    let repo = &gix::open(&project.path).context("Failed to open repo")?;
-    let commit = repo
-        .find_commit(params.commit_id)
-        .context("Failed for find commit")?;
-    let changes =
-        but_core::diff::ui::commit_changes_by_worktree_dir(repo, params.commit_id.into())?;
-    let conflict_entries = Commit::from_id(commit.id())?.conflict_entries()?;
-    Ok(CommitDetails {
-        commit: commit.try_into()?,
-        changes,
-        conflict_entries,
-    })
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -69,13 +42,23 @@ pub struct CommitDetails {
     pub conflict_entries: Option<ConflictEntries>,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChangesInBranchParams {
-    pub project_id: ProjectId,
-    // TODO: remove this, go by name. Ideally, the UI would pass us two commits.
-    pub _stack_id: Option<StackId>,
-    pub branch: Refname,
+#[api_cmd]
+pub fn commit_details(
+    project_id: ProjectId,
+    commit_id: HexHash,
+) -> anyhow::Result<CommitDetails, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let repo = &gix::open(&project.path).context("Failed to open repo")?;
+    let commit = repo
+        .find_commit(commit_id)
+        .context("Failed for find commit")?;
+    let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, commit_id.into())?;
+    let conflict_entries = Commit::from_id(commit.id())?.conflict_entries()?;
+    Ok(CommitDetails {
+        commit: commit.try_into()?,
+        changes,
+        conflict_entries,
+    })
 }
 
 /// Gets the changes for a given branch.
@@ -84,10 +67,15 @@ pub struct ChangesInBranchParams {
 /// Otherwise, if stack_id is not provided, this will include all changes as compared to the target branch
 /// Note that `stack_id` is deprecated in favor of `branch_name`
 /// *(which should be a full ref-name as well and make `remote` unnecessary)*
-pub fn changes_in_branch(params: ChangesInBranchParams) -> anyhow::Result<TreeChanges, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn changes_in_branch(
+    project_id: ProjectId,
+    _stack_id: Option<StackId>,
+    branch: Refname,
+) -> anyhow::Result<TreeChanges, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    changes_in_branch_inner(ctx, params.branch).map_err(Into::into)
+    changes_in_branch_inner(ctx, branch).map_err(Into::into)
 }
 
 fn changes_in_branch_inner(ctx: CommandContext, branch: Refname) -> anyhow::Result<TreeChanges> {
@@ -116,16 +104,9 @@ fn changes_in_branch_inner(ctx: CommandContext, branch: Refname) -> anyhow::Resu
 /// * conflicts are ignored
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChangesInWorktreeParams {
-    pub project_id: ProjectId,
-}
-
-pub fn changes_in_worktree(
-    params: ChangesInWorktreeParams,
-) -> anyhow::Result<WorktreeChanges, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChanges, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
 
@@ -170,16 +151,13 @@ pub fn changes_in_worktree(
     })
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AssignHunkParams {
-    pub project_id: ProjectId,
-    pub assignments: Vec<HunkAssignmentRequest>,
-}
-
-pub fn assign_hunk(params: AssignHunkParams) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn assign_hunk(
+    project_id: ProjectId,
+    assignments: Vec<HunkAssignmentRequest>,
+) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let rejections = but_hunk_assignment::assign(ctx, params.assignments, None)?;
+    let rejections = but_hunk_assignment::assign(ctx, assignments, None)?;
     Ok(rejections)
 }

@@ -178,11 +178,11 @@ async fn handle_command(
         "git_remove_global_config" => git::git_remove_global_config_cmd(request.params),
         "git_get_global_config" => git::git_get_global_config_cmd(request.params),
         // Diff commands
-        "tree_change_diffs" => run_cmd(request.params, diff::tree_change_diffs),
-        "commit_details" => run_cmd(request.params, diff::commit_details),
-        "changes_in_branch" => run_cmd(request.params, diff::changes_in_branch),
-        "changes_in_worktree" => run_cmd(request.params, diff::changes_in_worktree),
-        "assign_hunk" => run_cmd(request.params, diff::assign_hunk),
+        "tree_change_diffs" => diff::tree_change_diffs_cmd(request.params),
+        "commit_details" => diff::commit_details_cmd(request.params),
+        "changes_in_branch" => diff::changes_in_branch_cmd(request.params),
+        "changes_in_worktree" => diff::changes_in_worktree_cmd(request.params),
+        "assign_hunk" => diff::assign_hunk_cmd(request.params),
         // Workspace commands
         "stacks" => workspace::stacks_cmd(request.params),
         #[cfg(unix)]
