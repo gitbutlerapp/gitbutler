@@ -18,6 +18,11 @@
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 	import {
+		getBooleanStorageItem,
+		removeStorageItem,
+		setBooleanStorageItem
+	} from '@gitbutler/shared/persisted';
+	import {
 		Badge,
 		Button,
 		IntegrationSeriesRow,
@@ -69,6 +74,17 @@
 	const isDivergedResolved = $derived(base?.diverged && !baseResolutionApproach);
 	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream());
 
+	function someBranchesShouldNotBeDeleted(branchNames: string[]): boolean {
+		for (const branchName of branchNames) {
+			const key = getDontDeleteBranchStorageKey(branchName);
+			const dontDelete = getBooleanStorageItem(key);
+			if (dontDelete) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	$effect(() => {
 		if (!modal?.imports.open) return;
 		if (branchStatuses?.type !== 'updatesRequired') {
@@ -88,10 +104,12 @@
 			const forceIntegratedBranches = mergedAssociatedReviews.map((r) => r.sourceBranch);
 
 			if (status.stack.id) {
+				const dontDelete = someBranchesShouldNotBeDeleted(status.stack.heads.map((b) => b.name));
+
 				results.set(status.stack.id, {
 					branchId: status.stack.id,
 					approach: getResolutionApproachV3(status),
-					deleteIntegratedBranches: true,
+					deleteIntegratedBranches: !dontDelete,
 					forceIntegratedBranches
 				});
 			}
@@ -155,6 +173,10 @@
 	// 		// information.
 	// 	}
 	// }
+
+	function getDontDeleteBranchStorageKey(branchName: string): string {
+		return `integrate-upstream-modal:dont-delete-branch:${projectId}:${branchName}`;
+	}
 
 	function handleBaseResolutionSelection(value: string) {
 		baseResolutionApproach = value as BaseBranchResolutionApproach;
@@ -245,9 +267,21 @@
 		return branchShouldBeDeletedMap;
 	}
 
-	function updateBranchShouldBeDeletedMap(stackId: string, shouldBeDeleted: boolean): void {
+	function updateBranchShouldBeDeletedMap(
+		stackId: string,
+		branchNames: string[],
+		shouldBeDeleted: boolean
+	): void {
 		const result = results.get(stackId);
 		if (!result) return;
+		for (const branchName of branchNames) {
+			const key = getDontDeleteBranchStorageKey(branchName);
+			if (!shouldBeDeleted) {
+				setBooleanStorageItem(key, true);
+			} else {
+				removeStorageItem(key);
+			}
+		}
 		results.set(stackId, { ...result, deleteIntegratedBranches: shouldBeDeleted });
 	}
 
@@ -275,8 +309,8 @@
 		testId={TestId.IntegrateUpstreamSeriesRow}
 		series={integrationRowSeries(stackStatus)}
 		{branchShouldBeDeletedMap}
-		updateBranchShouldBeDeletedMap={(_, shouldBeDeleted) =>
-			updateBranchShouldBeDeletedMap(stackId, shouldBeDeleted)}
+		updateBranchShouldBeDeletedMap={(branchNames, shouldBeDeleted) =>
+			updateBranchShouldBeDeletedMap(stackId, branchNames, shouldBeDeleted)}
 	>
 		{#if !stackFullyIntegrated(stackStatus) && results.get(stackId)}
 			<Select

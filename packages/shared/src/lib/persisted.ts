@@ -19,8 +19,24 @@ export function getStorageItem(key: string): unknown {
 	}
 }
 
+export function getBooleanStorageItem(key: string): boolean | undefined {
+	const item = getStorageItem(key);
+	if (typeof item === 'boolean') {
+		return item;
+	}
+	return undefined;
+}
+
 export function setStorageItem(key: string, value: unknown): void {
 	window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+export function setBooleanStorageItem(key: string, value: boolean): void {
+	setStorageItem(key, value);
+}
+
+export function removeStorageItem(key: string): void {
+	window.localStorage.removeItem(key);
 }
 
 export function persisted<T>(initial: T, key: string): Persisted<T> {
