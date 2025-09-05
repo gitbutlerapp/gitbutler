@@ -1,18 +1,19 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { Icon } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
 		branchName: string;
+		branchIcon: Snippet;
 		workspaceActions: Snippet;
 		contextActions: Snippet;
 		messages: Snippet;
 		input: Snippet;
 	};
 
-	const { branchName, workspaceActions, contextActions, messages, input }: Props = $props();
+	const { branchName, branchIcon, workspaceActions, contextActions, messages, input }: Props =
+		$props();
 
 	let scrollableContainer: ConfigurableScrollableContainer;
 
@@ -26,11 +27,11 @@
 
 <div class="chat" use:focusable={{ list: true }}>
 	<div class="chat-header">
-		<div class="flex gap-8 items-center overflow-hidden">
-			<Icon name="branch-remote" />
+		<div class="flex gap-10 items-center overflow-hidden">
+			{@render branchIcon()}
 			<p class="text-15 text-bold truncate">{branchName}</p>
 
-			<div class="m-left-4 flex gap-4 items-center">
+			<div class="flex gap-4 items-center">
 				{@render workspaceActions()}
 			</div>
 		</div>
