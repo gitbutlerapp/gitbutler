@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
@@ -192,34 +192,6 @@ pub fn push_stack(
 
     let force_push_protection = !skip_force_push_protection && ctx.project().force_push_protection;
 
-    // Run pre-push hook if requested
-    if run_hooks {
-        let remote_name = default_target.push_remote_name();
-        // Get the remote URL for the pre-push hook
-        let remote_url = ctx
-            .repo()
-            .find_remote(&remote_name)
-            .ok()
-            .and_then(|remote| remote.url().map(String::from))
-            .unwrap_or_else(|| format!("unknown_url_for_{}", remote_name));
-
-        match hooks::pre_push(ctx, &remote_name, &remote_url)? {
-            hooks::HookResult::Success => {
-                // Hook succeeded, continue with push
-            }
-            hooks::HookResult::NotConfigured => {
-                // No hook configured, continue with push
-            }
-            hooks::HookResult::Failure(error_data) => {
-                // Hook failed, abort push
-                return Err(anyhow::anyhow!(
-                    "pre-push hook failed: {}",
-                    error_data.error
-                ));
-            }
-        }
-    }
-
     for branch in stack_branches {
         if branch.archived {
             // Nothing to push for this one
@@ -234,6 +206,30 @@ pub fn push_stack(
             continue;
         }
         let push_details = stack.push_details(ctx, branch.name().to_owned())?;
+
+        if run_hooks {
+            let remote_name = default_target.push_remote_name();
+            let remote = ctx.repo().find_remote(&remote_name)?;
+            let url = &remote
+                .url()
+                .with_context(|| format!("Remote named {remote_name} didn't have a URL"))?;
+            match hooks::pre_push(
+                ctx.repo(),
+                &remote_name,
+                url,
+                push_details.head,
+                &push_details.remote_refname,
+            )? {
+                hooks::HookResult::Success | hooks::HookResult::NotConfigured => {}
+                hooks::HookResult::Failure(error_data) => {
+                    return Err(anyhow::anyhow!(
+                        "pre-push hook failed: {}",
+                        error_data.error
+                    ));
+                }
+            }
+        }
+
         ctx.push(
             push_details.head,
             &push_details.remote_refname,

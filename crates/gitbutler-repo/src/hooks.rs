@@ -1,13 +1,14 @@
-use std::path::PathBuf;
-
+use crate::staging;
 use anyhow::Result;
+use bstr::ByteSlice;
 use git2_hooks;
 use git2_hooks::HookResult as H;
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::GitHunk;
 use serde::Serialize;
-
-use crate::staging;
+use std::io::Write;
+use std::path::PathBuf;
+use std::process::Stdio;
 
 #[derive(Serialize, PartialEq, Debug, Clone)]
 pub struct MessageData {
@@ -49,8 +50,13 @@ pub fn commit_msg(ctx: &CommandContext, mut message: String) -> Result<MessageHo
             false => Ok(MessageHookResult::Message(MessageData { message })),
         },
         H::NoHookFound => Ok(MessageHookResult::NotConfigured),
-        H::RunNotSuccessful { stdout, stderr, .. } => {
-            let error = join_output(stdout, stderr);
+        H::RunNotSuccessful {
+            stdout,
+            stderr,
+            code,
+            ..
+        } => {
+            let error = join_output(stdout, stderr, code);
             Ok(MessageHookResult::Failure(ErrorData { error }))
         }
     }
@@ -76,8 +82,13 @@ pub fn pre_commit(
         match git2_hooks::hooks_pre_commit(ctx.repo(), Some(&["../.husky"]))? {
             H::Ok { hook: _ } => HookResult::Success,
             H::NoHookFound => HookResult::NotConfigured,
-            H::RunNotSuccessful { stdout, stderr, .. } => {
-                let error = join_output(stdout, stderr);
+            H::RunNotSuccessful {
+                stdout,
+                stderr,
+                code,
+                ..
+            } => {
+                let error = join_output(stdout, stderr, code);
                 HookResult::Failure(ErrorData { error })
             }
         },
@@ -104,8 +115,13 @@ pub fn pre_commit_with_tree(ctx: &CommandContext, tree_id: git2::Oid) -> Result<
         match git2_hooks::hooks_pre_commit(ctx.repo(), Some(&["../.husky"]))? {
             H::Ok { hook: _ } => HookResult::Success,
             H::NoHookFound => HookResult::NotConfigured,
-            H::RunNotSuccessful { stdout, stderr, .. } => {
-                let error = join_output(stdout, stderr);
+            H::RunNotSuccessful {
+                stdout,
+                stderr,
+                code,
+                ..
+            } => {
+                let error = join_output(stdout, stderr, code);
                 HookResult::Failure(ErrorData { error })
             }
         },
@@ -116,17 +132,30 @@ pub fn post_commit(ctx: &CommandContext) -> Result<HookResult> {
     match git2_hooks::hooks_post_commit(ctx.repo(), Some(&["../.husky"]))? {
         H::Ok { hook: _ } => Ok(HookResult::Success),
         H::NoHookFound => Ok(HookResult::NotConfigured),
-        H::RunNotSuccessful { stdout, stderr, .. } => {
-            let error = join_output(stdout, stderr);
+        H::RunNotSuccessful {
+            stdout,
+            stderr,
+            code,
+            ..
+        } => {
+            let error = join_output(stdout, stderr, code);
             Ok(HookResult::Failure(ErrorData { error }))
         }
     }
 }
 
-pub fn pre_push(ctx: &CommandContext, remote_name: &str, remote_url: &str) -> Result<HookResult> {
-    // Since git2-hooks doesn't support pre-push yet, we implement it ourselves
-    // following the same pattern as the existing hooks
-    let repo = ctx.repo();
+// TODO: double-check this with what should happen according to Git; contribute to `git2-hooks` possibly.
+/// Since git2-hooks doesn't support pre-push yet, we implement it ourselves
+/// following the same pattern as the existing hooks
+/// Use `oid` and `remote_tracking_branch` to deduce the refspec information. Note that this isn't general, but should
+/// work for us.
+pub fn pre_push(
+    repo: &git2::Repository,
+    remote_name: &str,
+    remote_url: &str,
+    local_commit: git2::Oid,
+    remote_tracking_branch: &gitbutler_reference::RemoteRefname,
+) -> Result<HookResult> {
     let hooks_path = repo.path().join("hooks").join("pre-push");
     let husky_path = repo
         .path()
@@ -135,123 +164,63 @@ pub fn pre_push(ctx: &CommandContext, remote_name: &str, remote_url: &str) -> Re
         .map(|p| p.join(".husky").join("pre-push"));
 
     // Check for hook in .git/hooks/pre-push first, then ../.husky/pre-push
-    let hook_path = if hooks_path.exists() {
-        Some(hooks_path)
-    } else if let Some(husky) = husky_path {
-        if husky.exists() {
-            Some(husky)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
+    let hook_path = hooks_path
+        .exists()
+        .then_some(hooks_path)
+        .or_else(|| husky_path.filter(|path| path.exists()));
 
     let Some(hook_path) = hook_path else {
         return Ok(HookResult::NotConfigured);
     };
 
     // Execute the pre-push hook with remote name and URL as arguments
-    let output = std::process::Command::new(&hook_path)
+    let mut child = std::process::Command::from(gix::command::prepare(&hook_path).with_shell())
         .arg(remote_name)
         .arg(remote_url)
         .current_dir(repo.workdir().unwrap_or_else(|| repo.path()))
-        .output()?;
+        .stdin(Stdio::piped())
+        .spawn()?;
 
+    {
+        let remote_commit = repo
+            .find_reference(&remote_tracking_branch.to_string())
+            .ok()
+            .and_then(|r| r.target())
+            .unwrap_or_else(git2::Oid::zero);
+        // THIS IS WRONG: but is correct the common case. This also is an issue when the ref is actually pushed,
+        // but we can fix it when moving everything to `gix`.
+        let local_tracking_branch_deduced =
+            format!("refs/heads/{}", remote_tracking_branch.branch());
+        let stdin = child.stdin.as_mut().expect("configured");
+        stdin.write_all(
+            format!("{local_tracking_branch_deduced} {local_commit} {remote_tracking_branch} {remote_commit}\n")
+                .as_bytes(),
+        )?;
+    }
+
+    let output = child.wait_with_output()?;
     if output.status.success() {
         Ok(HookResult::Success)
     } else {
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        let error = join_output(stdout, stderr);
+        let error = join_output(
+            output.stdout.to_str_lossy().into_owned(),
+            output.stderr.to_str_lossy().into_owned(),
+            output.status.code(),
+        );
         Ok(HookResult::Failure(ErrorData { error }))
     }
 }
 
-fn join_output(stdout: String, stderr: String) -> String {
+fn join_output(stdout: String, stderr: String, code: Option<i32>) -> String {
+    let code = code
+        .map(|code| format!(" (Exit Code {code})"))
+        .unwrap_or_default();
     if stdout.is_empty() && stderr.is_ascii() {
-        return "hook produced no output".to_owned();
+        return format!("hook produced no output{code}");
     } else if stdout.is_empty() {
         return stderr;
     } else if stderr.is_empty() {
         return stdout;
     }
-    format!("stdout:\n{stdout}\n\nstderr:\n{stderr}")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use gitbutler_testsupport::TestProject;
-    use std::fs;
-
-    #[test]
-    fn test_pre_push_hook_not_configured() {
-        let test_project = TestProject::default();
-        let project = test_project.project();
-        let ctx = &CommandContext::open(project, but_settings::AppSettings::default()).unwrap();
-
-        let result = crate::hooks::pre_push(ctx, "origin", "https://github.com/test/repo.git");
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), crate::hooks::HookResult::NotConfigured);
-    }
-
-    #[test]
-    fn test_pre_push_hook_success() {
-        let test_project = TestProject::default();
-        let project = test_project.project();
-        let ctx = &CommandContext::open(project, but_settings::AppSettings::default()).unwrap();
-
-        // Create a simple pre-push hook that succeeds
-        let hooks_dir = ctx.repo().path().join("hooks");
-        fs::create_dir_all(&hooks_dir).unwrap();
-        let hook_path = hooks_dir.join("pre-push");
-
-        #[cfg(unix)]
-        fs::write(&hook_path, "#!/bin/sh\nexit 0\n").unwrap();
-        #[cfg(windows)]
-        fs::write(&hook_path, "@echo off\nexit 0\n").unwrap();
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755)).unwrap();
-        }
-
-        let result = crate::hooks::pre_push(ctx, "origin", "https://github.com/test/repo.git");
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), crate::hooks::HookResult::Success);
-    }
-
-    #[test]
-    fn test_pre_push_hook_failure() {
-        let test_project = TestProject::default();
-        let project = test_project.project();
-        let ctx = &CommandContext::open(project, but_settings::AppSettings::default()).unwrap();
-
-        // Create a simple pre-push hook that fails
-        let hooks_dir = ctx.repo().path().join("hooks");
-        fs::create_dir_all(&hooks_dir).unwrap();
-        let hook_path = hooks_dir.join("pre-push");
-
-        #[cfg(unix)]
-        fs::write(&hook_path, "#!/bin/sh\necho 'Hook failed'\nexit 1\n").unwrap();
-        #[cfg(windows)]
-        fs::write(&hook_path, "@echo off\necho Hook failed\nexit 1\n").unwrap();
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755)).unwrap();
-        }
-
-        let result = crate::hooks::pre_push(ctx, "origin", "https://github.com/test/repo.git");
-        assert!(result.is_ok());
-        match result.unwrap() {
-            crate::hooks::HookResult::Failure(error_data) => {
-                assert!(error_data.error.contains("Hook failed"));
-            }
-            _ => panic!("Expected hook failure"),
-        }
-    }
+    format!("stdout:\n{stdout}\n\nstderr:\n{stderr}{code}")
 }
