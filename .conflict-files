@@ -1,0 +1,3 @@
+ancestorEntries = ["crates/gitbutler-filemonitor/src/file_monitor.rs"]
+ourEntries = ["crates/gitbutler-filemonitor/src/file_monitor.rs"]
+theirEntries = ["crates/gitbutler-filemonitor/src/file_monitor.rs"]
