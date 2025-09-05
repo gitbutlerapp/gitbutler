@@ -206,10 +206,11 @@
 									{#snippet button(text: string, tooltip?: string)}
 										<Tooltip text={tooltip}>
 											<Button
-												icon="ai"
+												icon="ai-small"
 												style="purple"
 												size="tag"
 												kind="outline"
+												shrinkable
 												onclick={() => {
 													if (!args.stackId) return;
 													projectState.selectedClaudeSession.set({
@@ -224,6 +225,7 @@
 										</Tooltip>
 									{/snippet}
 									<div
+										class="branch-header__shrinkable-button"
 										use:draggableChips={{
 											label: 'Codegen',
 											data: new CodegenRuleDropData(rule),
@@ -241,7 +243,7 @@
 												{@render button('Codegen')}
 											{/snippet}
 											{#snippet children(descriptor)}
-												{@render button(`${descriptor.slice(0, 6)}...`, descriptor)}
+												{@render button(descriptor, descriptor)}
 											{/snippet}
 										</ClaudeSessionDescriptor>
 									</div>
@@ -422,5 +424,12 @@
 		&:not(.no-padding) {
 			padding: 12px;
 		}
+	}
+
+	.branch-header__shrinkable-button {
+		display: flex;
+		align-items: center;
+		max-width: 100px;
+		overflow: hidden;
 	}
 </style>
