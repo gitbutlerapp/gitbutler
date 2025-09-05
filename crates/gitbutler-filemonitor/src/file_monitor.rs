@@ -17,7 +17,7 @@ const DEBOUNCE_TIMEOUT: Duration = Duration::from_secs(60);
 // The internal rate at which the debouncer will update its state.
 // Keeping a higher timeout on Windows because of file-system issues related
 // to `virtual_branches.toml`.
-const TICK_RATE: Duration = if cfg!(target_os = "windows") {
+const TICK_RATE: Duration = if cfg!(windows) {
     Duration::from_millis(250)
 } else {
     Duration::from_millis(50)
