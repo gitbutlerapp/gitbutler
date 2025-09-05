@@ -37,8 +37,8 @@
 			<div class="entry-active-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 		{/if}
 		<div class="sidebar-entry-header-left">
-			<Icon name="branch-remote" />
-			<p class="text-13 text-bold truncate full-width">{branchName}</p>
+			<Icon name="branch-remote" opacity={0.5} />
+			<p class="text-14 text-bold truncate full-width">{branchName}</p>
 			{@render vibeIcon()}
 		</div>
 
