@@ -174,12 +174,22 @@ pub fn pre_push(
     };
 
     // Execute the pre-push hook with remote name and URL as arguments
-    let mut child = std::process::Command::from(gix::command::prepare(&hook_path).with_shell())
-        .arg(remote_name)
-        .arg(remote_url)
-        .current_dir(repo.workdir().unwrap_or_else(|| repo.path()))
-        .stdin(Stdio::piped())
-        .spawn()?;
+    let mut child = std::process::Command::from({
+        let mut prep = gix::command::prepare(&hook_path);
+        if cfg!(windows) {
+            prep.use_shell = true;
+            prep.allow_manual_arg_splitting = false;
+            // Need unix separators for the unix bash to not swallow the backslash!
+            let with_slashes_for_bash = gix::path::to_unix_separators_on_windows(
+                gix::path::os_str_into_bstr(&prep.command)?,
+            );
+            prep.command = gix::path::from_bstring(with_slashes_for_bash.into_owned()).into();
+        }
+        prep.arg(remote_name).arg(remote_url)
+    })
+    .current_dir(repo.workdir().unwrap_or_else(|| repo.path()))
+    .stdin(Stdio::piped())
+    .spawn()?;
 
     {
         let remote_commit = repo

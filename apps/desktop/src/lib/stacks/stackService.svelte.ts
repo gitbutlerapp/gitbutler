@@ -1078,6 +1078,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					withForce: boolean;
 					skipForcePushProtection: boolean;
 					branch: string;
+					runHooks: boolean;
 				}
 			>({
 				extraOptions: {

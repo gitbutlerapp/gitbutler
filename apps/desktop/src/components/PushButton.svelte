@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
+	import { projectRunCommitHooks } from '$lib/config/config';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import {
 		branchHasConflicts,
@@ -59,6 +60,7 @@
 		stackService.upstreamCommits(projectId, stackId, branchName)
 	);
 	const upstreamCommits = $derived(upstreamCommitsResult.current.data);
+	const runHooks = $derived(projectRunCommitHooks(projectId));
 
 	function handleClick(args: { withForce: boolean; skipForcePushProtection: boolean }) {
 		if (multipleBranches && !isLastBranchInStack && !$doNotShowPushBelowWarning) {
@@ -77,7 +79,8 @@
 				stackId,
 				withForce,
 				skipForcePushProtection,
-				branch: branchName
+				branch: branchName,
+				runHooks: $runHooks
 			});
 
 			const upstreamBranchNames = pushResult.branchToRemote

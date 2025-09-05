@@ -5,7 +5,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
 #[test]
-fn test_pre_push_hook_not_configured() -> anyhow::Result<()> {
+fn pre_push_hook_not_configured() -> anyhow::Result<()> {
     let test_project = TestProject::default();
 
     let result = pre_push(
@@ -21,7 +21,7 @@ fn test_pre_push_hook_not_configured() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_pre_push_hook_success() -> anyhow::Result<()> {
+fn pre_push_hook_success() -> anyhow::Result<()> {
     let test_project = TestProject::default();
 
     let repo = &test_project.local_repo;
@@ -56,7 +56,7 @@ fn test_pre_push_hook_success() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_pre_push_hook_failure() -> anyhow::Result<()> {
+fn pre_push_hook_failure() -> anyhow::Result<()> {
     let test_project = TestProject::default();
 
     let repo = &test_project.local_repo;
@@ -64,7 +64,10 @@ fn test_pre_push_hook_failure() -> anyhow::Result<()> {
     fs::create_dir_all(&hooks_dir)?;
     let hook_path = hooks_dir.join("pre-push");
 
-    fs::write(&hook_path, "#!/bin/sh\necho 'Hook failed'\nexit 1\n")?;
+    fs::write(
+        &hook_path,
+        "#!/bin/sh\necho Hook failed with args: $@\nexit 1\n",
+    )?;
 
     #[cfg(unix)]
     fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
@@ -78,7 +81,10 @@ fn test_pre_push_hook_failure() -> anyhow::Result<()> {
     );
     match result.expect("success") {
         HookResult::Failure(error_data) => {
-            assert_eq!(error_data.error, "Hook failed\n");
+            assert_eq!(
+                error_data.error,
+                "Hook failed with args: origin https://github.com/test/repo.git\n"
+            );
         }
         _ => panic!("Expected hook failure"),
     }
