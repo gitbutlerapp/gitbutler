@@ -78,7 +78,8 @@
 
 		{#snippet controls(close)}
 			<ReviewCreationControls
-				isSubmitting={!!reviewCreation?.imports.isLoading}
+				isCreatingPR={!!reviewCreation?.imports.isLoading}
+				isFormBusy={!!reviewCreation?.imports.isExecuting}
 				{canPublishPR}
 				{reviewUnit}
 				onCancel={close}
