@@ -1,6 +1,7 @@
 use crate::commands::stack::create_reference::Anchor;
 use crate::error::Error;
 use anyhow::{Context, anyhow};
+use but_api_macros::api_cmd;
 use but_settings::AppSettings;
 use but_workspace::branch::{ReferenceAnchor, ReferencePosition};
 use gitbutler_branch_actions::internal::PushResult;
@@ -11,20 +12,10 @@ use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
 use gitbutler_user::User;
 use gix::refs::Category;
-use serde::Deserialize;
 use std::borrow::Cow;
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateBranchParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub request: CreateSeriesRequest,
-}
 
 pub mod create_reference {
     use crate::hex_hash::HexHash;
-    use gitbutler_project::ProjectId;
     use serde::{Deserialize, Serialize};
 
     #[derive(Deserialize, Serialize, Debug)]
@@ -48,19 +39,16 @@ pub mod create_reference {
             position: but_workspace::branch::ReferencePosition,
         },
     }
-
-    #[derive(Deserialize, Serialize, Debug)]
-    #[serde(rename_all = "camelCase")]
-    pub struct Params {
-        pub project_id: ProjectId,
-        pub request: Request,
-    }
 }
 
-pub fn create_reference(params: create_reference::Params) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn create_reference(
+    project_id: ProjectId,
+    request: create_reference::Request,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let create_reference::Request { new_name, anchor } = params.request;
+    let create_reference::Request { new_name, anchor } = request;
     let new_ref = Category::LocalBranch
         .to_full_name(new_name.as_str())
         .map_err(anyhow::Error::from)?;
@@ -101,26 +89,31 @@ pub fn create_reference(params: create_reference::Params) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn create_branch(params: CreateBranchParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn create_branch(
+    project_id: ProjectId,
+    stack_id: StackId,
+    request: CreateSeriesRequest,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     if ctx.app_settings().feature_flags.ws3 {
         use ReferencePosition::Above;
         let mut guard = project.exclusive_worktree_access();
         let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
         let ws = graph.to_workspace()?;
-        let stack = ws.try_find_stack_by_id(params.stack_id)?;
+        let stack = ws.try_find_stack_by_id(stack_id)?;
         let new_ref = Category::LocalBranch
-            .to_full_name(params.request.name.as_str())
+            .to_full_name(request.name.as_str())
             .map_err(anyhow::Error::from)?;
-        if params.request.preceding_head.is_some() {
+        if request.preceding_head.is_some() {
             return Err(anyhow!(
                 "BUG: cannot have preceding head name set - let's use the new API instead"
             )
             .into());
         }
 
-        ctx.snapshot_create_dependent_branch(&params.request.name, guard.write_permission())
+        ctx.snapshot_create_dependent_branch(&request.name, guard.write_permission())
             .ok();
         _ = but_workspace::branch::create_reference(
             new_ref.as_ref(),
@@ -142,7 +135,7 @@ pub fn create_branch(params: CreateBranchParams) -> Result<(), Error> {
                     .with_context(|| {
                         format!(
                             "TODO: UI should migrate to new version of `create_branch()` instead,\
-                            couldn't handle {params:?}"
+                            couldn't handle stack_id={stack_id:?}, request={request:?}"
                         )
                     })?
             },
@@ -152,30 +145,27 @@ pub fn create_branch(params: CreateBranchParams) -> Result<(), Error> {
         )?;
     } else {
         // NOTE: locking is built-in here.
-        gitbutler_branch_actions::stack::create_branch(&ctx, params.stack_id, params.request)?;
+        gitbutler_branch_actions::stack::create_branch(&ctx, stack_id, request)?;
     }
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RemoveBranchParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub branch_name: String,
-}
-
-pub fn remove_branch(params: RemoveBranchParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn remove_branch(
+    project_id: ProjectId,
+    stack_id: StackId,
+    branch_name: String,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
     if ctx.app_settings().feature_flags.ws3 {
         let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
         let ws = graph.to_workspace()?;
         let ref_name = Category::LocalBranch
-            .to_full_name(params.branch_name.as_str())
+            .to_full_name(branch_name.as_str())
             .map_err(anyhow::Error::from)?;
-        ctx.snapshot_remove_dependent_branch(&params.branch_name, guard.write_permission())
+        ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission())
             .ok();
         but_workspace::branch::remove_reference(
             ref_name.as_ref(),
@@ -191,115 +181,91 @@ pub fn remove_branch(params: RemoveBranchParams) -> Result<(), Error> {
             },
         )?;
     } else {
-        gitbutler_branch_actions::stack::remove_branch(&ctx, params.stack_id, params.branch_name)?;
+        gitbutler_branch_actions::stack::remove_branch(&ctx, stack_id, branch_name)?;
     }
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateBranchNameParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub branch_name: String,
-    pub new_name: String,
-}
-
-pub fn update_branch_name(params: UpdateBranchNameParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn update_branch_name(
+    project_id: ProjectId,
+    stack_id: StackId,
+    branch_name: String,
+    new_name: String,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    gitbutler_branch_actions::stack::update_branch_name(
-        &ctx,
-        params.stack_id,
-        params.branch_name,
-        params.new_name,
-    )?;
+    gitbutler_branch_actions::stack::update_branch_name(&ctx, stack_id, branch_name, new_name)?;
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateBranchDescriptionParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub branch_name: String,
-    pub description: Option<String>,
-}
-
-pub fn update_branch_description(params: UpdateBranchDescriptionParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn update_branch_description(
+    project_id: ProjectId,
+    stack_id: StackId,
+    branch_name: String,
+    description: Option<String>,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::update_branch_description(
         &ctx,
-        params.stack_id,
-        params.branch_name,
-        params.description,
+        stack_id,
+        branch_name,
+        description,
     )?;
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateBranchPrNumberParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub branch_name: String,
-    pub pr_number: Option<usize>,
-}
-
-pub fn update_branch_pr_number(params: UpdateBranchPrNumberParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn update_branch_pr_number(
+    project_id: ProjectId,
+    stack_id: StackId,
+    branch_name: String,
+    pr_number: Option<usize>,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::update_branch_pr_number(
         &ctx,
-        params.stack_id,
-        params.branch_name,
-        params.pr_number,
+        stack_id,
+        branch_name,
+        pr_number,
     )?;
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PushStackParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub with_force: bool,
-    pub skip_force_push_protection: bool,
-    pub branch: String,
-}
-
-pub fn push_stack(params: PushStackParams) -> Result<PushResult, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn push_stack(
+    project_id: ProjectId,
+    stack_id: StackId,
+    with_force: bool,
+    skip_force_push_protection: bool,
+    branch: String,
+) -> Result<PushResult, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::push_stack(
         &ctx,
-        params.stack_id,
-        params.with_force,
-        params.skip_force_push_protection,
-        params.branch,
+        stack_id,
+        with_force,
+        skip_force_push_protection,
+        branch,
     )
     .map_err(|e| e.into())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PushStackToReviewParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub top_branch: String,
-    pub user: User,
-}
-
-pub fn push_stack_to_review(params: PushStackToReviewParams) -> Result<String, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn push_stack_to_review(
+    project_id: ProjectId,
+    stack_id: StackId,
+    top_branch: String,
+    user: User,
+) -> Result<String, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let review_id = gitbutler_sync::stack_upload::push_stack_to_review(
-        &ctx,
-        &params.user,
-        params.stack_id,
-        params.top_branch,
-    )?;
+    let review_id =
+        gitbutler_sync::stack_upload::push_stack_to_review(&ctx, &user, stack_id, top_branch)?;
 
     Ok(review_id)
 }
