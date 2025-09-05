@@ -249,10 +249,10 @@ async fn handle_command(
         "set_user" => users::set_user_cmd(request.params),
         "delete_user" => users::delete_user_cmd(request.params),
         // Project management
-        "update_project" => run_cmd(request.params, iprojects::update_project),
-        "add_project" => run_cmd(request.params, iprojects::add_project),
-        "get_project" => run_cmd(request.params, iprojects::get_project),
-        "delete_project" => run_cmd(request.params, iprojects::delete_project),
+        "update_project" => iprojects::update_project_cmd(request.params),
+        "add_project" => iprojects::add_project_cmd(request.params),
+        "get_project" => iprojects::get_project_cmd(request.params),
+        "delete_project" => iprojects::delete_project_cmd(request.params),
         "list_projects" => projects::list_projects(&extra).await,
         "set_project_active" => {
             projects::set_project_active(&app, &extra, app_settings_sync, request.params).await

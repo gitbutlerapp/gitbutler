@@ -1,7 +1,5 @@
 use anyhow::{bail, Context};
-use but_api::commands::projects::{
-    self, AddProjectParams, DeleteProjectParams, GetProjectParams, UpdateProjectParams,
-};
+use but_api::commands::projects::{self};
 use but_api::error::Error;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
@@ -21,15 +19,13 @@ use crate::{window, WindowState};
 pub fn update_project(
     project: gitbutler_project::UpdateRequest,
 ) -> Result<gitbutler_project::Project, Error> {
-    projects::update_project(UpdateProjectParams { project })
+    projects::update_project(project)
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn add_project(path: &path::Path) -> Result<gitbutler_project::Project, Error> {
-    projects::add_project(AddProjectParams {
-        path: path.to_path_buf(),
-    })
+    projects::add_project(path.to_path_buf())
 }
 
 #[tauri::command(async)]
@@ -38,10 +34,7 @@ pub fn get_project(
     project_id: ProjectId,
     no_validation: Option<bool>,
 ) -> Result<gitbutler_project::Project, Error> {
-    projects::get_project(GetProjectParams {
-        project_id,
-        no_validation,
-    })
+    projects::get_project(project_id, no_validation)
 }
 
 #[tauri::command(async)]
@@ -133,7 +126,7 @@ pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn delete_project(project_id: ProjectId) -> Result<(), Error> {
-    projects::delete_project(DeleteProjectParams { project_id })
+    projects::delete_project(project_id)
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
