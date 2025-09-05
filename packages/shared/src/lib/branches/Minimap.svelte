@@ -8,7 +8,10 @@
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { CommitStatusBadge } from '@gitbutler/ui';
-	import { getExternalLinkService } from '@gitbutler/ui/utils/externalLinkService';
+	import {
+		EXTERNAL_LINK_SERVICE,
+		type ExternalLinkService
+	} from '@gitbutler/ui/utils/externalLinkService';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PatchCommit } from '@gitbutler/shared/patches/types';
 
@@ -31,7 +34,7 @@
 	}: Props = $props();
 
 	const routes = inject(WEB_ROUTES_SERVICE);
-	const externalLinkService = getExternalLinkService();
+	const externalLinkService: ExternalLinkService = inject(EXTERNAL_LINK_SERVICE);
 
 	const branch = $derived.by(() => getBranchReview(branchUuid));
 	const loadablePatchCommits = $derived(

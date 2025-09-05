@@ -242,9 +242,9 @@
 		/* MODIFIERS */
 		&.new-branch {
 			border-bottom: none;
-			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		}
 	}
+
 	.branch-header__actions {
 		display: flex;
 		flex: 1;

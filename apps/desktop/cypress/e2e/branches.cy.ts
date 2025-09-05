@@ -27,6 +27,8 @@ describe('Branches', () => {
 		mockCommand('delete_local_branch', (params) => mockBackend.deleteLocalBranch(params));
 		mockCommand('get_branch_listing_details', () => []);
 		mockCommand('add_remote', (params) => mockBackend.addRemote(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.intercept(
 			{

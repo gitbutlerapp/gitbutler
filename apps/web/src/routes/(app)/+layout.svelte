@@ -54,7 +54,10 @@
 		USER_SERVICE as NEW_USER_SERVICE
 	} from '@gitbutler/shared/users/userService';
 	import { ChipToastContainer } from '@gitbutler/ui';
-	import { setExternalLinkService } from '@gitbutler/ui/utils/externalLinkService';
+	import {
+		EXTERNAL_LINK_SERVICE,
+		type ExternalLinkService
+	} from '@gitbutler/ui/utils/externalLinkService';
 	import { type Snippet } from 'svelte';
 	import { env } from '$env/dynamic/public';
 
@@ -124,11 +127,11 @@
 		webState.appDispatch
 	);
 	provide(NOTIFICATION_SETTINGS_SERVICE, notificationSettingsService);
-	setExternalLinkService({
+	provide(EXTERNAL_LINK_SERVICE, {
 		open: (href) => {
 			location.href = href;
 		}
-	});
+	} satisfies ExternalLinkService);
 
 	const sshKeyService = new SshKeyService(httpClient);
 	provide(SSH_KEY_SERVICE, sshKeyService);

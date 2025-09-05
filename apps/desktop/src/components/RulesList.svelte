@@ -12,7 +12,8 @@
 		encodeStackTarget,
 		decodeStackTarget,
 		compareStackTarget,
-		type RuleFilter
+		type RuleFilter,
+		isAiRule
 	} from '$lib/rules/rule';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { getStackName } from '$lib/stacks/stack';
@@ -230,9 +231,10 @@
 	{@const rules = rulesService.workspaceRules(projectId)}
 	<ReduxResult {projectId} result={rules.current}>
 		{#snippet children(rules)}
-			{#if rules.length > 0}
+			{@const filteredRules = rules.filter((r) => !isAiRule(r))}
+			{#if filteredRules.length > 0}
 				<div class="rules-list__content">
-					{#each rules as rule (rule.id)}
+					{#each filteredRules as rule (rule.id)}
 						{#if editingRuleId === rule.id}
 							{@render ruleEditor()}
 						{:else}

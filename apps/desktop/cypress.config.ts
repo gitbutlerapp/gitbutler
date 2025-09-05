@@ -8,6 +8,7 @@ export default defineConfig({
 		openMode: 0
 	},
 	e2e: {
+		experimentalRunAllSpecs: true,
 		baseUrl: 'http://localhost:1420',
 		supportFile: 'cypress/e2e/support/index.ts'
 	},

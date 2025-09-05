@@ -17,6 +17,8 @@ describe('Branch Actions', () => {
 		mockCommand('remove_branch', (params) => mockBackend.removeBranch(params));
 		mockCommand('create_branch', (params) => mockBackend.addBranch(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.visit('/');
 
@@ -95,6 +97,8 @@ describe('Branch Actions - single branch with uncommitted changes', () => {
 		);
 		mockCommand('undo_commit', (params) => mockBackend.undoCommit(params));
 		mockCommand('canned_branch_name', () => mockBackend.getCannedBranchName());
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.visit('/');
 

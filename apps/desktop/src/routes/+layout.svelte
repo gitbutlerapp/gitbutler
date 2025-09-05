@@ -30,12 +30,10 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { createKeybind } from '$lib/utils/hotkeys';
-	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 	import { ChipToastContainer } from '@gitbutler/ui';
 	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { setExternalLinkService } from '@gitbutler/ui/utils/externalLinkService';
 	import { type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
@@ -79,10 +77,6 @@
 	// Keyboard shortcuts
 	const shortcutService = inject(SHORTCUT_SERVICE);
 	$effect(() => shortcutService.listen());
-
-	// External link handling
-	const urlService = inject(URL_SERVICE);
-	setExternalLinkService({ open: (url) => urlService.openExternalUrl(url) });
 
 	// =============================================================================
 	// ANALYTICS & NAVIGATION

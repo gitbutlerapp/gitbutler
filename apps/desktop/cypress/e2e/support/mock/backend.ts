@@ -41,11 +41,13 @@ import {
 import { MOCK_BRANCH_STATUSES_RESPONSE, MOCK_INTEGRATION_OUTCOME } from './upstreamIntegration';
 import type { BranchListing } from '$lib/branches/branchListing';
 import type { Commit } from '$lib/branches/v3';
+import type { AuthorInfo } from '$lib/git/gitService';
 import type { HookStatus } from '$lib/hooks/hooksService';
 import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { GitRemote } from '$lib/remotes/remotesService';
+import type { WorkspaceRule } from '$lib/rules/rule';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 import type { BranchPushResult } from '$lib/stacks/stackService.svelte';
 import type { BranchStatusesResponse, IntegrationOutcome } from '$lib/upstream/types';
@@ -741,5 +743,16 @@ export default class MockBackend {
 				resolve({ status: 'success' });
 			}, waitTime);
 		});
+	}
+
+	public listWorkspaceRules(_args: InvokeArgs | undefined): WorkspaceRule[] {
+		return [];
+	}
+
+	public getAuthorInfo(_args: InvokeArgs | undefined): AuthorInfo {
+		return {
+			email: 'foo@example.com',
+			name: 'Joe Blogs'
+		};
 	}
 }

@@ -11,6 +11,8 @@ describe('File Tree - multiple file changes', () => {
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.visit('/');
 
@@ -52,6 +54,8 @@ describe('File Tree - some file changes', () => {
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.visit('/');
 

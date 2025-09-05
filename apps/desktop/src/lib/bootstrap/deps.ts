@@ -78,6 +78,10 @@ import {
 	USER_SERVICE as CLOUD_USER_SERVICE
 } from '@gitbutler/shared/users/userService';
 import { FOCUS_MANAGER, FocusManager } from '@gitbutler/ui/focus/focusManager';
+import {
+	EXTERNAL_LINK_SERVICE,
+	type ExternalLinkService
+} from '@gitbutler/ui/utils/externalLinkService';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 export function initDependencies(args: {
@@ -278,6 +282,9 @@ export function initDependencies(args: {
 
 	const urlService = new URLService(backend);
 	const clipboardService = new ClipboardService(backend);
+	const externalLinkService = {
+		open: async (url) => await urlService.openExternalUrl(url)
+	} satisfies ExternalLinkService;
 
 	// ============================================================================
 	// DEPENDENCY INJECTION REGISTRATION
@@ -345,6 +352,7 @@ export function initDependencies(args: {
 		[URL_SERVICE, urlService],
 		[USER, userService.user],
 		[USER_SERVICE, userService],
-		[WORKTREE_SERVICE, worktreeService]
+		[WORKTREE_SERVICE, worktreeService],
+		[EXTERNAL_LINK_SERVICE, externalLinkService]
 	]);
 }

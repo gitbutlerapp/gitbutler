@@ -14,6 +14,8 @@ describe('Unified Diff View', () => {
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.visit('/');
 	});
@@ -278,6 +280,8 @@ describe('Unified Diff View with complex hunks', () => {
 			mockBackend.createCommit(params)
 		);
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.visit('/');
 	});
