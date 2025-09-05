@@ -32,12 +32,13 @@ use gitbutler_command_context::CommandContext;
 use serde_json::json;
 use std::{
     collections::HashMap,
-    fs,
     io::{BufRead, BufReader, PipeReader, Read as _},
+    path::Path,
     process::ExitStatus,
     sync::Arc,
 };
 use tokio::{
+    fs,
     process::{Child, Command},
     sync::{
         Mutex,
@@ -337,7 +338,7 @@ async fn spawn_command(
         let mut current_id = session_ids.pop().unwrap_or(session.current_id);
 
         while !session_ids.is_empty()
-            && !fs::exists(Transcript::get_transcript_path(&project_path, current_id)?)?
+            && !transcript_exists_and_likely_valid(&project_path, current_id).await?
         {
             current_id = session_ids.pop().unwrap_or(session.current_id);
         }
@@ -346,6 +347,22 @@ async fn spawn_command(
     }
     command.arg(format_message(&message, thinking_level));
     Ok(command.spawn()?)
+}
+
+async fn transcript_exists_and_likely_valid(
+    project_path: &Path,
+    session_id: uuid::Uuid,
+) -> Result<bool> {
+    let path = Transcript::get_transcript_path(project_path, session_id)?;
+    if fs::try_exists(&path).await? {
+        let file = fs::read_to_string(&path).await?;
+        // Sometimes a transcript gets written out that only as a summary and is
+        // only 1 line long. These can be considered invalid sessions
+        if file.lines().count() > 1 {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn format_message(message: &str, thinking_level: ThinkingLevel) -> String {
