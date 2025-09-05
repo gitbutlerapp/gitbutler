@@ -229,7 +229,7 @@ pub fn stacks_v3(
     }
 
     let unapplied_stacks = unapplied_stacks(repo, meta, &info.stacks)?;
-    Ok(match filter {
+    let mut stacks = match filter {
         StacksFilter::InWorkspace => into_ui_stacks(repo, info.stacks, meta),
         StacksFilter::All => {
             let mut all_stacks = unapplied_stacks;
@@ -237,7 +237,27 @@ pub fn stacks_v3(
             all_stacks
         }
         StacksFilter::Unapplied => unapplied_stacks,
-    })
+    };
+
+    let needs_filtering_to_hide_segments_not_checked_out = stacks
+        .iter()
+        .any(|s| s.is_checked_out || s.heads.iter().any(|h| h.is_checked_out));
+    if needs_filtering_to_hide_segments_not_checked_out {
+        stacks.retain(|s| s.is_checked_out);
+        // Segments can be reachable from multiple tips, we keep only one
+        stacks.truncate(1);
+        let mut saw_checked_out = false;
+        stacks
+            .first_mut()
+            .context("BUG: we shoudl always have at least one stack")?
+            .heads
+            .retain(|h| {
+                saw_checked_out |= h.is_checked_out;
+                saw_checked_out
+            });
+    }
+
+    Ok(stacks)
 }
 
 /// Returns information about the current state of a stack.
@@ -426,8 +446,9 @@ pub fn stack_details_v3(
         expensive_commit_info: true,
         traversal: meta.graph_options(),
     };
-    let stack = match stack_id {
+    let mut stack = match stack_id {
         None => {
+            // assume single-branch mode.
             let mut info = head_info(repo, meta, ref_info_options)?;
             if info.stacks.len() != 1 {
                 bail!(
@@ -453,6 +474,34 @@ pub fn stack_details_v3(
         }
     };
 
+    // This is more of a badly tested hack to quickly filter parts of a stack that aren't checked out.
+    // Better to switch over to the new data-structured for proper handling of detached heads, and anonymous segments.
+    if let Some(head_ref) = repo.head_ref()? {
+        let needs_filtering_to_hide_segments_not_checked_out = stack
+            .segments
+            .iter()
+            .position(|s| s.ref_name.as_ref().map(|n| n.as_ref()) == Some(head_ref.name()));
+        if let Some(stack_pos) = needs_filtering_to_hide_segments_not_checked_out {
+            stack.segments.drain(..stack_pos);
+        }
+    } else if let Ok(head_id) = repo.head_id() {
+        // For now, keep the whole segment, don't cut it down to the actual commit. This code should be thrown out,
+        // and probably has to move to the frontend anyway if/when 'solo'-ing becomes a thing.
+        let needs_filtering_to_hide_segments_and_commits_not_checked_out = stack
+            .segments
+            .iter()
+            .position(|s| s.commits.iter().any(|c| c.id == head_id));
+        if let Some(stack_pos) = needs_filtering_to_hide_segments_and_commits_not_checked_out {
+            stack.segments.drain(..stack_pos);
+            if let Some(segment) = stack.segments.first_mut() {
+                let mut saw_commit = false;
+                segment.commits.retain(|c| {
+                    saw_commit |= c.id == head_id;
+                    saw_commit
+                })
+            }
+        }
+    }
     let branch_details = stack
         .segments
         .iter()

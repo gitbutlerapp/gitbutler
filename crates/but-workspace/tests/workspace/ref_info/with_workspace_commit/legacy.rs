@@ -2,7 +2,7 @@ mod stacks {
     use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
     use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack};
     use but_testsupport::visualize_commit_graph_all;
-    use but_workspace::{StacksFilter, stacks_v3};
+    use but_workspace::{StacksFilter, stack_details_v3, stacks_v3};
 
     #[test]
     fn multiple_branches_with_shared_segment_automatically_know_containing_workspace()
@@ -143,11 +143,6 @@ mod stacks {
                 ),
                 heads: [
                     StackHeadInfo {
-                        name: "C-on-A",
-                        tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
-                        is_checked_out: false,
-                    },
-                    StackHeadInfo {
                         name: "A",
                         tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                         is_checked_out: true,
@@ -157,27 +152,67 @@ mod stacks {
                 order: None,
                 is_checked_out: true,
             },
-            StackEntry {
-                id: Some(
-                    00000000-0000-0000-0000-000000000001,
-                ),
-                heads: [
-                    StackHeadInfo {
-                        name: "B-on-A",
-                        tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
-                        is_checked_out: false,
-                    },
-                    StackHeadInfo {
-                        name: "A",
-                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
-                        is_checked_out: true,
-                    },
-                ],
-                tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
-                order: None,
-                is_checked_out: true,
-            },
         ]
+        "#);
+
+        let details = stack_details_v3(actual[0].id, &repo, &meta)?;
+        // This still returns the whole stack,
+        // as it relies on checking the actual HEAD reference to know what's checked out and what to
+        // filter.
+        insta::assert_debug_snapshot!(details, @r#"
+        StackDetails {
+            derived_name: "C-on-A",
+            push_status: CompletelyUnpushed,
+            branch_details: [
+                BranchDetails {
+                    name: "C-on-A",
+                    remote_tracking_branch: None,
+                    description: None,
+                    pr_number: None,
+                    review_id: None,
+                    tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                    base_commit: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                    push_status: CompletelyUnpushed,
+                    last_updated_at: Some(
+                        0,
+                    ),
+                    authors: [
+                        author <author@example.com>,
+                    ],
+                    is_conflicted: false,
+                    commits: [
+                        Commit(5f37dbf, "add new file in C-on-A", local),
+                    ],
+                    upstream_commits: [],
+                    is_remote_head: false,
+                },
+                BranchDetails {
+                    name: "A",
+                    remote_tracking_branch: Some(
+                        "refs/remotes/origin/A",
+                    ),
+                    description: None,
+                    pr_number: None,
+                    review_id: None,
+                    tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                    base_commit: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                    push_status: UnpushedCommitsRequiringForce,
+                    last_updated_at: None,
+                    authors: [
+                        author <author@example.com>,
+                    ],
+                    is_conflicted: false,
+                    commits: [
+                        Commit(d79bba9, "new file in A", local/remote(identity)),
+                    ],
+                    upstream_commits: [
+                        UpstreamCommit(89cc2d3, "change in A"),
+                    ],
+                    is_remote_head: false,
+                },
+            ],
+            is_conflicted: false,
+        }
         "#);
 
         let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied, None)?;
