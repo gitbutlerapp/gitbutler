@@ -737,6 +737,10 @@ export default class MockBackend {
 		});
 	}
 
+	public message_hook(_args: InvokeArgs | undefined) {
+		// Do nothing for now
+	}
+
 	public async postcommitHook(waitTime: number): Promise<HookStatus> {
 		return await new Promise((resolve) => {
 			setTimeout(() => {

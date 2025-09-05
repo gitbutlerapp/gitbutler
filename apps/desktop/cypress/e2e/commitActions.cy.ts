@@ -22,6 +22,7 @@ describe('Commit Actions', () => {
 		mockCommand('undo_commit', (params) => mockBackend.undoCommit(params));
 		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
 		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
+		mockCommand('message_hook', (params) => mockBackend.message_hook(params));
 
 		cy.visit('/');
 
