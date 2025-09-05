@@ -386,8 +386,8 @@ async fn handle_command(
             }
         }
         // Open/System commands (limited - no open_project_in_window as it's Tauri-specific)
-        "open_url" => run_cmd(request.params, open::open_url),
-        "show_in_finder" => run_cmd(request.params, open::show_in_finder),
+        "open_url" => open::open_url_cmd(request.params),
+        "show_in_finder" => open::show_in_finder_cmd(request.params),
 
         // TODO: Tauri-specific commands that cannot be ported to HTTP API:
         //
