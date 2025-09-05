@@ -20,7 +20,7 @@ const DEBOUNCE_TIMEOUT: Duration = Duration::from_secs(60);
 const TICK_RATE: Duration = if cfg!(windows) {
     Duration::from_millis(250)
 } else {
-    Duration::from_millis(50)
+    Duration::from_millis(100)
 };
 
 // The number of TICK_RATE intervals required of "dead air" (i.e. no new events
