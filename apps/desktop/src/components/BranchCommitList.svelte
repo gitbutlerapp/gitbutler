@@ -185,7 +185,7 @@
 				<div class="integration-radio-content">
 					<h4 class="text-12 text-semibold">Rebase upstream changes</h4>
 					<p class="text-11 text-body clr-text-2">
-						Move your commits on top of upstream changes. Creates clean, linear history.
+						Place the upstream changes on top of your commits. Creates clean, linear history.
 					</p>
 				</div>
 				<RadioButton
