@@ -338,12 +338,12 @@ async fn handle_command(
         "snapshot_diff" => undo::snapshot_diff_cmd(request.params),
         // "oplog_diff_worktrees" => undo::oplog_diff_worktrees(&ctx, request.params),
         // Config management commands
-        "get_gb_config" => run_cmd(request.params, config::get_gb_config),
-        "set_gb_config" => run_cmd(request.params, config::set_gb_config),
+        "get_gb_config" => config::get_gb_config_cmd(request.params),
+        "set_gb_config" => config::set_gb_config_cmd(request.params),
         "store_author_globally_if_unset" => {
-            run_cmd(request.params, config::store_author_globally_if_unset)
+            config::store_author_globally_if_unset_cmd(request.params)
         }
-        "get_author_info" => run_cmd(request.params, config::get_author_info),
+        "get_author_info" => config::get_author_info_cmd(request.params),
         // Remotes management commands
         "list_remotes" => run_cmd(request.params, remotes::list_remotes),
         "add_remote" => run_cmd(request.params, remotes::add_remote),

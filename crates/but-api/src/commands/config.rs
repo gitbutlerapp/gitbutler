@@ -2,50 +2,31 @@ use but_core::{RepositoryExt, settings::git::ui::GitConfigSettings};
 use gitbutler_project::ProjectId;
 use gitbutler_serde::bstring_opt_lossy;
 use gix::bstr::BString;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::error::Error;
+use but_api_macros::api_cmd;
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetGbConfigParams {
-    pub project_id: ProjectId,
-}
-
-pub fn get_gb_config(params: GetGbConfigParams) -> Result<GitConfigSettings, Error> {
-    but_core::open_repo(gitbutler_project::get(params.project_id)?.path)?
+#[api_cmd]
+pub fn get_gb_config(project_id: ProjectId) -> Result<GitConfigSettings, Error> {
+    but_core::open_repo(gitbutler_project::get(project_id)?.path)?
         .git_settings()
         .map(Into::into)
         .map_err(Into::into)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SetGbConfigParams {
-    pub project_id: ProjectId,
-    pub config: GitConfigSettings,
-}
-
-pub fn set_gb_config(params: SetGbConfigParams) -> Result<(), Error> {
-    but_core::open_repo(gitbutler_project::get(params.project_id)?.path)?
-        .set_git_settings(&params.config.into())
+#[api_cmd]
+pub fn set_gb_config(project_id: ProjectId, config: GitConfigSettings) -> Result<(), Error> {
+    but_core::open_repo(gitbutler_project::get(project_id)?.path)?
+        .set_git_settings(&config.into())
         .map_err(Into::into)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StoreAuthorGloballyParams {
-    pub project_id: ProjectId,
-    pub name: String,
-    pub email: String,
-}
-
+#[api_cmd]
 pub fn store_author_globally_if_unset(
-    StoreAuthorGloballyParams {
-        project_id,
-        name,
-        email,
-    }: StoreAuthorGloballyParams,
+    project_id: ProjectId,
+    name: String,
+    email: String,
 ) -> Result<(), Error> {
     let repo = but_core::open_repo(gitbutler_project::get(project_id)?.path)?;
     but_rebase::commit::save_author_if_unset_in_repo(
@@ -68,15 +49,10 @@ pub struct AuthorInfo {
     pub email: Option<BString>,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetAuthorInfoParams {
-    pub project_id: ProjectId,
-}
-
+#[api_cmd]
 /// Return the Git author information as the project repository would see it.
-pub fn get_author_info(params: GetAuthorInfoParams) -> Result<AuthorInfo, Error> {
-    let repo = but_core::open_repo(gitbutler_project::get(params.project_id)?.path)?;
+pub fn get_author_info(project_id: ProjectId) -> Result<AuthorInfo, Error> {
+    let repo = but_core::open_repo(gitbutler_project::get(project_id)?.path)?;
     let (name, email) = repo
         .author()
         .transpose()
