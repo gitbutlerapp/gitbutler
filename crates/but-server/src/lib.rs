@@ -21,7 +21,7 @@ use but_api::{
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
 use tower::ServiceBuilder;
@@ -136,19 +136,6 @@ async fn handle_websocket(socket: WebSocket, broadcaster: Arc<Mutex<Broadcaster>
     }
 
     broadcaster.lock().await.deregister_sender(&id);
-}
-
-fn run_cmd_with_app<
-    D: DeserializeOwned,
-    S: Serialize,
-    Fun: Fn(&App, D) -> Result<S, but_api::error::Error>,
->(
-    app: &App,
-    params: serde_json::Value,
-    fun: Fun,
-) -> Result<serde_json::Value, but_api::error::Error> {
-    let result = fun(app, serde_json::from_value(params).to_error()?)?;
-    Ok(json!(result))
 }
 
 async fn handle_command(
@@ -395,10 +382,24 @@ async fn handle_command(
         //
         // Zip/Archive commands
         "get_project_archive_path" => {
-            run_cmd_with_app(&app, request.params, zip::get_project_archive_path)
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = zip::get_project_archive_path(&app, params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
         }
         "get_logs_archive_path" => {
-            run_cmd_with_app(&app, request.params, zip::get_logs_archive_path)
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = zip::get_logs_archive_path(&app, params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
         }
         "claude_send_message" => {
             let params = serde_json::from_value(request.params).to_error();
