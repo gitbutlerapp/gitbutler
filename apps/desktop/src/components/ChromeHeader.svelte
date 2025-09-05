@@ -156,6 +156,7 @@
 			>
 				{#snippet customSelectButton()}
 					<Button
+						testId={TestId.ChromeHeaderProjectSelector}
 						reversedDirection
 						width="auto"
 						kind="outline"
@@ -180,6 +181,7 @@
 				<OptionsGroup>
 					<SelectItem
 						icon="plus"
+						testId={TestId.ChromeHeaderProjectSelectorAddLocalProject}
 						loading={newProjectLoading}
 						onClick={async () => {
 							newProjectLoading = true;
