@@ -21,9 +21,15 @@ export async function waitForTestId(page: Page, testId: TestIdValues): Promise<L
 /**
  * Click an element by test ID.
  */
-export async function clickByTestId(page: Page, testId: TestIdValues): Promise<Locator> {
+export async function clickByTestId(
+	page: Page,
+	testId: TestIdValues,
+	force?: boolean
+): Promise<Locator> {
 	const element = await waitForTestId(page, testId);
-	await element.click();
+	await element.click({
+		force
+	});
 	return element;
 }
 
