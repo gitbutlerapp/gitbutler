@@ -15,7 +15,13 @@ use crate::events::InternalEvent;
 const DEBOUNCE_TIMEOUT: Duration = Duration::from_secs(60);
 
 // The internal rate at which the debouncer will update its state.
-const TICK_RATE: Duration = Duration::from_millis(250);
+// Keeping a higher timeout on Windows because of file-system issues related
+// to `virtual_branches.toml`.
+const TICK_RATE: Duration = if cfg!(target_os = "windows") {
+    Duration::from_millis(250)
+} else {
+    Duration::from_millis(50)
+};
 
 // The number of TICK_RATE intervals required of "dead air" (i.e. no new events
 // arriving) before we will automatically flush pending events. This means that
