@@ -358,14 +358,6 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
         .map(|p| p.into())
         .collect::<Vec<HunkHeader>>();
 
-    if hook_headers.is_empty() {
-        return Ok(ClaudeHookOutput {
-            do_continue: true,
-            stop_reason: "No changes detected".to_string(),
-            suppress_output: false,
-        });
-    }
-
     let dir = std::path::Path::new(&input.tool_response.file_path)
         .parent()
         .ok_or(anyhow!("Failed to get parent directory of file path"))?;
@@ -405,7 +397,8 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
 
     let stack_id = get_or_create_session(defer.ctx, &session_id, stacks, vb_state)?;
 
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes;
+    let changes =
+        but_core::diff::ui::worktree_changes_by_worktree_dir(project.path.clone())?.changes;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
         defer.ctx,
         true,
@@ -413,16 +406,25 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
         None,
     )?;
 
+    let file_path = Path::new(&input.tool_response.file_path).strip_prefix(project.path.clone())?;
+
     let assignment_reqs: Vec<HunkAssignmentRequest> = assignments
         .into_iter()
         .filter(|a| a.stack_id.is_none())
         .filter(|a| {
-            if let Some(a) = a.hunk_header {
-                hook_headers
-                    .iter()
-                    .any(|h| h.new_range().intersects(a.new_range()))
+            // If the hook_headers is empty, we probably created a file.
+            if hook_headers.is_empty() {
+                Path::new(&a.path) == file_path
+            } else if Path::new(&a.path) == file_path {
+                if let Some(a) = a.hunk_header {
+                    hook_headers
+                        .iter()
+                        .any(|h| h.new_range().intersects(a.new_range()))
+                } else {
+                    true // If no header is present, then the whole file is considered, in which case intersection is true
+                }
             } else {
-                true // If no header is present, then the whole file is considered, in which case intersection is true
+                false
             }
         })
         .map(|a| HunkAssignmentRequest {

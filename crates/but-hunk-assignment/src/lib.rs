@@ -201,13 +201,30 @@ impl HunkAssignment {
         if self.path_bytes != other.path_bytes {
             return false;
         }
+
+        // If both assignments have no hunk headers, they represent whole-file changes
+        // and therefore intersect (same file, whole content)
+        if self.hunk_header.is_none() && other.hunk_header.is_none() {
+            return true;
+        }
+
+        // If one has no hunk header, it represents the whole file,
+        // so it intersects with any hunk in that same file
+        if self.hunk_header.is_none() || other.hunk_header.is_none() {
+            return true;
+        }
+
+        // Both have hunk headers - check if they're equal first
         if self.hunk_header == other.hunk_header {
             return true;
         }
+
+        // Both have hunk headers - check if the ranges overlap
         if let (Some(header), Some(other_header)) = (self.hunk_header, other.hunk_header) {
             return header.old_range().intersects(other_header.old_range())
                 && header.new_range().intersects(other_header.new_range());
         }
+
         false
     }
 }
@@ -830,5 +847,202 @@ mod tests {
         let hunk1 = HunkAssignment::new("foo.rs", 10, 15, Some(1), None);
         let hunk2 = HunkAssignment::new("bar.rs", 10, 15, Some(2), None);
         assert_ne!(hunk1, hunk2);
+    }
+
+    #[test]
+    fn test_intersects_binary_files() {
+        // Test that binary files (no hunk headers) with same path intersect
+        let binary1 = HunkAssignment {
+            id: Some(id_seq(1)),
+            hunk_header: None,
+            path: "image.png".to_string(),
+            path_bytes: BString::from("image.png"),
+            stack_id: Some(stack_id_seq(1)),
+            hunk_locks: None,
+            line_nums_added: None,
+            line_nums_removed: None,
+            diff: None,
+        };
+
+        let binary2 = HunkAssignment {
+            id: Some(id_seq(2)),
+            hunk_header: None,
+            path: "image.png".to_string(),
+            path_bytes: BString::from("image.png"),
+            stack_id: None,
+            hunk_locks: None,
+            line_nums_added: None,
+            line_nums_removed: None,
+            diff: None,
+        };
+
+        assert!(
+            binary1.clone().intersects(binary2.clone()),
+            "Binary files with same path should intersect"
+        );
+        assert!(
+            binary2.intersects(binary1),
+            "Intersection should be symmetric"
+        );
+    }
+
+    #[test]
+    fn test_intersects_mixed_hunk_headers() {
+        // Test file with hunk header intersects with file without hunk header
+        let text_with_hunk = HunkAssignment::new("file.txt", 10, 5, Some(1), Some(1));
+
+        let whole_file = HunkAssignment {
+            id: Some(id_seq(2)),
+            hunk_header: None,
+            path: "file.txt".to_string(),
+            path_bytes: BString::from("file.txt"),
+            stack_id: None,
+            hunk_locks: None,
+            line_nums_added: None,
+            line_nums_removed: None,
+            diff: None,
+        };
+
+        assert!(
+            text_with_hunk.clone().intersects(whole_file.clone()),
+            "Text file with hunk should intersect with whole-file assignment"
+        );
+        assert!(
+            whole_file.intersects(text_with_hunk),
+            "Whole-file assignment should intersect with any hunk in same file"
+        );
+    }
+
+    #[test]
+    fn test_intersects_different_paths_no_headers() {
+        // Binary files with different paths should not intersect
+        let binary1 = HunkAssignment {
+            id: Some(id_seq(1)),
+            hunk_header: None,
+            path: "image1.png".to_string(),
+            path_bytes: BString::from("image1.png"),
+            stack_id: Some(stack_id_seq(1)),
+            hunk_locks: None,
+            line_nums_added: None,
+            line_nums_removed: None,
+            diff: None,
+        };
+
+        let binary2 = HunkAssignment {
+            id: Some(id_seq(2)),
+            hunk_header: None,
+            path: "image2.png".to_string(),
+            path_bytes: BString::from("image2.png"),
+            stack_id: None,
+            hunk_locks: None,
+            line_nums_added: None,
+            line_nums_removed: None,
+            diff: None,
+        };
+
+        assert!(
+            !binary1.intersects(binary2),
+            "Binary files with different paths should not intersect"
+        );
+    }
+
+    #[test]
+    fn test_reconcile_with_binary_files() {
+        // Test that reconciliation preserves stack assignments for binary files
+        let applied_stacks = vec![stack_id_seq(1)];
+
+        let previous_assignments = vec![
+            // Binary file assigned to stack 1
+            HunkAssignment {
+                id: Some(id_seq(1)),
+                hunk_header: None,
+                path: "logo.png".to_string(),
+                path_bytes: BString::from("logo.png"),
+                stack_id: Some(stack_id_seq(1)),
+                hunk_locks: None,
+                line_nums_added: None,
+                line_nums_removed: None,
+                diff: None,
+            },
+            // Text file assigned to stack 1
+            HunkAssignment::new("code.rs", 10, 5, Some(1), Some(2)),
+        ];
+
+        let worktree_assignments = vec![
+            // Same binary file, initially unassigned
+            HunkAssignment {
+                id: Some(id_seq(3)),
+                hunk_header: None,
+                path: "logo.png".to_string(),
+                path_bytes: BString::from("logo.png"),
+                stack_id: None,
+                hunk_locks: None,
+                line_nums_added: None,
+                line_nums_removed: None,
+                diff: None,
+            },
+            // Same text file, modified
+            HunkAssignment::new("code.rs", 10, 7, None, Some(4)),
+        ];
+
+        let result = reconcile::assignments(
+            &worktree_assignments,
+            &previous_assignments,
+            &applied_stacks,
+            MultipleOverlapping::SetMostLines,
+            true,
+        )
+        .unwrap();
+
+        // Binary file should maintain its stack assignment
+        assert_eq!(
+            result[0].stack_id,
+            Some(stack_id_seq(1)),
+            "Binary file should maintain stack assignment"
+        );
+
+        // Text file should also maintain its stack assignment
+        assert_eq!(
+            result[1].stack_id,
+            Some(stack_id_seq(1)),
+            "Text file should maintain stack assignment"
+        );
+    }
+
+    #[test]
+    fn test_reconcile_file_type_change() {
+        // Test file changing from text to binary maintains assignment
+        let applied_stacks = vec![stack_id_seq(1)];
+
+        // Previously was a text file with hunks
+        let previous_assignments = vec![HunkAssignment::new("data.file", 1, 10, Some(1), Some(1))];
+
+        // Now it's a binary file (no hunk header)
+        let worktree_assignments = vec![HunkAssignment {
+            id: Some(id_seq(2)),
+            hunk_header: None,
+            path: "data.file".to_string(),
+            path_bytes: BString::from("data.file"),
+            stack_id: None,
+            hunk_locks: None,
+            line_nums_added: None,
+            line_nums_removed: None,
+            diff: None,
+        }];
+
+        let result = reconcile::assignments(
+            &worktree_assignments,
+            &previous_assignments,
+            &applied_stacks,
+            MultipleOverlapping::SetMostLines,
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(
+            result[0].stack_id,
+            Some(stack_id_seq(1)),
+            "File should maintain stack assignment when changing from text to binary"
+        );
     }
 }
