@@ -25,6 +25,8 @@ describe('Error handling - commit actions', () => {
 			throw new Error(COMMIT_UNDO_ERROR_MESSAGE);
 		});
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.visit('/');
 

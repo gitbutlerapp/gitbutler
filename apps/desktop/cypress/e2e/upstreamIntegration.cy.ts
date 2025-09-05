@@ -14,6 +14,9 @@ describe('Upstream Integration', () => {
 			mockBackend.getUpstreamIntegrationStatuses()
 		);
 		mockCommand('integrate_upstream', (params) => mockBackend.integrateUpstream(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
+
 		for (const stack of mockBackend.getStacks()) {
 			const heads = stack.heads.map((head) => head.name);
 			for (const head of heads) {

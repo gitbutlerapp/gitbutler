@@ -22,6 +22,8 @@ describe('Review', () => {
 		mockCommand('update_branch_pr_number', (params) => mockBackend.updateBranchPrNumber(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 		mockCommand('pr_template', (args) => mockBackend.getTemplateContent(args));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.intercept(
 			{
@@ -419,6 +421,8 @@ describe('Review - stacked branches', () => {
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 		mockCommand('pr_template', (args) => mockBackend.getTemplateContent(args));
 		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.intercept(
 			{

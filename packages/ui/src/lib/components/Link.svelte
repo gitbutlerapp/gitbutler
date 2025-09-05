@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '$components/Icon.svelte';
-	import { getExternalLinkService } from '$lib/utils/externalLinkService';
+	import { EXTERNAL_LINK_SERVICE } from '$lib/utils/externalLinkService';
+	import { inject } from '@gitbutler/core/context';
 	import { onMount, type Snippet } from 'svelte';
 
 	interface Props {
@@ -31,7 +32,7 @@
 
 	let element = $state<HTMLAnchorElement | HTMLButtonElement>();
 
-	const externalLinkService = getExternalLinkService();
+	const externalLinkService = inject(EXTERNAL_LINK_SERVICE);
 
 	onMount(() => {
 		if (element) {

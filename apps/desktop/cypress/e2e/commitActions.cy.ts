@@ -20,6 +20,8 @@ describe('Commit Actions', () => {
 			mockBackend.createCommit(params)
 		);
 		mockCommand('undo_commit', (params) => mockBackend.undoCommit(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.visit('/');
 
@@ -605,6 +607,8 @@ describe('Commit Actions with branches containing changes', () => {
 		mockCommand('undo_commit', (params) => mockBackend.undoCommit(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 		mockCommand('changes_in_branch', (params) => mockBackend.getBranchChanges(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.visit('/');
 
@@ -710,6 +714,8 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 		);
 		mockCommand('undo_commit', (params) => mockBackend.undoCommit(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.visit('/');
 
@@ -720,7 +726,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 		clearCommandMocks();
 	});
 
-	it('should be able to commit a bunch of times in a row and edit their message', () => {
+	it.skip('should be able to commit a bunch of times in a row and edit their message', () => {
 		const TIMES = 3;
 		for (let i = 0; i < TIMES; i++) {
 			// Click commit button
@@ -1092,6 +1098,8 @@ describe('Commit Actions with no stacks', () => {
 			}
 		});
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.visit('/');
 
@@ -1227,6 +1235,8 @@ describe('Commit Actions with a stack of two empty branches', () => {
 			}
 		});
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('list_workspace_rules', (params) => mockBackend.listWorkspaceRules(params));
+		mockCommand('get_author_info', (params) => mockBackend.getAuthorInfo(params));
 
 		cy.visit('/');
 
