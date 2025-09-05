@@ -1,18 +1,19 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { Icon } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
 		branchName: string;
+		branchIcon: Snippet;
 		workspaceActions: Snippet;
 		contextActions: Snippet;
 		messages: Snippet;
 		input: Snippet;
 	};
 
-	const { branchName, workspaceActions, contextActions, messages, input }: Props = $props();
+	const { branchName, branchIcon, workspaceActions, contextActions, messages, input }: Props =
+		$props();
 
 	let scrollableContainer: ConfigurableScrollableContainer;
 
@@ -26,19 +27,17 @@
 
 <div class="chat" use:focusable={{ list: true }}>
 	<div class="chat-header">
-		<div class="chat-header__top">
-			<div class="flex gap-8 items-center overflow-hidden">
-				<Icon name="branch-remote" />
-				<p class="text-14 text-bold truncate">{branchName}</p>
-			</div>
+		<div class="flex gap-10 items-center overflow-hidden">
+			{@render branchIcon()}
+			<p class="text-15 text-bold truncate">{branchName}</p>
 
 			<div class="flex gap-4 items-center">
-				{@render contextActions()}
+				{@render workspaceActions()}
 			</div>
 		</div>
 
 		<div class="flex gap-4 items-center">
-			{@render workspaceActions()}
+			{@render contextActions()}
 		</div>
 	</div>
 
@@ -66,18 +65,11 @@
 
 	.chat-header {
 		display: flex;
-		flex-direction: column;
-		width: 100%;
-		padding: 16px;
-		gap: 10px;
-		border-bottom: 1px solid var(--clr-border-3);
-	}
-
-	.chat-header__top {
-		display: flex;
 		justify-content: space-between;
 		width: 100%;
+		padding: 16px;
 		gap: 20px;
+		border-bottom: 1px solid var(--clr-border-3);
 	}
 
 	.chat-messages {

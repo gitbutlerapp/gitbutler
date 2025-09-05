@@ -5,15 +5,13 @@
 	interface Props {
 		iconName: keyof typeof iconsJson;
 		color: string;
-		lineTop?: boolean;
-		lineBottom?: boolean;
-		isDashed?: boolean;
+		small?: boolean;
 	}
 
-	const { iconName, color }: Props = $props();
+	const { iconName, color, small }: Props = $props();
 </script>
 
-<div class="stack__status--icon" style:--bg-color={color}>
+<div class="stack__status--icon" style:--bg-color={color} class:small>
 	<Icon name={iconName} />
 </div>
 
@@ -23,10 +21,18 @@
 		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		width: 20px;
-		height: 20px;
 		border-radius: var(--radius-m);
 		background-color: var(--bg-color);
 		color: #fff;
+
+		&:not(.small) {
+			width: 20px;
+			height: 20px;
+		}
+
+		&.small {
+			width: 18px;
+			height: 18px;
+		}
 	}
 </style>

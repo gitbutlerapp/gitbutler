@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import CreateBranchModal from '$components/CreateBranchModal.svelte';
@@ -16,7 +17,6 @@
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
 	import CodegenSidebarEntryDisabled from '$components/codegen/CodegenSidebarEntryDisabled.svelte';
 	import CodegenTodo from '$components/codegen/CodegenTodo.svelte';
-	import CodegenUsageStat from '$components/codegen/CodegenUsageStat.svelte';
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import appClickSvg from '$lib/assets/empty-state/app-click.svg?raw';
 	import codegenSvg from '$lib/assets/empty-state/codegen.svg?raw';
@@ -41,6 +41,7 @@
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { CODEGEN_ANALYTICS } from '$lib/soup/codegenAnalytics';
+	import { pushStatusToColor, pushStatusToIcon } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -58,6 +59,7 @@
 		EmptyStatePlaceholder,
 		Modal
 	} from '@gitbutler/ui';
+	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type { ClaudeMessage, ThinkingLevel, ModelType } from '$lib/codegen/types';
 
 	type Props = {
@@ -402,31 +404,54 @@
 
 	<div class="chat-view">
 		{#if selectedBranch}
-			<ReduxResult result={combineResults(events?.current, permissionRequests.current)} {projectId}>
-				{#snippet children([events, permissionRequests], { projectId: _projectId })}
+			{@const selectedBranchDetails = stackService.branchDetails(
+				projectId,
+				selectedBranch.stackId,
+				selectedBranch.head
+			)}
+			<ReduxResult
+				result={combineResults(
+					events?.current,
+					permissionRequests.current,
+					selectedBranchDetails.current
+				)}
+				{projectId}
+			>
+				{#snippet children(
+					[events, permissionRequests, branchDetailsData],
+					{ projectId: _projectId }
+				)}
 					{@const formattedMessages = formatMessages(events, permissionRequests, isStackActive)}
 					{@const lastUserMessageSent = lastUserMessageSentAt(events)}
+					{@const iconName = pushStatusToIcon(branchDetailsData.pushStatus)}
+					{@const lineColor = getColorFromBranchType(
+						pushStatusToColor(branchDetailsData.pushStatus)
+					)}
 
 					<CodegenChatLayout bind:this={chatLayout} branchName={selectedBranch.head}>
+						{#snippet branchIcon()}
+							<BranchHeaderIcon {iconName} color={lineColor} />
+						{/snippet}
 						{#snippet workspaceActions()}
+							<Button kind="outline" size="tag" icon="workbench-small" onclick={showInWorkspace}
+								>Show in workspace</Button
+							>
 							<Button
 								kind="outline"
+								icon="open-editor-small"
 								size="tag"
-								icon="workbench"
-								reversedDirection
-								onclick={showInWorkspace}>Show in workspace</Button
-							>
-							<Button kind="outline" size="tag" reversedDirection onclick={openInEditor}>
-								Open in editor
-							</Button>
+								tooltip="Open in editor
+							"
+								onclick={openInEditor}
+							/>
 						{/snippet}
 						{#snippet contextActions()}
-							<Badge kind="soft" size="tag">69% used context</Badge>
 							<Button
-								disabled={!hasRulesToClear}
+								disabled={!hasRulesToClear || formattedMessages.length === 0}
 								kind="outline"
 								size="tag"
 								icon="clear-small"
+								reversedDirection
 								onclick={clearContextAndRules}
 							>
 								Clear context
@@ -585,7 +610,7 @@
 
 			{@const todos = getTodos(events)}
 			{#if todos.length > 0}
-				<Drawer bottomBorder defaultCollapsed={false} noshrink>
+				<Drawer defaultCollapsed={false} noshrink>
 					{#snippet header()}
 						<h4 class="text-14 text-semibold truncate">Todos</h4>
 						<Badge>{todos.length}</Badge>
@@ -598,18 +623,6 @@
 					</div>
 				</Drawer>
 			{/if}
-
-			<Drawer title="Usage" noshrink>
-				{@const usage = usageStats(events)}
-				<div class="right-sidebar-list">
-					<CodegenUsageStat label="Tokens used:" value={usage.tokens.toString()} />
-					<CodegenUsageStat
-						label="Total cost:"
-						value={`$${usage.cost.toFixed(2)}`}
-						valueSize="large"
-					/>
-				</div>
-			</Drawer>
 		{/if}
 
 		<Resizer
@@ -677,6 +690,7 @@
 	{#if isFirstBranch}
 		{@const branch = stackService.branchByName(projectId, stackId, head)}
 		{@const commits = stackService.commits(projectId, stackId, head)}
+		{@const branchDetails = stackService.branchDetails(projectId, stackId, head)}
 		{@const events = claudeCodeService.messages({
 			projectId,
 			stackId
@@ -686,14 +700,20 @@
 			result={combineResults(
 				branch.current,
 				commits.current,
+				branchDetails.current,
 				events.current,
 				sidebarIsStackActive.current
 			)}
 			{projectId}
 			{stackId}
 		>
-			{#snippet children([branch, commits, events, isActive], { projectId: _projectId, stackId })}
+			{#snippet children(
+				[branch, commits, branchDetailsData, events, isActive],
+				{ projectId: _projectId, stackId }
+			)}
 				{@const usage = usageStats(events)}
+				{@const iconName = pushStatusToIcon(branchDetailsData.pushStatus)}
+				{@const lineColor = getColorFromBranchType(pushStatusToColor(branchDetailsData.pushStatus))}
 				<CodegenSidebarEntry
 					onclick={() => {
 						projectState.selectedClaudeSession.set({ stackId, head: branch.name });
@@ -706,7 +726,11 @@
 					commitCount={commits.length}
 					lastInteractionTime={lastInteractionTime(events)}
 					commits={commitsList}
-				/>
+				>
+					{#snippet branchIcon()}
+						<BranchHeaderIcon {iconName} color={lineColor} small />
+					{/snippet}
+				</CodegenSidebarEntry>
 				<!-- defining this here so it's name doesn't conflict with the
 				variable commits -->
 				{#snippet commitsList()}
@@ -736,7 +760,11 @@
 		{@const branch = stackService.branchByName(projectId, stackId, head)}
 		<ReduxResult result={branch.current} {projectId} {stackId}>
 			{#snippet children(branch, { projectId: _projectId, stackId: _stackId })}
-				<CodegenSidebarEntryDisabled branchName={branch.name} />
+				<CodegenSidebarEntryDisabled branchName={branch.name}>
+					{#snippet branchIcon()}
+						<BranchHeaderIcon iconName="branch-remote" color="var(--clr-text-3)" small />
+					{/snippet}
+				</CodegenSidebarEntryDisabled>
 			{/snippet}
 		</ReduxResult>
 	{/if}
@@ -782,7 +810,7 @@
 	{/snippet}
 </Modal>
 
-<ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top">
+<ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top" align="start">
 	<ContextMenuSection>
 		{#each modelOptions as option}
 			<ContextMenuItem label={option.label} onclick={() => selectModel(option.value)} />
@@ -790,7 +818,12 @@
 	</ContextMenuSection>
 </ContextMenu>
 
-<ContextMenu bind:this={thinkingModeContextMenu} leftClickTrigger={thinkingModeTrigger} side="top">
+<ContextMenu
+	bind:this={thinkingModeContextMenu}
+	leftClickTrigger={thinkingModeTrigger}
+	align="start"
+	side="top"
+>
 	<ContextMenuSection title="Thinking Mode">
 		{#each thinkingLevels as level}
 			<ContextMenuItem
@@ -801,7 +834,12 @@
 	</ContextMenuSection>
 </ContextMenu>
 
-<ContextMenu bind:this={templateContextMenu} leftClickTrigger={templateTrigger} side="top">
+<ContextMenu
+	bind:this={templateContextMenu}
+	leftClickTrigger={templateTrigger}
+	side="top"
+	align="start"
+>
 	<ContextMenuSection title="Templates">
 		<ReduxResult result={promptTemplates.current} {projectId}>
 			{#snippet children(promptTemplates, { projectId: _projectId })}

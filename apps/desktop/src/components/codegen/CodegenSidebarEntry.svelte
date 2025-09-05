@@ -14,6 +14,7 @@
 		lastInteractionTime?: Date;
 		commits: Snippet;
 		onclick: (e: MouseEvent) => void;
+		branchIcon: Snippet;
 	};
 
 	const {
@@ -25,7 +26,8 @@
 		commitCount,
 		lastInteractionTime,
 		commits,
-		onclick
+		onclick,
+		branchIcon
 	}: Props = $props();
 
 	let isOpen = $state(false);
@@ -37,8 +39,9 @@
 			<div class="entry-active-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 		{/if}
 		<div class="sidebar-entry-header-left">
-			<Icon name="branch-remote" />
-			<p class="text-13 text-bold truncate full-width">{branchName}</p>
+			{@render branchIcon()}
+
+			<p class="text-14 text-bold truncate full-width">{branchName}</p>
 			{@render vibeIcon()}
 		</div>
 
@@ -119,7 +122,7 @@
 		width: 100%;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-ml);
 	}
 
 	.sidebar-entry-header {
@@ -129,7 +132,7 @@
 		width: 100%;
 		padding: 12px;
 		overflow: hidden;
-		gap: 8px;
+		gap: 10px;
 		text-align: left;
 
 		&.selected {
@@ -146,7 +149,7 @@
 		align-items: center;
 		width: 100%;
 		overflow: hidden;
-		gap: 8px;
+		gap: 10px;
 	}
 
 	.last-interaction {
@@ -232,7 +235,7 @@
 
 	.entry-active-indicator {
 		position: absolute;
-		top: 10px;
+		top: 12px;
 		left: 0;
 		width: 12px;
 		height: 18px;

@@ -1,18 +1,26 @@
 <script lang="ts">
-	import { Icon } from '@gitbutler/ui';
+	import type { Snippet } from 'svelte';
 
 	type Props = {
 		branchName: string;
+		branchIcon?: Snippet;
 	};
 
-	const { branchName }: Props = $props();
+	const { branchName, branchIcon }: Props = $props();
 </script>
 
 <div class="greyed-out-branch">
 	<div class="branch-header">
 		<div class="branch-info">
-			<Icon name="branch-remote" opacity={0.3} />
-			<p class="text-13 text-semibold truncate full-width opacity-50">{branchName}</p>
+			<div class="icon-wrapper">
+				{#if branchIcon}
+					{@render branchIcon()}
+				{:else}
+					<!-- Default fallback icon -->
+					<div class="default-icon"></div>
+				{/if}
+			</div>
+			<p class="text-14 text-semibold truncate full-width opacity-50">{branchName}</p>
 		</div>
 	</div>
 </div>
@@ -46,5 +54,17 @@
 		width: 100%;
 		overflow: hidden;
 		gap: 8px;
+	}
+
+	.default-icon {
+		width: 20px;
+		height: 20px;
+		border-radius: 4px;
+		background-color: var(--clr-text-3);
+		opacity: 0.3;
+	}
+
+	.icon-wrapper {
+		opacity: 0.3;
 	}
 </style>
