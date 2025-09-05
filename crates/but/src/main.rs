@@ -8,6 +8,7 @@ use metrics::{Event, Metrics, Props, metrics_if_configured};
 use but_claude::hooks::OutputAsJson;
 mod command;
 mod id;
+mod init;
 mod log;
 mod mcp;
 mod mcp_internal;
@@ -98,6 +99,8 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
             Ok(())
         }
+        Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, *repo)
+            .context("Failed to initialize GitButler project."),
     }
 }
 

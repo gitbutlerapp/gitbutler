@@ -18,6 +18,7 @@ gitbutler-storage.workspace = true
 git2.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 uuid.workspace = true
+strum = { version = "0.27", features = ["derive"] }
 tracing.workspace = true
 resolve-path = "0.1.0"
 

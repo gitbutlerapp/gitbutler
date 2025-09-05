@@ -163,7 +163,7 @@ impl Project {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, strum::Display)]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum AddProjectOutcome {
     Added(Project),

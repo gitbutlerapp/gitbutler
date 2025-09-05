@@ -33,6 +33,7 @@ sysinfo = "0.37.0"
 gitbutler-project.workspace = true
 gix.workspace = true
 but-core.workspace = true
+but-api.workspace = true
 but-db.workspace = true
 but-action.workspace = true
 but-graph.workspace = true

@@ -65,6 +65,12 @@ mod frontend {
         }
     }
 
+    impl From<Error> for anyhow::Error {
+        fn from(value: Error) -> Self {
+            value.0
+        }
+    }
+
     pub trait ToError<T> {
         fn to_error(self) -> Result<T, Error>;
     }
