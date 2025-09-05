@@ -1,12 +1,12 @@
-import { focusNextTabIndex } from '@gitbutler/ui/focus/tabbable';
+import { focusNextTabIndex } from '$lib/focus/tabbable';
 import {
 	addAndSortByDomOrder,
 	isContentEditable,
 	moveElementBetweenArrays,
 	removeFromArray,
 	scrollIntoViewIfNeeded
-} from '@gitbutler/ui/focus/utils';
-import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
+} from '$lib/focus/utils';
+import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
 import { InjectionToken } from '@gitbutler/core/context';
 import { on } from 'svelte/events';
 import { get, writable } from 'svelte/store';

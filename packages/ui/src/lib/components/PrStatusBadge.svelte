@@ -4,8 +4,8 @@
 
 <script lang="ts">
 	import Badge from '$components/Badge.svelte';
+	import type { ComponentColorType } from '$lib/utils/colorTypes';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
-	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 
 	interface Props {
 		status: PrStatusInfoType;
