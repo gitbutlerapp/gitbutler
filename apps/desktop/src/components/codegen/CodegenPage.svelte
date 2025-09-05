@@ -422,7 +422,7 @@
 						{/snippet}
 						{#snippet contextActions()}
 							<Button
-								disabled={!hasRulesToClear}
+								disabled={!hasRulesToClear || formattedMessages.length === 0}
 								kind="outline"
 								size="tag"
 								icon="clear-small"
