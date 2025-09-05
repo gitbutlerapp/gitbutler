@@ -20,11 +20,14 @@
 		filled?: boolean;
 		primaryLabel?: string | undefined;
 		primaryIcon?: IconName | undefined;
+		primaryTestId?: string | undefined;
 		primaryAction?: () => void;
 		secondaryLabel?: string | undefined;
 		secondaryIcon?: IconName | undefined;
+		secondaryTestId?: string | undefined;
 		secondaryAction?: () => void;
 		tertiaryLabel?: string | undefined;
+		tertiaryTestId?: string | undefined;
 		tertiaryIcon?: IconName | undefined;
 		tertiaryAction?: () => void;
 		shadow?: boolean;
@@ -41,12 +44,15 @@
 		filled = false,
 		primaryLabel = '',
 		primaryIcon,
+		primaryTestId,
 		primaryAction,
 		secondaryLabel = '',
 		secondaryIcon,
+		secondaryTestId,
 		secondaryAction,
 		tertiaryLabel = '',
 		tertiaryIcon,
+		tertiaryTestId,
 		tertiaryAction,
 		shadow = false,
 		error,
@@ -121,12 +127,22 @@
 					</Button>
 				{/if}
 				{#if tertiaryLabel}
-					<Button kind="outline" onclick={() => tertiaryAction?.()} icon={tertiaryIcon}>
+					<Button
+						kind="outline"
+						testId={tertiaryTestId}
+						onclick={() => tertiaryAction?.()}
+						icon={tertiaryIcon}
+					>
 						{tertiaryLabel}
 					</Button>
 				{/if}
 				{#if secondaryLabel}
-					<Button kind="outline" onclick={() => secondaryAction?.()} icon={secondaryIcon}>
+					<Button
+						kind="outline"
+						testId={secondaryTestId}
+						onclick={() => secondaryAction?.()}
+						icon={secondaryIcon}
+					>
 						{secondaryLabel}
 					</Button>
 				{/if}
@@ -135,6 +151,7 @@
 						style={primaryButtonMap[style]}
 						onclick={() => primaryAction?.()}
 						icon={primaryIcon}
+						testId={primaryTestId}
 					>
 						{primaryLabel}
 					</Button>

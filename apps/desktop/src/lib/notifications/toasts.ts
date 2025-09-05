@@ -5,11 +5,13 @@ import type { MessageStyle } from '$components/InfoMessage.svelte';
 
 type ExtraAction = {
 	label: string;
+	testId?: string;
 	onClick: (dismiss: () => void) => void;
 };
 
 export interface Toast {
 	id?: string;
+	testId?: string;
 	message?: string;
 	error?: any;
 	title?: string;
