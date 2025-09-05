@@ -5,6 +5,7 @@
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BACKEND } from '$lib/backend';
 	import { GIT_SERVICE } from '$lib/git/gitService';
+	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { projectPath } from '$lib/routes/routes.svelte';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
@@ -87,11 +88,12 @@
 			await gitService.cloneRepo(repositoryUrl, targetDir);
 
 			posthog.capture('Repository Cloned', { protocol: remoteUrl.protocol });
-			const project = await projectsService.addProject(targetDir);
-			if (!project) {
+			const outcome = await projectsService.addProject(targetDir);
+			if (!outcome) {
 				throw new Error('Failed to add project after cloning.');
 			}
-			goto(projectPath(project.id));
+
+			handleAddProjectOutcome(outcome, (project) => goto(projectPath(project.id)));
 		} catch (e) {
 			Sentry.captureException(e);
 			const errorMessage = getErrorMessage(e);

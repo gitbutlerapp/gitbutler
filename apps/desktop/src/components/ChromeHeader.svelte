@@ -8,6 +8,7 @@
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
+	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { ircPath, projectPath, isWorkspacePath } from '$lib/routes/routes.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -183,13 +184,14 @@
 						onClick={async () => {
 							newProjectLoading = true;
 							try {
-								const project = await projectsService.addProject();
-								if (!project) {
+								const outcome = await projectsService.addProject();
+								if (!outcome) {
 									// User cancelled the project creation
 									newProjectLoading = false;
 									return;
 								}
-								goto(projectPath(project.id));
+
+								handleAddProjectOutcome(outcome, (project) => goto(projectPath(project.id)));
 							} finally {
 								newProjectLoading = false;
 							}
@@ -223,7 +225,7 @@
 		</div>
 
 		{#if isNotInWorkspace}
-			<Tooltip text="Switch back to gitButler/workspace">
+			<Tooltip text="Switch back to gitbutler/workspace">
 				<Button
 					kind="outline"
 					icon="undo"
