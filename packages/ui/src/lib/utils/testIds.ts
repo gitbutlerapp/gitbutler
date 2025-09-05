@@ -32,6 +32,7 @@ export enum TestId {
 	CommitDrawerCancelButton = 'commit-drawer-cancel-button',
 	CommitDrawerTitle = 'commit-drawer-title',
 	CommitDrawerDescription = 'commit-drawer-description',
+	CommitDrawerResolveConflictsButton = 'commit-drawer-resolve-conflicts-button',
 	UncommittedChanges_FileList = 'uncommitted-changes-file-list',
 	FileListItem = 'file-list-item',
 	UncommittedChanges_Header = 'uncommitted-changes-header',
@@ -133,7 +134,9 @@ export enum TestId {
 	AddProjectNotAGitRepoModal = 'add-project-not-a-git-repo-modal',
 	ChromeHeaderProjectSelector = 'chrome-header-project-selector',
 	ChromeHeaderProjectSelectorAddLocalProject = 'chrome-header-project-selector-add-local-project',
-	SyncButton = 'sync-button'
+	SyncButton = 'sync-button',
+	EditMode = 'edit-mode',
+	EditModeSaveAndExitButton = 'edit-mode-save-and-exit-button'
 }
 
 export enum ElementId {

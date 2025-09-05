@@ -177,6 +177,7 @@
 			{#snippet extraActions()}
 				{#if isConflicted}
 					<AsyncButton
+						testId={TestId.CommitDrawerResolveConflictsButton}
 						size="tag"
 						kind="solid"
 						style="error"
