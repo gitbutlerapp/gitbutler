@@ -168,15 +168,15 @@ async fn handle_command(
     let command: &str = &request.command;
     let result = match command {
         // General commands
-        "git_remote_branches" => run_cmd(request.params, git::git_remote_branches),
-        "git_test_push" => run_cmd(request.params, git::git_test_push),
-        "git_test_fetch" => run_cmd(request.params, git::git_test_fetch),
-        "git_index_size" => run_cmd(request.params, git::git_index_size),
-        "git_head" => run_cmd(request.params, git::git_head),
-        "delete_all_data" => run_cmd(request.params, git::delete_all_data),
-        "git_set_global_config" => run_cmd(request.params, git::git_set_global_config),
-        "git_remove_global_config" => run_cmd(request.params, git::git_remove_global_config),
-        "git_get_global_config" => run_cmd(request.params, git::git_get_global_config),
+        "git_remote_branches" => git::git_remote_branches_cmd(request.params),
+        "git_test_push" => git::git_test_push_cmd(request.params),
+        "git_test_fetch" => git::git_test_fetch_cmd(request.params),
+        "git_index_size" => git::git_index_size_cmd(request.params),
+        "git_head" => git::git_head_cmd(request.params),
+        "delete_all_data" => git::delete_all_data_cmd(request.params),
+        "git_set_global_config" => git::git_set_global_config_cmd(request.params),
+        "git_remove_global_config" => git::git_remove_global_config_cmd(request.params),
+        "git_get_global_config" => git::git_get_global_config_cmd(request.params),
         // Diff commands
         "tree_change_diffs" => run_cmd(request.params, diff::tree_change_diffs),
         "commit_details" => run_cmd(request.params, diff::commit_details),

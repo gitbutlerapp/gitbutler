@@ -8,7 +8,7 @@ use but_api::error::Error;
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn git_remote_branches(project_id: ProjectId) -> Result<Vec<RemoteRefname>, Error> {
-    git::git_remote_branches(git::GitRemoteBranchesParams { project_id })
+    git::git_remote_branches(project_id)
 }
 
 #[tauri::command(async)]
@@ -18,11 +18,7 @@ pub fn git_test_push(
     remote_name: String,
     branch_name: String,
 ) -> Result<(), Error> {
-    git::git_test_push(git::GitTestPushParams {
-        project_id,
-        remote_name,
-        branch_name,
-    })
+    git::git_test_push(project_id, remote_name, branch_name)
 }
 
 #[tauri::command(async)]
@@ -32,22 +28,18 @@ pub fn git_test_fetch(
     remote_name: String,
     action: Option<String>,
 ) -> Result<(), Error> {
-    git::git_test_fetch(git::GitTestFetchParams {
-        project_id,
-        remote_name,
-        action,
-    })
+    git::git_test_fetch(project_id, remote_name, action)
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn git_index_size(project_id: ProjectId) -> Result<usize, Error> {
-    git::git_index_size(git::GitIndexSizeParams { project_id })
+    git::git_index_size(project_id)
 }
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn git_head(project_id: ProjectId) -> Result<String, Error> {
-    git::git_head(git::GitHeadParams { project_id })
+    git::git_head(project_id)
 }
 
 #[tauri::command(async)]
@@ -59,17 +51,17 @@ pub fn delete_all_data() -> Result<(), Error> {
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn git_set_global_config(key: String, value: String) -> Result<String, Error> {
-    git::git_set_global_config(git::GitSetGlobalConfigParams { key, value })
+    git::git_set_global_config(key, value)
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn git_remove_global_config(key: String) -> Result<(), Error> {
-    git::git_remove_global_config(git::GitRemoveGlobalConfigParams { key })
+    git::git_remove_global_config(key)
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug), level = "trace")]
 pub fn git_get_global_config(key: String) -> Result<Option<String>, Error> {
-    git::git_get_global_config(git::GitGetGlobalConfigParams { key })
+    git::git_get_global_config(key)
 }
