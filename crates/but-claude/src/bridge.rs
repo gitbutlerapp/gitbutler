@@ -373,22 +373,23 @@ async fn spawn_command(
     }
 
     let mut session_ids = session.session_ids.clone();
-    let mut current_id = session_ids.pop().unwrap_or(session.current_id);
-    let mut found_valid = false;
+    let mut current_id = None;
 
     loop {
         if session_ids.is_empty() {
             break;
         }
 
-        current_id = session_ids.pop().unwrap_or(session.current_id);
-        if transcript_exists_and_likely_valid(&project_path, current_id).await? {
-            found_valid = true;
+        let next_id = session_ids.pop();
+        if let Some(next_id) = next_id
+            && transcript_exists_and_likely_valid(&project_path, next_id).await?
+        {
+            current_id = Some(next_id);
             break;
         }
     }
 
-    if found_valid {
+    if let Some(current_id) = current_id {
         command.arg(format!("--resume={current_id}"));
     } else {
         command.arg(format!("--session-id={}", session.id));
