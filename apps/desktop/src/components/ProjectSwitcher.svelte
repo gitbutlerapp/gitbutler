@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { projectPath } from '$lib/routes/routes.svelte';
 	import { inject } from '@gitbutler/core/context';
@@ -47,13 +48,13 @@
 				onClick={async () => {
 					newProjectLoading = true;
 					try {
-						const project = await projectsService.addProject();
-						if (!project) {
+						const outcome = await projectsService.addProject();
+						if (!outcome) {
 							// User cancelled the project creation
 							newProjectLoading = false;
 							return;
 						}
-						goto(projectPath(project.id));
+						handleAddProjectOutcome(outcome, (project) => goto(projectPath(project.id)));
 					} finally {
 						newProjectLoading = false;
 					}

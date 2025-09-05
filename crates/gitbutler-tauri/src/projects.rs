@@ -24,7 +24,7 @@ pub fn update_project(
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
-pub fn add_project(path: &path::Path) -> Result<gitbutler_project::Project, Error> {
+pub fn add_project(path: &path::Path) -> Result<gitbutler_project::AddProjectOutcome, Error> {
     projects::add_project(path.to_path_buf())
 }
 

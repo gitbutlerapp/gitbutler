@@ -11,10 +11,11 @@
 		{@const dismiss = () => dismissToast(toast.id)}
 		<div transition:slide={{ duration: 170 }}>
 			<InfoMessage
-				testId={TestId.ToastInfoMessage}
+				testId={toast.testId ?? TestId.ToastInfoMessage}
 				style={toast.style ?? 'neutral'}
 				error={toast.error}
 				secondaryLabel={toast.extraAction ? toast.extraAction.label : 'Dismiss'}
+				secondaryTestId={toast.extraAction ? toast.extraAction.testId : undefined}
 				secondaryAction={toast.extraAction ? () => toast.extraAction?.onClick(dismiss) : dismiss}
 				tertiaryLabel={toast.extraAction ? 'Dismiss' : undefined}
 				tertiaryAction={toast.extraAction ? dismiss : undefined}

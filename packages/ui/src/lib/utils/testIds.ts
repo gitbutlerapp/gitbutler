@@ -125,7 +125,14 @@ export enum TestId {
 	ProjectSetupPageTargetBranchSelect = 'project-setup-page-target-branch-select',
 	ProjectSetupPageTargetContinueButton = 'set-base-branch',
 	ProjectSetupGitAuthPage = 'project-setup-git-auth-page',
-	ProjectSetupGitAuthPageButton = 'accept-git-auth'
+	ProjectSetupGitAuthPageButton = 'accept-git-auth',
+	AddProjectAlreadyExistsModal = 'add-project-already-exists-modal',
+	AddProjectAlreadyExistsModalOpenProjectButton = 'add-project-already-exists-modal-open-project-button',
+	AddProjectBareRepoModal = 'add-project-bare-repo-modal',
+	AddProjectNoDotGitDirectoryModal = 'add-project-no-dot-git-directory-modal',
+	AddProjectNotAGitRepoModal = 'add-project-not-a-git-repo-modal',
+	ChromeHeaderProjectSelector = 'chrome-header-project-selector',
+	ChromeHeaderProjectSelectorAddLocalProject = 'chrome-header-project-selector-add-local-project'
 }
 
 export enum ElementId {

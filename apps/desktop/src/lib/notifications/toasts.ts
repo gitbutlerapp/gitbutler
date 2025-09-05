@@ -5,11 +5,13 @@ import type { MessageStyle } from '$components/InfoMessage.svelte';
 
 type ExtraAction = {
 	label: string;
+	testId?: string;
 	onClick: (dismiss: () => void) => void;
 };
 
 export interface Toast {
 	id?: string;
+	testId?: string;
 	message?: string;
 	error?: any;
 	title?: string;
@@ -23,12 +25,21 @@ let idCounter = 0;
 
 export function showToast(toast: Toast) {
 	if (toast.error) {
-		// TODO: Make toast a service, so we can inject posthog.
 		posthog.capture('toast:show_error', {
+			error_test_id: toast.testId,
 			error_title: toast.title,
 			error_message: String(toast.error)
 		});
 	}
+
+	if (toast.style === 'warning') {
+		posthog.capture('toast:show_warning', {
+			warning_test_id: toast.testId,
+			warning_title: toast.title,
+			warning_message: toast.message
+		});
+	}
+
 	toast.message = toast.message?.replace(/^ */gm, '');
 	toastStore.update((items) => [
 		...items.filter((t) => toast.id === undefined || t.id !== toast.id),

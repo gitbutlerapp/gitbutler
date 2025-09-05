@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_error::error;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
-use crate::AuthKey;
+use crate::{project::AddProjectOutcome, AuthKey};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Controller {
@@ -60,43 +60,44 @@ impl Controller {
         }
     }
 
-    pub(crate) fn add<P: AsRef<Path>>(&self, path: P) -> Result<Project> {
+    pub(crate) fn add<P: AsRef<Path>>(&self, path: P) -> Result<AddProjectOutcome> {
         let path = path.as_ref();
         let all_projects = self
             .projects_storage
             .list()
             .context("failed to list projects from storage")?;
-        if all_projects.iter().any(|project| project.path == path) {
-            bail!("project already exists");
+        if let Some(existing_project) = all_projects.iter().find(|project| project.path == path) {
+            return Ok(AddProjectOutcome::AlreadyExists(
+                existing_project.to_owned(),
+            ));
         }
         if !path.exists() {
-            bail!("path not found");
+            return Ok(AddProjectOutcome::PathNotFound);
         }
         if !path.is_dir() {
-            bail!("not a directory");
+            return Ok(AddProjectOutcome::NotADirectory);
         }
         match gix::open_opts(path, gix::open::Options::isolated()) {
             Ok(repo) if repo.is_bare() => {
-                bail!("bare repositories are unsupported");
+                return Ok(AddProjectOutcome::BareRepository);
             }
             Ok(repo) if repo.worktree().is_some_and(|wt| !wt.is_main()) => {
                 if path.join(".git").is_file() {
-                    bail!("can only work in main worktrees");
+                    return Ok(AddProjectOutcome::NonMainWorktree);
                 };
             }
-            Ok(repo) => {
-                match repo.workdir() {
-                    None => bail!("Cannot add non-bare repositories without a workdir"),
-                    Some(wd) => {
-                        if !wd.join(".git").is_dir() {
-                            bail!("A git-repository without a `.git` directory cannot currently be added");
-                        }
+            Ok(repo) => match repo.workdir() {
+                None => {
+                    return Ok(AddProjectOutcome::NoWorkdir);
+                }
+                Some(wd) => {
+                    if !wd.join(".git").is_dir() {
+                        return Ok(AddProjectOutcome::NoDotGitDirectory);
                     }
                 }
-            }
+            },
             Err(err) => {
-                return Err(anyhow::Error::from(err))
-                    .context(error::Context::new("must be a Git repository"));
+                return Ok(AddProjectOutcome::NotAGitRepository(err.to_string()));
             }
         }
 
@@ -125,7 +126,7 @@ impl Controller {
             tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project add", project.gb_dir());
         }
 
-        Ok(project)
+        Ok(AddProjectOutcome::Added(project))
     }
 
     pub(crate) fn update(&self, project: &UpdateRequest) -> Result<Project> {

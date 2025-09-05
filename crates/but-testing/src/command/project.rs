@@ -13,7 +13,9 @@ pub fn add(data_dir: PathBuf, path: PathBuf, refname: Option<RemoteRefname>) -> 
         .context("Only non-bare repositories can be added")?
         .to_owned()
         .canonicalize()?;
-    let project = gitbutler_project::add_with_path(data_dir, path)?;
+    let outcome = gitbutler_project::add_with_path(data_dir, path)?;
+    let project = outcome.try_project()?;
+
     let ctx = CommandContext::open(&project, AppSettings::default())?;
     if let Some(refname) = refname {
         gitbutler_branch_actions::set_base_branch(

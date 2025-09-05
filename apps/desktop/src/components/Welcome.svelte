@@ -5,6 +5,7 @@
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import cloneRepoSvg from '$lib/assets/welcome/clone-repo.svg?raw';
 	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
+	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
 	import { TestId } from '@gitbutler/ui';
@@ -18,7 +19,11 @@
 		newProjectLoading = true;
 		try {
 			const testDirectoryPath = directoryInputElement?.value;
-			await projectsService.addProject(testDirectoryPath ?? '');
+			const outcome = await projectsService.addProject(testDirectoryPath ?? '');
+
+			if (outcome) {
+				handleAddProjectOutcome(outcome);
+			}
 		} finally {
 			newProjectLoading = false;
 		}

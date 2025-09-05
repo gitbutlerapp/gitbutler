@@ -1,5 +1,5 @@
 import { showError } from '$lib/notifications/toasts';
-import { type Project } from '$lib/project/project';
+import { type AddProjectOutcome, type Project } from '$lib/project/project';
 import { invalidatesList, providesItem, providesList, ReduxTag } from '$lib/state/tags';
 import { getCookie } from '$lib/utils/cookies';
 import { InjectionToken } from '@gitbutler/core/context';
@@ -152,7 +152,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				providesTags: (_result, _error, args) => providesItem(ReduxTag.Project, args.projectId)
 			}),
-			addProject: build.mutation<Project, { path: string }>({
+			addProject: build.mutation<AddProjectOutcome, { path: string }>({
 				extraOptions: { command: 'add_project' },
 				query: (args) => args,
 				invalidatesTags: () => [invalidatesList(ReduxTag.Project)]

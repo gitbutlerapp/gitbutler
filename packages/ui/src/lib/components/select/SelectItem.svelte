@@ -11,6 +11,7 @@
 		loading?: boolean;
 		highlighted?: boolean;
 		value?: string | undefined;
+		testId?: string;
 		children?: Snippet;
 		onClick?: (value: string | undefined) => void;
 	}
@@ -23,12 +24,14 @@
 		loading = false,
 		highlighted = false,
 		value = undefined,
+		testId,
 		onClick,
 		children
 	}: Props = $props();
 </script>
 
 <button
+	data-testid={testId}
 	type="button"
 	{disabled}
 	class="select-button"

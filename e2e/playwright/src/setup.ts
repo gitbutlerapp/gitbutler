@@ -20,7 +20,7 @@ export function getButlerPort(): string {
 }
 
 export interface GitButler {
-	pathInWorkdir: (filePath: string) => string;
+	pathInWorkdir: (...filePathSegments: string[]) => string;
 	runScript(scriptName: string, args?: string[], env?: Record<string, string>): Promise<void>;
 	destroy(): void;
 }
@@ -85,8 +85,8 @@ class GitButlerManager implements GitButler {
 		this.butServerProcess.kill('SIGTERM');
 	}
 
-	pathInWorkdir(filePath: string): string {
-		return path.join(this.workdir, filePath);
+	pathInWorkdir(...filePathSegments: string[]): string {
+		return path.join(this.workdir, ...filePathSegments);
 	}
 
 	async runScript(

@@ -9,7 +9,7 @@ pub fn update_project(project: projects::UpdateRequest) -> Result<projects::Proj
 }
 
 #[api_cmd]
-pub fn add_project(path: PathBuf) -> Result<projects::Project, Error> {
+pub fn add_project(path: PathBuf) -> Result<projects::AddProjectOutcome, Error> {
     Ok(gitbutler_project::add(&path)?)
 }
 
