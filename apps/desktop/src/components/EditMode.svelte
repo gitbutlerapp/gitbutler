@@ -20,7 +20,7 @@
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Avatar, Badge, Button, FileListItem, InfoButton, Modal } from '@gitbutler/ui';
+	import { Avatar, Badge, Button, FileListItem, InfoButton, Modal, TestId } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { derived, fromStore, readable, toStore, type Readable } from 'svelte/store';
@@ -199,7 +199,7 @@
 	const loading = $derived(savingEdit.current.isLoading || abortingEdit.current.isLoading);
 </script>
 
-<div class="editmode-wrapper">
+<div class="editmode-wrapper" data-testid={TestId.EditMode}>
 	<ReduxResult {projectId} result={projectResult.current}>
 		{#snippet children(project)}
 			<div class="editmode__container">
@@ -304,7 +304,14 @@
 							Open conflicted files
 						</Button>
 					{/if}
-					<Button style="pop" icon="tick-small" onclick={handleSave} disabled={loading} {loading}>
+					<Button
+						testId={TestId.EditModeSaveAndExitButton}
+						style="pop"
+						icon="tick-small"
+						onclick={handleSave}
+						disabled={loading}
+						{loading}
+					>
 						Save and exit
 					</Button>
 				</div>

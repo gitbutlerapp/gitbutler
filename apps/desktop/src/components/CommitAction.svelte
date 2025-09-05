@@ -4,16 +4,18 @@
 	import type { CellType } from '@gitbutler/ui/components/commitLines/types';
 
 	interface Props {
+		testId?: string;
 		type: CellType;
 		isLast?: boolean;
 		action: Snippet;
 		kind?: 'default' | 'warning';
 	}
 
-	const { type, isLast, action, kind = 'default' }: Props = $props();
+	const { type, isLast, action, kind = 'default', testId }: Props = $props();
 </script>
 
 <div
+	data-testid={testId}
 	class="action-row {kind}"
 	class:is-last={isLast}
 	style:--commit-color={getColorFromBranchType(type)}

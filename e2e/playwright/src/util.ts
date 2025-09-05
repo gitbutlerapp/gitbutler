@@ -18,6 +18,11 @@ export async function waitForTestId(page: Page, testId: TestIdValues): Promise<L
 	return element;
 }
 
+export async function waitForTestIdToNotExist(page: Page, testId: TestIdValues): Promise<void> {
+	const element = getByTestId(page, testId);
+	await element.waitFor({ state: 'detached' });
+}
+
 /**
  * Click an element by test ID.
  */

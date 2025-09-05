@@ -299,7 +299,12 @@
 						{/if}
 					{/each}
 
-					<CommitAction type="Remote" isLast={!hasCommits} kind="warning">
+					<CommitAction
+						testId={TestId.UpstreamCommitsCommitAction}
+						type="Remote"
+						isLast={!hasCommits}
+						kind="warning"
+					>
 						{#snippet action()}
 							<h3 class="text-13 text-semibold m-bottom-4">Upstream has new commits</h3>
 							<p class="text-12 text-body clr-text-2 m-bottom-14">
