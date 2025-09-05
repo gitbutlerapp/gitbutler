@@ -372,8 +372,8 @@ async fn handle_command(
         // // Menu commands (limited - no menu_item_set_enabled as it's Tauri-specific)
         // "get_editor_link_scheme" => menu::get_editor_link_scheme(&ctx, request.params),
         // CLI commands
-        "install_cli" => run_cmd(request.params, cli::install_cli),
-        "cli_path" => run_cmd(request.params, cli::cli_path),
+        "install_cli" => cli::install_cli_cmd(request.params),
+        "cli_path" => cli::cli_path_cmd(request.params),
         // Askpass commands (async)
         "submit_prompt_response" => {
             let params = serde_json::from_value(request.params).to_error();

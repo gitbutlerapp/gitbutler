@@ -1,14 +1,17 @@
 //! In place of commands.rs
 
 use but_action::cli::{do_install_cli, get_cli_path};
+use but_api_macros::api_cmd;
 
-use crate::{NoParams, error::Error};
+use crate::error::Error;
 
-pub fn install_cli(_params: NoParams) -> Result<(), Error> {
+#[api_cmd]
+pub fn install_cli() -> Result<(), Error> {
     do_install_cli().map_err(Error::from)
 }
 
-pub fn cli_path(_params: NoParams) -> Result<String, Error> {
+#[api_cmd]
+pub fn cli_path() -> Result<String, Error> {
     let cli_path = get_cli_path()?;
     if !cli_path.exists() {
         return Err(anyhow::anyhow!(
