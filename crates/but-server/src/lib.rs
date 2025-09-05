@@ -258,7 +258,7 @@ async fn handle_command(
             projects::set_project_active(&app, &extra, app_settings_sync, request.params).await
         }
         // Virtual branches commands
-        "normalize_branch_name" => run_cmd(request.params, virtual_branches::normalize_branch_name),
+        "normalize_branch_name" => virtual_branches::normalize_branch_name_cmd(request.params),
         "create_virtual_branch" => virtual_branches::create_virtual_branch_cmd(request.params),
         "delete_local_branch" => virtual_branches::delete_local_branch_cmd(request.params),
         "create_virtual_branch_from_branch" => {
