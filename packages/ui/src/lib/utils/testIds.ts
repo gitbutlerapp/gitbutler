@@ -132,7 +132,8 @@ export enum TestId {
 	AddProjectNoDotGitDirectoryModal = 'add-project-no-dot-git-directory-modal',
 	AddProjectNotAGitRepoModal = 'add-project-not-a-git-repo-modal',
 	ChromeHeaderProjectSelector = 'chrome-header-project-selector',
-	ChromeHeaderProjectSelectorAddLocalProject = 'chrome-header-project-selector-add-local-project'
+	ChromeHeaderProjectSelectorAddLocalProject = 'chrome-header-project-selector-add-local-project',
+	SyncButton = 'sync-button'
 }
 
 export enum ElementId {

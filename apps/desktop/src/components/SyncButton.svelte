@@ -3,7 +3,7 @@
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, TimeAgo, Icon } from '@gitbutler/ui';
+	import { Button, TimeAgo, Icon, TestId } from '@gitbutler/ui';
 
 	interface Props {
 		projectId: string;
@@ -25,6 +25,7 @@
 </script>
 
 <Button
+	testId={TestId.SyncButton}
 	kind="outline"
 	width="auto"
 	tooltip="Last fetch from upstream"
