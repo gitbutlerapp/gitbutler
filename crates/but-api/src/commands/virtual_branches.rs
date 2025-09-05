@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, anyhow};
-use but_graph::virtual_branches_legacy_types::BranchOwnershipClaims;
+use but_api_macros::api_cmd;
 use but_settings::AppSettings;
 use but_workspace::DiffSpec;
 use but_workspace::ui::{StackEntryNoOpt, StackHeadInfo};
@@ -19,7 +19,6 @@ use gitbutler_project::{FetchResult, ProjectId};
 use gitbutler_reference::{Refname, RemoteRefname, normalize_branch_name as normalize_name};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gix::reference::Category;
-use serde::Deserialize;
 
 use crate::commands::workspace::canned_branch_name;
 use crate::error::Error;
@@ -29,15 +28,12 @@ pub fn normalize_branch_name(name: String) -> Result<String, Error> {
     Ok(normalize_name(&name)?)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateVirtualBranchParams {
-    pub project_id: ProjectId,
-    pub branch: BranchCreateRequest,
-}
-
-pub fn create_virtual_branch(params: CreateVirtualBranchParams) -> Result<StackEntryNoOpt, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn create_virtual_branch(
+    project_id: ProjectId,
+    branch: BranchCreateRequest,
+) -> Result<StackEntryNoOpt, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let ws3_enabled = ctx.app_settings().feature_flags.ws3;
     let stack_entry = if ws3_enabled {
@@ -46,11 +42,10 @@ pub fn create_virtual_branch(params: CreateVirtualBranchParams) -> Result<StackE
         let ws = graph.to_workspace()?;
         let new_ref = Category::LocalBranch
             .to_full_name(
-                params
-                    .branch
+                branch
                     .name
                     .map(Ok)
-                    .unwrap_or_else(|| canned_branch_name(params.project_id))?
+                    .unwrap_or_else(|| canned_branch_name(project_id))?
                     .as_str(),
             )
             .map_err(anyhow::Error::from)?;
@@ -88,125 +83,93 @@ pub fn create_virtual_branch(params: CreateVirtualBranchParams) -> Result<StackE
     } else {
         gitbutler_branch_actions::create_virtual_branch(
             &ctx,
-            &params.branch,
+            &branch,
             ctx.project().exclusive_worktree_access().write_permission(),
         )?
     };
     Ok(stack_entry)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DeleteLocalBranchParams {
-    pub project_id: ProjectId,
-    pub refname: Refname,
-    pub given_name: String,
-}
-
-pub fn delete_local_branch(params: DeleteLocalBranchParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn delete_local_branch(
+    project_id: ProjectId,
+    refname: Refname,
+    given_name: String,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    gitbutler_branch_actions::delete_local_branch(&ctx, &params.refname, params.given_name)?;
+    gitbutler_branch_actions::delete_local_branch(&ctx, &refname, given_name)?;
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateVirtualBranchFromBranchParams {
-    pub project_id: ProjectId,
-    pub branch: Refname,
-    pub remote: Option<RemoteRefname>,
-    pub pr_number: Option<usize>,
-}
+#[api_cmd]
 pub fn create_virtual_branch_from_branch(
-    params: CreateVirtualBranchFromBranchParams,
+    project_id: ProjectId,
+    branch: Refname,
+    remote: Option<RemoteRefname>,
+    pr_number: Option<usize>,
 ) -> Result<StackId, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
-        &ctx,
-        &params.branch,
-        params.remote,
-        params.pr_number,
+        &ctx, &branch, remote, pr_number,
     )?;
     Ok(branch_id)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct IntegrateUpstreamCommitsParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub series_name: String,
-    pub integration_strategy: Option<IntegrationStrategy>,
-}
-
-pub fn integrate_upstream_commits(params: IntegrateUpstreamCommitsParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn integrate_upstream_commits(
+    project_id: ProjectId,
+    stack_id: StackId,
+    series_name: String,
+    integration_strategy: Option<IntegrationStrategy>,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::integrate_upstream_commits(
         &ctx,
-        params.stack_id,
-        params.series_name,
-        params.integration_strategy,
+        stack_id,
+        series_name,
+        integration_strategy,
     )?;
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetInitialIntegrationStepsForBranchParams {
-    pub project_id: ProjectId,
-    pub stack_id: Option<StackId>,
-    pub branch_name: String,
-}
-
+#[api_cmd]
 pub fn get_initial_integration_steps_for_branch(
-    params: GetInitialIntegrationStepsForBranchParams,
+    project_id: ProjectId,
+    stack_id: Option<StackId>,
+    branch_name: String,
 ) -> Result<
     Vec<gitbutler_branch_actions::branch_upstream_integration::InteractiveIntegrationStep>,
     Error,
 > {
-    let project = gitbutler_project::get(params.project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let steps = gitbutler_branch_actions::branch_upstream_integration::get_initial_integration_steps_for_branch(
         &ctx,
-        params.stack_id,
-        params.branch_name,
+        stack_id,
+        branch_name,
     )?;
     Ok(steps)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct IntegrateBranchWithStepsParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub branch_name: String,
-    pub steps:
-        Vec<gitbutler_branch_actions::branch_upstream_integration::InteractiveIntegrationStep>,
-}
-
-pub fn integrate_branch_with_steps(params: IntegrateBranchWithStepsParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn integrate_branch_with_steps(
+    project_id: ProjectId,
+    stack_id: StackId,
+    branch_name: String,
+    steps: Vec<gitbutler_branch_actions::branch_upstream_integration::InteractiveIntegrationStep>,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    gitbutler_branch_actions::integrate_branch_with_steps(
-        &ctx,
-        params.stack_id,
-        params.branch_name,
-        params.steps,
-    )
-    .map_err(Into::into)
+    gitbutler_branch_actions::integrate_branch_with_steps(&ctx, stack_id, branch_name, steps)
+        .map_err(Into::into)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetBaseBranchDataParams {
-    pub project_id: ProjectId,
-}
-
-pub fn get_base_branch_data(params: GetBaseBranchDataParams) -> Result<Option<BaseBranch>, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn get_base_branch_data(project_id: ProjectId) -> Result<Option<BaseBranch>, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     if let Ok(base_branch) = gitbutler_branch_actions::base::get_base_branch_data(&ctx) {
         Ok(Some(base_branch))
@@ -215,72 +178,54 @@ pub fn get_base_branch_data(params: GetBaseBranchDataParams) -> Result<Option<Ba
     }
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SetBaseBranchParams {
-    pub project_id: ProjectId,
-    pub branch: String,
-    pub push_remote: Option<String>,
-    pub stash_uncommitted: Option<bool>,
-}
-
-pub fn set_base_branch(params: SetBaseBranchParams) -> Result<BaseBranch, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn set_base_branch(
+    project_id: ProjectId,
+    branch: String,
+    push_remote: Option<String>,
+    stash_uncommitted: Option<bool>,
+) -> Result<BaseBranch, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let branch_name = format!("refs/remotes/{}", params.branch)
+    let branch_name = format!("refs/remotes/{branch}")
         .parse()
         .context("Invalid branch name")?;
     let base_branch = gitbutler_branch_actions::set_base_branch(
         &ctx,
         &branch_name,
-        params.stash_uncommitted.unwrap_or_default(),
+        stash_uncommitted.unwrap_or_default(),
         ctx.project().exclusive_worktree_access().write_permission(),
     )?;
 
     // if they also sent a different push remote, set that too
-    if let Some(push_remote) = params.push_remote {
+    if let Some(push_remote) = push_remote {
         gitbutler_branch_actions::set_target_push_remote(&ctx, &push_remote)?;
     }
     Ok(base_branch)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PushBaseBranchParams {
-    pub project_id: ProjectId,
-    pub with_force: bool,
-}
-
-pub fn push_base_branch(params: PushBaseBranchParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn push_base_branch(project_id: ProjectId, with_force: bool) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    gitbutler_branch_actions::push_base_branch(&ctx, params.with_force)?;
+    gitbutler_branch_actions::push_base_branch(&ctx, with_force)?;
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateStackOrderParams {
-    pub project_id: ProjectId,
-    pub stacks: Vec<BranchUpdateRequest>,
-}
-
-pub fn update_stack_order(params: UpdateStackOrderParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn update_stack_order(
+    project_id: ProjectId,
+    stacks: Vec<BranchUpdateRequest>,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    gitbutler_branch_actions::update_stack_order(&ctx, params.stacks)?;
+    gitbutler_branch_actions::update_stack_order(&ctx, stacks)?;
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UnapplyStackParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-}
-
-pub fn unapply_stack(params: UnapplyStackParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
@@ -291,221 +236,166 @@ pub fn unapply_stack(params: UnapplyStackParams) -> Result<(), Error> {
     let assigned_diffspec = but_workspace::flatten_diff_specs(
         assignments
             .into_iter()
-            .filter(|a| a.stack_id == Some(params.stack_id))
+            .filter(|a| a.stack_id == Some(stack_id))
             .map(|a| a.into())
             .collect::<Vec<DiffSpec>>(),
     );
-    gitbutler_branch_actions::unapply_stack(ctx, params.stack_id, assigned_diffspec)?;
+    gitbutler_branch_actions::unapply_stack(ctx, stack_id, assigned_diffspec)?;
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CanApplyRemoteBranchParams {
-    pub project_id: ProjectId,
-    pub branch: RemoteRefname,
-}
-
-pub fn can_apply_remote_branch(params: CanApplyRemoteBranchParams) -> Result<bool, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn can_apply_remote_branch(
+    project_id: ProjectId,
+    branch: RemoteRefname,
+) -> Result<bool, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_branch_actions::can_apply_remote_branch(
-        &ctx,
-        &params.branch,
+        &ctx, &branch,
     )?)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListCommitFilesParams {
-    pub project_id: ProjectId,
-    pub commit_id: String,
-}
-
-pub fn list_commit_files(params: ListCommitFilesParams) -> Result<Vec<RemoteBranchFile>, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn list_commit_files(
+    project_id: ProjectId,
+    commit_id: String,
+) -> Result<Vec<RemoteBranchFile>, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
+    let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::list_commit_files(&ctx, commit_id).map_err(Into::into)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AmendVirtualBranchParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub commit_id: String,
-    pub worktree_changes: Vec<DiffSpec>,
-}
-
-pub fn amend_virtual_branch(params: AmendVirtualBranchParams) -> Result<String, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn amend_virtual_branch(
+    project_id: ProjectId,
+    stack_id: StackId,
+    commit_id: String,
+    worktree_changes: Vec<DiffSpec>,
+) -> Result<String, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
-    let oid =
-        gitbutler_branch_actions::amend(&ctx, params.stack_id, commit_id, params.worktree_changes)?;
+    let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
+    let oid = gitbutler_branch_actions::amend(&ctx, stack_id, commit_id, worktree_changes)?;
     Ok(oid.to_string())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MoveCommitFileParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub from_commit_id: String,
-    pub to_commit_id: String,
-    pub ownership: BranchOwnershipClaims,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UndoCommitParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub commit_id: String,
-}
-
-pub fn undo_commit(params: UndoCommitParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn undo_commit(
+    project_id: ProjectId,
+    stack_id: StackId,
+    commit_id: String,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
-    gitbutler_branch_actions::undo_commit(&ctx, params.stack_id, commit_id)?;
+    let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
+    gitbutler_branch_actions::undo_commit(&ctx, stack_id, commit_id)?;
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InsertBlankCommitParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub commit_id: Option<String>,
-    pub offset: i32,
-}
-
-pub fn insert_blank_commit(params: InsertBlankCommitParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn insert_blank_commit(
+    project_id: ProjectId,
+    stack_id: StackId,
+    commit_id: Option<String>,
+    offset: i32,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let commit_id = match params.commit_id {
+    let commit_id = match commit_id {
         Some(oid) => git2::Oid::from_str(&oid).map_err(|e| anyhow!(e))?,
         None => {
             let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-            let stack = state.get_stack(params.stack_id)?;
+            let stack = state.get_stack(stack_id)?;
             let gix_repo = ctx.gix_repo()?;
             stack.head_oid(&gix_repo)?.to_git2()
         }
     };
-    gitbutler_branch_actions::insert_blank_commit(
-        &ctx,
-        params.stack_id,
-        commit_id,
-        params.offset,
-        None,
-    )?;
+    gitbutler_branch_actions::insert_blank_commit(&ctx, stack_id, commit_id, offset, None)?;
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReorderStackParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub stack_order: StackOrder,
-}
-
-pub fn reorder_stack(params: ReorderStackParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn reorder_stack(
+    project_id: ProjectId,
+    stack_id: StackId,
+    stack_order: StackOrder,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    gitbutler_branch_actions::reorder_stack(&ctx, params.stack_id, params.stack_order)?;
+    gitbutler_branch_actions::reorder_stack(&ctx, stack_id, stack_order)?;
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FindGitBranchesParams {
-    pub project_id: ProjectId,
-    pub branch_name: String,
-}
-
-pub fn find_git_branches(params: FindGitBranchesParams) -> Result<Vec<RemoteBranchData>, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn find_git_branches(
+    project_id: ProjectId,
+    branch_name: String,
+) -> Result<Vec<RemoteBranchData>, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let branches = gitbutler_branch_actions::find_git_branches(&ctx, &params.branch_name)?;
+    let branches = gitbutler_branch_actions::find_git_branches(&ctx, &branch_name)?;
     Ok(branches)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListBranchesParams {
-    pub project_id: ProjectId,
-    pub filter: Option<BranchListingFilter>,
-}
-
-pub fn list_branches(params: ListBranchesParams) -> Result<Vec<BranchListing>, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn list_branches(
+    project_id: ProjectId,
+    filter: Option<BranchListingFilter>,
+) -> Result<Vec<BranchListing>, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let branches = gitbutler_branch_actions::list_branches(&ctx, params.filter, None)?;
+    let branches = gitbutler_branch_actions::list_branches(&ctx, filter, None)?;
     Ok(branches)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetBranchListingDetailsParams {
-    pub project_id: ProjectId,
-    pub branch_names: Vec<String>,
-}
-
+#[api_cmd]
 pub fn get_branch_listing_details(
-    params: GetBranchListingDetailsParams,
+    project_id: ProjectId,
+    branch_names: Vec<String>,
 ) -> Result<Vec<BranchListingDetails>, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let branches = gitbutler_branch_actions::get_branch_listing_details(&ctx, params.branch_names)?;
+    let branches = gitbutler_branch_actions::get_branch_listing_details(&ctx, branch_names)?;
     Ok(branches)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SquashCommitsParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub source_commit_ids: Vec<String>,
-    pub target_commit_id: String,
-}
-
-pub fn squash_commits(params: SquashCommitsParams) -> Result<(), Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn squash_commits(
+    project_id: ProjectId,
+    stack_id: StackId,
+    source_commit_ids: Vec<String>,
+    target_commit_id: String,
+) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let source_commit_ids: Vec<git2::Oid> = params
-        .source_commit_ids
+    let source_commit_ids: Vec<git2::Oid> = source_commit_ids
         .into_iter()
         .map(|oid| git2::Oid::from_str(&oid))
         .collect::<Result<_, _>>()
         .map_err(|e| anyhow!(e))?;
-    let destination_commit_id =
-        git2::Oid::from_str(&params.target_commit_id).map_err(|e| anyhow!(e))?;
+    let destination_commit_id = git2::Oid::from_str(&target_commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::squash_commits(
         &ctx,
-        params.stack_id,
+        stack_id,
         source_commit_ids,
         destination_commit_id,
     )?;
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FetchFromRemotesParams {
-    pub project_id: ProjectId,
-    pub action: Option<String>,
-}
-
-pub fn fetch_from_remotes(params: FetchFromRemotesParams) -> Result<BaseBranch, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn fetch_from_remotes(
+    project_id: ProjectId,
+    action: Option<String>,
+) -> Result<BaseBranch, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     let project_data_last_fetched = gitbutler_branch_actions::fetch_from_remotes(
         &ctx,
-        Some(params.action.unwrap_or_else(|| "unknown".to_string())),
+        Some(action.unwrap_or_else(|| "unknown".to_string())),
     )?;
 
     // Updates the project controller with the last fetched timestamp
@@ -526,78 +416,54 @@ pub fn fetch_from_remotes(params: FetchFromRemotesParams) -> Result<BaseBranch, 
     Ok(base_branch)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MoveCommitParams {
-    pub project_id: ProjectId,
-    pub commit_id: String,
-    pub target_stack_id: StackId,
-    pub source_stack_id: StackId,
-}
-
-pub fn move_commit(params: MoveCommitParams) -> Result<Option<MoveCommitIllegalAction>, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn move_commit(
+    project_id: ProjectId,
+    commit_id: String,
+    target_stack_id: StackId,
+    source_stack_id: StackId,
+) -> Result<Option<MoveCommitIllegalAction>, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
-    gitbutler_branch_actions::move_commit(
-        &ctx,
-        params.target_stack_id,
-        commit_id,
-        params.source_stack_id,
-    )
-    .map_err(Into::into)
+    let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
+    gitbutler_branch_actions::move_commit(&ctx, target_stack_id, commit_id, source_stack_id)
+        .map_err(Into::into)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateCommitMessageParams {
-    pub project_id: ProjectId,
-    pub stack_id: StackId,
-    pub commit_id: String,
-    pub message: String,
-}
-
-pub fn update_commit_message(params: UpdateCommitMessageParams) -> Result<String, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn update_commit_message(
+    project_id: ProjectId,
+    stack_id: StackId,
+    commit_id: String,
+    message: String,
+) -> Result<String, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
-    let new_commit_id = gitbutler_branch_actions::update_commit_message(
-        &ctx,
-        params.stack_id,
-        commit_id,
-        &params.message,
-    )?;
+    let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
+    let new_commit_id =
+        gitbutler_branch_actions::update_commit_message(&ctx, stack_id, commit_id, &message)?;
     Ok(new_commit_id.to_string())
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FindCommitParams {
-    pub project_id: ProjectId,
-    pub commit_id: String,
-}
-
-pub fn find_commit(params: FindCommitParams) -> Result<Option<RemoteCommit>, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn find_commit(
+    project_id: ProjectId,
+    commit_id: String,
+) -> Result<Option<RemoteCommit>, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
+    let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::find_commit(&ctx, commit_id).map_err(Into::into)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpstreamIntegrationStatusesParams {
-    pub project_id: ProjectId,
-    pub target_commit_id: Option<String>,
-}
-
+#[api_cmd]
 pub fn upstream_integration_statuses(
-    params: UpstreamIntegrationStatusesParams,
+    project_id: ProjectId,
+    target_commit_id: Option<String>,
 ) -> Result<StackStatuses, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let commit_id = params
-        .target_commit_id
+    let commit_id = target_commit_id
         .map(|commit_id| git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e)))
         .transpose()?;
     Ok(gitbutler_branch_actions::upstream_integration_statuses(
@@ -605,41 +471,30 @@ pub fn upstream_integration_statuses(
     )?)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct IntegrateUpstreamParams {
-    pub project_id: ProjectId,
-    pub resolutions: Vec<Resolution>,
-    pub base_branch_resolution: Option<BaseBranchResolution>,
-}
-
-pub fn integrate_upstream(params: IntegrateUpstreamParams) -> Result<IntegrationOutcome, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+#[api_cmd]
+pub fn integrate_upstream(
+    project_id: ProjectId,
+    resolutions: Vec<Resolution>,
+    base_branch_resolution: Option<BaseBranchResolution>,
+) -> Result<IntegrationOutcome, Error> {
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let outcome = gitbutler_branch_actions::integrate_upstream(
-        &ctx,
-        &params.resolutions,
-        params.base_branch_resolution,
-    )?;
+    let outcome =
+        gitbutler_branch_actions::integrate_upstream(&ctx, &resolutions, base_branch_resolution)?;
 
     Ok(outcome)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ResolveUpstreamIntegrationParams {
-    pub project_id: ProjectId,
-    pub resolution_approach: BaseBranchResolutionApproach,
-}
-
+#[api_cmd]
 pub fn resolve_upstream_integration(
-    params: ResolveUpstreamIntegrationParams,
+    project_id: ProjectId,
+    resolution_approach: BaseBranchResolutionApproach,
 ) -> Result<String, Error> {
-    let project = gitbutler_project::get(params.project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     let new_target_id =
-        gitbutler_branch_actions::resolve_upstream_integration(&ctx, params.resolution_approach)?;
+        gitbutler_branch_actions::resolve_upstream_integration(&ctx, resolution_approach)?;
     let commit_id = git2::Oid::to_string(&new_target_id);
     Ok(commit_id)
 }

@@ -259,55 +259,48 @@ async fn handle_command(
         }
         // Virtual branches commands
         "normalize_branch_name" => run_cmd(request.params, virtual_branches::normalize_branch_name),
-        "create_virtual_branch" => run_cmd(request.params, virtual_branches::create_virtual_branch),
-        "delete_local_branch" => run_cmd(request.params, virtual_branches::delete_local_branch),
-        "create_virtual_branch_from_branch" => run_cmd(
-            request.params,
-            virtual_branches::create_virtual_branch_from_branch,
-        ),
+        "create_virtual_branch" => virtual_branches::create_virtual_branch_cmd(request.params),
+        "delete_local_branch" => virtual_branches::delete_local_branch_cmd(request.params),
+        "create_virtual_branch_from_branch" => {
+            virtual_branches::create_virtual_branch_from_branch_cmd(request.params)
+        }
         "integrate_upstream_commits" => {
-            run_cmd(request.params, virtual_branches::integrate_upstream_commits)
+            virtual_branches::integrate_upstream_commits_cmd(request.params)
         }
-        "get_initial_integration_steps_for_branch" => run_cmd(
-            request.params,
-            virtual_branches::get_initial_integration_steps_for_branch,
-        ),
-        "integrate_branch_with_steps" => run_cmd(
-            request.params,
-            virtual_branches::integrate_branch_with_steps,
-        ),
-        "get_base_branch_data" => run_cmd(request.params, virtual_branches::get_base_branch_data),
-        "set_base_branch" => run_cmd(request.params, virtual_branches::set_base_branch),
-        "push_base_branch" => run_cmd(request.params, virtual_branches::push_base_branch),
-        "update_stack_order" => run_cmd(request.params, virtual_branches::update_stack_order),
-        "unapply_stack" => run_cmd(request.params, virtual_branches::unapply_stack),
-        "can_apply_remote_branch" => {
-            run_cmd(request.params, virtual_branches::can_apply_remote_branch)
+        "get_initial_integration_steps_for_branch" => {
+            virtual_branches::get_initial_integration_steps_for_branch_cmd(request.params)
         }
-        "list_commit_files" => run_cmd(request.params, virtual_branches::list_commit_files),
-        "amend_virtual_branch" => run_cmd(request.params, virtual_branches::amend_virtual_branch),
-        "undo_commit" => run_cmd(request.params, virtual_branches::undo_commit),
-        "insert_blank_commit" => run_cmd(request.params, virtual_branches::insert_blank_commit),
-        "reorder_stack" => run_cmd(request.params, virtual_branches::reorder_stack),
-        "find_git_branches" => run_cmd(request.params, virtual_branches::find_git_branches),
-        "list_branches" => run_cmd(request.params, virtual_branches::list_branches),
+        "integrate_branch_with_steps" => {
+            virtual_branches::integrate_branch_with_steps_cmd(request.params)
+        }
+        "get_base_branch_data" => virtual_branches::get_base_branch_data_cmd(request.params),
+        "set_base_branch" => virtual_branches::set_base_branch_cmd(request.params),
+        "push_base_branch" => virtual_branches::push_base_branch_cmd(request.params),
+        "update_stack_order" => virtual_branches::update_stack_order_cmd(request.params),
+        "unapply_stack" => virtual_branches::unapply_stack_cmd(request.params),
+        "can_apply_remote_branch" => virtual_branches::can_apply_remote_branch_cmd(request.params),
+        "list_commit_files" => virtual_branches::list_commit_files_cmd(request.params),
+        "amend_virtual_branch" => virtual_branches::amend_virtual_branch_cmd(request.params),
+        "undo_commit" => virtual_branches::undo_commit_cmd(request.params),
+        "insert_blank_commit" => virtual_branches::insert_blank_commit_cmd(request.params),
+        "reorder_stack" => virtual_branches::reorder_stack_cmd(request.params),
+        "find_git_branches" => virtual_branches::find_git_branches_cmd(request.params),
+        "list_branches" => virtual_branches::list_branches_cmd(request.params),
         "get_branch_listing_details" => {
-            run_cmd(request.params, virtual_branches::get_branch_listing_details)
+            virtual_branches::get_branch_listing_details_cmd(request.params)
         }
-        "squash_commits" => run_cmd(request.params, virtual_branches::squash_commits),
-        "fetch_from_remotes" => run_cmd(request.params, virtual_branches::fetch_from_remotes),
-        "move_commit" => run_cmd(request.params, virtual_branches::move_commit),
-        "update_commit_message" => run_cmd(request.params, virtual_branches::update_commit_message),
-        "find_commit" => run_cmd(request.params, virtual_branches::find_commit),
-        "upstream_integration_statuses" => run_cmd(
-            request.params,
-            virtual_branches::upstream_integration_statuses,
-        ),
-        "integrate_upstream" => run_cmd(request.params, virtual_branches::integrate_upstream),
-        "resolve_upstream_integration" => run_cmd(
-            request.params,
-            virtual_branches::resolve_upstream_integration,
-        ),
+        "squash_commits" => virtual_branches::squash_commits_cmd(request.params),
+        "fetch_from_remotes" => virtual_branches::fetch_from_remotes_cmd(request.params),
+        "move_commit" => virtual_branches::move_commit_cmd(request.params),
+        "update_commit_message" => virtual_branches::update_commit_message_cmd(request.params),
+        "find_commit" => virtual_branches::find_commit_cmd(request.params),
+        "upstream_integration_statuses" => {
+            virtual_branches::upstream_integration_statuses_cmd(request.params)
+        }
+        "integrate_upstream" => virtual_branches::integrate_upstream_cmd(request.params),
+        "resolve_upstream_integration" => {
+            virtual_branches::resolve_upstream_integration_cmd(request.params)
+        }
         // Operating modes commands
         "operating_mode" => run_cmd(request.params, modes::operating_mode),
         "enter_edit_mode" => run_cmd(request.params, modes::enter_edit_mode),
