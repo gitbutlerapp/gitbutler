@@ -122,7 +122,7 @@
 		width: 100%;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-ml);
 	}
 
 	.sidebar-entry-header {
