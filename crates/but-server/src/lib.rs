@@ -333,9 +333,9 @@ async fn handle_command(
         "push_stack" => stack::push_stack_cmd(request.params),
         "push_stack_to_review" => stack::push_stack_to_review_cmd(request.params),
         // Undo/Snapshot commands
-        "list_snapshots" => run_cmd(request.params, undo::list_snapshots),
-        "restore_snapshot" => run_cmd(request.params, undo::restore_snapshot),
-        "snapshot_diff" => run_cmd(request.params, undo::snapshot_diff),
+        "list_snapshots" => undo::list_snapshots_cmd(request.params),
+        "restore_snapshot" => undo::restore_snapshot_cmd(request.params),
+        "snapshot_diff" => undo::snapshot_diff_cmd(request.params),
         // "oplog_diff_worktrees" => undo::oplog_diff_worktrees(&ctx, request.params),
         // Config management commands
         "get_gb_config" => run_cmd(request.params, config::get_gb_config),
