@@ -49,6 +49,9 @@
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 
+	// Component is read-only when stackId is undefined
+	const isReadOnly = $derived(!stackId);
+
 	const branchDetails = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 	const [pushStack, pushResult] = stackService.pushStack;
@@ -99,6 +102,10 @@
 		withForce: boolean,
 		remoteTrackingBranch: string | null
 	): string | undefined {
+		if (isReadOnly) {
+			return 'Read-only mode';
+		}
+
 		if (!hasThingsToPush) {
 			return 'No commits to push';
 		}
@@ -139,7 +146,7 @@
 			size="tag"
 			style="neutral"
 			{loading}
-			disabled={!hasThingsToPush || hasConflicts}
+			disabled={isReadOnly || !hasThingsToPush || hasConflicts}
 			tooltip={getButtonTooltip(
 				hasThingsToPush,
 				hasConflicts,

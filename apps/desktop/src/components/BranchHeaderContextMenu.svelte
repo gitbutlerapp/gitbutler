@@ -63,6 +63,9 @@
 	const [updateBranchNameMutation] = stackService.updateBranchName;
 	const [createRef, refCreation] = stackService.createReference;
 
+	// Component is read-only when stackId is undefined
+	const isReadOnly = $derived(!stackId);
+
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 
 	const allCommits = $derived.by(() => {
@@ -199,13 +202,14 @@
 				<ContextMenuItemSubmenu
 					label="Create branch"
 					icon="new-dep-branch"
-					disabled={refCreation.current.isLoading}
+					disabled={isReadOnly || refCreation.current.isLoading}
 				>
 					{#snippet submenu({ close: closeSubmenu })}
 						<ContextMenuSection>
 							<ContextMenuItem
 								label="Create branch above"
 								testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
+								disabled={isReadOnly}
 								onclick={async () => {
 									await handleCreateNewRef(stackId, 'Above');
 									closeSubmenu();
@@ -214,6 +218,7 @@
 							/>
 							<ContextMenuItem
 								label="Create branch below"
+								disabled={isReadOnly}
 								onclick={async () => {
 									await handleCreateNewRef(stackId, 'Below');
 									closeSubmenu();
@@ -235,7 +240,7 @@
 						});
 						close();
 					}}
-					disabled={commitInsertion.current.isLoading}
+					disabled={isReadOnly || commitInsertion.current.isLoading}
 				/>
 				{#if branch.commits.length > 1}
 					<ContextMenuItem
@@ -250,8 +255,12 @@
 							});
 							close();
 						}}
-						disabled={isConflicted}
-						tooltip={isConflicted ? 'This branch has conflicts' : undefined}
+						disabled={isReadOnly || isConflicted}
+						tooltip={isReadOnly
+							? 'Read-only mode'
+							: isConflicted
+								? 'This branch has conflicts'
+								: undefined}
 					/>
 				{/if}
 			</ContextMenuSection>
@@ -261,6 +270,7 @@
 						label="Generate branch name"
 						icon="ai-edit"
 						testId={TestId.BranchHeaderContextMenu_GenerateBranchName}
+						disabled={isReadOnly}
 						onclick={() => {
 							generateBranchName(stackId, branchName);
 							close();
@@ -272,6 +282,7 @@
 						label="Rename"
 						icon="edit"
 						testId={TestId.BranchHeaderContextMenu_Rename}
+						disabled={isReadOnly}
 						onclick={async () => {
 							renameBranchModalContext = {
 								projectId,
@@ -291,6 +302,7 @@
 						label="Delete"
 						icon="bin"
 						testId={TestId.BranchHeaderContextMenu_Delete}
+						disabled={isReadOnly}
 						onclick={async () => {
 							deleteBranchModalContext = {
 								projectId,
@@ -346,6 +358,7 @@
 				<ContextMenuItem
 					label="Unapply Stack"
 					icon="eject"
+					disabled={isReadOnly}
 					onclick={async () => {
 						await stackService.unapply({ projectId, stackId });
 						close();
