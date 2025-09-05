@@ -111,7 +111,7 @@ pub fn show_in_finder(path: String) -> Result<(), Error> {
             .arg("/select,")
             .arg(&path)
             .status()
-            .with_context(|| format!("Failed to show '{}' in Explorer", path))?;
+            .with_context(|| format!("Failed to show '{path}' in Explorer"))?;
     }
 
     #[cfg(target_os = "linux")]
@@ -119,20 +119,17 @@ pub fn show_in_finder(path: String) -> Result<(), Error> {
         // For directories, open the directory directly
         if std::path::Path::new(&path).is_dir() {
             open_that(&path)
-                .with_context(|| format!("Failed to open directory '{}' in file manager", path))?;
+                .with_context(|| format!("Failed to open directory '{path}' in file manager"))?;
         } else {
             // For files, try to open the parent directory
             if let Some(parent) = std::path::Path::new(&path).parent() {
                 let parent_str = parent.to_string_lossy();
                 open_that(&parent_str).with_context(|| {
-                    format!(
-                        "Failed to open parent directory of '{}' in file manager",
-                        path
-                    )
+                    format!("Failed to open parent directory of '{path}' in file manager",)
                 })?;
             } else {
                 open_that(&path)
-                    .with_context(|| format!("Failed to open '{}' in file manager", path))?;
+                    .with_context(|| format!("Failed to open '{path}' in file manager"))?;
             }
         }
     }
