@@ -186,7 +186,7 @@ async fn handle_command(
         // Workspace commands
         "stacks" => workspace::stacks_cmd(request.params),
         #[cfg(unix)]
-        "show_graph_svg" => run_cmd(request.params, workspace::show_graph_svg),
+        "show_graph_svg" => workspace::show_graph_svg_cmd(request.params),
         "stack_details" => workspace::stack_details_cmd(request.params),
         "branch_details" => workspace::branch_details_cmd(request.params),
         "create_commit_from_worktree_changes" => {
