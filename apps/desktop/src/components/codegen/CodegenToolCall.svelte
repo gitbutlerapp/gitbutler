@@ -37,21 +37,21 @@
 		{:else}
 			<Icon name={getToolIcon(toolCall.name)} size={14} color="var(--clr-text-3)" />
 			<p class="text-13 text-left full-width">{toolCall.name}</p>
+		{/if}
 
-			{#if requiresApproval}
-				<div class="flex gap-4">
-					<AsyncButton
-						kind="outline"
-						size="tag"
-						action={async () => await requiresApproval.onRejection(toolCall.id)}>Reject</AsyncButton
-					>
-					<AsyncButton
-						style="pop"
-						size="tag"
-						action={async () => await requiresApproval.onApproval(toolCall.id)}>Approve</AsyncButton
-					>
-				</div>
-			{/if}
+		{#if requiresApproval}
+			<div class="flex gap-4">
+				<AsyncButton
+					kind="outline"
+					size="tag"
+					action={async () => await requiresApproval.onRejection(toolCall.id)}>Reject</AsyncButton
+				>
+				<AsyncButton
+					style="pop"
+					size="tag"
+					action={async () => await requiresApproval.onApproval(toolCall.id)}>Approve</AsyncButton
+				>
+			</div>
 		{/if}
 	</button>
 
