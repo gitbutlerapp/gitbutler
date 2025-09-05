@@ -206,15 +206,6 @@ export class FocusManager {
 		if (options.activate) {
 			this.setActive(element);
 		}
-
-		// Trigger onFocus if this becomes the current element
-		if (options.onActive && this._currentElement === element) {
-			try {
-				options.onActive(true);
-			} catch (error) {
-				console.warn('Error in onFocus', error);
-			}
-		}
 	}
 
 	private establishParentChildRelationships(
@@ -338,9 +329,27 @@ export class FocusManager {
 	}
 
 	/**
+	 * Fires onActive callbacks for an element and all its parent focusables
+	 */
+	private fireOnActiveForHierarchy(element: HTMLElement, active: boolean): void {
+		let metadata = this.getMetadata(element);
+		while (metadata) {
+			try {
+				metadata.options.onActive?.(active);
+			} catch (error) {
+				console.warn(`Error in onActive(${active}) callback:`, error);
+			}
+			const parentElement = metadata.parentElement;
+			if (!parentElement) break;
+			metadata = this.getMetadata(parentElement);
+		}
+	}
+
+	/**
 	 * Sets the specified element as the currently active (focused) element.
 	 * Triggers onBlur callback for the previously active element and onFocus
-	 * callback for the newly active element. Updates focus history.
+	 * callback for the newly active element. Also fires onActive callbacks
+	 * for all parent focusables. Updates focus history.
 	 */
 	setActive(element: HTMLElement) {
 		if (!element || !element.isConnected || !this.isElementRegistered(element)) {
@@ -348,13 +357,10 @@ export class FocusManager {
 		}
 
 		const previousElement = this._currentElement;
-		const previousMeta = previousElement ? this.getMetadata(previousElement) : null;
-		const newMeta = this.getMetadataOrThrow(element);
 
-		try {
-			previousMeta?.options.onActive?.(false);
-		} catch (error) {
-			console.warn('Error in onBlur callback:', error);
+		// Fire onActive(false) for previous element and all its parents
+		if (previousElement) {
+			this.fireOnActiveForHierarchy(previousElement, false);
 		}
 
 		// Add current element to history before changing
@@ -363,11 +369,8 @@ export class FocusManager {
 		}
 		this._currentElement = element;
 
-		try {
-			newMeta.options.onActive?.(true);
-		} catch (error) {
-			console.warn('Error in onFocus:', error);
-		}
+		// Fire onActive(true) for new element and all its parents
+		this.fireOnActiveForHierarchy(element, true);
 
 		this.cursor.set(element);
 	}

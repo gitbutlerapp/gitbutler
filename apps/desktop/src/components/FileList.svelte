@@ -87,6 +87,7 @@
 	const fileChunks: TreeChange[][] = $derived(chunk(changes, 100));
 	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
 	let aiConfigurationValid = $state(false);
+	let active = $state(false);
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 
@@ -226,6 +227,7 @@
 		{selected}
 		{listMode}
 		{depth}
+		{active}
 		hideBorder={hideLastFileBorder && idx === visibleFiles.length - 1}
 		draggable={draggableFiles}
 		executable={!!isExecutable}
@@ -246,13 +248,18 @@
 
 <div
 	class="file-list"
-	use:focusable={{ id: DefinedFocusable.FileList, list: true, disabled: visibleFiles.length <= 1 }}
+	use:focusable={{
+		id: DefinedFocusable.FileList,
+		list: true,
+		onActive: (value) => (active = value)
+	}}
 >
 	<!-- Conflicted changes -->
 	{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
 		<FileListItem
 			draggable={draggableFiles}
 			filePath={path}
+			{active}
 			conflicted
 			conflictHint={conflictEntryHint(kind)}
 			listMode="list"

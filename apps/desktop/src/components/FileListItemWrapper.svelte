@@ -38,6 +38,7 @@
 		draggable?: boolean;
 		transparent?: boolean;
 		sticky?: boolean;
+		active?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		onCloseClick?: () => void;
@@ -62,6 +63,7 @@
 		draggable,
 		transparent,
 		focusableOpts,
+		active,
 		onclick,
 		onkeydown,
 		onCloseClick,
@@ -117,8 +119,6 @@
 
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
 	const draggableDisabled = $derived(!draggable || showCheckbox);
-
-	let active = $state(false);
 </script>
 
 <div
@@ -195,10 +195,7 @@
 			{onclick}
 			oncheck={(e) => onCheck(e.currentTarget.checked)}
 			oncontextmenu={onContextMenu}
-			actionOpts={{
-				...focusableOpts,
-				onActive: (value) => (active = value)
-			}}
+			actionOpts={focusableOpts}
 		/>
 	{/if}
 </div>
