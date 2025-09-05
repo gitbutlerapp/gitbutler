@@ -208,7 +208,7 @@ async fn handle_command(
         "canned_branch_name" => workspace::canned_branch_name_cmd(request.params),
         "target_commits" => workspace::target_commits_cmd(request.params),
         // App settings
-        "get_app_settings" => run_cmd(request.params, settings::get_app_settings),
+        "get_app_settings" => settings::get_app_settings_cmd(request.params),
         "update_onboarding_complete" => {
             serde_json::from_value(request.params)
                 .to_error()
