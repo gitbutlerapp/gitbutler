@@ -123,6 +123,12 @@ export type GitButlerMessage =
 	| {
 			type: 'userAbort';
 			subject: undefined;
+	  }
+	| {
+			type: 'unhandledException';
+			subject: {
+				message: string;
+			};
 	  };
 
 /**

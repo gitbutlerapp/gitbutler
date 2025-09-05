@@ -116,7 +116,11 @@ export function formatMessages(
 			}
 		} else if (event.content.type === 'gitButlerMessage') {
 			const subject = event.content.subject;
-			if (subject.type === 'claudeExit' || subject.type === 'userAbort') {
+			if (
+				subject.type === 'claudeExit' ||
+				subject.type === 'userAbort' ||
+				subject.type === 'unhandledException'
+			) {
 				wrapUpAgentSide();
 			}
 
@@ -124,6 +128,15 @@ export function formatMessages(
 				const message: Message = {
 					type: 'claude',
 					message: `Claude exited with non 0 error code \n\n\`\`\`\n${subject.subject.message}\n\`\`\``,
+					toolCalls: [],
+					toolCallsPendingApproval: []
+				};
+				out.push(message);
+			}
+			if (subject.type === 'unhandledException') {
+				const message: Message = {
+					type: 'claude',
+					message: `Encountered an unhandled exception when executing Claude.\nPlease verify your Claude Code installation location and try clearing the context. \n\n\`\`\`\n${subject.subject.message}\n\`\`\``,
 					toolCalls: [],
 					toolCallsPendingApproval: []
 				};
@@ -254,7 +267,8 @@ export function currentStatus(events: ClaudeMessage[], isActive: boolean): Claud
 	if (
 		lastEvent.content.type === 'gitButlerMessage' &&
 		(lastEvent.content.subject.type === 'userAbort' ||
-			lastEvent.content.subject.type === 'claudeExit')
+			lastEvent.content.subject.type === 'claudeExit' ||
+			lastEvent.content.subject.type === 'unhandledException')
 	) {
 		// Once we have the TODOs, if all the TODOs are completed, we can change
 		// this to conditionally return 'enabled' or 'completed'

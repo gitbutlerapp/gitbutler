@@ -84,7 +84,7 @@ impl Claudes {
                 thinking_level,
                 model,
             )
-            .await?
+            .await
         };
 
         Ok(())
@@ -135,6 +135,50 @@ impl Claudes {
         message: String,
         thinking_level: ThinkingLevel,
         model: ModelType,
+    ) -> () {
+        let res = self
+            .spawn_claude_inner(
+                ctx.clone(),
+                broadcaster.clone(),
+                stack_id,
+                message,
+                thinking_level,
+                model,
+            )
+            .await;
+        if let Err(res) = res {
+            let mut ctx = ctx.lock().await;
+            self.requests.lock().await.remove(&stack_id);
+
+            let rule = list_claude_assignment_rules(&mut ctx)
+                .ok()
+                .and_then(|rules| rules.into_iter().find(|rule| rule.stack_id == stack_id));
+
+            if let Some(rule) = rule {
+                let _ = send_claude_message(
+                    &mut ctx,
+                    broadcaster.clone(),
+                    rule.session_id,
+                    stack_id,
+                    ClaudeMessageContent::GitButlerMessage(
+                        crate::GitButlerMessage::UnhandledException {
+                            message: format!("{res}"),
+                        },
+                    ),
+                )
+                .await;
+            }
+        };
+    }
+
+    async fn spawn_claude_inner(
+        &self,
+        ctx: Arc<Mutex<CommandContext>>,
+        broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
+        stack_id: StackId,
+        message: String,
+        thinking_level: ThinkingLevel,
+        model: ModelType,
     ) -> Result<()> {
         let (send_kill, mut recv_kill) = unbounded_channel();
         self.requests
@@ -155,7 +199,6 @@ impl Claudes {
                 .find(|rule| rule.stack_id == stack_id)
         };
 
-        let create_new = rule.is_none();
         let session_id = rule.map(|r| r.session_id).unwrap_or(uuid::Uuid::new_v4());
 
         let broadcaster = broadcaster.clone();
@@ -188,7 +231,6 @@ impl Claudes {
         let project = ctx.lock().await.project().clone();
         let mut handle = spawn_command(
             message,
-            create_new,
             writer,
             write_stderr,
             session,
@@ -295,7 +337,6 @@ enum Exit {
 #[allow(clippy::too_many_arguments)]
 async fn spawn_command(
     message: String,
-    create_new: bool,
     writer: std::io::PipeWriter,
     write_stderr: std::io::PipeWriter,
     session: crate::ClaudeSession,
@@ -331,20 +372,28 @@ async fn spawn_command(
         command.arg("--permission-mode=acceptEdits");
     }
 
-    if create_new {
-        command.arg(format!("--session-id={}", session.id));
-    } else {
-        let mut session_ids = session.session_ids.clone();
-        let mut current_id = session_ids.pop().unwrap_or(session.current_id);
+    let mut session_ids = session.session_ids.clone();
+    let mut current_id = session_ids.pop().unwrap_or(session.current_id);
+    let mut found_valid = false;
 
-        while !session_ids.is_empty()
-            && !transcript_exists_and_likely_valid(&project_path, current_id).await?
-        {
-            current_id = session_ids.pop().unwrap_or(session.current_id);
+    loop {
+        if session_ids.is_empty() {
+            break;
         }
 
-        command.arg(format!("--resume={current_id}"));
+        current_id = session_ids.pop().unwrap_or(session.current_id);
+        if transcript_exists_and_likely_valid(&project_path, current_id).await? {
+            found_valid = true;
+            break;
+        }
     }
+
+    if found_valid {
+        command.arg(format!("--resume={current_id}"));
+    } else {
+        command.arg(format!("--session-id={}", session.id));
+    }
+
     command.arg(format_message(&message, thinking_level));
     Ok(command.spawn()?)
 }

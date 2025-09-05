@@ -68,9 +68,15 @@ pub struct UserInput {
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum GitButlerMessage {
     /// Claude code has exited naturally.
-    ClaudeExit { code: i32, message: String },
+    ClaudeExit {
+        code: i32,
+        message: String,
+    },
     /// Claude code has exited due to a user abortion.
     UserAbort,
+    UnhandledException {
+        message: String,
+    },
 }
 
 /// Details about a Claude session, extracted from the Claude transcript.
