@@ -345,8 +345,8 @@ async fn handle_command(
         }
         "get_author_info" => config::get_author_info_cmd(request.params),
         // Remotes management commands
-        "list_remotes" => run_cmd(request.params, remotes::list_remotes),
-        "add_remote" => run_cmd(request.params, remotes::add_remote),
+        "list_remotes" => remotes::list_remotes_cmd(request.params),
+        "add_remote" => remotes::add_remote_cmd(request.params),
         // Rules/Workspace rules commands
         "create_workspace_rule" => rules::create_workspace_rule_cmd(request.params),
         "delete_workspace_rule" => rules::delete_workspace_rule_cmd(request.params),

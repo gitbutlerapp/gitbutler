@@ -8,15 +8,11 @@ use but_api::error::Error;
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn list_remotes(project_id: ProjectId) -> Result<Vec<GitRemote>, Error> {
-    remotes::list_remotes(remotes::ListRemotesParams { project_id })
+    remotes::list_remotes(project_id)
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn add_remote(project_id: ProjectId, name: String, url: String) -> Result<(), Error> {
-    remotes::add_remote(remotes::AddRemoteParams {
-        project_id,
-        name,
-        url,
-    })
+    remotes::add_remote(project_id, name, url)
 }
