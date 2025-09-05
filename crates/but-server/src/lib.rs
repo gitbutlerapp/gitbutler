@@ -184,32 +184,29 @@ async fn handle_command(
         "changes_in_worktree" => run_cmd(request.params, diff::changes_in_worktree),
         "assign_hunk" => run_cmd(request.params, diff::assign_hunk),
         // Workspace commands
-        "stacks" => run_cmd(request.params, workspace::stacks),
+        "stacks" => workspace::stacks_cmd(request.params),
         #[cfg(unix)]
         "show_graph_svg" => run_cmd(request.params, workspace::show_graph_svg),
-        "stack_details" => run_cmd(request.params, workspace::stack_details),
-        "branch_details" => run_cmd(request.params, workspace::branch_details),
-        "create_commit_from_worktree_changes" => run_cmd(
-            request.params,
-            workspace::create_commit_from_worktree_changes,
-        ),
-        "amend_commit_from_worktree_changes" => run_cmd(
-            request.params,
-            workspace::amend_commit_from_worktree_changes,
-        ),
-        "discard_worktree_changes" => run_cmd(request.params, workspace::discard_worktree_changes),
-        "move_changes_between_commits" => {
-            run_cmd(request.params, workspace::move_changes_between_commits)
+        "stack_details" => workspace::stack_details_cmd(request.params),
+        "branch_details" => workspace::branch_details_cmd(request.params),
+        "create_commit_from_worktree_changes" => {
+            workspace::create_commit_from_worktree_changes_cmd(request.params)
         }
-        "split_branch" => run_cmd(request.params, workspace::split_branch),
-        "split_branch_into_dependent_branch" => run_cmd(
-            request.params,
-            workspace::split_branch_into_dependent_branch,
-        ),
-        "uncommit_changes" => run_cmd(request.params, workspace::uncommit_changes),
-        "stash_into_branch" => run_cmd(request.params, workspace::stash_into_branch),
-        "canned_branch_name" => run_cmd(request.params, workspace::canned_branch_name),
-        "target_commits" => run_cmd(request.params, workspace::target_commits),
+        "amend_commit_from_worktree_changes" => {
+            workspace::amend_commit_from_worktree_changes_cmd(request.params)
+        }
+        "discard_worktree_changes" => workspace::discard_worktree_changes_cmd(request.params),
+        "move_changes_between_commits" => {
+            workspace::move_changes_between_commits_cmd(request.params)
+        }
+        "split_branch" => workspace::split_branch_cmd(request.params),
+        "split_branch_into_dependent_branch" => {
+            workspace::split_branch_into_dependent_branch_cmd(request.params)
+        }
+        "uncommit_changes" => workspace::uncommit_changes_cmd(request.params),
+        "stash_into_branch" => workspace::stash_into_branch_cmd(request.params),
+        "canned_branch_name" => workspace::canned_branch_name_cmd(request.params),
+        "target_commits" => workspace::target_commits_cmd(request.params),
         // App settings
         "get_app_settings" => run_cmd(request.params, settings::get_app_settings),
         "update_onboarding_complete" => {

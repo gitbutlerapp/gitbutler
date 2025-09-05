@@ -21,7 +21,7 @@ use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gix::reference::Category;
 use serde::Deserialize;
 
-use crate::commands::workspace::{CannedBranchNameParams, canned_branch_name};
+use crate::commands::workspace::canned_branch_name;
 use crate::error::Error;
 // Parameter structs for all functions
 
@@ -50,11 +50,7 @@ pub fn create_virtual_branch(params: CreateVirtualBranchParams) -> Result<StackE
                     .branch
                     .name
                     .map(Ok)
-                    .unwrap_or_else(|| {
-                        canned_branch_name(CannedBranchNameParams {
-                            project_id: params.project_id,
-                        })
-                    })?
+                    .unwrap_or_else(|| canned_branch_name(params.project_id))?
                     .as_str(),
             )
             .map_err(anyhow::Error::from)?;

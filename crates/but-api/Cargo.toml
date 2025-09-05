@@ -26,6 +26,7 @@ but-workspace.workspace = true
 but-core.workspace = true
 but-hunk-assignment.workspace = true
 but-action.workspace = true
+but-api-macros.workspace = true
 but-rebase.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-branch.workspace = true
