@@ -20,6 +20,7 @@ describe('Commit Actions', () => {
 			mockBackend.createCommit(params)
 		);
 		mockCommand('undo_commit', (params) => mockBackend.undoCommit(params));
+		mockCommand('message_hook', (params) => mockBackend.message_hook(params));
 
 		cy.visit('/');
 
