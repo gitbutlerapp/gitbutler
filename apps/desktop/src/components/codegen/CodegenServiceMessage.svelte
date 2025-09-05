@@ -24,7 +24,6 @@
 		'creating',
 		'developing',
 		'forming',
-		'erecting',
 		'fabricating',
 		'composing',
 		'establishing',
