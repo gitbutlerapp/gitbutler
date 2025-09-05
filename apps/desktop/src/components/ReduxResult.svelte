@@ -8,7 +8,6 @@
 	import { isParsedError } from '$lib/error/parser';
 
 	import { Icon } from '@gitbutler/ui';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import type { Snippet } from 'svelte';
 
@@ -47,7 +46,8 @@
 			return { result: props.result, env };
 		}
 
-		if (isDefined(props.result?.data)) {
+		// This needs to test for 'undefined' specifically, enabling 'null' as a valid data value.
+		if (props.result?.data !== undefined) {
 			cache = { result: props.result, env };
 			return cache;
 		}
