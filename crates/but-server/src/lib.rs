@@ -302,16 +302,16 @@ async fn handle_command(
             virtual_branches::resolve_upstream_integration_cmd(request.params)
         }
         // Operating modes commands
-        "operating_mode" => run_cmd(request.params, modes::operating_mode),
-        "enter_edit_mode" => run_cmd(request.params, modes::enter_edit_mode),
+        "operating_mode" => modes::operating_mode_cmd(request.params),
+        "enter_edit_mode" => modes::enter_edit_mode_cmd(request.params),
         "abort_edit_and_return_to_workspace" => {
-            run_cmd(request.params, modes::abort_edit_and_return_to_workspace)
+            modes::abort_edit_and_return_to_workspace_cmd(request.params)
         }
         "save_edit_and_return_to_workspace" => {
-            run_cmd(request.params, modes::save_edit_and_return_to_workspace)
+            modes::save_edit_and_return_to_workspace_cmd(request.params)
         }
-        "edit_initial_index_state" => run_cmd(request.params, modes::edit_initial_index_state),
-        "edit_changes_from_initial" => run_cmd(request.params, modes::edit_changes_from_initial),
+        "edit_initial_index_state" => modes::edit_initial_index_state_cmd(request.params),
+        "edit_changes_from_initial" => modes::edit_changes_from_initial_cmd(request.params),
         // Repository commands
         "git_get_local_config" => repo::git_get_local_config_cmd(request.params),
         "git_set_local_config" => repo::git_set_local_config_cmd(request.params),

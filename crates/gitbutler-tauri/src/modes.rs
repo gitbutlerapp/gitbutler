@@ -11,7 +11,7 @@ use but_api::error::Error;
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn operating_mode(project_id: ProjectId) -> Result<OperatingMode, Error> {
-    modes::operating_mode(modes::OperatingModeParams { project_id })
+    modes::operating_mode(project_id)
 }
 
 #[tauri::command(async)]
@@ -21,27 +21,19 @@ pub fn enter_edit_mode(
     commit_id: String,
     stack_id: StackId,
 ) -> Result<EditModeMetadata, Error> {
-    modes::enter_edit_mode(modes::EnterEditModeParams {
-        project_id,
-        commit_id,
-        stack_id,
-    })
+    modes::enter_edit_mode(project_id, commit_id, stack_id)
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), Error> {
-    modes::abort_edit_and_return_to_workspace(modes::AbortEditAndReturnToWorkspaceParams {
-        project_id,
-    })
+    modes::abort_edit_and_return_to_workspace(project_id)
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), Error> {
-    modes::save_edit_and_return_to_workspace(modes::SaveEditAndReturnToWorkspaceParams {
-        project_id,
-    })
+    modes::save_edit_and_return_to_workspace(project_id)
 }
 
 #[tauri::command(async)]
@@ -49,11 +41,11 @@ pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), Er
 pub fn edit_initial_index_state(
     project_id: ProjectId,
 ) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>, Error> {
-    modes::edit_initial_index_state(modes::EditInitialIndexStateParams { project_id })
+    modes::edit_initial_index_state(project_id)
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn edit_changes_from_initial(project_id: ProjectId) -> Result<Vec<TreeChange>, Error> {
-    modes::edit_changes_from_initial(modes::EditChangesFromInitialParams { project_id })
+    modes::edit_changes_from_initial(project_id)
 }
