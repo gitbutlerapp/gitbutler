@@ -74,6 +74,8 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
       - if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: cd e2e && pnpm exec playwright install --with-deps
+      - name: Build gitbutler-git
+        run: cargo build -p gitbutler-git
       - name: Build but-server
         run: cargo build -p but-server
       - name: Build but-testing
