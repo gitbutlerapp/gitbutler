@@ -1,5 +1,3 @@
-#![forbid(rust_2018_idioms)]
-
 use anyhow::{bail, Result};
 // A happy little module for uploading stacks.
 
