@@ -25,9 +25,9 @@ This shoud start the server on th default port 6978
 Execute the following command on another terminal, concurrently
 
 ```bash
-export VITE_BUTLER_PORT=6978 && \
-export VITE_BUTLER_HOST=localhost && \
-export VITE_BUILD_TARGET=web && \
+VITE_BUTLER_PORT=6978 \
+VITE_BUTLER_HOST=localhost \
+VITE_BUILD_TARGET=web \
 pnpm --filter @gitbutler/desktop dev
 ```
 
