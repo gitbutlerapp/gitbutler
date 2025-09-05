@@ -782,7 +782,7 @@
 	{/snippet}
 </Modal>
 
-<ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top">
+<ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top" align="start">
 	<ContextMenuSection>
 		{#each modelOptions as option}
 			<ContextMenuItem label={option.label} onclick={() => selectModel(option.value)} />
@@ -790,7 +790,12 @@
 	</ContextMenuSection>
 </ContextMenu>
 
-<ContextMenu bind:this={thinkingModeContextMenu} leftClickTrigger={thinkingModeTrigger} side="top">
+<ContextMenu
+	bind:this={thinkingModeContextMenu}
+	leftClickTrigger={thinkingModeTrigger}
+	align="start"
+	side="top"
+>
 	<ContextMenuSection title="Thinking Mode">
 		{#each thinkingLevels as level}
 			<ContextMenuItem
@@ -801,7 +806,12 @@
 	</ContextMenuSection>
 </ContextMenu>
 
-<ContextMenu bind:this={templateContextMenu} leftClickTrigger={templateTrigger} side="top">
+<ContextMenu
+	bind:this={templateContextMenu}
+	leftClickTrigger={templateTrigger}
+	side="top"
+	align="start"
+>
 	<ContextMenuSection title="Templates">
 		<ReduxResult result={promptTemplates.current} {projectId}>
 			{#snippet children(promptTemplates, { projectId: _projectId })}
