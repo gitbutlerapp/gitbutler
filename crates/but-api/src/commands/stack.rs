@@ -242,6 +242,7 @@ pub fn push_stack(
     with_force: bool,
     skip_force_push_protection: bool,
     branch: String,
+    run_hooks: bool,
 ) -> Result<PushResult, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -251,6 +252,7 @@ pub fn push_stack(
         with_force,
         skip_force_push_protection,
         branch,
+        run_hooks,
     )
     .map_err(|e| e.into())
 }

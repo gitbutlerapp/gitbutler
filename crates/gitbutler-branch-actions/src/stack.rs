@@ -1,9 +1,10 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_reference::normalize_branch_name;
+use gitbutler_repo::hooks;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::StackId;
 use gitbutler_stack::{PatchReferenceUpdate, StackBranch};
@@ -160,6 +161,7 @@ pub fn push_stack(
     with_force: bool,
     skip_force_push_protection: bool,
     branch_limit: String,
+    run_hooks: bool,
 ) -> Result<PushResult> {
     ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
     ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
@@ -189,6 +191,34 @@ pub fn push_stack(
     };
 
     let force_push_protection = !skip_force_push_protection && ctx.project().force_push_protection;
+
+    // Run pre-push hook if requested
+    if run_hooks {
+        let remote_name = default_target.push_remote_name();
+        // Get the remote URL for the pre-push hook
+        let remote_url = ctx
+            .repo()
+            .find_remote(&remote_name)
+            .ok()
+            .and_then(|remote| remote.url().map(String::from))
+            .unwrap_or_else(|| format!("unknown_url_for_{}", remote_name));
+
+        match hooks::pre_push(ctx, &remote_name, &remote_url)? {
+            hooks::HookResult::Success => {
+                // Hook succeeded, continue with push
+            }
+            hooks::HookResult::NotConfigured => {
+                // No hook configured, continue with push
+            }
+            hooks::HookResult::Failure(error_data) => {
+                // Hook failed, abort push
+                return Err(anyhow::anyhow!(
+                    "pre-push hook failed: {}",
+                    error_data.error
+                ));
+            }
+        }
+    }
 
     for branch in stack_branches {
         if branch.archived {

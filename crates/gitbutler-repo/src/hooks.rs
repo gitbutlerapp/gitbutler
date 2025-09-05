@@ -123,6 +123,51 @@ pub fn post_commit(ctx: &CommandContext) -> Result<HookResult> {
     }
 }
 
+pub fn pre_push(ctx: &CommandContext, remote_name: &str, remote_url: &str) -> Result<HookResult> {
+    // Since git2-hooks doesn't support pre-push yet, we implement it ourselves
+    // following the same pattern as the existing hooks
+    let repo = ctx.repo();
+    let hooks_path = repo.path().join("hooks").join("pre-push");
+    let husky_path = repo
+        .path()
+        .parent()
+        .and_then(|p| p.parent())
+        .map(|p| p.join(".husky").join("pre-push"));
+
+    // Check for hook in .git/hooks/pre-push first, then ../.husky/pre-push
+    let hook_path = if hooks_path.exists() {
+        Some(hooks_path)
+    } else if let Some(husky) = husky_path {
+        if husky.exists() {
+            Some(husky)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let Some(hook_path) = hook_path else {
+        return Ok(HookResult::NotConfigured);
+    };
+
+    // Execute the pre-push hook with remote name and URL as arguments
+    let output = std::process::Command::new(&hook_path)
+        .arg(remote_name)
+        .arg(remote_url)
+        .current_dir(repo.workdir().unwrap_or_else(|| repo.path()))
+        .output()?;
+
+    if output.status.success() {
+        Ok(HookResult::Success)
+    } else {
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let error = join_output(stdout, stderr);
+        Ok(HookResult::Failure(ErrorData { error }))
+    }
+}
+
 fn join_output(stdout: String, stderr: String) -> String {
     if stdout.is_empty() && stderr.is_ascii() {
         return "hook produced no output".to_owned();
@@ -132,4 +177,81 @@ fn join_output(stdout: String, stderr: String) -> String {
         return stdout;
     }
     format!("stdout:\n{stdout}\n\nstderr:\n{stderr}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gitbutler_testsupport::TestProject;
+    use std::fs;
+
+    #[test]
+    fn test_pre_push_hook_not_configured() {
+        let test_project = TestProject::default();
+        let project = test_project.project();
+        let ctx = &CommandContext::open(project, but_settings::AppSettings::default()).unwrap();
+
+        let result = crate::hooks::pre_push(ctx, "origin", "https://github.com/test/repo.git");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), crate::hooks::HookResult::NotConfigured);
+    }
+
+    #[test]
+    fn test_pre_push_hook_success() {
+        let test_project = TestProject::default();
+        let project = test_project.project();
+        let ctx = &CommandContext::open(project, but_settings::AppSettings::default()).unwrap();
+
+        // Create a simple pre-push hook that succeeds
+        let hooks_dir = ctx.repo().path().join("hooks");
+        fs::create_dir_all(&hooks_dir).unwrap();
+        let hook_path = hooks_dir.join("pre-push");
+
+        #[cfg(unix)]
+        fs::write(&hook_path, "#!/bin/sh\nexit 0\n").unwrap();
+        #[cfg(windows)]
+        fs::write(&hook_path, "@echo off\nexit 0\n").unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        let result = crate::hooks::pre_push(ctx, "origin", "https://github.com/test/repo.git");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), crate::hooks::HookResult::Success);
+    }
+
+    #[test]
+    fn test_pre_push_hook_failure() {
+        let test_project = TestProject::default();
+        let project = test_project.project();
+        let ctx = &CommandContext::open(project, but_settings::AppSettings::default()).unwrap();
+
+        // Create a simple pre-push hook that fails
+        let hooks_dir = ctx.repo().path().join("hooks");
+        fs::create_dir_all(&hooks_dir).unwrap();
+        let hook_path = hooks_dir.join("pre-push");
+
+        #[cfg(unix)]
+        fs::write(&hook_path, "#!/bin/sh\necho 'Hook failed'\nexit 1\n").unwrap();
+        #[cfg(windows)]
+        fs::write(&hook_path, "@echo off\necho Hook failed\nexit 1\n").unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        let result = crate::hooks::pre_push(ctx, "origin", "https://github.com/test/repo.git");
+        assert!(result.is_ok());
+        match result.unwrap() {
+            crate::hooks::HookResult::Failure(error_data) => {
+                assert!(error_data.error.contains("Hook failed"));
+            }
+            _ => panic!("Expected hook failure"),
+        }
+    }
 }

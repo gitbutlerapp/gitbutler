@@ -35,6 +35,7 @@ fn integration() {
             false,
             false,
             stack_entry.name().map(|n| n.to_string()).unwrap(),
+            false, // run_hooks
         )
         .unwrap();
 
@@ -81,6 +82,7 @@ fn integration() {
             false,
             false,
             branch_name.simple_name(),
+            false, // run_hooks
         )
         .unwrap();
 
