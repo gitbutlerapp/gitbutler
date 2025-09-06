@@ -102,7 +102,7 @@
 
 <div
 	bind:this={tableWrapperElem}
-	class="table__wrapper hide-native-scrollbar contrast-{diffContrast}"
+	class="table__wrapper contrast-{diffContrast}"
 	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
 	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
 >
@@ -112,6 +112,7 @@
 		</div>
 	{/if}
 	<ScrollableContainer horz whenToShow="always" padding={{ left: numberHeaderWidth }}>
+		<!-- <div style="overflow: auto; max-height: 600px;"> -->
 		<table class="table__section">
 			<thead class="table__title" class:draggable={!draggingDisabled}>
 				<tr>
@@ -179,6 +180,7 @@
 				/>
 			{/if}
 		</table>
+		<!-- </div> -->
 	</ScrollableContainer>
 </div>
 

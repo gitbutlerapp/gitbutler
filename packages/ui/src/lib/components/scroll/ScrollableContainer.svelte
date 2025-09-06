@@ -121,11 +121,7 @@
 		class="viewport hide-native-scrollbar"
 		style="padding-top: {top}px; padding-bottom: {bottom}px;"
 	>
-		<div
-			class="hide-native-scrollbar"
-			style:min-height={childrenWrapHeight}
-			style:display={childrenWrapDisplay}
-		>
+		<div style:min-height={childrenWrapHeight} style:display={childrenWrapDisplay}>
 			{@render children()}
 		</div>
 	</div>
