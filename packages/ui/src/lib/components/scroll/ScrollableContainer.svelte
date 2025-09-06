@@ -28,6 +28,7 @@
 
 <script lang="ts">
 	import Scrollbar, { type ScrollbarPaddingType } from '$components/scroll/Scrollbar.svelte';
+	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 
 	let {
@@ -56,6 +57,7 @@
 
 	let scrollTopVisible = $state<boolean>(true);
 	let scrollEndVisible = $state<boolean>(true);
+	let rafId: number | null = null;
 
 	// Function to check scroll position and update visibility states
 	function checkScrollPosition() {
@@ -66,17 +68,32 @@
 
 		// Check if we're at the top
 		const atTop = scrollTop <= threshold;
+		const prevScrollTopVisible = scrollTopVisible;
 		scrollTopVisible = atTop;
 
 		// Check if we're at the bottom
 		const atBottom = scrollTop + clientHeight >= scrollHeight - threshold;
+		const prevScrollEndVisible = scrollEndVisible;
 		scrollEndVisible = atBottom;
+
+		// Only call callbacks if state actually changed
+		if (prevScrollTopVisible !== scrollTopVisible) {
+			onscrollTop?.(scrollTopVisible);
+		}
+		if (prevScrollEndVisible !== scrollEndVisible) {
+			onscrollEnd?.(scrollEndVisible);
+		}
 	}
 
-	// Handle scroll events
+	// Handle scroll events with RAF throttling
 	function handleScroll(e: Event) {
-		checkScrollPosition();
-		onscroll?.(e);
+		if (rafId) return; // Skip if already scheduled
+
+		rafId = requestAnimationFrame(() => {
+			checkScrollPosition();
+			onscroll?.(e);
+			rafId = null;
+		});
 	}
 
 	// Check initial position when viewport is available
@@ -86,26 +103,28 @@
 		}
 	});
 
-	$effect(() => {
-		if (scrollTopVisible) {
-			onscrollTop?.(true);
-		} else {
-			onscrollTop?.(false);
+	// Cleanup RAF on component destroy
+	onDestroy(() => {
+		if (rafId) {
+			cancelAnimationFrame(rafId);
+			rafId = null;
 		}
 	});
 
-	$effect(() => {
-		if (scrollEndVisible) {
-			onscrollEnd?.(true);
-		} else {
-			onscrollEnd?.(false);
+	// Export methods to programmatically control scroll position
+	export function scrollTo(options: ScrollToOptions) {
+		if (viewport) {
+			viewport.scrollTo(options);
 		}
-	});
+	}
 
-	// Export method to programmatically scroll to bottom
+	export function scrollToTop() {
+		scrollTo({ top: 0, behavior: 'smooth' });
+	}
+
 	export function scrollToBottom() {
 		if (viewport) {
-			viewport.scrollTo({
+			scrollTo({
 				top: viewport.scrollHeight,
 				behavior: 'smooth'
 			});
