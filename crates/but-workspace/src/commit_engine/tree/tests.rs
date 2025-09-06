@@ -240,4 +240,44 @@ mod to_additive_hunks {
         )
         "#);
     }
+
+    #[test]
+    fn real_world_issue() {
+        let wth = vec![hunk_header("-1,214", "+1,55")];
+        let wth0 = vec![
+            hunk_header("-4,13", "+4,0"),
+            hunk_header("-18,19", "+5,1"),
+            hunk_header("-38,79", "+7,3"),
+            hunk_header("-118,64", "+11,0"),
+            hunk_header("-183,1", "+12,1"),
+            hunk_header("-185,15", "+14,2"),
+            hunk_header("-201,5", "+17,5"),
+            hunk_header("-207,1", "+23,26"),
+            hunk_header("-209,3", "+50,3"),
+        ];
+
+        let actual = to_additive_hunks(
+            [
+                hunk_header("-0,0", "+23,26"),
+                hunk_header("-0,0", "+50,3"),
+                hunk_header("-207,1", "+0,0"),
+                hunk_header("-209,3", "+0,0"),
+            ],
+            &wth,
+            &wth0,
+        );
+        // TODO: The old lines and new lines are all over the place and wrong, fix this.
+        //       We are looking at overlapping hunks.
+        insta::assert_debug_snapshot!(actual, @r#"
+        (
+            [
+                HunkHeader("-207,0", "+23,26"),
+                HunkHeader("-209,0", "+50,3"),
+                HunkHeader("-207,1", "+23,0"),
+                HunkHeader("-209,3", "+50,0"),
+            ],
+            [],
+        )
+        "#);
+    }
 }
