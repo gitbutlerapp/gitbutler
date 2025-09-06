@@ -591,8 +591,7 @@
 
 		<div class="explanation">
 			<p class="primary-text">
-				Your selected changes will be moved to a new branch called
-				<strong>{stashBranchName || '[branch name]'}</strong> and removed from your current workspace.
+				Your selected changes will be moved to a new branch and removed from your current workspace.
 				To get these changes back later, switch to the new branch and uncommit the stash.
 			</p>
 		</div>

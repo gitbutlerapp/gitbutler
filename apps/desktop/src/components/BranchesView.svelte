@@ -338,31 +338,39 @@
 							</div>
 						{/if}
 
-						<div
-							class="commits"
-							class:target-branch={isTargetBranch}
-							use:focusable={{ list: true }}
-						>
-							{#if isTargetBranch}
+						{#if isTargetBranch}
+							<div class="commits" use:focusable={{ list: true }}>
 								<TargetCommitList {projectId} />
-							{:else if current.stackId}
-								<BranchesViewStack {projectId} stackId={current.stackId} {onerror} />
-							{:else if current.branchName}
-								<BranchesViewBranch
-									{projectId}
-									branchName={current.branchName}
-									remote={current.remote}
-									{onerror}
-								/>
-							{:else if current.prNumber}
+							</div>
+						{/if}
+
+						{#if !isTargetBranch && someBranchSelected && !isNonLocalPr}
+							<ConfigurableScrollableContainer>
+								<div class="commits with-padding" use:focusable={{ list: true }}>
+									{#if current.stackId}
+										<BranchesViewStack {projectId} stackId={current.stackId} {onerror} />
+									{:else if current.branchName}
+										<BranchesViewBranch
+											{projectId}
+											branchName={current.branchName}
+											remote={current.remote}
+											{onerror}
+										/>
+									{/if}
+								</div>
+							</ConfigurableScrollableContainer>
+						{/if}
+
+						{#if isNonLocalPr && current.prNumber}
+							<div class="commits" use:focusable={{ list: true }}>
 								<BranchesViewPr
 									bind:this={prBranch}
 									{projectId}
 									prNumber={current.prNumber}
 									{onerror}
 								/>
-							{/if}
-						</div>
+							</div>
+						{/if}
 
 						<Resizer
 							viewport={branchColumn}
@@ -513,11 +521,10 @@
 		position: relative;
 		flex: 1;
 		flex-direction: column;
-		padding: 12px;
 		overflow: hidden;
 
-		&.target-branch {
-			padding: 0;
+		&.with-padding {
+			padding: 12px;
 		}
 	}
 

@@ -24,15 +24,13 @@
 	});
 </script>
 
-<Story name="default">
+<Story name="Playground">
 	{#snippet template(args)}
 		<div class="wrap">
 			<HunkDiff {...args} />
 		</div>
 	{/snippet}
 </Story>
-
-<Story name="Playground" />
 
 <style>
 	.wrap {

@@ -183,7 +183,7 @@
 		<div class="uppstream-integration-actions__radio-container">
 			<label class="integration-radio-option" class:selected={$integrationMode === 'rebase'}>
 				<div class="integration-radio-content">
-					<h4 class="text-12 text-semibold">Rebase upstream changes</h4>
+					<h4 class="text-13 text-semibold">Rebase upstream changes</h4>
 					<p class="text-11 text-body clr-text-2">
 						Place the upstream changes on top of your commits. Creates clean, linear history.
 					</p>
@@ -198,7 +198,7 @@
 			</label>
 			<label class="integration-radio-option" class:selected={$integrationMode === 'interactive'}>
 				<div class="integration-radio-content">
-					<h4 class="text-12 text-semibold">Interactive integration</h4>
+					<h4 class="text-13 text-semibold">Interactive integration</h4>
 					<p class="text-11 text-body clr-text-2">
 						Review and resolve any conflicts before completing the integration.
 					</p>
