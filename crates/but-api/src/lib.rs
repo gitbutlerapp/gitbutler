@@ -13,6 +13,7 @@ use serde::Deserialize;
 use tokio::sync::Mutex;
 
 pub mod commands;
+pub use commands::*;
 pub mod error;
 pub mod hex_hash;
 

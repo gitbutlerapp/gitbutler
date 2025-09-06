@@ -47,12 +47,12 @@ pub fn api_cmd(_attr: TokenStream, item: TokenStream) -> TokenStream {
         // Generated struct
         #[derive(::serde::Deserialize)]
         #[serde(rename_all = "camelCase")]
-        pub struct #struct_name {
+        struct #struct_name {
             #(#fields,)*
         }
 
         // Wrapper function
-        #vis fn #wrapper_name(params: #struct_name) #output {
+        fn #wrapper_name(params: #struct_name) #output {
             #fn_name(#(params.#param_names),*)
         }
 
