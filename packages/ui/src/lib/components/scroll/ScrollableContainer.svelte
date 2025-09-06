@@ -119,7 +119,11 @@
 		bind:offsetHeight={viewportHeight}
 		onscroll={handleScroll}
 		class="viewport hide-native-scrollbar"
-		style="padding-top: {top}px; padding-bottom: {bottom}px;"
+		style="padding-top: {top}px; padding-bottom: {bottom}px; --overflow-x: {horz
+			? 'auto'
+			: 'hidden'}; --overflow-y: {horz ? 'hidden' : 'auto'}; --flex-direction: {horz
+			? 'row'
+			: 'column'};"
 	>
 		<div style:min-height={childrenWrapHeight} style:display={childrenWrapDisplay}>
 			{@render children()}
@@ -153,7 +157,7 @@
 		flex-direction: column;
 		width: 100%;
 		height: 100%;
-		overflow-x: hidden;
-		overflow-y: auto;
+		overflow-x: var(--overflow-x, hidden);
+		overflow-y: var(--overflow-y, auto);
 	}
 </style>
