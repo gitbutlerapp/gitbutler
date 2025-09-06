@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchCard from '$components/BranchCard.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { pushStatusToColor, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -37,9 +36,7 @@
 		{#if stackId}
 			{@render branchCard(branch, env)}
 		{:else}
-			<ConfigurableScrollableContainer>
-				{@render branchCard(branch, env)}
-			</ConfigurableScrollableContainer>
+			{@render branchCard(branch, env)}
 		{/if}
 	{/snippet}
 </ReduxResult>

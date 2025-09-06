@@ -208,6 +208,7 @@
 					width={34}
 					class={['btn-square', isCodegenPath() && 'btn-active']}
 					tooltip="Codegen"
+					tooltipAlign="start"
 					{disabled}
 				>
 					{#snippet custom()}

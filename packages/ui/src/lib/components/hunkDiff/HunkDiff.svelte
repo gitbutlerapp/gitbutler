@@ -102,11 +102,17 @@
 
 <div
 	bind:this={tableWrapperElem}
-	class="table__wrapper hide-native-scrollbar contrast-{diffContrast}"
+	class="table__wrapper contrast-{diffContrast}"
 	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
 	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
 >
+	{#if !draggingDisabled}
+		<div class="table__drag-handle">
+			<Icon name="draggable" />
+		</div>
+	{/if}
 	<ScrollableContainer horz whenToShow="always" padding={{ left: numberHeaderWidth }}>
+		<!-- <div style="overflow: auto; max-height: 600px;"> -->
 		<table class="table__section">
 			<thead class="table__title" class:draggable={!draggingDisabled}>
 				<tr>
@@ -137,12 +143,6 @@
 						<span>
 							{hunkSummary}
 						</span>
-
-						{#if !draggingDisabled}
-							<div class="table__drag-handle">
-								<Icon name="draggable" />
-							</div>
-						{/if}
 					</th>
 				</tr>
 			</thead>
@@ -180,6 +180,7 @@
 				/>
 			{/if}
 		</table>
+		<!-- </div> -->
 	</ScrollableContainer>
 </div>
 

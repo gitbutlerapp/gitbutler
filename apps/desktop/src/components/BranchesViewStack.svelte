@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BranchesViewBranch from '$components/BranchesViewBranch.svelte';
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getStackBranchNames } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -21,10 +20,8 @@
 
 <ReduxResult result={stackResult.current} {projectId} {stackId} {onerror}>
 	{#snippet children(stack, { stackId, projectId })}
-		<ConfigurableScrollableContainer>
-			{#each getStackBranchNames(stack) as branchName, idx}
-				<BranchesViewBranch {projectId} {stackId} {branchName} isTopBranch={idx === 0} {onerror} />
-			{/each}
-		</ConfigurableScrollableContainer>
+		{#each getStackBranchNames(stack) as branchName, idx}
+			<BranchesViewBranch {projectId} {stackId} {branchName} isTopBranch={idx === 0} {onerror} />
+		{/each}
 	{/snippet}
 </ReduxResult>
