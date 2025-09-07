@@ -83,13 +83,13 @@
 	class:transparent
 	class:grow
 	class:noshrink
-	use:focusable={{ list: true }}
 >
 	<div
 		bind:this={headerDiv}
 		class="drawer-header"
 		class:bottom-border={!$collapsed}
 		bind:clientHeight={headerHeight}
+		use:focusable
 	>
 		{#if !disableFold}
 			<button

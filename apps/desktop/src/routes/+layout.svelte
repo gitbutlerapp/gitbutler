@@ -33,7 +33,6 @@
 	import { inject } from '@gitbutler/core/context';
 	import { ChipToastContainer } from '@gitbutler/ui';
 	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
@@ -157,12 +156,7 @@
 	onkeydown={handleKeyDown}
 />
 
-<div
-	use:focusable={{ activate: true }}
-	class="app-root"
-	role="application"
-	oncontextmenu={(e) => !dev && e.preventDefault()}
->
+<div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
 	{@render children()}
 </div>
 <ShareIssueModal />

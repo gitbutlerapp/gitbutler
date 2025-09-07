@@ -176,7 +176,7 @@
 	});
 
 	function handleKeyDown(change: TreeChange, idx: number, e: KeyboardEvent) {
-		if (e.key === 'Enter' || e.key === 'l') {
+		if (e.key === 'Enter' || e.key === ' ' || e.key === 'l') {
 			e.stopPropagation();
 			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
 			onselect?.();
@@ -251,6 +251,7 @@
 	use:focusable={{
 		id: DefinedFocusable.FileList,
 		list: true,
+		skip: true,
 		onActive: (value) => (active = value)
 	}}
 >

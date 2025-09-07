@@ -263,7 +263,7 @@
 								}
 							}}
 							handleLineContextMenu={(params) => {
-								contextMenu?.open(params.event, {
+								contextMenu?.open(params.event || params.target, {
 									hunk,
 									selectedLines: selection.current.lines,
 									beforeLineNumber: params.beforeLineNumber,

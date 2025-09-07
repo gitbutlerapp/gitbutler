@@ -2,7 +2,9 @@
 	import { inject } from '@gitbutler/core/context';
 	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
 
-	const { cursor: target, outline } = inject(FOCUS_MANAGER);
+	const focusManager = inject(FOCUS_MANAGER);
+	const { cursor: target, outline } = focusManager;
+	const metadata = $derived(focusManager.getOptions($target));
 
 	function findNearestRelativeDiv(element: HTMLElement): HTMLElement | undefined {
 		let current = element.parentElement;
@@ -38,26 +40,33 @@
 		const width = from.offsetWidth;
 		const height = from.offsetHeight;
 
-		to.style.left = left ? left + 'px' : '0';
-		to.style.top = top ? top + 'px' : '0';
+		to.style.left = left + 'px';
+		to.style.top = top + 'px';
 
 		to.style.width = width + 'px';
 		to.style.height = height + 'px';
 	}
 
 	$effect(() => {
-		if ($target && $outline) {
-			let element = createCursor($target);
-			copyPosition($target, element);
-			const observer = new ResizeObserver(() => {
-				copyPosition($target, element);
-			});
-			observer.observe($target);
-			return () => {
-				element.remove();
-				observer.disconnect();
-			};
+		if (!$target || !$outline || metadata?.dim) {
+			return;
 		}
+
+		const element = createCursor($target);
+		copyPosition($target, element);
+
+		const observer = new ResizeObserver(() => {
+			if ($target && element.isConnected) {
+				copyPosition($target, element);
+			}
+		});
+
+		observer.observe($target);
+
+		return () => {
+			element.remove();
+			observer.disconnect();
+		};
 	});
 </script>
 
