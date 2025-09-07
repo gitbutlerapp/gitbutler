@@ -20,9 +20,11 @@
 </script>
 
 <div class="todo clr-text-2">
-	<Icon name={iconName} size={14} color={todo.status === 'completed' ? 'success' : undefined} />
+	<div class="todo-icon">
+		<Icon name={iconName} size={14} color={todo.status === 'completed' ? 'success' : undefined} />
+	</div>
 	<p
-		class="text-12"
+		class="text-12 text-body"
 		class:clr-text-1={todo.status === 'pending'}
 		class:todo-strikethrough={todo.status === 'completed'}
 	>
@@ -34,8 +36,13 @@
 	.todo {
 		display: flex;
 		width: 100%;
-		min-height: 15px;
-		gap: 9px;
+		gap: 8px;
+	}
+
+	.todo-icon {
+		display: flex;
+		flex-shrink: 0;
+		transform: translateY(4px);
 	}
 
 	.todo-strikethrough {
