@@ -44,6 +44,5 @@ pub mod zip;
 
 pub mod diff;
 pub mod env;
-pub mod workspace;
 
 pub mod csp;

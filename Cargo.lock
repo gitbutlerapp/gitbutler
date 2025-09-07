@@ -893,6 +893,7 @@ dependencies = [
  "serde",
  "serde-error",
  "serde_json",
+ "tauri",
  "tokio",
  "tracing",
  "url",

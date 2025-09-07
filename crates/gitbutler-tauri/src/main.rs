@@ -13,6 +13,7 @@
 
 use std::sync::Arc;
 
+use but_api::workspace;
 use but_api::App;
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
@@ -20,7 +21,7 @@ use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::{
     action, askpass, bot, claude, cli, commands, config, diff, env, forge, github, logs, menu,
     modes, open, projects, remotes, repo, rules, secret, settings, stack, undo, users,
-    virtual_branches, workspace, zip, WindowState,
+    virtual_branches, zip, WindowState,
 };
 use tauri::Emitter;
 use tauri::{generate_context, Manager};
