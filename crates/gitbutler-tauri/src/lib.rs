@@ -32,7 +32,6 @@ pub mod projects;
 pub mod remotes;
 pub mod secret;
 pub mod undo;
-pub mod users;
 
 pub mod settings;
 pub mod zip;
