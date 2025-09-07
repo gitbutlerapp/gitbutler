@@ -14,14 +14,15 @@
 use std::sync::Arc;
 
 use but_api::App;
-use but_api::{virtual_branches, workspace};
+use but_api::{
+    cli, config, diff, forge, git, modes, open, remotes, repo, rules, secret, stack, undo, users,
+    virtual_branches, workspace,
+};
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::{
-    action, askpass, bot, claude, cli, commands, config, diff, env, forge, github, logs, menu,
-    modes, open, projects, remotes, repo, rules, secret, settings, stack, undo, users, zip,
-    WindowState,
+    action, askpass, bot, claude, env, github, logs, menu, projects, settings, zip, WindowState,
 };
 use tauri::Emitter;
 use tauri::{generate_context, Manager};
@@ -207,25 +208,25 @@ fn main() {
                 .plugin(tauri_plugin_store::Builder::default().build())
                 .plugin(log.build())
                 .invoke_handler(tauri::generate_handler![
-                    commands::git_remote_branches,
-                    commands::git_head,
-                    commands::delete_all_data,
-                    commands::git_set_global_config,
-                    commands::git_remove_global_config,
-                    commands::git_get_global_config,
-                    commands::git_test_push,
-                    commands::git_test_fetch,
-                    commands::git_index_size,
+                    git::git_remote_branches,
+                    git::git_head,
+                    git::delete_all_data,
+                    git::git_set_global_config,
+                    git::git_remove_global_config,
+                    git::git_get_global_config,
+                    git::git_test_push,
+                    git::git_test_fetch,
+                    git::git_index_size,
                     zip::commands::get_logs_archive_path,
                     zip::commands::get_project_archive_path,
                     zip::commands::get_anonymous_graph_path,
                     users::set_user,
                     users::delete_user,
                     users::get_user,
-                    projects::add_project,
-                    projects::get_project,
-                    projects::update_project,
-                    projects::delete_project,
+                    but_api::projects::add_project,
+                    but_api::projects::get_project,
+                    but_api::projects::update_project,
+                    but_api::projects::delete_project,
                     projects::list_projects,
                     projects::set_project_active,
                     projects::open_project_in_window,
@@ -302,7 +303,7 @@ fn main() {
                     open::show_in_finder,
                     forge::pr_templates,
                     forge::pr_template,
-                    settings::get_app_settings,
+                    but_api::settings::get_app_settings,
                     settings::update_onboarding_complete,
                     settings::update_telemetry,
                     settings::update_feature_flags,
@@ -340,7 +341,6 @@ fn main() {
                     diff::changes_in_branch,
                     diff::tree_change_diffs,
                     diff::assign_hunk,
-                    claude::claude_get_session_details,
                     // Debug-only - not for production!
                     #[cfg(debug_assertions)]
                     env::env_vars,
@@ -348,14 +348,15 @@ fn main() {
                     workspace::show_graph_svg,
                     claude::claude_send_message,
                     claude::claude_get_messages,
-                    claude::claude_list_permission_requests,
-                    claude::claude_update_permission_request,
                     claude::claude_cancel_session,
-                    claude::claude_check_available,
                     claude::claude_is_stack_active,
-                    claude::claude_get_prompt_templates,
-                    claude::claude_write_prompt_templates,
-                    claude::claude_get_prompt_templates_path
+                    but_api::claude::claude_get_session_details,
+                    but_api::claude::claude_list_permission_requests,
+                    but_api::claude::claude_update_permission_request,
+                    but_api::claude::claude_check_available,
+                    but_api::claude::claude_get_prompt_templates,
+                    but_api::claude::claude_write_prompt_templates,
+                    but_api::claude::claude_get_prompt_templates_path
                 ])
                 .menu(move |handle| menu::build(handle, &app_settings_for_menu))
                 .on_window_event(|window, event| match event {

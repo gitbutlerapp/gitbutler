@@ -8,8 +8,9 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use serde::Deserialize;
 use tokio::sync::Mutex;
+use tracing::instrument;
 
-use crate::{App, NoParams, error::Error};
+use crate::{App, error::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,6 +59,8 @@ pub fn claude_get_messages(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn claude_get_session_details(
     project_id: ProjectId,
     session_id: String,
@@ -73,6 +76,8 @@ pub fn claude_get_session_details(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn claude_list_permission_requests(
     project_id: ProjectId,
 ) -> Result<Vec<but_claude::ClaudePermissionRequest>, Error> {
@@ -81,6 +86,8 @@ pub fn claude_list_permission_requests(
     Ok(but_claude::db::list_all_permission_requests(&mut ctx)?)
 }
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn claude_update_permission_request(
     project_id: ProjectId,
     request_id: String,
@@ -107,7 +114,9 @@ pub async fn claude_cancel_session(app: &App, params: CancelSessionParams) -> Re
     Ok(cancelled)
 }
 
-pub async fn claude_check_available(_params: NoParams) -> Result<bool, Error> {
+#[tauri::command(async)]
+#[instrument(err(Debug))]
+pub async fn claude_check_available() -> Result<bool, Error> {
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let claude_executable = app_settings.claude.executable.clone();
     let is_available = but_claude::bridge::check_claude_available(&claude_executable).await;
@@ -127,12 +136,16 @@ pub async fn claude_is_stack_active(app: &App, params: IsStackActiveParams) -> R
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn claude_get_prompt_templates() -> Result<prompt_templates::PromptTemplates, Error> {
     let templates = prompt_templates::load_prompt_templates()?;
     Ok(templates)
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn claude_write_prompt_templates(
     templates: prompt_templates::PromptTemplates,
 ) -> Result<(), Error> {
@@ -141,6 +154,8 @@ pub fn claude_write_prompt_templates(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn claude_get_prompt_templates_path() -> Result<String, Error> {
     let path = prompt_templates::get_prompt_templates_path_string()?;
     Ok(path)

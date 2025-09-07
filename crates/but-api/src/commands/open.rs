@@ -2,6 +2,7 @@
 use anyhow::{Context, bail};
 use but_api_macros::api_cmd;
 use std::env;
+use tracing::instrument;
 use url::Url;
 
 use crate::error::Error;
@@ -83,11 +84,15 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn open_url(url: String) -> Result<(), Error> {
     Ok(open_that(&url)?)
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn show_in_finder(path: String) -> Result<(), Error> {
     // Cross-platform implementation to open file/directory in the default file manager
     // macOS: Opens in Finder (with -R flag to reveal the item)

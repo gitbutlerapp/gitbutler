@@ -12,7 +12,6 @@
 )]
 
 pub mod claude;
-pub mod commands;
 
 pub mod logs;
 pub mod menu;
@@ -23,25 +22,12 @@ pub use window::state::WindowState;
 pub mod action;
 pub mod askpass;
 pub mod bot;
-pub mod cli;
-pub mod config;
-pub mod forge;
 pub mod github;
-pub mod modes;
-pub mod open;
 pub mod projects;
-pub mod remotes;
-pub mod repo;
-pub mod rules;
-pub mod secret;
-pub mod undo;
-pub mod users;
 
 pub mod settings;
-pub mod stack;
 pub mod zip;
 
-pub mod diff;
 pub mod env;
 
 pub mod csp;

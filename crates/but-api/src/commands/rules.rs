@@ -7,10 +7,13 @@ use but_rules::{
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
+use tracing::instrument;
 
 use crate::error::Error;
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn create_workspace_rule(
     project_id: ProjectId,
     request: CreateRuleRequest,
@@ -23,6 +26,8 @@ pub fn create_workspace_rule(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn delete_workspace_rule(project_id: ProjectId, id: String) -> Result<(), Error> {
     let ctx = &mut CommandContext::open(
         &gitbutler_project::get(project_id)?,
@@ -32,6 +37,8 @@ pub fn delete_workspace_rule(project_id: ProjectId, id: String) -> Result<(), Er
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn update_workspace_rule(
     project_id: ProjectId,
     request: UpdateRuleRequest,
@@ -44,6 +51,8 @@ pub fn update_workspace_rule(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn list_workspace_rules(project_id: ProjectId) -> Result<Vec<WorkspaceRule>, Error> {
     let ctx = &mut CommandContext::open(
         &gitbutler_project::get(project_id)?,
