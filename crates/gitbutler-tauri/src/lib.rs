@@ -28,7 +28,6 @@ pub mod forge;
 pub mod github;
 pub mod open;
 pub mod projects;
-pub mod secret;
 
 pub mod settings;
 pub mod zip;
