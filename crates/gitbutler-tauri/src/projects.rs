@@ -1,41 +1,16 @@
 use anyhow::{bail, Context};
-use but_api::commands::projects::{self};
 use but_api::error::Error;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, ProjectId};
 use gix::bstr::ByteSlice;
 use std::collections::BTreeSet;
-use std::path;
 use std::path::{Path, PathBuf};
 use tauri::{State, Window};
 use tracing::instrument;
 
 use crate::window::state::ProjectAccessMode;
 use crate::{window, WindowState};
-
-#[tauri::command(async)]
-#[instrument(err(Debug))]
-pub fn update_project(
-    project: gitbutler_project::UpdateRequest,
-) -> Result<gitbutler_project::Project, Error> {
-    projects::update_project(project)
-}
-
-#[tauri::command(async)]
-#[instrument(err(Debug))]
-pub fn add_project(path: &path::Path) -> Result<gitbutler_project::AddProjectOutcome, Error> {
-    projects::add_project(path.to_path_buf())
-}
-
-#[tauri::command(async)]
-#[instrument(err(Debug))]
-pub fn get_project(
-    project_id: ProjectId,
-    no_validation: Option<bool>,
-) -> Result<gitbutler_project::Project, Error> {
-    projects::get_project(project_id, no_validation)
-}
 
 #[tauri::command(async)]
 #[instrument(skip(window_state), err(Debug))]
@@ -121,12 +96,6 @@ pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result
         .context("didn't manage to get any time-based unique ID")?;
     window::create(&handle, &label, id.to_string()).map_err(anyhow::Error::from)?;
     Ok(())
-}
-
-#[tauri::command(async)]
-#[instrument(err(Debug))]
-pub fn delete_project(project_id: ProjectId) -> Result<(), Error> {
-    projects::delete_project(project_id)
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
