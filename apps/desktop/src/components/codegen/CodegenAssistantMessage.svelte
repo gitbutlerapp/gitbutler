@@ -39,6 +39,7 @@
 		display: flex;
 		flex-direction: column;
 		max-width: var(--message-max-width);
+		overflow: hidden;
 		gap: 10px;
 		text-wrap: wrap;
 	}
