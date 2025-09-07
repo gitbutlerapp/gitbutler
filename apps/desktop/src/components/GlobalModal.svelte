@@ -47,7 +47,7 @@
 					props: {
 						testId: 'general-settings-modal',
 						closeButton: true,
-						width: 1000,
+						width: 820,
 						noPadding: true
 					}
 				};
@@ -58,7 +58,7 @@
 					props: {
 						testId: 'project-settings-modal',
 						closeButton: true,
-						width: 1000,
+						width: 820,
 						noPadding: true
 					}
 				};
@@ -98,9 +98,9 @@
 		{:else if modalProps.state.type === 'author-missing'}
 			<AuthorMissingModalContent data={modalProps.state} close={closeModal} />
 		{:else if modalProps.state.type === 'general-settings'}
-			<GeneralSettingsModalContent data={modalProps.state} close={closeModal} />
+			<GeneralSettingsModalContent data={modalProps.state} />
 		{:else if modalProps.state.type === 'project-settings'}
-			<ProjectSettingsModalContent data={modalProps.state} close={closeModal} />
+			<ProjectSettingsModalContent data={modalProps.state} />
 		{/if}
 	</Modal>
 {/if}
