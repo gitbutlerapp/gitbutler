@@ -42,7 +42,7 @@
 			{#if expanded}
 				<div class="tool-calls-expanded">
 					{#each toolCalls as toolCall}
-						<CodegenToolCall {toolCall} />
+						<CodegenToolCall fullWidth {toolCall} />
 					{/each}
 				</div>
 			{:else}
