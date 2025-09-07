@@ -11,17 +11,20 @@ use gitbutler_repo::hooks::{HookResult, MessageHookResult};
 use gitbutler_repo::{FileInfo, RepoCommands};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
+use tracing::instrument;
 
 use crate::error::Error;
 use crate::error::ToError;
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn git_get_local_config(project_id: ProjectId, key: String) -> Result<Option<String>, Error> {
     let project = gitbutler_project::get(project_id)?;
     Ok(project.get_local_config(&key)?)
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn git_set_local_config(
     project_id: ProjectId,
     key: String,
@@ -32,12 +35,14 @@ pub fn git_set_local_config(
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn check_signing_settings(project_id: ProjectId) -> Result<bool, Error> {
     let project = gitbutler_project::get(project_id)?;
     project.check_signing_settings().map_err(Into::into)
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn git_clone_repository(repository_url: String, target_dir: PathBuf) -> Result<(), Error> {
     let should_interrupt = AtomicBool::new(false);
 
@@ -52,6 +57,7 @@ pub fn git_clone_repository(repository_url: String, target_dir: PathBuf) -> Resu
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn get_uncommitted_files(project_id: ProjectId) -> Result<Vec<RemoteBranchFile>, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -59,6 +65,7 @@ pub fn get_uncommitted_files(project_id: ProjectId) -> Result<Vec<RemoteBranchFi
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn get_commit_file(
     project_id: ProjectId,
     relative_path: PathBuf,
@@ -70,6 +77,7 @@ pub fn get_commit_file(
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn get_workspace_file(
     project_id: ProjectId,
     relative_path: PathBuf,
@@ -79,6 +87,7 @@ pub fn get_workspace_file(
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn pre_commit_hook(
     project_id: ProjectId,
     ownership: BranchOwnershipClaims,
@@ -90,6 +99,7 @@ pub fn pre_commit_hook(
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn pre_commit_hook_diffspecs(
     project_id: ProjectId,
     changes: Vec<DiffSpec>,
@@ -117,6 +127,7 @@ pub fn pre_commit_hook_diffspecs(
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn post_commit_hook(project_id: ProjectId) -> Result<HookResult, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -124,6 +135,7 @@ pub fn post_commit_hook(project_id: ProjectId) -> Result<HookResult, Error> {
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn message_hook(project_id: ProjectId, message: String) -> Result<MessageHookResult, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
