@@ -1,8 +1,10 @@
 //! In place of commands.rs
 use anyhow::{Context, Result};
+use but_api_macros::api_cmd;
 use but_settings::AppSettings;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tracing::instrument;
 
 use crate::{NoParams, error::Error};
 
@@ -12,6 +14,8 @@ pub struct Verification {
     pub device_code: String,
 }
 
+#[api_cmd]
+#[instrument(err(Debug))]
 pub async fn init_device_oauth(_params: NoParams) -> Result<Verification, Error> {
     let mut req_body = HashMap::new();
     let app_settings = AppSettings::load_from_default_path_creating()?;
@@ -41,13 +45,9 @@ pub async fn init_device_oauth(_params: NoParams) -> Result<Verification, Error>
         .map_err(Into::into)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CheckAuthStatusParams {
-    pub device_code: String,
-}
-
-pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<String, Error> {
+#[api_cmd]
+#[instrument(err(Debug))]
+pub async fn check_auth_status(device_code: String) -> Result<String, Error> {
     #[derive(Debug, Deserialize, Serialize, Clone, Default)]
     struct AccessTokenContainer {
         access_token: String,
@@ -57,7 +57,7 @@ pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<String, 
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let client_id = app_settings.github_oauth_app.oauth_client_id.clone();
     req_body.insert("client_id", client_id.as_str());
-    req_body.insert("device_code", params.device_code.as_str());
+    req_body.insert("device_code", device_code.as_str());
     req_body.insert("grant_type", "urn:ietf:params:oauth:grant-type:device_code");
 
     let mut headers = reqwest::header::HeaderMap::new();

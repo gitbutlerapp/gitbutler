@@ -3,11 +3,13 @@ use gitbutler_project::ProjectId;
 use gitbutler_serde::bstring_opt_lossy;
 use gix::bstr::BString;
 use serde::Serialize;
+use tracing::instrument;
 
 use crate::error::Error;
 use but_api_macros::api_cmd;
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn get_gb_config(project_id: ProjectId) -> Result<GitConfigSettings, Error> {
     but_core::open_repo(gitbutler_project::get(project_id)?.path)?
         .git_settings()
@@ -16,6 +18,7 @@ pub fn get_gb_config(project_id: ProjectId) -> Result<GitConfigSettings, Error> 
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn set_gb_config(project_id: ProjectId, config: GitConfigSettings) -> Result<(), Error> {
     but_core::open_repo(gitbutler_project::get(project_id)?.path)?
         .set_git_settings(&config.into())
@@ -23,6 +26,7 @@ pub fn set_gb_config(project_id: ProjectId, config: GitConfigSettings) -> Result
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn store_author_globally_if_unset(
     project_id: ProjectId,
     name: String,
@@ -50,6 +54,7 @@ pub struct AuthorInfo {
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 /// Return the Git author information as the project repository would see it.
 pub fn get_author_info(project_id: ProjectId) -> Result<AuthorInfo, Error> {
     let repo = but_core::open_repo(gitbutler_project::get(project_id)?.path)?;
