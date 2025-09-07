@@ -12,7 +12,6 @@
 )]
 
 pub mod claude;
-pub mod commands;
 
 pub mod logs;
 pub mod menu;

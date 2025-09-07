@@ -14,13 +14,13 @@
 use std::sync::Arc;
 
 use but_api::App;
-use but_api::{repo, virtual_branches, workspace};
+use but_api::{git, repo, virtual_branches, workspace};
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::{
-    action, askpass, bot, claude, cli, commands, config, diff, env, forge, github, logs, menu,
-    modes, open, projects, remotes, rules, secret, settings, stack, undo, users, zip, WindowState,
+    action, askpass, bot, claude, cli, config, diff, env, forge, github, logs, menu, modes, open,
+    projects, remotes, rules, secret, settings, stack, undo, users, zip, WindowState,
 };
 use tauri::Emitter;
 use tauri::{generate_context, Manager};
@@ -206,15 +206,15 @@ fn main() {
                 .plugin(tauri_plugin_store::Builder::default().build())
                 .plugin(log.build())
                 .invoke_handler(tauri::generate_handler![
-                    commands::git_remote_branches,
-                    commands::git_head,
-                    commands::delete_all_data,
-                    commands::git_set_global_config,
-                    commands::git_remove_global_config,
-                    commands::git_get_global_config,
-                    commands::git_test_push,
-                    commands::git_test_fetch,
-                    commands::git_index_size,
+                    git::git_remote_branches,
+                    git::git_head,
+                    git::delete_all_data,
+                    git::git_set_global_config,
+                    git::git_remove_global_config,
+                    git::git_get_global_config,
+                    git::git_test_push,
+                    git::git_test_fetch,
+                    git::git_index_size,
                     zip::commands::get_logs_archive_path,
                     zip::commands::get_project_archive_path,
                     zip::commands::get_anonymous_graph_path,
