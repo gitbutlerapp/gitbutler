@@ -29,7 +29,6 @@ pub mod github;
 pub mod open;
 pub mod projects;
 pub mod secret;
-pub mod undo;
 
 pub mod settings;
 pub mod zip;

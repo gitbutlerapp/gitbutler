@@ -5,10 +5,13 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::OperationKind;
 use gitbutler_oplog::{OplogExt, entry::Snapshot};
 use gitbutler_project::ProjectId;
+use tracing::instrument;
 
 use crate::error::Error;
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn list_snapshots(
     project_id: ProjectId,
     limit: usize,
@@ -27,6 +30,8 @@ pub fn list_snapshots(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<(), Error> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -39,6 +44,8 @@ pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<(), Error>
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn snapshot_diff(
     project_id: ProjectId,
     sha: String,
