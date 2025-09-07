@@ -8,10 +8,13 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_edit_mode::ConflictEntryPresence;
 use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};
 use gitbutler_project::ProjectId;
+use tracing::instrument;
 
 use crate::error::Error;
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn operating_mode(project_id: ProjectId) -> Result<OperatingMode, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -19,6 +22,8 @@ pub fn operating_mode(project_id: ProjectId) -> Result<OperatingMode, Error> {
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn enter_edit_mode(
     project_id: ProjectId,
     commit_id: String,
@@ -32,6 +37,8 @@ pub fn enter_edit_mode(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -42,6 +49,8 @@ pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), E
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -52,6 +61,8 @@ pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), Er
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn edit_initial_index_state(
     project_id: ProjectId,
 ) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>, Error> {
@@ -62,6 +73,8 @@ pub fn edit_initial_index_state(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn edit_changes_from_initial(project_id: ProjectId) -> Result<Vec<TreeChange>, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;

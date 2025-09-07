@@ -14,13 +14,13 @@
 use std::sync::Arc;
 
 use but_api::App;
-use but_api::{diff, git, repo, rules, stack, users, virtual_branches, workspace};
+use but_api::{diff, git, modes, repo, rules, stack, users, virtual_branches, workspace};
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::{
-    action, askpass, bot, claude, cli, config, env, forge, github, logs, menu, modes, open,
-    projects, remotes, secret, settings, undo, zip, WindowState,
+    action, askpass, bot, claude, cli, config, env, forge, github, logs, menu, open, projects,
+    remotes, secret, settings, undo, zip, WindowState,
 };
 use tauri::Emitter;
 use tauri::{generate_context, Manager};

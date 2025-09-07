@@ -26,7 +26,6 @@ pub mod cli;
 pub mod config;
 pub mod forge;
 pub mod github;
-pub mod modes;
 pub mod open;
 pub mod projects;
 pub mod remotes;
