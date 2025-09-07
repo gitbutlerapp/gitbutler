@@ -204,9 +204,8 @@
 {/snippet}
 
 <p class="text-13 text-body ai-settings__about-text">
-	GitButler supports multiple providers for its AI powered features. We currently support models
-	from OpenAI and Anthropic either proxied through the GitButler API, or in a bring your own key
-	configuration. We also support local models through Ollama and LM Studio.
+	GitButler supports multiple AI providers: OpenAI and Anthropic (via API or your own key), plus
+	local models through Ollama and LM Studio.
 </p>
 
 <form class="git-radio" bind:this={form} onchange={(e) => onFormChange(e.currentTarget)}>
@@ -467,8 +466,6 @@
 		<AIPromptEdit promptUse="branches" />
 	</div>
 </Section>
-
-<Spacer />
 
 <style>
 	.ai-settings__about-text {

@@ -37,7 +37,7 @@
 				Remove project
 			{/snippet}
 			{#snippet caption()}
-				Removing projects from GitButler only clears configuration — your code stays safe.
+				Removing projects only clears configuration — your code stays safe.
 			{/snippet}
 			<div>
 				<RemoveProjectButton projectTitle={project.title} {isDeleting} {onDeleteClicked} />

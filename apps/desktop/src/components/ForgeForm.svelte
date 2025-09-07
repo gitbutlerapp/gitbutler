@@ -2,8 +2,9 @@
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/core/context';
+	import { inject, injectOptional } from '@gitbutler/core/context';
 	import { Link, SectionCard, Select, SelectItem, Spacer, Textbox } from '@gitbutler/ui';
+	import { writable } from 'svelte/store';
 
 	import type { ForgeName } from '$lib/forge/interface/forge';
 	import type { Project } from '$lib/project/project';
@@ -11,12 +12,12 @@
 	const { projectId }: { projectId: string } = $props();
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const gitLabState = inject(GITLAB_STATE);
+	const gitLabState = injectOptional(GITLAB_STATE, null);
 	const determinedForgeType = forge.determinedForgeType;
-	const token = gitLabState.token;
-	const forkProjectId = gitLabState.forkProjectId;
-	const upstreamProjectId = gitLabState.upstreamProjectId;
-	const instanceUrl = gitLabState.instanceUrl;
+	const token = gitLabState?.token ?? writable<string | undefined>('');
+	const forkProjectId = gitLabState?.forkProjectId ?? writable<string | undefined>('');
+	const upstreamProjectId = gitLabState?.upstreamProjectId ?? writable<string | undefined>('');
+	const instanceUrl = gitLabState?.instanceUrl ?? writable<string | undefined>('');
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectResult = $derived(projectsService.getProject(projectId));

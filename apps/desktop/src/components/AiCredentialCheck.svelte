@@ -231,13 +231,12 @@
 								</span>
 							{/if}
 						{:else}
-							<div class="text-12 text-body success-text">
-								<h4 class="text-bold">Response:</h4>
+							<div class="text-12 text-body ai-response">
 								<pre class:streaming={isStreaming}>{isStreaming
 										? streamingResult
 											? streamingResult.trim()
 											: 'Loading...'
-										: result?.trim()}
+										: `Response:\n\n${result?.trim()}`}
 								</pre>
 							</div>
 						{/if}
@@ -304,16 +303,23 @@
 		display: flex;
 		flex-direction: column;
 		margin-top: 4px;
+		overflow-x: auto;
 		gap: 4px;
 	}
 
-	.success-text {
+	.ai-response {
 		display: flex;
 		flex-direction: column;
-		padding: 14px;
 		gap: 10px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
+
+		pre {
+			max-width: 100%;
+			padding: 14px;
+			overflow-x: auto;
+			white-space: pre;
+		}
 	}
 
 	/* DEBUG SECTION */

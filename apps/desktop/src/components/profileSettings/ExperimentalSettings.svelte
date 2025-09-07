@@ -12,10 +12,9 @@
 </script>
 
 <p class="text-12 text-body experimental-settings__text">
-	This section contains a list of feature flags for features that are still in development or in
-	beta.
+	Flags for features in development or beta. Features may not work fully.
 	<br />
-	Some of these features may not be fully functional or may have bugs. Use them at your own risk.
+	Use at your own risk.
 </p>
 
 <div class="experimental-settings__toggles">

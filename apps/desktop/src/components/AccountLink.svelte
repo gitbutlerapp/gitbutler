@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { newSettingsPath } from '$lib/routes/routes.svelte';
+	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/core/context';
 	import { Icon } from '@gitbutler/ui';
@@ -13,13 +12,14 @@
 	const { pop = false, isNavCollapsed = false }: Props = $props();
 
 	const user = inject(USER);
+	const { openGeneralSettings } = useSettingsModal();
 </script>
 
 <button
 	type="button"
 	class="btn"
 	class:pop
-	onclick={async () => goto(newSettingsPath())}
+	onclick={async () => openGeneralSettings()}
 	class:collapsed={isNavCollapsed}
 >
 	{#if !isNavCollapsed}

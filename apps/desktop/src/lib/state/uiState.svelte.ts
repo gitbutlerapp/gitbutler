@@ -74,7 +74,7 @@ export type ProjectUiState = {
 	selectedModel: ModelType;
 };
 
-type GlobalModalType = 'commit-failed' | 'author-missing';
+type GlobalModalType = 'commit-failed' | 'author-missing' | 'general-settings' | 'project-settings';
 type BaseGlobalModalState = {
 	type: GlobalModalType;
 };
@@ -95,7 +95,22 @@ export type AuthorMissingModalState = BaseGlobalModalState & {
 	authorEmail: string | undefined;
 };
 
-export type GlobalModalState = CommitFailedModalState | AuthorMissingModalState;
+export type GeneralSettingsModalState = BaseGlobalModalState & {
+	type: 'general-settings';
+	selectedId?: string;
+};
+
+export type ProjectSettingsModalState = BaseGlobalModalState & {
+	type: 'project-settings';
+	projectId: string;
+	selectedId?: string;
+};
+
+export type GlobalModalState =
+	| CommitFailedModalState
+	| AuthorMissingModalState
+	| GeneralSettingsModalState
+	| ProjectSettingsModalState;
 
 export type GlobalUiState = {
 	drawerHeight: number;
