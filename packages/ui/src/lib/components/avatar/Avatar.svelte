@@ -31,6 +31,7 @@
 <style lang="postcss">
 	.image-wrapper {
 		display: grid;
+		flex-shrink: 0;
 		place-content: center;
 		width: 12px;
 		height: 12px;

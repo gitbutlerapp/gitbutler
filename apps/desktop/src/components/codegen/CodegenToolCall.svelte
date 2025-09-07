@@ -71,6 +71,8 @@
 	.tool-call {
 		display: flex;
 		flex-direction: column;
+		width: fit-content;
+		max-width: 100%;
 		overflow: hidden;
 		border-bottom: 1px solid var(--clr-border-2);
 
