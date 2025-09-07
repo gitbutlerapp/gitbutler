@@ -33,10 +33,11 @@
 		stackId?: string;
 		laneId: string;
 		branches: BranchDetails[];
+		active: boolean;
 		onselect?: () => void;
 	};
 
-	const { projectId, branches, stackId, laneId, onselect }: Props = $props();
+	const { projectId, branches, stackId, laneId, active, onselect }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
@@ -310,6 +311,7 @@
 							{branchName}
 							{branchDetails}
 							{stackingReorderDropzoneManager}
+							{active}
 							{handleUncommit}
 							{startEditingCommitMessage}
 							{handleEditPatch}

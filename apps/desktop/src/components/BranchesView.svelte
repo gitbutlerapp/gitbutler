@@ -383,12 +383,7 @@
 					</div>
 
 					{#if current.commitId || (current.branchName && ((current.inWorkspace && current.stackId) || !current.isTarget)) || current.prNumber}
-						<div
-							class="commit-column"
-							bind:this={commitColumn}
-							class:non-local-pr={isNonLocalPr}
-							use:focusable
-						>
+						<div class="commit-column" bind:this={commitColumn} class:non-local-pr={isNonLocalPr}>
 							{#if current.commitId}
 								<UnappliedCommitView {projectId} commitId={current.commitId} />
 								<Resizer

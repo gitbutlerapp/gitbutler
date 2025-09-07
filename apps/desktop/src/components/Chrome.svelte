@@ -6,6 +6,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snippet } from 'svelte';
 
 	const {
@@ -20,9 +21,9 @@
 
 <ReduxResult {projectId} result={projectResult.current}>
 	{#snippet children(project, { projectId })}
-		<div class="chrome">
+		<div class="chrome" use:focusable={{ list: true, activate: true }}>
 			<ChromeHeader {projectId} projectTitle={project.title} actionsDisabled={sidebarDisabled} />
-			<div class="chrome-body">
+			<div class="chrome-body" use:focusable={{ skip: true }}>
 				<EnsureAuthorInfo {projectId} />
 				<ChromeSidebar {projectId} disabled={sidebarDisabled} />
 				<div class="chrome-content">

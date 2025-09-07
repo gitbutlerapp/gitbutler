@@ -140,7 +140,6 @@ the window, then enlarge it and retain the original widths of the layout.
 			bind:this={leftDiv}
 			style:width={finalLeftWidth + 'rem'}
 			style:min-width={leftMinWidth + 'rem'}
-			use:focusable={{ list: true }}
 		>
 			<div class="left-section__content">
 				{@render left()}
@@ -164,7 +163,7 @@ the window, then enlarge it and retain the original widths of the layout.
 				bind:this={previewDiv}
 				style:width={finalPreviewWidth + 'rem'}
 				style:min-width={previewMinWidth + 'rem'}
-				use:focusable
+				use:focusable={{ list: true }}
 			>
 				<div class="left-sideview-content dotted-pattern">
 					{@render preview()}

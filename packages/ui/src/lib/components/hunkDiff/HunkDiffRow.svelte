@@ -4,7 +4,8 @@
 	}
 
 	export type ContextMenuParams = {
-		event: MouseEvent;
+		event?: MouseEvent;
+		target?: HTMLElement;
 		beforeLineNumber: number | undefined;
 		afterLineNumber: number | undefined;
 	};

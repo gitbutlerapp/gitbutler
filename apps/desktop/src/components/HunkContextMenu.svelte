@@ -106,7 +106,7 @@
 		});
 	}
 
-	export function open(e: MouseEvent, item: HunkContextItem) {
+	export function open(e: MouseEvent | HTMLElement | undefined, item: HunkContextItem) {
 		contextMenu?.open(e, item);
 	}
 
@@ -115,7 +115,13 @@
 	}
 </script>
 
-<ContextMenu testId={TestId.HunkContextMenu} bind:this={contextMenu} rightClickTrigger={trigger}>
+<ContextMenu
+	testId={TestId.HunkContextMenu}
+	bind:this={contextMenu}
+	rightClickTrigger={trigger}
+	align="start"
+	side="right"
+>
 	{#snippet children(item)}
 		{#if isHunkContextItem(item)}
 			<ContextMenuSection>

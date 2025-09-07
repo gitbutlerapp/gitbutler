@@ -21,7 +21,7 @@
 	class:selected
 	use:focusable={{
 		onKeydown: (e) => {
-			if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
+			if (e.key === 'Enter' || e.key === ' ') {
 				onclick?.();
 				e.stopPropagation();
 				return true;

@@ -76,7 +76,6 @@
 									executable={!!isExecutable}
 									listMode="list"
 									onCloseClick={onclose}
-									focusableOpts={{ list: true }}
 								/>
 							{/if}
 							<UnifiedDiffView
