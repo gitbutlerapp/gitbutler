@@ -28,7 +28,6 @@ pub mod forge;
 pub mod github;
 pub mod open;
 pub mod projects;
-pub mod remotes;
 pub mod secret;
 pub mod undo;
 
