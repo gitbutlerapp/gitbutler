@@ -341,7 +341,6 @@ fn main() {
                     diff::changes_in_branch,
                     diff::tree_change_diffs,
                     diff::assign_hunk,
-                    claude::claude_get_session_details,
                     // Debug-only - not for production!
                     #[cfg(debug_assertions)]
                     env::env_vars,
@@ -349,14 +348,15 @@ fn main() {
                     workspace::show_graph_svg,
                     claude::claude_send_message,
                     claude::claude_get_messages,
-                    claude::claude_list_permission_requests,
-                    claude::claude_update_permission_request,
                     claude::claude_cancel_session,
-                    claude::claude_check_available,
                     claude::claude_is_stack_active,
-                    claude::claude_get_prompt_templates,
-                    claude::claude_write_prompt_templates,
-                    claude::claude_get_prompt_templates_path
+                    but_api::claude::claude_get_session_details,
+                    but_api::claude::claude_list_permission_requests,
+                    but_api::claude::claude_update_permission_request,
+                    but_api::claude::claude_check_available,
+                    but_api::claude::claude_get_prompt_templates,
+                    but_api::claude::claude_write_prompt_templates,
+                    but_api::claude::claude_get_prompt_templates_path
                 ])
                 .menu(move |handle| menu::build(handle, &app_settings_for_menu))
                 .on_window_event(|window, event| match event {

@@ -439,7 +439,7 @@ async fn handle_command(
             }
         }
         "claude_check_available" => {
-            let result = claude::claude_check_available(NoParams {}).await;
+            let result = claude::claude_check_available().await;
             result.map(|r| json!(r))
         }
         "claude_is_stack_active" => {
