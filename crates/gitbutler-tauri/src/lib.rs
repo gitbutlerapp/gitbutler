@@ -24,7 +24,6 @@ pub mod askpass;
 pub mod bot;
 pub mod cli;
 pub mod config;
-pub mod forge;
 pub mod github;
 pub mod open;
 pub mod projects;
