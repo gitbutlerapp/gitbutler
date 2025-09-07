@@ -12,13 +12,14 @@
 		style?: 'nested' | 'standalone';
 		toolCall: ToolCall;
 		requiresApproval?: RequiresApproval;
+		fullWidth?: boolean;
 	};
-	const { toolCall, style, requiresApproval = undefined }: Props = $props();
+	const { toolCall, style, requiresApproval = undefined, fullWidth }: Props = $props();
 
 	let expanded = $derived(!!requiresApproval);
 </script>
 
-<div class="tool-call {style}">
+<div class="tool-call {style}" class:full-width={fullWidth}>
 	<button
 		type="button"
 		class="tool-call-header"
@@ -71,13 +72,21 @@
 	.tool-call {
 		display: flex;
 		flex-direction: column;
-		width: fit-content;
+
 		max-width: 100%;
 		overflow: hidden;
 		border-bottom: 1px solid var(--clr-border-2);
 
 		&:last-child {
 			border-bottom: none;
+		}
+
+		&:not(.full-width) {
+			max-width: fit-content;
+		}
+
+		&.full-width {
+			width: 100%;
 		}
 	}
 
