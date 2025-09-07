@@ -3,8 +3,8 @@
 	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
 	import { historyPath } from '$lib/routes/routes.svelte';
+	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
@@ -15,6 +15,7 @@
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const urlService = inject(URL_SERVICE);
+	const { openProjectSettings } = useSettingsModal();
 
 	const userSettings = inject(SETTINGS);
 	const shortcutService = inject(SHORTCUT_SERVICE);
@@ -23,7 +24,7 @@
 	$effect(() =>
 		mergeUnlisten(
 			shortcutService.on('project-settings', () => {
-				goto(newProjectSettingsPath(projectId));
+				openProjectSettings(projectId);
 			}),
 			shortcutService.on('history', () => {
 				goto(historyPath(projectId));

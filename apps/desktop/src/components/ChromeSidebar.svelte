@@ -12,12 +12,11 @@
 		isWorkspacePath,
 		historyPath,
 		isHistoryPath,
-		newProjectSettingsPath,
-		newSettingsPath,
 		workspacePath,
 		isCodegenPath,
 		codegenPath
 	} from '$lib/routes/routes.svelte';
+	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { USER } from '$lib/user/user';
 	import { USER_SERVICE } from '$lib/user/userService';
@@ -44,6 +43,7 @@
 
 	const userService = inject(USER_SERVICE);
 	const userSettings = inject(SETTINGS);
+	const { openGeneralSettings, openProjectSettings } = useSettingsModal();
 </script>
 
 <div class="sidebar">
@@ -280,7 +280,7 @@
 						if (isNewProjectSettingsPath()) {
 							goto(workspacePath(projectId));
 						} else {
-							goto(newProjectSettingsPath(projectId));
+							openProjectSettings(projectId);
 						}
 					}}
 					width={34}
@@ -382,7 +382,7 @@
 		<ContextMenuItem
 			label="Global settings"
 			onclick={() => {
-				goto(newSettingsPath());
+				openGeneralSettings();
 				contextMenuEl?.close();
 			}}
 			keyboardShortcut="⌘,"
