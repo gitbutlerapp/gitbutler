@@ -37,7 +37,6 @@ pub mod users;
 pub mod settings;
 pub mod zip;
 
-pub mod diff;
 pub mod env;
 
 pub mod csp;
