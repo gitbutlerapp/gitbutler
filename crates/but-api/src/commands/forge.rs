@@ -9,16 +9,19 @@ use gitbutler_forge::{
 };
 use gitbutler_project::ProjectId;
 use gitbutler_repo::RepoCommands;
+use tracing::instrument;
 
 use crate::error::Error;
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<String>, Error> {
     let project = gitbutler_project::get_validated(project_id)?;
     Ok(available_review_templates(&project.path, &forge))
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn pr_template(
     project_id: ProjectId,
     relative_path: std::path::PathBuf,
