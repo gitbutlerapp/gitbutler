@@ -16,6 +16,7 @@
 	import { inject } from '@gitbutler/core/context';
 
 	import { Badge, TestId } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { type Snippet } from 'svelte';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
@@ -127,6 +128,7 @@
 				data-testid={TestId.UncommittedChanges_Header}
 				class="worktree-header"
 				class:sticked-top={!scrollTopIsVisible}
+				use:focusable
 			>
 				{#if foldButton}
 					{@render foldButton()}

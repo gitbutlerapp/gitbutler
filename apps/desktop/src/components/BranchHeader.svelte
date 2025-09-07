@@ -61,9 +61,8 @@
 	use:focusable={{
 		id: DefinedFocusable.Branch,
 		linkToIds: DEFAULT_LINKS,
-		list: true,
 		onKeydown: (e) => {
-			if (e.key === 'Enter' || (!e.metaKey && e.key === 'ArrowRight')) {
+			if (e.key === 'Enter' || e.key === ' ') {
 				e.stopPropagation();
 				onclick?.();
 			}

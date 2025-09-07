@@ -52,6 +52,7 @@
 		lastBranch: boolean;
 		branchDetails: BranchDetails;
 		stackingReorderDropzoneManager: ReorderCommitDzFactory;
+		active?: boolean;
 
 		handleUncommit: (commitId: string, branchName: string) => Promise<void>;
 		startEditingCommitMessage: (branchName: string, commitId: string) => void;
@@ -73,6 +74,7 @@
 		firstBranch,
 		lastBranch,
 		stackingReorderDropzoneManager,
+		active,
 		handleUncommit,
 		startEditingCommitMessage,
 		handleEditPatch,
@@ -272,7 +274,7 @@
 				use:focusable={{
 					id: DefinedFocusable.CommitList,
 					list: true,
-					disabled: localAndRemoteCommits.length <= 1
+					skip: true
 				}}
 			>
 				{#if hasRemoteCommits}
@@ -293,6 +295,7 @@
 								{first}
 								{lastCommit}
 								{selected}
+								{active}
 								onclick={() => handleCommitClick(commit.id, true)}
 								disableCommitActions={false}
 							/>
@@ -431,6 +434,7 @@
 								{lastBranch}
 								{selected}
 								{tooltip}
+								{active}
 								onclick={() => handleCommitClick(commit.id, false)}
 								disableCommitActions={false}
 							>

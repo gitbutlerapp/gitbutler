@@ -31,7 +31,7 @@
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 
 	import { Button, FileViewHeader, Icon, TestId } from '@gitbutler/ui';
-	import { DEFAULT_LINKS, DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
+	import { DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import { fly } from 'svelte/transition';
@@ -132,6 +132,7 @@
 	let compactDiv = $state<HTMLDivElement>();
 
 	let changedFilesCollapsed = $state<boolean>();
+	let active = $state(false);
 
 	const defaultBranchResult = $derived(stackService.defaultBranch(projectId, stackId));
 	const defaultBranch = $derived(defaultBranchResult?.current.data);
@@ -428,6 +429,7 @@
 			root: lanesSrollableEl
 		}
 	}}
+	use:focusable={{ skip: true }}
 >
 	{#if !isCommitting}
 		<div class="drag-handle" data-remove-from-panning data-drag-handle draggable="true">
@@ -440,7 +442,7 @@
 			class="stack-view"
 			class:details-open={isDetailsViewOpen}
 			style:width="{$persistedStackWidth}rem"
-			use:focusable={{ list: true }}
+			use:focusable={{ list: true, onActive: (value) => (active = value) }}
 			bind:this={stackViewEl}
 		>
 			<ReduxResult {projectId} result={branchesResult.current}>
@@ -452,7 +454,7 @@
 							class:assignments__empty={changes.current.length === 0 && !isCommitting}
 							use:focusable={{
 								id: DefinedFocusable.Assignments,
-								linkToIds: DEFAULT_LINKS
+								list: true
 							}}
 						>
 							<div
@@ -489,7 +491,7 @@
 
 							{#if startCommitVisible.current || isCommitting}
 								{#if !isCommitting}
-									<div class="start-commit">
+									<div class="start-commit" use:focusable>
 										<Button
 											testId={TestId.StartCommitButton}
 											kind={changes.current.length > 0 ? 'solid' : 'outline'}
@@ -518,6 +520,7 @@
 							{branches}
 							{laneId}
 							{stackId}
+							{active}
 							onselect={() => {
 								// Clear one selection when you modify the other.
 								idSelection.clear({ type: 'worktree', stackId: stackId });

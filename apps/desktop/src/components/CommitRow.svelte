@@ -74,12 +74,12 @@
 		isOpen,
 		disabled,
 		hasConflicts,
+		active,
 		onclick,
 		menu,
 		...args
 	}: Props = $props();
 
-	let active = $state(false);
 	let container = $state<HTMLDivElement>();
 </script>
 
@@ -106,13 +106,12 @@
 		onKeydown: (e) => {
 			if (disabled) return false;
 
-			if (e.key === 'Enter' || e.key === ' ' || (!e.metaKey && e.key === 'ArrowRight')) {
+			if (e.key === 'Enter' || e.key === ' ') {
 				e.stopPropagation();
 				onclick?.();
 				return true;
 			}
-		},
-		onActive: (value) => (active = value)
+		}
 	}}
 >
 	{#if selected}

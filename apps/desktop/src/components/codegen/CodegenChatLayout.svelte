@@ -26,7 +26,7 @@
 </script>
 
 <div class="chat" use:focusable={{ list: true }}>
-	<div class="chat-header">
+	<div class="chat-header" use:focusable>
 		<div class="flex gap-10 items-center overflow-hidden">
 			{@render branchIcon()}
 			<p class="text-15 text-bold truncate">{branchName}</p>
@@ -47,7 +47,7 @@
 		</div>
 	</ConfigurableScrollableContainer>
 
-	<div class="chat-footer">
+	<div class="chat-footer" use:focusable>
 		{@render input()}
 	</div>
 </div>

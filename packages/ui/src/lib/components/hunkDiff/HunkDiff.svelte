@@ -7,6 +7,7 @@
 	import Icon from '$components/Icon.svelte';
 	import HunkDiffBody from '$components/hunkDiff/HunkDiffBody.svelte';
 	import ScrollableContainer from '$components/scroll/ScrollableContainer.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import {
 		type ContentSection,
 		type DependencyLock,
@@ -18,6 +19,7 @@
 	import { isDefined } from '$lib/utils/typeguards';
 	import type { ContextMenuParams } from '$components/hunkDiff/HunkDiffRow.svelte';
 	import type { Snippet } from 'svelte';
+
 	interface Props {
 		filePath: string;
 		hunkStr: string;
@@ -86,13 +88,14 @@
 	const colspan = $derived(showingCheckboxes || hunkHasLocks ? 3 : 2);
 	let tableWrapperElem = $state<HTMLElement>();
 
-	function handleHunkContextMenu(e: MouseEvent) {
+	function handleHunkContextMenu(e: MouseEvent | KeyboardEvent) {
 		e.preventDefault();
 		e.stopPropagation();
 
 		if (handleLineContextMenu) {
 			handleLineContextMenu({
-				event: e,
+				event: e instanceof MouseEvent ? e : undefined,
+				target: tableWrapperElem,
 				beforeLineNumber: undefined,
 				afterLineNumber: undefined
 			});
@@ -101,6 +104,13 @@
 </script>
 
 <div
+	use:focusable={{
+		onKeydown: (e) => {
+			if (e.key === 'Control') {
+				handleHunkContextMenu(e);
+			}
+		}
+	}}
 	bind:this={tableWrapperElem}
 	class="table__wrapper contrast-{diffContrast}"
 	style="--tab-size: {tabSize}; --diff-font: {diffFont};"

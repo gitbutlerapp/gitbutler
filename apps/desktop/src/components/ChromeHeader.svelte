@@ -23,6 +23,7 @@
 		TestId,
 		Tooltip
 	} from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	type Props = {
 		projectId: string;
@@ -113,6 +114,7 @@
 	class:mac={backend.platformName === 'macos'}
 	data-tauri-drag-region
 	class:single-branch={singleBranchMode}
+	use:focusable={{ activate: true }}
 >
 	<div class="chrome-left" data-tauri-drag-region>
 		<div class="chrome-left-buttons" class:macos={backend.platformName === 'macos'}>

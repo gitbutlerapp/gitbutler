@@ -177,9 +177,12 @@
 		}
 	}
 
-	function setPosition(e?: MouseEvent) {
+	function setPosition(e?: MouseEvent, element?: HTMLElement) {
 		const isRightClick = Boolean(e && rightClickTrigger);
-		const target = isRightClick ? e : leftClickTrigger;
+		const target = e
+			? element || rightClickTrigger || leftClickTrigger
+			: element || leftClickTrigger || rightClickTrigger;
+
 		if (!target) return;
 
 		// For right-click: try align 'start', then 'end', then 'center' if needed
@@ -238,14 +241,18 @@
 
 	let savedMouseEvent: MouseEvent | undefined = $state();
 
-	export function open(e?: MouseEvent, newItem?: T) {
+	export function open(e?: MouseEvent | HTMLElement, newItem?: T) {
 		if (isVisible) return;
 
 		// Save the mouse event for repositioning
-		if (e) savedMouseEvent = e;
+		if (e instanceof MouseEvent) savedMouseEvent = e;
 
 		// Calculate position first (before showing) using the triggering event
-		setPosition(e);
+		if (e instanceof MouseEvent) {
+			setPosition(e);
+		} else {
+			setPosition(undefined, e);
+		}
 
 		isVisible = true;
 		if (newItem !== undefined) item = newItem;
@@ -323,21 +330,9 @@
 	}
 
 	function handleKeyNavigation(e: KeyboardEvent) {
-		switch (e.key) {
-			case 'Escape':
-				e.preventDefault();
-				close();
-				break;
-			case 'ArrowDown':
-			case 'ArrowUp':
-				e.preventDefault();
-				// Focus management is handled by focusTrap utility
-				// This prevents default browser behavior
-				break;
-			case 'Enter':
-			case ' ':
-				// Allow default behavior for menu item activation
-				break;
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			close();
 		}
 	}
 
@@ -367,7 +362,7 @@
 			data-testid={testId}
 			bind:this={menuContainer}
 			tabindex="-1"
-			use:focusable={{ activate: true, isolate: true }}
+			use:focusable={{ activate: true, isolate: true, dim: true }}
 			autofocus
 			{onclick}
 			{onkeypress}
