@@ -13,6 +13,7 @@ use gitbutler_stack::StackId;
 use gitbutler_user::User;
 use gix::refs::Category;
 use std::borrow::Cow;
+use tracing::instrument;
 
 pub mod create_reference {
     use crate::hex_hash::HexHash;
@@ -42,6 +43,8 @@ pub mod create_reference {
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn create_reference(
     project_id: ProjectId,
     request: create_reference::Request,
@@ -90,6 +93,8 @@ pub fn create_reference(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn create_branch(
     project_id: ProjectId,
     stack_id: StackId,
@@ -151,6 +156,8 @@ pub fn create_branch(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn remove_branch(
     project_id: ProjectId,
     stack_id: StackId,
@@ -187,6 +194,8 @@ pub fn remove_branch(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn update_branch_name(
     project_id: ProjectId,
     stack_id: StackId,
@@ -200,6 +209,8 @@ pub fn update_branch_name(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn update_branch_description(
     project_id: ProjectId,
     stack_id: StackId,
@@ -218,6 +229,8 @@ pub fn update_branch_description(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn update_branch_pr_number(
     project_id: ProjectId,
     stack_id: StackId,
@@ -236,6 +249,8 @@ pub fn update_branch_pr_number(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn push_stack(
     project_id: ProjectId,
     stack_id: StackId,
@@ -258,6 +273,8 @@ pub fn push_stack(
 }
 
 #[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn push_stack_to_review(
     project_id: ProjectId,
     stack_id: StackId,

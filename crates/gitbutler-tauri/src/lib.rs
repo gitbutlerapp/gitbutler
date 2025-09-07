@@ -36,7 +36,6 @@ pub mod undo;
 pub mod users;
 
 pub mod settings;
-pub mod stack;
 pub mod zip;
 
 pub mod diff;
