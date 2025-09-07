@@ -1,3 +1,4 @@
+pub mod action;
 pub mod askpass;
 pub mod claude;
 pub mod cli;
