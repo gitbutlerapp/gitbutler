@@ -15,14 +15,14 @@ use std::sync::Arc;
 
 use but_api::App;
 use but_api::{
-    cli, diff, forge, git, modes, remotes, repo, rules, secret, stack, undo, users,
+    cli, diff, forge, git, modes, open, remotes, repo, rules, secret, stack, undo, users,
     virtual_branches, workspace,
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::{
-    action, askpass, bot, claude, config, env, github, logs, menu, open, projects, settings, zip,
+    action, askpass, bot, claude, config, env, github, logs, menu, projects, settings, zip,
     WindowState,
 };
 use tauri::Emitter;

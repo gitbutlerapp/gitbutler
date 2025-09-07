@@ -24,7 +24,6 @@ pub mod askpass;
 pub mod bot;
 pub mod config;
 pub mod github;
-pub mod open;
 pub mod projects;
 
 pub mod settings;
