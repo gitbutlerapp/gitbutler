@@ -9,7 +9,8 @@
 	};
 	const { toolCalls }: Props = $props();
 
-	let expanded = $state(false);
+	// If only one tool call, always expanded
+	let expanded = $state(toolCalls.length === 1);
 	const toolDisplayLimit = 3;
 
 	const toolsToDisplay = $derived.by(() => {
@@ -24,42 +25,47 @@
 </script>
 
 {#if toolCalls.length > 0}
-	<div class="tool-calls-container" class:expanded>
-		<!-- Header -->
-		<button type="button" class="tool-calls-header" onclick={toggleExpanded}>
-			<div class="tool-calls-header__arrow" class:expanded>
-				<Icon name="chevron-right" />
-			</div>
-			<span class="text-13 text-semibold">{toolCalls.length} tool calls</span>
-		</button>
+	{#if toolCalls.length === 1}
+		<!-- Only one tool call: show expanded directly, no container -->
+		<CodegenToolCall toolCall={toolCalls[0]!} style="standalone" />
+	{:else}
+		<div class="tool-calls-container" class:expanded>
+			<!-- Header for multiple tool calls -->
+			<button type="button" class="tool-calls-header" onclick={toggleExpanded}>
+				<div class="tool-calls-header__arrow" class:expanded>
+					<Icon name="chevron-right" />
+				</div>
+				<span class="text-13 text-semibold">{toolCalls.length} tool calls</span>
+			</button>
 
-		<!-- Content -->
-		{#if expanded}
-			<div class="tool-calls-expanded">
-				{#each toolCalls as toolCall}
-					<CodegenToolCall {toolCall} />
-				{/each}
-			</div>
-		{:else}
-			<div class="tool-calls-collapsed text-13">
-				{#each toolsToDisplay as toolCall, idx}
-					{#if toolCallLoading(toolCall)}
-						<Icon name="spinner" />
-					{/if}
-					<Icon name={getToolIcon(toolCall.name)} color="var(--clr-text-3)" />
-					<span>{toolCall.name}</span>
-					{#if idx !== toolsToDisplay.length - 1}
+			<!-- Content -->
+			{#if expanded}
+				<div class="tool-calls-expanded">
+					{#each toolCalls as toolCall}
+						<CodegenToolCall {toolCall} />
+					{/each}
+				</div>
+			{:else}
+				<div class="tool-calls-collapsed text-13">
+					{#each toolsToDisplay as toolCall, idx}
+						{#if toolCallLoading(toolCall)}
+							<Icon name="spinner" />
+						{/if}
+						<Icon name={getToolIcon(toolCall.name)} color="var(--clr-text-3)" />
+						<span>{toolCall.name}</span>
+						{#if idx !== toolsToDisplay.length - 1}
+							<span class="separator">•</span>
+						{/if}
+					{/each}
+
+					{#if toolCalls.length > toolDisplayLimit}
 						<span class="separator">•</span>
+						<span>+{toolCalls.length - toolDisplayLimit} more</span>
 					{/if}
-				{/each}
-
-				{#if toolCalls.length > toolDisplayLimit}
-					<span class="separator">•</span>
-					<span>+{toolCalls.length - toolDisplayLimit} more</span>
-				{/if}
-			</div>
-		{/if}
-	</div>
+				</div>
+			{/if}
+		</div>
+	{/if}
 {/if}
 
 <style lang="postcss">
