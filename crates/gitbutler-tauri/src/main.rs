@@ -303,7 +303,7 @@ fn main() {
                     open::show_in_finder,
                     forge::pr_templates,
                     forge::pr_template,
-                    settings::get_app_settings,
+                    but_api::settings::get_app_settings,
                     settings::update_onboarding_complete,
                     settings::update_telemetry,
                     settings::update_feature_flags,
