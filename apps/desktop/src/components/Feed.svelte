@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import FeedItem from '$components/FeedItem.svelte';
 	import CliSymLink from '$components/profileSettings/CliSymLink.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
@@ -8,7 +7,7 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { FEED_FACTORY } from '$lib/feed/feed';
-	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
+	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Badge, Button, Icon, RichTextEditor, Spacer, Link } from '@gitbutler/ui';
 	import { tick } from 'svelte';
@@ -28,6 +27,7 @@
 
 	const cliManager = inject(CLI_MANAGER);
 	const [instalCLI, installingCLI] = cliManager.install;
+	const { openProjectSettings } = useSettingsModal();
 
 	const combinedEntries = $derived(feed.combined);
 	const lastAddedId = $derived(feed.lastAddedId);
@@ -132,7 +132,7 @@
 				<Button
 					kind="outline"
 					onclick={() => {
-						goto(newProjectSettingsPath(projectId, 'ai'));
+						openProjectSettings(projectId, 'ai');
 					}}
 				>
 					Enable in settings

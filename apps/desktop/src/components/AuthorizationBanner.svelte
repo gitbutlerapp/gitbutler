@@ -9,7 +9,7 @@
 
 	const {
 		title: titleLabel = 'Authorization Required',
-		message = 'You need to authorize GitButler to access this service.'
+		message = 'Authorize GitButler to use this service'
 	}: Props = $props();
 </script>
 

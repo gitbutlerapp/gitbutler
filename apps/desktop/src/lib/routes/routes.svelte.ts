@@ -14,25 +14,6 @@ export function isProjectPath() {
 	return isUrl<{ projectId: string }>('/[projectId]');
 }
 
-export function projectSettingsPath(projectId: string) {
-	return `/${projectId}/settings`;
-}
-
-export function newProjectSettingsPath(projectId: string, page?: string) {
-	if (page) {
-		return `/${projectId}/settings/${page}`;
-	}
-	return `/${projectId}/settings`;
-}
-
-export function isNewProjectSettingsPath() {
-	return isUrl<{ projectId: string }>('/[projectId]/settings/[[selectedId]]');
-}
-
-export function isProjectSettingsPath() {
-	return isUrl<{ projectId: string }>('/[projectId]/settings');
-}
-
 export function workspacePath(projectId: string) {
 	return `/${projectId}/workspace`;
 }
@@ -87,17 +68,6 @@ export function previewStackPath(projectId: string, stackId: string) {
 
 export function isCommitPath() {
 	return page.url.searchParams.has('create');
-}
-
-export function settingsPath() {
-	return `/settings`;
-}
-
-export function newSettingsPath(page?: string) {
-	if (page) {
-		return `/settings/${page}`;
-	}
-	return `/settings`;
 }
 
 export function clonePath() {
