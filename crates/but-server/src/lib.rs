@@ -296,7 +296,7 @@ async fn handle_command(
         "git_set_local_config" => repo::git_set_local_config_cmd(request.params),
         "check_signing_settings" => repo::check_signing_settings_cmd(request.params),
         "git_clone_repository" => repo::git_clone_repository_cmd(request.params),
-        "get_uncommited_files" => repo::get_uncommitted_files_cmd(request.params),
+        "get_uncommited_files" => repo::get_uncommited_files_cmd(request.params),
         "get_commit_file" => repo::get_commit_file_cmd(request.params),
         "get_workspace_file" => repo::get_workspace_file_cmd(request.params),
         "pre_commit_hook" => repo::pre_commit_hook_cmd(request.params),

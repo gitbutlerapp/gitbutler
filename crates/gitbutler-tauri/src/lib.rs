@@ -31,7 +31,6 @@ pub mod modes;
 pub mod open;
 pub mod projects;
 pub mod remotes;
-pub mod repo;
 pub mod rules;
 pub mod secret;
 pub mod undo;
