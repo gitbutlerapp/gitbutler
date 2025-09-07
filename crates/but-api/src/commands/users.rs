@@ -2,6 +2,7 @@ use anyhow::Result;
 use but_api_macros::api_cmd;
 use gitbutler_user::User;
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::error::Error;
 
@@ -58,6 +59,7 @@ impl TryFrom<User> for UserWithSecrets {
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn get_user() -> Result<Option<UserWithSecrets>, Error> {
     match gitbutler_user::get_user()? {
         Some(user) => {
@@ -72,12 +74,14 @@ pub fn get_user() -> Result<Option<UserWithSecrets>, Error> {
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn set_user(user: User) -> Result<User, Error> {
     gitbutler_user::set_user(&user)?;
     Ok(user)
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn delete_user() -> Result<(), Error> {
     gitbutler_user::delete_user()?;
     Ok(())

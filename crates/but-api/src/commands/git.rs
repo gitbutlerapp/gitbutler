@@ -8,12 +8,14 @@ use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt as _;
+use tracing::instrument;
 
 use crate::NoParams;
 use crate::error::Error;
 use crate::error::ToError as _;
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn git_remote_branches(project_id: ProjectId) -> Result<Vec<RemoteRefname>, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -21,6 +23,7 @@ pub fn git_remote_branches(project_id: ProjectId) -> Result<Vec<RemoteRefname>, 
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn git_test_push(
     project_id: ProjectId,
     remote_name: String,
@@ -33,6 +36,7 @@ pub fn git_test_push(
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn git_test_fetch(
     project_id: ProjectId,
     remote_name: String,
@@ -48,6 +52,7 @@ pub fn git_test_fetch(
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn git_index_size(project_id: ProjectId) -> Result<usize, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -60,6 +65,7 @@ pub fn git_index_size(project_id: ProjectId) -> Result<usize, Error> {
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn git_head(project_id: ProjectId) -> Result<String, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -68,6 +74,7 @@ pub fn git_head(project_id: ProjectId) -> Result<String, Error> {
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn delete_all_data(_params: NoParams) -> Result<(), Error> {
     for project in gitbutler_project::list().context("failed to list projects")? {
         gitbutler_project::delete(project.id)
@@ -77,6 +84,7 @@ pub fn delete_all_data(_params: NoParams) -> Result<(), Error> {
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn git_set_global_config(key: String, value: String) -> Result<String, Error> {
     let mut config = git2::Config::open_default().to_error()?;
     config.set_str(&key, &value).to_error()?;
@@ -84,6 +92,7 @@ pub fn git_set_global_config(key: String, value: String) -> Result<String, Error
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
 pub fn git_remove_global_config(key: String) -> Result<(), Error> {
     let mut config = git2::Config::open_default().to_error()?;
     config.remove(&key).to_error()?;
@@ -91,6 +100,7 @@ pub fn git_remove_global_config(key: String) -> Result<(), Error> {
 }
 
 #[api_cmd]
+#[instrument(err(Debug), level = "trace")]
 pub fn git_get_global_config(key: String) -> Result<Option<String>, Error> {
     let config = git2::Config::open_default().to_error()?;
     let value = config.get_string(&key);
