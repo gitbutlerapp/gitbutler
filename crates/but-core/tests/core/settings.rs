@@ -18,6 +18,7 @@ mod git {
         );
         let expected = GitConfigSettings {
             gitbutler_sign_commits: Some(true),
+            gitbutler_gerrit_mode: Some(false),
             signing_key: Some("signing key".into()),
             signing_format: Some("signing format".into()),
             gpg_program: Some("gpg program".into()),
