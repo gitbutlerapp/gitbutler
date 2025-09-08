@@ -23,15 +23,19 @@ function updateDom() {
 		(selectedTheme === 'system' && systemTheme === 'dark') ||
 		(selectedTheme === undefined && systemTheme === 'dark')
 	) {
-		docEl.classList.remove('light');
+		docEl.classList.remove('light', 'color-blind');
 		docEl.classList.add('dark');
 		docEl.style.colorScheme = 'dark';
+	} else if (selectedTheme === 'color-blind') {
+		docEl.classList.remove('dark', 'light');
+		docEl.classList.add('color-blind');
+		docEl.style.colorScheme = 'light';
 	} else if (
 		selectedTheme === 'light' ||
 		(selectedTheme === 'system' && systemTheme === 'light') ||
 		(selectedTheme === undefined && systemTheme === 'light')
 	) {
-		docEl.classList.remove('dark');
+		docEl.classList.remove('dark', 'color-blind');
 		docEl.classList.add('light');
 		docEl.style.colorScheme = 'light';
 	}

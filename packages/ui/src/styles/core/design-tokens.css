@@ -836,3 +836,99 @@
 	--clr-tooltip-bg: var(--clr-core-ntrl-10);
 	--clr-tooltip-border: var(--clr-core-ntrl-30);
 }
+
+:root.color-blind {
+	--clr-bg-1: #fefefe;
+	--clr-bg-1-muted: #f8f8f8;
+	--clr-bg-2: #f0f0f0;
+	--clr-bg-2-muted: #e8e8e8;
+	--clr-bg-3: #e0e0e0;
+	--clr-bg-3-muted: #d8d8d8;
+	--clr-border-1: #808080;
+	--clr-border-2: #a0a0a0;
+	--clr-border-3: #c0c0c0;
+	/* Use blue instead of green for success states */
+	--clr-br-commit-approved-bg: #0066cc;
+	--clr-br-commit-approved-text: #ffffff;
+	/* Use orange instead of red for warnings */
+	--clr-br-commit-changes-requested-bg: #ff8800;
+	--clr-br-commit-changes-requested-text: #ffffff;
+	/* Use purple for closed states */
+	--clr-br-commit-closed-bg: #6633aa;
+	--clr-br-commit-closed-text: #ffffff;
+	/* Use cyan for discussion states */
+	--clr-br-commit-in-discussion-bg: #0099cc;
+	--clr-br-commit-in-discussion-text: #ffffff;
+	--clr-br-commit-unreviewed-bg: #666666;
+	--clr-br-commit-unreviewed-text: #ffffff;
+	/* Button styles with high contrast */
+	--clr-btn-err-outline: #cc3300;
+	--clr-btn-err-outline-bg: #ffeeee;
+	--clr-btn-err-outline-text: #cc3300;
+	--clr-btn-err-outline-text-hover: #aa2200;
+	--clr-btn-ntrl-outline: #666666;
+	--clr-btn-ntrl-outline-bg: #f5f5f5;
+	--clr-btn-ntrl-outline-text: #333333;
+	--clr-btn-ntrl-outline-text-hover: #000000;
+	--clr-btn-pop-outline: #0066cc;
+	--clr-btn-pop-outline-bg: #eef5ff;
+	--clr-btn-pop-outline-text: #0066cc;
+	--clr-btn-pop-outline-text-hover: #004499;
+	--clr-btn-purp-outline: #6633aa;
+	--clr-btn-purp-outline-bg: #f5f0ff;
+	--clr-btn-purp-outline-text: #6633aa;
+	--clr-btn-purp-outline-text-hover: #553399;
+	--clr-btn-succ-outline: #0066cc;
+	--clr-btn-succ-outline-bg: #eef5ff;
+	--clr-btn-succ-outline-text: #0066cc;
+	--clr-btn-succ-outline-text-hover: #004499;
+	--clr-btn-warn-outline: #ff8800;
+	--clr-btn-warn-outline-bg: #fff5ee;
+	--clr-btn-warn-outline-text: #ff8800;
+	--clr-btn-warn-outline-text-hover: #dd6600;
+	/* Commit colors using distinguishable colors */
+	--clr-commit-integrated: #6633aa;
+	--clr-commit-local: #666666;
+	--clr-commit-remote: #0066cc;
+	--clr-commit-shadow: #0099cc;
+	--clr-commit-upstream: #ff8800;
+	/* Theme colors */
+	--clr-theme-ntrl-element: #666666;
+	--clr-theme-ntrl-element-hover: #555555;
+	--clr-theme-ntrl-on-element: #ffffff;
+	--clr-theme-ntrl-on-soft: #333333;
+	--clr-theme-ntrl-soft: #e0e0e0;
+	--clr-theme-ntrl-soft-hover: #d0d0d0;
+	--clr-theme-pop-element: #0066cc;
+	--clr-theme-pop-element-hover: #004499;
+	--clr-theme-pop-on-element: #ffffff;
+	--clr-theme-pop-on-soft: #0066cc;
+	--clr-theme-pop-soft: #eef5ff;
+	--clr-theme-pop-soft-hover: #ddeeff;
+	--clr-theme-succ-element: #0066cc;
+	--clr-theme-succ-element-hover: #004499;
+	--clr-theme-succ-on-element: #ffffff;
+	--clr-theme-succ-on-soft: #0066cc;
+	--clr-theme-succ-soft: #eef5ff;
+	--clr-theme-succ-soft-hover: #ddeeff;
+	--clr-theme-warn-element: #ff8800;
+	--clr-theme-warn-element-hover: #dd6600;
+	--clr-theme-warn-on-element: #ffffff;
+	--clr-theme-warn-on-soft: #ff8800;
+	--clr-theme-warn-soft: #fff5ee;
+	--clr-theme-warn-soft-hover: #ffeecc;
+	--clr-theme-err-element: #cc3300;
+	--clr-theme-err-element-hover: #aa2200;
+	--clr-theme-err-on-element: #ffffff;
+	--clr-theme-err-on-soft: #cc3300;
+	--clr-theme-err-soft: #ffeeee;
+	--clr-theme-err-soft-hover: #ffdddd;
+	--clr-theme-purp-element: #6633aa;
+	--clr-theme-purp-element-hover: #553399;
+	--clr-theme-purp-on-element: #ffffff;
+	--clr-theme-purp-on-soft: #6633aa;
+	--clr-theme-purp-soft: #f5f0ff;
+	--clr-theme-purp-soft-hover: #eeeeoo;
+	--clr-tooltip-bg: #333333;
+	--clr-tooltip-border: #666666;
+}

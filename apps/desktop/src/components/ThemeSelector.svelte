@@ -21,6 +21,11 @@
 			preview: '/images/theme-previews/dark.svg'
 		},
 		{
+			name: 'Color blind friendly',
+			value: 'color-blind',
+			preview: '/images/theme-previews/color-blind.svg'
+		},
+		{
 			name: 'System preference',
 			value: 'system',
 			preview: '/images/theme-previews/system.svg'
@@ -57,7 +62,7 @@
 <style lang="postcss">
 	.cards-group {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(2, 1fr);
 		gap: 16px;
 	}
 
