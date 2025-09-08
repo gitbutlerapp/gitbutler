@@ -35,7 +35,6 @@
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { Button, Modal, RadioButton, TestId } from '@gitbutler/ui';
-	import { DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -269,14 +268,7 @@
 		{@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))}
 
 		{#if hasCommits || hasRemoteCommits}
-			<div
-				class="commit-list hide-when-empty"
-				use:focusable={{
-					id: DefinedFocusable.CommitList,
-					list: true,
-					skip: true
-				}}
-			>
+			<div class="commit-list hide-when-empty" use:focusable={{ vertical: true }}>
 				{#if hasRemoteCommits}
 					{#each upstreamOnlyCommits as commit, i (commit.id)}
 						{@const first = i === 0}

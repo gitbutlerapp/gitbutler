@@ -6,13 +6,7 @@ import type { Action } from 'svelte/action';
  * Svelte action that registers an element as a focusable area.
  *
  * @example
- * <div use:focusable={{
- *   id: 'stack',
- *   parentId: 'workspace',
- *   payload: { stackId: 'abc123', branchName: 'feature' },
- *   onKeydown: (event) => handleKey(event),
- *   onFocus: (context) => handleFocus()
- * }}>
+ * <div use:focusable={{ vertical: true }}>
  */
 export function focusable(
 	element: HTMLElement,
@@ -67,22 +61,8 @@ export function focusable(
 		},
 
 		update(newOptions: FocusableOptions) {
-			const idChanged = currentOptions.id !== newOptions.id;
-			const isDisabled = newOptions.disabled;
-
-			// If the ID changed, we need to unregister and re-register
-			if (idChanged) {
-				unregister();
-				currentOptions = newOptions;
-				handleRegistration(!isDisabled);
-				return;
-			}
-
-			// Update options and handle registration state
 			currentOptions = newOptions;
-			handleRegistration(!isDisabled);
-
-			// Update existing registration if still registered
+			handleRegistration(!newOptions.disabled);
 			if (isRegistered && focusManager) {
 				focusManager.updateElementOptions(element, newOptions);
 			}

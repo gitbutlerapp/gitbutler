@@ -182,7 +182,7 @@
 
 <div class="history-view">
 	<div class="relative overflow-hidden radius-ml">
-		<div bind:this={sidebarEl} class="history-view__snapshots" use:focusable={{ list: true }}>
+		<div bind:this={sidebarEl} class="history-view__snapshots" use:focusable={{ vertical: true }}>
 			<div class="history-view__snapshots-header">
 				<h3 class="history-view__snapshots-header-title text-15 text-bold">Operations history</h3>
 			</div>

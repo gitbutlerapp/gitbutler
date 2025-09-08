@@ -13,7 +13,7 @@
 	let sidebarViewportRef = $state<HTMLDivElement>();
 </script>
 
-<div class="sidebar" bind:this={sidebarViewportRef} use:focusable={{ list: true }}>
+<div class="sidebar" bind:this={sidebarViewportRef} use:focusable={{ vertical: true }}>
 	<div class="sidebar-header" use:focusable>
 		<p class="text-14 text-semibold">Current sessions</p>
 		<div class="sidebar-header-actions">

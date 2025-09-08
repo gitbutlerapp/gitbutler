@@ -4,7 +4,6 @@
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import BranchLabel from '$components/BranchLabel.svelte';
 	import { TestId } from '@gitbutler/ui';
-	import { DEFAULT_LINKS, DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { slide } from 'svelte/transition';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
@@ -59,8 +58,6 @@
 <div
 	class="header-wrapper"
 	use:focusable={{
-		id: DefinedFocusable.Branch,
-		linkToIds: DEFAULT_LINKS,
 		onKeydown: (e) => {
 			if (e.key === 'Enter' || e.key === ' ') {
 				e.stopPropagation();

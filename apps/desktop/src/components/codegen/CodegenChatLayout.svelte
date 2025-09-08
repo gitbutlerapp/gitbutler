@@ -25,7 +25,7 @@
 	}
 </script>
 
-<div class="chat" use:focusable={{ list: true }}>
+<div class="chat" use:focusable={{ vertical: true }}>
 	<div class="chat-header" use:focusable>
 		<div class="flex gap-10 items-center overflow-hidden">
 			{@render branchIcon()}
