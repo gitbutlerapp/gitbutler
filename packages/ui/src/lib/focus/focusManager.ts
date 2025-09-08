@@ -22,6 +22,16 @@ type NavigationAction = 'tab' | 'left' | 'right' | 'up' | 'down';
 
 export type KeyboardHandler = (event: KeyboardEvent) => boolean | void;
 
+export type NavigationContext = {
+	action: NavigationAction | null;
+	trap?: boolean;
+	inVertical?: boolean;
+	isInput?: boolean;
+	// User selected text detected.
+	hasSelection?: boolean;
+	hasOutline?: boolean;
+};
+
 export interface FocusableOptions {
 	// Custom tab order within siblings (overrides default DOM order)
 	tabIndex?: number;
@@ -37,11 +47,15 @@ export interface FocusableOptions {
 	isolate?: boolean;
 	// Never highlight the element
 	dim?: boolean;
+	// Automatically trigger onAction when this element becomes active
+	autoAction?: boolean;
 
 	// Custom keyboard event handler, can prevent default navigation
 	onKeydown?: KeyboardHandler;
 	// Called when this element becomes the active focus or loses it
 	onActive?: (value: boolean) => void;
+	// Called when Space or Enter is pressed on this focused element, or when autoAction is true and element becomes active
+	onAction?: () => boolean | void;
 }
 
 interface FocusableData {
@@ -358,6 +372,10 @@ export class FocusManager {
 		while (metadata) {
 			try {
 				metadata.options.onActive?.(active);
+				// If autoAction is enabled and element is becoming active, also trigger onAction
+				if (active && metadata.options.autoAction && metadata.options.onAction) {
+					metadata.options.onAction();
+				}
 			} catch (error) {
 				console.warn(`Error in onActive(${active}) callback:`, error);
 			}
@@ -556,7 +574,7 @@ export class FocusManager {
 		return undefined;
 	}
 
-	private activateAndFocus(element: HTMLElement | undefined): boolean {
+	activateAndFocus(element: HTMLElement | undefined): boolean {
 		if (!element) return false;
 		const activatedElement = this.setActive(element);
 		if (activatedElement) {
@@ -573,7 +591,7 @@ export class FocusManager {
 	 * @param forward - Whether to navigate to right (true) or previous (false) sibling
 	 * @returns True if navigation succeeded, false otherwise
 	 */
-	focusSibling(options: { forward: boolean; metaKey: boolean }): boolean {
+	focusSibling(options: { forward: boolean; metaKey?: boolean }): boolean {
 		const { forward } = options;
 		const currentMetadata = this.getCurrentMetadata();
 		const parentMetadata = this.getParentMetadata(currentMetadata);
@@ -643,7 +661,7 @@ export class FocusManager {
 		let depth = 0;
 
 		while (parentElement && parentMetadata && depth < MAX_TRAVERSAL_DEPTH) {
-			// If parent should be skipped, try to find non-skippable descendant in the specified direction
+			// If parent should be skipped, try to find focusable child in the specified direction
 			if (this.shouldSkipElement(parentMetadata)) {
 				// Only look for focusable descendents a skipped focusable is of vertical type,
 				// otherwise keep traversing the parent elements.
@@ -655,16 +673,18 @@ export class FocusManager {
 					);
 
 					for (const sibling of siblingsToSearch) {
-						const nonSkippableDescendant = this.findNonSkippedDescendant(sibling, forward);
-						if (nonSkippableDescendant && nonSkippableDescendant !== sibling) {
-							this.activateAndFocus(nonSkippableDescendant);
-							return;
-						}
-						// If sibling itself is non-skippable, focus it
-						const siblingMeta = this.getMetadata(sibling);
-						if (siblingMeta && !this.shouldSkipElement(siblingMeta)) {
+						const siblingMeta = this.getMetadataOrThrow(sibling);
+						if (!this.shouldSkipElement(siblingMeta)) {
+							// If sibling itself is non-skippable, focus it
 							this.activateAndFocus(sibling);
 							return;
+						} else {
+							// If sibling should be skipped, try to focus its preferred child
+							const preferredChild = this.getPreferredChild(sibling);
+							if (preferredChild) {
+								this.activateAndFocus(preferredChild);
+								return;
+							}
 						}
 					}
 				}
@@ -747,15 +767,47 @@ export class FocusManager {
 		const metadata = this.getCurrentMetadata();
 		if (!metadata) return;
 
-		// Try custom handlers first
+		const navigationContext = this.buildNavigationContext(event, metadata);
+		if (this.shouldShowOutlineOnly(navigationContext)) {
+			this.outline.set(true);
+			event.stopPropagation();
+			event.preventDefault();
+			return false;
+		}
+
+		// Handle Space/Enter action keys first
+		if (this.tryActionHandler(event)) {
+			return;
+		}
+
+		// Try custom handlers
 		if (this.tryCustomHandlers(event)) {
 			return;
 		}
 
 		// Handle built-in navigation
-		if (this.processStandardNavigation(event, metadata)) {
+		if (this.processStandardNavigation(event, navigationContext)) {
 			this.outline.set(true);
 		}
+	}
+
+	private tryActionHandler(event: KeyboardEvent): boolean {
+		if (!this.currentElement) return false;
+
+		// Check if the key is Space or Enter
+		if (event.key !== ' ' && event.key !== 'Enter') return false;
+
+		const metadata = this.getMetadata(this.currentElement);
+		if (!metadata?.options.onAction) return false;
+
+		try {
+			metadata.options.onAction();
+			return true;
+		} catch (error) {
+			console.warn('Error in onAction handler:', error);
+		}
+
+		return false;
 	}
 
 	private tryCustomHandlers(event: KeyboardEvent): boolean {
@@ -783,8 +835,10 @@ export class FocusManager {
 	 * built into the focus system. Handles input validation, outline visibility,
 	 * and delegates to the appropriate navigation action.
 	 */
-	private processStandardNavigation(event: KeyboardEvent, metadata: FocusableData): boolean {
-		const navigationContext = this.buildNavigationContext(event, metadata);
+	private processStandardNavigation(
+		event: KeyboardEvent,
+		navigationContext: NavigationContext
+	): boolean {
 		if (!navigationContext.action) return false;
 
 		if (this.shouldIgnoreNavigationForInput(navigationContext)) {
@@ -798,20 +852,15 @@ export class FocusManager {
 		event.preventDefault();
 		event.stopPropagation();
 
-		if (this.shouldShowOutlineOnly(navigationContext)) {
-			this.outline.set(true);
-			return false;
-		}
-
 		return this.executeNavigationAction(navigationContext.action, {
 			metaKey: event.metaKey,
 			forward: !event.shiftKey,
-			trap: metadata.options.trap,
+			trap: navigationContext.trap,
 			inVertical: navigationContext.inVertical
 		});
 	}
 
-	private buildNavigationContext(event: KeyboardEvent, metadata: FocusableData) {
+	private buildNavigationContext(event: KeyboardEvent, metadata: FocusableData): NavigationContext {
 		const parentElement = metadata?.parentElement;
 		const parentData = parentElement ? this.getMetadataOrThrow(parentElement) : undefined;
 		const inVertical = parentData?.options.vertical ?? false;
@@ -819,6 +868,7 @@ export class FocusManager {
 
 		return {
 			action,
+			trap: metadata.options.trap,
 			inVertical,
 			isInput: this.isInputElement(event.target),
 			hasSelection: this.hasTextSelection(),
@@ -842,16 +892,16 @@ export class FocusManager {
 
 	private shouldIgnoreNavigationForInput(context: {
 		action: NavigationAction | null;
-		isInput: boolean;
+		isInput?: boolean;
 	}): boolean {
-		return context.isInput && context.action !== 'tab';
+		return (context.isInput && context.action !== 'tab') || false;
 	}
 
 	private shouldShowOutlineOnly(context: {
 		action: NavigationAction | null;
-		hasOutline: boolean;
+		hasOutline?: boolean;
 	}): boolean {
-		return !context.hasOutline && context.action !== 'tab';
+		return (!context.hasOutline && context.action !== 'tab') || false;
 	}
 
 	/**
@@ -884,9 +934,9 @@ export class FocusManager {
 	private executeNavigationAction(
 		action: NavigationAction,
 		options: {
-			metaKey: boolean;
-			inVertical: boolean;
-			forward: boolean;
+			metaKey?: boolean;
+			inVertical?: boolean;
+			forward?: boolean;
 			trap?: boolean;
 		}
 	): boolean {
@@ -1221,6 +1271,20 @@ export class FocusManager {
 		for (const child of children) {
 			this.printTreeNode(child, logElements, depth + 1);
 		}
+	}
+
+	/**
+	 * Focuses the nth item in the parent of the current element.
+	 */
+	focusNthSibling(n: number): boolean {
+		const currentMetadata = this.getCurrentMetadata();
+		if (!currentMetadata?.parentElement) return false;
+
+		const metadata = this.getMetadata(currentMetadata.parentElement);
+		if (!metadata) return false;
+
+		if (n >= metadata.children.length) return false;
+		return this.activateAndFocus(metadata.children[n]);
 	}
 
 	private getElementDescription(element: HTMLElement | undefined): string {
