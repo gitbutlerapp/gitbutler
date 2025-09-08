@@ -179,7 +179,7 @@
 	class="snapshot-card show-restore-on-hover"
 	class:restored-snapshot={isRestoreSnapshot || isWithinRestore}
 	use:focusable={{
-		list: true
+		vertical: true
 	}}
 >
 	<div class="snapshot-right-container">

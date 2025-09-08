@@ -18,45 +18,23 @@ const MAX_PARENT_SEARCH_DEPTH = 100;
 const MAX_DESCENDANT_DEPTH = 10;
 const MAX_TRAVERSAL_DEPTH = 20;
 
-export enum DefinedFocusable {
-	Assignments = 'assignments',
-	Branch = 'branch',
-	Commit = 'commit',
-	CommitList = 'commit-list',
-	FileItem = 'file-item',
-	FileList = 'file-list'
-}
-
-export const DEFAULT_LINKS = [
-	DefinedFocusable.FileItem,
-	DefinedFocusable.Commit,
-	DefinedFocusable.Branch,
-	DefinedFocusable.Assignments
-];
-
 type NavigationAction = 'tab' | 'left' | 'right' | 'up' | 'down';
 
 export type KeyboardHandler = (event: KeyboardEvent) => boolean | void;
 
 export interface FocusableOptions {
-	// Identifier for this focusable element, used by custom navigation code
-	id?: DefinedFocusable;
 	// Custom tab order within siblings (overrides default DOM order)
 	tabIndex?: number;
 	// Keep focusable inactive and outside navigation hierarchy
 	disabled?: boolean;
-	// Treat children as a list (changes arrow key behavior, automatically sets skip: true)
-	list?: boolean;
+	// Treat children as vertically oriented (changes arrow key behavior, automatically skips during navigation)
+	vertical?: boolean;
 	// Prevent keyboard navigation from leaving this element
 	trap?: boolean;
 	// Automatically focus this element when registered
 	activate?: boolean;
 	// Don't establish parent-child relationships with other focusables
 	isolate?: boolean;
-	// Link to other focusable types for boundary navigation
-	linkToIds?: DefinedFocusable[];
-	// Skip this element in navigation, go directly to first child or parent
-	skip?: boolean;
 	// Never highlight the element
 	dim?: boolean;
 
@@ -67,10 +45,8 @@ export interface FocusableOptions {
 }
 
 interface FocusableData {
-	logicalId?: DefinedFocusable;
 	parentElement?: HTMLElement;
 	children: HTMLElement[]; // Preserve registration order
-	// Extended options
 	options: FocusableOptions;
 }
 
@@ -88,13 +64,13 @@ export class FocusManager {
 	private pendingRelationships: HTMLElement[] = [];
 
 	// Current focused element (physical)
-	private _currentElement: HTMLElement | undefined;
+	private currentElement: HTMLElement | undefined;
 
 	// Previously focused elements (most recent first, limited to 10 items).
-	private _previousElements: HTMLElement[] = [];
+	private previousElements: HTMLElement[] = [];
 
-	// Cache for last active index of list focusables (element -> last active child index)
-	private _listFocusableCache = new Map<HTMLElement, number>();
+	// Cache for last active index of vertical focusables (element -> last active child index)
+	private indexCache = new Map<HTMLElement, number>();
 
 	readonly cursor = writable<HTMLElement | undefined>();
 	readonly outline = writable(false);
@@ -103,32 +79,29 @@ export class FocusManager {
 	private handleKeys = this.handleKeydown.bind(this);
 
 	private addToPreviousElements(element: HTMLElement) {
-		// Remove element if it already exists in the array
-		const existingIndex = this._previousElements.indexOf(element);
+		const existingIndex = this.previousElements.indexOf(element);
 		if (existingIndex !== -1) {
-			this._previousElements.splice(existingIndex, 1);
+			this.previousElements.splice(existingIndex, 1);
 		}
 
-		// Add to front
-		this._previousElements.unshift(element);
+		this.previousElements.unshift(element);
 
-		// Limit to MAX_HISTORY_SIZE items
-		if (this._previousElements.length > MAX_HISTORY_SIZE) {
-			this._previousElements.splice(MAX_HISTORY_SIZE);
+		if (this.previousElements.length > MAX_HISTORY_SIZE) {
+			this.previousElements.splice(MAX_HISTORY_SIZE);
 		}
 	}
 
 	private getValidPreviousElement(): HTMLElement | undefined {
 		// Find the first connected element in the history
-		for (let i = 0; i < this._previousElements.length; i++) {
-			const element = this._previousElements[i];
+		for (let i = 0; i < this.previousElements.length; i++) {
+			const element = this.previousElements[i];
 			if (element.isConnected) {
 				return element;
 			}
 		}
 
 		// Clean up disconnected elements
-		this._previousElements = this._previousElements.filter((el) => el.isConnected);
+		this.previousElements = this.previousElements.filter((el) => el.isConnected);
 		return undefined;
 	}
 
@@ -145,12 +118,6 @@ export class FocusManager {
 
 	private getMetadata(element: HTMLElement): FocusableData | undefined {
 		return this.metadata.get(element);
-	}
-
-	private normalizeSearchTypes(
-		searchTypes: DefinedFocusable | DefinedFocusable[]
-	): DefinedFocusable[] {
-		return Array.isArray(searchTypes) ? searchTypes : [searchTypes];
 	}
 
 	private getKeydownHandlers(element: HTMLElement): KeyboardHandler[] {
@@ -180,15 +147,12 @@ export class FocusManager {
 	}
 
 	private getCurrentMetadata(): FocusableData | undefined {
-		return this._currentElement ? this.getMetadata(this._currentElement) : undefined;
+		return this.currentElement ? this.getMetadata(this.currentElement) : undefined;
 	}
 
 	/**
 	 * Gets siblings of an element in a specified direction, excluding the element itself.
-	 * @param siblings - Array of sibling elements
-	 * @param currentElement - The element to exclude from siblings
-	 * @param forward - Whether to get siblings after (true) or before (false) the current element
-	 * @returns Array of siblings in the specified direction, reversed if searching backward
+	 * Returns reversed order when searching backward for closest-first traversal.
 	 */
 	private getSiblingsInDirection(
 		siblings: HTMLElement[],
@@ -208,9 +172,6 @@ export class FocusManager {
 
 	/**
 	 * Gets children of an element in a specified direction.
-	 * @param children - Array of child elements
-	 * @param forward - Whether to iterate forward (true) or backward (false)
-	 * @returns Array of children in the specified order
 	 */
 	private getChildrenInDirection(children: HTMLElement[], forward: boolean): HTMLElement[] {
 		return forward ? children : children.slice().reverse();
@@ -218,8 +179,6 @@ export class FocusManager {
 
 	/**
 	 * Gets the parent element's metadata for a given metadata object.
-	 * @param metadata - The metadata to get the parent from
-	 * @returns Parent metadata or undefined if no parent exists
 	 */
 	private getParentMetadata(metadata: FocusableData | undefined): FocusableData | undefined {
 		if (!metadata?.parentElement) return undefined;
@@ -227,17 +186,13 @@ export class FocusManager {
 	}
 
 	/**
-	 * Normalizes focusable options by applying automatic defaults.
-	 * When list: true is specified, automatically sets skip: true unless explicitly overridden.
-	 * @param options - The raw focusable options
-	 * @returns Normalized options with automatic defaults applied
+	 * Determines if an element should be skipped during navigation.
+	 * An element is skipped if it has vertical: true or if it has children.
+	 * @param metadata - The element's metadata
+	 * @returns True if the element should be skipped, false otherwise
 	 */
-	private normalizeFocusableOptions(options: FocusableOptions): FocusableOptions {
-		// If list: true and skip is not explicitly defined, set skip: true
-		if (options.list && options.skip === undefined) {
-			return { ...options, skip: true };
-		}
-		return options;
+	private shouldSkipElement(metadata: FocusableData): boolean {
+		return metadata.options.vertical === true || metadata.children.length > 0;
 	}
 
 	/**
@@ -251,26 +206,23 @@ export class FocusManager {
 			return;
 		}
 
-		const normalizedOptions = this.normalizeFocusableOptions(options);
-		const { id: logicalId } = normalizedOptions;
 		this.unregisterElement(element);
 
-		const parentElement = normalizedOptions.isolate ? undefined : this.findParent(element);
+		const parentElement = options.isolate ? undefined : this.findParent(element);
 		const parentMeta = parentElement ? this.getMetadata(parentElement) : undefined;
 
 		const metadata: FocusableData = {
-			logicalId,
 			parentElement,
 			children: [],
-			options: normalizedOptions
+			options
 		};
 
 		this.establishParentChildRelationships(element, metadata, parentMeta);
 		this.metadata.set(element, metadata);
 		this.resolvePendingRelationships();
-		this.handlePendingRegistration(element, parentMeta, normalizedOptions);
+		this.handlePendingRegistration(element, parentMeta, options);
 
-		if (normalizedOptions.activate) {
+		if (options.activate) {
 			this.setActive(element);
 		}
 	}
@@ -379,22 +331,22 @@ export class FocusManager {
 		this.pendingRelationships = this.pendingRelationships.filter((p) => p !== element);
 
 		// Remove from history array
-		removeFromArray(this._previousElements, element);
+		removeFromArray(this.previousElements, element);
 
 		// Clean up cache entry for this element
-		this._listFocusableCache.delete(element);
+		this.indexCache.delete(element);
 
 		// Clear current if it matches
-		if (this._currentElement === element) {
+		if (this.currentElement === element) {
 			const previousElement = this.getValidPreviousElement();
 			if (previousElement) {
-				this._currentElement = previousElement;
+				this.currentElement = previousElement;
 				// Remove the selected element from history since it's now current
-				removeFromArray(this._previousElements, previousElement);
+				removeFromArray(this.previousElements, previousElement);
 			} else {
-				this._currentElement = undefined;
+				this.currentElement = undefined;
 			}
-			this.cursor.set(this._currentElement);
+			this.cursor.set(this.currentElement);
 		}
 	}
 
@@ -434,11 +386,11 @@ export class FocusManager {
 
 	/**
 	 * Sets the specified element as the currently active (focused) element.
-	 * If the element has skip=true, it will try to focus the preferred child instead.
+	 * If the element should be skipped (vertical: true or has children), it will try to focus the preferred child instead.
 	 * Triggers onBlur callback for the previously active element and onFocus
 	 * callback for the newly active element. Also fires onActive callbacks
 	 * for all parent focusables. Updates focus history and caches the active index
-	 * for list focusables.
+	 * for vertical focusables.
 	 */
 	setActive(element: HTMLElement): HTMLElement | undefined {
 		if (!element?.isConnected || !this.isElementRegistered(element)) return undefined;
@@ -450,106 +402,19 @@ export class FocusManager {
 		}
 
 		const targetElement = this.findFocusableChild(element) || element;
-		const previousElement = this._currentElement;
+		const previousElement = this.currentElement;
 
 		if (previousElement) {
 			this.triggerOnActiveCallbacks(previousElement, false);
 			this.addToPreviousElements(previousElement);
 		}
 
-		this._currentElement = targetElement;
+		this.currentElement = targetElement;
 		this.cacheActiveIndex(targetElement);
 		this.triggerOnActiveCallbacks(targetElement, true);
 		this.cursor.set(targetElement);
 
 		return targetElement;
-	}
-
-	/**
-	 * Recursively searches for the right focusable element of specific types
-	 * by traversing up the hierarchy and checking sibling branches.
-	 * Finds the nearest element of any of the specified types.
-	 *
-	 * @param searchElement - Current element to search from
-	 * @param searchTypes - Types of focusable elements to find (can be single type or array)
-	 * @param forward - Whether to search forward or backward through siblings
-	 * @returns The right matching element or undefined if none found
-	 */
-	private findNextByType(
-		searchElement: HTMLElement,
-		searchTypes: DefinedFocusable | DefinedFocusable[],
-		forward: boolean
-	): HTMLElement | undefined {
-		const currentMeta = this.getMetadata(searchElement);
-		const parentMeta = this.getParentMetadata(currentMeta);
-		if (!parentMeta || !this._currentElement) return;
-
-		const typesToSearch = this.normalizeSearchTypes(searchTypes);
-		const childrenToSearch = this.getSiblingsInDirection(
-			parentMeta.children,
-			searchElement,
-			forward
-		);
-
-		for (const nextChild of childrenToSearch) {
-			const result = this.findWithin(nextChild, typesToSearch, forward);
-			if (result) return result;
-		}
-
-		if (!currentMeta?.parentElement) return undefined;
-		return this.findNextByType(currentMeta.parentElement, searchTypes, forward);
-	}
-
-	/**
-	 * Recursively searches within an element's children for specific focusable types
-	 *
-	 * @param element - Parent element to search within
-	 * @param searchTypes - Types of focusable elements to find (can be single type or array)
-	 * @param forward - Whether to search forward (first match) or backward (last match)
-	 * @returns The matching child element or undefined if none found
-	 */
-	private findWithin(
-		element: HTMLElement,
-		searchTypes: DefinedFocusable | DefinedFocusable[],
-		forward: boolean = true
-	): HTMLElement | undefined {
-		const metadata = this.getMetadata(element);
-		if (!metadata) return;
-
-		const typesToSearch = this.normalizeSearchTypes(searchTypes);
-		const children = this.getChildrenInDirection(metadata.children, forward);
-
-		for (const child of children) {
-			const childMeta = this.getMetadata(child);
-
-			// Skip elements with skip=true unless they match the search types
-			if (childMeta?.options.skip) {
-				// Only consider skipped elements if they match the search types
-				if (childMeta.logicalId && typesToSearch.includes(childMeta.logicalId)) {
-					// Even if it matches, prefer its children if any exist
-					const firstGrandChild = childMeta.children.at(0);
-					if (firstGrandChild) {
-						const grandChildResult = this.findWithin(child, searchTypes, forward);
-						if (grandChildResult) return grandChildResult;
-					}
-					return child;
-				}
-				// Search within skipped elements but don't return them directly
-				const subchild = this.findWithin(child, searchTypes, forward);
-				if (subchild) {
-					return subchild;
-				}
-				continue;
-			}
-
-			if (childMeta?.logicalId && typesToSearch.includes(childMeta.logicalId)) {
-				return child;
-			}
-			const subchild = this.findWithin(child, searchTypes, forward);
-			if (subchild) {
-				return subchild;
-			}
-		}
 	}
 
 	/**
@@ -565,8 +430,7 @@ export class FocusManager {
 			return undefined;
 		}
 
-		// Check if we have a cached index for this container
-		const cachedIndex = this._listFocusableCache.get(containerElement);
+		const cachedIndex = this.indexCache.get(containerElement);
 		if (cachedIndex !== undefined && cachedIndex < containerMetadata.children.length) {
 			const cachedChild = containerMetadata.children[cachedIndex];
 			if (cachedChild && cachedChild.isConnected) {
@@ -574,7 +438,6 @@ export class FocusManager {
 			}
 		}
 
-		// Fall back to first child if no cache or cache is invalid
 		return containerMetadata.children.at(0);
 	}
 
@@ -596,47 +459,42 @@ export class FocusManager {
 			}
 			visited.add(current);
 
-			// Get the preferred child from current container
 			const preferredChild = this.getPreferredChild(current);
 			if (!preferredChild) {
-				// No children available, return current container
 				return current;
 			}
 
-			// Check if the preferred child has cached state
-			const childHasCache = this._listFocusableCache.has(preferredChild);
+			const childHasCache = this.indexCache.has(preferredChild);
 
 			if (!childHasCache) {
-				// No cache - this is our final target
 				return preferredChild;
 			}
 
-			// Child has cache - continue traversing deeper
 			current = preferredChild;
 		}
 
-		// Fallback: return the last container we were examining
 		return current;
 	}
 
 	/**
-	 * Recursively searches for the next non-skipped focusable element within list contexts.
-	 * Traverses up the hierarchy while parent elements have list: true, ensuring navigation
-	 * stays within the same column/list structure.
+	 * Recursively searches for the next non-skipped focusable element within vertical contexts.
+	 * Traverses up the hierarchy while parent elements have vertical: true, ensuring navigation
+	 * stays within the same column/vertical structure.
 	 *
 	 * @param searchElement - Current element to search from
 	 * @param forward - Whether to search forward (next) or backward (previous) through siblings
 	 * @returns The next non-skipped focusable element or undefined if none found
 	 */
-	private findNextInList(searchElement: HTMLElement, forward: boolean): HTMLElement | undefined {
+	private findNextInVertical(
+		searchElement: HTMLElement,
+		forward: boolean
+	): HTMLElement | undefined {
 		const currentMeta = this.getMetadata(searchElement);
 		const parentMeta = this.getParentMetadata(currentMeta);
-		if (!currentMeta || !parentMeta || !this._currentElement) return undefined;
+		if (!currentMeta || !parentMeta || !this.currentElement) return undefined;
 
-		// If we reach an element that is not a list we want to exit, as to stay
-		// in the same column.
-		// console.log({ parentMeta, currentMeta });
-		if (!parentMeta.options.list) {
+		// Exit if parent is not vertical to stay within the same column
+		if (!parentMeta.options.vertical) {
 			return undefined;
 		}
 
@@ -651,9 +509,8 @@ export class FocusManager {
 			if (result) return result;
 		}
 
-		// Only continue traversing up if the parent has list: true
-		if (parentMeta.options.list && currentMeta.parentElement) {
-			return this.findNextInList(currentMeta.parentElement, forward);
+		if (parentMeta.options.vertical && currentMeta.parentElement) {
+			return this.findNextInVertical(currentMeta.parentElement, forward);
 		}
 
 		return undefined;
@@ -683,8 +540,8 @@ export class FocusManager {
 		for (const child of children) {
 			const childMeta = this.getMetadata(child);
 
-			// Skip elements with skip=true entirely
-			if (childMeta?.options.skip) {
+			// Skip elements (those with vertical: true or children) entirely
+			if (childMeta && this.shouldSkipElement(childMeta)) {
 				// Search within skipped elements but don't return them directly
 				const subchild = this.findNonSkippedDescendant(child, forward);
 				if (subchild) {
@@ -710,25 +567,20 @@ export class FocusManager {
 
 	/**
 	 * Navigates to the right or previous sibling element. If no sibling exists
-	 * and we're at a list boundary with linked types configured, attempts
+	 * and we're at a vertical boundary with linked types configured, attempts
 	 * boundary navigation to linked element types.
 	 *
 	 * @param forward - Whether to navigate to right (true) or previous (false) sibling
 	 * @returns True if navigation succeeded, false otherwise
 	 */
 	focusSibling(options: { forward: boolean; metaKey: boolean }): boolean {
-		const { forward, metaKey: meta } = options;
+		const { forward } = options;
 		const currentMetadata = this.getCurrentMetadata();
 		const parentMetadata = this.getParentMetadata(currentMetadata);
-		if (!parentMetadata || !this._currentElement) return false;
+		if (!parentMetadata || !this.currentElement) return false;
 
 		const siblings = parentMetadata.children;
-		const currentIndex = siblings.indexOf(this._currentElement);
-		const isListWithLinks = currentMetadata?.options.linkToIds;
-
-		if (isListWithLinks && meta) {
-			return this.focusColumnSibling(forward);
-		}
+		const currentIndex = siblings.indexOf(this.currentElement);
 
 		// Early validation
 		if (currentIndex === -1) return false;
@@ -751,52 +603,20 @@ export class FocusManager {
 	}
 
 	/**
-	 * Focuses a "cousin" element - an element of the same type in a different branch
-	 * of the focus tree. Used for navigating between similar elements across different
-	 * sections (e.g., from one commit list to another commit list).
-	 *
-	 * @param forward - Whether to search forward or backward in the tree
-	 * @returns True if a cousin was found and focused, false otherwise
-	 */
-	focusCousin(forward: boolean): boolean {
-		const metadata = this.getCurrentMetadata();
-		if (!metadata?.parentElement || !this._currentElement) return false;
-
-		const cousinTarget = this.findNextByType(
-			this._currentElement,
-			metadata.logicalId as DefinedFocusable,
-			forward
-		);
-		return this.activateAndFocus(cousinTarget);
-	}
-
-	/**
-	 * Focuses a linked element when navigating past list boundaries.
-	 * Finds the next non-skipped focusable, traversing parents while list: true.
+	 * Focuses a linked element when navigating past vertical boundaries.
+	 * Finds the next non-skipped focusable, traversing parents while vertical: true.
 	 *
 	 * @param forward - Whether to search forward or backward in the tree
 	 * @returns True if a linked element was found and focused, false if no focusable was found
 	 */
 	focusColumnSibling(forward: boolean): boolean {
 		const metadata = this.getCurrentMetadata();
-		if (!metadata?.parentElement || !this._currentElement) return false;
+		if (!metadata?.parentElement || !this.currentElement) return false;
 
-		// Find the next non-skipped focusable, traversing parents while list: true
-		const linkedTarget = this.findNextInList(this._currentElement, forward);
+		// Find the next non-skipped focusable, traversing parents while vertical: true
+		const linkedTarget = this.findNextInVertical(this.currentElement, forward);
 		if (!linkedTarget) return false;
 
-		return this.activateAndFocus(linkedTarget);
-	}
-
-	focus(forward: boolean): boolean {
-		const metadata = this.getCurrentMetadata();
-		if (!metadata?.parentElement || !this._currentElement) return false;
-
-		const linkToIds = metadata.options.linkToIds;
-		if (!linkToIds || linkToIds.length === 0) return false;
-
-		// Find the nearest element of any of the target types
-		const linkedTarget = this.findNextByType(this._currentElement, linkToIds, forward);
 		return this.activateAndFocus(linkedTarget);
 	}
 
@@ -815,19 +635,19 @@ export class FocusManager {
 
 	focusParent(forward: boolean = true): void {
 		const currentMetadata = this.getCurrentMetadata();
-		if (!currentMetadata?.parentElement || !this._currentElement) return;
+		if (!currentMetadata?.parentElement || !this.currentElement) return;
 
-		let currentElement = this._currentElement;
+		let currentElement = this.currentElement;
 		let parentElement = currentMetadata.parentElement;
 		let parentMetadata = this.getMetadata(parentElement);
 		let depth = 0;
 
 		while (parentElement && parentMetadata && depth < MAX_TRAVERSAL_DEPTH) {
-			// If parent has skip=true, try to find non-skippable descendant in the specified direction
-			if (parentMetadata.options.skip) {
-				// Only look for focusable descendents a skipped focusable is of list type,
+			// If parent should be skipped, try to find non-skippable descendant in the specified direction
+			if (this.shouldSkipElement(parentMetadata)) {
+				// Only look for focusable descendents a skipped focusable is of vertical type,
 				// otherwise keep traversing the parent elements.
-				if (parentMetadata.options.list) {
+				if (parentMetadata.options.vertical) {
 					const siblingsToSearch = this.getSiblingsInDirection(
 						parentMetadata.children,
 						currentElement,
@@ -842,7 +662,7 @@ export class FocusManager {
 						}
 						// If sibling itself is non-skippable, focus it
 						const siblingMeta = this.getMetadata(sibling);
-						if (!siblingMeta?.options.skip) {
+						if (siblingMeta && !this.shouldSkipElement(siblingMeta)) {
 							this.activateAndFocus(sibling);
 							return;
 						}
@@ -869,20 +689,20 @@ export class FocusManager {
 	/**
 	 * Navigates focus to the preferred child element of the currently focused element.
 	 * Uses cached position if available, otherwise falls back to first child.
-	 * If the preferred child has skip=true, it will try to focus its preferred child instead.
+	 * If the preferred child should be skipped (vertical: true or has children), it will try to focus its preferred child instead.
 	 */
 	focusChild(): boolean {
 		const metadata = this.getCurrentMetadata();
-		if (!metadata || !this._currentElement) return false;
+		if (!metadata || !this.currentElement) return false;
 
 		// Get the preferred child (cached or first child)
-		const preferredChild = this.getPreferredChild(this._currentElement);
+		const preferredChild = this.getPreferredChild(this.currentElement);
 		if (!preferredChild) return false;
 
 		const childMetadata = this.getMetadata(preferredChild);
 
 		// If the preferred child should be skipped, try to focus its preferred child (cached or first)
-		if (childMetadata?.options.skip) {
+		if (childMetadata && this.shouldSkipElement(childMetadata)) {
 			const preferredGrandChild = this.getPreferredChild(preferredChild);
 			if (preferredGrandChild) {
 				return this.activateAndFocus(preferredGrandChild);
@@ -939,9 +759,9 @@ export class FocusManager {
 	}
 
 	private tryCustomHandlers(event: KeyboardEvent): boolean {
-		if (!this._currentElement) return false;
+		if (!this.currentElement) return false;
 
-		const keyHandlers = this.getKeydownHandlers(this._currentElement);
+		const keyHandlers = this.getKeydownHandlers(this.currentElement);
 
 		for (const keyHandler of keyHandlers) {
 			try {
@@ -987,21 +807,19 @@ export class FocusManager {
 			metaKey: event.metaKey,
 			forward: !event.shiftKey,
 			trap: metadata.options.trap,
-			inList: navigationContext.inList
+			inVertical: navigationContext.inVertical
 		});
 	}
 
 	private buildNavigationContext(event: KeyboardEvent, metadata: FocusableData) {
 		const parentElement = metadata?.parentElement;
 		const parentData = parentElement ? this.getMetadataOrThrow(parentElement) : undefined;
-		const isList = metadata.options.list ?? false;
-		const inList = parentData?.options.list ?? false;
+		const inVertical = parentData?.options.vertical ?? false;
 		const action = this.getNavigationAction(event.key);
 
 		return {
 			action,
-			isList,
-			inList,
+			inVertical,
 			isInput: this.isInputElement(event.target),
 			hasSelection: this.hasTextSelection(),
 			hasOutline: get(this.outline)
@@ -1013,7 +831,7 @@ export class FocusManager {
 			(target instanceof HTMLElement && isContentEditable(target)) ||
 			target instanceof HTMLTextAreaElement ||
 			target instanceof HTMLInputElement ||
-			!this._currentElement
+			!this.currentElement
 		);
 	}
 
@@ -1037,19 +855,7 @@ export class FocusManager {
 	}
 
 	/**
-	 * Maps keyboard keys to navigation actions based on context
-	 *
-	 * In list contexts:
-	 * - Left/Up: Navigate to previous item or exit list
-	 * - Right/Down: Navigate to right item or enter child
-	 *
-	 * In non-list contexts:
-	 * - Left/Up: Navigate to parent or previous sibling
-	 * - Right/Down: Navigate to child or right sibling
-	 *
-	 * @param key - The keyboard key that was pressed
-	 * @param inList - Whether the current element is in a list context
-	 * @returns The navigation action to perform, or null if key is not handled
+	 * Maps keyboard keys to navigation actions.
 	 */
 	private getNavigationAction(key: string): NavigationAction | null {
 		const keyMap: Record<string, NavigationAction> = {
@@ -1068,8 +874,8 @@ export class FocusManager {
 	 * Navigation behaviors:
 	 * - tab: Uses native tab navigation within current element
 	 * - prev/right: Navigate to sibling elements, or parent/child if no siblings
-	 * - exit: Navigate to parent (or cousin with metaKey in lists)
-	 * - enter: Navigate to first child (or cousin with metaKey in lists)
+	 * - exit: Navigate to parent (or cousin with metaKey in vertical containers)
+	 * - enter: Navigate to first child (or cousin with metaKey in vertical containers)
 	 *
 	 * @param action - The navigation action to perform
 	 * @param options - Navigation context options
@@ -1079,23 +885,23 @@ export class FocusManager {
 		action: NavigationAction,
 		options: {
 			metaKey: boolean;
-			inList: boolean;
+			inVertical: boolean;
 			forward: boolean;
 			trap?: boolean;
 		}
 	): boolean {
-		const { metaKey, inList, forward = true, trap } = options;
+		const { metaKey, inVertical, forward = true, trap } = options;
 		switch (action) {
 			case 'tab':
-				if (this._currentElement) {
-					focusNextTabIndex({ container: this._currentElement, forward });
+				if (this.currentElement) {
+					focusNextTabIndex({ container: this.currentElement, forward });
 				}
 				return false; // do not toggle outline
 
 			case 'left':
 				if (trap) return true;
-				if (inList) {
-					this.focusNextList(false);
+				if (inVertical) {
+					this.focusNextVertical(false);
 				} else if (!this.focusSibling({ forward: false, metaKey })) {
 					this.focusParent(false);
 				}
@@ -1103,8 +909,8 @@ export class FocusManager {
 
 			case 'right':
 				if (trap) return true;
-				if (inList) {
-					this.focusNextList(true);
+				if (inVertical) {
+					this.focusNextVertical(true);
 				} else if (!this.focusSibling({ forward: true, metaKey })) {
 					this.focusChild();
 				}
@@ -1119,7 +925,7 @@ export class FocusManager {
 
 			case 'down':
 				if (trap) return true;
-				if (inList) {
+				if (inVertical) {
 					if (!this.focusSibling({ forward: true, metaKey })) {
 						if (!this.focusChild()) {
 							this.focusParent(true);
@@ -1150,11 +956,11 @@ export class FocusManager {
 		while (parentElement) {
 			const parentMetadata = this.getMetadata(parentElement);
 
-			// Cache index for all parents (not just lists)
+			// Cache index for all parents (not just vertical containers)
 			if (parentMetadata) {
 				const childIndex = parentMetadata.children.indexOf(currentElement);
 				if (childIndex >= 0) {
-					this._listFocusableCache.set(parentElement, childIndex);
+					this.indexCache.set(parentElement, childIndex);
 				}
 			}
 
@@ -1165,31 +971,31 @@ export class FocusManager {
 	}
 
 	/**
-	 * Navigates to the next or previous list by traversing up through non-list parent containers,
-	 * searching for sibling containers in the specified direction at each level. If no list is found
-	 * at one level, continues searching at higher non-list parent levels. This ensures navigation between
+	 * Navigates to the next or previous vertical container by traversing up through non-vertical parent containers,
+	 * searching for sibling containers in the specified direction at each level. If no vertical container is found
+	 * at one level, continues searching at higher non-vertical parent levels. This ensures navigation between
 	 * major sections while allowing traversal across multiple hierarchy levels. Uses deep cached hierarchy
 	 * traversal to focus the exact position where you were last working.
 	 *
-	 * @param forward - Whether to search forward (true) or backward (false) for the next list
-	 * @returns True if a list was found and focused, false otherwise
+	 * @param forward - Whether to search forward (true) or backward (false) for the next vertical container
+	 * @returns True if a vertical container was found and focused, false otherwise
 	 */
-	focusNextList(forward: boolean): boolean {
-		if (!this._currentElement) return false;
+	focusNextVertical(forward: boolean): boolean {
+		if (!this.currentElement) return false;
 
-		let searchElement = this._currentElement;
+		let searchElement = this.currentElement;
 		let depth = 0;
 
 		while (searchElement && depth < MAX_TRAVERSAL_DEPTH) {
 			// Find non-list parent container
-			const nonListParent = this.findNonListParent(searchElement);
-			if (!nonListParent) return false;
+			const nonVerticalParent = this.findNonVerticalParent(searchElement);
+			if (!nonVerticalParent) return false;
 
-			const parentMetadata = this.getMetadata(nonListParent);
+			const parentMetadata = this.getMetadata(nonVerticalParent);
 			if (!parentMetadata) return false;
 
 			// Find the current branch from the non-list parent's perspective
-			const currentBranch = this.findCurrentBranchFromParent(searchElement, nonListParent);
+			const currentBranch = this.findCurrentBranchFromParent(searchElement, nonVerticalParent);
 			if (!currentBranch) return false;
 
 			// Find siblings of the current branch
@@ -1200,20 +1006,20 @@ export class FocusManager {
 				// Get siblings in the search direction
 				const searchSiblings = this.getSiblingsInDirection(siblings, currentBranch, forward);
 
-				// Search through siblings for one that contains a list
+				// Search through siblings for one that contains a vertical container
 				for (const sibling of searchSiblings) {
-					const listElement = this.findListDescendant(sibling, forward);
-					if (listElement) {
-						// Found a list, traverse to deepest cached descendant
-						const deepestTarget = this.getDeepestCachedDescendant(listElement);
+					const verticalElement = this.findVerticalDescendant(sibling, forward);
+					if (verticalElement) {
+						// Found a vertical container, traverse to deepest cached descendant
+						const deepestTarget = this.getDeepestCachedDescendant(verticalElement);
 						return this.activateAndFocus(deepestTarget);
 					}
 				}
 			}
 
-			// No list found at this level, continue traversing up
-			// Set the non-list parent as the new search element for the next iteration
-			searchElement = nonListParent;
+			// No vertical container found at this level, continue traversing up
+			// Set the non-vertical parent as the new search element for the next iteration
+			searchElement = nonVerticalParent;
 			depth++;
 		}
 
@@ -1221,13 +1027,13 @@ export class FocusManager {
 	}
 
 	/**
-	 * Traverses up the hierarchy to find the first parent that is not a list container.
-	 * This ensures we navigate between major sections rather than intermediate lists.
+	 * Traverses up the hierarchy to find the first parent that is not a vertical container.
+	 * This ensures we navigate between major sections rather than intermediate verticals.
 	 *
 	 * @param startElement - The element to start searching from
 	 * @returns The first non-list parent, or undefined if none found
 	 */
-	private findNonListParent(startElement: HTMLElement): HTMLElement | undefined {
+	private findNonVerticalParent(startElement: HTMLElement): HTMLElement | undefined {
 		let current = startElement;
 		let depth = 0;
 
@@ -1237,7 +1043,7 @@ export class FocusManager {
 
 			if (!parentElement) {
 				// No parent - return current if it's not a list, otherwise null
-				return metadata?.options.list ? undefined : current;
+				return metadata?.options.vertical ? undefined : current;
 			}
 
 			const parentMetadata = this.getMetadata(parentElement);
@@ -1248,8 +1054,8 @@ export class FocusManager {
 				continue;
 			}
 
-			// If parent is not a list, we found our non-list parent
-			if (!parentMetadata.options.list) {
+			// If parent is not vertical, we found our non-vertical parent
+			if (!parentMetadata.options.vertical) {
 				return parentElement;
 			}
 
@@ -1266,14 +1072,14 @@ export class FocusManager {
 	 * This helps us identify the "branch" we're currently in.
 	 *
 	 * @param currentElement - The element we're currently focused on
-	 * @param nonListParent - The non-list parent container
-	 * @returns The direct child of nonListParent that contains currentElement
+	 * @param nonVerticalParent - The non-vertical parent container
+	 * @returns The direct child of nonVerticalParent that contains currentElement
 	 */
 	private findCurrentBranchFromParent(
 		currentElement: HTMLElement,
-		nonListParent: HTMLElement
+		nonVerticalParent: HTMLElement
 	): HTMLElement | undefined {
-		const parentMetadata = this.getMetadata(nonListParent);
+		const parentMetadata = this.getMetadata(nonVerticalParent);
 		if (!parentMetadata) return undefined;
 
 		// Check each child of the non-list parent to see which one contains our current element
@@ -1310,23 +1116,23 @@ export class FocusManager {
 	}
 
 	/**
-	 * Recursively searches within an element and its descendants for a list element.
-	 * A list element is one that has `list: true` in its FocusableOptions.
+	 * Recursively searches within an element and its descendants for a vertical element.
+	 * A vertical element is one that has `vertical: true` in its FocusableOptions.
 	 *
 	 * @param element - The element to search within
-	 * @param forward - Whether to search in forward order (affects which list is returned if multiple exist)
-	 * @returns The first list element found, or undefined if none found
+	 * @param forward - Whether to search in forward order (affects which vertical element is returned if multiple exist)
+	 * @returns The first vertical element found, or undefined if none found
 	 */
-	private findListDescendant(element: HTMLElement, forward: boolean): HTMLElement | undefined {
+	private findVerticalDescendant(element: HTMLElement, forward: boolean): HTMLElement | undefined {
 		const metadata = this.getMetadata(element);
 		if (!metadata) return undefined;
 
-		if (!metadata.options.skip || metadata.children.length === 0) {
+		if (!this.shouldSkipElement(metadata)) {
 			return element;
 		}
 
-		// Check if this element itself is a list
-		if (metadata.options.list) {
+		// Check if this element itself is vertical
+		if (metadata.options.vertical) {
 			return element;
 		}
 
@@ -1334,7 +1140,7 @@ export class FocusManager {
 		const children = this.getChildrenInDirection(metadata.children, forward);
 
 		for (const child of children) {
-			const result = this.findListDescendant(child, forward);
+			const result = this.findVerticalDescendant(child, forward);
 			if (result) {
 				return result;
 			}
@@ -1388,17 +1194,16 @@ export class FocusManager {
 
 		// Build node description
 		const description = this.getElementDescription(element);
-		const isCurrent = this._currentElement === element;
+		const isCurrent = this.currentElement === element;
 		const marker = isCurrent ? ' ◀── CURRENT' : '';
 
 		// Build status indicators
 		const flags: string[] = [];
-		if (metadata.logicalId) flags.push(`id:${metadata.logicalId}`);
 		if (metadata.options.disabled) flags.push('disabled');
 		if (metadata.options.trap) flags.push('trap');
-		if (metadata.options.list) flags.push('list');
+		if (metadata.options.vertical) flags.push('vertical');
 		if (metadata.options.isolate) flags.push('isolate');
-		if (metadata.options.skip) flags.push('skip');
+		if (this.shouldSkipElement(metadata)) flags.push('skip');
 		const flagsStr = flags.length > 0 ? ` [${flags.join(', ')}]` : '';
 
 		// Print current node with the actual element for hovering

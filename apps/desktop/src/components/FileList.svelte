@@ -19,7 +19,6 @@
 	import { chunk } from '$lib/utils/array';
 	import { inject, injectOptional } from '@gitbutler/core/context';
 	import { FileListItem } from '@gitbutler/ui';
-	import { DEFAULT_LINKS, DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
@@ -232,11 +231,7 @@
 		draggable={draggableFiles}
 		executable={!!isExecutable}
 		showCheckbox={showCheckboxes}
-		focusableOpts={{
-			id: DefinedFocusable.FileItem,
-			linkToIds: DEFAULT_LINKS,
-			onKeydown: (e) => handleKeyDown(change, idx, e)
-		}}
+		focusableOpts={{ onKeydown: (e) => handleKeyDown(change, idx, e) }}
 		onclick={(e) => {
 			e.stopPropagation();
 			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
@@ -249,9 +244,7 @@
 <div
 	class="file-list"
 	use:focusable={{
-		id: DefinedFocusable.FileList,
-		list: true,
-		skip: true,
+		vertical: true,
 		onActive: (value) => (active = value)
 	}}
 >

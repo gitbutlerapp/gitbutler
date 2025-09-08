@@ -101,7 +101,7 @@
 {/snippet}
 
 {#if !unassignedSidebaFolded.current}
-	<div class="unassigned" use:focusable={{ list: true }}>
+	<div class="unassigned" use:focusable={{ vertical: true }}>
 		{#if $settingsStore?.featureFlags.rules}
 			<RulesList {foldButton} {projectId} />
 		{/if}
@@ -166,7 +166,7 @@
 		class="unassigned-folded"
 		ondblclick={unfoldView}
 		class:changes-to-commit={changesToCommit}
-		use:focusable={{ list: true }}
+		use:focusable={{ vertical: true }}
 	>
 		<UnassignedFoldButton active={true} onclick={unfoldView} />
 

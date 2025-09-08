@@ -195,7 +195,7 @@
 				<div
 					bind:this={branchViewLeftEl}
 					class="branches-view__left"
-					use:focusable={{ list: true }}
+					use:focusable={{ vertical: true }}
 				>
 					<BranchesListGroup title="Current workspace target">
 						<!-- TODO: We need an API for `commitsCount`! -->
@@ -283,7 +283,7 @@
 
 			<div class="branches-view__right">
 				<div class="right-wrapper hide-native-scrollbar dotted-pattern" bind:this={rightWrapper}>
-					<div class="branch-column" bind:this={branchColumn} use:focusable={{ list: true }}>
+					<div class="branch-column" bind:this={branchColumn} use:focusable={{ vertical: true }}>
 						<!-- Apply branch -->
 						{#if !inWorkspaceOrTargetBranch && someBranchSelected && !isNonLocalPr}
 							{@const doesNotHaveLocalTooltip = current.hasLocal
@@ -339,14 +339,14 @@
 						{/if}
 
 						{#if isTargetBranch}
-							<div class="commits" use:focusable={{ list: true }}>
+							<div class="commits" use:focusable={{ vertical: true }}>
 								<TargetCommitList {projectId} />
 							</div>
 						{/if}
 
 						{#if !isTargetBranch && someBranchSelected && !isNonLocalPr}
 							<ConfigurableScrollableContainer>
-								<div class="commits with-padding" use:focusable={{ list: true }}>
+								<div class="commits with-padding" use:focusable={{ vertical: true }}>
 									{#if current.stackId}
 										<BranchesViewStack {projectId} stackId={current.stackId} {onerror} />
 									{:else if current.branchName}
@@ -362,7 +362,7 @@
 						{/if}
 
 						{#if isNonLocalPr && current.prNumber}
-							<div class="commits" use:focusable={{ list: true }}>
+							<div class="commits" use:focusable={{ vertical: true }}>
 								<BranchesViewPr
 									bind:this={prBranch}
 									{projectId}
