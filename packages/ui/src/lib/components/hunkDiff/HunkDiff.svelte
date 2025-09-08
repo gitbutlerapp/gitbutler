@@ -104,82 +104,7 @@
 		}
 	}
 
-	// Color blind-friendly color definitions
-	const colorBlindFriendlyColors = {
-		light: {
-			addition: {
-				lineBg: 'color(srgb 0.87 0.94 1)',
-				lineHighlight: 'color(srgb 0.67 0.85 1)',
-				countBg: 'color(srgb 0.77 0.9 1)',
-				countText: 'color(srgb 0.1 0.4 0.8)',
-				countBorder: 'color(srgb 0.6 0.8 1)',
-				countCheckmark: 'color(srgb 0.1 0.4 0.8)'
-			},
-			deletion: {
-				lineBg: 'color(srgb 1 0.94 0.87)',
-				lineHighlight: 'color(srgb 1 0.85 0.67)',
-				countBg: 'color(srgb 1 0.9 0.77)',
-				countText: 'color(srgb 0.8 0.4 0.1)',
-				countBorder: 'color(srgb 1 0.8 0.6)',
-				countCheckmark: 'color(srgb 0.8 0.4 0.1)'
-			}
-		},
-		medium: {
-			addition: {
-				lineBg: 'color(srgb 0.8 0.91 0.98)',
-				lineHighlight: 'color(srgb 0.6 0.82 0.96)',
-				countBg: 'color(srgb 0.7 0.87 0.96)',
-				countText: 'color(srgb 0.05 0.35 0.75)',
-				countBorder: 'color(srgb 0.5 0.75 0.95)',
-				countCheckmark: 'color(srgb 0.05 0.35 0.75)'
-			},
-			deletion: {
-				lineBg: 'color(srgb 0.98 0.91 0.8)',
-				lineHighlight: 'color(srgb 0.96 0.82 0.6)',
-				countBg: 'color(srgb 0.96 0.87 0.7)',
-				countText: 'color(srgb 0.75 0.35 0.05)',
-				countBorder: 'color(srgb 0.95 0.75 0.5)',
-				countCheckmark: 'color(srgb 0.75 0.35 0.05)'
-			}
-		},
-		strong: {
-			addition: {
-				lineBg: 'color(srgb 0.75 0.88 0.96)',
-				lineHighlight: 'color(srgb 0.55 0.78 0.93)',
-				countBg: 'color(srgb 0.65 0.84 0.93)',
-				countText: 'color(srgb 0.02 0.3 0.7)',
-				countBorder: 'color(srgb 0.45 0.7 0.9)',
-				countCheckmark: 'color(srgb 0.02 0.3 0.7)'
-			},
-			deletion: {
-				lineBg: 'color(srgb 0.96 0.88 0.75)',
-				lineHighlight: 'color(srgb 0.93 0.78 0.55)',
-				countBg: 'color(srgb 0.93 0.84 0.65)',
-				countText: 'color(srgb 0.7 0.3 0.02)',
-				countBorder: 'color(srgb 0.9 0.7 0.45)',
-				countCheckmark: 'color(srgb 0.7 0.3 0.02)'
-			}
-		}
-	};
 
-	// Reactive statement to compute color overrides when color blind-friendly mode is enabled
-	const colorOverrides = $derived(colorBlindFriendly ? (() => {
-		const colors = colorBlindFriendlyColors[diffContrast];
-		return {
-			'--clr-diff-addition-line-bg': colors.addition.lineBg,
-			'--clr-diff-addition-line-highlight': colors.addition.lineHighlight,
-			'--clr-diff-addition-count-bg': colors.addition.countBg,
-			'--clr-diff-addition-count-text': colors.addition.countText,
-			'--clr-diff-addition-count-border': colors.addition.countBorder,
-			'--clr-diff-addition-count-checkmark': colors.addition.countCheckmark,
-			'--clr-diff-deletion-line-bg': colors.deletion.lineBg,
-			'--clr-diff-deletion-line-highlight': colors.deletion.lineHighlight,
-			'--clr-diff-deletion-count-bg': colors.deletion.countBg,
-			'--clr-diff-deletion-count-text': colors.deletion.countText,
-			'--clr-diff-deletion-count-border': colors.deletion.countBorder,
-			'--clr-diff-deletion-count-checkmark': colors.deletion.countCheckmark
-		};
-	})() : {});
 </script>
 
 <div
@@ -193,7 +118,7 @@
 	bind:this={tableWrapperElem}
 	class="table__wrapper contrast-{diffContrast}"
 	class:colorblind-friendly={colorBlindFriendly}
-	style="--tab-size: {tabSize}; --diff-font: {diffFont}; {Object.entries(colorOverrides).map(([key, value]) => `${key}: ${value}`).join('; ')}"
+	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
 	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
 >
 	{#if !draggingDisabled}
@@ -450,6 +375,24 @@
 		--clr-diff-locked-count-border: var('--', var(--clr-diff-locked-count-border));
 	}
 
+	/* Color blind-friendly overrides for light contrast */
+	.contrast-light.colorblind-friendly {
+		/* deletion (orange) */
+		--clr-diff-deletion-line-bg: color(srgb 1 0.94 0.87);
+		--clr-diff-deletion-line-highlight: color(srgb 1 0.85 0.67);
+		--clr-diff-deletion-count-bg: color(srgb 1 0.9 0.77);
+		--clr-diff-deletion-count-text: color(srgb 0.8 0.4 0.1);
+		--clr-diff-deletion-count-border: color(srgb 1 0.8 0.6);
+		--clr-diff-deletion-count-checkmark: color(srgb 0.8 0.4 0.1);
+		/* addition (blue) */
+		--clr-diff-addition-line-bg: color(srgb 0.87 0.94 1);
+		--clr-diff-addition-line-highlight: color(srgb 0.67 0.85 1);
+		--clr-diff-addition-count-bg: color(srgb 0.77 0.9 1);
+		--clr-diff-addition-count-text: color(srgb 0.1 0.4 0.8);
+		--clr-diff-addition-count-border: color(srgb 0.6 0.8 1);
+		--clr-diff-addition-count-checkmark: color(srgb 0.1 0.4 0.8);
+	}
+
 	.contrast-medium {
 		--clr-diff-count-text: var(--clr-diff-count-text-contrast-2);
 		/* deletion */
@@ -470,6 +413,24 @@
 		--clr-diff-locked-count-border: var(--clr-diff-locked-contrast-2-count-border);
 	}
 
+	/* Color blind-friendly overrides for medium contrast */
+	.contrast-medium.colorblind-friendly {
+		/* deletion (orange) */
+		--clr-diff-deletion-line-bg: color(srgb 0.98 0.91 0.8);
+		--clr-diff-deletion-line-highlight: color(srgb 0.96 0.82 0.6);
+		--clr-diff-deletion-count-bg: color(srgb 0.96 0.87 0.7);
+		--clr-diff-deletion-count-text: color(srgb 0.75 0.35 0.05);
+		--clr-diff-deletion-count-border: color(srgb 0.95 0.75 0.5);
+		--clr-diff-deletion-count-checkmark: color(srgb 0.75 0.35 0.05);
+		/* addition (blue) */
+		--clr-diff-addition-line-bg: color(srgb 0.8 0.91 0.98);
+		--clr-diff-addition-line-highlight: color(srgb 0.6 0.82 0.96);
+		--clr-diff-addition-count-bg: color(srgb 0.7 0.87 0.96);
+		--clr-diff-addition-count-text: color(srgb 0.05 0.35 0.75);
+		--clr-diff-addition-count-border: color(srgb 0.5 0.75 0.95);
+		--clr-diff-addition-count-checkmark: color(srgb 0.05 0.35 0.75);
+	}
+
 	.contrast-strong {
 		--clr-diff-count-text: var(--clr-diff-count-text-contrast-3);
 		/* deletion */
@@ -488,6 +449,24 @@
 		--clr-diff-locked-count-bg: var(--clr-diff-locked-contrast-3-count-bg);
 		--clr-diff-locked-count-text: var(--clr-diff-locked-contrast-3-count-text);
 		--clr-diff-locked-count-border: var(--clr-diff-locked-contrast-3-count-border);
+	}
+
+	/* Color blind-friendly overrides for strong contrast */
+	.contrast-strong.colorblind-friendly {
+		/* deletion (orange) */
+		--clr-diff-deletion-line-bg: color(srgb 0.96 0.88 0.75);
+		--clr-diff-deletion-line-highlight: color(srgb 0.93 0.78 0.55);
+		--clr-diff-deletion-count-bg: color(srgb 0.93 0.84 0.65);
+		--clr-diff-deletion-count-text: color(srgb 0.7 0.3 0.02);
+		--clr-diff-deletion-count-border: color(srgb 0.9 0.7 0.45);
+		--clr-diff-deletion-count-checkmark: color(srgb 0.7 0.3 0.02);
+		/* addition (blue) */
+		--clr-diff-addition-line-bg: color(srgb 0.75 0.88 0.96);
+		--clr-diff-addition-line-highlight: color(srgb 0.55 0.78 0.93);
+		--clr-diff-addition-count-bg: color(srgb 0.65 0.84 0.93);
+		--clr-diff-addition-count-text: color(srgb 0.02 0.3 0.7);
+		--clr-diff-addition-count-border: color(srgb 0.45 0.7 0.9);
+		--clr-diff-addition-count-checkmark: color(srgb 0.02 0.3 0.7);
 	}
 
 
