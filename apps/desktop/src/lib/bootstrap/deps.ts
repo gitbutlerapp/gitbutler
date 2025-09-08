@@ -88,9 +88,11 @@ export function initDependencies(args: {
 	backend: IBackend;
 	appSettings: AppSettings;
 	settingsService: SettingsService;
+	posthog: PostHogWrapper;
+	eventContext: EventContext;
 	homeDir: string;
 }) {
-	const { backend, settingsService, appSettings, homeDir } = args;
+	const { backend, settingsService, appSettings, homeDir, posthog, eventContext } = args;
 
 	// ============================================================================
 	// FOUNDATION LAYER - Core services that others depend on
@@ -104,9 +106,6 @@ export function initDependencies(args: {
 	// ============================================================================
 	// ANALYTICS & TELEMETRY
 	// ============================================================================
-
-	const eventContext = new EventContext();
-	const posthog = new PostHogWrapper(settingsService, backend, eventContext);
 
 	// ============================================================================
 	// AUTHENTICATION & SECURITY
