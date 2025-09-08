@@ -199,6 +199,7 @@
 	.drawer-header {
 		display: flex;
 		position: relative;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: space-between;
 		height: 42px;
