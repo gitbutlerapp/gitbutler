@@ -2041,12 +2041,12 @@
 		},
 		"overlay-bg": {
 			"$type": "color",
-			"$value": "#d6d6d666",
+			"$value": "#d6d6d699",
 			"$description": "",
 			"$extensions": {
 				"mode": {
-					"light": "#d6d6d666",
-					"dark": "#00000059"
+					"light": "#d6d6d699",
+					"dark": "#00000080"
 				}
 			}
 		},
@@ -2241,7 +2241,7 @@
 					"$extensions": {
 						"mode": {
 							"light": "{clr-core.pop.90}",
-							"dark": "{clr-core.pop.55}"
+							"dark": "{clr-core.pop.60}"
 						}
 					}
 				},
@@ -2592,7 +2592,7 @@
 					"$extensions": {
 						"mode": {
 							"light": "#c2f9e3",
-							"dark": "#225e51"
+							"dark": "#1f564e"
 						}
 					}
 				},
@@ -2614,7 +2614,7 @@
 					"$extensions": {
 						"mode": {
 							"light": "#a6efd1",
-							"dark": "#196956"
+							"dark": "#136350"
 						}
 					}
 				},
@@ -2636,7 +2636,7 @@
 					"$extensions": {
 						"mode": {
 							"light": "#4c816b",
-							"dark": "#93c9b3"
+							"dark": "#9dd3bd"
 						}
 					}
 				},
@@ -2660,7 +2660,7 @@
 					"$extensions": {
 						"mode": {
 							"light": "#ffe0e4",
-							"dark": "#5e202c"
+							"dark": "#5c1e2a"
 						}
 					}
 				},
@@ -2682,7 +2682,7 @@
 					"$extensions": {
 						"mode": {
 							"light": "#ffced7",
-							"dark": "#822c3b"
+							"dark": "#7e2837"
 						}
 					}
 				},
@@ -2704,7 +2704,7 @@
 					"$extensions": {
 						"mode": {
 							"light": "#886262",
-							"dark": "#f29aa8"
+							"dark": "#fca4b2"
 						}
 					}
 				},
@@ -2919,7 +2919,7 @@
 					"$extensions": {
 						"mode": {
 							"light": "#bc7e13",
-							"dark": "#e0b05d"
+							"dark": "#eaba67"
 						}
 					}
 				},
@@ -3651,7 +3651,7 @@
 			},
 			"accent": {
 				"$type": "string",
-				"$value": "Instrument Serif",
+				"$value": "But Serif",
 				"$description": "",
 				"$extensions": {
 					"mode": {}
@@ -3710,6 +3710,14 @@
 				"$extensions": {
 					"mode": {}
 				}
+			},
+			"outline-bg": {
+				"$type": "dimension",
+				"$value": "10px",
+				"$description": "",
+				"$extensions": {
+					"mode": {}
+				}
 			}
 		}
 	},
@@ -3761,7 +3769,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius", "text", "opacity"],
-			"createdAt": "2025-07-28T11:49:54.061Z"
+			"createdAt": "2025-09-08T21:32:28.660Z"
 		}
 	}
 }
