@@ -343,7 +343,9 @@
 		const observer = new MutationObserver((mutationList) => {
 			for (const mutation of mutationList) {
 				if (mutation.type === 'childList') {
-					if (isVisible && savedMouseEvent) {
+					// Only reposition if we don't have open submenus
+					// This prevents the menu from jumping when submenus open
+					if (isVisible && savedMouseEvent && !submenuCoordination.hasOpenSubmenus()) {
 						setPosition(savedMouseEvent);
 					}
 				}
