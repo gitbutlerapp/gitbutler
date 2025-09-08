@@ -1025,6 +1025,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-gerrit"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "but-core",
+ "gix",
+ "sha-1",
+ "uuid",
+]
+
+[[package]]
 name = "but-graph"
 version = "0.0.0"
 dependencies = [
@@ -1108,6 +1120,7 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
+ "but-gerrit",
  "but-testsupport",
  "gitbutler-error",
  "gitbutler-oxidize",
@@ -8915,6 +8928,17 @@ checksum = "d52aa42f8fdf0fed91e5ce7f23d8138441002fa31dca008acf47e6fd4721f741"
 dependencies = [
  "nodrop",
  "stable_deref_trait",
+]
+
+[[package]]
+name = "sha-1"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5058ada175748e33390e40e872bd0fe59a19f265d0158daa551c5a88a76009c"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
 ]
 
 [[package]]
