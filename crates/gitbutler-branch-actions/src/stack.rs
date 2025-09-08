@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use but_core::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
@@ -189,6 +190,10 @@ pub fn push_stack(
         remote: default_target.push_remote_name(),
         branch_to_remote: vec![],
     };
+    let gerrit_mode = gix_repo
+        .git_settings()?
+        .gitbutler_gerrit_mode
+        .unwrap_or(false);
 
     let force_push_protection = !skip_force_push_protection && ctx.project().force_push_protection;
 
@@ -230,12 +235,22 @@ pub fn push_stack(
             }
         }
 
+        let refspec = if gerrit_mode {
+            Some(format!(
+                "{}:refs/for/{}",
+                push_details.head,
+                push_details.remote_refname.branch()
+            ))
+        } else {
+            None
+        };
+
         ctx.push(
             push_details.head,
             &push_details.remote_refname,
             with_force,
             force_push_protection,
-            None,
+            refspec,
             Some(Some(stack.id)),
         )?;
 
