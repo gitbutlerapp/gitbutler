@@ -6,12 +6,12 @@ import posthog from 'posthog-js';
 export function initAnalyticsIfEnabled(appSettings: AppSettings, postHog: PostHogWrapper) {
 	if (import.meta.env.MODE === 'development') return;
 
-	appSettings.appAnalyticsConfirmed.onDisk().then((confirmed) => {
+	appSettings.appAnalyticsConfirmed.onDisk().then(async (confirmed) => {
 		if (confirmed) {
 			appSettings.appErrorReportingEnabled.onDisk().then((enabled) => {
 				if (enabled) initSentry();
 			});
-			appSettings.appMetricsEnabled.onDisk().then(async (enabled) => {
+			await appSettings.appMetricsEnabled.onDisk().then(async (enabled) => {
 				if (enabled) {
 					await postHog.init();
 				}
