@@ -394,7 +394,7 @@
 				reversedDirection
 				onclick={() => createBranchModal?.show()}>Add new</Button
 			>
-			<Button kind="ghost" icon="settings" size="tag" onclick={() => settingsModal?.show()} />
+			<Button kind="ghost" icon="mixer" size="tag" onclick={() => settingsModal?.show()} />
 		{/snippet}
 
 		{#snippet content()}
