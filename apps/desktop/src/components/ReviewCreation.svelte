@@ -36,6 +36,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { chipToasts, TestId } from '@gitbutler/ui';
+	import { IMECompositionHandler } from '@gitbutler/ui/utils/imeHandling';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
 
@@ -91,7 +92,7 @@
 
 	let titleInput = $state<HTMLTextAreaElement | undefined>(undefined);
 	let messageEditor = $state<MessageEditor>();
-	let isComposing = $state(false);
+	const imeHandler = new IMECompositionHandler();
 
 	// AI things
 	const aiGenEnabled = projectAiGenEnabled(projectId);
@@ -387,16 +388,8 @@
 			onchange={(value) => {
 				prTitle.set(value);
 			}}
-			onkeydown={(e: KeyboardEvent) => {
-				if (
-					['Enter', 'Escape', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) &&
-					isComposing
-				) {
-					e.preventDefault();
-					isComposing = false;
-					return;
-				}
-				if ((e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) && !isComposing) {
+			onkeydown={imeHandler.handleKeydown((e: KeyboardEvent) => {
+				if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
 					e.preventDefault();
 					messageEditor?.focus();
 				}
@@ -407,20 +400,17 @@
 					return true;
 				}
 
-				if (e.key === 'Escape' && !isComposing) {
+				if (e.key === 'Escape') {
 					e.preventDefault();
 					onClose();
 				}
-			}}
+			})}
 			placeholder="PR title"
 			showCount={false}
-			oninput={(e: Event) => {
+			oninput={imeHandler.handleInput((e: Event) => {
 				const target = e.target as HTMLInputElement;
 				prTitle.set(target.value);
-				if (e instanceof InputEvent) {
-					isComposing = e.isComposing;
-				}
-			}}
+			})}
 		/>
 		<MessageEditor
 			forceSansFont
