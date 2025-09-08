@@ -10,7 +10,7 @@
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
+	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
@@ -261,6 +261,7 @@
 		const dontShowAgainKey = `git-filters--dont-show-again--${projectId}`;
 		try {
 			const info = await projectsService.setActiveProject(projectId);
+			posthog.captureOnboarding(OnboardingEvent.SetProjectActive);
 
 			if (!info) return;
 
@@ -285,6 +286,7 @@
 				});
 			}
 		} catch (error: unknown) {
+			posthog.captureOnboarding(OnboardingEvent.SetProjectActiveFailed);
 			showError('Failed to set the project active', error);
 		}
 	}

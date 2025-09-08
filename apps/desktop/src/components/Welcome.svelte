@@ -3,6 +3,7 @@
 	import IconLink from '$components/IconLink.svelte';
 	import WelcomeAction from '$components/WelcomeAction.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
+	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import cloneRepoSvg from '$lib/assets/welcome/clone-repo.svg?raw';
 	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
 	import { handleAddProjectOutcome } from '$lib/project/project';
@@ -11,6 +12,7 @@
 	import { TestId } from '@gitbutler/ui';
 
 	const projectsService = inject(PROJECTS_SERVICE);
+	const posthog = inject(POSTHOG_WRAPPER);
 
 	let newProjectLoading = $state(false);
 	let directoryInputElement = $state<HTMLInputElement | undefined>();
@@ -21,9 +23,12 @@
 			const testDirectoryPath = directoryInputElement?.value;
 			const outcome = await projectsService.addProject(testDirectoryPath ?? '');
 
+			posthog.captureOnboarding(OnboardingEvent.AddLocalProject);
 			if (outcome) {
 				handleAddProjectOutcome(outcome);
 			}
+		} catch (e: unknown) {
+			posthog.captureOnboarding(OnboardingEvent.AddLocalProjectFailed, e);
 		} finally {
 			newProjectLoading = false;
 		}

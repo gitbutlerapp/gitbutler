@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import InfoMessage, { type MessageStyle } from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
-	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
+	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BACKEND } from '$lib/backend';
 	import { GIT_SERVICE } from '$lib/git/gitService';
 	import { handleAddProjectOutcome } from '$lib/project/project';
@@ -87,9 +87,13 @@
 
 			await gitService.cloneRepo(repositoryUrl, targetDir);
 
-			posthog.capture('Repository Cloned', { protocol: remoteUrl.protocol });
+			posthog.captureOnboarding(OnboardingEvent.ClonedProject);
 			const outcome = await projectsService.addProject(targetDir);
 			if (!outcome) {
+				posthog.captureOnboarding(
+					OnboardingEvent.ClonedProjectFailed,
+					'Failed to add project after cloning'
+				);
 				throw new Error('Failed to add project after cloning.');
 			}
 
@@ -97,7 +101,7 @@
 		} catch (e) {
 			Sentry.captureException(e);
 			const errorMessage = getErrorMessage(e);
-			posthog.capture('Repository Clone Failure', { error: errorMessage });
+			posthog.captureOnboarding(OnboardingEvent.ClonedProjectFailed, e);
 			errors.push({
 				label: errorMessage
 			});

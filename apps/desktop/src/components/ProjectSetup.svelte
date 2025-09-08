@@ -4,7 +4,7 @@
 	import KeysForm from '$components/KeysForm.svelte';
 	import ProjectSetupTarget from '$components/ProjectSetupTarget.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
+	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { BACKEND } from '$lib/backend';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
@@ -38,9 +38,10 @@
 				branch: selectedBranch[0],
 				pushRemote: selectedBranch[1]
 			});
+			posthog.captureOnboarding(OnboardingEvent.SetTargetBranch);
 			goto(`/${projectId}/`, { invalidateAll: true });
-		} finally {
-			posthog.capture('Project Setup Complete');
+		} catch (e: unknown) {
+			posthog.captureOnboarding(OnboardingEvent.SetTargetBranchFailed, e);
 		}
 	}
 
