@@ -15,18 +15,39 @@ const preview: Preview = {
 		},
 		docs: {
 			autodocs: 'tag'
-		},
-		darkMode: {
-			classTarget: 'html',
-			stylePreview: true,
-			dark: {
-				appPreviewBg: '#272321'
-			},
-			light: {
-				appPreviewBg: '#fff'
+		}
+	},
+	globalTypes: {
+		theme: {
+			name: 'Theme',
+			description: 'Toggle between light and dark theme',
+			defaultValue: 'light',
+			toolbar: {
+				icon: 'contrast',
+				items: [
+					{ value: 'light', title: 'Light mode', icon: 'sun' },
+					{ value: 'dark', title: 'Dark mode', icon: 'moon' }
+				],
+				showName: false,
+				dynamicTitle: true
 			}
 		}
-	}
+	},
+	decorators: [
+		(Story, context) => {
+			const theme = context.globals.theme || 'light';
+			if (typeof document !== 'undefined') {
+				const htmlElement = document.documentElement;
+
+				if (theme === 'dark') {
+					htmlElement.classList.add('dark');
+				} else {
+					htmlElement.classList.remove('dark');
+				}
+			}
+			return Story();
+		}
+	]
 };
 
 export default preview;

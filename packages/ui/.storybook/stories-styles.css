@@ -1,4 +1,5 @@
 body {
+	background-color: var(--clr-bg-1);
 	color: var(--clr-text-1);
 }
 

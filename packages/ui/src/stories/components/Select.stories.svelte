@@ -59,21 +59,21 @@
 				{ value: '8', label: 'Final long option to complete the test suite for overflow behavior' }
 			],
 			optionsWithSeparators: [
-				{ value: 'new', label: '📄 New Document' },
-				{ value: 'open', label: '📂 Open Document' },
-				{ value: 'recent', label: '🕐 Recent Documents' },
+				{ value: 'new', label: 'New Document' },
+				{ value: 'open', label: 'Open Document' },
+				{ value: 'recent', label: 'Recent Documents' },
 				{ separator: true },
-				{ value: 'save', label: '💾 Save' },
-				{ value: 'save-as', label: '💾 Save As...' },
-				{ value: 'export', label: '📤 Export' },
+				{ value: 'save', label: 'Save' },
+				{ value: 'save-as', label: 'Save As...' },
+				{ value: 'export', label: 'Export' },
 				{ separator: true },
-				{ value: 'cut', label: '✂️ Cut' },
-				{ value: 'copy', label: '📋 Copy' },
-				{ value: 'paste', label: '📋 Paste' },
+				{ value: 'cut', label: 'Cut' },
+				{ value: 'copy', label: 'Copy' },
+				{ value: 'paste', label: 'Paste' },
 				{ separator: true },
-				{ value: 'settings', label: '⚙️ Settings' },
-				{ value: 'help', label: '❓ Help' },
-				{ value: 'about', label: 'ℹ️ About' }
+				{ value: 'settings', label: 'Settings' },
+				{ value: 'help', label: 'Help' },
+				{ value: 'about', label: 'ℹAbout' }
 			]
 		},
 		argTypes: {}
