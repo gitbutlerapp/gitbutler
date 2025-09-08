@@ -17,6 +17,7 @@
 	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, TestId } from '@gitbutler/ui';
+	import { IMECompositionHandler } from '@gitbutler/ui/utils/imeHandling';
 
 	import { tick } from 'svelte';
 
@@ -68,7 +69,7 @@
 
 	let composer = $state<ReturnType<typeof MessageEditor>>();
 	let titleInput = $state<HTMLTextAreaElement>();
-	let isComposing = $state(false);
+	const imeHandler = new IMECompositionHandler();
 
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
 	const diffInputArgs = $derived<DiffInputContextArgs>(
@@ -166,27 +167,15 @@
 		onchange={(value) => {
 			onChange?.({ title: value });
 		}}
-		oninput={(e: Event) => {
-			if (e instanceof InputEvent) {
-				isComposing = e.isComposing;
-			}
-		}}
-		onkeydown={async (e: KeyboardEvent) => {
-			if (
-				['Enter', 'Escape', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) &&
-				isComposing
-			) {
-				e.preventDefault();
-				isComposing = false;
-				return;
-			}
+		oninput={imeHandler.handleInput()}
+		onkeydown={imeHandler.handleKeydown(async (e: KeyboardEvent) => {
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
 				if (title.trim()) {
 					emitAction();
 				}
 			}
-			if ((e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) && !isComposing) {
+			if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
 				e.preventDefault();
 				composer?.focus();
 			}
@@ -195,7 +184,7 @@
 				handleCancel();
 			}
 			e.stopPropagation();
-		}}
+		})}
 	/>
 	<MessageEditor
 		testId={TestId.CommitDrawerDescriptionInput}
