@@ -43,7 +43,10 @@ impl Mcp {
         #[tool(aggr)] request: McpPermissionRequest,
     ) -> Result<CallToolResult, McpError> {
         let approved = self
-            .approval_inner(request.clone().into(), std::time::Duration::from_secs(60))
+            .approval_inner(
+                request.clone().into(),
+                std::time::Duration::from_secs(60 * 60 * 24),
+            )
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let result = Ok(McpPermissionResponse {
@@ -94,7 +97,7 @@ impl Mcp {
         let start_time = std::time::Instant::now();
         for item in rx {
             if start_time.elapsed() > timeout {
-                eprintln!("Timeout waiting for permission approval (60 seconds)");
+                eprintln!("Timeout waiting for permission approval (1 day)");
                 break;
             }
             match item {
