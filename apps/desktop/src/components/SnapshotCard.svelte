@@ -230,13 +230,7 @@
 							{#each files as file, idx}
 								<div
 									use:focusable={{
-										onKeydown: (e) => {
-											if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
-												onDiffClick(file.path);
-												e.stopPropagation();
-												return true;
-											}
-										}
+										onAction: () => onDiffClick(file.path)
 									}}
 								>
 									<FileListItem

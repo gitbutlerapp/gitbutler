@@ -19,6 +19,7 @@
 	import { chunk } from '$lib/utils/array';
 	import { inject, injectOptional } from '@gitbutler/core/context';
 	import { FileListItem } from '@gitbutler/ui';
+	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
@@ -52,6 +53,7 @@
 	}: Props = $props();
 
 	const idSelection = inject(ID_SELECTION);
+	const focusManager = inject(FOCUS_MANAGER);
 	const aiService = inject(AI_SERVICE);
 	const actionService = inject(ACTION_SERVICE);
 	const modeService = injectOptional(MODE_SERVICE, undefined);
@@ -91,6 +93,7 @@
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 
 	const canUseGBAI = $derived(aiGenEnabled && aiConfigurationValid);
+	const selectedFileIds = $derived(idSelection.values(selectionId));
 
 	$effect(() => {
 		aiService.validateGitButlerAPIConfiguration().then((value) => {
@@ -177,7 +180,7 @@
 	function handleKeyDown(change: TreeChange, idx: number, e: KeyboardEvent) {
 		if (e.key === 'Enter' || e.key === ' ' || e.key === 'l') {
 			e.stopPropagation();
-			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
+			selectFilesInList(e, change, changes, idSelection, selectedFileIds, true, idx, selectionId);
 			onselect?.();
 			return true;
 		}
@@ -194,11 +197,7 @@
 			return;
 		}
 
-		// If we want to keep the behavior where focus can change while
-		// not automatically selecting the item, then we should remove
-		// that code from `updateSelection` rather than checkinf for
-		// modifier keys here.
-		if (e.shiftKey || e.metaKey) {
+		if (!e.metaKey) {
 			updateSelection({
 				allowMultiple: true,
 				metaKey: e.metaKey,
@@ -206,13 +205,18 @@
 				key: e.key,
 				targetElement: e.currentTarget as HTMLElement,
 				files: changes,
-				selectedFileIds: idSelection.values(selectionId),
+				selectedFileIds,
 				fileIdSelection: idSelection,
 				selectionId: selectionId,
 				preventDefault: () => e.preventDefault()
 			});
+			return true;
 		}
 	}
+	const lastAdded = $derived(idSelection.getById(selectionId).lastAdded);
+	$effect(() => {
+		if ($lastAdded) focusManager.focusNthSibling($lastAdded.index);
+	});
 </script>
 
 {#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0)}
@@ -231,10 +235,10 @@
 		draggable={draggableFiles}
 		executable={!!isExecutable}
 		showCheckbox={showCheckboxes}
-		focusableOpts={{ onKeydown: (e) => handleKeyDown(change, idx, e) }}
+		focusableOpts={{ onKeydown: (e) => handleKeyDown(change, idx, e), autoAction: true }}
 		onclick={(e) => {
 			e.stopPropagation();
-			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
+			selectFilesInList(e, change, changes, idSelection, selectedFileIds, true, idx, selectionId);
 			onselect?.();
 		}}
 		{conflictEntries}

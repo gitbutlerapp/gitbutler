@@ -19,14 +19,14 @@ function getNextFile(files: TreeChange[], currentId: string): TreeChange | undef
 	const fileIndex = files.findIndex((f) => f.path === currentId);
 	if (fileIndex === -1) return undefined;
 
-	const nextFileIndex = (fileIndex + 1) % files.length;
+	const nextFileIndex = fileIndex + 1;
 	return files[nextFileIndex];
 }
 
 function getPreviousFile(files: TreeChange[], currentId: string): TreeChange | undefined {
 	const fileIndex = files.findIndex((f) => f.path === currentId);
 	if (fileIndex === -1) return undefined;
-	const previousFileIndex = (fileIndex - 1 + files.length) % files.length;
+	const previousFileIndex = fileIndex - 1;
 	return files[previousFileIndex];
 }
 
@@ -96,11 +96,6 @@ export function updateSelection({
 	) {
 		const file = getFileFunc?.(files, id) ?? getFile(files, id);
 		if (file) {
-			// if file is already selected, do nothing
-			if (selectedFileIds.find((f) => f.path === file.path)) {
-				return;
-			}
-
 			const fileIndex = files.findIndex((f) => f.path === file.path);
 			if (fileIndex === -1) return; // should never happen
 			fileIdSelection.add(file.path, selectionId, fileIndex);
@@ -192,6 +187,7 @@ export function selectFilesInList(
 	change: TreeChange,
 	sortedFiles: TreeChange[],
 	idSelection: IdSelection,
+	selectedFileIds: SelectedFile[],
 	allowMultiple: boolean,
 	index: number,
 	selectionId: SelectionId,
@@ -205,6 +201,11 @@ export function selectFilesInList(
 	if (e.ctrlKey || e.metaKey) {
 		if (isAlreadySelected) {
 			idSelection.remove(change.path, selectionId);
+			selectedFileIds.splice(selectedFileIds.findIndex((f) => f.path === change.path));
+			const previous = selectedFileIds.at(-1);
+			if (previous) {
+				idSelection.add(previous.path, selectionId, selectedFileIds.length - 1);
+			}
 		} else {
 			idSelection.add(change.path, selectionId, index);
 		}
