@@ -253,8 +253,6 @@ impl Graph {
         } = options;
 
         let max_limit = Limit::new(limit);
-        // TODO: also traverse (outside)-branches that ought to be in the workspace. That way we have the desired ones
-        //       automatically and just have to find a way to prune the undesired ones.
         let ref_name = ref_name.into();
         if ref_name
             .as_ref()
@@ -454,7 +452,6 @@ impl Graph {
                 // have to adjust the existing queue item.
                 existing_segment
             } else {
-                // TODO: test in graph
                 let extra_target_sidx = graph.insert_root(branch_segment_from_name_and_meta(
                     None,
                     meta,

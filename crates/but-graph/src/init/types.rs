@@ -27,7 +27,6 @@ impl Limit {
     /// Keep queueing without limit until `goal` is seen in a commit that has **it ahead of itself**.
     /// Then stop searching for that goal.
     /// `goals` are used to keep track of existing bitflags.
-    /// `origin` is used to know where the search for `goal` came from.
     ///
     /// ### Note
     ///
@@ -331,6 +330,9 @@ pub struct TopoWalk {
     direction: Direction,
     /// If `true`, don't return the first segment which is always the starting point.
     skip_tip: Option<()>,
+    /// If this is set during the iteration, we will store segment ids which didn't have any outgoing or
+    /// incoming connections, depending on the direction of traversal.
+    pub leafs: Option<Vec<SegmentIndex>>,
 }
 
 /// Lifecycle
@@ -351,6 +353,7 @@ impl TopoWalk {
             seen_empty_segments: Default::default(),
             direction,
             skip_tip: None,
+            leafs: None,
         }
     }
 }
@@ -392,7 +395,9 @@ impl TopoWalk {
         let (segment, first_commit_index) = self.next.pop_front()?;
         let available_range = self.select_range(graph, segment, first_commit_index)?;
 
+        let mut count = 0;
         for edge in graph.edges_directed(segment, self.direction) {
+            count += 1;
             match self.direction {
                 Direction::Outgoing => {
                     if edge
@@ -416,6 +421,9 @@ impl TopoWalk {
                         .push_back((edge.source(), edge.weight().src.map(|cidx| cidx + 1)));
                 }
             }
+        }
+        if let Some(leafs) = self.leafs.as_mut().filter(|_| count == 0) {
+            leafs.push(segment);
         }
         Some((segment, available_range))
     }
