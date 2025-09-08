@@ -125,7 +125,6 @@
 		</div>
 	{/if}
 	<ScrollableContainer horz whenToShow="always" padding={{ left: numberHeaderWidth }}>
-		<!-- <div style="overflow: auto; max-height: 600px;"> -->
 		<table class="table__section">
 			<thead class="table__title" class:draggable={!draggingDisabled}>
 				<tr>
@@ -193,7 +192,6 @@
 				/>
 			{/if}
 		</table>
-		<!-- </div> -->
 	</ScrollableContainer>
 </div>
 
@@ -391,6 +389,24 @@
 		--clr-diff-addition-count-checkmark: color(srgb 0.1 0.4 0.8);
 	}
 
+	/* Dark theme color-blind friendly overrides for light contrast */
+	:global(.dark) .contrast-light.colorblind-friendly {
+		/* deletion (orange) - darker variants for dark theme */
+		--clr-diff-deletion-line-bg: color(srgb 0.25 0.15 0.05);
+		--clr-diff-deletion-line-highlight: color(srgb 0.4 0.2 0.05);
+		--clr-diff-deletion-count-bg: color(srgb 0.35 0.2 0.08);
+		--clr-diff-deletion-count-text: color(srgb 1 0.7 0.3);
+		--clr-diff-deletion-count-border: color(srgb 0.6 0.4 0.15);
+		--clr-diff-deletion-count-checkmark: color(srgb 1 0.7 0.3);
+		/* addition (blue) - darker variants for dark theme */
+		--clr-diff-addition-line-bg: color(srgb 0.05 0.15 0.25);
+		--clr-diff-addition-line-highlight: color(srgb 0.05 0.25 0.4);
+		--clr-diff-addition-count-bg: color(srgb 0.08 0.2 0.35);
+		--clr-diff-addition-count-text: color(srgb 0.5 0.8 1);
+		--clr-diff-addition-count-border: color(srgb 0.2 0.5 0.8);
+		--clr-diff-addition-count-checkmark: color(srgb 0.5 0.8 1);
+	}
+
 	.contrast-medium {
 		--clr-diff-count-text: var(--clr-diff-count-text-contrast-2);
 		/* deletion */
@@ -429,6 +445,24 @@
 		--clr-diff-addition-count-checkmark: color(srgb 0.05 0.35 0.75);
 	}
 
+	/* Dark theme color-blind friendly overrides for medium contrast */
+	:global(.dark) .contrast-medium.colorblind-friendly {
+		/* deletion (orange) - darker variants for dark theme */
+		--clr-diff-deletion-line-bg: color(srgb 0.3 0.18 0.08);
+		--clr-diff-deletion-line-highlight: color(srgb 0.45 0.25 0.1);
+		--clr-diff-deletion-count-bg: color(srgb 0.4 0.25 0.12);
+		--clr-diff-deletion-count-text: color(srgb 1 0.75 0.4);
+		--clr-diff-deletion-count-border: color(srgb 0.65 0.45 0.2);
+		--clr-diff-deletion-count-checkmark: color(srgb 1 0.75 0.4);
+		/* addition (blue) - darker variants for dark theme */
+		--clr-diff-addition-line-bg: color(srgb 0.08 0.18 0.3);
+		--clr-diff-addition-line-highlight: color(srgb 0.1 0.3 0.45);
+		--clr-diff-addition-count-bg: color(srgb 0.12 0.25 0.4);
+		--clr-diff-addition-count-text: color(srgb 0.6 0.85 1);
+		--clr-diff-addition-count-border: color(srgb 0.25 0.55 0.85);
+		--clr-diff-addition-count-checkmark: color(srgb 0.6 0.85 1);
+	}
+
 	.contrast-strong {
 		--clr-diff-count-text: var(--clr-diff-count-text-contrast-3);
 		/* deletion */
@@ -465,5 +499,23 @@
 		--clr-diff-addition-count-text: color(srgb 0.02 0.3 0.7);
 		--clr-diff-addition-count-border: color(srgb 0.45 0.7 0.9);
 		--clr-diff-addition-count-checkmark: color(srgb 0.02 0.3 0.7);
+	}
+
+	/* Dark theme color-blind friendly overrides for strong contrast */
+	:global(.dark) .contrast-strong.colorblind-friendly {
+		/* deletion (orange) - darker variants for dark theme */
+		--clr-diff-deletion-line-bg: color(srgb 0.35 0.22 0.12);
+		--clr-diff-deletion-line-highlight: color(srgb 0.5 0.3 0.15);
+		--clr-diff-deletion-count-bg: color(srgb 0.45 0.3 0.18);
+		--clr-diff-deletion-count-text: color(srgb 1 0.8 0.5);
+		--clr-diff-deletion-count-border: color(srgb 0.7 0.5 0.25);
+		--clr-diff-deletion-count-checkmark: color(srgb 1 0.8 0.5);
+		/* addition (blue) - darker variants for dark theme */
+		--clr-diff-addition-line-bg: color(srgb 0.12 0.22 0.35);
+		--clr-diff-addition-line-highlight: color(srgb 0.15 0.35 0.5);
+		--clr-diff-addition-count-bg: color(srgb 0.18 0.3 0.45);
+		--clr-diff-addition-count-text: color(srgb 0.7 0.9 1);
+		--clr-diff-addition-count-border: color(srgb 0.3 0.6 0.9);
+		--clr-diff-addition-count-checkmark: color(srgb 0.7 0.9 1);
 	}
 </style>
