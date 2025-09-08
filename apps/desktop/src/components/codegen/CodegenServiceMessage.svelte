@@ -68,14 +68,8 @@
 		return `${seconds.toFixed(1)}s`;
 	}
 
-	function getUTCNow() {
-		const time = new Date();
-		const offset = time.getTimezoneOffset();
-		return Date.now() + offset * 1000 * 60;
-	}
-
 	let currentWord = $state(getWord());
-	let currentDuration = $state(milisToEnglish(getUTCNow() - lastUserMessageSent.getTime()));
+	let currentDuration = $state(milisToEnglish(Date.now() - lastUserMessageSent.getTime()));
 
 	$effect(() => {
 		const updateWordInterval = setInterval(() => {
@@ -83,7 +77,7 @@
 		}, 1000 * 15);
 
 		const updateTimeInterval = setInterval(() => {
-			currentDuration = milisToEnglish(getUTCNow() - lastUserMessageSent.getTime());
+			currentDuration = milisToEnglish(Date.now() - lastUserMessageSent.getTime());
 		}, 100);
 
 		return () => {

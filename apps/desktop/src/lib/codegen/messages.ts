@@ -281,6 +281,10 @@ export function currentStatus(events: ClaudeMessage[], isActive: boolean): Claud
 	return 'running';
 }
 
+function normalizeDate(date: Date): Date {
+	return new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
+}
+
 /**
  * Thinking duration in ms
  */
@@ -293,7 +297,7 @@ export function lastUserMessageSentAt(events: ClaudeMessage[]): Date | undefined
 		}
 	}
 	if (!event) return;
-	return new Date(event.createdAt);
+	return normalizeDate(new Date(event.createdAt));
 }
 
 /**
@@ -302,7 +306,8 @@ export function lastUserMessageSentAt(events: ClaudeMessage[]): Date | undefined
 export function lastInteractionTime(events: ClaudeMessage[]): Date | undefined {
 	if (events.length === 0) return undefined;
 	const lastEvent = events[events.length - 1];
-	return lastEvent ? new Date(lastEvent.createdAt) : undefined;
+	if (!lastEvent) return;
+	return normalizeDate(new Date(lastEvent.createdAt));
 }
 
 /**
