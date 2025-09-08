@@ -15,7 +15,6 @@
 	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
-	import CodegenSidebarEntryDisabled from '$components/codegen/CodegenSidebarEntryDisabled.svelte';
 	import CodegenTodo from '$components/codegen/CodegenTodo.svelte';
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import appClickSvg from '$lib/assets/empty-state/app-click.svg?raw';
@@ -725,6 +724,7 @@
 					commitCount={commits.length}
 					lastInteractionTime={lastInteractionTime(events)}
 					commits={commitsList}
+					{totalHeads}
 				>
 					{#snippet branchIcon()}
 						<BranchHeaderIcon {iconName} color={lineColor} small />
@@ -753,17 +753,6 @@
 						/>
 					{/each}
 				{/snippet}
-			{/snippet}
-		</ReduxResult>
-	{:else}
-		{@const branch = stackService.branchByName(projectId, stackId, head)}
-		<ReduxResult result={branch.current} {projectId} {stackId}>
-			{#snippet children(branch, { projectId: _projectId, stackId: _stackId })}
-				<CodegenSidebarEntryDisabled branchName={branch.name}>
-					{#snippet branchIcon()}
-						<BranchHeaderIcon iconName="branch-remote" color="var(--clr-text-3)" small />
-					{/snippet}
-				</CodegenSidebarEntryDisabled>
 			{/snippet}
 		</ReduxResult>
 	{/if}
