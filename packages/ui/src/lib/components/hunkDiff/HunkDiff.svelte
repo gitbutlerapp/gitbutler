@@ -103,8 +103,6 @@
 			});
 		}
 	}
-
-
 </script>
 
 <div
@@ -468,6 +466,4 @@
 		--clr-diff-addition-count-border: color(srgb 0.45 0.7 0.9);
 		--clr-diff-addition-count-checkmark: color(srgb 0.02 0.3 0.7);
 	}
-
-
 </style>
