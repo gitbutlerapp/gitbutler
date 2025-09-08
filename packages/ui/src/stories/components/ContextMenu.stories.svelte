@@ -171,6 +171,28 @@
 						contextMenu?.close();
 					}}
 				/>
+				<ContextMenuItemSubmenu label="More actions">
+					{#snippet submenu({ close })}
+						<ContextMenuSection>
+							<ContextMenuItem
+								label="Cherry-pick"
+								onclick={() => {
+									console.log('Cherry-pick');
+									close();
+									contextMenu?.close();
+								}}
+							/>
+							<ContextMenuItem
+								label="Rebase"
+								onclick={() => {
+									console.log('Rebase');
+									close();
+									contextMenu?.close();
+								}}
+							/>
+						</ContextMenuSection>
+					{/snippet}
+				</ContextMenuItemSubmenu>
 			</ContextMenuSection>
 			<ContextMenuSection title="Branch operations">
 				<ContextMenuItem
@@ -184,27 +206,6 @@
 					label="Switch branch"
 					onclick={() => {
 						console.log('Switch branch');
-						contextMenu?.close();
-					}}
-				/>
-				<ContextMenuItem
-					label="Delete branch"
-					onclick={() => {
-						console.log('Delete branch');
-						contextMenu?.close();
-					}}
-				/>
-				<ContextMenuItem
-					label="Rename branch"
-					onclick={() => {
-						console.log('Rename branch');
-						contextMenu?.close();
-					}}
-				/>
-				<ContextMenuItem
-					label="Compare branches"
-					onclick={() => {
-						console.log('Compare branches');
 						contextMenu?.close();
 					}}
 				/>
@@ -251,36 +252,6 @@
 					label="Worktree"
 					onclick={() => {
 						console.log('Worktree');
-						contextMenu?.close();
-					}}
-				/>
-			</ContextMenuSection>
-			<ContextMenuSection>
-				<ContextMenuItem
-					label="Clone"
-					onclick={() => {
-						console.log('Clone');
-						contextMenu?.close();
-					}}
-				/>
-				<ContextMenuItem
-					label="Fork"
-					onclick={() => {
-						console.log('Fork');
-						contextMenu?.close();
-					}}
-				/>
-				<ContextMenuItem
-					label="Archive"
-					onclick={() => {
-						console.log('Archive');
-						contextMenu?.close();
-					}}
-				/>
-				<ContextMenuItem
-					label="Settings"
-					onclick={() => {
-						console.log('Settings');
 						contextMenu?.close();
 					}}
 				/>
