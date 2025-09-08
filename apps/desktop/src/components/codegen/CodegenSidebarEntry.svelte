@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Badge, Icon, TimeAgo, Tooltip } from '@gitbutler/ui';
+	import { Badge, Icon, TimeAgo, Tooltip, InfoButton } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 	import type { ClaudeStatus } from '$lib/codegen/types';
 	import type { Snippet } from 'svelte';
@@ -15,6 +15,7 @@
 		commits: Snippet;
 		onclick: (e: MouseEvent) => void;
 		branchIcon: Snippet;
+		totalHeads: number;
 	};
 
 	const {
@@ -27,81 +28,96 @@
 		lastInteractionTime,
 		commits,
 		onclick,
-		branchIcon
+		branchIcon,
+		totalHeads
 	}: Props = $props();
 
 	let isOpen = $state(false);
 </script>
 
-<div class="sidebar-entry">
-	<button class="sidebar-entry-header" class:selected type="button" {onclick}>
-		{#if selected}
-			<div class="entry-active-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-		{/if}
-		<div class="sidebar-entry-header-left">
-			{@render branchIcon()}
+<div class="codegen-entry-wrapper">
+	<div class="codegen-entry">
+		<button class="codegen-entry-header" class:selected type="button" {onclick}>
+			{#if selected}
+				<div class="active-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+			{/if}
+			<div class="entry-header-content">
+				{@render branchIcon()}
 
-			<p class="text-14 text-bold truncate full-width">{branchName}</p>
-			{@render vibeIcon()}
-		</div>
+				<p class="text-14 text-bold truncate full-width">{branchName}</p>
+				{@render vibeIcon()}
+			</div>
 
-		{#if status !== 'disabled'}
-			<div class="sidebar-entry-drawer__header-info text-12">
-				<Tooltip text="Total tokens used and cost">
-					<div class="flex gap-4 items-center">
-						<p>{tokensUsed}</p>
+			{#if status !== 'disabled'}
+				<div class="entry-metadata text-12">
+					<Tooltip text="Total tokens used and cost">
+						<div class="flex gap-4 items-center">
+							<p>{tokensUsed}</p>
 
-						<svg
-							width="0.938rem"
-							height="0.938rem"
-							viewBox="0 0 15 15"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-							opacity="0.6"
-						>
-							<circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.5" />
-							<circle
-								cx="7.50015"
-								cy="7.5"
-								r="2.92106"
-								transform="rotate(-45 7.50015 7.5)"
-								stroke="currentColor"
-								stroke-width="1.5"
-								stroke-dasharray="2 1"
-							/>
-						</svg>
+							<svg
+								width="0.938rem"
+								height="0.938rem"
+								viewBox="0 0 15 15"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+								opacity="0.6"
+							>
+								<circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.5" />
+								<circle
+									cx="7.50015"
+									cy="7.5"
+									r="2.92106"
+									transform="rotate(-45 7.50015 7.5)"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-dasharray="2 1"
+								/>
+							</svg>
 
-						<div class="sidebar-entry-drawer__header-info__divider"></div>
-						<p>${cost.toFixed(2)}</p>
+							<div class="metadata-divider"></div>
+							<p>${cost.toFixed(2)}</p>
+						</div>
+					</Tooltip>
+
+					{#if lastInteractionTime}
+						<p class="text-11 last-interaction-time opacity-60">
+							<TimeAgo date={lastInteractionTime} addSuffix />
+						</p>
+					{/if}
+				</div>
+			{/if}
+		</button>
+
+		{#if commitCount > 0}
+			<div class="commits-drawer">
+				<button class="commits-drawer-header" onclick={() => (isOpen = !isOpen)} type="button">
+					<div class="fold-icon" class:open={isOpen}>
+						<Icon name="chevron-right" />
 					</div>
-				</Tooltip>
+					<p class="text-13 text-semibold">Commits</p>
+					<Badge kind="soft">{commitCount}</Badge>
+				</button>
 
-				{#if lastInteractionTime}
-					<p class="text-11 sidebar-entry-drawer__tima-ago opacity-60">
-						<TimeAgo date={lastInteractionTime} addSuffix />
-					</p>
+				{#if isOpen}
+					<div class="stack-v full-width" transition:slide|local={{ duration: 150, axis: 'y' }}>
+						<div class="commits-list">
+							{@render commits()}
+						</div>
+					</div>
 				{/if}
 			</div>
 		{/if}
-	</button>
+	</div>
 
-	{#if commitCount > 0}
-		<div class="sidebar-entry-drawer">
-			<button class="sidebar-entry-drawer__header" onclick={() => (isOpen = !isOpen)} type="button">
-				<div class="sidebar-entry-drawer__header__fold-icon" class:open={isOpen}>
-					<Icon name="chevron-right" />
-				</div>
-				<p class="text-13 text-semibold">Commits</p>
-				<Badge kind="soft">{commitCount}</Badge>
-			</button>
+	{#if totalHeads > 1}
+		<div class="entry-heads">
+			<Icon name="stack" color="var(--clr-text-3)" />
+			<p class="text-12 text-semibold full-width">{totalHeads - 1} more branches in stack</p>
 
-			{#if isOpen}
-				<div class="stack-v full-width" transition:slide|local={{ duration: 150, axis: 'y' }}>
-					<div class="sidebar-entry-drawer__commits">
-						{@render commits()}
-					</div>
-				</div>
-			{/if}
+			<InfoButton>
+				Currently GitButler doesn’t support multiple sessions for a stack. A session is applied only
+				to the top branch.
+			</InfoButton>
 		</div>
 	{/if}
 </div>
@@ -117,7 +133,15 @@
 {/snippet}
 
 <style lang="postcss">
-	.sidebar-entry {
+	.codegen-entry-wrapper {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.codegen-entry {
+		z-index: var(--z-ground);
+		position: relative;
 		flex-shrink: 0;
 		width: 100%;
 		overflow: hidden;
@@ -125,7 +149,7 @@
 		border-radius: var(--radius-ml);
 	}
 
-	.sidebar-entry-header {
+	.codegen-entry-header {
 		display: flex;
 		position: relative;
 		flex-direction: column;
@@ -144,7 +168,7 @@
 		}
 	}
 
-	.sidebar-entry-header-left {
+	.entry-header-content {
 		display: flex;
 		align-items: center;
 		width: 100%;
@@ -161,29 +185,29 @@
 	}
 
 	/* DRAWER */
-	.sidebar-entry-drawer {
+	.commits-drawer {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
 		border-top: 1px solid var(--clr-border-2);
 	}
 
-	.sidebar-entry-drawer__header {
+	.commits-drawer-header {
 		display: flex;
 		align-items: center;
 		width: 100%;
 		padding: 10px 12px;
 		gap: 6px;
-		background-color: color-mix(in srgb, var(--clr-bg-2) 60%, transparent);
+		background-color: var(--clr-bg-2);
 
 		&:hover {
-			.sidebar-entry-drawer__header__fold-icon {
+			.fold-icon {
 				color: var(--clr-text-2);
 			}
 		}
 	}
 
-	.sidebar-entry-drawer__header__fold-icon {
+	.fold-icon {
 		display: flex;
 		color: var(--clr-text-3);
 		transition:
@@ -195,7 +219,7 @@
 		}
 	}
 
-	.sidebar-entry-drawer__header-info {
+	.entry-metadata {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -205,7 +229,7 @@
 		opacity: 0.7;
 	}
 
-	.sidebar-entry-drawer__header-info__divider {
+	.metadata-divider {
 		width: 1px;
 		height: 12px;
 		margin: 0 4px;
@@ -213,27 +237,25 @@
 		opacity: 0.3;
 	}
 
-	.sidebar-entry-drawer__commits {
+	.commits-list {
 		display: flex;
 		flex-direction: column;
 		border-top: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
 	}
 
 	.vibe-icon {
 		display: flex;
 
-		&.enabled {
-			/* color: var(--clr-theme-pop-element); */
-		}
 		&.running {
-			/* color: var(--clr-theme-pop-element); */
+			color: var(--clr-theme-pop-element);
 		}
 		&.completed {
-			/* color: var(--clr-theme-succ-element); */
+			color: var(--clr-theme-succ-element);
 		}
 	}
 
-	.entry-active-indicator {
+	.active-indicator {
 		position: absolute;
 		top: 12px;
 		left: 0;
@@ -242,5 +264,20 @@
 		transform: translateX(-50%);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-pop-element);
+	}
+
+	.entry-heads {
+		display: flex;
+		position: relative;
+		align-items: center;
+		width: calc(100% - 8px);
+		padding: 12px 12px 10px;
+		gap: 8px;
+		transform: translateY(-4px);
+		border: 1px solid var(--clr-border-3);
+		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		background: linear-gradient(180deg, var(--clr-bg-2) 20%, var(--clr-bg-1) 200%);
+		background-color: var(--clr-bg-2);
+		color: var(--clr-text-2);
 	}
 </style>
