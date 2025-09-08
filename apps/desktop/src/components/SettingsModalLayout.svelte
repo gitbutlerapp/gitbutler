@@ -34,8 +34,8 @@
 	}
 </script>
 
-<div class="modal-settings-wrapper" use:focusable>
-	<div class="settings-sidebar" use:focusable={{ list: true }}>
+<div class="modal-settings-wrapper">
+	<div class="settings-sidebar" use:focusable>
 		<h3 class="settings-sidebar__title text-15 text-bold">{title}</h3>
 		<div class="settings-sidebar__links">
 			{#each pages.filter((p) => !p.adminOnly || isAdmin) as page}
