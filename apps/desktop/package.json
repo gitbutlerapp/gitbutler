@@ -71,7 +71,7 @@
 		"postcss-load-config": "catalog:postcss",
 		"postcss-nesting": "catalog:postcss",
 		"postcss-pxtorem": "catalog:postcss",
-		"posthog-js": "1.136.4",
+		"posthog-js": "1.261.7",
 		"reflect-metadata": "^0.2.2",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",

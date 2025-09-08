@@ -49,7 +49,7 @@ catalogs:
   redux:
     '@reduxjs/toolkit':
       specifier: 2.8.2
-      version: 2.8.2
+      version: 2.5.0
   svelte:
     '@sentry/sveltekit':
       specifier: 10.2.0
@@ -316,8 +316,8 @@ importers:
         specifier: catalog:postcss
         version: 6.1.0(postcss@8.5.6)
       posthog-js:
-        specifier: 1.136.4
-        version: 1.136.4
+        specifier: 1.261.7
+        version: 1.261.7
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -2267,6 +2267,9 @@ packages:
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
 
+  '@posthog/core@1.0.2':
+    resolution: {integrity: sha512-hWk3rUtJl2crQK0WNmwg13n82hnTwB99BT99/XI5gZSvIlYZ1TPmMZE8H2dhJJ98J/rm9vYJ/UXNzw3RV5HTpQ==}
+
   '@prisma/instrumentation@6.13.0':
     resolution: {integrity: sha512-b97b0sBycGh89RQcqobSgjGl3jwPaC5cQIOFod6EX1v0zIxlXPmL3ckSXxoHpy+Js0QV/tgCzFvqicMJCtezBA==}
     peerDependencies:
@@ -4053,6 +4056,9 @@ packages:
   cookie@0.7.2:
     resolution: {integrity: sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w==}
     engines: {node: '>= 0.6'}
+
+  core-js@3.45.1:
+    resolution: {integrity: sha512-L4NPsJlCfZsPeXukyzHFlg/i7IIVwHSItR0wg0FLNqYClJ4MQYTYLbC7EkjKYRLZF2iof2MUgN0EGy7MdQFChg==}
 
   core-util-is@1.0.2:
     resolution: {integrity: sha512-3lqz5YjWTYnW6dlDa5TLaTCcShfar1e40rmcJVwCBJC6mWlFuj0eCHIElmG1g5kyuJ/GD+8Wn4FFCcz4gJPfaQ==}
@@ -6639,8 +6645,16 @@ packages:
     resolution: {integrity: sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==}
     engines: {node: '>=0.10.0'}
 
-  posthog-js@1.136.4:
-    resolution: {integrity: sha512-/WHf6voMtT/jTO9W2AX5GSjdSIdAlrbN6Kp+PwQBfaMOrFuT3aAtCS2Fikh8uBdP8eLXk+wMjw3/3gfzo+TDaA==}
+  posthog-js@1.261.7:
+    resolution: {integrity: sha512-Fjpbz6VfIMsEbKIN/UyTWhU1DGgVIngqoRjPGRolemIMOVzTfI77OZq8WwiBhMug+rU+wNhGCQhC41qRlR5CxA==}
+    peerDependencies:
+      '@rrweb/types': 2.0.0-alpha.17
+      rrweb-snapshot: 2.0.0-alpha.17
+    peerDependenciesMeta:
+      '@rrweb/types':
+        optional: true
+      rrweb-snapshot:
+        optional: true
 
   preact@10.27.0:
     resolution: {integrity: sha512-/DTYoB6mwwgPytiqQTh/7SFRL98ZdiD8Sk8zIUVOxtwq4oWcwrcd1uno9fE/zZmUaUrFNYzbH14CPebOz9tZQw==}
@@ -7921,6 +7935,9 @@ packages:
   web-streams-polyfill@4.0.0-beta.3:
     resolution: {integrity: sha512-QW95TCTaHmsYfHDybGMwO5IJIM93I/6vTRk+daHTWFPhwh+C8Cg7j7XyKrwrj8Ib6vYXe0ocYNrmzY4xAAN6ug==}
     engines: {node: '>= 14'}
+
+  web-vitals@4.2.4:
+    resolution: {integrity: sha512-r4DIlprAGwJ7YM11VZp4R884m0Vmgr6EAKe3P+kO0PPj3Unqyvv59rczf6UiGcb9Z8QxZVcqKNwv/g0WNdWwsw==}
 
   webdriver@9.18.0:
     resolution: {integrity: sha512-07lC4FLj45lHJo0FvLjUp5qkjzEGWJWKGsxLoe9rQ2Fg88iYsqgr9JfSj8qxHpazBaBd+77+ZtpmMZ2X2D1Zuw==}
@@ -9799,6 +9816,8 @@ snapshots:
       playwright: 1.47.0
 
   '@polka/url@1.0.0-next.29': {}
+
+  '@posthog/core@1.0.2': {}
 
   '@prisma/instrumentation@6.13.0(@opentelemetry/api@1.9.0)':
     dependencies:
@@ -12022,6 +12041,8 @@ snapshots:
 
   cookie@0.7.2:
     optional: true
+
+  core-js@3.45.1: {}
 
   core-util-is@1.0.2: {}
 
@@ -14989,10 +15010,13 @@ snapshots:
     dependencies:
       xtend: 4.0.2
 
-  posthog-js@1.136.4:
+  posthog-js@1.261.7:
     dependencies:
+      '@posthog/core': 1.0.2
+      core-js: 3.45.1
       fflate: 0.4.8
       preact: 10.27.0
+      web-vitals: 4.2.4
 
   preact@10.27.0: {}
 
@@ -16612,6 +16636,8 @@ snapshots:
   web-streams-polyfill@3.3.3: {}
 
   web-streams-polyfill@4.0.0-beta.3: {}
+
+  web-vitals@4.2.4: {}
 
   webdriver@9.18.0:
     dependencies:
