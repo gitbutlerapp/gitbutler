@@ -371,7 +371,7 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
         .strip_prefix(project.path.clone())?
         .to_string_lossy()
         .to_string();
-    input.tool_response.file_path = relative_file_path;
+    input.tool_response.file_path = relative_file_path.clone();
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
@@ -406,16 +406,14 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
         None,
     )?;
 
-    let file_path = Path::new(&input.tool_response.file_path).strip_prefix(project.path.clone())?;
-
     let assignment_reqs: Vec<HunkAssignmentRequest> = assignments
         .into_iter()
         .filter(|a| a.stack_id.is_none())
         .filter(|a| {
             // If the hook_headers is empty, we probably created a file.
             if hook_headers.is_empty() {
-                Path::new(&a.path) == file_path
-            } else if Path::new(&a.path) == file_path {
+                a.path.to_lowercase() == relative_file_path.to_lowercase()
+            } else if a.path.to_lowercase() == relative_file_path.to_lowercase() {
                 if let Some(a) = a.hunk_header {
                     hook_headers
                         .iter()
