@@ -1,10 +1,11 @@
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet, VecDeque};
 
 use crate::error::Error;
 use crate::hex_hash::HexHash;
 use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_graph::VirtualBranchesTomlMetadata;
+use but_graph::petgraph::Direction;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
 use but_workspace::MoveChangesResult;
@@ -19,6 +20,7 @@ use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use serde::Serialize;
 use tracing::instrument;
+
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
 }
@@ -62,24 +64,35 @@ pub fn show_graph_svg(project_id: ProjectId) -> Result<(), Error> {
             ..but_graph::init::Options::limited()
         },
     )?;
-    const LIMIT: usize = 3000;
-    if graph.num_segments() > LIMIT {
-        let mut topo = graph.topo_walk();
-        let mut count = 0;
-
-        let mut remove = Vec::new();
-        while let Some(sidx) = topo.next(&*graph) {
-            count += 1;
-            if count > LIMIT {
-                remove.push(sidx);
-            }
-        }
+    // It's OK if it takes a while, prefer complete graphs.
+    const LIMIT: usize = 5000;
+    let mut to_remove = graph.num_segments().saturating_sub(LIMIT);
+    if to_remove > 0 {
         tracing::warn!(
-            "Pruning {nodes} to assure 'dot' won't hang",
-            nodes = remove.len()
+            "Pruning at most {to_remove} nodes from the bottom to assure 'dot' won't hang",
         );
-        for sidx in remove {
+        let mut next = VecDeque::new();
+        next.extend(graph.base_segments());
+        let mut seen = BTreeSet::new();
+        while let Some(sidx) = next.pop_front() {
+            if to_remove == 0 {
+                break;
+            }
+            if let Some(s) = graph.node_weight(sidx)
+                && (s.metadata.is_some() || s.sibling_segment_id.is_some())
+            {
+                continue;
+            }
+            next.extend(
+                graph
+                    .neighbors_directed(sidx, Direction::Incoming)
+                    .filter(|n| seen.insert(*n)),
+            );
             graph.remove_node(sidx);
+            to_remove -= 1;
+        }
+        if to_remove != 0 {
+            tracing::warn!("{to_remove} extra nodes were kept to keep vital portions of the graph");
         }
         graph.set_hard_limit_hit();
     }
