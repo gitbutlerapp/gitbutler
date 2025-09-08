@@ -1,4 +1,4 @@
-use crate::commit_engine::{MoveSourceCommit, RejectionReason, apply_hunks};
+use crate::commit_engine::{HunkRange, MoveSourceCommit, RejectionReason, apply_hunks};
 use crate::{DiffSpec, HunkHeader};
 use bstr::{BStr, ByteSlice};
 use but_core::{RepositoryExt, UnifiedDiff};
@@ -7,6 +7,7 @@ use gix::merge::tree::TreatAsUnresolved;
 use gix::object::tree::EntryKind;
 use gix::prelude::ObjectIdExt;
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::Path;
 
@@ -348,9 +349,12 @@ pub(crate) fn worktree_file_to_git_in_buf(
 /// hunks from `hunks_to_keep` that couldn't be associated with `worktree_hunks_no_context` because they weren't included.
 ///
 /// `worktree_hunks` is the hunks with a given amount of context, usually 3, and it's used to quickly select original hunks
-/// without selection.
-/// `hunks_to_keep` indicate that they are a selection by marking the other side with `0,0`, i.e. `-1,2 +0,0` selects old `1,2`,
-/// and `-0,0 +2,3` selects new `2,3`.
+/// without sub-selection, which is needed when no sub-selections are specified for all hunks. Those with sub-selections and without
+/// can be mixed freely though.
+///
+/// `hunks_to_keep` indicate that they are a selection of either old or new by marking the other side with `0,0`, i.e. `-1,2 +0,0` selects *old* `1,2`,
+/// and `-0,0 +2,3` selects *new* `2,3`. Our job here is to rebuild the original hunk selections from that, as if the user had
+/// selected them in the UI, and we want to recreate the hunks that would match their selection.
 ///
 /// The idea here is that `worktree_hunks_no_context` is the smallest-possible hunks that still contain the designated
 /// selections in the old or new image respectively. This is necessary to maintain the right order in the face of context lines.
@@ -417,7 +421,144 @@ fn to_additive_hunks(
         }
         rejected.push(sh);
     }
-    (hunks_to_commit, rejected)
+
+    if !hunks_to_commit
+        .iter()
+        .zip(hunks_to_commit.iter().skip(1))
+        .all(|(prev, next)| prev < next)
+    {
+        tracing::info!("Using alternative hunk algorithm for {hunks_to_commit:?}");
+        to_additive_hunks_fallback(
+            hunks_to_commit.into_iter().map(
+                |HunkHeader {
+                     old_start,
+                     old_lines,
+                     new_start,
+                     new_lines,
+                 }| {
+                    if old_lines == 0 {
+                        HunkHeader {
+                            old_start: 0,
+                            old_lines: 0,
+                            new_start,
+                            new_lines,
+                        }
+                    } else {
+                        HunkHeader {
+                            old_start,
+                            old_lines,
+                            new_start: 0,
+                            new_lines: 0,
+                        }
+                    }
+                },
+            ),
+            worktree_hunks,
+            worktree_hunks_no_context,
+        )
+    } else {
+        (hunks_to_commit, rejected)
+    }
+}
+
+/// This algorithm is better when the basic one fails, but both have their merit.
+/// Right now this is a brute-force one or the other approach, but we could also apply them selectively.
+/// Note that what we really want to simulate is what the UI shows. But since the UI also doesn't really know hunks,
+/// we have to fiddle it together here, at least we know the hunks themselves.
+///
+/// Note that this algorithm is kind of the opposite of what people would expect if it's run where `to_additive_hunks()` works.
+/// But here we are… just making this work.
+#[allow(clippy::indexing_slicing)]
+fn to_additive_hunks_fallback(
+    hunks_to_keep: impl IntoIterator<Item = HunkHeader>,
+    worktree_hunks: &[HunkHeader],
+    worktree_hunks_no_context: &[HunkHeader],
+) -> (Vec<HunkHeader>, Vec<HunkHeader>) {
+    let mut rejected = Vec::new();
+
+    let mut map = BTreeMap::<HunkHeader, Vec<HunkHeader>>::new();
+    for selected_hunk in hunks_to_keep {
+        let sh = selected_hunk;
+        if sh.new_range().is_null() {
+            if let Some(wh) = worktree_hunks_no_context
+                .iter()
+                .find(|wh| wh.old_range().contains(sh.old_range()))
+            {
+                let hunks = map.entry(*wh).or_default();
+                if let Some(existing_wh_pos) = hunks.iter_mut().position(|wh| wh.old_lines == 0) {
+                    let wh = &mut hunks[existing_wh_pos];
+                    wh.old_start = sh.old_start;
+                    wh.old_lines = sh.old_lines;
+
+                    let iter = existing_wh_pos..hunks.len();
+                    for (prev, next) in iter.clone().zip(iter.skip(1)) {
+                        hunks[next].old_start = hunks[prev].old_range().end();
+                    }
+                } else {
+                    hunks.push(HunkHeader {
+                        old_start: sh.old_start,
+                        old_lines: sh.old_lines,
+                        new_start: hunks
+                            .last()
+                            .and_then(|wh| {
+                                wh.new_range()
+                                    .contains(HunkRange {
+                                        start: wh.new_start,
+                                        lines: 0,
+                                    })
+                                    .then_some(wh.new_range().end())
+                            })
+                            .unwrap_or(wh.new_start),
+                        new_lines: 0,
+                    });
+                }
+                continue;
+            }
+        } else if sh.old_range().is_null() {
+            if let Some(wh) = worktree_hunks_no_context
+                .iter()
+                .find(|wh| wh.new_range().contains(sh.new_range()))
+            {
+                let hunks = map.entry(*wh).or_default();
+
+                if let Some(existing_wh_pos) = hunks.iter_mut().position(|wh| wh.new_lines == 0) {
+                    let wh = &mut hunks[existing_wh_pos];
+                    wh.new_start = sh.new_start;
+                    wh.new_lines = sh.new_lines;
+
+                    let iter = existing_wh_pos..hunks.len();
+                    for (prev, next) in iter.clone().zip(iter.skip(1)) {
+                        hunks[next].new_start = hunks[prev].new_range().end();
+                    }
+                } else {
+                    hunks.push(HunkHeader {
+                        old_start: hunks
+                            .last()
+                            .and_then(|wh| {
+                                wh.old_range()
+                                    .contains(HunkRange {
+                                        start: wh.old_start,
+                                        lines: 0,
+                                    })
+                                    .then_some(wh.old_range().end())
+                            })
+                            .unwrap_or(wh.old_start),
+                        old_lines: 0,
+                        new_start: sh.new_start,
+                        new_lines: sh.new_lines,
+                    });
+                }
+                continue;
+            }
+        } else if worktree_hunks.contains(&sh) {
+            let hunks = map.entry(sh).or_default();
+            hunks.push(sh);
+            continue;
+        }
+        rejected.push(sh);
+    }
+
+    (map.into_values().flatten().collect(), rejected)
 }
 
 #[cfg(test)]
