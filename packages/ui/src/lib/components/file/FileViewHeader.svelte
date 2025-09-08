@@ -6,7 +6,6 @@
 	import ExecutableLabel from '$components/file/ExecutableLabel.svelte';
 	import FileName from '$components/file/FileName.svelte';
 	import FileStatusBadge from '$components/file/FileStatusBadge.svelte';
-	import { focusable } from '$lib/focus/focusable';
 	import type { FileStatus } from '$components/file/types';
 
 	interface Props {
@@ -56,7 +55,6 @@
 			oncontextmenu(e);
 		}
 	}}
-	use:focusable
 >
 	{#if draggable}
 		<div class="file-header__drag-handle">
