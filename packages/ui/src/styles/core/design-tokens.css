@@ -443,6 +443,7 @@
 	--opacity-btn-icon-solid: 0.8;
 	--opacity-btn-icon-solid-hover: 0.9;
 	--opacity-btn-outline: 0.4;
+	--opacity-btn-outline-bg: 10px;
 	--opacity-btn-outline-bg-hover: 0.2;
 	--radius-btn: var(--radius-m);
 	--radius-l: 12px;
@@ -454,7 +455,7 @@
 	--size-cta: 32px;
 	--size-icon: 16px;
 	--size-tag: 22px;
-	--text-fontfamily-accent: PP Editorial New;
+	--text-fontfamily-accent: But Serif;
 	--text-fontfamily-default: Inter;
 	--text-fontfamily-mono: Geist Mono;
 	--text-lineheight-body: 160%;
@@ -532,7 +533,7 @@
 		srgb 0.08235294117647059 0.4823529411764706 0.403921568627451
 	);
 	--clr-diff-addition-contrast-3-count-bg: color(
-		srgb 0.09803921568627451 0.4117647058823529 0.33725490196078434
+		srgb 0.07450980392156863 0.38823529411764707 0.3137254901960784
 	);
 	--clr-diff-addition-contrast-3-count-bg-hover: color(
 		srgb 0.16862745098039217 0.47843137254901963 0.40784313725490196
@@ -541,10 +542,10 @@
 		srgb 0.33725490196078434 0.5803921568627451 0.4823529411764706
 	);
 	--clr-diff-addition-contrast-3-count-text: color(
-		srgb 0.5764705882352941 0.788235294117647 0.7019607843137254
+		srgb 0.615686274509804 0.8274509803921568 0.7411764705882353
 	);
 	--clr-diff-addition-contrast-3-line-bg: color(
-		srgb 0.13333333333333333 0.3686274509803922 0.3176470588235294
+		srgb 0.12156862745098039 0.33725490196078434 0.3058823529411765
 	);
 	--clr-diff-addition-contrast-3-line-highlight: color(
 		srgb 0.1568627450980392 0.5764705882352941 0.49411764705882355
@@ -599,7 +600,7 @@
 		srgb 0.6196078431372549 0.17254901960784313 0.25882352941176473
 	);
 	--clr-diff-deletion-contrast-3-count-bg: color(
-		srgb 0.5098039215686274 0.17254901960784313 0.23137254901960785
+		srgb 0.49411764705882355 0.1568627450980392 0.21568627450980393
 	);
 	--clr-diff-deletion-contrast-3-count-bg-hover: color(
 		srgb 0.611764705882353 0.22745098039215686 0.29411764705882354
@@ -608,10 +609,10 @@
 		srgb 0.7098039215686275 0.3764705882352941 0.3764705882352941
 	);
 	--clr-diff-deletion-contrast-3-count-text: color(
-		srgb 0.9490196078431372 0.6039215686274509 0.6588235294117647
+		srgb 0.9882352941176471 0.6431372549019608 0.6980392156862745
 	);
 	--clr-diff-deletion-contrast-3-line-bg: color(
-		srgb 0.3686274509803922 0.12549019607843137 0.17254901960784313
+		srgb 0.3607843137254902 0.11764705882352941 0.16470588235294117
 	);
 	--clr-diff-deletion-contrast-3-line-highlight: color(
 		srgb 0.6392156862745098 0.20392156862745098 0.2901960784313726
@@ -666,7 +667,7 @@
 		srgb 0.8823529411764706 0.6941176470588235 0.3686274509803922
 	);
 	--clr-diff-locked-contrast-3-count-text: color(
-		srgb 0.8784313725490196 0.6901960784313725 0.36470588235294116
+		srgb 0.9176470588235294 0.7294117647058823 0.403921568627451
 	);
 	--clr-diff-locked-count-bg: color(
 		srgb 0.3764705882352941 0.25882352941176473 0.08627450980392157
@@ -702,13 +703,13 @@
 	--clr-diff-selected-count-bg-hover: var(--clr-core-pop-40);
 	--clr-diff-selected-count-border: var(--clr-core-pop-20);
 	--clr-diff-selected-count-checkmark: var(--clr-core-pop-60);
-	--clr-diff-selected-count-text: var(--clr-core-pop-55);
+	--clr-diff-selected-count-text: var(--clr-core-pop-60);
 	--clr-illustration-bg: color(srgb 0.1568627450980392 0.403921568627451 0.39215686274509803);
 	--clr-illustration-fill: color(srgb 0.8470588235294118 0.8901960784313725 0.7568627450980392);
 	--clr-illustration-outline: color(
 		srgb 0.0784313725490196 0.13333333333333333 0.13333333333333333
 	);
-	--clr-overlay-bg: color(srgb 0 0 0 / 0.5);
+	--clr-overlay-bg: color(srgb 0 0 0 / 0.5019607843137255);
 	--clr-scale-err-5: var(--clr-core-err-95);
 	--clr-scale-err-10: var(--clr-core-err-90);
 	--clr-scale-err-20: var(--clr-core-err-80);

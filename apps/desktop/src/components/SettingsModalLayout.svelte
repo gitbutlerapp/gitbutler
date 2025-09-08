@@ -36,7 +36,7 @@
 
 <div class="modal-settings-wrapper">
 	<div class="settings-sidebar" use:focusable>
-		<h3 class="settings-sidebar__title text-15 text-bold">{title}</h3>
+		<h3 class="settings-sidebar__title text-16 text-bold">{title}</h3>
 		<div class="settings-sidebar__links">
 			{#each pages.filter((p) => !p.adminOnly || isAdmin) as page}
 				{@const selected = page.id === currentSelectedId}
@@ -75,8 +75,8 @@
 		display: flex;
 		position: relative;
 		width: 100%;
-		height: 75vh;
-		max-height: 720px;
+		height: 76vh;
+		max-height: 1000px;
 	}
 
 	.settings-sidebar {

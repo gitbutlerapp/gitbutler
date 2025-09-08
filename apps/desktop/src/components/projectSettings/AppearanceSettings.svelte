@@ -69,6 +69,7 @@
 			diffFont={$userSettings.diffFont}
 			diffLigatures={$userSettings.diffLigatures}
 			diffContrast={$userSettings.diffContrast}
+			colorBlindFriendly={$userSettings.colorBlindFriendly}
 			inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 			hunkStr={diff}
 		/>
@@ -124,7 +125,7 @@
 			Tab size
 		{/snippet}
 		{#snippet caption()}
-			The number of spaces a tab is equal to when previewing code changes.
+			Number of spaces per tab in the diff view.
 		{/snippet}
 
 		{#snippet actions()}
@@ -174,7 +175,7 @@
 			Lines contrast
 		{/snippet}
 		{#snippet caption()}
-			The contrast level of the diff lines — added, deleted, and counter lines.
+			The contrast for added, deleted, and context lines in diffs.
 		{/snippet}
 		{#snippet actions()}
 			<Select
@@ -198,6 +199,34 @@
 					</SelectItem>
 				{/snippet}
 			</Select>
+		{/snippet}
+	</SectionCard>
+
+	<SectionCard
+		labelFor="colorBlindFriendly"
+		orientation="row"
+		roundedTop={false}
+		roundedBottom={false}
+	>
+		{#snippet title()}
+			Color blind-friendly colors
+		{/snippet}
+		{#snippet caption()}
+			Use blue and orange colors instead of green and red for better
+			<br />
+			accessibility with color vision deficiency.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="colorBlindFriendly"
+				checked={$userSettings.colorBlindFriendly}
+				onclick={() => {
+					userSettings.update((s) => ({
+						...s,
+						colorBlindFriendly: !s.colorBlindFriendly
+					}));
+				}}
+			/>
 		{/snippet}
 	</SectionCard>
 
@@ -325,8 +354,9 @@
 		{/snippet}
 		{#snippet caption()}
 			Stage the selected assigned files to the stack on commit. If no files are selected, stage all
-			files. If there are no assigned files, stage all selected unassigned files. And if no files
-			are selected, stage all unassigned files.
+			files. If there are no assigned files, stage all selected unassigned files.
+			<br />
+			And if no files are selected, stage all unassigned files.
 		{/snippet}
 		{#snippet actions()}
 			<RadioButton
