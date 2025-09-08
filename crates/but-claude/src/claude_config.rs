@@ -12,6 +12,7 @@ pub fn fmt_claude_settings() -> Result<String> {
     );
     let pre_cmd = format!("{cli_cmd} claude pre-tool");
     let post_cmd = format!("{cli_cmd} claude post-tool");
+    let bash_post_cmd = format!("{cli_cmd} claude bash-post-tool");
     let stop_cmd = format!("{cli_cmd} claude stop");
 
     // We could just do string formatting, but this ensures that we've at least
@@ -30,6 +31,12 @@ pub fn fmt_claude_settings() -> Result<String> {
                 "hooks": [{
                     "type": "command",
                     "command": post_cmd
+                }]
+            }, {
+                "matcher": "Bash",
+                "hooks": [{
+                    "type": "command",
+                    "command": bash_post_cmd
                 }]
             }],
             "Stop": [{

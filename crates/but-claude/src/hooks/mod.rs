@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::io::{self, Read};
+use std::fs::OpenOptions;
+use std::io::{self, Read, Write};
 use std::path::Path;
 use std::str::FromStr;
 
@@ -20,6 +21,7 @@ use serde::{Deserialize, Serialize};
 // use crate::command::file_lock;
 
 mod file_lock;
+mod rm_file_matching;
 use crate::claude_transcript::Transcript;
 use uuid::Uuid;
 
@@ -83,6 +85,51 @@ pub struct ClaudeStopInput {
     pub transcript_path: String,
     pub hook_event_name: String,
     pub stop_hook_active: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClaudeBashPostToolUseInput {
+    pub session_id: String,
+    pub transcript_path: String,
+    pub hook_event_name: String,
+    pub tool_name: String,
+    pub tool_input: BashToolInput,
+    pub tool_response: BashToolResponse,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BashToolInput {
+    pub command: String,
+    pub description: Option<String>,
+    pub run_in_background: Option<bool>,
+    pub timeout: Option<u64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BashToolResponse {
+    pub stdout: String,
+    pub stderr: String,
+    pub exit_code: i32,
+    pub command: String,
+}
+
+pub fn handle_bash_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
+    let input: serde_json::Value = serde_json::from_str(&stdin()?)
+        .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+
+    let mut file = OpenOptions::new()
+        .read(true)
+        .append(true)
+        .open("/tmp/hook-log")?;
+    writeln!(&mut file, "{:#?}", input)?;
+
+    // For now, we'll just return a success response
+    // This can be extended to handle bash-specific logic in the future
+    Ok(ClaudeHookOutput {
+        do_continue: true,
+        stop_reason: String::default(),
+        suppress_output: true,
+    })
 }
 
 pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {

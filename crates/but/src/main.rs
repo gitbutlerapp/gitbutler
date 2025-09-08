@@ -69,6 +69,13 @@ async fn main() -> Result<()> {
                 metrics_if_configured(app_settings, CommandName::ClaudePostTool, p).ok();
                 Ok(())
             }
+            claude::Subcommands::BashPostTool => {
+                let result = but_claude::hooks::handle_bash_post_tool_call();
+                let p = props(start, &result);
+                result.out_json();
+                metrics_if_configured(app_settings, CommandName::ClaudeBashPostTool, p).ok();
+                Ok(())
+            }
             claude::Subcommands::Stop => {
                 let result = but_claude::hooks::handle_stop().await;
                 let p = props(start, &result);
