@@ -41,9 +41,6 @@
 	let snapping = $state(false);
 	let snapPoints: SnapPoint[] = [];
 
-	// DOM reference
-	let modalEl: HTMLDivElement;
-
 	// Animation helper
 	function animateToPosition(newX: number, newY: number, threshold = 5) {
 		if (Math.abs(x - newX) > threshold || Math.abs(y - newY) > threshold) {
@@ -190,7 +187,6 @@
 </script>
 
 <div
-	bind:this={modalEl}
 	use:portal={'body'}
 	use:focusable={{ trap: true, activate: true }}
 	class="floating-modal"

@@ -57,32 +57,3 @@ export function flyScale(
 		easing: cubicOut
 	};
 }
-
-export function popIn(
-	node: Element,
-	{
-		delay = 100,
-		duration = 200,
-		transformOrigin = 'left bottom'
-	}: {
-		delay?: number;
-		duration?: number;
-		transformOrigin?: string;
-	} = {}
-) {
-	return {
-		delay,
-		duration,
-		easing: cubicOut,
-		css: (t: number) => {
-			const scale = 0.2 + 0.8 * t;
-			const y = 15 * (1 - t);
-			const rotate = -8 * (1 - t);
-			return `
-					transform-origin: ${transformOrigin};
-					transform: scale(${scale}) translateY(${y}px) rotate(${rotate}deg);
-					opacity: ${t};
-				`;
-		}
-	};
-}

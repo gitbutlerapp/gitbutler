@@ -1,13 +1,10 @@
 {
+	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"target": "esnext",
-		"module": "esnext",
-		"moduleResolution": "node",
-		"allowJs": true,
+		"module": "es2022",
+		"lib": ["ES2022"],
 		"checkJs": true,
-		"noEmit": true,
-		"skipLibCheck": true,
-		"esModuleInterop": true
+		"noEmit": true
 	},
 	"include": ["**/*.js", "**/*.mjs"],
 	"exclude": ["**/.svelte-kit/", "**/build/", "**/dist/", "**/node_modules/", "**/target/"]

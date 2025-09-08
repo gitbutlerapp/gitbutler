@@ -47,7 +47,7 @@
 			// Use child of tooltip wrapper; since tooltip wrapper is 'display:contents'
 			// which results in boundingClientRect values all being 0. Plus we care
 			// about the child button, icon, etc. anyway
-			const { top, bottom } = targetEl.children[0].getBoundingClientRect();
+			const { top, bottom } = targetEl.children[0]!.getBoundingClientRect();
 
 			// Force tooltip to top if within MARGIN of bottom of viewport
 			if (window.visualViewport.height - bottom < TOOLTIP_VIEWPORT_EDGE_MARGIN) {

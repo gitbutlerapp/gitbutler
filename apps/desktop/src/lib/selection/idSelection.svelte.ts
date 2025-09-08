@@ -13,7 +13,6 @@ import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import { get, writable, type Writable } from 'svelte/store';
 import type { HistoryService } from '$lib/history/history';
-import type { OplogService } from '$lib/history/oplogService.svelte';
 import type { TreeChange } from '$lib/hunks/change';
 import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
@@ -48,7 +47,6 @@ export class IdSelection {
 		private stackService: StackService,
 		private uncommittedService: UncommittedService,
 		private worktreeService: WorktreeService,
-		private oplogService: OplogService,
 		private historyService: HistoryService
 	) {
 		this.selections = new Map();

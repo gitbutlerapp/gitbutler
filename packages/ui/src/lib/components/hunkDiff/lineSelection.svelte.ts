@@ -83,11 +83,11 @@ export default class LineSelection {
 	}
 
 	onTouchStart(ev: TouchEvent) {
-		this._touchStart = { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
+		this._touchStart = { x: ev.touches[0]!.clientX, y: ev.touches[0]!.clientY };
 	}
 
 	onTouchMove(ev: TouchEvent) {
-		this._touchMove = { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
+		this._touchMove = { x: ev.touches[0]!.clientX, y: ev.touches[0]!.clientY };
 	}
 
 	get touchStart() {

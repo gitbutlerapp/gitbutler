@@ -1,15 +1,11 @@
 {
+	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"target": "ES2020",
-		"module": "ESNext",
-		"moduleResolution": "Node",
+		"lib": ["ES2022"],
+		"allowJs": false,
 		"outDir": "dist",
 		"declaration": true,
-		"declarationMap": true,
-		"esModuleInterop": true,
-		"strict": true,
-		"skipLibCheck": true,
-		"allowJs": false
+		"declarationMap": true
 	},
 	"include": ["src"],
 	"exclude": ["node_modules", "dist"]

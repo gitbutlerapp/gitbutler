@@ -47,16 +47,18 @@
 <Story name="default">
 	{#snippet template(args)}
 		<div class="wrapper">
-			<p class="text-13 text">
-				hello world! Here is a <Tooltip
-					text={args.text}
-					align={args.align}
-					position={args.position}
-					disabled={args.disabled}
-					children={args.children}
-					hotkey={args.hotkey}
-				></Tooltip> for you.
-			</p>
+			{#if args.text}
+				<p class="text-13 text">
+					hello world! Here is a <Tooltip
+						text={args.text}
+						align={args.align}
+						position={args.position}
+						disabled={args.disabled}
+						children={args.children}
+						hotkey={args.hotkey}
+					></Tooltip> for you.
+				</p>
+			{/if}
 		</div>
 	{/snippet}
 </Story>

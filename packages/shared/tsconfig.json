@@ -1,22 +1,10 @@
 {
-	"extends": "./.svelte-kit/tsconfig.json",
+	"extends": ["../../tsconfig.base.json", "./.svelte-kit/tsconfig.json"],
 	"compilerOptions": {
-		"target": "ES2022",
-		"lib": ["dom", "dom.iterable", "ES2021"],
-		"allowJs": true,
-		"checkJs": false,
-		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"skipLibCheck": true,
-		"sourceMap": true,
-		"strict": true,
-		"experimentalDecorators": true,
 		"declaration": true,
 		"composite": true,
 		"declarationMap": true,
-		"mapRoot": "../../dist",
-		"noUncheckedIndexedAccess": true
+		"mapRoot": "../../dist"
 	},
 	"include": [
 		".svelte-kit/ambient.d.ts",
