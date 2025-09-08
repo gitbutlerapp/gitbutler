@@ -118,7 +118,7 @@ export class FocusManager {
 		}
 	}
 
-	private getRightValidPreviousElement(): HTMLElement | undefined {
+	private getValidPreviousElement(): HTMLElement | undefined {
 		// Find the first connected element in the history
 		for (let i = 0; i < this._previousElements.length; i++) {
 			const element = this._previousElements[i];
@@ -386,11 +386,11 @@ export class FocusManager {
 
 		// Clear current if it matches
 		if (this._currentElement === element) {
-			const rightElement = this.getRightValidPreviousElement();
-			if (rightElement) {
-				this._currentElement = rightElement;
+			const previousElement = this.getValidPreviousElement();
+			if (previousElement) {
+				this._currentElement = previousElement;
 				// Remove the selected element from history since it's now current
-				removeFromArray(this._previousElements, rightElement);
+				removeFromArray(this._previousElements, previousElement);
 			} else {
 				this._currentElement = undefined;
 			}
@@ -401,7 +401,7 @@ export class FocusManager {
 	/**
 	 * Fires onActive callbacks for an element and all its parent focusables
 	 */
-	private fireOnActiveForHierarchy(element: HTMLElement, active: boolean): void {
+	private triggerOnActiveCallbacks(element: HTMLElement, active: boolean): void {
 		let metadata = this.getMetadata(element);
 		while (metadata) {
 			try {
@@ -415,6 +415,23 @@ export class FocusManager {
 		}
 	}
 
+	private findFocusableChild(element: HTMLElement): HTMLElement | undefined {
+		const metadata = this.getMetadata(element);
+		if (!metadata?.children.length) return undefined;
+
+		// Try preferred child first, then iterate through all children
+		const childrenToTry = [this.getPreferredChild(element), ...metadata.children].filter(
+			(child, index, arr) => child && arr.indexOf(child) === index
+		); // Remove duplicates
+
+		for (const child of childrenToTry) {
+			const activated = this.setActive(child!);
+			if (activated) return activated;
+		}
+
+		return undefined;
+	}
+
 	/**
 	 * Sets the specified element as the currently active (focused) element.
 	 * If the element has skip=true, it will try to focus the preferred child instead.
@@ -423,44 +440,29 @@ export class FocusManager {
 	 * for all parent focusables. Updates focus history and caches the active index
 	 * for list focusables.
 	 */
-	setActive(element: HTMLElement) {
-		if (!element || !element.isConnected || !this.isElementRegistered(element)) {
-			return;
-		}
+	setActive(element: HTMLElement): HTMLElement | undefined {
+		if (!element?.isConnected || !this.isElementRegistered(element)) return undefined;
 
 		const metadata = this.getMetadata(element);
-
-		// If element should be skipped, try to focus preferred child (cached or first) instead
-		if (metadata?.options.skip) {
-			const preferredChild = this.getPreferredChildFromContainer(element);
-			if (preferredChild) {
-				this.setActive(preferredChild);
-				return;
-			}
-			// If no children, don't set this element as active
-			return;
+		if (!metadata) {
+			console.warn('Could not find metadata', element);
+			return undefined;
 		}
 
+		const targetElement = this.findFocusableChild(element) || element;
 		const previousElement = this._currentElement;
 
-		// Fire onActive(false) for previous element and all its parents
 		if (previousElement) {
-			this.fireOnActiveForHierarchy(previousElement, false);
+			this.triggerOnActiveCallbacks(previousElement, false);
+			this.addToPreviousElements(previousElement);
 		}
 
-		// Cache the active child index for all parent elements
-		this.cacheActiveIndexForAllParents(element);
+		this._currentElement = targetElement;
+		this.cacheActiveIndex(targetElement);
+		this.triggerOnActiveCallbacks(targetElement, true);
+		this.cursor.set(targetElement);
 
-		// Add current element to history before changing
-		if (this._currentElement) {
-			this.addToPreviousElements(this._currentElement);
-		}
-		this._currentElement = element;
-
-		// Fire onActive(true) for new element and all its parents
-		this.fireOnActiveForHierarchy(element, true);
-
-		this.cursor.set(element);
+		return targetElement;
 	}
 
 	/**
@@ -473,7 +475,7 @@ export class FocusManager {
 	 * @param forward - Whether to search forward or backward through siblings
 	 * @returns The right matching element or undefined if none found
 	 */
-	private findNext(
+	private findNextByType(
 		searchElement: HTMLElement,
 		searchTypes: DefinedFocusable | DefinedFocusable[],
 		forward: boolean
@@ -495,7 +497,7 @@ export class FocusManager {
 		}
 
 		if (!currentMeta?.parentElement) return undefined;
-		return this.findNext(currentMeta.parentElement, searchTypes, forward);
+		return this.findNextByType(currentMeta.parentElement, searchTypes, forward);
 	}
 
 	/**
@@ -557,7 +559,7 @@ export class FocusManager {
 	 * @param containerElement - The container element to get a child from
 	 * @returns The preferred child element to focus, or undefined if no children
 	 */
-	private getPreferredChildFromContainer(containerElement: HTMLElement): HTMLElement | undefined {
+	private getPreferredChild(containerElement: HTMLElement): HTMLElement | undefined {
 		const containerMetadata = this.getMetadata(containerElement);
 		if (!containerMetadata?.children.length) {
 			return undefined;
@@ -595,7 +597,7 @@ export class FocusManager {
 			visited.add(current);
 
 			// Get the preferred child from current container
-			const preferredChild = this.getPreferredChildFromContainer(current);
+			const preferredChild = this.getPreferredChild(current);
 			if (!preferredChild) {
 				// No children available, return current container
 				return current;
@@ -626,10 +628,7 @@ export class FocusManager {
 	 * @param forward - Whether to search forward (next) or backward (previous) through siblings
 	 * @returns The next non-skipped focusable element or undefined if none found
 	 */
-	private findNextNonSkippedInList(
-		searchElement: HTMLElement,
-		forward: boolean
-	): HTMLElement | undefined {
+	private findNextInList(searchElement: HTMLElement, forward: boolean): HTMLElement | undefined {
 		const currentMeta = this.getMetadata(searchElement);
 		const parentMeta = this.getParentMetadata(currentMeta);
 		if (!currentMeta || !parentMeta || !this._currentElement) return undefined;
@@ -654,7 +653,7 @@ export class FocusManager {
 
 		// Only continue traversing up if the parent has list: true
 		if (parentMeta.options.list && currentMeta.parentElement) {
-			return this.findNextNonSkippedInList(currentMeta.parentElement, forward);
+			return this.findNextInList(currentMeta.parentElement, forward);
 		}
 
 		return undefined;
@@ -702,8 +701,10 @@ export class FocusManager {
 
 	private activateAndFocus(element: HTMLElement | undefined): boolean {
 		if (!element) return false;
-		this.setActive(element);
-		this.focusElement(element);
+		const activatedElement = this.setActive(element);
+		if (activatedElement) {
+			this.focusElement(activatedElement);
+		}
 		return true;
 	}
 
@@ -761,7 +762,7 @@ export class FocusManager {
 		const metadata = this.getCurrentMetadata();
 		if (!metadata?.parentElement || !this._currentElement) return false;
 
-		const cousinTarget = this.findNext(
+		const cousinTarget = this.findNextByType(
 			this._currentElement,
 			metadata.logicalId as DefinedFocusable,
 			forward
@@ -781,7 +782,7 @@ export class FocusManager {
 		if (!metadata?.parentElement || !this._currentElement) return false;
 
 		// Find the next non-skipped focusable, traversing parents while list: true
-		const linkedTarget = this.findNextNonSkippedInList(this._currentElement, forward);
+		const linkedTarget = this.findNextInList(this._currentElement, forward);
 		if (!linkedTarget) return false;
 
 		return this.activateAndFocus(linkedTarget);
@@ -795,7 +796,7 @@ export class FocusManager {
 		if (!linkToIds || linkToIds.length === 0) return false;
 
 		// Find the nearest element of any of the target types
-		const linkedTarget = this.findNext(this._currentElement, linkToIds, forward);
+		const linkedTarget = this.findNextByType(this._currentElement, linkToIds, forward);
 		return this.activateAndFocus(linkedTarget);
 	}
 
@@ -875,14 +876,14 @@ export class FocusManager {
 		if (!metadata || !this._currentElement) return false;
 
 		// Get the preferred child (cached or first child)
-		const preferredChild = this.getPreferredChildFromContainer(this._currentElement);
+		const preferredChild = this.getPreferredChild(this._currentElement);
 		if (!preferredChild) return false;
 
 		const childMetadata = this.getMetadata(preferredChild);
 
 		// If the preferred child should be skipped, try to focus its preferred child (cached or first)
 		if (childMetadata?.options.skip) {
-			const preferredGrandChild = this.getPreferredChildFromContainer(preferredChild);
+			const preferredGrandChild = this.getPreferredChild(preferredChild);
 			if (preferredGrandChild) {
 				return this.activateAndFocus(preferredGrandChild);
 			}
@@ -1140,7 +1141,7 @@ export class FocusManager {
 	 *
 	 * @param element - The currently active element
 	 */
-	private cacheActiveIndexForAllParents(element: HTMLElement) {
+	private cacheActiveIndex(element: HTMLElement) {
 		let currentElement = element;
 		const metadata = this.getMetadata(currentElement);
 
@@ -1277,7 +1278,7 @@ export class FocusManager {
 
 		// Check each child of the non-list parent to see which one contains our current element
 		for (const child of parentMetadata.children) {
-			if (this.elementContains(child, currentElement)) {
+			if (this.containsElement(child, currentElement)) {
 				return child;
 			}
 		}
@@ -1292,7 +1293,7 @@ export class FocusManager {
 	 * @param target - The target element to find
 	 * @returns True if container contains target
 	 */
-	private elementContains(container: HTMLElement, target: HTMLElement): boolean {
+	private containsElement(container: HTMLElement, target: HTMLElement): boolean {
 		if (container === target) return true;
 
 		const containerMetadata = this.getMetadata(container);
@@ -1300,7 +1301,7 @@ export class FocusManager {
 
 		// Recursively check children
 		for (const child of containerMetadata.children) {
-			if (this.elementContains(child, target)) {
+			if (this.containsElement(child, target)) {
 				return true;
 			}
 		}
