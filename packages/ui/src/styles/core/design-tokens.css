@@ -462,6 +462,27 @@
 	--text-weight-bold: 600;
 	--text-weight-regular: 400;
 	--text-weight-semibold: 500;
+
+	/* Color blind-friendly diff colors - Light theme - Blue for additions, Orange for deletions */
+	/* Light theme color blind additions (blue) */
+	--clr-diff-addition-colorblind-line-bg: color(srgb 0.87 0.94 1); /* Light blue background */
+	--clr-diff-addition-colorblind-line-highlight: color(
+		srgb 0.67 0.85 1
+	); /* Medium blue highlight */
+	--clr-diff-addition-colorblind-count-bg: color(srgb 0.77 0.9 1); /* Blue count background */
+	--clr-diff-addition-colorblind-count-text: color(srgb 0.1 0.4 0.8); /* Dark blue text */
+	--clr-diff-addition-colorblind-count-border: color(srgb 0.6 0.8 1); /* Blue border */
+	--clr-diff-addition-colorblind-count-checkmark: color(srgb 0.1 0.4 0.8); /* Blue checkmark */
+
+	/* Light theme color blind deletions (orange) */
+	--clr-diff-deletion-colorblind-line-bg: color(srgb 1 0.94 0.87); /* Light orange background */
+	--clr-diff-deletion-colorblind-line-highlight: color(
+		srgb 1 0.85 0.67
+	); /* Medium orange highlight */
+	--clr-diff-deletion-colorblind-count-bg: color(srgb 1 0.9 0.77); /* Orange count background */
+	--clr-diff-deletion-colorblind-count-text: color(srgb 0.8 0.4 0.1); /* Dark orange text */
+	--clr-diff-deletion-colorblind-count-border: color(srgb 1 0.8 0.6); /* Orange border */
+	--clr-diff-deletion-colorblind-count-checkmark: color(srgb 0.8 0.4 0.1); /* Orange checkmark */
 }
 
 :root.dark {
@@ -835,4 +856,31 @@
 	--clr-theme-warn-soft-hover: var(--clr-core-warn-30);
 	--clr-tooltip-bg: var(--clr-core-ntrl-10);
 	--clr-tooltip-border: var(--clr-core-ntrl-30);
+
+	/* Color blind-friendly diff colors - Dark theme - Blue for additions, Orange for deletions */
+	/* Dark theme color blind additions (blue) */
+	--clr-diff-addition-colorblind-line-bg: color(srgb 0.05 0.15 0.3); /* Dark blue background */
+	--clr-diff-addition-colorblind-line-highlight: color(
+		srgb 0.1 0.25 0.5
+	); /* Medium dark blue highlight */
+	--clr-diff-addition-colorblind-count-bg: color(
+		srgb 0.08 0.2 0.4
+	); /* Dark blue count background */
+	--clr-diff-addition-colorblind-count-text: color(srgb 0.6 0.8 1); /* Light blue text */
+	--clr-diff-addition-colorblind-count-border: color(srgb 0.2 0.4 0.7); /* Blue border */
+	--clr-diff-addition-colorblind-count-checkmark: color(srgb 0.6 0.8 1); /* Light blue checkmark */
+
+	/* Dark theme color blind deletions (orange) */
+	--clr-diff-deletion-colorblind-line-bg: color(srgb 0.3 0.15 0.05); /* Dark orange background */
+	--clr-diff-deletion-colorblind-line-highlight: color(
+		srgb 0.5 0.25 0.1
+	); /* Medium dark orange highlight */
+	--clr-diff-deletion-colorblind-count-bg: color(
+		srgb 0.4 0.2 0.08
+	); /* Dark orange count background */
+	--clr-diff-deletion-colorblind-count-text: color(srgb 1 0.8 0.6); /* Light orange text */
+	--clr-diff-deletion-colorblind-count-border: color(srgb 0.7 0.4 0.2); /* Orange border */
+	--clr-diff-deletion-colorblind-count-checkmark: color(
+		srgb 1 0.8 0.6
+	); /* Light orange checkmark */
 }

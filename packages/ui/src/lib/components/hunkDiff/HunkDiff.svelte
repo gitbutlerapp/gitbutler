@@ -29,6 +29,7 @@
 		diffLigatures?: boolean;
 		inlineUnifiedDiffs?: boolean;
 		diffContrast?: 'light' | 'medium' | 'strong';
+		colorBlindFriendly?: boolean;
 		staged?: boolean;
 		stagedLines?: LineId[];
 		hideCheckboxes?: boolean;
@@ -53,6 +54,7 @@
 		diffFont = 'var(--fontfamily-mono)',
 		diffLigatures = true,
 		diffContrast = 'medium',
+		colorBlindFriendly = false,
 		inlineUnifiedDiffs = false,
 		staged,
 		stagedLines,
@@ -113,6 +115,7 @@
 	}}
 	bind:this={tableWrapperElem}
 	class="table__wrapper contrast-{diffContrast}"
+	class:colorblind-friendly={colorBlindFriendly}
 	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
 	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
 >
@@ -408,5 +411,24 @@
 		--clr-diff-locked-count-bg: var(--clr-diff-locked-contrast-3-count-bg);
 		--clr-diff-locked-count-text: var(--clr-diff-locked-contrast-3-count-text);
 		--clr-diff-locked-count-border: var(--clr-diff-locked-contrast-3-count-border);
+	}
+
+	/* COLOR BLIND-FRIENDLY MODIFIERS */
+	.colorblind-friendly {
+		/* Override addition colors with blue */
+		--clr-diff-addition-line-bg: var(--clr-diff-addition-colorblind-line-bg);
+		--clr-diff-addition-line-highlight: var(--clr-diff-addition-colorblind-line-highlight);
+		--clr-diff-addition-count-bg: var(--clr-diff-addition-colorblind-count-bg);
+		--clr-diff-addition-count-text: var(--clr-diff-addition-colorblind-count-text);
+		--clr-diff-addition-count-border: var(--clr-diff-addition-colorblind-count-border);
+		--clr-diff-addition-count-checkmark: var(--clr-diff-addition-colorblind-count-checkmark);
+
+		/* Override deletion colors with orange */
+		--clr-diff-deletion-line-bg: var(--clr-diff-deletion-colorblind-line-bg);
+		--clr-diff-deletion-line-highlight: var(--clr-diff-deletion-colorblind-line-highlight);
+		--clr-diff-deletion-count-bg: var(--clr-diff-deletion-colorblind-count-bg);
+		--clr-diff-deletion-count-text: var(--clr-diff-deletion-colorblind-count-text);
+		--clr-diff-deletion-count-border: var(--clr-diff-deletion-colorblind-count-border);
+		--clr-diff-deletion-count-checkmark: var(--clr-diff-deletion-colorblind-count-checkmark);
 	}
 </style>

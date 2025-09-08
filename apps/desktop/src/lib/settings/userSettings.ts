@@ -29,6 +29,7 @@ export interface Settings {
 	diffLigatures: boolean;
 	inlineUnifiedDiffs: boolean;
 	diffContrast: 'light' | 'medium' | 'strong';
+	colorBlindFriendly: boolean;
 	defaultCodeEditor: CodeEditorSettings;
 }
 
@@ -50,6 +51,7 @@ const defaults: Settings = {
 	diffLigatures: false,
 	inlineUnifiedDiffs: false,
 	diffContrast: 'light',
+	colorBlindFriendly: false,
 	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' }
 };
 

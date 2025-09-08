@@ -69,6 +69,7 @@
 			diffFont={$userSettings.diffFont}
 			diffLigatures={$userSettings.diffLigatures}
 			diffContrast={$userSettings.diffContrast}
+			colorBlindFriendly={$userSettings.colorBlindFriendly}
 			inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 			hunkStr={diff}
 		/>
@@ -198,6 +199,33 @@
 					</SelectItem>
 				{/snippet}
 			</Select>
+		{/snippet}
+	</SectionCard>
+
+	<SectionCard
+		labelFor="colorBlindFriendly"
+		orientation="row"
+		roundedTop={false}
+		roundedBottom={false}
+	>
+		{#snippet title()}
+			Color blind-friendly colors
+		{/snippet}
+		{#snippet caption()}
+			Use blue and orange colors instead of green and red for better accessibility with color vision
+			deficiency.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="colorBlindFriendly"
+				checked={$userSettings.colorBlindFriendly}
+				onclick={() => {
+					userSettings.update((s) => ({
+						...s,
+						colorBlindFriendly: !s.colorBlindFriendly
+					}));
+				}}
+			/>
 		{/snippet}
 	</SectionCard>
 
