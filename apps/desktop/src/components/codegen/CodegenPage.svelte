@@ -534,7 +534,7 @@
 						{/snippet}
 					</CodegenChatLayout>
 
-					{@render rightSidebar(events, formattedMessages.length > 0)}
+					{@render rightSidebar(events)}
 				{/snippet}
 			</ReduxResult>
 		{:else}
@@ -551,9 +551,9 @@
 	</div>
 {/snippet}
 
-{#snippet rightSidebar(events: ClaudeMessage[], hasMessages: boolean)}
+{#snippet rightSidebar(events: ClaudeMessage[])}
 	<div class="right-sidebar" bind:this={rightSidebarRef}>
-		{#if !hasMessages}
+		{#if !branchChanges || !selectedBranch || (branchChanges.current?.data && branchChanges.current.data.changes.length === 0 && getTodos(events).length === 0)}
 			<div class="right-sidebar__placeholder">
 				<EmptyStatePlaceholder
 					image={filesAndChecksSvg}
@@ -567,12 +567,12 @@
 				</EmptyStatePlaceholder>
 			</div>
 		{:else}
+			{@const todos = getTodos(events)}
 			{#if branchChanges && selectedBranch}
 				<ReduxResult result={branchChanges.current} {projectId}>
 					{#snippet children({ changes }, { projectId })}
-						{@const todos = getTodos(events)}
 						<Drawer
-							bottomBorder
+							bottomBorder={todos.length > 0}
 							grow
 							defaultCollapsed={todos.length > 0}
 							notFoldable
@@ -608,7 +608,6 @@
 				</ReduxResult>
 			{/if}
 
-			{@const todos = getTodos(events)}
 			{#if todos.length > 0}
 				<Drawer defaultCollapsed={false} noshrink>
 					{#snippet header()}
