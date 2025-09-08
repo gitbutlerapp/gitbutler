@@ -51,7 +51,7 @@
 			/>
 		{/snippet}
 	</SectionCard>
-	<SectionCard labelFor="rules" roundedTop={false} orientation="row">
+	<SectionCard labelFor="rules" roundedTop={false} roundedBottom={false} orientation="row">
 		{#snippet title()}
 			Workspace Rules
 		{/snippet}
@@ -65,6 +65,21 @@
 				checked={$settingsStore?.featureFlags.rules}
 				onclick={() =>
 					settingsService.updateFeatureFlags({ rules: !$settingsStore?.featureFlags.rules })}
+			/>
+		{/snippet}
+	</SectionCard>
+	<SectionCard labelFor="codegen" roundedTop={false} orientation="row">
+		{#snippet title()}
+			Codegen (Claude Code)
+		{/snippet}
+		{#snippet caption()}
+			Enable AI-powered code generation and editing with Claude.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="codegen"
+				checked={$codegenEnabled}
+				onclick={() => ($codegenEnabled = !$codegenEnabled)}
 			/>
 		{/snippet}
 	</SectionCard>
@@ -110,22 +125,6 @@
 						settingsService.updateFeatureFlags({
 							singleBranch: !$settingsStore?.featureFlags.singleBranch
 						})}
-				/>
-			{/snippet}
-		</SectionCard>
-
-		<SectionCard labelFor="codegen" roundedTop={false} roundedBottom={false} orientation="row">
-			{#snippet title()}
-				Codegen (Claude Code)
-			{/snippet}
-			{#snippet caption()}
-				Enable AI-powered code generation and editing with Claude.
-			{/snippet}
-			{#snippet actions()}
-				<Toggle
-					id="codegen"
-					checked={$codegenEnabled}
-					onclick={() => ($codegenEnabled = !$codegenEnabled)}
 				/>
 			{/snippet}
 		</SectionCard>
