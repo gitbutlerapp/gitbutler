@@ -414,7 +414,8 @@
 	}
 
 	/* COLOR BLIND-FRIENDLY MODIFIERS */
-	.colorblind-friendly {
+	/* Light contrast + color blind-friendly (default) */
+	.contrast-light.colorblind-friendly {
 		/* Override addition colors with blue */
 		--clr-diff-addition-line-bg: var(--clr-diff-addition-colorblind-line-bg);
 		--clr-diff-addition-line-highlight: var(--clr-diff-addition-colorblind-line-highlight);
@@ -430,5 +431,59 @@
 		--clr-diff-deletion-count-text: var(--clr-diff-deletion-colorblind-count-text);
 		--clr-diff-deletion-count-border: var(--clr-diff-deletion-colorblind-count-border);
 		--clr-diff-deletion-count-checkmark: var(--clr-diff-deletion-colorblind-count-checkmark);
+	}
+
+	/* Medium contrast + color blind-friendly */
+	.contrast-medium.colorblind-friendly {
+		/* Override addition colors with blue - medium contrast */
+		--clr-diff-addition-line-bg: var(--clr-diff-addition-colorblind-contrast-2-line-bg);
+		--clr-diff-addition-line-highlight: var(
+			--clr-diff-addition-colorblind-contrast-2-line-highlight
+		);
+		--clr-diff-addition-count-bg: var(--clr-diff-addition-colorblind-contrast-2-count-bg);
+		--clr-diff-addition-count-text: var(--clr-diff-addition-colorblind-contrast-2-count-text);
+		--clr-diff-addition-count-border: var(--clr-diff-addition-colorblind-contrast-2-count-border);
+		--clr-diff-addition-count-checkmark: var(
+			--clr-diff-addition-colorblind-contrast-2-count-checkmark
+		);
+
+		/* Override deletion colors with orange - medium contrast */
+		--clr-diff-deletion-line-bg: var(--clr-diff-deletion-colorblind-contrast-2-line-bg);
+		--clr-diff-deletion-line-highlight: var(
+			--clr-diff-deletion-colorblind-contrast-2-line-highlight
+		);
+		--clr-diff-deletion-count-bg: var(--clr-diff-deletion-colorblind-contrast-2-count-bg);
+		--clr-diff-deletion-count-text: var(--clr-diff-deletion-colorblind-contrast-2-count-text);
+		--clr-diff-deletion-count-border: var(--clr-diff-deletion-colorblind-contrast-2-count-border);
+		--clr-diff-deletion-count-checkmark: var(
+			--clr-diff-deletion-colorblind-contrast-2-count-checkmark
+		);
+	}
+
+	/* Strong contrast + color blind-friendly */
+	.contrast-strong.colorblind-friendly {
+		/* Override addition colors with blue - strong contrast */
+		--clr-diff-addition-line-bg: var(--clr-diff-addition-colorblind-contrast-3-line-bg);
+		--clr-diff-addition-line-highlight: var(
+			--clr-diff-addition-colorblind-contrast-3-line-highlight
+		);
+		--clr-diff-addition-count-bg: var(--clr-diff-addition-colorblind-contrast-3-count-bg);
+		--clr-diff-addition-count-text: var(--clr-diff-addition-colorblind-contrast-3-count-text);
+		--clr-diff-addition-count-border: var(--clr-diff-addition-colorblind-contrast-3-count-border);
+		--clr-diff-addition-count-checkmark: var(
+			--clr-diff-addition-colorblind-contrast-3-count-checkmark
+		);
+
+		/* Override deletion colors with orange - strong contrast */
+		--clr-diff-deletion-line-bg: var(--clr-diff-deletion-colorblind-contrast-3-line-bg);
+		--clr-diff-deletion-line-highlight: var(
+			--clr-diff-deletion-colorblind-contrast-3-line-highlight
+		);
+		--clr-diff-deletion-count-bg: var(--clr-diff-deletion-colorblind-contrast-3-count-bg);
+		--clr-diff-deletion-count-text: var(--clr-diff-deletion-colorblind-contrast-3-count-text);
+		--clr-diff-deletion-count-border: var(--clr-diff-deletion-colorblind-contrast-3-count-border);
+		--clr-diff-deletion-count-checkmark: var(
+			--clr-diff-deletion-colorblind-contrast-3-count-checkmark
+		);
 	}
 </style>
