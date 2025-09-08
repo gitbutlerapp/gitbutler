@@ -78,7 +78,8 @@ mod to_additive_hunks {
         ), @r#"
         (
             [
-                HunkHeader("-5,2", "+1,1"),
+                HunkHeader("-1,0", "+1,1"),
+                HunkHeader("-5,2", "+2,0"),
                 HunkHeader("-7,0", "+10,1"),
             ],
             [],
@@ -95,47 +96,9 @@ mod to_additive_hunks {
         ), @r#"
         (
             [
-                HunkHeader("-1,1", "+5,2"),
+                HunkHeader("-1,1", "+1,0"),
+                HunkHeader("-2,0", "+5,2"),
                 HunkHeader("-10,1", "+7,0"),
-            ],
-            [],
-        )
-        "#);
-    }
-
-    #[test]
-    fn only_selections_workspace_example() {
-        let wth = vec![hunk_header("-1,10", "+1,10")];
-        let actual = to_additive_hunks(
-            [
-                // commit NOT '2,3' of the old
-                hunk_header("-2,2", "+0,0"),
-                // commit NOT '6,7' of the old
-                hunk_header("-6,2", "+0,0"),
-                // commit NOT '9' of the old
-                hunk_header("-9,1", "+0,0"),
-                // commit NOT '10' of the old
-                hunk_header("-10,1", "+0,0"),
-                // commit '11' of the new
-                hunk_header("-0,0", "+1,1"),
-                // commit '15,16' of the new
-                hunk_header("-0,0", "+5,2"),
-                // commit '19,20' of the new
-                hunk_header("-0,0", "+9,2"),
-            ],
-            &wth,
-            &wth,
-        );
-        insta::assert_debug_snapshot!(actual, @r#"
-        (
-            [
-                HunkHeader("-2,2", "+1,0"),
-                HunkHeader("-6,2", "+1,0"),
-                HunkHeader("-9,1", "+1,0"),
-                HunkHeader("-10,1", "+1,0"),
-                HunkHeader("-11,0", "+1,1"),
-                HunkHeader("-11,0", "+5,2"),
-                HunkHeader("-11,0", "+9,2"),
             ],
             [],
         )
@@ -156,6 +119,7 @@ mod to_additive_hunks {
                 // partial match to same hunk
                 hunk_header("-15,2", "+0,0"),
                 hunk_header("-0,0", "+22,3"),
+                // Last hunk isn't used
             ],
             &wth,
             &wth,
@@ -163,7 +127,8 @@ mod to_additive_hunks {
         (
             [
                 HunkHeader("-1,10", "+1,10"),
-                HunkHeader("-15,2", "+22,3"),
+                HunkHeader("-15,2", "+20,0"),
+                HunkHeader("-17,0", "+22,3"),
             ],
             [],
         )
@@ -182,6 +147,7 @@ mod to_additive_hunks {
                 // full match
                 hunk_header("-1,10", "+1,10"),
                 hunk_header("-15,5", "+20,5"),
+                // Last hunk isn't used
             ],
             &wth,
             &wth,
@@ -255,7 +221,8 @@ mod to_additive_hunks {
         ), @r#"
         (
             [
-                HunkHeader("-96,1", "+96,2"),
+                HunkHeader("-96,1", "+96,0"),
+                HunkHeader("-97,0", "+96,2"),
             ],
             [],
         )
@@ -360,6 +327,45 @@ mod to_additive_hunks {
                 HunkHeader("-208,0", "+30,2"),
                 HunkHeader("-209,1", "+50,3"),
                 HunkHeader("-211,1", "+53,0"),
+            ],
+            [],
+        )
+        "#);
+    }
+
+    #[test]
+    fn only_selections_workspace_example() {
+        let wth = vec![hunk_header("-1,10", "+1,10")];
+        let actual = to_additive_hunks(
+            [
+                // commit NOT '2,3' of the old
+                hunk_header("-2,2", "+0,0"),
+                // commit NOT '6,7' of the old
+                hunk_header("-6,2", "+0,0"),
+                // commit NOT '9' of the old
+                hunk_header("-9,1", "+0,0"),
+                // commit NOT '10' of the old
+                hunk_header("-10,1", "+0,0"),
+                // commit '11' of the new
+                hunk_header("-0,0", "+1,1"),
+                // commit '15,16' of the new
+                hunk_header("-0,0", "+5,2"),
+                // commit '19,20' of the new
+                hunk_header("-0,0", "+9,2"),
+            ],
+            &wth,
+            &wth,
+        );
+        insta::assert_debug_snapshot!(actual, @r#"
+        (
+            [
+                HunkHeader("-2,2", "+1,0"),
+                HunkHeader("-6,2", "+1,0"),
+                HunkHeader("-9,1", "+1,0"),
+                HunkHeader("-10,1", "+1,0"),
+                HunkHeader("-11,0", "+1,1"),
+                HunkHeader("-11,0", "+5,2"),
+                HunkHeader("-11,0", "+9,2"),
             ],
             [],
         )

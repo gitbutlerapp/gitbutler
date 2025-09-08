@@ -360,8 +360,116 @@ pub(crate) fn worktree_file_to_git_in_buf(
 /// selections in the old or new image respectively. This is necessary to maintain the right order in the face of context lines.
 /// Note that the order of changes is still affected by what which selection comes first, i.e. old and new, or vice versa, if these
 /// selections are in the same hunk.
-#[allow(clippy::indexing_slicing)]
 fn to_additive_hunks(
+    hunks_to_keep: impl IntoIterator<Item = HunkHeader>,
+    worktree_hunks: &[HunkHeader],
+    worktree_hunks_no_context: &[HunkHeader],
+) -> (Vec<HunkHeader>, Vec<HunkHeader>) {
+    let mut hunks_to_commit = Vec::new();
+    let mut rejected = Vec::new();
+    let mut previous = HunkHeader {
+        old_start: 1,
+        old_lines: 0,
+        new_start: 1,
+        new_lines: 0,
+    };
+    let mut last_wh = None;
+    for selected_hunk in hunks_to_keep {
+        let sh = selected_hunk;
+        if sh.new_range().is_null() {
+            if let Some(wh) = worktree_hunks_no_context
+                .iter()
+                .find(|wh| wh.old_range().contains(sh.old_range()))
+            {
+                if last_wh != Some(*wh) {
+                    last_wh = Some(*wh);
+                    previous.new_start = wh.new_start;
+                }
+                hunks_to_commit.push(HunkHeader {
+                    old_start: sh.old_start,
+                    old_lines: sh.old_lines,
+                    new_start: previous.new_start,
+                    new_lines: 0,
+                });
+                previous.old_start = sh.old_range().end();
+                continue;
+            }
+        } else if sh.old_range().is_null() {
+            if let Some(wh) = worktree_hunks_no_context
+                .iter()
+                .find(|wh| wh.new_range().contains(sh.new_range()))
+            {
+                if last_wh != Some(*wh) {
+                    last_wh = Some(*wh);
+                    previous.old_start = wh.old_start;
+                }
+                hunks_to_commit.push(HunkHeader {
+                    old_start: previous.old_start,
+                    old_lines: 0,
+                    new_start: sh.new_start,
+                    new_lines: sh.new_lines,
+                });
+                previous.new_start = sh.new_range().end();
+                continue;
+            }
+        } else if worktree_hunks.contains(&sh) {
+            previous.old_start = sh.old_range().end();
+            previous.new_start = sh.new_range().end();
+            last_wh = Some(sh);
+            hunks_to_commit.push(sh);
+            continue;
+        }
+        rejected.push(sh);
+    }
+
+    if !hunks_to_commit
+        .iter()
+        .zip(hunks_to_commit.iter().skip(1))
+        .all(|(prev, next)| prev < next)
+    {
+        tracing::info!("Using alternative hunk algorithm for {hunks_to_commit:?}");
+        to_additive_hunks_fallback(
+            hunks_to_commit.into_iter().map(
+                |HunkHeader {
+                     old_start,
+                     old_lines,
+                     new_start,
+                     new_lines,
+                 }| {
+                    if old_lines == 0 {
+                        HunkHeader {
+                            old_start: 0,
+                            old_lines: 0,
+                            new_start,
+                            new_lines,
+                        }
+                    } else {
+                        HunkHeader {
+                            old_start,
+                            old_lines,
+                            new_start: 0,
+                            new_lines: 0,
+                        }
+                    }
+                },
+            ),
+            worktree_hunks,
+            worktree_hunks_no_context,
+        )
+    } else {
+        (hunks_to_commit, rejected)
+    }
+}
+
+/// This algorithm is better when the basic one fails, but both have their merit.
+/// Right now this is a brute-force one or the other approach, but we could also apply them selectively.
+/// Note that what we really want to simulate is what the UI shows. But since the UI also doesn't really know hunks,
+/// we have to fiddle it together here, at least we know the hunks themselves.
+///
+/// Note that this algorithm is kind of the opposite of what people would expect if it's run where `to_additive_hunks()` works.
+/// But here we are… just making this work.
+#[allow(clippy::indexing_slicing)]
+fn to_additive_hunks_fallback(
     hunks_to_keep: impl IntoIterator<Item = HunkHeader>,
     worktree_hunks: &[HunkHeader],
     worktree_hunks_no_context: &[HunkHeader],
