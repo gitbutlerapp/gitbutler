@@ -31,7 +31,6 @@
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 
 	import { Button, FileViewHeader, Icon, TestId } from '@gitbutler/ui';
-	import { DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import { fly } from 'svelte/transition';
@@ -429,7 +428,7 @@
 			root: lanesSrollableEl
 		}
 	}}
-	use:focusable={{ skip: true }}
+	use:focusable
 >
 	{#if !isCommitting}
 		<div class="drag-handle" data-remove-from-panning data-drag-handle draggable="true">
@@ -442,7 +441,7 @@
 			class="stack-view"
 			class:details-open={isDetailsViewOpen}
 			style:width="{$persistedStackWidth}rem"
-			use:focusable={{ list: true, onActive: (value) => (active = value) }}
+			use:focusable={{ vertical: true, onActive: (value) => (active = value) }}
 			bind:this={stackViewEl}
 		>
 			<ReduxResult {projectId} result={branchesResult.current}>
@@ -452,10 +451,7 @@
 						<div
 							class="assignments-wrap"
 							class:assignments__empty={changes.current.length === 0 && !isCommitting}
-							use:focusable={{
-								id: DefinedFocusable.Assignments,
-								list: true
-							}}
+							use:focusable={{ vertical: true }}
 						>
 							<div
 								class="worktree-wrap"
@@ -556,7 +552,7 @@
 			bind:this={compactDiv}
 			data-details={stackId}
 			style:right="{DETAILS_RIGHT_PADDING_REM}rem"
-			use:focusable={{ list: true }}
+			use:focusable={{ vertical: true }}
 		>
 			<div class="details-view__inner">
 				<!-- TOP SECTION: Branch/Commit Details (no resizer) -->

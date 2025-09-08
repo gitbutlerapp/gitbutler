@@ -61,7 +61,7 @@
 		{/if}
 	</div>
 
-	<section class="page-view" use:focusable={{ list: true }}>
+	<section class="page-view" use:focusable={{ vertical: true }}>
 		<ConfigurableScrollableContainer>
 			<div class="page-view__content">
 				{@render content({ currentPage })}

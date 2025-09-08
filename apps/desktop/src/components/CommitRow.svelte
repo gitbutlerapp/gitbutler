@@ -3,7 +3,6 @@
 	import CommitTitle from '$components/CommitTitle.svelte';
 	import { type CommitStatusType } from '$lib/commits/commit';
 	import { Avatar, Icon, TestId } from '@gitbutler/ui';
-	import { DEFAULT_LINKS, DefinedFocusable } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 
 	import { slide } from 'svelte/transition';
@@ -101,8 +100,6 @@
 	class:disabled
 	{onclick}
 	use:focusable={{
-		id: DefinedFocusable.Commit,
-		linkToIds: DEFAULT_LINKS,
 		onKeydown: (e) => {
 			if (disabled) return false;
 
