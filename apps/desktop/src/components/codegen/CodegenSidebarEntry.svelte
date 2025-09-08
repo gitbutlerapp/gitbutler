@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Badge, Icon, TimeAgo, Tooltip, InfoButton } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { slide } from 'svelte/transition';
 	import type { ClaudeStatus } from '$lib/codegen/types';
 	import type { Snippet } from 'svelte';
@@ -35,7 +36,7 @@
 	let isOpen = $state(false);
 </script>
 
-<div class="codegen-entry-wrapper">
+<div class="codegen-entry-wrapper" use:focusable>
 	<div class="codegen-entry">
 		<button class="codegen-entry-header" class:selected type="button" {onclick}>
 			{#if selected}

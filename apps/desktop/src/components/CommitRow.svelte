@@ -100,15 +100,7 @@
 	class:disabled
 	{onclick}
 	use:focusable={{
-		onKeydown: (e) => {
-			if (disabled) return false;
-
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.stopPropagation();
-				onclick?.();
-				return true;
-			}
-		}
+		onAction: () => onclick?.()
 	}}
 >
 	{#if selected}

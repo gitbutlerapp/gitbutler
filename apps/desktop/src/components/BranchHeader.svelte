@@ -58,12 +58,7 @@
 <div
 	class="header-wrapper"
 	use:focusable={{
-		onKeydown: (e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.stopPropagation();
-				onclick?.();
-			}
-		},
+		onAction: () => onclick?.(),
 		onActive: (value) => (active = value)
 	}}
 >
