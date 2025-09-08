@@ -1777,39 +1777,32 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │                   └── ·777b552 (⌂|🏘|✓|1)
     │                       └── ►:6[3]:anon:
     │                           └── ·ce4a760 (⌂|🏘|✓|1)
-    │                               ├── ►:7[5]:anon:
-    │                               │   └── ·01d0e1e (⌂|🏘|✓|1)
-    │                               │       └── ►:5[6]:main
-    │                               │           ├── ·4b3e5a8 (⌂|🏘|✓|1)
-    │                               │           ├── ·34d0715 (⌂|🏘|✓|1)
-    │                               │           └── ·eb5f731 (⌂|🏘|✓|1)
+    │                               ├── ►:7[4]:anon:
+    │                               │   └── ✂·01d0e1e (⌂|🏘|✓|1)
     │                               └── ►:8[4]:A-feat
-    │                                   ├── ·fea59b5 (⌂|🏘|✓|1)
-    │                                   └── ·4deea74 (⌂|🏘|✓|1)
-    │                                       └── →:7:
+    │                                   └── ✂·fea59b5 (⌂|🏘|✓|1)
     └── ►:2[0]:origin/main
         ├── 🟣d0df794 (✓)
         └── 🟣09c6e08 (✓)
             └── ►:4[1]:anon:
                 └── 🟣7b9f260 (✓)
-                    ├── →:5: (main)
+                    ├── ►:5[2]:main
+                    │   ├── 🟣4b3e5a8 (✓)
+                    │   ├── 🟣34d0715 (✓)
+                    │   └── 🟣eb5f731 (✓)
                     └── →:0: (A)
     ");
     // Because the branch is integrated, the surrounding workspace isn't shown.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:A <> ✓!
     └── ≡:0:A
-        ├── :0:A
-        │   ├── ·79bbb29 (🏘️|✓)
-        │   ├── ·fc98174 (🏘️|✓)
-        │   ├── ·a381df5 (🏘️|✓)
-        │   ├── ·777b552 (🏘️|✓)
-        │   ├── ·ce4a760 (🏘️|✓)
-        │   └── ·01d0e1e (🏘️|✓)
-        └── :5:main
-            ├── ·4b3e5a8 (🏘️|✓)
-            ├── ·34d0715 (🏘️|✓)
-            └── ·eb5f731 (🏘️|✓)
+        └── :0:A
+            ├── ·79bbb29 (🏘️|✓)
+            ├── ·fc98174 (🏘️|✓)
+            ├── ·a381df5 (🏘️|✓)
+            ├── ·777b552 (🏘️|✓)
+            ├── ·ce4a760 (🏘️|✓)
+            └── ✂️·01d0e1e (🏘️|✓)
     ");
 
     // See what happens with an out-of-workspace HEAD and an arbitrary extra target.
@@ -2169,8 +2162,7 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
     │           └── ·03ad472 (⌂|🏘|1)
     │               └── ►:4[2]:A
     │                   ├── ·79bbb29 (⌂|🏘|✓|1)
-    │                   ├── ·fc98174 (⌂|🏘|✓|1)
-    │                   └── ✂·a381df5 (⌂|🏘|✓|1)
+    │                   └── ✂·fc98174 (⌂|🏘|✓|1)
     └── ►:1[0]:origin/main
         ├── 🟣d0df794 (✓)
         └── 🟣09c6e08 (✓)
@@ -2403,12 +2395,13 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     ");
 
     add_workspace(&mut meta);
-    let (id, ref_name) = id_at(&repo, "main");
+    let (main_id, main_ref_name) = id_at(&repo, "main");
     // Validate that we will perform long searches to connect connectable segments, without interfering
     // with other searches that may take even longer.
     // Also, without limit, we should be able to see all of 'main' without cut-off
-    let graph = Graph::from_commit_traversal(id, ref_name.clone(), &*meta, standard_options())?
-        .validated()?;
+    let graph =
+        Graph::from_commit_traversal(main_id, main_ref_name.clone(), &*meta, standard_options())?
+            .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 📕►►►:1[0]:gitbutler/workspace
     │   └── ·41ed0e4 (⌂|🏘)
@@ -2473,9 +2466,13 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     // When setting a limit when traversing 'main', it is respected.
     // We still want it to be found and connected though, and it's notable that the limit kicks in
     // once everything reconciled.
-    let graph =
-        Graph::from_commit_traversal(id, ref_name, &*meta, standard_options().with_limit_hint(1))?
-            .validated()?;
+    let graph = Graph::from_commit_traversal(
+        main_id,
+        main_ref_name,
+        &*meta,
+        standard_options().with_limit_hint(1),
+    )?
+    .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 📕►►►:1[0]:gitbutler/workspace
     │   └── ·41ed0e4 (⌂|🏘)
@@ -2488,12 +2485,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     │               │           ├── ·f49c977 (⌂|🏘|✓|1)
     │               │           ├── ·7b7ebb2 (⌂|🏘|✓|1)
     │               │           ├── ·dca4960 (⌂|🏘|✓|1)
-    │               │           ├── ·11c29b8 (⌂|🏘|✓|1)
-    │               │           ├── ·c32dd03 (⌂|🏘|✓|1)
-    │               │           ├── ·b625665 (⌂|🏘|✓|1)
-    │               │           ├── ·a821094 (⌂|🏘|✓|1)
-    │               │           ├── ·bce0c5e (⌂|🏘|✓|1)
-    │               │           └── ·3183e43 (⌂|🏘|✓|1)
+    │               │           └── ✂·11c29b8 (⌂|🏘|✓|1)
     │               └── ►:7[3]:long-main-to-workspace
     │                   ├── ·77f31a0 (⌂|🏘|✓)
     │                   ├── ·eb17e31 (⌂|🏘|✓)
@@ -2529,12 +2521,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
             ├── ·f49c977 (🏘️|✓)
             ├── ·7b7ebb2 (🏘️|✓)
             ├── ·dca4960 (🏘️|✓)
-            ├── ·11c29b8 (🏘️|✓)
-            ├── ·c32dd03 (🏘️|✓)
-            ├── ·b625665 (🏘️|✓)
-            ├── ·a821094 (🏘️|✓)
-            ├── ·bce0c5e (🏘️|✓)
-            └── ·3183e43 (🏘️|✓)
+            └── ✂️·11c29b8 (🏘️|✓)
     ");
 
     // From the workspace, even without limit, we don't traverse all of 'main' as it's uninteresting.

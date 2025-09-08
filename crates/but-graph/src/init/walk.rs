@@ -679,13 +679,16 @@ pub fn propagate_flags_downward(
     flags_to_add: CommitFlags,
     dst_sidx: SegmentIndex,
     dst_commit: Option<CommitIndex>,
-) {
+    needs_leafs: bool,
+) -> Option<Vec<SegmentIndex>> {
     let mut topo = TopoWalk::start_from(dst_sidx, dst_commit, petgraph::Direction::Outgoing);
+    topo.leafs = needs_leafs.then(Vec::new);
     while let Some((segment, commit_range)) = topo.next(graph) {
         for commit in &mut graph[segment].commits[commit_range] {
             commit.flags |= flags_to_add;
         }
     }
+    topo.leafs.take().filter(|v| !v.is_empty())
 }
 
 /// Check `refs` for refs with remote tracking branches, and return a queue for them for traversal after creating a segment
@@ -814,12 +817,33 @@ pub fn possibly_split_occupied_segment(
     let new_flags = propagated_flags | top_flags | bottom_flags;
 
     // Only propagate if there is something new as propagation is slow
-    if new_flags != bottom_flags {
-        propagate_flags_downward(&mut graph.inner, new_flags, bottom_sidx, Some(bottom_cidx));
+    // Note that we currently assume that the flags are different also to get leafs, even though these
+    // depend on flags to propagate. This will be an issue, but seems to work well for all known cases.
+    let needs_leafs = !limit.goal_reached();
+    let leafs = if new_flags != bottom_flags
+        || (needs_leafs
+            && next
+                .iter()
+                .any(|(_, _, _, tip_limit)| !tip_limit.goal_flags().contains(limit.goal_flags())))
+    {
+        propagate_flags_downward(
+            &mut graph.inner,
+            new_flags,
+            bottom_sidx,
+            Some(bottom_cidx),
+            needs_leafs,
+        )
+    } else {
+        None
+    };
+
+    if let Some(leafs) = leafs {
+        propagate_goals_of_reachable_tips(next, leafs, limit.goal_flags());
     }
 
     // Find the tips that saw this commit, and adjust their limit it that would extend it.
     // The commit is the one we hit, but seen from the newly split segment which should never be empty.
+    // TODO: merge this into the new propagation based one.
     let bottom_commit_goals = Limit::new(None)
         .additional_goal(
             graph[bottom_sidx]
@@ -840,7 +864,21 @@ pub fn possibly_split_occupied_segment(
     Ok(())
 }
 
-/// Remove if there are only tips with integrated commits and delete empty segments of pruned tips,
+// Find all tips that are scheduled to be put into one of the `reachable_segments`
+// (reachable from the commit we just ran into)
+fn propagate_goals_of_reachable_tips(
+    next: &mut Queue,
+    reachable_segments: Vec<SegmentIndex>,
+    goal_flags: CommitFlags,
+) {
+    for (_, _, instruction, limit) in next.iter_mut() {
+        if reachable_segments.contains(&instruction.segment_idx()) {
+            *limit = limit.additional_goal(goal_flags);
+        }
+    }
+}
+
+/// Remove tips with only integrated commits and delete empty segments of pruned tips,
 /// as these are uninteresting.
 /// However, do so only if our entrypoint isn't integrated itself and is not in a workspace. The reason for this is that we
 /// always also traverse workspaces and their targets, even if the traversal starts outside a workspace.
