@@ -6,7 +6,7 @@
 		"node": ">=20.11"
 	},
 	"type": "module",
-	"packageManager": "pnpm@10.3.0",
+	"packageManager": "pnpm@10.15.1",
 	"scripts": {
 		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
 		"dev:web": "turbo watch --filter @gitbutler/web dev",
