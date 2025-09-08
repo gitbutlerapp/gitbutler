@@ -97,10 +97,11 @@
 	}
 
 	.theme-card__icon {
+		display: flex;
 		z-index: 1;
 		position: absolute;
-		right: 6px;
-		bottom: 6px;
+		right: 8px;
+		bottom: 8px;
 		opacity: 0;
 	}
 
