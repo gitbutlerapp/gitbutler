@@ -249,9 +249,6 @@
 	.vibe-icon {
 		display: flex;
 
-		&.running {
-			color: var(--clr-theme-pop-element);
-		}
 		&.completed {
 			color: var(--clr-theme-succ-element);
 		}
