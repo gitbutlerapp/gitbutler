@@ -1,6 +1,7 @@
 export enum Code {
 	Unknown = 'errors.unknown',
 	Validation = 'errors.validation',
+	RepoOwnership = 'errors.repo_ownership',
 	ProjectsGitAuth = 'errors.projects.git.auth',
 	DefaultTargetNotFound = 'errors.projects.default_target.not_found',
 	CommitSigningFailed = 'errors.commit.signing_failed',
@@ -16,6 +17,11 @@ Commit signing failed and has now been disabled. You can configure commit signin
 
 Please check our [documentation](https://docs.gitbutler.com/features/virtual-branches/signing-commits) on setting up commit signing and verification.
 		`,
+	[Code.RepoOwnership]: `
+The repository ownership couldn't be determined. Consider allowing it using:
+
+    git config --global --add safe.directory copy/of/path/shown/below
+	`,
 	[Code.SecretKeychainNotFound]: `
 Please install a keychain service to store and retrieve secrets with.
 

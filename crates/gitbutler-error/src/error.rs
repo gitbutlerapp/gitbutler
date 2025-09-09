@@ -128,6 +128,7 @@ pub enum Code {
     #[default]
     Unknown,
     Validation,
+    RepoOwnership,
     ProjectGitAuth,
     DefaultTargetNotFound,
     CommitSigningFailed,
@@ -144,6 +145,7 @@ impl std::fmt::Display for Code {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let code = match self {
             Code::Unknown => "errors.unknown",
+            Code::RepoOwnership => "errors.repo_ownership",
             Code::Validation => "errors.validation",
             Code::ProjectGitAuth => "errors.projects.git.auth",
             Code::DefaultTargetNotFound => "errors.projects.default_target.not_found",

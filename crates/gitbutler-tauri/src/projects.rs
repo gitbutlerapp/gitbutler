@@ -61,7 +61,23 @@ pub fn set_project_active(
             return Ok(None);
         }
     };
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let repo = git2::Repository::open(&project.path)
+        // Only capture this information here to prevent spawning too many errors because of this
+        // (the UI has many parallel calls in flight).
+        .map_err(|err| {
+            let code = err.code();
+            let err = anyhow::Error::from(err);
+            if code == git2::ErrorCode::Owner {
+                err.context(gitbutler_error::error::Code::RepoOwnership)
+            } else {
+                err
+            }
+        })?;
+    let ctx = &mut CommandContext::open_from(
+        &project,
+        AppSettings::load_from_default_path_creating()?,
+        repo,
+    )?;
     let mode =
         window_state.set_project_to_window(window.label(), &project, &app_settings_sync, ctx)?;
     let db_error = assure_database_valid(project.gb_dir())?;

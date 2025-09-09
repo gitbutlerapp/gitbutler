@@ -3633,6 +3633,7 @@ dependencies = [
  "but-workspace",
  "console-subscriber",
  "dirs 6.0.0",
+ "git2",
  "gitbutler-command-context",
  "gitbutler-error",
  "gitbutler-id",

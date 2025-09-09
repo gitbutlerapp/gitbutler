@@ -55,6 +55,14 @@ impl CommandContext {
     /// Open the repository identified by `project` and perform some checks.
     pub fn open(project: &Project, app_settings: AppSettings) -> Result<Self> {
         let repo = git2::Repository::open(&project.path)?;
+        Self::open_from(project, app_settings, repo)
+    }
+
+    pub fn open_from(
+        project: &Project,
+        app_settings: AppSettings,
+        repo: git2::Repository,
+    ) -> Result<Self> {
         Ok(Self {
             git_repo: repo,
             project: project.clone(),
