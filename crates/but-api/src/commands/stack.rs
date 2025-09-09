@@ -1,9 +1,7 @@
-use crate::commands::stack::create_reference::Anchor;
 use crate::error::Error;
 use anyhow::{Context, anyhow};
 use but_api_macros::api_cmd;
 use but_settings::AppSettings;
-use but_workspace::branch::{ReferenceAnchor, ReferencePosition};
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_command_context::CommandContext;
@@ -33,11 +31,11 @@ pub mod create_reference {
     pub enum Anchor {
         AtCommit {
             commit_id: HexHash,
-            position: but_workspace::branch::ReferencePosition,
+            position: but_workspace::branch::create_reference::Position,
         },
         AtReference {
             short_name: String,
-            position: but_workspace::branch::ReferencePosition,
+            position: but_workspace::branch::create_reference::Position,
         },
     }
 }
@@ -58,17 +56,17 @@ pub fn create_reference(
     let anchor = anchor
         .map(|anchor| -> Result<_, Error> {
             Ok(match anchor {
-                Anchor::AtCommit {
+                create_reference::Anchor::AtCommit {
                     commit_id,
                     position,
-                } => but_workspace::branch::ReferenceAnchor::AtCommit {
+                } => but_workspace::branch::create_reference::Anchor::AtCommit {
                     commit_id: commit_id.into(),
                     position,
                 },
-                Anchor::AtReference {
+                create_reference::Anchor::AtReference {
                     short_name,
                     position,
-                } => but_workspace::branch::ReferenceAnchor::AtSegment {
+                } => but_workspace::branch::create_reference::Anchor::AtSegment {
                     ref_name: Cow::Owned(
                         Category::LocalBranch
                             .to_full_name(short_name.as_str())
@@ -103,7 +101,7 @@ pub fn create_branch(
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     if ctx.app_settings().feature_flags.ws3 {
-        use ReferencePosition::Above;
+        use but_workspace::branch::create_reference::Position::Above;
         let mut guard = project.exclusive_worktree_access();
         let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
         let ws = graph.to_workspace()?;
@@ -120,19 +118,20 @@ pub fn create_branch(
 
         ctx.snapshot_create_dependent_branch(&request.name, guard.write_permission())
             .ok();
-        _ = but_workspace::branch::create_reference(
-            new_ref.as_ref(),
-            {
-                let segment = stack.segments.first().context("BUG: no empty stacks")?;
-                segment
+        _ =
+            but_workspace::branch::create_reference(
+                new_ref.as_ref(),
+                {
+                    let segment = stack.segments.first().context("BUG: no empty stacks")?;
+                    segment
                     .ref_name
                     .as_ref()
-                    .map(|rn| ReferenceAnchor::AtSegment {
+                    .map(|rn| but_workspace::branch::create_reference::Anchor::AtSegment {
                         ref_name: Cow::Borrowed(rn.as_ref()),
                         position: Above,
                     })
                     .or_else(|| {
-                        Some(ReferenceAnchor::AtCommit {
+                        Some(but_workspace::branch::create_reference::Anchor::AtCommit {
                             commit_id: graph.tip_skip_empty(segment.id)?.id,
                             position: Above,
                         })
@@ -143,11 +142,11 @@ pub fn create_branch(
                             couldn't handle stack_id={stack_id:?}, request={request:?}"
                         )
                     })?
-            },
-            &repo,
-            &ws,
-            &mut *meta,
-        )?;
+                },
+                &repo,
+                &ws,
+                &mut *meta,
+            )?;
     } else {
         // NOTE: locking is built-in here.
         gitbutler_branch_actions::stack::create_branch(&ctx, stack_id, request)?;

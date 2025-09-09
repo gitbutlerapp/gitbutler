@@ -456,10 +456,14 @@ impl Stack {
     }
 }
 
+/// Functions and types related to applying a workspace branch.
+pub mod apply;
+pub use apply::function::apply;
+
 /// related types for removing a workspace reference.
 pub mod remove_reference;
 pub use remove_reference::function::remove_reference;
 
-mod create_reference;
+/// related types for creating a workspace reference.
+pub mod create_reference;
 pub use create_reference::function::create_reference;
-pub use create_reference::*;

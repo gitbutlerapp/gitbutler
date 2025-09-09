@@ -1,5 +1,5 @@
-use crate::init::Overlay;
 use crate::init::walk::RefsById;
+use crate::init::{Entrypoint, Overlay};
 use crate::is_workspace_ref_name;
 use but_core::{RefMetadata, ref_metadata};
 use gix::prelude::ReferenceExt;
@@ -14,6 +14,17 @@ impl Overlay {
         refs: impl IntoIterator<Item = gix::refs::Reference>,
     ) -> Self {
         self.nonoverriding_references = refs.into_iter().collect();
+        self
+    }
+
+    /// Override the starting position of the traversal by setting it to `id`,
+    /// and optionally, by providing the `ref_name` that points to `id`.
+    pub fn with_entrypoint(
+        mut self,
+        id: gix::ObjectId,
+        ref_name: Option<gix::refs::FullName>,
+    ) -> Self {
+        self.entrypoint = Some((id, ref_name));
         self
     }
 
@@ -43,7 +54,7 @@ impl Overlay {
         self,
         repo: &'repo gix::Repository,
         meta: &'meta T,
-    ) -> (OverlayRepo<'repo>, OverlayMetadata<'meta, T>)
+    ) -> (OverlayRepo<'repo>, OverlayMetadata<'meta, T>, Entrypoint)
     where
         T: RefMetadata,
     {
@@ -51,6 +62,7 @@ impl Overlay {
             nonoverriding_references,
             meta_branches,
             workspace,
+            entrypoint,
         } = self;
         (
             OverlayRepo {
@@ -62,6 +74,7 @@ impl Overlay {
                 meta_branches,
                 workspace,
             },
+            entrypoint,
         )
     }
 }
