@@ -16,7 +16,7 @@ mod to_additive_hunks {
             ],
             &wth,
             &wth,
-        ), @r#"
+        ).unwrap(), @r#"
         (
             [],
             [
@@ -39,7 +39,7 @@ mod to_additive_hunks {
             ],
             &wth,
             &wth,
-        ), @r#"
+        ).unwrap(), @r#"
         (
             [
                 HunkHeader("-1,1", "+1,0"),
@@ -57,7 +57,7 @@ mod to_additive_hunks {
             ],
             &wth,
             &wth,
-        ), @r#"
+        ).unwrap(), @r#"
         (
             [
                 HunkHeader("-1,0", "+1,1"),
@@ -75,7 +75,7 @@ mod to_additive_hunks {
             ],
             &wth,
             &wth,
-        ), @r#"
+        ).unwrap(), @r#"
         (
             [
                 HunkHeader("-1,0", "+1,1"),
@@ -93,7 +93,7 @@ mod to_additive_hunks {
             ],
             &wth,
             &wth,
-        ), @r#"
+        ).unwrap(), @r#"
         (
             [
                 HunkHeader("-1,1", "+1,0"),
@@ -123,7 +123,7 @@ mod to_additive_hunks {
             ],
             &wth,
             &wth,
-        ), @r#"
+        ).unwrap(), @r#"
         (
             [
                 HunkHeader("-1,10", "+1,10"),
@@ -151,7 +151,7 @@ mod to_additive_hunks {
             ],
             &wth,
             &wth,
-        ), @r#"
+        ).unwrap(), @r#"
         (
             [
                 HunkHeader("-1,10", "+1,10"),
@@ -206,7 +206,7 @@ mod to_additive_hunks {
             [hunk_header("-96,1", "+0,0")],
             &wth,
             &wth0,
-        ), @r#"
+        ).unwrap(), @r#"
         (
             [
                 HunkHeader("-96,1", "+96,0"),
@@ -218,7 +218,7 @@ mod to_additive_hunks {
             [hunk_header("-96,1", "+0,0"), hunk_header("-0,0", "+96,2")],
             &wth,
             &wth0,
-        ), @r#"
+        ).unwrap(), @r#"
         (
             [
                 HunkHeader("-96,1", "+96,0"),
@@ -231,7 +231,7 @@ mod to_additive_hunks {
             [hunk_header("-0,0", "+96,2")],
             &wth,
             &wth0,
-        ), @r#"
+        ).unwrap(), @r#"
         (
             [
                 HunkHeader("-96,0", "+96,2"),
@@ -265,7 +265,8 @@ mod to_additive_hunks {
             ],
             &wth,
             &wth0,
-        );
+        )
+        .unwrap();
         insta::assert_debug_snapshot!(actual, @r#"
         (
             [
@@ -289,7 +290,8 @@ mod to_additive_hunks {
             ],
             &wth,
             &wth0,
-        );
+        )
+        .unwrap();
         insta::assert_debug_snapshot!(actual, @r#"
         (
             [
@@ -317,7 +319,8 @@ mod to_additive_hunks {
             ],
             &wth,
             &wth0,
-        );
+        )
+        .unwrap();
         insta::assert_debug_snapshot!(actual, @r#"
         (
             [
@@ -355,7 +358,8 @@ mod to_additive_hunks {
             ],
             &wth,
             &wth,
-        );
+        )
+        .unwrap();
         insta::assert_debug_snapshot!(actual, @r#"
         (
             [
