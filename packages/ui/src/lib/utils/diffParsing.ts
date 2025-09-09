@@ -13,6 +13,8 @@ import { vue } from '@codemirror/lang-vue';
 import { wast } from '@codemirror/lang-wast';
 import { xml } from '@codemirror/lang-xml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
+import { kotlin } from '@codemirror/legacy-modes/mode/clike';
+import { protobuf } from '@codemirror/legacy-modes/mode/protobuf';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
 import { NodeType, Tree, Parser } from '@lezer/common';
 import { tags, highlightTree } from '@lezer/highlight';
@@ -264,8 +266,9 @@ export function parserFromExtension(extension: string): Parser | undefined {
 		case 'java':
 			return java().language.parser;
 
-		// case 'text/x-kotlin':
-		//     return new LanguageSupport(await CodeMirror.kotlin());
+		case 'kt':
+		case 'kts':
+			return StreamLanguage.define(kotlin).parser;
 
 		case 'json':
 			return json().language.parser;
@@ -276,6 +279,9 @@ export function parserFromExtension(extension: string): Parser | undefined {
 		case 'py':
 		case 'python':
 			return python().language.parser;
+
+		case 'proto':
+			return StreamLanguage.define(protobuf).parser;
 
 		case 'md':
 			return markdown().language.parser;

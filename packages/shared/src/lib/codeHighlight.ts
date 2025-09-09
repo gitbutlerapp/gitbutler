@@ -19,10 +19,12 @@ import { wast } from '@codemirror/lang-wast';
 import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
+import { kotlin } from '@codemirror/legacy-modes/mode/clike';
 import { commonLisp } from '@codemirror/legacy-modes/mode/commonlisp';
 import { dockerFile } from '@codemirror/legacy-modes/mode/dockerfile';
 import { jinja2 } from '@codemirror/legacy-modes/mode/jinja2';
 import { lua } from '@codemirror/legacy-modes/mode/lua';
+import { protobuf } from '@codemirror/legacy-modes/mode/protobuf';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
 import { shell } from '@codemirror/legacy-modes/mode/shell';
 import { swift } from '@codemirror/legacy-modes/mode/swift';
@@ -142,8 +144,9 @@ export function parserFromFilename(filename: string): Parser | null {
 		case 'java':
 			return java().language.parser;
 
-		// case 'text/x-kotlin':
-		//     return new LanguageSupport(await CodeMirror.kotlin());
+		case 'kt':
+		case 'kts':
+			return StreamLanguage.define(kotlin).parser;
 
 		case 'json':
 			return json().language.parser;
@@ -162,6 +165,9 @@ export function parserFromFilename(filename: string): Parser | null {
 		case 'py':
 		case 'python':
 			return python().language.parser;
+
+		case 'proto':
+			return StreamLanguage.define(protobuf).parser;
 
 		case 'md':
 			return markdown().language.parser;
