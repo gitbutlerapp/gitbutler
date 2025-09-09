@@ -13,8 +13,8 @@
 	import { type TreeChange, type Modification } from '$lib/hunks/change';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
-	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
-	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
+	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
+	import { selectFilesInList, updateSelection } from '$lib/selection/fileSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
 	import { chunk } from '$lib/utils/array';
 	import { inject, injectOptional } from '@gitbutler/core/context';
@@ -52,8 +52,8 @@
 		onselect
 	}: Props = $props();
 
-	const idSelection = inject(ID_SELECTION);
 	const focusManager = inject(FOCUS_MANAGER);
+	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const aiService = inject(AI_SERVICE);
 	const actionService = inject(ACTION_SERVICE);
 	const modeService = injectOptional(MODE_SERVICE, undefined);
@@ -212,6 +212,7 @@
 			});
 			return true;
 		}
+		return false;
 	}
 	const lastAdded = $derived(idSelection.getById(selectionId).lastAdded);
 	$effect(() => {

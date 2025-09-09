@@ -4,7 +4,7 @@
 	import FileListMode from '$components/FileListMode.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
-	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Badge, EmptyStatePlaceholder, LineStats } from '@gitbutler/ui';
 
@@ -49,7 +49,7 @@
 		ontoggle
 	}: Props = $props();
 
-	const idSelection = inject(ID_SELECTION);
+	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	let listMode: 'list' | 'tree' = $state('tree');
 

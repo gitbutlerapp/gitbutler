@@ -6,7 +6,7 @@
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
-	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -24,7 +24,7 @@
 
 	const uiState = inject(UI_STATE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
-	const idSelection = inject(ID_SELECTION);
+	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = $derived(settingsService.appSettings);
 	const projectState = $derived(uiState.project(projectId));

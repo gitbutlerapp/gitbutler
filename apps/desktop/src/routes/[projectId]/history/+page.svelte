@@ -10,7 +10,7 @@
 	import SnapshotCard from '$components/SnapshotCard.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { HISTORY_SERVICE, createdOnDay } from '$lib/history/history';
-	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { createSnapshotSelection, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/core/context';
 	import { EmptyStatePlaceholder, Icon } from '@gitbutler/ui';
@@ -22,7 +22,7 @@
 
 	const MIN_SNAPSHOTS_TO_LOAD = 30;
 
-	const idSelection = inject(ID_SELECTION);
+	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	let sidebarEl = $state<HTMLElement>();
 

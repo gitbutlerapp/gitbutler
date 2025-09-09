@@ -13,7 +13,7 @@
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
-	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import {
 		createBranchSelection,
 		createCommitSelection,
@@ -62,7 +62,7 @@
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const uiState = inject(UI_STATE);
-	const idSelection = inject(ID_SELECTION);
+	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stackId);
