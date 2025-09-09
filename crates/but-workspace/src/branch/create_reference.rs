@@ -225,9 +225,14 @@ pub(super) mod function {
                                 ref_name.shorten()
                             );
                         };
-                        position.resolve_commit(segment.commits.first().context(
-                            "BUG: empty segments aren't possible without workspace metadata",
-                        )?.into(), ws_base)?
+                        position.resolve_commit(
+                            segment
+                                .commits
+                                .first()
+                                .context("Cannot create reference on unborn branch")?
+                                .into(),
+                            ws_base,
+                        )?
                     };
                     (
                         validate_id,

@@ -7,6 +7,7 @@ use but_core::ref_metadata::ValueInfo;
 use but_graph::init::Options;
 use but_testsupport::{graph_workspace, id_at, id_by_rev, visualize_commit_graph_all};
 use but_workspace::branch::create_reference::{Anchor, Position::*};
+use std::borrow::Cow;
 
 mod with_workspace {
     use crate::ref_info::with_workspace_commit::utils::{
@@ -1148,6 +1149,30 @@ mod with_workspace {
 
 #[test]
 fn errors() -> anyhow::Result<()> {
+    let (repo, mut meta) = named_read_only_in_memory_scenario("unborn-empty", "")?;
+    let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    ⌂:0:main <> ✓!
+    └── ≡:0:main
+        └── :0:main
+    ");
+
+    // Below first in history
+    let new_name = r("refs/heads/does-not-matter");
+    let err = but_workspace::branch::create_reference(
+        new_name,
+        Anchor::AtSegment {
+            ref_name: Cow::Borrowed(r("refs/heads/main")),
+            position: Above,
+        },
+        &repo,
+        &ws,
+        &mut *meta,
+    )
+    .unwrap_err();
+    assert_eq!(err.to_string(), "Cannot create reference on unborn branch");
+
     let (repo, mut meta) =
         named_read_only_in_memory_scenario("with-remotes-no-workspace", "remote")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -1167,7 +1192,6 @@ fn errors() -> anyhow::Result<()> {
         ");
 
     let (id, ref_name) = id_at(&repo, "main");
-    let new_name = r("refs/heads/does-not-matter");
     for anchor in [
         Anchor::at_id(id, Below),
         Anchor::at_segment(ref_name.as_ref(), Below),
@@ -1334,7 +1358,7 @@ fn errors() -> anyhow::Result<()> {
 }
 
 #[test]
-fn journey() -> anyhow::Result<()> {
+fn journey_with_commits() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-with-3-commits")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
         * 281da94 (HEAD -> main) 3

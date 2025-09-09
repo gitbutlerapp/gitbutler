@@ -699,7 +699,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     └── 👉📕►►►:0[0]:gitbutler/workspace
         ├── 📙►:2[1]:A
         │   └── ►:1[2]:anon:
-        │       └── ·fafd9d0 (⌂|🏘️|1) ►main
+        │       └── ·fafd9d0 (⌂|🏘|1) ►main
         └── 📙►:3[1]:B
             └── →:1:
     ");
@@ -720,7 +720,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     └── 📕►►►:1[0]:gitbutler/workspace
         └── 👉📙►:0[1]:B
             └── 📙►:2[2]:A
-                └── ·fafd9d0 (⌂|🏘️|1) ►main
+                └── ·fafd9d0 (⌂|🏘|1) ►main
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️⚠️:1:gitbutler/workspace <> ✓!

@@ -21,10 +21,13 @@ mod remotes;
 mod overlay;
 mod post;
 
+pub(crate) type Entrypoint = Option<(gix::ObjectId, Option<gix::refs::FullName>)>;
+
 /// A way to define information to be served from memory, instead of from the underlying data source, when
 /// [initializing](Graph::from_commit_traversal()) the graph.
 #[derive(Debug, Default)]
 pub struct Overlay {
+    entrypoint: Entrypoint,
     nonoverriding_references: Vec<gix::refs::Reference>,
     meta_branches: Vec<(gix::refs::FullName, ref_metadata::Branch)>,
     workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
@@ -141,7 +144,7 @@ impl Graph {
                 let mut graph = Graph::default();
                 // It's OK to default-initialise this here as overlays are only used when redoing
                 // the traversal.
-                let (_repo, meta) = Overlay::default().into_parts(repo, meta);
+                let (_repo, meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
                 graph.insert_root(branch_segment_from_name_and_meta(
                     Some((ref_name, None)),
                     &meta,
@@ -228,7 +231,7 @@ impl Graph {
         meta: &impl RefMetadata,
         options: Options,
     ) -> anyhow::Result<Self> {
-        let (repo, meta) = Overlay::default().into_parts(tip.repo, meta);
+        let (repo, meta, _entrypoint) = Overlay::default().into_parts(tip.repo, meta);
         Graph::from_commit_traversal_inner(tip.detach(), &repo, ref_name, &meta, options)
     }
 
@@ -654,16 +657,22 @@ impl Graph {
         meta: &impl RefMetadata,
         overlay: Overlay,
     ) -> anyhow::Result<Self> {
-        let (repo, meta) = overlay.into_parts(repo, meta);
-        let tip_sidx = self
-            .entrypoint
-            .context("BUG: entrypoint must always be set")?
-            .0;
-        let tip = self
-            .tip_skip_empty(tip_sidx)
-            .context("BUG: entrypoint must eventually point to a commit")?
-            .id;
-        let ref_name = self[tip_sidx].ref_name.clone();
+        let (repo, meta, entrypoint) = overlay.into_parts(repo, meta);
+        let (tip, ref_name) = match entrypoint {
+            Some(t) => t,
+            None => {
+                let tip_sidx = self
+                    .entrypoint
+                    .context("BUG: entrypoint must always be set")?
+                    .0;
+                let tip = self
+                    .tip_skip_empty(tip_sidx)
+                    .context("BUG: entrypoint must eventually point to a commit")?
+                    .id;
+                let ref_name = self[tip_sidx].ref_name.clone();
+                (tip, ref_name)
+            }
+        };
         Graph::from_commit_traversal_inner(tip, &repo, ref_name, &meta, self.options.clone())
     }
 
