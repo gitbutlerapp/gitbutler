@@ -153,8 +153,6 @@ impl Controller {
             }
         }
 
-        // FIXME(qix-): On windows, we have to force to system executable.
-        // FIXME(qix-): This is a hack for now, and will be smoothed over in the future.
         #[cfg(windows)]
         let project_owned = {
             let mut project = project.clone();
@@ -218,7 +216,6 @@ impl Controller {
             }
         }
 
-        // FIXME(qix-): On windows, we have to force to system executable
         #[cfg(windows)]
         {
             project.preferred_key = AuthKey::SystemExecutable;
