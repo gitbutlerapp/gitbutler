@@ -22,8 +22,10 @@
 			icon="chevron-right-small"
 			onclick={() => {
 				$analyticsConfirmed = true;
-				initAnalyticsIfEnabled(appSettings, posthog);
-				posthog.captureOnboarding(OnboardingEvent.ConfirmedAnalytics);
+				initAnalyticsIfEnabled(appSettings, posthog, true).then(() => {
+					// Await the initialization before logging the event to ensure PostHog is ready
+					posthog.captureOnboarding(OnboardingEvent.ConfirmedAnalytics);
+				});
 			}}
 		>
 			Continue
