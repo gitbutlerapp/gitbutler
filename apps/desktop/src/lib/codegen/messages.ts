@@ -29,6 +29,8 @@ export type ToolCall = {
 	id: string;
 	input: object;
 	result: string | undefined;
+	requestAt: Date;
+	approvedAt?: Date;
 };
 
 export function toolCallLoading(toolCall: ToolCall): boolean {
@@ -77,7 +79,8 @@ export function formatMessages(
 						id: content.id,
 						name: content.name,
 						input: content.input as object,
-						result: undefined
+						result: undefined,
+						requestAt: normalizeDate(new Date(event.createdAt))
 					};
 					if (!lastAssistantMessage) {
 						lastAssistantMessage = {
@@ -93,6 +96,9 @@ export function formatMessages(
 					if (permReq && !isDefined(permReq.approved)) {
 						lastAssistantMessage.toolCallsPendingApproval.push(toolCall);
 					} else {
+						if (permReq) {
+							toolCall.approvedAt = new Date(permReq.updatedAt);
+						}
 						lastAssistantMessage.toolCalls.push(toolCall);
 					}
 					toolCalls[toolCall.id] = toolCall;
@@ -177,6 +183,34 @@ export function formatMessages(
 	}
 
 	return out;
+}
+
+type UserFeedbackStatus =
+	| {
+			waitingForFeedback: true;
+			// The first tool call requiring feedback.
+			toolCall: ToolCall;
+	  }
+	| {
+			waitingForFeedback: false;
+			msSpentWaiting: number;
+	  };
+
+export function userFeedbackStatus(messages: Message[]): UserFeedbackStatus {
+	const lastMessage = messages.at(-1);
+	if (!lastMessage || lastMessage.type === 'user') {
+		return { waitingForFeedback: false, msSpentWaiting: 0 };
+	}
+	if (lastMessage.toolCallsPendingApproval.length > 0) {
+		return { waitingForFeedback: true, toolCall: lastMessage.toolCallsPendingApproval[0]! };
+	}
+	let msSpentWaiting = 0;
+	for (const tc of lastMessage.toolCalls) {
+		if (tc.approvedAt) {
+			msSpentWaiting += tc.approvedAt.getTime() - tc.requestAt.getTime();
+		}
+	}
+	return { waitingForFeedback: false, msSpentWaiting };
 }
 
 /** Anthropic prices, per 1M tokens */

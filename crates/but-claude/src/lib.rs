@@ -90,6 +90,7 @@ pub struct ClaudeSessionDetails {
 
 /// Represents a request for permission to use a tool in the Claude MCP.
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ClaudePermissionRequest {
     /// Maps to the tool_use_id from the MCP request
     pub id: String,

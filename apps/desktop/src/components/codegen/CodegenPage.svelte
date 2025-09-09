@@ -12,7 +12,8 @@
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
-	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
+	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
+	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
 	import CodegenTodo from '$components/codegen/CodegenTodo.svelte';
@@ -29,6 +30,7 @@
 		getTodos,
 		lastInteractionTime,
 		lastUserMessageSentAt,
+		userFeedbackStatus,
 		usageStats
 	} from '$lib/codegen/messages';
 	import { commitStatusLabel } from '$lib/commits/commit';
@@ -486,7 +488,15 @@
 							{/if}
 
 							{#if currentStatus(events, isStackActive) === 'running' && lastUserMessageSent}
-								<CodegenServiceMessage {lastUserMessageSent} />
+								{@const status = userFeedbackStatus(formattedMessages)}
+								{#if status.waitingForFeedback}
+									<CodegenServiceMessageUseTool toolCall={status.toolCall} />
+								{:else}
+									<CodegenServiceMessageThinking
+										{lastUserMessageSent}
+										msSpentWaiting={status.msSpentWaiting}
+									/>
+								{/if}
 							{/if}
 						{/snippet}
 
