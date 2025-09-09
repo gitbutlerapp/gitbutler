@@ -8,7 +8,7 @@ export async function initAnalyticsIfEnabled(
 	postHog: PostHogWrapper,
 	confirmedOverride?: boolean
 ) {
-	if (import.meta.env.MODE === 'development') return;
+	if (import.meta.env.MODE === 'development' || import.meta.env.CI) return;
 
 	const confirmed = confirmedOverride ?? (await appSettings.appAnalyticsConfirmed.onDisk());
 
