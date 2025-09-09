@@ -3,7 +3,7 @@
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
 	import { showError, showToast } from '$lib/notifications/toasts';
-	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { COMMIT_ANALYTICS } from '$lib/soup/commitAnalytics';
@@ -25,7 +25,7 @@
 	const hooksService = inject(HOOKS_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const commitAnalytics = inject(COMMIT_ANALYTICS);
-	const idSelection = inject(ID_SELECTION);
+	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	const projectState = $derived(uiState.project(projectId));
 	// Using a dummy stackId kind of sucks... but it's fine for now

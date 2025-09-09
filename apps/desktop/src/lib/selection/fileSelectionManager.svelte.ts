@@ -20,12 +20,14 @@ import type { UncommittedService } from '$lib/selection/uncommittedService.svelt
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 
-export const ID_SELECTION = new InjectionToken<IdSelection>('IdSelection');
+export const FILE_SELECTION_MANAGER = new InjectionToken<FileSelectionManager>(
+	'FileSelectionManager'
+);
 
 /**
  * File selection mechanism based on strings id's.
  */
-export class IdSelection {
+export class FileSelectionManager {
 	private selections: Map<
 		/** Return value of `selectionKey`. */
 		string,

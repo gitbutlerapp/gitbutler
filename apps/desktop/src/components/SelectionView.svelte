@@ -4,7 +4,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UnifiedDiffView from '$components/UnifiedDiffView.svelte';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
-	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { readKey, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/core/context';
 
@@ -30,7 +30,7 @@
 		bottomBorder
 	}: Props = $props();
 
-	const idSelection = inject(ID_SELECTION);
+	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const diffService = inject(DIFF_SERVICE);
 
 	const selection = $derived(selectionId ? idSelection.valuesReactive(selectionId) : undefined);

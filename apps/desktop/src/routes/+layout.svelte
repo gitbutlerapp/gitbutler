@@ -22,7 +22,7 @@
 	import { IRC_CLIENT } from '$lib/irc/ircClient.svelte';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -108,7 +108,7 @@
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
 	const uiState = inject(UI_STATE);
-	const idSelection = inject(ID_SELECTION);
+	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	// Debug keyboard shortcuts
 	const handleKeyDown = createKeybind({

@@ -8,7 +8,7 @@
 	import { UncommitDzHandler } from '$lib/commits/dropHandler';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
-	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -53,7 +53,7 @@
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const uiState = inject(UI_STATE);
-	const idSelection = inject(ID_SELECTION);
+	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	// Create selectionId for this worktree lane
 	const selectionId = $derived(createWorktreeSelection({ stackId }));

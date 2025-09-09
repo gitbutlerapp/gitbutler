@@ -3,7 +3,7 @@ import type { CodegenRuleDropData } from '$lib/codegen/dropzone';
 import type { CommitDropData } from '$lib/commits/dropHandler';
 import type { TreeChange } from '$lib/hunks/change';
 import type { HunkAssignment, HunkHeader } from '$lib/hunks/hunk';
-import type { IdSelection } from '$lib/selection/idSelection.svelte';
+import type { FileSelectionManager } from '$lib/selection/fileSelectionManager.svelte';
 
 export class HunkDropDataV3 {
 	constructor(
@@ -27,7 +27,7 @@ export class ChangeDropData {
 		 * want to ignore what is selected and only drag the actual file being
 		 * dragged.
 		 */
-		private selection: IdSelection,
+		private selection: FileSelectionManager,
 		readonly selectionId: SelectionId,
 		readonly stackId?: string
 	) {}

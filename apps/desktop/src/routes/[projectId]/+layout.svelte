@@ -24,7 +24,7 @@
 	import { showError, showInfo, showWarning } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
-	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
@@ -134,7 +134,7 @@
 	// ================================================ReorderDropzoneFactory
 
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
-	const idSelection = inject(ID_SELECTION);
+	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	const worktreeDataResult = $derived(worktreeService.worktreeData(projectId));
 	const worktreeData = $derived(worktreeDataResult.current.data);
