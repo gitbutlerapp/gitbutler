@@ -82,6 +82,7 @@ import {
 	EXTERNAL_LINK_SERVICE,
 	type ExternalLinkService
 } from '@gitbutler/ui/utils/externalLinkService';
+import { IMECompositionHandler, IME_COMPOSITION_HANDLER } from '@gitbutler/ui/utils/imeHandling';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 export function initDependencies(args: {
@@ -260,6 +261,7 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const focusManager = new FocusManager();
+	const imeHandler = new IMECompositionHandler();
 	const reorderDropzoneFactory = new ReorderDropzoneFactory(stackService);
 	const shortcutService = new ShortcutService(backend);
 	const dragStateService = new DragStateService();
@@ -326,6 +328,7 @@ export function initDependencies(args: {
 		[HOOKS_SERVICE, hooksService],
 		[HTTP_CLIENT, httpClient],
 		[ID_SELECTION, idSelection],
+		[IME_COMPOSITION_HANDLER, imeHandler],
 		[IRC_CLIENT, ircClient],
 		[IRC_SERVICE, ircService],
 		[MODE_SERVICE, modeService],
