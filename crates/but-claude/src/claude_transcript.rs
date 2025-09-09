@@ -5,6 +5,9 @@ use std::{
     io::BufRead,
     path::{Path, PathBuf},
 };
+use tokio::fs;
+
+use crate::ClaudeSession;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserMessage {
@@ -83,6 +86,30 @@ pub struct Transcript {
 }
 
 impl Transcript {
+    pub async fn current_valid_session_id(
+        path: &Path,
+        session: &ClaudeSession,
+    ) -> Result<Option<uuid::Uuid>> {
+        let mut session_ids = session.session_ids.clone();
+        let mut current_id = None;
+
+        loop {
+            if session_ids.is_empty() {
+                break;
+            }
+
+            let next_id = session_ids.pop();
+            if let Some(next_id) = next_id
+                && Self::transcript_exists_and_likely_valid(path, next_id).await?
+            {
+                current_id = Some(next_id);
+                break;
+            }
+        }
+
+        Ok(current_id)
+    }
+
     pub fn from_file(path: &Path) -> Result<Self> {
         let records = Transcript::from_file_raw(path)?
             .into_iter()
@@ -173,5 +200,21 @@ impl Transcript {
             }
         }
         None
+    }
+
+    async fn transcript_exists_and_likely_valid(
+        project_path: &Path,
+        session_id: uuid::Uuid,
+    ) -> Result<bool> {
+        let path = Self::get_transcript_path(project_path, session_id)?;
+        if fs::try_exists(&path).await? {
+            let file = fs::read_to_string(&path).await?;
+            // Sometimes a transcript gets written out that only as a summary and is
+            // only 1 line long. These can be considered invalid sessions
+            if file.lines().count() > 1 {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 }

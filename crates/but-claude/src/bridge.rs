@@ -33,12 +33,10 @@ use serde_json::json;
 use std::{
     collections::HashMap,
     io::{BufRead, BufReader, PipeReader, Read as _},
-    path::Path,
     process::ExitStatus,
     sync::Arc,
 };
 use tokio::{
-    fs,
     process::{Child, Command},
     sync::{
         Mutex,
@@ -373,22 +371,7 @@ async fn spawn_command(
         command.args(["--permission-mode", "acceptEdits"]);
     }
 
-    let mut session_ids = session.session_ids.clone();
-    let mut current_id = None;
-
-    loop {
-        if session_ids.is_empty() {
-            break;
-        }
-
-        let next_id = session_ids.pop();
-        if let Some(next_id) = next_id
-            && transcript_exists_and_likely_valid(&project_path, next_id).await?
-        {
-            current_id = Some(next_id);
-            break;
-        }
-    }
+    let current_id = Transcript::current_valid_session_id(&project_path, &session).await?;
 
     if let Some(current_id) = current_id {
         command.args(["--resume", &format!("{current_id}")]);
@@ -398,22 +381,6 @@ async fn spawn_command(
 
     command.arg(format_message(&message, thinking_level));
     Ok(command.spawn()?)
-}
-
-async fn transcript_exists_and_likely_valid(
-    project_path: &Path,
-    session_id: uuid::Uuid,
-) -> Result<bool> {
-    let path = Transcript::get_transcript_path(project_path, session_id)?;
-    if fs::try_exists(&path).await? {
-        let file = fs::read_to_string(&path).await?;
-        // Sometimes a transcript gets written out that only as a summary and is
-        // only 1 line long. These can be considered invalid sessions
-        if file.lines().count() > 1 {
-            return Ok(true);
-        }
-    }
-    Ok(false)
 }
 
 fn format_message(message: &str, thinking_level: ThinkingLevel) -> String {

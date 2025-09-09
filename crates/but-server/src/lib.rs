@@ -21,6 +21,7 @@ use but_api::{
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
+use gitbutler_project::ProjectId;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
@@ -421,7 +422,25 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
-        "claude_get_session_details" => claude::claude_get_session_details_cmd(request.params),
+        "claude_get_session_details" => {
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Params {
+                project_id: ProjectId,
+                session_id: String,
+            }
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(Params {
+                    project_id,
+                    session_id,
+                }) => {
+                    let result = claude::claude_get_session_details(project_id, session_id).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         "claude_list_permission_requests" => {
             claude::claude_list_permission_requests_cmd(request.params)
         }
