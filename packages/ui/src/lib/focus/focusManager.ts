@@ -768,6 +768,7 @@ export class FocusManager {
 		if (!metadata) return;
 
 		const navigationContext = this.buildNavigationContext(event, metadata);
+
 		if (this.shouldShowOutlineOnly(navigationContext)) {
 			this.outline.set(true);
 			event.stopPropagation();
@@ -901,7 +902,7 @@ export class FocusManager {
 		action: NavigationAction | null;
 		hasOutline?: boolean;
 	}): boolean {
-		return (!context.hasOutline && context.action !== 'tab') || false;
+		return (!context.hasOutline && context.action !== null) || false;
 	}
 
 	/**
