@@ -32,6 +32,7 @@
 		tooltipPosition?: TooltipPosition;
 		tooltipAlign?: TooltipAlign;
 		tooltipDelay?: number;
+		tooltipMaxWidth?: number;
 		testId?: string;
 		// Events
 		onclick?: ((e: MouseEvent) => Promise<void>) | ((e: MouseEvent) => void);
@@ -82,6 +83,7 @@
 		tooltipPosition,
 		tooltipAlign,
 		tooltipDelay,
+		tooltipMaxWidth,
 		onclick,
 		onmousedown,
 		oncontextmenu,
@@ -106,6 +108,7 @@
 	position={tooltipPosition}
 	delay={tooltipDelay}
 	hotkey={tooltipHotkey}
+	maxWidth={tooltipMaxWidth}
 >
 	<button
 		bind:this={el}
@@ -233,7 +236,7 @@
 			--opacity-btn-bg: var(--opacity-btn-outline-bg-hover);
 		}
 
-		&.outline {
+		&:where(.outline) {
 			border: 1px solid
 				color-mix(
 					in srgb,

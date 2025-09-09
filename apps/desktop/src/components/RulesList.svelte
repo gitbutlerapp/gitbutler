@@ -214,6 +214,7 @@
 				size="tag"
 				kind="outline"
 				tooltip="Automate actions for new code changes"
+				tooltipMaxWidth={180}
 				onclick={openAddRuleContextMenu}
 				disabled={mode === 'edit' || mode === 'add'}
 				loading={creatingRule.current.isLoading}>Add rule</Button
