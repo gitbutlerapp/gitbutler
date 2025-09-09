@@ -14,7 +14,6 @@ import {
 	type QueryActionCreatorResult,
 	type QueryArgFrom,
 	type ResultTypeFrom,
-	type RootState,
 	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
 import { createSubscriber } from 'svelte/reactivity';
@@ -49,7 +48,6 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 	ctx: HookContext;
 }) {
 	const endpoint = api.endpoints[endpointName]!;
-	const state = getState() as any as () => RootState<any, any, any>;
 
 	const { initiate, select } = endpoint as ApiEndpointQuery<CustomQuery<any>, Definitions>;
 
@@ -128,7 +126,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		}
 
 		const selector = $derived(select(queryArg));
-		const result = $derived(selector(state()));
+		const result = $derived(selector(getState()));
 
 		const output = $derived.by(() => {
 			let data = result.data;
@@ -181,7 +179,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 
 		const results = queryArgs.map((queryArg) => {
 			const selector = $derived(select(queryArg));
-			const result = $derived(selector(state()));
+			const result = $derived(selector(getState()));
 			const output = $derived.by(() => {
 				let data = result.data;
 				if (options?.transform && data) {
@@ -202,7 +200,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 
 	function useQueryState<T extends TranformerFn>(queryArg: unknown, options?: { transform?: T }) {
 		const selector = $derived(select(queryArg));
-		const result = $derived(selector(state()));
+		const result = $derived(selector(getState()));
 		const output = $derived.by(() => {
 			let data = result.data;
 			if (options?.transform && data) {
@@ -219,7 +217,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 
 	function useQueryTimeStamp(queryArg: unknown) {
 		const selector = $derived(select(queryArg));
-		const result = $derived(selector(state()));
+		const result = $derived(selector(getState()));
 		return reactive(() => result.startedTimeStamp);
 	}
 
@@ -344,7 +342,6 @@ export function buildMutationHook<
 	ctx: HookContext;
 }): MutationHook<D> {
 	const endpoint = api.endpoints[endpointName]!;
-	const state = getState() as any as () => RootState<any, any, any>;
 
 	const { initiate, select } = endpoint as unknown as ApiEndpointMutation<D, Definitions>;
 
@@ -454,7 +451,7 @@ export function buildMutationHook<
 		}
 
 		const selector = $derived(select({ requestId: promise?.requestId, fixedCacheKey }));
-		const result = $derived(selector(state()));
+		const result = $derived(selector(getState()));
 
 		const subscribe = createSubscriber(() => {
 			return () => {

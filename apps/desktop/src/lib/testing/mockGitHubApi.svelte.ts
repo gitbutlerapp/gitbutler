@@ -31,7 +31,7 @@ export function setupMockGitHubApi() {
 	const gitHubClient = new GitHubClient({ client: octokit });
 	gitHubClient.setRepo({ owner: 'test-owner', repo: 'test-repo' });
 	const gitHubApi = createGitHubApi(
-		butlerModule({ getDispatch: () => dispatch!, getState: () => () => state })
+		butlerModule({ getDispatch: () => dispatch!, getState: () => state })
 	);
 
 	const store = configureStore({

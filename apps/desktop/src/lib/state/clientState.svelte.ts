@@ -24,7 +24,7 @@ import type { IrcClient } from '$lib/irc/ircClient.svelte';
 import type { ReduxError } from '$lib/state/reduxError';
 
 /**
- * GitHub API object that enables the declaration and usage of endpoints
+ * Backend API object that enables the declaration and usage of endpoints
  * colocated with the feature they support.
  */
 export type BackendApi = ReturnType<typeof createBackendApi>;
@@ -78,9 +78,8 @@ export class ClientState {
 		posthog: PostHogWrapper
 	) {
 		const butlerMod = butlerModule({
-			// Reactive loop without nested function.
-			// TODO: Can it be done without nesting?
-			getState: () => () => this.rootState as any as RootState<any, any, any>,
+			// Returns a function that returns the current state (required by butlerModule API)
+			getState: () => this.rootState as unknown as RootState<any, any, any>,
 			getDispatch: () => this.dispatch,
 			posthog
 		});
@@ -177,7 +176,6 @@ function createStore(params: {
 		}
 	});
 
-	// persistStore(store);
 	return { store, reducer };
 }
 
@@ -207,8 +205,8 @@ function createBackendApi(butlerMod: ReturnType<typeof butlerModule>) {
 }
 
 // Default cache expiration for unused items is 60 seconds. This is too little
-// for forge data.
-const KEEP_UNUSED_SECONDS = 24 * 60 * 60;
+// for forge data, so we keep forge data cached for 24 hours.
+const FORGE_CACHE_TTL_SECONDS = 24 * 60 * 60; // 24 hours
 
 // Fake base query that allows us to use the same error type when the query
 // definitions only use `queryFn` instead of `query`.
@@ -217,22 +215,25 @@ const fakeBaseQuery: BaseQueryFn = () => {
 	return { data: undefined } as QueryReturnValue<never, ReduxError, any>;
 };
 
+// Common API configuration for forge APIs
+const FORGE_API_CONFIG = {
+	tagTypes: Object.values(ReduxTag),
+	invalidationBehavior: 'immediately' as const,
+	baseQuery: fakeBaseQuery,
+	refetchOnFocus: true,
+	refetchOnReconnect: true,
+	keepUnusedDataFor: FORGE_CACHE_TTL_SECONDS,
+	endpoints: (_: any) => ({})
+};
+
 export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
 	return buildCreateApi(
 		coreModule(),
 		butlerMod
 	)({
 		reducerPath: 'github',
-		tagTypes: Object.values(ReduxTag),
-		invalidationBehavior: 'immediately',
-		// TODO: This should only be set for backend api.
-		baseQuery: fakeBaseQuery,
-		refetchOnFocus: true,
-		refetchOnReconnect: true,
-		keepUnusedDataFor: KEEP_UNUSED_SECONDS,
-		endpoints: (_) => {
-			return {};
-		}
+		// Using fake base query for forge APIs (GitHub/GitLab) since they use queryFn
+		...FORGE_API_CONFIG
 	});
 }
 
@@ -242,15 +243,7 @@ function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
 		butlerMod
 	)({
 		reducerPath: 'gitlab',
-		tagTypes: Object.values(ReduxTag),
-		invalidationBehavior: 'immediately',
-		// TODO: This should only be set for backend api.
-		baseQuery: fakeBaseQuery,
-		refetchOnFocus: true,
-		refetchOnReconnect: true,
-		keepUnusedDataFor: KEEP_UNUSED_SECONDS,
-		endpoints: (_) => {
-			return {};
-		}
+		// Using fake base query for forge APIs (GitHub/GitLab) since they use queryFn
+		...FORGE_API_CONFIG
 	});
 }
