@@ -2,6 +2,7 @@
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { Button } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
+	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -17,13 +18,21 @@
 		$props();
 
 	let scrollableContainer: ConfigurableScrollableContainer;
+	let scrollDistanceFromBottom = $state(0);
 
 	// Export method to scroll to bottom
 	export function scrollToBottom() {
-		if (scrollableContainer?.scrollToBottom) {
-			scrollableContainer.scrollToBottom();
-		}
+		scrollableContainer?.scrollToBottom();
 	}
+
+	// Calculate distance from bottom when scrolling
+	function handleScroll(event: Event) {
+		const { scrollTop, scrollHeight, clientHeight } = event.target as HTMLElement;
+		scrollDistanceFromBottom = scrollHeight - scrollTop - clientHeight;
+	}
+
+	// Show button only when user has scrolled more than 1000px from bottom
+	const showScrollButton = $derived(scrollDistanceFromBottom > 600);
 </script>
 
 <div class="chat" use:focusable={{ vertical: true }}>
@@ -43,20 +52,26 @@
 	</div>
 
 	<div class="chat-container">
-		<ConfigurableScrollableContainer bind:this={scrollableContainer} childrenWrapHeight="100%">
+		<ConfigurableScrollableContainer
+			bind:this={scrollableContainer}
+			childrenWrapHeight="100%"
+			onscroll={handleScroll}
+		>
 			<div class="chat-messages">
 				{@render messages()}
 			</div>
 		</ConfigurableScrollableContainer>
 
-		<div class="chat-scroll-to-bottom">
-			<Button
-				kind="outline"
-				icon="arrow-down"
-				tooltip="Scroll to bottom"
-				onclick={scrollToBottom}
-			/>
-		</div>
+		{#if showScrollButton}
+			<div class="chat-scroll-to-bottom" transition:fade={{ duration: 150 }}>
+				<Button
+					kind="outline"
+					icon="arrow-down"
+					tooltip="Scroll to bottom"
+					onclick={scrollToBottom}
+				/>
+			</div>
+		{/if}
 	</div>
 
 	<div class="chat-footer" use:focusable>
@@ -119,7 +134,7 @@
 			transform var(--transition-medium);
 
 		&:hover {
-			transform: translateY(-2px);
+			transform: scale(1.05) translateY(-2px);
 			box-shadow: var(--fx-shadow-s);
 		}
 	}

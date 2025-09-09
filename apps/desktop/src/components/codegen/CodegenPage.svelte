@@ -356,20 +356,13 @@
 	let createBranchModal = $state<CreateBranchModal>();
 	let chatLayout = $state<CodegenChatLayout>();
 
-	// Auto-scroll when new messages are added
+	// Auto-scroll when new messages are added or branch changes
 	$effect(() => {
 		if (events?.current.data) {
 			setTimeout(() => {
 				chatLayout?.scrollToBottom();
 			}, 50);
 		}
-	});
-
-	$effect(() => {
-		void selectedBranch;
-		setTimeout(() => {
-			chatLayout?.scrollToBottom();
-		}, 50);
 	});
 </script>
 
