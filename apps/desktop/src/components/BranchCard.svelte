@@ -11,6 +11,7 @@
 	import Dropzone from '$components/Dropzone.svelte';
 	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+
 	import { CodegenRuleDropData, CodegenRuleDropHandler } from '$lib/codegen/dropzone';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
@@ -23,7 +24,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { ReviewBadge, Icon, Tooltip, TestId, Button } from '@gitbutler/ui';
+	import { ReviewBadge, Icon, Tooltip, TestId, Button, Badge } from '@gitbutler/ui';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
@@ -203,50 +204,57 @@
 						<ReduxResult result={rule?.current} {projectId} stackId={args.stackId}>
 							{#snippet children({ rule }, { projectId: _projectId, stackId: _stackId })}
 								{#if rule}
-									{#snippet button(text: string, tooltip?: string)}
-										<Tooltip text={tooltip}>
-											<Button
-												icon="ai-small"
-												style="purple"
-												size="tag"
-												kind="outline"
-												shrinkable
-												onclick={() => {
-													if (!args.stackId) return;
-													projectState.selectedClaudeSession.set({
-														stackId: args.stackId,
-														head: branchName
-													});
-													goto(codegenPath(projectId));
+									<ClaudeSessionDescriptor
+										{projectId}
+										sessionId={(rule.filters[0]! as RuleFilter & { type: 'claudeCodeSessionId' })
+											.subject}
+									>
+										{#snippet fallback()}
+											<Badge size="tag" style="error" kind="solid" icon="ai-small">
+												Session error
+											</Badge>
+										{/snippet}
+										{#snippet children(descriptor)}
+											<div
+												class="branch-header__ai-pill"
+												use:draggableChips={{
+													label: 'Codegen',
+													data: new CodegenRuleDropData(rule),
+													chipType: 'file',
+													dropzoneRegistry,
+													dragStateService
 												}}
 											>
-												{text}
-											</Button>
-										</Tooltip>
-									{/snippet}
-									<div
-										class="branch-header__shrinkable-button"
-										use:draggableChips={{
-											label: 'Codegen',
-											data: new CodegenRuleDropData(rule),
-											chipType: 'file',
-											dropzoneRegistry,
-											dragStateService
-										}}
-									>
-										<ClaudeSessionDescriptor
-											{projectId}
-											sessionId={(rule.filters[0]! as RuleFilter & { type: 'claudeCodeSessionId' })
-												.subject}
-										>
-											{#snippet fallback()}
-												{@render button('Codegen')}
-											{/snippet}
-											{#snippet children(descriptor)}
-												{@render button(descriptor, descriptor)}
-											{/snippet}
-										</ClaudeSessionDescriptor>
-									</div>
+												<Button
+													icon="ai-small"
+													style="purple"
+													size="tag"
+													kind="outline"
+													class="branch-header__ai-pill__name"
+													shrinkable
+													tooltip="To codegen session"
+													onclick={() => {
+														if (!args.stackId) return;
+														projectState.selectedClaudeSession.set({
+															stackId: args.stackId,
+															head: branchName
+														});
+														goto(codegenPath(projectId));
+													}}
+												>
+													{descriptor}
+												</Button>
+												<Button
+													icon="draggable"
+													class="branch-header__ai-pill__drag-handle"
+													style="purple"
+													size="tag"
+													kind="outline"
+													tooltip="Drag to apply to another stack"
+												/>
+											</div>
+										{/snippet}
+									</ClaudeSessionDescriptor>
 								{/if}
 							{/snippet}
 						</ReduxResult>
@@ -426,10 +434,22 @@
 		}
 	}
 
-	.branch-header__shrinkable-button {
+	.branch-header__ai-pill {
 		display: flex;
 		align-items: center;
 		max-width: 100px;
 		overflow: hidden;
+	}
+
+	:global(.branch-header__ai-pill__name) {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	:global(.branch-header__ai-pill__drag-handle) {
+		border-left: none;
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+		cursor: grab;
 	}
 </style>
