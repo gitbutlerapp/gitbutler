@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import { Button } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snippet } from 'svelte';
 
@@ -41,11 +42,22 @@
 		</div>
 	</div>
 
-	<ConfigurableScrollableContainer bind:this={scrollableContainer} childrenWrapHeight="100%">
-		<div class="chat-messages hide-native-scrollbar">
-			{@render messages()}
+	<div class="chat-container">
+		<ConfigurableScrollableContainer bind:this={scrollableContainer} childrenWrapHeight="100%">
+			<div class="chat-messages">
+				{@render messages()}
+			</div>
+		</ConfigurableScrollableContainer>
+
+		<div class="chat-scroll-to-bottom">
+			<Button
+				kind="outline"
+				icon="arrow-down"
+				tooltip="Scroll to bottom"
+				onclick={scrollToBottom}
+			/>
 		</div>
-	</ConfigurableScrollableContainer>
+	</div>
 
 	<div class="chat-footer" use:focusable>
 		{@render input()}
@@ -72,6 +84,12 @@
 		border-bottom: 1px solid var(--clr-border-3);
 	}
 
+	.chat-container {
+		position: relative;
+		flex: 1;
+		overflow: hidden;
+	}
+
 	.chat-messages {
 		display: flex;
 		flex-direction: column;
@@ -86,5 +104,23 @@
 		width: 100%;
 		padding: 16px;
 		border-top: 1px solid var(--clr-border-2);
+	}
+
+	.chat-scroll-to-bottom {
+		z-index: 10;
+		position: absolute;
+		right: 16px;
+		bottom: 14px;
+		overflow: hidden;
+		border-radius: var(--radius-btn);
+		background-color: var(--clr-bg-1);
+		transition:
+			box-shadow var(--transition-fast),
+			transform var(--transition-medium);
+
+		&:hover {
+			transform: translateY(-2px);
+			box-shadow: var(--fx-shadow-s);
+		}
 	}
 </style>
