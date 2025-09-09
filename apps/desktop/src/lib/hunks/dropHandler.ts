@@ -1,7 +1,7 @@
 import { ChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
 import { type DiffService } from '$lib/hunks/diffService.svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
-import type { IdSelection } from '$lib/selection/idSelection.svelte';
+import type { FileSelectionManager } from '$lib/selection/fileSelectionManager.svelte';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 
 export class AssignmentDropHandler implements DropzoneHandler {
@@ -10,7 +10,7 @@ export class AssignmentDropHandler implements DropzoneHandler {
 		private readonly diffService: DiffService,
 		private readonly uncommittedService: UncommittedService,
 		private readonly stackId: string | undefined,
-		private readonly idSelection: IdSelection
+		private readonly idSelection: FileSelectionManager
 	) {}
 
 	accepts(data: unknown) {

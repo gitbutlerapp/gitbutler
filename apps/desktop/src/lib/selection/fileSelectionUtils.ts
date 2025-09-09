@@ -9,7 +9,7 @@ import { getSelectionDirection } from '$lib/utils/getSelectionDirection';
 import { KeyName } from '@gitbutler/ui/utils/hotkeys';
 import { get } from 'svelte/store';
 import type { TreeChange } from '$lib/hunks/change';
-import type { IdSelection } from '$lib/selection/idSelection.svelte';
+import type { FileSelectionManager } from '$lib/selection/fileSelectionManager.svelte';
 
 function getFile(files: TreeChange[], id: string): TreeChange | undefined {
 	return files.find((f) => f.path === id);
@@ -60,7 +60,7 @@ interface UpdateSelectionParams {
 	targetElement: HTMLElement;
 	files: TreeChange[];
 	selectedFileIds: SelectedFile[];
-	fileIdSelection: IdSelection;
+	fileIdSelection: FileSelectionManager;
 	selectionId: SelectionId;
 	preventDefault: () => void;
 }
@@ -76,7 +76,7 @@ export function updateSelection({
 	fileIdSelection,
 	selectionId,
 	preventDefault
-}: UpdateSelectionParams) {
+}: UpdateSelectionParams): boolean | undefined {
 	if (!selectedFileIds[0] || selectedFileIds.length === 0) return;
 
 	const firstFileId = selectedFileIds[0].path;
@@ -186,7 +186,7 @@ export function selectFilesInList(
 	e: MouseEvent | KeyboardEvent,
 	change: TreeChange,
 	sortedFiles: TreeChange[],
-	idSelection: IdSelection,
+	idSelection: FileSelectionManager,
 	selectedFileIds: SelectedFile[],
 	allowMultiple: boolean,
 	index: number,

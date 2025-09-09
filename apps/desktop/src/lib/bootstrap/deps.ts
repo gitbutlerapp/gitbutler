@@ -42,7 +42,10 @@ import { PROMPT_SERVICE, PromptService } from '$lib/prompt/promptService';
 import { REMOTES_SERVICE, RemotesService } from '$lib/remotes/remotesService';
 import RulesService, { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 import { RustSecretService, SECRET_SERVICE } from '$lib/secrets/secretsService';
-import { IdSelection, ID_SELECTION } from '$lib/selection/idSelection.svelte';
+import {
+	FileSelectionManager,
+	FILE_SELECTION_MANAGER
+} from '$lib/selection/fileSelectionManager.svelte';
 import { UncommittedService, UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 import { loadUserSettings, SETTINGS } from '$lib/settings/userSettings';
 import { ShortcutService, SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
@@ -216,7 +219,7 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const uncommittedService = new UncommittedService(clientState, worktreeService, diffService);
-	const idSelection = new IdSelection(
+	const fileSelectionManager = new FileSelectionManager(
 		stackService,
 		uncommittedService,
 		worktreeService,
@@ -327,7 +330,7 @@ export function initDependencies(args: {
 		[HISTORY_SERVICE, historyService],
 		[HOOKS_SERVICE, hooksService],
 		[HTTP_CLIENT, httpClient],
-		[ID_SELECTION, idSelection],
+		[FILE_SELECTION_MANAGER, fileSelectionManager],
 		[IME_COMPOSITION_HANDLER, imeHandler],
 		[IRC_CLIENT, ircClient],
 		[IRC_SERVICE, ircService],
