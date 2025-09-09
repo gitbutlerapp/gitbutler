@@ -8,21 +8,31 @@
 	type Props = {
 		projectId: string;
 		sessionId: string;
-		fallback: Snippet;
+		fallback?: Snippet;
+		loading?: Snippet;
+		error?: Snippet;
 		children: Snippet<[string]>;
 	};
 
-	const { projectId, sessionId, children, fallback }: Props = $props();
+	const { projectId, sessionId, children, fallback, loading, error }: Props = $props();
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const sessionDetails = $derived(claudeCodeService.sessionDetails(projectId, sessionId));
 </script>
 
-{#snippet loading()}
-	{@render fallback()}
+{#snippet loadingSnippet()}
+	{#if loading}
+		{@render loading()}
+	{:else if fallback}
+		{@render fallback()}
+	{/if}
 {/snippet}
 
-{#snippet error()}
-	{@render fallback()}
+{#snippet errorSnippet()}
+	{#if error}
+		{@render error()}
+	{:else if fallback}
+		{@render fallback()}
+	{/if}
 {/snippet}
 
 {#snippet resultChildren(sessionDetails: ClaudeSessionDetails)}
@@ -30,5 +40,10 @@
 	{@render children(title)}
 {/snippet}
 
-<ReduxResult {projectId} result={sessionDetails.current} {loading} {error} children={resultChildren}
+<ReduxResult
+	{projectId}
+	result={sessionDetails.current}
+	loading={loadingSnippet}
+	error={errorSnippet}
+	children={resultChildren}
 ></ReduxResult>

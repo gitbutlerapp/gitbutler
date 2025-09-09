@@ -85,7 +85,7 @@
 	height: 16px;
 }
 
-/* Hunk drag */
+/* HUNK DRAG */
 .dragchip-hunk-container {
 	display: flex;
 	font-size: 12px;
@@ -106,72 +106,24 @@
 	padding: 6px 7px;
 }
 
-/* COMMIT DRAG CARD */
-.draggable-commit {
-	display: flex;
-	position: absolute;
-	flex-direction: column;
-	padding: 12px 12px 12px 16px;
-	overflow: hidden;
-	gap: 8px;
-	border: 1px solid var(--clr-border-2);
-	border-radius: var(--radius-m);
-	background-color: var(--clr-bg-1);
-}
-
-.draggable-commit-indicator {
-	&::before {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 4px;
-		height: 100%;
-		content: '';
-	}
-}
-
-.draggable-commit-localAndRemote {
-	&::before {
-		background-color: var(--clr-commit-remote);
-	}
-}
-
-.draggable-commit-local {
-	color: var(--clr-text-1);
-	&::before {
-		background-color: var(--clr-commit-local);
-	}
-}
-
-.draggable-commit-integrated {
-	color: var(--clr-text-1);
-	&::before {
-		background-color: var(--clr-commit-shadow);
-	}
-}
-
-.draggable-commit-author-img {
-	width: 12px;
-	height: 12px;
-	border-radius: 50%;
-}
-
-.draggable-commit-info {
+/* AI SESSION DRAG */
+.dragchip-ai-session-container {
 	display: flex;
 	align-items: center;
+	max-width: 120px;
+	padding: 5px 6px;
+	gap: 6px;
+	border: none;
+	border-radius: var(--radius-m);
+	background-color: var(--clr-theme-purp-element);
+	color: var(--clr-theme-purp-on-element);
 }
 
-.draggable-commit-info-text {
-	overflow: hidden;
-	color: var(--clr-text-2);
-	text-overflow: ellipsis;
-	white-space: nowrap;
-
-	&:not(:first-child):before {
-		margin: 0 5px;
-		content: '•';
-		color: var(--clr-text-3);
-	}
+.dragchip-ai-session-icon {
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	color: currentColor;
 }
 
 /* COMMIT DRAG CARD V3 */

@@ -38,14 +38,14 @@
 </script>
 
 <svg
+	viewBox="0 0 16 16"
+	fill-rule="evenodd"
 	class="icon-wrapper"
 	class:success={color === 'success'}
 	class:error={color === 'error'}
 	class:pop={color === 'pop'}
 	class:warning={color === 'warning'}
 	class:custom={customColor}
-	viewBox="0 0 16 16"
-	fill-rule="evenodd"
 	class:default={!color}
 	style:fill-opacity={opacity}
 	style:width="{pxToRem(size)}rem"
