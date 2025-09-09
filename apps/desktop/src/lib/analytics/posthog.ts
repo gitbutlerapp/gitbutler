@@ -37,6 +37,7 @@ export class PostHogWrapper {
 	}
 
 	async init() {
+		if (this._instance) return;
 		const appInfo = await this.backend.getAppInfo();
 		this._instance = posthog.init(PUBLIC_POSTHOG_API_KEY, {
 			api_host: 'https://eu.posthog.com',
