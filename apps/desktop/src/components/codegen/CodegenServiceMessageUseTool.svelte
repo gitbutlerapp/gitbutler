@@ -61,9 +61,11 @@
 	});
 </script>
 
-<CodegenServiceMessage style="pop" face="idle">
-	<div class="flex flex-col gap-6">
-		<p class="text-13 text-semibold">Claude Code wants to {wantsToDo} 👆</p>
-		<p class="text-13 text-italic">Review the {actionName} above, then approve or reject.</p>
+<CodegenServiceMessage style="pop" face="waiting">
+	<div class="flex flex-col gap-2">
+		<p class="text-13 text-semibold text-body">Claude Code wants to {wantsToDo} 👆</p>
+		<p class="text-13 text-italic text-body opacity-60">
+			Review the {actionName} above, then approve or reject.
+		</p>
 	</div>
 </CodegenServiceMessage>

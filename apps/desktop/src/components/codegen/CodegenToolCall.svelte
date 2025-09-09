@@ -41,7 +41,7 @@
 		<p class="text-13 text-left full-width">{toolCall.name}</p>
 
 		{#if requiresApproval}
-			<div class="flex gap-4">
+			<div class="flex gap-4 m-left-8">
 				<AsyncButton
 					kind="outline"
 					size="tag"

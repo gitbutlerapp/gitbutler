@@ -32,7 +32,7 @@
 		align-items: flex-end;
 		width: 100%;
 		padding: 8px 0 16px;
-		gap: 12px;
+		gap: 14px;
 	}
 
 	.message-content {
