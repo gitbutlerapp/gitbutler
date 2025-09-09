@@ -33,15 +33,15 @@
 		</div>
 
 		{#if toolCallLoading(toolCall)}
-			<Icon name="spinner" size={14} />
-			<p>{toolCall.name}</p>
+			<Icon name="spinner" />
 		{:else}
-			<Icon name={getToolIcon(toolCall.name)} size={14} color="var(--clr-text-3)" />
-			<p class="text-13 text-left full-width">{toolCall.name}</p>
+			<Icon name={getToolIcon(toolCall.name)} color="var(--clr-text-3)" />
 		{/if}
 
+		<p class="text-13 text-left full-width">{toolCall.name}</p>
+
 		{#if requiresApproval}
-			<div class="flex gap-4">
+			<div class="flex gap-4 m-left-8">
 				<AsyncButton
 					kind="outline"
 					size="tag"
@@ -94,7 +94,7 @@
 		display: flex;
 		position: relative;
 		align-items: center;
-		padding: 10px 10px 10px 22px;
+		padding: 10px 12px 10px 22px;
 		gap: 8px;
 		background-color: var(--clr-bg-2);
 

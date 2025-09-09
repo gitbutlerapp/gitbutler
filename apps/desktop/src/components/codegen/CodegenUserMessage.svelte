@@ -30,7 +30,7 @@
 		justify-content: flex-end;
 		width: 100%;
 		padding: 8px 0 16px;
-		gap: 8px;
+		gap: 10px;
 	}
 
 	.message-bubble {

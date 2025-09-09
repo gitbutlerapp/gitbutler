@@ -148,6 +148,7 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
 	}
 
 	.codegen-entry-header {
@@ -248,9 +249,6 @@
 	.vibe-icon {
 		display: flex;
 
-		&.running {
-			color: var(--clr-theme-pop-element);
-		}
 		&.completed {
 			color: var(--clr-theme-succ-element);
 		}

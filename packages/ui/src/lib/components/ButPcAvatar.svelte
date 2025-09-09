@@ -1,6 +1,6 @@
 <script lang="ts">
 	interface Props {
-		mode?: 'idle' | 'thinking';
+		mode?: 'idle' | 'thinking' | 'waiting';
 	}
 
 	const { mode = 'idle' }: Props = $props();
@@ -47,11 +47,18 @@
 			stroke="black"
 			stroke-width="1.2"
 		/>
-		<path
-			d="M7.55078 16.6064C11.269 19.1174 13.296 19.1056 16.9056 16.6064"
-			stroke="black"
-			stroke-width="1.2"
-		/>
+		<!-- MOUTH -->
+		{#if mode === 'thinking' || mode === 'idle'}
+			<path
+				class="but-face__mouth-smile"
+				d="M7.55078 16.6064C11.269 19.1174 13.296 19.1056 16.9056 16.6064"
+				stroke="black"
+				stroke-width="1.2"
+			/>
+		{:else if mode === 'waiting'}
+			<path d="M7.99902 18H13.999" stroke="black" stroke-width="1.2" />
+		{/if}
+		<!-- EYES -->
 		<rect
 			class="but-face__eye but-face__eye--left"
 			x="8.30078"
@@ -144,16 +151,16 @@
 		}
 	}
 
-	/* EYE ANIMATIONS */
 	.but-face__eye {
 		transform-origin: center;
 		transition: transform 0.3s ease-in-out;
 	}
 
-	.but-face-wrapper.thinking .but-face__eye {
-		animation: eyeBlink 3.5s ease-in-out infinite;
+	.but-face-wrapper.thinking {
+		.but-face__eye {
+			animation: eyeBlink 3.5s ease-in-out infinite;
+		}
 	}
-
 	@keyframes pcBounce {
 		0%,
 		100% {
@@ -190,6 +197,32 @@
 		}
 		95% {
 			transform: scaleY(1);
+		}
+	}
+
+	/* WAITING MODE */
+	.but-face-wrapper.waiting {
+		.but-face__eye {
+			animation: eyeRoll 6s ease-in-out infinite;
+		}
+	}
+
+	@keyframes eyeRoll {
+		0%,
+		30% {
+			transform: translate(0, 0);
+		}
+		35% {
+			transform: translate(1px, -1px);
+		}
+		60% {
+			transform: translate(1px, -1px);
+		}
+		65% {
+			transform: translate(0, 0);
+		}
+		100% {
+			transform: translate(0, 0);
 		}
 	}
 </style>

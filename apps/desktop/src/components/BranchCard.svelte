@@ -257,7 +257,7 @@
 													{#snippet custom()}
 														<div class="branch-header__ai-pill-label">
 															<span class="truncate">{descriptor}</span>
-															<Icon name="draggable" opacity={0.6} />
+															<Icon name="draggable" opacity={0.8} />
 														</div>
 													{/snippet}
 												</Button>
