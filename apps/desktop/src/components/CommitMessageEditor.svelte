@@ -17,7 +17,7 @@
 	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, TestId } from '@gitbutler/ui';
-	import { IMECompositionHandler } from '@gitbutler/ui/utils/imeHandling';
+	import { IME_COMPOSITION_HANDLER } from '@gitbutler/ui/utils/imeHandling';
 
 	import { tick } from 'svelte';
 
@@ -69,7 +69,7 @@
 
 	let composer = $state<ReturnType<typeof MessageEditor>>();
 	let titleInput = $state<HTMLTextAreaElement>();
-	const imeHandler = new IMECompositionHandler();
+	const imeHandler = inject(IME_COMPOSITION_HANDLER);
 
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
 	const diffInputArgs = $derived<DiffInputContextArgs>(

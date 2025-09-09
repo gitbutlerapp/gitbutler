@@ -1,3 +1,8 @@
+import { InjectionToken } from '@gitbutler/core/context';
+
+export const IME_COMPOSITION_HANDLER: InjectionToken<IMECompositionHandler> =
+	new InjectionToken<IMECompositionHandler>('IMECompositionHandler');
+
 /**
  * IME (Input Method Editor) handling utilities for text input components.
  * This class provides a unified handler to manage IME composition state
