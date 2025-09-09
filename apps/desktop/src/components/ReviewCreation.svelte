@@ -36,7 +36,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { chipToasts, TestId } from '@gitbutler/ui';
-	import { IMECompositionHandler } from '@gitbutler/ui/utils/imeHandling';
+	import { IME_COMPOSITION_HANDLER } from '@gitbutler/ui/utils/imeHandling';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
 
@@ -92,7 +92,7 @@
 
 	let titleInput = $state<HTMLTextAreaElement | undefined>(undefined);
 	let messageEditor = $state<MessageEditor>();
-	const imeHandler = new IMECompositionHandler();
+	const imeHandler = inject(IME_COMPOSITION_HANDLER);
 
 	// AI things
 	const aiGenEnabled = projectAiGenEnabled(projectId);
