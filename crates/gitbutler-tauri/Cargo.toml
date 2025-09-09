@@ -21,16 +21,13 @@ tauri-build = { version = "2.3.1", features = [] }
 anyhow = "1.0.99"
 backtrace = { version = "0.3.74", optional = true }
 console-subscriber = "0.4.1"
-git2.workspace = true
 gix = { workspace = true, features = [
     "max-performance",
     "blocking-http-transport-curl",
     "worktree-mutation",
 ] }
-reqwest = { version = "0.12.23", features = ["json"] }
 serde.workspace = true
 serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
-serde-error = "0.1.3"
 tauri = { version = "^2.7.0", features = ["unstable"] }
 tauri-plugin-dialog = "2.3.2"
 tauri-plugin-fs = "2.4.1"
@@ -54,38 +51,20 @@ tracing-appender = "0.2.3"
 tracing-subscriber.workspace = true
 tracing-forest = { version = "0.2.0" }
 gitbutler-watcher.workspace = true
-gitbutler-branch-actions.workspace = true
-gitbutler-oplog.workspace = true
-gitbutler-repo.workspace = true
 gitbutler-repo-actions.workspace = true
 gitbutler-command-context.workspace = true
 but-feedback.workspace = true
 gitbutler-project.workspace = true
-gitbutler-user.workspace = true
-gitbutler-branch.workspace = true
-gitbutler-reference.workspace = true
 gitbutler-error.workspace = true
 gitbutler-secret.workspace = true
 gitbutler-id.workspace = true
-gitbutler-oxidize.workspace = true
-gitbutler-stack.workspace = true
-gitbutler-diff.workspace = true
-gitbutler-operating-modes.workspace = true
-gitbutler-edit-mode.workspace = true
-gitbutler-sync.workspace = true
-gitbutler-forge.workspace = true
 but-broadcaster.workspace = true
 but-db.workspace = true
 but-settings.workspace = true
 but-workspace.workspace = true
 but-core.workspace = true
-but-graph.workspace = true
-but-hunk-dependency.workspace = true
-but-hunk-assignment.workspace = true
 but-action.workspace = true
 but-bot.workspace = true
-but-rules.workspace = true
-but-path.workspace = true
 but-api.workspace = true
 but-claude.workspace = true
 open = "5"
