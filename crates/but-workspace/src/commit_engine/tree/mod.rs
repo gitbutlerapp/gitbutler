@@ -1,5 +1,6 @@
 use crate::commit_engine::{HunkRange, MoveSourceCommit, RejectionReason, apply_hunks};
 use crate::{DiffSpec, HunkHeader};
+use anyhow::bail;
 use bstr::{BStr, ByteSlice};
 use but_core::{RepositoryExt, UnifiedDiff};
 use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
@@ -238,7 +239,7 @@ pub fn apply_worktree_changes<'repo>(
 
             let selected_hunks = change_request.hunk_headers.drain(..);
             let (hunks_to_commit, rejected) =
-                to_additive_hunks(selected_hunks, &worktree_hunks, &worktree_hunks_no_context);
+                to_additive_hunks(selected_hunks, &worktree_hunks, &worktree_hunks_no_context)?;
 
             change_request.hunk_headers = rejected;
             if hunks_to_commit.is_empty() && !change_request.hunk_headers.is_empty() {
@@ -364,7 +365,7 @@ fn to_additive_hunks(
     hunks_to_keep: impl IntoIterator<Item = HunkHeader>,
     worktree_hunks: &[HunkHeader],
     worktree_hunks_no_context: &[HunkHeader],
-) -> (Vec<HunkHeader>, Vec<HunkHeader>) {
+) -> anyhow::Result<(Vec<HunkHeader>, Vec<HunkHeader>)> {
     let mut hunks_to_commit = Vec::new();
     let mut rejected = Vec::new();
     let mut previous = HunkHeader {
@@ -422,14 +423,18 @@ fn to_additive_hunks(
         rejected.push(sh);
     }
 
-    if !hunks_to_commit
-        .iter()
-        .zip(hunks_to_commit.iter().skip(1))
-        .all(|(prev, next)| prev < next)
-    {
+    fn in_order(hunks: &[HunkHeader]) -> bool {
+        hunks
+            .iter()
+            .zip(hunks.iter().skip(1))
+            .all(|(prev, next)| prev < next)
+    }
+
+    let res = if !in_order(&hunks_to_commit) {
         tracing::info!("Using alternative hunk algorithm for {hunks_to_commit:?}");
-        to_additive_hunks_fallback(
-            hunks_to_commit.into_iter().map(
+        let hunks: Vec<_> = hunks_to_commit
+            .into_iter()
+            .map(
                 |HunkHeader {
                      old_start,
                      old_lines,
@@ -437,28 +442,37 @@ fn to_additive_hunks(
                      new_lines,
                  }| {
                     if old_lines == 0 {
-                        HunkHeader {
+                        Ok(HunkHeader {
                             old_start: 0,
                             old_lines: 0,
                             new_start,
                             new_lines,
-                        }
-                    } else {
-                        HunkHeader {
+                        })
+                    } else if new_lines == 0 {
+                        Ok(HunkHeader {
                             old_start,
                             old_lines,
                             new_start: 0,
                             new_lines: 0,
-                        }
+                        })
+                    } else {
+                        bail!("Unexpected hunk with neither newlines or oldlines being 0");
                     }
                 },
-            ),
-            worktree_hunks,
-            worktree_hunks_no_context,
-        )
+            )
+            .collect::<Result<_, _>>()?;
+        let (hunks_to_commit, rejected) =
+            to_additive_hunks_fallback(hunks, worktree_hunks, worktree_hunks_no_context);
+        if !in_order(&hunks_to_commit) {
+            bail!(
+                "Alternative hunks algorithms still didn't produce properly ordered hunks or saw duplicate inputs: {hunks_to_commit:?}"
+            );
+        }
+        (hunks_to_commit, rejected)
     } else {
         (hunks_to_commit, rejected)
-    }
+    };
+    Ok(res)
 }
 
 /// This algorithm is better when the basic one fails, but both have their merit.
