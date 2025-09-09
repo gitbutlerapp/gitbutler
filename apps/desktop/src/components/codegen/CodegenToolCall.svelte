@@ -94,7 +94,7 @@
 		display: flex;
 		position: relative;
 		align-items: center;
-		padding: 10px 10px 10px 22px;
+		padding: 10px 12px 10px 22px;
 		gap: 8px;
 		background-color: var(--clr-bg-2);
 
