@@ -2,12 +2,15 @@ import { getColorFromCommitState } from '$components/lib';
 import { type CommitStatusType } from '$lib/commits/commit';
 import { ChangeDropData, type DropData } from '$lib/dragging/draggables';
 import { getFileIcon } from '@gitbutler/ui/components/file/getFileIcon';
+import iconsJson from '@gitbutler/ui/data/icons.json';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 import type { DragStateService } from '$lib/dragging/dragStateService.svelte';
 import type { DropzoneRegistry } from '$lib/dragging/registry';
 
 // Added to element being dragged (not the clone that follows the cursor).
 const DRAGGING_CLASS = 'dragging';
+
+type chipType = 'file' | 'hunk' | 'ai-session';
 
 export type DraggableConfig = {
 	readonly selector?: string;
@@ -20,7 +23,7 @@ export type DraggableConfig = {
 	readonly commitType?: CommitStatusType;
 	readonly data?: DropData;
 	readonly viewportId?: string;
-	readonly chipType?: 'file' | 'hunk';
+	readonly chipType?: chipType;
 	readonly dropzoneRegistry: DropzoneRegistry;
 	readonly dragStateService?: DragStateService;
 };
@@ -318,12 +321,37 @@ function createHunkChipContainer(label: string | undefined): HTMLDivElement {
 	return containerEl;
 }
 
+// AI Session chip
+function createAISessionChipContainer(label: string | undefined): HTMLDivElement {
+	const containerEl = createElement('div', ['dragchip-ai-session-container']);
+	// Add a sparkle emoji or icon for visual distinction
+	const iconEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	iconEl.classList.add('dragchip-ai-session-icon');
+	iconEl.setAttribute('viewBox', '0 0 16 16');
+	iconEl.setAttribute('fill-rule', 'evenodd');
+
+	const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+	pathEl.setAttribute('fill', 'currentColor');
+	pathEl.setAttribute('d', iconsJson['ai-small']);
+	iconEl.appendChild(pathEl);
+
+	const labelEl = createElement(
+		'span',
+		['text-12', 'text-semibold', 'truncate', 'dragchip-ai-session-label'],
+		label || 'AI Session'
+	);
+
+	containerEl.appendChild(iconEl);
+	containerEl.appendChild(labelEl);
+	return containerEl;
+}
+
 export function createChipsElement(
 	opt: {
 		childrenAmount: number;
 		label: string | undefined;
 		filePath: string | undefined;
-		chipType: 'file' | 'hunk';
+		chipType: chipType;
 	} = {
 		childrenAmount: 1,
 		label: undefined,
@@ -340,8 +368,10 @@ export function createChipsElement(
 		chipEl.appendChild(fileChipContainer);
 	} else if (opt.chipType === 'hunk') {
 		const hunkChipContainer = createHunkChipContainer(opt.label);
-
 		chipEl.appendChild(hunkChipContainer);
+	} else if (opt.chipType === 'ai-session') {
+		const aiSessionChipContainer = createAISessionChipContainer(opt.label);
+		chipEl.appendChild(aiSessionChipContainer);
 	}
 
 	if (opt.childrenAmount > 1) {

@@ -209,7 +209,18 @@
 										sessionId={(rule.filters[0]! as RuleFilter & { type: 'claudeCodeSessionId' })
 											.subject}
 									>
-										{#snippet fallback()}
+										{#snippet loading()}
+											<Button
+												icon="ai-small"
+												style="purple"
+												size="tag"
+												class="branch-header__ai-pill__name"
+												shrinkable
+												reversedDirection
+												disabled>Loading...</Button
+											>
+										{/snippet}
+										{#snippet error()}
 											<Badge size="tag" style="error" kind="solid" icon="ai-small">
 												Session error
 											</Badge>
@@ -218,9 +229,9 @@
 											<div
 												class="branch-header__ai-pill"
 												use:draggableChips={{
-													label: 'Codegen',
+													label: descriptor,
 													data: new CodegenRuleDropData(rule),
-													chipType: 'file',
+													chipType: 'ai-session',
 													dropzoneRegistry,
 													dragStateService
 												}}
@@ -229,10 +240,11 @@
 													icon="ai-small"
 													style="purple"
 													size="tag"
-													kind="outline"
-													class="branch-header__ai-pill__name"
 													shrinkable
-													tooltip="To codegen session"
+													tooltip="Click to go to session or drag to another lane"
+													tooltipMaxWidth={160}
+													width="100%"
+													maxWidth={140}
 													onclick={() => {
 														if (!args.stackId) return;
 														projectState.selectedClaudeSession.set({
@@ -242,16 +254,13 @@
 														goto(codegenPath(projectId));
 													}}
 												>
-													{descriptor}
+													{#snippet custom()}
+														<div class="branch-header__ai-pill-label">
+															<span class="truncate">{descriptor}</span>
+															<Icon name="draggable" opacity={0.6} />
+														</div>
+													{/snippet}
 												</Button>
-												<Button
-													icon="draggable"
-													class="branch-header__ai-pill__drag-handle"
-													style="purple"
-													size="tag"
-													kind="outline"
-													tooltip="Drag to apply to another stack"
-												/>
 											</div>
 										{/snippet}
 									</ClaudeSessionDescriptor>
@@ -436,20 +445,14 @@
 
 	.branch-header__ai-pill {
 		display: flex;
-		align-items: center;
-		max-width: 100px;
 		overflow: hidden;
 	}
 
-	:global(.branch-header__ai-pill__name) {
-		border-top-right-radius: 0;
-		border-bottom-right-radius: 0;
-	}
-
-	:global(.branch-header__ai-pill__drag-handle) {
-		border-left: none;
-		border-top-left-radius: 0;
-		border-bottom-left-radius: 0;
-		cursor: grab;
+	.branch-header__ai-pill-label {
+		display: flex;
+		align-items: center;
+		padding-left: 4px;
+		overflow: hidden;
+		gap: 3px;
 	}
 </style>
