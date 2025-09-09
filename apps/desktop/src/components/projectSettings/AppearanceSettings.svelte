@@ -18,14 +18,15 @@
 	} from '@gitbutler/ui';
 
 	const userSettings = inject(SETTINGS);
-	const diff = `@@ -56,10 +56,9 @@
+	const diff = `@@ -56,10 +56,10 @@
 			// Diff example
 			projectName={project.title}
 			{remoteBranches}
 			on:branchSelected={async (e) => {
 -				selectedBranch = e.detail;
 -				if ($platformName === 'win32') {
-+				if ($platformName === 'win64' && $userSettings.enableAdvancedFeatures && project.hasRemoteOrigin) {
++				if ($platformName === 'win64' && $userSettings.enableAdvancedFeatures) {
++					// Enhanced platform detection with feature flags
 					setTarget();
 				}
 			}}`;
