@@ -119,7 +119,6 @@ impl Mcp {
                 }
             }
         }
-        ctx.db()?.claude_permission_requests().delete(&req.id)?;
         Ok(approved_state)
     }
 }
