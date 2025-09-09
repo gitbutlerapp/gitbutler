@@ -19,7 +19,6 @@
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { ensureValue } from '$lib/utils/validation';
 	import { inject } from '@gitbutler/core/context';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 
 	import { Button, Modal, TestId } from '@gitbutler/ui';
 	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
@@ -46,8 +45,6 @@
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stackId);
-
-	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 
 	let addDependentBranchModalContext = $state<AddDependentBranchModalProps>();
 	let addDependentBranchModal = $state<AddDependentBranchModal>();
@@ -194,30 +191,6 @@
 					}}
 				>
 					{#snippet buttons()}
-						<Button
-							icon="new-empty-commit"
-							size="tag"
-							kind="outline"
-							tooltip={isReadOnly ? 'Read-only mode' : 'Create empty commit'}
-							onclick={async () => {
-								await insertBlankCommitInBranch({
-									projectId,
-									stackId: ensureValue(stackId),
-									commitId: undefined,
-									offset: -1
-								});
-							}}
-							disabled={isReadOnly || commitInsertion.current.isLoading}
-						/>
-						<Button
-							icon="copy-small"
-							size="tag"
-							kind="outline"
-							tooltip="Copy branch name"
-							onclick={() => {
-								copyToClipboard(branchName);
-							}}
-						/>
 						{#if first}
 							<Button
 								icon="new-dep-branch"
