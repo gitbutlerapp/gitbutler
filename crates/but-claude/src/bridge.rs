@@ -356,20 +356,21 @@ async fn spawn_command(
     command.stderr(write_stderr);
     command.current_dir(&project_path);
 
-    command.args([
-        "-p",
-        "--output-format=stream-json",
-        "--verbose",
-        &format!("--settings={settings}"),
-        &format!("--mcp-config={mcp_config}"),
-        &format!("--model={}", model.to_cli_string()),
-    ]);
+    command.args(["--settings", &settings]);
+    command.args(["--mcp-config", &mcp_config]);
+    command.args(["--output-format", "stream-json"]);
+    command.args(["--model", model.to_cli_string()]);
+
+    command.args(["-p", "--verbose"]);
 
     if app_settings.claude.dangerously_allow_all_permissions {
         command.arg("--dangerously-skip-permissions");
     } else {
-        command.arg("--permission-prompt-tool=mcp__but-security__approval_prompt");
-        command.arg("--permission-mode=acceptEdits");
+        command.args([
+            "--permission-prompt-tool",
+            "mcp__but-security__approval_prompt",
+        ]);
+        command.args(["--permission-mode", "acceptEdits"]);
     }
 
     let mut session_ids = session.session_ids.clone();
@@ -390,9 +391,9 @@ async fn spawn_command(
     }
 
     if let Some(current_id) = current_id {
-        command.arg(format!("--resume={current_id}"));
+        command.args(["--resume", &format!("{current_id}")]);
     } else {
-        command.arg(format!("--session-id={}", session.id));
+        command.args(["--session-id", &format!("{}", session.id)]);
     }
 
     command.arg(format_message(&message, thinking_level));
