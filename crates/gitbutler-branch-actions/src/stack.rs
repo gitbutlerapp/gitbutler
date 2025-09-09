@@ -239,7 +239,7 @@ pub fn push_stack(
             Some(format!(
                 "{}:refs/for/{}",
                 push_details.head,
-                push_details.remote_refname.branch()
+                default_target.branch.branch()
             ))
         } else {
             None
