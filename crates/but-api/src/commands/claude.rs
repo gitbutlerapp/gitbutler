@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use but_api_macros::api_cmd;
-use but_claude::{ClaudeMessage, ModelType, ThinkingLevel, prompt_templates};
+use but_claude::{ClaudeMessage, ModelType, ThinkingLevel, Transcript, prompt_templates};
 use but_settings::AppSettings;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
@@ -58,21 +59,32 @@ pub fn claude_get_messages(
     Ok(messages)
 }
 
-#[api_cmd]
 #[tauri::command(async)]
 #[instrument(err(Debug))]
-pub fn claude_get_session_details(
+pub async fn claude_get_session_details(
     project_id: ProjectId,
     session_id: String,
 ) -> Result<but_claude::ClaudeSessionDetails, Error> {
     let project = gitbutler_project::get(project_id)?;
+    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
-    let transcript_path = but_claude::Transcript::get_transcript_path(&project.path, session_id)?;
-    let transcript = but_claude::Transcript::from_file(&transcript_path)?;
-    Ok(but_claude::ClaudeSessionDetails {
-        summary: transcript.summary(),
-        last_prompt: transcript.prompt(),
-    })
+    let session = but_claude::db::get_session_by_id(&mut ctx, session_id)?
+        .context("Could not find session")?;
+    let current_id = Transcript::current_valid_session_id(&project.path, &session).await?;
+    if let Some(current_id) = current_id {
+        let transcript_path =
+            but_claude::Transcript::get_transcript_path(&project.path, current_id)?;
+        let transcript = but_claude::Transcript::from_file(&transcript_path)?;
+        Ok(but_claude::ClaudeSessionDetails {
+            summary: transcript.summary(),
+            last_prompt: transcript.prompt(),
+        })
+    } else {
+        Ok(but_claude::ClaudeSessionDetails {
+            summary: None,
+            last_prompt: None,
+        })
+    }
 }
 
 #[api_cmd]
