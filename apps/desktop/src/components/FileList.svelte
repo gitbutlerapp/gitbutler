@@ -10,7 +10,7 @@
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
-	import { type TreeChange, type Modification } from '$lib/hunks/change';
+	import { type TreeChange, isExecutableStatus } from '$lib/hunks/change';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
@@ -221,7 +221,7 @@
 </script>
 
 {#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0)}
-	{@const isExecutable = (change.status.subject as Modification).flags}
+	{@const isExecutable = isExecutableStatus(change.status)}
 	{@const selected = idSelection.has(change.path, selectionId)}
 	<FileListItemWrapper
 		{selectionId}
@@ -234,7 +234,7 @@
 		{active}
 		hideBorder={hideLastFileBorder && idx === visibleFiles.length - 1}
 		draggable={draggableFiles}
-		executable={!!isExecutable}
+		executable={isExecutable}
 		showCheckbox={showCheckboxes}
 		focusableOpts={{ onKeydown: (e) => handleKeyDown(change, idx, e), autoAction: true }}
 		onclick={(e) => {

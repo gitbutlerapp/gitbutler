@@ -78,6 +78,20 @@ export type Status =
 	| { readonly type: 'Rename'; readonly subject: Rename };
 /** Something was added or scheduled to be added.*/
 
+export function isExecutableStatus(status: Status): boolean {
+	switch (status.type) {
+		case 'Addition':
+		case 'Deletion':
+			return false;
+		case 'Modification':
+		case 'Rename':
+			return (
+				status.subject.flags === 'ExecutableBitAdded' ||
+				status.subject.flags === 'ExecutableBitRemoved'
+			);
+	}
+}
+
 function isChangeStatus(something: unknown): something is Status {
 	return (
 		typeof something === 'object' &&
