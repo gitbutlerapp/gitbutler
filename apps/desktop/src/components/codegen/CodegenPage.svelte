@@ -370,7 +370,7 @@
 <div class="page">
 	<ReduxResult result={claudeAvailable.current} {projectId}>
 		{#snippet children(claudeAvailable, { projectId })}
-			{#if claudeAvailable}
+			{#if claudeAvailable.status === 'available'}
 				{@render main({ projectId })}
 			{:else}
 				{@render claudeNotAvailable()}
