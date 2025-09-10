@@ -303,10 +303,21 @@ fn many_changes_without_symlink_support() -> anyhow::Result<()> {
         },
     }
     "#);
-    assert!(
-        change.unified_diff(&repo, 3)?.is_none(),
-        "In this case the underlying engine refuses to diff symlinks entirely"
-    );
+    // It can do it as long as the symlink isn't on disk.
+    insta::assert_debug_snapshot!(change.unified_diff(&repo, 3)?, @r#"
+    Some(
+        Patch {
+            hunks: [
+                DiffHunk("@@ -1,0 +1,1 @@
+                +link-target
+                "),
+            ],
+            is_result_of_binary_to_text_conversion: false,
+            lines_added: 1,
+            lines_removed: 0,
+        },
+    )
+    "#);
     Ok(())
 }
 
