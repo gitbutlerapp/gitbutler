@@ -1,6 +1,6 @@
 use crate::{Stack, VirtualBranchesHandle};
 use anyhow::{Ok, Result};
-use bstr::BString;
+use bstr::{BString, ByteSlice};
 use but_graph::virtual_branches_legacy_types;
 use git2::Commit;
 use gitbutler_command_context::CommandContext;
@@ -267,6 +267,7 @@ impl StackBranch {
                 name: reference.name().into(),
                 deref: false,
             };
+            let new_name: gix::refs::FullName = qualified_reference_name(name).try_into()?;
             let create = RefEdit {
                 change: Change::Update {
                     log: LogChange {
@@ -277,10 +278,24 @@ impl StackBranch {
                     expected: PreviousValue::ExistingMustMatch(oid.into()),
                     new: Target::Object(oid),
                 },
-                name: qualified_reference_name(name).try_into()?,
+                name: new_name.clone(),
                 deref: false,
             };
-            repo.edit_references([delete, create])?;
+
+            let one_is_contained_in_the_other = [
+                (new_name.as_bstr(), reference.name().as_bstr()),
+                (reference.name().as_bstr(), new_name.as_bstr()),
+            ]
+            .iter()
+            .any(|(a, b)| a.contains_str(b) && a.get(b.len()) == Some(&b'/'));
+            if one_is_contained_in_the_other {
+                // Workaround `gix` issue which can't deal with directories in one transactions.
+                // TODO(gix): should be able to handle this.
+                repo.edit_references([delete])?;
+                repo.edit_references([create])?;
+            } else {
+                repo.edit_references([delete, create])?;
+            }
         } else {
             repo.reference(
                 qualified_reference_name(name),
