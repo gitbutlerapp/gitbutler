@@ -80,6 +80,10 @@ export class ClaudeCodeService {
 		});
 	}
 
+	get fetchSessionDetails() {
+		return this.api.endpoints.getSessionDetails.fetch;
+	}
+
 	get promptTemplates() {
 		return this.api.endpoints.getPromptTemplates.useQuery;
 	}

@@ -78,11 +78,13 @@ pub async fn claude_get_session_details(
         Ok(but_claude::ClaudeSessionDetails {
             summary: transcript.summary(),
             last_prompt: transcript.prompt(),
+            in_gui: session.in_gui,
         })
     } else {
         Ok(but_claude::ClaudeSessionDetails {
             summary: None,
             last_prompt: None,
+            in_gui: session.in_gui,
         })
     }
 }

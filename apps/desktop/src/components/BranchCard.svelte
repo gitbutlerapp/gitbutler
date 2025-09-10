@@ -12,6 +12,7 @@
 	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 
+	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { CodegenRuleDropData, CodegenRuleDropHandler } from '$lib/codegen/dropzone';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
@@ -97,6 +98,7 @@
 	const stackService = inject(STACK_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const rulesService = inject(RULES_SERVICE);
+	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 
@@ -245,8 +247,23 @@
 													tooltipMaxWidth={160}
 													width="100%"
 													maxWidth={140}
-													onclick={() => {
+													onclick={async () => {
 														if (!args.stackId) return;
+
+														// Get session details to check if it's inGui
+														const sessionId = (
+															rule.filters[0]! as RuleFilter & { type: 'claudeCodeSessionId' }
+														).subject;
+														const sessionDetails = await claudeCodeService.fetchSessionDetails({
+															projectId,
+															sessionId
+														});
+
+														if (sessionDetails && !sessionDetails.inGui) {
+															// Don't redirect if session was not created in GUI
+															return;
+														}
+
 														projectState.selectedClaudeSession.set({
 															stackId: args.stackId,
 															head: branchName
