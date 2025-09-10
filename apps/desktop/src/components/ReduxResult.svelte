@@ -65,14 +65,16 @@
 	{#if props.error}
 		{@render props.error(error)}
 	{:else if isParsedError(error)}
-		<InfoMessage error={error.message} style="error">
-			{#snippet title()}
-				{error.name}
-			{/snippet}
-			{#snippet content()}
-				An asynchronous operation failed.
-			{/snippet}
-		</InfoMessage>
+		<div class="redux-result__error-wrapper">
+			<InfoMessage error={error.message} style="error">
+				{#snippet title()}
+					{error.name}
+				{/snippet}
+				{#snippet content()}
+					An asynchronous operation failed.
+				{/snippet}
+			</InfoMessage>
+		</div>
 	{/if}
 {/snippet}
 
@@ -104,5 +106,10 @@
 		align-items: center;
 		gap: 8px;
 		color: var(--clr-text-2);
+	}
+
+	.redux-result__error-wrapper {
+		width: 100%;
+		padding: 2px;
 	}
 </style>
