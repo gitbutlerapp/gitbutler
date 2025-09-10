@@ -142,6 +142,7 @@
 		{@const withForce = partialStackRequestsForcePush(branchName, branches)}
 		{@const hasThingsToPush = branchHasUnpushedCommits(branchDetails)}
 		{@const hasConflicts = branchHasConflicts(branchDetails)}
+		{@const buttonDisabled = isReadOnly || !hasThingsToPush || hasConflicts}
 
 		<Button
 			testId={TestId.StackPushButton}
@@ -149,7 +150,7 @@
 			size="tag"
 			style="neutral"
 			{loading}
-			disabled={isReadOnly || !hasThingsToPush || hasConflicts}
+			disabled={buttonDisabled}
 			tooltip={getButtonTooltip(
 				hasThingsToPush,
 				hasConflicts,
