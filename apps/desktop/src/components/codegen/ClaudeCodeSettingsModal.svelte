@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
-	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
+	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { inject } from '@gitbutler/core/context';
 	import { Modal, SectionCard, Toggle } from '@gitbutler/ui';
@@ -11,11 +11,16 @@
 	};
 	const { onClose }: Props = $props();
 
-	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
+	const {
+		claudeExecutable,
+		recheckedAvailability,
+		checkClaudeAvailability,
+		updateClaudeExecutable
+	} = useAvailabilityChecking();
+
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
 
-	let claudeExecutable = $state('');
 	let notifyOnCompletion = $state(false);
 	let notifyOnPermissionRequest = $state(false);
 	let dangerouslyAllowAllPermissions = $state(false);
@@ -24,29 +29,12 @@
 	// Initialize Claude settings from store
 	$effect(() => {
 		if ($settingsStore?.claude) {
-			claudeExecutable = $settingsStore.claude.executable;
 			notifyOnCompletion = $settingsStore.claude.notifyOnCompletion;
 			notifyOnPermissionRequest = $settingsStore.claude.notifyOnPermissionRequest;
 			dangerouslyAllowAllPermissions = $settingsStore.claude.dangerouslyAllowAllPermissions;
 			autoCommitAfterCompletion = $settingsStore.claude.autoCommitAfterCompletion;
 		}
 	});
-
-	let recheckedAvailability = $state<'recheck-failed' | 'recheck-succeeded'>();
-	async function checkClaudeAvailability() {
-		const recheck = await claudeCodeService.fetchCheckAvailable(undefined, { forceRefetch: true });
-		if (recheck?.status === 'available') {
-			recheckedAvailability = 'recheck-succeeded';
-		} else {
-			recheckedAvailability = 'recheck-failed';
-		}
-	}
-
-	async function updateClaudeExecutable(value: string) {
-		claudeExecutable = value;
-		recheckedAvailability = undefined;
-		await settingsService.updateClaude({ executable: value });
-	}
 
 	async function updateNotifyOnCompletion(value: boolean) {
 		notifyOnCompletion = value;
@@ -93,8 +81,8 @@
 				{/snippet}
 
 				<ClaudeCheck
-					{claudeExecutable}
-					{recheckedAvailability}
+					claudeExecutable={claudeExecutable.current}
+					recheckedAvailability={recheckedAvailability.current}
 					onUpdateExecutable={updateClaudeExecutable}
 					onCheckAvailability={checkClaudeAvailability}
 					showInstallationGuide={false}
