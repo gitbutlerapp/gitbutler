@@ -38,6 +38,35 @@ export async function clickByTestId(
 	return element;
 }
 
+/**
+ * Drag and drop an element onto another element by their test IDs.
+ */
+export async function dragAndDropByTestId(
+	page: Page,
+	sourceId: TestIdValues,
+	targetId: TestIdValues
+) {
+	const source = await waitForTestId(page, sourceId);
+	const target = await waitForTestId(page, targetId);
+
+	await source.hover();
+	await page.mouse.down();
+	await target.hover();
+	await target.hover({ force: true });
+	await page.mouse.up();
+}
+
+/**
+ * Drag and drop an element onto another element by their locators.
+ */
+export async function dragAndDropByLocator(page: Page, source: Locator, target: Locator) {
+	await source.hover();
+	await page.mouse.down();
+	await target.hover();
+	await target.hover({ force: true });
+	await page.mouse.up();
+}
+
 export async function fillByTestId(
 	page: Page,
 	testId: TestIdValues,
