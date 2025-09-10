@@ -1,12 +1,16 @@
+import {
+	shouldRaiseDependencyError,
+	type DependencyError,
+	type HunkDependencies
+} from '$lib/dependencies/dependencies';
+import { shouldRaiseHunkAssignmentError, type HunkAssignment } from '$lib/hunks/hunk';
 import { showError } from '$lib/notifications/toasts';
 import { hasBackendExtra } from '$lib/state/backendQuery';
 import { createSelectByIds } from '$lib/state/customSelectors';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/core/context';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
-import type { DependencyError, HunkDependencies } from '$lib/dependencies/dependencies';
 import type { IgnoredChange, TreeChange, WorktreeChanges } from '$lib/hunks/change';
-import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { ClientState } from '$lib/state/clientState.svelte';
 
 export const WORKTREE_SERVICE = new InjectionToken<WorktreeService>('WorktreeService');
@@ -136,7 +140,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				 * that we can use selectors like `selectById`.
 				 */
 				transformResponse(response: WorktreeChanges) {
-					if (response.dependenciesError) {
+					if (shouldRaiseDependencyError(response.dependenciesError)) {
 						showError(
 							'Failed to compute dependencies',
 							response.dependenciesError.description,
@@ -145,7 +149,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						);
 					}
 
-					if (response.assignmentsError) {
+					if (shouldRaiseHunkAssignmentError(response.assignmentsError)) {
 						showError(
 							'Failed to compute hunk assignments',
 							response.assignmentsError.description,

@@ -39,6 +39,14 @@ export type HunkAssignmentError = {
 	description: string;
 };
 
+export function shouldRaiseHunkAssignmentError(
+	error: HunkAssignmentError | null
+): error is HunkAssignmentError {
+	if (!error) return false;
+	if (error.description === 'errors.projects.default_target.not_found') return false;
+	return true;
+}
+
 /**
  * Represents a loose association between a hunk and a stack.
  * A hunk being assigned to a stack means that upon unapplying the stack,
