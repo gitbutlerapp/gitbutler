@@ -4,6 +4,14 @@ export type DependencyError = {
 	description: string;
 };
 
+export function shouldRaiseDependencyError(
+	error: DependencyError | null
+): error is DependencyError {
+	if (!error) return false;
+	if (error.description === 'errors.projects.default_target.not_found') return false;
+	return true;
+}
+
 export type CalculationError = {
 	/**
 	 * The error message.
