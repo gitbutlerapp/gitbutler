@@ -769,6 +769,14 @@ export class FocusManager {
 
 		const navigationContext = this.buildNavigationContext(event, metadata);
 
+		if (this.shouldIgnoreNavigationForInput(navigationContext)) {
+			return false;
+		}
+
+		if (navigationContext.hasSelection) {
+			return false;
+		}
+
 		if (this.shouldShowOutlineOnly(navigationContext)) {
 			this.outline.set(true);
 			event.stopPropagation();
@@ -841,14 +849,6 @@ export class FocusManager {
 		navigationContext: NavigationContext
 	): boolean {
 		if (!navigationContext.action) return false;
-
-		if (this.shouldIgnoreNavigationForInput(navigationContext)) {
-			return false;
-		}
-
-		if (navigationContext.hasSelection) {
-			return false;
-		}
 
 		event.preventDefault();
 		event.stopPropagation();
