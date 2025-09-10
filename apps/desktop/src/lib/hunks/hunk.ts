@@ -35,6 +35,10 @@ export type HunkHeader = {
 	readonly newLines: number;
 };
 
+export type HunkAssignmentError = {
+	description: string;
+};
+
 /**
  * Represents a loose association between a hunk and a stack.
  * A hunk being assigned to a stack means that upon unapplying the stack,
