@@ -104,6 +104,7 @@ impl UnifiedDiff {
         context_lines: u32,
         diff_filter: &mut gix::diff::blob::Platform,
     ) -> anyhow::Result<Option<Self>> {
+        use gix::diff::blob;
         let current_state = current_state.into();
         let previous_state = previous_state.into();
         match diff_filter.set_resource(
@@ -121,7 +122,12 @@ impl UnifiedDiff {
             repo,
         ) {
             Ok(()) => {}
-            Err(gix::diff::blob::platform::set_resource::Error::InvalidMode { .. }) => {
+            Err(
+                blob::platform::set_resource::Error::InvalidMode { .. }
+                | blob::platform::set_resource::Error::ConvertToDiffable(
+                    blob::pipeline::convert_to_diffable::Error::InvalidEntryKind { .. },
+                ),
+            ) => {
                 return Ok(None);
             }
             Err(err) => return Err(err.into()),
@@ -141,7 +147,12 @@ impl UnifiedDiff {
             repo,
         ) {
             Ok(()) => {}
-            Err(gix::diff::blob::platform::set_resource::Error::InvalidMode { .. }) => {
+            Err(
+                blob::platform::set_resource::Error::InvalidMode { .. }
+                | blob::platform::set_resource::Error::ConvertToDiffable(
+                    blob::pipeline::convert_to_diffable::Error::InvalidEntryKind { .. },
+                ),
+            ) => {
                 return Ok(None);
             }
             Err(err) => return Err(err.into()),
