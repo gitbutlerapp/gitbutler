@@ -164,14 +164,14 @@
 <style lang="postcss">
 	.info-message {
 		display: flex;
+		width: 100%;
 		padding: 14px;
 		gap: 12px;
+		border: 1px solid green;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		color: var(--clr-scale-ntrl-0);
-		transition:
-			background-color var(--transition-slow),
-			border-color var(--transition-slow);
+		transition: background-color var(--transition-slow);
 	}
 	.info-message__inner {
 		display: flex;
