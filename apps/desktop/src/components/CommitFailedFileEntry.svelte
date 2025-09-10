@@ -64,6 +64,7 @@
 								diffFont={$userSettings.diffFont}
 								diffLigatures={$userSettings.diffLigatures}
 								diffContrast={$userSettings.diffContrast}
+								colorBlindFriendly={$userSettings.colorBlindFriendly}
 								inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 								hunkStr={dependency.hunk.diff}
 								draggingDisabled
