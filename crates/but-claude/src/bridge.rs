@@ -29,6 +29,7 @@ use anyhow::{Result, bail};
 use but_broadcaster::{Broadcaster, FrontendEvent};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     collections::HashMap,
@@ -484,15 +485,30 @@ async fn send_claude_message(
     Ok(())
 }
 
+/// Result of checking Claude Code availability
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum ClaudeCheckResult {
+    /// Claude Code is available and returned a version
+    Available { version: String },
+    /// Claude Code is not available or failed to execute
+    NotAvailable,
+}
+
 /// Check if Claude Code is available by running the version command.
-/// Returns true if the command executes successfully, false otherwise.
-pub async fn check_claude_available(claude_executable: &str) -> bool {
+/// Returns ClaudeCheckResult indicating availability and version if available.
+pub async fn check_claude_available(claude_executable: &str) -> ClaudeCheckResult {
     match Command::new(claude_executable)
         .arg("--version")
         .output()
         .await
     {
-        Ok(output) => output.status.success(),
-        Err(_) => false,
+        Ok(output) if output.status.success() => match String::from_utf8(output.stdout) {
+            Ok(version) => ClaudeCheckResult::Available {
+                version: version.trim().to_string(),
+            },
+            Err(_) => ClaudeCheckResult::NotAvailable,
+        },
+        _ => ClaudeCheckResult::NotAvailable,
     }
 }

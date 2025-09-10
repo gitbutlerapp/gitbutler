@@ -22,8 +22,8 @@ export class CodegenAnalytics {
 		model: ModelType;
 	}): Promise<EventProperties> {
 		try {
-			// Fetch current messages and stack active status
-			const [messages, isStackActiveResult] = await Promise.all([
+			// Fetch current messages, stack active status, and Claude version
+			const [messages, isStackActiveResult, claudeCheck] = await Promise.all([
 				this.claudeCodeService.fetchMessages({
 					projectId: args.projectId,
 					stackId: args.stackId
@@ -31,7 +31,8 @@ export class CodegenAnalytics {
 				this.claudeCodeService.fetchIsStackActive({
 					projectId: args.projectId,
 					stackId: args.stackId
-				})
+				}),
+				this.claudeCodeService.fetchCheckAvailable(undefined)
 			]);
 
 			// Get settings for Claude preferences
@@ -53,7 +54,8 @@ export class CodegenAnalytics {
 				autoCommitAfterCompletion: settings?.claude?.autoCommitAfterCompletion ?? true,
 				dangerouslySkipPermissions: settings?.claude?.dangerouslyAllowAllPermissions ?? false,
 				tokensUsed: usage.tokens,
-				totalMessagesSent: totalMessagesSent
+				totalMessagesSent: totalMessagesSent,
+				claudeVersion: claudeCheck?.status === 'available' ? claudeCheck.version : undefined
 			};
 
 			return namespaceProps(claudeMetrics, 'claude');

@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use but_api_macros::api_cmd;
-use but_claude::{ClaudeMessage, ModelType, ThinkingLevel, Transcript, prompt_templates};
+use but_claude::{
+    ClaudeCheckResult, ClaudeMessage, ModelType, ThinkingLevel, Transcript, prompt_templates,
+};
 use but_settings::AppSettings;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
@@ -130,11 +132,10 @@ pub async fn claude_cancel_session(app: &App, params: CancelSessionParams) -> Re
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
-pub async fn claude_check_available() -> Result<bool, Error> {
+pub async fn claude_check_available() -> Result<ClaudeCheckResult, Error> {
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let claude_executable = app_settings.claude.executable.clone();
-    let is_available = but_claude::bridge::check_claude_available(&claude_executable).await;
-    Ok(is_available)
+    Ok(but_claude::bridge::check_claude_available(&claude_executable).await)
 }
 
 #[derive(Deserialize)]

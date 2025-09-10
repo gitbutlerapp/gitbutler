@@ -1,4 +1,5 @@
 import {
+	type ClaudeCheckResult,
 	type ClaudeMessage,
 	type ClaudePermissionRequest,
 	type ClaudeSessionDetails,
@@ -226,7 +227,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				invalidatesTags: [invalidatesList(ReduxTag.ClaudeStackActive)]
 			}),
-			checkAvailable: build.query<boolean, undefined>({
+			checkAvailable: build.query<ClaudeCheckResult, undefined>({
 				extraOptions: { command: 'claude_check_available' },
 				query: (args) => args,
 				// For some unholy reason, this is represented in seconds. This
