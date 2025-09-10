@@ -56,7 +56,7 @@ fn annotate_linux_keychain(err: anyhow::Error) -> anyhow::Error {
     // This is fine, except for when we might be dependent on the locale.
     // If this is an issue, actually test this.
     let err_string = err.to_string();
-    if err_string.contains(" org.freedesktop.secrets ") {
+    if err_string.contains(" org.freedesktop.secrets ") || err_string.contains("DBus error") {
         err.context(gitbutler_error::error::Code::SecretKeychainNotFound)
     } else if err_string.contains("Secret Service: no result found") {
         err.context(gitbutler_error::error::Code::MissingLoginKeychain)
