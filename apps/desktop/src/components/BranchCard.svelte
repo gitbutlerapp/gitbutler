@@ -158,8 +158,17 @@
 		{#if !args.prNumber && args.stackId}
 			<PrNumberUpdater {projectId} stackId={args.stackId} {branchName} />
 		{/if}
+
+		{@const rule = args.stackId
+			? rulesService.aiRuleForStack({ projectId, stackId: args.stackId })
+			: undefined}
 		{@const codegenRuleHandler = args.stackId
-			? new CodegenRuleDropHandler(projectId, args.stackId, rulesService)
+			? new CodegenRuleDropHandler(
+					projectId,
+					args.stackId,
+					rulesService,
+					!!rule?.current.data?.rule
+				)
 			: undefined}
 
 		<Dropzone

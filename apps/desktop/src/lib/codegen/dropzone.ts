@@ -10,14 +10,15 @@ export class CodegenRuleDropHandler implements DropzoneHandler {
 	constructor(
 		private projectId: string,
 		private stackId: string,
-		private rulesService: RulesService
+		private rulesService: RulesService,
+		private headerAlreadyHasRule: boolean
 	) {}
 
 	accepts(data: unknown): boolean {
-		return (
-			data instanceof CodegenRuleDropData &&
-			data.rule.action.subject.subject.target.subject !== this.stackId
-		);
+		if (this.headerAlreadyHasRule) return false;
+		if (!(data instanceof CodegenRuleDropData)) return false;
+		if (data.rule.action.subject.subject.target.subject === this.stackId) return false;
+		return true;
 	}
 
 	ondrop(data: CodegenRuleDropData): void {
