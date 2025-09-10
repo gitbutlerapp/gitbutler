@@ -31,7 +31,7 @@ export default class CommitSuggestions {
 	setStagedChanges(changes: ChangeDiff[]) {
 		this.stagedChanges = changes
 			.map((change) => {
-				if (change.diff.type !== 'Patch') return;
+				if (change.diff?.type !== 'Patch') return;
 				return {
 					path: change.path,
 					diffs: change.diff.subject.hunks.map((hunk) => hunk.diff)

@@ -8,7 +8,7 @@ import type { ClientState } from '$lib/state/clientState.svelte';
 
 export type ChangeDiff = {
 	path: string;
-	diff: UnifiedDiff;
+	diff: UnifiedDiff | null;
 };
 
 export const DIFF_SERVICE = new InjectionToken<DiffService>('DiffService');
@@ -59,7 +59,7 @@ export class DiffService {
 function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			getDiff: build.query<UnifiedDiff, { projectId: string; change: TreeChange }>({
+			getDiff: build.query<UnifiedDiff | null, { projectId: string; change: TreeChange }>({
 				extraOptions: { command: 'tree_change_diffs' },
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.Diff)]

@@ -36,7 +36,7 @@
 		projectId: string;
 		selectable: boolean;
 		change: TreeChange;
-		diff: UnifiedDiff;
+		diff: UnifiedDiff | null;
 		selectionId: SelectionId;
 		stackId?: string;
 		commitId?: string;
@@ -174,7 +174,15 @@
 		class:top-padding={topPadding}
 		bind:this={viewport}
 	>
-		{#if diff.type === 'Patch'}
+		{#if diff === null}
+			<div class="hunk-placehoder">
+				<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
+					{#snippet caption()}
+						Was not able to load the diff
+					{/snippet}
+				</EmptyStatePlaceholder>
+			</div>
+		{:else if diff.type === 'Patch'}
 			{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
 			{#if linesModified > LARGE_DIFF_THRESHOLD && !showAnyways}
 				<LargeDiffMessage

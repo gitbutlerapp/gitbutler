@@ -129,7 +129,7 @@ export default class DiffInputContext {
 			const filePath = diff.path;
 			const diffStringBuffer: string[] = [];
 
-			if (diff.diff.type !== 'Patch') continue;
+			if (diff.diff?.type !== 'Patch') continue;
 
 			for (const hunk of diff.diff.subject.hunks) {
 				diffStringBuffer.push(hunk.diff);

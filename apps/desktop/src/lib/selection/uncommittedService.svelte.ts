@@ -81,7 +81,7 @@ export class UncommittedService {
 		}
 		const file = changeDiff;
 
-		if (file.type !== 'Patch') return undefined;
+		if (file?.type !== 'Patch') return undefined;
 
 		const hunkDiff = file.subject.hunks.find(
 			(hunkDiff) =>
@@ -224,7 +224,7 @@ export class UncommittedService {
 				if (hunksAtPath.length === 0) return undefined;
 
 				// If the diff is not a patch, we can't/don't need to filter it.
-				if (diff.diff.type !== 'Patch') return diff;
+				if (diff.diff?.type !== 'Patch') return diff;
 
 				// Select the diff hunks that are also in the list of relevant hunks.
 				const filteredDiff = diff.diff.subject.hunks.filter((h) => {
