@@ -1,6 +1,13 @@
 import type { Message, MessageParam, Usage } from '@anthropic-ai/sdk/resources/index.mjs';
 
 /**
+ * Result of checking Claude Code availability
+ */
+export type ClaudeCheckResult =
+	| { status: 'available'; version: string }
+	| { status: 'not_available' };
+
+/**
  * Represents different types of events that can occur during Claude code interactions
  */
 export type ClaudeCodeMessage =

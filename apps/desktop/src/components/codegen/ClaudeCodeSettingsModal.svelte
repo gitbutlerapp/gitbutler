@@ -35,7 +35,7 @@
 	let recheckedAvailability = $state<'recheck-failed' | 'recheck-succeeded'>();
 	async function checkClaudeAvailability() {
 		const recheck = await claudeCodeService.fetchCheckAvailable(undefined, { forceRefetch: true });
-		if (recheck) {
+		if (recheck?.status === 'available') {
 			recheckedAvailability = 'recheck-succeeded';
 		} else {
 			recheckedAvailability = 'recheck-failed';
