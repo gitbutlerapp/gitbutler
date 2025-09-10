@@ -26,7 +26,7 @@ pub struct ClaudeSession {
     /// The timestamp when the session was last updated.
     updated_at: chrono::NaiveDateTime,
     /// Whether this session is used by the GUI.
-    in_gui: bool,
+    pub in_gui: bool,
 }
 
 /// Represents a message in a Claude session, referencing the stable session ID.
@@ -86,6 +86,7 @@ pub enum GitButlerMessage {
 pub struct ClaudeSessionDetails {
     pub summary: Option<String>,
     pub last_prompt: Option<String>,
+    pub in_gui: bool,
 }
 
 /// Represents a request for permission to use a tool in the Claude MCP.

@@ -17,6 +17,7 @@
 		onclick: (e: MouseEvent) => void;
 		branchIcon: Snippet;
 		totalHeads: number;
+		sessionInGui?: boolean;
 	};
 
 	const {
@@ -30,64 +31,26 @@
 		commits,
 		onclick,
 		branchIcon,
-		totalHeads
+		totalHeads,
+		sessionInGui
 	}: Props = $props();
 
 	let isOpen = $state(false);
 </script>
 
 <div class="codegen-entry-wrapper" use:focusable>
-	<div class="codegen-entry">
-		<button class="codegen-entry-header" class:selected type="button" {onclick}>
-			{#if selected}
-				<div class="active-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-			{/if}
-			<div class="entry-header-content">
-				{@render branchIcon()}
-
-				<p class="text-14 text-bold truncate full-width">{branchName}</p>
-				{@render vibeIcon()}
-			</div>
-
-			{#if status !== 'disabled'}
-				<div class="entry-metadata text-12">
-					<Tooltip text="Total tokens used and cost">
-						<div class="flex gap-4 items-center">
-							<p>{tokensUsed}</p>
-
-							<svg
-								width="0.938rem"
-								height="0.938rem"
-								viewBox="0 0 15 15"
-								fill="none"
-								xmlns="http://www.w3.org/2000/svg"
-								opacity="0.6"
-							>
-								<circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.5" />
-								<circle
-									cx="7.50015"
-									cy="7.5"
-									r="2.92106"
-									transform="rotate(-45 7.50015 7.5)"
-									stroke="currentColor"
-									stroke-width="1.5"
-									stroke-dasharray="2 1"
-								/>
-							</svg>
-
-							<div class="metadata-divider"></div>
-							<p>${cost.toFixed(2)}</p>
-						</div>
-					</Tooltip>
-
-					{#if lastInteractionTime}
-						<p class="text-11 last-interaction-time opacity-60">
-							<TimeAgo date={lastInteractionTime} addSuffix />
-						</p>
-					{/if}
-				</div>
-			{/if}
-		</button>
+	<div class="codegen-entry" class:disabled={sessionInGui === false}>
+		{#if sessionInGui !== false}
+			<button class="codegen-entry-header" class:selected type="button" {onclick}>
+				{@render headerContent()}
+			</button>
+		{:else}
+			<Tooltip text="This session was created via CLI and can't be continued in the GUI yet">
+				<button class="codegen-entry-header" class:selected type="button" disabled>
+					{@render headerContent()}
+				</button>
+			</Tooltip>
+		{/if}
 
 		{#if commitCount > 0}
 			<div class="commits-drawer">
@@ -123,6 +86,58 @@
 	{/if}
 </div>
 
+{#snippet headerContent()}
+	{#if selected}
+		<div class="active-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+	{/if}
+	<div class="entry-header-content">
+		{@render branchIcon()}
+
+		<p class="text-14 text-bold truncate full-width">{branchName}</p>
+
+		{@render vibeIcon()}
+	</div>
+
+	{#if status !== 'disabled'}
+		<div class="entry-metadata text-12">
+			<Tooltip text="Total tokens used and cost">
+				<div class="flex gap-4 items-center">
+					<p>{tokensUsed}</p>
+
+					<svg
+						width="0.938rem"
+						height="0.938rem"
+						viewBox="0 0 15 15"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+						opacity="0.6"
+					>
+						<circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.5" />
+						<circle
+							cx="7.50015"
+							cy="7.5"
+							r="2.92106"
+							transform="rotate(-45 7.50015 7.5)"
+							stroke="currentColor"
+							stroke-width="1.5"
+							stroke-dasharray="2 1"
+						/>
+					</svg>
+
+					<div class="metadata-divider"></div>
+					<p>${cost.toFixed(2)}</p>
+				</div>
+			</Tooltip>
+
+			{#if lastInteractionTime}
+				<p class="text-11 last-interaction-time opacity-60">
+					<TimeAgo date={lastInteractionTime} addSuffix />
+				</p>
+			{/if}
+		</div>
+	{/if}
+{/snippet}
+
 {#snippet vibeIcon()}
 	<div class="vibe-icon {status}">
 		{#if status === 'running'}
@@ -149,6 +164,20 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
+
+		&.disabled {
+			background-color: var(--clr-bg-1-muted);
+			opacity: 0.7;
+
+			.codegen-entry-header {
+				background-color: transparent;
+				cursor: not-allowed;
+
+				&:hover {
+					background-color: transparent;
+				}
+			}
+		}
 	}
 
 	.codegen-entry-header {

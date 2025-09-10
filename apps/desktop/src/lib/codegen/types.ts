@@ -138,6 +138,7 @@ export type GitButlerMessage =
 export type ClaudeSessionDetails = {
 	summary: string | null;
 	lastPrompt: string | null;
+	inGui: boolean;
 };
 
 export function sessionMessage(sessionDetails: ClaudeSessionDetails): string | undefined {
