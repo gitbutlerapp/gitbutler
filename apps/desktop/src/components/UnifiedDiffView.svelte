@@ -225,6 +225,7 @@
 							wrapText={$userSettings.wrapText}
 							diffFont={$userSettings.diffFont}
 							diffContrast={$userSettings.diffContrast}
+							colorBlindFriendly={$userSettings.colorBlindFriendly}
 							inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 							onLineClick={(p) => {
 								if (!canBePartiallySelected(diff.subject)) {
