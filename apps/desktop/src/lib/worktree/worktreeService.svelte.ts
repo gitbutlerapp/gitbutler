@@ -1,13 +1,13 @@
+import { showError } from '$lib/notifications/toasts';
 import { hasBackendExtra } from '$lib/state/backendQuery';
 import { createSelectByIds } from '$lib/state/customSelectors';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/core/context';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
-import type { HunkDependencies } from '$lib/dependencies/dependencies';
+import type { DependencyError, HunkDependencies } from '$lib/dependencies/dependencies';
 import type { IgnoredChange, TreeChange, WorktreeChanges } from '$lib/hunks/change';
 import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { ClientState } from '$lib/state/clientState.svelte';
-import type { ReduxError } from '$lib/state/reduxError';
 
 export const WORKTREE_SERVICE = new InjectionToken<WorktreeService>('WorktreeService');
 
@@ -92,7 +92,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					ignoredChanges: IgnoredChange[];
 					hunkAssignments: HunkAssignment[];
 					dependencies: HunkDependencies | undefined;
-					dependenciesError: ReduxError | undefined;
+					dependenciesError: DependencyError | undefined;
 				},
 				{ projectId: string }
 			>({
@@ -136,6 +136,24 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				 * that we can use selectors like `selectById`.
 				 */
 				transformResponse(response: WorktreeChanges) {
+					if (response.dependenciesError) {
+						showError(
+							'Failed to compute dependencies',
+							response.dependenciesError.description,
+							undefined,
+							'worktree-dependencies-error'
+						);
+					}
+
+					if (response.assignmentsError) {
+						showError(
+							'Failed to compute hunk assignments',
+							response.assignmentsError.description,
+							undefined,
+							'worktree-assignments-error'
+						);
+					}
+
 					return {
 						changes: worktreeAdapter.addMany(worktreeAdapter.getInitialState(), response.changes),
 						rawChanges: response.changes,

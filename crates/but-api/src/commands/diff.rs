@@ -8,7 +8,9 @@ use but_core::{
     ui::{TreeChange, TreeChanges},
 };
 use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeChanges};
-use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
+use but_hunk_dependency::ui::{
+    HunkDependencies, hunk_dependencies_for_workspace_changes_by_worktree_dir,
+};
 use but_settings::AppSettings;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
@@ -126,6 +128,8 @@ pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChan
         Some(changes.changes.clone()),
     );
 
+    // If the dependencies calculation failed, we still want to try to get assignments
+    // so we pass an empty HunkDependencies in that case.
     let (assignments, assignments_error) = match &dependencies {
         Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
             ctx,
@@ -133,10 +137,12 @@ pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChan
             Some(changes.changes.clone()),
             Some(dependencies),
         )?,
-        Err(e) => (
-            vec![],
-            Some(anyhow::anyhow!("failed to get hunk dependencies: {}", e)),
-        ),
+        Err(_) => but_hunk_assignment::assignments_with_fallback(
+            ctx,
+            false,
+            Some(changes.changes.clone()),
+            Some(&HunkDependencies::default()), // empty dependencies on error
+        )?,
     };
 
     if ctx.app_settings().feature_flags.rules {

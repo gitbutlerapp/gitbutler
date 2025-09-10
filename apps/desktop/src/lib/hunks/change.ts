@@ -1,6 +1,5 @@
-import type { HunkDependencies } from '$lib/dependencies/dependencies';
-import type { HunkAssignment } from '$lib/hunks/hunk';
-import type { ReduxError } from '$lib/state/reduxError';
+import type { DependencyError, HunkDependencies } from '$lib/dependencies/dependencies';
+import type { HunkAssignment, HunkAssignmentError } from '$lib/hunks/hunk';
 
 /** Contains the changes that are in the worktree */
 export type WorktreeChanges = {
@@ -12,9 +11,9 @@ export type WorktreeChanges = {
 	 */
 	readonly ignoredChanges: IgnoredChange[];
 	readonly assignments: HunkAssignment[];
-	readonly assignmentsError: ReduxError | null;
+	readonly assignmentsError: HunkAssignmentError | null;
 	readonly dependencies: HunkDependencies | null;
-	readonly dependenciesError: ReduxError | null;
+	readonly dependenciesError: DependencyError | null;
 };
 
 /**

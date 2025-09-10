@@ -44,7 +44,7 @@ pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
 ///
 /// Note that the [`errors`](Self::errors) field may contain information about specific failures, while other paths
 /// may have succeeded computing.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Default)]
 pub struct HunkDependencies {
     /// A map from hunk diffs to stack and commit dependencies.
     pub diffs: Vec<(String, DiffHunk, Vec<HunkLock>)>,

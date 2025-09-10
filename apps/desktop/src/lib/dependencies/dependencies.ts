@@ -1,5 +1,9 @@
 import type { DiffHunk } from '$lib/hunks/hunk';
 
+export type DependencyError = {
+	description: string;
+};
+
 export type CalculationError = {
 	/**
 	 * The error message.
