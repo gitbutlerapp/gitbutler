@@ -24,7 +24,7 @@
 		projectId: string;
 		stackId?: string;
 		change: TreeChange;
-		diff?: UnifiedDiff;
+		diff?: UnifiedDiff | null;
 		selectionId: SelectionId;
 		selected?: boolean;
 		isHeader?: boolean;
