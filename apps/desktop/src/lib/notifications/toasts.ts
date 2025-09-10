@@ -47,7 +47,7 @@ export function showToast(toast: Toast) {
 	]);
 }
 
-export function showError(title: string, error: unknown, extraAction?: ExtraAction) {
+export function showError(title: string, error: unknown, extraAction?: ExtraAction, id?: string) {
 	const { name, message, description, ignored } = parseError(error);
 	if (isBundlingError(message)) {
 		console.warn(
@@ -60,6 +60,7 @@ export function showError(title: string, error: unknown, extraAction?: ExtraActi
 	if (!ignored) {
 		const commonErrorTitle = getTitleFromCommonErrorMessage(message);
 		showToast({
+			id,
 			title: name || commonErrorTitle || title,
 			message: description,
 			error: message,
