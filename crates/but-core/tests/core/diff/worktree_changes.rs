@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use but_core::diff;
 use but_core::{UnifiedDiff, WorktreeChanges};
 use but_testsupport::gix_testtools;
@@ -1798,15 +1798,7 @@ fn unified_diffs(
     worktree: WorktreeChanges,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<UnifiedDiff>> {
-    let mut out = Vec::new();
-    for diff in worktree
-        .changes
-        .into_iter()
-        .map(|c| c.unified_diff(repo, 3))
-    {
-        out.push(diff?.context("Can only diff blobs and links, not Commit")?);
-    }
-    Ok(out)
+    super::unified_diffs(worktree.changes, repo)
 }
 
 pub fn repo_in(fixture_name: &str, name: &str) -> anyhow::Result<gix::Repository> {
