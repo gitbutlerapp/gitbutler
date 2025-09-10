@@ -56,7 +56,11 @@ fn annotate_linux_keychain(err: anyhow::Error) -> anyhow::Error {
     // This is fine, except for when we might be dependent on the locale.
     // If this is an issue, actually test this.
     let err_string = err.to_string();
-    if err_string.contains(" org.freedesktop.secrets ") || err_string.contains("DBus error") {
+    if err_string.contains(" org.freedesktop.secrets ")
+        // This is supposed to prevent the DBus-Error to trigger a popup on CI which disturbs E2E tests.
+        // Ideally, e2e could be made to auto-confirm this particular message after a timeout, maybe?
+        || (!cfg!(debug_assertions) && err_string.contains("DBus error"))
+    {
         err.context(gitbutler_error::error::Code::SecretKeychainNotFound)
     } else if err_string.contains("Secret Service: no result found") {
         err.context(gitbutler_error::error::Code::MissingLoginKeychain)

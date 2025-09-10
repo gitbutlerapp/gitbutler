@@ -43,7 +43,6 @@ jobs:
             curl \
             wget \
             file \
-            gnome-keyring \
             libxdo-dev \
             libssl-dev \
             libayatana-appindicator3-dev \

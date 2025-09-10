@@ -28,14 +28,12 @@ use tracing::instrument;
 pub fn tree_change_diffs(
     project_id: ProjectId,
     change: TreeChange,
-) -> anyhow::Result<but_core::UnifiedDiff, Error> {
+) -> anyhow::Result<Option<but_core::UnifiedDiff>, Error> {
     let change: but_core::TreeChange = change.into();
     let project = gitbutler_project::get(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
-    Ok(change
-        .unified_diff(&repo, app_settings.context_lines)?
-        .context("TODO: Submodules must be handled specifically in the UI")?)
+    Ok(change.unified_diff(&repo, app_settings.context_lines)?)
 }
 
 #[derive(Debug, Clone, Serialize)]
