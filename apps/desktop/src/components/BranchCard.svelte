@@ -158,9 +158,6 @@
 		{#if !args.prNumber && args.stackId}
 			<PrNumberUpdater {projectId} stackId={args.stackId} {branchName} />
 		{/if}
-		{@const rule = args.stackId
-			? rulesService.aiRuleForStack({ projectId, stackId: args.stackId })
-			: undefined}
 		{@const codegenRuleHandler = args.stackId
 			? new CodegenRuleDropHandler(projectId, args.stackId, rulesService)
 			: undefined}
@@ -202,88 +199,8 @@
 					{#if args.buttons}
 						{@render args.buttons()}
 					{/if}
-					{#if args.first && rule}
-						<ReduxResult result={rule?.current} {projectId} stackId={args.stackId}>
-							{#snippet children({ rule }, { projectId: _projectId, stackId: _stackId })}
-								{#if rule}
-									<ClaudeSessionDescriptor
-										{projectId}
-										sessionId={(rule.filters[0]! as RuleFilter & { type: 'claudeCodeSessionId' })
-											.subject}
-									>
-										{#snippet loading()}
-											<Button
-												icon="ai-small"
-												style="purple"
-												size="tag"
-												class="branch-header__ai-pill__name"
-												shrinkable
-												reversedDirection
-												disabled>Loading...</Button
-											>
-										{/snippet}
-										{#snippet error()}
-											<Badge size="tag" style="error" kind="solid" icon="ai-small">
-												Session error
-											</Badge>
-										{/snippet}
-										{#snippet children(descriptor)}
-											<div
-												class="branch-header__ai-pill"
-												use:draggableChips={{
-													label: descriptor,
-													data: new CodegenRuleDropData(rule),
-													chipType: 'ai-session',
-													dropzoneRegistry,
-													dragStateService
-												}}
-											>
-												<Button
-													icon="ai-small"
-													style="purple"
-													size="tag"
-													shrinkable
-													tooltip="Click to go to session or drag to another lane"
-													tooltipMaxWidth={160}
-													width="100%"
-													maxWidth={140}
-													onclick={async () => {
-														if (!args.stackId) return;
-
-														// Get session details to check if it's inGui
-														const sessionId = (
-															rule.filters[0]! as RuleFilter & { type: 'claudeCodeSessionId' }
-														).subject;
-														const sessionDetails = await claudeCodeService.fetchSessionDetails({
-															projectId,
-															sessionId
-														});
-
-														if (sessionDetails && !sessionDetails.inGui) {
-															// Don't redirect if session was not created in GUI
-															return;
-														}
-
-														projectState.selectedClaudeSession.set({
-															stackId: args.stackId,
-															head: branchName
-														});
-														goto(codegenPath(projectId));
-													}}
-												>
-													{#snippet custom()}
-														<div class="branch-header__ai-pill-label">
-															<span class="truncate">{descriptor}</span>
-															<Icon name="draggable" opacity={0.8} />
-														</div>
-													{/snippet}
-												</Button>
-											</div>
-										{/snippet}
-									</ClaudeSessionDescriptor>
-								{/if}
-							{/snippet}
-						</ReduxResult>
+					{#if args.first}
+						{@render claudeRule(args as StackBranchProps)}
 					{/if}
 				{/snippet}
 
@@ -419,6 +336,86 @@
 		{@render args.branchContent()}
 	{/if}
 </div>
+
+{#snippet claudeRule(args: StackBranchProps)}
+	{@const rule = args.stackId
+		? rulesService.aiRuleForStack({ projectId, stackId: args.stackId })
+		: undefined}
+	{#if rule}
+		<ReduxResult result={rule?.current} {projectId} stackId={args.stackId}>
+			{#snippet children({ rule }, { projectId, stackId })}
+				{#if rule}
+					{@const sessionId = (rule.filters[0]! as RuleFilter & { type: 'claudeCodeSessionId' })
+						.subject}
+					{@const sessionDetails = claudeCodeService.sessionDetails(projectId, sessionId)}
+					<ReduxResult result={sessionDetails.current} {projectId} {stackId}>
+						{#snippet children(sessionDetails, { projectId, stackId: _stackId })}
+							<ClaudeSessionDescriptor {projectId} {sessionId}>
+								{#snippet loading()}
+									<Button
+										icon="ai-small"
+										style="purple"
+										size="tag"
+										class="branch-header__ai-pill__name"
+										shrinkable
+										reversedDirection
+										disabled>Loading...</Button
+									>
+								{/snippet}
+								{#snippet error()}
+									<Badge size="tag" style="error" kind="solid" icon="ai-small">Session error</Badge>
+								{/snippet}
+								{#snippet children(descriptor)}
+									<div
+										class="branch-header__ai-pill"
+										use:draggableChips={{
+											label: descriptor,
+											data: new CodegenRuleDropData(rule),
+											chipType: 'ai-session',
+											dropzoneRegistry,
+											dragStateService
+										}}
+									>
+										<Button
+											icon="ai-small"
+											style="purple"
+											kind={sessionDetails.inGui ? 'solid' : 'outline'}
+											size="tag"
+											shrinkable
+											tooltip={sessionDetails.inGui
+												? 'Click to go to session or drag to another lane'
+												: 'Drag to another lane'}
+											tooltipMaxWidth={160}
+											width="100%"
+											maxWidth={140}
+											onclick={async () => {
+												if (!args.stackId) return;
+												if (!sessionDetails.inGui) return;
+
+												projectState.selectedClaudeSession.set({
+													stackId: args.stackId,
+													head: branchName
+												});
+												goto(codegenPath(projectId));
+											}}
+										>
+											{#snippet custom()}
+												<div class="branch-header__ai-pill-label">
+													<span class="truncate">{descriptor}</span>
+													<Icon name="draggable" opacity={0.8} />
+												</div>
+											{/snippet}
+										</Button>
+									</div>
+								{/snippet}
+							</ClaudeSessionDescriptor>
+						{/snippet}
+					</ReduxResult>
+				{/if}
+			{/snippet}
+		</ReduxResult>
+	{/if}
+{/snippet}
 
 <style lang="postcss">
 	.branch-card {

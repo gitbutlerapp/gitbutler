@@ -9,13 +9,8 @@
 
 	import { Icon } from '@gitbutler/ui';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
+	import type { Result } from '$lib/state/helpers';
 	import type { Snippet } from 'svelte';
-
-	type Result<A> = {
-		data?: A;
-		status: QueryStatus;
-		error?: unknown;
-	};
 
 	type Env<B> = {
 		projectId: string;

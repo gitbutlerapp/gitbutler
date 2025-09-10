@@ -7,6 +7,12 @@ import {
 } from '@reduxjs/toolkit/query';
 import type { CustomQuery, CustomResult } from '$lib/state/butlerModule';
 
+export type Result<A> = {
+	data?: A;
+	status: QueryStatus;
+	error?: unknown;
+};
+
 /** Copied from redux-toolkit, it isn't exported. */
 export function isQueryDefinition(
 	e: EndpointDefinition<unknown, any, string, unknown>
