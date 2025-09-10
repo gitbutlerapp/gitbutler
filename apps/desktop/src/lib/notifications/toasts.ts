@@ -41,9 +41,12 @@ export function showToast(toast: Toast) {
 	}
 
 	toast.message = toast.message?.replace(/^ */gm, '');
+	if (!toast.id) {
+		toast = { ...toast, id: `${idCounter++}` };
+	}
 	toastStore.update((items) => [
 		...items.filter((t) => toast.id === undefined || t.id !== toast.id),
-		{ id: (idCounter++).toString(), ...toast }
+		toast
 	]);
 }
 
