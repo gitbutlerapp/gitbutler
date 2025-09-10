@@ -3,6 +3,7 @@
 	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UnifiedDiffView from '$components/UnifiedDiffView.svelte';
+	import { isExecutableStatus } from '$lib/hunks/change';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { readKey, type SelectionId } from '$lib/selection/key';
@@ -56,9 +57,9 @@
 		<ReduxResult {projectId} result={changeResult.current}>
 			{#snippet children(change)}
 				{@const diffResult = diffService.getDiff(projectId, change)}
+				{@const isExecutable = isExecutableStatus(change.status)}
 				<ReduxResult {projectId} result={diffResult.current}>
 					{#snippet children(diff, env)}
-						{@const isExecutable = true}
 						<div
 							class="selected-change-item"
 							class:bottom-border={bottomBorder}
@@ -73,7 +74,7 @@
 									{diff}
 									{draggable}
 									isHeader
-									executable={!!isExecutable}
+									executable={isExecutable}
 									listMode="list"
 									onCloseClick={onclose}
 								/>
