@@ -36,9 +36,16 @@ export class GitLab implements Forge {
 	) {
 		const { api, client, baseBranch, forkStr, authenticated, repo } = this.params;
 		// Use the protocol from repo if available, otherwise default to https
-		const protocol = repo.protocol?.endsWith(':')
+		// For SSH remote URLs, always use HTTPS for browser compatibility
+		let protocol = repo.protocol?.endsWith(':')
 			? repo.protocol.slice(0, -1)
 			: repo.protocol || 'https';
+
+		// SSH URLs cannot be opened in browsers, so convert to HTTPS
+		if (protocol === 'ssh') {
+			protocol = 'https';
+		}
+
 		this.baseUrl = `${protocol}://${repo.domain}/${repo.owner}/${repo.name}`;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
