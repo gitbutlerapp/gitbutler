@@ -17,6 +17,7 @@ import type { ProjectInfo } from '$lib/project/projectsService';
 function mockInternals(window: any) {
 	window.__TAURI_INTERNALS__ = window.__TAURI_INTERNALS__ ?? {};
 	window.__TAURI_OS_PLUGIN_INTERNALS__ = window.__TAURI_OS_PLUGIN_INTERNALS__ ?? {};
+	window.__TAURI_EVENT_PLUGIN_INTERNALS__ = window.__TAURI_EVENT_PLUGIN_INTERNALS__ ?? {};
 }
 
 type MockCallback = (args?: InvokeArgs) => unknown;
@@ -53,6 +54,8 @@ export function mockIPC(window: any, cb: MockCommandCallback): void {
 	): Promise<unknown> {
 		return cb(cmd, args);
 	} as typeof invoke;
+
+	window.__TAURI_EVENT_PLUGIN_INTERNALS__.unregisterListener = async () => await Promise.resolve();
 }
 
 export function mockWindows(window: any, current: string, ..._additionalWindows: string[]): void {

@@ -727,7 +727,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 		clearCommandMocks();
 	});
 
-	it.skip('should be able to commit a bunch of times in a row and edit their message', () => {
+	it('should be able to commit a bunch of times in a row and edit their message', () => {
 		const TIMES = 3;
 		for (let i = 0; i < TIMES; i++) {
 			// Click commit button
