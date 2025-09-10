@@ -228,7 +228,7 @@
 			{/if}
 		</div>
 
-		{#if currentMode !== null && isNotInWorkspace}
+		{#if currentMode && isNotInWorkspace}
 			<Tooltip text="Switch back to gitbutler/workspace">
 				<Button
 					kind="outline"
