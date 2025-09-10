@@ -62,6 +62,7 @@
 	} from '@gitbutler/ui';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type { ClaudeMessage, ThinkingLevel, ModelType } from '$lib/codegen/types';
+	import type { RuleFilter } from '$lib/rules/rule';
 
 	type Props = {
 		projectId: string;
@@ -697,42 +698,101 @@
 			stackId
 		})}
 		{@const sidebarIsStackActive = claudeCodeService.isStackActive(projectId, stackId)}
+		{@const rule = rulesService.aiRuleForStack({ projectId, stackId })}
+
 		<ReduxResult
 			result={combineResults(
 				branch.current,
 				commits.current,
 				branchDetails.current,
 				events.current,
-				sidebarIsStackActive.current
+				sidebarIsStackActive.current,
+				rule.current
 			)}
 			{projectId}
 			{stackId}
 		>
 			{#snippet children(
-				[branch, commits, branchDetailsData, events, isActive],
+				[branch, commits, branchDetailsData, events, isActive, ruleData],
 				{ projectId: _projectId, stackId }
 			)}
 				{@const usage = usageStats(events)}
 				{@const iconName = pushStatusToIcon(branchDetailsData.pushStatus)}
 				{@const lineColor = getColorFromBranchType(pushStatusToColor(branchDetailsData.pushStatus))}
-				<CodegenSidebarEntry
-					onclick={() => {
-						projectState.selectedClaudeSession.set({ stackId, head: branch.name });
-					}}
-					selected={selectedBranch?.stackId === stackId && selectedBranch?.head === branch.name}
-					branchName={branch.name}
-					status={currentStatus(events, isActive ?? false)}
-					tokensUsed={usage.tokens}
-					cost={usage.cost}
-					commitCount={commits.length}
-					lastInteractionTime={lastInteractionTime(events)}
-					commits={commitsList}
-					{totalHeads}
-				>
-					{#snippet branchIcon()}
-						<BranchHeaderIcon {iconName} color={lineColor} small />
-					{/snippet}
-				</CodegenSidebarEntry>
+
+				<!-- Get session details if rule exists -->
+				{#if ruleData?.rule}
+					{@const sessionId = (
+						ruleData.rule.filters[0] as RuleFilter & { type: 'claudeCodeSessionId' }
+					)?.subject}
+					{#if sessionId}
+						{@const sessionDetails = claudeCodeService.sessionDetails(projectId, sessionId)}
+						<ReduxResult result={sessionDetails.current} {projectId}>
+							{#snippet children(sessionDetailsData, { projectId: _projectId })}
+								<CodegenSidebarEntry
+									onclick={() => {
+										projectState.selectedClaudeSession.set({ stackId, head: branch.name });
+									}}
+									selected={selectedBranch?.stackId === stackId &&
+										selectedBranch?.head === branch.name}
+									branchName={branch.name}
+									status={currentStatus(events, isActive ?? false)}
+									tokensUsed={usage.tokens}
+									cost={usage.cost}
+									commitCount={commits.length}
+									lastInteractionTime={lastInteractionTime(events)}
+									commits={commitsList}
+									{totalHeads}
+									sessionInGui={sessionDetailsData?.inGui}
+								>
+									{#snippet branchIcon()}
+										<BranchHeaderIcon {iconName} color={lineColor} small />
+									{/snippet}
+								</CodegenSidebarEntry>
+							{/snippet}
+						</ReduxResult>
+					{:else}
+						<!-- No session ID in rule -->
+						<CodegenSidebarEntry
+							onclick={() => {
+								projectState.selectedClaudeSession.set({ stackId, head: branch.name });
+							}}
+							selected={selectedBranch?.stackId === stackId && selectedBranch?.head === branch.name}
+							branchName={branch.name}
+							status={currentStatus(events, isActive ?? false)}
+							tokensUsed={usage.tokens}
+							cost={usage.cost}
+							commitCount={commits.length}
+							lastInteractionTime={lastInteractionTime(events)}
+							commits={commitsList}
+							{totalHeads}
+						>
+							{#snippet branchIcon()}
+								<BranchHeaderIcon {iconName} color={lineColor} small />
+							{/snippet}
+						</CodegenSidebarEntry>
+					{/if}
+				{:else}
+					<!-- No rule found -->
+					<CodegenSidebarEntry
+						onclick={() => {
+							projectState.selectedClaudeSession.set({ stackId, head: branch.name });
+						}}
+						selected={selectedBranch?.stackId === stackId && selectedBranch?.head === branch.name}
+						branchName={branch.name}
+						status={currentStatus(events, isActive ?? false)}
+						tokensUsed={usage.tokens}
+						cost={usage.cost}
+						commitCount={commits.length}
+						lastInteractionTime={lastInteractionTime(events)}
+						commits={commitsList}
+						{totalHeads}
+					>
+						{#snippet branchIcon()}
+							<BranchHeaderIcon {iconName} color={lineColor} small />
+						{/snippet}
+					</CodegenSidebarEntry>
+				{/if}
 				<!-- defining this here so it's name doesn't conflict with the
 				variable commits -->
 				{#snippet commitsList()}
