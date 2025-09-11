@@ -151,7 +151,7 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const projectsService = new ProjectsService(clientState, homeDir, backend);
-	const gitConfig = new GitConfigService(backend);
+	const gitConfig = new GitConfigService(clientState, backend);
 
 	// ============================================================================
 	// AI SERVICES

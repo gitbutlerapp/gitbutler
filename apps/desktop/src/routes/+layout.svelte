@@ -17,6 +17,7 @@
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { initDependencies } from '$lib/bootstrap/deps';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { ircEnabled, ircServer, codegenEnabled } from '$lib/config/uiFeatureFlags';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import { IRC_CLIENT } from '$lib/irc/ircClient.svelte';
@@ -77,9 +78,16 @@
 	// ANALYTICS & NAVIGATION
 	// =============================================================================
 
+	const gitConfig = inject(GIT_CONFIG_SERVICE);
+
 	if (browser) {
 		beforeNavigate(() => posthog.capture('$pageleave'));
-		afterNavigate(() => posthog.capture('$pageview'));
+		afterNavigate(() => {
+			// Invalidate the git config on every navigation to ensure we have the latest
+			// (in case the user changed something outside of GitButler)
+			gitConfig.invalidateGitConfig();
+			posthog.capture('$pageview');
+		});
 	}
 
 	// =============================================================================
