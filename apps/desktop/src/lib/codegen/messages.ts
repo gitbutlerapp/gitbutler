@@ -37,6 +37,8 @@ export function toolCallLoading(toolCall: ToolCall): boolean {
 	return toolCall.result === undefined;
 }
 
+const loginRequiredMessage = 'Invalid API key · Please run /login';
+
 export function formatMessages(
 	events: ClaudeMessage[],
 	permissionRequests: ClaudePermissionRequest[],
@@ -66,6 +68,9 @@ export function formatMessages(
 			if (subject.type === 'assistant') {
 				const message = subject.message;
 				if (message.content[0]!.type === 'text') {
+					if (message.content[0]!.text === loginRequiredMessage) {
+						continue;
+					}
 					lastAssistantMessage = {
 						type: 'claude',
 						message: message.content[0]!.text,
@@ -131,13 +136,23 @@ export function formatMessages(
 			}
 
 			if (subject.type === 'claudeExit' && subject.subject.code !== 0) {
-				const message: Message = {
-					type: 'claude',
-					message: `Claude exited with non 0 error code \n\n\`\`\`\n${subject.subject.message}\n\`\`\``,
-					toolCalls: [],
-					toolCallsPendingApproval: []
-				};
-				out.push(message);
+				if (previousEventLoginFailureResult(events, event)) {
+					const message: Message = {
+						type: 'claude',
+						message: `Claude Code is currently not logged in.\n\n Please run \`claude\` in your terminal and complete the login flow in order to use the GitButler Claude Code integration.`,
+						toolCalls: [],
+						toolCallsPendingApproval: []
+					};
+					out.push(message);
+				} else {
+					const message: Message = {
+						type: 'claude',
+						message: `Claude exited with non 0 error code \n\n\`\`\`\n${subject.subject.message}\n\`\`\``,
+						toolCalls: [],
+						toolCallsPendingApproval: []
+					};
+					out.push(message);
+				}
 			}
 			if (subject.type === 'unhandledException') {
 				const message: Message = {
@@ -183,6 +198,17 @@ export function formatMessages(
 	}
 
 	return out;
+}
+
+function previousEventLoginFailureResult(events: ClaudeMessage[], event: ClaudeMessage): boolean {
+	const idx = events.findIndex((e) => e === event);
+	if (idx <= 0) return false;
+	const previous = events[idx - 1]!;
+	if (previous.content.type !== 'claudeOutput') return false;
+	if (previous.content.subject.type !== 'result') return false;
+	if (previous.content.subject.subtype !== 'success') return false;
+	if (previous.content.subject.result !== loginRequiredMessage) return false;
+	return true;
 }
 
 type UserFeedbackStatus =
