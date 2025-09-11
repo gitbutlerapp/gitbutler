@@ -113,13 +113,15 @@
 .dragchip-ai-session-container {
 	display: flex;
 	align-items: center;
-	max-width: 120px;
-	padding: 5px 6px;
-	gap: 6px;
+	height: var(--size-tag);
+	padding: 0 4px;
+	gap: 4px;
 	border: none;
 	border-radius: var(--radius-m);
-	background-color: var(--clr-theme-purp-element);
-	color: var(--clr-theme-purp-on-element);
+	background-position: 0% 50%;
+	background-size: 200% 200%;
+	background: var(--codegen-gradient);
+	color: var(--codegen-color);
 }
 
 .dragchip-ai-session-icon {

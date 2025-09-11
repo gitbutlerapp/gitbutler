@@ -122,7 +122,8 @@ function setupDragHandlers(
 				if (params.handlerWidth) {
 					e.dataTransfer.setDragImage(clone, e.offsetX, e.offsetY);
 				} else {
-					e.dataTransfer.setDragImage(clone, clone.offsetWidth - 20, 25);
+					// Use more centered positioning for consistent cursor placement
+					e.dataTransfer.setDragImage(clone, clone.offsetWidth / 1.2, clone.offsetHeight / 1.5);
 				}
 
 				// Get chromium to fire dragover & drop events
@@ -286,110 +287,99 @@ export function draggableCommitV3(node: HTMLElement, initialOpts: DraggableConfi
 /// DRAG CHIPS ///
 //////////////////
 
-function createFileChipContainer(
-	label: string | undefined,
-	filePath: string | undefined
-): HTMLDivElement {
-	const containerEl = createElement('div', ['dragchip-file-container']);
+// --- CHIP CONTAINER HELPERS ---
 
+function createFileChip(label?: string, filePath?: string): HTMLDivElement {
+	const el = createElement('div', ['dragchip-file-container']);
 	if (filePath) {
-		const fileIcon = getFileIcon(filePath);
-		const iconEl = createElement('img', ['dragchip-file-icon'], undefined, fileIcon);
-		containerEl.appendChild(iconEl);
+		const icon = getFileIcon(filePath);
+		el.appendChild(createElement('img', ['dragchip-file-icon'], undefined, icon));
 	}
-
-	const fileNameEl = createElement(
-		'span',
-		['text-12', 'text-semibold', 'dragchip-file-name'],
-		label || 'Empty file'
+	el.appendChild(
+		createElement('span', ['text-12', 'text-semibold', 'dragchip-file-name'], label || 'Empty file')
 	);
-	containerEl.appendChild(fileNameEl);
-
-	return containerEl;
+	return el;
 }
 
-function createHunkChipContainer(label: string | undefined): HTMLDivElement {
-	const containerEl = createElement('div', ['dragchip-hunk-container']);
-
-	const hunkDecoIndatorEl = createElement('div', ['dragchip-hunk-decorator']);
-	hunkDecoIndatorEl.textContent = '〈/〉';
-	containerEl.appendChild(hunkDecoIndatorEl);
-
-	const hunkLabelEl = createElement('span', ['dragchip-hunk-label'], label || 'Empty hunk');
-	containerEl.appendChild(hunkLabelEl);
-
-	return containerEl;
+function createHunkChip(label?: string): HTMLDivElement {
+	const el = createElement('div', ['dragchip-hunk-container']);
+	const deco = createElement('div', ['dragchip-hunk-decorator'], '〈/〉');
+	el.appendChild(deco);
+	el.appendChild(createElement('span', ['dragchip-hunk-label'], label || 'Empty hunk'));
+	return el;
 }
 
-// AI Session chip
-function createAISessionChipContainer(label: string | undefined): HTMLDivElement {
-	const containerEl = createElement('div', ['dragchip-ai-session-container']);
-	// Add a sparkle emoji or icon for visual distinction
-	const iconEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	iconEl.classList.add('dragchip-ai-session-icon');
-	iconEl.setAttribute('viewBox', '0 0 16 16');
-	iconEl.setAttribute('fill-rule', 'evenodd');
-
-	const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-	pathEl.setAttribute('fill', 'currentColor');
-	pathEl.setAttribute('d', iconsJson['ai-small']);
-	iconEl.appendChild(pathEl);
-
-	const labelEl = createElement(
-		'span',
-		['text-12', 'text-semibold', 'truncate', 'dragchip-ai-session-label'],
-		label || 'AI Session'
-	);
-
-	containerEl.appendChild(iconEl);
-	containerEl.appendChild(labelEl);
-	return containerEl;
+function createSVGIcon(pathData: string, classNames: string[]): SVGSVGElement {
+	const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	icon.classList.add(...classNames);
+	icon.setAttribute('viewBox', '0 0 16 16');
+	icon.setAttribute('fill-rule', 'evenodd');
+	const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+	path.setAttribute('fill', 'currentColor');
+	path.setAttribute('d', pathData);
+	icon.appendChild(path);
+	return icon;
 }
 
-export function createChipsElement(
-	opt: {
-		childrenAmount: number;
-		label: string | undefined;
-		filePath: string | undefined;
-		chipType: chipType;
-	} = {
-		childrenAmount: 1,
-		label: undefined,
-		filePath: undefined,
-		chipType: 'file'
-	}
-): HTMLDivElement {
-	const containerEl = createElement('div', ['dragchip-container']);
-	const chipEl = createElement('div', ['dragchip']);
-	containerEl.appendChild(chipEl);
-
-	if (opt.chipType === 'file') {
-		const fileChipContainer = createFileChipContainer(opt.label, opt.filePath);
-		chipEl.appendChild(fileChipContainer);
-	} else if (opt.chipType === 'hunk') {
-		const hunkChipContainer = createHunkChipContainer(opt.label);
-		chipEl.appendChild(hunkChipContainer);
-	} else if (opt.chipType === 'ai-session') {
-		const aiSessionChipContainer = createAISessionChipContainer(opt.label);
-		chipEl.appendChild(aiSessionChipContainer);
-	}
-
-	if (opt.childrenAmount > 1) {
-		const amountTag = createElement(
-			'div',
-			['text-11', 'text-bold', 'dragchip-amount'],
-			opt.childrenAmount.toString()
+function createAISessionChip(label?: string): HTMLDivElement {
+	const el = createElement('div', ['dragchip-ai-session-container']);
+	const iconAi = createSVGIcon(iconsJson['ai-small'], ['dragchip-ai-session-icon']);
+	el.appendChild(iconAi);
+	if (label) {
+		el.appendChild(
+			createElement(
+				'span',
+				['text-12', 'text-semibold', 'truncate', 'dragchip-ai-session-label'],
+				label
+			)
 		);
-		chipEl.appendChild(amountTag);
+	}
+	const iconDragHandle = createSVGIcon(iconsJson['draggable'], ['dragchip-ai-session-icon']);
+	el.appendChild(iconDragHandle);
+	return el;
+}
+
+export interface ChipsElementOptions {
+	childrenAmount?: number;
+	label?: string;
+	filePath?: string;
+	chipType?: chipType;
+}
+
+export function createChipsElement({
+	childrenAmount = 1,
+	label,
+	filePath,
+	chipType = 'file'
+}: ChipsElementOptions = {}): HTMLDivElement {
+	const container = createElement('div', ['dragchip-container']);
+
+	if (chipType === 'ai-session') {
+		container.appendChild(createAISessionChip(label));
+	} else {
+		const chip = createElement('div', ['dragchip']);
+		container.appendChild(chip);
+
+		if (chipType === 'file') {
+			chip.appendChild(createFileChip(label, filePath));
+		} else if (chipType === 'hunk') {
+			chip.appendChild(createHunkChip(label));
+		}
+
+		if (childrenAmount > 1) {
+			chip.appendChild(
+				createElement('div', ['text-11', 'text-bold', 'dragchip-amount'], childrenAmount.toString())
+			);
+		}
 	}
 
-	if (opt.childrenAmount === 2) {
-		containerEl.classList.add('dragchip-two');
-	} else if (opt.childrenAmount > 2) {
-		containerEl.classList.add('dragchip-multiple');
+	if (childrenAmount === 2) {
+		container.classList.add('dragchip-two');
+	} else if (childrenAmount > 2) {
+		container.classList.add('dragchip-multiple');
 	}
 
-	return containerEl;
+	return container;
 }
 
 export function draggableChips(node: HTMLElement, initialOpts: DraggableConfig) {
