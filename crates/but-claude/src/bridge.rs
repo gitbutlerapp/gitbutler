@@ -73,7 +73,9 @@ impl Claudes {
         model: ModelType,
     ) -> Result<()> {
         if self.requests.lock().await.contains_key(&stack_id) {
-            bail!("Claude is thinking, back off!!!")
+            bail!(
+                "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
+            )
         } else {
             self.spawn_claude(
                 ctx,
