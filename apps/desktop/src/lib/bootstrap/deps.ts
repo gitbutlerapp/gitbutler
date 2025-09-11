@@ -15,6 +15,10 @@ import CLIManager, { CLI_MANAGER } from '$lib/cli/cli';
 import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/codegen/claude';
 import { AppSettings, APP_SETTINGS } from '$lib/config/appSettings';
 import { SETTINGS_SERVICE, SettingsService } from '$lib/config/appSettingsV2';
+import {
+	CACHED_GIT_CONFIG_SERVICE,
+	CachedGitConfigService
+} from '$lib/config/cachedGitConfigService';
 import { GIT_CONFIG_SERVICE, GitConfigService } from '$lib/config/gitConfigService';
 import DependencyService, { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
 import { DragStateService, DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
@@ -152,13 +156,14 @@ export function initDependencies(args: {
 
 	const projectsService = new ProjectsService(clientState, homeDir, backend);
 	const gitConfig = new GitConfigService(backend);
+	const cachedGitConfig = new CachedGitConfigService(gitConfig);
 
 	// ============================================================================
 	// AI SERVICES
 	// ============================================================================
 
 	const aiPromptService = new AIPromptService();
-	const aiService = new AIService(gitConfig, secretsService, httpClient, tokenMemoryService);
+	const aiService = new AIService(cachedGitConfig, secretsService, httpClient, tokenMemoryService);
 	const claudeCodeService = new ClaudeCodeService(clientState['backendApi']);
 
 	// ============================================================================
@@ -304,6 +309,7 @@ export function initDependencies(args: {
 		[BACKEND, backend],
 		[BASE_BRANCH_SERVICE, baseBranchService],
 		[BRANCH_SERVICE, branchService],
+		[CACHED_GIT_CONFIG_SERVICE, cachedGitConfig],
 		[CLAUDE_CODE_SERVICE, claudeCodeService],
 		[CLIENT_STATE, clientState],
 		[CLIPBOARD_SERVICE, clipboardService],

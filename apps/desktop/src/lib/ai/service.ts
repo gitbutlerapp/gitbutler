@@ -31,7 +31,7 @@ import {
 import { splitMessage } from '$lib/utils/commitMessage';
 import { InjectionToken } from '@gitbutler/core/context';
 import { get } from 'svelte/store';
-import type { GitConfigService } from '$lib/config/gitConfigService';
+import type { IGitConfigService } from '$lib/config/gitConfigService';
 import type { SecretsService } from '$lib/secrets/secretsService';
 import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
@@ -124,7 +124,7 @@ export class AIService {
 	prSummaryMainDirective: Readonly<string> = DEFAULT_PR_SUMMARY_MAIN_DIRECTIVE;
 
 	constructor(
-		private gitConfig: GitConfigService,
+		private gitConfig: IGitConfigService,
 		private secretsService: SecretsService,
 		private cloud: HttpClient,
 		private tokenMemoryService: TokenMemoryService

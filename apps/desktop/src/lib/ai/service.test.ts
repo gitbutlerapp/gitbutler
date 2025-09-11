@@ -21,7 +21,7 @@ import {
 	type AIClient,
 	type Prompt
 } from '$lib/ai/types';
-import { type GbConfig, GitConfigService } from '$lib/config/gitConfigService';
+import { type GbConfig, type IGitConfigService } from '$lib/config/gitConfigService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { mockCreateBackend } from '$lib/testing/mockBackend';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
@@ -41,15 +41,14 @@ const defaultSecretsConfig = Object.freeze({
 	[AISecretHandle.OpenAIKey]: undefined
 });
 
-class DummyGitConfigService extends GitConfigService {
+class DummyGitConfigService implements IGitConfigService {
 	constructor(private config: { [index: string]: string | undefined }) {
-		const backend = mockCreateBackend();
-		super(backend);
+		// No need to call super since we're implementing the interface directly
 	}
 	async getGbConfig(_projectId: string): Promise<GbConfig> {
 		throw new Error('Method not implemented.');
 	}
-	async setGbConfig(_projectId: string, _config: GbConfig): Promise<unknown> {
+	async setGbConfig(_projectId: string, _config: GbConfig): Promise<void> {
 		throw new Error('Method not implemented.');
 	}
 	async get<T extends string>(key: string): Promise<T | undefined> {
@@ -73,8 +72,8 @@ class DummyGitConfigService extends GitConfigService {
 		_projectId: string,
 		_remoteName: string | null | undefined,
 		_branchName: string | null | undefined
-	): Promise<{ name: string; ok: boolean } | undefined> {
-		throw new Error('Method not implemented.');
+	): Promise<{ name: string; ok: boolean }> {
+		return { name: 'push', ok: true };
 	}
 }
 

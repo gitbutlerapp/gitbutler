@@ -3,7 +3,22 @@ import type { IBackend } from '$lib/backend';
 
 export const GIT_CONFIG_SERVICE = new InjectionToken<GitConfigService>('GitConfigService');
 
-export class GitConfigService {
+export interface IGitConfigService {
+	get<T extends string>(key: string): Promise<T | undefined>;
+	remove(key: string): Promise<undefined>;
+	getWithDefault<T extends string>(key: string, defaultValue: T): Promise<T>;
+	set<T extends string>(key: string, value: T): Promise<T | undefined>;
+	getGbConfig(projectId: string): Promise<GbConfig>;
+	setGbConfig(projectId: string, config: GbConfig): Promise<void>;
+	checkGitFetch(projectId: string, remoteName: string | null | undefined): Promise<void>;
+	checkGitPush(
+		projectId: string,
+		remoteName: string | null | undefined,
+		branchName: string | null | undefined
+	): Promise<{ name: string; ok: boolean }>;
+}
+
+export class GitConfigService implements IGitConfigService {
 	constructor(private backend: IBackend) {}
 	async get<T extends string>(key: string): Promise<T | undefined> {
 		return (
@@ -28,11 +43,11 @@ export class GitConfigService {
 		return await this.backend.invoke<GbConfig>('get_gb_config', { projectId });
 	}
 
-	async setGbConfig(projectId: string, config: GbConfig) {
+	async setGbConfig(projectId: string, config: GbConfig): Promise<void> {
 		return await this.backend.invoke('set_gb_config', { projectId, config });
 	}
 
-	async checkGitFetch(projectId: string, remoteName: string | null | undefined) {
+	async checkGitFetch(projectId: string, remoteName: string | null | undefined): Promise<void> {
 		if (!remoteName) return;
 		const resp = await this.backend.invoke<string>('git_test_fetch', {
 			projectId: projectId,
@@ -48,8 +63,8 @@ export class GitConfigService {
 		projectId: string,
 		remoteName: string | null | undefined,
 		branchName: string | null | undefined
-	) {
-		if (!remoteName) return;
+	): Promise<{ name: string; ok: boolean }> {
+		if (!remoteName) return { name: 'push', ok: true };
 		const resp = await this.backend.invoke<string>('git_test_push', {
 			projectId: projectId,
 			action: 'modal',

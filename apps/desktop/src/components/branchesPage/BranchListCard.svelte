@@ -2,7 +2,7 @@
 	import BranchesCardTemplate from '$components/branchesPage/BranchesCardTemplate.svelte';
 	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
-	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
+	import { CACHED_GIT_CONFIG_SERVICE } from '$lib/config/cachedGitConfigService';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 
@@ -26,7 +26,7 @@
 	const unknownEmail = 'example@example.com';
 
 	const userService = inject(USER_SERVICE);
-	const gitConfigService = inject(GIT_CONFIG_SERVICE);
+	const cachedGitConfigService = inject(CACHED_GIT_CONFIG_SERVICE);
 	const branchService = inject(BRANCH_SERVICE);
 
 	const user = userService.user;
@@ -46,7 +46,7 @@
 		let canceled = false;
 
 		if (ownedByUser) {
-			gitConfigService.get('user.name').then((userName) => {
+			cachedGitConfigService.getUserName().then((userName) => {
 				if (canceled) return;
 
 				if (userName) {
@@ -71,8 +71,8 @@
 
 	async function setAvatars(ownedByUser: boolean, branchListingDetails?: BranchListingDetails) {
 		if (ownedByUser) {
-			const name = (await gitConfigService.get('user.name')) || unknownName;
-			const email = (await gitConfigService.get('user.email')) || unknownEmail;
+			const name = (await cachedGitConfigService.getUserName()) || unknownName;
+			const email = (await cachedGitConfigService.getUserEmail()) || unknownEmail;
 			const srcUrl =
 				email.toLowerCase() === $user?.email?.toLowerCase() && $user?.picture
 					? $user?.picture
