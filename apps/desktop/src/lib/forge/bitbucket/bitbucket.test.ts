@@ -16,7 +16,7 @@ describe('BitBucket', () => {
 			baseBranch,
 			authenticated: false
 		});
-		
+
 		expect(bb.commitUrl('abc123')).toBe(
 			'https://bitbucket.org/test-owner/test-repo/commits/abc123'
 		);

@@ -17,7 +17,7 @@ describe('AzureDevOps', () => {
 			baseBranch,
 			authenticated: false
 		});
-		
+
 		expect(azure.commitUrl('abc123')).toBe(
 			'https://dev.azure.com/test-org/test-owner/_git/test-repo/commit/abc123'
 		);

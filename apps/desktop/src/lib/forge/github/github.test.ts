@@ -38,9 +38,7 @@ describe('GitHub', () => {
 			authenticated: true
 		});
 
-		expect(gh.commitUrl('abc123')).toBe(
-			'https://github.com/test-owner/test-repo/commit/abc123'
-		);
+		expect(gh.commitUrl('abc123')).toBe('https://github.com/test-owner/test-repo/commit/abc123');
 	});
 
 	test('branch urls use https protocol for ssh remote urls', () => {
@@ -77,9 +75,7 @@ describe('GitHub', () => {
 			authenticated: true
 		});
 
-		expect(gh.commitUrl('abc123')).toBe(
-			'https://github.com/test-owner/test-repo/commit/abc123'
-		);
+		expect(gh.commitUrl('abc123')).toBe('https://github.com/test-owner/test-repo/commit/abc123');
 	});
 
 	test('uses https protocol for ssh remote urls on GitHub Enterprise', () => {

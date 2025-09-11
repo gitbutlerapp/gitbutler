@@ -33,7 +33,7 @@ export class GitHub implements Forge {
 		const { client, api, authenticated, repo } = params;
 		const { owner, name } = repo;
 		this.authenticated = authenticated;
-		
+
 		// Use the protocol from repo if available, otherwise default to https
 		// For SSH remote URLs, always use HTTPS for browser compatibility
 		let protocol = repo.protocol?.endsWith(':')
