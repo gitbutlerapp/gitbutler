@@ -57,3 +57,17 @@ export function combineResults<T extends [...CustomResult<any>[]]>(
 		data
 	} as CustomResult<CustomQuery<{ [K in keyof T]: Exclude<T[K]['data'], undefined> }>>;
 }
+
+/**
+ * Map the data of a CustomResult, preserving other status fields as they are.
+ */
+export function mapResult<T, A>(
+	result: CustomResult<CustomQuery<T>>,
+	fn: (data: T) => A
+): CustomResult<CustomQuery<A>> {
+	if (result.data === undefined) {
+		return result as CustomResult<CustomQuery<A>>;
+	}
+
+	return { ...result, data: fn(result.data) } as CustomResult<CustomQuery<A>>;
+}

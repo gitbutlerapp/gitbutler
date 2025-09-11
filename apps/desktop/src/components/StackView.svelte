@@ -23,6 +23,7 @@
 	} from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { mapResult } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 
 	import { createBranchRef } from '$lib/utils/branch';
@@ -338,8 +339,12 @@
 
 {#snippet commitChangedFiles(commitId: string)}
 	{@const changesResult = stackService.commitChanges(projectId, commitId)}
-	<ReduxResult {projectId} {stackId} result={changesResult.current}>
-		{#snippet children(changes, { projectId, stackId })}
+	<ReduxResult
+		{projectId}
+		{stackId}
+		result={mapResult(changesResult.current, (changes) => ({ changes, commitId }))}
+	>
+		{#snippet children({ changes, commitId }, { projectId, stackId })}
 			{@const commitsResult = branchName
 				? stackService.commits(projectId, stackId, branchName)
 				: undefined}
