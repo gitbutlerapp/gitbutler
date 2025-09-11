@@ -19,7 +19,24 @@ use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
+use serde::{Deserialize, Serialize};
 use tracing::instrument;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateBranchFromBranchOutcome {
+    pub stack_id: StackId,
+    pub unapplied_stacks: Vec<StackId>,
+}
+
+impl From<(StackId, Vec<StackId>)> for CreateBranchFromBranchOutcome {
+    fn from((stack_id, unapplied_stacks): (StackId, Vec<StackId>)) -> Self {
+        Self {
+            stack_id,
+            unapplied_stacks,
+        }
+    }
+}
 
 impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
@@ -121,7 +138,7 @@ impl BranchManager<'_> {
         upstream_branch: Option<RemoteRefname>,
         pr_number: Option<usize>,
         perm: &mut WorktreeWritePermission,
-    ) -> Result<StackId> {
+    ) -> Result<(StackId, Vec<StackId>)> {
         let old_cwd = self.ctx.repo().create_wd_tree(0)?.id();
         let old_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
         // only set upstream if it's not the default target
@@ -254,14 +271,14 @@ impl BranchManager<'_> {
         self.ctx.add_branch_reference(&branch)?;
 
         match self.apply_branch(branch.id, perm, old_workspace, old_cwd) {
-            Ok(_) => Ok(branch.id),
+            Ok((_, unapplied_stacks)) => Ok((branch.id, unapplied_stacks)),
             Err(err)
                 if err
                     .downcast_ref()
                     .is_some_and(|marker: &Marker| *marker == Marker::ProjectConflict) =>
             {
                 // if branch conflicts with the workspace, it's ok. keep it unapplied
-                Ok(branch.id)
+                Ok((branch.id, vec![]))
             }
             Err(err) => Err(err).context("failed to apply"),
         }
@@ -277,7 +294,7 @@ impl BranchManager<'_> {
         perm: &mut WorktreeWritePermission,
         workspace_state: WorkspaceState,
         old_cwd: git2::Oid,
-    ) -> Result<String> {
+    ) -> Result<(String, Vec<StackId>)> {
         let repo = self.ctx.repo();
 
         let vb_state = self.ctx.project().virtual_branches();
@@ -306,6 +323,8 @@ impl BranchManager<'_> {
             .id();
         let branch_tree_id = stack.tree(self.ctx)?;
 
+        let mut unapplied_stacks = vec![];
+
         // We don't support having two branches applied that conflict with each other
         {
             let uncommited_changes_tree_id = repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?.id();
@@ -324,6 +343,7 @@ impl BranchManager<'_> {
                     .iter()
                     .filter(|branch| branch.id != stack_id)
                 {
+                    unapplied_stacks.push(stack.id);
                     self.unapply(stack.id, perm, false, Vec::new())?;
                 }
             }
@@ -415,6 +435,6 @@ impl BranchManager<'_> {
 
         update_workspace_commit(&vb_state, self.ctx)?;
 
-        Ok(stack.name)
+        Ok((stack.name, unapplied_stacks))
     }
 }

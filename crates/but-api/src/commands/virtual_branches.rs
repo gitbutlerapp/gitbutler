@@ -118,13 +118,13 @@ pub fn create_virtual_branch_from_branch(
     branch: Refname,
     remote: Option<RemoteRefname>,
     pr_number: Option<usize>,
-) -> Result<StackId, Error> {
+) -> Result<gitbutler_branch_actions::CreateBranchFromBranchOutcome, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
+    let outcome = gitbutler_branch_actions::create_virtual_branch_from_branch(
         &ctx, &branch, remote, pr_number,
     )?;
-    Ok(branch_id)
+    Ok(outcome.into())
 }
 
 #[api_cmd]

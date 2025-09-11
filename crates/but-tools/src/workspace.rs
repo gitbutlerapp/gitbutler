@@ -1296,7 +1296,7 @@ pub struct SplitBranchParameters {
     ")]
     pub source_branch_name: String,
 
-    /// The name of the new branch to create with the split-off files.
+    /// The name of the new branch to create with the split off files.
     #[schemars(description = "
     <description>
         The name of the new branch to create with the split-off files.
@@ -1405,7 +1405,7 @@ pub fn split_branch(
     let refname = Refname::Local(LocalRefname::new(&params.new_branch_name, None));
     let branch_manager = ctx.branch_manager();
 
-    let stack_id = branch_manager.create_virtual_branch_from_branch(
+    let (stack_id, _) = branch_manager.create_virtual_branch_from_branch(
         &refname,
         None,
         None,
@@ -1991,7 +1991,7 @@ pub struct AbsorbSpec {
     <description>
         The title of the commit to use in the amended commit.
     </description>
-    
+
     <important_notes>
         The title should be concise and descriptive.
         Don't use more than 50 characters.
