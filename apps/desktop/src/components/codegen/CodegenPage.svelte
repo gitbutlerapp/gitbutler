@@ -23,6 +23,7 @@
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import filesAndChecksSvg from '$lib/assets/empty-state/files-and-checks.svg?raw';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
+	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import {
 		currentStatus,
@@ -34,7 +35,6 @@
 		usageStats
 	} from '$lib/codegen/messages';
 	import { commitStatusLabel } from '$lib/commits/commit';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { workspacePath } from '$lib/routes/routes.svelte';
@@ -69,9 +69,15 @@
 	};
 	const { projectId }: Props = $props();
 
+	const {
+		claudeExecutable,
+		recheckedAvailability,
+		checkClaudeAvailability,
+		updateClaudeExecutable
+	} = useAvailabilityChecking();
+
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
-	const settingsService = inject(SETTINGS_SERVICE);
 	const projectsService = inject(PROJECTS_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
 	const codegenAnalytics = inject(CODEGEN_ANALYTICS);
@@ -83,11 +89,8 @@
 	const stacks = $derived(stackService.stacks(projectId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
-	const settingsStore = settingsService.appSettings;
 	const [sendClaudeMessage] = claudeCodeService.sendMessage;
 
-	let claudeExecutable = $derived($settingsStore?.claude.executable || 'claude');
-	let updatingExecutable = $state(false);
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
 	let clearContextModal = $state<Modal>();
 	let modelContextMenu = $state<ContextMenu>();
@@ -208,24 +211,6 @@
 	async function onAbort() {
 		if (!selectedBranch) return;
 		await claudeCodeService.cancelSession({ projectId, stackId: selectedBranch?.stackId });
-	}
-
-	let recheckedAvailability = $state<'recheck-failed' | 'recheck-succeeded'>();
-	async function checkClaudeAvailability() {
-		const recheck = await claudeCodeService.fetchCheckAvailable(undefined, { forceRefetch: true });
-		if (recheck) {
-			recheckedAvailability = 'recheck-succeeded';
-		} else {
-			recheckedAvailability = 'recheck-failed';
-		}
-	}
-
-	async function updateClaudeExecutable(value: string) {
-		if (updatingExecutable) return;
-
-		claudeExecutable = value;
-		recheckedAvailability = undefined;
-		await settingsService.updateClaude({ executable: value });
 	}
 
 	function selectModel(model: ModelType) {
@@ -825,8 +810,8 @@
 	<div class="not-available">
 		<div class="not-available-form">
 			<ClaudeCheck
-				{claudeExecutable}
-				{recheckedAvailability}
+				claudeExecutable={claudeExecutable.current}
+				recheckedAvailability={recheckedAvailability.current}
 				onUpdateExecutable={updateClaudeExecutable}
 				onCheckAvailability={checkClaudeAvailability}
 			/>
