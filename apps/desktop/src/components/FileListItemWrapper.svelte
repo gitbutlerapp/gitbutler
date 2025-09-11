@@ -33,6 +33,7 @@
 		linesRemoved?: number;
 		depth?: number;
 		executable?: boolean;
+		fileType?: 'regular' | 'executable' | 'symlink' | 'submodule';
 		focusableOpts?: FocusableOptions;
 		showCheckbox?: boolean;
 		draggable?: boolean;
@@ -58,6 +59,7 @@
 		listMode,
 		depth,
 		executable,
+		fileType,
 		showCheckbox,
 		conflictEntries,
 		draggable,
@@ -165,6 +167,7 @@
 			linesRemoved={lineChangesStat?.removed}
 			fileStatusTooltip={previousTooltipText}
 			{executable}
+			{fileType}
 			oncontextmenu={(e) => {
 				e.stopPropagation();
 				e.preventDefault();
@@ -186,6 +189,7 @@
 			indeterminate={checkStatus.current === 'indeterminate'}
 			{depth}
 			{executable}
+			{fileType}
 			draggable={!draggableDisabled}
 			{onkeydown}
 			{hideBorder}

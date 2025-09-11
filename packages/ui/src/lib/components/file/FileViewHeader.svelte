@@ -3,7 +3,6 @@
 	import Button from '$components/Button.svelte';
 	import Icon from '$components/Icon.svelte';
 	import LineStats from '$components/LineStats.svelte';
-	import ExecutableLabel from '$components/file/ExecutableLabel.svelte';
 	import FileName from '$components/file/FileName.svelte';
 	import FileStatusBadge from '$components/file/FileStatusBadge.svelte';
 	import type { FileStatus } from '$components/file/types';
@@ -18,6 +17,7 @@
 		linesRemoved?: number;
 		conflicted?: boolean;
 		executable?: boolean;
+		fileType?: 'regular' | 'executable' | 'symlink' | 'submodule';
 		transparent?: boolean;
 		noPaddings?: boolean;
 		oncontextmenu?: (e: MouseEvent) => void;
@@ -34,6 +34,7 @@
 		linesRemoved = 0,
 		conflicted,
 		executable,
+		fileType,
 		transparent,
 		noPaddings,
 		oncontextmenu,
@@ -63,16 +64,12 @@
 	{/if}
 
 	<div class="file-header__name">
-		<FileName {filePath} textSize="13" />
+		<FileName {filePath} textSize="13" {fileType} {executable} />
 	</div>
 
 	<div class="file-header__statuses">
 		{#if linesAdded > 0 || linesRemoved > 0}
 			<LineStats {linesAdded} {linesRemoved} />
-		{/if}
-
-		{#if executable}
-			<ExecutableLabel />
 		{/if}
 
 		{#if fileStatus}
