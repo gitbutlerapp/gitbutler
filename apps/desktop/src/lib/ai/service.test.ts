@@ -44,7 +44,13 @@ const defaultSecretsConfig = Object.freeze({
 class DummyGitConfigService extends GitConfigService {
 	constructor(private config: { [index: string]: string | undefined }) {
 		const backend = mockCreateBackend();
-		super(backend);
+		const MockClientState = vi.fn();
+		MockClientState.prototype.dispatch = vi.fn();
+		MockClientState.prototype.backendApi = {
+			injectEndpoints: vi.fn()
+		};
+		const mockClientState = new MockClientState();
+		super(mockClientState, backend);
 	}
 	async getGbConfig(_projectId: string): Promise<GbConfig> {
 		throw new Error('Method not implemented.');

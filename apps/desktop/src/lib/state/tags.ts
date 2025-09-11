@@ -31,7 +31,8 @@ export enum ReduxTag {
 	InitalEditListing = 'InitialEditListing',
 	EditChangesSinceInitial = 'EditChangesSinceInitial',
 	AuthorInfo = 'AuthorInfo',
-	IntegrationSteps = 'IntegrationSteps'
+	IntegrationSteps = 'IntegrationSteps',
+	GitConfigProperty = 'GitConfigProperty'
 }
 
 type Tag<T extends string | number> = {

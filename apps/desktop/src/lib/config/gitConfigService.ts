@@ -1,27 +1,40 @@
+import { invalidatesItem, invalidatesList, providesItem, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/core/context';
 import type { IBackend } from '$lib/backend';
+import type { ClientState } from '$lib/state/clientState.svelte';
 
 export const GIT_CONFIG_SERVICE = new InjectionToken<GitConfigService>('GitConfigService');
 
 export class GitConfigService {
-	constructor(private backend: IBackend) {}
+	private api: ReturnType<typeof injectEndpoints>;
+
+	constructor(
+		private clientApi: ClientState,
+		private backend: IBackend
+	) {
+		this.api = injectEndpoints(clientApi.backendApi);
+	}
 	async get<T extends string>(key: string): Promise<T | undefined> {
-		return (
-			(await this.backend.invoke<T | undefined>('git_get_global_config', { key })) || undefined
-		);
+		return ((await this.api.endpoints.gitGetGlobalConfig.fetch({ key })) as T) ?? undefined;
 	}
 
 	async remove(key: string): Promise<undefined> {
-		return await this.backend.invoke('git_remove_global_config', { key });
+		return await this.api.endpoints.gitRemoveGlobalConfig.mutate({ key });
 	}
 
 	async getWithDefault<T extends string>(key: string, defaultValue: T): Promise<T> {
-		const value = await this.backend.invoke<T | undefined>('git_get_global_config', { key });
+		const value = await this.get<T>(key);
 		return value || defaultValue;
 	}
 
 	async set<T extends string>(key: string, value: T) {
-		return await this.backend.invoke<T | undefined>('git_set_global_config', { key, value });
+		return await this.api.endpoints.gitSetGlobalConfig.mutate({ key, value });
+	}
+
+	invalidateGitConfig() {
+		this.clientApi.dispatch(
+			this.api.util.invalidateTags([invalidatesList(ReduxTag.GitConfigProperty)])
+		);
 	}
 
 	async getGbConfig(projectId: string): Promise<GbConfig> {
@@ -70,4 +83,32 @@ export class GbConfig {
 	signingFormat?: string | undefined;
 	gpgProgram?: string | undefined;
 	gpgSshProgram?: string | undefined;
+}
+
+function injectEndpoints(api: ClientState['backendApi']) {
+	return api.injectEndpoints({
+		endpoints: (build) => ({
+			gitGetGlobalConfig: build.query<unknown, { key: string }>({
+				keepUnusedDataFor: 30,
+				extraOptions: { command: 'git_get_global_config' },
+				query: (args) => args,
+				transformResponse: (response: unknown) => {
+					return response;
+				},
+				providesTags: (_result, _error, args) => providesItem(ReduxTag.GitConfigProperty, args.key)
+			}),
+			gitRemoveGlobalConfig: build.mutation<undefined, { key: string }>({
+				extraOptions: { command: 'git_remove_global_config' },
+				query: (args) => args,
+				invalidatesTags: (_result, _error, args) =>
+					invalidatesItem(ReduxTag.GitConfigProperty, args.key)
+			}),
+			gitSetGlobalConfig: build.mutation<unknown, { key: string; value: unknown }>({
+				extraOptions: { command: 'git_set_global_config' },
+				query: (args) => args,
+				invalidatesTags: (_result, _error, args) =>
+					invalidatesItem(ReduxTag.GitConfigProperty, args.key)
+			})
+		})
+	});
 }
