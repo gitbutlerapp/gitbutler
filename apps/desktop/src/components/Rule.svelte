@@ -169,7 +169,7 @@
 		<div class="rule__actions-buttons">
 			<Button icon="edit" size="tag" kind="ghost" onclick={editRule} tooltip="Edit rule" />
 			<Button
-				icon="remove-from-list"
+				icon="bin"
 				style="error"
 				size="tag"
 				kind="ghost"
