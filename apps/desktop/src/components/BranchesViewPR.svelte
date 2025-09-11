@@ -7,6 +7,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { REMOTES_SERVICE } from '$lib/remotes/remotesService';
 	import { workspacePath } from '$lib/routes/routes.svelte';
+	import { handleCreateBranchFromBranchOutcome } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -72,13 +73,14 @@
 			const remoteRef = 'refs/remotes/' + inputRemoteName + '/' + pr.sourceBranch;
 			await remotesService.addRemote(projectId, inputRemoteName, remoteUrl);
 			await baseBranchService.fetchFromRemotes(projectId);
-			await stackService.createVirtualBranchFromBranch({
+			const outcome = await stackService.createVirtualBranchFromBranch({
 				projectId,
 				branch: remoteRef,
 				remote: remoteRef,
 				prNumber
 			});
 
+			handleCreateBranchFromBranchOutcome(outcome);
 			goto(workspacePath(projectId));
 		} catch (err: unknown) {
 			showError('Failed to apply forked branch', err);

@@ -28,6 +28,7 @@
 		createCommitSelection,
 		type SelectionId
 	} from '$lib/selection/key';
+	import { handleCreateBranchFromBranchOutcome } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
@@ -84,12 +85,13 @@
 		const remoteRef = remote ? `refs/remotes/${remote}/${branchName}` : undefined;
 		const branchRef = hasLocal ? `refs/heads/${branchName}` : remoteRef;
 		if (branchRef) {
-			await stackService.createVirtualBranchFromBranch({
+			const outcome = await stackService.createVirtualBranchFromBranch({
 				projectId,
 				branch: branchRef,
 				remote: remoteRef,
 				prNumber
 			});
+			handleCreateBranchFromBranchOutcome(outcome);
 			await baseBranchService.refreshBaseBranch(projectId);
 		}
 		goto(workspacePath(projectId));
