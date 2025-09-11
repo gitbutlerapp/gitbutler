@@ -42,6 +42,7 @@
 		overflow: hidden;
 		gap: 10px;
 		text-wrap: wrap;
+		word-break: break-word;
 	}
 
 	.message-bubble {

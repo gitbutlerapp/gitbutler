@@ -43,6 +43,7 @@
 		border-bottom-left-radius: 0;
 		background-color: var(--clr-bg-2);
 		text-wrap: wrap;
+		word-break: break-word;
 	}
 
 	.user-icon {

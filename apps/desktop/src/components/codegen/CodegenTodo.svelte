@@ -46,6 +46,6 @@
 	}
 
 	.todo-strikethrough {
-		text-decoration: strikethrough;
+		text-decoration: line-through;
 	}
 </style>
