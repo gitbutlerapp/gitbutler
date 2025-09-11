@@ -8,7 +8,7 @@ import {
 	waitForTestIdToNotExist
 } from '../src/util.ts';
 import { expect, test } from '@playwright/test';
-import { readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 
 let gitbutler: GitButler;
 
@@ -272,4 +272,56 @@ conflicting change
 branch1 commit 3
 `
 	);
+});
+
+test('should be able gracefully handle adding a branch that is ahead of our target commit', async ({
+	page,
+	context
+}, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	const fileBPath = gitbutler.pathInWorkdir('local-clone/b_file');
+
+	await gitbutler.runScript('project-with-remote-branches.sh');
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There are remote changes in the base branch
+	await gitbutler.runScript('project-with-remote-branches__add-commit-to-base.sh');
+
+	// Click the sync button
+	await clickByTestId(page, 'sync-button');
+
+	// Should navigate to the branches page when clicking the branches button
+	await clickByTestId(page, 'navigation-branches-button');
+	const header = await waitForTestId(page, 'target-commit-list-header');
+
+	await expect(header).toContainText('origin/master');
+
+	const branchListCards = getByTestId(page, 'branch-list-card');
+	await expect(branchListCards).toHaveCount(2);
+
+	const firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
+	await expect(firstBranchCard).toBeVisible();
+	await firstBranchCard.click();
+
+	// The delete branch should be visible
+	await waitForTestId(page, 'branches-view-delete-local-branch-button');
+
+	// Apply the branch
+	await clickByTestId(page, 'branches-view-apply-branch-button');
+	// Should be redirected to the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	const commits = getByTestId(page, 'commit-row');
+	// Should have 4 commits.
+	// Three commits from branch 1, and the new commit from the base branch
+	await expect(commits).toHaveCount(4);
+
+	expect(existsSync(fileBPath)).toBe(true);
 });
