@@ -45,11 +45,14 @@
 				{@render headerContent()}
 			</button>
 		{:else}
-			<Tooltip text="This session was created via CLI and can't be continued in the GUI yet">
-				<button class="codegen-entry-header" class:selected type="button" disabled>
-					{@render headerContent()}
-				</button>
-			</Tooltip>
+			<button class="codegen-entry-header" class:selected type="button" disabled>
+				{@render headerContent({
+					disabled: true
+				})}
+				<p class="text-12 text-body clr-text-2">
+					⚠ This session was created via CLI and can't be continued in the GUI yet.
+				</p>
+			</button>
 		{/if}
 
 		{#if commitCount > 0}
@@ -86,24 +89,21 @@
 	{/if}
 </div>
 
-{#snippet headerContent()}
+{#snippet headerContent(props = { disabled: false })}
 	{#if selected}
 		<div class="active-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 	{/if}
 	<div class="entry-header-content">
 		{@render branchIcon()}
-
 		<p class="text-14 text-bold truncate full-width">{branchName}</p>
-
 		{@render vibeIcon()}
 	</div>
 
-	{#if status !== 'disabled'}
+	{#if !props.disabled}
 		<div class="entry-metadata text-12">
 			<Tooltip text="Total tokens used and cost">
 				<div class="flex gap-4 items-center">
 					<p>{tokensUsed}</p>
-
 					<svg
 						width="0.938rem"
 						height="0.938rem"
@@ -123,7 +123,6 @@
 							stroke-dasharray="2 1"
 						/>
 					</svg>
-
 					<div class="metadata-divider"></div>
 					<p>${cost.toFixed(2)}</p>
 				</div>
@@ -137,7 +136,6 @@
 		</div>
 	{/if}
 {/snippet}
-
 {#snippet vibeIcon()}
 	<div class="vibe-icon {status}">
 		{#if status === 'running'}
@@ -194,8 +192,13 @@
 			background-color: var(--clr-selected-in-focus-bg);
 		}
 
-		&:not(.selected):hover {
+		&:not(.selected, &:disabled):hover {
 			background-color: var(--clr-bg-1-muted);
+		}
+
+		&:disabled {
+			background-color: var(--clr-bg-2);
+			cursor: not-allowed;
 		}
 	}
 
