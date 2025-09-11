@@ -98,24 +98,3 @@
 		... {currentDuration}
 	</span>
 </CodegenServiceMessage>
-
-<style lang="postcss">
-	.service-message__wrapper {
-		display: flex;
-		width: 100%;
-		padding: 8px 0 16px;
-	}
-	.service-message {
-		display: flex;
-		align-items: flex-end;
-		gap: 16px;
-	}
-	.service-message__bubble {
-		display: flex;
-		max-width: var(--message-max-width);
-		padding: 8px 12px;
-		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
-	}
-</style>
