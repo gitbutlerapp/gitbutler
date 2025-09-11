@@ -21,7 +21,18 @@ export class BitBucket implements Forge {
 	private forkStr?: string;
 
 	constructor({ repo, baseBranch, forkStr, authenticated }: ForgeArguments) {
-		this.baseUrl = `https://${BITBUCKET_DOMAIN}/${repo.owner}/${repo.name}`;
+		// Use the protocol from repo if available, otherwise default to https
+		// For SSH remote URLs, always use HTTPS for browser compatibility
+		let protocol = repo.protocol?.endsWith(':')
+			? repo.protocol.slice(0, -1)
+			: repo.protocol || 'https';
+
+		// SSH URLs cannot be opened in browsers, so convert to HTTPS
+		if (protocol === 'ssh') {
+			protocol = 'https';
+		}
+
+		this.baseUrl = `${protocol}://${repo.domain}/${repo.owner}/${repo.name}`;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
 		this.authenticated = authenticated;

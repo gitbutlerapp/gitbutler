@@ -30,10 +30,22 @@ export class GitHub implements Forge {
 			api: GitHubApi;
 		}
 	) {
-		const { client, api, authenticated } = params;
-		const { owner, name } = params.repo;
+		const { client, api, authenticated, repo } = params;
+		const { owner, name } = repo;
 		this.authenticated = authenticated;
-		this.baseUrl = `https://${GITHUB_DOMAIN}/${owner}/${name}`;
+
+		// Use the protocol from repo if available, otherwise default to https
+		// For SSH remote URLs, always use HTTPS for browser compatibility
+		let protocol = repo.protocol?.endsWith(':')
+			? repo.protocol.slice(0, -1)
+			: repo.protocol || 'https';
+
+		// SSH URLs cannot be opened in browsers, so convert to HTTPS
+		if (protocol === 'ssh') {
+			protocol = 'https';
+		}
+
+		this.baseUrl = `${protocol}://${repo.domain}/${owner}/${name}`;
 
 		this.api = injectEndpoints(api);
 
