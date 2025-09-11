@@ -202,7 +202,7 @@
 					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 				{/if}
 				<Button
-					testId={TestId.NavigationBranchesButton}
+					testId={TestId.NavigationCodegenButton}
 					kind="outline"
 					onclick={() => goto(codegenPath(projectId))}
 					width={34}
