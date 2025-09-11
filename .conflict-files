@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/components/codegen/CodegenSidebarEntry.svelte"]
+ourEntries = ["apps/desktop/src/components/codegen/CodegenSidebarEntry.svelte"]
+theirEntries = ["apps/desktop/src/components/codegen/CodegenSidebarEntry.svelte"]
