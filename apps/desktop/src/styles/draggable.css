@@ -190,3 +190,9 @@
 		opacity: 1;
 	}
 }
+
+/* Dim the original element when it's being dragged */
+.dragging {
+	opacity: 0.5;
+	transition: opacity 0.2s ease;
+}
