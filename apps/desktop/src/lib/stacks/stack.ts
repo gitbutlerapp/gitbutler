@@ -1,6 +1,24 @@
+import { showToast } from '$lib/notifications/toasts';
+import { TestId } from '@gitbutler/ui';
 import type { Author, Commit, UpstreamCommit } from '$lib/branches/v3';
 import type { CellType } from '@gitbutler/ui/components/commitLines/types';
 import type iconsJson from '@gitbutler/ui/data/icons.json';
+
+export type CreateBranchFromBranchOutcome = {
+	stackId: string;
+	unappliedStacks: string[];
+};
+
+export function handleCreateBranchFromBranchOutcome(outcome: CreateBranchFromBranchOutcome) {
+	if (outcome.unappliedStacks.length > 0) {
+		showToast({
+			testId: TestId.StacksUnappliedToast,
+			title: 'Heads up: We had to unapply some stacks to apply this one',
+			message: `It seems that the branch created couldn't be applied cleanly alongside your other ${outcome.unappliedStacks.length} ${outcome.unappliedStacks.length === 1 ? 'stack' : 'stacks'}.
+You can always re-apply them later from the branches page.`
+		});
+	}
+}
 
 export type StackHeadInfo = {
 	/**

@@ -38,7 +38,8 @@ import type {
 	Stack,
 	StackDetails,
 	CreateRefRequest,
-	InteractiveIntegrationStep
+	InteractiveIntegrationStep,
+	CreateBranchFromBranchOutcome
 } from '$lib/stacks/stack';
 import type { ReduxError } from '$lib/state/reduxError';
 
@@ -1480,7 +1481,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				]
 			}),
 			createVirtualBranchFromBranch: build.mutation<
-				void,
+				CreateBranchFromBranchOutcome,
 				{ projectId: string; branch: string; remote?: string; prNumber?: number }
 			>({
 				extraOptions: {
