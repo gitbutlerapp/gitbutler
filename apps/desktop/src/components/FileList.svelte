@@ -198,7 +198,7 @@
 		}
 
 		if (!e.metaKey) {
-			updateSelection({
+			return updateSelection({
 				allowMultiple: true,
 				metaKey: e.metaKey,
 				shiftKey: e.shiftKey,
@@ -210,7 +210,6 @@
 				selectionId: selectionId,
 				preventDefault: () => e.preventDefault()
 			});
-			return true;
 		}
 		return false;
 	}
