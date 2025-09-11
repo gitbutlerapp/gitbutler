@@ -9,7 +9,8 @@ pub struct State {
     ///
     /// It contains detailed information about the complete set of possible changes to become part of the worktree.
     pub changes: but_core::WorktreeChanges,
-    /// Repository-relative and slash-separated paths that match any change in the  [`changes`](State::changes) field.
+    /// Repository-relative and slash-separated paths that match any change in the  [`changes`](State::changes) field
+    /// to define which entry in `changes` is actually stored in the snapshot.
     /// It is *not* error if there is no match, as there can be snapshots without working tree changes, but with other changes.
     /// It's up to the caller to check for that via [`Outcome::is_empty()`].
     pub selection: BTreeSet<BString>,
@@ -108,7 +109,7 @@ pub(super) mod function {
         State {
             changes,
             selection,
-            head: _,
+            head: _to_be_implemented,
         }: State,
         _workspace_and_meta: Option<(&but_graph::projection::Workspace, &impl RefMetadata)>,
     ) -> anyhow::Result<Outcome> {

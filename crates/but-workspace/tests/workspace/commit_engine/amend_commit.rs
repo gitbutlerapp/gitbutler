@@ -110,7 +110,7 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
     parent 91ef6f6fc0a8b97fb456886c1cc3b2a3536ea2eb
     parent 7f389eda1b366f3d56ecc1300b3835727c3309b6
     author author <author@example.com> 946684800 +0000
-    committer Committer (Memory Override) <committer@example.com> 946771200 +0000
+    committer committer (From Env) <committer@example.com> 946771200 +0000
 
     Merge branch 'A' into merge
     ");

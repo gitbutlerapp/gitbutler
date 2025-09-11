@@ -8,12 +8,7 @@ use but_testsupport::{graph_workspace, id_at, visualize_commit_graph_all};
 use but_workspace::branch::apply::{
     IntegrationMode, OnWorkspaceConflict, WorkspaceReferenceNaming,
 };
-
-#[test]
-#[ignore = "TBD: idempotent"]
-fn unapply_branch_not_in_workspace() -> anyhow::Result<()> {
-    Ok(())
-}
+use but_workspace::branch::checkout::UncommitedWorktreeChanges;
 
 #[test]
 fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
@@ -48,6 +43,13 @@ fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
         err.to_string(),
         "Refusing to work on workspace whose workspace commit isn't at the top",
         "cannot apply on a workspace that isn't proper"
+    );
+
+    let err = but_workspace::branch::apply(r("HEAD"), &ws, &mut repo, &mut meta, default_options())
+        .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Refusing to apply symbolic ref 'HEAD' due to potential ambiguity"
     );
 
     // TODO: unapply, commit, uncommit
@@ -192,7 +194,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
 }
 
 #[test]
-fn auto_checkout_of_enclosing_workspace() -> anyhow::Result<()> {
+fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-no-ws-commit-one-stack-one-branch",
@@ -211,6 +213,21 @@ fn auto_checkout_of_enclosing_workspace() -> anyhow::Result<()> {
     │   └── 📙:3:B
     └── ≡📙:2:A on e5d0542
         └── 📙:2:A
+    ");
+
+    // Apply the workspace ref itself, it's a no-op
+    let out = but_workspace::branch::apply(
+        r("refs/heads/gitbutler/workspace"),
+        &ws,
+        &mut repo,
+        &mut meta,
+        default_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r"
+    Outcome {
+        workspace_changed: false,
+        workspace_ref_created: false,
+    }
     ");
 
     let (b_id, b_ref) = id_at(&repo, "B");
@@ -248,6 +265,97 @@ fn auto_checkout_of_enclosing_workspace() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(out, @r"
     Outcome {
         workspace_changed: false,
+        workspace_ref_created: false,
+    }
+    ");
+    Ok(())
+}
+
+#[test]
+fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-two-stacks",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+            },
+        )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   c49e4d8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 09d8e52 (A) A
+    * | c813d8d (B) B
+    |/  
+    * 85efbe4 (origin/main, main) M
+    ");
+
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
+    ├── ≡📙:4:B on 85efbe4
+    │   └── 📙:4:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
+    ");
+
+    // Apply the workspace ref itself, it's a no-op
+    let ws_ref = r("refs/heads/gitbutler/workspace");
+    let out = but_workspace::branch::apply(ws_ref, &ws, &mut repo, &mut meta, default_options())?;
+    insta::assert_debug_snapshot!(out, @r"
+    Outcome {
+        workspace_changed: false,
+        workspace_ref_created: false,
+    }
+    ");
+
+    let (b_id, b_ref) = id_at(&repo, "B");
+    let graph =
+        but_graph::Graph::from_commit_traversal(b_id, b_ref.clone(), &meta, Default::default())?;
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
+    ├── ≡👉📙:0:B on 85efbe4
+    │   └── 👉📙:0:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:4:A on 85efbe4
+        └── 📙:4:A
+            └── ·09d8e52 (🏘️)
+    ");
+
+    // Already applied (the HEAD points to it, it literally IS the workspace).
+    let out =
+        but_workspace::branch::apply(b_ref.as_ref(), &ws, &mut repo, &mut meta, default_options())?;
+    insta::assert_debug_snapshot!(out, @r"
+    Outcome {
+        workspace_changed: false,
+        workspace_ref_created: false,
+    }
+    ");
+
+    let err = but_workspace::branch::apply(ws_ref, &ws, &mut repo, &mut meta, default_options())
+        .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Refusing to apply a reference that already is a workspace: 'gitbutler/workspace'",
+        "it's never good to merge one managed workspace into another, and we just disallow it.\
+         Note that we could also check it out."
+    );
+
+    // To apply, we just checkout the surrounding workspace.
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        &ws,
+        &mut repo,
+        &mut meta,
+        default_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r"
+    Outcome {
+        workspace_changed: true,
         workspace_ref_created: false,
     }
     ");
@@ -343,6 +451,8 @@ fn default_options() -> but_workspace::branch::apply::Options {
         integration_mode: IntegrationMode::MergeIfNeeded,
         on_workspace_conflict: OnWorkspaceConflict::AbortAndReportConflictingStack,
         workspace_reference_naming: WorkspaceReferenceNaming::Default,
+        uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+        order: None,
     }
 }
 

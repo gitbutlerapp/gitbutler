@@ -1,3 +1,4 @@
+use crate::branch::checkout::UncommitedWorktreeChanges;
 use std::borrow::Cow;
 
 /// Returned by [function::apply()].
@@ -39,7 +40,7 @@ pub enum IntegrationMode {
     MergeIfNeeded,
 }
 
-/// What to do if the applied branch conflicts?
+/// What to do if the applied branch conflicts with the existing branches?
 #[derive(Default, Debug, Copy, Clone)]
 pub enum OnWorkspaceConflict {
     /// Provide additional information about the stack that conflicted and the files involved in it,
@@ -63,18 +64,26 @@ pub enum WorkspaceReferenceNaming {
 pub struct Options {
     /// how the branch should be brought into the workspace.
     pub integration_mode: IntegrationMode,
-    /// Decide how to deal with conflicts.
+    /// Decide how to deal with conflicts when creating the workspace merge commit to bring in each stack.
     pub on_workspace_conflict: OnWorkspaceConflict,
     /// How the workspace reference should be named should it be created.
     /// The creation is always needed if there are more than one branch applied.
     pub workspace_reference_naming: WorkspaceReferenceNaming,
+    /// How the worktree checkout should behave int eh light of uncommitted changes in the worktree.
+    pub uncommitted_changes: UncommitedWorktreeChanges,
+    /// If not `None`, the applied branch should be merged into the workspace commit at the N'th parent position.
+    /// This is useful if the tip of a branc (at a specific position) was unapplied, and a segment within that branch
+    /// should now be re-applied, but of course, be placed at the same spot and not end up at the end of the workspace.
+    pub order: Option<usize>,
 }
 
 pub(crate) mod function {
     use super::{Options, Outcome, WorkspaceReferenceNaming};
+    use crate::branch::checkout;
     use crate::ref_info::WorkspaceExt;
-    use anyhow::bail;
+    use anyhow::{Context, bail};
     use but_core::RefMetadata;
+    use but_graph::init::Overlay;
     use but_graph::projection::WorkspaceKind;
     use std::borrow::Cow;
 
@@ -91,33 +100,64 @@ pub(crate) mod function {
     ///
     /// On `error`, neither `repo` nor `meta` will have been changed, but `repo` may contain in-memory objects.
     /// Otherwise, objects will have been persisted, and references and metadata will have been updated.
-    pub fn apply<'graph, T: RefMetadata>(
+    pub fn apply<'graph>(
         branch: &gix::refs::FullNameRef,
         workspace: &but_graph::projection::Workspace<'graph>,
         repo: &mut gix::Repository,
-        _meta: &mut T,
+        meta: &mut impl RefMetadata,
         Options {
             integration_mode: _,
             on_workspace_conflict: _,
             workspace_reference_naming,
+            uncommitted_changes,
+            order: _to_be_used_in_merge,
         }: Options,
     ) -> anyhow::Result<Outcome<'graph>> {
-        if workspace.is_reachable_from_entrypoint(branch) {
-            if workspace.is_entrypoint()
-                || workspace
-                    .stacks
-                    .iter()
-                    .flat_map(|s| s.segments.iter().filter_map(|s| s.ref_name.as_ref()))
-                    .any(|rn| rn.as_ref() == branch)
-            {
-                return Ok(Outcome {
-                    graph: Cow::Borrowed(workspace.graph),
-                    workspace_ref_created: false,
-                });
-            }
-        } else if workspace.refname_is_segment(branch) {
-            todo!("checkout workspace so the to-be-applied branch becomes visible")
+        if repo
+            .try_find_reference(branch)?
+            .is_some_and(|r| matches!(r.target(), gix::refs::TargetRef::Symbolic(_)))
+        {
+            bail!(
+                "Refusing to apply symbolic ref '{}' due to potential ambiguity",
+                branch.shorten()
+            );
         }
+        if workspace.is_reachable_from_entrypoint(branch) {
+            return Ok(Outcome {
+                graph: Cow::Borrowed(workspace.graph),
+                workspace_ref_created: false,
+            });
+        } else if workspace.refname_is_segment(branch) {
+            // This means our workspace encloses the desired branch, but it's not checked out yet.
+            let commit_to_checkout = workspace
+                .tip_commit()
+                .context("Workspace must point to a commit to check out")?;
+            let current_head_commit = workspace
+                .graph
+                .lookup_entrypoint()?
+                .commit
+                .context("The entrypoint must have a commit - it's equal to HEAD")?;
+            crate::branch::safe_checkout(
+                current_head_commit.id,
+                commit_to_checkout.id,
+                repo,
+                checkout::Options {
+                    uncommitted_changes,
+                },
+            )?;
+            let graph = workspace.graph.redo_traversal_with_overlay(
+                repo,
+                meta,
+                Overlay::default().with_entrypoint(
+                    commit_to_checkout.id,
+                    workspace.ref_name().map(|rn| rn.to_owned()),
+                ),
+            )?;
+            return Ok(Outcome {
+                graph: Cow::Owned(graph),
+                workspace_ref_created: false,
+            });
+        };
 
         if let Some(ws_ref_name) = workspace.ref_name()
             && repo.try_find_reference(ws_ref_name)?.is_none()
@@ -133,6 +173,12 @@ pub(crate) mod function {
             bail!("Refusing to work on workspace whose workspace commit isn't at the top");
         }
 
+        if meta.workspace_opt(branch)?.is_some() {
+            bail!(
+                "Refusing to apply a reference that already is a workspace: '{}'",
+                branch.shorten()
+            );
+        }
         // In general, we only have to deal with one branch to apply. But when we are on an adhoc workspace,
         // we need to assure both branches go into the existing or the new workspace.
         let (_workspace_ref_name_to_update, _branches_to_apply) = match &workspace.kind {
