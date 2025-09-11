@@ -71,8 +71,9 @@
 
 	async function setAvatars(ownedByUser: boolean, branchListingDetails?: BranchListingDetails) {
 		if (ownedByUser) {
-			const name = (await cachedGitConfigService.getUserName()) || unknownName;
-			const email = (await cachedGitConfigService.getUserEmail()) || unknownEmail;
+			const userInfo = await cachedGitConfigService.getUserInfo();
+			const name = userInfo.name || unknownName;
+			const email = userInfo.email || unknownEmail;
 			const srcUrl =
 				email.toLowerCase() === $user?.email?.toLowerCase() && $user?.picture
 					? $user?.picture

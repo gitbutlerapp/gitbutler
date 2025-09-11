@@ -78,6 +78,18 @@ export class CachedGitConfigService implements IGitConfigService {
 	}
 
 	/**
+	 * Convenience method to get both user name and email in a single call
+	 * This reduces the number of separate cache lookups for components that need both
+	 */
+	async getUserInfo(): Promise<{ name?: string; email?: string }> {
+		const [name, email] = await Promise.all([
+			this.getUserName(),
+			this.getUserEmail()
+		]);
+		return { name, email };
+	}
+
+	/**
 	 * Clear the cache (useful for testing or when config is known to have changed)
 	 */
 	clearCache(): void {

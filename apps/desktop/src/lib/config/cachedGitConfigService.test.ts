@@ -124,6 +124,19 @@ describe('CachedGitConfigService', () => {
 		expect(mockGitConfig.getCallCount()).toBe(2);
 	});
 
+	it('should provide convenient getUserInfo method', async () => {
+		const userInfo = await cachedService.getUserInfo();
+		expect(userInfo.name).toBe('Test User');
+		expect(userInfo.email).toBe('test@example.com');
+		expect(mockGitConfig.getCallCount()).toBe(2); // Both user.name and user.email fetched
+
+		// Second call should use cache
+		const userInfo2 = await cachedService.getUserInfo();
+		expect(userInfo2.name).toBe('Test User');
+		expect(userInfo2.email).toBe('test@example.com');
+		expect(mockGitConfig.getCallCount()).toBe(2); // Should still be 2
+	});
+
 	it('should clear all cache when clearCache is called', async () => {
 		// Populate cache with multiple values
 		await cachedService.getUserName();
