@@ -11,7 +11,7 @@
 	import Dropzone from '$components/Dropzone.svelte';
 	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-
+	import CodegenBadge from '$components/codegen/CodegenBadge.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { CodegenRuleDropData, CodegenRuleDropHandler } from '$lib/codegen/dropzone';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
@@ -25,7 +25,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { ReviewBadge, Icon, Tooltip, TestId, Button, Badge } from '@gitbutler/ui';
+	import { ReviewBadge, Icon, Tooltip, TestId } from '@gitbutler/ui';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
@@ -361,62 +361,35 @@
 						{#snippet children(sessionDetails, { projectId, stackId: _stackId })}
 							<ClaudeSessionDescriptor {projectId} {sessionId}>
 								{#snippet loading()}
-									<Button
-										icon="ai-small"
-										style="purple"
-										size="tag"
-										class="branch-header__ai-pill__name"
-										shrinkable
-										reversedDirection
-										disabled>Loading...</Button
-									>
+									<CodegenBadge state="loading" />
 								{/snippet}
 								{#snippet error()}
-									<Badge size="tag" style="error" kind="solid" icon="ai-small">Session error</Badge>
+									<CodegenBadge state="error" />
 								{/snippet}
-								{#snippet children(descriptor)}
-									<div
-										class="branch-header__ai-pill"
-										use:draggableChips={{
-											label: descriptor,
-											data: new CodegenRuleDropData(rule),
-											chipType: 'ai-session',
-											dropzoneRegistry,
-											dragStateService
-										}}
-									>
-										<Button
-											icon="ai-small"
-											style="purple"
-											kind={sessionDetails.inGui ? 'solid' : 'outline'}
-											size="tag"
-											shrinkable
-											tooltip={sessionDetails.inGui
-												? 'Click to go to session or drag to another lane'
-												: 'Drag to another lane'}
-											tooltipMaxWidth={160}
-											width="100%"
-											maxWidth={140}
-											onclick={async () => {
-												if (!args.stackId) return;
-												if (!sessionDetails.inGui) return;
+								<div
+									class="branch-header__ai-pill"
+									use:draggableChips={{
+										label: !sessionDetails.inGui ? 'CLI' : undefined,
+										data: new CodegenRuleDropData(rule),
+										chipType: 'ai-session',
+										dropzoneRegistry,
+										dragStateService
+									}}
+								>
+									<CodegenBadge
+										state={sessionDetails.inGui ? 'ebabled' : 'cli'}
+										onclick={async () => {
+											if (!args.stackId) return;
+											if (!sessionDetails.inGui) return;
 
-												projectState.selectedClaudeSession.set({
-													stackId: args.stackId,
-													head: branchName
-												});
-												goto(codegenPath(projectId));
-											}}
-										>
-											{#snippet custom()}
-												<div class="branch-header__ai-pill-label">
-													<span class="truncate">{descriptor}</span>
-													<Icon name="draggable" opacity={0.8} />
-												</div>
-											{/snippet}
-										</Button>
-									</div>
-								{/snippet}
+											projectState.selectedClaudeSession.set({
+												stackId: args.stackId,
+												head: branchName
+											});
+											goto(codegenPath(projectId));
+										}}
+									/>
+								</div>
 							</ClaudeSessionDescriptor>
 						{/snippet}
 					</ReduxResult>
@@ -469,13 +442,5 @@
 	.branch-header__ai-pill {
 		display: flex;
 		overflow: hidden;
-	}
-
-	.branch-header__ai-pill-label {
-		display: flex;
-		align-items: center;
-		padding-left: 4px;
-		overflow: hidden;
-		gap: 3px;
 	}
 </style>

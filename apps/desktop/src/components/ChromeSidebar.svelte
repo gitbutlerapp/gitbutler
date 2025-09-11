@@ -555,7 +555,7 @@
 	:global(.sidebar .faded-btn) {
 		--icon-opacity: 0.4;
 
-		&:hover {
+		&:not(:disabled):hover {
 			--icon-opacity: 0.6;
 		}
 	}
