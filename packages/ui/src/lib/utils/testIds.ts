@@ -138,7 +138,8 @@ export enum TestId {
 	ChromeHeaderProjectSelectorAddLocalProject = 'chrome-header-project-selector-add-local-project',
 	SyncButton = 'sync-button',
 	EditMode = 'edit-mode',
-	EditModeSaveAndExitButton = 'edit-mode-save-and-exit-button'
+	EditModeSaveAndExitButton = 'edit-mode-save-and-exit-button',
+	StacksUnappliedToast = 'stacks-unapplied-toast'
 }
 
 export enum ElementId {
