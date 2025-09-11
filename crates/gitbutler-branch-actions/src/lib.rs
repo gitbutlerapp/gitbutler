@@ -24,7 +24,7 @@ pub mod internal {
 }
 
 mod branch_manager;
-pub use branch_manager::{BranchManager, BranchManagerExt};
+pub use branch_manager::{BranchManager, BranchManagerExt, CreateBranchFromBranchOutcome};
 
 pub mod base;
 pub use base::BaseBranch;

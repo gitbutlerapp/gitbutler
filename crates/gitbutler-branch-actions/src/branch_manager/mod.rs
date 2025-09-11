@@ -1,3 +1,4 @@
+pub use branch_creation::CreateBranchFromBranchOutcome;
 use gitbutler_command_context::CommandContext;
 
 mod branch_creation;

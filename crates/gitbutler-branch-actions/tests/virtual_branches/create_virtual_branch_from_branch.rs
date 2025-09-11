@@ -56,6 +56,7 @@ fn integration() {
         None,
         Some(123),
     )
+    .map(|o| o.0)
     .unwrap();
 
     {
@@ -154,6 +155,7 @@ fn no_conflicts() {
         None,
         None,
     )
+    .map(|o| o.0)
     .unwrap();
 
     let stacks = stack_details(ctx);
@@ -207,6 +209,7 @@ fn conflicts_with_uncommited() {
         None,
         None,
     )
+    .map(|o| o.0)
     .unwrap();
     let (_, b) = stack_details(ctx)
         .into_iter()
@@ -261,6 +264,7 @@ fn conflicts_with_commited() {
         None,
         None,
     )
+    .map(|o| o.0)
     .unwrap();
     let (_, b) = stack_details(ctx)
         .into_iter()

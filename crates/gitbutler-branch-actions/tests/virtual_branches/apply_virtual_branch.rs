@@ -88,13 +88,15 @@ fn rebase_commit() {
 
     {
         // apply first vbranch again
-        stack_1_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
+        let outcome = gitbutler_branch_actions::create_virtual_branch_from_branch(
             ctx,
             &unapplied_branch,
             None,
             None,
         )
         .unwrap();
+
+        stack_1_id = outcome.0;
 
         // it should be rebased
         let stacks = stack_details(ctx);
