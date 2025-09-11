@@ -48,7 +48,12 @@ import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { GitRemote } from '$lib/remotes/remotesService';
 import type { WorkspaceRule } from '$lib/rules/rule';
-import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
+import type {
+	BranchDetails,
+	CreateBranchFromBranchOutcome,
+	Stack,
+	StackDetails
+} from '$lib/stacks/stack';
 import type { BranchPushResult } from '$lib/stacks/stackService.svelte';
 import type { BranchStatusesResponse, IntegrationOutcome } from '$lib/upstream/types';
 import type { InvokeArgs } from '@tauri-apps/api/core';
@@ -609,12 +614,18 @@ export default class MockBackend {
 		this.stackDetails.set(stackId, editableDetails);
 	}
 
-	public createVirtualBranchFromBranch(args: InvokeArgs | undefined) {
+	public createVirtualBranchFromBranch(
+		args: InvokeArgs | undefined
+	): CreateBranchFromBranchOutcome {
 		if (!args || !isCreateVirtualBranchFromBranchParams(args)) {
 			throw new Error('Invalid arguments for createVirtualBranchFromBranch');
 		}
 
 		// Do nothing for now
+		return {
+			stackId: 'something',
+			unappliedStacks: []
+		};
 	}
 
 	public deleteLocalBranch(args: InvokeArgs | undefined) {
