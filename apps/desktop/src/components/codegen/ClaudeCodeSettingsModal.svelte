@@ -1,8 +1,10 @@
 <script lang="ts">
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { inject } from '@gitbutler/core/context';
+	import { Link } from '@gitbutler/ui';
 	import { Modal, SectionCard, Toggle } from '@gitbutler/ui';
 	import type { Modal as ModalType } from '@gitbutler/ui';
 
@@ -69,78 +71,90 @@
 
 <Modal bind:this={modal} width="medium" {onClose} title="Claude Code Settings" closeButton>
 	{#snippet children(_item, _close)}
-		<div class="settings-content">
-			<SectionCard orientation="column">
-				{#snippet title()}
-					Claude Code Configuration
-				{/snippet}
+		<ScrollableContainer>
+			<div class="settings-content">
+				<SectionCard orientation="column">
+					<span>
+						Read more about using Agents in GitButler: <Link
+							href="https://docs.gitbutler.com/features/agents-tab">Docs</Link
+						>
+					</span>
+				</SectionCard>
+				<SectionCard orientation="column">
+					{#snippet title()}
+						Claude Code Configuration
+					{/snippet}
 
-				{#snippet caption()}
-					Configure the path to the Claude Code executable. This is used for AI-powered code
-					generation and editing.
-				{/snippet}
+					{#snippet caption()}
+						Configure the path to the Claude Code executable. This is used for AI-powered code
+						generation and editing.
+					{/snippet}
 
-				<ClaudeCheck
-					claudeExecutable={claudeExecutable.current}
-					recheckedAvailability={recheckedAvailability.current}
-					onUpdateExecutable={updateClaudeExecutable}
-					onCheckAvailability={checkClaudeAvailability}
-					showInstallationGuide={false}
-					showTitle={false}
-				/>
-			</SectionCard>
-
-			<SectionCard orientation="row">
-				{#snippet title()}
-					Claude Code notifications
-				{/snippet}
-				{#snippet caption()}
-					<div class="notification-toggles">
-						<div class="notification-toggle">
-							<p>Notify when Claude Code finishes</p>
-							<Toggle checked={notifyOnCompletion} onchange={updateNotifyOnCompletion} />
-						</div>
-						<div class="notification-toggle">
-							<p>Notify when Claude Code needs permission</p>
-							<Toggle
-								checked={notifyOnPermissionRequest}
-								onchange={updateNotifyOnPermissionRequest}
-							/>
-						</div>
-					</div>
-				{/snippet}
-				{#snippet actions()}{/snippet}
-			</SectionCard>
-
-			<SectionCard orientation="row">
-				{#snippet title()}
-					Auto-commit after completion
-				{/snippet}
-				{#snippet caption()}
-					Automatically commit changes and rename branches when Claude Code finishes. Disable this
-					to manually review changes before committing.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle checked={autoCommitAfterCompletion} onchange={updateAutoCommitAfterCompletion} />
-				{/snippet}
-			</SectionCard>
-
-			<SectionCard orientation="row">
-				{#snippet title()}
-					⚠️ Dangerously allow all permissions
-				{/snippet}
-				{#snippet caption()}
-					Skips all permission prompts and allows Claude Code unrestricted access. Use with extreme
-					caution.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						checked={dangerouslyAllowAllPermissions}
-						onchange={updateDangerouslyAllowAllPermissions}
+					<ClaudeCheck
+						claudeExecutable={claudeExecutable.current}
+						recheckedAvailability={recheckedAvailability.current}
+						onUpdateExecutable={updateClaudeExecutable}
+						onCheckAvailability={checkClaudeAvailability}
+						showInstallationGuide={false}
+						showTitle={false}
 					/>
-				{/snippet}
-			</SectionCard>
-		</div>
+				</SectionCard>
+
+				<SectionCard orientation="row">
+					{#snippet title()}
+						Claude Code notifications
+					{/snippet}
+					{#snippet caption()}
+						<div class="notification-toggles">
+							<div class="notification-toggle">
+								<p>Notify when Claude Code finishes</p>
+								<Toggle checked={notifyOnCompletion} onchange={updateNotifyOnCompletion} />
+							</div>
+							<div class="notification-toggle">
+								<p>Notify when Claude Code needs permission</p>
+								<Toggle
+									checked={notifyOnPermissionRequest}
+									onchange={updateNotifyOnPermissionRequest}
+								/>
+							</div>
+						</div>
+					{/snippet}
+					{#snippet actions()}{/snippet}
+				</SectionCard>
+
+				<SectionCard orientation="row">
+					{#snippet title()}
+						Auto-commit after completion
+					{/snippet}
+					{#snippet caption()}
+						Automatically commit changes and rename branches when Claude Code finishes. Disable this
+						to manually review changes before committing.
+					{/snippet}
+					{#snippet actions()}
+						<Toggle
+							checked={autoCommitAfterCompletion}
+							onchange={updateAutoCommitAfterCompletion}
+						/>
+					{/snippet}
+				</SectionCard>
+
+				<SectionCard orientation="row">
+					{#snippet title()}
+						⚠️ Dangerously allow all permissions
+					{/snippet}
+					{#snippet caption()}
+						Skips all permission prompts and allows Claude Code unrestricted access. Use with
+						extreme caution.
+					{/snippet}
+					{#snippet actions()}
+						<Toggle
+							checked={dangerouslyAllowAllPermissions}
+							onchange={updateDangerouslyAllowAllPermissions}
+						/>
+					{/snippet}
+				</SectionCard>
+			</div>
+		</ScrollableContainer>
 	{/snippet}
 </Modal>
 
