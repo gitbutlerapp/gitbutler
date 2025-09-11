@@ -456,6 +456,10 @@ impl Stack {
     }
 }
 
+/// Functions related to workspace checkouts.
+pub mod checkout;
+pub use checkout::function::safe_checkout;
+
 /// Functions and types related to applying a workspace branch.
 pub mod apply;
 pub use apply::function::apply;
