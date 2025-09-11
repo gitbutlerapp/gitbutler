@@ -43,6 +43,7 @@ export type SelectionId = {
 export type SelectedFile = SelectionId & { path: string };
 export type SelectedFileKey = BrandedId<'SelectedFileKey'>;
 export type SelectionKey = BrandedId<'SelectedKey'>;
+export type StableSelectionKey = BrandedId<'StableSelectedKey'>;
 
 export function key(params: SelectedFile): SelectedFileKey {
 	switch (params.type) {
@@ -108,6 +109,61 @@ export function selectionKey(id: SelectionId): SelectionKey {
 			return `${id.type}${UNIT_SEP}${id.stackId}` as SelectionKey;
 		case 'snapshot':
 			return `${id.type}${UNIT_SEP}${id.snapshotId}` as SelectionKey;
+	}
+}
+
+/**
+ * Like selectionKey but includes the type in order to be read back unambiguously.
+ */
+export function stableSelectionKey(id: SelectionId): StableSelectionKey {
+	switch (id.type) {
+		case 'commit':
+			return `commit${UNIT_SEP}${id.commitId}${UNIT_SEP}${id.stackId ?? 'undefined'}` as StableSelectionKey;
+		case 'branch':
+			return `branch${UNIT_SEP}${id.stackId ?? 'undefined'}${UNIT_SEP}${id.remote ?? UNDEFINED_REMOTE}${UNIT_SEP}${id.branchName}` as StableSelectionKey;
+		case 'worktree':
+			return `worktree${UNIT_SEP}${id.stackId ?? 'undefined'}` as StableSelectionKey;
+		case 'snapshot':
+			return `snapshot${UNIT_SEP}${id.snapshotId}` as StableSelectionKey;
+	}
+}
+
+/**
+ * Read the stable selection key back into a SelectionId.
+ */
+export function readStableSelectionKey(key: StableSelectionKey): SelectionId {
+	const [type, ...parts] = key.split(UNIT_SEP);
+
+	if (!isSelectionType(type)) throw new Error('Invalid selection key');
+
+	switch (type) {
+		case 'commit':
+			if (parts.length !== 2) throw new Error('Invalid commit key');
+			return {
+				type,
+				commitId: parts[0]!,
+				stackId: parts[1] === 'undefined' ? undefined : parts[1]!
+			};
+		case 'branch':
+			if (parts.length !== 3) throw new Error('Invalid branch key');
+			return {
+				type,
+				stackId: parts[0] === 'undefined' ? undefined : parts[0]!,
+				remote: parts[1] === UNDEFINED_REMOTE ? undefined : parts[1]!,
+				branchName: parts[2]!
+			};
+		case 'worktree':
+			if (parts.length !== 1) throw new Error('Invalid worktree key');
+			return {
+				type,
+				stackId: parts[0] === 'undefined' ? undefined : parts[0]
+			};
+		case 'snapshot':
+			if (parts.length !== 1) throw new Error('Invalid snapshot key');
+			return {
+				type,
+				snapshotId: parts[0]!
+			};
 	}
 }
 

@@ -5,13 +5,13 @@
 	import Resizer from '$components/Resizer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
+	import { readStableSelectionKey, stableSelectionKey, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/core/context';
 	import { Badge, EmptyStatePlaceholder, LineStats } from '@gitbutler/ui';
 
-	import { untrack, type ComponentProps } from 'svelte';
+	import { type ComponentProps } from 'svelte';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { TreeChange, TreeStats } from '$lib/hunks/change';
-	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
 		projectId: string;
@@ -50,21 +50,18 @@
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
+	// Turn the selection key into a string so it can be watched reactively in a consistent way.
+	const stringSelectionKey = $derived(stableSelectionKey(selectionId));
+	// Derive the path of the first changed file, so it can be watched reactively in a consistent way.
+	const firstChangePath = $derived(changes.at(0)?.path);
 
 	let listMode: 'list' | 'tree' = $state('tree');
 
 	$effect(() => {
-		if (selectionId) {
-			const selection = idSelection.getById(selectionId);
-			// Prevent effect from running when `changes` updates.
-			untrack(() => {
-				if (autoselect && selection.entries.size === 0) {
-					const firstChange = changes.at(0);
-					if (firstChange) {
-						idSelection.set(firstChange.path, selectionId, 0);
-					}
-				}
-			});
+		const id = readStableSelectionKey(stringSelectionKey);
+		const selection = idSelection.getById(id);
+		if (firstChangePath && autoselect && selection.entries.size === 0) {
+			idSelection.set(firstChangePath, selectionId, 0);
 		}
 	});
 </script>
