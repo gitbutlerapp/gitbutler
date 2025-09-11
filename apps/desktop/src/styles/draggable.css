@@ -4,6 +4,9 @@
 .dragchip-container {
 	display: flex;
 	position: absolute;
+	top: -1000px;
+	left: -1000px;
+	pointer-events: none;
 }
 
 .dragchip {
