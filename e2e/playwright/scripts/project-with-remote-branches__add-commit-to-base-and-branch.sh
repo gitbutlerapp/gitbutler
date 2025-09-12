@@ -7,9 +7,16 @@ echo "BUT_TESTING $BUT_TESTING"
 pushd remote-project
 # Checkout branch 1
 git checkout master
-echo "Update to main branch" >> a_file
+echo "create file b" >> b_file
 git add b_file
 git commit -am "commit in base"
 
+git checkout branch1
+git rebase master
+echo "update file b" >> b_file
+git add b_file
+git commit -am "branch1: update after base change"
+
+git checkout master
 popd
 
