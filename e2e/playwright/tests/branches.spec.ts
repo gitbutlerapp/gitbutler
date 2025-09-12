@@ -292,7 +292,7 @@ test('should be able gracefully handle adding a branch that is ahead of our targ
 	await waitForTestId(page, 'workspace-view');
 
 	// There are remote changes in the base branch
-	await gitbutler.runScript('project-with-remote-branches__add-commit-to-base.sh');
+	await gitbutler.runScript('project-with-remote-branches__add-commit-to-base-and-branch.sh');
 
 	// Click the sync button
 	await clickByTestId(page, 'sync-button');
@@ -324,6 +324,175 @@ test('should be able gracefully handle adding a branch that is ahead of our targ
 	await expect(commits).toHaveCount(4);
 
 	expect(existsSync(fileBPath)).toBe(true);
+});
+
+test('should be able gracefully handle adding a branch that is behind of our target commit', async ({
+	page,
+	context
+}, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	const filePath = gitbutler.pathInWorkdir('local-clone/a_file');
+	await gitbutler.runScript('project-with-remote-branches.sh');
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There are remote changes in the base branch
+	await gitbutler.runScript('project-with-remote-branches__add-commit-to-base.sh');
+
+	// Click the sync button
+	await clickByTestId(page, 'sync-button');
+	// Update the workspace
+	await clickByTestId(page, 'integrate-upstream-commits-button');
+	await clickByTestId(page, 'integrate-upstream-action-button');
+
+	// Should navigate to the branches page when clicking the branches button
+	await clickByTestId(page, 'navigation-branches-button');
+	const header = await waitForTestId(page, 'target-commit-list-header');
+
+	await expect(header).toContainText('origin/master');
+
+	const branchListCards = getByTestId(page, 'branch-list-card');
+	await expect(branchListCards).toHaveCount(2);
+
+	const firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
+	await expect(firstBranchCard).toBeVisible();
+	await firstBranchCard.click();
+
+	// The delete branch should be visible
+	await waitForTestId(page, 'branches-view-delete-local-branch-button');
+
+	// Apply the branch
+	await clickByTestId(page, 'branches-view-apply-branch-button');
+	// Should be redirected to the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	const commits = getByTestId(page, 'commit-row');
+	await expect(commits).toHaveCount(2);
+
+	const conflictedCommit = commits.filter({
+		hasText: 'branch1: first commit'
+	});
+	await expect(conflictedCommit).toBeVisible();
+	await conflictedCommit.click();
+
+	// Click the resolve conflicts button
+	await clickByTestId(page, 'commit-drawer-resolve-conflicts-button');
+
+	// Should open the edit mode
+	await waitForTestId(page, 'edit-mode');
+
+	let conflictedFileContent = readFileSync(filePath, 'utf-8');
+	expect(conflictedFileContent).toEqual(
+		`foo
+bar
+baz
+<<<<<` +
+			`<< ours
+Update to main branch
+||||||| ancestor
+=======
+branch1 commit 1
+>>>>>>> theirs
+`
+	);
+
+	// Resolve the conflict by keeping both changes
+	writeFileSync(
+		filePath,
+		`foo
+bar
+baz
+Update to main branch
+branch1 commit 1
+`,
+		{ flag: 'w' }
+	);
+
+	// Click the save and exit button
+	await clickByTestId(page, 'edit-mode-save-and-exit-button');
+
+	// Should be back in the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	const commitsAfterResolving = getByTestId(page, 'commit-row');
+	await expect(commitsAfterResolving).toHaveCount(2);
+
+	// Verify the file content
+	let resolvedFileContent = readFileSync(filePath, 'utf-8');
+	expect(resolvedFileContent).toEqual(
+		`foo
+bar
+baz
+Update to main branch
+branch1 commit 1
+`
+	);
+
+	const commitsAfterResolution = getByTestId(page, 'commit-row');
+	const conflictedCommitAfterResolution = commitsAfterResolution.filter({
+		hasText: 'branch1: second commit'
+	});
+	await expect(conflictedCommitAfterResolution).toBeVisible();
+	await conflictedCommitAfterResolution.click();
+
+	// Click the resolve conflicts button
+	await clickByTestId(page, 'commit-drawer-resolve-conflicts-button');
+
+	// Should open the edit mode
+	await waitForTestId(page, 'edit-mode');
+
+	conflictedFileContent = readFileSync(filePath, 'utf-8');
+	expect(conflictedFileContent).toEqual(
+		`foo
+bar
+baz
+Update to main branch
+<<<<<` +
+			`<< ours
+branch1 commit 1
+||||||| ancestor
+=======
+branch1 commit 2
+>>>>>>> theirs
+`
+	);
+
+	// Resolve the conflict by keeping both changes
+	writeFileSync(
+		filePath,
+		`foo
+bar
+baz
+Update to main branch
+branch1 commit 1
+branch1 commit 2
+`,
+		{ flag: 'w' }
+	);
+
+	// Click the save and exit button
+	await clickByTestId(page, 'edit-mode-save-and-exit-button');
+
+	// Should be back in the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// Verify the file content
+	resolvedFileContent = readFileSync(filePath, 'utf-8');
+	expect(resolvedFileContent).toEqual(
+		`foo
+bar
+baz
+Update to main branch
+branch1 commit 1
+branch1 commit 2
+`
+	);
 });
 
 test('should handle gracefully applying two conflicting branches', async ({
