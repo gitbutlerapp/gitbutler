@@ -271,7 +271,12 @@ impl BranchManager<'_> {
         self.ctx.add_branch_reference(&branch)?;
 
         match self.apply_branch(branch.id, perm, old_workspace, old_cwd) {
-            Ok((_, unapplied_stacks)) => Ok((branch.id, unapplied_stacks)),
+            Ok((_, unapplied_stacks)) => {
+                if !unapplied_stacks.is_empty() {
+                    bail!("All existing stacks were unapplied to avoid merge-conflicts and apply this one");
+                }
+                Ok((branch.id, unapplied_stacks))
+            }
             Err(err)
                 if err
                     .downcast_ref()
