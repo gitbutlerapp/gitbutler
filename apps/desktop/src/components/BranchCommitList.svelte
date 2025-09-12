@@ -182,36 +182,16 @@
 		}}
 	>
 		<div class="uppstream-integration-actions__radio-container">
-			<label class="integration-radio-option" class:selected={$integrationMode === 'rebase'}>
-				<div class="integration-radio-content">
-					<h4 class="text-13 text-semibold">Rebase upstream changes</h4>
-					<p class="text-11 text-body clr-text-2">
-						Place the upstream changes on top of your commits. Creates clean, linear history.
-					</p>
-				</div>
-				<RadioButton
-					class="integration-radio-option__radio"
-					name="integrationMode"
-					value="rebase"
-					checked={$integrationMode === 'rebase'}
-					onchange={() => integrationMode.set('rebase')}
-				/>
-			</label>
-			<label class="integration-radio-option" class:selected={$integrationMode === 'interactive'}>
-				<div class="integration-radio-content">
-					<h4 class="text-13 text-semibold">Interactive integration</h4>
-					<p class="text-11 text-body clr-text-2">
-						Review and resolve any conflicts before completing the integration.
-					</p>
-				</div>
-				<RadioButton
-					class="integration-radio-option__radio"
-					name="integrationMode"
-					value="interactive"
-					checked={$integrationMode === 'interactive'}
-					onchange={() => integrationMode.set('interactive')}
-				/>
-			</label>
+			{@render integrationRadioOption(
+				'rebase',
+				'Rebase upstream changes',
+				'Place local-only changes on top, then the upstream changes. Similar to git pull --rebase.'
+			)}
+			{@render integrationRadioOption(
+				'interactive',
+				'Interactive integration',
+				'Review and resolve any conflicts before completing the integration.'
+			)}
 		</div>
 
 		<Button
@@ -223,6 +203,25 @@
 			{getLabelForIntegrationMode($integrationMode)}
 		</Button>
 	</form>
+{/snippet}
+
+<!-- Integration radio option snippet -->
+{#snippet integrationRadioOption(mode: IntegrationMode, title: string, description: string)}
+	<label class="integration-radio-option" class:selected={$integrationMode === mode}>
+		<div class="integration-radio-content">
+			<h4 class="text-13 text-semibold">{title}</h4>
+			<p class="text-11 text-body clr-text-2">
+				{description}
+			</p>
+		</div>
+		<RadioButton
+			class="integration-radio-option__radio"
+			name="integrationMode"
+			value={mode}
+			checked={$integrationMode === mode}
+			onchange={() => integrationMode.set(mode)}
+		/>
+	</label>
 {/snippet}
 
 {#snippet commitReorderDz(dropzone: ReorderCommitDzHandler)}

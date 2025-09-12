@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_rebase::{Rebase, RebaseStep};
-use but_workspace::stack_ext::StackExt;
+use but_workspace::{stack_ext::StackExt, ui::CommitState};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::access::WorktreeWritePermission;
@@ -61,6 +61,18 @@ pub fn get_initial_integration_steps_for_branch(
 
     let mut initial_steps = vec![];
 
+    let (local_only_commits, local_and_remote_commits) = branch_details
+        .commits
+        .iter()
+        .partition::<Vec<_>, _>(|c| matches!(c.state, CommitState::LocalOnly));
+
+    for commit in local_only_commits {
+        initial_steps.push(InteractiveIntegrationStep::Pick {
+            id: Uuid::new_v4(),
+            commit_id: commit.id,
+        });
+    }
+
     for upstream_commit in branch_details.upstream_commits {
         initial_steps.push(InteractiveIntegrationStep::Pick {
             id: Uuid::new_v4(),
@@ -68,7 +80,7 @@ pub fn get_initial_integration_steps_for_branch(
         });
     }
 
-    for commit in branch_details.commits {
+    for commit in local_and_remote_commits {
         initial_steps.push(InteractiveIntegrationStep::Pick {
             id: Uuid::new_v4(),
             commit_id: commit.id,
