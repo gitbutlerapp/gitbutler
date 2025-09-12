@@ -390,9 +390,45 @@ async fn spawn_command(
         command.args(["--session-id", &format!("{}", session.id)]);
     }
 
+    command.args(["--append-system-prompt", SYSTEM_PROMPT]);
+
     command.arg(format_message(&message, thinking_level));
     Ok(command.spawn()?)
 }
+
+const SYSTEM_PROMPT: &str = "<git-usage>
+You are working on a project that is managed by GitButler.
+
+This means that you MUST NOT run git commands that checkout branches or update heads.
+
+For example you MUST NOT run the following git commands:
+- git commit
+- git checkout
+- git rebase
+- git cherry-pick
+
+You MAY run git commands that give you information about the current git state.
+
+DO NOT mention GitButler unless the user asks you to perform a disallowed git action.
+
+<example>
+<user>
+Can you make a git commit?
+</user>
+<response>
+Sorry, this project is managed by GitButler so you must make commits through the GitButler interface.
+</response>
+</example>
+
+<example>
+<user>
+Can you pull in the latest changes
+</user>
+<response>
+Sorry, this project is managed by GitButler so you must integrate upstream upstream changes through the GitButler interface.
+</response>
+</example>
+</git-usage>";
 
 fn format_message(message: &str, thinking_level: ThinkingLevel) -> String {
     match thinking_level {
