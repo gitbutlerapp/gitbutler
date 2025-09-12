@@ -4,13 +4,13 @@
 	import CodegenPage from '$components/codegen/CodegenPage.svelte';
 	import { codegenEnabled } from '$lib/config/uiFeatureFlags';
 	import { workspacePath } from '$lib/routes/routes.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 
 	// TODO: Refactor so we don't need non-null assertion.
 	const projectId = $derived(page.params.projectId!);
-	
+
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
 	const projectState = $derived(uiState.project(projectId));
@@ -30,7 +30,7 @@
 	$effect(() => {
 		if (urlStackId && stacks.current.data) {
 			// Find the stack with the matching ID
-			const targetStack = stacks.current.data.find(s => s.id === urlStackId);
+			const targetStack = stacks.current.data.find((s) => s.id === urlStackId);
 			if (targetStack && targetStack.heads.length > 0) {
 				// Set the selected Claude session to the first head of this stack
 				projectState.selectedClaudeSession.set({

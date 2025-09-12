@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import BranchRenameModal, {
 		type BranchRenameModalProps
 	} from '$components/BranchRenameModal.svelte';
@@ -18,7 +19,6 @@
 	import { PROMPT_SERVICE } from '$lib/ai/promptService';
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { codegenPath } from '$lib/routes/routes.svelte';
@@ -35,7 +35,6 @@
 	} from '@gitbutler/ui';
 
 	import { tick } from 'svelte';
-	import { goto } from '$app/navigation';
 	import type { AnchorPosition, BranchDetails } from '$lib/stacks/stack';
 
 	type Props = {
@@ -62,7 +61,6 @@
 	const promptService = inject(PROMPT_SERVICE);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
-	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 	const [updateBranchNameMutation] = stackService.updateBranchName;
 	const [createRef, refCreation] = stackService.createReference;
