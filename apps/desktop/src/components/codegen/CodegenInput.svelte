@@ -3,18 +3,36 @@
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 
-	type Props = {
+	interface Props {
 		value: string;
 		loading: boolean;
 		onsubmit: () => Promise<void>;
 		onAbort?: () => Promise<void>;
-		onChange: (value: string) => void;
 		actions: Snippet;
-	};
-
-	let { value = $bindable(), loading, onsubmit, onAbort, actions, onChange }: Props = $props();
+		onChange: (value: string) => void;
+		sessionKey?: string; // Used to trigger refocus when switching sessions
+	}
+	let {
+		value = $bindable(),
+		loading,
+		onsubmit,
+		onAbort,
+		actions,
+		onChange,
+		sessionKey
+	}: Props = $props();
 
 	let textareaRef = $state<HTMLTextAreaElement>();
+
+	// Focus when component mounts or when session changes
+	$effect(() => {
+		if (textareaRef && sessionKey) {
+			// Additional focus with longer delay to handle parent component timing
+			setTimeout(() => {
+				textareaRef?.focus();
+			}, 0);
+		}
+	});
 
 	$effect(() => {
 		onChange(value);
@@ -64,7 +82,6 @@
 	<Textarea
 		bind:textBoxEl={textareaRef}
 		bind:value
-		autofocus
 		placeholder="What would you like to make..."
 		borderless
 		maxRows={10}
