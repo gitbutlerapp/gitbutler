@@ -100,14 +100,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			gitRemoveGlobalConfig: build.mutation<undefined, { key: string }>({
 				extraOptions: { command: 'git_remove_global_config' },
 				query: (args) => args,
-				invalidatesTags: (_result, _error, args) =>
+				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.GitConfigProperty, args.key)
+				]
 			}),
 			gitSetGlobalConfig: build.mutation<unknown, { key: string; value: unknown }>({
 				extraOptions: { command: 'git_set_global_config' },
 				query: (args) => args,
-				invalidatesTags: (_result, _error, args) =>
+				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.GitConfigProperty, args.key)
+				]
 			})
 		})
 	});
