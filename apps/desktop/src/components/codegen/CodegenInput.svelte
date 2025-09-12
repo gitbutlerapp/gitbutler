@@ -58,9 +58,10 @@
 		autofocus
 		placeholder="What would you like to make..."
 		borderless
-		maxRows={8}
+		maxRows={10}
+		minRows={2}
 		padding={{
-			bottom: 96
+			bottom: 64
 		}}
 	/>
 
@@ -142,7 +143,7 @@
 		padding: 0;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
+		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 	}
 
@@ -204,11 +205,11 @@
 		right: 0;
 		bottom: 0;
 		left: 0;
-		height: 96px;
+		height: 70px;
 		background: linear-gradient(
 			to bottom,
 			rgba(0, 0, 0, 0) 0%,
-			var(--clr-bg-1) 55%,
+			var(--clr-bg-1) 32%,
 			var(--clr-bg-1) 100%
 		);
 		pointer-events: none;
