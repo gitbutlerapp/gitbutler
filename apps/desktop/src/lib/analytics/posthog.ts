@@ -99,8 +99,13 @@ export enum OnboardingEvent {
 	AddLocalProjectFailed = 'onboarding_add_local_project_failed',
 	ClonedProject = 'onboarding_cloned_project',
 	ClonedProjectFailed = 'onboarding_cloned_project_failed',
+	ProjectSetupContinue = 'onboarding_project_setup_continue',
 	SetTargetBranch = 'onboarding_set_target_branch',
 	SetTargetBranchFailed = 'onboarding_set_target_branch_failed',
 	SetProjectActive = 'onboarding_set_project_active',
-	SetProjectActiveFailed = 'onboarding_set_project_active_failed'
+	SetProjectActiveFailed = 'onboarding_set_project_active_failed',
+	LoginGitButler = 'onboarding_login_gitbutler',
+	CancelLoginGitButler = 'onboarding_cancel_login_gitbutler',
+	GitHubInitiateOAuth = 'onboarding_github_initiate_oauth',
+	GitHubOAuthFailed = 'onboarding_github_oauth_failed'
 }
