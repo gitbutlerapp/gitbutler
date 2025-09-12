@@ -5,14 +5,21 @@ import { showError } from '$lib/notifications/toasts';
 import { captureException } from '@sentry/sveltekit';
 import type { HandleClientError } from '@sveltejs/kit';
 
-const E2E_MESSAGES_TO_IGNORE = ['Unable to autolaunch a dbus-daemon without a $DISPLAY for X11'];
+const E2E_MESSAGES_TO_IGNORE_DURING_E2E = [
+	'Unable to autolaunch a dbus-daemon without a $DISPLAY for X11'
+];
+const E2E_MESSAGES_TO_IGNORE = [
+	// We can safely ignore this error. This is caused by tauri falling back from the custom protocol to http protocol.
+	"undefined is not an object (evaluating '[callbackId, data]')"
+];
 
 function shouldIgnoreError(error: unknown): boolean {
+	const { message } = parseError(error);
 	if (import.meta.env.VITE_E2E === 'true') {
-		const { message } = parseError(error);
-		return E2E_MESSAGES_TO_IGNORE.includes(message);
+		return E2E_MESSAGES_TO_IGNORE_DURING_E2E.includes(message);
 	}
-	return false;
+
+	return E2E_MESSAGES_TO_IGNORE.includes(message);
 }
 
 // SvelteKit error handler.
