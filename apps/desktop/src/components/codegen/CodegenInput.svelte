@@ -52,16 +52,20 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="text-input dialog-input" onkeypress={handleKeypress}>
+<div class="dialog-input" onkeypress={handleKeypress}>
 	<Textarea
 		bind:value
 		autofocus
 		placeholder="What would you like to make..."
 		borderless
+		maxRows={10}
+		minRows={2}
 		padding={{
-			bottom: 60
+			bottom: 64
 		}}
 	/>
+
+	<div class="dialog-input__fade"></div>
 
 	<div class="dialog-input__actions">
 		<div class="dialog-input__actions-item">
@@ -137,10 +141,15 @@
 		position: relative;
 		flex-direction: column;
 		padding: 0;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
 	}
 
 	.dialog-input__actions {
 		display: flex;
+		z-index: 2;
 		position: absolute;
 		bottom: 0;
 		align-items: center;
@@ -188,6 +197,22 @@
 			cursor: not-allowed;
 			opacity: 0.5;
 		}
+	}
+
+	.dialog-input__fade {
+		z-index: 1;
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		height: 70px;
+		background: linear-gradient(
+			to bottom,
+			rgba(0, 0, 0, 0) 0%,
+			var(--clr-bg-1) 32%,
+			var(--clr-bg-1) 100%
+		);
+		pointer-events: none;
 	}
 
 	.circle-icon {
