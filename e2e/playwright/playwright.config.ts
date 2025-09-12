@@ -10,7 +10,7 @@ import path from 'node:path';
 // import path from 'path';
 // dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-const AMOUNT_OF_WORKERS = 2;
+const AMOUNT_OF_WORKERS = 1;
 
 /**
  * See https://playwright.dev/docs/test-configuration.
