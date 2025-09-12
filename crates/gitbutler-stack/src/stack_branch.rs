@@ -184,8 +184,9 @@ impl StackBranch {
     }
 
     pub fn full_name(&self) -> Result<gix::refs::FullName> {
-        qualified_reference_name(&self.name)
-            .try_into()
+        // Use BString to handle potential UTF-8 issues in branch names
+        let qualified_name = qualified_reference_name_bstring(&self.name);
+        gix::refs::FullName::try_from(qualified_name.as_bstr())
             .map_err(Into::into)
     }
 
@@ -488,6 +489,31 @@ pub fn remote_reference(name: &String, remote: &str) -> String {
 /// Returns a fully qualified reference name e.g. `refs/heads/my-branch`
 fn qualified_reference_name(name: &str) -> String {
     format!("refs/heads/{}", name.trim_matches('/'))
+}
+
+/// Returns a fully qualified reference name as BString to handle potential UTF-8 issues
+fn qualified_reference_name_bstring(name: &str) -> BString {
+    // Convert name to bytes first to handle potential invalid UTF-8
+    let name_bytes = name.as_bytes();
+    let trimmed_name = if name_bytes.starts_with(b"/") || name_bytes.ends_with(b"/") {
+        // Manually trim '/' characters from bytes to avoid UTF-8 issues
+        let mut start = 0;
+        let mut end = name_bytes.len();
+        while start < end && name_bytes[start] == b'/' {
+            start += 1;
+        }
+        while end > start && name_bytes[end - 1] == b'/' {
+            end -= 1;
+        }
+        &name_bytes[start..end]
+    } else {
+        name_bytes
+    };
+    
+    let mut qualified = Vec::with_capacity(11 + trimmed_name.len());
+    qualified.extend_from_slice(b"refs/heads/");
+    qualified.extend_from_slice(trimmed_name);
+    BString::from(qualified)
 }
 
 /// Represents the commits that belong to a `Branch` within a `Stack`.

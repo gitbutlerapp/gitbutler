@@ -796,6 +796,61 @@ fn command_ctx(name: &str) -> Result<(CommandContext, TempDir)> {
     gitbutler_testsupport::writable::fixture("stacking.sh", name)
 }
 
+/// Test UTF-8 handling in branch names to prevent "invalid utf-8 sequence" errors
+/// This test addresses the issue where unapply_stack() could fail with UTF-8 errors
+/// when branch names contained non-ASCII characters or edge cases
+#[test]
+fn branch_full_name_handles_utf8_properly() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    
+    // Test with a normal branch name
+    let normal_branch = StackBranch::new(
+        CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
+        "normal-branch".into(),
+        None,
+        &ctx.gix_repo()?,
+    )?;
+    
+    let full_name = normal_branch.full_name()?;
+    assert_eq!(full_name.as_ref().as_bstr(), "refs/heads/normal-branch");
+    
+    // Test with branch name that has leading/trailing slashes
+    let slash_branch = StackBranch::new(
+        CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
+        "/slash-branch/".into(),
+        None,
+        &ctx.gix_repo()?,
+    )?;
+    
+    let full_name = slash_branch.full_name()?;
+    assert_eq!(full_name.as_ref().as_bstr(), "refs/heads/slash-branch");
+    
+    // Test with Unicode characters (common cause of UTF-8 issues)
+    let unicode_branch = StackBranch::new(
+        CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
+        "unicode-测试-branch".into(),
+        None,
+        &ctx.gix_repo()?,
+    )?;
+    
+    let full_name = unicode_branch.full_name()?;
+    assert_eq!(full_name.as_ref().as_bstr(), "refs/heads/unicode-测试-branch");
+    
+    // Test with various special characters that might cause encoding issues
+    let special_branch = StackBranch::new(
+        CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
+        "special-chars-äöü-éè".into(),
+        None,
+        &ctx.gix_repo()?,
+    )?;
+    
+    let full_name = special_branch.full_name()?;
+    assert_eq!(full_name.as_ref().as_bstr(), "refs/heads/special-chars-äöü-éè");
+    
+    Ok(())
+}
+
 fn head_names(test_ctx: &TestContext) -> Vec<String> {
     test_ctx
         .stack
