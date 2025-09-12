@@ -38,6 +38,7 @@
 	.message-content {
 		display: flex;
 		flex-direction: column;
+		width: 100%;
 		max-width: var(--message-max-width);
 		overflow: hidden;
 		gap: 10px;

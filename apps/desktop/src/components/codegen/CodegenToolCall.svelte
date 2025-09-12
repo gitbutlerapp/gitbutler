@@ -38,7 +38,7 @@
 			<Icon name={getToolIcon(toolCall.name)} color="var(--clr-text-3)" />
 		{/if}
 
-		<p class="text-13 text-left full-width">{toolCall.name}</p>
+		<p class="text-13 text-left full-width truncate">{toolCall.name}</p>
 
 		{#if requiresApproval}
 			<div class="flex gap-4 m-left-8">
