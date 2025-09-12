@@ -14,6 +14,8 @@
 
 	let { value = $bindable(), loading, onsubmit, onAbort, actions, onChange }: Props = $props();
 
+	let textareaRef = $state<HTMLTextAreaElement>();
+
 	$effect(() => {
 		onChange(value);
 	});
@@ -49,12 +51,18 @@
 			await handleSubmit();
 		}
 	}
+
+	function handleDialogClick(e: MouseEvent) {
+		// Don't focus if clicking on buttons or other interactive elements
+		if (e.target !== e.currentTarget) return;
+		textareaRef?.focus();
+	}
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-
-<div class="text-input dialog-input" onkeypress={handleKeypress}>
+<div class="text-input dialog-input" onkeypress={handleKeypress} onclick={handleDialogClick}>
 	<Textarea
+		bind:textBoxEl={textareaRef}
 		bind:value
 		autofocus
 		placeholder="What would you like to make..."
@@ -205,7 +213,7 @@
 		left: 0;
 		height: 15px;
 		transform: translateY(-100%);
-		background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, var(--clr-bg-1) 100%);
+		background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 2%, var(--clr-bg-1) 100%);
 		pointer-events: none;
 	}
 
