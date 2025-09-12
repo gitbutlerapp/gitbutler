@@ -27,6 +27,7 @@
 	let notifyOnPermissionRequest = $state(false);
 	let dangerouslyAllowAllPermissions = $state(false);
 	let autoCommitAfterCompletion = $state(true);
+	let useConfiguredModel = $state(false);
 
 	// Initialize Claude settings from store
 	$effect(() => {
@@ -35,6 +36,7 @@
 			notifyOnPermissionRequest = $settingsStore.claude.notifyOnPermissionRequest;
 			dangerouslyAllowAllPermissions = $settingsStore.claude.dangerouslyAllowAllPermissions;
 			autoCommitAfterCompletion = $settingsStore.claude.autoCommitAfterCompletion;
+			useConfiguredModel = $settingsStore.claude.useConfiguredModel;
 		}
 	});
 
