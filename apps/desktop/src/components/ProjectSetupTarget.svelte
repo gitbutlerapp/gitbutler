@@ -3,6 +3,7 @@
 	import Login from '$components/Login.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import SetupFeature from '$components/SetupFeature.svelte';
+	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BACKEND } from '$lib/backend';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -23,6 +24,7 @@
 	const { projectId, projectName, remoteBranches, onBranchSelected }: Props = $props();
 
 	const backend = inject(BACKEND);
+	const posthog = inject(POSTHOG_WRAPPER);
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 
@@ -51,6 +53,7 @@
 
 	async function onSetTargetClick() {
 		if (!branch || !remote) return;
+		posthog.captureOnboarding(OnboardingEvent.ProjectSetupContinue);
 		onBranchSelected?.([branch.name, remote]);
 	}
 

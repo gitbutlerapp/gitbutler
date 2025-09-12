@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
@@ -20,6 +21,7 @@
 	const user = userService.user;
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
+	const posthog = inject(POSTHOG_WRAPPER);
 
 	// step flags
 	let codeCopied = $state(false);
@@ -32,6 +34,7 @@
 	let gitHubOauthModal: ReturnType<typeof Modal> | undefined = $state();
 
 	function gitHubStartOauth() {
+		posthog.captureOnboarding(OnboardingEvent.GitHubInitiateOAuth);
 		githubUserService.initDeviceOauth().then((verification) => {
 			userCode = verification.user_code;
 			deviceCode = verification.device_code;
@@ -59,6 +62,7 @@
 		} catch (err: any) {
 			console.error(err);
 			toasts.error('GitHub authentication failed');
+			posthog.captureOnboarding(OnboardingEvent.GitHubOAuthFailed);
 		} finally {
 			gitHubOauthModal?.close();
 			loading = false;

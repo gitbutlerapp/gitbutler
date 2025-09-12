@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { USER_SERVICE, type LoginToken } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, Link } from '@gitbutler/ui';
@@ -7,6 +8,7 @@
 	const userService = inject(USER_SERVICE);
 	const loading = userService.loading;
 	const user = userService.user;
+	const posthog = inject(POSTHOG_WRAPPER);
 
 	interface Props {
 		wide?: boolean;
@@ -50,6 +52,7 @@
 			{wide}
 			onclick={async () => {
 				$aborted = false;
+				posthog.captureOnboarding(OnboardingEvent.LoginGitButler);
 				await userService.login(aborted);
 			}}
 		>
@@ -58,8 +61,13 @@
 
 		{#if $loading}
 			<div>
-				<Button kind="outline" onclick={() => ($aborted = true)} loading={$aborted}
-					>Cancel login attempt</Button
+				<Button
+					kind="outline"
+					onclick={() => {
+						$aborted = true;
+						posthog.captureOnboarding(OnboardingEvent.CancelLoginGitButler);
+					}}
+					loading={$aborted}>Cancel login attempt</Button
 				>
 			</div>
 		{/if}
