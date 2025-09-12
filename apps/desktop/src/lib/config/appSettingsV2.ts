@@ -186,4 +186,6 @@ export type Claude = {
 	dangerouslyAllowAllPermissions: boolean;
 	/** Whether to automatically commit changes and rename branches after completion. */
 	autoCommitAfterCompletion: boolean;
+	/** Whether to use the configured model in .claude/settings.json instead of passing --model. */
+	useConfiguredModel: boolean;
 };

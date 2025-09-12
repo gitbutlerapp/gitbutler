@@ -35,6 +35,7 @@
 		usageStats
 	} from '$lib/codegen/messages';
 	import { commitStatusLabel } from '$lib/commits/commit';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { workspacePath } from '$lib/routes/routes.svelte';
@@ -85,6 +86,8 @@
 	const user = inject(USER);
 	const urlService = inject(URL_SERVICE);
 	const userSettings = inject(SETTINGS);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const claudeSettings = $derived($settingsService?.claude);
 
 	const stacks = $derived(stackService.stacks(projectId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
@@ -508,15 +511,17 @@
 										/>
 									</div>
 
-									<Button
-										bind:el={modelTrigger}
-										kind="ghost"
-										icon="chevron-down"
-										shrinkable
-										onclick={() => modelContextMenu?.toggle()}
-									>
-										{modelOptions.find((a) => a.value === selectedModel)?.label}
-									</Button>
+									{#if !claudeSettings?.useConfiguredModel}
+										<Button
+											bind:el={modelTrigger}
+											kind="ghost"
+											icon="chevron-down"
+											shrinkable
+											onclick={() => modelContextMenu?.toggle()}
+										>
+											{modelOptions.find((a) => a.value === selectedModel)?.label}
+										</Button>
+									{/if}
 								{/snippet}
 							</CodegenInput>
 						{/snippet}

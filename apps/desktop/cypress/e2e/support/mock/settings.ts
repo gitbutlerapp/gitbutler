@@ -27,6 +27,7 @@ export const MOCK_APP_SETTINGS: AppSettings = {
 		notifyOnCompletion: false,
 		notifyOnPermissionRequest: false,
 		dangerouslyAllowAllPermissions: false,
-		autoCommitAfterCompletion: true
+		autoCommitAfterCompletion: true,
+		useConfiguredModel: false
 	}
 };

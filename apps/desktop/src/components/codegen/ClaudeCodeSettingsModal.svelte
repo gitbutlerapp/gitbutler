@@ -58,6 +58,11 @@
 		await settingsService.updateClaude({ autoCommitAfterCompletion: value });
 	}
 
+	async function updateUseConfiguredModel(value: boolean) {
+		useConfiguredModel = value;
+		await settingsService.updateClaude({ useConfiguredModel: value });
+	}
+
 	let modal: ModalType;
 
 	export function show() {

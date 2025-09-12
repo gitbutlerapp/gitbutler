@@ -357,10 +357,16 @@ async fn spawn_command(
     command.stderr(write_stderr);
     command.current_dir(&project_path);
 
+    command.envs(collect_configured_env(&project_path).await);
+
     command.args(["--settings", &settings]);
     command.args(["--mcp-config", &mcp_config]);
     command.args(["--output-format", "stream-json"]);
-    command.args(["--model", model.to_cli_string()]);
+
+    // Only add --model if useConfiguredModel is false
+    if !app_settings.claude.use_configured_model {
+        command.args(["--model", model.to_cli_string()]);
+    }
 
     command.args(["-p", "--verbose"]);
 
