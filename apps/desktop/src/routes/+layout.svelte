@@ -174,6 +174,7 @@
 <SwitchThemeMenuAction />
 <GlobalModal />
 <FocusCursor />
+<NotificationPrompt />
 
 {#if import.meta.env.MODE === 'development'}
 	<ReloadWarning />
