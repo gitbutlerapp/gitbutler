@@ -24,11 +24,11 @@
 				goto(clonePath());
 			}),
 			shortcutService.on('clone-window', async () => {
-				const currentProjectId = await projectsService.getCurrentProjectId();
+				const url = new URL(window.location.href);
+				const currentProjectId = url.pathname.split('/')[1];
 				if (currentProjectId) {
 					await projectsService.openProjectInNewWindow(currentProjectId);
 				}
-				// If no project is available, the menu item will be ignored (as per requirements)
 			})
 		)
 	);

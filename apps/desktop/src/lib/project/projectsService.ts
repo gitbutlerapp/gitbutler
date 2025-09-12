@@ -73,11 +73,6 @@ export class ProjectsService {
 		await this.api.endpoints.openProjectInWindow.mutate({ id: projectId });
 	}
 
-	async getCurrentProjectId(): Promise<string | undefined> {
-		const result = await this.api.endpoints.getCurrentProjectId.query();
-		return result || undefined;
-	}
-
 	async relocateProject(projectId: string): Promise<void> {
 		const path = await this.getValidPath();
 		if (!path) return;
