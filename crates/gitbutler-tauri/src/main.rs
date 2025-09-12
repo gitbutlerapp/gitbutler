@@ -230,6 +230,7 @@ fn main() {
                     projects::list_projects,
                     projects::set_project_active,
                     projects::open_project_in_window,
+                    projects::get_current_project_id,
                     repo::git_get_local_config,
                     repo::git_set_local_config,
                     repo::check_signing_settings,

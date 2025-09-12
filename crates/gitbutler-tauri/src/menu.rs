@@ -79,6 +79,10 @@ pub fn build<R: Runtime>(
                 .accelerator("CmdOrCtrl+Shift+O")
                 .build(handle)?,
             &PredefinedMenuItem::separator(handle)?,
+            &MenuItemBuilder::with_id("file/clone-window", "Clone Window")
+                .accelerator("CmdOrCtrl+Shift+N")
+                .build(handle)?,
+            &PredefinedMenuItem::separator(handle)?,
         ])
         .build()?;
 
@@ -262,6 +266,11 @@ pub fn handle_event<R: Runtime>(
 
     if event.id() == "file/clone-repo" {
         emit(webview, SHORTCUT_EVENT, "clone-repo");
+        return;
+    }
+
+    if event.id() == "file/clone-window" {
+        emit(webview, SHORTCUT_EVENT, "clone-window");
         return;
     }
 

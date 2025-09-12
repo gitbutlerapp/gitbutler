@@ -22,6 +22,13 @@
 			}),
 			shortcutService.on('clone-repo', async () => {
 				goto(clonePath());
+			}),
+			shortcutService.on('clone-window', async () => {
+				const currentProjectId = await projectsService.getCurrentProjectId();
+				if (currentProjectId) {
+					await projectsService.openProjectInNewWindow(currentProjectId);
+				}
+				// If no project is available, the menu item will be ignored (as per requirements)
 			})
 		)
 	);

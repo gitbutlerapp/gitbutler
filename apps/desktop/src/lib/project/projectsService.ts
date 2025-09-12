@@ -73,6 +73,11 @@ export class ProjectsService {
 		await this.api.endpoints.openProjectInWindow.mutate({ id: projectId });
 	}
 
+	async getCurrentProjectId(): Promise<string | undefined> {
+		const result = await this.api.endpoints.getCurrentProjectId.query();
+		return result || undefined;
+	}
+
 	async relocateProject(projectId: string): Promise<void> {
 		const path = await this.getValidPath();
 		if (!path) return;
@@ -177,6 +182,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			openProjectInWindow: build.mutation<void, { id: string }>({
 				extraOptions: { command: 'open_project_in_window' },
 				query: (args) => args
+			}),
+			getCurrentProjectId: build.query<string | null, void>({
+				extraOptions: { command: 'get_current_project_id' },
+				query: () => undefined
 			})
 		})
 	});

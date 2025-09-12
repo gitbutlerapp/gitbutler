@@ -276,6 +276,12 @@ pub(crate) mod state {
                 .map(|state| state.project_id)
                 .collect()
         }
+
+        /// Get the current project ID for a specific window, if any.
+        pub fn get_project_for_window(&self, window: &WindowLabelRef) -> Option<ProjectId> {
+            let state_by_label = self.state.lock();
+            state_by_label.get(window).map(|state| state.project_id)
+        }
     }
 }
 
