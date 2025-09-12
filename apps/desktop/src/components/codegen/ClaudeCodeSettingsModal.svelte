@@ -160,12 +160,24 @@
 						/>
 					{/snippet}
 				</SectionCard>
+
+				<SectionCard orientation="row">
+					{#snippet title()}
+						Use configured model
+					{/snippet}
+					{#snippet caption()}
+						Use the model configured in .claude/settings.json. Useful for 3rd party API providers.
+					{/snippet}
+					{#snippet actions()}
+						<Toggle checked={useConfiguredModel} onchange={updateUseConfiguredModel} />
+					{/snippet}
+				</SectionCard>
 			</div>
 		</ScrollableContainer>
 	{/snippet}
 </Modal>
 
-<style>
+<style lang="postcss">
 	.settings-content {
 		display: flex;
 		flex-direction: column;
