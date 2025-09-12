@@ -13,6 +13,7 @@
 		maxRows?: number;
 		class?: string;
 		flex?: string;
+		autofocus?: boolean;
 		padding?: {
 			top?: number;
 			right?: number;
@@ -88,7 +89,7 @@
 			// set time out to ensure the element is rendered
 			setTimeout(() => {
 				textBoxEl?.focus();
-			}, 100);
+			}, 0);
 		}
 	});
 

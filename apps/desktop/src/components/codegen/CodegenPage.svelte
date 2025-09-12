@@ -489,6 +489,9 @@
 								loading={currentStatus(events, isStackActive) === 'running'}
 								onsubmit={sendMessage}
 								{onAbort}
+								sessionKey={selectedBranch
+									? `${selectedBranch.stackId}-${selectedBranch.head}`
+									: undefined}
 							>
 								{#snippet actions()}
 									<div class="flex m-right-4 gap-4">

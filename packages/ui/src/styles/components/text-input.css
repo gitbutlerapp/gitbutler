@@ -5,6 +5,7 @@
 		border-radius: var(--radius-s);
 		background-color: var(--clr-bg-1);
 		color: var(--clr-text-1);
+		cursor: text;
 		transition: border-color var(--transition-fast);
 
 		&::placeholder {
