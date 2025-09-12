@@ -25,7 +25,7 @@ use crate::{
     db,
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
 };
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use but_broadcaster::{Broadcaster, FrontendEvent};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
@@ -33,7 +33,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     collections::HashMap,
+    fs,
     io::{BufRead, BufReader, PipeReader, Read as _},
+    path::PathBuf,
     process::ExitStatus,
     sync::Arc,
 };
@@ -357,10 +359,16 @@ async fn spawn_command(
     command.stderr(write_stderr);
     command.current_dir(&project_path);
 
+    command.envs(collect_configured_env(&project_path).await);
+
     command.args(["--settings", &settings]);
     command.args(["--mcp-config", &mcp_config]);
     command.args(["--output-format", "stream-json"]);
-    command.args(["--model", model.to_cli_string()]);
+
+    // Only add --model if useConfiguredModel is false
+    if !app_settings.claude.use_configured_model {
+        command.args(["--model", model.to_cli_string()]);
+    }
 
     command.args(["-p", "--verbose"]);
 
@@ -513,4 +521,52 @@ pub async fn check_claude_available(claude_executable: &str) -> ClaudeCheckResul
         },
         _ => ClaudeCheckResult::NotAvailable,
     }
+}
+
+#[cfg(target_os = "macos")]
+const ENTERPRISE_PATH: &str = "/Library/Application Support/ClaudeCode/managed-settings.json";
+#[cfg(target_os = "linux")]
+const ENTERPRISE_PATH: &str = "/etc/claude-code/managed-settings.json";
+#[cfg(target_os = "windows")]
+const ENTERPRISE_PATH: &str = "C:\\ProgramData\\ClaudeCode\\managed-settings.json";
+
+/// Collect any configured environment variables in the `settings.json`s. This
+/// is in order to work around https://github.com/anthropics/claude-code/issues/7452.
+async fn collect_configured_env(project_path: &std::path::Path) -> HashMap<String, String> {
+    collect_configured_env_inner(project_path)
+        .await
+        .unwrap_or(HashMap::new())
+}
+
+async fn collect_configured_env_inner(
+    project_path: &std::path::Path,
+) -> Result<HashMap<String, String>> {
+    let home = dirs::home_dir().context("Can't find home")?;
+    // Paths in order of precidence
+    let paths = [
+        home.join(".claude/settings.json"),
+        project_path.join(".claude/settings.local.json"),
+        project_path.join(".claude/settings.json"),
+        PathBuf::from(ENTERPRISE_PATH),
+    ];
+
+    let mut out = HashMap::new();
+
+    for path in paths {
+        if !fs::exists(&path)? {
+            continue;
+        }
+
+        let string = fs::read_to_string(&path)?;
+        let settings: serde_json::Value = serde_json::from_str(&string)?;
+        if let Some(env) = settings["env"].as_object() {
+            for (key, value) in env {
+                if let Some(value) = value.as_str() {
+                    out.insert(key.clone(), value.to_owned());
+                }
+            }
+        }
+    }
+
+    Ok(out)
 }

@@ -54,6 +54,8 @@
 		// Whether to dangerously allow all permissions without prompting.
 		"dangerouslyAllowAllPermissions": false,
 		// Whether to automatically commit changes and rename branches after completion.
-		"autoCommitAfterCompletion": true
+		"autoCommitAfterCompletion": true,
+		// Whether to use the configured model in .claude/settings.json instead of passing --model.
+		"useConfiguredModel": false
 	}
 }

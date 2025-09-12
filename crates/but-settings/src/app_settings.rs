@@ -83,4 +83,7 @@ pub struct Claude {
     /// Whether to automatically commit changes and rename branches after completion.
     #[serde(default = "default_true")]
     pub auto_commit_after_completion: bool,
+    /// Whether to use the configured model in .claude/settings.json instead of passing --model.
+    #[serde(default)]
+    pub use_configured_model: bool,
 }
