@@ -186,8 +186,7 @@ impl StackBranch {
     pub fn full_name(&self) -> Result<gix::refs::FullName> {
         // Use BString to handle potential UTF-8 issues in branch names
         let qualified_name = qualified_reference_name_bstring(&self.name);
-        gix::refs::FullName::try_from(qualified_name.as_bstr())
-            .map_err(Into::into)
+        gix::refs::FullName::try_from(qualified_name.as_bstr()).map_err(Into::into)
     }
 
     pub fn uses_change_id(&self) -> bool {
@@ -492,6 +491,7 @@ fn qualified_reference_name(name: &str) -> String {
 }
 
 /// Returns a fully qualified reference name as BString to handle potential UTF-8 issues
+#[allow(clippy::indexing_slicing)]
 fn qualified_reference_name_bstring(name: &str) -> BString {
     // Convert name to bytes first to handle potential invalid UTF-8
     let name_bytes = name.as_bytes();
@@ -509,7 +509,7 @@ fn qualified_reference_name_bstring(name: &str) -> BString {
     } else {
         name_bytes
     };
-    
+
     let mut qualified = Vec::with_capacity(11 + trimmed_name.len());
     qualified.extend_from_slice(b"refs/heads/");
     qualified.extend_from_slice(trimmed_name);
