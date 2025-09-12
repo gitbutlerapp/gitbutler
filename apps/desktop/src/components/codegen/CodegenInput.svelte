@@ -52,7 +52,8 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="dialog-input" onkeypress={handleKeypress}>
+
+<div class="text-input dialog-input" onkeypress={handleKeypress}>
 	<Textarea
 		bind:value
 		autofocus
@@ -60,12 +61,7 @@
 		borderless
 		maxRows={10}
 		minRows={2}
-		padding={{
-			bottom: 64
-		}}
 	/>
-
-	<div class="dialog-input__fade"></div>
 
 	<div class="dialog-input__actions">
 		<div class="dialog-input__actions-item">
@@ -132,6 +128,8 @@
 				</button>
 			</Tooltip>
 		</div>
+
+		<div class="dialog-input__fade"></div>
 	</div>
 </div>
 
@@ -142,21 +140,21 @@
 		flex-direction: column;
 		padding: 0;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
+		transition: border-color var(--transition-fast);
 	}
 
 	.dialog-input__actions {
 		display: flex;
 		z-index: 2;
-		position: absolute;
+		position: relative;
 		bottom: 0;
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
 		padding: 12px;
-
+		padding-top: 10px;
 		gap: 8px;
 		pointer-events: none;
 	}
@@ -202,16 +200,12 @@
 	.dialog-input__fade {
 		z-index: 1;
 		position: absolute;
-		right: 0;
-		bottom: 0;
+		top: 0;
+		right: 14px;
 		left: 0;
-		height: 70px;
-		background: linear-gradient(
-			to bottom,
-			rgba(0, 0, 0, 0) 0%,
-			var(--clr-bg-1) 32%,
-			var(--clr-bg-1) 100%
-		);
+		height: 15px;
+		transform: translateY(-100%);
+		background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, var(--clr-bg-1) 100%);
 		pointer-events: none;
 	}
 
