@@ -1,21 +1,66 @@
 <script lang="ts">
 	import { formatDate } from '$lib/utils/formatDate';
-	import GhostContentAPI, { type PostsOrPages } from '@tryghost/content-api';
 
-	const GHOST_URL = 'https://gitbutler.ghost.io';
-	const GHOST_KEY = '80bbdca8b933f3d98780c7cc1b';
-	const GHOST_VERSION = 'v5.0';
-	let posts = $state<PostsOrPages>();
+	interface BlogPost {
+		title: string;
+		url: string;
+		feature_image: string;
+		published_at: string;
+		custom_excerpt: string;
+		primary_author: {
+			name: string;
+		};
+	}
+
+	let posts = $state<BlogPost[]>([]);
+
+	async function fetchRSSFeed() {
+		try {
+			const response = await fetch('https://blog.gitbutler.com/rss/3');
+			const text = await response.text();
+			const parser = new DOMParser();
+			const xml = parser.parseFromString(text, 'text/xml');
+			const items = xml.querySelectorAll('item');
+
+			const parsedPosts: BlogPost[] = [];
+			items.forEach((item) => {
+				const title = item.querySelector('title')?.textContent || '';
+				const url = item.querySelector('link')?.textContent || '';
+				const pubDate = item.querySelector('pubDate')?.textContent || '';
+				const description = item.querySelector('description')?.textContent || '';
+
+				// Extract author from the author tag with format "email (Name)"
+				const authorText = item.querySelector('author')?.textContent || '';
+				const authorMatch = authorText.match(/\(([^)]+)\)/);
+				const creator = authorMatch ? authorMatch[1] : 'GitButler Team';
+
+				// Extract image from enclosure tag
+				const enclosure = item.querySelector('enclosure');
+				const feature_image =
+					enclosure?.getAttribute('url') ||
+					'https://blog.gitbutler.com/content/images/2023/10/gitbutler-og.png';
+
+				// Extract excerpt from description, removing HTML tags
+				const custom_excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200) + '...';
+
+				parsedPosts.push({
+					title,
+					url,
+					feature_image,
+					published_at: pubDate,
+					custom_excerpt,
+					primary_author: { name: creator }
+				});
+			});
+
+			posts = parsedPosts;
+		} catch (error) {
+			console.error('Failed to fetch RSS feed:', error);
+		}
+	}
 
 	$effect(() => {
-		const api = GhostContentAPI({
-			url: GHOST_URL,
-			key: GHOST_KEY,
-			version: GHOST_VERSION
-		});
-		api.posts.browse({ limit: 3, include: 'authors' }).then((data) => {
-			posts = data;
-		});
+		fetchRSSFeed();
 	});
 </script>
 
