@@ -126,6 +126,86 @@ test('should be able to apply a remote branch and integrate the remote changes -
 	await expect(commitsAfterIntegration).toHaveCount(3);
 });
 
+test('should be able to apply a remote branch and integrate the remote changes - create commit', async ({
+	page,
+	context
+}, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	const fileCPath = gitbutler.pathInWorkdir('local-clone/c_file');
+
+	await gitbutler.runScript('project-with-remote-branches.sh');
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// Should navigate to the branches page when clicking the branches button
+	await clickByTestId(page, 'navigation-branches-button');
+	const header = await waitForTestId(page, 'target-commit-list-header');
+
+	await expect(header).toContainText('origin/master');
+
+	const branchListCards = getByTestId(page, 'branch-list-card');
+	await expect(branchListCards).toHaveCount(2);
+
+	const firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
+	await expect(firstBranchCard).toBeVisible();
+	await firstBranchCard.click();
+
+	// The delete branch should be visible
+	await waitForTestId(page, 'branches-view-delete-local-branch-button');
+
+	// Apply the branch
+	await clickByTestId(page, 'branches-view-apply-branch-button');
+	// Should be redirected to the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be only one stack
+	const stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+	const stack = stacks.first();
+	await expect(stack).toContainText('branch1');
+
+	// The stack should have two commits
+	const commits = getByTestId(page, 'commit-row');
+	await expect(commits).toHaveCount(2);
+
+	await gitbutler.runScript('project-with-remote-branches__add-commit-to-remote-branch.sh');
+
+	// Click the sync button
+	await clickByTestId(page, 'sync-button');
+
+	// Create a new commit
+	writeFileSync(fileCPath, 'This is file C\n', { flag: 'w' });
+	await clickByTestId(page, 'start-commit-button');
+
+	// Should see the commit drawer
+	await waitForTestId(page, 'new-commit-view');
+
+	const newCommitMessage = 'New local commit: adding file C';
+	const newCommitMessageBody = 'CCCCCCC';
+	// Write a commit message
+	await fillByTestId(page, 'commit-drawer-title-input', newCommitMessage);
+	await textEditorFillByTestId(page, 'commit-drawer-description-input', newCommitMessageBody);
+
+	// Click the commit button
+	await clickByTestId(page, 'commit-drawer-action-button');
+
+	// Integrate upstream commits
+	await clickByTestId(page, 'upstream-commits-integrate-button');
+	await waitForTestIdToNotExist(page, 'upstream-commits-integrate-button');
+	await waitForTestIdToNotExist(page, 'upstream-commits-commit-action');
+
+	const commitsAfterIntegration = getByTestId(page, 'commit-row');
+	await expect(commitsAfterIntegration).toHaveCount(4);
+	const firstCommit = commitsAfterIntegration.nth(0);
+	await expect(firstCommit).toContainText(newCommitMessage);
+});
+
 test('should be able to apply a remote branch and integrate the remote changes - conflict', async ({
 	page,
 	context
@@ -210,7 +290,7 @@ test('should be able to apply a remote branch and integrate the remote changes -
 	await expect(commitsAfterIntegration).toHaveCount(4);
 
 	const conflictedCommit = commitsAfterIntegration.filter({
-		hasText: 'branch1: third commit'
+		hasText: 'Conflicting change commit'
 	});
 	await expect(conflictedCommit).toBeVisible();
 	await conflictedCommit.click();
@@ -230,10 +310,10 @@ branch1 commit 1
 branch1 commit 2
 <<<<<` +
 			`<< ours
-conflicting change
+branch1 commit 3
 ||||||| ancestor
 =======
-branch1 commit 3
+conflicting change
 >>>>>>> theirs
 `
 	);
@@ -246,8 +326,8 @@ bar
 baz
 branch1 commit 1
 branch1 commit 2
-conflicting change
 branch1 commit 3
+conflicting change
 `,
 		{ flag: 'w' }
 	);
@@ -268,8 +348,8 @@ bar
 baz
 branch1 commit 1
 branch1 commit 2
-conflicting change
 branch1 commit 3
+conflicting change
 `
 	);
 });
