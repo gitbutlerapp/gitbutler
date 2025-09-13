@@ -32,22 +32,20 @@ export class GitLabState {
 			}
 			tokenLoading.set(false);
 		});
-		const unsubscribe = tokenLoading.subscribe((loading) => {
+		let _tokenUnsubscribe: (() => void) | undefined;
+
+		const _loadingUnsubscribe = tokenLoading.subscribe((loading) => {
 			if (loading) {
 				return;
 			}
-			const unsubscribe = this.token.subscribe((token) => {
+			// Set up the token subscription to save changes
+			_tokenUnsubscribe = this.token.subscribe((token) => {
 				if (!token && tokenLoadedAsNull) {
 					return;
 				}
 				this.secretService.set(`git-lab-token:${projectId}`, token ?? '');
 				tokenLoadedAsNull = false;
 			});
-			return unsubscribe;
-		});
-
-		$effect(() => {
-			return unsubscribe;
 		});
 
 		const forkProjectId = persisted<string | undefined>(
