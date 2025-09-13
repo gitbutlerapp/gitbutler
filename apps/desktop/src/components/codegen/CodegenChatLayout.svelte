@@ -122,7 +122,7 @@
 	}
 
 	.chat-scroll-to-bottom {
-		z-index: 10;
+		z-index: var(--z-floating);
 		position: absolute;
 		right: 16px;
 		bottom: 14px;
