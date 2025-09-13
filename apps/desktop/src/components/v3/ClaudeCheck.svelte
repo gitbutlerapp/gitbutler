@@ -49,7 +49,8 @@
 
 		{#if recheckedAvailability === 'recheck-failed'}
 			<div class="claude-status claude-status--unavailable">
-				✗ Claude Code not found at the specified path.
+				✗ Either Claude Code not found at the specified path or it could not be executed (`node`
+				missing?).
 			</div>
 		{:else if recheckedAvailability === 'recheck-succeeded'}
 			<div class="claude-status claude-status--available">✓ Claude Code is available</div>
