@@ -120,7 +120,7 @@ describe('GitHub', () => {
 		// Check that the client's internal state reflects the enterprise setup
 		expect(enterpriseClient.owner).toBe('test-owner');
 		expect(enterpriseClient.repo).toBe('test-repo');
-		
+
 		// The GitHub instance should correctly construct URLs for the enterprise domain
 		expect(gh.commitUrl('abc123')).toBe(
 			'https://github.mycompany.com/test-owner/test-repo/commit/abc123'
@@ -147,10 +147,8 @@ describe('GitHub', () => {
 		// Check that the client's internal state reflects the standard setup
 		expect(standardClient.owner).toBe('test-owner');
 		expect(standardClient.repo).toBe('test-repo');
-		
+
 		// The GitHub instance should correctly construct URLs for github.com
-		expect(gh.commitUrl('abc123')).toBe(
-			'https://github.com/test-owner/test-repo/commit/abc123'
-		);
+		expect(gh.commitUrl('abc123')).toBe('https://github.com/test-owner/test-repo/commit/abc123');
 	});
 });

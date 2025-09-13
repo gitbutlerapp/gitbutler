@@ -48,7 +48,7 @@ export class GitHubClient implements ApiClient {
 
 	get octokit(): Octokit {
 		if (!this._client) {
-			this._client = newClient(this._token, this._domain);
+			this._client = newClient(this.baseUrl, this._token);
 		}
 		return this._client;
 	}
@@ -60,17 +60,20 @@ export class GitHubClient implements ApiClient {
 	get repo(): string | undefined {
 		return this._repo;
 	}
+
+	get baseUrl(): string {
+		// Construct the appropriate baseUrl based on the domain
+		// For github.com or undefined domain, use the standard GitHub API
+		// For GitHub Enterprise, use https://<domain>/api as specified in the GitHub Enterprise documentation
+		let baseUrl = 'https://api.github.com';
+		if (this._domain && this._domain !== 'github.com') {
+			baseUrl = `https://${this._domain}/api`;
+		}
+		return baseUrl;
+	}
 }
 
-function newClient(token?: string, domain?: string) {
-	// Construct the appropriate baseUrl based on the domain
-	// For github.com or undefined domain, use the standard GitHub API
-	// For GitHub Enterprise, use https://<domain>/api as specified in the GitHub Enterprise documentation
-	let baseUrl = 'https://api.github.com';
-	if (domain && domain !== 'github.com') {
-		baseUrl = `https://${domain}/api`;
-	}
-
+function newClient(baseUrl: string, token?: string) {
 	return new Octokit({
 		auth: token,
 		userAgent: 'GitButler Client',

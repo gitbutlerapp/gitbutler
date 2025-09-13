@@ -106,7 +106,9 @@
 
 	// GitHub setup
 	$effect.pre(() => gitHubClient.setToken(accessToken));
-	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
+	$effect.pre(() =>
+		gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name, domain: repoInfo?.domain })
+	);
 
 	// GitLab setup
 	const gitLabState = $derived(new GitLabState(secretService, repoInfo, projectId));
