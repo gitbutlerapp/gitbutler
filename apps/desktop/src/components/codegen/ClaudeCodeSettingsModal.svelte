@@ -88,22 +88,12 @@
 					</span>
 				</SectionCard>
 				<SectionCard orientation="column">
-					{#snippet title()}
-						Claude Code Configuration
-					{/snippet}
-
-					{#snippet caption()}
-						Configure the path to the Claude Code executable. This is used for AI-powered code
-						generation and editing.
-					{/snippet}
-
 					<ClaudeCheck
 						claudeExecutable={claudeExecutable.current}
 						recheckedAvailability={recheckedAvailability.current}
 						onUpdateExecutable={updateClaudeExecutable}
 						onCheckAvailability={checkClaudeAvailability}
 						showInstallationGuide={false}
-						showTitle={false}
 					/>
 				</SectionCard>
 

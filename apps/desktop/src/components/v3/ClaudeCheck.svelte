@@ -20,7 +20,46 @@
 	}: Props = $props();
 </script>
 
-<div class="claude-check">
+{#if showTitle}
+	{#if recheckedAvailability === 'recheck-failed'}
+		<h4 class="header-16 text-bold clr-text-err">Claude Code can't be found</h4>
+	{:else}
+		<h4 class="header-16 text-bold">Claude code is connected</h4>
+	{/if}
+{/if}
+
+{#if showInstallationGuide}
+	<p class="text-13 text-body clr-text-2">
+		If you haven't installed Claude Code, check our <Link
+			target="_blank"
+			href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
+			>installation guide</Link
+		>
+	</p>
+{/if}
+
+<div class="claude-config">
+	<Textbox
+		label="Claude Code path:"
+		value={claudeExecutable}
+		placeholder="Path to the Claude Code executable"
+		onchange={onUpdateExecutable}
+	/>
+
+	{#if recheckedAvailability === 'recheck-failed'}
+		<div class="claude-status claude-status--unavailable">
+			✗ Claude Code not found at the specified path.
+		</div>
+	{:else if recheckedAvailability === 'recheck-succeeded'}
+		<div class="claude-status claude-status--available">✓ Claude Code is available</div>
+	{/if}
+
+	<AsyncButton style="neutral" kind="outline" action={onCheckAvailability} icon="plug">
+		Test Connection
+	</AsyncButton>
+</div>
+
+<!-- <div class="claude-check">
 	{#if showTitle}
 		<h4 class="header-16 text-bold">Claude Code can't be found</h4>
 	{/if}
@@ -60,7 +99,7 @@
 			Test Connection
 		</AsyncButton>
 	</div>
-</div>
+</div> -->
 
 <style lang="postcss">
 	.claude-check {

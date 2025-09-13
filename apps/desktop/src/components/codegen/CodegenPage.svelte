@@ -4,6 +4,7 @@
 	import CommitRow from '$components/CommitRow.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import CreateBranchModal from '$components/CreateBranchModal.svelte';
+	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import Drawer from '$components/Drawer.svelte';
 	import FileList from '$components/FileList.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -23,6 +24,7 @@
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import filesAndChecksSvg from '$lib/assets/empty-state/files-and-checks.svg?raw';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
+	import vibecodingSvg from '$lib/assets/illustrations/vibecoding.svg?raw';
 	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import {
@@ -816,14 +818,18 @@
 
 {#snippet claudeNotAvailable()}
 	<div class="not-available">
-		<div class="not-available-form">
-			<ClaudeCheck
-				claudeExecutable={claudeExecutable.current}
-				recheckedAvailability={recheckedAvailability.current}
-				onUpdateExecutable={updateClaudeExecutable}
-				onCheckAvailability={checkClaudeAvailability}
-			/>
-		</div>
+		<DecorativeSplitView hideDetails img={vibecodingSvg}>
+			<div class="not-available__content">
+				<h1 class="text-serif-40">Set up <i>Claude Code</i></h1>
+				<ClaudeCheck
+					claudeExecutable={claudeExecutable.current}
+					recheckedAvailability={recheckedAvailability.current}
+					onUpdateExecutable={updateClaudeExecutable}
+					onCheckAvailability={checkClaudeAvailability}
+					showTitle={false}
+				/>
+			</div>
+		</DecorativeSplitView>
 	</div>
 {/snippet}
 
@@ -981,16 +987,13 @@
 		height: 100%;
 	}
 
-	.not-available-form {
+	.not-available__content {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		padding: 24px;
-		gap: 16px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
-		box-shadow: var(--shadow-elevation-low);
+		width: 100%;
+		max-width: 480px;
+		margin: 0 auto;
+		gap: 20px;
 	}
 
 	.sidebar-content {
