@@ -8,6 +8,7 @@ use crate::projection::workspace;
 use crate::{
     CommitFlags, CommitIndex, Graph, Segment, SegmentIndex,
     projection::{Stack, StackCommit, StackCommitFlags, StackSegment},
+    segment,
 };
 use anyhow::Context;
 use bstr::{BStr, ByteSlice};
@@ -68,6 +69,17 @@ impl Workspace<'_> {
             .iter()
             .all(|s| s.segments.iter().all(|s| !s.is_entrypoint))
     }
+
+    /// Return the `commit` at the tip of the workspace itself, and do so by following empty segments along the
+    /// first parent until the first commit is found.
+    /// This importantly is different from the [`Graph::lookup_entrypoint()`] `commit`, as the entrypoint could be anywhere
+    /// inside the workspace as well.
+    ///
+    /// Note that this commit could also be the base of the workspace, particularly if there is no commits in the workspace.
+    pub fn tip_commit(&self) -> Option<&segment::Commit> {
+        self.graph.tip_skip_empty(self.id)
+    }
+
     /// Lookup a triple obtained by [`Self::find_owner_indexes_by_commit_id()`] or panic.
     pub fn lookup_commit(&self, (stack_idx, seg_idx, cidx): CommitOwnerIndexes) -> &StackCommit {
         &self.stacks[stack_idx].segments[seg_idx].commits[cidx]
@@ -161,23 +173,28 @@ impl Workspace<'_> {
         self.find_segment_and_stack_by_refname(name).is_some()
     }
 
-    /// Return `true` if the entrypoint.
+    /// Return `true` if `name` is in the ancestry of the workspace entrypoint, and is IN the workspace as well.
     pub fn is_reachable_from_entrypoint(&self, name: &gix::refs::FullNameRef) -> bool {
+        if self.ref_name().filter(|_| self.is_entrypoint()) == Some(name) {
+            return true;
+        }
         if self.is_entrypoint() {
             self.refname_is_segment(name)
         } else {
-            let Some((stack, segment_idx)) = self.stacks.iter().find_map(|stack| {
-                stack
-                    .segments
-                    .iter()
-                    .enumerate()
-                    .find_map(|(idx, segment)| segment.is_entrypoint.then_some((stack, idx)))
-            }) else {
+            let Some((entrypoint_stack, entrypoint_segment_idx)) =
+                self.stacks.iter().find_map(|stack| {
+                    stack
+                        .segments
+                        .iter()
+                        .enumerate()
+                        .find_map(|(idx, segment)| segment.is_entrypoint.then_some((stack, idx)))
+                })
+            else {
                 return false;
             };
-            stack
+            entrypoint_stack
                 .segments
-                .get(segment_idx..)
+                .get(entrypoint_segment_idx..)
                 .into_iter()
                 .any(|segments| {
                     segments

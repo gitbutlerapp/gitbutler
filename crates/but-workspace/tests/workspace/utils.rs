@@ -5,6 +5,7 @@ use but_testsupport::gix_testtools;
 use but_testsupport::gix_testtools::{Creation, tempfile};
 use but_workspace::commit_engine::Destination;
 use but_workspace::{DiffSpec, HunkHeader};
+use gix::config::tree::Key;
 use gix::prelude::ObjectIdExt;
 use std::borrow::Cow;
 
@@ -23,8 +24,23 @@ fn writable_scenario_inner(
     .map_err(anyhow::Error::from_boxed)?;
     let mut options = but_testsupport::open_repo_config()?;
     options.permissions.env = gix::open::permissions::Environment::all();
-    let repo = gix::open_opts(tmp.path(), options)?;
+    let repo = gix::open_opts(tmp.path(), freeze_time(options))?;
     Ok((repo, tmp))
+}
+
+fn freeze_time(opts: gix::open::Options) -> gix::open::Options {
+    use gix::config::tree::{User, gitoxide};
+    let time = "2000-01-01 00:00:00 +0000".into();
+    opts.config_overrides(
+        [
+            User::NAME.validated_assignment("user".into()),
+            User::EMAIL.validated_assignment("email@example.com".into()),
+            gitoxide::Commit::AUTHOR_DATE.validated_assignment(time),
+            gitoxide::Commit::COMMITTER_DATE.validated_assignment(time),
+        ]
+        .into_iter()
+        .map(Result::unwrap),
+    )
 }
 
 /// Provide a scenario but assure the returned repository will write objects to memory.

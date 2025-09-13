@@ -108,7 +108,7 @@ pub(super) mod function {
         State {
             changes,
             selection,
-            head: _,
+            head: _to_be_implemented,
         }: State,
         _workspace_and_meta: Option<(&but_graph::projection::Workspace, &impl RefMetadata)>,
     ) -> anyhow::Result<Outcome> {
