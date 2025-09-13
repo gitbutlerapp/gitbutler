@@ -47,7 +47,7 @@
 					await userService.loginAndCopyLink(aborted);
 				}}
 			>
-				the login link
+				login link
 			</LinkButton>
 		{/snippet}
 	</WelcomeAction>
