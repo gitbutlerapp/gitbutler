@@ -10,6 +10,7 @@ export enum TestId {
 	BranchHeaderContextMenu_OpenInBrowser = 'branch-header-context-menu-open-in-browser',
 	BranchHeaderContextMenu_CopyBranchName = 'branch-header-context-menu-copy-branch-name',
 	BranchHeaderContextMenu_AddRemoveDescription = 'branch-header-context-menu-add-remove-description',
+	BranchHeaderContextMenu_StartCodingSession = 'branch-header-context-menu-start-coding-session',
 	BranchHeaderContextMenu_GenerateBranchName = 'branch-header-context-menu-generate-branch-name',
 	BranchHeaderContextMenu_Rename = 'branch-header-context-menu-rename',
 	BranchHeaderContextMenu_Delete = 'branch-header-context-menu-delete',

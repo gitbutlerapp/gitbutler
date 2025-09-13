@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import BranchRenameModal, {
 		type BranchRenameModalProps
 	} from '$components/BranchRenameModal.svelte';
@@ -20,6 +21,7 @@
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { codegenPath } from '$lib/routes/routes.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
@@ -97,6 +99,12 @@
 
 	async function setAIConfigurationValid() {
 		aiConfigurationValid = await aiService.validateConfiguration();
+	}
+
+	async function startCodingSession() {
+		if (!stackId) return;
+		goto(`${codegenPath(projectId)}?stackId=${stackId}`);
+		close();
 	}
 
 	async function generateBranchName(stackId: string, branchName: string) {
@@ -265,6 +273,17 @@
 				{/if}
 			</ContextMenuSection>
 			<ContextMenuSection>
+				{#if $aiGenEnabled && aiConfigurationValid && stackId}
+					<ContextMenuItem
+						label="Start Coding Agent session"
+						icon="ai"
+						testId={TestId.BranchHeaderContextMenu_StartCodingSession}
+						disabled={isReadOnly}
+						onclick={() => {
+							startCodingSession();
+						}}
+					/>
+				{/if}
 				{#if $aiGenEnabled && aiConfigurationValid && !branch.remoteTrackingBranch && stackId}
 					<ContextMenuItem
 						label="Generate branch name"
