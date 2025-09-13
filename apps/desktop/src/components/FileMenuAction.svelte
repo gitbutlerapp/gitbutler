@@ -22,6 +22,13 @@
 			}),
 			shortcutService.on('clone-repo', async () => {
 				goto(clonePath());
+			}),
+			shortcutService.on('clone-window', async () => {
+				const url = new URL(window.location.href);
+				const currentProjectId = url.pathname.split('/')[1];
+				if (currentProjectId) {
+					await projectsService.openProjectInNewWindow(currentProjectId);
+				}
 			})
 		)
 	);

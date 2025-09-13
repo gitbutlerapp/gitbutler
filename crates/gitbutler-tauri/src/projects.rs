@@ -114,6 +114,16 @@ pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result
     Ok(())
 }
 
+/// Get the current project ID for a window, if any.
+#[tauri::command]
+#[instrument(skip(window_state, window), err(Debug))]
+pub fn get_current_project_id(
+    window_state: State<'_, WindowState>,
+    window: Window,
+) -> Result<Option<ProjectId>, Error> {
+    Ok(window_state.get_project_for_window(window.label()))
+}
+
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct ProjectForFrontend {
     #[serde(flatten)]
