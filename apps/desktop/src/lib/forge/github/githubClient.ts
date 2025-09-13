@@ -10,6 +10,7 @@ export class GitHubClient implements ApiClient {
 	private _token: string | undefined;
 	private _owner: string | undefined;
 	private _repo: string | undefined;
+	private _domain: string | undefined;
 	private subscriptions: (() => void)[] = [];
 
 	constructor(args?: {
@@ -35,14 +36,19 @@ export class GitHubClient implements ApiClient {
 		return () => (this.subscriptions = this.subscriptions.filter((cb) => cb !== fn));
 	}
 
-	setRepo(info: { owner?: string; repo?: string }) {
+	setRepo(info: { owner?: string; repo?: string; domain?: string }) {
 		this._owner = info.owner;
 		this._repo = info.repo;
+		this._domain = info.domain;
+		// Reset client when repo info changes so baseUrl gets updated
+		if (this._client) {
+			this._client = undefined;
+		}
 	}
 
 	get octokit(): Octokit {
 		if (!this._client) {
-			this._client = newClient(this._token);
+			this._client = newClient(this._token, this._domain);
 		}
 		return this._client;
 	}
@@ -56,11 +62,19 @@ export class GitHubClient implements ApiClient {
 	}
 }
 
-function newClient(token?: string) {
+function newClient(token?: string, domain?: string) {
+	// Construct the appropriate baseUrl based on the domain
+	// For github.com or undefined domain, use the standard GitHub API
+	// For GitHub Enterprise, use https://<domain>/api as specified in the GitHub Enterprise documentation
+	let baseUrl = 'https://api.github.com';
+	if (domain && domain !== 'github.com') {
+		baseUrl = `https://${domain}/api`;
+	}
+
 	return new Octokit({
 		auth: token,
 		userAgent: 'GitButler Client',
-		baseUrl: 'https://api.github.com',
+		baseUrl,
 		request: {
 			// Global rate-limiter to mitigate accidental reactivity bugs that
 			// could trigger runaway requests.

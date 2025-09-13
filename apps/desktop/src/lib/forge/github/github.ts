@@ -34,6 +34,9 @@ export class GitHub implements Forge {
 		const { owner, name } = repo;
 		this.authenticated = authenticated;
 
+		// Pass repo information to the client, including domain for GitHub Enterprise support
+		client.setRepo({ owner, repo: name, domain: repo.domain });
+
 		// Use the protocol from repo if available, otherwise default to https
 		// For SSH remote URLs, always use HTTPS for browser compatibility
 		let protocol = repo.protocol?.endsWith(':')
