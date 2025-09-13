@@ -197,7 +197,7 @@ Ensure these aren't touched by GitButler or avoid using it in this repository.",
         msg.push_str(
             r#"
 
-`git lfs pull --include="*" to restore git-lfs files.` can be used to restore git-lfs files after GitButler touched them."#,
+`git lfs pull --include="*"` can be used to restore git-lfs files after GitButler touched them."#,
         );
     }
     let max_files = 10;
