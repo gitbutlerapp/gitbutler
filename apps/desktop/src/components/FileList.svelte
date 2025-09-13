@@ -11,6 +11,7 @@
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
 	import { type TreeChange, isExecutableStatus } from '$lib/hunks/change';
+	import { getFileType } from '@gitbutler/ui/components/file/fileTypeUtils';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
@@ -221,6 +222,7 @@
 
 {#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0)}
 	{@const isExecutable = isExecutableStatus(change.status)}
+	{@const fileType = getFileType(change.status)}
 	{@const selected = idSelection.has(change.path, selectionId)}
 	<FileListItemWrapper
 		{selectionId}
@@ -234,6 +236,7 @@
 		hideBorder={hideLastFileBorder && idx === visibleFiles.length - 1}
 		draggable={draggableFiles}
 		executable={isExecutable}
+		{fileType}
 		showCheckbox={showCheckboxes}
 		focusableOpts={{ onKeydown: (e) => handleKeyDown(change, idx, e), autoAction: true }}
 		onclick={(e) => {
