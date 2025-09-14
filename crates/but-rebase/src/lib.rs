@@ -1,7 +1,7 @@
 //! An API for an interactive rebases, suitable for interactive, UI driven, and programmatic use.
 //!
 //! It will only affect the commit-graph, and never the alter the worktree in any way.
-#![deny(rust_2018_idioms, missing_docs)]
+#![deny(missing_docs)]
 
 use crate::commit::DateMode;
 use anyhow::{Context, Ok, Result, anyhow, bail};

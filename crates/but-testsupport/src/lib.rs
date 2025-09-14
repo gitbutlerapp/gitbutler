@@ -1,5 +1,5 @@
 //! Utilities for testing.
-#![deny(rust_2018_idioms, missing_docs)]
+#![deny(missing_docs)]
 
 use gix::Repository;
 use gix::bstr::{BStr, ByteSlice};
