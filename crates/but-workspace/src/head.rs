@@ -33,7 +33,7 @@ pub fn merge_worktree_with_workspace<'a>(
 
     let conflict_kind = TreatAsUnresolved::git();
     let outcome = gix_repo.merge_trees(
-        head.peel_to_commit_in_place()?.tree_id()?,
+        head.peel_to_commit()?.tree_id()?,
         workdir_tree,
         workspace_tree,
         gix_repo.default_merge_labels(),

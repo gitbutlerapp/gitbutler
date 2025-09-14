@@ -380,7 +380,7 @@ pub(crate) mod function {
         meta: &impl but_core::RefMetadata,
         opts: super::Options,
     ) -> anyhow::Result<RefInfo> {
-        let id = existing_ref.peel_to_id_in_place()?;
+        let id = existing_ref.peel_to_id()?;
         let repo = id.repo;
         let graph = Graph::from_commit_traversal(
             id,

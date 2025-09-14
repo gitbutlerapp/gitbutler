@@ -158,7 +158,7 @@ impl Graph {
             }
             gix::head::Kind::Symbolic(existing_reference) => {
                 let mut existing_reference = existing_reference.attach(repo);
-                let tip = existing_reference.peel_to_id_in_place()?;
+                let tip = existing_reference.peel_to_id()?;
                 (tip, Some(existing_reference.inner.name))
             }
         };
@@ -487,7 +487,7 @@ impl Graph {
             {
                 let Some(segment_tip) = repo
                     .try_find_reference(segment.ref_name.as_ref())?
-                    .map(|mut r| r.peel_to_id_in_place())
+                    .map(|mut r| r.peel_to_id())
                     .transpose()?
                 else {
                     continue;

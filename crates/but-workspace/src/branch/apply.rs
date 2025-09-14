@@ -171,7 +171,7 @@ pub(crate) mod function {
                 //         ws_id
                 //     }
                 //     Some(mut existing_workspace_reference) => {
-                //         let id = existing_workspace_reference.peel_to_id_in_place()?;
+                //         let id = existing_workspace_reference.peel_to_id()?;
                 //         id.detach()
                 //     }
                 // };

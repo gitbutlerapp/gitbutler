@@ -78,7 +78,7 @@ impl Snapshot {
                         let Ok(mut r) = repo.find_reference(&segment.name) else {
                             continue;
                         };
-                        if let Ok(id) = r.peel_to_id_in_place() {
+                        if let Ok(id) = r.peel_to_id() {
                             segment.head = CommitOrChangeId::CommitId(id.to_string());
                         }
                     }

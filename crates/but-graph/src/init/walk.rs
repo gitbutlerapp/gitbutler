@@ -667,7 +667,7 @@ pub fn try_refname_to_id(
 ) -> anyhow::Result<Option<gix::ObjectId>> {
     Ok(repo
         .try_find_reference(refname)?
-        .map(|mut r| r.peel_to_id_in_place())
+        .map(|mut r| r.peel_to_id())
         .transpose()?
         .map(|id| id.detach()))
 }

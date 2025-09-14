@@ -137,10 +137,10 @@ pub fn branch_details_v3(
     let mut integration_branch = repo
         .find_reference(&integration_branch_name)
         .context("The branch to integrate with must be present")?;
-    let integration_branch_id = integration_branch.peel_to_id_in_place()?;
+    let integration_branch_id = integration_branch.peel_to_id()?;
 
     let mut branch = repo.find_reference(name)?;
-    let branch_id = branch.peel_to_id_in_place()?;
+    let branch_id = branch.peel_to_id()?;
 
     let mut remote_tracking_branch = repo
         .branch_remote_tracking_ref_name(name, Direction::Fetch)
@@ -148,7 +148,7 @@ pub fn branch_details_v3(
         .and_then(|remote_tracking_ref| repo.find_reference(remote_tracking_ref.as_ref()).ok());
     let remote_tracking_branch_id = remote_tracking_branch
         .as_mut()
-        .map(|r| r.peel_to_id_in_place())
+        .map(|r| r.peel_to_id())
         .transpose()?;
 
     let meta = meta.branch(name)?;
@@ -181,7 +181,7 @@ pub fn branch_details_v3(
 
         let upstream_commits = if let Some(remote_tracking_branch) = remote_tracking_branch.as_mut()
         {
-            let remote_id = remote_tracking_branch.peel_to_id_in_place()?;
+            let remote_id = remote_tracking_branch.peel_to_id()?;
             upstream_commits_gix(
                 remote_id,
                 integration_branch_id.detach(),
