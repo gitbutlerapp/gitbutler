@@ -11,6 +11,7 @@ export enum TestId {
 	BranchHeaderContextMenu_CopyBranchName = 'branch-header-context-menu-copy-branch-name',
 	BranchHeaderContextMenu_AddRemoveDescription = 'branch-header-context-menu-add-remove-description',
 	BranchHeaderContextMenu_GenerateBranchName = 'branch-header-context-menu-generate-branch-name',
+	BranchHeaderContextMenu_StartCodegenAgent = 'branch-header-context-menu-start-codegen-agent',
 	BranchHeaderContextMenu_Rename = 'branch-header-context-menu-rename',
 	BranchHeaderContextMenu_Delete = 'branch-header-context-menu-delete',
 	BranchHeaderContextMenu_OpenPRInBrowser = 'branch-header-context-menu-open-pr-in-browser',
