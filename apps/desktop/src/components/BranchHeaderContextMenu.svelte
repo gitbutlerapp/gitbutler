@@ -275,8 +275,8 @@
 					{@const rule = rulesService.aiRuleForStack({ projectId, stackId })}
 					{#if !rule.current.data?.rule}
 						<ContextMenuItem
-							label="Start Coding Agent Session"
-							icon="ai-edit"
+							label="Start agent session"
+							icon="agents-tab"
 							testId={TestId.BranchHeaderContextMenu_StartCodegenAgent}
 							disabled={isReadOnly}
 							onclick={() => {
