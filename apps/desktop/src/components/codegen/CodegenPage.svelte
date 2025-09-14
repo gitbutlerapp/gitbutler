@@ -363,7 +363,7 @@
 	<ReduxResult result={claudeAvailable.current} {projectId}>
 		{#snippet children(claudeAvailable, { projectId })}
 			{#if claudeAvailable.status === 'available' || hasExistingSessions}
-				{@render main({ projectId })}
+				{@render main({ projectId, available: claudeAvailable.status === 'available' })}
 			{:else}
 				{@render claudeNotAvailable()}
 			{/if}
@@ -371,7 +371,7 @@
 	</ReduxResult>
 </div>
 
-{#snippet main({ projectId }: { projectId: string })}
+{#snippet main({ projectId, available }: { projectId: string; available?: boolean })}
 	<CodegenSidebar>
 		{#snippet actions()}
 			<Button
@@ -381,7 +381,23 @@
 				reversedDirection
 				onclick={() => createBranchModal?.show()}>Add new</Button
 			>
-			<Button kind="outline" icon="mixer" size="tag" onclick={() => settingsModal?.show()} />
+			<div class="flex relative">
+				{#if !available}
+					<svg
+						viewBox="0 0 10 10"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+						class="settings-warning-icon"
+					>
+						<path
+							d="M3.70898 1.66797C4.28964 0.685942 5.71035 0.685941 6.29102 1.66797L9.28613 6.7373C9.87685 7.7372 9.15651 8.99999 7.99512 9H2.00488C0.843494 8.99999 0.123153 7.7372 0.713867 6.7373L3.70898 1.66797Z"
+							fill="#E89910"
+						/>
+					</svg>
+				{/if}
+
+				<Button kind="outline" icon="mixer" size="tag" onclick={() => settingsModal?.show()} />
+			</div>
 		{/snippet}
 
 		{#snippet content()}
@@ -1025,5 +1041,14 @@
 		justify-content: center;
 		padding: 0 16px;
 		gap: 16px;
+	}
+
+	.settings-warning-icon {
+		z-index: 1;
+		position: absolute;
+		top: -2px;
+		right: -3px;
+		width: 9px;
+		height: 9px;
 	}
 </style>
