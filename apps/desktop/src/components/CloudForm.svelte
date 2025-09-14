@@ -32,26 +32,24 @@
 		<Spacer />
 	{/if}
 
-	<div class="options">
-		<SectionCard labelFor="aiGenEnabled" orientation="row">
-			{#snippet title()}
-				Enable branch and commit message generation
-			{/snippet}
-			{#snippet caption()}
-				If enabled, diffs will be sent to OpenAI or Anthropic's servers when pressing the "Generate
-				message" and "Generate branch name" button.
-			{/snippet}
-			{#snippet actions()}
-				<Toggle
-					id="aiGenEnabled"
-					checked={$aiGenEnabled}
-					onclick={() => {
-						$aiGenEnabled = !$aiGenEnabled;
-					}}
-				/>
-			{/snippet}
-		</SectionCard>
-	</div>
+	<SectionCard labelFor="aiGenEnabled" orientation="row">
+		{#snippet title()}
+			Enable branch and commit message generation
+		{/snippet}
+		{#snippet caption()}
+			If enabled, diffs will be sent to OpenAI or Anthropic's servers when pressing the "Generate
+			message" and "Generate branch name" button.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="aiGenEnabled"
+				checked={$aiGenEnabled}
+				onclick={() => {
+					$aiGenEnabled = !$aiGenEnabled;
+				}}
+			/>
+		{/snippet}
+	</SectionCard>
 
 	{#if $aiGenEnabled}
 		<div class="options">

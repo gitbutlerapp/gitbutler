@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Badge, Icon, TimeAgo, Tooltip, InfoButton } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { slide } from 'svelte/transition';
+	import { slide, fade } from 'svelte/transition';
 	import type { ClaudeStatus } from '$lib/codegen/types';
 	import type { Snippet } from 'svelte';
 
@@ -100,40 +100,42 @@
 	</div>
 
 	{#if !props.disabled}
-		<div class="entry-metadata text-12">
-			<Tooltip text="Total tokens used and cost">
-				<div class="flex gap-4 items-center">
-					<p>{tokensUsed}</p>
-					<svg
-						width="0.938rem"
-						height="0.938rem"
-						viewBox="0 0 15 15"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-						opacity="0.6"
-					>
-						<circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.5" />
-						<circle
-							cx="7.50015"
-							cy="7.5"
-							r="2.92106"
-							transform="rotate(-45 7.50015 7.5)"
-							stroke="currentColor"
-							stroke-width="1.5"
-							stroke-dasharray="2 1"
-						/>
-					</svg>
-					<div class="metadata-divider"></div>
-					<p>${cost.toFixed(2)}</p>
-				</div>
-			</Tooltip>
+		{#if tokensUsed || cost}
+			<div class="entry-metadata text-12" in:fade={{ duration: 150 }}>
+				<Tooltip text="Total tokens used and cost">
+					<div class="flex gap-4 items-center">
+						<p>{tokensUsed}</p>
+						<svg
+							width="0.938rem"
+							height="0.938rem"
+							viewBox="0 0 15 15"
+							fill="none"
+							xmlns="http://www.w3.org/2000/svg"
+							opacity="0.6"
+						>
+							<circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.5" />
+							<circle
+								cx="7.50015"
+								cy="7.5"
+								r="2.92106"
+								transform="rotate(-45 7.50015 7.5)"
+								stroke="currentColor"
+								stroke-width="1.5"
+								stroke-dasharray="2 1"
+							/>
+						</svg>
+						<div class="metadata-divider"></div>
+						<p>${cost.toFixed(2)}</p>
+					</div>
+				</Tooltip>
 
-			{#if lastInteractionTime}
-				<p class="text-11 last-interaction-time opacity-60">
-					<TimeAgo date={lastInteractionTime} addSuffix />
-				</p>
-			{/if}
-		</div>
+				{#if lastInteractionTime}
+					<p class="text-11 last-interaction-time opacity-60">
+						<TimeAgo date={lastInteractionTime} addSuffix />
+					</p>
+				{/if}
+			</div>
+		{/if}
 	{/if}
 {/snippet}
 {#snippet vibeIcon()}

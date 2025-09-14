@@ -78,87 +78,102 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="text-input dialog-input" onkeypress={handleKeypress} onclick={handleDialogClick}>
-	<Textarea
-		bind:textBoxEl={textareaRef}
-		bind:value
-		placeholder="What would you like to make..."
-		borderless
-		maxRows={10}
-		minRows={2}
-	/>
+<div class="dialog-wrapper">
+	<div class="text-input dialog-input" onkeypress={handleKeypress} onclick={handleDialogClick}>
+		<Textarea
+			bind:textBoxEl={textareaRef}
+			bind:value
+			placeholder="What would you like to make..."
+			borderless
+			maxRows={10}
+			minRows={2}
+		/>
 
-	<div class="dialog-input__actions">
-		<div class="dialog-input__actions-item">
-			{@render actions()}
-		</div>
+		<div class="dialog-input__actions">
+			<div class="dialog-input__actions-item">
+				{@render actions()}
+			</div>
 
-		<div class="dialog-input__actions-item">
-			{#if showAbortButton && onAbort}
-				<div class="flex" in:fade={{ duration: 150 }} out:fade={{ duration: 100 }}>
-					<AsyncButton kind="outline" style="error" action={onAbort} icon="stop" reversedDirection>
-						Stop
-					</AsyncButton>
-				</div>
-			{/if}
+			<div class="dialog-input__actions-item">
+				{#if showAbortButton && onAbort}
+					<div class="flex" in:fade={{ duration: 150 }} out:fade={{ duration: 100 }}>
+						<AsyncButton
+							kind="outline"
+							style="error"
+							action={onAbort}
+							icon="stop"
+							reversedDirection
+						>
+							Stop
+						</AsyncButton>
+					</div>
+				{/if}
 
-			<Tooltip
-				text={loading ? 'Processing...' : value.trim().length === 0 ? 'Type a message' : 'Send ↵'}
-			>
-				<button
-					class="send-button"
-					type="button"
-					disabled={loading || value.trim().length === 0}
-					class:loading
-					style="pop"
-					onclick={handleSubmit}
-					aria-label="Send"
+				<Tooltip
+					text={loading ? 'Processing...' : value.trim().length === 0 ? 'Type a message' : 'Send ↵'}
 				>
-					<svg
-						class="circle-icon"
-						class:spinner={loading}
-						viewBox="0 0 18 18"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
+					<button
+						class="send-button"
+						type="button"
+						disabled={loading || value.trim().length === 0}
+						class:loading
+						style="pop"
+						onclick={handleSubmit}
+						aria-label="Send"
 					>
-						<circle
-							vector-effect="non-scaling-stroke"
-							cx="9"
-							cy="9"
-							r="8.25"
-							stroke="currentColor"
-						/>
-					</svg>
+						<svg
+							class="circle-icon"
+							class:spinner={loading}
+							viewBox="0 0 18 18"
+							fill="none"
+							xmlns="http://www.w3.org/2000/svg"
+						>
+							<circle
+								vector-effect="non-scaling-stroke"
+								cx="9"
+								cy="9"
+								r="8.25"
+								stroke="currentColor"
+							/>
+						</svg>
 
-					<svg
-						class="arrow-icon"
-						class:spinner={loading}
-						viewBox="0 0 16 16"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path
-							vector-effect="non-scaling-stroke"
-							d="M12.0195 8L8.72664 4.70711C8.33611 4.31658 7.70295 4.31658 7.31242 4.70711L4.01953 8"
-							stroke="currentColor"
-							stroke-width="1.5"
-						/>
-						<path
-							d="M8.01953 4L8.01953 12"
-							stroke="currentColor"
-							stroke-width="1.5"
-							vector-effect="non-scaling-stroke"
-						/>
-					</svg>
-				</button>
-			</Tooltip>
+						<svg
+							class="arrow-icon"
+							class:spinner={loading}
+							viewBox="0 0 16 16"
+							fill="none"
+							xmlns="http://www.w3.org/2000/svg"
+						>
+							<path
+								vector-effect="non-scaling-stroke"
+								d="M12.0195 8L8.72664 4.70711C8.33611 4.31658 7.70295 4.31658 7.31242 4.70711L4.01953 8"
+								stroke="currentColor"
+								stroke-width="1.5"
+							/>
+							<path
+								d="M8.01953 4L8.01953 12"
+								stroke="currentColor"
+								stroke-width="1.5"
+								vector-effect="non-scaling-stroke"
+							/>
+						</svg>
+					</button>
+				</Tooltip>
+			</div>
+
+			<div class="dialog-input__fade"></div>
 		</div>
-
-		<div class="dialog-input__fade"></div>
 	</div>
 </div>
 
 <style lang="postcss">
+	.dialog-wrapper {
+		flex-shrink: 0;
+		width: 100%;
+		padding: 16px;
+		border-top: 1px solid var(--clr-border-2);
+	}
+
 	.dialog-input {
 		display: flex;
 		position: relative;

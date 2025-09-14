@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { Link, Textbox, AsyncButton } from '@gitbutler/ui';
+	import { Icon, Link, Textbox, AsyncButton } from '@gitbutler/ui';
 
 	type Props = {
 		claudeExecutable: string;
 		recheckedAvailability?: 'recheck-failed' | 'recheck-succeeded';
 		onUpdateExecutable: (value: string) => Promise<void>;
 		onCheckAvailability: () => Promise<void>;
-		showInstallationGuide?: boolean;
 		showTitle?: boolean;
 	};
 
@@ -15,57 +14,102 @@
 		recheckedAvailability,
 		onUpdateExecutable,
 		onCheckAvailability,
-		showInstallationGuide = true,
 		showTitle = true
 	}: Props = $props();
+
+	let isChecking = $state(false);
+	let showResult = $state(false);
+
+	async function handleCheckAvailability() {
+		isChecking = true;
+		showResult = false;
+		try {
+			await onCheckAvailability();
+			showResult = true;
+		} finally {
+			isChecking = false;
+			// Show the result for a few seconds before showing the button again
+			setTimeout(() => {
+				showResult = false;
+			}, 2000);
+		}
+	}
+
+	const DOCS_URL = 'https://docs.gitbutler.com/features/agents-tab#installing-claude-code';
 </script>
 
-<div class="claude-check">
-	{#if showTitle}
-		<h4 class="header-16 text-bold">Claude Code can't be found</h4>
-	{/if}
-
-	{#if showInstallationGuide}
-		<p class="text-14">
-			If you have yet to install Claude Code, please refer to the <Link
-				target="_blank"
-				href="https://docs.anthropic.com/en/docs/claude-code/quickstart"
-				>Claude Code installation guide</Link
-			>.
-		</p>
-	{/if}
-
-	{#if showTitle}
-		<p class="text-14">If you have installed Claude Code, configure the executable path below:</p>
-	{/if}
-
-	<div class="claude-config">
-		<Textbox
-			label="Claude executable path"
-			value={claudeExecutable}
-			placeholder="claude"
-			onchange={onUpdateExecutable}
-		/>
-
+{#if showTitle}
+	<div class="flex items-center gap-8">
 		{#if recheckedAvailability === 'recheck-failed'}
-			<div class="claude-status claude-status--unavailable">
-				✗ Claude Code not found at the specified path.
-			</div>
-		{:else if recheckedAvailability === 'recheck-succeeded'}
-			<div class="claude-status claude-status--available">✓ Claude Code is available</div>
+			<Icon name="warning" color="warning" />
+			<h4 class="text-16 text-semibold text-body">Claude Code can't be found</h4>
+		{:else}
+			<Icon name="success" color="success" />
+			<h4 class="text-16 text-semibold text-body">Claude code is connected</h4>
 		{/if}
-
-		<AsyncButton style="neutral" kind="outline" action={onCheckAvailability}>
-			Test Connection
-		</AsyncButton>
 	</div>
+{/if}
+
+<div class="claude-config">
+	<Textbox
+		label="Claude Code path:"
+		value={claudeExecutable}
+		placeholder="Path to the Claude Code executable"
+		onchange={onUpdateExecutable}
+	/>
+
+	{#if isChecking || showResult}
+		<div
+			class="claude-test-result-messaege"
+			class:success={recheckedAvailability === 'recheck-succeeded'}
+			class:error={recheckedAvailability === 'recheck-failed'}
+		>
+			{#if isChecking}
+				<p class="text-12">Checking connection...</p>
+				<Icon name="spinner" />
+			{:else if recheckedAvailability === 'recheck-failed'}
+				<p class="text-12">Couldn't connect. Check the path and try again</p>
+				<Icon name="error-small" />
+			{:else if recheckedAvailability === 'recheck-succeeded'}
+				<p class="text-12">You're all set! Connection's good!</p>
+				<Icon name="tick" />
+			{/if}
+		</div>
+	{:else}
+		<AsyncButton style="neutral" kind="outline" action={handleCheckAvailability} icon="plug">
+			{#if recheckedAvailability === 'recheck-failed'}
+				Connect to Claude Code
+			{:else}
+				Test Connection
+			{/if}
+		</AsyncButton>
+	{/if}
+</div>
+
+<div class="claude-check">
+	<Icon name="docs" color="info" />
+	<p class="text-13 text-body">
+		{#if recheckedAvailability === 'recheck-failed'}
+			If you haven't installed Claude Code, check our <Link target="_blank" href={DOCS_URL}
+				>installation guide</Link
+			>
+		{:else}
+			Get the full guide to Agents in GitButler in <Link target="_blank" href={DOCS_URL}
+				>our documentation</Link
+			>
+		{/if}
+	</p>
 </div>
 
 <style lang="postcss">
 	.claude-check {
 		display: flex;
-		flex-direction: column;
-		gap: 12px;
+		align-items: center;
+		padding: 10px 14px;
+		gap: 14px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
+		color: var(--clr-text-2);
 	}
 
 	.claude-config {
@@ -74,23 +118,25 @@
 		gap: 12px;
 	}
 
-	.claude-status {
-		padding: 8px 12px;
+	.claude-test-result-messaege {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: var(--size-button);
+		padding: 0 12px;
+		gap: 4px;
 		border-radius: var(--radius-m);
-		font-weight: 600;
-		font-size: 12px;
-		text-align: center;
-	}
+		background-color: var(--clr-bg-2);
+		color: var(--clr-text-2);
 
-	.claude-status--available {
-		border: 1px solid var(--clr-theme-succ-border);
-		background-color: var(--clr-theme-succ-bg);
-		color: var(--clr-theme-succ-element);
-	}
+		&.success {
+			background-color: var(--clr-theme-succ-soft);
+			color: var(--clr-theme-succ-on-soft);
+		}
 
-	.claude-status--unavailable {
-		border: 1px solid var(--clr-theme-err-border);
-		background-color: var(--clr-theme-err-bg);
-		color: var(--clr-theme-err-element);
+		&.error {
+			background-color: var(--clr-theme-err-soft);
+			color: var(--clr-theme-err-on-soft);
+		}
 	}
 </style>
