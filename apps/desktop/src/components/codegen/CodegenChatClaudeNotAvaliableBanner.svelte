@@ -47,6 +47,7 @@
 			height: calc(100% + 60px);
 			background: linear-gradient(0deg, var(--clr-bg-1-muted) 70%, transparent 100%);
 			content: '';
+			pointer-events: none;
 		}
 	}
 
