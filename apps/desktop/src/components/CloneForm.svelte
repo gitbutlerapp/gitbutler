@@ -119,7 +119,7 @@
 	}
 </script>
 
-<h1 class="clone-title text-serif-40">Clone a repository</h1>
+<h1 class="clone-title text-serif-40">Clone a <i>repository</i></h1>
 <Section>
 	<div class="clone__field repositoryUrl">
 		<div class="text-13 text-semibold clone__field--label">Clone URL</div>

@@ -4,11 +4,13 @@
 	import CommitRow from '$components/CommitRow.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import CreateBranchModal from '$components/CreateBranchModal.svelte';
+	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import Drawer from '$components/Drawer.svelte';
 	import FileList from '$components/FileList.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
+	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
@@ -23,6 +25,7 @@
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import filesAndChecksSvg from '$lib/assets/empty-state/files-and-checks.svg?raw';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
+	import vibecodingSvg from '$lib/assets/illustrations/vibecoding.svg?raw';
 	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import {
@@ -92,6 +95,7 @@
 	const stacks = $derived(stackService.stacks(projectId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
+	const hasExistingSessions = $derived(stacks.current.data && stacks.current.data.length > 0);
 	const [sendClaudeMessage] = claudeCodeService.sendMessage;
 
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
@@ -358,7 +362,7 @@
 <div class="page">
 	<ReduxResult result={claudeAvailable.current} {projectId}>
 		{#snippet children(claudeAvailable, { projectId })}
-			{#if claudeAvailable.status === 'available'}
+			{#if claudeAvailable.status === 'available' || hasExistingSessions}
 				{@render main({ projectId })}
 			{:else}
 				{@render claudeNotAvailable()}
@@ -377,7 +381,7 @@
 				reversedDirection
 				onclick={() => createBranchModal?.show()}>Add new</Button
 			>
-			<Button kind="ghost" icon="mixer" size="tag" onclick={() => settingsModal?.show()} />
+			<Button kind="outline" icon="mixer" size="tag" onclick={() => settingsModal?.show()} />
 		{/snippet}
 
 		{#snippet content()}
@@ -483,50 +487,56 @@
 						{/snippet}
 
 						{#snippet input()}
-							<CodegenInput
-								value={prompt}
-								onChange={(prompt) => setPrompt(prompt)}
-								loading={currentStatus(events, isStackActive) === 'running'}
-								onsubmit={sendMessage}
-								{onAbort}
-								sessionKey={selectedBranch
-									? `${selectedBranch.stackId}-${selectedBranch.head}`
-									: undefined}
-							>
-								{#snippet actions()}
-									<div class="flex m-right-4 gap-4">
-										<Button disabled kind="outline" icon="attachment" reversedDirection />
-										<Button
-											bind:el={templateTrigger}
-											kind="outline"
-											icon="script"
-											tooltip="Insert template"
-											onclick={(e) => templateContextMenu?.toggle(e)}
-										/>
-										<Button
-											bind:el={thinkingModeTrigger}
-											kind="outline"
-											icon="brain"
-											reversedDirection
-											onclick={() => thinkingModeContextMenu?.toggle()}
-											tooltip="Thinking Mode"
-											children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
-										/>
-									</div>
+							{#if claudeAvailable.current.data?.status === 'available'}
+								<CodegenInput
+									value={prompt}
+									onChange={(prompt) => setPrompt(prompt)}
+									loading={currentStatus(events, isStackActive) === 'running'}
+									onsubmit={sendMessage}
+									{onAbort}
+									sessionKey={selectedBranch
+										? `${selectedBranch.stackId}-${selectedBranch.head}`
+										: undefined}
+								>
+									{#snippet actions()}
+										<div class="flex m-right-4 gap-4">
+											<Button disabled kind="outline" icon="attachment" reversedDirection />
+											<Button
+												bind:el={templateTrigger}
+												kind="outline"
+												icon="script"
+												tooltip="Insert template"
+												onclick={(e) => templateContextMenu?.toggle(e)}
+											/>
+											<Button
+												bind:el={thinkingModeTrigger}
+												kind="outline"
+												icon="brain"
+												reversedDirection
+												onclick={() => thinkingModeContextMenu?.toggle()}
+												tooltip="Thinking Mode"
+												children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
+											/>
+										</div>
 
-									{#if !claudeSettings?.useConfiguredModel}
-										<Button
-											bind:el={modelTrigger}
-											kind="ghost"
-											icon="chevron-down"
-											shrinkable
-											onclick={() => modelContextMenu?.toggle()}
-										>
-											{modelOptions.find((a) => a.value === selectedModel)?.label}
-										</Button>
-									{/if}
-								{/snippet}
-							</CodegenInput>
+										{#if !claudeSettings?.useConfiguredModel}
+											<Button
+												bind:el={modelTrigger}
+												kind="ghost"
+												icon="chevron-down"
+												shrinkable
+												onclick={() => modelContextMenu?.toggle()}
+											>
+												{modelOptions.find((a) => a.value === selectedModel)?.label}
+											</Button>
+										{/if}
+									{/snippet}
+								</CodegenInput>
+							{:else}
+								<CodegenChatClaudeNotAvaliableBanner
+									onSettingsBtnClick={() => settingsModal?.show()}
+								/>
+							{/if}
 						{/snippet}
 					</CodegenChatLayout>
 
@@ -816,14 +826,18 @@
 
 {#snippet claudeNotAvailable()}
 	<div class="not-available">
-		<div class="not-available-form">
-			<ClaudeCheck
-				claudeExecutable={claudeExecutable.current}
-				recheckedAvailability={recheckedAvailability.current}
-				onUpdateExecutable={updateClaudeExecutable}
-				onCheckAvailability={checkClaudeAvailability}
-			/>
-		</div>
+		<DecorativeSplitView hideDetails img={vibecodingSvg}>
+			<div class="not-available__content">
+				<h1 class="text-serif-40">Set up <i>Claude Code</i></h1>
+				<ClaudeCheck
+					claudeExecutable={claudeExecutable.current}
+					recheckedAvailability={recheckedAvailability.current}
+					onUpdateExecutable={updateClaudeExecutable}
+					onCheckAvailability={checkClaudeAvailability}
+					showTitle={false}
+				/>
+			</div>
+		</DecorativeSplitView>
 	</div>
 {/snippet}
 
@@ -971,6 +985,11 @@
 		background-color: var(--clr-bg-2);
 	}
 
+	.sidebar-header-settings {
+		display: flex;
+		position: relative;
+	}
+
 	/* NO CC AVAILABLE */
 	.not-available {
 		display: flex;
@@ -981,16 +1000,13 @@
 		height: 100%;
 	}
 
-	.not-available-form {
+	.not-available__content {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		padding: 24px;
-		gap: 16px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
-		box-shadow: var(--shadow-elevation-low);
+		width: 100%;
+		max-width: 480px;
+		margin: 0 auto;
+		gap: 20px;
 	}
 
 	.sidebar-content {

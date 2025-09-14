@@ -4,8 +4,7 @@
 	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { inject } from '@gitbutler/core/context';
-	import { Link } from '@gitbutler/ui';
-	import { Modal, SectionCard, Toggle } from '@gitbutler/ui';
+	import { Modal, SectionCard, Toggle, Spacer } from '@gitbutler/ui';
 	import type { Modal as ModalType } from '@gitbutler/ui';
 
 	type Props = {
@@ -76,112 +75,108 @@
 	}
 </script>
 
-<Modal bind:this={modal} width="medium" {onClose} title="Claude Code Settings" closeButton>
-	{#snippet children(_item, _close)}
-		<ScrollableContainer>
-			<div class="settings-content">
-				<SectionCard orientation="column">
-					<span>
-						Read more about using Agents in GitButler: <Link
-							href="https://docs.gitbutler.com/features/agents-tab">Docs</Link
-						>
-					</span>
-				</SectionCard>
-				<SectionCard orientation="column">
-					{#snippet title()}
-						Claude Code Configuration
-					{/snippet}
+<Modal bind:this={modal} width={520} {onClose} noPadding>
+	<ScrollableContainer>
+		<div class="settings-content">
+			<ClaudeCheck
+				claudeExecutable={claudeExecutable.current}
+				recheckedAvailability={recheckedAvailability.current}
+				onUpdateExecutable={updateClaudeExecutable}
+				onCheckAvailability={checkClaudeAvailability}
+			/>
 
-					{#snippet caption()}
-						Configure the path to the Claude Code executable. This is used for AI-powered code
-						generation and editing.
-					{/snippet}
+			<Spacer margin={10} />
 
-					<ClaudeCheck
-						claudeExecutable={claudeExecutable.current}
-						recheckedAvailability={recheckedAvailability.current}
-						onUpdateExecutable={updateClaudeExecutable}
-						onCheckAvailability={checkClaudeAvailability}
-						showInstallationGuide={false}
-						showTitle={false}
+			<SectionCard orientation="row" labelFor="autoCommitAfterCompletion">
+				{#snippet title()}
+					Auto-commit after completion
+				{/snippet}
+				{#snippet caption()}
+					Automatically commit and rename branches when Claude Code finishes. Disable to review
+					manually before committing.
+				{/snippet}
+				{#snippet actions()}
+					<Toggle
+						id="autoCommitAfterCompletion"
+						checked={autoCommitAfterCompletion}
+						onchange={updateAutoCommitAfterCompletion}
 					/>
-				</SectionCard>
+				{/snippet}
+			</SectionCard>
 
-				<SectionCard orientation="row">
-					{#snippet title()}
-						Claude Code notifications
-					{/snippet}
-					{#snippet caption()}
-						<div class="notification-toggles">
-							<div class="notification-toggle">
-								<p>Notify when Claude Code finishes</p>
-								<Toggle checked={notifyOnCompletion} onchange={updateNotifyOnCompletion} />
-							</div>
-							<div class="notification-toggle">
-								<p>Notify when Claude Code needs permission</p>
-								<Toggle
-									checked={notifyOnPermissionRequest}
-									onchange={updateNotifyOnPermissionRequest}
-								/>
-							</div>
-						</div>
-					{/snippet}
-					{#snippet actions()}{/snippet}
-				</SectionCard>
+			<SectionCard orientation="row" labelFor="useConfiguredModel">
+				{#snippet title()}
+					Use configured model
+				{/snippet}
+				{#snippet caption()}
+					Use the model configured in .claude/settings.json.
+					<br />
+					Useful for 3rd party API providers.
+				{/snippet}
+				{#snippet actions()}
+					<Toggle
+						id="useConfiguredModel"
+						checked={useConfiguredModel}
+						onchange={updateUseConfiguredModel}
+					/>
+				{/snippet}
+			</SectionCard>
 
-				<SectionCard orientation="row">
+			<SectionCard orientation="row" labelFor="dangerouslyAllowAllPermissions">
+				{#snippet title()}
+					⚠ Dangerously allow all permissions
+				{/snippet}
+				{#snippet caption()}
+					Skips all permission prompts and allows Claude Code unrestricted access. Use with extreme
+					caution.
+				{/snippet}
+				{#snippet actions()}
+					<Toggle
+						id="dangerouslyAllowAllPermissions"
+						checked={dangerouslyAllowAllPermissions}
+						onchange={updateDangerouslyAllowAllPermissions}
+					/>
+				{/snippet}
+			</SectionCard>
+
+			<Spacer margin={10} />
+
+			<div class="stack-v">
+				<SectionCard orientation="row" labelFor="notifyOnCompletion" roundedBottom={false}>
 					{#snippet title()}
-						Auto-commit after completion
-					{/snippet}
-					{#snippet caption()}
-						Automatically commit changes and rename branches when Claude Code finishes. Disable this
-						to manually review changes before committing.
+						Notify when finishes
 					{/snippet}
 					{#snippet actions()}
 						<Toggle
-							checked={autoCommitAfterCompletion}
-							onchange={updateAutoCommitAfterCompletion}
+							id="notifyOnCompletion"
+							checked={notifyOnCompletion}
+							onchange={updateNotifyOnCompletion}
 						/>
 					{/snippet}
 				</SectionCard>
-
-				<SectionCard orientation="row">
+				<SectionCard orientation="row" labelFor="notifyOnPermissionRequest" roundedTop={false}>
 					{#snippet title()}
-						⚠️ Dangerously allow all permissions
-					{/snippet}
-					{#snippet caption()}
-						Skips all permission prompts and allows Claude Code unrestricted access. Use with
-						extreme caution.
+						Notify when needs permission
 					{/snippet}
 					{#snippet actions()}
 						<Toggle
-							checked={dangerouslyAllowAllPermissions}
-							onchange={updateDangerouslyAllowAllPermissions}
+							id="notifyOnPermissionRequest"
+							checked={notifyOnPermissionRequest}
+							onchange={updateNotifyOnPermissionRequest}
 						/>
-					{/snippet}
-				</SectionCard>
-
-				<SectionCard orientation="row">
-					{#snippet title()}
-						Use configured model
-					{/snippet}
-					{#snippet caption()}
-						Use the model configured in .claude/settings.json. Useful for 3rd party API providers.
-					{/snippet}
-					{#snippet actions()}
-						<Toggle checked={useConfiguredModel} onchange={updateUseConfiguredModel} />
 					{/snippet}
 				</SectionCard>
 			</div>
-		</ScrollableContainer>
-	{/snippet}
+		</div>
+	</ScrollableContainer>
 </Modal>
 
 <style lang="postcss">
 	.settings-content {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
+		padding: 16px;
+		gap: 12px;
 	}
 
 	.notification-toggles {
