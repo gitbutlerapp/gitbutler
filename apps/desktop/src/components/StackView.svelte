@@ -433,7 +433,16 @@
 			root: lanesSrollableEl
 		}
 	}}
-	use:focusable
+	use:focusable={{
+		onKeydown: (event) => {
+			if (event.key === 'Escape' && isDetailsViewOpen) {
+				selection.set(undefined);
+				event.preventDefault();
+				event.stopPropagation();
+				return true;
+			}
+		}
+	}}
 >
 	{#if !isCommitting}
 		<div class="drag-handle" data-remove-from-panning data-drag-handle draggable="true">
@@ -456,7 +465,6 @@
 						<div
 							class="assignments-wrap"
 							class:assignments__empty={changes.current.length === 0 && !isCommitting}
-							use:focusable={{ vertical: true }}
 						>
 							<div
 								class="worktree-wrap"
@@ -492,13 +500,14 @@
 
 							{#if startCommitVisible.current || isCommitting}
 								{#if !isCommitting}
-									<div class="start-commit" use:focusable>
+									<div class="start-commit">
 										<Button
 											testId={TestId.StartCommitButton}
 											kind={changes.current.length > 0 ? 'solid' : 'outline'}
 											style={changes.current.length > 0 ? 'pop' : 'neutral'}
 											type="button"
 											wide
+											hotkey={active ? '⌘s' : undefined}
 											disabled={isReadOnly ||
 												defaultBranch === null ||
 												!!projectState.exclusiveAction.current}

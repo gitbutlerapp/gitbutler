@@ -28,7 +28,6 @@
 		icon?: keyof typeof iconsJson | undefined;
 		hotkey?: string;
 		tooltip?: string;
-		tooltipHotkey?: string;
 		tooltipPosition?: TooltipPosition;
 		tooltipAlign?: TooltipAlign;
 		tooltipDelay?: number;
@@ -48,6 +47,8 @@
 <script lang="ts">
 	import Icon from '$components/Icon.svelte';
 	import Tooltip, { type TooltipAlign, type TooltipPosition } from '$components/Tooltip.svelte';
+	import { focusable } from '$lib/focus/focusable';
+	import { extractHotkeyLetter, formatHotkeyForPlatform } from '$lib/utils/hotkeySymbols';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';
@@ -79,7 +80,6 @@
 		testId,
 		icon,
 		tooltip,
-		tooltipHotkey,
 		tooltipPosition,
 		tooltipAlign,
 		tooltipDelay,
@@ -100,6 +100,9 @@
 			await onclick?.(e);
 		}
 	}
+
+	const hotkeyLetter = $derived(hotkey ? extractHotkeyLetter(hotkey) : undefined);
+	const displayHotkey = $derived(hotkey ? formatHotkeyForPlatform(hotkey) : undefined);
 </script>
 
 <Tooltip
@@ -107,11 +110,18 @@
 	align={tooltipAlign}
 	position={tooltipPosition}
 	delay={tooltipDelay}
-	hotkey={tooltipHotkey}
+	hotkey={displayHotkey}
 	maxWidth={tooltipMaxWidth}
 >
 	<button
 		bind:this={el}
+		use:focusable={{
+			button: true,
+			hotkey: hotkeyLetter,
+			onAction: () => {
+				el?.click();
+			}
+		}}
 		class={[
 			'btn focus-state',
 			style,
@@ -152,12 +162,6 @@
 				class:text-10={size === 'icon'}
 			>
 				{@render children()}
-
-				{#if hotkey}
-					<span class="btn-hotkey">
-						{hotkey}
-					</span>
-				{/if}
 			</span>
 		{/if}
 
@@ -170,9 +174,13 @@
 				{/if}
 			</div>
 		{/if}
-
 		{#if custom}
 			{@render custom()}
+		{/if}
+		{#if displayHotkey && children}
+			<span class="btn-hotkey">
+				{displayHotkey}
+			</span>
 		{/if}
 	</button>
 </Tooltip>
@@ -262,8 +270,12 @@
 		}
 
 		.btn-hotkey {
-			margin-left: 2px;
-			opacity: 0.5;
+			display: inline-flex;
+			align-items: center;
+			font-weight: 500;
+			font-size: 10px;
+			line-height: 1.2;
+			opacity: 0.7;
 			pointer-events: none;
 		}
 
