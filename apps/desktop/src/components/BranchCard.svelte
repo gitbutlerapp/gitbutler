@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import BranchBadge from '$components/BranchBadge.svelte';
 	import BranchDividerLine from '$components/BranchDividerLine.svelte';
 	import BranchHeader from '$components/BranchHeader.svelte';
@@ -14,13 +13,13 @@
 	import CodegenBadge from '$components/codegen/CodegenBadge.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { CodegenRuleDropData, CodegenRuleDropHandler } from '$lib/codegen/dropzone';
+	import { useGoToCodegenPage } from '$lib/codegen/redirect.svelte';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { codegenPath } from '$lib/routes/routes.svelte';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -93,6 +92,8 @@
 	type Props = DraftBranchProps | NormalBranchProps | StackBranchProps | PrBranchProps;
 
 	let { projectId, branchName, lineColor, readonly, ...args }: Props = $props();
+
+	const { goToCodegenPage } = useGoToCodegenPage();
 
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
@@ -382,11 +383,7 @@
 											if (!args.stackId) return;
 											if (!sessionDetails.inGui) return;
 
-											projectState.selectedClaudeSession.set({
-												stackId: args.stackId,
-												head: branchName
-											});
-											goto(codegenPath(projectId));
+											goToCodegenPage(projectId, args.stackId, branchName);
 										}}
 									/>
 								</div>
