@@ -252,6 +252,7 @@
 							{branchName}
 							{projectId}
 							{stackId}
+							{active}
 							multipleBranches={branches.length > 1}
 							isFirstBranchInStack={firstBranch}
 							isLastBranchInStack={lastBranch}

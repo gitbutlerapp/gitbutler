@@ -132,7 +132,7 @@
 			class:small={width === 'small'}
 			class:xsmall={width === 'xsmall'}
 			style:width={typeof width === 'number' ? `${pxToRem(width)}rem` : undefined}
-			use:focusable={{ trap: true, activate: true }}
+			use:focusable={{ trap: true, activate: true, dim: true }}
 			onsubmit={(e) => {
 				e.preventDefault();
 				onSubmit?.(close, item);

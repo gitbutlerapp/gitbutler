@@ -11,9 +11,10 @@
 		children: Snippet;
 		title: string;
 		onExitFloatingModeClick: () => void;
+		onCancel?: () => void;
 	}
 
-	const { children, title, onExitFloatingModeClick }: Props = $props();
+	const { children, title, onExitFloatingModeClick, onCancel }: Props = $props();
 
 	const uiState = inject(UI_STATE);
 
@@ -38,6 +39,7 @@
 		uiState.global.floatingBoxPosition.set(snapPosition);
 	}}
 	dragHandleElement={headerElRef}
+	{onCancel}
 >
 	<div class="modal-header" bind:this={headerElRef}>
 		<div class="drag-handle">

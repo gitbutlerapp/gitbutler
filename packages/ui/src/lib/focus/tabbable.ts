@@ -1,11 +1,11 @@
 export type FocusOptions = {
 	container: HTMLElement;
 	forward?: boolean;
-	wrap?: boolean;
+	trap?: boolean;
 };
 
 export function focusNextTabIndex(options: FocusOptions): boolean {
-	const { container, forward, wrap = true } = options;
+	const { container, forward, trap } = options;
 
 	const focusableSelectors: string[] = [
 		'a[href]',
@@ -57,10 +57,10 @@ export function focusNextTabIndex(options: FocusOptions): boolean {
 			: indexOf - 1;
 
 	if (nextIndex >= focusableArray.length) {
-		if (!wrap) return false;
+		if (!trap) return false;
 		nextIndex = 0;
 	} else if (nextIndex < 0) {
-		if (!wrap) return false;
+		if (!trap) return false;
 		nextIndex = focusableArray.length - 1;
 	}
 
@@ -68,10 +68,7 @@ export function focusNextTabIndex(options: FocusOptions): boolean {
 
 	if (nextElement instanceof HTMLElement) {
 		nextElement.focus();
-		// We don't want an outline when clicking elements with a mouse, and the
-		// built-in `:focus-visible` isn't triggered when programatically focusing
-		// elements. We therefore need this explicit class in order to show the
-		// outline when tabbing through elements.
+		// :focus-visible isn't triggered when programmatically focusing, need explicit class
 		nextElement.classList.add('focus-visible');
 		nextElement.addEventListener(
 			'focusout',

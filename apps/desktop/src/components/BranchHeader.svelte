@@ -59,7 +59,8 @@
 	class="header-wrapper"
 	use:focusable={{
 		onAction: () => onclick?.(),
-		onActive: (value) => (active = value)
+		onActive: (value) => (active = value),
+		focusable: true
 	}}
 >
 	<div
