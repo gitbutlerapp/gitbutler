@@ -1,5 +1,4 @@
 <script lang="ts">
-	import loadErrorSvg from '$lib/assets/empty-state/load-error.svg?raw';
 	import { Icon, Button } from '@gitbutler/ui';
 
 	interface Props {
@@ -9,63 +8,46 @@
 	const { onSettingsBtnClick }: Props = $props();
 </script>
 
-<section class="not-available-banner__wrap">
+<div class="not-available-banner__wrapper">
 	<div class="not-available-banner">
-		<div class="not-available-banner__image">
-			{@html loadErrorSvg}
-		</div>
 		<div class="not-available-banner__content">
 			<h3 class="text-16 text-semibold">
 				<span class="not-available-banner__icon">
 					<Icon name="warning" />
 				</span> Claude code can't be found
 			</h3>
-			<p class="text-13 text-body clr-text-2 m-bottom-8">
+			<p class="text-13 text-body clr-text-2">
 				Connect Claude Code to keep going with this session.
-				<br />
-				This can be configured in the settings.
 			</p>
-			<Button kind="outline" style="neutral" icon="mixer" type="button" onclick={onSettingsBtnClick}
-				>Configure Claude Code…</Button
-			>
 		</div>
+		<Button kind="outline" style="neutral" icon="mixer" type="button" onclick={onSettingsBtnClick}
+			>Set up connection…</Button
+		>
 	</div>
-</section>
+</div>
 
 <style lang="postcss">
-	.not-available-banner__wrap {
-		display: flex;
-		position: relative;
-		padding: 12px;
-		padding-top: 0;
-
-		&::before {
-			position: absolute;
-			bottom: 0;
-			left: 0;
-			width: 100%;
-			height: calc(100% + 60px);
-			background: linear-gradient(0deg, var(--clr-bg-1-muted) 70%, transparent 100%);
-			content: '';
-			pointer-events: none;
-		}
-	}
-
-	.not-available-banner {
+	.not-available-banner__wrapper {
 		display: flex;
 		z-index: var(--z-ground);
-		align-items: center;
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		justify-content: center;
 		width: 100%;
-		padding: 28px;
+		padding: 16px;
+	}
+	.not-available-banner {
+		display: flex;
+		bottom: 16px;
+		width: fit-content;
+		padding: 16px;
 		overflow: hidden;
 		gap: 28px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
-	}
-
-	.not-available-banner__image {
-		flex-shrink: 0;
+		box-shadow: var(--fx-shadow-l);
 	}
 
 	.not-available-banner__content {
@@ -82,22 +64,10 @@
 		color: var(--clr-theme-warn-element);
 	}
 
-	@container chat (min-width: 800px) {
-		.not-available-banner__wrap {
-			position: absolute;
-			bottom: 0;
-			left: 0;
-			justify-content: center;
-			width: 100%;
-
-			&::before {
-				display: none;
-			}
-		}
-
+	@container chat (max-width: 600px) {
 		.not-available-banner {
-			width: auto;
-			max-width: 560px;
+			flex-direction: column;
+			gap: 16px;
 		}
 	}
 </style>
