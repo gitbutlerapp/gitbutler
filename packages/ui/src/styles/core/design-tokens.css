@@ -308,7 +308,9 @@
 	--clr-illustration-bg: color(srgb 0.8392156862745098 0.9411764705882353 0.9333333333333333);
 	--clr-illustration-fill: color(srgb 0.9882352941176471 0.9882352941176471 0.9450980392156862);
 	--clr-illustration-outline: color(srgb 0.2784313725490196 0.3137254901960784 0.3137254901960784);
-	--clr-overlay-bg: color(srgb 0.8392156862745098 0.8392156862745098 0.8392156862745098 / 0.6);
+	--clr-overlay-bg: color(
+		srgb 0.8392156862745098 0.8392156862745098 0.8392156862745098 / 0.45098039215686275
+	);
 	--clr-scale-err-5: var(--clr-core-err-5);
 	--clr-scale-err-10: var(--clr-core-err-10);
 	--clr-scale-err-20: var(--clr-core-err-20);

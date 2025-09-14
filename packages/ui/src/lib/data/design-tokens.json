@@ -2041,11 +2041,11 @@
 		},
 		"overlay-bg": {
 			"$type": "color",
-			"$value": "#d6d6d699",
+			"$value": "#d6d6d673",
 			"$description": "",
 			"$extensions": {
 				"mode": {
-					"light": "#d6d6d699",
+					"light": "#d6d6d673",
 					"dark": "#00000080"
 				}
 			}
@@ -3769,7 +3769,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius", "text", "opacity"],
-			"createdAt": "2025-09-08T21:32:28.660Z"
+			"createdAt": "2025-09-14T13:52:32.744Z"
 		}
 	}
 }
