@@ -74,13 +74,13 @@
 		{/if}
 	</div>
 
-	<div class="chat-footer" use:focusable>
-		{@render input()}
-	</div>
+	{@render input()}
 </div>
 
 <style lang="postcss">
 	.chat {
+		container-name: chat;
+		container-type: inline-size;
 		display: flex;
 		position: relative;
 		flex: 1;
@@ -112,13 +112,6 @@
 		width: 100%;
 		min-height: 100%;
 		padding: 8px 20px;
-	}
-
-	.chat-footer {
-		flex-shrink: 0;
-		width: 100%;
-		padding: 16px;
-		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.chat-scroll-to-bottom {

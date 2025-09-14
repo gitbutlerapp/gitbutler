@@ -10,6 +10,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
+	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
@@ -94,6 +95,7 @@
 	const stacks = $derived(stackService.stacks(projectId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
+	const hasExistingSessions = $derived(stacks.current.data && stacks.current.data.length > 0);
 	const [sendClaudeMessage] = claudeCodeService.sendMessage;
 
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
@@ -360,7 +362,7 @@
 <div class="page">
 	<ReduxResult result={claudeAvailable.current} {projectId}>
 		{#snippet children(claudeAvailable, { projectId })}
-			{#if claudeAvailable.status === 'available'}
+			{#if claudeAvailable.status === 'available' || hasExistingSessions}
 				{@render main({ projectId })}
 			{:else}
 				{@render claudeNotAvailable()}
@@ -379,7 +381,7 @@
 				reversedDirection
 				onclick={() => createBranchModal?.show()}>Add new</Button
 			>
-			<Button kind="ghost" icon="mixer" size="tag" onclick={() => settingsModal?.show()} />
+			<Button kind="outline" icon="mixer" size="tag" onclick={() => settingsModal?.show()} />
 		{/snippet}
 
 		{#snippet content()}
@@ -485,50 +487,56 @@
 						{/snippet}
 
 						{#snippet input()}
-							<CodegenInput
-								value={prompt}
-								onChange={(prompt) => setPrompt(prompt)}
-								loading={currentStatus(events, isStackActive) === 'running'}
-								onsubmit={sendMessage}
-								{onAbort}
-								sessionKey={selectedBranch
-									? `${selectedBranch.stackId}-${selectedBranch.head}`
-									: undefined}
-							>
-								{#snippet actions()}
-									<div class="flex m-right-4 gap-4">
-										<Button disabled kind="outline" icon="attachment" reversedDirection />
-										<Button
-											bind:el={templateTrigger}
-											kind="outline"
-											icon="script"
-											tooltip="Insert template"
-											onclick={(e) => templateContextMenu?.toggle(e)}
-										/>
-										<Button
-											bind:el={thinkingModeTrigger}
-											kind="outline"
-											icon="brain"
-											reversedDirection
-											onclick={() => thinkingModeContextMenu?.toggle()}
-											tooltip="Thinking Mode"
-											children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
-										/>
-									</div>
+							{#if claudeAvailable.current.data?.status === 'available'}
+								<CodegenInput
+									value={prompt}
+									onChange={(prompt) => setPrompt(prompt)}
+									loading={currentStatus(events, isStackActive) === 'running'}
+									onsubmit={sendMessage}
+									{onAbort}
+									sessionKey={selectedBranch
+										? `${selectedBranch.stackId}-${selectedBranch.head}`
+										: undefined}
+								>
+									{#snippet actions()}
+										<div class="flex m-right-4 gap-4">
+											<Button disabled kind="outline" icon="attachment" reversedDirection />
+											<Button
+												bind:el={templateTrigger}
+												kind="outline"
+												icon="script"
+												tooltip="Insert template"
+												onclick={(e) => templateContextMenu?.toggle(e)}
+											/>
+											<Button
+												bind:el={thinkingModeTrigger}
+												kind="outline"
+												icon="brain"
+												reversedDirection
+												onclick={() => thinkingModeContextMenu?.toggle()}
+												tooltip="Thinking Mode"
+												children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
+											/>
+										</div>
 
-									{#if !claudeSettings?.useConfiguredModel}
-										<Button
-											bind:el={modelTrigger}
-											kind="ghost"
-											icon="chevron-down"
-											shrinkable
-											onclick={() => modelContextMenu?.toggle()}
-										>
-											{modelOptions.find((a) => a.value === selectedModel)?.label}
-										</Button>
-									{/if}
-								{/snippet}
-							</CodegenInput>
+										{#if !claudeSettings?.useConfiguredModel}
+											<Button
+												bind:el={modelTrigger}
+												kind="ghost"
+												icon="chevron-down"
+												shrinkable
+												onclick={() => modelContextMenu?.toggle()}
+											>
+												{modelOptions.find((a) => a.value === selectedModel)?.label}
+											</Button>
+										{/if}
+									{/snippet}
+								</CodegenInput>
+							{:else}
+								<CodegenChatClaudeNotAvaliableBanner
+									onSettingsBtnClick={() => settingsModal?.show()}
+								/>
+							{/if}
 						{/snippet}
 					</CodegenChatLayout>
 
@@ -975,6 +983,11 @@
 		justify-content: center;
 		padding: 20px;
 		background-color: var(--clr-bg-2);
+	}
+
+	.sidebar-header-settings {
+		display: flex;
+		position: relative;
 	}
 
 	/* NO CC AVAILABLE */
