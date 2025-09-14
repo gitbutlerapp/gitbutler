@@ -100,7 +100,8 @@
 	class:disabled
 	{onclick}
 	use:focusable={{
-		onAction: () => onclick?.()
+		onAction: () => onclick?.(),
+		focusable: true
 	}}
 >
 	{#if selected}

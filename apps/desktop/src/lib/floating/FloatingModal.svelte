@@ -21,11 +21,17 @@
 		};
 		onUpdateSnapPosition?: (snapPosition: SnapPositionName) => void;
 		onUpdateSize?: (width: number, height: number) => void;
-		// onExitFloatingModeClick: () => void;
+		onCancel?: () => void;
 	}
 
-	const { children, dragHandleElement, defaults, onUpdateSnapPosition, onUpdateSize }: Props =
-		$props();
+	const {
+		children,
+		dragHandleElement,
+		defaults,
+		onUpdateSnapPosition,
+		onUpdateSize,
+		onCancel
+	}: Props = $props();
 
 	// Managers
 	const snapManager = new SnapPointManager(40);
@@ -192,7 +198,15 @@
 <div
 	bind:this={modalEl}
 	use:portal={'body'}
-	use:focusable={{ trap: true, activate: true }}
+	use:focusable={{
+		trap: true,
+		activate: true,
+		focusable: true,
+		dim: true,
+		onEsc: () => {
+			onCancel?.();
+		}
+	}}
 	class="floating-modal"
 	class:snapping
 	class:resizing={dragResizeHandler.isResizing}

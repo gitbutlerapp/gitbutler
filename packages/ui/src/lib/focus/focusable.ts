@@ -3,8 +3,6 @@ import { injectOptional } from '@gitbutler/core/context';
 import type { Action } from 'svelte/action';
 
 /**
- * Svelte action that registers an element as a focusable area.
- *
  * @example
  * <div use:focusable={{ vertical: true }}>
  */

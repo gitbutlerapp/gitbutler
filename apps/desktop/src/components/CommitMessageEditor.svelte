@@ -243,6 +243,7 @@
 		onExitFloatingModeClick={() => {
 			useFloatingBox.set(false);
 		}}
+		onCancel={handleCancel}
 	>
 		{@render editorContent()}
 	</FloatingCommitBox>

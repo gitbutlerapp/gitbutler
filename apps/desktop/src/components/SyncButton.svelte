@@ -33,7 +33,7 @@
 	{disabled}
 	icon="update"
 	reversedDirection
-	onmousedown={async (e: MouseEvent) => {
+	onclick={async (e: MouseEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
 		loading = true;

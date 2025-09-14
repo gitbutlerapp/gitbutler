@@ -72,7 +72,7 @@
 
 <style lang="postcss">
 	:global(.focus-cursor) {
-		z-index: var(--z-blocker);
+		z-index: var(--z-modal);
 		position: absolute;
 
 		/* Focus outline frame */

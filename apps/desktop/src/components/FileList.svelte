@@ -22,6 +22,7 @@
 	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 
+	import { untrack } from 'svelte';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 
 	type Props = {
@@ -213,9 +214,17 @@
 		}
 		return false;
 	}
-	const lastAdded = $derived(idSelection.getById(selectionId).lastAdded);
+	const currentSelection = $derived(idSelection.getById(selectionId));
+	const lastAdded = $derived(currentSelection.lastAdded);
+	const lastAddedIndex = $derived($lastAdded?.index);
 	$effect(() => {
-		if ($lastAdded) focusManager.focusNthSibling($lastAdded.index);
+		if (lastAddedIndex) {
+			untrack(() => {
+				if (active) {
+					focusManager.focusNthSibling(lastAddedIndex);
+				}
+			});
+		}
 	});
 </script>
 
@@ -235,7 +244,10 @@
 		draggable={draggableFiles}
 		executable={isExecutable}
 		showCheckbox={showCheckboxes}
-		focusableOpts={{ onKeydown: (e) => handleKeyDown(change, idx, e), autoAction: true }}
+		focusableOpts={{
+			onKeydown: (e) => handleKeyDown(change, idx, e),
+			focusable: true
+		}}
 		onclick={(e) => {
 			e.stopPropagation();
 			selectFilesInList(e, change, changes, idSelection, selectedFileIds, true, idx, selectionId);

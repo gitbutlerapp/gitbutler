@@ -57,6 +57,7 @@
 				kind="outline"
 				onclick={() => goto(workspacePath(projectId))}
 				width={34}
+				hotkey="⌘1"
 				class={['btn-square', isWorkspacePath() && 'btn-active']}
 				tooltip="Workspace"
 				{disabled}
@@ -95,6 +96,7 @@
 				onclick={() => goto(branchesPath(projectId))}
 				width={34}
 				class={['btn-square', isBranchesPath() && 'btn-active']}
+				hotkey="⌘2"
 				tooltip="Branches"
 				{disabled}
 			>
@@ -156,8 +158,8 @@
 				onclick={() => goto(historyPath(projectId))}
 				width={34}
 				class={['btn-square', isHistoryPath() && 'btn-active']}
+				hotkey="⌘3"
 				tooltip="Operations history"
-				tooltipHotkey="⇧⌘H"
 				{disabled}
 			>
 				{#snippet custom()}
@@ -207,6 +209,7 @@
 					onclick={() => goto(codegenPath(projectId))}
 					width={34}
 					class={['btn-square', isCodegenPath() && 'btn-active']}
+					hotkey="⌘4"
 					tooltip="Codegen"
 					tooltipAlign="start"
 					{disabled}
@@ -451,11 +454,13 @@
 	}
 	.bottom__primary-actions {
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		gap: 8px;
 	}
 	.bottom__ghost-actions {
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		gap: 2px;
 	}

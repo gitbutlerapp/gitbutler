@@ -33,6 +33,7 @@
 		multipleBranches: boolean;
 		isLastBranchInStack?: boolean;
 		isFirstBranchInStack?: boolean;
+		active?: boolean;
 	};
 
 	const {
@@ -41,7 +42,8 @@
 		stackId,
 		multipleBranches,
 		isFirstBranchInStack,
-		isLastBranchInStack
+		isLastBranchInStack,
+		active
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
@@ -151,6 +153,7 @@
 			style="neutral"
 			{loading}
 			disabled={buttonDisabled}
+			hotkey={active ? '⌘P' : undefined}
 			tooltip={getButtonTooltip(
 				hasThingsToPush,
 				hasConflicts,
