@@ -178,16 +178,4 @@
 		padding: 16px;
 		gap: 12px;
 	}
-
-	.notification-toggles {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-
-	.notification-toggle {
-		display: flex;
-		justify-content: space-between;
-		gap: 8px;
-	}
 </style>

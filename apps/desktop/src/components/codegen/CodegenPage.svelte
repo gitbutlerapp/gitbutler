@@ -1065,11 +1065,6 @@
 		background-color: var(--clr-bg-2);
 	}
 
-	.sidebar-header-settings {
-		display: flex;
-		position: relative;
-	}
-
 	/* NO CC AVAILABLE */
 	.not-available {
 		display: flex;

@@ -96,7 +96,7 @@ export function showError(title: string, error: unknown, extraAction?: ExtraActi
 }
 
 export function showInfo(title: string, message: string, extraAction?: ExtraAction) {
-	showToast({ title, message, style: 'neutral', extraAction });
+	showToast({ title, message, style: 'info', extraAction });
 }
 
 export function showWarning(title: string, message: string, extraAction?: ExtraAction) {

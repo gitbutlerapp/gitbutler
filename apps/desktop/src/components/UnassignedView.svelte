@@ -219,13 +219,6 @@
 		background-color: var(--clr-bg-1);
 	}
 
-	.unassigned__footer {
-		display: flex;
-		flex-direction: column;
-		border-top: 1px solid var(--clr-border-3);
-		background-color: var(--clr-bg-1);
-	}
-
 	.create-new {
 		display: flex;
 		flex-direction: column;
