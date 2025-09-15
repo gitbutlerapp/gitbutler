@@ -1,4 +1,5 @@
 /// The information extracted from [`resolve_tree`](function::resolve_tree()).
+#[must_use]
 pub struct Outcome<'repo> {
     /// The cherry-pick result as merge between the target worktree and the snapshot, **possibly with conflicts**.
     ///
@@ -30,7 +31,7 @@ pub struct MetadataEdits {
 pub struct Options {
     /// If set, the non-default options to use when cherry-picking the worktree changes onto the target tree.
     ///
-    /// If `None`, perform the merge just like Git.
+    /// If `None`, perform the merge just like Git, which will include conflict markers!
     pub worktree_cherry_pick: Option<gix::merge::tree::Options>,
 }
 
@@ -95,7 +96,7 @@ pub(super) mod function {
         let index = match (&head_tree, index, index_conflicts) {
             (_, Some(index_tree), Some(index_conflicts)) => {
                 let (mut index, _path) = repo.index_from_tree(&index_tree.id())?.into_parts();
-                resolve_conflicts(&mut index, index_conflicts.id())?;
+                replace_entries_with_their_restored_conflicts(&mut index, index_conflicts.id())?;
                 Some(index)
             }
             (_, Some(index_tree), None) => {
@@ -104,7 +105,7 @@ pub(super) mod function {
             }
             (Some(worktree_base), None, Some(index_conflicts)) => {
                 let (mut index, _path) = repo.index_from_tree(&worktree_base.id())?.into_parts();
-                resolve_conflicts(&mut index, index_conflicts.id())?;
+                replace_entries_with_their_restored_conflicts(&mut index, index_conflicts.id())?;
                 Some(index)
             }
             (None, None, Some(_index_conflicts)) => bail!(
@@ -123,7 +124,7 @@ pub(super) mod function {
     }
 
     #[expect(clippy::indexing_slicing)]
-    fn resolve_conflicts(
+    fn replace_entries_with_their_restored_conflicts(
         index: &mut gix::index::State,
         conflict_tree: gix::Id,
     ) -> anyhow::Result<()> {
