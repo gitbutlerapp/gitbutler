@@ -10,7 +10,7 @@ import {
 	type ThunkDispatch,
 	type UnknownAction
 } from '@reduxjs/toolkit';
-import type { ThinkingLevel, ModelType } from '$lib/codegen/types';
+import type { ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
 import type { PullRequest } from '$lib/forge/interface/types';
 import type { StackDetails } from '$lib/stacks/stack';
 import type { RejectionReason } from '$lib/stacks/stackService.svelte';
@@ -31,6 +31,8 @@ export type StackState = {
 	newCommitMessage: NewCommitMessage;
 	// The current codegen prompt
 	prompt: string;
+	// The permission mode for Claude Code
+	permissionMode: PermissionMode;
 };
 
 type BranchesSelection = {
@@ -149,7 +151,9 @@ export class UiState {
 	readonly lane = this.buildScopedProps<StackState>(this.scopesCache.lanes, {
 		selection: undefined,
 		newCommitMessage: { title: '', description: '' },
-		prompt: ''
+		prompt: '',
+		// I _know_ we have a permission mode called 'default', but acceptEdits is a much more sensible default.
+		permissionMode: 'acceptEdits'
 	});
 
 	/** Properties scoped to a specific project. */

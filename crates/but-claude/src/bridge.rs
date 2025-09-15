@@ -20,7 +20,8 @@
 //!   more complex with more unknowns.
 
 use crate::{
-    ClaudeMessage, ClaudeMessageContent, ModelType, ThinkingLevel, Transcript, UserInput,
+    ClaudeMessage, ClaudeMessageContent, ModelType, PermissionMode, ThinkingLevel, Transcript,
+    UserInput,
     claude_config::{fmt_claude_mcp, fmt_claude_settings},
     db,
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
@@ -65,6 +66,7 @@ impl Claudes {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn send_message(
         &self,
         ctx: Arc<Mutex<CommandContext>>,
@@ -73,6 +75,7 @@ impl Claudes {
         message: &str,
         thinking_level: ThinkingLevel,
         model: ModelType,
+        permission_mode: PermissionMode,
     ) -> Result<()> {
         if self.requests.lock().await.contains_key(&stack_id) {
             bail!(
@@ -86,6 +89,7 @@ impl Claudes {
                 message.to_owned(),
                 thinking_level,
                 model,
+                permission_mode,
             )
             .await
         };
@@ -130,6 +134,7 @@ impl Claudes {
         requests.contains_key(&stack_id)
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn spawn_claude(
         &self,
         ctx: Arc<Mutex<CommandContext>>,
@@ -138,6 +143,7 @@ impl Claudes {
         message: String,
         thinking_level: ThinkingLevel,
         model: ModelType,
+        permission_mode: PermissionMode,
     ) -> () {
         let res = self
             .spawn_claude_inner(
@@ -147,6 +153,7 @@ impl Claudes {
                 message,
                 thinking_level,
                 model,
+                permission_mode,
             )
             .await;
         if let Err(res) = res {
@@ -174,6 +181,7 @@ impl Claudes {
         };
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn spawn_claude_inner(
         &self,
         ctx: Arc<Mutex<CommandContext>>,
@@ -182,6 +190,7 @@ impl Claudes {
         message: String,
         thinking_level: ThinkingLevel,
         model: ModelType,
+        permission_mode: PermissionMode,
     ) -> Result<()> {
         let (send_kill, mut recv_kill) = unbounded_channel();
         self.requests
@@ -241,6 +250,7 @@ impl Claudes {
             ctx.clone(),
             thinking_level,
             model,
+            permission_mode,
         )
         .await?;
         let cmd_exit = tokio::select! {
@@ -347,6 +357,7 @@ async fn spawn_command(
     ctx: Arc<Mutex<CommandContext>>,
     thinking_level: ThinkingLevel,
     model: ModelType,
+    permission_mode: PermissionMode,
 ) -> Result<Child> {
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
@@ -388,7 +399,16 @@ async fn spawn_command(
             "--permission-prompt-tool",
             "mcp__but-security__approval_prompt",
         ]);
-        command.args(["--permission-mode", "acceptEdits"]);
+        // Set permission mode based on interaction mode
+        match permission_mode {
+            PermissionMode::Default => {}
+            PermissionMode::Plan => {
+                command.args(["--permission-mode", "plan"]);
+            }
+            PermissionMode::AcceptEdits => {
+                command.args(["--permission-mode", "acceptEdits"]);
+            }
+        };
     }
 
     let current_id = Transcript::current_valid_session_id(&project_path, &session).await?;

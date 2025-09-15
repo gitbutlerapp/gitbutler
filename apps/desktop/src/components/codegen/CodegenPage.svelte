@@ -65,7 +65,7 @@
 		Modal
 	} from '@gitbutler/ui';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
-	import type { ClaudeMessage, ThinkingLevel, ModelType } from '$lib/codegen/types';
+	import type { ClaudeMessage, ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
 	import type { RuleFilter } from '$lib/rules/rule';
 
 	type Props = {
@@ -104,6 +104,8 @@
 	let modelTrigger = $state<HTMLButtonElement>();
 	let thinkingModeContextMenu = $state<ContextMenu>();
 	let thinkingModeTrigger = $state<HTMLButtonElement>();
+	let permissionModeContextMenu = $state<ContextMenu>();
+	let permissionModeTrigger = $state<HTMLButtonElement>();
 	let templateContextMenu = $state<ContextMenu>();
 	let templateTrigger = $state<HTMLButtonElement>();
 
@@ -116,12 +118,21 @@
 
 	const thinkingLevels: ThinkingLevel[] = ['normal', 'think', 'megaThink', 'ultraThink'];
 
+	const permissionModeOptions: { label: string; value: PermissionMode }[] = [
+		{ label: 'Edit with Permission', value: 'default' },
+		{ label: 'Planning', value: 'plan' },
+		{ label: 'Accept Edits', value: 'acceptEdits' }
+	];
+
 	const promptTemplates = $derived(claudeCodeService.promptTemplates(undefined));
 
 	const projectState = uiState.project(projectId);
 	const selectedBranch = $derived(projectState.selectedClaudeSession.current);
 	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
 	const selectedModel = $derived(projectState.selectedModel.current);
+	const selectedPermissionMode = $derived(
+		selectedBranch ? uiState.lane(selectedBranch.stackId).permissionMode.current : 'default'
+	);
 
 	const prompt = $derived(
 		selectedBranch ? uiState.lane(selectedBranch.stackId).prompt.current : ''
@@ -200,7 +211,8 @@
 				stackId: selectedBranch.stackId,
 				message: prompt,
 				thinkingLevel: selectedThinkingLevel,
-				model: selectedModel
+				model: selectedModel,
+				permissionMode: selectedPermissionMode
 			},
 			{ properties: analyticsProperties }
 		);
@@ -228,6 +240,24 @@
 	function selectThinkingLevel(level: ThinkingLevel) {
 		projectState.thinkingLevel.set(level);
 		thinkingModeContextMenu?.close();
+	}
+
+	function selectPermissionMode(mode: PermissionMode) {
+		if (!selectedBranch) return;
+		uiState.lane(selectedBranch.stackId).permissionMode.set(mode);
+		permissionModeContextMenu?.close();
+	}
+
+	function cyclePermissionMode() {
+		if (!selectedBranch) return;
+		const currentIndex = permissionModeOptions.findIndex(
+			(option) => option.value === selectedPermissionMode
+		);
+		const nextIndex = (currentIndex + 1) % permissionModeOptions.length;
+		const nextMode = permissionModeOptions[nextIndex];
+		if (nextMode) {
+			uiState.lane(selectedBranch.stackId).permissionMode.set(nextMode.value);
+		}
 	}
 
 	function thinkingLevelToUiLabel(level: ThinkingLevel): string {
@@ -357,7 +387,22 @@
 			}, 50);
 		}
 	});
+
+	function handleKeydown(event: KeyboardEvent) {
+		// Ignore if user is typing in an input or textarea
+		if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+			return;
+		}
+
+		// Handle Shift+Tab to cycle permission mode
+		if (event.key === 'p' && event.metaKey) {
+			event.preventDefault();
+			cyclePermissionMode();
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div class="page">
 	<ReduxResult result={claudeAvailable.current} {projectId}>
@@ -546,6 +591,20 @@
 												{modelOptions.find((a) => a.value === selectedModel)?.label}
 											</Button>
 										{/if}
+
+										<Button
+											bind:el={permissionModeTrigger}
+											kind="ghost"
+											icon="chevron-down"
+											shrinkable
+											onclick={() => permissionModeContextMenu?.toggle()}
+											tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
+												? 'Permission modes are disabled when dangerously allowing all permissions'
+												: 'Permission Mode'}
+											disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
+										>
+											{permissionModeOptions.find((a) => a.value === selectedPermissionMode)?.label}
+										</Button>
 									{/snippet}
 								</CodegenInput>
 							{:else}
@@ -904,6 +963,19 @@
 				label={thinkingLevelToUiLabel(level)}
 				onclick={() => selectThinkingLevel(level)}
 			/>
+		{/each}
+	</ContextMenuSection>
+</ContextMenu>
+
+<ContextMenu
+	bind:this={permissionModeContextMenu}
+	leftClickTrigger={permissionModeTrigger}
+	align="start"
+	side="top"
+>
+	<ContextMenuSection title="Permission Mode (⌘P)">
+		{#each permissionModeOptions as option}
+			<ContextMenuItem label={option.label} onclick={() => selectPermissionMode(option.value)} />
 		{/each}
 	</ContextMenuSection>
 </ContextMenu>
