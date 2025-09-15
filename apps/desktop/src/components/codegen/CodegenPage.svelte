@@ -119,9 +119,9 @@
 	const thinkingLevels: ThinkingLevel[] = ['normal', 'think', 'megaThink', 'ultraThink'];
 
 	const permissionModeOptions: { label: string; value: PermissionMode }[] = [
-		{ label: 'Edit with Permission', value: 'default' },
+		{ label: 'Edit with permission', value: 'default' },
 		{ label: 'Planning', value: 'plan' },
-		{ label: 'Accept Edits', value: 'acceptEdits' }
+		{ label: 'Accept edits', value: 'acceptEdits' }
 	];
 
 	const promptTemplates = $derived(claudeCodeService.promptTemplates(undefined));
