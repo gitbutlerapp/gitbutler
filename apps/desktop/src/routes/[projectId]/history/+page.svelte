@@ -180,7 +180,7 @@
 	{/if}
 {/snippet}
 
-<div class="history-view">
+<div class="history-view" use:focusable>
 	<div class="relative overflow-hidden radius-ml">
 		<div bind:this={sidebarEl} class="history-view__snapshots" use:focusable={{ vertical: true }}>
 			<div class="history-view__snapshots-header">
