@@ -17,7 +17,6 @@ import { AppSettings, APP_SETTINGS } from '$lib/config/appSettings';
 import { SETTINGS_SERVICE, SettingsService } from '$lib/config/appSettingsV2';
 import { GIT_CONFIG_SERVICE, GitConfigService } from '$lib/config/gitConfigService';
 import DependencyService, { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
-import { DragStateService, DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 import { DropzoneRegistry, DROPZONE_REGISTRY } from '$lib/dragging/registry';
 import {
 	REORDER_DROPZONE_FACTORY,
@@ -80,6 +79,7 @@ import {
 	UserService as CloudUserService,
 	USER_SERVICE as CLOUD_USER_SERVICE
 } from '@gitbutler/shared/users/userService';
+import { DragStateService, DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 import { FOCUS_MANAGER, FocusManager } from '@gitbutler/ui/focus/focusManager';
 import {
 	EXTERNAL_LINK_SERVICE,

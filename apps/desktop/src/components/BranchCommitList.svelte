@@ -20,7 +20,6 @@
 		SquashCommitDzHandler
 	} from '$lib/commits/dropHandler';
 	import { projectRunCommitHooks } from '$lib/config/config';
-	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 	import { draggableCommitV3 } from '$lib/dragging/draggable';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import {
@@ -35,6 +34,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { Button, Modal, RadioButton, TestId } from '@gitbutler/ui';
+	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';

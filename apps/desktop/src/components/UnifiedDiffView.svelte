@@ -7,7 +7,6 @@
 	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import tooLargeSvg from '$lib/assets/empty-state/too-large.svg?raw';
 	import { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
-	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { HunkDropDataV3 } from '$lib/dragging/draggables';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
@@ -24,6 +23,7 @@
 	import { inject } from '@gitbutler/core/context';
 
 	import { EmptyStatePlaceholder, HunkDiff, TestId } from '@gitbutler/ui';
+	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { parseHunk } from '@gitbutler/ui/utils/diffParsing';
 	import type { FileDependencies } from '$lib/dependencies/dependencies';
 	import type { TreeChange } from '$lib/hunks/change';

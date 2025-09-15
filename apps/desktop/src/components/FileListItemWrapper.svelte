@@ -2,7 +2,6 @@
 <script lang="ts">
 	import FileContextMenu from '$components/FileContextMenu.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
-	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
@@ -14,6 +13,7 @@
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/core/context';
 	import { FileListItem, FileViewHeader, TestId } from '@gitbutler/ui';
+	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { type FocusableOptions } from '@gitbutler/ui/focus/focusManager';
 	import { sticky as stickyAction } from '@gitbutler/ui/utils/sticky';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
