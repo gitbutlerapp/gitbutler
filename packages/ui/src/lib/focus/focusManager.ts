@@ -105,9 +105,8 @@ export class FocusManager {
 	}
 
 	unregister(element: HTMLElement) {
-		if (this.fModeManager.active) {
-			this.fModeManager.removeElement(element);
-		}
+		// Always remove from F-mode manager to clean up any stored shortcuts
+		this.fModeManager.removeElement(element);
 
 		this.unregisterElement(element);
 

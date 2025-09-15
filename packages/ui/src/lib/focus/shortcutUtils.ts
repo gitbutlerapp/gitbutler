@@ -78,19 +78,10 @@ export function createShortcutOverlay(element: HTMLElement, shortcut: string): H
 	overlay.className = 'focus-shortcut-overlay';
 	overlay.textContent = shortcut;
 
-	overlay.style.position = 'absolute';
+	overlay.classList.add('f-key');
+	overlay.classList.add('text-9');
 	overlay.style.left = `${accumulatedLeft + element.offsetWidth - 12}px`; // Position at right edge
 	overlay.style.top = `${accumulatedTop + element.offsetHeight - 6}px`; // Position at bottom edge
-	overlay.style.zIndex = '99999';
-	overlay.style.padding = '2px 4px';
-	overlay.style.fontSize = '10px';
-	overlay.style.fontWeight = '600';
-	overlay.style.borderRadius = '4px';
-	overlay.style.border = '1px solid var(--clr-border-1)';
-	overlay.style.backgroundColor = 'var(--clr-bg-1)';
-	overlay.style.color = 'var(--clr-text-1)';
-	overlay.style.pointerEvents = 'none';
-	overlay.style.userSelect = 'none';
 
 	ancestor.appendChild(overlay);
 
