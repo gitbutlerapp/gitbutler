@@ -35,7 +35,8 @@
 		lastInteractionTime,
 		lastUserMessageSentAt,
 		userFeedbackStatus,
-		usageStats
+		usageStats,
+		reverseMessages
 	} from '$lib/codegen/messages';
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
@@ -119,9 +120,9 @@
 	const thinkingLevels: ThinkingLevel[] = ['normal', 'think', 'megaThink', 'ultraThink'];
 
 	const permissionModeOptions: { label: string; value: PermissionMode }[] = [
-		{ label: 'Edit with Permission', value: 'default' },
+		{ label: 'Edit with permission', value: 'default' },
 		{ label: 'Planning', value: 'plan' },
-		{ label: 'Accept Edits', value: 'acceptEdits' }
+		{ label: 'Accept edits', value: 'acceptEdits' }
 	];
 
 	const promptTemplates = $derived(claudeCodeService.promptTemplates(undefined));
@@ -377,16 +378,6 @@
 
 	let rightSidebarRef = $state<HTMLDivElement>();
 	let createBranchModal = $state<CreateBranchModal>();
-	let chatLayout = $state<CodegenChatLayout>();
-
-	// Auto-scroll when new messages are added or branch changes
-	$effect(() => {
-		if (events?.current.data) {
-			setTimeout(() => {
-				chatLayout?.scrollToBottom();
-			}, 50);
-		}
-	});
 
 	function handleKeydown(event: KeyboardEvent) {
 		// Ignore if user is typing in an input or textarea
@@ -470,13 +461,14 @@
 					{ projectId: _projectId }
 				)}
 					{@const formattedMessages = formatMessages(events, permissionRequests, isStackActive)}
+					{@const reversedFormatterdMessages = reverseMessages(formattedMessages)}
 					{@const lastUserMessageSent = lastUserMessageSentAt(events)}
 					{@const iconName = pushStatusToIcon(branchDetailsData.pushStatus)}
 					{@const lineColor = getColorFromBranchType(
 						pushStatusToColor(branchDetailsData.pushStatus)
 					)}
 
-					<CodegenChatLayout bind:this={chatLayout} branchName={selectedBranch.head}>
+					<CodegenChatLayout branchName={selectedBranch.head}>
 						{#snippet branchIcon()}
 							<BranchHeaderIcon {iconName} color={lineColor} />
 						{/snippet}
@@ -506,6 +498,18 @@
 							</Button>
 						{/snippet}
 						{#snippet messages()}
+							{#if currentStatus(events, isStackActive) === 'running' && lastUserMessageSent}
+								{@const status = userFeedbackStatus(formattedMessages)}
+								{#if status.waitingForFeedback}
+									<CodegenServiceMessageUseTool toolCall={status.toolCall} />
+								{:else}
+									<CodegenServiceMessageThinking
+										{lastUserMessageSent}
+										msSpentWaiting={status.msSpentWaiting}
+									/>
+								{/if}
+							{/if}
+
 							{#if formattedMessages.length === 0}
 								<div class="chat-view__placeholder">
 									<EmptyStatePlaceholder
@@ -524,7 +528,7 @@
 									</EmptyStatePlaceholder>
 								</div>
 							{:else}
-								{#each formattedMessages as message}
+								{#each reversedFormatterdMessages as message}
 									<CodegenClaudeMessage
 										{message}
 										{onApproval}
@@ -532,18 +536,6 @@
 										userAvatarUrl={$user?.picture}
 									/>
 								{/each}
-							{/if}
-
-							{#if currentStatus(events, isStackActive) === 'running' && lastUserMessageSent}
-								{@const status = userFeedbackStatus(formattedMessages)}
-								{#if status.waitingForFeedback}
-									<CodegenServiceMessageUseTool toolCall={status.toolCall} />
-								{:else}
-									<CodegenServiceMessageThinking
-										{lastUserMessageSent}
-										msSpentWaiting={status.msSpentWaiting}
-									/>
-								{/if}
 							{/if}
 						{/snippet}
 

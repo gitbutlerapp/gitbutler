@@ -45,7 +45,7 @@
 				return {
 					state: modalState,
 					props: {
-						testId: 'general-settings-modal',
+						testId: TestId.GeneralSettingsModal,
 						closeButton: true,
 						width: 820,
 						noPadding: true
@@ -56,7 +56,7 @@
 				return {
 					state: modalState,
 					props: {
-						testId: 'project-settings-modal',
+						testId: TestId.ProjectSettingsModal,
 						closeButton: true,
 						width: 820,
 						noPadding: true

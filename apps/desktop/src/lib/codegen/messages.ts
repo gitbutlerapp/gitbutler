@@ -39,6 +39,10 @@ export function toolCallLoading(toolCall: ToolCall): boolean {
 
 const loginRequiredMessage = 'Invalid API key · Please run /login';
 
+export function reverseMessages(messages: Message[]): Message[] {
+	return [...messages].reverse();
+}
+
 export function formatMessages(
 	events: ClaudeMessage[],
 	permissionRequests: ClaudePermissionRequest[],

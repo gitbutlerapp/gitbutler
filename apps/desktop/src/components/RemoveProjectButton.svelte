@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Modal } from '@gitbutler/ui';
+	import { Button, Modal, TestId } from '@gitbutler/ui';
 
 	interface Props {
 		projectTitle?: string;
@@ -36,6 +36,7 @@
 </script>
 
 <Button
+	testId={TestId.ProjectDeleteButton}
 	style="error"
 	kind={outlineStyle ? 'outline' : 'solid'}
 	icon="bin-small"
@@ -66,6 +67,7 @@
 
 	{#snippet controls()}
 		<Button
+			testId={TestId.ProjectDeleteModalConfirm}
 			style="error"
 			kind="outline"
 			reversedDirection

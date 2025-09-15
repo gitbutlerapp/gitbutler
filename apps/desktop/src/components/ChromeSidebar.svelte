@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
-	import { ircEnabled, codegenEnabled } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, codegenEnabled, fModeEnabled } from '$lib/config/uiFeatureFlags';
 	import {
 		branchesPath,
 		ircPath,
@@ -275,6 +275,7 @@
 		<div class="bottom__primary-actions">
 			<div>
 				<Button
+					testId={TestId.ChromeSideBarProjectSettingsButton}
 					kind="outline"
 					onclick={() => {
 						openProjectSettings(projectId);
@@ -342,15 +343,12 @@
 				icon="keyboard"
 				kind="ghost"
 				style="neutral"
-				tooltip="Keyboard Shortcuts (Coming soon...)"
+				tooltip={$fModeEnabled ? 'Disable F key navigation' : 'Enable F key navigation'}
 				tooltipPosition="top"
 				tooltipAlign="start"
 				width={34}
-				class="faded-btn"
-				onclick={() => {
-					keyboardShortcutsModal?.show();
-				}}
-				disabled={true}
+				class={$fModeEnabled ? undefined : 'faded-btn'}
+				onclick={() => fModeEnabled.set(!$fModeEnabled)}
 			/>
 			<Button
 				icon="mail"
