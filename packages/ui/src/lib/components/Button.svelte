@@ -48,7 +48,7 @@
 	import Icon from '$components/Icon.svelte';
 	import Tooltip, { type TooltipAlign, type TooltipPosition } from '$components/Tooltip.svelte';
 	import { focusable } from '$lib/focus/focusable';
-	import { extractHotkeyLetter, formatHotkeyForPlatform } from '$lib/utils/hotkeySymbols';
+	import { formatHotkeyForPlatform } from '$lib/utils/hotkeySymbols';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';
@@ -101,7 +101,6 @@
 		}
 	}
 
-	const hotkeyLetter = $derived(hotkey ? extractHotkeyLetter(hotkey) : undefined);
 	const displayHotkey = $derived(hotkey ? formatHotkeyForPlatform(hotkey) : undefined);
 </script>
 
@@ -117,7 +116,7 @@
 		bind:this={el}
 		use:focusable={{
 			button: true,
-			hotkey: hotkeyLetter,
+			hotkey: hotkey,
 			onAction: () => {
 				el?.click();
 			}
