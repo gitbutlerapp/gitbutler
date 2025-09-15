@@ -138,6 +138,7 @@
 		{/if}
 	{/if}
 {/snippet}
+
 {#snippet vibeIcon()}
 	<div class="vibe-icon {status}">
 		{#if status === 'running'}
