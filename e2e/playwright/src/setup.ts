@@ -197,6 +197,24 @@ function spawnProcess(
 	return child;
 }
 
+export async function setCookie(
+	name: string,
+	value: string,
+	context: BrowserContext
+): Promise<void> {
+	await context.addCookies([
+		{
+			name,
+			value,
+			domain: 'localhost',
+			path: '/',
+			httpOnly: false,
+			secure: false,
+			sameSite: 'Lax'
+		}
+	]);
+}
+
 /**
  * Set the project path cookie in the browser context.
  *
@@ -205,17 +223,7 @@ function spawnProcess(
  */
 async function setProjectPathCookie(context: BrowserContext, workdir: string): Promise<void> {
 	// Set the information about the workdir
-	await context.addCookies([
-		{
-			name: 'PROJECT_PATH',
-			value: workdir,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: false,
-			secure: false,
-			sameSite: 'Lax'
-		}
-	]);
+	await setCookie('PROJECT_PATH', workdir, context);
 }
 
 async function runCommand(
