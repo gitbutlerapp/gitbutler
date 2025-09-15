@@ -376,7 +376,7 @@ pub fn upstream_integration_statuses(
 
     let merge_outcome = gix_repo.merge_trees(
         merge_base_tree,
-        gix_repo.head()?.peel_to_commit_in_place()?.tree_id()?,
+        gix_repo.head()?.peel_to_commit()?.tree_id()?,
         target_tree,
         gix_repo.default_merge_labels(),
         merge_options_fail_fast.clone(),

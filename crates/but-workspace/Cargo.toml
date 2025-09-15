@@ -35,7 +35,6 @@ flume = "0.11.1"
 
 [dev-dependencies]
 but-testsupport.workspace = true
-pretty_assertions = "1.4.1"
 insta = "1.43.1"
 but-core = { workspace = true, features = ["testing"] }
 # for stable hashes in `gitbuter-` crates while we use them.

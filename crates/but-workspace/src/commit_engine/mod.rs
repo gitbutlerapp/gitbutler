@@ -360,7 +360,7 @@ pub fn create_commit_and_update_refs(
         let mut all_refs_by_id = gix::hashtable::HashMap::<_, Vec<_>>::default();
         let mut checked_out_ref_name = None;
         let checked_out_ref = repo.head_ref()?.and_then(|mut r| {
-            let id = r.peel_to_id_in_place().ok()?.detach();
+            let id = r.peel_to_id().ok()?.detach();
             checked_out_ref_name = Some(r.inner.name.clone());
             Some((id, r.inner.name))
         });

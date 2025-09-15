@@ -173,7 +173,7 @@ pub struct RefInfo {
     pub workspace_ref_name: Option<gix::refs::FullName>,
     /// The stacks visible in the current workspace.
     ///
-    /// This is an empty array if the `HEAD` is detached.
+    /// This is an empty array if the `HEAD` is unborn.
     /// Otherwise, there is one or more stacks.
     pub stacks: Vec<branch::Stack>,
     /// The target to integrate workspace stacks into.

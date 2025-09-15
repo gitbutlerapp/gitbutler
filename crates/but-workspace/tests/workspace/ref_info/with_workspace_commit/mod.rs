@@ -3332,7 +3332,7 @@ pub(crate) mod utils {
             remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
             sha: repo
                 .try_find_reference("main")?
-                .map(|mut r| r.peel_to_id_in_place())
+                .map(|mut r| r.peel_to_id())
                 .transpose()?
                 .map(|id| id.detach())
                 .unwrap_or_else(|| gix::hash::Kind::Sha1.null()),
@@ -3384,7 +3384,7 @@ pub(crate) mod utils {
             remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
             sha: repo
                 .try_find_reference("main")?
-                .map(|mut r| r.peel_to_id_in_place())
+                .map(|mut r| r.peel_to_id())
                 .transpose()?
                 .map(|id| id.detach())
                 .unwrap_or_else(|| gix::hash::Kind::Sha1.null()),

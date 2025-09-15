@@ -510,7 +510,7 @@ pub fn graph(
         None => but_graph::Graph::from_head(&repo, &*meta, opts),
         Some(ref_name) => {
             let mut reference = repo.find_reference(ref_name)?;
-            let id = reference.peel_to_id_in_place()?;
+            let id = reference.peel_to_id()?;
             but_graph::Graph::from_commit_traversal(id, reference.name().to_owned(), &*meta, opts)
         }
     }?;

@@ -1,5 +1,5 @@
 //! Utilities for testing.
-#![deny(rust_2018_idioms, missing_docs)]
+#![deny(missing_docs)]
 
 use gix::Repository;
 use gix::bstr::{BStr, ByteSlice};
@@ -252,7 +252,7 @@ pub fn id_at<'repo>(repo: &'repo Repository, name: &str) -> (gix::Id<'repo>, gix
     let mut rn = repo
         .find_reference(name)
         .expect("statically known reference exists");
-    let id = rn.peel_to_id_in_place().expect("must be valid reference");
+    let id = rn.peel_to_id().expect("must be valid reference");
     (id, rn.inner.name)
 }
 

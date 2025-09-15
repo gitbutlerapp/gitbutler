@@ -39,7 +39,6 @@ gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-filemonitor = { path = "crates/gitbutler-filemonitor" }
 gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
-gitbutler-cli = { path = "crates/gitbutler-cli" }
 gitbutler-branch-actions = { path = "crates/gitbutler-branch-actions" }
 gitbutler-sync = { path = "crates/gitbutler-sync" }
 gitbutler-oplog = { path = "crates/gitbutler-oplog" }
@@ -71,7 +70,6 @@ gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
 but-settings = { path = "crates/but-settings" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 but = { path = "crates/but" }
-but-server = { path = "crates/but-server" }
 but-testsupport = { path = "crates/but-testsupport" }
 but-rebase = { path = "crates/but-rebase" }
 but-core = { path = "crates/but-core" }
@@ -112,3 +110,18 @@ incremental = false
 
 [profile.test]
 incremental = false
+
+# Assure that `gix` is always fast so debug builds aren't unnecessarily slow.
+[profile.dev.package]
+gix-object = { opt-level = 3 }
+gix-ref = { opt-level = 3 }
+gix-pack = { opt-level = 3 }
+gix-hash = { opt-level = 3 }
+gix-actor = { opt-level = 3 }
+gix-config = { opt-level = 3 }
+sha1-checked = { opt-level = 3 }
+zlib-rs = { opt-level = 3 }
+# This one is special as we can run into debug assertions otherwise.
+# They have a time, but let's chose the time instead of always being hit by it.
+gix-merge = { opt-level = 3, debug-assertions = false }
+
