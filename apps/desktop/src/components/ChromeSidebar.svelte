@@ -275,6 +275,7 @@
 		<div class="bottom__primary-actions">
 			<div>
 				<Button
+					testId={TestId.ChromeSideBarProjectSettingsButton}
 					kind="outline"
 					onclick={() => {
 						openProjectSettings(projectId);
