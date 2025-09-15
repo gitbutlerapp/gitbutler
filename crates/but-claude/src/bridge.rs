@@ -553,11 +553,18 @@ pub enum ClaudeCheckResult {
 /// Check if Claude Code is available by running the version command.
 /// Returns ClaudeCheckResult indicating availability and version if available.
 pub async fn check_claude_available(claude_executable: &str) -> ClaudeCheckResult {
-    match Command::new(claude_executable)
-        .arg("--version")
-        .output()
-        .await
+    let mut command = Command::new(claude_executable);
+    command.arg("--version");
+
+    /// Don't create a terminal window on windows.
+    #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    match command.output().await {
         Ok(output) if output.status.success() => match String::from_utf8(output.stdout) {
             Ok(version) => ClaudeCheckResult::Available {
                 version: version.trim().to_string(),
