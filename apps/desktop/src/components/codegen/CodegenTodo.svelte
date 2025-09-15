@@ -1,30 +1,18 @@
 <script lang="ts">
-	import { Icon } from '@gitbutler/ui';
-	import iconsJson from '@gitbutler/ui/data/icons.json';
+	import CodegenStatusIcon from '$components/codegen/CodegenStatusIcon.svelte';
 	import type { ClaudeTodo } from '$lib/codegen/types';
 
 	type Props = {
 		todo: ClaudeTodo;
 	};
 	const { todo }: Props = $props();
-	const iconName = $derived.by<keyof typeof iconsJson>(() => {
-		switch (todo.status) {
-			case 'completed':
-				return 'circled-checked';
-			case 'pending':
-				return 'circled-unchecked';
-			case 'in_progress':
-				return 'running-man';
-		}
-	});
 </script>
 
 <div class="todo clr-text-2">
-	<div class="todo-icon">
-		<Icon name={iconName} size={14} color={todo.status === 'completed' ? 'success' : undefined} />
-	</div>
+	<CodegenStatusIcon status={todo.status} />
 	<p
 		class="text-12 text-body"
+		class:blinking-text={todo.status === 'in_progress'}
 		class:clr-text-1={todo.status === 'pending'}
 		class:todo-strikethrough={todo.status === 'completed'}
 	>
@@ -39,13 +27,21 @@
 		gap: 8px;
 	}
 
-	.todo-icon {
-		display: flex;
-		flex-shrink: 0;
-		transform: translateY(4px);
-	}
-
 	.todo-strikethrough {
 		text-decoration: line-through;
+	}
+
+	.blinking-text {
+		animation: blinking 1.5s infinite;
+	}
+
+	@keyframes blinking {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.5;
+		}
 	}
 </style>
