@@ -1,4 +1,4 @@
-import { persisted, type Persisted } from '@gitbutler/shared/persisted';
+import { persisted, persistWithExpiration, type Persisted } from '@gitbutler/shared/persisted';
 
 export function projectCommitGenerationExtraConcise(projectId: string): Persisted<boolean> {
 	const key = 'projectCommitGenerationExtraConcise_';
@@ -37,4 +37,9 @@ export function persistedChatModelName<T extends string>(
 ): Persisted<T> {
 	const key = 'projectChatModelName_';
 	return persisted(defaultValue, key + projectId);
+}
+
+export function persistedDismissedForgeIntegrationPrompt(projectId: string): Persisted<boolean> {
+	const key = 'dismissedForgeIntegrationPrompt_';
+	return persistWithExpiration(false, key + projectId, 48 * 60); // 48 hours
 }

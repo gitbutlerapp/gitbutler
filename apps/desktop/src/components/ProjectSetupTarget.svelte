@@ -1,17 +1,12 @@
 <script lang="ts">
-	import GithubIntegration from '$components/GithubIntegration.svelte';
-	import Login from '$components/Login.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
-	import SetupFeature from '$components/SetupFeature.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BACKEND } from '$lib/backend';
-	import { projectAiGenEnabled } from '$lib/config/config';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { USER_SERVICE } from '$lib/user/userService';
 	import { unique } from '$lib/utils/array';
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, Toggle, Select, SelectItem, TestId } from '@gitbutler/ui';
+	import { Button, Select, SelectItem, TestId, Link, Icon } from '@gitbutler/ui';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 
 	interface Props {
@@ -25,13 +20,9 @@
 
 	const backend = inject(BACKEND);
 	const posthog = inject(POSTHOG_WRAPPER);
-	const userService = inject(USER_SERVICE);
-	const user = userService.user;
 
-	const aiGenEnabled = projectAiGenEnabled(projectId);
-
-	let aiGenCheckbox = $state<Toggle>();
 	let loading = $state<boolean>(false);
+	let showMoreInfo = $state<boolean>(false);
 
 	// split all the branches by the first '/' and gather the unique remote names
 	// then turn remotes into an array of objects with a 'name' and 'value' key
@@ -67,6 +58,11 @@
 	<div class="project-setup__info">
 		<ProjectNameLabel {projectName} />
 		<h3 class="text-14 text-body text-bold">Target branch</h3>
+		<p class="text-12 text-body">
+			This is the branch that you consider "production", normally something like "origin/master" or
+			"upstream/main".
+			<Link href="https://docs.gitbutler.com/overview#target-branch">Read more</Link>
+		</p>
 	</div>
 
 	<div class="project-setup__fields">
@@ -87,11 +83,6 @@
 					</SelectItem>
 				{/snippet}
 			</Select>
-
-			<p class="project-setup__description-text text-12 text-body">
-				This is the branch that you consider "production", normally something like "origin/master"
-				or "upstream/main".
-			</p>
 		</div>
 
 		{#if remotes.length > 1}
@@ -119,7 +110,37 @@
 		{/if}
 	</div>
 
-	<div class="card features-wrapper">
+	<div class="project-setup__info">
+		<h3 class="text-14 text-body text-bold">Workspace</h3>
+		<p class="text-12 text-body">
+			Pressing <b>Continue</b> will take your repository to the <b>gitbutler/workspace</b> branch
+		</p>
+
+		<div
+			class="project-setup__what-the-faq"
+			role="presentation"
+			onclick={() => (showMoreInfo = !showMoreInfo)}
+		>
+			<div class="project-setup__fold-icon" class:rotate-icon={showMoreInfo}>
+				<Icon name="chevron-right" />
+			</div>
+			<h3 class="text-13 text-body text-bold">Sure, but why, though?</h3>
+		</div>
+		{#if showMoreInfo}
+			<div class="project-setup__what-the-faq-details">
+				<p class="text-12 text-body">
+					In order to support working on multiple branches simultaneously, GitButler creates and
+					automatically manages a special branch <b>gitbutler/workspace</b>. You can always switch
+					back and forth as needed between normal git branches and the Gitbutler workspace.
+					<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch"
+						>Read more</Link
+					>
+				</p>
+			</div>
+		{/if}
+	</div>
+
+	<!-- <div class="card features-wrapper">
 		<SetupFeature labelFor="aiGenEnabled">
 			{#snippet icon()}
 				<svg
@@ -234,7 +255,8 @@
 				{/if}
 			{/snippet}
 		</SetupFeature>
-	</div>
+	</div> -->
+
 	<div class="action-buttons">
 		<Button kind="outline" onclick={deleteProjectAndGoBack}>Cancel</Button>
 		<Button
@@ -259,10 +281,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 20px;
-	}
-
-	.features-wrapper {
-		overflow: hidden;
 	}
 
 	.project-setup__info {
@@ -294,10 +312,30 @@
 		width: 100%;
 		gap: 8px;
 	}
+	.project-setup__what-the-faq {
+		display: flex;
+		align-items: center;
+		margin-top: 8px;
+		gap: 8px;
+		cursor: pointer;
+		user-select: none;
 
-	.success-icon {
-		display: inline;
-		margin-top: -2px;
-		margin-left: 2px;
+		&:hover {
+			& .project-setup__fold-icon {
+				color: var(--clr-text-1);
+			}
+		}
+	}
+
+	.project-setup__fold-icon {
+		display: flex;
+		color: var(--clr-text-2);
+		transition:
+			transform var(--transition-medium),
+			color var(--transition-fast);
+
+		&.rotate-icon {
+			transform: rotate(90deg);
+		}
 	}
 </style>

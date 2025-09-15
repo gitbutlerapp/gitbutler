@@ -13,7 +13,6 @@
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const gitLabState = injectOptional(GITLAB_STATE, null);
-	const determinedForgeType = forge.determinedForgeType;
 	const token = gitLabState?.token ?? writable<string | undefined>('');
 	const forkProjectId = gitLabState?.forkProjectId ?? writable<string | undefined>('');
 	const upstreamProjectId = gitLabState?.upstreamProjectId ?? writable<string | undefined>('');
@@ -68,7 +67,7 @@
 		{/snippet}
 
 		{#snippet caption()}
-			{#if $determinedForgeType === 'default'}
+			{#if forge.determinedForgeType === 'default'}
 				We couldn't detect which Forge you're using.
 				<br />
 				To enable Forge integration, please select your Forge from the dropdown below.
@@ -76,14 +75,14 @@
 				<span class="text-bold">Note:</span> Currently, only GitHub and GitLab support pull request creation.
 			{:else}
 				We’ve detected that you’re using <span class="text-bold"
-					>{$determinedForgeType.toUpperCase()}</span
+					>{forge.determinedForgeType.toUpperCase()}</span
 				>.
 				<br />
 				At the moment, it’s not possible to manually override the detected forge type.
 			{/if}
 		{/snippet}
 
-		{#if $determinedForgeType === 'default'}
+		{#if forge.determinedForgeType === 'default'}
 			<Select
 				value={selectedOption}
 				options={forgeOptions}

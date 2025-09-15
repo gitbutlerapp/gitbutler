@@ -1,6 +1,7 @@
 <script lang="ts">
 	import RulesList from '$components/RulesList.svelte';
 	import UnassignedFoldButton from '$components/UnassignedFoldButton.svelte';
+	import UnassignedViewPrompt from '$components/UnassignedViewPrompt.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import WorktreeTipsFooter from '$components/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
@@ -132,6 +133,8 @@
 				{/snippet}
 			</WorktreeChanges>
 		</div>
+
+		<UnassignedViewPrompt {projectId} />
 
 		{#if changesToCommit}
 			<div class="create-new" class:sticked-bottom={isScrollable} use:focusable>
