@@ -240,6 +240,7 @@
 	.project-setup__fold-icon {
 		display: flex;
 		align-self: flex-start;
+		padding-top: 2px;
 		color: var(--clr-text-3);
 		transition:
 			transform var(--transition-medium),
