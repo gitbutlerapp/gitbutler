@@ -178,6 +178,8 @@ export type ThinkingLevel = 'normal' | 'think' | 'megaThink' | 'ultraThink';
 
 export type ModelType = 'sonnet' | 'sonnet[1m]' | 'opus' | 'opusplan';
 
+export type PermissionMode = 'default' | 'plan' | 'acceptEdits';
+
 export type PromptTemplate = {
 	label: string;
 	template: string;

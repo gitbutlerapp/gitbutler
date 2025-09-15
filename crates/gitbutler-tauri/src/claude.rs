@@ -5,7 +5,7 @@ use but_api::{
     error::Error,
     App,
 };
-use but_claude::{ClaudeMessage, ModelType, ThinkingLevel};
+use but_claude::{ClaudeMessage, ModelType, PermissionMode, ThinkingLevel};
 use but_workspace::StackId;
 use gitbutler_project::ProjectId;
 use tauri::State;
@@ -20,6 +20,7 @@ pub async fn claude_send_message(
     message: String,
     thinking_level: ThinkingLevel,
     model: ModelType,
+    permission_mode: PermissionMode,
 ) -> Result<(), Error> {
     claude::claude_send_message(
         &app,
@@ -29,6 +30,7 @@ pub async fn claude_send_message(
             message,
             thinking_level,
             model,
+            permission_mode,
         },
     )
     .await

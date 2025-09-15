@@ -141,3 +141,12 @@ impl ModelType {
         }
     }
 }
+
+/// Represents the permission mode for Claude Code.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum PermissionMode {
+    Default,
+    Plan,
+    AcceptEdits,
+}

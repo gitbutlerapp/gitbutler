@@ -3,7 +3,8 @@ use std::sync::Arc;
 use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_claude::{
-    ClaudeCheckResult, ClaudeMessage, ModelType, ThinkingLevel, Transcript, prompt_templates,
+    ClaudeCheckResult, ClaudeMessage, ModelType, PermissionMode, ThinkingLevel, Transcript,
+    prompt_templates,
 };
 use but_settings::AppSettings;
 use but_workspace::StackId;
@@ -23,6 +24,7 @@ pub struct SendMessageParams {
     pub message: String,
     pub thinking_level: ThinkingLevel,
     pub model: ModelType,
+    pub permission_mode: PermissionMode,
 }
 
 pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result<(), Error> {
@@ -39,6 +41,7 @@ pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result
             &params.message,
             params.thinking_level,
             params.model,
+            params.permission_mode,
         )
         .await?;
     Ok(())

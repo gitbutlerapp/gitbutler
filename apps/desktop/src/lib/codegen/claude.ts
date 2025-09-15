@@ -5,6 +5,7 @@ import {
 	type ClaudeSessionDetails,
 	type ThinkingLevel,
 	type ModelType,
+	type PermissionMode,
 	type PromptTemplates
 } from '$lib/codegen/types';
 import { hasBackendExtra } from '$lib/state/backendQuery';
@@ -117,6 +118,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					message: string;
 					thinkingLevel: ThinkingLevel;
 					model: ModelType;
+					permissionMode: PermissionMode;
 				}
 			>({
 				extraOptions: {
