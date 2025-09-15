@@ -581,8 +581,8 @@ async fn collect_configured_env_inner(
     // Paths in order of precidence
     let paths = [
         home.join(".claude/settings.json"),
-        project_path.join(".claude/settings.local.json"),
         project_path.join(".claude/settings.json"),
+        project_path.join(".claude/settings.local.json"),
         PathBuf::from(ENTERPRISE_PATH),
     ];
 
