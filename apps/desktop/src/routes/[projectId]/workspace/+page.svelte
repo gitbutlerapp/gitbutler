@@ -23,6 +23,11 @@
 	const firstStackResult = $derived(stackService.stackAt(projectId, 0));
 	const firstStack = $derived(firstStackResult.current.data);
 
+	// Read all local commits in the workspace for the given project
+	$effect(() => {
+		stackService.allLocalCommits(projectId);
+	});
+
 	$effect(() => {
 		if (urlStackId) {
 			projectState.stackId.set(urlStackId);
