@@ -16,6 +16,7 @@ export class FModeManager {
 	private featureEnabled = false;
 
 	private activeOverlays = new Map<HTMLElement, HTMLElement>();
+	private elementToShortcut = new Map<HTMLElement, string>();
 
 	get active(): boolean {
 		return this._active;
@@ -134,6 +135,7 @@ export class FModeManager {
 		this.firstLetter = undefined;
 		this.hideAllShortcuts();
 		this.shortcuts.clear();
+		this.elementToShortcut.clear();
 	}
 
 	addElement(element: HTMLElement, node: FocusableNode): string | undefined {
@@ -145,28 +147,25 @@ export class FModeManager {
 		if (!shortcut) return undefined;
 
 		this.shortcuts.set(shortcut, element);
+		this.elementToShortcut.set(element, shortcut);
 		this.showShortcut(element, shortcut);
 
 		return shortcut;
 	}
 
 	removeElement(element: HTMLElement): void {
-		let shortcutToRemove: string | undefined;
-		Array.from(this.shortcuts.entries()).forEach(([shortcut, el]) => {
-			if (el === element && !shortcutToRemove) {
-				shortcutToRemove = shortcut;
-			}
-		});
-
+		const shortcutToRemove = this.elementToShortcut.get(element);
 		if (!shortcutToRemove) return;
 
 		this.shortcuts.delete(shortcutToRemove);
+		this.elementToShortcut.delete(element);
 		this.hideShortcut(element);
 	}
 
 	clear(): void {
 		this.hideAllShortcuts();
 		this.shortcuts.clear();
+		this.elementToShortcut.clear();
 		this.firstLetter = undefined;
 	}
 
