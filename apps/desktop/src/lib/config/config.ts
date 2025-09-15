@@ -1,4 +1,9 @@
-import { persisted, type Persisted } from '@gitbutler/shared/persisted';
+import {
+	getBooleanStorageItem,
+	persisted,
+	setStorageItem,
+	type Persisted
+} from '@gitbutler/shared/persisted';
 
 export function projectCommitGenerationExtraConcise(projectId: string): Persisted<boolean> {
 	const key = 'projectCommitGenerationExtraConcise_';
@@ -37,4 +42,13 @@ export function persistedChatModelName<T extends string>(
 ): Persisted<T> {
 	const key = 'projectChatModelName_';
 	return persisted(defaultValue, key + projectId);
+}
+
+const GITHUB_ORG_AUTH_ERROR_HANDLING_KEY = 'swallowGitHubOrgAuthErrors';
+export function persistSwallowGitHubOrgAuthErrors(swallow: boolean) {
+	setStorageItem(GITHUB_ORG_AUTH_ERROR_HANDLING_KEY, swallow);
+}
+
+export function getSwallowGitHubOrgAuthErrors(): boolean {
+	return getBooleanStorageItem(GITHUB_ORG_AUTH_ERROR_HANDLING_KEY) ?? false;
 }
