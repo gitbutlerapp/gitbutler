@@ -5,11 +5,11 @@ packages:
   - 'e2e'
 
 catalog:
-  'vite': '6.3.5'
+  'vite': '6.3.6'
   'vitest': '3.2.4'
   '@vitest/browser': '3.2.4'
   '@vitest/ui': '3.2.4'
-  'marked': '15.0.7'
+  'marked': '15.0.12'
   'rxjs': '7.8.2'
   'typescript': '5.9.2'
 catalogs:
@@ -22,12 +22,12 @@ catalogs:
     'postcss-nesting': '12.1.5'
     'postcss-pxtorem': '6.1.0'
   svelte:
-    '@sentry/sveltekit': '10.2.0'
-    '@sveltejs/adapter-static': '3.0.8'
+    '@sentry/sveltekit': '10.11.0'
+    '@sveltejs/adapter-static': '3.0.9'
     '@sveltejs/kit': '2.27.1'
-    '@sveltejs/package': '2.4.0'
-    '@sveltejs/vite-plugin-svelte': '6.1.0'
-    'svelte': '5.38.0'
+    '@sveltejs/package': '2.5.1'
+    '@sveltejs/vite-plugin-svelte': '6.2.0'
+    'svelte': '5.38.10'
     'svelte-check': '4.3.1'
   redux:
     '@reduxjs/toolkit': '2.8.2'
