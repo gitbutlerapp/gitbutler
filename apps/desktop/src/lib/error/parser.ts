@@ -1,3 +1,4 @@
+import { getSwallowGitHubOrgAuthErrors } from '$lib/config/config';
 import { KNOWN_ERRORS } from '$lib/error/knownErrors';
 import {
 	isHttpError,
@@ -79,9 +80,25 @@ export function parseError(error: unknown): ParsedError {
 	return { message: JSON.stringify(error, null, 2) };
 }
 
+const GH_ORG_AUTH_ERROR = 'GitHub Organizations OAuth Error';
+
+export function isGitHubOrgAuthError(title: string): boolean {
+	return title === GH_ORG_AUTH_ERROR;
+}
+
+export function shouldOfferToIgnoreError(title: string): boolean {
+	return isGitHubOrgAuthError(title);
+}
+
+export function shouldIgnoreThistError(title: string): boolean {
+	if (isGitHubOrgAuthError(title)) {
+		return getSwallowGitHubOrgAuthErrors();
+	}
+	return false;
+}
+
 const CommonErrorMessageStart: Record<string, string> = {
-	'Although you appear to have the correct authorization credentials,':
-		'GitHub Organizations OAuth Error'
+	'Although you appear to have the correct authorization credentials,': GH_ORG_AUTH_ERROR
 };
 /**
  * Returns an unified title for common error messages.
