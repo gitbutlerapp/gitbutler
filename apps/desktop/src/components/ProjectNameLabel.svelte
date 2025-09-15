@@ -9,7 +9,7 @@
 
 <div class="project-name">
 	<Icon name="repo-book-small" />
-	<span class="text-12 text-bold">
+	<span class="text-13 text-semibold">
 		{projectName}
 	</span>
 </div>
@@ -21,6 +21,6 @@
 		align-self: flex-start;
 		gap: 6px;
 		border-radius: var(--radius-s);
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
 </style>
