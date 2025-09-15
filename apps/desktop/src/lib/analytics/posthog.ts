@@ -36,6 +36,12 @@ export class PostHogWrapper {
 		this._instance?.capture(event, properties);
 	}
 
+	captureAction(event: ActionEvent, properties?: Properties) {
+		const context = this.eventContext.getAll();
+		const newProperties = { ...context, ...properties };
+		this._instance?.capture(event, newProperties);
+	}
+
 	async init() {
 		if (this._instance) return;
 		const appInfo = await this.backend.getAppInfo();
@@ -111,4 +117,8 @@ export enum OnboardingEvent {
 	GitCheckCredentials = 'onboarding_git_check_credentials',
 	GitCheckCredentialsFailed = 'onboarding_git_check_credentials_failed',
 	GitAuthenticationContinue = 'onboarding_git_authentication_continue'
+}
+
+export enum ActionEvent {
+	CommitToNewBranch = 'action_commit_to_new_branch'
 }
