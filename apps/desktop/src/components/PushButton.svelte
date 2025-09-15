@@ -153,7 +153,7 @@
 			style="neutral"
 			{loading}
 			disabled={buttonDisabled}
-			hotkey={active ? '⌘P' : undefined}
+			hotkey={active && isFirstBranchInStack ? '⇧⌘P' : undefined}
 			tooltip={getButtonTooltip(
 				hasThingsToPush,
 				hasConflicts,

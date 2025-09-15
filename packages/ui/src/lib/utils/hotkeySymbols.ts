@@ -162,10 +162,11 @@ export function parseHotkey(hotkey: string): ParsedHotkey | undefined {
  * Check if a keyboard event matches a parsed hotkey
  */
 export function matchesHotkey(event: KeyboardEvent, parsed: ParsedHotkey): boolean {
-	if (parsed.modifiers.meta && !event.metaKey) return false;
-	if (parsed.modifiers.ctrl && !event.ctrlKey) return false;
-	if (parsed.modifiers.alt && !event.altKey) return false;
-	if (parsed.modifiers.shift && !event.shiftKey) return false;
+	// Check for exact modifier match - both required and not required
+	if (parsed.modifiers.meta !== event.metaKey) return false;
+	if (parsed.modifiers.ctrl !== event.ctrlKey) return false;
+	if (parsed.modifiers.alt !== event.altKey) return false;
+	if (parsed.modifiers.shift !== event.shiftKey) return false;
 
 	// Check if the key matches (case-insensitive for letters)
 	const eventKey = event.key.length === 1 ? event.key.toUpperCase() : event.key;
@@ -235,27 +236,4 @@ export function formatHotkeyForPlatform(hotkey: string): string {
 	display += keySymbol;
 
 	return display;
-}
-
-/**
- * Extract just the letter from a Cmd+letter style hotkey
- * This is for compatibility with the existing focusManager hotkey handling
- */
-export function extractHotkeyLetter(hotkey: string): string | undefined {
-	const parsed = parseHotkey(hotkey);
-	if (!parsed) return undefined;
-
-	// Only return if it's a simple Cmd+letter pattern
-	if (
-		parsed.modifiers.meta &&
-		!parsed.modifiers.ctrl &&
-		!parsed.modifiers.alt &&
-		!parsed.modifiers.shift
-	) {
-		if (parsed.key.length === 1 && /[A-Za-z0-9]/.test(parsed.key)) {
-			return parsed.key.toUpperCase();
-		}
-	}
-
-	return undefined;
 }

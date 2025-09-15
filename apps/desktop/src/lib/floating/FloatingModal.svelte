@@ -205,6 +205,7 @@
 		dim: true,
 		onEsc: () => {
 			onCancel?.();
+			return true;
 		}
 	}}
 	class="floating-modal"
