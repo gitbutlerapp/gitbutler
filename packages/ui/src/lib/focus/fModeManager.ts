@@ -70,6 +70,7 @@ export class FModeManager {
 			const upperKey = key.toUpperCase();
 
 			if (upperKey.length !== 1 || upperKey < 'A' || upperKey > 'Z') {
+				this.deactivate();
 				return false;
 			}
 
@@ -101,6 +102,7 @@ export class FModeManager {
 			return true;
 		}
 
+		this.deactivate();
 		return false;
 	}
 
@@ -179,6 +181,7 @@ export class FModeManager {
 	}
 
 	private showShortcut(element: HTMLElement, shortcut: string): void {
+		if (element.offsetHeight === 0 || element.offsetWidth === 0) return;
 		this.hideShortcut(element);
 		const overlay = createShortcutOverlay(element, shortcut);
 		this.activeOverlays.set(element, overlay);
