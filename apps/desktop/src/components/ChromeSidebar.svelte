@@ -340,17 +340,6 @@
 		</div>
 		<div class="bottom__ghost-actions">
 			<Button
-				icon="keyboard"
-				kind="ghost"
-				style="neutral"
-				tooltip={$fModeEnabled ? 'Disable F key navigation' : 'Enable F key navigation'}
-				tooltipPosition="top"
-				tooltipAlign="start"
-				width={34}
-				class={$fModeEnabled ? undefined : 'faded-btn'}
-				onclick={() => fModeEnabled.set(!$fModeEnabled)}
-			/>
-			<Button
 				icon="mail"
 				kind="ghost"
 				tooltip="Share feedback"
