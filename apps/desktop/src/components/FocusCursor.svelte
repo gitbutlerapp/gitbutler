@@ -52,6 +52,7 @@
 			return;
 		}
 
+		$target.classList.add('focused');
 		const element = createCursor($target);
 		copyPosition($target, element);
 
@@ -64,6 +65,7 @@
 		observer.observe($target);
 
 		return () => {
+			$target.classList.remove('focused');
 			element.remove();
 			observer.disconnect();
 		};
