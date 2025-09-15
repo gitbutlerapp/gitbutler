@@ -116,7 +116,7 @@
 <MainViewport
 	testId={TestId.WorkspaceView}
 	name="workspace"
-	leftWidth={{ default: 280, min: 220 }}
+	leftWidth={{ default: 280, min: 260 }}
 	preview={previewOpen ? leftPreview : undefined}
 	previewWidth={{ default: 480, min: 220 }}
 	right={showingActions ? right : undefined}

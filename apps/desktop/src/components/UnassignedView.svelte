@@ -1,6 +1,7 @@
 <script lang="ts">
 	import RulesList from '$components/RulesList.svelte';
 	import UnassignedFoldButton from '$components/UnassignedFoldButton.svelte';
+	import UnassignedViewForgePrompt from '$components/UnassignedViewForgePrompt.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import WorktreeTipsFooter from '$components/WorktreeTipsFooter.svelte';
 	import { ActionEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
@@ -129,6 +130,7 @@
 								No files need committing
 							</p>
 						</div>
+						<UnassignedViewForgePrompt {projectId} />
 						<WorktreeTipsFooter />
 					</div>
 				{/snippet}
@@ -136,6 +138,7 @@
 		</div>
 
 		{#if changesToCommit}
+			<UnassignedViewForgePrompt {projectId} />
 			<div class="create-new" class:sticked-bottom={isScrollable} use:focusable>
 				<Button
 					type="button"
@@ -218,8 +221,13 @@
 
 	.create-new {
 		display: flex;
+		flex-direction: column;
 		padding: 12px 12px 14px 12px;
-		background-color: var(--clr-bg-1);
+		border-top: 1px solid var(--clr-border-3);
+
+		&.sticked-bottom {
+			border-color: var(--clr-border-2);
+		}
 	}
 
 	/* FOLDED */
@@ -253,15 +261,13 @@
 
 	.unassigned__files {
 		display: flex;
+		position: relative;
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
 	}
 
 	/* MODIFIERS */
-	.sticked-bottom {
-		border-top: 1px solid var(--clr-border-2);
-	}
 
 	.unassigned__fold-button {
 		display: flex;

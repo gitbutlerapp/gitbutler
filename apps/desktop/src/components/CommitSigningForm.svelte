@@ -149,7 +149,7 @@
 
 			{#if checked}
 				<InfoMessage
-					style={loading ? 'neutral' : signCheckResult ? 'success' : 'error'}
+					style={loading ? 'info' : signCheckResult ? 'success' : 'error'}
 					filled
 					outlined={false}
 				>
