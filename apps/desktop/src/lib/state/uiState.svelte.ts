@@ -362,42 +362,6 @@ export function replaceBranchInStackSelection(
 	return selection;
 }
 
-/**
- * Updates the currently selected stack and exclusive action if it is not in the provided list of stack IDs.
- */
-export function updateStaleProjectState(
-	uiState: UiState,
-	projectId: string,
-	stackIds: string[]
-): void {
-	const projectState = uiState.project(projectId);
-	const selectedStack = projectState.stackId.current;
-	if (selectedStack && !stackIds.includes(selectedStack)) {
-		projectState.stackId.set(undefined);
-	}
-
-	const exclusiveAction = projectState.exclusiveAction.current;
-	if (!exclusiveAction) return;
-
-	switch (exclusiveAction.type) {
-		case 'commit':
-			if (exclusiveAction.stackId !== undefined && !stackIds.includes(exclusiveAction.stackId)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			break;
-		case 'edit-commit-message':
-			if (exclusiveAction.stackId !== undefined && !stackIds.includes(exclusiveAction.stackId)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			break;
-		case 'create-pr':
-			if (exclusiveAction.stackId !== undefined && !stackIds.includes(exclusiveAction.stackId)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			break;
-	}
-}
-
 function updateStackSelection(uiState: UiState, stackId: string, details: StackDetails): void {
 	const laneState = uiState.lane(stackId);
 	const selection = laneState.selection.current;
@@ -453,51 +417,80 @@ function updateStackSelection(uiState: UiState, stackId: string, details: StackD
  */
 export function updateStaleStackState(
 	uiState: UiState,
-	projectId: string,
 	stackId: string,
 	details: StackDetails
 ): void {
 	updateStackSelection(uiState, stackId, details);
+}
 
+/**
+ * Update the project state based on the current stacks, branches and commits.
+ *
+ * - Clears the selected stack if it no longer exists.
+ * - Clears the exclusive action if it references a non-existing stack, branch or commit.
+ */
+export function updateStaleProjectState(
+	uiState: UiState,
+	projectId: string,
+	stackIds: string[],
+	branches: string[],
+	commitIds: string[]
+) {
 	const projectState = uiState.project(projectId);
-	const exclusiveAction = projectState.exclusiveAction.current;
-	if (!exclusiveAction) return;
 
-	if (exclusiveAction.stackId === undefined || exclusiveAction.stackId !== stackId) {
-		return;
+	// Unselect the current stack if it is not in the list of stack IDs
+	if (projectState.stackId.current && !stackIds.includes(projectState.stackId.current)) {
+		projectState.stackId.set(undefined);
 	}
 
-	const branches = details.branchDetails.map((branch) => branch.name);
-
-	// If the exclusive action branch is not in the list of branches, clear the exclusive action
-	if (exclusiveAction.branchName && !branches.includes(exclusiveAction.branchName)) {
-		projectState.exclusiveAction.set(undefined);
-		return;
+	if (projectState.exclusiveAction.current) {
+		updateExclusiveActionState(
+			projectState.exclusiveAction.current,
+			projectState,
+			stackIds,
+			commitIds,
+			branches
+		);
 	}
+}
 
-	const branchDetails = details.branchDetails.find(
-		(branch) => branch.name === exclusiveAction.branchName
-	);
-	if (!branchDetails) {
-		// Should not happen since we already checked the branch exists
-		return;
-	}
-
-	const commitIds = branchDetails.commits.map((commit) => commit.id);
-
-	switch (exclusiveAction.type) {
+function updateExclusiveActionState(
+	action: ExclusiveAction,
+	projectState: GlobalStore<ProjectUiState>,
+	stackIds: string[],
+	commitIds: string[],
+	branches: string[]
+) {
+	switch (action.type) {
 		case 'commit':
-			if (exclusiveAction.parentCommitId && !commitIds.includes(exclusiveAction.parentCommitId)) {
+			if (action.stackId && !stackIds.includes(action.stackId)) {
+				projectState.exclusiveAction.set(undefined);
+			}
+			if (action.parentCommitId && !commitIds.includes(action.parentCommitId)) {
+				projectState.exclusiveAction.set(undefined);
+			}
+			if (action.branchName && !branches.includes(action.branchName)) {
 				projectState.exclusiveAction.set(undefined);
 			}
 			break;
 		case 'edit-commit-message':
-			if (!commitIds.includes(exclusiveAction.commitId)) {
+			if (action.stackId && !stackIds.includes(action.stackId)) {
+				projectState.exclusiveAction.set(undefined);
+			}
+			if (action.commitId && !commitIds.includes(action.commitId)) {
+				projectState.exclusiveAction.set(undefined);
+			}
+			if (action.branchName && !branches.includes(action.branchName)) {
 				projectState.exclusiveAction.set(undefined);
 			}
 			break;
 		case 'create-pr':
-			// Do nothing, alles gut
+			if (action.stackId && !stackIds.includes(action.stackId)) {
+				projectState.exclusiveAction.set(undefined);
+			}
+			if (action.branchName && !branches.includes(action.branchName)) {
+				projectState.exclusiveAction.set(undefined);
+			}
 			break;
 	}
 }

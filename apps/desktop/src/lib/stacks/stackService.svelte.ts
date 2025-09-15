@@ -4,6 +4,7 @@ import { showToast } from '$lib/notifications/toasts';
 import { hasBackendExtra } from '$lib/state/backendQuery';
 import { ClientState, type BackendApi } from '$lib/state/clientState.svelte';
 import { createSelectByIds, createSelectNth } from '$lib/state/customSelectors';
+import { mapResult } from '$lib/state/helpers';
 import {
 	invalidatesItem,
 	invalidatesList,
@@ -14,12 +15,13 @@ import {
 import {
 	replaceBranchInExclusiveAction,
 	replaceBranchInStackSelection,
-	updateStaleProjectState,
 	type UiState,
+	updateStaleProjectState,
 	updateStaleStackState
 } from '$lib/state/uiState.svelte';
 import { getBranchNameFromRef, type BranchRef } from '$lib/utils/branch';
 import { InjectionToken } from '@gitbutler/core/context';
+import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import {
 	createEntityAdapter,
@@ -373,6 +375,41 @@ export class StackService {
 					branchDetailsSelectors.selectById(branchDetails, branchName)?.commits[index] ?? null
 			}
 		);
+	}
+
+	allLocalCommits(projectId: string) {
+		const stacks = $derived(this.stacks(projectId));
+		const stackIds = $derived(
+			mapResult(stacks.current, (stacks) => stacks.map((s) => s.id).filter(isDefined))
+		);
+		const stackIdsData = $derived(stackIds.data ?? []);
+		const args = $derived(stackIdsData.map((stackId) => ({ projectId, stackId })));
+		const details = $derived(
+			this.api.endpoints.stackDetails.useQueries(args, {
+				transform: ({ commits, stackInfo }) => ({
+					commits: commitSelectors.selectAll(commits),
+					branches: stackInfo.branchDetails.map((b) => b.name)
+				})
+			})
+		);
+		const detailsData = $derived(details.current);
+		const allCommits = $derived(detailsData.flatMap((d) => d.data?.commits ?? []));
+		const allBranches = $derived(detailsData.flatMap((d) => d.data?.branches ?? []));
+
+		$effect(() => {
+			updateStaleProjectState(
+				this.uiState,
+				projectId,
+				stackIdsData,
+				allBranches,
+				allCommits.map((c) => c.id)
+			);
+		});
+
+		return reactive(() => ({
+			branches: allBranches,
+			commits: allCommits
+		}));
 	}
 
 	commitById(projectId: string, stackId: string | undefined, commitId: string) {
@@ -935,15 +972,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					await lifecycleApi.cacheEntryRemoved;
 					unsubscribe();
 				},
-				transformResponse(response: Stack[], _, { projectId }) {
-					// Clear the selection of stale stacks.
-					updateStaleProjectState(
-						uiState,
-						projectId,
-						// TODO(opt-stack-id): `s.id` might actually be optional once outside-of-workspace is a thing.
-						response.map((s) => s.id).filter(isDefined)
-					);
-
+				transformResponse(response: Stack[], _) {
 					return transformStacksResponse(response);
 				}
 			}),
@@ -996,9 +1025,9 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				providesTags: (_result, _error, { stackId }) => [
 					...providesItem(ReduxTag.StackDetails, stackId || 'undefined')
 				],
-				transformResponse(response: StackDetails, _, { projectId, stackId }) {
+				transformResponse(response: StackDetails, _, { stackId }) {
 					if (stackId) {
-						updateStaleStackState(uiState, projectId, stackId, response);
+						updateStaleStackState(uiState, stackId, response);
 					}
 
 					const branchDetailsEntity = branchDetailsAdapter.addMany(
