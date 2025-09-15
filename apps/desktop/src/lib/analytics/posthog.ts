@@ -107,5 +107,8 @@ export enum OnboardingEvent {
 	LoginGitButler = 'onboarding_login_gitbutler',
 	CancelLoginGitButler = 'onboarding_cancel_login_gitbutler',
 	GitHubInitiateOAuth = 'onboarding_github_initiate_oauth',
-	GitHubOAuthFailed = 'onboarding_github_oauth_failed'
+	GitHubOAuthFailed = 'onboarding_github_oauth_failed',
+	GitCheckCredentials = 'onboarding_git_check_credentials',
+	GitCheckCredentialsFailed = 'onboarding_git_check_credentials_failed',
+	GitAuthenticationContinue = 'onboarding_git_authentication_continue'
 }
