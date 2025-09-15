@@ -355,6 +355,15 @@ async fn spawn_command(
     let app_settings = ctx.lock().await.app_settings().clone();
     let claude_executable = app_settings.claude.executable.clone();
     let mut command = Command::new(claude_executable);
+
+    /// Don't create a terminal window on windows.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
     command.stdout(writer);
     command.stderr(write_stderr);
     command.current_dir(&project_path);
