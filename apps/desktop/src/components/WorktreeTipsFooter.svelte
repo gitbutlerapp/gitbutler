@@ -51,7 +51,7 @@
 	.tip-footer__links {
 		align-items: center;
 		justify-content: flex-end;
-		padding: 12px 14px;
+		padding: 13px 14px;
 		gap: 2px;
 	}
 
@@ -59,7 +59,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 4px 6px;
+		height: var(--size-button);
+		padding: 6px;
 		color: var(--clr-text-3);
 		transition: color var(--transition-fast);
 

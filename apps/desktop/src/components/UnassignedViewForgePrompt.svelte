@@ -1,4 +1,6 @@
 <script lang="ts">
+	import githubLogoSvg from '$lib/assets/unsized-logos/github.svg?raw';
+	import gitlabLogoSvg from '$lib/assets/unsized-logos/gitlab.svg?raw';
 	import { persistedDismissedForgeIntegrationPrompt } from '$lib/config/config';
 	import {
 		availableForgeDocsLink,
@@ -45,39 +47,49 @@
 	{@const forgeUnit = availableForgeReviewUnit(forgeName)}
 	{@const integrationDocs = availableForgeDocsLink(forgeName)}
 
-	<div class="unassigned-view-prompt">
-		<div class="unassigned-view-prompt__header">
-			<h3 class="text-13">It looks like you have a {forgeLabel} remote!</h3>
+	<!-- <div class="forge-prompt__wrap" class:border-bottom={bottomBorder} class:border-top={topBorder}> -->
+	<div class="forge-prompt">
+		<div class="forge-prompt__logo">
+			{@html forgeName === 'github' ? githubLogoSvg : gitlabLogoSvg}
 		</div>
-		<div class="unassigned-view-prompt__body">
-			<p class="text-13">
-				GitButler can display, create and manage {forgeUnit} for you directly in the app.
-				<Link href={integrationDocs}>Read more</Link>
-			</p>
-		</div>
+		<h3 class="text-13 text-body text-bold">It looks like you have a {forgeLabel} remote!</h3>
+		<p class="text-12 text-body m-bottom-8">
+			GitButler can display, create and manage {forgeUnit} for you directly in the app.
+			<Link href={integrationDocs}>Read more</Link>
+		</p>
 
-		<div class="unassigned-view-prompt__footer">
-			<Button style="pop" onclick={() => configureIntegration(forgeName)}>Configure</Button>
+		<div class="forge-prompt__footer">
 			<Button kind="outline" onclick={dismissPrompt}>Dismiss</Button>
+			<Button style="pop" onclick={() => configureIntegration(forgeName)}
+				>Configure integration…</Button
+			>
 		</div>
 	</div>
+	<!-- </div> -->
 {/if}
 
 <style lang="postcss">
-	.unassigned-view-prompt {
+	.forge-prompt {
 		display: flex;
+		z-index: 1;
 		flex-direction: column;
-		width: auto;
-		margin: 4px;
-		padding: 8px;
+		margin-bottom: -1px;
+		padding: 14px;
 		gap: 8px;
-		border: 1px solid var(--clr-border-1);
-		border-radius: var(--radius-m);
+		border-top: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
 	}
 
-	.unassigned-view-prompt__footer {
+	.forge-prompt__logo {
+		width: 22px;
+		height: 22px;
+		fill: var(--clr-text-2);
+	}
+
+	.forge-prompt__footer {
 		display: flex;
 		justify-content: flex-end;
-		gap: 8px;
+		gap: 6px;
 	}
 </style>
