@@ -364,7 +364,7 @@
 			data-testid={testId}
 			bind:this={menuContainer}
 			tabindex="-1"
-			use:focusable={{ activate: true, isolate: true, dim: true }}
+			use:focusable={{ activate: true, isolate: true, focusable: true, dim: true, trap: true }}
 			autofocus
 			{onclick}
 			{onkeypress}

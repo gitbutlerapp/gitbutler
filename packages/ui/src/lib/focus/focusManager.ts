@@ -8,6 +8,7 @@ import {
 } from '$lib/focus/focusUtils';
 import { focusNextTabIndex } from '$lib/focus/tabbable';
 import { removeFromArray, scrollIntoViewIfNeeded } from '$lib/focus/utils';
+import { parseHotkey, matchesHotkey } from '$lib/utils/hotkeySymbols';
 import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
 import { InjectionToken } from '@gitbutler/core/context';
 import { on } from 'svelte/events';
@@ -99,7 +100,7 @@ export class FocusManager {
 		}
 
 		if (options.activate) {
-			this.setActive(element);
+			this.setActiveNode(newNode);
 		}
 	}
 
@@ -252,24 +253,28 @@ export class FocusManager {
 		if (e.detail === 0) {
 			return;
 		}
+
 		if (e.target instanceof HTMLElement) {
-			const focusableElement = this.findNearestFocusableElement(e.target);
-			if (focusableElement) {
-				this.setActive(focusableElement);
+			const focusableNode = this.findNearestFocusableElement(e.target);
+			if (focusableNode) {
+				this.setActiveNode(focusableNode);
 				this.outline.set(false);
 			}
 		}
 	}
 
-	private findNearestFocusableElement(start: HTMLElement): HTMLElement | undefined {
+	private findNearestFocusableElement(start: HTMLElement): FocusableNode | undefined {
 		let pointer: HTMLElement | null = start;
 		while (pointer) {
 			const node = this.getNode(pointer);
 			if (node) {
+				if (node.options.focusable) {
+					return node;
+				}
 				const navigableChild = this.findFirstNavigableDescendantNode(node);
 				// Skip button elements - continue traversing up
 				if (navigableChild) {
-					return navigableChild.element;
+					return navigableChild;
 				}
 			}
 			pointer = pointer.parentElement;
@@ -381,33 +386,32 @@ export class FocusManager {
 		}
 	}
 
-	// Handles Cmd+letter/number hotkeys for instant button activation
+	// Handles hotkeys for instant button activation (supports complex combinations like ⇧⌘P)
 	private handleHotkeyPress(event: KeyboardEvent): boolean {
-		// Only handle if Cmd/Meta key is pressed
-		if (!event.metaKey || event.key === 'Meta') return false;
+		// Skip if just pressing modifier keys alone
+		if (['Meta', 'Control', 'Alt', 'Shift'].includes(event.key)) return false;
 
-		// Get the key in uppercase
-		const key = event.key.toUpperCase();
-
-		// Only handle single letters (A-Z) or numbers (1-9)
-		if (key.length !== 1 || !((key >= 'A' && key <= 'Z') || (key >= '1' && key <= '9'))) {
-			return false;
-		}
-
-		// Find all buttons with this hotkey
+		// Find all buttons with hotkeys
 		const entries = Array.from(this.nodeMap.entries());
 		for (const [element, node] of entries) {
-			if (node.options.button && node.options.hotkey?.toUpperCase() === key) {
-				event.preventDefault();
-				event.stopPropagation();
+			if (node.options.button && node.options.hotkey) {
+				// Parse the hotkey definition
+				const parsed = parseHotkey(node.options.hotkey);
+				if (!parsed) continue;
 
-				// Trigger click on the button
-				try {
-					element.click();
-				} catch (error) {
-					console.warn('Error triggering button click via hotkey:', error);
+				// Check if the event matches the hotkey
+				if (matchesHotkey(event, parsed)) {
+					event.preventDefault();
+					event.stopPropagation();
+
+					// Trigger click on the button
+					try {
+						element.click();
+					} catch (error) {
+						console.warn('Error triggering button click via hotkey:', error);
+					}
+					return true;
 				}
-				return true;
 			}
 		}
 		return false;
@@ -972,12 +976,12 @@ export class FocusManager {
 	}
 
 	private getNodeEscHandlers(node: FocusableNode): (() => boolean | void)[] {
-		const handlers = [];
+		const handlers: (() => boolean | void)[] = [];
 		let current: FocusableNode | undefined = node;
 
 		while (current) {
 			if (current.options.onEsc) {
-				handlers.push(current.options.onEsc);
+				handlers.push(current.options.onEsc as () => boolean | void);
 			}
 			current = current.parent;
 		}
@@ -985,7 +989,7 @@ export class FocusManager {
 	}
 
 	private getNodeKeydownHandlers(node: FocusableNode): KeyboardHandler[] {
-		const handlers = [];
+		const handlers: KeyboardHandler[] = [];
 		let current: FocusableNode | undefined = node;
 
 		while (current) {
