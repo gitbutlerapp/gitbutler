@@ -28,13 +28,17 @@ export class FModeManager {
 		}
 	}
 
-	handleKeypress(event: KeyboardEvent, elements?: Map<HTMLElement, FocusableNode>): boolean {
+	handleKeypress(
+		event: KeyboardEvent,
+		elements?: Map<HTMLElement, FocusableNode>,
+		currentNode?: FocusableNode
+	): boolean {
 		if (!this.featureEnabled) return false;
 
 		const key = event.key;
 
 		if (key === 'f' && !this._active) {
-			this.activate(elements);
+			this.activate(elements, currentNode);
 			event.preventDefault();
 			event.stopPropagation();
 			return true;
@@ -99,7 +103,7 @@ export class FModeManager {
 		return false;
 	}
 
-	activate(elements?: Map<HTMLElement, FocusableNode>): void {
+	activate(elements?: Map<HTMLElement, FocusableNode>, currentNode?: FocusableNode): void {
 		if (this._active) return;
 
 		this._active = true;
@@ -107,8 +111,18 @@ export class FModeManager {
 		this.shortcuts.clear();
 
 		if (elements) {
+			// Check if current element has trap: true
+			const trapElement = currentNode?.options.trap ? currentNode.element : undefined;
+
 			for (const [element, node] of elements) {
-				this.addElement(element, node);
+				// If we have a trap element, only add elements contained within it
+				if (trapElement) {
+					if (trapElement.contains(element)) {
+						this.addElement(element, node);
+					}
+				} else {
+					this.addElement(element, node);
+				}
 			}
 		}
 	}
