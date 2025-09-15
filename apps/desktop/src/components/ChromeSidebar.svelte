@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
-	import { ircEnabled, codegenEnabled, fModeEnabled } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, codegenEnabled } from '$lib/config/uiFeatureFlags';
 	import {
 		branchesPath,
 		ircPath,
