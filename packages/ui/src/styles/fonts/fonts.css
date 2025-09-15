@@ -18,6 +18,22 @@
 	src: url('pp-editorial/PPEditorialNew-Regular.woff2') format('woff2');
 	font-family: 'PP Editorial New';
 }
+
+@font-face {
+	font-style: normal;
+	font-weight: 400;
+	src: url('but-serif/But-Serif-Regular.woff2') format('woff2');
+	font-family: 'But Serif';
+	font-display: swap;
+}
+@font-face {
+	font-style: italic;
+	font-weight: 400;
+	src: url('but-serif/But-Serif-Italic.woff2') format('woff2');
+	font-family: 'But Serif';
+	font-display: swap;
+}
+
 @font-face {
 	font-style: normal;
 	font-weight: 400;
