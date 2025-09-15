@@ -308,7 +308,7 @@ export class FocusManager {
 
 		// Handle F mode toggle and input (global, doesn't need current element)
 		if (event.key === 'f' || event.key === 'F' || this.fModeManager.active) {
-			if (this.fModeManager.handleKeypress(event, this.nodeMap)) {
+			if (this.fModeManager.handleKeypress(event, this.nodeMap, this.currentNode)) {
 				this.outline.set(false);
 				return;
 			}
