@@ -15,7 +15,6 @@
 	import { CodegenRuleDropData, CodegenRuleDropHandler } from '$lib/codegen/dropzone';
 	import { useGoToCodegenPage } from '$lib/codegen/redirect.svelte';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
-	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
@@ -25,6 +24,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { ReviewBadge, Icon, Tooltip, TestId } from '@gitbutler/ui';
+	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { DropzoneHandler } from '$lib/dragging/handler';

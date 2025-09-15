@@ -4,8 +4,8 @@ import { ChangeDropData, type DropData } from '$lib/dragging/draggables';
 import { getFileIcon } from '@gitbutler/ui/components/file/getFileIcon';
 import iconsJson from '@gitbutler/ui/data/icons.json';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-import type { DragStateService } from '$lib/dragging/dragStateService.svelte';
 import type { DropzoneRegistry } from '$lib/dragging/registry';
+import type { DragStateService } from '@gitbutler/ui/drag/dragStateService.svelte';
 
 // Added to element being dragged (not the clone that follows the cursor).
 const DRAGGING_CLASS = 'dragging';

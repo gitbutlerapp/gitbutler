@@ -4,10 +4,13 @@
 </script>
 
 <script lang="ts">
+	import { DRAG_STATE_SERVICE } from '$lib/drag/dragStateService.svelte';
+
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { tooltip } from '$lib/utils/tooltipPosition';
 	import { flyScale } from '$lib/utils/transitions';
+	import { injectOptional } from '@gitbutler/core/context';
 	import { type Snippet } from 'svelte';
 
 	interface Props {
@@ -35,6 +38,8 @@
 	}: Props = $props();
 
 	const TOOLTIP_VIEWPORT_EDGE_MARGIN = 100; // px
+	const draggingService = injectOptional(DRAG_STATE_SERVICE, undefined);
+	const isDragging = $derived(draggingService?.isDragging);
 	let targetEl: HTMLElement | undefined = $state();
 	let position = $state(requestedPosition);
 	let show = $state(false);
@@ -97,7 +102,7 @@
 			{@render children()}
 		{/if}
 
-		{#if show}
+		{#if show && !$isDragging}
 			<div
 				use:tooltip={{ targetEl, position, align, overrideYScroll }}
 				use:portal={'body'}
