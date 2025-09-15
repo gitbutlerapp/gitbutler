@@ -20,13 +20,8 @@
 	class="branches-list-card"
 	class:selected
 	use:focusable={{
-		onKeydown: (e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				onclick?.();
-				e.stopPropagation();
-				return true;
-			}
-		}
+		focusable: true,
+		onAction: () => onclick?.()
 	}}
 >
 	<div class="branches-list-card__content">

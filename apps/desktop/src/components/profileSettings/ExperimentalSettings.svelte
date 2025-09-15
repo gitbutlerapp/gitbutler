@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { ircEnabled, ircServer, codegenEnabled } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, ircServer, codegenEnabled, fModeEnabled } from '$lib/config/uiFeatureFlags';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/core/context';
 	import { SectionCard, Spacer, Textbox, Toggle } from '@gitbutler/ui';
@@ -68,7 +68,7 @@
 			/>
 		{/snippet}
 	</SectionCard>
-	<SectionCard labelFor="codegen" roundedTop={false} orientation="row">
+	<SectionCard labelFor="codegen" roundedTop={false} roundedBottom={false} orientation="row">
 		{#snippet title()}
 			Codegen (Claude Code)
 		{/snippet}
@@ -80,6 +80,21 @@
 				id="codegen"
 				checked={$codegenEnabled}
 				onclick={() => ($codegenEnabled = !$codegenEnabled)}
+			/>
+		{/snippet}
+	</SectionCard>
+	<SectionCard labelFor="f-mode" roundedTop={false} orientation="row">
+		{#snippet title()}
+			F Mode Navigation
+		{/snippet}
+		{#snippet caption()}
+			Enable F mode for quick keyboard navigation to buttons using two-letter shortcuts.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="f-mode"
+				checked={$fModeEnabled}
+				onclick={() => fModeEnabled.set(!$fModeEnabled)}
 			/>
 		{/snippet}
 	</SectionCard>

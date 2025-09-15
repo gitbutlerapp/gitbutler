@@ -18,7 +18,7 @@
 	import { initDependencies } from '$lib/bootstrap/deps';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { ircEnabled, ircServer, codegenEnabled } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, ircServer, codegenEnabled, fModeEnabled } from '$lib/config/uiFeatureFlags';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import { IRC_CLIENT } from '$lib/irc/ircClient.svelte';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
@@ -146,6 +146,11 @@
 
 	const focusManager = inject(FOCUS_MANAGER);
 	$effect(() => focusManager.listen());
+
+	// Pass F mode feature flag to focus manager
+	$effect(() => {
+		focusManager.setFModeEnabled($fModeEnabled);
+	});
 
 	// Expose debugging objects to window
 	(window as any)['uiState'] = uiState;

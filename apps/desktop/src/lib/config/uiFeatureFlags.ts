@@ -14,3 +14,4 @@ export const rewrapCommitMessage = persistWithExpiration(true, 'rewrap-commit-ms
 export const codegenEnabled = persisted(true, 'feature-codegen-v2');
 export type StagingBehavior = 'all' | 'selection' | 'none';
 export const stagingBehaviorFeature = persisted<StagingBehavior>('all', 'feature-staging-behavior');
+export const fModeEnabled = persisted(true, 'f-mode');
