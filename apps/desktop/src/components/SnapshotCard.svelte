@@ -178,9 +178,7 @@
 <div
 	class="snapshot-card show-restore-on-hover"
 	class:restored-snapshot={isRestoreSnapshot || isWithinRestore}
-	use:focusable={{
-		vertical: true
-	}}
+	use:focusable={{ focusable: true }}
 >
 	<div class="snapshot-right-container">
 		<div class="restore-btn">
@@ -226,17 +224,17 @@
 			{#snippet children(files)}
 				{#if files.length > 0 && !isRestoreSnapshot}
 					<SnapshotAttachment foldable={files.length > 2} foldedAmount={files.length}>
-						<div class="files-attacment">
+						<div class="files-attacment" use:focusable={{ vertical: true }}>
 							{#each files as file, idx}
 								<div
 									use:focusable={{
-										onAction: () => onDiffClick(file.path)
+										focusable: true,
+										onActive: () => onDiffClick(file.path)
 									}}
 								>
 									<FileListItem
 										listMode="list"
 										filePath={file.path}
-										onclick={() => onDiffClick(file.path)}
 										selected={selectedFile?.path === file.path &&
 											selectedFile?.entryId === entry.id}
 										hideBorder={idx === files.length - 1}
@@ -301,6 +299,16 @@
 			& .snapshot-time {
 				display: none;
 			}
+		}
+	}
+
+	.show-restore-on-hover:global(.focused) {
+		background-color: var(--clr-bg-1-muted);
+		& .restore-btn {
+			display: flex;
+		}
+		& .snapshot-time {
+			display: none;
 		}
 	}
 
