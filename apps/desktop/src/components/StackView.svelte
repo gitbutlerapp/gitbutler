@@ -507,7 +507,6 @@
 											style={changes.current.length > 0 ? 'pop' : 'neutral'}
 											type="button"
 											wide
-											hotkey={active ? '⌘s' : undefined}
 											disabled={isReadOnly ||
 												defaultBranch === null ||
 												!!projectState.exclusiveAction.current}
