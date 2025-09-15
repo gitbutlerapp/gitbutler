@@ -1,0 +1,7 @@
+body {
+	/* optimise font rendering */
+	-webkit-font-smoothing: antialiased;
+	overflow-x: hidden;
+	font-family: Inter, sans-serif;
+	text-rendering: optimizeLegibility;
+}
