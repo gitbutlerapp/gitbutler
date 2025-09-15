@@ -964,6 +964,7 @@ dependencies = [
  "rmcp",
  "serde",
  "serde_json",
+ "serde_json_lenient",
  "strum",
  "tokio",
  "tracing",

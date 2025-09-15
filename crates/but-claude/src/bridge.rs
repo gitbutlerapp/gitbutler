@@ -23,10 +23,11 @@ use crate::{
     ClaudeMessage, ClaudeMessageContent, ModelType, PermissionMode, ThinkingLevel, Transcript,
     UserInput,
     claude_config::{fmt_claude_mcp, fmt_claude_settings},
+    claude_settings::ClaudeSettings,
     db,
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
 };
-use anyhow::{Context, Result, bail};
+use anyhow::{Result, bail};
 use but_broadcaster::{Broadcaster, FrontendEvent};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
@@ -34,9 +35,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     collections::HashMap,
-    fs,
     io::{BufRead, BufReader, PipeReader, Read as _},
-    path::PathBuf,
     process::ExitStatus,
     sync::Arc,
 };
@@ -365,6 +364,7 @@ async fn spawn_command(
 
     let app_settings = ctx.lock().await.app_settings().clone();
     let claude_executable = app_settings.claude.executable.clone();
+    let cc_settings = ClaudeSettings::open(&project_path).await;
     let mut command = Command::new(claude_executable);
 
     /// Don't create a terminal window on windows.
@@ -379,7 +379,7 @@ async fn spawn_command(
     command.stderr(write_stderr);
     command.current_dir(&project_path);
 
-    command.envs(collect_configured_env(&project_path).await);
+    command.envs(cc_settings.env());
 
     command.args(["--settings", &settings]);
     command.args(["--mcp-config", &mcp_config]);
@@ -593,52 +593,4 @@ pub async fn check_claude_available(claude_executable: &str) -> ClaudeCheckResul
         },
         _ => ClaudeCheckResult::NotAvailable,
     }
-}
-
-#[cfg(target_os = "macos")]
-const ENTERPRISE_PATH: &str = "/Library/Application Support/ClaudeCode/managed-settings.json";
-#[cfg(target_os = "linux")]
-const ENTERPRISE_PATH: &str = "/etc/claude-code/managed-settings.json";
-#[cfg(target_os = "windows")]
-const ENTERPRISE_PATH: &str = "C:\\ProgramData\\ClaudeCode\\managed-settings.json";
-
-/// Collect any configured environment variables in the `settings.json`s. This
-/// is in order to work around https://github.com/anthropics/claude-code/issues/7452.
-async fn collect_configured_env(project_path: &std::path::Path) -> HashMap<String, String> {
-    collect_configured_env_inner(project_path)
-        .await
-        .unwrap_or(HashMap::new())
-}
-
-async fn collect_configured_env_inner(
-    project_path: &std::path::Path,
-) -> Result<HashMap<String, String>> {
-    let home = dirs::home_dir().context("Can't find home")?;
-    // Paths in order of precidence
-    let paths = [
-        home.join(".claude/settings.json"),
-        project_path.join(".claude/settings.json"),
-        project_path.join(".claude/settings.local.json"),
-        PathBuf::from(ENTERPRISE_PATH),
-    ];
-
-    let mut out = HashMap::new();
-
-    for path in paths {
-        if !fs::exists(&path)? {
-            continue;
-        }
-
-        let string = fs::read_to_string(&path)?;
-        let settings: serde_json::Value = serde_json::from_str(&string)?;
-        if let Some(env) = settings["env"].as_object() {
-            for (key, value) in env {
-                if let Some(value) = value.as_str() {
-                    out.insert(key.clone(), value.to_owned());
-                }
-            }
-        }
-    }
-
-    Ok(out)
 }
