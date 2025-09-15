@@ -3,6 +3,7 @@ use uuid::Uuid;
 pub mod bridge;
 pub use bridge::ClaudeCheckResult;
 pub(crate) mod claude_config;
+pub(crate) mod claude_mcp;
 pub(crate) mod claude_settings;
 pub(crate) mod claude_transcript;
 pub use claude_transcript::Transcript;

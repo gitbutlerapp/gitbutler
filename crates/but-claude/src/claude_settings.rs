@@ -60,7 +60,6 @@ impl ClaudeSettings {
         Self { settings }
     }
 
-    #[allow(unused)]
     pub fn enable_all_project_mcp_servers(&self) -> bool {
         let mut out = false;
 
@@ -73,7 +72,6 @@ impl ClaudeSettings {
         out
     }
 
-    #[allow(unused)]
     pub fn enabled_project_mcp_servers(&self) -> HashSet<String> {
         let mut out = HashSet::new();
 

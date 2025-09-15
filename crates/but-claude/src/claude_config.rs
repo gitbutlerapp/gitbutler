@@ -44,19 +44,3 @@ pub fn fmt_claude_settings() -> Result<String> {
 
     Ok(serde_json::to_string(&config)?)
 }
-
-pub fn fmt_claude_mcp() -> Result<String> {
-    let config = json!({
-        "mcpServers": {
-            "but-security": {
-                "type": "stdio",
-                // I don't really know why, but we _don't_ want this to be a string
-                "command": get_cli_path()?.to_string_lossy(),
-                "args": ["claude", "pp"],
-                "env": {}
-            }
-        }
-    });
-
-    Ok(serde_json::to_string(&config)?)
-}

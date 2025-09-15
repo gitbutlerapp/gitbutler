@@ -22,7 +22,8 @@
 use crate::{
     ClaudeMessage, ClaudeMessageContent, ModelType, PermissionMode, ThinkingLevel, Transcript,
     UserInput,
-    claude_config::{fmt_claude_mcp, fmt_claude_settings},
+    claude_config::fmt_claude_settings,
+    claude_mcp::ClaudeMcpConfig,
     claude_settings::ClaudeSettings,
     db,
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
@@ -360,11 +361,12 @@ async fn spawn_command(
 ) -> Result<Child> {
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
-    let mcp_config = fmt_claude_mcp()?;
 
     let app_settings = ctx.lock().await.app_settings().clone();
     let claude_executable = app_settings.claude.executable.clone();
     let cc_settings = ClaudeSettings::open(&project_path).await;
+    let mcp_config = ClaudeMcpConfig::open(&cc_settings, &project_path).await;
+    let mcp_config = serde_json::to_string(&mcp_config.mcp_servers_with_security())?;
     let mut command = Command::new(claude_executable);
 
     /// Don't create a terminal window on windows.
@@ -382,7 +384,13 @@ async fn spawn_command(
     command.envs(cc_settings.env());
 
     command.args(["--settings", &settings]);
+
+    // Mcp configuration. We now use --strict-mcp-config because we collect the
+    // set of MCP configurations ourselves so we can then filter out ones that
+    // we don't want in a given call.
     command.args(["--mcp-config", &mcp_config]);
+    command.args(["--strict-mcp-config"]);
+
     command.args(["--output-format", "stream-json"]);
 
     // Only add --model if useConfiguredModel is false
