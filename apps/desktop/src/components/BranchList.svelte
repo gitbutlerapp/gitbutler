@@ -224,7 +224,6 @@
 											branchName
 										});
 									}}
-									hotkey={active && i === 0 ? '⌘P' : undefined}
 									testId={TestId.CreateReviewButton}
 									disabled={!!projectState.exclusiveAction.current}
 									icon={getForgeLogo(forge.current.name, true)}
@@ -253,7 +252,6 @@
 							{branchName}
 							{projectId}
 							{stackId}
-							{active}
 							multipleBranches={branches.length > 1}
 							isFirstBranchInStack={firstBranch}
 							isLastBranchInStack={lastBranch}
