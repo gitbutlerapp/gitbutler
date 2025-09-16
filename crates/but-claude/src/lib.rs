@@ -152,3 +152,14 @@ pub enum PermissionMode {
     Plan,
     AcceptEdits,
 }
+
+/// Represents user-provided parameters for Claude requests.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeUserParams {
+    pub message: String,
+    pub thinking_level: ThinkingLevel,
+    pub model: ModelType,
+    pub permission_mode: PermissionMode,
+    pub disabled_mcp_servers: Vec<String>,
+}

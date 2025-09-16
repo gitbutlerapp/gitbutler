@@ -20,8 +20,8 @@
 //!   more complex with more unknowns.
 
 use crate::{
-    ClaudeMessage, ClaudeMessageContent, ModelType, PermissionMode, ThinkingLevel, Transcript,
-    UserInput,
+    ClaudeMessage, ClaudeMessageContent, ClaudeUserParams, PermissionMode, ThinkingLevel,
+    Transcript, UserInput,
     claude_config::fmt_claude_settings,
     claude_mcp::ClaudeMcpConfig,
     claude_settings::ClaudeSettings,
@@ -66,34 +66,20 @@ impl Claudes {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub async fn send_message(
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
         stack_id: StackId,
-        message: &str,
-        thinking_level: ThinkingLevel,
-        model: ModelType,
-        permission_mode: PermissionMode,
-        disabled_mcp_servers: Vec<String>,
+        user_params: ClaudeUserParams,
     ) -> Result<()> {
         if self.requests.lock().await.contains_key(&stack_id) {
             bail!(
                 "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
             )
         } else {
-            self.spawn_claude(
-                ctx,
-                broadcaster,
-                stack_id,
-                message.to_owned(),
-                thinking_level,
-                model,
-                permission_mode,
-                disabled_mcp_servers,
-            )
-            .await
+            self.spawn_claude(ctx, broadcaster, stack_id, user_params)
+                .await
         };
 
         Ok(())
@@ -136,29 +122,15 @@ impl Claudes {
         requests.contains_key(&stack_id)
     }
 
-    #[allow(clippy::too_many_arguments)]
     async fn spawn_claude(
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
         stack_id: StackId,
-        message: String,
-        thinking_level: ThinkingLevel,
-        model: ModelType,
-        permission_mode: PermissionMode,
-        disabled_mcp_servers: Vec<String>,
+        user_params: ClaudeUserParams,
     ) -> () {
         let res = self
-            .spawn_claude_inner(
-                ctx.clone(),
-                broadcaster.clone(),
-                stack_id,
-                message,
-                thinking_level,
-                model,
-                permission_mode,
-                disabled_mcp_servers,
-            )
+            .spawn_claude_inner(ctx.clone(), broadcaster.clone(), stack_id, user_params)
             .await;
         if let Err(res) = res {
             let mut ctx = ctx.lock().await;
@@ -185,17 +157,12 @@ impl Claudes {
         };
     }
 
-    #[allow(clippy::too_many_arguments)]
     async fn spawn_claude_inner(
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
         stack_id: StackId,
-        message: String,
-        thinking_level: ThinkingLevel,
-        model: ModelType,
-        permission_mode: PermissionMode,
-        disabled_mcp_servers: Vec<String>,
+        user_params: ClaudeUserParams,
     ) -> Result<()> {
         let (send_kill, mut recv_kill) = unbounded_channel();
         self.requests
@@ -229,7 +196,7 @@ impl Claudes {
                 session_id,
                 stack_id,
                 ClaudeMessageContent::UserInput(UserInput {
-                    message: message.to_owned(),
+                    message: user_params.message.clone(),
                 }),
             )
             .await?;
@@ -247,16 +214,12 @@ impl Claudes {
         // Clone so the reference to ctx can be immediatly dropped
         let project = ctx.lock().await.project().clone();
         let mut handle = spawn_command(
-            message,
             writer,
             write_stderr,
             session,
             project.path.clone(),
             ctx.clone(),
-            thinking_level,
-            model,
-            permission_mode,
-            disabled_mcp_servers,
+            user_params,
         )
         .await?;
         let cmd_exit = tokio::select! {
@@ -353,18 +316,13 @@ enum Exit {
 }
 
 /// Spawns the actual claude code command
-#[allow(clippy::too_many_arguments)]
 async fn spawn_command(
-    message: String,
     writer: std::io::PipeWriter,
     write_stderr: std::io::PipeWriter,
     session: crate::ClaudeSession,
     project_path: std::path::PathBuf,
     ctx: Arc<Mutex<CommandContext>>,
-    thinking_level: ThinkingLevel,
-    model: ModelType,
-    permission_mode: PermissionMode,
-    disabled_mcp_servers: Vec<String>,
+    user_params: ClaudeUserParams,
 ) -> Result<Child> {
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
@@ -373,7 +331,8 @@ async fn spawn_command(
     let claude_executable = app_settings.claude.executable.clone();
     let cc_settings = ClaudeSettings::open(&project_path).await;
     let mcp_config = ClaudeMcpConfig::open(&cc_settings, &project_path).await;
-    let disabled_mcp_servers = disabled_mcp_servers
+    let disabled_mcp_servers = user_params
+        .disabled_mcp_servers
         .iter()
         .map(String::as_str)
         .collect::<Vec<&str>>();
@@ -411,7 +370,7 @@ async fn spawn_command(
 
     // Only add --model if useConfiguredModel is false
     if !app_settings.claude.use_configured_model {
-        command.args(["--model", model.to_cli_string()]);
+        command.args(["--model", user_params.model.to_cli_string()]);
     }
 
     command.args(["-p", "--verbose"]);
@@ -424,7 +383,7 @@ async fn spawn_command(
             "mcp__but-security__approval_prompt",
         ]);
         // Set permission mode based on interaction mode
-        match permission_mode {
+        match user_params.permission_mode {
             PermissionMode::Default => {}
             PermissionMode::Plan => {
                 command.args(["--permission-mode", "plan"]);
@@ -445,7 +404,10 @@ async fn spawn_command(
 
     command.args(["--append-system-prompt", SYSTEM_PROMPT]);
 
-    command.arg(format_message(&message, thinking_level));
+    command.arg(format_message(
+        &user_params.message,
+        user_params.thinking_level,
+    ));
     Ok(command.spawn()?)
 }
 

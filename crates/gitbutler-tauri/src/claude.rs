@@ -5,15 +5,15 @@ use but_api::{
     error::Error,
     App,
 };
-use but_claude::{ClaudeMessage, ModelType, PermissionMode, ThinkingLevel};
+use but_claude::{ClaudeMessage, ClaudeUserParams, ModelType, PermissionMode, ThinkingLevel};
 use but_workspace::StackId;
 use gitbutler_project::ProjectId;
 use tauri::State;
 use tracing::instrument;
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
 #[instrument(skip(app), err(Debug))]
-#[allow(clippy::too_many_arguments)]
 pub async fn claude_send_message(
     app: State<'_, App>,
     project_id: ProjectId,
@@ -29,11 +29,13 @@ pub async fn claude_send_message(
         SendMessageParams {
             project_id,
             stack_id,
-            message,
-            thinking_level,
-            model,
-            permission_mode,
-            disabled_mcp_servers,
+            user_params: ClaudeUserParams {
+                message,
+                thinking_level,
+                model,
+                permission_mode,
+                disabled_mcp_servers,
+            },
         },
     )
     .await

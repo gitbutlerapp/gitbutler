@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_claude::{
-    ClaudeCheckResult, ClaudeMessage, ModelType, PermissionMode, ThinkingLevel, Transcript,
+    ClaudeCheckResult, ClaudeMessage, ClaudeUserParams, Transcript,
     claude_mcp::{ClaudeMcpConfig, McpConfig},
     claude_settings::ClaudeSettings,
     prompt_templates,
@@ -23,11 +23,8 @@ use crate::{App, error::Error};
 pub struct SendMessageParams {
     pub project_id: ProjectId,
     pub stack_id: StackId,
-    pub message: String,
-    pub thinking_level: ThinkingLevel,
-    pub model: ModelType,
-    pub permission_mode: PermissionMode,
-    pub disabled_mcp_servers: Vec<String>,
+    #[serde(flatten)]
+    pub user_params: ClaudeUserParams,
 }
 
 pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result<(), Error> {
@@ -41,11 +38,7 @@ pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result
             ctx,
             app.broadcaster.clone(),
             params.stack_id,
-            &params.message,
-            params.thinking_level,
-            params.model,
-            params.permission_mode,
-            params.disabled_mcp_servers,
+            params.user_params,
         )
         .await?;
     Ok(())
