@@ -38,7 +38,8 @@ type McpServers = HashMap<String, McpServer>;
 #[serde(rename_all = "camelCase")]
 struct McpServer {
     r#type: Option<String>,
-    command: String,
+    command: Option<String>,
+    url: Option<String>,
     args: Option<Vec<String>>,
     env: Option<HashMap<String, String>>,
 }
@@ -109,7 +110,8 @@ impl ClaudeMcpConfig {
             "but-security".to_owned(),
             McpServer {
                 r#type: Some("stdio".to_owned()),
-                command: "but".to_owned(),
+                command: Some("but".to_owned()),
+                url: None,
                 args: Some(vec!["claude".to_owned(), "pp".to_owned()]),
                 env: Some(HashMap::new()),
             },

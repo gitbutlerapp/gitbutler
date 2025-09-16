@@ -44,7 +44,12 @@
 	<div class="mcp-server">
 		<div class="mcp-server__body">
 			<p class="text-14 text-bold">{name}</p>
-			<p class="text-13">{server.command} {server.args?.join(' ')}</p>
+			{#if server.command}
+				<p class="text-13">{server.command} {server.args?.join(' ')}</p>
+			{/if}
+			{#if server.url}
+				<p class="text-13">{server.url}</p>
+			{/if}
 		</div>
 		<div class="mcp-server__actions">
 			<Toggle checked={!disabledServers.includes(name)} onclick={() => toggleServer(name)} />
