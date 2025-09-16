@@ -560,7 +560,7 @@ export class StackService {
 			{ projectId, commitId },
 			{
 				transform: (result) => ({
-					changes: changesSelectors.selectAll(result.changes),
+					changes: sortLikeFileTree(changesSelectors.selectAll(result.changes)),
 					stats: result.stats,
 					conflictEntries: result.conflictEntries
 				})
@@ -611,7 +611,7 @@ export class StackService {
 			},
 			{
 				transform: (result) => ({
-					changes: changesSelectors.selectAll(result.changes),
+					changes: sortLikeFileTree(changesSelectors.selectAll(result.changes)),
 					stats: result.stats
 				})
 			}
