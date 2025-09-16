@@ -172,5 +172,3 @@ mod snapshot_details {
         }
     }
 }
-
-

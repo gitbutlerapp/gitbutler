@@ -442,14 +442,15 @@ fn first_snapshot_diff_works() -> anyhow::Result<()> {
 
     let snapshots = ctx.list_snapshots(10, None, Vec::new())?;
     assert!(!snapshots.is_empty(), "Should have at least one snapshot");
-    
+
     // Test snapshot_diff on all snapshots to make sure none fail (including the first one)
     for snapshot in &snapshots {
         let diff_result = ctx.snapshot_diff(snapshot.commit_id);
         assert!(
             diff_result.is_ok(),
             "snapshot_diff should work for snapshot {}, got error: {:?}",
-            snapshot.commit_id, diff_result.err()
+            snapshot.commit_id,
+            diff_result.err()
         );
     }
 
