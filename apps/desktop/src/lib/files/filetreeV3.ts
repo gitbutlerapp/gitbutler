@@ -74,18 +74,44 @@ export function changesToFileTree(files: TreeChange[]): TreeNode {
 	return acc;
 }
 
-function fileTreeToList(node: TreeNode): TreeChange[] {
-	const list: TreeChange[] = [];
-	if (node.kind === 'file') list.push(node.change);
-	node.children.forEach((child) => {
-		list.push(...fileTreeToList(child));
-	});
-	return list;
-}
+export function sortLikeFileTree(changes: TreeChange[]): TreeChange[] {
+	const caseSensitive = false;
+	const locale = 'en';
+	const numeric = true;
+	const separator = '/';
 
-// Sorts a file list the same way it is sorted in a file tree
-export function sortLikeFileTree(files: TreeChange[]): TreeChange[] {
-	return fileTreeToList(changesToFileTree(files));
+	const compareOptions: Intl.CollatorOptions = {
+		sensitivity: caseSensitive ? 'case' : 'base',
+		numeric: numeric,
+		caseFirst: 'lower'
+	};
+
+	return changes.sort((a, b) => {
+		const partsA = a.path.split(separator);
+		const partsB = b.path.split(separator);
+
+		// Compare directory by directory
+		const minLength = Math.min(partsA.length, partsB.length);
+
+		for (let i = 0; i < minLength - 1; i++) {
+			const comparison = partsA[i]!.localeCompare(partsB[i]!, locale, compareOptions);
+			if (comparison !== 0) {
+				return comparison;
+			}
+		}
+
+		// Same parent directory - subfolders first
+		if (partsA.length !== partsB.length) {
+			return partsB.length - partsA.length;
+		}
+
+		// Same depth, compare final component
+		return partsA[partsA.length - 1]!.localeCompare(
+			partsB[partsB.length - 1]!,
+			locale,
+			compareOptions
+		);
+	});
 }
 
 /**
