@@ -18,8 +18,10 @@
 		"oauthClientId": "cd51880daa675d9e6452"
 	},
 	"featureFlags": {
-		// Enables the v3 safe checkout, apply and unapply.
+		// Deprecated, was used for the new version of the UI.
 		"v3": false,
+		// Enables the v3 safe checkout.
+		"cv3": false,
 		/// Enable the usage of V3 workspace APIs.
 		"ws3": false,
 		/// Enable undo/redo support.

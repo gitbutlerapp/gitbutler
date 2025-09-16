@@ -334,7 +334,7 @@ pub mod stacks {
         let app_settings = AppSettings {
             feature_flags: but_settings::app_settings::FeatureFlags {
                 ws3,
-                v3: false,
+                cv3: false,
                 undo: false,
                 actions: false,
                 butbot: false,

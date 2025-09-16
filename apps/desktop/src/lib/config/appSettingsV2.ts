@@ -158,8 +158,8 @@ export type TelemetrySettings = {
 };
 
 export type FeatureFlags = {
-	/** Enable everything next-gen */
-	v3: boolean;
+	/** Enable everything next-gen checkout */
+	cv3: boolean;
 	/** Enable the usage of the V3 workspace API */
 	ws3: boolean;
 	/** Enable the usage of GitButler Acitions. */
