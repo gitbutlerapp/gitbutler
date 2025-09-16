@@ -68,6 +68,7 @@
 		Modal
 	} from '@gitbutler/ui';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
+
 	import type { ClaudeMessage, ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
 
 	type Props = {
@@ -269,6 +270,21 @@
 		const nextMode = permissionModeOptions[nextIndex];
 		if (nextMode) {
 			uiState.lane(selectedBranch.stackId).permissionMode.set(nextMode.value);
+		}
+	}
+
+	function getPermissionModeIcon(
+		mode: PermissionMode
+	): 'edit-with-permissions' | 'checklist' | 'allow-all' {
+		switch (mode) {
+			case 'default':
+				return 'edit-with-permissions';
+			case 'plan':
+				return 'checklist';
+			case 'acceptEdits':
+				return 'allow-all';
+			default:
+				return 'edit-with-permissions';
 		}
 	}
 
@@ -585,6 +601,9 @@
 										: undefined}
 								>
 									{#snippet actions()}
+										{@const permissionModeLabel = permissionModeOptions.find(
+											(a) => a.value === selectedPermissionMode
+										)?.label}
 										<div class="flex m-right-4 gap-4">
 											<Button disabled kind="outline" icon="attachment" reversedDirection />
 											<Button
@@ -603,6 +622,17 @@
 												tooltip="Thinking mode"
 												children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
 											/>
+											<Button
+												bind:el={permissionModeTrigger}
+												kind="outline"
+												icon={getPermissionModeIcon(selectedPermissionMode)}
+												shrinkable
+												onclick={() => permissionModeContextMenu?.toggle()}
+												tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
+													? 'Permission modes disable when all permissions are allowed'
+													: `Permission mode: ${permissionModeLabel}`}
+												disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
+											/>
 										</div>
 
 										{#if !claudeSettings?.useConfiguredModel}
@@ -616,20 +646,6 @@
 												{modelOptions.find((a) => a.value === selectedModel)?.label}
 											</Button>
 										{/if}
-
-										<Button
-											bind:el={permissionModeTrigger}
-											kind="ghost"
-											icon="chevron-down"
-											shrinkable
-											onclick={() => permissionModeContextMenu?.toggle()}
-											tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
-												? 'Permission modes are disabled when dangerously allowing all permissions'
-												: 'Permission Mode'}
-											disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
-										>
-											{permissionModeOptions.find((a) => a.value === selectedPermissionMode)?.label}
-										</Button>
 									{/snippet}
 								</CodegenInput>
 							{:else}
@@ -1007,6 +1023,7 @@
 		{#each permissionModeOptions as option}
 			<ContextMenuItem
 				label={option.label}
+				icon={getPermissionModeIcon(option.value)}
 				selected={selectedPermissionMode === option.value}
 				onclick={() => selectPermissionMode(option.value)}
 			/>
