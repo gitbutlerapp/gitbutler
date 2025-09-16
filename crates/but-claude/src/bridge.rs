@@ -41,6 +41,7 @@ use std::{
     sync::Arc,
 };
 use tokio::{
+    fs,
     process::{Child, Command},
     sync::{
         Mutex,
@@ -399,6 +400,11 @@ async fn spawn_command(
     if let Some(current_id) = current_id {
         command.args(["--resume", &format!("{current_id}")]);
     } else {
+        // Ensure that there isn't an existant invalid transcript
+        let path = Transcript::get_transcript_path(&project_path, session.id)?;
+        if fs::try_exists(&path).await? {
+            fs::remove_file(&path).await?;
+        }
         command.args(["--session-id", &format!("{}", session.id)]);
     }
 
