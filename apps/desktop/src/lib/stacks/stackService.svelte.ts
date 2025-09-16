@@ -619,7 +619,12 @@ export class StackService {
 		);
 	}
 
-	branchChange(args: { projectId: string; stackId?: string | null; branch: BranchRef; path: string }) {
+	branchChange(args: {
+		projectId: string;
+		stackId?: string | null;
+		branch: BranchRef;
+		path: string;
+	}) {
 		return this.api.endpoints.branchChanges.useQuery(
 			{
 				projectId: args.projectId,

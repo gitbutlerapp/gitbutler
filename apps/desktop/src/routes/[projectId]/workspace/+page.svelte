@@ -19,11 +19,13 @@
 	// Check for stackId in URL query parameters
 	// Note: URLSearchParams.get() returns strings, so "null" becomes the string "null"
 	// We need to convert it back to actual null for proper API handling
-	const urlStackId = $derived((() => {
-		const param = page.url.searchParams.get('stackId');
-		// Convert string "null" back to actual null
-		return param === 'null' ? null : param;
-	})());
+	const urlStackId = $derived(
+		(() => {
+			const param = page.url.searchParams.get('stackId');
+			// Convert string "null" back to actual null
+			return param === 'null' ? null : param;
+		})()
+	);
 	let scrollToStackId = $state<string | undefined>(undefined);
 
 	const firstStackResult = $derived(stackService.stackAt(projectId, 0));
