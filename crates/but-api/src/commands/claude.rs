@@ -184,3 +184,13 @@ pub async fn claude_get_mcp_config(project_id: ProjectId) -> Result<McpConfig, E
     let mcp_config = ClaudeMcpConfig::open(&settings, &project.path).await;
     Ok(mcp_config.mcp_servers())
 }
+
+#[tauri::command(async)]
+#[instrument(err(Debug))]
+pub async fn claude_get_sub_agents(
+    project_id: ProjectId,
+) -> Result<Vec<but_claude::SubAgent>, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let sub_agents = but_claude::claude_sub_agents::read_claude_sub_agents(&project.path).await;
+    Ok(sub_agents)
+}

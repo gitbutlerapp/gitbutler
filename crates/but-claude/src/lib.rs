@@ -5,6 +5,8 @@ pub use bridge::ClaudeCheckResult;
 pub(crate) mod claude_config;
 pub mod claude_mcp;
 pub mod claude_settings;
+pub mod claude_sub_agents;
+pub use claude_sub_agents::SubAgent;
 pub(crate) mod claude_transcript;
 pub use claude_transcript::Transcript;
 pub mod db;
