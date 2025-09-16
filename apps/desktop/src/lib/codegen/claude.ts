@@ -7,7 +7,8 @@ import {
 	type ModelType,
 	type PermissionMode,
 	type PromptTemplates,
-	type McpConfig
+	type McpConfig,
+	type SubAgent
 } from '$lib/codegen/types';
 import { hasBackendExtra } from '$lib/state/backendQuery';
 import {
@@ -109,6 +110,10 @@ export class ClaudeCodeService {
 
 	get mcpConfig() {
 		return this.api.endpoints.getMcpConfig.useQuery;
+	}
+
+	get subAgents() {
+		return this.api.endpoints.getSubAgents.useQuery;
 	}
 }
 
@@ -288,6 +293,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			getMcpConfig: build.query<McpConfig, { projectId: string }>({
 				extraOptions: { command: 'claude_get_mcp_config' },
+				query: (args) => args
+			}),
+			getSubAgents: build.query<SubAgent[], { projectId: string }>({
+				extraOptions: { command: 'claude_get_sub_agents' },
 				query: (args) => args
 			})
 		})

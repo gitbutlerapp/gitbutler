@@ -493,6 +493,21 @@ async fn handle_command(
         "claude_get_prompt_templates_path" => {
             claude::claude_get_prompt_templates_path_cmd(request.params)
         }
+        "claude_get_sub_agents" => {
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Params {
+                project_id: ProjectId,
+            }
+            let params = serde_json::from_value::<Params>(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = claude::claude_get_sub_agents(params.project_id).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
 
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
     };

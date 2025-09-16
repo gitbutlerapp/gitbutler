@@ -199,3 +199,11 @@ export type McpServer = {
 	args: string[] | null;
 	env: Record<string, string> | null;
 };
+
+export type SubAgent = {
+	name: string;
+	description: string;
+	// If this is null, all tools are allowed
+	tools: string[] | null;
+	model: string | null;
+};
