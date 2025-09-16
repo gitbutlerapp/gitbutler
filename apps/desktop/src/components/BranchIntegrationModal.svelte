@@ -2,7 +2,12 @@
 	import CommitLine from '$components/CommitLine.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { isCommit, type Commit, type UpstreamCommit } from '$lib/branches/v3';
+	import {
+		extractUpstreamCommitId,
+		isCommit,
+		type Commit,
+		type UpstreamCommit
+	} from '$lib/branches/v3';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Modal, ModalFooter, Button, ScrollableContainer, SimpleCommitRow } from '@gitbutler/ui';
@@ -47,6 +52,28 @@
 			return step;
 		});
 	}
+
+	function pickUpstreamFromStep(stepId: string, commitId: string, upstreamCommitId: string) {
+		editableSteps = editableSteps.map((step) => {
+			if (step.subject.id === stepId) {
+				return {
+					type: 'pickUpstream',
+					subject: { id: stepId, commitId, upstreamCommitId }
+				};
+			}
+			return step;
+		});
+	}
+
+	function pickLocalFromStep(stepId: string, commitId: string) {
+		editableSteps = editableSteps.map((step) => {
+			if (step.subject.id === stepId) {
+				return { type: 'pick', subject: { id: stepId, commitId } };
+			}
+			return step;
+		});
+	}
+
 	function skipStepById(stepId: string, commitId: string) {
 		updateStepType(stepId, commitId, 'skip');
 	}
@@ -64,6 +91,8 @@
 	} {
 		const id = step.subject.id;
 		switch (step.type) {
+			case 'pickUpstream':
+				return { id, commitIds: [step.subject.upstreamCommitId] };
 			case 'pick':
 			case 'skip':
 				return { id, commitIds: [step.subject.commitId] };
@@ -235,23 +264,30 @@
 	commit: Commit | UpstreamCommit,
 	stepId: string,
 	commitId: string,
-	stepType: 'pick' | 'skip' | 'squash',
+	stepType: 'pick' | 'skip' | 'squash' | 'pickUpstream',
 	isLastInSquash: boolean = false,
 	isFirstInSquash: boolean = false,
 	squashCommits: string[] = []
 )}
 	{@const isSkipStep = stepType === 'skip'}
 	{@const hideCommitDot = stepType === 'squash' && !isFirstInSquash}
-	{@render commitLine(commit, hideCommitDot)}
+	{@const upstreamSha = stepType !== 'pickUpstream' ? extractUpstreamCommitId(commit) : undefined}
+	{@render commitLine(commit, hideCommitDot, stepType === 'pickUpstream')}
 	<div class="branch-integration__commit-content">
 		<SimpleCommitRow
 			author={commit.author.name}
 			date={new Date(commit.createdAt)}
 			title={commit.message}
 			sha={commit.id}
+			{upstreamSha}
 			onCopy={() => {
 				clipboardService.write(commit.id, {
 					message: 'Commit SHA copied'
+				});
+			}}
+			onCopyUpstream={() => {
+				clipboardService.write(upstreamSha ?? '', {
+					message: 'Upstream commit SHA copied'
 				});
 			}}
 			onlyContent
@@ -299,9 +335,44 @@
 				{@render commitActions(stepId, commitId, true)}
 				{@render shiftActions(stepId, true)}
 			{:else if stepType === 'pick'}
+				{#if upstreamSha}
+					<Button
+						kind="outline"
+						size="tag"
+						icon="download"
+						tooltip="Pick the upstream commit instead"
+						onclick={() => pickUpstreamFromStep(stepId, commitId, upstreamSha)}
+					>
+						Pick upstream
+					</Button>
+				{/if}
 				{@render commitActions(stepId, commitId, false)}
 				{@render shiftActions(stepId, false)}
+			{:else if stepType === 'pickUpstream'}
+				<Button
+					kind="outline"
+					size="tag"
+					icon="commit"
+					tooltip="Pick the local commit instead"
+					onclick={() => pickLocalFromStep(stepId, commitId)}
+				>
+					Pick local
+				</Button>
+				{@render commitActions(stepId, commit.id, false)}
+				{@render shiftActions(stepId, false)}
 			{/if}
+		</div>
+	</div>
+{/snippet}
+
+{#snippet commitItemSkeleton()}
+	<CommitLine alignDot="start" commitStatus="Remote" diverged={false} />
+	<div class="branch-integration__commit-content">
+		<SimpleCommitRow title=" " sha="" date={new Date()} onlyContent />
+		<div class="branch-integration__commit-actions">
+			<Button kind="outline" size="tag" icon="download" tooltip="Pick the upstream commit instead">
+				Pick upstream
+			</Button>
 		</div>
 	</div>
 {/snippet}
@@ -339,6 +410,27 @@
 			{#snippet children(commit)}
 				{@const isSkipStep = step.type === 'skip'}
 				<div class="branch-integration__commit" class:skipped={isSkipStep}>
+					{@render commitItemTemplate(
+						commit,
+						step.subject.id,
+						step.subject.commitId,
+						step.type,
+						false,
+						false
+					)}
+				</div>
+			{/snippet}
+		</ReduxResult>
+	{:else if step.type === 'pickUpstream'}
+		{@const commitDetails = stackService.commitDetails(projectId, step.subject.upstreamCommitId)}
+		<ReduxResult {projectId} result={commitDetails.current}>
+			{#snippet loading()}
+				<div class="branch-integration__commit">
+					{@render commitItemSkeleton()}
+				</div>
+			{/snippet}
+			{#snippet children(commit)}
+				<div class="branch-integration__commit">
 					{@render commitItemTemplate(
 						commit,
 						step.subject.id,
@@ -401,8 +493,12 @@
 	</div>
 {/snippet}
 
-{#snippet commitLine(commit: Commit | UpstreamCommit, hideCommitDot: boolean = true)}
-	{#if isCommit(commit)}
+{#snippet commitLine(
+	commit: Commit | UpstreamCommit,
+	hideCommitDot: boolean = true,
+	overrideIsRemote: boolean = false
+)}
+	{#if isCommit(commit) && !overrideIsRemote}
 		<CommitLine
 			commitStatus={commit.state.type}
 			alignDot="start"
