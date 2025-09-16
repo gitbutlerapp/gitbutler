@@ -43,6 +43,7 @@
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { workspacePath } from '$lib/routes/routes.svelte';
+	import { isAiRule, type RuleFilter } from '$lib/rules/rule';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { SETTINGS } from '$lib/settings/userSettings';
@@ -67,7 +68,6 @@
 	} from '@gitbutler/ui';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type { ClaudeMessage, ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
-	import type { RuleFilter } from '$lib/rules/rule';
 
 	type Props = {
 		projectId: string;
@@ -96,7 +96,14 @@
 	const stacks = $derived(stackService.stacks(projectId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
-	const hasExistingSessions = $derived(stacks.current.data && stacks.current.data.length > 0);
+	const workspaceRules = $derived(rulesService.workspaceRules(projectId));
+	const hasExistingSessions = $derived.by(() => {
+		const stackss = stacks.current.data ?? [];
+		const aiRules = (workspaceRules.current.data ?? []).filter(isAiRule);
+		return stackss.some((stack) =>
+			aiRules.some((rule) => rule.action.subject.subject.target.subject === stack.id)
+		);
+	});
 	const [sendClaudeMessage] = claudeCodeService.sendMessage;
 
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
