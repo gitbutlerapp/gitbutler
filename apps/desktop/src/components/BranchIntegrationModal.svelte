@@ -365,18 +365,6 @@
 	</div>
 {/snippet}
 
-{#snippet commitItemSkeleton()}
-	<CommitLine alignDot="start" commitStatus="Remote" diverged={false} />
-	<div class="branch-integration__commit-content">
-		<SimpleCommitRow title=" " sha="" date={new Date()} onlyContent />
-		<div class="branch-integration__commit-actions">
-			<Button kind="outline" size="tag" icon="download" tooltip="Pick the upstream commit instead">
-				Pick upstream
-			</Button>
-		</div>
-	</div>
-{/snippet}
-
 {#snippet genericStep(step: InteractiveIntegrationStep)}
 	{@const isSquashStep = step.type === 'squash'}
 	{@const isIndividualStep = step.type === 'pick' || step.type === 'skip'}
@@ -423,11 +411,24 @@
 		</ReduxResult>
 	{:else if step.type === 'pickUpstream'}
 		{@const commitDetails = stackService.commitDetails(projectId, step.subject.upstreamCommitId)}
+		{@const localCommitDetails = stackService.commitById(projectId, stackId, step.subject.commitId)}
 		<ReduxResult {projectId} result={commitDetails.current}>
 			{#snippet loading()}
-				<div class="branch-integration__commit">
-					{@render commitItemSkeleton()}
-				</div>
+				<!-- Show local commit data while loading upstream commit to prevent flickering -->
+				<ReduxResult {projectId} result={localCommitDetails.current}>
+					{#snippet children(localCommit)}
+						<div class="branch-integration__commit">
+							{@render commitItemTemplate(
+								localCommit,
+								step.subject.id,
+								step.subject.commitId,
+								step.type,
+								false,
+								false
+							)}
+						</div>
+					{/snippet}
+				</ReduxResult>
 			{/snippet}
 			{#snippet children(commit)}
 				<div class="branch-integration__commit">
