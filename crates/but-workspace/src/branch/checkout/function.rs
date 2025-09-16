@@ -1,5 +1,6 @@
 use super::{Options, Outcome};
 use crate::branch::checkout::utils::merge_worktree_changes_into_destination_or_keep_snapshot;
+use anyhow::Context;
 use bstr::ByteSlice;
 use gitbutler_oxidize::ObjectIdExt;
 use gix::diff::rewrites::tracker::ChangeKind;
@@ -7,6 +8,7 @@ use gix::objs::TreeRefIter;
 use gix::prelude::ObjectIdExt as _;
 use gix::refs::Target;
 use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog};
+use std::collections::BTreeSet;
 use tracing::instrument;
 
 /// Given the `current_head_id^{tree}` for the tree that matches what `HEAD` points to, perform all file operations necessary
@@ -76,8 +78,42 @@ pub fn safe_checkout(
         let destination_tree = git2_repo
             .find_tree(destination_tree.id.to_git2())?
             .into_object();
+        let mut dirs_we_tried_to_delete = BTreeSet::new();
         for (kind, path_to_alter) in &changed_files {
-            if !matches!(kind, ChangeKind::Deletion) {
+            if matches!(kind, ChangeKind::Deletion) {
+                // By now we can assume that the destination tree contains all files that should be
+                // in the worktree, along with the worktree changes we will touch.
+                // Thus, it's safe to delete the files that should be deleted, before possibly recreating them.
+                let path_to_delete = repo
+                    .workdir_path(path_to_alter)
+                    .context("non-bare repository")?;
+                if let Err(err) = std::fs::remove_file(&path_to_delete) {
+                    if err.kind() == std::io::ErrorKind::NotFound
+                        || err.kind() == std::io::ErrorKind::PermissionDenied
+                        || err.kind() == std::io::ErrorKind::NotADirectory
+                    {
+                        continue;
+                    };
+                    if err.kind() == std::io::ErrorKind::IsADirectory {
+                        std::fs::remove_dir_all(path_to_delete)?;
+                    } else {
+                        return Err(err.into());
+                    }
+                } else {
+                    for dir_to_delete in path_to_delete.ancestors().skip(1) {
+                        if !dirs_we_tried_to_delete.insert(dir_to_delete.to_owned()) {
+                            break;
+                        }
+                        if let Err(err) = std::fs::remove_dir(dir_to_delete) {
+                            if err.kind() == std::io::ErrorKind::DirectoryNotEmpty {
+                                break;
+                            } else {
+                                return Err(err.into());
+                            }
+                        }
+                    }
+                }
+            } else {
                 opts.path(path_to_alter.as_bytes());
             }
         }

@@ -341,7 +341,6 @@ async fn spawn_command(
             .mcp_servers_with_security()
             .exclude(&disabled_mcp_servers),
     )?;
-    dbg!(&mcp_config);
     let mut command = Command::new(claude_executable);
 
     /// Don't create a terminal window on windows.
