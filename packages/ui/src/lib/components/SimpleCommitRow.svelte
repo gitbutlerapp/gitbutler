@@ -3,11 +3,13 @@
 	export interface Props {
 		title: string;
 		sha: string;
+		upstreamSha?: string;
 		date: Date;
 		author?: string;
 		url?: string;
 		onlyContent?: boolean;
 		onCopy?: () => void;
+		onCopyUpstream?: () => void;
 		onOpen?: (url: string) => void;
 	}
 </script>
@@ -16,7 +18,18 @@
 	import Icon from '$components/Icon.svelte';
 	import { getTimeAndAuthor } from '$lib/utils/getTimeAndAuthor';
 
-	const { title, sha, author, date, url, onlyContent, onCopy, onOpen }: Props = $props();
+	const {
+		title,
+		sha,
+		author,
+		date,
+		url,
+		onlyContent,
+		upstreamSha,
+		onCopy,
+		onCopyUpstream,
+		onOpen
+	}: Props = $props();
 </script>
 
 <div class="simple-commit-item no-select" class:content-only={onlyContent}>
@@ -32,6 +45,14 @@
 				<span>{sha.substring(0, 7)}</span>
 				<Icon name="copy-small" />
 			</button>
+
+			{#if upstreamSha}
+				<span class="details-divider">•</span>
+				<button type="button" class="details-btn copy-btn" onclick={onCopyUpstream}>
+					<span> upstream {upstreamSha.substring(0, 7)}</span>
+					<Icon name="copy-small" />
+				</button>
+			{/if}
 
 			{#if url && onOpen}
 				<span class="details-divider">•</span>

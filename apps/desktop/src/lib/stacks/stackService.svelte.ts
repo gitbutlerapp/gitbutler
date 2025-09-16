@@ -1162,6 +1162,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				},
 				{ projectId: string; commitId: string }
 			>({
+				keepUnusedDataFor: 60, // Keep for 1 minute after last use
 				extraOptions: { command: 'commit_details' },
 				query: (args) => args,
 				providesTags: (_result, _error, { commitId }) => [

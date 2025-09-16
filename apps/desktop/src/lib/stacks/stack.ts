@@ -319,6 +319,14 @@ export type InteractiveIntegrationStep =
 			};
 	  }
 	| {
+			type: 'pickUpstream';
+			subject: {
+				id: string;
+				commitId: string;
+				upstreamCommitId: string;
+			};
+	  }
+	| {
 			type: 'squash';
 			subject: {
 				id: string;
