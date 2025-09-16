@@ -68,6 +68,7 @@
 		Modal
 	} from '@gitbutler/ui';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
+
 	import type { ClaudeMessage, ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
 
 	type Props = {
@@ -272,6 +273,21 @@
 		}
 	}
 
+	function getPermissionModeIcon(
+		mode: PermissionMode
+	): 'edit-with-permissions' | 'checklist' | 'allow-all' {
+		switch (mode) {
+			case 'default':
+				return 'edit-with-permissions';
+			case 'plan':
+				return 'checklist';
+			case 'acceptEdits':
+				return 'allow-all';
+			default:
+				return 'edit-with-permissions';
+		}
+	}
+
 	function thinkingLevelToUiLabel(level: ThinkingLevel): string {
 		switch (level) {
 			case 'normal':
@@ -279,9 +295,9 @@
 			case 'think':
 				return 'Think';
 			case 'megaThink':
-				return 'Mega Think';
+				return 'Mega think';
 			case 'ultraThink':
-				return 'Ultra Think';
+				return 'Ultra think';
 			default:
 				return 'Normal';
 		}
@@ -585,6 +601,9 @@
 										: undefined}
 								>
 									{#snippet actions()}
+										{@const permissionModeLabel = permissionModeOptions.find(
+											(a) => a.value === selectedPermissionMode
+										)?.label}
 										<div class="flex m-right-4 gap-4">
 											<Button disabled kind="outline" icon="attachment" reversedDirection />
 											<Button
@@ -597,11 +616,22 @@
 											<Button
 												bind:el={thinkingModeTrigger}
 												kind="outline"
-												icon="brain"
+												icon="thinking"
 												reversedDirection
 												onclick={() => thinkingModeContextMenu?.toggle()}
-												tooltip="Thinking Mode"
+												tooltip="Thinking mode"
 												children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
+											/>
+											<Button
+												bind:el={permissionModeTrigger}
+												kind="outline"
+												icon={getPermissionModeIcon(selectedPermissionMode)}
+												shrinkable
+												onclick={() => permissionModeContextMenu?.toggle()}
+												tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
+													? 'Permission modes disable when all permissions are allowed'
+													: `Permission mode: ${permissionModeLabel}`}
+												disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
 											/>
 										</div>
 
@@ -616,20 +646,6 @@
 												{modelOptions.find((a) => a.value === selectedModel)?.label}
 											</Button>
 										{/if}
-
-										<Button
-											bind:el={permissionModeTrigger}
-											kind="ghost"
-											icon="chevron-down"
-											shrinkable
-											onclick={() => permissionModeContextMenu?.toggle()}
-											tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
-												? 'Permission modes are disabled when dangerously allowing all permissions'
-												: 'Permission Mode'}
-											disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
-										>
-											{permissionModeOptions.find((a) => a.value === selectedPermissionMode)?.label}
-										</Button>
 									{/snippet}
 								</CodegenInput>
 							{:else}
@@ -971,7 +987,11 @@
 <ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top" align="start">
 	<ContextMenuSection>
 		{#each modelOptions as option}
-			<ContextMenuItem label={option.label} onclick={() => selectModel(option.value)} />
+			<ContextMenuItem
+				label={option.label}
+				selected={selectedModel === option.value}
+				onclick={() => selectModel(option.value)}
+			/>
 		{/each}
 	</ContextMenuSection>
 </ContextMenu>
@@ -982,10 +1002,11 @@
 	align="start"
 	side="top"
 >
-	<ContextMenuSection title="Thinking Mode">
+	<ContextMenuSection>
 		{#each thinkingLevels as level}
 			<ContextMenuItem
 				label={thinkingLevelToUiLabel(level)}
+				selected={selectedThinkingLevel === level}
 				onclick={() => selectThinkingLevel(level)}
 			/>
 		{/each}
@@ -998,9 +1019,14 @@
 	align="start"
 	side="top"
 >
-	<ContextMenuSection title="Permission Mode (⌘P)">
+	<ContextMenuSection>
 		{#each permissionModeOptions as option}
-			<ContextMenuItem label={option.label} onclick={() => selectPermissionMode(option.value)} />
+			<ContextMenuItem
+				label={option.label}
+				icon={getPermissionModeIcon(option.value)}
+				selected={selectedPermissionMode === option.value}
+				onclick={() => selectPermissionMode(option.value)}
+			/>
 		{/each}
 	</ContextMenuSection>
 </ContextMenu>
@@ -1011,7 +1037,7 @@
 	side="top"
 	align="start"
 >
-	<ContextMenuSection title="Templates">
+	<ContextMenuSection>
 		<ReduxResult result={promptTemplates.current} {projectId}>
 			{#snippet children(promptTemplates, { projectId: _projectId })}
 				{#each promptTemplates.templates as template}
@@ -1025,7 +1051,7 @@
 	</ContextMenuSection>
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Edit templates in {$userSettings.defaultCodeEditor.displayName}"
+			label="Edit in {$userSettings.defaultCodeEditor.displayName}"
 			icon="open-editor"
 			onclick={configureTemplates}
 		/>
