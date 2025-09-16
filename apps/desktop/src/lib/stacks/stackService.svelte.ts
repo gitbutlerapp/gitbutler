@@ -602,11 +602,12 @@ export class StackService {
 	 * If the branch is part of a stack and if the stackId is provided, this will include only the changes up to the next branch in the stack.
 	 * Otherwise, if stackId is not provided, this will include all changes as compared to the target branch
 	 */
-	branchChanges(args: { projectId: string; stackId?: string; branch: BranchRef }) {
+	branchChanges(args: { projectId: string; stackId?: string | null; branch: BranchRef }) {
 		return this.api.endpoints.branchChanges.useQuery(
 			{
 				projectId: args.projectId,
-				stackId: args.stackId,
+				// Handle case where URL parameters convert null to "null" string
+				stackId: args.stackId === 'null' ? null : args.stackId,
 				branch: args.branch
 			},
 			{
@@ -618,11 +619,12 @@ export class StackService {
 		);
 	}
 
-	branchChange(args: { projectId: string; stackId?: string; branch: BranchRef; path: string }) {
+	branchChange(args: { projectId: string; stackId?: string | null; branch: BranchRef; path: string }) {
 		return this.api.endpoints.branchChanges.useQuery(
 			{
 				projectId: args.projectId,
-				stackId: args.stackId,
+				// Handle case where URL parameters convert null to "null" string
+				stackId: args.stackId === 'null' ? null : args.stackId,
 				branch: args.branch
 			},
 			{ transform: (result) => changesSelectors.selectById(result.changes, args.path) }
@@ -631,14 +633,15 @@ export class StackService {
 
 	async branchChangesByPaths(args: {
 		projectId: string;
-		stackId?: string;
+		stackId?: string | null;
 		branch: BranchRef;
 		paths: string[];
 	}) {
 		const result = await this.api.endpoints.branchChanges.fetch(
 			{
 				projectId: args.projectId,
-				stackId: args.stackId,
+				// Handle case where URL parameters convert null to "null" string
+				stackId: args.stackId === 'null' ? null : args.stackId,
 				branch: args.branch
 			},
 			{ transform: (result) => selectChangesByPaths(result.changes, args.paths) }
@@ -1185,7 +1188,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 			}),
 			branchChanges: build.query<
 				{ changes: EntityState<TreeChange, string>; stats: TreeStats },
-				{ projectId: string; stackId?: string; branch: BranchRef }
+				{ projectId: string; stackId?: string | null; branch: BranchRef }
 			>({
 				extraOptions: { command: 'changes_in_branch' },
 				query: (args) => args,
