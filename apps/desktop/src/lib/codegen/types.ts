@@ -195,7 +195,8 @@ export type McpConfig = {
 
 export type McpServer = {
 	type: string | null;
-	command: string;
+	command: string | null;
+	url: string | null;
 	args: string[] | null;
 	env: Record<string, string> | null;
 };
