@@ -1020,7 +1020,7 @@
 	side="top"
 	align="start"
 >
-	<ContextMenuSection title="Templates">
+	<ContextMenuSection>
 		<ReduxResult result={promptTemplates.current} {projectId}>
 			{#snippet children(promptTemplates, { projectId: _projectId })}
 				{#each promptTemplates.templates as template}
@@ -1034,7 +1034,7 @@
 	</ContextMenuSection>
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Edit templates in {$userSettings.defaultCodeEditor.displayName}"
+			label="Edit in {$userSettings.defaultCodeEditor.displayName}"
 			icon="open-editor"
 			onclick={configureTemplates}
 		/>
