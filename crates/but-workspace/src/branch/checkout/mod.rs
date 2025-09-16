@@ -8,6 +8,7 @@ pub enum UncommitedWorktreeChanges {
     /// Place the files that would be altered, AND at least one conflicts when brought back, into a snapshot based
     /// on the current `HEAD`, and overwrite them.
     /// Note that uncommitted changes that aren't affected will just be left as is.
+    // TODO: Add a ref-name with which to associate the snapshot commit for safekeeping, but needs UI support.
     KeepConflictingInSnapshotAndOverwrite,
 }
 

@@ -124,6 +124,10 @@
 		'w s 3': () => {
 			settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 });
 		},
+		// Toggle next-gen (v3)
+		'v 3': () => {
+			settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 });
+		},
 		// Show commit graph visualization
 		'd o t': async () => {
 			const projectId = page.params.projectId;

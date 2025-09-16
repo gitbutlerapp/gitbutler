@@ -26,6 +26,11 @@ pub struct FeatureFlags {
     /// Enable the usage of V3 workspace APIs.
     #[serde(default = "default_true")]
     pub ws3: bool,
+    /// Turn on the set of v3 functions currently being roled out:
+    /// - safe checkout
+    /// - apply
+    /// - unapply
+    pub v3: bool,
     /// Enable undo/redo support.
     ///
     /// ### Progression for implementation

@@ -7,6 +7,7 @@ use gix::objs::TreeRefIter;
 use gix::prelude::ObjectIdExt as _;
 use gix::refs::Target;
 use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog};
+use tracing::instrument;
 
 /// Given the `current_head_id^{tree}` for the tree that matches what `HEAD` points to, perform all file operations necessary
 /// to turn the *worktree* of `repo` into `new_head_id^{tree}`. Note that the current *worktree* is assumed to be at the state of
@@ -15,7 +16,7 @@ use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog};
 /// Note that we don't care if the worktree actually matches the `new_head_id^{tree}`, we only care about the operations from
 /// `current_head_id^{tree}` to be performed, and if there are none, we will do nothing.
 ///
-/// If `new_head_id` is a commit, we will also set `HEAD` (or the ref it points to if symbolic) to the `new_head_id`.
+/// If `new_head_id` is a *commit*, we will also set `HEAD` (or the ref it points to if symbolic) to the `new_head_id`.
 /// We will also update the `.git/index` to match the `new_head_id^{tree}`.
 /// Note that the value for [`UncommitedWorktreeChanges`] is critical to determine what happens if a change would be overwritten.
 ///
@@ -27,6 +28,7 @@ use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog};
 /// To keep it simpler, we don't do rename tracking, so deletions and additions are always treated separately.
 /// If this changes, then the source sid of a rename could also cause conflicts, maybe? It's a bit unclear what it would mean
 /// in practice, but I guess that we bring deleted files back instead of conflicting.
+#[instrument(skip(repo), err(Debug))]
 pub fn safe_checkout(
     current_head_id: gix::ObjectId,
     new_head_id: gix::ObjectId,
