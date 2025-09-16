@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { focusable } from '$lib/focus/focusable';
 	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
 	import { standardConfig } from '$lib/richText/config/config';
 	import { standardTheme } from '$lib/richText/config/theme';
@@ -239,6 +240,7 @@
 	<div
 		class="lexical-container lexical-{styleContext} scrollbar"
 		bind:this={editorDiv}
+		use:focusable={{ button: true }}
 		class:plain-text={!markdown}
 		class:disabled={isDisabled}
 		style:min-height={minHeight}

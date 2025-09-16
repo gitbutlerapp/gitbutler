@@ -11,6 +11,9 @@ export type NavigationContext = {
 	// User selected text detected.
 	hasSelection?: boolean;
 	hasOutline?: boolean;
+	shiftKey: boolean;
+	ctrlKey: boolean;
+	metaKey: boolean;
 };
 
 export interface FocusableOptions {
