@@ -128,6 +128,9 @@
 	async function handleCommitClick(commitId: string, upstream: boolean) {
 		if (selectedCommitId !== commitId) {
 			laneState.selection.set({ branchName, commitId, upstream });
+		} else {
+			// If the same commit is clicked again, deselect it
+			laneState.selection.set({ branchName });
 		}
 		projectState.stackId.set(stackId);
 		onselect?.();
