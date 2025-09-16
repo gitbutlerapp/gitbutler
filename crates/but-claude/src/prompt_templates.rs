@@ -31,10 +31,6 @@ impl Default for PromptTemplates {
                     label: "Refactor".to_string(),
                     template: "Please refactor this code to improve:\n- Readability\n- Performance\n- Maintainability\n\n```\n// Your code here\n```\n\nRequirements:".to_string(),
                 },
-                PromptTemplate {
-                    label: "Add Tests".to_string(),
-                    template: "Please write comprehensive tests for this code:\n\n```\n// Your code here\n```\n\nTest cases should cover:\n- Happy path\n- Edge cases\n- Error conditions".to_string(),
-                },
             ],
         }
     }
