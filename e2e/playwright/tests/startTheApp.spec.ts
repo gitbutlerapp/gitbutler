@@ -135,7 +135,7 @@ test('no author setup - should start the application and be able to commit', asy
 	await waitForTestId(page, 'global-modal-author-missing');
 	await fillByTestId(page, 'global-modal-author-missing-name-input', 'Test User');
 	await fillByTestId(page, 'global-modal-author-missing-email-input', 'test@example.com');
-	await clickByTestId(page, 'global-modal-author-missing-action-button');
+	await clickByTestId(page, 'global-modal-author-missing-action-button', true);
 
 	// Let's write some files
 	const filePath = gitbutler.pathInWorkdir('local-clone/test-file.txt');
