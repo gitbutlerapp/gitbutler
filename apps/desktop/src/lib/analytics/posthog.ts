@@ -19,9 +19,14 @@ export class PostHogWrapper {
 	) {}
 
 	capture(eventName: string, properties?: Properties) {
+		if (shouldIgnoreEvent(eventName, properties)) return;
 		const context = this.eventContext.getAll();
 		const newProperties = { ...context, ...properties };
-		this._instance?.capture(eventName, newProperties);
+		const skipClientRateLimiting =
+			eventName === 'tauri_command' && properties?.command !== undefined;
+		this._instance?.capture(eventName, newProperties, {
+			skip_client_rate_limiting: skipClientRateLimiting
+		});
 	}
 
 	captureOnboarding(event: OnboardingEvent, error?: unknown) {
@@ -97,6 +102,35 @@ export class PostHogWrapper {
 			this._instance?.unregister_for_session('repoHash');
 		}
 	}
+}
+
+type EventDescription = {
+	name: string;
+	command: string;
+};
+
+const HIGH_VOLUME_EVENTS: EventDescription[] = [
+	{ name: 'tauri_command', command: 'stack_details' }
+];
+
+const MID_VOLUME_EVENTS: EventDescription[] = [
+	{ name: 'tauri_command', command: 'get_base_branch_data' },
+	{ name: 'tauri_command', command: 'fetch_from_remotes' }
+];
+
+function shouldIgnoreEvent(eventName: string, properties: Properties | undefined): boolean {
+	if (HIGH_VOLUME_EVENTS.some((e) => e.name === eventName && e.command === properties?.command)) {
+		if (Math.random() < 0.95) {
+			return true;
+		}
+	}
+
+	if (MID_VOLUME_EVENTS.some((e) => e.name === eventName && e.command === properties?.command)) {
+		if (Math.random() < 0.5) {
+			return true;
+		}
+	}
+	return false;
 }
 
 export enum OnboardingEvent {
