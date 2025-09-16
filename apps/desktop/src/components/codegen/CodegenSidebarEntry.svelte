@@ -14,7 +14,7 @@
 		commitCount: number;
 		lastInteractionTime?: Date;
 		commits: Snippet;
-		onclick: (e: MouseEvent) => void;
+		onclick: () => void;
 		branchIcon: Snippet;
 		totalHeads: number;
 		sessionInGui?: boolean;
@@ -38,7 +38,7 @@
 	let isOpen = $state(false);
 </script>
 
-<div class="codegen-entry-wrapper" use:focusable>
+<div class="codegen-entry-wrapper" use:focusable={{ focusable: true, onAction: () => onclick?.() }}>
 	<div class="codegen-entry" class:disabled={sessionInGui === false}>
 		{#if sessionInGui !== false}
 			<button class="codegen-entry-header" class:selected type="button" {onclick}>
