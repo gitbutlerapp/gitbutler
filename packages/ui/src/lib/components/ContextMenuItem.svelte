@@ -13,6 +13,7 @@
 		icon?: keyof typeof iconsJson | undefined;
 		label: string;
 		disabled?: boolean;
+		selected?: boolean;
 		control?: Snippet;
 		keyboardShortcut?: string;
 		caption?: string;
@@ -26,6 +27,7 @@
 		icon,
 		label,
 		disabled,
+		selected = false,
 		control,
 		keyboardShortcut,
 		caption,
@@ -86,6 +88,10 @@
 			{/if}
 			{#if control}
 				{@render control()}
+			{:else if selected}
+				<div class="menu-item__icon">
+					<Icon name="tick" />
+				</div>
 			{/if}
 		</div>
 		{#if caption}

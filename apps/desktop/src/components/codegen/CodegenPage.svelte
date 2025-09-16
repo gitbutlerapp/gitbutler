@@ -971,7 +971,11 @@
 <ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top" align="start">
 	<ContextMenuSection>
 		{#each modelOptions as option}
-			<ContextMenuItem label={option.label} onclick={() => selectModel(option.value)} />
+			<ContextMenuItem
+				label={option.label}
+				selected={selectedModel === option.value}
+				onclick={() => selectModel(option.value)}
+			/>
 		{/each}
 	</ContextMenuSection>
 </ContextMenu>
@@ -982,10 +986,11 @@
 	align="start"
 	side="top"
 >
-	<ContextMenuSection title="Thinking Mode">
+	<ContextMenuSection>
 		{#each thinkingLevels as level}
 			<ContextMenuItem
 				label={thinkingLevelToUiLabel(level)}
+				selected={selectedThinkingLevel === level}
 				onclick={() => selectThinkingLevel(level)}
 			/>
 		{/each}
@@ -998,9 +1003,13 @@
 	align="start"
 	side="top"
 >
-	<ContextMenuSection title="Permission Mode (⌘P)">
+	<ContextMenuSection>
 		{#each permissionModeOptions as option}
-			<ContextMenuItem label={option.label} onclick={() => selectPermissionMode(option.value)} />
+			<ContextMenuItem
+				label={option.label}
+				selected={selectedPermissionMode === option.value}
+				onclick={() => selectPermissionMode(option.value)}
+			/>
 		{/each}
 	</ContextMenuSection>
 </ContextMenu>
