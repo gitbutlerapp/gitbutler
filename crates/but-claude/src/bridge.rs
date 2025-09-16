@@ -20,13 +20,15 @@
 //!   more complex with more unknowns.
 
 use crate::{
-    ClaudeMessage, ClaudeMessageContent, ModelType, PermissionMode, ThinkingLevel, Transcript,
-    UserInput,
-    claude_config::{fmt_claude_mcp, fmt_claude_settings},
+    ClaudeMessage, ClaudeMessageContent, ClaudeUserParams, PermissionMode, ThinkingLevel,
+    Transcript, UserInput,
+    claude_config::fmt_claude_settings,
+    claude_mcp::ClaudeMcpConfig,
+    claude_settings::ClaudeSettings,
     db,
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
 };
-use anyhow::{Context, Result, bail};
+use anyhow::{Result, bail};
 use but_broadcaster::{Broadcaster, FrontendEvent};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
@@ -34,9 +36,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     collections::HashMap,
-    fs,
     io::{BufRead, BufReader, PipeReader, Read as _},
-    path::PathBuf,
     process::ExitStatus,
     sync::Arc,
 };
@@ -66,32 +66,20 @@ impl Claudes {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub async fn send_message(
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
         stack_id: StackId,
-        message: &str,
-        thinking_level: ThinkingLevel,
-        model: ModelType,
-        permission_mode: PermissionMode,
+        user_params: ClaudeUserParams,
     ) -> Result<()> {
         if self.requests.lock().await.contains_key(&stack_id) {
             bail!(
                 "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
             )
         } else {
-            self.spawn_claude(
-                ctx,
-                broadcaster,
-                stack_id,
-                message.to_owned(),
-                thinking_level,
-                model,
-                permission_mode,
-            )
-            .await
+            self.spawn_claude(ctx, broadcaster, stack_id, user_params)
+                .await
         };
 
         Ok(())
@@ -134,27 +122,15 @@ impl Claudes {
         requests.contains_key(&stack_id)
     }
 
-    #[allow(clippy::too_many_arguments)]
     async fn spawn_claude(
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
         stack_id: StackId,
-        message: String,
-        thinking_level: ThinkingLevel,
-        model: ModelType,
-        permission_mode: PermissionMode,
+        user_params: ClaudeUserParams,
     ) -> () {
         let res = self
-            .spawn_claude_inner(
-                ctx.clone(),
-                broadcaster.clone(),
-                stack_id,
-                message,
-                thinking_level,
-                model,
-                permission_mode,
-            )
+            .spawn_claude_inner(ctx.clone(), broadcaster.clone(), stack_id, user_params)
             .await;
         if let Err(res) = res {
             let mut ctx = ctx.lock().await;
@@ -181,16 +157,12 @@ impl Claudes {
         };
     }
 
-    #[allow(clippy::too_many_arguments)]
     async fn spawn_claude_inner(
         &self,
         ctx: Arc<Mutex<CommandContext>>,
         broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
         stack_id: StackId,
-        message: String,
-        thinking_level: ThinkingLevel,
-        model: ModelType,
-        permission_mode: PermissionMode,
+        user_params: ClaudeUserParams,
     ) -> Result<()> {
         let (send_kill, mut recv_kill) = unbounded_channel();
         self.requests
@@ -224,7 +196,7 @@ impl Claudes {
                 session_id,
                 stack_id,
                 ClaudeMessageContent::UserInput(UserInput {
-                    message: message.to_owned(),
+                    message: user_params.message.clone(),
                 }),
             )
             .await?;
@@ -242,15 +214,12 @@ impl Claudes {
         // Clone so the reference to ctx can be immediatly dropped
         let project = ctx.lock().await.project().clone();
         let mut handle = spawn_command(
-            message,
             writer,
             write_stderr,
             session,
             project.path.clone(),
             ctx.clone(),
-            thinking_level,
-            model,
-            permission_mode,
+            user_params,
         )
         .await?;
         let cmd_exit = tokio::select! {
@@ -347,24 +316,32 @@ enum Exit {
 }
 
 /// Spawns the actual claude code command
-#[allow(clippy::too_many_arguments)]
 async fn spawn_command(
-    message: String,
     writer: std::io::PipeWriter,
     write_stderr: std::io::PipeWriter,
     session: crate::ClaudeSession,
     project_path: std::path::PathBuf,
     ctx: Arc<Mutex<CommandContext>>,
-    thinking_level: ThinkingLevel,
-    model: ModelType,
-    permission_mode: PermissionMode,
+    user_params: ClaudeUserParams,
 ) -> Result<Child> {
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
-    let mcp_config = fmt_claude_mcp()?;
 
     let app_settings = ctx.lock().await.app_settings().clone();
     let claude_executable = app_settings.claude.executable.clone();
+    let cc_settings = ClaudeSettings::open(&project_path).await;
+    let mcp_config = ClaudeMcpConfig::open(&cc_settings, &project_path).await;
+    let disabled_mcp_servers = user_params
+        .disabled_mcp_servers
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<&str>>();
+    let mcp_config = serde_json::to_string(
+        &mcp_config
+            .mcp_servers_with_security()
+            .exclude(&disabled_mcp_servers),
+    )?;
+    dbg!(&mcp_config);
     let mut command = Command::new(claude_executable);
 
     /// Don't create a terminal window on windows.
@@ -379,15 +356,21 @@ async fn spawn_command(
     command.stderr(write_stderr);
     command.current_dir(&project_path);
 
-    command.envs(collect_configured_env(&project_path).await);
+    command.envs(cc_settings.env());
 
     command.args(["--settings", &settings]);
+
+    // Mcp configuration. We now use --strict-mcp-config because we collect the
+    // set of MCP configurations ourselves so we can then filter out ones that
+    // we don't want in a given call.
     command.args(["--mcp-config", &mcp_config]);
+    command.args(["--strict-mcp-config"]);
+
     command.args(["--output-format", "stream-json"]);
 
     // Only add --model if useConfiguredModel is false
     if !app_settings.claude.use_configured_model {
-        command.args(["--model", model.to_cli_string()]);
+        command.args(["--model", user_params.model.to_cli_string()]);
     }
 
     command.args(["-p", "--verbose"]);
@@ -400,7 +383,7 @@ async fn spawn_command(
             "mcp__but-security__approval_prompt",
         ]);
         // Set permission mode based on interaction mode
-        match permission_mode {
+        match user_params.permission_mode {
             PermissionMode::Default => {}
             PermissionMode::Plan => {
                 command.args(["--permission-mode", "plan"]);
@@ -421,7 +404,10 @@ async fn spawn_command(
 
     command.args(["--append-system-prompt", SYSTEM_PROMPT]);
 
-    command.arg(format_message(&message, thinking_level));
+    command.arg(format_message(
+        &user_params.message,
+        user_params.thinking_level,
+    ));
     Ok(command.spawn()?)
 }
 
@@ -593,52 +579,4 @@ pub async fn check_claude_available(claude_executable: &str) -> ClaudeCheckResul
         },
         _ => ClaudeCheckResult::NotAvailable,
     }
-}
-
-#[cfg(target_os = "macos")]
-const ENTERPRISE_PATH: &str = "/Library/Application Support/ClaudeCode/managed-settings.json";
-#[cfg(target_os = "linux")]
-const ENTERPRISE_PATH: &str = "/etc/claude-code/managed-settings.json";
-#[cfg(target_os = "windows")]
-const ENTERPRISE_PATH: &str = "C:\\ProgramData\\ClaudeCode\\managed-settings.json";
-
-/// Collect any configured environment variables in the `settings.json`s. This
-/// is in order to work around https://github.com/anthropics/claude-code/issues/7452.
-async fn collect_configured_env(project_path: &std::path::Path) -> HashMap<String, String> {
-    collect_configured_env_inner(project_path)
-        .await
-        .unwrap_or(HashMap::new())
-}
-
-async fn collect_configured_env_inner(
-    project_path: &std::path::Path,
-) -> Result<HashMap<String, String>> {
-    let home = dirs::home_dir().context("Can't find home")?;
-    // Paths in order of precidence
-    let paths = [
-        home.join(".claude/settings.json"),
-        project_path.join(".claude/settings.json"),
-        project_path.join(".claude/settings.local.json"),
-        PathBuf::from(ENTERPRISE_PATH),
-    ];
-
-    let mut out = HashMap::new();
-
-    for path in paths {
-        if !fs::exists(&path)? {
-            continue;
-        }
-
-        let string = fs::read_to_string(&path)?;
-        let settings: serde_json::Value = serde_json::from_str(&string)?;
-        if let Some(env) = settings["env"].as_object() {
-            for (key, value) in env {
-                if let Some(value) = value.as_str() {
-                    out.insert(key.clone(), value.to_owned());
-                }
-            }
-        }
-    }
-
-    Ok(out)
 }

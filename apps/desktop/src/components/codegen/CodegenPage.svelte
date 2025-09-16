@@ -14,6 +14,7 @@
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
+	import CodegenMcpConfigModal from '$components/codegen/CodegenMcpConfigModal.svelte';
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
@@ -98,6 +99,7 @@
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
 	const hasExistingSessions = $derived(stacks.current.data && stacks.current.data.length > 0);
 	const [sendClaudeMessage] = claudeCodeService.sendMessage;
+	const mcpConfig = $derived(claudeCodeService.mcpConfig({ projectId }));
 
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
 	let clearContextModal = $state<Modal>();
@@ -109,6 +111,7 @@
 	let permissionModeTrigger = $state<HTMLButtonElement>();
 	let templateContextMenu = $state<ContextMenu>();
 	let templateTrigger = $state<HTMLButtonElement>();
+	let mcpConfigModal = $state<CodegenMcpConfigModal>();
 
 	const modelOptions: { label: string; value: ModelType }[] = [
 		{ label: 'Sonnet', value: 'sonnet' },
@@ -213,7 +216,8 @@
 				message: prompt,
 				thinkingLevel: selectedThinkingLevel,
 				model: selectedModel,
-				permissionMode: selectedPermissionMode
+				permissionMode: selectedPermissionMode,
+				disabledMcpServers: uiState.lane(selectedBranch.stackId).disabledMcpServers.current
 			},
 			{ properties: analyticsProperties }
 		);
@@ -395,6 +399,27 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
+{#if selectedBranch?.stackId}
+	<ReduxResult result={mcpConfig.current} {projectId} stackId={selectedBranch.stackId}>
+		{#snippet children(mcpConfig, { projectId: _projectId, stackId: _stackId })}
+			{@const laneState = uiState.lane(selectedBranch.stackId)}
+			<CodegenMcpConfigModal
+				bind:this={mcpConfigModal}
+				{mcpConfig}
+				disabledServers={laneState.disabledMcpServers.current}
+				toggleServer={(server) => {
+					const disabledServers = laneState.disabledMcpServers.current;
+					if (disabledServers.includes(server)) {
+						laneState.disabledMcpServers.set(disabledServers.filter((s) => s !== server));
+					} else {
+						laneState.disabledMcpServers.set([...disabledServers, server]);
+					}
+				}}
+			/>
+		{/snippet}
+	</ReduxResult>
+{/if}
+
 <div class="page">
 	<ReduxResult result={claudeAvailable.current} {projectId}>
 		{#snippet children(claudeAvailable, { projectId })}
@@ -486,6 +511,7 @@
 							/>
 						{/snippet}
 						{#snippet contextActions()}
+							<Button kind="outline" size="tag" onclick={() => mcpConfigModal?.open()}>MCP</Button>
 							<Button
 								disabled={!hasRulesToClear || formattedMessages.length === 0}
 								kind="outline"

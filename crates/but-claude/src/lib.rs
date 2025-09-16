@@ -3,6 +3,8 @@ use uuid::Uuid;
 pub mod bridge;
 pub use bridge::ClaudeCheckResult;
 pub(crate) mod claude_config;
+pub mod claude_mcp;
+pub mod claude_settings;
 pub(crate) mod claude_transcript;
 pub use claude_transcript::Transcript;
 pub mod db;
@@ -149,4 +151,15 @@ pub enum PermissionMode {
     Default,
     Plan,
     AcceptEdits,
+}
+
+/// Represents user-provided parameters for Claude requests.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeUserParams {
+    pub message: String,
+    pub thinking_level: ThinkingLevel,
+    pub model: ModelType,
+    pub permission_mode: PermissionMode,
+    pub disabled_mcp_servers: Vec<String>,
 }

@@ -356,7 +356,8 @@ fn main() {
                     but_api::claude::claude_check_available,
                     but_api::claude::claude_get_prompt_templates,
                     but_api::claude::claude_write_prompt_templates,
-                    but_api::claude::claude_get_prompt_templates_path
+                    but_api::claude::claude_get_prompt_templates_path,
+                    but_api::claude::claude_get_mcp_config
                 ])
                 .menu(move |handle| menu::build(handle, &app_settings_for_menu))
                 .on_window_event(|window, event| match event {
