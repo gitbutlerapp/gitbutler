@@ -441,7 +441,7 @@ pub fn stack_details_v3(
             .into_iter()
             .find_map(|(id, stack)| (id == stack_id).then_some(stack)))
     }
-    let ref_info_options = ref_info::Options {
+    let mut ref_info_options = ref_info::Options {
         // TODO(perf): make this so it can be enabled for a specific stack-id.
         expensive_commit_info: true,
         traversal: meta.graph_options(),
@@ -449,6 +449,10 @@ pub fn stack_details_v3(
     let mut stack = match stack_id {
         None => {
             // assume single-branch mode.
+            // Make sure the UI isn't overwhelmed, this currently happens easily on some repos where a lot of commits
+            // would otherwise be returned. The problem is that then the workspace might not be correct, but there isn't
+            // another way that still allows to extend the range via gas-stations. Maybe one day we won't need this.
+            ref_info_options.traversal.hard_limit = Some(500);
             let mut info = head_info(repo, meta, ref_info_options)?;
             if info.stacks.len() != 1 {
                 bail!(

@@ -196,15 +196,19 @@ pub mod stacks {
         }
     }
 
-    pub fn details(id: StackId, current_dir: &Path, v3: bool) -> anyhow::Result<()> {
+    pub fn details(id: Option<StackId>, current_dir: &Path, v3: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
         let details = if v3 {
             let meta = ref_metadata_toml(ctx.project())?;
             let repo = ctx.gix_repo_for_merging_non_persisting()?;
-            but_workspace::stack_details_v3(id.into(), &repo, &meta)
+            but_workspace::stack_details_v3(id, &repo, &meta)
         } else {
-            but_workspace::stack_details(&project.gb_dir(), id, &ctx)
+            but_workspace::stack_details(
+                &project.gb_dir(),
+                id.context("a StackID is needed for the old implementation")?,
+                &ctx,
+            )
         }?;
         debug_print(details)
     }

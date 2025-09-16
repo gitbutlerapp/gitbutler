@@ -147,7 +147,7 @@ pub enum Subcommands {
     /// As StackIDs are going away, BranchDetails would be the part that remains.
     StackDetails {
         /// The ID of the stack to list details for.
-        id: StackId,
+        id: Option<StackId>,
     },
     /// Returns detailed
     BranchDetails {
