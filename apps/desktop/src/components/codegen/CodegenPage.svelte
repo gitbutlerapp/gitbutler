@@ -279,9 +279,9 @@
 			case 'think':
 				return 'Think';
 			case 'megaThink':
-				return 'Mega Think';
+				return 'Mega think';
 			case 'ultraThink':
-				return 'Ultra Think';
+				return 'Ultra think';
 			default:
 				return 'Normal';
 		}
@@ -597,10 +597,10 @@
 											<Button
 												bind:el={thinkingModeTrigger}
 												kind="outline"
-												icon="brain"
+												icon="thinking"
 												reversedDirection
 												onclick={() => thinkingModeContextMenu?.toggle()}
-												tooltip="Thinking Mode"
+												tooltip="Thinking mode"
 												children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
 											/>
 										</div>
