@@ -280,12 +280,17 @@ impl OplogExt for CommandContext {
 
         let wd_tree_id = tree_from_applied_vbranches(&gix_repo, commit.id(), self)?;
         let wd_tree = repo.find_tree(wd_tree_id)?;
-        let old_wd_tree_id = tree_from_applied_vbranches(&gix_repo, commit.parent(0)?.id(), self)?;
-        let old_wd_tree = repo.find_tree(old_wd_tree_id)?;
+        
+        // Handle the case where this is the first snapshot (no parent)
+        let old_wd_tree_id = if commit.parent_count() > 0 {
+            Some(tree_from_applied_vbranches(&gix_repo, commit.parent(0)?.id(), self)?.to_gix())
+        } else {
+            None // For the first snapshot, compare against empty tree
+        };
 
         let (tree_changes, _) = tree_changes(
             &gix_repo,
-            Some(old_wd_tree.id().to_gix()),
+            old_wd_tree_id,
             wd_tree.id().to_gix(),
         )?;
         Ok(tree_changes)
