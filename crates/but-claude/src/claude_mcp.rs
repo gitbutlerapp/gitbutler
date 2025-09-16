@@ -135,7 +135,7 @@ async fn read_mcp_json(project_path: &Path) -> Option<McpConfig> {
 
 impl McpConfig {
     #[allow(unused)]
-    pub fn exclude(&self, to_exclude: &[&str]) -> Self {
+    pub(crate) fn exclude(&self, to_exclude: &[&str]) -> Self {
         let mut out = self.clone();
         for server in to_exclude {
             out.mcp_servers.remove(*server);

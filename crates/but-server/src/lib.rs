@@ -412,6 +412,21 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "claude_get_mcp_config" => {
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Params {
+                project_id: ProjectId,
+            }
+            let params = serde_json::from_value::<Params>(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = claude::claude_get_mcp_config(params.project_id).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         "claude_get_messages" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {

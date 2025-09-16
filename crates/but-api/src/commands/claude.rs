@@ -4,6 +4,8 @@ use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_claude::{
     ClaudeCheckResult, ClaudeMessage, ModelType, PermissionMode, ThinkingLevel, Transcript,
+    claude_mcp::{ClaudeMcpConfig, McpConfig},
+    claude_settings::ClaudeSettings,
     prompt_templates,
 };
 use but_settings::AppSettings;
@@ -25,6 +27,7 @@ pub struct SendMessageParams {
     pub thinking_level: ThinkingLevel,
     pub model: ModelType,
     pub permission_mode: PermissionMode,
+    pub disabled_mcp_servers: Vec<String>,
 }
 
 pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result<(), Error> {
@@ -42,6 +45,7 @@ pub async fn claude_send_message(app: &App, params: SendMessageParams) -> Result
             params.thinking_level,
             params.model,
             params.permission_mode,
+            params.disabled_mcp_servers,
         )
         .await?;
     Ok(())
@@ -177,4 +181,13 @@ pub fn claude_write_prompt_templates(
 pub fn claude_get_prompt_templates_path() -> Result<String, Error> {
     let path = prompt_templates::get_prompt_templates_path_string()?;
     Ok(path)
+}
+
+#[tauri::command(async)]
+#[instrument(err(Debug))]
+pub async fn claude_get_mcp_config(project_id: ProjectId) -> Result<McpConfig, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let settings = ClaudeSettings::open(&project.path).await;
+    let mcp_config = ClaudeMcpConfig::open(&settings, &project.path).await;
+    Ok(mcp_config.mcp_servers())
 }

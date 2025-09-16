@@ -26,7 +26,7 @@ struct ClaudeSetting {
     env: Option<HashMap<String, String>>,
     #[serde(rename = "enableAllProjectMcpServers")]
     enable_all_project_mcp_servers: Option<bool>,
-    #[serde(rename = "enableMcpjsonServers")]
+    #[serde(rename = "enabledMcpjsonServers")]
     enabled_project_mcp_servers: Option<Vec<String>>,
 }
 
@@ -60,7 +60,7 @@ impl ClaudeSettings {
         Self { settings }
     }
 
-    pub fn enable_all_project_mcp_servers(&self) -> bool {
+    pub(crate) fn enable_all_project_mcp_servers(&self) -> bool {
         let mut out = false;
 
         for setting in &self.settings {
@@ -72,7 +72,7 @@ impl ClaudeSettings {
         out
     }
 
-    pub fn enabled_project_mcp_servers(&self) -> HashSet<String> {
+    pub(crate) fn enabled_project_mcp_servers(&self) -> HashSet<String> {
         let mut out = HashSet::new();
 
         for setting in &self.settings {
@@ -86,7 +86,7 @@ impl ClaudeSettings {
         out
     }
 
-    pub fn env(&self) -> HashMap<String, String> {
+    pub(crate) fn env(&self) -> HashMap<String, String> {
         let mut out = HashMap::new();
 
         for setting in &self.settings {

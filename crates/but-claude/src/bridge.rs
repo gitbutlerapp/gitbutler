@@ -76,6 +76,7 @@ impl Claudes {
         thinking_level: ThinkingLevel,
         model: ModelType,
         permission_mode: PermissionMode,
+        disabled_mcp_servers: Vec<String>,
     ) -> Result<()> {
         if self.requests.lock().await.contains_key(&stack_id) {
             bail!(
@@ -90,6 +91,7 @@ impl Claudes {
                 thinking_level,
                 model,
                 permission_mode,
+                disabled_mcp_servers,
             )
             .await
         };
@@ -144,6 +146,7 @@ impl Claudes {
         thinking_level: ThinkingLevel,
         model: ModelType,
         permission_mode: PermissionMode,
+        disabled_mcp_servers: Vec<String>,
     ) -> () {
         let res = self
             .spawn_claude_inner(
@@ -154,6 +157,7 @@ impl Claudes {
                 thinking_level,
                 model,
                 permission_mode,
+                disabled_mcp_servers,
             )
             .await;
         if let Err(res) = res {
@@ -191,6 +195,7 @@ impl Claudes {
         thinking_level: ThinkingLevel,
         model: ModelType,
         permission_mode: PermissionMode,
+        disabled_mcp_servers: Vec<String>,
     ) -> Result<()> {
         let (send_kill, mut recv_kill) = unbounded_channel();
         self.requests
@@ -251,6 +256,7 @@ impl Claudes {
             thinking_level,
             model,
             permission_mode,
+            disabled_mcp_servers,
         )
         .await?;
         let cmd_exit = tokio::select! {
@@ -358,6 +364,7 @@ async fn spawn_command(
     thinking_level: ThinkingLevel,
     model: ModelType,
     permission_mode: PermissionMode,
+    disabled_mcp_servers: Vec<String>,
 ) -> Result<Child> {
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
@@ -366,7 +373,16 @@ async fn spawn_command(
     let claude_executable = app_settings.claude.executable.clone();
     let cc_settings = ClaudeSettings::open(&project_path).await;
     let mcp_config = ClaudeMcpConfig::open(&cc_settings, &project_path).await;
-    let mcp_config = serde_json::to_string(&mcp_config.mcp_servers_with_security())?;
+    let disabled_mcp_servers = disabled_mcp_servers
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<&str>>();
+    let mcp_config = serde_json::to_string(
+        &mcp_config
+            .mcp_servers_with_security()
+            .exclude(&disabled_mcp_servers),
+    )?;
+    dbg!(&mcp_config);
     let mut command = Command::new(claude_executable);
 
     /// Don't create a terminal window on windows.

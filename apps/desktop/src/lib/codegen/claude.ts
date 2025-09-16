@@ -6,7 +6,8 @@ import {
 	type ThinkingLevel,
 	type ModelType,
 	type PermissionMode,
-	type PromptTemplates
+	type PromptTemplates,
+	type McpConfig
 } from '$lib/codegen/types';
 import { hasBackendExtra } from '$lib/state/backendQuery';
 import {
@@ -105,6 +106,10 @@ export class ClaudeCodeService {
 	get fetchPromptTemplatesPath() {
 		return this.api.endpoints.getPromptTemplatesPath.fetch;
 	}
+
+	get mcpConfig() {
+		return this.api.endpoints.getMcpConfig.useQuery;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -119,6 +124,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					thinkingLevel: ThinkingLevel;
 					model: ModelType;
 					permissionMode: PermissionMode;
+					disabledMcpServers: string[];
 				}
 			>({
 				extraOptions: {
@@ -279,6 +285,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			getPromptTemplatesPath: build.query<string, undefined>({
 				extraOptions: { command: 'claude_get_prompt_templates_path' },
 				query: () => undefined
+			}),
+			getMcpConfig: build.query<McpConfig, { projectId: string }>({
+				extraOptions: { command: 'claude_get_mcp_config' },
+				query: (args) => args
 			})
 		})
 	});

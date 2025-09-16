@@ -13,6 +13,7 @@ use tracing::instrument;
 
 #[tauri::command(async)]
 #[instrument(skip(app), err(Debug))]
+#[allow(clippy::too_many_arguments)]
 pub async fn claude_send_message(
     app: State<'_, App>,
     project_id: ProjectId,
@@ -21,6 +22,7 @@ pub async fn claude_send_message(
     thinking_level: ThinkingLevel,
     model: ModelType,
     permission_mode: PermissionMode,
+    disabled_mcp_servers: Vec<String>,
 ) -> Result<(), Error> {
     claude::claude_send_message(
         &app,
@@ -31,6 +33,7 @@ pub async fn claude_send_message(
             thinking_level,
             model,
             permission_mode,
+            disabled_mcp_servers,
         },
     )
     .await
