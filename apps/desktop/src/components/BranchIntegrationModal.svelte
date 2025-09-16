@@ -339,7 +339,7 @@
 					<Button
 						kind="outline"
 						size="tag"
-						icon="download"
+						icon="target"
 						tooltip="Pick the upstream commit instead"
 						onclick={() => pickUpstreamFromStep(stepId, commitId, upstreamSha)}
 					>
@@ -352,7 +352,7 @@
 				<Button
 					kind="outline"
 					size="tag"
-					icon="commit"
+					icon="target"
 					tooltip="Pick the local commit instead"
 					onclick={() => pickLocalFromStep(stepId, commitId)}
 				>
