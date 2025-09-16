@@ -1,6 +1,6 @@
 .f-key {
+	z-index: var(--z-blocker);
 	position: absolute;
-	zindex: var(--z-blocker);
 	padding: 2px 4px;
 	border: 1px solid var(--clr-border-1);
 	border-radius: var(--radius-s);
