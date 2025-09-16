@@ -1,3 +1,4 @@
+import { isInputElement } from '$lib/focus/focusUtils';
 import {
 	generateTwoLetterShortcut,
 	createShortcutOverlay,
@@ -176,7 +177,12 @@ export class FModeManager {
 			this.removeElement(element);
 			return;
 		}
-		element.click();
+
+		if (isInputElement(element)) {
+			element.focus();
+		} else {
+			element.click();
+		}
 		this.deactivate(); // Auto-exit after activation
 	}
 

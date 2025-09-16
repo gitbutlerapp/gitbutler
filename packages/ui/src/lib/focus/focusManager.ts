@@ -3,7 +3,6 @@ import {
 	getNavigationAction,
 	isInputElement,
 	hasTextSelection,
-	shouldIgnoreNavigationForInput,
 	getElementDescription
 } from '$lib/focus/focusUtils';
 import { focusNextTabIndex } from '$lib/focus/tabbable';
@@ -120,21 +119,27 @@ export class FocusManager {
 				this.setActiveNode(this.nodeMap.get(previousElement));
 				removeFromArray(this.previousElements, previousElement);
 			} else {
-				this.currentNode = undefined;
+				this.clearCurrent();
 			}
 			this.cursor.set(this.currentElement);
 		}
 	}
 
+	private clearCurrent() {
+		this.currentNode = undefined;
+		this.cursor.set(undefined);
+	}
+
 	private setActiveNode(node?: FocusableNode): boolean {
 		if (!node) return false;
-		if (node === this.currentNode) return true;
-
 		const previousNode = this.currentNode;
 
-		if (!node.options.focusable) {
-			return false;
-		}
+		if (!node.options.focusable) return false;
+
+		this.focusElement(node.element);
+		this.cursor.set(node.element);
+
+		if (node === this.currentNode) return true;
 
 		if (previousNode) {
 			this.triggerOnActiveCallbacksNode(previousNode, false);
@@ -144,8 +149,6 @@ export class FocusManager {
 		this.currentNode = node;
 		this.cacheActiveIndexNode(node);
 		this.triggerOnActiveCallbacksNode(node, true);
-		this.focusElement(node.element);
-		this.cursor.set(node.element);
 		return true;
 	}
 
@@ -241,6 +244,7 @@ export class FocusManager {
 			return;
 		}
 
+		// TODO: Allow clicks inside inputs to set `this.currentNode`
 		if (isInputElement(e.target)) {
 			return;
 		}
@@ -294,33 +298,42 @@ export class FocusManager {
 	}
 
 	// Handles keyboard navigation with arrow keys, Tab, and custom handlers
-	private handleKeydown(event: KeyboardEvent): boolean {
-		if (!this.initializeCurrentNode(event)) return false;
-		const navigationContext = this.buildNavigationContext(event, this.currentNode!);
+	// New line here..
+	private handleKeydown(event: KeyboardEvent) {
+		if (this.processEvent(event)) {
+			event.stopPropagation();
+			event.preventDefault();
+		}
+	}
 
-		if (shouldIgnoreNavigationForInput(navigationContext)) return false;
-
+	private processEvent(event: KeyboardEvent): boolean {
+		if (isInputElement(event.target)) return false;
 		if (this.handleFModeInput(event)) return true;
-		if (this.handleTabKey(event, navigationContext)) return true;
+
+		let currentNode: FocusableNode | undefined = this.currentNode;
+		if (!currentNode && event.key !== 'Tab') {
+			currentNode = this.findFirstNavigableDescendantNode(this.getDefaultRoot());
+		}
+
+		if (!currentNode) return false;
+
+		const navigationContext = this.buildNavigationContext(event, currentNode);
+
+		this.currentNode = currentNode;
+
+		if (this.handleTabKey(navigationContext, event)) return true;
 		if (this.handleEscapeKey(event)) return true;
 
 		if (navigationContext.hasSelection) return false;
 
+		if (this.handleOutlineDisplay(navigationContext)) return true;
 		if (this.tryActionHandler(event) || this.tryCustomHandlers(event)) return true;
-		if (this.handleOutlineDisplay(navigationContext, event)) return true;
 
 		if (this.processStandardNavigation(event, navigationContext)) {
 			this.outline.set(true);
 			return true;
 		}
 		return false;
-	}
-
-	private initializeCurrentNode(event: KeyboardEvent): boolean {
-		if (!this.currentNode && event.key !== 'Tab') {
-			this.currentNode = this.findFirstNavigableDescendantNode(this.getDefaultRoot());
-		}
-		return this.currentNode !== undefined;
 	}
 
 	private handleFModeInput(event: KeyboardEvent): boolean {
@@ -330,27 +343,23 @@ export class FocusManager {
 		return false;
 	}
 
-	private handleTabKey(event: KeyboardEvent, navigationContext: NavigationContext): boolean {
-		if (event.key !== 'Tab') return false;
+	private handleTabKey(navigationContext: NavigationContext, event: KeyboardEvent): boolean {
+		if (navigationContext.action !== 'tab') return false;
 
 		if (navigationContext.trap || get(this.outline)) {
 			focusNextTabIndex({
 				container: this.currentNode!.element,
-				forward: !event.shiftKey,
+				forward: !navigationContext.shiftKey,
 				trap: navigationContext.trap
 			});
 			this.outline.set(false);
 			if (!navigationContext.trap) {
 				// Only clear current node if were tabbing inside of a trap
-				this.currentNode = undefined;
+				this.clearCurrent();
 			}
-		} else {
-			// Otherwise use built-in tab behavior
-			return false;
+			event.preventDefault();
 		}
-		event.stopPropagation();
-		event.preventDefault();
-		return true;
+		return false;
 	}
 
 	private handleEscapeKey(event: KeyboardEvent): boolean {
@@ -365,18 +374,15 @@ export class FocusManager {
 		return true;
 	}
 
-	private handleOutlineDisplay(
-		navigationContext: NavigationContext,
-		event: KeyboardEvent
-	): boolean {
+	private handleOutlineDisplay(navigationContext: NavigationContext): boolean {
+		if (!navigationContext.action) return false;
 		if (!this.shouldShowOutlineOnly(navigationContext)) return false;
 
+		if (!this.shouldShowOutlineOnly(navigationContext)) return false;
 		const targetNode = this.findFirstNavigableDescendantNode(this.currentNode);
-		const newCurrent = this.setActiveNode(targetNode);
-		if (newCurrent) {
+		if (targetNode) {
+			this.setActiveNode(targetNode);
 			this.outline.set(true);
-			event.stopPropagation();
-			event.preventDefault();
 			return true;
 		}
 		return false;
@@ -462,9 +468,6 @@ export class FocusManager {
 	): boolean {
 		if (!navigationContext.action) return false;
 
-		event.preventDefault();
-		event.stopPropagation();
-
 		return this.executeNavigationAction(navigationContext.action, {
 			metaKey: event.metaKey,
 			trap: navigationContext.trap,
@@ -498,26 +501,26 @@ export class FocusManager {
 				if (!this.focusNextVertical(false)) {
 					this.focusAnyNode();
 				}
-				break;
+				return true;
 
 			case 'right':
 				if (trap) return true;
 				if (!this.focusNextVertical(true)) {
 					this.focusAnyNode();
 				}
-				break;
+				return true;
 
 			case 'up':
 				if (trap) return true;
 				this.focusSibling({ forward: false, metaKey });
-				break;
+				return true;
 
 			case 'down':
 				if (trap) return true;
 				this.focusSibling({ forward: true, metaKey });
-				break;
+				return true;
 		}
-		return true;
+		return false;
 	}
 
 	// Finds first navigable descendant, skipping buttons and containers
@@ -990,17 +993,21 @@ export class FocusManager {
 	}
 
 	private buildNavigationContext(event: KeyboardEvent, node: FocusableNode): NavigationContext {
+		const { key, metaKey, ctrlKey, shiftKey } = event;
+
 		const parentData = node?.parent;
 		const inVertical = parentData?.options.vertical ?? false;
-		const action = getNavigationAction(event.key);
 
 		return {
-			action,
+			action: getNavigationAction(key),
 			trap: node.options.trap,
-			inVertical,
 			isInput: isInputElement(event.target),
 			hasSelection: hasTextSelection(),
-			hasOutline: get(this.outline)
+			hasOutline: get(this.outline),
+			inVertical,
+			shiftKey,
+			ctrlKey,
+			metaKey
 		};
 	}
 

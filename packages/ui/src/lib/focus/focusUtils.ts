@@ -25,13 +25,6 @@ export function hasTextSelection(): boolean {
 	return !!selection && selection.rangeCount > 0 && !selection.isCollapsed;
 }
 
-export function shouldIgnoreNavigationForInput(context: {
-	action: NavigationAction | null;
-	isInput?: boolean;
-}): boolean {
-	return (context.isInput && context.action !== 'tab') || false;
-}
-
 export function getElementDescription(element: HTMLElement | undefined): string {
 	if (!element) return '(none)';
 
