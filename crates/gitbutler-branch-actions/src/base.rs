@@ -343,10 +343,25 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
         None => target.remote_url.clone(),
     };
 
+    // Fallback to the remote URL of the branch if the target remote URL is empty
+    let remote_url = if target.remote_url.is_empty() {
+        let remote = repo.find_remote(target.branch.remote()).context(format!(
+            "failed to find remote for branch {}",
+            target.branch.fullname()
+        ))?;
+        let remote_url = remote.url().context(format!(
+            "failed to get remote url for {}",
+            target.branch.fullname()
+        ))?;
+        remote_url.to_string()
+    } else {
+        target.remote_url.clone()
+    };
+
     let base = BaseBranch {
         branch_name: target.branch.fullname(),
         remote_name: target.branch.remote().to_string(),
-        remote_url: target.remote_url.clone(),
+        remote_url,
         push_remote_name: target.push_remote_name.clone(),
         push_remote_url,
         base_sha: target.sha,
