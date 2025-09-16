@@ -57,7 +57,7 @@ fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "WIP"]
+#[ignore = "TBD - needs fix so entrypoint change doesn't affect artificial stacks"]
 fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
@@ -108,7 +108,7 @@ fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "WIP"]
+#[ignore = "TBD"]
 fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> anyhow::Result<()> {
     let (_tmp, ws_graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
@@ -152,7 +152,7 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
 }
 
 #[test]
-#[ignore = "WIP"]
+#[ignore = "TBD"]
 fn detached_head_journey() -> anyhow::Result<()> {
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
@@ -359,11 +359,22 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
         workspace_ref_created: false,
     }
     ");
+
+    let ws = out.graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
+    ├── ≡📙:4:B on 85efbe4
+    │   └── 📙:4:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
+    ");
     Ok(())
 }
 
 #[test]
-#[ignore = "WIP"]
+#[ignore = "TBD"]
 fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
     let (mut repo, mut meta) =
         named_read_only_in_memory_scenario("ws-ref-no-ws-commit-one-stack-one-branch", "")?;

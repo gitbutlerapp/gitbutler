@@ -124,6 +124,10 @@
 		'w s 3': () => {
 			settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 });
 		},
+		// Toggle next-gen safe checkout.
+		'c o 3': () => {
+			settingsService.updateFeatureFlags({ cv3: !$settingsStore?.featureFlags.cv3 });
+		},
 		// Show commit graph visualization
 		'd o t': async () => {
 			const projectId = page.params.projectId;

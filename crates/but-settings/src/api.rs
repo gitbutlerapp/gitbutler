@@ -15,6 +15,7 @@ pub struct TelemetryUpdate {
 #[serde(rename_all = "camelCase")]
 /// Update request for [`crate::app_settings::FeatureFlags`].
 pub struct FeatureFlagsUpdate {
+    pub cv3: Option<bool>,
     pub ws3: Option<bool>,
     pub actions: Option<bool>,
     pub butbot: Option<bool>,
@@ -65,6 +66,7 @@ impl AppSettingsWithDiskSync {
     pub fn update_feature_flags(
         &self,
         FeatureFlagsUpdate {
+            cv3,
             ws3,
             actions,
             butbot,
@@ -73,6 +75,9 @@ impl AppSettingsWithDiskSync {
         }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
+        if let Some(cv3) = cv3 {
+            settings.feature_flags.cv3 = cv3;
+        }
         if let Some(ws3) = ws3 {
             settings.feature_flags.ws3 = ws3;
         }

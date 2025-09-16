@@ -78,8 +78,7 @@ pub fn set_project_active(
         AppSettings::load_from_default_path_creating()?,
         repo,
     )?;
-    let mode =
-        window_state.set_project_to_window(window.label(), &project, &app_settings_sync, ctx)?;
+    // --> WARNING <-- Be sure this runs BEFORE the database on `ctx` is used.
     let db_error = assure_database_valid(project.gb_dir())?;
     let filter_error = warn_about_filters_and_git_lfs(ctx.gix_repo_local_only()?)?;
     for err in [&db_error, &filter_error] {
@@ -87,6 +86,8 @@ pub fn set_project_active(
             tracing::error!("{err}");
         }
     }
+    let mode =
+        window_state.set_project_to_window(window.label(), &project, &app_settings_sync, ctx)?;
     let is_exclusive = match mode {
         ProjectAccessMode::First => true,
         ProjectAccessMode::Shared => false,
