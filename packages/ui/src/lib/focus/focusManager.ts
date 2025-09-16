@@ -126,24 +126,12 @@ export class FocusManager {
 		}
 	}
 
-	setActive(element: HTMLElement): boolean {
-		if (!element?.isConnected || !this.isElementRegistered(element)) return false;
-
-		const node = this.getNode(element);
-		if (!node) {
-			console.warn('Could not find node for element', element);
-			return false;
-		}
-
-		return this.setActiveNode(node);
-	}
-
 	private setActiveNode(node?: FocusableNode): boolean {
 		if (!node) return false;
+		if (node === this.currentNode) return true;
 
 		const previousNode = this.currentNode;
 
-		// Buttons cannot become active
 		if (!node.options.focusable) {
 			return false;
 		}
@@ -156,6 +144,7 @@ export class FocusManager {
 		this.currentNode = node;
 		this.cacheActiveIndexNode(node);
 		this.triggerOnActiveCallbacksNode(node, true);
+		this.focusElement(node.element);
 		this.cursor.set(node.element);
 		return true;
 	}
@@ -200,7 +189,7 @@ export class FocusManager {
 		if (!this.currentElement) return false;
 		const nextChild = this.findInNextColumn(this.currentElement, forward);
 		if (nextChild) {
-			return this.navigateToElement(nextChild);
+			return this.setActiveNode(nextChild);
 		}
 		return false;
 	}
@@ -210,8 +199,7 @@ export class FocusManager {
 
 		const navigableChildren = this.getNavigableChildNodes(this.currentNode.parent);
 		const child = navigableChildren.at(n);
-		if (!child) return false;
-		return this.navigateToElement(child.element);
+		return this.setActiveNode(child);
 	}
 
 	updateElementOptions(element: HTMLElement, updates: Partial<FocusableOptions>): boolean {
@@ -253,6 +241,10 @@ export class FocusManager {
 			return;
 		}
 
+		if (isInputElement(e.target)) {
+			return;
+		}
+
 		if (e.target instanceof HTMLElement) {
 			const focusableNode = this.findNearestFocusableElement(e.target);
 			if (focusableNode) {
@@ -281,6 +273,11 @@ export class FocusManager {
 	}
 
 	private getDefaultRoot(): FocusableNode | undefined {
+		if (document.activeElement && document.activeElement instanceof HTMLElement) {
+			const node = this.findNearestFocusableElement(document.activeElement);
+			if (node) return node;
+		}
+
 		const firstNode = this.nodeMap.values().next().value;
 		if (firstNode) {
 			let node: FocusableNode | undefined = firstNode;
@@ -297,89 +294,92 @@ export class FocusManager {
 	}
 
 	// Handles keyboard navigation with arrow keys, Tab, and custom handlers
-	private handleKeydown(event: KeyboardEvent) {
-		if (!this.currentNode) {
-			this.currentNode = this.findFirstNavigableDescendantNode(this.getDefaultRoot());
-		}
+	private handleKeydown(event: KeyboardEvent): boolean {
+		if (!this.initializeCurrentNode(event)) return false;
+		const navigationContext = this.buildNavigationContext(event, this.currentNode!);
 
-		if (!this.currentNode) return;
+		if (shouldIgnoreNavigationForInput(navigationContext)) return false;
 
-		const navigationContext = this.buildNavigationContext(event, this.currentNode);
+		if (this.handleFModeInput(event)) return true;
+		if (this.handleTabKey(event, navigationContext)) return true;
+		if (this.handleEscapeKey(event)) return true;
 
-		if (shouldIgnoreNavigationForInput(navigationContext)) {
-			return false;
-		}
+		if (navigationContext.hasSelection) return false;
 
-		// Handle F mode toggle and input (global, doesn't need current element)
-		if (event.key === 'f' || event.key === 'F' || this.fModeManager.active) {
-			this.fModeManager.handleKeypress(event, this.nodeMap, this.currentNode);
-		}
+		if (this.tryActionHandler(event) || this.tryCustomHandlers(event)) return true;
+		if (this.handleOutlineDisplay(navigationContext, event)) return true;
 
-		if (event.key === 'Tab') {
-			if (this.currentElement && navigationContext.trap) {
-				focusNextTabIndex({
-					container: this.currentElement,
-					forward: !event.shiftKey,
-					trap: navigationContext.trap
-				});
-			} else {
-				// Otherwise use built-in tab behavior
-				return;
-			}
-			event.stopPropagation();
-			event.preventDefault();
-			return;
-		}
-
-		// Handle Escape key to hide outline
-		if (event.key === 'Escape') {
-			// Try onEsc handlers first
-			if (this.tryEscapeHandlers(event)) {
-				return;
-			}
-			// Then try custom onKeydown handlers - they might prevent the default Escape behavior
-			if (!this.tryCustomHandlers(event)) {
-				// No custom handler prevented it, hide the outline
-				if (get(this.outline)) {
-					this.outline.set(false);
-				} else {
-					this.currentNode = undefined;
-				}
-				event.preventDefault();
-				event.stopPropagation();
-			}
-			return;
-		}
-
-		if (navigationContext.hasSelection) {
-			return false;
-		}
-
-		if (this.shouldShowOutlineOnly(navigationContext)) {
-			const targetNode = this.findFirstNavigableDescendantNode(this.currentNode);
-			const newCurrent = this.setActiveNode(targetNode);
-			if (newCurrent) {
-				this.outline.set(true);
-				event.stopPropagation();
-				event.preventDefault();
-				return true;
-			}
-		}
-
-		// Handle Space/Enter action keys first
-		if (this.tryActionHandler(event)) {
-			return;
-		}
-
-		// Try custom handlers
-		if (this.tryCustomHandlers(event)) {
-			return;
-		}
-
-		// Handle built-in navigation
 		if (this.processStandardNavigation(event, navigationContext)) {
 			this.outline.set(true);
+			return true;
 		}
+		return false;
+	}
+
+	private initializeCurrentNode(event: KeyboardEvent): boolean {
+		if (!this.currentNode && event.key !== 'Tab') {
+			this.currentNode = this.findFirstNavigableDescendantNode(this.getDefaultRoot());
+		}
+		return this.currentNode !== undefined;
+	}
+
+	private handleFModeInput(event: KeyboardEvent): boolean {
+		if (event.key === 'f' || event.key === 'F' || this.fModeManager.active) {
+			return this.fModeManager.handleKeypress(event, this.nodeMap, this.currentNode!);
+		}
+		return false;
+	}
+
+	private handleTabKey(event: KeyboardEvent, navigationContext: NavigationContext): boolean {
+		if (event.key !== 'Tab') return false;
+
+		if (navigationContext.trap || get(this.outline)) {
+			focusNextTabIndex({
+				container: this.currentNode!.element,
+				forward: !event.shiftKey,
+				trap: navigationContext.trap
+			});
+			this.outline.set(false);
+			if (!navigationContext.trap) {
+				// Only clear current node if were tabbing inside of a trap
+				this.currentNode = undefined;
+			}
+		} else {
+			// Otherwise use built-in tab behavior
+			return false;
+		}
+		event.stopPropagation();
+		event.preventDefault();
+		return true;
+	}
+
+	private handleEscapeKey(event: KeyboardEvent): boolean {
+		if (event.key !== 'Escape') return false;
+
+		// Try onEsc handlers first
+		if (this.tryEscapeHandlers(event) || this.tryCustomHandlers(event)) {
+			return true;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		return true;
+	}
+
+	private handleOutlineDisplay(
+		navigationContext: NavigationContext,
+		event: KeyboardEvent
+	): boolean {
+		if (!this.shouldShowOutlineOnly(navigationContext)) return false;
+
+		const targetNode = this.findFirstNavigableDescendantNode(this.currentNode);
+		const newCurrent = this.setActiveNode(targetNode);
+		if (newCurrent) {
+			this.outline.set(true);
+			event.stopPropagation();
+			event.preventDefault();
+			return true;
+		}
+		return false;
 	}
 
 	// Handles hotkeys for instant button activation (supports complex combinations like ⇧⌘P)
@@ -602,7 +602,7 @@ export class FocusManager {
 	}
 
 	// Finds focusable in adjacent column for horizontal navigation
-	findInNextColumn(element: HTMLElement, forward: boolean): HTMLElement | undefined {
+	findInNextColumn(element: HTMLElement, forward: boolean): FocusableNode | undefined {
 		const node = this.getNode(element);
 		if (!node) return undefined;
 
@@ -630,7 +630,7 @@ export class FocusManager {
 				for (const sibling of searchSiblings) {
 					const childNode = this.findFirstNavigableDescendantNode(sibling, forward);
 					if (childNode) {
-						return childNode.element;
+						return childNode;
 					}
 				}
 			}
@@ -678,15 +678,6 @@ export class FocusManager {
 		}
 
 		return false;
-	}
-
-	navigateToElement(element: HTMLElement | undefined): boolean {
-		if (!element) return false;
-		const success = this.setActive(element);
-		if (success) {
-			this.focusElement(element);
-		}
-		return success;
 	}
 
 	// ============================================
@@ -939,8 +930,9 @@ export class FocusManager {
 		if (element.tabIndex !== -1) {
 			element.focus();
 		} else {
-			if (document.activeElement && document.activeElement instanceof HTMLElement) {
-				document.activeElement.blur();
+			const activeElement = document.activeElement;
+			if (activeElement instanceof HTMLElement && !element.contains(activeElement)) {
+				activeElement.blur();
 			}
 		}
 		scrollIntoViewIfNeeded(element);
