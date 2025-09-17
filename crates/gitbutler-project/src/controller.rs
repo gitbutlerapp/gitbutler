@@ -103,8 +103,11 @@ impl Controller {
 
         let id = uuid::Uuid::new_v4().to_string();
 
-        // title is the base name of the file
-        let title = path
+        // Resolve the path first to get the actual directory name
+        let resolved_path = gix::path::realpath(path)?;
+
+        // title is the base name of the resolved path
+        let title = resolved_path
             .iter()
             .next_back()
             .map_or_else(|| id.clone(), |p| p.to_str().unwrap().to_string());
@@ -112,7 +115,7 @@ impl Controller {
         let project = Project {
             id: ProjectId::generate(),
             title,
-            path: gix::path::realpath(path)?,
+            path: resolved_path,
             api: None,
             ..Default::default()
         };
