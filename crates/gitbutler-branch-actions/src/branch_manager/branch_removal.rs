@@ -10,7 +10,7 @@ use gitbutler_stack::StackId;
 use gitbutler_workspace::workspace_base;
 use tracing::instrument;
 
-use super::BranchManager;
+use super::{checkout_remerged_head, BranchManager};
 use crate::r#virtual as vbranch;
 use crate::VirtualBranchesExt;
 
@@ -63,16 +63,7 @@ impl BranchManager<'_> {
         let gix_repo = self.ctx.gix_repo_for_merging()?;
         if safe_checkout {
             // This reads the just stored data and re-merges it all stacks, excluding the unapplied one.
-            let res = (|| -> Result<()> {
-                let workspace_without_stack = but_workspace::remerged_head_commit(self.ctx)?;
-                but_workspace::branch::safe_checkout_from_head(
-                    workspace_without_stack.to_gix(),
-                    &gix_repo,
-                    but_workspace::branch::checkout::Options::default(),
-                )?;
-                Ok(())
-            })();
-
+            let res = checkout_remerged_head(self.ctx, &gix_repo);
             // Undo the removal, stack is still there officially now.
             if res.is_err() {
                 stack.in_workspace = true;

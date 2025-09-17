@@ -1,4 +1,4 @@
-use super::BranchManager;
+use super::{checkout_remerged_head, BranchManager};
 use crate::r#virtual as vbranch;
 use crate::{hunk::VirtualBranchHunk, integration::update_workspace_commit, VirtualBranchesExt};
 use anyhow::{anyhow, bail, Context, Result};
@@ -345,13 +345,19 @@ impl BranchManager<'_> {
                 .context("failed to merge trees")?;
 
             if !merges_cleanly {
-                for stack in vb_state
+                for stack_to_unapply in vb_state
                     .list_stacks_in_workspace()?
                     .iter()
                     .filter(|branch| branch.id != stack_id)
                 {
-                    unapplied_stacks.push(stack.id);
-                    self.unapply(stack.id, perm, false, Vec::new(), safe_checkout)?;
+                    unapplied_stacks.push(stack_to_unapply.id);
+                    let res =
+                        self.unapply(stack_to_unapply.id, perm, false, Vec::new(), safe_checkout);
+                    if res.is_err() {
+                        stack.in_workspace = false;
+                        vb_state.set_stack(stack.clone())?;
+                    }
+                    res?;
                 }
             }
         }
@@ -429,16 +435,25 @@ impl BranchManager<'_> {
             }
         }
 
+        // Permissions here might be wonky, just go with it though.
         let new_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
-
-        update_uncommited_changes_with_tree(
-            self.ctx,
-            workspace_state,
-            new_workspace,
-            old_cwd,
-            Some(true),
-            perm,
-        )?;
+        if safe_checkout {
+            let res = checkout_remerged_head(self.ctx, &gix_repo);
+            if res.is_err() {
+                stack.in_workspace = false;
+                vb_state.set_stack(stack.clone())?;
+            }
+            res?;
+        } else {
+            update_uncommited_changes_with_tree(
+                self.ctx,
+                workspace_state,
+                new_workspace,
+                old_cwd,
+                Some(true),
+                perm,
+            )?;
+        }
 
         update_workspace_commit(&vb_state, self.ctx)?;
 
