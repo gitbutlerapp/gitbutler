@@ -41,6 +41,7 @@
 		// Snippets
 		children?: Snippet;
 		custom?: Snippet;
+		badge?: Snippet;
 	}
 </script>
 
@@ -89,7 +90,8 @@
 		oncontextmenu,
 		onkeydown,
 		children,
-		custom
+		custom,
+		badge
 	}: Props = $props();
 
 	async function handleAction(e: MouseEvent) {
@@ -165,6 +167,12 @@
 				{#if displayHotkey}
 					<span class="m-left-2 opacity-50">
 						{displayHotkey}
+					</span>
+				{/if}
+
+				{#if badge}
+					<span class="btn-badge">
+						{@render badge()}
 					</span>
 				{/if}
 			</span>
@@ -269,6 +277,12 @@
 			opacity: var(--icon-opacity);
 			pointer-events: none;
 			transition: opacity var(--transition-fast);
+		}
+
+		.btn-badge {
+			display: inline-flex;
+			margin-right: -2px;
+			margin-left: 2px;
 		}
 
 		/* Theme Variables - All themes use the same pattern */

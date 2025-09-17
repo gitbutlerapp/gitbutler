@@ -515,32 +515,51 @@
 					{@const lineColor = getColorFromBranchType(
 						pushStatusToColor(branchDetailsData.pushStatus)
 					)}
+					{@const enabledMcpServers = mcpConfig.current.data
+						? Object.keys(mcpConfig.current.data.mcpServers).length -
+							uiState.lane(selectedBranch.stackId).disabledMcpServers.current.length
+						: 0}
 
 					<CodegenChatLayout branchName={selectedBranch.head}>
 						{#snippet branchIcon()}
 							<BranchHeaderIcon {iconName} color={lineColor} />
 						{/snippet}
 						{#snippet workspaceActions()}
-							<Button kind="outline" size="tag" icon="workbench-small" onclick={showInWorkspace}
-								>Show in workspace</Button
+							<Button
+								kind="outline"
+								size="tag"
+								icon="workbench-small"
+								reversedDirection
+								onclick={showInWorkspace}>Show in workspace</Button
 							>
 							<Button
 								kind="outline"
 								icon="open-editor-small"
 								size="tag"
-								tooltip="Open in editor
-							"
+								tooltip="Open in editor"
 								onclick={openInEditor}
-							/>
+								reversedDirection
+							>
+								Open in {$userSettings.defaultCodeEditor.displayName}
+							</Button>
 						{/snippet}
 						{#snippet contextActions()}
-							<Button kind="outline" size="tag" onclick={() => mcpConfigModal?.open()}>MCP</Button>
+							<Button
+								kind="outline"
+								icon="mcp"
+								reversedDirection
+								onclick={() => mcpConfigModal?.open()}
+								>MCP
+
+								{#snippet badge()}
+									<Badge kind="soft">{enabledMcpServers}</Badge>
+								{/snippet}
+							</Button>
 							<Button
 								disabled={!hasRulesToClear || formattedMessages.length === 0}
 								kind="outline"
-								size="tag"
+								style="warning"
 								icon="clear-small"
-								reversedDirection
 								onclick={clearContextAndRules}
 							>
 								Clear context
