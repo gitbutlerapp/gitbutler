@@ -59,6 +59,12 @@ export default class Tauri implements IBackend {
 		const store = await Store.load(fileName, { autoSave: true });
 		return new TauriDiskStore(store);
 	}
+	setWindowTitle(title: string): void {
+		if (!this.appWindow) {
+			this.appWindow = getCurrentWindow();
+		}
+		this.appWindow.setTitle(title);
+	}
 }
 
 class TauriDiskStore implements DiskStore {

@@ -69,6 +69,10 @@ export interface IBackend {
 	 * Loads a disk store from a file.
 	 */
 	loadDiskStore: (fileName: string) => Promise<DiskStore>;
+	/**
+	 * Sets the window title.
+	 */
+	setWindowTitle: (title: string) => void;
 }
 
 export interface DiskStore {
