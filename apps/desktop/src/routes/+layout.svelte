@@ -74,6 +74,13 @@
 	const shortcutService = inject(SHORTCUT_SERVICE);
 	$effect(() => shortcutService.listen());
 
+	// Reset window title when not in a project
+	$effect(() => {
+		if (!projectId) {
+			backend.setWindowTitle('GitButler');
+		}
+	});
+
 	// =============================================================================
 	// ANALYTICS & NAVIGATION
 	// =============================================================================
