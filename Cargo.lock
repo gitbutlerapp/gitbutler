@@ -1159,13 +1159,16 @@ dependencies = [
  "but-settings",
  "futures-util",
  "gitbutler-project",
- "gitbutler-user",
+ "gitbutler-secret",
  "gitbutler-watcher",
  "serde",
  "serde_json",
  "tokio",
  "tower 0.5.2",
  "tower-http",
+ "tracing",
+ "tracing-forest",
+ "tracing-subscriber",
  "uuid",
 ]
 
