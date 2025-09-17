@@ -240,29 +240,35 @@ mod file {
         let file_path = path_check.verified_path_allow_nonexisting(rela_path)?;
         match state.kind {
             EntryKind::Blob | EntryKind::BlobExecutable => {
-                let mut dest_lock_file = locked_resource_at(wt_root, &file_path, state.kind)?;
+                let mut dest_lock_file = locked_resource_at(wt_root.clone(), &file_path, state.kind)?;
                 let obj_in_git = state.id.attach(repo).object()?;
                 let mut stream =
                     pipeline.convert_to_worktree(&obj_in_git.data, rela_path, Delay::Forbid)?;
                 std::io::copy(&mut stream, &mut dest_lock_file)?;
+                drop(stream); // Drop the stream to release the borrow on pipeline
 
-                let (file_path, maybe_file) = match dest_lock_file.commit() {
-                    Ok(res) => res,
-                    Err(err) => {
-                        if err.error.kind() == std::io::ErrorKind::IsADirectory {
+                match dest_lock_file.persist(&file_path) {
+                    Ok(file) => {
+                        update_index(gix::index::fs::Metadata::from_file(&file)?)?;
+                    }
+                    Err(persist_error) => {
+                        if persist_error.error.kind() == std::io::ErrorKind::IsADirectory {
                             // It's OK to remove everything that's in the way.
                             // Alternatives to this is to let it be handled by the stack.
-                            std::fs::remove_dir_all(err.instance.resource_path())?;
-                            err.instance.commit()?
+                            std::fs::remove_dir_all(&file_path)?;
+                            // Try again after removing the directory
+                            let mut new_dest_lock_file = locked_resource_at(wt_root, &file_path, state.kind)?;
+                            let obj_in_git = state.id.attach(repo).object()?;
+                            let mut stream =
+                                pipeline.convert_to_worktree(&obj_in_git.data, rela_path, Delay::Forbid)?;
+                            std::io::copy(&mut stream, &mut new_dest_lock_file)?;
+                            let file = new_dest_lock_file.persist(&file_path)?;
+                            update_index(gix::index::fs::Metadata::from_file(&file)?)?;
                         } else {
-                            return Err(err.into());
+                            return Err(persist_error.error.into());
                         }
                     }
                 };
-                update_index(match maybe_file {
-                    None => gix::index::fs::Metadata::from_path_no_follow(&file_path)?,
-                    Some(file) => gix::index::fs::Metadata::from_file(&file)?,
-                })?;
             }
             EntryKind::Link => {
                 let link_path = file_path;
@@ -527,32 +533,40 @@ mod file {
 
     #[cfg(unix)]
     fn locked_resource_at(
-        root: PathBuf,
+        _root: PathBuf,
         path: &Path,
         kind: EntryKind,
-    ) -> anyhow::Result<gix::lock::File> {
+    ) -> anyhow::Result<tempfile::NamedTempFile> {
         use std::os::unix::fs::PermissionsExt;
-        Ok(
-            gix::lock::File::acquire_to_update_resource_with_permissions(
-                path,
-                gix::lock::acquire::Fail::Immediately,
-                Some(root),
-                || std::fs::Permissions::from_mode(kind as u32),
-            )?,
-        )
+        
+        // Get the directory where the target file is located
+        let dir = path.parent().unwrap_or_else(|| Path::new("."));
+        
+        // Create a temporary file in the same directory as the target
+        let temp_file = tempfile::Builder::new()
+            .tempfile_in(dir)?;
+        
+        // Set the permissions to match the EntryKind
+        let permissions = std::fs::Permissions::from_mode(kind as u32);
+        temp_file.as_file().set_permissions(permissions)?;
+        
+        Ok(temp_file)
     }
 
     #[cfg(windows)]
     fn locked_resource_at(
-        root: PathBuf,
+        _root: PathBuf,
         path: &Path,
         _kind: EntryKind,
-    ) -> anyhow::Result<gix::lock::File> {
-        Ok(gix::lock::File::acquire_to_update_resource(
-            path,
-            gix::lock::acquire::Fail::Immediately,
-            Some(root),
-        )?)
+    ) -> anyhow::Result<tempfile::NamedTempFile> {
+        // Get the directory where the target file is located
+        let dir = path.parent().unwrap_or_else(|| Path::new("."));
+        
+        // Create a temporary file in the same directory as the target
+        let temp_file = tempfile::Builder::new()
+            .tempfile_in(dir)?;
+        
+        Ok(temp_file)
     }
 }
 
