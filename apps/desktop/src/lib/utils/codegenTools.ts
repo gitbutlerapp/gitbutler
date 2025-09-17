@@ -30,8 +30,8 @@ export function getToolIcon(toolName: string): IconName {
 	if (name.includes('batch') || name.includes('script')) {
 		return 'text';
 	}
-	if (name.includes('glob') || name.includes('pattern')) {
-		return 'filter-applied-small';
+	if (name.includes('exit')) {
+		return 'signout';
 	}
 
 	// Default icon for unknown tool types
