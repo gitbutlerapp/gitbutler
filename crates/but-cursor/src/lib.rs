@@ -17,6 +17,8 @@ use std::collections::HashMap;
 use std::io::{self, Read};
 use std::str::FromStr;
 
+pub mod workspace_identifier;
+
 /// Message returned back to Cursor after running a hook
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
@@ -197,6 +199,9 @@ pub async fn handle_stop() -> anyhow::Result<CursorHookOutput> {
 
     let summary = "todo".to_string();
     let prompt = "todo".to_string();
+
+    let workspace_id = workspace_identifier::get_single_folder_workspace_identifier(dir)?;
+    dbg!(workspace_id);
 
     let (id, outcome) = but_action::handle_changes(
         ctx,
