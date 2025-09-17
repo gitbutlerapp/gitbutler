@@ -773,6 +773,7 @@ dependencies = [
  "but-api",
  "but-claude",
  "but-core",
+ "but-cursor",
  "but-db",
  "but-graph",
  "but-hunk-assignment",
@@ -989,6 +990,29 @@ dependencies = [
  "toml 0.8.22",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "but-cursor"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-action",
+ "but-claude",
+ "but-core",
+ "but-graph",
+ "but-hunk-assignment",
+ "but-settings",
+ "but-workspace",
+ "diesel",
+ "gitbutler-command-context",
+ "gitbutler-project",
+ "gitbutler-stack",
+ "gix",
+ "md5",
+ "rand 0.9.2",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
