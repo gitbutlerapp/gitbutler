@@ -20,11 +20,6 @@ export function isInputElement(target: EventTarget | null): boolean {
 	);
 }
 
-export function hasTextSelection(): boolean {
-	const selection = window.getSelection();
-	return !!selection && selection.rangeCount > 0 && !selection.isCollapsed;
-}
-
 export function getElementDescription(element: HTMLElement | undefined): string {
 	if (!element) return '(none)';
 
