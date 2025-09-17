@@ -1,0 +1,3 @@
+ancestorEntries = []
+ourEntries = ["apps/desktop/src/components/codegen/CodegenMcpConfigModal.svelte"]
+theirEntries = ["apps/desktop/src/components/codegen/CodegenMcpConfigModal.svelte"]
