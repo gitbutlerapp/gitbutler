@@ -1159,13 +1159,16 @@ dependencies = [
  "but-settings",
  "futures-util",
  "gitbutler-project",
- "gitbutler-user",
+ "gitbutler-secret",
  "gitbutler-watcher",
  "serde",
  "serde_json",
  "tokio",
  "tower 0.5.2",
  "tower-http",
+ "tracing",
+ "tracing-forest",
+ "tracing-subscriber",
  "uuid",
 ]
 
@@ -3395,6 +3398,7 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-graph",
+ "but-workspace",
  "git2",
  "gitbutler-branch",
  "gitbutler-command-context",
@@ -3763,6 +3767,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-rebase",
+ "but-workspace",
  "git2",
  "gitbutler-cherry-pick",
  "gitbutler-command-context",

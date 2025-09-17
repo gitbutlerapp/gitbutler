@@ -11,9 +11,22 @@ use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog};
 use std::collections::BTreeSet;
 use tracing::instrument;
 
+/// Like [`safe_checkout()`], but the current tree will always be fetched from
+pub fn safe_checkout_from_head(
+    new_head_id: gix::ObjectId,
+    repo: &gix::Repository,
+    opts: Options,
+) -> anyhow::Result<Outcome> {
+    safe_checkout(
+        repo.head_tree_id_or_empty()?.detach(),
+        new_head_id,
+        repo,
+        opts,
+    )
+}
 /// Given the `current_head_id^{tree}` for the tree that matches what `HEAD` points to, perform all file operations necessary
 /// to turn the *worktree* of `repo` into `new_head_id^{tree}`. Note that the current *worktree* is assumed to be at the state of
-/// `current_head_tree_id` along with arbitrary uncommitted user changes.
+/// `current_head_id` along with arbitrary uncommitted user changes.
 ///
 /// Note that we don't care if the worktree actually matches the `new_head_id^{tree}`, we only care about the operations from
 /// `current_head_id^{tree}` to be performed, and if there are none, we will do nothing.

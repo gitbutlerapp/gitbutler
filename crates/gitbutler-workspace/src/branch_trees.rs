@@ -53,42 +53,54 @@ pub fn update_uncommited_changes(
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let repo = ctx.repo();
-    let uncommited_changes = repo.create_wd_tree(0)?;
+    let uncommited_changes = (!ctx.app_settings().feature_flags.cv3)
+        .then(|| repo.create_wd_tree(0).map(|tree| tree.id()))
+        .transpose()?;
 
-    update_uncommited_changes_with_tree(ctx, old, new, uncommited_changes.id(), None, perm)
+    update_uncommited_changes_with_tree(ctx, old, new, uncommited_changes, None, perm)
 }
 
+/// `old_uncommitted_changes` is `None` if the `safe_checkout` feature is toggled on in `ctx`
 pub fn update_uncommited_changes_with_tree(
     ctx: &CommandContext,
     old: WorkspaceState,
     new: WorkspaceState,
-    old_uncommited_changes: git2::Oid,
+    old_uncommitted_changes: Option<git2::Oid>,
     always_checkout: Option<bool>,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let repo = ctx.repo();
+    if let Some(worktree_id) = old_uncommitted_changes {
+        let mut new_uncommited_changes = move_tree_between_workspaces(repo, worktree_id, old, new)?;
 
-    let mut new_uncommited_changes =
-        move_tree_between_workspaces(repo, old_uncommited_changes, old, new)?;
-
-    // If the new tree and old tree are the same, then we don't need to do anything
-    if !new_uncommited_changes.has_conflicts() && !always_checkout.unwrap_or(false) {
-        let tree = new_uncommited_changes.write_tree_to(repo)?;
-        if tree == old_uncommited_changes {
-            return Ok(());
+        // If the new tree and old tree are the same, then we don't need to do anything
+        if !new_uncommited_changes.has_conflicts() && !always_checkout.unwrap_or(false) {
+            let tree = new_uncommited_changes.write_tree_to(repo)?;
+            if tree == worktree_id {
+                return Ok(());
+            }
         }
+
+        repo.checkout_index(
+            Some(&mut new_uncommited_changes),
+            Some(
+                git2::build::CheckoutBuilder::new()
+                    .force()
+                    .remove_untracked(true)
+                    .conflict_style_diff3(true),
+            ),
+        )?;
+    } else {
+        let old_tree_id = merge_workspace(repo, old)?.to_gix();
+        let new_tree_id = merge_workspace(repo, new)?.to_gix();
+        let gix_repo = ctx.gix_repo_for_merging()?;
+        but_workspace::branch::safe_checkout(
+            old_tree_id,
+            new_tree_id,
+            &gix_repo,
+            but_workspace::branch::checkout::Options::default(),
+        )?;
     }
-
-    repo.checkout_index(
-        Some(&mut new_uncommited_changes),
-        Some(
-            git2::build::CheckoutBuilder::new()
-                .force()
-                .remove_untracked(true)
-                .conflict_style_diff3(true),
-        ),
-    )?;
-
     Ok(())
 }
 

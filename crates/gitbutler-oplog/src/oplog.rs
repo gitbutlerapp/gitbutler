@@ -619,11 +619,19 @@ fn restore_snapshot(
     repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
 
     // Define the checkout builder
-    let mut checkout_builder = git2::build::CheckoutBuilder::new();
-    checkout_builder.remove_untracked(true);
-    checkout_builder.force();
-    // Checkout the tree
-    repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
+    if ctx.app_settings().feature_flags.cv3 {
+        but_workspace::branch::safe_checkout_from_head(
+            workdir_tree.id().to_gix(),
+            &gix_repo,
+            but_workspace::branch::checkout::Options::default(),
+        )?;
+    } else {
+        let mut checkout_builder = git2::build::CheckoutBuilder::new();
+        checkout_builder.remove_untracked(true);
+        checkout_builder.force();
+        // Checkout the tree
+        repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
+    }
 
     // Update virtual_branches.toml with the state from the snapshot
     fs::write(

@@ -114,6 +114,7 @@ incremental = false
 
 # Assure that `gix` is always fast so debug builds aren't unnecessarily slow.
 [profile.dev.package]
+gix = { opt-level = 3 }
 gix-object = { opt-level = 3 }
 gix-ref = { opt-level = 3 }
 gix-pack = { opt-level = 3 }

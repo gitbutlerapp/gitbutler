@@ -139,7 +139,9 @@ impl BranchManager<'_> {
         pr_number: Option<usize>,
         perm: &mut WorktreeWritePermission,
     ) -> Result<(StackId, Vec<StackId>)> {
-        let old_cwd = self.ctx.repo().create_wd_tree(0)?.id();
+        let old_cwd = (!self.ctx.app_settings().feature_flags.cv3)
+            .then(|| self.ctx.repo().create_wd_tree(0).map(|tree| tree.id()))
+            .transpose()?;
         let old_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
         // only set upstream if it's not the default target
         let upstream_branch = match upstream_branch {
@@ -293,7 +295,7 @@ impl BranchManager<'_> {
         stack_id: StackId,
         perm: &mut WorktreeWritePermission,
         workspace_state: WorkspaceState,
-        old_cwd: git2::Oid,
+        old_cwd: Option<git2::Oid>,
     ) -> Result<(String, Vec<StackId>)> {
         let repo = self.ctx.repo();
 
@@ -338,13 +340,20 @@ impl BranchManager<'_> {
                 .context("failed to merge trees")?;
 
             if !merges_cleanly {
-                for stack in vb_state
+                for stack_to_unapply in vb_state
                     .list_stacks_in_workspace()?
                     .iter()
                     .filter(|branch| branch.id != stack_id)
                 {
-                    unapplied_stacks.push(stack.id);
-                    self.unapply(stack.id, perm, false, Vec::new())?;
+                    unapplied_stacks.push(stack_to_unapply.id);
+                    let safe_checkout = old_cwd.is_none();
+                    let res =
+                        self.unapply(stack_to_unapply.id, perm, false, Vec::new(), safe_checkout);
+                    if res.is_err() {
+                        stack.in_workspace = false;
+                        vb_state.set_stack(stack.clone())?;
+                    }
+                    res?;
                 }
             }
         }
@@ -422,16 +431,21 @@ impl BranchManager<'_> {
             }
         }
 
+        // Permissions here might be wonky, just go with it though.
         let new_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
-
-        update_uncommited_changes_with_tree(
+        let res = update_uncommited_changes_with_tree(
             self.ctx,
             workspace_state,
             new_workspace,
             old_cwd,
             Some(true),
             perm,
-        )?;
+        );
+        if res.is_err() {
+            stack.in_workspace = false;
+            vb_state.set_stack(stack.clone())?;
+        }
+        res?;
 
         update_workspace_commit(&vb_state, self.ctx)?;
 
