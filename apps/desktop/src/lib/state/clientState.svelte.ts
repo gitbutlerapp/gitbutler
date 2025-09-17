@@ -54,8 +54,8 @@ export class ClientState {
 	// $state requires field declaration, but we have to assign the initial
 	// value in the constructor such that we can inject dependencies. The
 	// incorrect casting `as` seems difficult to avoid.
-	rootState = $state.raw({} as ReturnType<typeof this.store.getState>);
-	readonly uiState = $derived(this.rootState.uiState);
+	rootState = $state.raw<ReturnType<typeof this.store.getState> | undefined>(undefined);
+	readonly uiState = $derived(this.rootState?.uiState);
 
 	/** rtk-query api for communicating with the back end. */
 	readonly backendApi: BackendApi;
@@ -99,7 +99,6 @@ export class ClientState {
 
 		this.store = store;
 		this.reducer = reducer;
-		setupListeners(this.store.dispatch);
 		this.dispatch = this.store.dispatch;
 		this.rootState = this.store.getState();
 
@@ -223,7 +222,7 @@ const FORGE_API_CONFIG = {
 	refetchOnFocus: true,
 	refetchOnReconnect: true,
 	keepUnusedDataFor: FORGE_CACHE_TTL_SECONDS,
-	endpoints: (_: any) => ({})
+	endpoints: () => ({})
 };
 
 export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
