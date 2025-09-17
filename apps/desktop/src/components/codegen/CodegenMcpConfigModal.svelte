@@ -1,5 +1,14 @@
 <script lang="ts">
-	import { Link, Modal, ScrollableContainer, Toggle } from '@gitbutler/ui';
+	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
+	import mcpLogoSvg from '$lib/assets/unsized-logos/mcp.svg?raw';
+	import {
+		Link,
+		Modal,
+		ScrollableContainer,
+		Toggle,
+		SectionCard,
+		EmptyStatePlaceholder
+	} from '@gitbutler/ui';
 	import type { McpConfig, McpServer } from '$lib/codegen/types';
 
 	type Props = {
@@ -17,60 +26,100 @@
 	}
 </script>
 
-<Modal bind:this={modal} title="Configure your MCP servers">
+<Modal
+	bind:this={modal}
+	width={480}
+	title={Object.entries(mcpConfig.mcpServers).length > 0 ? 'MCP Server Configuration' : undefined}
+>
 	<ScrollableContainer>
-		<div class="flex flex-col gap-12">
-			<div>
-				<p class="text-13">
-					Choose which MCP Servers should be available in this session. To install more MCP servers,
-					please refer to the
+		<div class="flex flex-col gap-8">
+			{#if Object.entries(mcpConfig.mcpServers).length === 0}
+				<EmptyStatePlaceholder image={emptyFolderSvg} width={300} topBottomPadding={38}>
+					{#snippet title()}
+						No MCP servers available
+					{/snippet}
+					{#snippet caption()}
+						For installing additional MCP servers,<br />check the
+						<Link href="https://docs.anthropic.com/en/docs/claude-code/mcp#installing-mcp-servers"
+							>Claude Code documentation</Link
+						>
+					{/snippet}
+				</EmptyStatePlaceholder>
+			{:else}
+				<p class="text-12 text-body clr-text-2 m-bottom-10">
+					Select the MCP Servers for this session. For installing additional MCP servers, check the
 					<Link href="https://docs.anthropic.com/en/docs/claude-code/mcp#installing-mcp-servers"
 						>Claude Code documentation</Link
 					>
 				</p>
-			</div>
-			{#if Object.entries(mcpConfig.mcpServers).length === 0}
-				<p class="text-13">You currently have no MCP Servers available to this project.</p>
-			{:else}
-				{#each Object.entries(mcpConfig.mcpServers) as [name, server]}
-					{@render mcpServer(name, server)}
-				{/each}
+				<div class="stack-v">
+					{#each Object.entries(mcpConfig.mcpServers) as [name, server], index}
+						{@render mcpServer(
+							name,
+							server,
+							index === 0,
+							index === Object.entries(mcpConfig.mcpServers).length - 1
+						)}
+					{/each}
+				</div>
 			{/if}
 		</div>
 	</ScrollableContainer>
 </Modal>
 
-{#snippet mcpServer(name: string, server: McpServer)}
-	<div class="mcp-server">
+{#snippet mcpServer(name: string, server: McpServer, isFirst: boolean, isLast: boolean)}
+	<SectionCard orientation="row" labelFor={name} roundedTop={isFirst} roundedBottom={isLast}>
+		{#snippet iconSide()}
+			<div class="mcp-server__icon">
+				{@html mcpLogoSvg}
+			</div>
+		{/snippet}
 		<div class="mcp-server__body">
-			<p class="text-14 text-bold">{name}</p>
-			{#if server.command}
-				<p class="text-13">{server.command} {server.args?.join(' ')}</p>
-			{/if}
-			{#if server.url}
-				<p class="text-13">{server.url}</p>
-			{/if}
+			<p class="text-14 text-bold">
+				{name}
+			</p>
+
+			<p class="mcp-server__caption truncate">
+				{#if server.command}
+					<span>{server.command} {server.args?.join(' ')}</span>
+				{/if}
+				{#if server.url}
+					<span>{server.url}</span>
+				{/if}
+			</p>
 		</div>
-		<div class="mcp-server__actions">
-			<Toggle checked={!disabledServers.includes(name)} onclick={() => toggleServer(name)} />
-		</div>
-	</div>
+		{#snippet actions()}
+			<Toggle
+				id={name}
+				checked={!disabledServers.includes(name)}
+				onclick={() => toggleServer(name)}
+			/>
+		{/snippet}
+	</SectionCard>
 {/snippet}
 
 <style lang="postcss">
-	.mcp-server {
+	.mcp-server__icon {
 		display: flex;
-		padding: 12px;
-
-		border: 1px solid var(--clr-border-2);
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		padding: 6px;
 		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
 	}
 	.mcp-server__body {
 		display: flex;
-
-		flex-grow: 1;
-
 		flex-direction: column;
-		gap: 8px;
+		width: 100%;
+		overflow: hidden;
+		gap: 2px;
+	}
+	.mcp-server__caption {
+		color: var(--clr-text-2);
+		font-size: 11px;
+		font-family: var(--fontfamily-mono);
 	}
 </style>
