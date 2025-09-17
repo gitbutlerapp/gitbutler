@@ -997,6 +997,7 @@ name = "but-cursor"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-action",
  "but-claude",
  "but-core",
  "but-graph",

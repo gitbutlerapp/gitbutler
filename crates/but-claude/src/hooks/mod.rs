@@ -171,7 +171,7 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
         for branch in &outcome.updated_branches {
             let mut commit_message_mapping = HashMap::new();
 
-            let elegibility = is_branch_eligible_for_rename(&defer, &stacks, branch)?;
+            let elegibility = is_branch_eligible_for_rename(defer.ctx, &stacks, branch)?;
 
             for commit in &branch.new_commits {
                 if let Ok(commit_id) = gix::ObjectId::from_str(commit) {
@@ -232,7 +232,7 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
     })
 }
 
-enum RenameEligibility {
+pub enum RenameEligibility {
     Eligible { commit_id: gix::ObjectId },
     NotEligible,
 }
@@ -248,8 +248,8 @@ enum RenameEligibility {
 /// The intention behind this implementation is to ensure that the more costly operation (getting the stack details)
 /// is only performed if necessary.
 /// This is determined by first checking if the newly added commits are only one and the branch tip matches the commit ID.
-fn is_branch_eligible_for_rename(
-    defer: &ClearLocksGuard<'_>,
+pub fn is_branch_eligible_for_rename(
+    ctx: &CommandContext,
     stacks: &[but_workspace::ui::StackEntry],
     branch: &but_action::UpdatedBranch,
 ) -> Result<RenameEligibility, anyhow::Error> {
@@ -278,7 +278,7 @@ fn is_branch_eligible_for_rename(
     }
 
     // Get stack details and branch details
-    let details = stack_details(defer.ctx, stack_entry.id.context("BUG(opt-stack-id)")?)?;
+    let details = stack_details(ctx, stack_entry.id.context("BUG(opt-stack-id)")?)?;
     let branch_details = details
         .branch_details
         .iter()

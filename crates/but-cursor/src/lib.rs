@@ -1,3 +1,7 @@
+use but_action::ActionHandler;
+use but_action::OpenAiProvider;
+use but_action::Source;
+use but_action::reword::CommitEvent;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
@@ -9,7 +13,9 @@ use gix::diff::blob::unified_diff::ConsumeBinaryHunk;
 use gix::diff::blob::unified_diff::ContextSize;
 use gix::diff::blob::{Algorithm, UnifiedDiff};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::io::{self, Read};
+use std::str::FromStr;
 
 /// Message returned back to Cursor after running a hook
 #[derive(Serialize, Debug, Clone, Default)]
@@ -161,7 +167,108 @@ pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
 pub async fn handle_stop() -> anyhow::Result<CursorHookOutput> {
     let input: StopEvent = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
-    dbg!(input);
+    let dir = input
+        .workspace_roots
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("No workspace roots provided"))
+        .map(std::path::Path::new)?;
+    let repo = gix::discover(dir)?;
+    let project = Project::from_path(
+        repo.workdir()
+            .ok_or(anyhow::anyhow!("No worktree found for repo"))?,
+    )?;
+
+    let changes =
+        but_core::diff::ui::worktree_changes_by_worktree_dir(project.clone().path)?.changes;
+
+    if changes.is_empty() {
+        return Ok(CursorHookOutput::default());
+    }
+
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project().gb_dir().join("virtual_branches.toml"),
+    )?;
+    let vb_state = &VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let stacks = but_workspace::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
+    let stack_id =
+        but_claude::hooks::get_or_create_session(ctx, &input.conversation_id, stacks, vb_state)?;
+
+    let summary = "todo".to_string();
+    let prompt = "todo".to_string();
+
+    let (id, outcome) = but_action::handle_changes(
+        ctx,
+        &summary,
+        Some(prompt.clone()),
+        ActionHandler::HandleChangesSimple,
+        Source::ClaudeCode(input.conversation_id),
+        Some(stack_id),
+    )?;
+
+    let stacks = but_workspace::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
+
+    // Trigger commit message generation for newly created commits
+    // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if avaialbe
+    // Alternatively, and probably better - we could spawn a new process to do this
+
+    if let Some(openai_client) =
+        OpenAiProvider::with(None).and_then(|provider| provider.client().ok())
+    {
+        for branch in &outcome.updated_branches {
+            let mut commit_message_mapping = HashMap::new();
+
+            let elegibility =
+                but_claude::hooks::is_branch_eligible_for_rename(ctx, &stacks, branch)?;
+
+            for commit in &branch.new_commits {
+                if let Ok(commit_id) = gix::ObjectId::from_str(commit) {
+                    let commit_event = CommitEvent {
+                        external_summary: summary.clone(),
+                        external_prompt: prompt.clone(),
+                        branch_name: branch.branch_name.clone(),
+                        commit_id,
+                        project: project.clone(),
+                        app_settings: ctx.app_settings().clone(),
+                        trigger: id,
+                    };
+                    let reword_result = but_action::reword::commit(&openai_client, commit_event)
+                        .await
+                        .ok()
+                        .unwrap_or_default();
+
+                    // Update the commit mapping with the new commit ID
+                    if let Some(reword_result) = reword_result {
+                        commit_message_mapping.insert(commit_id, reword_result);
+                    }
+                }
+            }
+
+            match elegibility {
+                but_claude::hooks::RenameEligibility::Eligible { commit_id } => {
+                    let reword_result = commit_message_mapping.get(&commit_id).cloned();
+
+                    if let Some((commit_id, commit_message)) = reword_result {
+                        let params = but_action::rename_branch::RenameBranchParams {
+                            commit_id,
+                            commit_message,
+                            stack_id: branch.stack_id,
+                            current_branch_name: branch.branch_name.clone(),
+                        };
+                        but_action::rename_branch::rename_branch(ctx, &openai_client, params, id)
+                            .await
+                            .ok();
+                    }
+                }
+                but_claude::hooks::RenameEligibility::NotEligible => {
+                    // Do nothing, branch is not eligible for renaming
+                }
+            }
+        }
+    }
+
+    // dbg!(input);
     Ok(CursorHookOutput::default())
 }
 
