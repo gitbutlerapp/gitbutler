@@ -58,6 +58,7 @@
 		testId?: string;
 		forceSansFont?: boolean;
 		useRuler?: boolean;
+		messageType: 'commit' | 'pr';
 	}
 
 	let {
@@ -76,7 +77,8 @@
 		suggestionsHandler,
 		testId,
 		forceSansFont,
-		useRuler
+		useRuler,
+		messageType
 	}: Props = $props();
 
 	const MIN_RULER_VALUE = 30;
@@ -224,12 +226,17 @@
 		medium: 320
 	};
 
+	const GENERATE_MESSAGES: Record<typeof messageType, string> = {
+		commit: 'Generate commit message',
+		pr: 'Generate PR description'
+	};
+
 	function getTooltipText(): string | undefined {
 		if (!canUseAI) {
 			return 'You need to enable AI in the project settings to use this feature';
 		}
 		if (currentEditorWidth <= DROPDOWN_BTN_BREAKPOINTS.medium) {
-			return 'Generate commit message';
+			return GENERATE_MESSAGES[messageType];
 		}
 		return undefined;
 	}
