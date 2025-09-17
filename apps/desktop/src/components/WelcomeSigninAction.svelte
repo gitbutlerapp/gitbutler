@@ -54,9 +54,7 @@
 
 	{#if $loading}
 		<div>
-			<Button kind="outline" onclick={() => ($aborted = true)} loading={$aborted}
-				>Cancel login attempt</Button
-			>
+			<Button kind="outline" onclick={() => ($aborted = true)} loading={$aborted}>Abort</Button>
 		</div>
 	{/if}
 {/if}
