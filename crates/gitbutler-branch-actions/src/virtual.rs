@@ -226,7 +226,7 @@ pub fn commit(
     ownership: Option<&BranchOwnershipClaims>,
 ) -> Result<git2::Oid> {
     // get the files to commit
-    let diffs = gitbutler_diff::workdir(ctx.repo(), but_workspace::head(ctx)?)?;
+    let diffs = gitbutler_diff::workdir(ctx.repo(), but_workspace::remerged_head_commit(ctx)?)?;
     let statuses = get_applied_status_cached(ctx, None, &diffs)
         .context("failed to get status by branch")?
         .branches;

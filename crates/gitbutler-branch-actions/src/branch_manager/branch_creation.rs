@@ -270,7 +270,13 @@ impl BranchManager<'_> {
         )?;
         self.ctx.add_branch_reference(&branch)?;
 
-        match self.apply_branch(branch.id, perm, old_workspace, old_cwd) {
+        match self.apply_branch(
+            branch.id,
+            perm,
+            old_workspace,
+            old_cwd,
+            self.ctx.app_settings().feature_flags.cv3,
+        ) {
             Ok((_, unapplied_stacks)) => Ok((branch.id, unapplied_stacks)),
             Err(err)
                 if err
@@ -294,6 +300,7 @@ impl BranchManager<'_> {
         perm: &mut WorktreeWritePermission,
         workspace_state: WorkspaceState,
         old_cwd: git2::Oid,
+        safe_checkout: bool,
     ) -> Result<(String, Vec<StackId>)> {
         let repo = self.ctx.repo();
 
@@ -344,7 +351,7 @@ impl BranchManager<'_> {
                     .filter(|branch| branch.id != stack_id)
                 {
                     unapplied_stacks.push(stack.id);
-                    self.unapply(stack.id, perm, false, Vec::new())?;
+                    self.unapply(stack.id, perm, false, Vec::new(), safe_checkout)?;
                 }
             }
         }

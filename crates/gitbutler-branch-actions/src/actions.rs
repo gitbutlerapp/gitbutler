@@ -265,8 +265,13 @@ pub fn unapply_stack(
         .context("Deleting a branch order requires open workspace mode")?;
     let branch_manager = ctx.branch_manager();
     // NB: unapply_without_saving is also called from save_and_unapply
-    let branch_name =
-        branch_manager.unapply(stack_id, guard.write_permission(), false, assigned_diffspec)?;
+    let branch_name = branch_manager.unapply(
+        stack_id,
+        guard.write_permission(),
+        false,
+        assigned_diffspec,
+        ctx.app_settings().feature_flags.cv3,
+    )?;
     Ok(branch_name)
 }
 

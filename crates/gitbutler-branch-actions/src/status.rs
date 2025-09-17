@@ -33,7 +33,7 @@ pub fn get_applied_status(
     ctx: &CommandContext,
     perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<VirtualBranchesStatus> {
-    let diffs = gitbutler_diff::workdir(ctx.repo(), but_workspace::head(ctx)?)?;
+    let diffs = gitbutler_diff::workdir(ctx.repo(), but_workspace::remerged_head_commit(ctx)?)?;
     get_applied_status_cached(ctx, perm, &diffs)
 }
 
