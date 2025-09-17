@@ -372,10 +372,16 @@ impl GroupBranch<'_> {
             GroupBranch::Virtual(branch) => {
                 let name_from_source = branch.source_refname.as_ref().and_then(|n| n.branch());
                 let name_from_upstream = branch.upstream.as_ref().map(|n| n.branch());
+                
+                // If we have a source refname or upstream, use those directly
+                if let Some(name) = name_from_source.or(name_from_upstream) {
+                    return Some(name.into());
+                }
+                
+                // Only fall back to the normalized rich name if no source/upstream is available
                 let rich_name = branch.name.clone();
                 let rich_name = normalize_branch_name(&rich_name).ok()?;
-                let identity = name_from_source.unwrap_or(name_from_upstream.unwrap_or(&rich_name));
-                Some(identity.into())
+                Some(rich_name.as_str().into())
             }
         }
     }
