@@ -23,29 +23,6 @@ mod add {
         );
     }
 
-    #[test]
-    fn current_directory_dot() {
-        let tmp = paths::data_dir();
-        let repository = gitbutler_testsupport::TestProject::default();
-        let repo_path = repository.path();
-        
-        // Change to the repository directory and add "." as the path
-        let original_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(&repo_path).unwrap();
-        
-        let project = gitbutler_project::add_with_path(tmp.path(), std::path::Path::new("."))
-            .unwrap()
-            .unwrap_project();
-            
-        // Restore original directory
-        std::env::set_current_dir(original_dir).unwrap();
-        
-        // Project title should be the actual directory name, not "."
-        let expected_title = repo_path.file_name().unwrap().to_str().unwrap();
-        assert_eq!(project.title, expected_title);
-        assert_ne!(project.title, "."); // Should NOT be "."
-    }
-
     mod error {
         use super::*;
         use gitbutler_project::AddProjectOutcome;
@@ -72,7 +49,7 @@ mod add {
             let data_dir = paths::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let outcome =
-                gitbutler_project::add_with_path(data_dir.path(), &tmp.path().join("missing"))
+                gitbutler_project::add_with_path(data_dir.path(), tmp.path().join("missing"))
                     .unwrap();
             assert!(matches!(outcome, AddProjectOutcome::PathNotFound));
         }

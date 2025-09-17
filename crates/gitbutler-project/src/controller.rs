@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_error::error;
@@ -101,19 +101,27 @@ impl Controller {
             }
         }
 
-        let id = uuid::Uuid::new_v4().to_string();
+        let id = ProjectId::generate();
 
         // Resolve the path first to get the actual directory name
         let resolved_path = gix::path::realpath(path)?;
-
-        // title is the base name of the resolved path
-        let title = resolved_path
-            .iter()
+        let title_is_not_normal_component = path
+            .components()
             .next_back()
-            .map_or_else(|| id.clone(), |p| p.to_str().unwrap().to_string());
+            .is_none_or(|c| !matches!(c, Component::Normal(_)));
+        let path_for_title = if title_is_not_normal_component {
+            &resolved_path
+        } else {
+            path
+        };
+
+        let title = path_for_title.file_name().map_or_else(
+            || id.to_string(),
+            |name| name.to_string_lossy().into_owned(),
+        );
 
         let project = Project {
-            id: ProjectId::generate(),
+            id,
             title,
             path: resolved_path,
             api: None,
