@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use but_action::cli::get_cli_path;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
@@ -107,12 +108,15 @@ impl ClaudeMcpConfig {
     }
 
     pub fn mcp_servers_with_security(&self) -> McpConfig {
+        let cli_path = get_cli_path()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or("but".into());
         let mut out = self.mcp_servers();
         out.mcp_servers.insert(
             BUT_SECURITY_MCP.to_owned(),
             McpServer {
                 r#type: Some("stdio".to_owned()),
-                command: Some("but".to_owned()),
+                command: Some(cli_path),
                 url: None,
                 args: Some(vec!["claude".to_owned(), "pp".to_owned()]),
                 env: Some(HashMap::new()),
