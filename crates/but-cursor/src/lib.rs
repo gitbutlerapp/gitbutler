@@ -166,7 +166,7 @@ pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
     Ok(CursorHookOutput::default())
 }
 
-pub async fn handle_stop() -> anyhow::Result<CursorHookOutput> {
+pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
     let input: StopEvent = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
     let dir = input

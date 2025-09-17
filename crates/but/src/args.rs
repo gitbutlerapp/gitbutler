@@ -173,6 +173,9 @@ pub mod cursor {
     #[derive(Debug, clap::Subcommand)]
     pub enum Subcommands {
         AfterEdit,
-        Stop,
+        Stop {
+            #[clap(long, default_value = "false")]
+            nightly: bool,
+        },
     }
 }

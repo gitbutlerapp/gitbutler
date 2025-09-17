@@ -88,8 +88,8 @@ async fn main() -> Result<()> {
                 metrics_if_configured(app_settings, CommandName::CursorStop, p).ok();
                 Ok(())
             }
-            cursor::Subcommands::Stop => {
-                let result = but_cursor::handle_stop().await;
+            cursor::Subcommands::Stop { nightly } => {
+                let result = but_cursor::handle_stop(*nightly).await;
                 let p = props(start, &result);
                 println!("{}", serde_json::to_string(&result?)?);
                 metrics_if_configured(app_settings, CommandName::CursorStop, p).ok();
