@@ -38,6 +38,7 @@
 		flex-direction: column;
 		max-width: calc(var(--message-max-width) - 6%);
 		padding: 10px 14px;
+		overflow: hidden;
 		gap: 16px;
 		border-radius: var(--radius-ml);
 		border-bottom-left-radius: 0;
