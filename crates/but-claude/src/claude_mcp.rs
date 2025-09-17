@@ -29,14 +29,14 @@ struct Project {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct McpConfig {
-    mcp_servers: McpServers,
+    pub mcp_servers: McpServers,
 }
 
 type McpServers = HashMap<String, McpServer>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-struct McpServer {
+pub struct McpServer {
     r#type: Option<String>,
     command: Option<String>,
     url: Option<String>,
@@ -51,6 +51,8 @@ pub struct ClaudeMcpConfig {
     claude_json: Option<ClaudeJson>,
     mcp_json: Option<McpConfig>,
 }
+
+pub const BUT_SECURITY_MCP: &str = "but-security";
 
 impl ClaudeMcpConfig {
     pub async fn open(settings: &ClaudeSettings, project_path: &Path) -> Self {
@@ -107,7 +109,7 @@ impl ClaudeMcpConfig {
     pub fn mcp_servers_with_security(&self) -> McpConfig {
         let mut out = self.mcp_servers();
         out.mcp_servers.insert(
-            "but-security".to_owned(),
+            BUT_SECURITY_MCP.to_owned(),
             McpServer {
                 r#type: Some("stdio".to_owned()),
                 command: Some("but".to_owned()),

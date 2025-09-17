@@ -23,7 +23,7 @@ use crate::{
     ClaudeMessage, ClaudeMessageContent, ClaudeUserParams, PermissionMode, ThinkingLevel,
     Transcript, UserInput,
     claude_config::fmt_claude_settings,
-    claude_mcp::ClaudeMcpConfig,
+    claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
     claude_settings::ClaudeSettings,
     db,
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
@@ -335,13 +335,17 @@ async fn spawn_command(
     let disabled_mcp_servers = user_params
         .disabled_mcp_servers
         .iter()
+        .filter(|f| *f != BUT_SECURITY_MCP)
         .map(String::as_str)
         .collect::<Vec<&str>>();
-    let mcp_config = serde_json::to_string(
-        &mcp_config
-            .mcp_servers_with_security()
-            .exclude(&disabled_mcp_servers),
-    )?;
+    let mcp_config = &mcp_config
+        .mcp_servers_with_security()
+        .exclude(&disabled_mcp_servers);
+    tracing::info!(
+        "spawn_command mcp_servers: {:?}",
+        mcp_config.mcp_servers.keys()
+    );
+    let mcp_config = serde_json::to_string(mcp_config)?;
     let mut command = Command::new(claude_executable);
 
     /// Don't create a terminal window on windows.
@@ -413,6 +417,7 @@ async fn spawn_command(
         &user_params.message,
         user_params.thinking_level,
     ));
+    tracing::info!("spawn_command: {:?}", command);
     Ok(command.spawn()?)
 }
 
