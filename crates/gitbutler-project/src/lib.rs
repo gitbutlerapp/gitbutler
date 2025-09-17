@@ -68,7 +68,10 @@ pub fn add<P: AsRef<Path>>(path: P) -> anyhow::Result<AddProjectOutcome> {
 }
 
 /// Testing purpose only.
-pub fn add_with_path<P: AsRef<Path>>(data_dir: P, path: P) -> anyhow::Result<AddProjectOutcome> {
+pub fn add_with_path(
+    data_dir: impl AsRef<Path>,
+    path: impl AsRef<Path>,
+) -> anyhow::Result<AddProjectOutcome> {
     let controller = Controller::from_path(data_dir.as_ref());
     controller.add(path)
 }
