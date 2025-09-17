@@ -60,6 +60,9 @@ For examples see `but rub --help`."
     // Claude hooks
     #[clap(hide = true)]
     Claude(claude::Platform),
+    // Cursor hooks
+    #[clap(hide = true)]
+    Cursor(cursor::Platform),
     /// If metrics are permitted, this subcommand handles posthog event creation.
     #[clap(hide = true)]
     Metrics {
@@ -99,6 +102,20 @@ pub enum CommandName {
         alias = "ClaudeStop"
     )]
     ClaudeStop,
+    #[clap(
+        alias = "cursor-after-edit",
+        alias = "cursorafteredit",
+        alias = "cursorAfterEdit",
+        alias = "CursorAfterEdit"
+    )]
+    CursorAfterEdit,
+    #[clap(
+        alias = "cursor-stop",
+        alias = "cursorstop",
+        alias = "cursorStop",
+        alias = "CursorStop"
+    )]
+    CursorStop,
     #[default]
     Unknown,
 }
@@ -144,5 +161,18 @@ pub mod claude {
         Stop,
         #[clap(alias = "pp")]
         PermissionPromptMcp,
+    }
+}
+
+pub mod cursor {
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        #[clap(subcommand)]
+        pub cmd: Subcommands,
+    }
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Subcommands {
+        AfterEdit,
+        Stop,
     }
 }

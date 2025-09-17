@@ -451,7 +451,7 @@ fn original_session_id(ctx: &mut CommandContext, current_id: String) -> Result<S
     }
 }
 
-fn get_or_create_session(
+pub fn get_or_create_session(
     ctx: &mut CommandContext,
     session_id: &str,
     stacks: Vec<but_workspace::ui::StackEntry>,

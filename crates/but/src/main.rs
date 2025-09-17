@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 
 mod args;
-use args::{Args, CommandName, Subcommands, actions, claude};
+use args::{Args, CommandName, Subcommands, actions, claude, cursor};
 use but_settings::AppSettings;
 use metrics::{Event, Metrics, Props, metrics_if_configured};
 
@@ -78,6 +78,22 @@ async fn main() -> Result<()> {
             }
             claude::Subcommands::PermissionPromptMcp => {
                 but_claude::mcp::start(&args.current_dir).await
+            }
+        },
+        Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
+            cursor::Subcommands::AfterEdit => {
+                let result = but_cursor::handle_after_edit().await;
+                let p = props(start, &result);
+                println!("{}", serde_json::to_string(&result?)?);
+                metrics_if_configured(app_settings, CommandName::CursorStop, p).ok();
+                Ok(())
+            }
+            cursor::Subcommands::Stop => {
+                let result = but_cursor::handle_stop().await;
+                let p = props(start, &result);
+                println!("{}", serde_json::to_string(&result?)?);
+                metrics_if_configured(app_settings, CommandName::CursorStop, p).ok();
+                Ok(())
             }
         },
         Subcommands::Log => {
