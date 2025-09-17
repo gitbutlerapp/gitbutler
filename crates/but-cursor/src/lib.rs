@@ -17,7 +17,11 @@ use std::collections::HashMap;
 use std::io::{self, Read};
 use std::str::FromStr;
 
+pub mod db;
 pub mod workspace_identifier;
+
+// Re-export main functionality
+pub use db::{Generation, get_generations};
 
 /// Message returned back to Cursor after running a hook
 #[derive(Serialize, Debug, Clone, Default)]
@@ -197,11 +201,15 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
     let stack_id =
         but_claude::hooks::get_or_create_session(ctx, &input.conversation_id, stacks, vb_state)?;
 
-    let summary = "todo".to_string();
-    let prompt = "todo".to_string();
-
-    let workspace_id = workspace_identifier::get_single_folder_workspace_identifier(dir)?;
-    dbg!(workspace_id);
+    let summary = "".to_string();
+    let prompt = crate::db::get_generations(dir, nightly)
+        .map(|gens| {
+            gens.iter()
+                .find(|g| g.generation_uuid == input.generation_id)
+                .map(|g| g.text_description.clone())
+                .unwrap_or_default()
+        })
+        .unwrap_or_default();
 
     let (id, outcome) = but_action::handle_changes(
         ctx,

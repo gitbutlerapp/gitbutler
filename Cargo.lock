@@ -1004,6 +1004,7 @@ dependencies = [
  "but-hunk-assignment",
  "but-settings",
  "but-workspace",
+ "diesel",
  "gitbutler-command-context",
  "gitbutler-project",
  "gitbutler-stack",
