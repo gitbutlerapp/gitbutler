@@ -161,6 +161,12 @@
 				class:text-10={size === 'icon'}
 			>
 				{@render children()}
+
+				{#if displayHotkey}
+					<span class="m-left-2 opacity-50">
+						{displayHotkey}
+					</span>
+				{/if}
 			</span>
 		{/if}
 
@@ -173,13 +179,9 @@
 				{/if}
 			</div>
 		{/if}
+
 		{#if custom}
 			{@render custom()}
-		{/if}
-		{#if displayHotkey && children}
-			<span class="btn-hotkey">
-				{displayHotkey}
-			</span>
 		{/if}
 	</button>
 </Tooltip>
@@ -255,6 +257,7 @@
 		/* Child elements */
 		.btn-label {
 			padding: 0 3px;
+			overflow: hidden;
 			white-space: nowrap;
 			pointer-events: none;
 		}
@@ -266,16 +269,6 @@
 			opacity: var(--icon-opacity);
 			pointer-events: none;
 			transition: opacity var(--transition-fast);
-		}
-
-		.btn-hotkey {
-			display: inline-flex;
-			align-items: center;
-			font-weight: 500;
-			font-size: 10px;
-			line-height: 1.2;
-			opacity: 0.7;
-			pointer-events: none;
 		}
 
 		/* Theme Variables - All themes use the same pattern */
