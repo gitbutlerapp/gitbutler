@@ -36,17 +36,18 @@
 
 <div class="chat" use:focusable={{ vertical: true }}>
 	<div class="chat-header" use:focusable>
-		<div class="flex gap-10 items-center overflow-hidden">
-			{@render branchIcon()}
-			<p class="text-15 text-bold truncate">{branchName}</p>
-
+		<div class="flex gap-10 justify-between">
+			<div class="chat-header__title">
+				{@render branchIcon()}
+				<p class="text-15 text-bold truncate">{branchName}</p>
+			</div>
 			<div class="flex gap-4 items-center">
-				{@render workspaceActions()}
+				{@render contextActions()}
 			</div>
 		</div>
 
-		<div class="flex gap-4 items-center">
-			{@render contextActions()}
+		<div class="chat-header__actions">
+			{@render workspaceActions()}
 		</div>
 	</div>
 
@@ -86,11 +87,27 @@
 
 	.chat-header {
 		display: flex;
-		justify-content: space-between;
+		flex-direction: column;
 		width: 100%;
 		padding: 16px;
-		gap: 20px;
+		gap: 8px;
 		border-bottom: 1px solid var(--clr-border-3);
+	}
+
+	.chat-header__title {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		margin-top: -2px;
+		overflow: hidden;
+		gap: 10px;
+	}
+
+	.chat-header__actions {
+		display: flex;
+		align-items: center;
+
+		gap: 4px;
 	}
 
 	.chat-container {
