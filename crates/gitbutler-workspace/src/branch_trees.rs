@@ -65,12 +65,12 @@ pub fn update_uncommited_changes_with_tree(
     ctx: &CommandContext,
     old: WorkspaceState,
     new: WorkspaceState,
-    old_uncommited_changes: Option<git2::Oid>,
+    old_uncommitted_changes: Option<git2::Oid>,
     always_checkout: Option<bool>,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let repo = ctx.repo();
-    if let Some(worktree_id) = old_uncommited_changes {
+    if let Some(worktree_id) = old_uncommitted_changes {
         let mut new_uncommited_changes = move_tree_between_workspaces(repo, worktree_id, old, new)?;
 
         // If the new tree and old tree are the same, then we don't need to do anything
@@ -91,9 +91,11 @@ pub fn update_uncommited_changes_with_tree(
             ),
         )?;
     } else {
+        let old_tree_id = merge_workspace(repo, old)?.to_gix();
         let new_tree_id = merge_workspace(repo, new)?.to_gix();
         let gix_repo = ctx.gix_repo_for_merging()?;
-        but_workspace::branch::safe_checkout_from_head(
+        but_workspace::branch::safe_checkout(
+            old_tree_id,
             new_tree_id,
             &gix_repo,
             but_workspace::branch::checkout::Options::default(),

@@ -3398,6 +3398,7 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-graph",
+ "but-workspace",
  "git2",
  "gitbutler-branch",
  "gitbutler-command-context",
