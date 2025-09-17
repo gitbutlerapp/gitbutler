@@ -184,12 +184,14 @@ async fn main() -> Result<()> {
             id,
             branch_name,
             description,
+            remote,
         } => match (branch_name, id) {
             (Some(branch_name), maybe_id) => command::stacks::create_branch(
                 *maybe_id,
                 branch_name,
                 description.as_deref(),
                 &args.current_dir,
+                *remote,
                 args.json,
                 args.v3,
             ),

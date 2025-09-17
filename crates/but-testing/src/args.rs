@@ -215,6 +215,9 @@ pub enum Subcommands {
         /// This is the place where some metadata about the branch can be stored.
         #[clap(long, short = 'd')]
         description: Option<String>,
+        /// Whether the branch is a remote branch
+        #[clap(long, short = 'u', default_value_t = false)]
+        remote: bool,
     },
     /// Create a reference at the given position (dependent and independent)
     CreateReference {
