@@ -53,7 +53,7 @@
 
 	<div class="chat-container">
 		<div class="chat-messages" onscroll={handleScroll}>
-			<div bind:this={bottomAnchor} style="height: 1px; margin-top: 8px;"></div>
+			<div bind:this={bottomAnchor} style="height: 1px;"></div>
 			{@render messages()}
 		</div>
 
@@ -106,7 +106,6 @@
 	.chat-header__actions {
 		display: flex;
 		align-items: center;
-
 		gap: 4px;
 	}
 
@@ -121,11 +120,20 @@
 		display: flex;
 		flex-direction: column-reverse;
 		width: 100%;
-		padding: 8px 20px;
+		padding: 0 20px;
 		overflow-x: hidden;
 		overflow-y: scroll;
 		scrollbar-width: none; /* Firefox */
 		-ms-overflow-style: none; /* IE 10+ */
+
+		/* this hack is needed to add padding on top of the first message */
+		/* so it doesn't stick to the top edge */
+		:global(& > div:last-child) {
+			padding-top: 20px;
+		}
+		:global(& > div:first-child) {
+			padding-bottom: 8px;
+		}
 	}
 
 	.chat-scroll-to-bottom {
