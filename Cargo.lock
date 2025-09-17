@@ -3766,6 +3766,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-rebase",
+ "but-workspace",
  "git2",
  "gitbutler-cherry-pick",
  "gitbutler-command-context",

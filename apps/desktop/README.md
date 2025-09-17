@@ -37,7 +37,6 @@ This builds the **web** target, points it to the but-server on `http://localhost
 
 Open Chrome (let's not kid ourselves) and got to `http://localhost:1420` and enjoy
 
-
 ### Development
 
 #### Auto-build the server on Rust changes
