@@ -44,6 +44,11 @@
 		background-color: var(--clr-bg-2);
 		text-wrap: wrap;
 		word-break: break-word;
+
+		/* make code blocks visible */
+		:global(.markdown pre) {
+			background-color: var(--clr-bg-1);
+		}
 	}
 
 	.user-icon {

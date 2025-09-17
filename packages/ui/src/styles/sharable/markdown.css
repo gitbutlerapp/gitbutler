@@ -76,6 +76,7 @@
 		margin: 1em 0;
 		padding: 1em;
 		overflow: auto;
+		border: 1px solid var(--clr-border-3);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-2);
 		font-size: 92%;

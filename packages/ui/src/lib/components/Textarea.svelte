@@ -195,6 +195,8 @@
 		width: 100%;
 		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
 		line-height: var(--lineheight-ratio);
+		scroll-padding: var(--padding-top) var(--padding-right) var(--padding-bottom)
+			var(--padding-left);
 		word-wrap: break-word;
 		white-space: pre-wrap;
 	}

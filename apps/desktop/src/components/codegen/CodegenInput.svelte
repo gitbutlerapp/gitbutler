@@ -87,6 +87,13 @@
 			borderless
 			maxRows={10}
 			minRows={2}
+			onkeydown={(e) => {
+				// Global gotakey on the button doesn't work inside textarea, so we handle it here
+				if (e.key === 'c' && e.ctrlKey && onAbort) {
+					e.preventDefault();
+					onAbort();
+				}
+			}}
 		/>
 
 		<div class="dialog-input__actions">
@@ -102,6 +109,7 @@
 							style="error"
 							action={onAbort}
 							icon="stop"
+							hotkey="⌃C"
 							reversedDirection
 						>
 							Stop
