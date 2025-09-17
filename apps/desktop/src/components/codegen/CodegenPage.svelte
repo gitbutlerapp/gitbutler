@@ -1085,7 +1085,7 @@
 		gap: 8px;
 
 		/* SHARABLE */
-		--message-max-width: 520px;
+		--message-max-width: 620px;
 	}
 
 	.chat-view {
