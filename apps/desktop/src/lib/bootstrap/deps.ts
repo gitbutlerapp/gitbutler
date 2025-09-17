@@ -52,7 +52,7 @@ import { CodegenAnalytics, CODEGEN_ANALYTICS } from '$lib/soup/codegenAnalytics'
 import { CommitAnalytics, COMMIT_ANALYTICS } from '$lib/soup/commitAnalytics';
 import { StackService, STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 import { ClientState, CLIENT_STATE } from '$lib/state/clientState.svelte';
-import { UiState, UI_STATE } from '$lib/state/uiState.svelte';
+import { UiState, UI_STATE, uiStateSlice } from '$lib/state/uiState.svelte';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import DataSharingService, { DATA_SHARING_SERVICE } from '$lib/support/dataSharing';
 import { UPDATER_SERVICE, UpdaterService } from '$lib/updater/updater';
@@ -141,7 +141,7 @@ export function initDependencies(args: {
 	const githubUserService = new GitHubUserService(backend, clientState['githubApi']);
 
 	const uiState = new UiState(
-		reactive(() => clientState.uiState),
+		reactive(() => clientState.uiState ?? uiStateSlice.getInitialState()),
 		clientState.dispatch
 	);
 	const ircService = new IrcService(clientState, clientState.dispatch, ircClient);

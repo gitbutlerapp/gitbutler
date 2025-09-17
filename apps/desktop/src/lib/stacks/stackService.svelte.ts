@@ -518,7 +518,7 @@ export class StackService {
 					throw commandError;
 				}
 			},
-			throwSlientError: true
+			throwSilentError: true
 		});
 	}
 

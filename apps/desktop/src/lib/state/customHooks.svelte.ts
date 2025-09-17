@@ -34,7 +34,7 @@ export type EventProperties = { [key: string]: string | number | boolean | undef
 /** A callback function for getting extra properties for event tracking. */
 export type PropertiesFn = () => EventProperties;
 
-type TranformerFn = (data: any, args: any) => any;
+type TransformerFn = (data: any, args: any) => any;
 
 const EVENT_NAME = 'tauri_command';
 
@@ -74,7 +74,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		});
 	}
 
-	async function fetch<T extends TranformerFn>(
+	async function fetch<T extends TransformerFn>(
 		queryArg: unknown,
 		options?: { transform?: T; forceRefetch?: boolean }
 	) {
@@ -98,7 +98,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		return result.data;
 	}
 
-	function useQuery<T extends TranformerFn>(
+	function useQuery<T extends TransformerFn>(
 		queryArg: unknown,
 		options?: { transform?: T } & StartQueryActionCreatorOptions
 	): ReactiveQuery<T extends Transformer<ReturnType<T>> ? ReturnType<T> : T, QueryExtensions> {
@@ -157,7 +157,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		};
 	}
 
-	function useQueries<T extends TranformerFn, D extends CustomQuery<any>>(
+	function useQueries<T extends TransformerFn, D extends CustomQuery<any>>(
 		queryArgs: unknown[],
 		options?: { transform?: T } & StartQueryActionCreatorOptions
 	): Reactive<
@@ -201,7 +201,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		});
 	}
 
-	function useQueryState<T extends TranformerFn>(
+	function useQueryState<T extends TransformerFn>(
 		queryArg: unknown,
 		options?: { transform?: T }
 	): ReactiveQuery<T extends Transformer<ReturnType<T>> ? ReturnType<T> : T> {
@@ -270,7 +270,7 @@ export type UseMutationHookParams<Definition extends MutationDefinition<any, any
 	 * Important: If an error is thrown inside a provided `onError` callback, it
 	 * will not be wrapped in a `SilentError`.
 	 */
-	throwSlientError?: boolean;
+	throwSilentError?: boolean;
 	/**
 	 * Optional function that fetches additional metadata for logging purposes.
 	 */
@@ -392,7 +392,7 @@ export function buildMutationHook<
 
 	async function mutate(queryArg: QueryArgFrom<D>, options?: UseMutationHookParams<D>) {
 		const dispatch = getDispatch();
-		const { fixedCacheKey, sideEffect, preEffect, onError, propertiesFn, throwSlientError } =
+		const { fixedCacheKey, sideEffect, preEffect, onError, propertiesFn, throwSilentError } =
 			options ?? {};
 
 		const properties = propertiesFn?.() || {};
@@ -411,7 +411,7 @@ export function buildMutationHook<
 			if (onError && isReduxError(error)) {
 				onError(error, queryArg);
 			}
-			throwError(error, throwSlientError ?? false);
+			throwError(error, throwSilentError ?? false);
 		}
 	}
 
@@ -425,7 +425,7 @@ export function buildMutationHook<
 	 * @see: https://github.com/reduxjs/redux-toolkit/blob/637b0cad2b227079ccd0c5a3073c09ace6d8759e/packages/toolkit/src/query/react/buildHooks.ts#L867-L935
 	 */
 	function useMutation(params?: UseMutationHookParams<D>) {
-		const { fixedCacheKey, preEffect, sideEffect, onError, propertiesFn, throwSlientError } =
+		const { fixedCacheKey, preEffect, sideEffect, onError, propertiesFn, throwSilentError } =
 			params || {};
 		const dispatch = getDispatch();
 
@@ -449,7 +449,7 @@ export function buildMutationHook<
 				if (onError && isReduxError(error)) {
 					onError(error, queryArg);
 				}
-				throwError(error, throwSlientError ?? false);
+				throwError(error, throwSilentError ?? false);
 			}
 		}
 

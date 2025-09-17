@@ -67,28 +67,30 @@ type CustomEndpoints<T> = {
 	[x: string]: EndpointDefinition<any, any, any, any> & { [K in keyof T]: T[K] };
 };
 
+function isObjectWithActionName(value: unknown): value is { actionName: string } {
+	return (
+		value !== null &&
+		typeof value === 'object' &&
+		'actionName' in value &&
+		typeof value.actionName === 'string'
+	);
+}
+
+function isObjectWithCommand(value: unknown): value is { command: string } {
+	return (
+		value !== null &&
+		typeof value === 'object' &&
+		'command' in value &&
+		typeof value.command === 'string'
+	);
+}
+
 function extractActionName(extraOptions: unknown): string | undefined {
-	if (
-		extraOptions &&
-		typeof extraOptions === 'object' &&
-		'actionName' in extraOptions &&
-		typeof extraOptions.actionName === 'string'
-	) {
-		return extraOptions.actionName;
-	}
-	return undefined;
+	return isObjectWithActionName(extraOptions) ? extraOptions.actionName : undefined;
 }
 
 function extractCommand(extraOptions: unknown): string | undefined {
-	if (
-		extraOptions &&
-		typeof extraOptions === 'object' &&
-		'command' in extraOptions &&
-		typeof extraOptions.command === 'string'
-	) {
-		return extraOptions.command;
-	}
-	return undefined;
+	return isObjectWithCommand(extraOptions) ? extraOptions.command : undefined;
 }
 
 export type ExtensionDefinitions = ApiModules<
@@ -111,7 +113,7 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 		name: butlerModuleName,
 
 		init(api, _options, _context) {
-			const anyApi = api as any as Api<
+			const typedApi = api as Api<
 				TauriBaseQueryFn,
 				ExtensionDefinitions,
 				string,
@@ -120,7 +122,7 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 			>;
 			return {
 				injectEndpoint(endpointName, definition) {
-					const endpoint = anyApi.endpoints[endpointName]!; // Known to exist.
+					const endpoint = typedApi.endpoints[endpointName]!; // Known to exist.
 					if (isQueryDefinition(definition)) {
 						const command = extractCommand(definition.extraOptions);
 						const actionName = extractActionName(definition.extraOptions);
@@ -190,8 +192,8 @@ export type ReactiveQuery<
 export type AsyncResult<T> = Promise<CustomResult<CustomQuery<T>>>;
 
 /**
- * It would be great to understand why it is necessary to set the args type
- * to `any`, anything else results in quite a number of type errors.
+ * Generic type for query arguments that can be of any shape.
+ * Using any here for maximum compatibility with RTK Query's flexible argument system.
  */
 type CustomArgs = any;
 
