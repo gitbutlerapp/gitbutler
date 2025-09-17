@@ -15,7 +15,6 @@
 	import ToastController from '$components/ToastController.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import { BACKEND } from '$lib/backend';
 	import { initDependencies } from '$lib/bootstrap/deps';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
