@@ -10,6 +10,7 @@ import type { HunkAssignment } from '$lib/hunks/hunk';
 import type RulesService from '$lib/rules/rulesService.svelte';
 import type { Stack, BranchDetails } from '$lib/stacks/stack';
 import type { EventProperties } from '$lib/state/customHooks.svelte';
+import type { FModeManager } from '@gitbutler/ui/focus/fModeManager';
 
 export const COMMIT_ANALYTICS = new InjectionToken<CommitAnalytics>('CommitAnalytics');
 
@@ -18,7 +19,8 @@ export class CommitAnalytics {
 		private stackService: StackService,
 		private uiState: UiState,
 		private worktreeService: WorktreeService,
-		private readonly rulesService: RulesService
+		private rulesService: RulesService,
+		private fModeManager: FModeManager
 	) {}
 
 	async getCommitProperties(args: {
@@ -86,6 +88,8 @@ export class CommitAnalytics {
 				totalAssignedFiles: this.getAssignedFiles(assignments).length,
 				// Total number of files that have not been assigned
 				totalUnassignedFiles: this.getUnassignedFiles(assignments).length,
+				// Number of times F key shortcuts have been "clicked"
+				fKeyActivations: this.fModeManager.activations,
 				// Rule metrics
 				...this.getRuleMetrics(rules),
 				// Behavior metrics

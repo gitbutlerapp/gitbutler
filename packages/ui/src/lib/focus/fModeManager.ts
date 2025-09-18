@@ -4,7 +4,10 @@ import {
 	createShortcutOverlay,
 	removeShortcutOverlay
 } from '$lib/focus/shortcutUtils';
+import { InjectionToken } from '@gitbutler/core/context';
 import type { FocusableNode } from '$lib/focus/focusTypes';
+
+export const FMODE_MANAGER: InjectionToken<FModeManager> = new InjectionToken('FModeManager');
 
 /**
  * F-mode allows users to quickly navigate to buttons and containers using
@@ -19,9 +22,8 @@ export class FModeManager {
 	private activeOverlays = new Map<HTMLElement, HTMLElement>();
 	private elementToShortcut = new Map<HTMLElement, string>();
 
-	get active(): boolean {
-		return this._active;
-	}
+	// Count of how many shortcuts have been activated.
+	private _activations = 0;
 
 	setFeatureEnabled(enabled: boolean): void {
 		this.featureEnabled = enabled;
@@ -183,6 +185,7 @@ export class FModeManager {
 		} else {
 			element.click();
 		}
+		this._activations++;
 		this.deactivate(); // Auto-exit after activation
 	}
 
@@ -239,5 +242,13 @@ export class FModeManager {
 				this.showShortcut(element, shortcut);
 			}
 		});
+	}
+
+	get active(): boolean {
+		return this._active;
+	}
+
+	get activations(): number {
+		return this._activations;
 	}
 }
