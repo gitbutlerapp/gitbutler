@@ -32,6 +32,7 @@ md5 = "0.8.0"
 tracing.workspace = true
 # For SPMC channel
 flume = "0.11.1"
+tempfile.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true

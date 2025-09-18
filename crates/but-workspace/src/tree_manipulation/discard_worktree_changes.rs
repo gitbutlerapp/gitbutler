@@ -196,6 +196,7 @@ mod file {
     use gix::filter::plumbing::driver::apply::Delay;
     use gix::object::tree::EntryKind;
     use gix::prelude::ObjectIdExt;
+    use gix::tempfile::create_dir::Retries;
     use std::path::{Path, PathBuf};
 
     pub enum RestoreMode {
@@ -240,29 +241,29 @@ mod file {
         let file_path = path_check.verified_path_allow_nonexisting(rela_path)?;
         match state.kind {
             EntryKind::Blob | EntryKind::BlobExecutable => {
-                let mut dest_lock_file = locked_resource_at(wt_root, &file_path, state.kind)?;
+                let mut tempfile = tempfile_in_root_with_permissions_at(wt_root, state.kind)?;
                 let obj_in_git = state.id.attach(repo).object()?;
                 let mut stream =
                     pipeline.convert_to_worktree(&obj_in_git.data, rela_path, Delay::Forbid)?;
-                std::io::copy(&mut stream, &mut dest_lock_file)?;
-
-                let (file_path, maybe_file) = match dest_lock_file.commit() {
+                std::io::copy(&mut stream, &mut tempfile)?;
+                gix::tempfile::create_dir::all(
+                    file_path.parent().context("encountered strange filepath")?,
+                    Retries::default(),
+                )?;
+                let file = match tempfile.persist(&file_path) {
                     Ok(res) => res,
                     Err(err) => {
                         if err.error.kind() == std::io::ErrorKind::IsADirectory {
                             // It's OK to remove everything that's in the way.
                             // Alternatives to this is to let it be handled by the stack.
-                            std::fs::remove_dir_all(err.instance.resource_path())?;
-                            err.instance.commit()?
+                            std::fs::remove_dir_all(&file_path)?;
+                            err.file.persist(file_path)?
                         } else {
                             return Err(err.into());
                         }
                     }
                 };
-                update_index(match maybe_file {
-                    None => gix::index::fs::Metadata::from_path_no_follow(&file_path)?,
-                    Some(file) => gix::index::fs::Metadata::from_file(&file)?,
-                })?;
+                update_index(gix::index::fs::Metadata::from_file(&file)?)?;
             }
             EntryKind::Link => {
                 let link_path = file_path;
@@ -525,34 +526,19 @@ mod file {
         }
     }
 
-    #[cfg(unix)]
-    fn locked_resource_at(
+    fn tempfile_in_root_with_permissions_at(
         root: PathBuf,
-        path: &Path,
         kind: EntryKind,
-    ) -> anyhow::Result<gix::lock::File> {
-        use std::os::unix::fs::PermissionsExt;
-        Ok(
-            gix::lock::File::acquire_to_update_resource_with_permissions(
-                path,
-                gix::lock::acquire::Fail::Immediately,
-                Some(root),
-                || std::fs::Permissions::from_mode(kind as u32),
-            )?,
-        )
-    }
+    ) -> anyhow::Result<tempfile::NamedTempFile> {
+        #[cfg_attr(not(unix), allow(unused_mut))]
+        let mut builder = tempfile::Builder::new();
 
-    #[cfg(windows)]
-    fn locked_resource_at(
-        root: PathBuf,
-        path: &Path,
-        _kind: EntryKind,
-    ) -> anyhow::Result<gix::lock::File> {
-        Ok(gix::lock::File::acquire_to_update_resource(
-            path,
-            gix::lock::acquire::Fail::Immediately,
-            Some(root),
-        )?)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            builder.permissions(std::fs::Permissions::from_mode(kind as u32));
+        }
+        Ok(builder.tempfile_in(root)?)
     }
 }
 
