@@ -57,8 +57,8 @@
 	const accessToken = $derived($user?.github_access_token);
 
 	// Project data
-	const projectsResult = $derived(projectsService.projects());
-	const projects = $derived(projectsResult.current.data);
+	const projectsQuery = $derived(projectsService.projects());
+	const projects = $derived(projectsQuery.result.data);
 
 	// =============================================================================
 	// REPOSITORY & BRANCH MANAGEMENT
@@ -68,13 +68,13 @@
 	const branchService = inject(BRANCH_SERVICE);
 	const gitService = inject(GIT_SERVICE);
 
-	const repoInfoResponse = $derived(baseBranchService.repo(projectId));
-	const repoInfo = $derived(repoInfoResponse.current.data);
-	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
-	const baseBranch = $derived(baseBranchResponse.current.data);
+	const repoInfoQuery = $derived(baseBranchService.repo(projectId));
+	const repoInfo = $derived(repoInfoQuery.result.data);
+	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranch = $derived(baseBranchQuery.result.data);
 	const baseBranchName = $derived(baseBranch?.shortName);
-	const pushRepoResponse = $derived(baseBranchService.pushRepo(projectId));
-	const forkInfo = $derived(pushRepoResponse.current.data);
+	const pushRepoQuery = $derived(baseBranchService.pushRepo(projectId));
+	const forkInfo = $derived(pushRepoQuery.result.data);
 
 	// =============================================================================
 	// WORKSPACE & MODE MANAGEMENT
@@ -85,8 +85,8 @@
 	const worktreeService = inject(WORKTREE_SERVICE);
 
 	const mode = $derived(modeService.mode({ projectId }));
-	const headResult = $derived(modeService.head({ projectId }));
-	const head = $derived(headResult.current.data);
+	const headQuery = $derived(modeService.head({ projectId }));
+	const head = $derived(headQuery.result.data);
 
 	// Invalidate stacks when switching branches outside workspace
 	$effect(() => {
@@ -136,8 +136,8 @@
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 
-	const worktreeDataResult = $derived(worktreeService.worktreeData(projectId));
-	const worktreeData = $derived(worktreeDataResult.current.data);
+	const worktreeDataQuery = $derived(worktreeService.worktreeData(projectId));
+	const worktreeData = $derived(worktreeDataQuery.response);
 
 	// Bridge between RTKQ and custom slice
 	$effect(() => {
@@ -216,7 +216,7 @@
 
 	// Refresh when branch data changes
 	$effect(() => {
-		if (baseBranch || headResult.current.data) debouncedRemoteBranchRefresh();
+		if (baseBranch || headQuery.result.data) debouncedRemoteBranchRefresh();
 	});
 
 	// Auto-fetch setup
@@ -311,7 +311,7 @@
 <ProjectSettingsMenuAction {projectId} />
 <FileMenuAction />
 
-<ReduxResult {projectId} result={combineResults(baseBranchResponse.current, mode.current)}>
+<ReduxResult {projectId} result={combineResults(baseBranchQuery.result, mode.result)}>
 	{#snippet children([baseBranch, mode], { projectId })}
 		{#if !baseBranch}
 			<NoBaseBranch {projectId} />

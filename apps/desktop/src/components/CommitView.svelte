@@ -64,11 +64,11 @@
 	const selected = $derived(laneState.selection);
 	const branchName = $derived(selected.current?.branchName);
 
-	const commitResult = $derived(
+	const commitQuery = $derived(
 		stackService.commitById(projectId, commitKey.stackId, commitKey.commitId)
 	);
 
-	const [updateCommitMessage, messageUpdateResult] = stackService.updateCommitMessage;
+	const [updateCommitMessage, messageUpdateQuery] = stackService.updateCommitMessage;
 
 	type Mode = 'view' | 'edit';
 
@@ -89,7 +89,7 @@
 	}
 
 	const parsedMessage = $derived(
-		commitResult.current.data ? splitMessage(commitResult.current.data.message) : undefined
+		commitQuery.response ? splitMessage(commitQuery.response.message) : undefined
 	);
 
 	function combineParts(title?: string, description?: string): string {
@@ -152,7 +152,7 @@
 	}
 </script>
 
-<ReduxResult {stackId} {projectId} result={commitResult.current} {onerror}>
+<ReduxResult {stackId} {projectId} result={commitQuery.result} {onerror}>
 	{#snippet children(commit, env)}
 		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
 
@@ -237,7 +237,7 @@
 							actionLabel="Save changes"
 							onCancel={cancelEdit}
 							floatingBoxHeader="Edit commit message"
-							loading={messageUpdateResult.current.isLoading}
+							loading={messageUpdateQuery.current.isLoading}
 							existingCommitId={commit.id}
 							title={parsedMessage?.title || ''}
 							description={parsedMessage?.description || ''}

@@ -16,10 +16,10 @@
 
 	let pollingInterval = $derived(getPollingInterval(elapsedMs, isClosed));
 
-	const prResult = $derived(prService?.get(number, { subscriptionOptions: { pollingInterval } }));
+	const prQuery = $derived(prService?.get(number, { subscriptionOptions: { pollingInterval } }));
 
 	$effect(() => {
-		const result = prResult?.current;
+		const result = prQuery?.result;
 		const pr = result?.data;
 
 		if (pr) {

@@ -31,11 +31,11 @@
 	}: Props = $props();
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
-	const baseBranch = $derived(baseBranchResponse.current.data);
+	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranch = $derived(baseBranchQuery.response);
 	const projectsService = inject(PROJECTS_SERVICE);
-	const projectResult = $derived(projectsService.getProject(projectId));
-	const project = $derived(projectResult.current.data);
+	const projectQuery = $derived(projectsService.getProject(projectId));
+	const project = $derived(projectQuery.response);
 
 	let credentialCheck = $state<CredentialCheck>();
 
@@ -92,7 +92,7 @@
 </script>
 
 <div data-testid={TestId.ProjectSetupGitAuthPage}>
-	<ReduxResult {projectId} result={projectResult.current}>
+	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
 			<Section>
 				{#snippet top()}

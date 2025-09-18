@@ -27,31 +27,31 @@
 	const repoService = $derived(forge.current.repoService);
 	const prService = $derived(forge.current.prService);
 
-	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
-	const branch = $derived(branchResult.current.data);
-	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
-	const branchDetails = $derived(branchDetailsResult.current.data);
+	const branchQuery = $derived(stackService.branchByName(projectId, stackId, branchName));
+	const branch = $derived(branchQuery.response);
+	const branchDetailsQuery = $derived(stackService.branchDetails(projectId, stackId, branchName));
+	const branchDetails = $derived(branchDetailsQuery.response);
 	const isPushed = $derived(branchDetails?.pushStatus !== 'completelyUnpushed');
-	const prResult = $derived(branch?.prNumber ? prService?.get(branch?.prNumber) : undefined);
-	const pr = $derived(prResult?.current.data);
+	const prQuery = $derived(branch?.prNumber ? prService?.get(branch?.prNumber) : undefined);
+	const pr = $derived(prQuery?.response);
 
-	const parentResult = $derived(stackService.branchParentByName(projectId, stackId, branchName));
-	const parent = $derived(parentResult.current.data);
+	const parentQuery = $derived(stackService.branchParentByName(projectId, stackId, branchName));
+	const parent = $derived(parentQuery.response);
 	const hasParent = $derived(!!parent);
-	const parentBranchDetailsResult = $derived(
+	const parentBranchDetailsQuery = $derived(
 		parent ? stackService.branchDetails(projectId, stackId, parent.name) : undefined
 	);
-	const parentBranchDetails = $derived(parentBranchDetailsResult?.current.data);
+	const parentBranchDetails = $derived(parentBranchDetailsQuery?.response);
 	const parentIsPushed = $derived(parentBranchDetails?.pushStatus !== 'completelyUnpushed');
-	const childResult = $derived(stackService.branchChildByName(projectId, stackId, branchName));
-	const child = $derived(childResult.current.data);
+	const childQuery = $derived(stackService.branchChildByName(projectId, stackId, branchName));
+	const child = $derived(childQuery.response);
 
-	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
-	const baseBranch = $derived(baseBranchResponse.current.data);
-	const baseBranchRepoResponse = $derived(baseBranchService.repo(projectId));
-	const baseBranchRepo = $derived(baseBranchRepoResponse.current.data);
-	const repoResult = $derived(repoService?.getInfo());
-	const repoInfo = $derived(repoResult?.current.data);
+	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranch = $derived(baseBranchQuery.response);
+	const baseBranchRepoQuery = $derived(baseBranchService.repo(projectId));
+	const baseBranchRepo = $derived(baseBranchRepoQuery.response);
+	const repoQuery = $derived(repoService?.getInfo());
+	const repoInfo = $derived(repoQuery?.response);
 
 	let shouldUpdateTargetBaseBranch = $derived(
 		repoInfo?.deleteBranchAfterMerge === false && !!child?.prNumber

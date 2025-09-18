@@ -17,9 +17,9 @@
 	// make it more concise somehow.
 	const forgeListing = $derived(forge.current.listService);
 	const forgeName = $derived(forge.current.name);
-	const listedPrResult = $derived(forgeListing?.getByBranch(projectId, branchName));
+	const listedPrQuery = $derived(forgeListing?.getByBranch(projectId, branchName));
 
-	const listedPrNumber = $derived(listedPrResult?.current.data?.number);
+	const listedPrNumber = $derived(listedPrQuery?.response?.number);
 
 	let hasRun = false;
 	$effect(() => {

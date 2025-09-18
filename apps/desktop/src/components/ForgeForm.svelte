@@ -19,8 +19,8 @@
 	const instanceUrl = gitLabState?.instanceUrl ?? writable<string | undefined>('');
 
 	const projectsService = inject(PROJECTS_SERVICE);
-	const projectResult = $derived(projectsService.getProject(projectId));
-	const project = $derived(projectResult.current.data);
+	const projectQuery = $derived(projectsService.getProject(projectId));
+	const project = $derived(projectQuery.response);
 
 	const forgeOptions: { label: string; value: ForgeName }[] = [
 		{

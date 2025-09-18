@@ -7,10 +7,10 @@
 
 	const { projectId }: { projectId: string } = $props();
 	const projectsService = inject(PROJECTS_SERVICE);
-	const projectResult = $derived(projectsService.getProject(projectId));
+	const projectQuery = $derived(projectsService.getProject(projectId));
 </script>
 
-<ReduxResult {projectId} result={projectResult.current}>
+<ReduxResult {projectId} result={projectQuery.result}>
 	{#snippet children(project)}
 		<Section gap={8}>
 			<SectionCard orientation="row" labelFor="omitCertificateCheck">

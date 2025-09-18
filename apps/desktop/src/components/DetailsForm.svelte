@@ -8,13 +8,13 @@
 	const { projectId }: { projectId: string } = $props();
 
 	const projectsService = inject(PROJECTS_SERVICE);
-	const projectResult = $derived(projectsService.getProject(projectId));
+	const projectQuery = $derived(projectsService.getProject(projectId));
 
 	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
 </script>
 
 <SectionCard>
-	<ReduxResult {projectId} result={projectResult.current}>
+	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
 			<form>
 				<fieldset class="fields-wrapper">

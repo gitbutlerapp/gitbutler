@@ -9,12 +9,12 @@
 	const { projectId }: { projectId?: string } = $props();
 
 	const projectsService = inject(PROJECTS_SERVICE);
-	const projectsResult = $derived(projectsService.projects());
+	const projectsQuery = $derived(projectsService.projects());
 
 	let selectedId = $state<string | undefined>(projectId);
 
 	const mappedProjects = $derived(
-		projectsResult.current?.data?.map((project) => ({
+		projectsQuery.response?.map((project) => ({
 			value: project.id,
 			label: project.title
 		})) || []

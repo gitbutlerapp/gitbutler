@@ -44,9 +44,9 @@
 
 	const stackService = inject(STACK_SERVICE);
 
-	const branchResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
-	const branchesResult = $derived(stackService.branches(projectId, stackId));
-	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
+	const branchQuery = $derived(stackService.branchDetails(projectId, stackId, branchName));
+	const branchesQuery = $derived(stackService.branches(projectId, stackId));
+	const topCommitQuery = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
 	let renameBranchModal = $state<BranchRenameModal>();
 	let deleteBranchModal = $state<DeleteBranchModal>();
@@ -56,7 +56,7 @@
 	{stackId}
 	{projectId}
 	{onerror}
-	result={combineResults(branchesResult.current, branchResult.current, topCommitResult.current)}
+	result={combineResults(branchesQuery.result, branchQuery.result, topCommitQuery.result)}
 >
 	{#snippet children([branches, branch, topCommit], { stackId, projectId })}
 		{@const hasCommits = !!topCommit || branch.upstreamCommits.length > 0}

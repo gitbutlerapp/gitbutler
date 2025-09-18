@@ -6,7 +6,7 @@
 
 	const projectsService = inject(PROJECTS_SERVICE);
 
-	const projectsResult = projectsService.projects();
+	const projectsQuery = projectsService.projects();
 
 	type Redirect =
 		| {
@@ -19,7 +19,7 @@
 
 	const persistedId = projectsService.getLastOpenedProject();
 	const redirect: Redirect = $derived.by(() => {
-		const projects = projectsResult.current.data;
+		const projects = projectsQuery.response;
 		if (projects === undefined) return { type: 'loading' };
 		const projectId = projects.find((p) => p.id === persistedId)?.id;
 		if (projectId) {

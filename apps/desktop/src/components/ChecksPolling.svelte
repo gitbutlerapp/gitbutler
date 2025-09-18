@@ -46,16 +46,16 @@
 
 	const pollingInterval = $derived(getPollingInterval(elapsedMs, isDone));
 
-	const checksResult = $derived(
+	const checksQuery = $derived(
 		enabled
 			? checksService?.get(branchName, { subscriptionOptions: { pollingInterval } })
 			: undefined
 	);
 
-	const loading = $derived(checksResult?.current.isLoading);
+	const loading = $derived(checksQuery?.result.isLoading);
 
 	const checksTagInfo: StatusInfo = $derived.by(() => {
-		const checks = checksResult?.current.data;
+		const checks = checksQuery?.response;
 		if (!checksService && isFork) {
 			return {
 				style: 'neutral',
@@ -66,7 +66,7 @@
 			};
 		}
 
-		if (checksResult?.current.error) {
+		if (checksQuery?.result.error) {
 			return {
 				style: 'error',
 				icon: 'warning-small',
@@ -110,9 +110,7 @@
 	let prevChecksStartedAt = $state<string>();
 
 	// Checks have reached a terminal state or there are no checks to monitor
-	const shouldStop = $derived(
-		checksResult?.current.data?.completed || checksResult?.current.data === null
-	);
+	const shouldStop = $derived(checksQuery?.response?.completed || checksQuery?.response === null);
 
 	$effect(() => {
 		// If polling was previously done but now should restart (e.g., after a force push)
@@ -120,7 +118,7 @@
 			loadedOnce = false;
 		}
 
-		const result = checksResult?.current;
+		const result = checksQuery?.result;
 		const checks = result?.data;
 
 		// Mark as loaded once we start loading again

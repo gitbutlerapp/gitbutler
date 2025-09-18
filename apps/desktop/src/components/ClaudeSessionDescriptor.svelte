@@ -42,7 +42,7 @@
 
 <ReduxResult
 	{projectId}
-	result={sessionDetails.current}
+	result={sessionDetails.result}
 	loading={loadingSnippet}
 	error={errorSnippet}
 	children={resultChildren}

@@ -1,4 +1,4 @@
-import type { ReactiveResult } from '$lib/state/butlerModule';
+import type { ReactiveQuery } from '$lib/state/butlerModule';
 
 export interface RepoDetailedInfo {
 	/**
@@ -10,5 +10,5 @@ export interface RepoDetailedInfo {
 }
 
 export type ForgeRepoService = {
-	getInfo(): ReactiveResult<RepoDetailedInfo>;
+	getInfo(): ReactiveQuery<RepoDetailedInfo>;
 };

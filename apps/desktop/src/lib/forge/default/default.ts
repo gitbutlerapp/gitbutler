@@ -6,7 +6,7 @@ import type { ForgeListingService } from '$lib/forge/interface/forgeListingServi
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 import type { ForgeRepoService } from '$lib/forge/interface/forgeRepoService';
 import type { ForgeUser } from '$lib/forge/interface/types';
-import type { ReactiveResult } from '$lib/state/butlerModule';
+import type { ReactiveQuery } from '$lib/state/butlerModule';
 import type { ReduxTag } from '$lib/state/tags';
 import type { TagDescription } from '@reduxjs/toolkit/query';
 
@@ -41,8 +41,8 @@ export class DefaultForge implements Forge {
 	}
 	get user() {
 		return {
-			current: { status: 'uninitialized' as const, data: undefined }
-		} as ReactiveResult<ForgeUser>;
+			result: { status: 'uninitialized' as const, data: undefined }
+		} as ReactiveQuery<ForgeUser>;
 	}
 	invalidate(_tags: TagDescription<ReduxTag>[]) {
 		return undefined;

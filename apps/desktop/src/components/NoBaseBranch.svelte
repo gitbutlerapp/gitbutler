@@ -7,15 +7,15 @@
 
 	const { projectId }: { projectId: string } = $props();
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const remoteBranchesResponse = $derived(baseBranchService.remoteBranches(projectId));
+	const remoteBranchesQuery = $derived(baseBranchService.remoteBranches(projectId));
 </script>
 
-{#if remoteBranchesResponse.current.isLoading}
+{#if remoteBranchesQuery.result.isLoading}
 	<!--TODO: Add project id -->
 	<FullviewLoading />
-{:else if remoteBranchesResponse.current.isSuccess}
-	{@const remoteBranches = remoteBranchesResponse.current.data}
-	{#if remoteBranches.length === 0}
+{:else if remoteBranchesQuery.result.isSuccess}
+	{@const remoteBranches = remoteBranchesQuery.response}
+	{#if !remoteBranches || remoteBranches.length === 0}
 		<ProblemLoadingRepo
 			{projectId}
 			error="Currently, GitButler requires a remote branch to base its virtual branch work on. To
@@ -24,7 +24,7 @@
 	{:else}
 		<ProjectSetup {projectId} {remoteBranches} />
 	{/if}
-{:else if remoteBranchesResponse.current.isError}
+{:else if remoteBranchesQuery.result.isError}
 	<ProblemLoadingRepo
 		{projectId}
 		error="Currently, GitButler requires a remote branch to base its virtual branch work on. To

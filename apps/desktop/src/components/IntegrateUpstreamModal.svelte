@@ -53,8 +53,8 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	// const forgeListingService = $derived(forge.current.listService);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
-	const base = $derived(baseBranchResponse.current.data);
+	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
+	const base = $derived(baseBranchQuery.response);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 

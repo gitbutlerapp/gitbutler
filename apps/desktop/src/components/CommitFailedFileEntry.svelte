@@ -41,8 +41,8 @@
 			<div class="commit-failed__file-entry__header__unfold-action">
 				<span class="text-12 text-semibold"
 					>{isFolded ? 'Show' : 'Hide'}
-					hunks ({#if fileDependencies.current.data}
-						{fileDependencies.current.data.dependencies.length}
+					hunks ({#if fileDependencies.response}
+						{fileDependencies.response.dependencies.length}
 					{:else}
 						0
 					{/if})</span
@@ -54,7 +54,7 @@
 
 		{#if !isFolded}
 			<div class="commit-failed__file-entry-dependencies">
-				<ReduxResult {projectId} result={fileDependencies.current}>
+				<ReduxResult {projectId} result={fileDependencies.result}>
 					{#snippet children(fileDependencies)}
 						{#each fileDependencies.dependencies as dependency, i}
 							<HunkDiff
@@ -77,8 +77,8 @@
 								</div>
 								<div class="commit-failed__file-entry__dependency-locks__content">
 									{#each dependency.locks as lock}
-										{@const brnachesResult = stackService.branches(projectId, lock.stackId)}
-										{@const branch = brnachesResult.current.data}
+										{@const brnachesQuery = stackService.branches(projectId, lock.stackId)}
+										{@const branch = brnachesQuery.response}
 										{@const commitBranch = branch?.find((b) =>
 											b.commits.some((c) => c.id === lock.commitId)
 										)}

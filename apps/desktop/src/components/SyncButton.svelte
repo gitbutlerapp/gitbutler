@@ -19,7 +19,7 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const listingService = $derived(forge.current.listService);
 
-	const lastFetched = $derived(baseBranch.current.data?.lastFetched);
+	const lastFetched = $derived(baseBranch.result.data?.lastFetched);
 
 	let loading = $state(false);
 </script>
@@ -41,7 +41,7 @@
 			await baseBranchService.fetchFromRemotes(projectId, 'modal');
 			await Promise.all([
 				listingService?.refresh(projectId),
-				baseBranch.current.refetch(),
+				baseBranch.result?.refetch(),
 				branchService.refresh()
 			]);
 		} finally {
@@ -60,11 +60,11 @@
 	</span>
 
 	{#snippet custom()}
-		{#if baseBranch.current.data}
+		{#if baseBranch.response}
 			<div class="target-branch">
 				<Icon name="remote-target-branch" color="var(--clr-text-2)" />
 				<span class="text-12 text-semibold">
-					{baseBranch.current.data.remoteName}/{baseBranch.current.data.shortName}
+					{baseBranch.response.remoteName}/{baseBranch.response.shortName}
 				</span>
 			</div>
 		{/if}

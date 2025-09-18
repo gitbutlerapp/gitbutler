@@ -104,7 +104,7 @@
 	);
 
 	$effect(() => {
-		if (selectedCommit && selectedCommit.current.status === QueryStatus.rejected) {
+		if (selectedCommit && selectedCommit.result.status === QueryStatus.rejected) {
 			const branchName = selection.current?.branchName;
 			if (branchName) {
 				selection.set({ branchName, commitId: undefined });
@@ -129,9 +129,9 @@
 		{@const branchName = branch.name}
 		{@const localAndRemoteCommits = stackService.commits(projectId, stackId, branchName)}
 		{@const upstreamOnlyCommits = stackService.upstreamCommits(projectId, stackId, branchName)}
-		{@const branchDetailsResult = stackService.branchDetails(projectId, stackId, branchName)}
-		{@const commitResult = stackService.commitAt(projectId, stackId, branchName, 0)}
-		{@const prResult = branch.prNumber ? forge.current.prService?.get(branch.prNumber) : undefined}
+		{@const branchDetailsQuery = stackService.branchDetails(projectId, stackId, branchName)}
+		{@const commitQuery = stackService.commitAt(projectId, stackId, branchName, 0)}
+		{@const prQuery = branch.prNumber ? forge.current.prService?.get(branch.prNumber) : undefined}
 
 		{@const first = i === 0}
 
@@ -139,10 +139,10 @@
 			{projectId}
 			{stackId}
 			result={combineResults(
-				localAndRemoteCommits.current,
-				upstreamOnlyCommits.current,
-				branchDetailsResult.current,
-				commitResult.current
+				localAndRemoteCommits.result,
+				upstreamOnlyCommits.result,
+				branchDetailsQuery.result,
+				commitQuery.result
 			)}
 		>
 			{#snippet children([localAndRemoteCommits, upstreamOnlyCommits, branchDetails, commit])}
@@ -231,7 +231,7 @@
 									{`Create ${forge.current.name === 'gitlab' ? 'MR' : 'PR'}`}
 								</Button>
 							{:else}
-								{@const prUrl = prResult?.current.data?.htmlUrl}
+								{@const prUrl = prQuery?.response?.htmlUrl}
 								<Button
 									size="tag"
 									kind="outline"

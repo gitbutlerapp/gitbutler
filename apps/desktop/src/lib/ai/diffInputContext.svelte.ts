@@ -66,11 +66,11 @@ export default class DiffInputContext {
 	private async changes(): Promise<TreeChange[] | null> {
 		switch (this.args.type) {
 			case 'commit': {
-				const commitChangesResult = await this.stackService.fetchCommitChanges(
+				const commitChangesQuery = await this.stackService.fetchCommitChanges(
 					this.args.projectId,
 					this.args.commitId
 				);
-				return commitChangesResult.changes ?? null;
+				return commitChangesQuery.changes ?? null;
 			}
 
 			case 'change-selection': {

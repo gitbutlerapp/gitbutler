@@ -32,11 +32,11 @@
 
 	const branch = $derived(stackService.branchByName(projectId, stackId, branchName));
 
-	const prNumber = $derived(branch.current.data?.prNumber ?? undefined);
+	const prNumber = $derived(branch.response?.prNumber ?? undefined);
 	const prService = $derived(forge.current.prService);
 	const reviewUnit = $derived(prService?.unit.abbr ?? 'PR');
-	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
-	const pr = $derived(prResult?.current.data);
+	const prQuery = $derived(prNumber ? prService?.get(prNumber) : undefined);
+	const pr = $derived(prQuery?.response);
 
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
 </script>

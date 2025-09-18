@@ -84,7 +84,7 @@
 		1440
 	);
 
-	const branchesResult = $derived(stackService.branches(projectId, stackId));
+	const branchesQuery = $derived(stackService.branches(projectId, stackId));
 
 	let dropzoneActivated = $state(false);
 
@@ -122,7 +122,7 @@
 	const selectedFile = $derived($activeLastAdded?.key ? readKey($activeLastAdded.key) : undefined);
 
 	const previewKey = $derived(assignedKey || selectedFile);
-	const previewChangeResult = $derived(
+	const previewChangeQuery = $derived(
 		previewKey ? idSelection.changeByKey(projectId, previewKey) : undefined
 	);
 
@@ -134,8 +134,8 @@
 	let changedFilesCollapsed = $state<boolean>();
 	let active = $state(false);
 
-	const defaultBranchResult = $derived(stackService.defaultBranch(projectId, stackId));
-	const defaultBranch = $derived(defaultBranchResult?.current.data);
+	const defaultBranchQuery = $derived(stackService.defaultBranch(projectId, stackId));
+	const defaultBranch = $derived(defaultBranchQuery?.response);
 
 	// Resizer configuration for stack panels and details view
 	const RESIZER_CONFIG = {
@@ -338,17 +338,17 @@
 {/snippet}
 
 {#snippet commitChangedFiles(commitId: string)}
-	{@const changesResult = stackService.commitChanges(projectId, commitId)}
+	{@const changesQuery = stackService.commitChanges(projectId, commitId)}
 	<ReduxResult
 		{projectId}
 		{stackId}
-		result={mapResult(changesResult.current, (changes) => ({ changes, commitId }))}
+		result={mapResult(changesQuery.result, (changes) => ({ changes, commitId }))}
 	>
 		{#snippet children({ changes, commitId }, { projectId, stackId })}
-			{@const commitsResult = branchName
+			{@const commitsQuery = branchName
 				? stackService.commits(projectId, stackId, branchName)
 				: undefined}
-			{@const commits = commitsResult?.current.data || []}
+			{@const commits = commitsQuery?.response || []}
 			{@const ancestorMostConflictedCommitId = getAncestorMostConflicted(commits)?.id}
 
 			<ChangedFiles
@@ -381,12 +381,12 @@
 {/snippet}
 
 {#snippet branchChangedFiles(branchName: string)}
-	{@const changesResult = stackService.branchChanges({
+	{@const changesQuery = stackService.branchChanges({
 		projectId,
 		stackId: stackId,
 		branch: createBranchRef(branchName, undefined)
 	})}
-	<ReduxResult {projectId} {stackId} result={changesResult.current}>
+	<ReduxResult {projectId} {stackId} result={changesQuery.result}>
 		{#snippet children(changes, { projectId, stackId })}
 			<ChangedFiles
 				title="Combined Changes"
@@ -458,7 +458,7 @@
 			use:focusable={{ vertical: true, onActive: (value) => (active = value) }}
 			bind:this={stackViewEl}
 		>
-			<ReduxResult {projectId} result={branchesResult.current}>
+			<ReduxResult {projectId} result={branchesQuery.result}>
 				{#snippet children(branches)}
 					<div class="stack-v">
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
@@ -584,10 +584,10 @@
 
 				<!-- BOTTOM SECTION: File Preview (no resizer) -->
 				{#if assignedStackId || selectedFile}
-					<ReduxResult {projectId} result={previewChangeResult?.current}>
+					<ReduxResult {projectId} result={previewChangeQuery?.result}>
 						{#snippet children(previewChange)}
-							{@const diffResult = diffService.getDiff(projectId, previewChange)}
-							{@const diffData = diffResult.current.data}
+							{@const diffQuery = diffService.getDiff(projectId, previewChange)}
+							{@const diffData = diffQuery.response}
 
 							<div class="file-preview-section">
 								{#if assignedStackId}

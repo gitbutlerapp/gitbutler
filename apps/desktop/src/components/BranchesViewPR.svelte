@@ -25,7 +25,7 @@
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
-	const prResult = $derived(prService?.get(prNumber, { forceRefetch: true }));
+	const prQuery = $derived(prService?.get(prNumber, { forceRefetch: true }));
 	const prUnit = $derived(prService?.unit);
 
 	const uiState = inject(UI_STATE);
@@ -35,8 +35,8 @@
 	const selected = $derived(branchesState.current.prNumber === prNumber);
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const baseRepoResponse = $derived(baseBranchService.repo(projectId));
-	const baseRepo = $derived(baseRepoResponse.current.data);
+	const baseRepoQuery = $derived(baseBranchService.repo(projectId));
+	const baseRepo = $derived(baseRepoQuery.response);
 
 	const remotesService = inject(REMOTES_SERVICE);
 	const stackService = inject(STACK_SERVICE);
@@ -94,7 +94,7 @@
 	}
 </script>
 
-<ReduxResult result={prResult?.current} {projectId} {onerror}>
+<ReduxResult result={prQuery?.result} {projectId} {onerror}>
 	{#snippet children(pr)}
 		<div class="pr-card">
 			<PRListCard

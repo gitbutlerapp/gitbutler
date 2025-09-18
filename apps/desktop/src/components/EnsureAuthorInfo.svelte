@@ -15,8 +15,8 @@
 	const authorInfo = $derived(gitService.getAuthorInfo(projectId));
 
 	$effect(() => {
-		if (authorInfo.current.data) {
-			const { name, email } = authorInfo.current.data;
+		if (authorInfo.response) {
+			const { name, email } = authorInfo.response;
 			if (name === null || email === null) {
 				uiState.global.modal.set({
 					type: 'author-missing',

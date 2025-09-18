@@ -36,7 +36,7 @@
 	const { projectId, editModeMetadata }: Props = $props();
 
 	const projectService = inject(PROJECTS_SERVICE);
-	const projectResult = $derived(projectService.getProject(projectId));
+	const projectQuery = $derived(projectService.getProject(projectId));
 
 	const user = inject(USER);
 	const stackService = inject(STACK_SERVICE);
@@ -60,7 +60,7 @@
 		});
 	}
 
-	let commitResult = $derived(stackService.commitDetails(projectId, editModeMetadata.commitOid));
+	let commitQuery = $derived(stackService.commitDetails(projectId, editModeMetadata.commitOid));
 
 	let filesList = $state<HTMLDivElement | undefined>(undefined);
 	let contextMenu = $state<ReturnType<typeof FileContextMenu> | undefined>(undefined);
@@ -75,19 +75,16 @@
 
 	const initialFileMap = $derived(
 		new Map<string, { file: TreeChange; conflictEntryPresence?: ConflictEntryPresence }>(
-			initialFiles.current?.data?.map(([f, c]) => [
-				f.path,
-				{ file: f, conflictEntryPresence: c }
-			]) || []
+			initialFiles.response?.map(([f, c]) => [f.path, { file: f, conflictEntryPresence: c }]) || []
 		)
 	);
 
 	const files = $derived.by(() => {
-		if (!initialFiles.current.data || !uncommittedFiles.current.data) return [];
+		if (!initialFiles.response || !uncommittedFiles.response) return [];
 
 		const outputMap = new Map<string, FileEntry>();
 
-		initialFiles.current.data.forEach(([initialFile, conflictEntryPresence]) => {
+		initialFiles.response.forEach(([initialFile, conflictEntryPresence]) => {
 			outputMap.set(initialFile.path, {
 				path: initialFile.path,
 				conflicted: !!conflictEntryPresence,
@@ -95,7 +92,7 @@
 			});
 		});
 
-		uncommittedFiles.current.data.forEach((uncommitedFile) => {
+		uncommittedFiles.response.forEach((uncommitedFile) => {
 			const outputFile = outputMap.get(uncommitedFile.path)!;
 			if (outputFile) {
 				// We don't want to set a status if the file is
@@ -132,8 +129,8 @@
 	// Create a mapping from file paths to TreeChange objects for context menu
 	const filePathToTreeChange = $derived(
 		new Map<string, TreeChange>([
-			...(initialFiles.current?.data?.map(([f]) => [f.path, f] as [string, TreeChange]) || []),
-			...(uncommittedFiles.current?.data?.map((f) => [f.path, f] as [string, TreeChange]) || [])
+			...(initialFiles.response?.map(([f]) => [f.path, f] as [string, TreeChange]) || []),
+			...(uncommittedFiles.response?.map((f) => [f.path, f] as [string, TreeChange]) || [])
 		])
 	);
 
@@ -200,7 +197,7 @@
 </script>
 
 <div class="editmode-wrapper" data-testid={TestId.EditMode}>
-	<ReduxResult {projectId} result={projectResult.current}>
+	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
 			<div class="editmode__container">
 				<h2 class="editmode__title text-18 text-body text-bold">
@@ -215,7 +212,7 @@
 
 				<div class="commit-group">
 					<div class="card commit-card">
-						<ReduxResult {projectId} result={commitResult.current}>
+						<ReduxResult {projectId} result={commitQuery.result}>
 							{#snippet children(commit)}
 								{@const authorImgUrl = commit
 									? commit.author.email?.toLowerCase() === $user?.email?.toLowerCase()

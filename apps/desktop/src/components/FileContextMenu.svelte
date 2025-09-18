@@ -372,7 +372,7 @@
 							stackId,
 							selectionBranchName
 						)}
-						<ReduxResult {projectId} result={branchIsConflicted?.current}>
+						<ReduxResult {projectId} result={branchIsConflicted?.result}>
 							{#snippet children(isConflicted)}
 								{#if isConflicted === false}
 									<ContextMenuItem

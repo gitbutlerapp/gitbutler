@@ -19,10 +19,10 @@
 	const commits = $derived(
 		stackId && branchName ? stackService.commits(projectId, stackId, branchName) : undefined
 	);
-	const branchEmpty = $derived(commits?.current.data ? commits.current.data.length === 0 : false);
+	const branchEmpty = $derived(commits?.response ? commits.response.length === 0 : false);
 	const prService = $derived(forge.current.prService);
-	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
-	const pr = $derived(prResult?.current.data);
+	const prQuery = $derived(prNumber ? prService?.get(prNumber) : undefined);
+	const pr = $derived(prQuery?.response);
 
 	const canPublishPR = $derived(forge.current.authenticated && !pr);
 
@@ -36,7 +36,7 @@
 			return branchEmpty;
 		},
 		get branchIsConflicted() {
-			return commits?.current.data?.some((commit) => commit.hasConflicts) || false;
+			return commits?.response?.some((commit) => commit.hasConflicts) || false;
 		},
 		get prNumber() {
 			return prNumber;

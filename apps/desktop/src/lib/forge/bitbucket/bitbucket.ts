@@ -1,7 +1,7 @@
 import { BitBucketBranch } from '$lib/forge/bitbucket/bitbucketBranch';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
 import type { ForgeArguments, ForgeUser } from '$lib/forge/interface/types';
-import type { ReactiveResult } from '$lib/state/butlerModule';
+import type { ReactiveQuery } from '$lib/state/butlerModule';
 import type { ReduxTag } from '$lib/state/tags';
 import type { TagDescription } from '@reduxjs/toolkit/query';
 
@@ -48,8 +48,8 @@ export class BitBucket implements Forge {
 
 	get user() {
 		return {
-			current: { status: 'uninitialized' as const, data: undefined }
-		} as ReactiveResult<ForgeUser>;
+			result: { status: 'uninitialized' as const, data: undefined }
+		} as ReactiveQuery<ForgeUser>;
 	}
 
 	get listService() {

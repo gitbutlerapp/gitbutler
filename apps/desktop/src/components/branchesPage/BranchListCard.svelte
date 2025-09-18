@@ -34,10 +34,10 @@
 	// TODO: Use information from all PRs in a stack?
 	const pr = $derived(prs.at(0));
 
-	const branchDetailsResult = $derived(branchService.get(projectId, branchListing.name));
+	const branchDetailsQuery = $derived(branchService.get(projectId, branchListing.name));
 
 	let lastCommitDetails = $state<{ authorName: string; lastCommitAt?: Date }>();
-	let branchListingDetails = $derived(branchDetailsResult?.current.data);
+	let branchListingDetails = $derived(branchDetailsQuery?.response);
 
 	// If there are zero commits we should not show the author
 	const ownedByUser = $derived(branchListingDetails?.numberOfCommits === 0);

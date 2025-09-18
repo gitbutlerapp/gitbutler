@@ -189,7 +189,7 @@
 				onclick={() => {
 					onRestoreClick();
 				}}
-				disabled={mode.current.data?.type !== 'OpenWorkspace'}>Revert</Button
+				disabled={mode.response?.type !== 'OpenWorkspace'}>Revert</Button
 			>
 		</div>
 		<span class="snapshot-time text-11">
@@ -220,7 +220,7 @@
 			{/if}
 		</div>
 
-		<ReduxResult result={snapshotDiff.current} {projectId}>
+		<ReduxResult result={snapshotDiff.result} {projectId}>
 			{#snippet children(files)}
 				{#if files.length > 0 && !isRestoreSnapshot}
 					<SnapshotAttachment foldable={files.length > 2} foldedAmount={files.length}>

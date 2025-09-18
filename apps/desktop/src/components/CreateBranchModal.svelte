@@ -41,8 +41,8 @@
 	const generatedNameDiverges = $derived(!!createRefName && slugifiedRefName !== createRefName);
 
 	// Get all stacks in the workspace
-	const allStacksResult = $derived(stackService.stacks(projectId));
-	const allStacks = $derived(allStacksResult?.current?.data ?? []);
+	const allStacksQuery = $derived(stackService.stacks(projectId));
+	const allStacks = $derived(allStacksQuery?.response ?? []);
 
 	// Create options for the selector (stack represented by first branch name)
 	const stackOptions = $derived(

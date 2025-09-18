@@ -73,9 +73,9 @@
 		uiState
 	);
 
-	const branchesResult = $derived(branchService.list(projectId));
+	const branchesQuery = $derived(branchService.list(projectId));
 	const combined = $derived(
-		combineBranchesAndPrs(prs.current, branchesResult.current.data || [], selectedOption)
+		combineBranchesAndPrs(prs.current, branchesQuery.response || [], selectedOption)
 	);
 
 	const groupedBranches = $derived(groupBranches(combined, forgeUser));

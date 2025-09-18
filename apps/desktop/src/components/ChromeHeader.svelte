@@ -40,7 +40,7 @@
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
 	const baseReponse = $derived(projectId ? baseBranchService.baseBranch(projectId) : undefined);
-	const base = $derived(baseReponse?.current.data);
+	const base = $derived(baseReponse?.response);
 	const settingsStore = $derived(settingsService.appSettings);
 	const isWorkspace = $derived(isWorkspacePath());
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
@@ -48,7 +48,7 @@
 	const backend = inject(BACKEND);
 
 	const mode = $derived(modeService.mode({ projectId }));
-	const currentMode = $derived(mode.current.data);
+	const currentMode = $derived(mode.response);
 	const currentBranchName = $derived.by(() => {
 		if (currentMode?.type === 'OpenWorkspace') {
 			return 'gitbutler/workspace';
@@ -82,7 +82,7 @@
 	const projects = $derived(projectsService.projects());
 
 	const mappedProjects = $derived(
-		projects.current.data?.map((project) => ({
+		projects.response?.map((project) => ({
 			value: project.id,
 			label: project.title
 		})) || []

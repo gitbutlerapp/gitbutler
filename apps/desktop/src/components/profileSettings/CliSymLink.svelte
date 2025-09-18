@@ -20,8 +20,8 @@
 </script>
 
 <div class="symlink-copy-box {classes}">
-	{#if cliPath.current?.data}
-		{@const command = cliCommand(cliPath.current.data)}
+	{#if cliPath.response}
+		{@const command = cliCommand(cliPath.response)}
 		<p>{command}</p>
 		<button type="button" class="symlink-copy-icon" onclick={() => copyToClipboard(command)}>
 			<Icon name="copy" />

@@ -22,7 +22,6 @@ import {
 } from '@reduxjs/toolkit/query';
 import type { TauriBaseQueryFn } from '$lib/state/backendQuery';
 import type { HookContext } from '$lib/state/context';
-import type { Readable } from 'svelte/store';
 
 /** Gives our module a namespace in the extended `ApiModules` interface. */
 export const butlerModuleName = Symbol();
@@ -168,14 +167,26 @@ export type CustomResult<T extends QueryDefinition<any, any, any, any>> =
  * Custom return type for the `QueryHooks` extensions with refetch.
  */
 export type CustomQueryResult<T extends QueryDefinition<any, any, any, any>> =
-	QueryResultSelectorResult<T> & {
-		refetch: () => Promise<void>;
-	};
+	QueryResultSelectorResult<T>;
+
+/**
+ * This is used for extending the result type in `ReactiveResult`.
+ */
+export type QueryExtensions = {
+	refetch: () => Promise<void>;
+};
 
 /**
  * Shorthand useful for service interfaces.
  */
-export type ReactiveResult<T> = Reactive<CustomResult<CustomQuery<T>>>;
+
+export type ReactiveQuery<
+	T,
+	Extensions extends Record<string, unknown> = Record<string, unknown>
+> = {
+	readonly result: CustomQueryResult<CustomQuery<T>> & Extensions;
+	readonly response: T | undefined;
+};
 export type AsyncResult<T> = Promise<CustomResult<CustomQuery<T>>>;
 
 /**
@@ -192,7 +203,7 @@ type CustomArgs = any;
  * having two is to be able to use `EntityAdapter`, and then select items
  * using the built-in selectors.
  */
-type Transformer<T extends CustomQuery<any>> = (
+export type Transformer<T extends CustomQuery<any>> = (
 	queryResult: ResultTypeFrom<T>,
 	queryArgs: QueryArgFrom<T>
 ) => unknown;
@@ -235,22 +246,12 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 	useQuery: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,
 		options?: { transform?: T } & StartQueryActionCreatorOptions
-	) => Reactive<
-		CustomQueryResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
-	>;
-	useQueryStore: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
-		args: QueryArgFrom<D>,
-		options?: { transform?: T } & StartQueryActionCreatorOptions
-	) => Readable<
-		CustomQueryResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
-	>;
+	) => ReactiveQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>, QueryExtensions>;
 	/** Execute query on existing state. */
 	useQueryState: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,
 		options?: { transform?: T }
-	) => Reactive<
-		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
-	>;
+	) => ReactiveQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>;
 	useQueries: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		queryArgs: QueryArgFrom<D>[],
 		options?: { transform?: T } & StartQueryActionCreatorOptions

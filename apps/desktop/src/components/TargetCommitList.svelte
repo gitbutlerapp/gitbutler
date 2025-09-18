@@ -25,8 +25,8 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);
-	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
-	const baseSha = $derived(baseBranchResult.current.data?.baseSha);
+	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
+	const baseSha = $derived(baseBranchQuery.response?.baseSha);
 
 	let loadedIds = $state<string[]>([]);
 	let commits = $state<Commit[]>([]);
@@ -69,7 +69,7 @@
 	});
 </script>
 
-<ReduxResult {projectId} result={baseBranchResult.current}>
+<ReduxResult {projectId} result={baseBranchQuery.result}>
 	{#snippet children(baseBranch)}
 		{@const lastUpdate = baseBranch.recentCommits.at(0)?.createdAt.getTime() || 0}
 

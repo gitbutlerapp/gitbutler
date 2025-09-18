@@ -31,14 +31,14 @@
 
 	const selectionId = createWorktreeSelection({ stackId: undefined });
 	const worktreeSelection = $derived(idSelection.getById(selectionId));
-	const stacksResult = $derived(stackService.stacks(projectId));
+	const stacksQuery = $derived(stackService.stacks(projectId));
 	const projectState = $derived(uiState.project(projectId));
 	const settingsStore = $derived(settingsService.appSettings);
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 	const showingActions = $derived(projectState.showActions.current && canUseActions);
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
-	const baseSha = $derived(baseBranchResult.current.data?.baseSha);
+	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
+	const baseSha = $derived(baseBranchQuery.response?.baseSha);
 
 	const lastAdded = $derived(worktreeSelection.lastAdded);
 	const previewOpen = $derived(!!$lastAdded?.key);
@@ -60,7 +60,7 @@
 		const branch = stackService.branchDetails(projectId, action.stackId, action.branchName);
 
 		$effect(() => {
-			const stackFound = stacks.current?.data?.find((s) => s.id === action.stackId);
+			const stackFound = stacks.response?.find((s) => s.id === action.stackId);
 			if (!stackFound) {
 				uiState.project(projectId).exclusiveAction.set(undefined);
 			}
@@ -69,7 +69,7 @@
 				return;
 			}
 
-			if (!branch?.current?.data) {
+			if (!branch?.response) {
 				uiState.project(projectId).exclusiveAction.set(undefined);
 				return;
 			}
@@ -81,7 +81,7 @@
 
 			// When we're committing to the bottom of the stack we set the
 			// commit id to equal the workspace base.
-			const hasCommit = branch.current.data.commits.some((c) => c.id === action.parentCommitId);
+			const hasCommit = branch.response.commits.some((c) => c.id === action.parentCommitId);
 			if (!hasCommit && action.parentCommitId !== baseSha) {
 				uiState.project(projectId).exclusiveAction.set(undefined);
 			}
@@ -126,7 +126,7 @@
 		<UnassignedView {projectId} />
 	{/snippet}
 	{#snippet middle()}
-		<ReduxResult {projectId} result={stacksResult?.current}>
+		<ReduxResult {projectId} result={stacksQuery?.result}>
 			{#snippet loading()}
 				<div class="stacks-view-skeleton"></div>
 			{/snippet}

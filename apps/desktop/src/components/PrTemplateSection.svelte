@@ -24,7 +24,7 @@
 	const enabled = $derived(template.enabled);
 
 	// Available pull request templates.
-	const templatesResult = $derived(stackService.templates(projectId, forgeName));
+	const templatesQuery = $derived(stackService.templates(projectId, forgeName));
 
 	async function selectTemplate(newPath: string) {
 		const template = await stackService.template(projectId, forgeName, newPath);
@@ -35,10 +35,10 @@
 	}
 
 	async function setEnabled(value: boolean) {
-		const ts = templatesResult;
+		const ts = templatesQuery;
 		enabled.set(value);
 		if (value) {
-			const path = $path ? $path : ts.current?.data?.at(0);
+			const path = $path ? $path : ts.response?.at(0);
 			if (path) {
 				selectTemplate(path);
 			}
@@ -46,7 +46,7 @@
 	}
 </script>
 
-<ReduxResult {projectId} result={templatesResult.current}>
+<ReduxResult {projectId} result={templatesQuery.result}>
 	{#snippet children(templates)}
 		{#if templates && templates.length > 0}
 			<div class="pr-template__wrap">
