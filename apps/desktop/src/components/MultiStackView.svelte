@@ -4,7 +4,6 @@
 	import Scrollbar from '$components/Scrollbar.svelte';
 	import StackDraft from '$components/StackDraft.svelte';
 	import StackView from '$components/StackView.svelte';
-	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
 	import {
 		onReorderEnd,
@@ -19,6 +18,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { throttle } from '$lib/utils/misc';
 	import { inject } from '@gitbutler/core/context';
+	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { flip } from 'svelte/animate';
 	import type { Stack } from '$lib/stacks/stack';

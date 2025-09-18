@@ -1,17 +1,12 @@
 import { FModeManager } from '$lib/focus/fModeManager';
-import {
-	getNavigationAction,
-	isInputElement,
-	hasTextSelection,
-	shouldIgnoreNavigationForInput,
-	getElementDescription
-} from '$lib/focus/focusUtils';
+import { getNavigationAction, isInputElement, getElementDescription } from '$lib/focus/focusUtils';
 import { focusNextTabIndex } from '$lib/focus/tabbable';
 import { removeFromArray, scrollIntoViewIfNeeded } from '$lib/focus/utils';
+import { parseHotkey, matchesHotkey } from '$lib/utils/hotkeySymbols';
 import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
 import { InjectionToken } from '@gitbutler/core/context';
 import { on } from 'svelte/events';
-import { get, writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 import type {
 	FocusableNode,
 	FocusableOptions,
@@ -35,24 +30,111 @@ export class FocusManager {
 	private currentNode: FocusableNode | undefined;
 	private pendingRelationships: HTMLElement[] = [];
 
-	// Kept for backward compatibility
-	private get currentElement(): HTMLElement | undefined {
-		return this.currentNode?.element;
-	}
-
 	private previousElements: HTMLElement[] = [];
 	private indexCache = new Map<HTMLElement, number>();
 	private fModeManager: FModeManager;
 
 	readonly cursor = writable<HTMLElement | undefined>();
-	readonly outline = writable(false);
+	readonly outline = writable(false); // external use
+	private _outline = false; // internal use
 
 	private handleMouse = this.handleClick.bind(this);
 	private handleKeys = this.handleKeydown.bind(this);
-	private handleHotkey = this.handleHotkeyPress.bind(this);
 
 	constructor() {
 		this.fModeManager = new FModeManager();
+	}
+
+	setFModeEnabled(enabled: boolean): void {
+		this.fModeManager.setFeatureEnabled(enabled);
+	}
+
+	private setOutline(value: boolean): void {
+		this._outline = value;
+		this.outline.set(value);
+	}
+
+	// ============================================
+	// CORE EVENT HANDLERS (Most Important)
+	// ============================================
+
+	// Handles keyboard navigation with arrow keys, Tab, and custom handlers
+	private handleKeydown(event: KeyboardEvent) {
+		if (this.processKeyboardEvent(event)) {
+			event.stopPropagation();
+			event.preventDefault();
+		}
+	}
+
+	private processKeyboardEvent(event: KeyboardEvent): boolean {
+		if (this.shouldSkipEvent(event)) return false;
+		if (this.handleFModeInput(event)) return true;
+		if (this.handleHotkeyPress(event)) return true;
+
+		const node = this.updateCurrentNode(event);
+		if (!node) return false;
+
+		const context = this.buildNavigationContext(event, node);
+
+		if (this.handleTabKey(context, event)) return true;
+		if (this.handleEscapeKey(event)) return true;
+		if (this.hasSelection()) return false;
+		if (this.handleOutlineDisplay(context)) return true;
+		if (this.handleActions(event)) return true;
+
+		return this.handleNavigation(event, context);
+	}
+
+	// Handles mouse clicks to update focus, traversing up to find focusables
+	private handleClick(e: MouseEvent) {
+		// Ignore keyboard initiated clicks.
+		if (e.detail === 0) {
+			return;
+		}
+
+		// TODO: Allow clicks inside inputs to set `this.currentNode`
+		if (isInputElement(e.target)) {
+			return;
+		}
+
+		if (e.target instanceof HTMLElement) {
+			const focusableNode = this.findNearestFocusableElement(e.target);
+			if (focusableNode) {
+				this.setActiveNode(focusableNode);
+				this.setOutline(false);
+			}
+		}
+	}
+
+	// Handles hotkeys for instant button activation (supports complex combinations like ⇧⌘P)
+	private handleHotkeyPress(event: KeyboardEvent): boolean {
+		// Skip if just pressing modifier keys alone
+		if (['Meta', 'Control', 'Alt', 'Shift'].includes(event.key)) return false;
+
+		// Find all buttons with hotkeys
+		const entries = Array.from(this.nodeMap.entries());
+		for (const [element, node] of entries) {
+			if (node.options.button && node.options.hotkey) {
+				// Parse the hotkey definition
+				const parsed = parseHotkey(node.options.hotkey);
+				if (!parsed) continue;
+
+				// Check if the event matches the hotkey
+				if (matchesHotkey(event, parsed)) {
+					event.preventDefault();
+					event.stopPropagation();
+
+					// Trigger click on the button
+					try {
+						element.click();
+					} catch (error) {
+						console.warn('Error triggering button click via hotkey:', error);
+					}
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	// ============================================
@@ -62,8 +144,7 @@ export class FocusManager {
 	listen() {
 		return mergeUnlisten(
 			on(document, 'click', this.handleMouse, { capture: true }),
-			on(document, 'keydown', this.handleKeys),
-			on(document, 'keydown', this.handleHotkey)
+			on(document, 'keydown', this.handleKeys)
 		);
 	}
 
@@ -95,14 +176,13 @@ export class FocusManager {
 		}
 
 		if (options.activate) {
-			this.setActive(element);
+			this.setActiveNode(newNode);
 		}
 	}
 
 	unregister(element: HTMLElement) {
-		if (this.fModeManager.active) {
-			this.fModeManager.removeElement(element);
-		}
+		// Always remove from F-mode manager to clean up any stored shortcuts
+		this.fModeManager.removeElement(element);
 
 		this.unregisterElement(element);
 
@@ -110,39 +190,37 @@ export class FocusManager {
 		removeFromArray(this.previousElements, element);
 		this.indexCache.delete(element);
 
-		if (this.currentElement === element) {
+		if (this.currentNode?.element === element) {
 			const previousElement = this.getValidPreviousElement();
 			if (previousElement) {
 				this.setActiveNode(this.nodeMap.get(previousElement));
 				removeFromArray(this.previousElements, previousElement);
 			} else {
-				this.currentNode = undefined;
+				this.clearCurrent();
 			}
-			this.cursor.set(this.currentElement);
+			this.cursor.set(this.currentNode?.element);
 		}
 	}
 
-	setActive(element: HTMLElement): boolean {
-		if (!element?.isConnected || !this.isElementRegistered(element)) return false;
+	// ============================================
+	// NAVIGATION METHODS
+	// ============================================
 
-		const node = this.getNode(element);
-		if (!node) {
-			console.warn('Could not find node for element', element);
-			return false;
-		}
-
-		return this.setActiveNode(node);
+	private clearCurrent() {
+		this.currentNode = undefined;
+		this.cursor.set(undefined);
 	}
 
 	private setActiveNode(node?: FocusableNode): boolean {
 		if (!node) return false;
-
 		const previousNode = this.currentNode;
 
-		// Buttons cannot become active
-		if (node.options.button) {
-			return false;
-		}
+		if (!node.options.focusable) return false;
+
+		this.focusElement(node.element);
+		this.cursor.set(node.element);
+
+		if (node === this.currentNode) return true;
 
 		if (previousNode) {
 			this.triggerOnActiveCallbacksNode(previousNode, false);
@@ -152,7 +230,6 @@ export class FocusManager {
 		this.currentNode = node;
 		this.cacheActiveIndexNode(node);
 		this.triggerOnActiveCallbacksNode(node, true);
-		this.cursor.set(node.element);
 		return true;
 	}
 
@@ -173,9 +250,7 @@ export class FocusManager {
 		const hasValidSibling = targetIndex >= 0 && targetIndex < navigableSiblings.length;
 
 		if (hasValidSibling) {
-			return this.setActiveNode(
-				this.findFirstNavigableDescendantNode(navigableSiblings[targetIndex])
-			);
+			return this.setActiveNode(this.findNavigableDescendant(navigableSiblings[targetIndex]));
 		}
 
 		const isAtBoundary =
@@ -193,10 +268,10 @@ export class FocusManager {
 	}
 
 	focusNextVertical(forward: boolean): boolean {
-		if (!this.currentElement) return false;
-		const nextChild = this.findInNextColumn(this.currentElement, forward);
+		if (!this.currentNode?.element) return false;
+		const nextChild = this.findInNextColumn(this.currentNode.element, forward);
 		if (nextChild) {
-			return this.navigateToElement(nextChild);
+			return this.setActiveNode(nextChild);
 		}
 		return false;
 	}
@@ -206,8 +281,7 @@ export class FocusManager {
 
 		const navigableChildren = this.getNavigableChildNodes(this.currentNode.parent);
 		const child = navigableChildren.at(n);
-		if (!child) return false;
-		return this.navigateToElement(child.element);
+		return this.setActiveNode(child);
 	}
 
 	updateElementOptions(element: HTMLElement, updates: Partial<FocusableOptions>): boolean {
@@ -218,7 +292,7 @@ export class FocusManager {
 	}
 
 	// ============================================
-	// Debugging
+	// DEBUGGING UTILITIES
 	// ============================================
 
 	debugPrintTree(logElements: boolean): void {
@@ -239,32 +313,21 @@ export class FocusManager {
 	}
 
 	// ============================================
-	// 6. EVENT HANDLERS
+	// HELPER METHODS
 	// ============================================
 
-	// Handles mouse clicks to update focus, traversing up to find focusables
-	private handleClick(e: MouseEvent) {
-		// Ignore keyboard initiated clicks.
-		if (e.detail === 0) {
-			return;
-		}
-		if (e.target instanceof HTMLElement) {
-			const focusableElement = this.findNearestFocusableElement(e.target);
-			if (focusableElement) {
-				this.setActive(focusableElement);
-				this.outline.set(false);
-			}
-		}
-	}
-
-	private findNearestFocusableElement(start: HTMLElement): HTMLElement | undefined {
+	private findNearestFocusableElement(start: HTMLElement): FocusableNode | undefined {
 		let pointer: HTMLElement | null = start;
 		while (pointer) {
-			if (this.isElementRegistered(pointer)) {
-				const node = this.getNode(pointer);
+			const node = this.getNode(pointer);
+			if (node) {
+				if (node.options.focusable) {
+					return node;
+				}
+				const navigableChild = this.findNavigableDescendant(node);
 				// Skip button elements - continue traversing up
-				if (!node?.options.button) {
-					return pointer;
+				if (navigableChild) {
+					return navigableChild;
 				}
 			}
 			pointer = pointer.parentElement;
@@ -272,6 +335,11 @@ export class FocusManager {
 	}
 
 	private getDefaultRoot(): FocusableNode | undefined {
+		if (document.activeElement && document.activeElement instanceof HTMLElement) {
+			const node = this.findNearestFocusableElement(document.activeElement);
+			if (node) return node;
+		}
+
 		const firstNode = this.nodeMap.values().next().value;
 		if (firstNode) {
 			let node: FocusableNode | undefined = firstNode;
@@ -287,123 +355,86 @@ export class FocusManager {
 		}
 	}
 
-	// Handles keyboard navigation with arrow keys, Tab, and custom handlers
-	private handleKeydown(event: KeyboardEvent) {
-		if (!this.currentNode) {
-			this.currentNode = this.findFirstNavigableDescendantNode(this.getDefaultRoot());
-		}
+	private shouldSkipEvent(event: KeyboardEvent): boolean {
+		return isInputElement(event.target);
+	}
 
-		if (!this.currentNode) return;
+	private updateCurrentNode(event: KeyboardEvent): FocusableNode | undefined {
+		if (this.currentNode) return this.currentNode;
+		if (event.key === 'Tab') return;
 
-		const navigationContext = this.buildNavigationContext(event, this.currentNode);
-
-		if (shouldIgnoreNavigationForInput(navigationContext)) {
-			return false;
-		}
-
-		// Handle F mode toggle and input (global, doesn't need current element)
-		if (event.key === 'f' || event.key === 'F' || this.fModeManager.active) {
-			if (this.fModeManager.handleKeypress(event, this.nodeMap)) {
-				this.outline.set(false);
-				return;
-			}
-		}
-
-		if (event.key === 'Tab') {
-			if (this.currentElement && navigationContext.trap) {
-				focusNextTabIndex({
-					container: this.currentElement,
-					forward: !event.shiftKey,
-					trap: navigationContext.trap
-				});
-			} else {
-				// Otherwise use built-in tab behavior
-				return;
-			}
-			event.stopPropagation();
-			event.preventDefault();
-			return;
-		}
-
-		// Handle Escape key to hide outline
-		if (event.key === 'Escape') {
-			// Try onEsc handlers first
-			if (this.tryEscapeHandlers(event)) {
-				return;
-			}
-			// Then try custom onKeydown handlers - they might prevent the default Escape behavior
-			if (!this.tryCustomHandlers(event)) {
-				// No custom handler prevented it, hide the outline
-				if (get(this.outline)) {
-					this.outline.set(false);
-				} else {
-					this.currentNode = undefined;
-				}
-				event.preventDefault();
-				event.stopPropagation();
-			}
-			return;
-		}
-
-		if (navigationContext.hasSelection) {
-			return false;
-		}
-
-		if (this.shouldShowOutlineOnly(navigationContext)) {
-			const targetNode = this.findFirstNavigableDescendantNode(this.currentNode);
-			const newCurrent = this.setActiveNode(targetNode);
-			if (newCurrent) {
-				this.outline.set(true);
-				event.stopPropagation();
-				event.preventDefault();
-				return true;
-			}
-		}
-
-		// Handle Space/Enter action keys first
-		if (this.tryActionHandler(event)) {
-			return;
-		}
-
-		// Try custom handlers
-		if (this.tryCustomHandlers(event)) {
-			return;
-		}
-
-		// Handle built-in navigation
-		if (this.processStandardNavigation(event, navigationContext)) {
-			this.outline.set(true);
+		const firstNode = this.findNavigableDescendant(this.getDefaultRoot());
+		if (firstNode) {
+			this.currentNode = firstNode;
+			return firstNode;
 		}
 	}
 
-	// Handles Cmd+letter/number hotkeys for instant button activation
-	private handleHotkeyPress(event: KeyboardEvent): boolean {
-		// Only handle if Cmd/Meta key is pressed
-		if (!event.metaKey || event.key === 'Meta') return false;
+	private hasSelection(): boolean {
+		const selection = window.getSelection();
+		return !!selection && selection.rangeCount > 0 && !selection.isCollapsed;
+	}
 
-		// Get the key in uppercase
-		const key = event.key.toUpperCase();
+	private handleActions(event: KeyboardEvent): boolean {
+		return this.tryActionHandler(event) || this.tryCustomHandlers(event);
+	}
 
-		// Only handle single letters (A-Z) or numbers (1-9)
-		if (key.length !== 1 || !((key >= 'A' && key <= 'Z') || (key >= '1' && key <= '9'))) {
-			return false;
+	private handleNavigation(event: KeyboardEvent, context: NavigationContext): boolean {
+		if (this.processStandardNavigation(event, context)) {
+			this.setOutline(true);
+			return true;
 		}
+		return false;
+	}
 
-		// Find all buttons with this hotkey
-		const entries = Array.from(this.nodeMap.entries());
-		for (const [element, node] of entries) {
-			if (node.options.button && node.options.hotkey?.toUpperCase() === key) {
-				event.preventDefault();
-				event.stopPropagation();
+	private handleFModeInput(event: KeyboardEvent): boolean {
+		if (event.key === 'f' || event.key === 'F' || this.fModeManager.active) {
+			return this.fModeManager.handleKeypress(event, this.nodeMap, this.currentNode!);
+		}
+		return false;
+	}
 
-				// Trigger click on the button
-				try {
-					element.click();
-				} catch (error) {
-					console.warn('Error triggering button click via hotkey:', error);
-				}
-				return true;
+	private handleTabKey(navigationContext: NavigationContext, event: KeyboardEvent): boolean {
+		if (navigationContext.action !== 'tab') return false;
+
+		if (navigationContext.trap || this._outline) {
+			focusNextTabIndex({
+				container: this.currentNode!.element,
+				forward: !navigationContext.shiftKey,
+				trap: navigationContext.trap
+			});
+			this.setOutline(false);
+			if (!navigationContext.trap) {
+				// Only clear current node if were tabbing inside of a trap
+				this.clearCurrent();
 			}
+			event.preventDefault();
+		}
+		return false;
+	}
+
+	private handleEscapeKey(event: KeyboardEvent): boolean {
+		if (event.key !== 'Escape') return false;
+
+		// Try onEsc handlers first
+		if (this.tryEscapeHandlers(event) || this.tryCustomHandlers(event)) {
+			return true;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		return true;
+	}
+
+	private handleOutlineDisplay(navigationContext: NavigationContext): boolean {
+		if (!navigationContext.action) return false;
+		if (!this.shouldShowOutlineOnly(navigationContext)) return false;
+
+		if (!this.shouldShowOutlineOnly(navigationContext)) return false;
+		const targetNode = this.findNavigableDescendant(this.currentNode);
+		if (targetNode) {
+			this.setActiveNode(targetNode);
+			this.setOutline(true);
+			return true;
 		}
 		return false;
 	}
@@ -457,18 +488,14 @@ export class FocusManager {
 	): boolean {
 		if (!navigationContext.action) return false;
 
-		event.preventDefault();
-		event.stopPropagation();
-
 		return this.executeNavigationAction(navigationContext.action, {
 			metaKey: event.metaKey,
-			trap: navigationContext.trap,
-			inVertical: navigationContext.inVertical
+			trap: navigationContext.trap
 		});
 	}
 
 	private focusAnyNode() {
-		const node = this.findFirstNavigableDescendantNode(this.currentNode);
+		const node = this.findNavigableDescendant(this.currentNode);
 		if (node) {
 			this.setActiveNode(node);
 		}
@@ -482,7 +509,6 @@ export class FocusManager {
 		action: NavigationAction,
 		options: {
 			metaKey?: boolean;
-			inVertical?: boolean;
 			trap?: boolean;
 		}
 	): boolean {
@@ -493,30 +519,30 @@ export class FocusManager {
 				if (!this.focusNextVertical(false)) {
 					this.focusAnyNode();
 				}
-				break;
+				return true;
 
 			case 'right':
 				if (trap) return true;
 				if (!this.focusNextVertical(true)) {
 					this.focusAnyNode();
 				}
-				break;
+				return true;
 
 			case 'up':
 				if (trap) return true;
 				this.focusSibling({ forward: false, metaKey });
-				break;
+				return true;
 
 			case 'down':
 				if (trap) return true;
 				this.focusSibling({ forward: true, metaKey });
-				break;
+				return true;
 		}
-		return true;
+		return false;
 	}
 
 	// Finds first navigable descendant, skipping buttons and containers
-	private findFirstNavigableDescendantNode(
+	private findNavigableDescendant(
 		node?: FocusableNode,
 		forward: boolean = true
 	): FocusableNode | undefined {
@@ -532,7 +558,7 @@ export class FocusManager {
 
 		const preferredChild = this.getPreferredChildNode(node);
 		if (preferredChild) {
-			const navigableChild = this.findFirstNavigableDescendantNode(preferredChild, forward);
+			const navigableChild = this.findNavigableDescendant(preferredChild, forward);
 			if (navigableChild) {
 				return navigableChild;
 			}
@@ -542,7 +568,7 @@ export class FocusManager {
 			// Container elements (those with vertical: true or navigable children) are not directly focusable
 			if (this.isContainerElement(childNode)) {
 				// Search within container elements but don't return them directly
-				const subchild = this.findFirstNavigableDescendantNode(childNode, forward);
+				const subchild = this.findNavigableDescendant(childNode, forward);
 				if (subchild) {
 					return subchild;
 				}
@@ -584,7 +610,7 @@ export class FocusManager {
 			: navigableChildren.slice(0, currentIndex).reverse();
 
 		for (const nextChild of siblingsToSearch) {
-			const result = this.findFirstNavigableDescendantNode(nextChild, forward);
+			const result = this.findNavigableDescendant(nextChild, forward);
 			if (result) return result;
 		}
 
@@ -597,7 +623,7 @@ export class FocusManager {
 	}
 
 	// Finds focusable in adjacent column for horizontal navigation
-	findInNextColumn(element: HTMLElement, forward: boolean): HTMLElement | undefined {
+	findInNextColumn(element: HTMLElement, forward: boolean): FocusableNode | undefined {
 		const node = this.getNode(element);
 		if (!node) return undefined;
 
@@ -623,9 +649,9 @@ export class FocusManager {
 
 				// Search through siblings for one that contains a vertical container
 				for (const sibling of searchSiblings) {
-					const childNode = this.findFirstNavigableDescendantNode(sibling, forward);
+					const childNode = this.findNavigableDescendant(sibling, forward);
 					if (childNode) {
-						return childNode.element;
+						return childNode;
 					}
 				}
 			}
@@ -673,15 +699,6 @@ export class FocusManager {
 		}
 
 		return false;
-	}
-
-	navigateToElement(element: HTMLElement | undefined): boolean {
-		if (!element) return false;
-		const success = this.setActive(element);
-		if (success) {
-			this.focusElement(element);
-		}
-		return success;
 	}
 
 	// ============================================
@@ -934,8 +951,9 @@ export class FocusManager {
 		if (element.tabIndex !== -1) {
 			element.focus();
 		} else {
-			if (document.activeElement && document.activeElement instanceof HTMLElement) {
-				document.activeElement.blur();
+			const activeElement = document.activeElement;
+			if (activeElement instanceof HTMLElement && !element.contains(activeElement)) {
+				activeElement.blur();
 			}
 		}
 		scrollIntoViewIfNeeded(element);
@@ -967,12 +985,12 @@ export class FocusManager {
 	}
 
 	private getNodeEscHandlers(node: FocusableNode): (() => boolean | void)[] {
-		const handlers = [];
+		const handlers: (() => boolean | void)[] = [];
 		let current: FocusableNode | undefined = node;
 
 		while (current) {
 			if (current.options.onEsc) {
-				handlers.push(current.options.onEsc);
+				handlers.push(current.options.onEsc as () => boolean | void);
 			}
 			current = current.parent;
 		}
@@ -980,7 +998,7 @@ export class FocusManager {
 	}
 
 	private getNodeKeydownHandlers(node: FocusableNode): KeyboardHandler[] {
-		const handlers = [];
+		const handlers: KeyboardHandler[] = [];
 		let current: FocusableNode | undefined = node;
 
 		while (current) {
@@ -993,25 +1011,19 @@ export class FocusManager {
 	}
 
 	private buildNavigationContext(event: KeyboardEvent, node: FocusableNode): NavigationContext {
-		const parentData = node?.parent;
-		const inVertical = parentData?.options.vertical ?? false;
-		const action = getNavigationAction(event.key);
+		const { key, metaKey, ctrlKey, shiftKey } = event;
 
 		return {
-			action,
+			action: getNavigationAction(key),
 			trap: node.options.trap,
-			inVertical,
-			isInput: isInputElement(event.target),
-			hasSelection: hasTextSelection(),
-			hasOutline: get(this.outline)
+			shiftKey,
+			ctrlKey,
+			metaKey
 		};
 	}
 
-	private shouldShowOutlineOnly(context: {
-		action: NavigationAction | null;
-		hasOutline?: boolean;
-	}): boolean {
-		return (!context.hasOutline && context.action !== null) || false;
+	private shouldShowOutlineOnly(context: { action: NavigationAction | null }): boolean {
+		return !this._outline && context.action !== null;
 	}
 
 	getOptions(element?: HTMLElement): FocusableOptions | null {
@@ -1027,7 +1039,7 @@ export class FocusManager {
 
 		// Build node description
 		const description = getElementDescription(element);
-		const isCurrent = this.currentElement === element;
+		const isCurrent = this.currentNode?.element === element;
 		const marker = isCurrent ? ' ◀── CURRENT' : '';
 
 		// Build status indicators

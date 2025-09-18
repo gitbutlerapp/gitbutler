@@ -24,6 +24,13 @@ pub enum InteractiveIntegrationStep {
         #[serde(with = "gitbutler_serde::object_id", rename = "commitId")]
         commit_id: ObjectId,
     },
+    PickUpstream {
+        id: Uuid,
+        #[serde(with = "gitbutler_serde::object_id", rename = "commitId")]
+        commit_id: ObjectId,
+        #[serde(with = "gitbutler_serde::object_id", rename = "upstreamCommitId")]
+        upstream_commit_id: ObjectId,
+    },
     Squash {
         id: Uuid,
         #[serde(with = "gitbutler_serde::object_id_vec", rename = "commits")]
@@ -184,6 +191,15 @@ fn integration_steps_to_rebase_steps(
             InteractiveIntegrationStep::Pick { commit_id, .. } => {
                 rebase_steps.push(RebaseStep::Pick {
                     commit_id: commit_id.to_owned(),
+                    new_message: None,
+                });
+            }
+            InteractiveIntegrationStep::PickUpstream {
+                upstream_commit_id: upstream_commit,
+                ..
+            } => {
+                rebase_steps.push(RebaseStep::Pick {
+                    commit_id: upstream_commit.to_owned(),
                     new_message: None,
                 });
             }

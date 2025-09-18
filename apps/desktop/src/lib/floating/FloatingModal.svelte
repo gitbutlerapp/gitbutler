@@ -3,8 +3,11 @@
 	import { DragResizeHandler } from '$lib/floating/dragResizeHandler';
 	import { ResizeCalculator } from '$lib/floating/resizeCalculator';
 	import { SnapPointManager } from '$lib/floating/snapPointManager';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { inject } from '@gitbutler/core/context';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { portal } from '@gitbutler/ui/utils/portal';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { onMount, type Snippet } from 'svelte';
 	import type { SnapPositionName } from '$lib/floating/types';
 	import type { SnapPoint, ModalBounds } from '$lib/floating/types';
@@ -37,6 +40,9 @@
 	const snapManager = new SnapPointManager(40);
 	const resizeCalculator = new ResizeCalculator(defaults.minWidth, defaults.minHeight);
 	const dragResizeHandler = new DragResizeHandler(snapManager, resizeCalculator);
+
+	const userSettings = inject(SETTINGS);
+	const zoom = $derived($userSettings.zoom);
 
 	// Modal state
 	let x = $state(0);
@@ -123,7 +129,13 @@
 		snapPoints = snapManager.calcSnapPoints();
 		updatePositionForSnapPoint();
 
-		// Constrain to viewport
+		// Constrain size to viewport
+		const maxWidth = window.innerWidth - 80; // Leave 40px margin on each side
+		const maxHeight = window.innerHeight - 80; // Leave 40px margin on top and bottom
+		width = Math.min(width, maxWidth);
+		height = Math.min(height, maxHeight);
+
+		// Constrain position to viewport
 		const constrainedPosition = snapManager.constrainToViewport({ x, y, width, height });
 		x = Math.max(40, Math.min(x, constrainedPosition.x));
 		y = Math.max(40, Math.min(y, constrainedPosition.y));
@@ -136,10 +148,14 @@
 	};
 
 	dragResizeHandler.onResize = (bounds: ModalBounds) => {
+		// Constrain size to viewport
+		const maxWidth = window.innerWidth - 80; // Leave 40px margin on each side
+		const maxHeight = window.innerHeight - 80; // Leave 40px margin on top and bottom
+
 		x = bounds.x;
 		y = bounds.y;
-		width = bounds.width;
-		height = bounds.height;
+		width = Math.min(bounds.width, maxWidth);
+		height = Math.min(bounds.height, maxHeight);
 
 		onUpdateSize?.(width, height);
 	};
@@ -163,6 +179,12 @@
 
 	onMount(() => {
 		snapPoints = snapManager.calcSnapPoints();
+
+		// Constrain initial size to viewport
+		const maxWidth = window.innerWidth - 80; // Leave 40px margin on each side
+		const maxHeight = window.innerHeight - 80; // Leave 40px margin on top and bottom
+		width = Math.min(width, maxWidth);
+		height = Math.min(height, maxHeight);
 
 		// Initialize position
 		const defaultSnapPoint =
@@ -205,12 +227,18 @@
 		dim: true,
 		onEsc: () => {
 			onCancel?.();
+			return true;
 		}
 	}}
 	class="floating-modal"
 	class:snapping
 	class:resizing={dragResizeHandler.isResizing}
-	style="left: {x}px; top: {y}px; width: {width}px; height: {height}px;"
+	style:left={pxToRem(x, zoom) + 'rem'}
+	style:top={pxToRem(y, zoom) + 'rem'}
+	style:width={pxToRem(width, zoom) + 'rem'}
+	style:height={pxToRem(height, zoom) + 'rem'}
+	style:max-width="calc(100vw - 5rem)"
+	style:max-height="calc(100vh - 5rem)"
 >
 	<ResizeHandles onResizeStart={handleResizeStart} snapPosition={currentSnapPoint?.name || ''} />
 	{@render children()}

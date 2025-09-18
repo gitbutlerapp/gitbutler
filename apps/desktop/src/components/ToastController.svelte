@@ -12,7 +12,7 @@
 		<div transition:slide={{ duration: 170 }}>
 			<InfoMessage
 				testId={toast.testId ?? TestId.ToastInfoMessage}
-				style={toast.style ?? 'neutral'}
+				style={toast.style ?? 'info'}
 				error={toast.error}
 				secondaryLabel={toast.extraAction ? toast.extraAction.label : 'Dismiss'}
 				secondaryTestId={toast.extraAction ? toast.extraAction.testId : undefined}

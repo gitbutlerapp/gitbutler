@@ -1,3 +1,4 @@
+import { sortLikeFileTree } from '$lib/files/filetreeV3';
 import { type TreeChange } from '$lib/hunks/change';
 import {
 	hunkHeaderEquals,
@@ -200,7 +201,7 @@ export class UncommittedService {
 			Array.from(pathSet)
 		);
 
-		return changes;
+		return sortLikeFileTree(changes);
 	}
 
 	/**
@@ -279,12 +280,14 @@ export class UncommittedService {
 	}
 
 	getChangesByStackId(stackId: string | null): TreeChange[] {
-		const stackIdChanges = uncommittedSelectors.treeChanges.selectByStackId(this.state, stackId);
+		const stackIdChanges = sortLikeFileTree(
+			uncommittedSelectors.treeChanges.selectByStackId(this.state, stackId)
+		);
 		return stackIdChanges;
 	}
 
 	changesByStackId(stackId: string | null): Reactive<TreeChange[]> {
-		const changes = $derived(this.getChangesByStackId(stackId));
+		const changes = $derived(sortLikeFileTree(this.getChangesByStackId(stackId)));
 		return reactive(() => changes);
 	}
 

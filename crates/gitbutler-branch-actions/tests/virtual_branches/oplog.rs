@@ -417,3 +417,42 @@ fn head_corrupt_is_recreated_automatically() {
         "it should have just reset the oplog head, so only 1, not 2"
     );
 }
+
+#[test]
+fn first_snapshot_diff_works() -> anyhow::Result<()> {
+    let Test { repo, ctx, .. } = &Test::default();
+
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse()?,
+        false,
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )?;
+
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )?;
+
+    // create first commit to create the very first snapshot
+    fs::write(repo.path().join("file.txt"), "content")?;
+    let _commit_id =
+        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "first commit", None)?;
+
+    let snapshots = ctx.list_snapshots(10, None, Vec::new())?;
+    assert!(!snapshots.is_empty(), "Should have at least one snapshot");
+
+    // Test snapshot_diff on all snapshots to make sure none fail (including the first one)
+    for snapshot in &snapshots {
+        let diff_result = ctx.snapshot_diff(snapshot.commit_id);
+        assert!(
+            diff_result.is_ok(),
+            "snapshot_diff should work for snapshot {}, got error: {:?}",
+            snapshot.commit_id,
+            diff_result.err()
+        );
+    }
+
+    Ok(())
+}

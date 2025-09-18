@@ -11,6 +11,7 @@
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
+	import { BACKEND } from '$lib/backend';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
@@ -59,6 +60,7 @@
 	// Project data
 	const projectsResult = $derived(projectsService.projects());
 	const projects = $derived(projectsResult.current.data);
+	const currentProject = $derived(projects?.find((p) => p.id === projectId));
 
 	// =============================================================================
 	// REPOSITORY & BRANCH MANAGEMENT
@@ -170,6 +172,19 @@
 		return () => {
 			posthog.setPostHogRepo(undefined);
 		};
+	});
+
+	// =============================================================================
+	// WINDOW TITLE
+	// =============================================================================
+
+	const backend = inject(BACKEND);
+	$effect(() => {
+		if (currentProject?.title) {
+			backend.setWindowTitle(`${currentProject.title} — GitButler`);
+		} else {
+			backend.setWindowTitle('GitButler');
+		}
 	});
 
 	// =============================================================================

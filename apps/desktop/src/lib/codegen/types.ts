@@ -73,7 +73,7 @@ export type ClaudeCodeMessage =
 /**
  * Represents a Claude Code session that GitButler is tracking.
  */
-export interface ClaudeSession {
+export type ClaudeSession = {
 	/** The unique and stable identifier for the session. This is the first session_id that was used. */
 	id: string;
 	/** The most recent session ID. If a session is stopped and resumed, Claude will copy over the past context into a new session. This value is unique. */
@@ -84,12 +84,12 @@ export interface ClaudeSession {
 	createdAt: string;
 	/** The timestamp when the session was last updated. */
 	updatedAt: string;
-}
+};
 
 /**
  * Represents a message in a Claude session, referencing the stable session ID.
  */
-export interface ClaudeMessage {
+export type ClaudeMessage = {
 	/** Message identifier */
 	id: string;
 	/** The stable session ID that this message belongs to. */
@@ -98,7 +98,7 @@ export interface ClaudeMessage {
 	createdAt: string;
 	/** The content of the message, which can be either output from Claude or user input. */
 	content: ClaudeMessageContent;
-}
+};
 
 /**
  * Represents the kind of content in a Claude message.
@@ -178,6 +178,8 @@ export type ThinkingLevel = 'normal' | 'think' | 'megaThink' | 'ultraThink';
 
 export type ModelType = 'sonnet' | 'sonnet[1m]' | 'opus' | 'opusplan';
 
+export type PermissionMode = 'default' | 'plan' | 'acceptEdits';
+
 export type PromptTemplate = {
 	label: string;
 	template: string;
@@ -185,4 +187,24 @@ export type PromptTemplate = {
 
 export type PromptTemplates = {
 	templates: PromptTemplate[];
+};
+
+export type McpConfig = {
+	mcpServers: Record<string, McpServer>;
+};
+
+export type McpServer = {
+	type: string | null;
+	command: string | null;
+	url: string | null;
+	args: string[] | null;
+	env: Record<string, string> | null;
+};
+
+export type SubAgent = {
+	name: string;
+	description: string;
+	// If this is null, all tools are allowed
+	tools: string[] | null;
+	model: string | null;
 };

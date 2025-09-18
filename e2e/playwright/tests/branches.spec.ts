@@ -137,31 +137,11 @@ test('should be able to apply a remote branch and integrate the remote changes -
 	const fileCPath = gitbutler.pathInWorkdir('local-clone/c_file');
 
 	await gitbutler.runScript('project-with-remote-branches.sh');
+	await gitbutler.runScript('project-with-remote-branches__apply-branch-1.sh');
 
 	await page.goto('/');
 
 	// Should load the workspace
-	await waitForTestId(page, 'workspace-view');
-
-	// Should navigate to the branches page when clicking the branches button
-	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'target-commit-list-header');
-
-	await expect(header).toContainText('origin/master');
-
-	const branchListCards = getByTestId(page, 'branch-list-card');
-	await expect(branchListCards).toHaveCount(2);
-
-	const firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
-	await expect(firstBranchCard).toBeVisible();
-	await firstBranchCard.click();
-
-	// The delete branch should be visible
-	await waitForTestId(page, 'branches-view-delete-local-branch-button');
-
-	// Apply the branch
-	await clickByTestId(page, 'branches-view-apply-branch-button');
-	// Should be redirected to the workspace
 	await waitForTestId(page, 'workspace-view');
 
 	// There should be only one stack
@@ -217,33 +197,12 @@ test('should be able to apply a remote branch and integrate the remote changes -
 	const filePath = gitbutler.pathInWorkdir('local-clone/a_file');
 
 	await gitbutler.runScript('project-with-remote-branches.sh');
+	await gitbutler.runScript('project-with-remote-branches__apply-branch-1.sh');
 
 	await page.goto('/');
 
 	// Should load the workspace
 	await waitForTestId(page, 'workspace-view');
-
-	// Should navigate to the branches page when clicking the branches button
-	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'target-commit-list-header');
-
-	await expect(header).toContainText('origin/master');
-
-	const branchListCards = getByTestId(page, 'branch-list-card');
-	await expect(branchListCards).toHaveCount(2);
-
-	const firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
-	await expect(firstBranchCard).toBeVisible();
-	await firstBranchCard.click();
-
-	// The delete branch should be visible
-	await waitForTestId(page, 'branches-view-delete-local-branch-button');
-
-	// Apply the branch
-	await clickByTestId(page, 'branches-view-apply-branch-button');
-	// Should be redirected to the workspace
-	await waitForTestId(page, 'workspace-view');
-
 	// There should be only one stack
 	const stacks = getByTestId(page, 'stack');
 	await expect(stacks).toHaveCount(1);
@@ -584,31 +543,11 @@ test('should handle gracefully applying two conflicting branches', async ({
 	gitbutler = await startGitButler(workdir, configdir, context);
 
 	await gitbutler.runScript('project-with-remote-branches.sh');
+	await gitbutler.runScript('project-with-remote-branches__apply-branch-1.sh');
 
 	await page.goto('/');
 
 	// Should load the workspace
-	await waitForTestId(page, 'workspace-view');
-
-	// Should navigate to the branches page when clicking the branches button
-	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'target-commit-list-header');
-
-	await expect(header).toContainText('origin/master');
-
-	const branchListCards = getByTestId(page, 'branch-list-card');
-	await expect(branchListCards).toHaveCount(2);
-
-	const firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
-	await expect(firstBranchCard).toBeVisible();
-	await firstBranchCard.click();
-
-	// The delete branch should be visible
-	await waitForTestId(page, 'branches-view-delete-local-branch-button');
-
-	// Apply the branch
-	await clickByTestId(page, 'branches-view-apply-branch-button');
-	// Should be redirected to the workspace
 	await waitForTestId(page, 'workspace-view');
 
 	const commits = getByTestId(page, 'commit-row');

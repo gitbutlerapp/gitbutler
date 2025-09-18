@@ -49,7 +49,7 @@ mod add {
             let data_dir = paths::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let outcome =
-                gitbutler_project::add_with_path(data_dir.path(), &tmp.path().join("missing"))
+                gitbutler_project::add_with_path(data_dir.path(), tmp.path().join("missing"))
                     .unwrap();
             assert!(matches!(outcome, AddProjectOutcome::PathNotFound));
         }

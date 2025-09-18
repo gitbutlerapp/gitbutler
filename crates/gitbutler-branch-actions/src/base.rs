@@ -7,10 +7,11 @@ use crate::{
     VirtualBranchesExt,
 };
 use anyhow::{anyhow, Context, Result};
+use but_workspace::branch::checkout::UncommitedWorktreeChanges;
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
-use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -53,24 +54,40 @@ pub fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
     Ok(base)
 }
 
+#[instrument(skip(ctx), err(Debug))]
 fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Result<BaseBranch> {
     let gix_repo = ctx.gix_repo_for_merging()?;
-    let (mut outcome, conflict_kind) =
-        but_workspace::merge_worktree_with_workspace(ctx, &gix_repo)?;
+    if ctx.app_settings().feature_flags.cv3 {
+        let workspace_commit_to_checkout = but_workspace::remerged_workspace_commit_v2(ctx)?;
+        let tree_to_checkout_to_avoid_ref_update = gix_repo
+            .find_commit(workspace_commit_to_checkout.to_gix())?
+            .tree_id()?;
+        but_workspace::branch::safe_checkout(
+            gix_repo.head_id()?.detach(),
+            tree_to_checkout_to_avoid_ref_update.detach(),
+            &gix_repo,
+            but_workspace::branch::checkout::Options {
+                uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+            },
+        )?;
+    } else {
+        let (mut outcome, conflict_kind) =
+            but_workspace::merge_worktree_with_workspace(ctx, &gix_repo)?;
 
-    if outcome.has_unresolved_conflicts(conflict_kind) {
-        return Err(anyhow!("Conflicts while going back to gitbutler/workspace"))
-            .context(Marker::ProjectConflict);
+        if outcome.has_unresolved_conflicts(conflict_kind) {
+            return Err(anyhow!("Conflicts while going back to gitbutler/workspace"))
+                .context(Marker::ProjectConflict);
+        }
+
+        let final_tree_id = outcome.tree.write()?.detach();
+
+        let repo = ctx.repo();
+        let final_tree = repo.find_tree(final_tree_id.to_git2())?;
+        repo.checkout_tree_builder(&final_tree)
+            .force()
+            .checkout()
+            .context("failed to checkout tree")?;
     }
-
-    let final_tree_id = outcome.tree.write()?.detach();
-
-    let repo = ctx.repo();
-    let final_tree = repo.find_tree(final_tree_id.to_git2())?;
-    repo.checkout_tree_builder(&final_tree)
-        .force()
-        .checkout()
-        .context("failed to checkout tree")?;
 
     let base = target_to_base_branch(ctx, default_target)?;
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -343,10 +360,25 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
         None => target.remote_url.clone(),
     };
 
+    // Fallback to the remote URL of the branch if the target remote URL is empty
+    let remote_url = if target.remote_url.is_empty() {
+        let remote = repo.find_remote(target.branch.remote()).context(format!(
+            "failed to find remote for branch {}",
+            target.branch.fullname()
+        ))?;
+        let remote_url = remote.url().context(format!(
+            "failed to get remote url for {}",
+            target.branch.fullname()
+        ))?;
+        remote_url.to_string()
+    } else {
+        target.remote_url.clone()
+    };
+
     let base = BaseBranch {
         branch_name: target.branch.fullname(),
         remote_name: target.branch.remote().to_string(),
-        remote_url: target.remote_url.clone(),
+        remote_url,
         push_remote_name: target.push_remote_name.clone(),
         push_remote_url,
         base_sha: target.sha,

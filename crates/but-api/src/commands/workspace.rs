@@ -487,7 +487,7 @@ pub fn uncommit_changes(
 
 /// This API allows the user to quickly "stash" a bunch of uncommitted changes - getting them out of the worktree.
 /// Unlike the regular stash, the user specifies a new branch where those changes will be 'saved'/committed.
-/// Immediatelly after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
+/// Immediately after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
 /// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
 #[api_cmd]
 #[tauri::command(async)]
@@ -542,7 +542,13 @@ pub fn stash_into_branch(
     gitbutler_branch_actions::update_workspace_commit(&vb_state, &ctx)
         .context("failed to update gitbutler workspace")?;
 
-    branch_manager.unapply(stack.id, perm, false, Vec::new())?;
+    branch_manager.unapply(
+        stack.id,
+        perm,
+        false,
+        Vec::new(),
+        ctx.app_settings().feature_flags.cv3,
+    )?;
 
     let outcome = outcome?;
     Ok(outcome.into())

@@ -162,10 +162,12 @@ pub mod stacks {
     use but_settings::AppSettings;
     use but_workspace::{StacksFilter, stack_branches, ui};
     use gitbutler_command_context::CommandContext;
+    use gitbutler_reference::{Refname, RemoteRefname};
     use gitbutler_stack::StackId;
     use gix::bstr::ByteSlice;
     use gix::refs::Category;
     use std::path::Path;
+    use std::str::FromStr;
 
     pub fn list(
         current_dir: &Path,
@@ -196,15 +198,19 @@ pub mod stacks {
         }
     }
 
-    pub fn details(id: StackId, current_dir: &Path, v3: bool) -> anyhow::Result<()> {
+    pub fn details(id: Option<StackId>, current_dir: &Path, v3: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
         let details = if v3 {
             let meta = ref_metadata_toml(ctx.project())?;
             let repo = ctx.gix_repo_for_merging_non_persisting()?;
-            but_workspace::stack_details_v3(id.into(), &repo, &meta)
+            but_workspace::stack_details_v3(id, &repo, &meta)
         } else {
-            but_workspace::stack_details(&project.gb_dir(), id, &ctx)
+            but_workspace::stack_details(
+                &project.gb_dir(),
+                id.context("a StackID is needed for the old implementation")?,
+                &ctx,
+            )
         }?;
         debug_print(details)
     }
@@ -255,9 +261,40 @@ pub mod stacks {
     /// Create a new stack containing only a branch with the given name.
     fn create_stack_with_branch(
         ctx: &CommandContext,
+        project: gitbutler_project::Project,
         name: &str,
+        remote: bool,
         description: Option<&str>,
-    ) -> anyhow::Result<ui::StackEntryNoOpt> {
+    ) -> anyhow::Result<ui::StackEntry> {
+        let repo = ctx.gix_repo()?;
+        let remotes = repo.remote_names();
+        if remote {
+            let remote_name = remotes
+                .first()
+                .map(|r| r.to_str().unwrap())
+                .context("No remote found in repository")?;
+
+            let ref_name = Refname::from_str(&format!("refs/remotes/{remote_name}/{name}"))?;
+            let remote_ref_name = RemoteRefname::new(remote_name, name);
+
+            let (stack_id, _) = gitbutler_branch_actions::create_virtual_branch_from_branch(
+                ctx,
+                &ref_name,
+                Some(remote_ref_name),
+                None,
+            )?;
+
+            let stack_entries =
+                but_workspace::stacks(ctx, &project.gb_dir(), &repo, Default::default())?;
+            let stack_entry = stack_entries
+                .into_iter()
+                .find(|entry| entry.id == Some(stack_id))
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Failed to find newly created stack with ID: {stack_id}")
+                })?;
+            return Ok(stack_entry);
+        };
+
         let creation_request = gitbutler_branch::BranchCreateRequest {
             name: Some(name.to_string()),
             ..Default::default()
@@ -277,7 +314,7 @@ pub mod stacks {
             )?;
         }
 
-        Ok(stack_entry)
+        Ok(stack_entry.into())
     }
 
     /// Add a branch to an existing stack.
@@ -326,6 +363,7 @@ pub mod stacks {
         name: &str,
         description: Option<&str>,
         current_dir: &Path,
+        remote: bool,
         use_json: bool,
         ws3: bool,
     ) -> anyhow::Result<()> {
@@ -334,6 +372,7 @@ pub mod stacks {
         let app_settings = AppSettings {
             feature_flags: but_settings::app_settings::FeatureFlags {
                 ws3,
+                cv3: false,
                 undo: false,
                 actions: false,
                 butbot: false,
@@ -348,7 +387,7 @@ pub mod stacks {
 
         let stack_entry = match id {
             Some(id) => add_branch_to_stack(&ctx, id, name, description, project.clone(), &repo)?,
-            None => create_stack_with_branch(&ctx, name, description)?.into(),
+            None => create_stack_with_branch(&ctx, project.clone(), name, remote, description)?,
         };
 
         if use_json {

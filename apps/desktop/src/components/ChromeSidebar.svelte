@@ -275,6 +275,7 @@
 		<div class="bottom__primary-actions">
 			<div>
 				<Button
+					testId={TestId.ChromeSideBarProjectSettingsButton}
 					kind="outline"
 					onclick={() => {
 						openProjectSettings(projectId);
@@ -338,20 +339,6 @@
 			</Button>
 		</div>
 		<div class="bottom__ghost-actions">
-			<Button
-				icon="keyboard"
-				kind="ghost"
-				style="neutral"
-				tooltip="Keyboard Shortcuts (Coming soon...)"
-				tooltipPosition="top"
-				tooltipAlign="start"
-				width={34}
-				class="faded-btn"
-				onclick={() => {
-					keyboardShortcutsModal?.show();
-				}}
-				disabled={true}
-			/>
 			<Button
 				icon="mail"
 				kind="ghost"

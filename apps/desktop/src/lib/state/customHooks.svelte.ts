@@ -65,16 +65,6 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 			error_message: parsedError?.message,
 			error_code: parsedError?.code
 		});
-
-		/** TODO: How long do we need to send these duplicates? */
-		const legacyName = args.failure ? `${actionName} Failed` : `${actionName} Successful`;
-		posthog?.capture(legacyName, {
-			actionName,
-			command,
-			durationMs,
-			failure: args.failure,
-			error: args.error
-		});
 	}
 
 	async function fetch<T extends TranformerFn>(

@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
-	export type MessageStyle = Exclude<ComponentColorType, 'ghost' | 'purple'>;
+	export type MessageStyle = 'info' | 'warning' | 'error' | 'success';
 </script>
 
 <script lang="ts">
@@ -39,7 +39,7 @@
 
 	const {
 		icon: iconName,
-		style = 'neutral',
+		style = 'info',
 		outlined = true,
 		filled = false,
 		primaryLabel = '',
@@ -62,24 +62,21 @@
 	}: Props = $props();
 
 	const iconMap: { [Key in MessageStyle]: IconName } = {
-		neutral: 'info',
-		pop: 'info',
+		info: 'info',
 		warning: 'warning',
 		error: 'error',
 		success: 'success'
 	};
 
 	const iconColorMap: { [Key in MessageStyle]: IconColor } = {
-		neutral: 'pop',
-		pop: 'pop',
+		info: 'pop',
 		warning: 'warning',
 		error: 'error',
 		success: 'success'
 	};
 
 	const primaryButtonMap: { [Key in MessageStyle]: ComponentColorType } = {
-		neutral: 'pop',
-		pop: 'pop',
+		info: 'pop',
 		warning: 'warning',
 		error: 'error',
 		success: 'pop'
@@ -167,7 +164,6 @@
 		width: 100%;
 		padding: 14px;
 		gap: 12px;
-		border: 1px solid green;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		color: var(--clr-scale-ntrl-0);
@@ -203,14 +199,11 @@
 	}
 
 	/* MODIFIERS */
-	.neutral {
+	.info {
 		border: 0 solid var(--clr-border-2);
 	}
 	.error {
 		border: 0 solid var(--clr-scale-err-60);
-	}
-	.pop {
-		border: 0 solid var(--clr-scale-pop-50);
 	}
 	.warning {
 		border: 0 solid var(--clr-scale-warn-60);
@@ -228,22 +221,15 @@
 	}
 
 	.has-background {
-		&.neutral {
+		&.info {
 			background-color: var(--clr-bg-2);
 		}
-
 		&.error {
 			background-color: var(--clr-theme-err-bg-muted);
 		}
-
-		&.pop {
-			background-color: var(--clr-theme-pop-bg-muted);
-		}
-
 		&.warning {
 			background-color: var(--clr-theme-warn-bg-muted);
 		}
-
 		&.success {
 			background-color: var(--clr-theme-succ-bg-muted);
 		}
@@ -264,7 +250,6 @@
 		&::selection {
 			background-color: var(--clr-scale-err-80);
 		}
-
 		/* empty */
 		&:empty {
 			display: none;

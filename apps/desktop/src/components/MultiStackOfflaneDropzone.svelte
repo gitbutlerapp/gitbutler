@@ -185,10 +185,6 @@
 			& .hidden-dropzone__svg__plus-list path:nth-child(1) {
 				opacity: 0.25;
 			}
-			& .hidden-dropzone__svg__plus-list path:nth-child(2) {
-				stroke: var(--clr-theme-pop-element);
-			}
-
 			& .hidden-dropzone__svg__back-list {
 				transform: translateX(3px) rotate(-5deg);
 			}

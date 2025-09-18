@@ -26,6 +26,7 @@ gitbutler-fs.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-stack.workspace = true
 but-core.workspace = true
+but-workspace.workspace = true
 
 [[test]]
 name = "oplog"

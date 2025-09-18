@@ -87,12 +87,14 @@ but-tools = { path = "crates/but-tools" }
 but-api = { path = "crates/but-api" }
 but-api-macros = { path = "crates/but-api-macros" }
 but-claude = { path = "crates/but-claude" }
+but-cursor = { path = "crates/but-cursor" }
 but-broadcaster = { path = "crates/but-broadcaster" }
 git2-hooks = { version = "0.5.0" }
 itertools = "0.14.0"
 dirs = "6.0.0"
 # TODO: needs update, but breaks from v0.2
 rmcp = { version = "0.1.5" }
+serde_json_lenient = "0.2.3"
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
@@ -113,6 +115,7 @@ incremental = false
 
 # Assure that `gix` is always fast so debug builds aren't unnecessarily slow.
 [profile.dev.package]
+gix = { opt-level = 3 }
 gix-object = { opt-level = 3 }
 gix-ref = { opt-level = 3 }
 gix-pack = { opt-level = 3 }

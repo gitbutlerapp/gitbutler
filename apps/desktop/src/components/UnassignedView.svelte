@@ -1,8 +1,10 @@
 <script lang="ts">
 	import RulesList from '$components/RulesList.svelte';
 	import UnassignedFoldButton from '$components/UnassignedFoldButton.svelte';
+	import UnassignedViewForgePrompt from '$components/UnassignedViewForgePrompt.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import WorktreeTipsFooter from '$components/WorktreeTipsFooter.svelte';
+	import { ActionEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
@@ -26,6 +28,7 @@
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const settingsService = inject(SETTINGS_SERVICE);
+	const posthog = inject(POSTHOG_WRAPPER);
 	const settingsStore = $derived(settingsService.appSettings);
 	const projectState = $derived(uiState.project(projectId));
 	const unassignedSidebaFolded = $derived(uiState.global.unassignedSidebaFolded);
@@ -127,6 +130,7 @@
 								No files need committing
 							</p>
 						</div>
+						<UnassignedViewForgePrompt {projectId} />
 						<WorktreeTipsFooter />
 					</div>
 				{/snippet}
@@ -134,6 +138,7 @@
 		</div>
 
 		{#if changesToCommit}
+			<UnassignedViewForgePrompt {projectId} />
 			<div class="create-new" class:sticked-bottom={isScrollable} use:focusable>
 				<Button
 					type="button"
@@ -146,6 +151,7 @@
 							branchName: undefined
 						});
 						checkFilesForCommit();
+						posthog.captureAction(ActionEvent.CommitToNewBranch);
 					}}
 					icon={isCommitting ? undefined : 'plus-small'}
 					testId={TestId.CommitToNewBranchButton}
@@ -215,8 +221,13 @@
 
 	.create-new {
 		display: flex;
+		flex-direction: column;
 		padding: 12px 12px 14px 12px;
-		background-color: var(--clr-bg-1);
+		border-top: 1px solid var(--clr-border-3);
+
+		&.sticked-bottom {
+			border-color: var(--clr-border-2);
+		}
 	}
 
 	/* FOLDED */
@@ -250,15 +261,13 @@
 
 	.unassigned__files {
 		display: flex;
+		position: relative;
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
 	}
 
 	/* MODIFIERS */
-	.sticked-bottom {
-		border-top: 1px solid var(--clr-border-2);
-	}
 
 	.unassigned__fold-button {
 		display: flex;

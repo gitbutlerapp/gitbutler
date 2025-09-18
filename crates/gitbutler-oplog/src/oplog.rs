@@ -280,14 +280,16 @@ impl OplogExt for CommandContext {
 
         let wd_tree_id = tree_from_applied_vbranches(&gix_repo, commit.id(), self)?;
         let wd_tree = repo.find_tree(wd_tree_id)?;
-        let old_wd_tree_id = tree_from_applied_vbranches(&gix_repo, commit.parent(0)?.id(), self)?;
-        let old_wd_tree = repo.find_tree(old_wd_tree_id)?;
 
-        let (tree_changes, _) = tree_changes(
-            &gix_repo,
-            Some(old_wd_tree.id().to_gix()),
-            wd_tree.id().to_gix(),
-        )?;
+        // Handle the case where this is the first snapshot (no parent)
+        let old_wd_tree_id = if commit.parent_count() > 0 {
+            Some(tree_from_applied_vbranches(&gix_repo, commit.parent(0)?.id(), self)?.to_gix())
+        } else {
+            // For the first snapshot, compare against empty tree
+            None
+        };
+
+        let (tree_changes, _) = tree_changes(&gix_repo, old_wd_tree_id, wd_tree.id().to_gix())?;
         Ok(tree_changes)
     }
 
@@ -617,11 +619,19 @@ fn restore_snapshot(
     repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
 
     // Define the checkout builder
-    let mut checkout_builder = git2::build::CheckoutBuilder::new();
-    checkout_builder.remove_untracked(true);
-    checkout_builder.force();
-    // Checkout the tree
-    repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
+    if ctx.app_settings().feature_flags.cv3 {
+        but_workspace::branch::safe_checkout_from_head(
+            workdir_tree.id().to_gix(),
+            &gix_repo,
+            but_workspace::branch::checkout::Options::default(),
+        )?;
+    } else {
+        let mut checkout_builder = git2::build::CheckoutBuilder::new();
+        checkout_builder.remove_untracked(true);
+        checkout_builder.force();
+        // Checkout the tree
+        repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
+    }
 
     // Update virtual_branches.toml with the state from the snapshot
     fs::write(

@@ -191,6 +191,7 @@
 		bind:this={composer}
 		initialValue={description}
 		placeholder="Commit message"
+		messageType="commit"
 		enableRuler
 		{projectId}
 		{onAiButtonClick}

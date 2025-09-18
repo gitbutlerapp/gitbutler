@@ -14,6 +14,7 @@
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
+	import CodegenMcpConfigModal from '$components/codegen/CodegenMcpConfigModal.svelte';
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
@@ -35,13 +36,15 @@
 		lastInteractionTime,
 		lastUserMessageSentAt,
 		userFeedbackStatus,
-		usageStats
+		usageStats,
+		reverseMessages
 	} from '$lib/codegen/messages';
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { workspacePath } from '$lib/routes/routes.svelte';
+	import { isAiRule, type RuleFilter } from '$lib/rules/rule';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { SETTINGS } from '$lib/settings/userSettings';
@@ -65,8 +68,8 @@
 		Modal
 	} from '@gitbutler/ui';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
-	import type { ClaudeMessage, ThinkingLevel, ModelType } from '$lib/codegen/types';
-	import type { RuleFilter } from '$lib/rules/rule';
+
+	import type { ClaudeMessage, ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
 
 	type Props = {
 		projectId: string;
@@ -95,8 +98,16 @@
 	const stacks = $derived(stackService.stacks(projectId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
-	const hasExistingSessions = $derived(stacks.current.data && stacks.current.data.length > 0);
+	const workspaceRules = $derived(rulesService.workspaceRules(projectId));
+	const hasExistingSessions = $derived.by(() => {
+		const stackss = stacks.current.data ?? [];
+		const aiRules = (workspaceRules.current.data ?? []).filter(isAiRule);
+		return stackss.some((stack) =>
+			aiRules.some((rule) => rule.action.subject.subject.target.subject === stack.id)
+		);
+	});
 	const [sendClaudeMessage] = claudeCodeService.sendMessage;
+	const mcpConfig = $derived(claudeCodeService.mcpConfig({ projectId }));
 
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
 	let clearContextModal = $state<Modal>();
@@ -104,8 +115,11 @@
 	let modelTrigger = $state<HTMLButtonElement>();
 	let thinkingModeContextMenu = $state<ContextMenu>();
 	let thinkingModeTrigger = $state<HTMLButtonElement>();
+	let permissionModeContextMenu = $state<ContextMenu>();
+	let permissionModeTrigger = $state<HTMLButtonElement>();
 	let templateContextMenu = $state<ContextMenu>();
 	let templateTrigger = $state<HTMLButtonElement>();
+	let mcpConfigModal = $state<CodegenMcpConfigModal>();
 
 	const modelOptions: { label: string; value: ModelType }[] = [
 		{ label: 'Sonnet', value: 'sonnet' },
@@ -116,12 +130,21 @@
 
 	const thinkingLevels: ThinkingLevel[] = ['normal', 'think', 'megaThink', 'ultraThink'];
 
+	const permissionModeOptions: { label: string; value: PermissionMode }[] = [
+		{ label: 'Edit with permission', value: 'default' },
+		{ label: 'Planning', value: 'plan' },
+		{ label: 'Accept edits', value: 'acceptEdits' }
+	];
+
 	const promptTemplates = $derived(claudeCodeService.promptTemplates(undefined));
 
 	const projectState = uiState.project(projectId);
 	const selectedBranch = $derived(projectState.selectedClaudeSession.current);
 	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
 	const selectedModel = $derived(projectState.selectedModel.current);
+	const selectedPermissionMode = $derived(
+		selectedBranch ? uiState.lane(selectedBranch.stackId).permissionMode.current : 'default'
+	);
 
 	const prompt = $derived(
 		selectedBranch ? uiState.lane(selectedBranch.stackId).prompt.current : ''
@@ -200,7 +223,9 @@
 				stackId: selectedBranch.stackId,
 				message: prompt,
 				thinkingLevel: selectedThinkingLevel,
-				model: selectedModel
+				model: selectedModel,
+				permissionMode: selectedPermissionMode,
+				disabledMcpServers: uiState.lane(selectedBranch.stackId).disabledMcpServers.current
 			},
 			{ properties: analyticsProperties }
 		);
@@ -230,6 +255,39 @@
 		thinkingModeContextMenu?.close();
 	}
 
+	function selectPermissionMode(mode: PermissionMode) {
+		if (!selectedBranch) return;
+		uiState.lane(selectedBranch.stackId).permissionMode.set(mode);
+		permissionModeContextMenu?.close();
+	}
+
+	function cyclePermissionMode() {
+		if (!selectedBranch) return;
+		const currentIndex = permissionModeOptions.findIndex(
+			(option) => option.value === selectedPermissionMode
+		);
+		const nextIndex = (currentIndex + 1) % permissionModeOptions.length;
+		const nextMode = permissionModeOptions[nextIndex];
+		if (nextMode) {
+			uiState.lane(selectedBranch.stackId).permissionMode.set(nextMode.value);
+		}
+	}
+
+	function getPermissionModeIcon(
+		mode: PermissionMode
+	): 'edit-with-permissions' | 'checklist' | 'allow-all' {
+		switch (mode) {
+			case 'default':
+				return 'edit-with-permissions';
+			case 'plan':
+				return 'checklist';
+			case 'acceptEdits':
+				return 'allow-all';
+			default:
+				return 'edit-with-permissions';
+		}
+	}
+
 	function thinkingLevelToUiLabel(level: ThinkingLevel): string {
 		switch (level) {
 			case 'normal':
@@ -237,9 +295,9 @@
 			case 'think':
 				return 'Think';
 			case 'megaThink':
-				return 'Mega Think';
+				return 'Mega think';
 			case 'ultraThink':
-				return 'Ultra Think';
+				return 'Ultra think';
 			default:
 				return 'Normal';
 		}
@@ -347,17 +405,43 @@
 
 	let rightSidebarRef = $state<HTMLDivElement>();
 	let createBranchModal = $state<CreateBranchModal>();
-	let chatLayout = $state<CodegenChatLayout>();
 
-	// Auto-scroll when new messages are added or branch changes
-	$effect(() => {
-		if (events?.current.data) {
-			setTimeout(() => {
-				chatLayout?.scrollToBottom();
-			}, 50);
+	function handleKeydown(event: KeyboardEvent) {
+		// Ignore if user is typing in an input or textarea
+		if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+			return;
 		}
-	});
+
+		// Handle Shift+Tab to cycle permission mode
+		if (event.key === 'p' && event.metaKey) {
+			event.preventDefault();
+			cyclePermissionMode();
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
+
+{#if selectedBranch?.stackId}
+	<ReduxResult result={mcpConfig.current} {projectId} stackId={selectedBranch.stackId}>
+		{#snippet children(mcpConfig, { projectId: _projectId, stackId: _stackId })}
+			{@const laneState = uiState.lane(selectedBranch.stackId)}
+			<CodegenMcpConfigModal
+				bind:this={mcpConfigModal}
+				{mcpConfig}
+				disabledServers={laneState.disabledMcpServers.current}
+				toggleServer={(server) => {
+					const disabledServers = laneState.disabledMcpServers.current;
+					if (disabledServers.includes(server)) {
+						laneState.disabledMcpServers.set(disabledServers.filter((s) => s !== server));
+					} else {
+						laneState.disabledMcpServers.set([...disabledServers, server]);
+					}
+				}}
+			/>
+		{/snippet}
+	</ReduxResult>
+{/if}
 
 <div class="page">
 	<ReduxResult result={claudeAvailable.current} {projectId}>
@@ -425,42 +509,75 @@
 					{ projectId: _projectId }
 				)}
 					{@const formattedMessages = formatMessages(events, permissionRequests, isStackActive)}
+					{@const reversedFormatterdMessages = reverseMessages(formattedMessages)}
 					{@const lastUserMessageSent = lastUserMessageSentAt(events)}
 					{@const iconName = pushStatusToIcon(branchDetailsData.pushStatus)}
 					{@const lineColor = getColorFromBranchType(
 						pushStatusToColor(branchDetailsData.pushStatus)
 					)}
+					{@const enabledMcpServers = mcpConfig.current.data
+						? Object.keys(mcpConfig.current.data.mcpServers).length -
+							uiState.lane(selectedBranch.stackId).disabledMcpServers.current.length
+						: 0}
 
-					<CodegenChatLayout bind:this={chatLayout} branchName={selectedBranch.head}>
+					<CodegenChatLayout branchName={selectedBranch.head}>
 						{#snippet branchIcon()}
 							<BranchHeaderIcon {iconName} color={lineColor} />
 						{/snippet}
 						{#snippet workspaceActions()}
-							<Button kind="outline" size="tag" icon="workbench-small" onclick={showInWorkspace}
-								>Show in workspace</Button
+							<Button
+								kind="outline"
+								size="tag"
+								icon="workbench-small"
+								reversedDirection
+								onclick={showInWorkspace}>Show in workspace</Button
 							>
 							<Button
 								kind="outline"
 								icon="open-editor-small"
 								size="tag"
-								tooltip="Open in editor
-							"
+								tooltip="Open in editor"
 								onclick={openInEditor}
-							/>
+								reversedDirection
+							>
+								Open in {$userSettings.defaultCodeEditor.displayName}
+							</Button>
 						{/snippet}
 						{#snippet contextActions()}
 							<Button
+								kind="outline"
+								icon="mcp"
+								reversedDirection
+								onclick={() => mcpConfigModal?.open()}
+								>MCP
+
+								{#snippet badge()}
+									<Badge kind="soft">{enabledMcpServers}</Badge>
+								{/snippet}
+							</Button>
+							<Button
 								disabled={!hasRulesToClear || formattedMessages.length === 0}
 								kind="outline"
-								size="tag"
+								style="warning"
 								icon="clear-small"
-								reversedDirection
 								onclick={clearContextAndRules}
 							>
 								Clear context
 							</Button>
 						{/snippet}
 						{#snippet messages()}
+							{#if currentStatus(events, isStackActive) === 'running' && lastUserMessageSent}
+								{@const status = userFeedbackStatus(formattedMessages)}
+								{#if status.waitingForFeedback}
+									<CodegenServiceMessageUseTool toolCall={status.toolCall} />
+								{:else}
+									<CodegenServiceMessageThinking
+										{lastUserMessageSent}
+										msSpentWaiting={status.msSpentWaiting}
+									/>
+								{/if}
+							{/if}
+
 							{#if formattedMessages.length === 0}
 								<div class="chat-view__placeholder">
 									<EmptyStatePlaceholder
@@ -479,7 +596,7 @@
 									</EmptyStatePlaceholder>
 								</div>
 							{:else}
-								{#each formattedMessages as message}
+								{#each reversedFormatterdMessages as message}
 									<CodegenClaudeMessage
 										{message}
 										{onApproval}
@@ -487,18 +604,6 @@
 										userAvatarUrl={$user?.picture}
 									/>
 								{/each}
-							{/if}
-
-							{#if currentStatus(events, isStackActive) === 'running' && lastUserMessageSent}
-								{@const status = userFeedbackStatus(formattedMessages)}
-								{#if status.waitingForFeedback}
-									<CodegenServiceMessageUseTool toolCall={status.toolCall} />
-								{:else}
-									<CodegenServiceMessageThinking
-										{lastUserMessageSent}
-										msSpentWaiting={status.msSpentWaiting}
-									/>
-								{/if}
 							{/if}
 						{/snippet}
 
@@ -515,6 +620,9 @@
 										: undefined}
 								>
 									{#snippet actions()}
+										{@const permissionModeLabel = permissionModeOptions.find(
+											(a) => a.value === selectedPermissionMode
+										)?.label}
 										<div class="flex m-right-4 gap-4">
 											<Button disabled kind="outline" icon="attachment" reversedDirection />
 											<Button
@@ -527,11 +635,22 @@
 											<Button
 												bind:el={thinkingModeTrigger}
 												kind="outline"
-												icon="brain"
+												icon="thinking"
 												reversedDirection
 												onclick={() => thinkingModeContextMenu?.toggle()}
-												tooltip="Thinking Mode"
+												tooltip="Thinking mode"
 												children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
+											/>
+											<Button
+												bind:el={permissionModeTrigger}
+												kind="outline"
+												icon={getPermissionModeIcon(selectedPermissionMode)}
+												shrinkable
+												onclick={() => permissionModeContextMenu?.toggle()}
+												tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
+													? 'Permission modes disable when all permissions are allowed'
+													: `Permission mode: ${permissionModeLabel}`}
+												disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
 											/>
 										</div>
 
@@ -887,7 +1006,11 @@
 <ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top" align="start">
 	<ContextMenuSection>
 		{#each modelOptions as option}
-			<ContextMenuItem label={option.label} onclick={() => selectModel(option.value)} />
+			<ContextMenuItem
+				label={option.label}
+				selected={selectedModel === option.value}
+				onclick={() => selectModel(option.value)}
+			/>
 		{/each}
 	</ContextMenuSection>
 </ContextMenu>
@@ -898,11 +1021,30 @@
 	align="start"
 	side="top"
 >
-	<ContextMenuSection title="Thinking Mode">
+	<ContextMenuSection>
 		{#each thinkingLevels as level}
 			<ContextMenuItem
 				label={thinkingLevelToUiLabel(level)}
+				selected={selectedThinkingLevel === level}
 				onclick={() => selectThinkingLevel(level)}
+			/>
+		{/each}
+	</ContextMenuSection>
+</ContextMenu>
+
+<ContextMenu
+	bind:this={permissionModeContextMenu}
+	leftClickTrigger={permissionModeTrigger}
+	align="start"
+	side="top"
+>
+	<ContextMenuSection>
+		{#each permissionModeOptions as option}
+			<ContextMenuItem
+				label={option.label}
+				icon={getPermissionModeIcon(option.value)}
+				selected={selectedPermissionMode === option.value}
+				onclick={() => selectPermissionMode(option.value)}
 			/>
 		{/each}
 	</ContextMenuSection>
@@ -914,7 +1056,7 @@
 	side="top"
 	align="start"
 >
-	<ContextMenuSection title="Templates">
+	<ContextMenuSection>
 		<ReduxResult result={promptTemplates.current} {projectId}>
 			{#snippet children(promptTemplates, { projectId: _projectId })}
 				{#each promptTemplates.templates as template}
@@ -928,7 +1070,7 @@
 	</ContextMenuSection>
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Edit templates in {$userSettings.defaultCodeEditor.displayName}"
+			label="Edit in {$userSettings.defaultCodeEditor.displayName}"
 			icon="open-editor"
 			onclick={configureTemplates}
 		/>
@@ -943,7 +1085,7 @@
 		gap: 8px;
 
 		/* SHARABLE */
-		--message-max-width: 520px;
+		--message-max-width: 620px;
 	}
 
 	.chat-view {
@@ -999,11 +1141,6 @@
 		justify-content: center;
 		padding: 20px;
 		background-color: var(--clr-bg-2);
-	}
-
-	.sidebar-header-settings {
-		display: flex;
-		position: relative;
 	}
 
 	/* NO CC AVAILABLE */

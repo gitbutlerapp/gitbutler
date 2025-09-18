@@ -4,6 +4,7 @@
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { inject } from '@gitbutler/core/context';
 
 	import { SectionCard, chipToasts } from '@gitbutler/ui';
@@ -12,6 +13,7 @@
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectResult = $derived(projectsService.getProject(projectId));
+	const { closeSettings } = useSettingsModal();
 
 	let isDeleting = $state(false);
 
@@ -19,6 +21,7 @@
 		isDeleting = true;
 		try {
 			await projectsService.deleteProject(projectId);
+			closeSettings();
 			goto('/');
 			chipToasts.success('Project deleted');
 		} catch (err: any) {

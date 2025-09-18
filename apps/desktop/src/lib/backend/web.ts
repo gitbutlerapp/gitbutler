@@ -32,6 +32,9 @@ export default class Web implements IBackend {
 		// For the web version, we don't have a disk store, so we return a no-op implementation
 		return new WebDiskStore();
 	}
+	setWindowTitle(title: string): void {
+		document.title = title;
+	}
 }
 
 class WebDiskStore implements DiskStore {
@@ -44,10 +47,17 @@ class WebDiskStore implements DiskStore {
 
 	async get<T>(key: string, defaultValue: undefined): Promise<T | undefined>;
 	async get<T>(key: string, defaultValue: T): Promise<T>;
-	async get<T>(_: string, defaultValue?: T): Promise<T | undefined> {
+	async get<T>(key: string, defaultValue?: T): Promise<T | undefined> {
 		// TODO: Implement this for the web version
 		// This is a no-op for the web version
-		return defaultValue;
+		const fromCookie = getCookie(`disk-store-override:${key}`);
+		try {
+			const parsed = fromCookie ? (JSON.parse(fromCookie) as T) : undefined;
+			return parsed ?? defaultValue;
+		} catch (error) {
+			console.error('Error parsing disk store value from cookie', error);
+			return defaultValue;
+		}
 	}
 }
 

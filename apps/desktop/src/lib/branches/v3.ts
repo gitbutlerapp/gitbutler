@@ -62,6 +62,15 @@ export function isCommit(something: Commit | UpstreamCommit): something is Commi
 	return 'state' in something;
 }
 
+export function extractUpstreamCommitId(commit: Commit | UpstreamCommit): string | undefined {
+	if (isCommit(commit)) {
+		if (commit.state.type === 'LocalAndRemote') {
+			return commit.state.subject;
+		}
+	}
+	return undefined;
+}
+
 /** Represents the author of a commit. */
 export type Author = {
 	/** The name from the git commit signature */

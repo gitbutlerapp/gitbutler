@@ -84,7 +84,7 @@ pub fn update_workspace_commit(
         .list_stacks_in_workspace()
         .context("failed to list virtual branches")?;
 
-    let workspace_head = repo.find_commit(but_workspace::head(ctx)?)?;
+    let workspace_head = repo.find_commit(but_workspace::remerged_workspace_commit_v2(ctx)?)?;
 
     // message that says how to get back to where they were
     let mut message = GITBUTLER_WORKSPACE_COMMIT_TITLE.to_string();

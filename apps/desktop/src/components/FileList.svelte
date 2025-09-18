@@ -116,7 +116,7 @@
 		if (selectionId.type !== 'worktree' || selectedFiles.length === 0 || !canUseGBAI) return;
 
 		showToast({
-			style: 'neutral',
+			style: 'info',
 			title: 'Creating a branch and committing the changes',
 			message: 'This may take a few seconds.'
 		});
@@ -142,7 +142,7 @@
 		if (selectionId.type !== 'worktree' || selectedFiles.length === 0 || !canUseGBAI) return;
 
 		showToast({
-			style: 'neutral',
+			style: 'info',
 			title: 'Figuring out where to commit the changes',
 			message: 'This may take a few seconds.'
 		});

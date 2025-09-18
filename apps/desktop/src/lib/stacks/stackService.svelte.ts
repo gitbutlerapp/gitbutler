@@ -560,7 +560,7 @@ export class StackService {
 			{ projectId, commitId },
 			{
 				transform: (result) => ({
-					changes: changesSelectors.selectAll(result.changes),
+					changes: sortLikeFileTree(changesSelectors.selectAll(result.changes)),
 					stats: result.stats,
 					conflictEntries: result.conflictEntries
 				})
@@ -611,7 +611,7 @@ export class StackService {
 			},
 			{
 				transform: (result) => ({
-					changes: changesSelectors.selectAll(result.changes),
+					changes: sortLikeFileTree(changesSelectors.selectAll(result.changes)),
 					stats: result.stats
 				})
 			}
@@ -1162,6 +1162,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				},
 				{ projectId: string; commitId: string }
 			>({
+				keepUnusedDataFor: 60, // Keep for 1 minute after last use
 				extraOptions: { command: 'commit_details' },
 				query: (args) => args,
 				providesTags: (_result, _error, { commitId }) => [

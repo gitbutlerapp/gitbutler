@@ -19,9 +19,14 @@ export class PostHogWrapper {
 	) {}
 
 	capture(eventName: string, properties?: Properties) {
+		if (shouldIgnoreEvent(eventName, properties)) return;
 		const context = this.eventContext.getAll();
 		const newProperties = { ...context, ...properties };
-		this._instance?.capture(eventName, newProperties);
+		const skipClientRateLimiting =
+			eventName === 'tauri_command' && properties?.command !== undefined;
+		this._instance?.capture(eventName, newProperties, {
+			skip_client_rate_limiting: skipClientRateLimiting
+		});
 	}
 
 	captureOnboarding(event: OnboardingEvent, error?: unknown) {
@@ -34,6 +39,12 @@ export class PostHogWrapper {
 			error_code: parsedError.code
 		};
 		this._instance?.capture(event, properties);
+	}
+
+	captureAction(event: ActionEvent, properties?: Properties) {
+		const context = this.eventContext.getAll();
+		const newProperties = { ...context, ...properties };
+		this._instance?.capture(event, newProperties);
 	}
 
 	async init() {
@@ -93,6 +104,35 @@ export class PostHogWrapper {
 	}
 }
 
+type EventDescription = {
+	name: string;
+	command: string;
+};
+
+const HIGH_VOLUME_EVENTS: EventDescription[] = [
+	{ name: 'tauri_command', command: 'stack_details' }
+];
+
+const MID_VOLUME_EVENTS: EventDescription[] = [
+	{ name: 'tauri_command', command: 'get_base_branch_data' },
+	{ name: 'tauri_command', command: 'fetch_from_remotes' }
+];
+
+function shouldIgnoreEvent(eventName: string, properties: Properties | undefined): boolean {
+	if (HIGH_VOLUME_EVENTS.some((e) => e.name === eventName && e.command === properties?.command)) {
+		if (Math.random() < 0.95) {
+			return true;
+		}
+	}
+
+	if (MID_VOLUME_EVENTS.some((e) => e.name === eventName && e.command === properties?.command)) {
+		if (Math.random() < 0.5) {
+			return true;
+		}
+	}
+	return false;
+}
+
 export enum OnboardingEvent {
 	ConfirmedAnalytics = 'onboarding_confirmed_analytics',
 	AddLocalProject = 'onboarding_add_local_project',
@@ -107,5 +147,12 @@ export enum OnboardingEvent {
 	LoginGitButler = 'onboarding_login_gitbutler',
 	CancelLoginGitButler = 'onboarding_cancel_login_gitbutler',
 	GitHubInitiateOAuth = 'onboarding_github_initiate_oauth',
-	GitHubOAuthFailed = 'onboarding_github_oauth_failed'
+	GitHubOAuthFailed = 'onboarding_github_oauth_failed',
+	GitCheckCredentials = 'onboarding_git_check_credentials',
+	GitCheckCredentialsFailed = 'onboarding_git_check_credentials_failed',
+	GitAuthenticationContinue = 'onboarding_git_authentication_continue'
+}
+
+export enum ActionEvent {
+	CommitToNewBranch = 'action_commit_to_new_branch'
 }

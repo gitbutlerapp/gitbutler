@@ -41,6 +41,7 @@
 		// Snippets
 		children?: Snippet;
 		custom?: Snippet;
+		badge?: Snippet;
 	}
 </script>
 
@@ -48,7 +49,7 @@
 	import Icon from '$components/Icon.svelte';
 	import Tooltip, { type TooltipAlign, type TooltipPosition } from '$components/Tooltip.svelte';
 	import { focusable } from '$lib/focus/focusable';
-	import { extractHotkeyLetter, formatHotkeyForPlatform } from '$lib/utils/hotkeySymbols';
+	import { formatHotkeyForPlatform } from '$lib/utils/hotkeySymbols';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';
@@ -89,7 +90,8 @@
 		oncontextmenu,
 		onkeydown,
 		children,
-		custom
+		custom,
+		badge
 	}: Props = $props();
 
 	async function handleAction(e: MouseEvent) {
@@ -101,7 +103,6 @@
 		}
 	}
 
-	const hotkeyLetter = $derived(hotkey ? extractHotkeyLetter(hotkey) : undefined);
 	const displayHotkey = $derived(hotkey ? formatHotkeyForPlatform(hotkey) : undefined);
 </script>
 
@@ -117,7 +118,7 @@
 		bind:this={el}
 		use:focusable={{
 			button: true,
-			hotkey: hotkeyLetter,
+			hotkey: hotkey,
 			onAction: () => {
 				el?.click();
 			}
@@ -162,6 +163,18 @@
 				class:text-10={size === 'icon'}
 			>
 				{@render children()}
+
+				{#if displayHotkey}
+					<span class="m-left-2 opacity-50">
+						{displayHotkey}
+					</span>
+				{/if}
+
+				{#if badge}
+					<span class="btn-badge">
+						{@render badge()}
+					</span>
+				{/if}
 			</span>
 		{/if}
 
@@ -174,13 +187,9 @@
 				{/if}
 			</div>
 		{/if}
+
 		{#if custom}
 			{@render custom()}
-		{/if}
-		{#if displayHotkey && children}
-			<span class="btn-hotkey">
-				{displayHotkey}
-			</span>
 		{/if}
 	</button>
 </Tooltip>
@@ -256,6 +265,7 @@
 		/* Child elements */
 		.btn-label {
 			padding: 0 3px;
+			overflow: hidden;
 			white-space: nowrap;
 			pointer-events: none;
 		}
@@ -269,14 +279,10 @@
 			transition: opacity var(--transition-fast);
 		}
 
-		.btn-hotkey {
+		.btn-badge {
 			display: inline-flex;
-			align-items: center;
-			font-weight: 500;
-			font-size: 10px;
-			line-height: 1.2;
-			opacity: 0.7;
-			pointer-events: none;
+			margin-right: -2px;
+			margin-left: 2px;
 		}
 
 		/* Theme Variables - All themes use the same pattern */

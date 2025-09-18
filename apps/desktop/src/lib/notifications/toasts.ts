@@ -1,4 +1,11 @@
-import { getTitleFromCommonErrorMessage, isBundlingError, parseError } from '$lib/error/parser';
+import { persistSwallowGitHubOrgAuthErrors } from '$lib/config/config';
+import {
+	getTitleFromCommonErrorMessage,
+	isBundlingError,
+	isGitHubOrgAuthError,
+	parseError,
+	shouldIgnoreThistError
+} from '$lib/error/parser';
 import posthog from 'posthog-js';
 import { writable, type Writable } from 'svelte/store';
 import type { MessageStyle } from '$components/InfoMessage.svelte';
@@ -60,21 +67,36 @@ export function showError(title: string, error: unknown, extraAction?: ExtraActi
 		);
 		return;
 	}
-	if (!ignored) {
-		const commonErrorTitle = getTitleFromCommonErrorMessage(message);
+	const commonErrorTitle = getTitleFromCommonErrorMessage(message);
+	const actualTitle = name || commonErrorTitle || title;
+	const shouldIgnoreThisSpecificError = shouldIgnoreThistError(actualTitle);
+
+	if (!ignored && !shouldIgnoreThisSpecificError) {
+		const offerToIgnore = isGitHubOrgAuthError(actualTitle);
+		const actualExtraAction =
+			extraAction ??
+			(offerToIgnore
+				? {
+						label: "Don't show this again",
+						onClick: () => {
+							persistSwallowGitHubOrgAuthErrors(true);
+						}
+					}
+				: undefined);
+
 		showToast({
 			id,
-			title: name || commonErrorTitle || title,
+			title: actualTitle,
 			message: description,
 			error: message,
 			style: 'error',
-			extraAction
+			extraAction: actualExtraAction
 		});
 	}
 }
 
 export function showInfo(title: string, message: string, extraAction?: ExtraAction) {
-	showToast({ title, message, style: 'neutral', extraAction });
+	showToast({ title, message, style: 'info', extraAction });
 }
 
 export function showWarning(title: string, message: string, extraAction?: ExtraAction) {

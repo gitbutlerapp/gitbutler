@@ -1,6 +1,7 @@
 <script lang="ts">
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
+	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, Icon, Link } from '@gitbutler/ui';
@@ -16,6 +17,7 @@
 	const { projectId, remoteName, branchName, disabled }: Props = $props();
 
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
+	const posthog = inject(POSTHOG_WRAPPER);
 
 	type Check = { name: string; promise: Promise<any> };
 	let checks = $state<Check[]>();
@@ -26,6 +28,7 @@
 
 	async function checkCredentials() {
 		if (!remoteName || !branchName) return;
+		posthog.capture(OnboardingEvent.GitCheckCredentials);
 		loading = true;
 		errors = 0;
 		checks = [];
@@ -38,6 +41,7 @@
 			checks = [...checks, { name: 'Push', promise: pushCheck }];
 			await pushCheck;
 		} catch {
+			posthog.capture(OnboardingEvent.GitCheckCredentialsFailed);
 			errors = 1;
 		} finally {
 			loading = false;
@@ -53,7 +57,7 @@
 	{#if checks && checks.length > 0}
 		<div transition:slide={{ duration: 250 }}>
 			<InfoMessage
-				style={errors > 0 ? 'warning' : loading ? 'neutral' : 'success'}
+				style={errors > 0 ? 'warning' : loading ? 'info' : 'success'}
 				filled
 				outlined={false}
 			>

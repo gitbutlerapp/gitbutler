@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { Button } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { fade } from 'svelte/transition';
@@ -17,18 +16,18 @@
 	const { branchName, branchIcon, workspaceActions, contextActions, messages, input }: Props =
 		$props();
 
-	let scrollableContainer: ConfigurableScrollableContainer;
 	let scrollDistanceFromBottom = $state(0);
+	let bottomAnchor = $state<HTMLDivElement>();
 
 	// Export method to scroll to bottom
-	export function scrollToBottom() {
-		scrollableContainer?.scrollToBottom();
+	function scrollToBottom() {
+		bottomAnchor?.scrollIntoView({ behavior: 'smooth' });
 	}
 
 	// Calculate distance from bottom when scrolling
 	function handleScroll(event: Event) {
-		const { scrollTop, scrollHeight, clientHeight } = event.target as HTMLElement;
-		scrollDistanceFromBottom = scrollHeight - scrollTop - clientHeight;
+		const { scrollTop } = event.target as HTMLElement;
+		scrollDistanceFromBottom = -scrollTop;
 	}
 
 	// Show button only when user has scrolled more than 1000px from bottom
@@ -37,30 +36,26 @@
 
 <div class="chat" use:focusable={{ vertical: true }}>
 	<div class="chat-header" use:focusable>
-		<div class="flex gap-10 items-center overflow-hidden">
-			{@render branchIcon()}
-			<p class="text-15 text-bold truncate">{branchName}</p>
-
+		<div class="flex gap-10 justify-between">
+			<div class="chat-header__title">
+				{@render branchIcon()}
+				<p class="text-15 text-bold truncate">{branchName}</p>
+			</div>
 			<div class="flex gap-4 items-center">
-				{@render workspaceActions()}
+				{@render contextActions()}
 			</div>
 		</div>
 
-		<div class="flex gap-4 items-center">
-			{@render contextActions()}
+		<div class="chat-header__actions">
+			{@render workspaceActions()}
 		</div>
 	</div>
 
 	<div class="chat-container">
-		<ConfigurableScrollableContainer
-			bind:this={scrollableContainer}
-			childrenWrapHeight="100%"
-			onscroll={handleScroll}
-		>
-			<div class="chat-messages">
-				{@render messages()}
-			</div>
-		</ConfigurableScrollableContainer>
+		<div class="chat-messages" onscroll={handleScroll}>
+			<div bind:this={bottomAnchor} style="height: 1px;"></div>
+			{@render messages()}
+		</div>
 
 		{#if showScrollButton}
 			<div class="chat-scroll-to-bottom" transition:fade={{ duration: 150 }}>
@@ -92,14 +87,30 @@
 
 	.chat-header {
 		display: flex;
-		justify-content: space-between;
+		flex-direction: column;
 		width: 100%;
 		padding: 16px;
-		gap: 20px;
+		gap: 8px;
 		border-bottom: 1px solid var(--clr-border-3);
 	}
 
+	.chat-header__title {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		margin-top: -2px;
+		overflow: hidden;
+		gap: 10px;
+	}
+
+	.chat-header__actions {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
 	.chat-container {
+		display: flex;
 		position: relative;
 		flex: 1;
 		overflow: hidden;
@@ -107,11 +118,22 @@
 
 	.chat-messages {
 		display: flex;
-		flex-direction: column;
-		justify-content: flex-end;
+		flex-direction: column-reverse;
 		width: 100%;
-		min-height: 100%;
-		padding: 8px 20px;
+		padding: 0 20px;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		scrollbar-width: none; /* Firefox */
+		-ms-overflow-style: none; /* IE 10+ */
+
+		/* this hack is needed to add padding on top of the first message */
+		/* so it doesn't stick to the top edge */
+		:global(& > div:last-child) {
+			padding-top: 20px;
+		}
+		:global(& > div:first-child) {
+			padding-bottom: 8px;
+		}
 	}
 
 	.chat-scroll-to-bottom {

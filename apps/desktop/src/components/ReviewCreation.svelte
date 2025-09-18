@@ -422,6 +422,7 @@
 			enableFileUpload
 			enableSmiles
 			placeholder="PR Description"
+			messageType="pr"
 			{onAiButtonClick}
 			{canUseAI}
 			{aiIsLoading}

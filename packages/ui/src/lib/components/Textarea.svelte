@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { focusable } from '$lib/focus/focusable';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import type { HTMLTextareaAttributes } from 'svelte/elements';
 
@@ -138,6 +139,7 @@
 		style:max-height="{pxToRem(maxHeight)}rem">{value + '\n'}</pre>
 	<textarea
 		bind:this={textBoxEl}
+		use:focusable={{ button: true }}
 		data-testid={testId}
 		name={id}
 		{id}
@@ -193,6 +195,8 @@
 		width: 100%;
 		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
 		line-height: var(--lineheight-ratio);
+		scroll-padding: var(--padding-top) var(--padding-right) var(--padding-bottom)
+			var(--padding-left);
 		word-wrap: break-word;
 		white-space: pre-wrap;
 	}

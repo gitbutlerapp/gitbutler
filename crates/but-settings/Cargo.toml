@@ -9,7 +9,7 @@ publish = false
 anyhow = "1.0.99"
 serde = { workspace = true, features = ["std"] }
 serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
-serde_json_lenient = "0.2.3"
+serde_json_lenient.workspace = true
 gitbutler-fs.workspace = true
 notify = { version = "8.2.0" }
 tracing.workspace = true

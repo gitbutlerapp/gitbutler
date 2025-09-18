@@ -18,7 +18,7 @@
 	import { initDependencies } from '$lib/bootstrap/deps';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { ircEnabled, ircServer, codegenEnabled } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, ircServer, codegenEnabled, fModeEnabled } from '$lib/config/uiFeatureFlags';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import { IRC_CLIENT } from '$lib/irc/ircClient.svelte';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
@@ -74,6 +74,13 @@
 	const shortcutService = inject(SHORTCUT_SERVICE);
 	$effect(() => shortcutService.listen());
 
+	// Reset window title when not in a project
+	$effect(() => {
+		if (!projectId) {
+			backend.setWindowTitle('GitButler');
+		}
+	});
+
 	// =============================================================================
 	// ANALYTICS & NAVIGATION
 	// =============================================================================
@@ -124,6 +131,10 @@
 		'w s 3': () => {
 			settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 });
 		},
+		// Toggle next-gen safe checkout.
+		'c o 3': () => {
+			settingsService.updateFeatureFlags({ cv3: !$settingsStore?.featureFlags.cv3 });
+		},
 		// Show commit graph visualization
 		'd o t': async () => {
 			const projectId = page.params.projectId;
@@ -146,6 +157,11 @@
 
 	const focusManager = inject(FOCUS_MANAGER);
 	$effect(() => focusManager.listen());
+
+	// Pass F mode feature flag to focus manager
+	$effect(() => {
+		focusManager.setFModeEnabled($fModeEnabled);
+	});
 
 	// Expose debugging objects to window
 	(window as any)['uiState'] = uiState;

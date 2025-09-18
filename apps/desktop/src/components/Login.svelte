@@ -67,7 +67,7 @@
 						$aborted = true;
 						posthog.captureOnboarding(OnboardingEvent.CancelLoginGitButler);
 					}}
-					loading={$aborted}>Cancel login attempt</Button
+					loading={$aborted}>Abort</Button
 				>
 			</div>
 		{/if}

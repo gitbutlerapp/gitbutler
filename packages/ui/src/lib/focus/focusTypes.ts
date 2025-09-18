@@ -11,6 +11,9 @@ export type NavigationContext = {
 	// User selected text detected.
 	hasSelection?: boolean;
 	hasOutline?: boolean;
+	shiftKey: boolean;
+	ctrlKey: boolean;
+	metaKey: boolean;
 };
 
 export interface FocusableOptions {
@@ -32,7 +35,7 @@ export interface FocusableOptions {
 	autoAction?: boolean;
 	// Register as a button (excluded from keyboard navigation but accessible via F mode)
 	button?: boolean;
-	// Cmd+letter (A-Z) or Cmd+number (1-9) hotkey for instant activation (no visual hints)
+	// Hotkey combination for instant activation (e.g., "⌘K", "⇧⌘P", "⌃⌥A")
 	hotkey?: string;
 	// Whether this element can receive focus (default: true)
 	focusable?: boolean;
@@ -44,7 +47,7 @@ export interface FocusableOptions {
 	// Called when Space or Enter is pressed on this focused element, or when autoAction is true and element becomes active
 	onAction?: () => boolean | void;
 	// Called when Escape is pressed on this focused element
-	onEsc?: () => boolean | void;
+	onEsc?: () => boolean;
 }
 
 export interface FocusableNode {
