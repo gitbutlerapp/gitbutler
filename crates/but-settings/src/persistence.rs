@@ -14,16 +14,13 @@ impl AppSettings {
     /// Finally, merge all customizations from `config_path` into the default settings.
     pub fn load(config_path: &Path) -> Result<Self> {
         // If the file on config_path does not exist, create it empty
-
-        dbg!(&config_path);
-
         if !config_path.exists() {
             gitbutler_fs::create_dirs_then_write(config_path, "{}\n")?;
         }
 
         // merge customizations from disk into the defaults to get a complete set of settings.
         let customizations = serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
-        dbg!(&customizations);
+
         let mut settings: serde_json::Value = serde_json_lenient::from_str(DEFAULTS)?;
 
         merge_non_null_json_value(customizations, &mut settings);
