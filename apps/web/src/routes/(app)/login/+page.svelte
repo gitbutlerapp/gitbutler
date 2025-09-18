@@ -1,12 +1,12 @@
 <script lang="ts">
+	import walkininSvg from '$lib/assets/splash-illustrations/walkin.svg?raw';
 	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
-	import GitHubButton from '$lib/components/login/GitHubButton.svelte';
-	import GoogleButton from '$lib/components/login/GoogleButton.svelte';
+	import OAuthButtons from '$lib/components/login/OAuthButtons.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, SectionCard } from '@gitbutler/ui';
+	import { Button, Textbox } from '@gitbutler/ui';
 	import { env } from '$env/dynamic/public';
 
 	let email = $state<string>();
@@ -61,122 +61,140 @@
 
 <RedirectIfLoggedIn />
 
-<div class="main-links">
-	<a href={routesService.homePath()} class="logo" aria-label="main nav" title="Home">
-		<svg width="23" height="22" viewBox="0 0 23 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-			<path d="M0 22V0L11.4819 9.63333L23 0V22L11.4819 12.4L0 22Z" fill="var(--clr-text-1)" />
-		</svg>
-	</a>
+<div class="login-page">
+	<div class="login-form__container">
+		<form onsubmit={handleSubmit} class="login-form">
+			<h1 class="text-serif-42 m-bottom-40">
+				<i>Login</i>
+				to GitButler ⧓
+			</h1>
+
+			<div class="login-form__inputs">
+				<Textbox bind:value={email} label="Email" />
+				<Textbox bind:value={password} label="Password" type="password" />
+
+				<div class="text-12 login-form__password-reset">
+					<a href={routesService.resetPasswordPath()}>Forgot password?</a>
+				</div>
+			</div>
+
+			<Button type="submit" style="pop">Log in</Button>
+
+			{#if error}
+				<div class="error-message">
+					<span>
+						{error}
+					</span>
+				</div>
+				{#if errorCode === 'email_not_verified'}
+					<span>
+						Please verify your email address before logging in. Check your inbox for a verification
+						email or
+					</span>
+					<Button
+						type="button"
+						onclick={resendConfirmationEmail}
+						disabled={!email}
+						tooltip={!email
+							? 'Please enter your email in the field above to resend the confirmation email.'
+							: 'Resend confirmation email'}
+					>
+						resend the confirmation email</Button
+					>
+				{/if}
+			{/if}
+
+			<div class="login-form__social">
+				<div class="login-form__social-title">
+					<span class="text-12"> Or log in with </span>
+				</div>
+
+				<OAuthButtons />
+			</div>
+
+			<div class="text-12 signup-link">
+				<span>Don't have an account?</span>
+				<a href={routesService.signupPath()}>Sign Up now</a>
+			</div>
+		</form>
+
+		<div class="login-form__illustration">
+			{@html walkininSvg}
+		</div>
+	</div>
 </div>
 
-<form onsubmit={handleSubmit} class="login-form">
-	<div class="login-form__content">
-		<SectionCard>
-			<div class="field">
-				<label for="email">Email</label>
-				<input id="email" type="email" bind:value={email} required />
-			</div>
-			<div class="field">
-				<label for="password">Password</label>
-				<input id="password" type="password" bind:value={password} required />
-			</div>
-		</SectionCard>
-
-		<div class="reset-password-link">
-			Or did you forget your password?
-			<br />
-			Wow. That sounds irresponsible.
-			<a href={routesService.resetPasswordPath()}>I mean... it's fine. Reset it</a>
-		</div>
-
-		<Button type="submit">Log in</Button>
-
-		<div class="signup-link">
-			Don't have an account?
-			<a href={routesService.signupPath()}>Sign up</a>
-		</div>
-
-		{#if error}
-			<div class="error-message">
-				<span>
-					{error}
-				</span>
-			</div>
-			{#if errorCode === 'email_not_verified'}
-				<span>
-					Please verify your email address before logging in. Check your inbox for a verification
-					email or
-				</span>
-				<Button
-					type="button"
-					onclick={resendConfirmationEmail}
-					disabled={!email}
-					tooltip={!email
-						? 'Please enter your email in the field above to resend the confirmation email.'
-						: 'Resend confirmation email'}
-				>
-					resend the confirmation email</Button
-				>
-			{/if}
-		{/if}
-
-		<SectionCard>
-			<GitHubButton />
-			<GoogleButton />
-		</SectionCard>
-	</div>
-</form>
-
 <style lang="postcss">
-	.main-links {
+	.login-page {
 		display: flex;
+		flex: 1;
+		flex-direction: column;
 		align-items: center;
-		margin-bottom: 16px;
+		justify-content: center;
+	}
+
+	.login-form__container {
+		display: flex;
+		width: 100%;
+		max-width: 1000px;
 		overflow: hidden;
-		gap: 16px;
+		border-radius: var(--radius-xl);
 	}
 
-	.logo {
+	.login-form {
 		display: flex;
+		flex: 4;
+		flex-direction: column;
+		width: 100%;
+		padding: 50px 80px 30px;
+		/* gap: 40px; */
+		background-color: var(--clr-bg-1);
 	}
 
-	.login-form__content {
+	.login-form__inputs {
 		display: flex;
 		flex-direction: column;
-		max-width: 400px;
-		margin: auto;
-		gap: 16px;
+		margin-bottom: 24px;
+		gap: 14px;
 	}
 
-	.field {
+	.login-form__password-reset {
+		display: flex;
+		justify-content: flex-end;
+		color: var(--clr-text-2);
+
+		a {
+			text-decoration: none;
+
+			&:hover {
+				color: var(--clr-text-1);
+				text-decoration: underline;
+			}
+		}
+	}
+
+	.login-form__social {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		margin-top: 24px;
+	}
 
-		label {
-			color: var(--clr-scale-ntrl-30);
-			font-size: 14px;
+	.login-form__social-title {
+		display: flex;
+		justify-content: center;
+		margin-bottom: 16px;
+		color: var(--clr-text-2);
+
+		span {
+			margin: 0 12px;
 		}
 
-		input {
-			padding: 8px 12px;
-			border: 1px solid var(--clr-border-2);
-			border-radius: var(--radius-m);
-			background-color: var(--clr-bg-1);
-			color: var(--clr-scale-ntrl-0);
-			font-size: 14px;
-
-			&:read-only {
-				cursor: not-allowed;
-				opacity: 0.7;
-			}
-
-			&:not(:read-only) {
-				&:focus {
-					border-color: var(--clr-scale-pop-70);
-					outline: none;
-				}
-			}
+		&::before,
+		&::after {
+			flex: 1;
+			margin: auto 0;
+			border-bottom: 1px solid var(--clr-border-2);
+			content: '';
 		}
 	}
 
@@ -193,7 +211,6 @@
 		font-size: 14px;
 	}
 
-	.signup-link,
 	.reset-password-link {
 		display: flex;
 		flex-direction: column;
@@ -205,6 +222,37 @@
 
 		a {
 			text-decoration: underline;
+		}
+	}
+
+	.signup-link {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-top: 40px;
+		gap: 4px;
+		color: var(--clr-text-2);
+
+		a {
+			text-decoration: underline;
+
+			&:hover {
+				color: var(--clr-text-1);
+			}
+		}
+	}
+
+	.login-form__illustration {
+		display: flex;
+		flex: 4;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 32px;
+		background-color: var(--clr-illustration-bg);
+
+		:global(svg) {
+			max-width: 400px;
 		}
 	}
 </style>

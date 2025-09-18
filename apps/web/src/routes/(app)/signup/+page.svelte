@@ -1,7 +1,6 @@
 <script lang="ts">
 	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
-	import GitHubButton from '$lib/components/login/GitHubButton.svelte';
-	import GoogleButton from '$lib/components/login/GoogleButton.svelte';
+	import OAuthButtons from '$lib/components/login/OAuthButtons.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
@@ -105,8 +104,7 @@
 		{/if}
 
 		<SectionCard>
-			<GitHubButton />
-			<GoogleButton />
+			<OAuthButtons />
 		</SectionCard>
 	</div>
 </form>
