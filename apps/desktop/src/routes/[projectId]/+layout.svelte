@@ -18,13 +18,11 @@
 	import { FEED_FACTORY } from '$lib/feed/feed';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
-	import { GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
-	import { GitLabState, GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
+	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { GIT_SERVICE } from '$lib/git/gitService';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showError, showInfo, showWarning } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -33,7 +31,7 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { debounce } from '$lib/utils/debounce';
 	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
-	import { inject, provide } from '@gitbutler/core/context';
+	import { inject } from '@gitbutler/core/context';
 	import { onDestroy, untrack, type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
@@ -102,8 +100,7 @@
 	// =============================================================================
 
 	const gitHubClient = inject(GITHUB_CLIENT);
-	const gitLabClient = inject(GITLAB_CLIENT);
-	const secretService = inject(SECRET_SERVICE);
+	const gitLabState = inject(GITLAB_STATE);
 	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
 
 	// GitHub setup
@@ -111,13 +108,8 @@
 	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
 
 	// GitLab setup
-	const gitLabState = $derived(new GitLabState(secretService, repoInfo, projectId));
 	const gitlabConfigured = $derived(gitLabState.configured);
-
-	$effect.pre(() => {
-		provide(GITLAB_STATE, gitLabState);
-		gitLabClient.set(gitLabState);
-	});
+	$effect.pre(() => gitLabState.init(projectId, repoInfo));
 
 	// Forge factory configuration
 	$effect(() => {
