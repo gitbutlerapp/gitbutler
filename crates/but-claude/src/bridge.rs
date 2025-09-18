@@ -377,7 +377,7 @@ async fn spawn_command(
         command.args(["--model", user_params.model.to_cli_string()]);
     }
 
-    command.args(["-p", "--verbose"]);
+    command.args(["--verbose"]);
 
     if app_settings.claude.dangerously_allow_all_permissions {
         command.arg("--dangerously-skip-permissions");
@@ -412,6 +412,13 @@ async fn spawn_command(
     }
 
     command.args(["--append-system-prompt", SYSTEM_PROMPT]);
+
+    if !user_params.add_dirs.is_empty() {
+        command.arg("--add-dir");
+        command.args(user_params.add_dirs);
+    }
+
+    command.arg("-p");
 
     command.arg(format_message(
         &user_params.message,
