@@ -23,6 +23,7 @@ pub async fn claude_send_message(
     model: ModelType,
     permission_mode: PermissionMode,
     disabled_mcp_servers: Vec<String>,
+    add_dirs: Vec<String>,
 ) -> Result<(), Error> {
     claude::claude_send_message(
         &app,
@@ -35,6 +36,7 @@ pub async fn claude_send_message(
                 model,
                 permission_mode,
                 disabled_mcp_servers,
+                add_dirs,
             },
         },
     )

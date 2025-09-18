@@ -115,6 +115,10 @@ export class ClaudeCodeService {
 	get subAgents() {
 		return this.api.endpoints.getSubAgents.useQuery;
 	}
+
+	get verifyPath() {
+		return this.api.endpoints.verifyPath.mutate;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -130,6 +134,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					model: ModelType;
 					permissionMode: PermissionMode;
 					disabledMcpServers: string[];
+					addDirs: string[];
 				}
 			>({
 				extraOptions: {
@@ -297,6 +302,19 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			getSubAgents: build.query<SubAgent[], { projectId: string }>({
 				extraOptions: { command: 'claude_get_sub_agents' },
+				query: (args) => args
+			}),
+			verifyPath: build.mutation<
+				boolean,
+				{
+					projectId: string;
+					path: string;
+				}
+			>({
+				extraOptions: {
+					command: 'claude_verify_path',
+					actionName: 'Verify Path'
+				},
 				query: (args) => args
 			})
 		})

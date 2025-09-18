@@ -194,3 +194,32 @@ pub async fn claude_get_sub_agents(
     let sub_agents = but_claude::claude_sub_agents::read_claude_sub_agents(&project.path).await;
     Ok(sub_agents)
 }
+
+#[tauri::command(async)]
+#[instrument(err(Debug))]
+pub async fn claude_verify_path(project_id: ProjectId, path: String) -> Result<bool, Error> {
+    let project = gitbutler_project::get(project_id)?;
+
+    // Check if it's an absolute path first
+    let path = if std::path::Path::new(&path).is_absolute() {
+        std::path::PathBuf::from(&path)
+    } else {
+        // If relative, make it relative to project path
+        project.path.join(&path)
+    };
+
+    // Check if the path exists and is a directory
+    match tokio::fs::try_exists(&path).await {
+        Ok(exists) => {
+            if exists {
+                match tokio::fs::metadata(&path).await {
+                    Ok(metadata) => Ok(metadata.is_dir()),
+                    Err(_) => Ok(false),
+                }
+            } else {
+                Ok(false)
+            }
+        }
+        Err(_) => Ok(false),
+    }
+}

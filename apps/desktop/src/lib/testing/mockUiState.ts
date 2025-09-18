@@ -17,7 +17,8 @@ const MOCK_STACK_UI_STATE: StackState = {
 	newCommitMessage: { title: '', description: '' },
 	prompt: '',
 	permissionMode: 'default',
-	disabledMcpServers: []
+	disabledMcpServers: [],
+	addedDirs: []
 };
 
 const MOCK_PROJECT_UI_STATE: ProjectUiState = {

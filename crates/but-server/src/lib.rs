@@ -508,6 +508,22 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "claude_verify_path" => {
+            #[derive(Debug, Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            pub struct Params {
+                pub project_id: ProjectId,
+                pub path: String,
+            }
+            let params = serde_json::from_value::<Params>(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = claude::claude_verify_path(params.project_id, params.path).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
 
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
     };

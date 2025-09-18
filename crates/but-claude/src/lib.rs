@@ -164,4 +164,5 @@ pub struct ClaudeUserParams {
     pub model: ModelType,
     pub permission_mode: PermissionMode,
     pub disabled_mcp_servers: Vec<String>,
+    pub add_dirs: Vec<String>,
 }

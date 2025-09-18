@@ -35,6 +35,8 @@ export type StackState = {
 	permissionMode: PermissionMode;
 	// A list of mcp server names that should be disabled
 	disabledMcpServers: string[];
+	// A list of added directories for Claude Code
+	addedDirs: string[];
 };
 
 type BranchesSelection = {
@@ -156,7 +158,8 @@ export class UiState {
 		prompt: '',
 		// I _know_ we have a permission mode called 'default', but acceptEdits is a much more sensible default.
 		permissionMode: 'acceptEdits',
-		disabledMcpServers: []
+		disabledMcpServers: [],
+		addedDirs: []
 	});
 
 	/** Properties scoped to a specific project. */

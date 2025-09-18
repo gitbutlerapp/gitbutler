@@ -145,6 +145,9 @@
 	const selectedPermissionMode = $derived(
 		selectedBranch ? uiState.lane(selectedBranch.stackId).permissionMode.current : 'default'
 	);
+	const laneState = $derived(
+		selectedBranch?.stackId ? uiState.lane(selectedBranch.stackId) : undefined
+	);
 
 	const prompt = $derived(
 		selectedBranch ? uiState.lane(selectedBranch.stackId).prompt.current : ''
@@ -202,6 +205,22 @@
 		if (!selectedBranch) return;
 		if (!prompt) return;
 
+		// Handle /add-dir command
+		if (prompt.startsWith('/add-dir ')) {
+			const path = prompt.slice('/add-dir '.length).trim();
+			if (path) {
+				const isValid = await claudeCodeService.verifyPath({ projectId, path });
+				if (isValid) {
+					laneState?.addedDirs.add(path);
+					chipToasts.success(`Added directory: ${path}`);
+				} else {
+					chipToasts.error(`Invalid directory path: ${path}`);
+				}
+			}
+			setPrompt('');
+			return;
+		}
+
 		if (prompt.startsWith('/')) {
 			chipToasts.warning('Slash commands are not yet supported');
 			setPrompt('');
@@ -225,7 +244,8 @@
 				thinkingLevel: selectedThinkingLevel,
 				model: selectedModel,
 				permissionMode: selectedPermissionMode,
-				disabledMcpServers: uiState.lane(selectedBranch.stackId).disabledMcpServers.current
+				disabledMcpServers: uiState.lane(selectedBranch.stackId).disabledMcpServers.current,
+				addDirs: laneState?.addedDirs.current || []
 			},
 			{ properties: analyticsProperties }
 		);
@@ -693,8 +713,9 @@
 {/snippet}
 
 {#snippet rightSidebar(events: ClaudeMessage[])}
+	{@const addedDirs = laneState?.addedDirs.current || []}
 	<div class="right-sidebar" bind:this={rightSidebarRef}>
-		{#if !branchChanges || !selectedBranch || (branchChanges.response && branchChanges.response.changes.length === 0 && getTodos(events).length === 0)}
+		{#if !branchChanges || !selectedBranch || (branchChanges.response && branchChanges.response.changes.length === 0 && getTodos(events).length === 0 && addedDirs.length === 0)}
 			<div class="right-sidebar__placeholder">
 				<EmptyStatePlaceholder
 					image={filesAndChecksSvg}
@@ -713,7 +734,7 @@
 				<ReduxResult result={branchChanges.result} {projectId}>
 					{#snippet children({ changes }, { projectId })}
 						<Drawer
-							bottomBorder={todos.length > 0}
+							bottomBorder={todos.length > 0 || addedDirs.length > 0}
 							grow
 							defaultCollapsed={todos.length > 0}
 							notFoldable
@@ -759,6 +780,35 @@
 					<div class="right-sidebar-list">
 						{#each todos as todo}
 							<CodegenTodo {todo} />
+						{/each}
+					</div>
+				</Drawer>
+			{/if}
+
+			{#if addedDirs.length > 0}
+				<Drawer defaultCollapsed={false} noshrink>
+					{#snippet header()}
+						<h4 class="text-14 text-semibold truncate">Added Directories</h4>
+						<Badge>{addedDirs.length}</Badge>
+					{/snippet}
+
+					<div class="right-sidebar-list right-sidebar-list--small-gap">
+						{#each addedDirs as dir}
+							<div class="added-dir-item">
+								<span class="text-13 grow-1">{dir}</span>
+								<Button
+									kind="ghost"
+									icon="bin"
+									shrinkable
+									onclick={() => {
+										if (selectedBranch) {
+											uiState.lane(selectedBranch.stackId).addedDirs.remove(dir);
+											chipToasts.success(`Removed directory: ${dir}`);
+										}
+									}}
+									tooltip="Remove directory"
+								/>
+							</div>
 						{/each}
 					</div>
 				</Drawer>
@@ -1187,5 +1237,15 @@
 		right: -3px;
 		width: 9px;
 		height: 9px;
+	}
+
+	.added-dir-item {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.right-sidebar-list--small-gap {
+		gap: 4px;
 	}
 </style>
