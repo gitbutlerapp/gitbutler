@@ -178,7 +178,7 @@ export class FModeManager {
 			return;
 		}
 
-		if (isInputElement(element)) {
+		if (isInputElement(element) && element.type !== 'checkbox') {
 			element.focus();
 		} else {
 			element.click();
