@@ -18,6 +18,28 @@ struct Test {
     ctx: CommandContext,
 }
 
+impl Test {
+    pub fn new_with_settings(change_settings: fn(&mut AppSettings)) -> Self {
+        let data_dir = paths::data_dir();
+
+        let test_project = TestProject::default();
+        let outcome = gitbutler_project::add_with_path(data_dir.as_ref(), test_project.path())
+            .expect("failed to add project");
+        let project = outcome.unwrap_project();
+        let mut settings = AppSettings::default();
+        change_settings(&mut settings);
+        let ctx = CommandContext::open(&project, settings).unwrap();
+
+        Self {
+            repo: test_project,
+            project_id: project.id,
+            project,
+            data_dir: Some(data_dir),
+            ctx,
+        }
+    }
+}
+
 impl Drop for Test {
     fn drop(&mut self) {
         if std::env::var_os(VAR_NO_CLEANUP).is_some() {
@@ -28,21 +50,7 @@ impl Drop for Test {
 
 impl Default for Test {
     fn default() -> Self {
-        let data_dir = paths::data_dir();
-
-        let test_project = TestProject::default();
-        let outcome = gitbutler_project::add_with_path(data_dir.as_ref(), test_project.path())
-            .expect("failed to add project");
-        let project = outcome.unwrap_project();
-        let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
-
-        Self {
-            repo: test_project,
-            project_id: project.id,
-            project,
-            data_dir: Some(data_dir),
-            ctx,
-        }
+        Self::new_with_settings(|_settings| {})
     }
 }
 

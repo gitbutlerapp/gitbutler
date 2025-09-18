@@ -81,8 +81,17 @@ pub mod writable {
         script_name: &str,
         project_directory: &str,
     ) -> anyhow::Result<(CommandContext, TempDir)> {
+        fixture_with_settings(script_name, project_directory, |_| {})
+    }
+    pub fn fixture_with_settings(
+        script_name: &str,
+        project_directory: &str,
+        change_settings: fn(&mut AppSettings),
+    ) -> anyhow::Result<(CommandContext, TempDir)> {
         let (project, tempdir) = fixture_project(script_name, project_directory)?;
-        let open = CommandContext::open(&project, AppSettings::default());
+        let mut settings = AppSettings::default();
+        change_settings(&mut settings);
+        let open = CommandContext::open(&project, settings);
         let ctx = open?;
         Ok((ctx, tempdir))
     }
