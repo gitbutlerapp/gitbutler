@@ -67,11 +67,7 @@ describe('Onboarding Journey', () => {
 		cy.getByTestId('project-setup-page-target-branch-select').should('be.visible');
 		cy.getByTestId('set-base-branch').should('be.visible').click();
 
-		// Should see the keys form page
-		cy.getByTestId('project-setup-git-auth-page').should('be.visible');
-		cy.getByTestId('accept-git-auth').should('be.visible').should('be.enabled').click();
-
-		// Should load the project
+		// Should load the project directly after setting base branch
 		cy.urlMatches(`/${mockBackend.projectId}/workspace`);
 	});
 });

@@ -47,12 +47,7 @@ test('should start the application and be able to commit', async ({ page, contex
 
 	clickByTestId(page, 'set-base-branch');
 
-	// Should see the keys form page
-	const gitAuthPage = getByTestId(page, 'project-setup-git-auth-page');
-	await gitAuthPage.waitFor();
-	clickByTestId(page, 'accept-git-auth');
-
-	// Should load the workspace
+	// Should load the workspace directly after setting base branch
 	await waitForTestId(page, 'workspace-view');
 
 	// Let's write some files
@@ -123,12 +118,7 @@ test('no author setup - should start the application and be able to commit', asy
 
 	clickByTestId(page, 'set-base-branch');
 
-	// Should see the keys form page
-	const gitAuthPage = getByTestId(page, 'project-setup-git-auth-page');
-	await gitAuthPage.waitFor();
-	clickByTestId(page, 'accept-git-auth');
-
-	// Should load the workspace
+	// Should load the workspace directly after setting base branch
 	await waitForTestId(page, 'workspace-view');
 
 	// Should see the author missing modal
