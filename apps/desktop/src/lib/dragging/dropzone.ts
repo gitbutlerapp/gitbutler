@@ -105,6 +105,7 @@ export class Dropzone {
 
 	private async onDrop(e: DragEvent) {
 		e.preventDefault();
+		e.stopPropagation();
 		if (!this.activated) return;
 		this.acceptedHandler?.ondrop(this.data);
 	}
