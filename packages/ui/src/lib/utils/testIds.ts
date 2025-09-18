@@ -68,6 +68,7 @@ export enum TestId {
 	BranchesView_CreateRemoteModalActionButton = 'branches-view-create-remote-modal-action-button',
 	TargetCommitListHeader = 'target-commit-list-header',
 	BranchListCard = 'branch-list-card',
+	BranchListInsertionDropzone = 'branch-list-insertion-dropzone',
 	BranchCard = 'branch-card',
 	PRListCard = 'pr-list-card',
 	CurrentOriginListCard = 'current-origin-list-card',
