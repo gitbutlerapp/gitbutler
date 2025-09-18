@@ -32,6 +32,11 @@ export default class Web implements IBackend {
 		// For the web version, we don't have a disk store, so we return a no-op implementation
 		return new WebDiskStore();
 	}
+
+	async getWindowTitle(): Promise<string> {
+		return await Promise.resolve(document.title);
+	}
+
 	setWindowTitle(title: string): void {
 		document.title = title;
 	}

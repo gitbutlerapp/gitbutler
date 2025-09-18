@@ -70,6 +70,10 @@ export interface IBackend {
 	 */
 	loadDiskStore: (fileName: string) => Promise<DiskStore>;
 	/**
+	 * Gets the window title.
+	 */
+	getWindowTitle: () => Promise<string>;
+	/**
 	 * Sets the window title.
 	 */
 	setWindowTitle: (title: string) => void;

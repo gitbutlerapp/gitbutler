@@ -74,13 +74,6 @@
 	const shortcutService = inject(SHORTCUT_SERVICE);
 	$effect(() => shortcutService.listen());
 
-	// Reset window title when not in a project
-	$effect(() => {
-		if (!projectId) {
-			backend.setWindowTitle('GitButler');
-		}
-	});
-
 	// =============================================================================
 	// ANALYTICS & NAVIGATION
 	// =============================================================================
@@ -175,6 +168,10 @@
 	ondragover={(e) => e.preventDefault()}
 	onkeydown={handleKeyDown}
 />
+
+<svelte:head>
+	<title>GitButler</title>
+</svelte:head>
 
 <div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
 	{@render children()}

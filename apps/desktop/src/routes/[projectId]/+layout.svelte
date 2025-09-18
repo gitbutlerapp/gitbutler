@@ -174,11 +174,17 @@
 
 	const backend = inject(BACKEND);
 	$effect(() => {
-		if (currentProject?.title) {
-			backend.setWindowTitle(`${currentProject.title} — GitButler`);
-		} else {
-			backend.setWindowTitle('GitButler');
-		}
+		let windowTitle: string;
+		const projectTitle = currentProject?.title;
+
+		backend.getWindowTitle().then((value) => {
+			windowTitle = value;
+			if (projectTitle) backend.setWindowTitle(`${projectTitle} — ${value}`);
+		});
+
+		return () => {
+			if (windowTitle) backend.setWindowTitle(windowTitle);
+		};
 	});
 
 	// =============================================================================
