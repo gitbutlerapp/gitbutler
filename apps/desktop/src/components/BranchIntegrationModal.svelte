@@ -37,7 +37,7 @@
 		branchName
 	);
 
-	let editableSteps = $derived(initialIntegrationSteps.current?.data ?? []);
+	let editableSteps = $derived(initialIntegrationSteps.response ?? []);
 
 	// Constants
 	const FLIP_ANIMATION_DURATION = 150;
@@ -369,8 +369,8 @@
 	{@const isSquashStep = step.type === 'squash'}
 	{@const isIndividualStep = step.type === 'pick' || step.type === 'skip'}
 	{#if isSquashStep}
-		{@const commitsResult = stackService.commitsByIds(projectId, stackId, step.subject.commits)}
-		<ReduxResult {projectId} result={commitsResult.current}>
+		{@const commitsQuery = stackService.commitsByIds(projectId, stackId, step.subject.commits)}
+		<ReduxResult {projectId} result={commitsQuery.result}>
 			{#snippet children(commits)}
 				{#each commits as commit, commitIndex (commit.id)}
 					{@const isLastCommit = commitIndex === commits.length - 1}
@@ -394,7 +394,7 @@
 		</ReduxResult>
 	{:else if isIndividualStep}
 		{@const commitDetails = stackService.commitById(projectId, stackId, step.subject.commitId)}
-		<ReduxResult {projectId} result={commitDetails.current}>
+		<ReduxResult {projectId} result={commitDetails.result}>
 			{#snippet children(commit)}
 				{@const isSkipStep = step.type === 'skip'}
 				<div class="branch-integration__commit" class:skipped={isSkipStep}>
@@ -412,10 +412,10 @@
 	{:else if step.type === 'pickUpstream'}
 		{@const commitDetails = stackService.commitDetails(projectId, step.subject.upstreamCommitId)}
 		{@const localCommitDetails = stackService.commitById(projectId, stackId, step.subject.commitId)}
-		<ReduxResult {projectId} result={commitDetails.current}>
+		<ReduxResult {projectId} result={commitDetails.result}>
 			{#snippet loading()}
 				<!-- Show local commit data while loading upstream commit to prevent flickering -->
-				<ReduxResult {projectId} result={localCommitDetails.current}>
+				<ReduxResult {projectId} result={localCommitDetails.result}>
 					{#snippet children(localCommit)}
 						<div class="branch-integration__commit">
 							{@render commitItemTemplate(

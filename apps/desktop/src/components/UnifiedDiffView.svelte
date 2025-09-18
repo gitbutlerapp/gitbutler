@@ -76,7 +76,7 @@
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const dependencyService = inject(DEPENDENCY_SERVICE);
 
-	const fileDependenciesResult = $derived(
+	const fileDependenciesQuery = $derived(
 		selectionId.type === 'worktree'
 			? dependencyService.fileDependencies(projectId, change.path)
 			: undefined
@@ -161,8 +161,8 @@
 	}
 </script>
 
-{#if fileDependenciesResult}
-	<ReduxResult {projectId} result={fileDependenciesResult.current} children={unifiedDiff} />
+{#if fileDependenciesQuery}
+	<ReduxResult {projectId} result={fileDependenciesQuery.result} children={unifiedDiff} />
 {:else}
 	{@render unifiedDiff(undefined)}
 {/if}

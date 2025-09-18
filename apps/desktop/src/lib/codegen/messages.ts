@@ -140,7 +140,7 @@ export function formatMessages(
 			}
 
 			if (subject.type === 'claudeExit' && subject.subject.code !== 0) {
-				if (previousEventLoginFailureResult(events, event)) {
+				if (previousEventLoginFailureQuery(events, event)) {
 					const message: Message = {
 						type: 'claude',
 						message: `Claude Code is currently not logged in.\n\n Please run \`claude\` in your terminal and complete the login flow in order to use the GitButler Claude Code integration.`,
@@ -204,7 +204,7 @@ export function formatMessages(
 	return out;
 }
 
-function previousEventLoginFailureResult(events: ClaudeMessage[], event: ClaudeMessage): boolean {
+function previousEventLoginFailureQuery(events: ClaudeMessage[], event: ClaudeMessage): boolean {
 	const idx = events.findIndex((e) => e === event);
 	if (idx <= 0) return false;
 	const previous = events[idx - 1]!;

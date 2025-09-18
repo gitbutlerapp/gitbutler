@@ -164,12 +164,7 @@
 			? rulesService.aiRuleForStack({ projectId, stackId: args.stackId })
 			: undefined}
 		{@const codegenRuleHandler = args.stackId
-			? new CodegenRuleDropHandler(
-					projectId,
-					args.stackId,
-					rulesService,
-					!!rule?.current.data?.rule
-				)
+			? new CodegenRuleDropHandler(projectId, args.stackId, rulesService, !!rule?.response?.rule)
 			: undefined}
 
 		<Dropzone
@@ -242,8 +237,8 @@
 						<span class="branch-header__divider">•</span>
 						<div class="branch-header__review-badges">
 							{#if args.prNumber}
-								{@const prResult = prService?.get(args.prNumber, { forceRefetch: true })}
-								{@const pr = prResult?.current.data}
+								{@const prQuery = prService?.get(args.prNumber, { forceRefetch: true })}
+								{@const pr = prQuery?.response}
 								<ReviewBadge type={prUnit?.abbr} number={args.prNumber} status="unknown" />
 								{#if pr && !pr.closedAt && forge.current.checks && pr.state === 'open'}
 									<ChecksPolling
@@ -352,13 +347,13 @@
 		? rulesService.aiRuleForStack({ projectId, stackId: args.stackId })
 		: undefined}
 	{#if rule}
-		<ReduxResult result={rule?.current} {projectId} stackId={args.stackId}>
+		<ReduxResult result={rule?.result} {projectId} stackId={args.stackId}>
 			{#snippet children({ rule }, { projectId, stackId })}
 				{#if rule}
 					{@const sessionId = (rule.filters[0]! as RuleFilter & { type: 'claudeCodeSessionId' })
 						.subject}
 					{@const sessionDetails = claudeCodeService.sessionDetails(projectId, sessionId)}
-					<ReduxResult result={sessionDetails.current} {projectId} {stackId}>
+					<ReduxResult result={sessionDetails.result} {projectId} {stackId}>
 						{#snippet children(sessionDetails, { projectId, stackId: _stackId })}
 							<ClaudeSessionDescriptor {projectId} {sessionId}>
 								{#snippet loading()}

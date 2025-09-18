@@ -16,7 +16,7 @@
 	const { projectId, stackId, laneId, branchName, isPushed }: BranchRenameModalProps = $props();
 	const stackService = inject(STACK_SERVICE);
 
-	const [renameBranch, renameResult] = stackService.updateBranchName;
+	const [renameBranch, renameQuery] = stackService.updateBranchName;
 
 	let newName: string | undefined = $state();
 	let modal: Modal | undefined = $state();
@@ -61,7 +61,7 @@
 			style="pop"
 			type="submit"
 			disabled={!newName}
-			loading={renameResult.current.isLoading}>Rename</Button
+			loading={renameQuery.current.isLoading}>Rename</Button
 		>
 	{/snippet}
 </Modal>

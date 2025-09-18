@@ -108,8 +108,8 @@
 		stackService.upstreamCommits(projectId, stackId, branchName)
 	);
 
-	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
-	const base = $derived(baseBranchResponse.current.data);
+	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
+	const base = $derived(baseBranchQuery.response);
 	const baseSha = $derived(base?.baseSha);
 
 	let integrationModal = $state<Modal>();
@@ -237,7 +237,7 @@
 <ReduxResult
 	{stackId}
 	{projectId}
-	result={combineResults(upstreamOnlyCommits.current, localAndRemoteCommits.current)}
+	result={combineResults(upstreamOnlyCommits.result, localAndRemoteCommits.result)}
 >
 	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits], { stackId })}
 		{@const hasRemoteCommits = upstreamOnlyCommits.length > 0}

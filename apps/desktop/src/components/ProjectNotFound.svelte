@@ -16,7 +16,7 @@
 	const { projectId }: Props = $props();
 
 	const projectsService = inject(PROJECTS_SERVICE);
-	const projectResult = $derived(projectsService.getProject(projectId, true));
+	const projectQuery = $derived(projectsService.getProject(projectId, true));
 
 	let deleteSucceeded: boolean | undefined = $state(undefined);
 	let isDeleting = $state(false);
@@ -54,7 +54,7 @@
 
 <DecorativeSplitView testId={TestId.ProjectNotFoundPage} img={notFoundSvg}>
 	<div class="container">
-		<ReduxResult {projectId} result={projectResult.current}>
+		<ReduxResult {projectId} result={projectQuery.result}>
 			{#snippet children(project)}
 				{#if deleteSucceeded === undefined}
 					<div class="text-content">

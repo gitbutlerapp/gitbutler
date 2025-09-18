@@ -9,16 +9,16 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
-	const baseBranch = $derived(baseBranchResponse.current.data);
-	const remoteBranchesResponse = $derived(baseBranchService.remoteBranches(projectId));
+	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranch = $derived(baseBranchQuery.response);
+	const remoteBranchesQuery = $derived(baseBranchService.remoteBranches(projectId));
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 
 	let selectedBranch = $derived(baseBranch?.branchName);
 	let selectedRemote = $derived(baseBranch?.actualPushRemoteName());
 
-	const stacksResult = $derived(stackService.stacks(projectId));
-	const stackCount = $derived(stacksResult.current.data?.length);
+	const stacksQuery = $derived(stackService.stacks(projectId));
+	const stackCount = $derived(stacksQuery.response?.length);
 	const targetChangeDisabled = $derived(!!(stackCount && stackCount > 0));
 
 	function uniqueRemotes(remoteBranches: { name: string }[]) {
@@ -42,15 +42,15 @@
 	}
 </script>
 
-{#if remoteBranchesResponse.current.isLoading}
+{#if remoteBranchesQuery.result.isLoading}
 	<InfoMessage filled outlined={false} icon="info">
 		{#snippet content()}
 			Loading remote branches...
 		{/snippet}
 	</InfoMessage>
-{:else if remoteBranchesResponse.current.isSuccess}
-	{@const remoteBranches = remoteBranchesResponse.current.data}
-	{#if remoteBranches.length > 0}
+{:else if remoteBranchesQuery.result.isSuccess}
+	{@const remoteBranches = remoteBranchesQuery.response}
+	{#if remoteBranches && remoteBranches.length > 0}
 		<SectionCard>
 			{#snippet title()}
 				Remote configuration
@@ -120,7 +120,7 @@
 			{/if}
 		</SectionCard>
 	{/if}
-{:else if remoteBranchesResponse.current.isError}
+{:else if remoteBranchesQuery.result.isError}
 	<InfoMessage filled outlined={true} style="error" icon="error">
 		{#snippet title()}
 			We got an error trying to list your remote branches

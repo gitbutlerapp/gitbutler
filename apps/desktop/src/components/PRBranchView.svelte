@@ -15,11 +15,11 @@
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
-	const prResult = $derived(prService?.get(prNumber, { forceRefetch: true }));
+	const prQuery = $derived(prService?.get(prNumber, { forceRefetch: true }));
 	const unitSymbol = $derived(prService?.unit.symbol ?? '');
 </script>
 
-<ReduxResult result={prResult?.current} {projectId} {onerror}>
+<ReduxResult result={prQuery?.result} {projectId} {onerror}>
 	{#snippet children(pr)}
 		<Drawer testId={TestId.PRBranchDrawer}>
 			{#snippet header()}

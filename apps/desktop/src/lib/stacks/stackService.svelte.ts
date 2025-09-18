@@ -380,7 +380,7 @@ export class StackService {
 	allLocalCommits(projectId: string) {
 		const stacks = $derived(this.stacks(projectId));
 		const stackIds = $derived(
-			mapResult(stacks.current, (stacks) => stacks.map((s) => s.id).filter(isDefined))
+			mapResult(stacks.result, (stacks) => stacks.map((s) => s.id).filter(isDefined))
 		);
 		const stackIdsData = $derived(stackIds.data ?? []);
 		const args = $derived(stackIdsData.map((stackId) => ({ projectId, stackId })));

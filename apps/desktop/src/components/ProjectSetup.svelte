@@ -24,7 +24,7 @@
 	const baseService = inject(BASE_BRANCH_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
 	const backend = inject(BACKEND);
-	const projectResult = $derived(projectsService.getProject(projectId));
+	const projectQuery = $derived(projectsService.getProject(projectId));
 	const [setBaseBranchTarget, settingBranch] = baseService.setTarget;
 
 	let selectedBranch = $state(['', '']);
@@ -46,8 +46,8 @@
 	}
 
 	$effect(() => {
-		if (projectResult.current.isError) {
-			console.error('Failed to load project, redirecting:', projectResult.current.error);
+		if (projectQuery.result.isError) {
+			console.error('Failed to load project, redirecting:', projectQuery.result.error);
 			goto('/');
 		}
 	});
@@ -73,7 +73,7 @@
 			>
 		</div>
 	{:else}
-		<ReduxResult {projectId} result={projectResult.current}>
+		<ReduxResult {projectId} result={projectQuery.result}>
 			{#snippet children(project)}
 				<ProjectSetupTarget
 					{projectId}

@@ -15,14 +15,14 @@
 	const analyticsConfirmed = appSettings.appAnalyticsConfirmed;
 
 	const projectsService = inject(PROJECTS_SERVICE);
-	const projectsResult = $derived(projectsService.projects());
+	const projectsQuery = $derived(projectsService.projects());
 
 	// We don't want to have this guard in the layout, because we want to have
 	// `/onboarding/clone` accessable.
 	$effect(() => {
 		// Users should not be able to get here now that we load projects
 		// sensibly, but hey, let's be sure.
-		if (projectsResult.current.data && projectsResult.current.data.length > 0) {
+		if (projectsQuery.response && projectsQuery.response.length > 0) {
 			sleep(50).then(() => {
 				goto('/');
 			});

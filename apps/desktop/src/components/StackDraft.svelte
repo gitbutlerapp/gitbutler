@@ -24,7 +24,7 @@
 
 	let draftPanelEl: HTMLDivElement | undefined = $state();
 
-	const newNameResult = $derived(stackService.newBranchName(projectId));
+	const newNameQuery = $derived(stackService.newBranchName(projectId));
 
 	onMount(() => {
 		if (draftPanelEl) {
@@ -45,7 +45,7 @@
 				<div class="new-commit-view">
 					<NewCommitView {projectId} />
 				</div>
-				<ReduxResult {projectId} result={newNameResult.current}>
+				<ReduxResult {projectId} result={newNameQuery.result}>
 					{#snippet children(newName)}
 						{@const branchName = draftBranchName.current || newName}
 						<BranchCard

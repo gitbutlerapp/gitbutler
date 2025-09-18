@@ -11,7 +11,7 @@
 
 	const { projectId }: { projectId: string } = $props();
 	const projectsService = inject(PROJECTS_SERVICE);
-	const projectResult = $derived(projectsService.getProject(projectId));
+	const projectQuery = $derived(projectsService.getProject(projectId));
 	const backend = inject(BACKEND);
 
 	async function onForcePushClick(project: Project, value: boolean) {
@@ -31,7 +31,7 @@
 	{/if}
 
 	<Spacer />
-	<ReduxResult {projectId} result={projectResult.current}>
+	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
 			<div class="stack-v">
 				<SectionCard orientation="row" labelFor="allowForcePush" roundedBottom={false}>

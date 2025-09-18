@@ -18,11 +18,11 @@
 	const { projectId, commitId, onclose }: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
-	const changesResult = $derived(stackService.commitChanges(projectId, commitId));
-	const commitResult = $derived(stackService.commitDetails(projectId, commitId));
+	const changesQuery = $derived(stackService.commitChanges(projectId, commitId));
+	const commitQuery = $derived(stackService.commitDetails(projectId, commitId));
 </script>
 
-<ReduxResult {projectId} result={commitResult.current}>
+<ReduxResult {projectId} result={commitQuery.result}>
 	{#snippet children(commit)}
 		<Drawer {onclose} bottomBorder>
 			{#snippet header()}
@@ -37,7 +37,7 @@
 				<CommitDetails {commit} rewrap={$rewrapCommitMessage} />
 			</div>
 		</Drawer>
-		<ReduxResult {projectId} result={changesResult.current}>
+		<ReduxResult {projectId} result={changesQuery.result}>
 			{#snippet children(changes)}
 				<ChangedFiles
 					title="Changed files"

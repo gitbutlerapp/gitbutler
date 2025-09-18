@@ -20,7 +20,7 @@
 	const { projectId, stackId, branchName, remote, isTopBranch = true, onerror }: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
-	const branchResult = $derived(
+	const branchQuery = $derived(
 		stackId
 			? stackService.branchDetails(projectId, stackId, branchName)
 			: stackService.unstackedBranchDetails(projectId, branchName, remote)
@@ -31,7 +31,7 @@
 	const branchesState = $derived(projectState.branchesSelection);
 </script>
 
-<ReduxResult result={branchResult.current} {projectId} {stackId} {onerror}>
+<ReduxResult result={branchQuery.result} {projectId} {stackId} {onerror}>
 	{#snippet children(branch, env)}
 		{#if stackId}
 			{@render branchCard(branch, env)}

@@ -87,7 +87,7 @@
 		return stackService.fetchUnstackedCommits(projectId, contextData.branch.name);
 	}
 
-	const commits = $derived(allCommits?.current.data);
+	const commits = $derived(allCommits?.response);
 	const branchType = $derived(commits?.at(0)?.state.type || 'LocalOnly');
 	const isConflicted = $derived(commits?.some((commit) => commit.hasConflicts) ?? false);
 
@@ -273,7 +273,7 @@
 			<ContextMenuSection>
 				{#if stackId && first && $codegenEnabled}
 					{@const rule = rulesService.aiRuleForStack({ projectId, stackId })}
-					{#if !rule.current.data?.rule}
+					{#if !rule.response?.rule}
 						<ContextMenuItem
 							label="Start agent session"
 							icon="agents-tab"
@@ -339,8 +339,8 @@
 			</ContextMenuSection>
 		{/if}
 		{#if prNumber}
-			{@const prResult = forge.current.prService?.get(prNumber)}
-			<ReduxResult {projectId} {stackId} result={prResult?.current}>
+			{@const prQuery = forge.current.prService?.get(prNumber)}
+			<ReduxResult {projectId} {stackId} result={prQuery?.result}>
 				{#snippet children(pr)}
 					<ContextMenuSection>
 						<ContextMenuItemSubmenu label="Pull Request" icon="pr">

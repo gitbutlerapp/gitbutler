@@ -25,7 +25,7 @@
 
 	const stackService = inject(STACK_SERVICE);
 
-	const branchResult = $derived(
+	const branchQuery = $derived(
 		stackId
 			? stackService.branchDetails(projectId, stackId, branchName)
 			: stackService.unstackedBranchDetails(projectId, branchName, remote)
@@ -38,7 +38,7 @@
 	const branchRef = $derived(createBranchRef(branchName, remote));
 </script>
 
-<ReduxResult {projectId} result={branchResult.current} {onerror}>
+<ReduxResult {projectId} result={branchQuery.result} {onerror}>
 	{#snippet children(branch, { stackId, projectId })}
 		{@const hasCommits = branch.commits.length > 0}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
@@ -95,8 +95,8 @@
 			</div>
 		</Drawer>
 
-		{@const changesResult = stackService.branchChanges({ projectId, branch: branchRef })}
-		<ReduxResult {projectId} result={changesResult.current}>
+		{@const changesQuery = stackService.branchChanges({ projectId, branch: branchRef })}
+		<ReduxResult {projectId} result={changesQuery.result}>
 			{#snippet children(changes, env)}
 				<ChangedFiles
 					title="All changed files"

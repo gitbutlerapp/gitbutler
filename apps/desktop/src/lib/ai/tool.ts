@@ -328,7 +328,7 @@ function safeParseJson(jsonString: string): unknown {
 	}
 }
 
-function isErrorResult(something: unknown): boolean {
+function isErrorQuery(something: unknown): boolean {
 	return (
 		typeof something === 'object' &&
 		something !== null &&
@@ -344,7 +344,7 @@ type CommitToolResult = {
 	};
 };
 
-function isCommitToolResult(result: unknown): result is CommitToolResult {
+function isCommitToolQuery(result: unknown): result is CommitToolResult {
 	return (
 		typeof result === 'object' &&
 		result !== null &&
@@ -396,12 +396,12 @@ export function getToolCallIcon(name: ToolName, isError: boolean): IconName {
 export function parseToolCall(toolCall: ToolCall): ParsedToolCall {
 	const rawParams = safeParseJson(toolCall.parameters);
 	const rawResult = safeParseJson(toolCall.result);
-	const isError = isErrorResult(rawResult);
+	const isError = isErrorQuery(rawResult);
 
 	switch (toolCall.name) {
 		case 'commit': {
 			const parameters = isCommitToolParams(rawParams) ? rawParams : undefined;
-			const parsedResult = isCommitToolResult(rawResult) ? rawResult : undefined;
+			const parsedResult = isCommitToolQuery(rawResult) ? rawResult : undefined;
 			return {
 				name: toolCall.name,
 				parameters,
@@ -425,7 +425,7 @@ export function parseToolCall(toolCall: ToolCall): ParsedToolCall {
 		}
 		case 'amend': {
 			const parameters = isAmendToolParams(rawParams) ? rawParams : undefined;
-			const parsedResult = isCommitToolResult(rawResult) ? rawResult : undefined;
+			const parsedResult = isCommitToolQuery(rawResult) ? rawResult : undefined;
 			return {
 				name: toolCall.name,
 				parameters,

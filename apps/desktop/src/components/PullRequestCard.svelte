@@ -60,8 +60,8 @@
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 
-	const prResult = $derived(prService?.get(prNumber, { forceRefetch: true }));
-	const pr = $derived(prResult?.current.data);
+	const prQuery = $derived(prService?.get(prNumber, { forceRefetch: true }));
+	const pr = $derived(prQuery?.response);
 
 	const { name, abbr, symbol } = $derived(prService!.unit);
 
@@ -108,7 +108,7 @@
 	});
 </script>
 
-<ReduxResult result={prResult?.current} projectId="dummy">
+<ReduxResult result={prQuery?.result} projectId="dummy">
 	{#snippet children(pr)}
 		{#if poll}
 			<PullRequestPolling number={pr.number} />
