@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/lib/backend/backend.ts", "apps/desktop/src/lib/backend/tauri.ts", "apps/desktop/src/lib/backend/web.ts", "apps/desktop/src/routes/[projectId]/+layout.svelte"]
-ourEntries = ["apps/desktop/src/lib/backend/backend.ts", "apps/desktop/src/lib/backend/tauri.ts", "apps/desktop/src/lib/backend/web.ts", "apps/desktop/src/routes/[projectId]/+layout.svelte"]
-theirEntries = ["apps/desktop/src/lib/backend/backend.ts", "apps/desktop/src/lib/backend/tauri.ts", "apps/desktop/src/lib/backend/web.ts", "apps/desktop/src/routes/[projectId]/+layout.svelte"]
