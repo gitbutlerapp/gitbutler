@@ -81,6 +81,7 @@ import {
 	USER_SERVICE as CLOUD_USER_SERVICE
 } from '@gitbutler/shared/users/userService';
 import { DragStateService, DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
+import { FModeManager } from '@gitbutler/ui/focus/fModeManager';
 import { FOCUS_MANAGER, FocusManager } from '@gitbutler/ui/focus/focusManager';
 import {
 	EXTERNAL_LINK_SERVICE,
@@ -212,9 +213,17 @@ export function initDependencies(args: {
 	// HISTORY & OPERATIONS
 	// ============================================================================
 
+	const fModeManager = new FModeManager();
+	const focusManager = new FocusManager(fModeManager);
 	const historyService = new HistoryService(backend, clientState['backendApi']);
 	const oplogService = new OplogService(clientState['backendApi']);
-	const commitAnalytics = new CommitAnalytics(stackService, uiState, worktreeService, rulesService);
+	const commitAnalytics = new CommitAnalytics(
+		stackService,
+		uiState,
+		worktreeService,
+		rulesService,
+		fModeManager
+	);
 	const codegenAnalytics = new CodegenAnalytics(claudeCodeService, settingsService);
 
 	// ============================================================================
@@ -266,7 +275,6 @@ export function initDependencies(args: {
 	// UI & INTERACTION
 	// ============================================================================
 
-	const focusManager = new FocusManager();
 	const imeHandler = new IMECompositionHandler();
 	const reorderDropzoneFactory = new ReorderDropzoneFactory(stackService);
 	const shortcutService = new ShortcutService(backend);

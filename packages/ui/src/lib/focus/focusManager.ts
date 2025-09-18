@@ -32,7 +32,6 @@ export class FocusManager {
 
 	private previousElements: HTMLElement[] = [];
 	private indexCache = new Map<HTMLElement, number>();
-	private fModeManager: FModeManager;
 
 	readonly cursor = writable<HTMLElement | undefined>();
 	readonly outline = writable(false); // external use
@@ -41,9 +40,7 @@ export class FocusManager {
 	private handleMouse = this.handleClick.bind(this);
 	private handleKeys = this.handleKeydown.bind(this);
 
-	constructor() {
-		this.fModeManager = new FModeManager();
-	}
+	constructor(private fModeManager: FModeManager) {}
 
 	setFModeEnabled(enabled: boolean): void {
 		this.fModeManager.setFeatureEnabled(enabled);
