@@ -158,9 +158,7 @@
 <RedirectIfNotFinalized />
 
 <div class="app">
-	{#if hasNavigation}
-		<Navigation />
-	{/if}
+	<Navigation ghost={!hasNavigation} />
 
 	<main>
 		{@render children?.()}
@@ -172,6 +170,7 @@
 <style lang="postcss">
 	.app {
 		--layout-side-paddings: 80px;
+		--radius-xl: 20px;
 		container-type: inline-size;
 
 		display: flex;
@@ -196,6 +195,7 @@
 		flex: 1;
 		flex-direction: column;
 		width: 100%;
+		min-height: 100%;
 		margin: 0 auto;
 	}
 </style>
