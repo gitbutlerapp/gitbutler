@@ -17,7 +17,15 @@
 	const stackId = $derived(projectState.stackId.current);
 
 	// Check for stackId in URL query parameters
-	const urlStackId = $derived(page.url.searchParams.get('stackId'));
+	// Note: URLSearchParams.get() returns strings, so "null" becomes the string "null"
+	// We need to convert it back to actual null for proper API handling
+	const urlStackId = $derived(
+		(() => {
+			const param = page.url.searchParams.get('stackId');
+			// Convert string "null" back to actual null
+			return param === 'null' ? null : param;
+		})()
+	);
 	let scrollToStackId = $state<string | undefined>(undefined);
 
 	const firstStackQuery = $derived(stackService.stackAt(projectId, 0));
@@ -29,7 +37,7 @@
 	});
 
 	$effect(() => {
-		if (urlStackId) {
+		if (urlStackId !== null) {
 			projectState.stackId.set(urlStackId);
 			scrollToStackId = urlStackId;
 		} else if (stackId === undefined && firstStack) {
