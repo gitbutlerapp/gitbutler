@@ -23,6 +23,7 @@ import type { EventCallback, EventName } from '@tauri-apps/api/event';
 export default class Tauri implements IBackend {
 	platformName = platform();
 	private appWindow: Window | undefined;
+
 	systemTheme = readable<string | null>(null, (set) => {
 		if (!this.appWindow) {
 			this.appWindow = getCurrentWindow();
@@ -35,6 +36,7 @@ export default class Tauri implements IBackend {
 			set(e.payload);
 		});
 	});
+
 	invoke = tauriInvoke;
 	listen = tauriListen;
 	checkUpdate = tauriCheck;
@@ -47,18 +49,29 @@ export default class Tauri implements IBackend {
 	getAppInfo = tauriGetAppInfo;
 	readTextFromClipboard = tauriReadText;
 	writeTextToClipboard = tauriWriteText;
+
 	async filePicker<T extends OpenDialogOptions>(options?: T) {
 		return await filePickerTauri<T>(options);
 	}
+
 	async homeDirectory(): Promise<string> {
 		// TODO: Find a workaround to avoid this dynamic import
 		// https://github.com/sveltejs/kit/issues/905
 		return await (await import('@tauri-apps/api/path')).homeDir();
 	}
+
 	async loadDiskStore(fileName: string): Promise<DiskStore> {
 		const store = await Store.load(fileName, { autoSave: true });
 		return new TauriDiskStore(store);
 	}
+
+	async getWindowTitle(): Promise<string> {
+		if (!this.appWindow) {
+			this.appWindow = getCurrentWindow();
+		}
+		return await this.appWindow.title();
+	}
+
 	setWindowTitle(title: string): void {
 		if (!this.appWindow) {
 			this.appWindow = getCurrentWindow();
