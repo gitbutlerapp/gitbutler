@@ -92,17 +92,17 @@ export class FocusManager {
 			return;
 		}
 
-		// TODO: Allow clicks inside inputs to set `this.currentNode`
-		if (isInputElement(e.target)) {
-			return;
-		}
-
 		if (e.target instanceof HTMLElement) {
 			const focusableNode = this.findNearestFocusableElement(e.target);
 			if (focusableNode) {
 				this.setActiveNode(focusableNode);
 				this.setOutline(false);
 			}
+		}
+
+		// TODO: Find a way to update the focusable without causing target to blur.
+		if (isInputElement(e.target)) {
+			e.target.focus();
 		}
 	}
 
