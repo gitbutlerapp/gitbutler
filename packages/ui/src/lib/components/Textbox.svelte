@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$components/Icon.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { onMount, tick } from 'svelte';
@@ -176,6 +177,7 @@
 			style:text-align={textAlign}
 			bind:value
 			bind:this={htmlInput}
+			use:focusable={{ button: true }}
 			{onclick}
 			{onmousedown}
 			oninput={(e) => {

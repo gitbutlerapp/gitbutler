@@ -12,7 +12,7 @@ export function getNavigationAction(key: string): NavigationAction | null {
 	return keyMap[key] ?? null;
 }
 
-export function isInputElement(target: EventTarget | null): boolean {
+export function isInputElement(target: EventTarget | null): target is HTMLInputElement {
 	return (
 		(target instanceof HTMLElement && isContentEditable(target)) ||
 		target instanceof HTMLTextAreaElement ||
