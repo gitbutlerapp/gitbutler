@@ -85,6 +85,10 @@
 			handleMouseLeave();
 		}
 	}
+
+	export function dismiss() {
+		show = false;
+	}
 </script>
 
 {#if isTextEmpty}

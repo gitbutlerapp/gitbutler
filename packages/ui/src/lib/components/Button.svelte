@@ -86,7 +86,7 @@
 		tooltipDelay,
 		tooltipMaxWidth,
 		onclick,
-		onmousedown,
+		onmousedown: onmousedownExternal,
 		oncontextmenu,
 		onkeydown,
 		children,
@@ -104,9 +104,16 @@
 	}
 
 	const displayHotkey = $derived(hotkey ? formatHotkeyForPlatform(hotkey) : undefined);
+	let tooltipInstance = $state<Tooltip>();
+
+	function onmousedown(e: MouseEvent) {
+		tooltipInstance?.dismiss();
+		onmousedownExternal?.(e);
+	}
 </script>
 
 <Tooltip
+	bind:this={tooltipInstance}
 	text={tooltip}
 	align={tooltipAlign}
 	position={tooltipPosition}
