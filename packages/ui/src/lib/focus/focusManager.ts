@@ -32,7 +32,6 @@ export class FocusManager {
 
 	private previousElements: HTMLElement[] = [];
 	private indexCache = new Map<HTMLElement, number>();
-	private fModeManager: FModeManager;
 
 	readonly cursor = writable<HTMLElement | undefined>();
 	readonly outline = writable(false); // external use
@@ -41,9 +40,7 @@ export class FocusManager {
 	private handleMouse = this.handleClick.bind(this);
 	private handleKeys = this.handleKeydown.bind(this);
 
-	constructor() {
-		this.fModeManager = new FModeManager();
-	}
+	constructor(private fModeManager: FModeManager) {}
 
 	setFModeEnabled(enabled: boolean): void {
 		this.fModeManager.setFeatureEnabled(enabled);
@@ -92,17 +89,17 @@ export class FocusManager {
 			return;
 		}
 
-		// TODO: Allow clicks inside inputs to set `this.currentNode`
-		if (isInputElement(e.target)) {
-			return;
-		}
-
 		if (e.target instanceof HTMLElement) {
 			const focusableNode = this.findNearestFocusableElement(e.target);
 			if (focusableNode) {
 				this.setActiveNode(focusableNode);
 				this.setOutline(false);
 			}
+		}
+
+		// TODO: Find a way to update the focusable without causing target to blur.
+		if (isInputElement(e.target)) {
+			e.target.focus();
 		}
 	}
 
