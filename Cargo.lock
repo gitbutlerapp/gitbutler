@@ -1323,6 +1323,7 @@ dependencies = [
  "itertools",
  "md5",
  "serde",
+ "tempfile",
  "tracing",
  "url",
 ]
