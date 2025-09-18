@@ -18,7 +18,6 @@ describe('Project', () => {
 		await findAndClick('button[data-testid="add-local-project"]');
 		// TODO: Remove next click when v3 is default!
 		await findAndClick('button[data-testid="set-base-branch"]');
-		await findAndClick('button[data-testid="accept-git-auth"]');
 
 		const workspaceButton = await $(
 			'button[data-testid="navigation-workspace-button"]'

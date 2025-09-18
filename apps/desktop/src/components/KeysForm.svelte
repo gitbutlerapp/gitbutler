@@ -9,7 +9,7 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/core/context';
-	import { Link, RadioButton, SectionCard, TestId, Textbox } from '@gitbutler/ui';
+	import { Link, RadioButton, SectionCard, Textbox } from '@gitbutler/ui';
 
 	import { onMount } from 'svelte';
 
@@ -91,7 +91,7 @@
 	});
 </script>
 
-<div data-testid={TestId.ProjectSetupGitAuthPage}>
+<div>
 	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
 			<Section>

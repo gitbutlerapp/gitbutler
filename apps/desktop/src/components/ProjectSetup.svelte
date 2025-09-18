@@ -1,16 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import KeysForm from '$components/KeysForm.svelte';
 	import ProjectSetupTarget from '$components/ProjectSetupTarget.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
-	import { BACKEND } from '$lib/backend';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, TestId } from '@gitbutler/ui';
+	import { TestId } from '@gitbutler/ui';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 
 	interface Props {
@@ -23,20 +21,17 @@
 	const projectsService = inject(PROJECTS_SERVICE);
 	const baseService = inject(BASE_BRANCH_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
-	const backend = inject(BACKEND);
 	const projectQuery = $derived(projectsService.getProject(projectId));
-	const [setBaseBranchTarget, settingBranch] = baseService.setTarget;
+	const [setBaseBranchTarget] = baseService.setTarget;
 
-	let selectedBranch = $state(['', '']);
-
-	async function setTarget() {
-		if (!selectedBranch[0] || selectedBranch[0] === '') return;
+	async function setTarget(branch: string[]) {
+		if (!branch[0] || branch[0] === '') return;
 
 		try {
 			await setBaseBranchTarget({
 				projectId: projectId,
-				branch: selectedBranch[0],
-				pushRemote: selectedBranch[1]
+				branch: branch[0],
+				pushRemote: branch[1]
 			});
 			posthog.captureOnboarding(OnboardingEvent.SetTargetBranch);
 			goto(`/${projectId}/`, { invalidateAll: true });
@@ -54,45 +49,16 @@
 </script>
 
 <DecorativeSplitView img={newProjectSvg} testId={TestId.ProjectSetupPage}>
-	{#if selectedBranch[0] && selectedBranch[0] !== '' && backend.platformName !== 'windows'}
-		{@const [remoteName, branchName] = selectedBranch[0].split(/\/(.*)/s)}
-		<KeysForm {projectId} {remoteName} {branchName} disabled={settingBranch.current.isLoading} />
-		<div class="actions">
-			<Button
-				kind="outline"
-				disabled={settingBranch.current.isLoading}
-				onclick={() => (selectedBranch[0] = '')}
-			>
-				Back
-			</Button>
-			<Button
-				style="pop"
-				loading={settingBranch.current.isLoading}
-				onclick={setTarget}
-				testId={TestId.ProjectSetupGitAuthPageButton}>Let's go!</Button
-			>
-		</div>
-	{:else}
-		<ReduxResult {projectId} result={projectQuery.result}>
-			{#snippet children(project)}
-				<ProjectSetupTarget
-					{projectId}
-					projectName={project.title}
-					{remoteBranches}
-					onBranchSelected={async (branch) => {
-						selectedBranch = branch;
-						if (backend.platformName !== 'windows') return;
-						setTarget();
-					}}
-				/>
-			{/snippet}
-		</ReduxResult>
-	{/if}
+	<ReduxResult {projectId} result={projectQuery.result}>
+		{#snippet children(project)}
+			<ProjectSetupTarget
+				{projectId}
+				projectName={project.title}
+				{remoteBranches}
+				onBranchSelected={async (branch) => {
+					await setTarget(branch);
+				}}
+			/>
+		{/snippet}
+	</ReduxResult>
 </DecorativeSplitView>
-
-<style lang="postcss">
-	.actions {
-		margin-top: 20px;
-		text-align: right;
-	}
-</style>

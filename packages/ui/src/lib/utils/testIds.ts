@@ -128,8 +128,6 @@ export enum TestId {
 	ProjectSetupPage = 'project-setup-page',
 	ProjectSetupPageTargetBranchSelect = 'project-setup-page-target-branch-select',
 	ProjectSetupPageTargetContinueButton = 'set-base-branch',
-	ProjectSetupGitAuthPage = 'project-setup-git-auth-page',
-	ProjectSetupGitAuthPageButton = 'accept-git-auth',
 	ProjectDeleteButton = 'project-delete-button',
 	ProjectDeleteModalConfirm = 'project-delete-modal-confirm',
 	AddProjectAlreadyExistsModal = 'add-project-already-exists-modal',
