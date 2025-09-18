@@ -58,7 +58,7 @@
 
 	// Project data
 	const projectsQuery = $derived(projectsService.projects());
-	const projects = $derived(projectsQuery.result.data);
+	const projects = $derived(projectsQuery.response);
 
 	// =============================================================================
 	// REPOSITORY & BRANCH MANAGEMENT
@@ -69,12 +69,14 @@
 	const gitService = inject(GIT_SERVICE);
 
 	const repoInfoQuery = $derived(baseBranchService.repo(projectId));
-	const repoInfo = $derived(repoInfoQuery.result.data);
-	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
-	const baseBranch = $derived(baseBranchQuery.result.data);
-	const baseBranchName = $derived(baseBranch?.shortName);
 	const pushRepoQuery = $derived(baseBranchService.pushRepo(projectId));
-	const forkInfo = $derived(pushRepoQuery.result.data);
+
+	const repoInfo = $derived(repoInfoQuery.response);
+	const forkInfo = $derived(pushRepoQuery.response);
+
+	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranch = $derived(baseBranchQuery.response);
+	const baseBranchName = $derived(baseBranch?.shortName);
 
 	// =============================================================================
 	// WORKSPACE & MODE MANAGEMENT
@@ -86,7 +88,7 @@
 
 	const mode = $derived(modeService.mode({ projectId }));
 	const headQuery = $derived(modeService.head({ projectId }));
-	const head = $derived(headQuery.result.data);
+	const head = $derived(headQuery.response);
 
 	// Invalidate stacks when switching branches outside workspace
 	$effect(() => {
@@ -216,7 +218,7 @@
 
 	// Refresh when branch data changes
 	$effect(() => {
-		if (baseBranch || headQuery.result.data) debouncedRemoteBranchRefresh();
+		if (baseBranch || headQuery.response) debouncedRemoteBranchRefresh();
 	});
 
 	// Auto-fetch setup
