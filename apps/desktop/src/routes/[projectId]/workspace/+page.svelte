@@ -20,8 +20,8 @@
 	const urlStackId = $derived(page.url.searchParams.get('stackId'));
 	let scrollToStackId = $state<string | undefined>(undefined);
 
-	const firstStackResult = $derived(stackService.stackAt(projectId, 0));
-	const firstStack = $derived(firstStackResult.current.data);
+	const firstStackQuery = $derived(stackService.stackAt(projectId, 0));
+	const firstStack = $derived(firstStackQuery.response);
 
 	// Read all local commits in the workspace for the given project
 	$effect(() => {
@@ -42,7 +42,7 @@
 	}
 
 	$effect(() => {
-		if (mode.current.data?.type === 'Edit') {
+		if (mode.response?.type === 'Edit') {
 			// That was causing an incorrect linting error when project.id was accessed inside the reactive block
 			gotoEdit();
 		}

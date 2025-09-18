@@ -91,7 +91,7 @@
 	{#if target.type === 'stackId'}
 		{@const stackId = target.subject}
 		{@const stack = stackService.stackById(projectId, stackId)}
-		<ReduxResult {projectId} result={stack.current}>
+		<ReduxResult {projectId} result={stack.result}>
 			{#snippet children(stack)}
 				{#if stack !== null}
 					{@const stackName = getStackName(stack)}

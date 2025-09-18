@@ -230,7 +230,7 @@
 
 {#snippet ruleListContent()}
 	{@const rules = rulesService.workspaceRules(projectId)}
-	<ReduxResult {projectId} result={rules.current}>
+	<ReduxResult {projectId} result={rules.result}>
 		{#snippet children(rules)}
 			{@const filteredRules = rules.filter((r) => !isAiRule(r))}
 			{#if filteredRules.length > 0}
@@ -274,7 +274,7 @@
 
 		<div class="rules-list__action">
 			<h3 class="text-13 text-semibold">Assign to branch</h3>
-			<ReduxResult {projectId} result={stackEntries.current}>
+			<ReduxResult {projectId} result={stackEntries.result}>
 				{#snippet children(stacks)}
 					{@const stackOptions = [
 						...stacks
@@ -347,7 +347,7 @@
 				kind="solid"
 				style="neutral"
 				disabled={!canSaveRule}
-				loading={stackEntries.current.isLoading ||
+				loading={stackEntries.result.isLoading ||
 					creatingRule.current.isLoading ||
 					updatingRule.current.isLoading}>Save rule</Button
 			>

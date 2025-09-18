@@ -100,8 +100,8 @@
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
 	const workspaceRules = $derived(rulesService.workspaceRules(projectId));
 	const hasExistingSessions = $derived.by(() => {
-		const stackss = stacks.current.data ?? [];
-		const aiRules = (workspaceRules.current.data ?? []).filter(isAiRule);
+		const stackss = stacks.response ?? [];
+		const aiRules = (workspaceRules.response ?? []).filter(isAiRule);
 		return stackss.some((stack) =>
 			aiRules.some((rule) => rule.action.subject.subject.target.subject === stack.id)
 		);
@@ -167,10 +167,10 @@
 	const selectionId = $derived(createWorktreeSelection({ stackId: selectedBranch?.stackId }));
 
 	$effect(() => {
-		if (stacks.current.data) {
+		if (stacks.response) {
 			if (selectedBranch) {
 				// Make sure the current selection is valid
-				const branchFound = stacks.current.data.some(
+				const branchFound = stacks.response.some(
 					(s) =>
 						s.id === selectedBranch?.stackId && s.heads.some((h) => h.name === selectedBranch?.head)
 				);
@@ -184,9 +184,9 @@
 	});
 
 	function selectFirstBranch() {
-		if (!stacks.current.data) return;
+		if (!stacks.response) return;
 
-		const firstStack = stacks.current.data[0];
+		const firstStack = stacks.response[0];
 		const firstHead = firstStack?.heads[0];
 		if (firstHead && firstStack.id) {
 			projectState.selectedClaudeSession.set({
@@ -383,20 +383,20 @@
 	const events = $derived(
 		claudeCodeService.messages({ projectId, stackId: selectedBranch?.stackId || '' })
 	);
-	const isStackActiveResult = $derived(
+	const isStackActiveQuery = $derived(
 		selectedBranch ? claudeCodeService.isStackActive(projectId, selectedBranch.stackId) : undefined
 	);
-	const isStackActive = $derived(isStackActiveResult?.current?.data || false);
+	const isStackActive = $derived(isStackActiveQuery?.response || false);
 
 	// Check if there are rules to delete for the current session
 	const rules = $derived(rulesService.workspaceRules(projectId));
 	const hasRulesToClear = $derived(() => {
-		if (!events?.current.data || !rules.current.data) return false;
+		if (!events?.response || !rules.response) return false;
 
-		const sessionId = getCurrentSessionId(events.current.data);
+		const sessionId = getCurrentSessionId(events.response);
 		if (!sessionId) return false;
 
-		return rules.current.data.some((rule) =>
+		return rules.response.some((rule) =>
 			rule.filters.some(
 				(filter) => filter.type === 'claudeCodeSessionId' && filter.subject === sessionId
 			)
@@ -423,7 +423,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if selectedBranch?.stackId}
-	<ReduxResult result={mcpConfig.current} {projectId} stackId={selectedBranch.stackId}>
+	<ReduxResult result={mcpConfig.result} {projectId} stackId={selectedBranch.stackId}>
 		{#snippet children(mcpConfig, { projectId: _projectId, stackId: _stackId })}
 			{@const laneState = uiState.lane(selectedBranch.stackId)}
 			<CodegenMcpConfigModal
@@ -444,7 +444,7 @@
 {/if}
 
 <div class="page">
-	<ReduxResult result={claudeAvailable.current} {projectId}>
+	<ReduxResult result={claudeAvailable.result} {projectId}>
 		{#snippet children(claudeAvailable, { projectId })}
 			{#if claudeAvailable.status === 'available' || hasExistingSessions}
 				{@render main({ projectId, available: claudeAvailable.status === 'available' })}
@@ -498,9 +498,9 @@
 			)}
 			<ReduxResult
 				result={combineResults(
-					events?.current,
-					permissionRequests.current,
-					selectedBranchDetails.current
+					events?.result,
+					permissionRequests.result,
+					selectedBranchDetails.result
 				)}
 				{projectId}
 			>
@@ -515,8 +515,8 @@
 					{@const lineColor = getColorFromBranchType(
 						pushStatusToColor(branchDetailsData.pushStatus)
 					)}
-					{@const enabledMcpServers = mcpConfig.current.data
-						? Object.keys(mcpConfig.current.data.mcpServers).length -
+					{@const enabledMcpServers = mcpConfig.result.data
+						? Object.keys(mcpConfig.result.data.mcpServers).length -
 							uiState.lane(selectedBranch.stackId).disabledMcpServers.current.length
 						: 0}
 
@@ -608,7 +608,7 @@
 						{/snippet}
 
 						{#snippet input()}
-							{#if claudeAvailable.current.data?.status === 'available'}
+							{#if claudeAvailable.response?.status === 'available'}
 								<CodegenInput
 									value={prompt}
 									onChange={(prompt) => setPrompt(prompt)}
@@ -694,7 +694,7 @@
 
 {#snippet rightSidebar(events: ClaudeMessage[])}
 	<div class="right-sidebar" bind:this={rightSidebarRef}>
-		{#if !branchChanges || !selectedBranch || (branchChanges.current?.data && branchChanges.current.data.changes.length === 0 && getTodos(events).length === 0)}
+		{#if !branchChanges || !selectedBranch || (branchChanges.response && branchChanges.response.changes.length === 0 && getTodos(events).length === 0)}
 			<div class="right-sidebar__placeholder">
 				<EmptyStatePlaceholder
 					image={filesAndChecksSvg}
@@ -710,7 +710,7 @@
 		{:else}
 			{@const todos = getTodos(events)}
 			{#if branchChanges && selectedBranch}
-				<ReduxResult result={branchChanges.current} {projectId}>
+				<ReduxResult result={branchChanges.result} {projectId}>
 					{#snippet children({ changes }, { projectId })}
 						<Drawer
 							bottomBorder={todos.length > 0}
@@ -777,7 +777,7 @@
 {/snippet}
 
 {#snippet sidebarContent()}
-	<ReduxResult result={stacks.current} {projectId}>
+	<ReduxResult result={stacks.result} {projectId}>
 		{#snippet children(stacks, { projectId })}
 			{#if stacks.length === 0}
 				<div class="sidebar_placeholder">
@@ -840,12 +840,12 @@
 
 		<ReduxResult
 			result={combineResults(
-				branch.current,
-				commits.current,
-				branchDetails.current,
-				events.current,
-				sidebarIsStackActive.current,
-				rule.current
+				branch.result,
+				commits.result,
+				branchDetails.result,
+				events.result,
+				sidebarIsStackActive.result,
+				rule.result
 			)}
 			{projectId}
 			{stackId}
@@ -865,7 +865,7 @@
 					)?.subject}
 					{#if sessionId}
 						{@const sessionDetails = claudeCodeService.sessionDetails(projectId, sessionId)}
-						<ReduxResult result={sessionDetails.current} {projectId}>
+						<ReduxResult result={sessionDetails.result} {projectId}>
 							{#snippet children(sessionDetailsData, { projectId: _projectId })}
 								<CodegenSidebarEntry
 									onclick={() => {
@@ -1057,7 +1057,7 @@
 	align="start"
 >
 	<ContextMenuSection>
-		<ReduxResult result={promptTemplates.current} {projectId}>
+		<ReduxResult result={promptTemplates.result} {projectId}>
 			{#snippet children(promptTemplates, { projectId: _projectId })}
 				{#each promptTemplates.templates as template}
 					<ContextMenuItem

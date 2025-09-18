@@ -40,8 +40,7 @@
 	}
 
 	const conflicts = $derived(
-		mode.current.data?.type === 'OutsideWorkspace' &&
-			mode.current.data.subject.worktreeConflicts.length > 0
+		mode.response?.type === 'OutsideWorkspace' && mode.response.subject.worktreeConflicts.length > 0
 	);
 
 	let selectedHandlingOfUncommitted: OptionsType = $state('stash');
@@ -61,7 +60,7 @@
 	]);
 
 	async function initSwithToWorkspace() {
-		if (changes.current.data?.length === 0) {
+		if (changes.response?.length === 0) {
 			switchTarget(baseBranch.branchName);
 		} else {
 			switchTarget(baseBranch.branchName, undefined, doStash);
@@ -75,7 +74,7 @@
 		{@render children()}
 	{:else}
 		<DecorativeSplitView img={directionDoubtSvg} hideDetails>
-			{@const uncommittedChanges = changes.current.data || []}
+			{@const uncommittedChanges = changes.response || []}
 
 			<div class="switchrepo__content">
 				<p class="switchrepo__title text-18 text-body text-bold">
@@ -110,7 +109,7 @@
 									Some files can’t be applied due to conflicts:
 								</p>
 								<div class="switchrepo__file-list">
-									<ReduxResult result={mode.current} {projectId}>
+									<ReduxResult result={mode.result} {projectId}>
 										{#snippet children(mode, _env)}
 											{#if mode.type === 'OutsideWorkspace'}
 												{#each mode.subject.worktreeConflicts || [] as path}

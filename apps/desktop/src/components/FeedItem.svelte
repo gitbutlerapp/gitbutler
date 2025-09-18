@@ -153,7 +153,7 @@
 					<Markdown content={action.details?.body} />
 				{/if}
 				{#if snapshotDiff}
-					<ReduxResult result={snapshotDiff.current} {projectId}>
+					<ReduxResult result={snapshotDiff.result} {projectId}>
 						{#snippet children(files)}
 							{#each files as file}
 								<span class="text-greyer">{file.path}</span>

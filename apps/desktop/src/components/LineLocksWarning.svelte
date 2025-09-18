@@ -16,10 +16,10 @@
 	const stackService = inject(STACK_SERVICE);
 
 	const lockedToStackIds = $derived(locks.map((lock) => lock.stackId));
-	const stacksResult = $derived(stackService.stacks(projectId));
+	const stacksQuery = $derived(stackService.stacks(projectId));
 </script>
 
-<ReduxResult result={stacksResult.current} {projectId}>
+<ReduxResult result={stacksQuery.result} {projectId}>
 	{#snippet children(stacks)}
 		{@const lockedToStacks = stacks.filter(
 			(stack) => stack.id && lockedToStackIds.includes(stack.id)

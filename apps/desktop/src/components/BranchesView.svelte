@@ -54,7 +54,7 @@
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);
 
-	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 
 	const selectedOption = persisted<BranchFilterOption>(
 		'all',
@@ -179,7 +179,7 @@
 	{/snippet}
 </Modal>
 
-<ReduxResult {projectId} result={baseBranchResult.current}>
+<ReduxResult {projectId} result={baseBranchQuery.result}>
 	{#snippet children(baseBranch)}
 		{@const lastCommit = baseBranch.recentCommits.at(0)}
 		{@const current = branchesState.current}
@@ -222,7 +222,7 @@
 					<BranchExplorer
 						{projectId}
 						bind:selectedOption={$selectedOption}
-						forgeUser={forgeUserQuery.current.data}
+						forgeUser={forgeUserQuery.response}
 					>
 						{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
 							{#if sidebarEntrySubject.type === 'branchListing'}

@@ -16,10 +16,10 @@
 	}: { projectId: string; children: Snippet; sidebarDisabled?: boolean } = $props();
 
 	const projectService = inject(PROJECTS_SERVICE);
-	const projectResult = $derived(projectService.getProject(projectId));
+	const projectQuery = $derived(projectService.getProject(projectId));
 </script>
 
-<ReduxResult {projectId} result={projectResult.current}>
+<ReduxResult {projectId} result={projectQuery.result}>
 	{#snippet children(project, { projectId })}
 		<div class="chrome" use:focusable={{ vertical: true, activate: true }}>
 			<ChromeHeader {projectId} projectTitle={project.title} actionsDisabled={sidebarDisabled} />

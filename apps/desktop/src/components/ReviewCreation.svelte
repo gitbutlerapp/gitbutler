@@ -51,8 +51,8 @@
 	const { projectId, stackId, branchName, onClose }: Props = $props();
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
-	const baseBranch = $derived(baseBranchResponse.current.data);
+	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranch = $derived(baseBranchQuery.response);
 	const baseBranchName = $derived(baseBranch?.shortName);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
@@ -66,20 +66,20 @@
 
 	const [pushStack, stackPush] = stackService.pushStack;
 
-	const branchesResult = $derived(stackService.branches(projectId, stackId));
-	const branches = $derived(branchesResult.current.data || []);
-	const branchParentResult = $derived(
+	const branchesQuery = $derived(stackService.branches(projectId, stackId));
+	const branches = $derived(branchesQuery.response || []);
+	const branchParentQuery = $derived(
 		stackService.branchParentByName(projectId, stackId, branchName)
 	);
-	const branchParent = $derived(branchParentResult.current.data);
-	const branchParentDetailsResult = $derived(
+	const branchParent = $derived(branchParentQuery.response);
+	const branchParentDetailsQuery = $derived(
 		branchParent ? stackService.branchDetails(projectId, stackId, branchParent.name) : undefined
 	);
-	const branchParentDetails = $derived(branchParentDetailsResult?.current.data);
-	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
-	const branchDetails = $derived(branchDetailsResult.current.data);
-	const commitsResult = $derived(stackService.commits(projectId, stackId, branchName));
-	const commits = $derived(commitsResult.current.data || []);
+	const branchParentDetails = $derived(branchParentDetailsQuery?.response);
+	const branchDetailsQuery = $derived(stackService.branchDetails(projectId, stackId, branchName));
+	const branchDetails = $derived(branchDetailsQuery.response);
+	const commitsQuery = $derived(stackService.commits(projectId, stackId, branchName));
+	const commits = $derived(commitsQuery.response || []);
 	const runHooks = $derived(projectRunCommitHooks(projectId));
 
 	const forgeBranch = $derived(branchName ? forge.current.branch(branchName) : undefined);
@@ -159,7 +159,7 @@
 		if (pushBeforeCreate) {
 			const firstPush = branchDetails?.pushStatus === 'completelyUnpushed';
 			const withForce = partialStackRequestsForcePush(branchName, branches);
-			const pushResult = await pushStack({
+			const pushQuery = await pushStack({
 				projectId,
 				stackId,
 				withForce,
@@ -173,13 +173,13 @@
 				await sleep(500);
 			}
 
-			const remoteRef = pushResult.branchToRemote.find(([branch]) => branch === branchName)?.[1];
+			const remoteRef = pushQuery.branchToRemote.find(([branch]) => branch === branchName)?.[1];
 
 			const upstreamBranchName = remoteRef
-				? getBranchNameFromRef(remoteRef, pushResult.remote)
+				? getBranchNameFromRef(remoteRef, pushQuery.remote)
 				: undefined;
 
-			return [upstreamBranchName, pushResult];
+			return [upstreamBranchName, pushQuery];
 		}
 
 		return [branchName, undefined];
@@ -202,7 +202,7 @@
 			isCreatingReview = true;
 			await tick();
 
-			const [branch, pushResult] = await pushIfNeeded(closureBranchName);
+			const [branch, pushQuery] = await pushIfNeeded(closureBranchName);
 
 			await createPr({
 				stackId: closureStackId,
@@ -217,9 +217,9 @@
 			prTitle.reset();
 			uiState.project(projectId).exclusiveAction.set(undefined);
 
-			if (pushResult) {
-				const upstreamBranchNames = pushResult.branchToRemote
-					.map(([_, refname]) => getBranchNameFromRef(refname, pushResult.remote))
+			if (pushQuery) {
+				const upstreamBranchNames = pushQuery.branchToRemote
+					.map(([_, refname]) => getBranchNameFromRef(refname, pushQuery.remote))
 					.filter(isDefined);
 				if (upstreamBranchNames.length === 0) return;
 				uiState.project(projectId).branchesToPoll.add(...upstreamBranchNames);

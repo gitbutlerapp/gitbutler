@@ -54,12 +54,12 @@
 	const isReadOnly = $derived(!stackId);
 
 	const branchDetails = $derived(stackService.branchDetails(projectId, stackId, branchName));
-	const branchesResult = $derived(stackService.branches(projectId, stackId));
-	const [pushStack, pushResult] = stackService.pushStack;
-	const upstreamCommitsResult = $derived(
+	const branchesQuery = $derived(stackService.branches(projectId, stackId));
+	const [pushStack, pushQuery] = stackService.pushStack;
+	const upstreamCommitsQuery = $derived(
 		stackService.upstreamCommits(projectId, stackId, branchName)
 	);
-	const upstreamCommits = $derived(upstreamCommitsResult.current.data);
+	const upstreamCommits = $derived(upstreamCommitsQuery.response);
 	const runHooks = $derived(projectRunCommitHooks(projectId));
 
 	function handleClick(args: { withForce: boolean; skipForcePushProtection: boolean }) {
@@ -97,7 +97,7 @@
 		}
 	}
 
-	const loading = $derived(pushResult.current.isLoading);
+	const loading = $derived(pushQuery.current.isLoading);
 
 	function getButtonTooltip(
 		hasThingsToPush: boolean,
@@ -137,7 +137,7 @@
 	let forcePushProtectionModal = $state<ReturnType<typeof Modal>>();
 </script>
 
-<ReduxResult {projectId} result={combineResults(branchDetails.current, branchesResult.current)}>
+<ReduxResult {projectId} result={combineResults(branchDetails.result, branchesQuery.result)}>
 	{#snippet children([branchDetails, branches])}
 		{@const withForce = partialStackRequestsForcePush(branchName, branches)}
 		{@const hasThingsToPush = branchHasUnpushedCommits(branchDetails)}

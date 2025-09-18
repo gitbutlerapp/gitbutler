@@ -19,7 +19,7 @@ attached to posthog events.
 	const projectsService = inject(PROJECTS_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
 
-	const projectResult = $derived(projectsService.getProject(projectId));
+	const projectQuery = $derived(projectsService.getProject(projectId));
 	const globalState = uiState.global;
 	const projectState = $derived(uiState.project(projectId));
 
@@ -51,7 +51,7 @@ attached to posthog events.
 	});
 
 	$effect(() => {
-		const project = projectResult.current.data;
+		const project = projectQuery.response;
 		if (project) {
 			eventContext.update({
 				forcePushAllowed: project.ok_with_force_push,

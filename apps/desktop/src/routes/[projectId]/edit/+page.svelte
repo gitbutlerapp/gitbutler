@@ -14,10 +14,10 @@
 	let editModeMetadata = $state<EditModeMetadata>();
 
 	$effect(() => {
-		if (!isDefined(mode.current.data)) return;
+		if (!isDefined(mode.response)) return;
 
-		if (mode.current.data.type === 'Edit') {
-			editModeMetadata = mode.current.data.subject;
+		if (mode.response.type === 'Edit') {
+			editModeMetadata = mode.response.subject;
 		} else {
 			goto(`/${projectId}`);
 		}

@@ -39,8 +39,8 @@
 	const commitAction = $derived(exclusiveAction?.type === 'commit' ? exclusiveAction : undefined);
 
 	const selectedLines = $derived(uncommittedService.selectedLines(stackId));
-	const topBranchResult = $derived(stackId ? stackService.branches(projectId, stackId) : undefined);
-	const topBranchName = $derived(topBranchResult?.current.data?.at(0)?.name);
+	const topBranchQuery = $derived(stackId ? stackService.branches(projectId, stackId) : undefined);
+	const topBranchName = $derived(topBranchQuery?.response?.at(0)?.name);
 
 	const draftBranchName = $derived(uiState.global.draftBranchName.current);
 	const canCommit = $derived(selectedLines.current.length > 0);
@@ -156,7 +156,7 @@
 		}
 	}
 
-	const [createNewStack, newStackResult] = stackService.newStack;
+	const [createNewStack, newStackQuery] = stackService.newStack;
 
 	async function handleCommitCreation(title: string, description: string) {
 		laneState.newCommitMessage.set({ title, description });
@@ -216,7 +216,7 @@
 		onChange={({ title, description }) => handleMessageUpdate(title, description)}
 		onCancel={cancel}
 		disabledAction={!canCommit}
-		loading={commitCreation.current.isLoading || newStackResult.current.isLoading || isCooking}
+		loading={commitCreation.current.isLoading || newStackQuery.current.isLoading || isCooking}
 		title={laneState.newCommitMessage.current.title}
 		description={laneState.newCommitMessage.current.description}
 	/>

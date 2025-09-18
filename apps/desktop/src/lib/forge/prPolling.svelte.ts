@@ -17,11 +17,11 @@ export default function prList(
 	forge: DefaultForgeFactory,
 	uiState: UiState
 ): Reactive<PullRequest[]> {
-	const prListResult = $derived(
+	const prListQuery = $derived(
 		forge.current.listService?.list(projectId.current, POLLING_INTERVAL)
 	);
 
-	const prList = $derived(prListResult?.current.data ?? []);
+	const prList = $derived(prListQuery?.response ?? []);
 
 	$effect(() => {
 		updateStalePrSelection(uiState, projectId.current, prList);

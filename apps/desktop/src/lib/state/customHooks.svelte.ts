@@ -17,7 +17,14 @@ import {
 	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
 import { createSubscriber } from 'svelte/reactivity';
-import type { CustomQuery, CustomResult, ExtensionDefinitions } from '$lib/state/butlerModule';
+import type {
+	CustomQuery,
+	Transformer,
+	CustomResult,
+	ExtensionDefinitions,
+	QueryExtensions,
+	ReactiveQuery
+} from '$lib/state/butlerModule';
 import type { HookContext } from '$lib/state/context';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
 
@@ -94,7 +101,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 	function useQuery<T extends TranformerFn>(
 		queryArg: unknown,
 		options?: { transform?: T } & StartQueryActionCreatorOptions
-	) {
+	): ReactiveQuery<T extends Transformer<ReturnType<T>> ? ReturnType<T> : T, QueryExtensions> {
 		const startTime = Date.now();
 		const dispatch = getDispatch();
 		let query: QueryActionCreatorResult<any> | undefined;
@@ -138,10 +145,16 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 			};
 		});
 
-		return reactive(() => {
-			subscribe();
-			return output;
-		});
+		return {
+			get result() {
+				subscribe();
+				return output;
+			},
+			get response() {
+				subscribe();
+				return output.data;
+			}
+		};
 	}
 
 	function useQueries<T extends TranformerFn, D extends CustomQuery<any>>(
@@ -188,7 +201,10 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		});
 	}
 
-	function useQueryState<T extends TranformerFn>(queryArg: unknown, options?: { transform?: T }) {
+	function useQueryState<T extends TranformerFn>(
+		queryArg: unknown,
+		options?: { transform?: T }
+	): ReactiveQuery<T extends Transformer<ReturnType<T>> ? ReturnType<T> : T> {
 		const selector = $derived(select(queryArg));
 		const result = $derived(selector(getState()));
 		const output = $derived.by(() => {
@@ -202,7 +218,14 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 			};
 		});
 
-		return reactive(() => output);
+		return {
+			get result() {
+				return output;
+			},
+			get response() {
+				return output.data;
+			}
+		};
 	}
 
 	function useQueryTimeStamp(queryArg: unknown) {

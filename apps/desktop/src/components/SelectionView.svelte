@@ -53,12 +53,12 @@
 
 <div class="selection-view" data-testid={testId}>
 	{#if selectedFile}
-		{@const changeResult = idSelection.changeByKey(projectId, selectedFile)}
-		<ReduxResult {projectId} result={changeResult.current}>
+		{@const changeQuery = idSelection.changeByKey(projectId, selectedFile)}
+		<ReduxResult {projectId} result={changeQuery.result}>
 			{#snippet children(change)}
-				{@const diffResult = diffService.getDiff(projectId, change)}
+				{@const diffQuery = diffService.getDiff(projectId, change)}
 				{@const isExecutable = isExecutableStatus(change.status)}
-				<ReduxResult {projectId} result={diffResult.current}>
+				<ReduxResult {projectId} result={diffQuery.result}>
 					{#snippet children(diff, env)}
 						<div
 							class="selected-change-item"

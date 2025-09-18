@@ -1,10 +1,13 @@
 import type { PullRequest } from '$lib/forge/interface/types';
-import type { ReactiveResult } from '$lib/state/butlerModule';
+import type { QueryExtensions, ReactiveQuery } from '$lib/state/butlerModule';
 
 export interface ForgeListingService {
-	list(projectId: string, pollingInterval?: number): ReactiveResult<PullRequest[]>;
-	getByBranch(projectId: string, branchName: string): ReactiveResult<PullRequest>;
-	filterByBranch(projectId: string, branchName: string[]): ReactiveResult<PullRequest[]>;
+	list(projectId: string, pollingInterval?: number): ReactiveQuery<PullRequest[], QueryExtensions>;
+	getByBranch(projectId: string, branchName: string): ReactiveQuery<PullRequest | undefined>;
+	filterByBranch(
+		projectId: string,
+		branchName: string[]
+	): ReactiveQuery<PullRequest[], QueryExtensions>;
 	fetchByBranch(projectId: string, branchName: string[]): Promise<PullRequest[]>;
 	refresh(projectId: string): Promise<void>;
 }

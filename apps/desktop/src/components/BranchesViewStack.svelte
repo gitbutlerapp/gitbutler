@@ -15,10 +15,10 @@
 
 	const stackService = inject(STACK_SERVICE);
 
-	const stackResult = $derived(stackService.allStackById(projectId, stackId));
+	const stackQuery = $derived(stackService.allStackById(projectId, stackId));
 </script>
 
-<ReduxResult result={stackResult.current} {projectId} {stackId} {onerror}>
+<ReduxResult result={stackQuery.result} {projectId} {stackId} {onerror}>
 	{#snippet children(stack, { stackId, projectId })}
 		{#each getStackBranchNames(stack) as branchName, idx}
 			<BranchesViewBranch {projectId} {stackId} {branchName} isTopBranch={idx === 0} {onerror} />
