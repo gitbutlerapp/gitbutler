@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { focusable } from '$lib/focus/focusable';
+
 	interface Props {
 		small?: boolean;
 		disabled?: boolean;
@@ -36,6 +38,7 @@
 	{value}
 	{id}
 	{disabled}
+	use:focusable={{ button: true }}
 />
 
 <style lang="postcss">
