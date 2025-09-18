@@ -3,7 +3,7 @@
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import GitHubButton from '$lib/components/login/GitHubButton.svelte';
 	import GoogleButton from '$lib/components/login/GoogleButton.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { Button, SectionCard } from '@gitbutler/ui';
