@@ -2,9 +2,9 @@ import type { EditorThemeClasses } from 'svelte-lexical';
 
 // For reasons that man can not comprened, these specific css files may not be
 // imported using absolute imports.
-// eslint-disable-next-line no-relative-import-paths/no-relative-import-paths
+ 
 import '../css/component.css';
-// eslint-disable-next-line no-relative-import-paths/no-relative-import-paths
+ 
 import '../css/standard-theme.css';
 
 export const standardTheme: EditorThemeClasses = {

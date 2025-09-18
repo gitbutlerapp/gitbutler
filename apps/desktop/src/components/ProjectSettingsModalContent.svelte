@@ -4,13 +4,13 @@
 	import PreferencesForm from '$components/PreferencesForm.svelte';
 	import SettingsModalLayout from '$components/SettingsModalLayout.svelte';
 	import GeneralSettings from '$components/projectSettings/GeneralSettings.svelte';
-	import iconsJson from '@gitbutler/ui/data/icons.json';
-	import type { ProjectSettingsModalState } from '$lib/state/uiState.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
 	import { GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { GitLabState, GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
+	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
 	import { inject, provide } from '@gitbutler/core/context';
+	import iconsJson from '@gitbutler/ui/data/icons.json';
+	import type { ProjectSettingsModalState } from '$lib/state/uiState.svelte';
 
 	type Props = {
 		data: ProjectSettingsModalState;
