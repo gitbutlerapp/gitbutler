@@ -1,3 +1,7 @@
+# Don't allow package versions less than two days old to be installed.
+# https://pnpm.io/settings#minimumreleaseage
+# Packages can be exclude from this setting with the `minimumReleaseAgeExclude` property.
+minimumReleaseAge: 2880
 packages:
   - 'apps/*'
   - 'packages/*'
