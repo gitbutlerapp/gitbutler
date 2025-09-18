@@ -21,6 +21,14 @@ async fn main() -> Result<()> {
         trace::init()?;
     }
     let _op_span = tracing::info_span!("cli-op").entered();
+    static CHANNEL: Option<&str> = option_env!("CHANNEL");
+    if let Some(suffix) = &args.app_suffix
+        && CHANNEL != Some(suffix)
+    {
+        bail!(
+            "Launch with CHANNEL={suffix} cargo run -- but-testing… instead - must be compiled in!"
+        )
+    }
 
     match &args.cmd {
         args::Subcommands::AddProject {
