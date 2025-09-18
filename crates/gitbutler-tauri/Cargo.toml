@@ -70,7 +70,7 @@ but-api.workspace = true
 but-claude.workspace = true
 open = "5"
 url = "2.5.4"
-dirs.workspace = true
+but-path.workspace = true
 uuid.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
