@@ -1,6 +1,6 @@
 <script lang="ts">
 	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { Button, SectionCard } from '@gitbutler/ui';
