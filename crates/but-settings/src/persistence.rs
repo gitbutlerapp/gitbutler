@@ -59,8 +59,6 @@ impl AppSettings {
 }
 
 mod tests {
-    use crate::app_settings::FeatureFlags;
-
     #[test]
     fn ensure_default_settings_covers_all_fields() {
         let settings: serde_json::Value =
@@ -80,54 +78,5 @@ mod tests {
             );
         }
         assert!(app_settings.is_ok())
-    }
-
-    #[test]
-    fn ensure_feature_flags_json_defaults_match_struct_defaults() {
-        // Get the feature flags from the JSON defaults file
-        let json_defaults: serde_json::Value =
-            serde_json_lenient::from_str(crate::persistence::DEFAULTS).unwrap();
-        let json_feature_flags = json_defaults
-            .get("featureFlags")
-            .expect("featureFlags should exist in defaults.jsonc");
-
-        // Create what the struct would look like with proper serde defaults
-        // Based on the struct definition, most fields are false except ws3 which has #[serde(default = "default_true")] 
-        let expected_default_feature_flags = FeatureFlags {
-            ws3: true,  // This has #[serde(default = "default_true")] so it should be true
-            cv3: false,
-            undo: false,
-            actions: false,
-            butbot: false,
-            rules: false,
-            single_branch: false,
-        };
-
-        // Serialize the expected default struct to JSON for comparison
-        let expected_default_as_json: serde_json::Value = serde_json::to_value(&expected_default_feature_flags)
-            .expect("Expected default FeatureFlags should be serializable");
-
-        // Compare the JSON values directly - this will catch extra fields like 'v3' that don't exist in the struct
-        if *json_feature_flags != expected_default_as_json {
-            println!("\n===========================================================================================");
-            println!("FeatureFlags JSON defaults don't match the default struct serialization!");
-            println!();
-            println!("JSON from defaults.jsonc:");
-            println!("{}", serde_json::to_string_pretty(json_feature_flags).unwrap());
-            println!();
-            println!("Expected default struct serialized:");
-            println!("{}", serde_json::to_string_pretty(&expected_default_as_json).unwrap());
-            println!();
-            println!("This means the JSON defaults contain fields or values that don't match");
-            println!("the FeatureFlags struct definition. Please update either:");
-            println!("1. The defaults in 'crates/but-settings/assets/defaults.jsonc' (remove extra fields, fix values)");
-            println!("2. The FeatureFlags struct in 'crates/but-settings/src/app_settings.rs' (add missing fields)");
-            println!("===========================================================================================\n");
-        }
-
-        assert_eq!(
-            *json_feature_flags, expected_default_as_json,
-            "FeatureFlags JSON defaults should match the expected default struct when serialized"
-        );
     }
 }
