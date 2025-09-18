@@ -24,7 +24,6 @@ pub struct GitHubOAuthAppSettings {
 #[serde(rename_all = "camelCase")]
 pub struct FeatureFlags {
     /// Enable the usage of V3 workspace APIs.
-    #[serde(default = "default_true")]
     pub ws3: bool,
     /// Turn on the set a v3 version of checkout
     pub cv3: bool,
@@ -51,10 +50,6 @@ pub struct FeatureFlags {
     pub rules: bool,
     /// Enable single branch mode.
     pub single_branch: bool,
-}
-
-fn default_true() -> bool {
-    true
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
