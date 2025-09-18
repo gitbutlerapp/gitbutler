@@ -66,8 +66,8 @@
 			userService.getUser().then((cloudUser) => {
 				const userData: User = {
 					...cloudUser,
-					name: cloudUser.name || 'unknown',
-					email: cloudUser.email || 'unknown@example.com',
+					name: cloudUser.name || undefined,
+					email: cloudUser.email || undefined,
 					login: cloudUser.login || undefined,
 					picture: cloudUser.picture || '#',
 					locale: cloudUser.locale || 'en',
