@@ -165,6 +165,7 @@ async fn handle_command(
         "assign_hunk" => diff::assign_hunk_cmd(request.params),
         // Workspace commands
         "stacks" => workspace::stacks_cmd(request.params),
+        "head_info" => workspace::head_info_cmd(request.params),
         #[cfg(unix)]
         "show_graph_svg" => workspace::show_graph_svg_cmd(request.params),
         "stack_details" => workspace::stack_details_cmd(request.params),

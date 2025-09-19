@@ -148,6 +148,25 @@ pub(crate) mod inner {
         /// The workspace represents what `HEAD` is pointing to.
         pub is_entrypoint: bool,
     }
+
+    impl RefInfo {
+        /// Make sure only the stack and segment that is the entrypoint remains.
+        pub fn pruned_to_entrypoint(mut self) -> Self {
+            if self.is_entrypoint {
+                return self;
+            }
+            self.stacks
+                .retain(|s| s.segments.iter().any(|s| s.is_entrypoint));
+            if let Some(only_stack) = self.stacks.first_mut() {
+                let mut found_entrypoint = false;
+                only_stack.segments.retain(|s| {
+                    found_entrypoint |= s.is_entrypoint;
+                    found_entrypoint
+                })
+            }
+            self
+        }
+    }
 }
 
 impl inner::RefInfo {

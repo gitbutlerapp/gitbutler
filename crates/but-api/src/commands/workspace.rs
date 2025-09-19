@@ -42,7 +42,11 @@ pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo, Er
         },
     )
     .map_err(Into::into)
-    .and_then(|info| but_workspace::ui::RefInfo::for_ui(info, &repo).map_err(Into::into))
+    .and_then(|info| {
+        but_workspace::ui::RefInfo::for_ui(info, &repo)
+            .map(|ref_info| ref_info.pruned_to_entrypoint())
+            .map_err(Into::into)
+    })
 }
 
 #[api_cmd]
