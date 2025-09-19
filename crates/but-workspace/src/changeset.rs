@@ -6,10 +6,8 @@
 
 use crate::{
     RefInfo,
-    ui::{
-        PushStatus,
-        ref_info::{LocalCommit, LocalCommitRelation},
-    },
+    ref_info::{LocalCommit, LocalCommitRelation},
+    ui::PushStatus,
 };
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use but_core::{ChangeState, commit::TreeKind};
@@ -93,7 +91,7 @@ impl RefInfo {
             repo,
             upstream_commits.iter().filter_map(|id| {
                 but_core::Commit::from_id(id.attach(repo))
-                    .map(crate::ui::ref_info::Commit::from)
+                    .map(crate::ref_info::Commit::from)
                     .ok()
             }),
             cost_info,
@@ -261,7 +259,7 @@ impl PushStatus {
 
 fn changeset_identifier(
     repo: &gix::Repository,
-    commit: Option<&crate::ui::ref_info::Commit>,
+    commit: Option<&crate::ref_info::Commit>,
     elapsed: &mut Duration,
 ) -> anyhow::Result<Option<Identifier>> {
     let Some(commit) = commit else {
@@ -295,7 +293,7 @@ enum ChangeId {
 
 fn lookup_similar<'a>(
     map: &'a Identity,
-    commit: &crate::ui::ref_info::Commit,
+    commit: &crate::ref_info::Commit,
     expensive: Option<&Identifier>,
     change_id: ChangeId,
 ) -> Option<&'a gix::ObjectId> {
@@ -311,7 +309,7 @@ fn lookup_similar<'a>(
 /// Returns the fully-loaded commits suitable to be passed to UI, to have better re-use.
 fn create_similarity_lut(
     repo: &gix::Repository,
-    commits: impl Iterator<Item = impl Borrow<crate::ui::ref_info::Commit>>,
+    commits: impl Iterator<Item = impl Borrow<crate::ref_info::Commit>>,
     (max_commits, num_tracked_files): (usize, usize),
     expensive: bool,
 ) -> anyhow::Result<Identity> {
@@ -632,7 +630,7 @@ enum Identifier {
     ChangesetId(ChangesetID),
 }
 
-fn commit_data_id(c: &crate::ui::ref_info::Commit) -> anyhow::Result<Identifier> {
+fn commit_data_id(c: &crate::ref_info::Commit) -> anyhow::Result<Identifier> {
     let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
 
     let gix::actor::Signature {
