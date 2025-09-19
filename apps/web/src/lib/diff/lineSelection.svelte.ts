@@ -1,4 +1,4 @@
-import { copyToClipboard } from '@gitbutler/shared/clipboard';
+import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
 import {
 	readDiffLineKey,
 	type DiffLineKey,

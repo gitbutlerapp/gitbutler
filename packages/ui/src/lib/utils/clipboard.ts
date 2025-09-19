@@ -1,4 +1,4 @@
-import { chipToasts } from '@gitbutler/ui';
+import { chipToasts } from '$components/chipToast/chipToastStore';
 
 export function copyToClipboard(text: string) {
 	if (!navigator.clipboard) {
