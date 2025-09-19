@@ -14,6 +14,7 @@
 
 	let error = $state<string>();
 	let errorCode = $state<string>();
+	let confirmationSent = $state<boolean>(false);
 
 	const isFormValid = $derived(!!email && !!password);
 
@@ -50,9 +51,16 @@
 		if (response.type === 'error') {
 			error = response.errorMessage;
 			errorCode = response.errorCode;
+			confirmationSent = false;
 			console.error('Failed to resend confirmation email:', response.raw ?? response.errorMessage);
 		} else {
-			error = 'Confirmation email resent. Please check your inbox.';
+			error = undefined;
+			errorCode = undefined;
+			confirmationSent = true;
+			// Clear the confirmation message after 5 seconds
+			setTimeout(() => {
+				confirmationSent = false;
+			}, 5000);
 		}
 	}
 </script>
@@ -89,7 +97,13 @@
 
 			<Button type="submit" style="pop" disabled={!isFormValid}>Log in</Button>
 
-			{#if error}
+			{#if confirmationSent}
+				<InfoMessage filled outlined={false} style="success" class="m-top-16">
+					{#snippet content()}
+						<p>Confirmation email sent! Please check your inbox.</p>
+					{/snippet}
+				</InfoMessage>
+			{:else if error}
 				<InfoMessage filled outlined={false} style="error" class="m-top-16">
 					{#snippet content()}
 						{#if errorCode === 'email_not_verified'}
