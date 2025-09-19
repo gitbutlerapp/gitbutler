@@ -140,9 +140,9 @@
 		});
 	}
 
-	function close() {
+	async function close() {
+		await modal?.close();
 		reset();
-		modal?.close();
 	}
 
 	$effect(() => shortcutService.on('share-debug-info', () => show()));
