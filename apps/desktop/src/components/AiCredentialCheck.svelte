@@ -1,10 +1,9 @@
 <script lang="ts">
-	import InfoMessage from '$components/InfoMessage.svelte';
 	import { AI_SERVICE, type DiffInput } from '$lib/ai/service';
 	import { ModelKind } from '$lib/ai/types';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, Link } from '@gitbutler/ui';
+	import { Button, InfoMessage, Link } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 
 	const aiService = inject(AI_SERVICE);

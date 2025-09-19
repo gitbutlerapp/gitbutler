@@ -1,10 +1,9 @@
 <script lang="ts">
-	import InfoMessage from '$components/InfoMessage.svelte';
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, Icon, Link } from '@gitbutler/ui';
+	import { Button, Icon, InfoMessage, Link } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 
 	interface Props {

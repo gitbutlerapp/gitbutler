@@ -4,10 +4,9 @@
 </script>
 
 <script lang="ts" generics="A, B extends string | undefined">
-	import InfoMessage from '$components/InfoMessage.svelte';
 	import { isParsedError } from '$lib/error/parser';
 
-	import { Icon } from '@gitbutler/ui';
+	import { Icon, InfoMessage } from '@gitbutler/ui';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import type { Result } from '$lib/state/helpers';
 	import type { Snippet } from 'svelte';
