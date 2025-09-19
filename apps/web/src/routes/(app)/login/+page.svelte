@@ -6,7 +6,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, EmailTextbox, Textbox } from '@gitbutler/ui';
+	import { Button, EmailTextbox, Textbox, InfoMessage } from '@gitbutler/ui';
 	import { env } from '$env/dynamic/public';
 
 	let email = $state<string>();
@@ -90,27 +90,24 @@
 			<Button type="submit" style="pop" disabled={!isFormValid}>Log in</Button>
 
 			{#if error}
-				<div class="error-message">
-					<span>
-						{error}
-					</span>
-				</div>
-				{#if errorCode === 'email_not_verified'}
-					<span>
-						Please verify your email address before logging in. Check your inbox for a verification
-						email or
-					</span>
-					<Button
-						type="button"
-						onclick={resendConfirmationEmail}
-						disabled={!email}
-						tooltip={!email
-							? 'Please enter your email in the field above to resend the confirmation email.'
-							: 'Resend confirmation email'}
-					>
-						resend the confirmation email</Button
-					>
-				{/if}
+				<InfoMessage filled outlined={false} style="error" class="m-top-16">
+					{#snippet content()}
+						{#if errorCode === 'email_not_verified'}
+							<p>
+								Verify your email before logging in. Check your inbox or <button
+									type="button"
+									class="resend-confirm-btn"
+									onclick={resendConfirmationEmail}
+									disabled={!email}
+								>
+									resend the confirmation email</button
+								>.
+							</p>
+						{:else}
+							<p>{error}</p>
+						{/if}
+					{/snippet}
+				</InfoMessage>
 			{/if}
 
 			<div class="login-form__social">
@@ -204,6 +201,12 @@
 			border-bottom: 1px solid var(--clr-border-2);
 			content: '';
 		}
+	}
+
+	.resend-confirm-btn {
+		text-decoration: underline;
+		text-decoration-style: dotted;
+		cursor: pointer;
 	}
 
 	.error-message {

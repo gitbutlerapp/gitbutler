@@ -1,5 +1,4 @@
 <script lang="ts" module>
-	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 	export type MessageStyle = 'info' | 'warning' | 'error' | 'success';
 </script>
 
@@ -7,6 +6,7 @@
 	import { Button, Icon } from '@gitbutler/ui';
 	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
 
+	import type { ComponentColorType } from '$lib/utils/colorTypes';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
@@ -18,6 +18,7 @@
 		style?: MessageStyle;
 		outlined?: boolean;
 		filled?: boolean;
+		class?: string;
 		primaryLabel?: string | undefined;
 		primaryIcon?: IconName | undefined;
 		primaryTestId?: string | undefined;
@@ -42,6 +43,7 @@
 		style = 'info',
 		outlined = true,
 		filled = false,
+		class: className = '',
 		primaryLabel = '',
 		primaryIcon,
 		primaryTestId,
@@ -87,7 +89,7 @@
 
 <div
 	data-testid={testId}
-	class="info-message {style}"
+	class="info-message {style} {className}"
 	class:has-border={outlined}
 	class:has-background={filled}
 	class:shadow

@@ -2,7 +2,6 @@
 	import AIPromptEdit from '$components/AIPromptEdit.svelte';
 	import AiCredentialCheck from '$components/AiCredentialCheck.svelte';
 	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
-	import InfoMessage from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
 	import { AISecretHandle, AI_SERVICE, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
@@ -12,6 +11,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import {
 		Icon,
+		InfoMessage,
 		Link,
 		RadioButton,
 		SectionCard,
