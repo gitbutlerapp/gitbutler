@@ -27,10 +27,11 @@
 <style lang="postcss">
 	.footer {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		justify-content: flex-end;
 		margin-top: 20px;
-		gap: 24px;
+		gap: 12px 24px;
 		color: var(--clr-text-2);
 	}
 

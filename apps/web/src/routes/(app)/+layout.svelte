@@ -177,21 +177,20 @@
 
 		display: flex;
 		flex-direction: column;
+		width: 100%;
 		min-height: 100vh;
-		margin: 0 auto;
 		padding: 24px var(--layout-side-paddings);
-
 		&:not(.full-screen) {
 			max-width: calc(1440px + var(--layout-side-paddings) * 2);
+		}
 
-			@media (--desktop-small-viewport) {
-				--layout-side-paddings: 40px;
-			}
+		@media (--desktop-small-viewport) {
+			--layout-side-paddings: 40px;
+		}
 
-			@media (--mobile-viewport) {
-				--layout-side-paddings: 16px;
-				padding: var(--layout-side-paddings);
-			}
+		@media (--mobile-viewport) {
+			--layout-side-paddings: 16px;
+			padding: var(--layout-side-paddings);
 		}
 	}
 

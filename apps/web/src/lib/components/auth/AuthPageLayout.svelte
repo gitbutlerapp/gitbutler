@@ -27,7 +27,7 @@
 <div class="auth-page">
 	<div class="auth-form__container">
 		<div class="auth-form">
-			<h1 class="text-serif-42 m-bottom-40">
+			<h1 class="text-serif-42 auth-form__title">
 				<i>{title}</i>
 				{#if subtitle}
 					{subtitle}
@@ -69,7 +69,7 @@
 	.auth-form__container {
 		display: flex;
 		width: 100%;
-		max-width: 1000px;
+		max-width: 1048px;
 		overflow: hidden;
 		border-radius: var(--radius-xl);
 	}
@@ -81,6 +81,10 @@
 		width: 100%;
 		padding: 50px 80px 30px;
 		background-color: var(--clr-bg-1);
+	}
+
+	.auth-form__title {
+		margin-bottom: 40px;
 	}
 
 	.auth-form__social {
@@ -136,6 +140,29 @@
 
 		:global(svg) {
 			max-width: 400px;
+		}
+	}
+
+	@media (max-width: 1020px) {
+		.auth-form {
+			flex: 5;
+			padding: 40px 40px 20px;
+		}
+	}
+
+	@media (max-width: 840px) {
+		.auth-form__illustration {
+			display: none;
+		}
+
+		.auth-form__title {
+			margin-bottom: 24px;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.auth-form {
+			padding: 30px 20px 20px;
 		}
 	}
 </style>
