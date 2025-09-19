@@ -82,24 +82,24 @@
 			<PasswordConfirmation bind:this={passwordComponent} bind:password bind:passwordConfirmation />
 		</div>
 
+		{#if error}
+			<InfoMessage filled outlined={false} style="error" class="m-bottom-16">
+				{#snippet content()}
+					{error}
+				{/snippet}
+			</InfoMessage>
+		{/if}
+
+		{#if message}
+			<InfoMessage filled outlined={false} style="success" class="m-bottom-16">
+				{#snippet content()}
+					{message}
+				{/snippet}
+			</InfoMessage>
+		{/if}
+
 		<Button type="submit" style="pop" disabled={!isFormValid}>Create account</Button>
 	</form>
-
-	{#if error}
-		<InfoMessage filled outlined={false} style="error" class="m-top-16">
-			{#snippet content()}
-				{error}
-			{/snippet}
-		</InfoMessage>
-	{/if}
-
-	{#if message}
-		<InfoMessage filled outlined={false} style="success" class="m-top-16">
-			{#snippet content()}
-				{message}
-			{/snippet}
-		</InfoMessage>
-	{/if}
 </AuthPageLayout>
 
 <style lang="postcss">

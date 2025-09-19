@@ -46,16 +46,17 @@
 	{:else}
 		<div class="service-form__inputs">
 			<EmailTextbox bind:value={email} label="Email" />
+
+			{#if error}
+				<InfoMessage filled outlined={false} style="error">
+					{#snippet content()}
+						{error}
+					{/snippet}
+				</InfoMessage>
+			{/if}
+
 			<Button style="pop" type="submit" onclick={handleSubmit}>Send a reset link</Button>
 		</div>
-
-		{#if error}
-			<InfoMessage filled outlined={false} style="error" class="m-top-16">
-				{#snippet content()}
-					{error}
-				{/snippet}
-			</InfoMessage>
-		{/if}
 	{/if}
 </AuthUtilityLayout>
 
