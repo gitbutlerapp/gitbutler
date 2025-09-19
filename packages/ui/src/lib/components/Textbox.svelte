@@ -39,6 +39,7 @@
 		onclick?: (e: MouseEvent & { currentTarget: EventTarget & HTMLInputElement }) => void;
 		onmousedown?: (e: MouseEvent & { currentTarget: EventTarget & HTMLInputElement }) => void;
 		oninput?: (val: string) => void;
+		onblur?: (e: FocusEvent & { currentTarget: EventTarget & HTMLInputElement }) => void;
 		onchange?: (val: string) => void;
 		onkeydown?: (e: KeyboardEvent & { currentTarget: EventTarget & HTMLInputElement }) => void;
 	}
@@ -75,6 +76,7 @@
 		onclick,
 		onmousedown,
 		oninput,
+		onblur,
 		onchange,
 		onkeydown
 	}: Props = $props();
@@ -181,6 +183,7 @@
 			bind:value
 			bind:this={htmlInput}
 			use:focusable={{ button: true }}
+			{onblur}
 			{onclick}
 			{onmousedown}
 			oninput={(e) => {
