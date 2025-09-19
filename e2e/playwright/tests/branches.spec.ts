@@ -137,7 +137,7 @@ test('should be able to apply a remote branch and integrate the remote changes -
 	const fileCPath = gitbutler.pathInWorkdir('local-clone/c_file');
 
 	await gitbutler.runScript('project-with-remote-branches.sh');
-	await gitbutler.runScript('project-with-remote-branches__apply-branch-1.sh');
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
 
 	await page.goto('/');
 
@@ -197,7 +197,7 @@ test('should be able to apply a remote branch and integrate the remote changes -
 	const filePath = gitbutler.pathInWorkdir('local-clone/a_file');
 
 	await gitbutler.runScript('project-with-remote-branches.sh');
-	await gitbutler.runScript('project-with-remote-branches__apply-branch-1.sh');
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
 
 	await page.goto('/');
 
@@ -543,7 +543,7 @@ test('should handle gracefully applying two conflicting branches', async ({
 	gitbutler = await startGitButler(workdir, configdir, context);
 
 	await gitbutler.runScript('project-with-remote-branches.sh');
-	await gitbutler.runScript('project-with-remote-branches__apply-branch-1.sh');
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
 
 	await page.goto('/');
 
