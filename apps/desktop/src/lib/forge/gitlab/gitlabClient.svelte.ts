@@ -55,7 +55,7 @@ export function gitlab(extra: unknown): {
 	forkProjectId: string;
 	upstreamProjectId: string;
 } {
-	if (!hasGitLab(extra)) throw new Error('No GitHub client!');
+	if (!hasGitLab(extra)) throw new Error('No GitLab client!');
 	if (!extra.gitLabClient.api) throw new Error('Failed to find GitLab client');
 	if (!extra.gitLabClient.forkProjectId) throw new Error('Failed to find fork project ID');
 	if (!extra.gitLabClient.upstreamProjectId) throw new Error('Failed to find upstream project ID');
