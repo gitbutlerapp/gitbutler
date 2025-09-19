@@ -64,17 +64,17 @@
 		await userService.refreshUser();
 	}
 
-	$effect(() => {
-		if (!isLoggedIn) {
-			goto(routesService.loginPath());
-		} else if (isFinalized) {
-			goto(routesService.homePath());
-		}
-	});
+	// $effect(() => {
+	// 	if (!isLoggedIn) {
+	// 		goto(routesService.loginPath());
+	// 	} else if (isFinalized) {
+	// 		goto(routesService.homePath());
+	// 	}
+	// });
 </script>
 
 <svelte:head>
-	<title>GitButler | Login</title>
+	<title>GitButler | Finalize Account</title>
 </svelte:head>
 
 <form onsubmit={handleSubmit} class="finalize-form">
