@@ -188,7 +188,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
     ) -> Result<Self> {
         let meta = ctx.meta(permission.read_permission())?;
         let repo = ctx.gix_repo()?;
-        let ref_info = but_workspace::head_info(
+        let _ref_info = but_workspace::head_info(
             &repo,
             &*meta,
             Options {
