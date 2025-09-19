@@ -81,7 +81,8 @@ impl Workspace {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(Clone, Eq, PartialEq, Default)]
+#[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct Branch {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
@@ -132,7 +133,8 @@ impl<T: std::fmt::Debug> std::fmt::Debug for MaybeDebug<'_, T> {
 ///
 /// It allows keeping track of when it changed, but also if we created it initially, a useful
 /// bit of information.
-#[derive(Default, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, Default, Clone, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct RefInfo {
     /// The time of creation, *if we created the reference*.
     pub created_at: Option<gix::date::Time>,
@@ -219,7 +221,8 @@ impl WorkspaceStack {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(Clone, Eq, PartialEq, Default)]
+#[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct Review {
     /// The number for the PR that was associated with this branch.
     pub pull_request: Option<usize>,

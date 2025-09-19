@@ -136,6 +136,177 @@ mod changes_in_branch {
             "The reference 'refs/heads/does-not-exist' did not exist",
             "passing strange ref-names still causes an error - they must exist"
         );
+
+        let ref_info = ui::RefInfo::for_ui(
+            but_workspace::head_info(&repo, &*meta, Default::default())?,
+            &repo,
+        )?;
+        insta::assert_json_snapshot!(&ref_info, @r#"
+        {
+          "workspaceRef": {
+            "fullNameBytes": [
+              114,
+              101,
+              102,
+              115,
+              47,
+              104,
+              101,
+              97,
+              100,
+              115,
+              47,
+              103,
+              105,
+              116,
+              98,
+              117,
+              116,
+              108,
+              101,
+              114,
+              47,
+              119,
+              111,
+              114,
+              107,
+              115,
+              112,
+              97,
+              99,
+              101
+            ],
+            "displayName": "gitbutler/workspace"
+          },
+          "stacks": [
+            {
+              "id": null,
+              "base": "c166d42d4ef2e5e742d33554d03805cfb0b24d11",
+              "segments": [
+                {
+                  "refName": {
+                    "fullNameBytes": [
+                      114,
+                      101,
+                      102,
+                      115,
+                      47,
+                      104,
+                      101,
+                      97,
+                      100,
+                      115,
+                      47,
+                      65
+                    ],
+                    "displayName": "A"
+                  },
+                  "remoteTrackingRefName": {
+                    "fullNameBytes": [
+                      114,
+                      101,
+                      102,
+                      115,
+                      47,
+                      114,
+                      101,
+                      109,
+                      111,
+                      116,
+                      101,
+                      115,
+                      47,
+                      111,
+                      114,
+                      105,
+                      103,
+                      105,
+                      110,
+                      47,
+                      65
+                    ],
+                    "displayName": "A",
+                    "remoteName": "origin"
+                  },
+                  "commits": [
+                    {
+                      "id": "d79bba960b112dbd25d45921c47eeda22288022b",
+                      "parentIds": [
+                        "c166d42d4ef2e5e742d33554d03805cfb0b24d11"
+                      ],
+                      "message": "new file in A\n",
+                      "hasConflicts": false,
+                      "state": {
+                        "type": "LocalAndRemote",
+                        "subject": "d79bba960b112dbd25d45921c47eeda22288022b"
+                      },
+                      "createdAt": 946684800000,
+                      "author": {
+                        "name": "author",
+                        "email": "author@example.com",
+                        "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
+                      }
+                    }
+                  ],
+                  "commitsOnRemote": [
+                    {
+                      "id": "89cc2d303514654e9cab2d05b9af08b420a740c1",
+                      "message": "change in A\n",
+                      "createdAt": 946684800000,
+                      "author": {
+                        "name": "author",
+                        "email": "author@example.com",
+                        "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
+                      }
+                    }
+                  ],
+                  "commitsOutside": null,
+                  "metadata": null,
+                  "isEntrypoint": false,
+                  "pushStatus": "unpushedCommitsRequiringForce",
+                  "base": "c166d42d4ef2e5e742d33554d03805cfb0b24d11"
+                }
+              ]
+            }
+          ],
+          "target": {
+            "remoteTrackingRef": {
+              "fullNameBytes": [
+                114,
+                101,
+                102,
+                115,
+                47,
+                114,
+                101,
+                109,
+                111,
+                116,
+                101,
+                115,
+                47,
+                111,
+                114,
+                105,
+                103,
+                105,
+                110,
+                47,
+                109,
+                97,
+                105,
+                110
+              ],
+              "displayName": "main",
+              "remoteName": "origin"
+            },
+            "commitsAhead": 0
+          },
+          "isManagedRef": true,
+          "isManagedCommit": true,
+          "isEntrypoint": true
+        }
+        "#);
         Ok(())
     }
 }
