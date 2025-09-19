@@ -13,7 +13,71 @@
 	let error = $state<string>();
 	let message = $state<string>();
 
+	let emailTextbox: any;
+	let passwordTouched = $state(false);
+	let passwordConfirmationTouched = $state(false);
+
 	const passwordsMatch = $derived(password === passwordConfirmation);
+
+	function validatePassword(pwd: string) {
+		if (!pwd) return { isValid: false, errors: [] };
+
+		const errors = [];
+
+		// Length check (minimum 8 characters)
+		if (pwd.length < 8) {
+			errors.push('at least 8 characters');
+		}
+
+		// Must contain at least one lowercase letter
+		if (!/[a-z]/.test(pwd)) {
+			errors.push('one lowercase letter');
+		}
+
+		// Must contain at least one uppercase letter
+		if (!/[A-Z]/.test(pwd)) {
+			errors.push('one uppercase letter');
+		}
+
+		// Must contain at least one number
+		if (!/\d/.test(pwd)) {
+			errors.push('one number');
+		}
+
+		// Must contain at least one special character
+		if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) {
+			errors.push('one special character (!@#$%^&*(),.?":{}|<>)');
+		}
+
+		return { isValid: errors.length === 0, errors };
+	}
+
+	const passwordValidation = $derived(validatePassword(password || ''));
+	const isPasswordValid = $derived(passwordValidation.isValid);
+	const passwordError = $derived(
+		passwordTouched && password && !isPasswordValid
+			? `Password must contain: ${passwordValidation.errors.join(', ')}`
+			: undefined
+	);
+	const passwordHelperText = $derived(
+		password && isPasswordValid
+			? 'Strong password! ✅'
+			: '8+ characters with uppercase, lowercase, number, and symbol'
+	);
+	const passwordConfirmationError = $derived(
+		passwordConfirmationTouched && passwordConfirmation && !passwordsMatch
+			? 'Passwords do not match'
+			: undefined
+	);
+
+	const isFormValid = $derived(
+		username?.trim() &&
+			email?.trim() &&
+			emailTextbox?.isValid() &&
+			isPasswordValid &&
+			passwordConfirmation?.trim() &&
+			passwordsMatch
+	);
 
 	const loginService = inject(LOGIN_SERVICE);
 	const routesService = inject(WEB_ROUTES_SERVICE);
@@ -65,6 +129,7 @@
 		<div class="auth-form__inputs">
 			<Textbox bind:value={username} label="Username" />
 			<EmailTextbox
+				bind:this={emailTextbox}
 				label="Email"
 				placeholder=" "
 				bind:value={email}
@@ -72,16 +137,33 @@
 				autocorrect={false}
 				spellcheck
 			/>
-			<Textbox bind:value={password} label="Password" type="password" autocomplete />
 			<Textbox
-				bind:value={passwordConfirmation}
-				label="Password confirmation"
+				bind:value={password}
+				label="Password"
 				type="password"
 				autocomplete
+				error={passwordError}
+				helperText={passwordHelperText}
+				onblur={() => {
+					passwordTouched = true;
+				}}
+			/>
+			<Textbox
+				bind:value={passwordConfirmation}
+				label="Confirm password"
+				type="password-non-visible"
+				autocomplete
+				error={passwordConfirmationError}
+				oninput={() => {
+					passwordConfirmationTouched = true;
+				}}
+				onblur={() => {
+					passwordConfirmationTouched = true;
+				}}
 			/>
 		</div>
 
-		<Button type="submit" style="pop">Create account</Button>
+		<Button type="submit" style="pop" disabled={!isFormValid}>Create account</Button>
 	</form>
 
 	{#if error}
