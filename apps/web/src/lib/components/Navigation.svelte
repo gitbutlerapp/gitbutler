@@ -10,10 +10,10 @@
 	import { env } from '$env/dynamic/public';
 
 	interface NavigationProps {
-		ghost?: boolean;
+		markOnly?: boolean;
 	}
 
-	const { ghost }: NavigationProps = $props();
+	const { markOnly }: NavigationProps = $props();
 
 	const authService = inject(AUTH_SERVICE);
 	const token = $derived(authService.tokenReadable);
@@ -33,8 +33,8 @@
 </script>
 
 <nav class="navigation">
-	{#if ghost}
-		<GitbutlerLogoLink ghost />
+	{#if markOnly}
+		<GitbutlerLogoLink markOnly />
 	{:else}
 		<GitbutlerLogoLink />
 
