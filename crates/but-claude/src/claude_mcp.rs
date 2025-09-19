@@ -38,11 +38,18 @@ type McpServers = HashMap<String, McpServer>;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServer {
+    #[serde(skip_serializing_if = "Option::is_none")]
     r#type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     command: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     args: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     env: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    headers: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -120,6 +127,7 @@ impl ClaudeMcpConfig {
                 url: None,
                 args: Some(vec!["claude".to_owned(), "pp".to_owned()]),
                 env: Some(HashMap::new()),
+                headers: None,
             },
         );
         out
