@@ -10,8 +10,8 @@ use gitbutler_branch_actions::upstream_integration::{
     StackStatuses,
 };
 use gitbutler_branch_actions::{
-    BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, MoveCommitIllegalAction,
-    RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder,
+    BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, MoveBranchResult,
+    MoveCommitIllegalAction, RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder,
 };
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
@@ -478,6 +478,28 @@ pub fn move_commit(
     let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::move_commit(&ctx, target_stack_id, commit_id, source_stack_id)
         .map_err(Into::into)
+}
+
+#[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
+pub fn move_branch(
+    project_id: ProjectId,
+    target_stack_id: StackId,
+    target_branch_name: String,
+    source_stack_id: StackId,
+    subject_branch_name: String,
+) -> Result<MoveBranchResult, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    gitbutler_branch_actions::move_branch(
+        &ctx,
+        target_stack_id,
+        target_branch_name.as_str(),
+        source_stack_id,
+        subject_branch_name.as_str(),
+    )
+    .map_err(Into::into)
 }
 
 #[api_cmd]

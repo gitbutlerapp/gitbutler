@@ -4,15 +4,17 @@
 	interface Props {
 		hovered: boolean;
 		activated: boolean;
+		advertize?: boolean;
 		yOffsetPx?: number;
 	}
 
-	const { hovered, activated, yOffsetPx = 0 }: Props = $props();
+	const { hovered, activated, advertize, yOffsetPx = 0 }: Props = $props();
 </script>
 
 <div
 	class="dropzone-target container"
 	class:activated
+	class:advertize
 	class:hovered
 	style:--y-offset="{pxToRem(yOffsetPx)}rem"
 >
@@ -35,6 +37,7 @@
 
 		height: var(--dropzone-height);
 		margin-top: calc(var(--dropzone-overlap) * -1);
+		transition: background-color 0.3s ease-in-out;
 
 		/* It is very important that all children are pointer-events: none */
 		/* https://stackoverflow.com/questions/7110353/html5-dragleave-fired-when-hovering-a-child-element */
@@ -49,6 +52,12 @@
 		&.hovered {
 			& .indicator {
 				background-color: var(--clr-theme-pop-element);
+			}
+		}
+
+		&:not(.hovered).advertize {
+			& .indicator {
+				background-color: var(--clr-theme-pop-soft-hover);
 			}
 		}
 	}

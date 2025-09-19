@@ -25,6 +25,7 @@ export type Operation =
 	| 'SquashCommit'
 	| 'UpdateCommitMessage'
 	| 'MoveCommit'
+	| 'MoveBranch'
 	| 'RestoreFromSnapshot'
 	| 'ReorderCommit'
 	| 'InsertBlankCommit'

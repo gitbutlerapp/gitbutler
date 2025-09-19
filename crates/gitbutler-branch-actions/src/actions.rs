@@ -1,6 +1,7 @@
 use super::r#virtual as vbranch;
 use crate::branch_upstream_integration;
 use crate::branch_upstream_integration::IntegrationStrategy;
+use crate::move_branch::MoveBranchResult;
 use crate::move_commits::{self, MoveCommitIllegalAction};
 use crate::reorder::{self, StackOrder};
 use crate::upstream_integration::{
@@ -465,6 +466,30 @@ pub fn move_commit(
         commit_oid,
         guard.write_permission(),
         source_stack_id,
+    )
+}
+
+pub fn move_branch(
+    ctx: &CommandContext,
+    target_stack_id: StackId,
+    target_branch_name: &str,
+    source_stack_id: StackId,
+    subject_branch_name: &str,
+) -> Result<MoveBranchResult> {
+    let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    ensure_open_workspace_mode(ctx).context("Moving a branch requires open workspace mode")?;
+    let _ = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::MoveBranch),
+        guard.write_permission(),
+    );
+    crate::move_branch::move_branch(
+        ctx,
+        target_stack_id,
+        target_branch_name,
+        source_stack_id,
+        subject_branch_name,
+        guard.write_permission(),
     )
 }
 

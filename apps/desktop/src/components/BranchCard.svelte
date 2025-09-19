@@ -11,11 +11,12 @@
 	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import CodegenBadge from '$components/codegen/CodegenBadge.svelte';
+	import { BranchDropData } from '$lib/branches/dropHandler';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { CodegenRuleDropData, CodegenRuleDropHandler } from '$lib/codegen/dropzone';
 	import { useGoToCodegenPage } from '$lib/codegen/redirect.svelte';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
-	import { draggableChips } from '$lib/dragging/draggable';
+	import { draggableBranch, draggableChips } from '$lib/dragging/draggable';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
@@ -76,6 +77,7 @@
 		isConflicted: boolean;
 		contextMenu?: typeof BranchHeaderContextMenu;
 		dropzones: DropzoneHandler[];
+		numberOfCommits: number;
 		onclick: () => void;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
@@ -151,6 +153,19 @@
 	class:draft={args.type === 'draft-branch'}
 	data-series-name={branchName}
 	data-testid={TestId.BranchCard}
+	data-remove-from-panning
+	use:draggableBranch={{
+		disabled: args.type !== 'stack-branch' || args.isConflicted,
+		label: branchName,
+		pushStatus: args.type === 'stack-branch' ? args.pushStatus : undefined,
+		viewportId: 'board-viewport',
+		data:
+			args.type === 'stack-branch' && args.stackId
+				? new BranchDropData(args.stackId, branchName, args.isConflicted, args.numberOfCommits)
+				: undefined,
+		dropzoneRegistry,
+		dragStateService
+	}}
 >
 	{#if args.type === 'stack-branch'}
 		{@const moveHandler = args.stackId
@@ -174,13 +189,11 @@
 		>
 			{#snippet overlay({ hovered, activated, handler })}
 				{@const label =
-					handler instanceof MoveCommitDzHandler
+					handler instanceof MoveCommitDzHandler || handler instanceof CodegenRuleDropHandler
 						? 'Move here'
 						: handler instanceof ReorderCommitDzHandler
 							? 'Reorder here'
-							: handler instanceof CodegenRuleDropHandler
-								? 'Move here'
-								: 'Start commit'}
+							: 'Start commit'}
 				<CardOverlay {hovered} {activated} {label} />
 			{/snippet}
 
