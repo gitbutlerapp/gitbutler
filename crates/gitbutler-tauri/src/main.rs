@@ -209,7 +209,6 @@ fn main() {
                 .plugin(log.build())
                 .invoke_handler(tauri::generate_handler![
                     git::git_remote_branches,
-                    git::git_head,
                     git::delete_all_data,
                     git::git_set_global_config,
                     git::git_remove_global_config,
