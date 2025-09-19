@@ -44,11 +44,6 @@
 			errors.push('one number');
 		}
 
-		// Must contain at least one special character
-		if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) {
-			errors.push('one special character (!@#$%^&*(),.?":{}|<>)');
-		}
-
 		return { isValid: errors.length === 0, errors };
 	}
 
@@ -62,7 +57,7 @@
 	const passwordHelperText = $derived(
 		password && isPasswordValid
 			? 'Strong password! ✅'
-			: '8+ characters with uppercase, lowercase, number, and symbol'
+			: '8+ characters with uppercase, lowercase, and number'
 	);
 	const passwordConfirmationError = $derived(
 		passwordConfirmationTouched && passwordConfirmation && !passwordsMatch
