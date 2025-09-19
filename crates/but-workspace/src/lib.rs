@@ -222,7 +222,7 @@ pub struct RefInfo {
 pub struct AncestorWorkspaceCommit {
     /// The commits along the first parent that are between the managed workspace reference and the managed workspace commit.
     /// The vec is never empty.
-    pub commits_outside: Vec<ref_info::ui::Commit>,
+    pub commits_outside: Vec<ui::ref_info::Commit>,
     /// The index of the segment that actually holds the managed workspace commit.
     pub segment_with_managed_commit: SegmentIndex,
     /// The index of the workspace commit within the `commits` array in its parent segment.
