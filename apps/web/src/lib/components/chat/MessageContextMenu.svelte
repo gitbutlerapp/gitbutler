@@ -1,8 +1,8 @@
 <script lang="ts">
 	import RulesModal from '$lib/components/rules/RulesModal.svelte';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
-
 	import { ContextMenu, ContextMenuItem, ContextMenuSection } from '@gitbutler/ui';
+	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
+
 	import type { ChatMessage } from '@gitbutler/shared/chat/types';
 
 	type Props = {

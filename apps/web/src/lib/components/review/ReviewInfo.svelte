@@ -4,7 +4,6 @@
 	import { inject } from '@gitbutler/core/context';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
 	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import {
 		getUsersWithAvatars,
 		getPatchApproversWithAvatars,
@@ -15,6 +14,7 @@
 	import { type PatchCommit } from '@gitbutler/shared/patches/types';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { AvatarGroup, Icon } from '@gitbutler/ui';
+	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
 
 	const NO_REVIEWERS = 'Not reviewed yet';
 	const NO_CONTRIBUTORS = 'No contributors';

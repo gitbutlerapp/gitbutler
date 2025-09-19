@@ -14,7 +14,6 @@
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
 	import { LATEST_BRANCH_LOOKUP_SERVICE } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { BranchStatus, type Branch } from '@gitbutler/shared/branches/types';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound, and, isError, map } from '@gitbutler/shared/network/loadable';
@@ -38,6 +37,7 @@
 	import FileUploadPlugin, {
 		type DropFileResult
 	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';
+	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
 

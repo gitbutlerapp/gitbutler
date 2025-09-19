@@ -3,6 +3,7 @@ use crate::{r#virtual::IsCommitIntegrated, BranchManagerExt, VirtualBranchesExt 
 use anyhow::{anyhow, bail, Context, Result};
 use but_core::Reference;
 use but_rebase::{RebaseOutput, RebaseStep};
+use but_workspace::ref_info::Options;
 use but_workspace::stack_ext::StackExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
@@ -185,6 +186,17 @@ impl<'a> UpstreamIntegrationContext<'a> {
         permission: &'a mut WorktreeWritePermission,
         gix_repo: &'a gix::Repository,
     ) -> Result<Self> {
+        let meta = ctx.meta(permission.read_permission())?;
+        let repo = ctx.gix_repo()?;
+        let _ref_info = but_workspace::head_info(
+            &repo,
+            &*meta,
+            Options {
+                expensive_commit_info: true,
+                traversal: meta.graph_options(),
+            },
+        )?;
+
         let virtual_branches_handle = ctx.project().virtual_branches();
         let target = virtual_branches_handle.get_default_target()?;
         let repo = ctx.repo();

@@ -12,8 +12,8 @@
 		type RuleFilterMap
 	} from '$lib/rules/rule';
 	import { typedKeys } from '$lib/utils/object';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { Button, Select, SelectItem, Textbox, Icon, FileStatusBadge } from '@gitbutler/ui';
+	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
 	import type { FileStatus } from '@gitbutler/ui/components/file/types';
 
 	const FILE_STATUS_OPTIONS: FileStatus[] = ['addition', 'modification', 'deletion', 'rename'];
