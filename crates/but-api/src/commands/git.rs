@@ -70,16 +70,6 @@ pub fn git_index_size(project_id: ProjectId) -> Result<usize, Error> {
 #[api_cmd]
 #[tauri::command(async)]
 #[instrument(err(Debug))]
-pub fn git_head(project_id: ProjectId) -> Result<String, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let head = ctx.repo().head().context("failed to get repository head")?;
-    Ok(head.name().unwrap().to_string())
-}
-
-#[api_cmd]
-#[tauri::command(async)]
-#[instrument(err(Debug))]
 pub fn delete_all_data() -> Result<(), Error> {
     for project in gitbutler_project::list().context("failed to list projects")? {
         gitbutler_project::delete(project.id)
