@@ -164,7 +164,7 @@
 	{#if error}
 		<InfoMessage filled outlined={false} style="error" class="m-top-16">
 			{#snippet content()}
-				<p>{error}</p>
+				{error}
 			{/snippet}
 		</InfoMessage>
 	{/if}
@@ -172,7 +172,7 @@
 	{#if message}
 		<InfoMessage filled outlined={false} style="success" class="m-top-16">
 			{#snippet content()}
-				<p>{message}</p>
+				{message}
 			{/snippet}
 		</InfoMessage>
 	{/if}

@@ -3,14 +3,15 @@
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, EmailTextbox } from '@gitbutler/ui';
+	import { Button, EmailTextbox, InfoMessage } from '@gitbutler/ui';
 
 	const loginService = inject(LOGIN_SERVICE);
 	const routesService = inject(WEB_ROUTES_SERVICE);
 
 	let email = $state<string>();
 	let error = $state<string>();
-	let message = $state<string>();
+	let isLinkSent = $state<boolean>(false);
+	let sentToEmail = $state<string>();
 
 	async function handleSubmit() {
 		if (!email) {
@@ -24,7 +25,8 @@
 			console.error('Reset password failed:', response.raw ?? response.errorMessage);
 		} else {
 			error = undefined;
-			message = response.data.message;
+			sentToEmail = email;
+			isLinkSent = true;
 		}
 	}
 </script>
@@ -36,14 +38,31 @@
 <RedirectIfLoggedIn />
 
 <div class="service-form__page">
+	<!-- Form state -->
 	<form onsubmit={handleSubmit} class="service-form">
-		<h1 class="text-serif-42 m-bottom-20">Forgot password?</h1>
+		{#if isLinkSent}
+			<h1 class="text-serif-42 m-bottom-20">Link sent!</h1>
+			<p class="text-13 text-body">
+				We've sent a password reset link to: <i class="clr-text-2">{sentToEmail}</i>
+				<br />
+				Click the link in your email to reset your password.
+			</p>
+		{:else}
+			<h1 class="text-serif-42 m-bottom-20">Forgot password?</h1>
 
-		<div class="service-form__inputs">
-			<EmailTextbox bind:value={email} label="Email" />
-			<Button style="pop" type="submit">Send a reset link</Button>
-		</div>
+			<div class="service-form__inputs">
+				<EmailTextbox bind:value={email} label="Email" />
+				<Button style="pop" type="submit">Send a reset link</Button>
+			</div>
 
+			{#if error}
+				<InfoMessage filled outlined={false} style="error" class="m-top-16">
+					{#snippet content()}
+						{error}
+					{/snippet}
+				</InfoMessage>
+			{/if}
+		{/if}
 		<div class="text-12 service-form__footer">
 			<p>
 				← Back to
@@ -60,14 +79,6 @@
 				</a>
 			</p>
 		</div>
-
-		{#if error}
-			<div class="error-message">{error}</div>
-		{/if}
-
-		{#if message}
-			<div class="message">{message}</div>
-		{/if}
 	</form>
 </div>
 
