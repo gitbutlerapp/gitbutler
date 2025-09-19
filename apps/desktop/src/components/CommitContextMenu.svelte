@@ -172,6 +172,7 @@
 					<ContextMenuItem
 						label="Edit commit"
 						icon="edit-commit"
+						testId={TestId.CommitRowContextMenu_EditCommit}
 						disabled={isReadOnly}
 						onclick={(e: MouseEvent) => {
 							if (!isReadOnly) {

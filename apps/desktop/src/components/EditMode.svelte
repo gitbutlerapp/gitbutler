@@ -165,10 +165,12 @@
 	}
 
 	async function abort() {
+		if (loading) return;
 		await abortEdit({ projectId });
 	}
 
 	async function save() {
+		if (loading) return;
 		await saveEdit({ projectId });
 	}
 
@@ -342,7 +344,7 @@
 	</p>
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit">Save and exit</Button>
+		<Button style="error" type="submit" {loading}>Save and exit</Button>
 	{/snippet}
 </Modal>
 
