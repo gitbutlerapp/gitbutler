@@ -20,7 +20,6 @@ impl AppSettings {
 
         // merge customizations from disk into the defaults to get a complete set of settings.
         let customizations = serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
-
         let mut settings: serde_json::Value = serde_json_lenient::from_str(DEFAULTS)?;
 
         merge_non_null_json_value(customizations, &mut settings);
