@@ -97,6 +97,7 @@
 	type inputType =
 		| 'text'
 		| 'password'
+		| 'password-non-visible'
 		| 'number'
 		| 'select'
 		| 'tel'
@@ -167,7 +168,9 @@
 			autocomplete={autocomplete ? 'on' : 'off'}
 			min={minVal}
 			max={maxVal}
-			{...type === 'password' && showPassword ? { type: 'text' } : { type }}
+			{...type === 'password' && showPassword
+				? { type: 'text' }
+				: { type: type === 'password-non-visible' ? 'password' : type }}
 			class:show-count-actions={showCountActions}
 			class="text-input textbox__input size-{size} {size === 'large'
 				? 'text-14 text-semibold'
