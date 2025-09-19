@@ -66,7 +66,7 @@
 		<form onsubmit={handleSubmit} class="login-form">
 			<h1 class="text-serif-42 m-bottom-40">
 				<i>Login</i>
-				to GitButler ⧓
+				to GitButler
 			</h1>
 
 			<div class="login-form__inputs">
@@ -113,8 +113,7 @@
 			</div>
 
 			<div class="text-12 signup-link">
-				<span>Don't have an account?</span>
-				<a href={routesService.signupPath()}>Sign Up now</a>
+				<p>Don't have an account? <a href={routesService.signupPath()}>Sign Up now</a></p>
 			</div>
 		</form>
 

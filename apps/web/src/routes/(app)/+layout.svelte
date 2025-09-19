@@ -153,18 +153,20 @@
 	const isLoginPage = $derived(page.url.pathname.includes('/login'));
 	const isSignupPage = $derived(page.url.pathname.includes('/signup'));
 	const hasNavigation = $derived(!isCommitPage && !isLoginPage && !isSignupPage);
+	const isFullScreen = $derived(isLoginPage || isSignupPage);
 </script>
 
 <RedirectIfNotFinalized />
 
-<div class="app">
-	<Navigation ghost={!hasNavigation} />
+<div class="app" class:full-screen={isFullScreen}>
+	<Navigation markOnly={!hasNavigation} />
 
 	<main>
 		{@render children?.()}
 	</main>
 	<Footer />
 </div>
+
 <ChipToastContainer />
 
 <style lang="postcss">
@@ -175,18 +177,21 @@
 
 		display: flex;
 		flex-direction: column;
-		max-width: calc(1440px + var(--layout-side-paddings) * 2);
 		min-height: 100vh;
 		margin: 0 auto;
 		padding: 24px var(--layout-side-paddings);
 
-		@media (--desktop-small-viewport) {
-			--layout-side-paddings: 40px;
-		}
+		&:not(.full-screen) {
+			max-width: calc(1440px + var(--layout-side-paddings) * 2);
 
-		@media (--mobile-viewport) {
-			--layout-side-paddings: 16px;
-			padding: var(--layout-side-paddings);
+			@media (--desktop-small-viewport) {
+				--layout-side-paddings: 40px;
+			}
+
+			@media (--mobile-viewport) {
+				--layout-side-paddings: 16px;
+				padding: var(--layout-side-paddings);
+			}
 		}
 	}
 
