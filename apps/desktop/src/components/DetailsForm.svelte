@@ -52,7 +52,7 @@
 
 <SectionCard labelFor="runHooks" orientation="row">
 	{#snippet title()}
-		Run git hooks
+		Run Git hooks
 	{/snippet}
 	{#snippet caption()}
 		Enabling this will run git pre-push, pre and post commit, and commit-msg hooks you have
