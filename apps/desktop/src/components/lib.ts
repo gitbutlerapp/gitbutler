@@ -48,7 +48,7 @@ export function isLocalAndRemoteCommit(commit: Commit | UpstreamCommit): commit 
 }
 
 export function hasConflicts(commit: Commit): boolean {
-	return commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject;
+	return commit.hasConflicts;
 }
 
 export function getBranchStatusLabelAndColor(pushStatus: PushStatus): {
