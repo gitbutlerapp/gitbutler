@@ -321,6 +321,7 @@ fn main() {
                     rules::delete_workspace_rule,
                     rules::update_workspace_rule,
                     rules::list_workspace_rules,
+                    workspace::head_info,
                     workspace::stacks,
                     workspace::stack_details,
                     workspace::branch_details,

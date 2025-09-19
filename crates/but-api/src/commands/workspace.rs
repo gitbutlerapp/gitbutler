@@ -28,6 +28,26 @@ fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMet
 #[api_cmd]
 #[tauri::command(async)]
 #[instrument(err(Debug))]
+pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ref_info::ui::RefInfo, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let repo = ctx.gix_repo_for_merging_non_persisting()?;
+    let meta = ref_metadata_toml(ctx.project())?;
+    but_workspace::head_info(
+        &repo,
+        &meta,
+        but_workspace::ref_info::Options {
+            traversal: but_graph::init::Options::limited(),
+            expensive_commit_info: true,
+        },
+    )
+    .map_err(Into::into)
+    .and_then(|info| but_workspace::ref_info::ui::RefInfo::for_ui(info, &repo).map_err(Into::into))
+}
+
+#[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn stacks(
     project_id: ProjectId,
     filter: Option<but_workspace::StacksFilter>,
