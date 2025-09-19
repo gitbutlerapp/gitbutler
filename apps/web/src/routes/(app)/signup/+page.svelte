@@ -6,6 +6,7 @@
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { Button, EmailTextbox, Textbox, InfoMessage } from '@gitbutler/ui';
 
+	let username = $state<string>();
 	let email = $state<string>();
 	let password = $state<string>();
 	let passwordConfirmation = $state<string>();
@@ -19,8 +20,8 @@
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
-		if (!email || !password || !passwordConfirmation) {
-			error = 'Email and password are required';
+		if (!username || !email || !password || !passwordConfirmation) {
+			error = 'Username, email and password are required';
 			return;
 		}
 
@@ -30,6 +31,7 @@
 		}
 
 		const response = await loginService.createAccountWithEmail(
+			username,
 			email,
 			password,
 			passwordConfirmation
@@ -61,6 +63,7 @@
 >
 	<form id="signup-form" class="stack-v" onsubmit={handleSubmit}>
 		<div class="auth-form__inputs">
+			<Textbox bind:value={username} label="Username" />
 			<EmailTextbox
 				label="Email"
 				placeholder=" "
