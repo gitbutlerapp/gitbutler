@@ -37,9 +37,7 @@ fn main() {
     let mut tauri_context = generate_context!();
     gitbutler_secret::secret::set_application_namespace(&tauri_context.config().identifier);
 
-    let config_dir = but_path::app_config_dir()
-        .expect("missing config dir")
-        .join("gitbutler");
+    let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
     let mut app_settings =
         AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings");
