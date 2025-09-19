@@ -7,6 +7,7 @@
 		title: string;
 		subtitle?: string;
 		oauthText?: string;
+		oauthMode?: 'signin' | 'signup';
 		bottomLinkText?: string;
 		bottomLinkHref?: string;
 		bottomLinkLabel?: string;
@@ -17,6 +18,7 @@
 		title,
 		subtitle,
 		oauthText = 'Or continue with',
+		oauthMode = 'signin',
 		bottomLinkText,
 		bottomLinkHref,
 		bottomLinkLabel,
@@ -41,7 +43,7 @@
 					<span class="text-12">{oauthText}</span>
 				</div>
 
-				<OAuthButtons />
+				<OAuthButtons mode={oauthMode} />
 			</div>
 
 			{#if bottomLinkText && bottomLinkHref && bottomLinkLabel}

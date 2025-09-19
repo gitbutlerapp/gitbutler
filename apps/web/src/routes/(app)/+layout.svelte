@@ -152,8 +152,9 @@
 	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
 	const isLoginPage = $derived(page.url.pathname.includes('/login'));
 	const isSignupPage = $derived(page.url.pathname.includes('/signup'));
-	const hasNavigation = $derived(!isCommitPage && !isLoginPage && !isSignupPage);
-	const isFullScreen = $derived(isLoginPage || isSignupPage);
+	const isFinalized = $derived(page.url.pathname.includes('/finalize'));
+	const hasNavigation = $derived(!isCommitPage && !isLoginPage && !isSignupPage && !isFinalized);
+	const isFullScreen = $derived(isLoginPage || isSignupPage || isFinalized);
 </script>
 
 <RedirectIfNotFinalized />
@@ -179,6 +180,7 @@
 		flex-direction: column;
 		width: 100%;
 		min-height: 100vh;
+		margin: 0 auto;
 		padding: 24px var(--layout-side-paddings);
 		&:not(.full-screen) {
 			max-width: calc(1440px + var(--layout-side-paddings) * 2);

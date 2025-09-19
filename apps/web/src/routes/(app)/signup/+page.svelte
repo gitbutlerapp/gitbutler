@@ -63,6 +63,7 @@
 	title="Sign Up"
 	subtitle="for GitButler"
 	oauthText="Or sign up with"
+	oauthMode="signup"
 	bottomLinkText="Already have an account?"
 	bottomLinkHref={routesService.loginPath()}
 	bottomLinkLabel="Log in"
