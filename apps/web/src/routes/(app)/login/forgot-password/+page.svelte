@@ -1,6 +1,6 @@
 <script lang="ts">
 	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
-	import PasswordPageLayout from '$lib/components/auth/PasswordPageLayout.svelte';
+	import AuthUtilityLayout from '$lib/components/auth/AuthUtilityLayout.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import { Button, EmailTextbox, InfoMessage } from '@gitbutler/ui';
@@ -36,7 +36,7 @@
 
 <RedirectIfLoggedIn />
 
-<PasswordPageLayout title={isLinkSent ? 'Link sent!' : 'Forgot password?'}>
+<AuthUtilityLayout title={isLinkSent ? 'Link sent!' : 'Forgot password?'}>
 	{#if isLinkSent}
 		<p class="text-13 text-body">
 			We've sent a password reset link to: <i class="clr-text-2">{sentToEmail}</i>
@@ -57,7 +57,7 @@
 			</InfoMessage>
 		{/if}
 	{/if}
-</PasswordPageLayout>
+</AuthUtilityLayout>
 
 <style lang="postcss">
 	.service-form__inputs {

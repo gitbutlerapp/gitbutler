@@ -2,8 +2,8 @@
 	import { page } from '$app/state';
 	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
+	import AuthUtilityLayout from '$lib/components/auth/AuthUtilityLayout.svelte';
 	import PasswordConfirmation from '$lib/components/auth/PasswordConfirmation.svelte';
-	import PasswordPageLayout from '$lib/components/auth/PasswordPageLayout.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import { Button, InfoMessage } from '@gitbutler/ui';
@@ -58,7 +58,7 @@
 
 <RedirectIfLoggedIn />
 
-<PasswordPageLayout title="Confirm new password">
+<AuthUtilityLayout title="Confirm new password">
 	<div class="form-content">
 		<PasswordConfirmation
 			bind:this={passwordComponent}
@@ -67,10 +67,8 @@
 			showValidation={true}
 		/>
 
-		<Button type="submit" style="pop" onclick={handleSubmit}>Confirm Password</Button>
-
 		{#if error}
-			<InfoMessage filled outlined={false} style="error" class="m-top-16">
+			<InfoMessage filled outlined={false} style="error">
 				{#snippet content()}
 					{error}
 				{/snippet}
@@ -78,14 +76,16 @@
 		{/if}
 
 		{#if message}
-			<InfoMessage filled outlined={false} style="success" class="m-top-16">
+			<InfoMessage filled outlined={false} style="success">
 				{#snippet content()}
 					{message}
 				{/snippet}
 			</InfoMessage>
 		{/if}
+
+		<Button type="submit" style="pop" onclick={handleSubmit}>Confirm Password</Button>
 	</div>
-</PasswordPageLayout>
+</AuthUtilityLayout>
 
 <style lang="postcss">
 	.form-content {
