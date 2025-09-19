@@ -122,7 +122,6 @@
 		"@giphy/js-fetch-api": "^5.7.0",
 		"@giphy/js-types": "^5.1.0",
 		"@giphy/svelte-components": "^1.1.0",
-		"@gitbutler/shared": "workspace:*",
 		"@lexical/link": "0.27.1",
 		"@lexical/list": "0.27.1",
 		"@lexical/markdown": "0.27.1",

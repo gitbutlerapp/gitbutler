@@ -6,8 +6,8 @@
 	import { Button, Icon } from '@gitbutler/ui';
 	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
 
+	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType } from '$lib/utils/colorTypes';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
 	type IconColor = ComponentColorType | undefined;
