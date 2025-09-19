@@ -2,7 +2,189 @@
 // TODO: rename this module to `workspace`, make it private, and pub-use all content in the top-level, as we now literally
 //       get the workspace, while possibly processing it for use in the UI.
 
+use bstr::BString;
+use but_core::ref_metadata;
+use but_graph::SegmentIndex;
+use but_graph::projection::StackCommitFlags;
 use gix::Repository;
+use std::borrow::Cow;
+use std::ops::{Deref, DerefMut};
+
+/// A commit with must useful information extracted from the Git commit itself.
+///
+/// Note that additional information can be computed and placed in the [`LocalCommit`] and [`RemoteCommit`]
+#[derive(Clone, Eq, PartialEq)]
+pub struct Commit {
+    /// The hash of the commit.
+    pub id: gix::ObjectId,
+    /// The IDs of the parent commits, but may be empty if this is the first commit.
+    pub parent_ids: Vec<gix::ObjectId>,
+    /// The hash of the tree associated with the object.
+    pub tree_id: gix::ObjectId,
+    /// The complete message, verbatim.
+    pub message: BString,
+    /// The signature at which the commit was authored.
+    pub author: gix::actor::Signature,
+    /// The references pointing to this commit, even after dereferencing tag objects.
+    /// These can be names of tags and branches.
+    pub refs: Vec<gix::refs::FullName>,
+    /// Additional properties to help classify this commit.
+    pub flags: StackCommitFlags,
+    /// Whether the commit is in a conflicted state, a GitButler concept.
+    /// GitButler will perform rebasing/reordering etc. without interruptions and flag commits as conflicted if needed.
+    /// Conflicts are resolved via the Edit Mode mechanism.
+    ///
+    /// Note that even though GitButler won't push branches with conflicts, the user can still push such branches at will.
+    pub has_conflicts: bool,
+    /// The GitButler assigned change-id that we hold on to for convenience to avoid duplicate decoding of commits
+    /// when trying to associate remote commits with local ones.
+    pub change_id: Option<but_core::commit::ChangeId>,
+}
+
+impl std::fmt::Debug for Commit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Commit({hash}, {msg:?}{flags})",
+            hash = self.id.to_hex_with_len(7),
+            msg = self.message,
+            flags = self.flags.debug_string()
+        )
+    }
+}
+
+impl From<but_core::Commit<'_>> for Commit {
+    fn from(value: but_core::Commit<'_>) -> Self {
+        let has_conflicts = value.is_conflicted();
+        let change_id = value.headers().map(|hdr| hdr.change_id);
+        Commit {
+            id: value.id.into(),
+            tree_id: value.tree,
+            parent_ids: value.parents.iter().cloned().collect(),
+            message: value.inner.message,
+            author: value.inner.author,
+            has_conflicts,
+            change_id,
+            refs: Vec::new(),
+            flags: StackCommitFlags::empty(),
+        }
+    }
+}
+
+impl Commit {
+    /// A special constructor for very specific case.
+    pub(crate) fn from_commit_ahead_of_workspace_commit(
+        commit: gix::objs::Commit,
+        graph_commit: &but_graph::Commit,
+    ) -> Self {
+        let hdr = but_core::commit::HeadersV2::try_from_commit(&commit);
+        Commit {
+            id: graph_commit.id,
+            parent_ids: commit.parents.into_iter().collect(),
+            tree_id: commit.tree,
+            message: commit.message,
+            has_conflicts: hdr.as_ref().is_some_and(|hdr| hdr.is_conflicted()),
+            author: commit
+                .author
+                .to_ref(&mut gix::date::parse::TimeBuf::default())
+                .into(),
+            refs: graph_commit.refs.clone(),
+            flags: graph_commit.flags.into(),
+            change_id: hdr.map(|hdr| hdr.change_id),
+        }
+    }
+}
+
+/// A commit that is reachable through the *local tracking branch*, with additional, computed information.
+#[derive(Clone, Eq, PartialEq)]
+pub struct LocalCommit {
+    /// The simple commit.
+    pub inner: Commit,
+    /// Provide additional information on how this commit relates to other points of reference, like its remote branch,
+    /// or the target branch to integrate with.
+    pub relation: LocalCommitRelation,
+}
+
+impl std::fmt::Debug for LocalCommit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let refs = self
+            .refs
+            .iter()
+            .map(|rn| format!("►{}", rn.shorten()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        write!(
+            f,
+            "LocalCommit({conflict}{hash}, {msg:?}, {relation}{refs})",
+            conflict = if self.has_conflicts { "💥" } else { "" },
+            hash = self.id.to_hex_with_len(7),
+            msg = self.message,
+            relation = self.relation.display(self.id),
+            refs = if refs.is_empty() {
+                "".to_string()
+            } else {
+                format!(", {refs}")
+            }
+        )
+    }
+}
+
+/// The state of the [local commit](LocalCommit) in relation to its remote tracking branch or its integration branch.
+#[derive(Default, Debug, Eq, PartialEq, Clone, Copy)]
+pub enum LocalCommitRelation {
+    /// The commit is only local
+    #[default]
+    LocalOnly,
+    /// The commit is also present in the remote tracking branch.
+    ///
+    /// This is the case if:
+    ///  - The commit has been pushed to the remote
+    ///  - The commit has been copied from a remote commit (when applying a remote branch)
+    ///
+    /// This variant carries the remote commit id.
+    /// The `remote_commit_id` may be the same as the `id` or it may be different if the local commit has been rebased
+    /// or updated in another way.
+    LocalAndRemote(gix::ObjectId),
+    /// The commit is considered integrated, using the given hash as the commit that contains this one.
+    /// Note that this can be a 1:1 relation in case of rebased commits, or an N:1 relation in case of squash commits.
+    /// If the id of this value is the same as the owning commit, this means it's included in the ancestry
+    /// of the target branch.
+    /// This should happen when the commit or the contents of this commit is already part of the base.
+    Integrated(gix::ObjectId),
+}
+
+impl LocalCommitRelation {
+    /// Convert this relation into something displaying, mainly for debugging.
+    pub fn display(&self, id: gix::ObjectId) -> Cow<'static, str> {
+        match self {
+            LocalCommitRelation::LocalOnly => Cow::Borrowed("local"),
+            LocalCommitRelation::LocalAndRemote(remote_id) => {
+                if *remote_id == id {
+                    "local/remote(identity)".into()
+                } else {
+                    format!("local/remote({})", remote_id.to_hex_with_len(7)).into()
+                }
+            }
+            LocalCommitRelation::Integrated(id) => {
+                format!("integrated({})", id.to_hex_with_len(7)).into()
+            }
+        }
+    }
+}
+
+impl Deref for LocalCommit {
+    type Target = Commit;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for LocalCommit {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
 
 /// Additional workspace functionality that can't easily be implemented in `but-graph`.
 pub trait WorkspaceExt {
@@ -33,316 +215,128 @@ pub struct Options {
     pub expensive_commit_info: bool,
 }
 
-/// Types driven by the user interface, not general purpose.
-pub mod ui {
-    use std::borrow::Cow;
-    use std::ops::{Deref, DerefMut};
-
-    use crate::ui;
-    use bstr::BString;
-    use but_core::ref_metadata;
-    use but_graph::SegmentIndex;
-    use but_graph::projection::StackCommitFlags;
-
-    /// A commit with must useful information extracted from the Git commit itself.
+/// A segment of a commit graph, representing a set of commits exclusively.
+#[derive(Clone, Eq, PartialEq)]
+pub struct Segment {
+    /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit.
     ///
-    /// Note that additional information can be computed and placed in the [`LocalCommit`] and [`RemoteCommit`]
-    #[derive(Clone, Eq, PartialEq)]
-    pub struct Commit {
-        /// The hash of the commit.
-        pub id: gix::ObjectId,
-        /// The IDs of the parent commits, but may be empty if this is the first commit.
-        pub parent_ids: Vec<gix::ObjectId>,
-        /// The hash of the tree associated with the object.
-        pub tree_id: gix::ObjectId,
-        /// The complete message, verbatim.
-        pub message: BString,
-        /// The signature at which the commit was authored.
-        pub author: gix::actor::Signature,
-        /// The references pointing to this commit, even after dereferencing tag objects.
-        /// These can be names of tags and branches.
-        pub refs: Vec<gix::refs::FullName>,
-        /// Additional properties to help classify this commit.
-        pub flags: StackCommitFlags,
-        /// Whether the commit is in a conflicted state, a GitButler concept.
-        /// GitButler will perform rebasing/reordering etc. without interruptions and flag commits as conflicted if needed.
-        /// Conflicts are resolved via the Edit Mode mechanism.
-        ///
-        /// Note that even though GitButler won't push branches with conflicts, the user can still push such branches at will.
-        pub has_conflicts: bool,
-        /// The GitButler assigned change-id that we hold on to for convenience to avoid duplicate decoding of commits
-        /// when trying to associate remote commits with local ones.
-        pub change_id: Option<but_core::commit::ChangeId>,
+    /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
+    /// a commit anymore that was reached by our rev-walk.
+    /// This can happen if the ref is deleted, or if it was advanced by other means.
+    /// Alternatively, the naming would have been ambiguous.
+    /// Finally, this is `None` of the original name can be found searching upwards, finding exactly one
+    /// named segment.
+    pub ref_name: Option<gix::refs::FullName>,
+    /// An ID which can uniquely identify this segment among all segments within the graph that owned it.
+    /// Note that it's not suitable to permanently identify the segment, so should not be persisted.
+    pub id: SegmentIndex,
+    /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
+    /// Its presence means that a remote is configured and that the stack content
+    pub remote_tracking_ref_name: Option<gix::refs::FullName>,
+    /// The portion of commits that can be reached from the tip of the *branch* downwards, so that they are unique
+    /// for that stack segment and not included in any other stack or stack segment.
+    ///
+    /// The list could be empty for when this is a dedicated empty segment as insertion position of commits.
+    pub commits: Vec<LocalCommit>,
+    /// Commits that are reachable from the remote-tracking branch associated with this branch,
+    /// but are not reachable from this branch or duplicated by a commit in it.
+    /// Note that commits that are also similar to commits in `commits` are pruned, and not present here.
+    ///
+    /// Note that remote commits along with their remote tracking branch should always retain a shared history
+    /// with the local tracking branch. If these diverge, we can represent this in data, but currently there is
+    /// no derived value to make this visible explicitly.
+    pub commits_on_remote: Vec<Commit>,
+    /// All commits *that are not workspace commits* reachable by (and including commits in) this segment.
+    /// The list was created by walking all parents, not only the first parent.
+    /// This means the segment needs fixing.
+    pub commits_outside: Option<Vec<Commit>>,
+    /// Read-only metadata with additional information about the branch naming the segment,
+    /// or `None` if nothing was present.
+    pub metadata: Option<ref_metadata::Branch>,
+    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](Graph::from_commit_traversal())
+    /// is this segment, and the surrounding workspace is provided for context.
+    ///
+    /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
+    /// *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
+    pub is_entrypoint: bool,
+    /// A derived value to help the UI decide which functions to make available.
+    pub push_status: crate::ui::PushStatus,
+    /// This is always the `first()` commit in `commits` of the next stacksegment, or the first commit of
+    /// the first ancestor segment.
+    /// It can be imagined as the base upon which the segment is resting, or the connection point to the rest
+    /// of the commit-graph along the first parent.
+    /// It is `None` if the stack segment contains the first commit in the history, an orphan without ancestry,
+    /// or if the history traversal was stopped early.
+    pub base: Option<gix::ObjectId>,
+}
+
+/// Direct Access (without graph)
+impl Segment {
+    /// Return the top-most commit id of the segment.
+    pub fn tip(&self) -> Option<gix::ObjectId> {
+        self.commits.first().map(|commit| commit.id)
     }
+}
 
-    impl std::fmt::Debug for Commit {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(
-                f,
-                "Commit({hash}, {msg:?}{flags})",
-                hash = self.id.to_hex_with_len(7),
-                msg = self.message,
-                flags = self.flags.debug_string()
-            )
-        }
-    }
-
-    impl From<but_core::Commit<'_>> for Commit {
-        fn from(value: but_core::Commit<'_>) -> Self {
-            let has_conflicts = value.is_conflicted();
-            let change_id = value.headers().map(|hdr| hdr.change_id);
-            Commit {
-                id: value.id.into(),
-                tree_id: value.tree,
-                parent_ids: value.parents.iter().cloned().collect(),
-                message: value.inner.message,
-                author: value.inner.author,
-                has_conflicts,
-                change_id,
-                refs: Vec::new(),
-                flags: StackCommitFlags::empty(),
-            }
-        }
-    }
-
-    impl Commit {
-        /// A special constructor for very specific case.
-        pub(crate) fn from_commit_ahead_of_workspace_commit(
-            commit: gix::objs::Commit,
-            graph_commit: &but_graph::Commit,
-        ) -> Self {
-            let hdr = but_core::commit::HeadersV2::try_from_commit(&commit);
-            Commit {
-                id: graph_commit.id,
-                parent_ids: commit.parents.into_iter().collect(),
-                tree_id: commit.tree,
-                message: commit.message,
-                has_conflicts: hdr.as_ref().is_some_and(|hdr| hdr.is_conflicted()),
-                author: commit
-                    .author
-                    .to_ref(&mut gix::date::parse::TimeBuf::default())
-                    .into(),
-                refs: graph_commit.refs.clone(),
-                flags: graph_commit.flags.into(),
-                change_id: hdr.map(|hdr| hdr.change_id),
-            }
-        }
-    }
-
-    /// A commit that is reachable through the *local tracking branch*, with additional, computed information.
-    #[derive(Clone, Eq, PartialEq)]
-    pub struct LocalCommit {
-        /// The simple commit.
-        pub inner: Commit,
-        /// Provide additional information on how this commit relates to other points of reference, like its remote branch,
-        /// or the target branch to integrate with.
-        pub relation: LocalCommitRelation,
-    }
-
-    impl std::fmt::Debug for LocalCommit {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let refs = self
-                .refs
-                .iter()
-                .map(|rn| format!("►{}", rn.shorten()))
-                .collect::<Vec<_>>()
-                .join(", ");
-            write!(
-                f,
-                "LocalCommit({conflict}{hash}, {msg:?}, {relation}{refs})",
-                conflict = if self.has_conflicts { "💥" } else { "" },
-                hash = self.id.to_hex_with_len(7),
-                msg = self.message,
-                relation = self.relation.display(self.id),
-                refs = if refs.is_empty() {
-                    "".to_string()
-                } else {
-                    format!(", {refs}")
-                }
-            )
-        }
-    }
-
-    /// The state of the [local commit](LocalCommit) in relation to its remote tracking branch or its integration branch.
-    #[derive(Default, Debug, Eq, PartialEq, Clone, Copy)]
-    pub enum LocalCommitRelation {
-        /// The commit is only local
-        #[default]
-        LocalOnly,
-        /// The commit is also present in the remote tracking branch.
-        ///
-        /// This is the case if:
-        ///  - The commit has been pushed to the remote
-        ///  - The commit has been copied from a remote commit (when applying a remote branch)
-        ///
-        /// This variant carries the remote commit id.
-        /// The `remote_commit_id` may be the same as the `id` or it may be different if the local commit has been rebased
-        /// or updated in another way.
-        LocalAndRemote(gix::ObjectId),
-        /// The commit is considered integrated, using the given hash as the commit that contains this one.
-        /// Note that this can be a 1:1 relation in case of rebased commits, or an N:1 relation in case of squash commits.
-        /// If the id of this value is the same as the owning commit, this means it's included in the ancestry
-        /// of the target branch.
-        /// This should happen when the commit or the contents of this commit is already part of the base.
-        Integrated(gix::ObjectId),
-    }
-
-    impl LocalCommitRelation {
-        /// Convert this relation into something displaying, mainly for debugging.
-        pub fn display(&self, id: gix::ObjectId) -> Cow<'static, str> {
-            match self {
-                LocalCommitRelation::LocalOnly => Cow::Borrowed("local"),
-                LocalCommitRelation::LocalAndRemote(remote_id) => {
-                    if *remote_id == id {
-                        "local/remote(identity)".into()
-                    } else {
-                        format!("local/remote({})", remote_id.to_hex_with_len(7)).into()
-                    }
-                }
-                LocalCommitRelation::Integrated(id) => {
-                    format!("integrated({})", id.to_hex_with_len(7)).into()
-                }
-            }
-        }
-    }
-
-    impl Deref for LocalCommit {
-        type Target = Commit;
-
-        fn deref(&self) -> &Self::Target {
-            &self.inner
-        }
-    }
-
-    impl DerefMut for LocalCommit {
-        fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut self.inner
-        }
-    }
-
-    /// A segment of a commit graph, representing a set of commits exclusively.
-    #[derive(Clone, Eq, PartialEq)]
-    pub struct Segment {
-        /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit.
-        ///
-        /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
-        /// a commit anymore that was reached by our rev-walk.
-        /// This can happen if the ref is deleted, or if it was advanced by other means.
-        /// Alternatively, the naming would have been ambiguous.
-        /// Finally, this is `None` of the original name can be found searching upwards, finding exactly one
-        /// named segment.
-        pub ref_name: Option<gix::refs::FullName>,
-        /// An ID which can uniquely identify this segment among all segments within the graph that owned it.
-        /// Note that it's not suitable to permanently identify the segment, so should not be persisted.
-        pub id: SegmentIndex,
-        /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
-        /// Its presence means that a remote is configured and that the stack content
-        pub remote_tracking_ref_name: Option<gix::refs::FullName>,
-        /// The portion of commits that can be reached from the tip of the *branch* downwards, so that they are unique
-        /// for that stack segment and not included in any other stack or stack segment.
-        ///
-        /// The list could be empty for when this is a dedicated empty segment as insertion position of commits.
-        pub commits: Vec<LocalCommit>,
-        /// Commits that are reachable from the remote-tracking branch associated with this branch,
-        /// but are not reachable from this branch or duplicated by a commit in it.
-        /// Note that commits that are also similar to commits in `commits` are pruned, and not present here.
-        ///
-        /// Note that remote commits along with their remote tracking branch should always retain a shared history
-        /// with the local tracking branch. If these diverge, we can represent this in data, but currently there is
-        /// no derived value to make this visible explicitly.
-        pub commits_on_remote: Vec<Commit>,
-        /// All commits *that are not workspace commits* reachable by (and including commits in) this segment.
-        /// The list was created by walking all parents, not only the first parent.
-        /// This means the segment needs fixing.
-        pub commits_outside: Option<Vec<Commit>>,
-        /// Read-only metadata with additional information about the branch naming the segment,
-        /// or `None` if nothing was present.
-        pub metadata: Option<ref_metadata::Branch>,
-        /// This is `true` a segment in a workspace if the entrypoint of [the traversal](Graph::from_commit_traversal())
-        /// is this segment, and the surrounding workspace is provided for context.
-        ///
-        /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
-        /// *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
-        pub is_entrypoint: bool,
-        /// A derived value to help the UI decide which functions to make available.
-        pub push_status: ui::PushStatus,
-        /// This is always the `first()` commit in `commits` of the next stacksegment, or the first commit of
-        /// the first ancestor segment.
-        /// It can be imagined as the base upon which the segment is resting, or the connection point to the rest
-        /// of the commit-graph along the first parent.
-        /// It is `None` if the stack segment contains the first commit in the history, an orphan without ancestry,
-        /// or if the history traversal was stopped early.
-        pub base: Option<gix::ObjectId>,
-    }
-
-    /// Direct Access (without graph)
-    impl Segment {
-        /// Return the top-most commit id of the segment.
-        pub fn tip(&self) -> Option<gix::ObjectId> {
-            self.commits.first().map(|commit| commit.id)
-        }
-    }
-
-    impl std::fmt::Debug for Segment {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let Segment {
-                ref_name,
-                id,
-                commits,
-                commits_on_remote,
-                commits_outside,
-                remote_tracking_ref_name,
-                metadata,
-                is_entrypoint,
-                push_status,
-                base,
-            } = self;
-            f.debug_struct(&format!(
-                "{ep}ref_info::ui::Segment",
-                ep = if *is_entrypoint { "👉" } else { "" }
-            ))
-            .field("id", &id)
-            .field(
-                "ref_name",
-                &match ref_name.as_ref() {
-                    None => "None".to_string(),
-                    Some(name) => name.to_string(),
-                },
-            )
-            .field(
-                "remote_tracking_ref_name",
-                &match remote_tracking_ref_name.as_ref() {
-                    None => "None".to_string(),
-                    Some(name) => name.to_string(),
-                },
-            )
-            .field("commits", &commits)
-            .field("commits_on_remote", &commits_on_remote)
-            .field("commits_outside", &commits_outside)
-            .field(
-                "metadata",
-                match metadata {
-                    None => &"None",
-                    Some(m) => m,
-                },
-            )
-            .field("push_status", push_status)
-            .field(
-                "base",
-                &match base {
-                    None => Cow::Borrowed("None"),
-                    Some(id) => Cow::Owned(id.to_hex_with_len(7).to_string()),
-                },
-            )
-            .finish()
-        }
+impl std::fmt::Debug for Segment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Segment {
+            ref_name,
+            id,
+            commits,
+            commits_on_remote,
+            commits_outside,
+            remote_tracking_ref_name,
+            metadata,
+            is_entrypoint,
+            push_status,
+            base,
+        } = self;
+        f.debug_struct(&format!(
+            "{ep}ref_info::ui::Segment",
+            ep = if *is_entrypoint { "👉" } else { "" }
+        ))
+        .field("id", &id)
+        .field(
+            "ref_name",
+            &match ref_name.as_ref() {
+                None => "None".to_string(),
+                Some(name) => name.to_string(),
+            },
+        )
+        .field(
+            "remote_tracking_ref_name",
+            &match remote_tracking_ref_name.as_ref() {
+                None => "None".to_string(),
+                Some(name) => name.to_string(),
+            },
+        )
+        .field("commits", &commits)
+        .field("commits_on_remote", &commits_on_remote)
+        .field("commits_outside", &commits_outside)
+        .field(
+            "metadata",
+            match metadata {
+                None => &"None",
+                Some(m) => m,
+            },
+        )
+        .field("push_status", push_status)
+        .field(
+            "base",
+            &match base {
+                None => Cow::Borrowed("None"),
+                Some(id) => Cow::Owned(id.to_hex_with_len(7).to_string()),
+            },
+        )
+        .finish()
     }
 }
 
 pub(crate) mod function {
-    use super::ui::{LocalCommit, LocalCommitRelation};
+    use crate::ref_info::{LocalCommit, LocalCommitRelation};
     use crate::ui::PushStatus;
-    use crate::{AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch, ref_info::ui};
+    use crate::{AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch};
     use anyhow::{Context, bail};
     use but_core::ref_metadata::ValueInfo;
     use but_graph::petgraph::Direction;
@@ -415,10 +409,12 @@ pub(crate) mod function {
                     sidx_and_cidx = Some((s.id, cidx));
                     return true;
                 }
-                commits_outside.push(ui::Commit::from_commit_ahead_of_workspace_commit(
-                    commit.inner,
-                    graph_commit,
-                ));
+                commits_outside.push(
+                    crate::ref_info::Commit::from_commit_ahead_of_workspace_commit(
+                        commit.inner,
+                        graph_commit,
+                    ),
+                );
             }
             false
         });
@@ -514,13 +510,13 @@ pub(crate) mod function {
                 base,
                 segments: segments
                     .into_iter()
-                    .map(|s| ui::Segment::try_from_graph_segment(s, repo))
+                    .map(|s| crate::ref_info::Segment::try_from_graph_segment(s, repo))
                     .collect::<anyhow::Result<_>>()?,
             })
         }
     }
 
-    impl ui::Segment {
+    impl crate::ref_info::Segment {
         fn try_from_graph_segment(
             but_graph::projection::StackSegment {
                 ref_name,
@@ -545,12 +541,17 @@ pub(crate) mod function {
                 .collect::<anyhow::Result<_>>()?;
             let commits_on_remote: Vec<_> = commits_on_remote
                 .into_iter()
-                .map(|c| (but_core::Commit::from_id(c.id.attach(repo)).map(ui::Commit::from)))
+                .map(|c| {
+                    but_core::Commit::from_id(c.id.attach(repo)).map(crate::ref_info::Commit::from)
+                })
                 .collect::<Result<_, _>>()?;
             let commits_outside = commits_outside
                 .map(|v| {
                     v.into_iter()
-                        .map(|c| but_core::Commit::from_id(c.id.attach(repo)).map(ui::Commit::from))
+                        .map(|c| {
+                            but_core::Commit::from_id(c.id.attach(repo))
+                                .map(crate::ref_info::Commit::from)
+                        })
                         .collect::<Result<Vec<_>, _>>()
                 })
                 .transpose()?;
@@ -580,7 +581,8 @@ pub(crate) mod function {
                 refs,
             } = c;
             use but_graph::projection::StackCommitFlags;
-            let mut inner: ui::Commit = but_core::Commit::from_id(id.attach(repo))?.into();
+            let mut inner: crate::ref_info::Commit =
+                but_core::Commit::from_id(id.attach(repo))?.into();
             inner.refs = refs;
             inner.flags = flags;
             Ok(LocalCommit {

@@ -4,6 +4,10 @@ use serde::Serialize;
 
 /// Utilities for diffing, with workspace integration.
 pub mod diff;
+/// RefInfo types for the UI.
+pub mod ref_info;
+
+pub use ref_info::inner::RefInfo;
 
 /// This code is a fork of [`gitbutler_branch_actions::author`] to avoid depending on the `gitbutler_branch_actions` crate.
 mod author {

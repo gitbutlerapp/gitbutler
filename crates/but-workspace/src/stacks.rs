@@ -1,6 +1,6 @@
 use crate::integrated::IsCommitIntegrated;
-use crate::ref_info::ui::{Commit, Segment};
-use crate::ref_info::ui::{LocalCommit, LocalCommitRelation};
+use crate::ref_info::Segment;
+use crate::ref_info::{Commit, LocalCommit, LocalCommitRelation};
 use crate::ui::{CommitState, PushStatus, StackDetails};
 use crate::{RefInfo, StacksFilter, branch, head_info, ref_info, state_handle, ui};
 use anyhow::{Context, bail};

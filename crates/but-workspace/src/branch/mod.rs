@@ -431,7 +431,7 @@ pub struct Stack {
     pub base: Option<gix::ObjectId>,
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
-    pub segments: Vec<ref_info::ui::Segment>,
+    pub segments: Vec<ref_info::Segment>,
 }
 
 impl Stack {
