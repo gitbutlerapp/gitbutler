@@ -6,9 +6,10 @@
 	interface Props {
 		title: string;
 		children: Snippet;
+		showBackLink?: boolean;
 	}
 
-	let { title, children }: Props = $props();
+	let { title, children, showBackLink = true }: Props = $props();
 
 	const routesService = inject(WEB_ROUTES_SERVICE);
 </script>
@@ -21,9 +22,12 @@
 
 		<div class="text-12 service-form__footer">
 			<p>
-				← Back to
-				<a href={routesService.loginPath()}>Login</a>
+				{#if showBackLink}
+					← Back to
+					<a href={routesService.loginPath()}>Login</a>
+				{/if}
 			</p>
+
 			<p>
 				Need help?
 				<a
