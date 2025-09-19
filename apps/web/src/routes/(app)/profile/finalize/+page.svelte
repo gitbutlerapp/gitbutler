@@ -64,13 +64,13 @@
 		await userService.refreshUser();
 	}
 
-	// $effect(() => {
-	// 	if (!isLoggedIn) {
-	// 		goto(routesService.loginPath());
-	// 	} else if (isFinalized) {
-	// 		goto(routesService.homePath());
-	// 	}
-	// });
+	$effect(() => {
+		if (!isLoggedIn) {
+			goto(routesService.loginPath());
+		} else if (isFinalized) {
+			goto(routesService.homePath());
+		}
+	});
 </script>
 
 <svelte:head>
