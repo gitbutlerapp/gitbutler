@@ -68,13 +68,6 @@ impl App {
         Ok(size)
     }
 
-    pub fn git_head(&self, project_id: ProjectId, settings: AppSettings) -> Result<String> {
-        let project = gitbutler_project::get(project_id)?;
-        let ctx = CommandContext::open(&project, settings)?;
-        let head = ctx.repo().head().context("failed to get repository head")?;
-        Ok(head.name().unwrap().to_string())
-    }
-
     pub fn git_set_global_config(key: &str, value: &str) -> Result<String> {
         let mut config = git2::Config::open_default()?;
         config.set_str(key, value)?;

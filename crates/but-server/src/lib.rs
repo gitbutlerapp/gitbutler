@@ -152,7 +152,6 @@ async fn handle_command(
         "git_test_push" => git::git_test_push_cmd(request.params),
         "git_test_fetch" => git::git_test_fetch_cmd(request.params),
         "git_index_size" => git::git_index_size_cmd(request.params),
-        "git_head" => git::git_head_cmd(request.params),
         "delete_all_data" => git::delete_all_data_cmd(request.params),
         "git_set_global_config" => git::git_set_global_config_cmd(request.params),
         "git_remove_global_config" => git::git_remove_global_config_cmd(request.params),

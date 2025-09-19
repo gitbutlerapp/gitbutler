@@ -86,13 +86,12 @@
 	const stackService = inject(STACK_SERVICE);
 	const worktreeService = inject(WORKTREE_SERVICE);
 
-	const mode = $derived(modeService.mode({ projectId }));
-	const headQuery = $derived(modeService.head({ projectId }));
-	const head = $derived(headQuery.response);
+	const modeQuery = $derived(modeService.mode({ projectId }));
+	const mode = $derived(modeQuery.response);
 
 	// Invalidate stacks when switching branches outside workspace
 	$effect(() => {
-		if (head?.type === 'OutsideWorkspace' && head.subject.branchName) {
+		if (mode?.type === 'OutsideWorkspace' && mode.subject.branchName) {
 			stackService.invalidateStacks();
 		}
 	});
@@ -231,7 +230,7 @@
 
 	// Refresh when branch data changes
 	$effect(() => {
-		if (baseBranch || headQuery.response) debouncedRemoteBranchRefresh();
+		if (baseBranch || modeQuery.response) debouncedRemoteBranchRefresh();
 	});
 
 	// Auto-fetch setup
@@ -326,7 +325,7 @@
 <ProjectSettingsMenuAction {projectId} />
 <FileMenuAction />
 
-<ReduxResult {projectId} result={combineResults(baseBranchQuery.result, mode.result)}>
+<ReduxResult {projectId} result={combineResults(baseBranchQuery.result, modeQuery.result)}>
 	{#snippet children([baseBranch, mode], { projectId })}
 		{#if !baseBranch}
 			<NoBaseBranch {projectId} />

@@ -72,10 +72,6 @@ export class ModeService {
 	get mode() {
 		return this.api.endpoints.mode.useQuery;
 	}
-
-	get head() {
-		return this.api.endpoints.mode.useQuery;
-	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -153,25 +149,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						`project://${arg.projectId}/git/head`,
 						(event) => {
 							lifecycleApi.updateCachedData(() => event.payload.operatingMode);
-						}
-					);
-					await lifecycleApi.cacheEntryRemoved;
-					unsubscribe();
-				}
-			}),
-			head: build.query<string, { projectId: string }>({
-				extraOptions: { command: 'git_head' },
-				query: (args) => args,
-				providesTags: [providesList(ReduxTag.HeadMetadata)],
-				async onCacheEntryAdded(arg, lifecycleApi) {
-					if (!hasBackendExtra(lifecycleApi.extra)) {
-						throw new Error('Redux dependency Backend not found!');
-					}
-					await lifecycleApi.cacheDataLoaded;
-					const unsubscribe = lifecycleApi.extra.backend.listen<HeadAndMode>(
-						`project://${arg.projectId}/git/head`,
-						(event) => {
-							lifecycleApi.updateCachedData(() => event.payload.head);
 						}
 					);
 					await lifecycleApi.cacheEntryRemoved;

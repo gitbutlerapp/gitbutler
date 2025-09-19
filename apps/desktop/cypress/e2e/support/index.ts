@@ -1,7 +1,7 @@
 import { getBaseBranchData, getRemoteBranches } from './mock/baseBranch';
 import { MOCK_BRANCH_LISTINGS } from './mock/branches';
 import { MOCK_TREE_CHANGES, MOCK_UNIFIED_DIFF } from './mock/changes';
-import { MOCK_GIT_HEAD, MOCK_OPEN_WORKSPACE_MODE } from './mock/mode';
+import { MOCK_OPEN_WORKSPACE_MODE } from './mock/mode';
 import { getProject, isGetProjectArgs, listProjects } from './mock/projects';
 import { getSecret, isGetSecretArgs } from './mock/secrets';
 import { MOCK_APP_SETTINGS } from './mock/settings';
@@ -134,8 +134,6 @@ Cypress.on('window:before:load', (win) => {
 				return await Promise.resolve();
 			case 'canned_branch_name':
 				return await Promise.resolve('canned-branch-name');
-			case 'git_head':
-				return MOCK_GIT_HEAD;
 			case 'get_base_branch_data':
 				return getBaseBranchData();
 			case 'git_remote_branches':
