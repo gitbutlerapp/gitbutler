@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import AuthUtilityLayout from '$lib/components/auth/AuthUtilityLayout.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
-	import { Button, SectionCard } from '@gitbutler/ui';
+	import { Button, InfoMessage, EmailTextbox } from '@gitbutler/ui';
 
 	let error = $state<string>();
-	let notice = $state<string>();
+	let message = $state<string>();
 
 	const loginService = inject(LOGIN_SERVICE);
 
@@ -31,145 +32,55 @@
 			error = response.errorMessage;
 			console.error('Failed to resend confirmation email:', response.raw ?? response.errorMessage);
 		} else {
-			notice = 'Confirmation email resent. Please check your inbox.';
+			message = 'Confirmation email resent. Please check your inbox.';
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>GitButler | Sign Up</title>
+	<title>GitButler | Resend Confirmation</title>
 </svelte:head>
 
-{#if banner}
-	<div class="banner">
-		<span>{banner}</span>
-	</div>
-{/if}
+<AuthUtilityLayout title="Resend Confirmation">
+	{#if email}
+		<p class="text-13 text-body">
+			We send a confirmation email to <i class="clr-text-2">{email}</i>.
+		</p>
+	{:else}
+		<div class="stack-v gap-16">
+			<EmailTextbox
+				bind:value={inputEmail}
+				label="Email"
+				helperText="Your email to resend confirmation"
+			/>
 
-<div class="resend-confirmation-email">
-	<SectionCard>
-		<h1 class="title">Resend Confirmation Email</h1>
-		{#if email}
-			<p>
-				We will send a confirmation email to <strong>{email}</strong>.
-			</p>
-		{:else}
-			<p>Please provide your email address to resend the confirmation email.</p>
+			{#if error}
+				<InfoMessage filled outlined={false} style="error">
+					{#snippet content()}
+						{error}
+					{/snippet}
+				</InfoMessage>
+			{/if}
 
-			<div class="field">
-				<label for="email">Email</label>
-				<input id="email" type="email" bind:value={inputEmail} required />
-			</div>
-		{/if}
+			{#if message}
+				<InfoMessage filled outlined={false} style="success">
+					{#snippet content()}
+						{message}
+					{/snippet}
+				</InfoMessage>
+			{/if}
 
-		<Button style="pop" disabled={!emailToSendTo} onclick={resendConfirmationEmail}
-			>Resend Confirmation Email</Button
-		>
+			{#if banner}
+				<InfoMessage filled outlined={false} style="warning">
+					{#snippet content()}
+						{banner}
+					{/snippet}
+				</InfoMessage>
+			{/if}
 
-		{#if error}
-			<div class="error-message">
-				<span>
-					{error}
-				</span>
-			</div>
-		{/if}
-
-		{#if notice}
-			<div class="notice-message">
-				<span>
-					{notice}
-				</span>
-			</div>
-		{/if}
-	</SectionCard>
-</div>
-
-<style lang="postcss">
-	.banner {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		max-width: 400px;
-		margin: 0 auto;
-		margin-bottom: 16px;
-		padding: 16px;
-		border: var(--clr-scale-err-60) 1px solid;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-err-bg-muted);
-		color: var(--clr-scale-err-10);
-		font-size: 14px;
-	}
-
-	.resend-confirmation-email {
-		display: flex;
-		flex-direction: column;
-		max-width: 400px;
-		margin: 0 auto;
-		gap: 16px;
-	}
-
-	.title {
-		align-self: flex-start;
-		color: var(--clr-scale-ntrl-0);
-		font-weight: 600;
-		font-size: 24px;
-	}
-
-	.field {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-
-		label {
-			color: var(--clr-scale-ntrl-30);
-			font-size: 14px;
-		}
-
-		input {
-			padding: 8px 12px;
-			border: 1px solid var(--clr-border-2);
-			border-radius: var(--radius-m);
-			background-color: var(--clr-bg-1);
-			color: var(--clr-scale-ntrl-0);
-			font-size: 14px;
-
-			&:read-only {
-				cursor: not-allowed;
-				opacity: 0.7;
-			}
-
-			&:not(:read-only) {
-				&:focus {
-					border-color: var(--clr-scale-pop-70);
-					outline: none;
-				}
-			}
-		}
-	}
-
-	.error-message {
-		display: flex;
-		flex-direction: column;
-		padding: 8px;
-		gap: 8px;
-		border: 1px solid var(--clr-scale-err-60);
-		border-radius: var(--radius-m);
-
-		background-color: var(--clr-theme-err-bg-muted);
-		color: var(--clr-scale-err-10);
-		font-size: 14px;
-	}
-
-	.notice-message {
-		display: flex;
-		flex-direction: column;
-		padding: 8px;
-		gap: 8px;
-		border: 1px solid var(--clr-scale-succ-60);
-		border-radius: var(--radius-m);
-
-		background-color: var(--clr-theme-succ-bg-muted);
-		color: var(--clr-scale-succ-10);
-		font-size: 14px;
-	}
-</style>
+			<Button style="pop" disabled={!emailToSendTo} onclick={resendConfirmationEmail}
+				>Resend Confirmation Email</Button
+			>
+		</div>
+	{/if}
+</AuthUtilityLayout>

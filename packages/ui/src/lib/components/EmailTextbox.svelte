@@ -71,7 +71,6 @@
 	type="text"
 	bind:value
 	error={emailError}
-	placeholder={restProps.placeholder || 'Enter email address'}
 	oninput={handleInput}
 	onchange={handleChange}
 />
