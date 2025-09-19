@@ -6,7 +6,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, Textbox } from '@gitbutler/ui';
+	import { Button, EmailTextbox, Textbox } from '@gitbutler/ui';
 	import { env } from '$env/dynamic/public';
 
 	let email = $state<string>();
@@ -14,6 +14,8 @@
 
 	let error = $state<string>();
 	let errorCode = $state<string>();
+
+	const isFormValid = $derived(!!email && !!password);
 
 	const loginService = inject(LOGIN_SERVICE);
 	const routesService = inject(WEB_ROUTES_SERVICE);
@@ -70,7 +72,14 @@
 			</h1>
 
 			<div class="login-form__inputs">
-				<Textbox bind:value={email} label="Email" />
+				<EmailTextbox
+					label="Email"
+					placeholder=" "
+					bind:value={email}
+					autocomplete={false}
+					autocorrect={false}
+					spellcheck
+				/>
 				<Textbox bind:value={password} label="Password" type="password" />
 
 				<div class="text-12 login-form__password-reset">
@@ -78,7 +87,7 @@
 				</div>
 			</div>
 
-			<Button type="submit" style="pop">Log in</Button>
+			<Button type="submit" style="pop" disabled={!isFormValid}>Log in</Button>
 
 			{#if error}
 				<div class="error-message">
