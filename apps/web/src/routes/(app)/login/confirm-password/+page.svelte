@@ -64,7 +64,7 @@
 	title="Confirm new password"
 	backlink={{ label: 'Login', href: routesService.loginPath() }}
 >
-	<div class="form-content">
+	<form class="form-content" onsubmit={handleSubmit}>
 		<PasswordConfirmation
 			bind:this={passwordComponent}
 			bind:password
@@ -88,8 +88,8 @@
 			</InfoMessage>
 		{/if}
 
-		<Button type="submit" style="pop" onclick={handleSubmit}>Confirm Password</Button>
-	</div>
+		<Button type="submit" style="pop">Confirm Password</Button>
+	</form>
 </FullscreenUtilityCard>
 
 <style lang="postcss">
