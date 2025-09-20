@@ -177,6 +177,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			openProjectInWindow: build.mutation<void, { id: string }>({
 				extraOptions: { command: 'open_project_in_window' },
 				query: (args) => args
+			}),
+			getCurrentProjectId: build.query<string | null, void>({
+				extraOptions: { command: 'get_current_project_id' },
+				query: () => undefined
 			})
 		})
 	});
