@@ -12,7 +12,7 @@
 </script>
 
 <div class="analytics-confirmation">
-	<h1 class="title text-serif-40">Before we begin</h1>
+	<h1 class="title text-serif-42">Before we begin</h1>
 	<AnalyticsSettings />
 
 	<div class="analytics-confirmation__actions">

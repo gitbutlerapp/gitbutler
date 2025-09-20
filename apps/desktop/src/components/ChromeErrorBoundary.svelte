@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import InfoMessage from '$components/InfoMessage.svelte';
 	import ProjectNotFound from '$components/ProjectNotFound.svelte';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import { parseQueryError } from '$lib/error/error';
 	import { Code } from '$lib/error/knownErrors';
-	import { Button } from '@gitbutler/ui';
+	import { Button, InfoMessage } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;

@@ -67,7 +67,7 @@ export class WebRoutesService {
 	}
 
 	resetPasswordPath() {
-		return `/login/reset-password`;
+		return `/login/forgot-password`;
 	}
 	resetPasswordUrl() {
 		return this.toUrl(this.resetPasswordPath());
