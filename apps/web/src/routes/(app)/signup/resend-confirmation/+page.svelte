@@ -1,14 +1,18 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import AuthUtilityLayout from '$lib/components/auth/AuthUtilityLayout.svelte';
+	import FullscreenUtilityCard from '$lib/components/service/FullscreenUtilityCard.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
+	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { Button, InfoMessage, EmailTextbox } from '@gitbutler/ui';
 
 	let error = $state<string>();
 	let message = $state<string>();
 
+	let emailTextbox: any = $state();
+
 	const loginService = inject(LOGIN_SERVICE);
+	const routesService = inject(WEB_ROUTES_SERVICE);
 
 	const email = $derived(page.url.searchParams.get('email'));
 	const messageCode = $derived(page.url.searchParams.get('message_code'));
@@ -21,6 +25,8 @@
 	let inputEmail = $state<string>();
 
 	const emailToSendTo = $derived(inputEmail ?? email ?? undefined);
+	const isValidEmail = $derived(email ? true : !inputEmail || emailTextbox?.isValid());
+	const canSubmit = $derived(!!emailToSendTo && isValidEmail);
 
 	async function resendConfirmationEmail() {
 		if (!emailToSendTo) {
@@ -41,18 +47,17 @@
 	<title>GitButler | Resend Confirmation</title>
 </svelte:head>
 
-<AuthUtilityLayout title="Resend Confirmation">
+<FullscreenUtilityCard
+	title="Resend Confirmation"
+	backlink={{ label: 'Login', href: routesService.loginPath() }}
+>
 	{#if email}
 		<p class="text-13 text-body">
 			We send a confirmation email to <i class="clr-text-2">{email}</i>.
 		</p>
 	{:else}
 		<div class="stack-v gap-16">
-			<EmailTextbox
-				bind:value={inputEmail}
-				label="Email"
-				helperText="Your email to resend confirmation"
-			/>
+			<EmailTextbox bind:this={emailTextbox} bind:value={inputEmail} label="Email" />
 
 			{#if error}
 				<InfoMessage filled outlined={false} style="error">
@@ -78,9 +83,9 @@
 				</InfoMessage>
 			{/if}
 
-			<Button style="pop" disabled={!emailToSendTo} onclick={resendConfirmationEmail}
+			<Button style="pop" disabled={!canSubmit} onclick={resendConfirmationEmail}
 				>Resend Confirmation Email</Button
 			>
 		</div>
 	{/if}
-</AuthUtilityLayout>
+</FullscreenUtilityCard>

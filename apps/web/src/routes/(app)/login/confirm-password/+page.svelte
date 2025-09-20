@@ -2,15 +2,17 @@
 	import { page } from '$app/state';
 	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
-	import AuthUtilityLayout from '$lib/components/auth/AuthUtilityLayout.svelte';
 	import PasswordConfirmation from '$lib/components/auth/PasswordConfirmation.svelte';
+	import FullscreenUtilityCard from '$lib/components/service/FullscreenUtilityCard.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
+	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { Button, InfoMessage } from '@gitbutler/ui';
 	import { env } from '$env/dynamic/public';
 
 	const loginService = inject(LOGIN_SERVICE);
 	const authService = inject(AUTH_SERVICE);
+	const routesService = inject(WEB_ROUTES_SERVICE);
 
 	let password = $state<string>();
 	let passwordConfirmation = $state<string>();
@@ -58,7 +60,10 @@
 
 <RedirectIfLoggedIn />
 
-<AuthUtilityLayout title="Confirm new password">
+<FullscreenUtilityCard
+	title="Confirm new password"
+	backlink={{ label: 'Login', href: routesService.loginPath() }}
+>
 	<div class="form-content">
 		<PasswordConfirmation
 			bind:this={passwordComponent}
@@ -85,7 +90,7 @@
 
 		<Button type="submit" style="pop" onclick={handleSubmit}>Confirm Password</Button>
 	</div>
-</AuthUtilityLayout>
+</FullscreenUtilityCard>
 
 <style lang="postcss">
 	.form-content {
