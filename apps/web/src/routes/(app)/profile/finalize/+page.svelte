@@ -76,7 +76,7 @@
 		Almost <i>done</i>!
 	{/snippet}
 
-	<div class="finalize-form__content">
+	<form class="finalize-form__content" onsubmit={handleSubmit}>
 		<p class="text-12 text-base finalize-form__caption">
 			We need these details to set up your account properly.
 		</p>
@@ -103,10 +103,8 @@
 			</InfoMessage>
 		{/if}
 
-		<Button style="pop" type="submit" disabled={!canSubmit} onclick={handleSubmit}>
-			Finalize Account
-		</Button>
-	</div>
+		<Button style="pop" type="submit" disabled={!canSubmit}>Finalize Account</Button>
+	</form>
 </FullscreenIllustrationCard>
 
 <style lang="postcss">
