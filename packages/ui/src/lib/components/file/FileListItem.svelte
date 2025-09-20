@@ -4,7 +4,6 @@
 	import Checkbox from '$components/Checkbox.svelte';
 	import Icon from '$components/Icon.svelte';
 	import Tooltip from '$components/Tooltip.svelte';
-	import ExecutableLabel from '$components/file/ExecutableLabel.svelte';
 	import FileIndent from '$components/file/FileIndent.svelte';
 	import FileName from '$components/file/FileName.svelte';
 	import FileStatusBadge from '$components/file/FileStatusBadge.svelte';
@@ -35,6 +34,7 @@
 		active?: boolean;
 		hideBorder?: boolean;
 		executable?: boolean;
+		fileType?: 'regular' | 'executable' | 'symlink' | 'submodule';
 		actionOpts?: FocusableOptions;
 		oncheckclick?: (e: MouseEvent) => void;
 		oncheck?: (
@@ -72,6 +72,7 @@
 		listMode = 'list',
 		depth,
 		executable,
+		fileType,
 		actionOpts,
 		oncheck,
 		oncheckclick,
@@ -130,7 +131,7 @@
 		</div>
 	{/if}
 
-	<FileName {filePath} hideFilePath={listMode === 'tree'} />
+	<FileName {filePath} hideFilePath={listMode === 'tree'} {fileType} {executable} />
 
 	<div class="file-list-item__details">
 		{#if locked}
@@ -169,10 +170,6 @@
 					<Icon name="warning-small" color="error" />
 				</div>
 			</Tooltip>
-		{/if}
-
-		{#if executable}
-			<ExecutableLabel />
 		{/if}
 
 		{#if fileStatus}
