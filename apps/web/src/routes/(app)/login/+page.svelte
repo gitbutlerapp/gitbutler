@@ -1,7 +1,8 @@
 <script lang="ts">
 	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
-	import AuthPageLayout from '$lib/components/auth/AuthPageLayout.svelte';
+	import OAuthButtons from '$lib/components/auth/OAuthButtons.svelte';
+	import FullscreenIllustrationCard from '$lib/components/service/FullscreenIllustrationCard.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
@@ -11,11 +12,13 @@
 	let email = $state<string>();
 	let password = $state<string>();
 
+	let emailTextbox: any = $state();
+
 	let error = $state<string>();
 	let errorCode = $state<string>();
 	let confirmationSent = $state<boolean>(false);
 
-	const isFormValid = $derived(!!email && !!password);
+	const isFormValid = $derived(!!email && !!password && (!email || emailTextbox?.isValid()));
 
 	const loginService = inject(LOGIN_SERVICE);
 	const routesService = inject(WEB_ROUTES_SERVICE);
@@ -70,18 +73,16 @@
 
 <RedirectIfLoggedIn />
 
-<AuthPageLayout
-	title="Login"
-	subtitle="to GitButler"
-	oauthText="Or log in with"
-	oauthMode="signin"
-	bottomLinkText="Don't have an account?"
-	bottomLinkHref={routesService.signupPath()}
-	bottomLinkLabel="Sign Up now"
->
+<FullscreenIllustrationCard>
+	{#snippet title()}
+		<i>Login</i>
+		to GitButler
+	{/snippet}
+
 	<form id="login-form" class="stack-v" onsubmit={handleSubmit}>
 		<div class="auth-form__inputs">
 			<EmailTextbox
+				bind:this={emailTextbox}
 				label="Email"
 				placeholder=" "
 				bind:value={email}
@@ -125,7 +126,17 @@
 
 		<Button type="submit" style="pop" disabled={!isFormValid}>Log in</Button>
 	</form>
-</AuthPageLayout>
+
+	<OAuthButtons mode="signup" />
+
+	{#snippet footer()}
+		<div class="auth-form__footer">
+			<p>
+				Don't have an account? <a href={routesService.signupPath()}>Sign Up</a>
+			</p>
+		</div>
+	{/snippet}
+</FullscreenIllustrationCard>
 
 <style lang="postcss">
 	.auth-form__inputs {
@@ -148,6 +159,13 @@
 				text-decoration: underline;
 			}
 		}
+	}
+
+	.auth-form__footer {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 8px;
 	}
 
 	.resend-confirm-btn {

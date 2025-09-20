@@ -1,17 +1,16 @@
 <script lang="ts">
-	import { inject } from '@gitbutler/core/context';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		title: string;
 		children: Snippet;
-		showBackLink?: boolean;
+		backlink?: {
+			label: string;
+			href: string;
+		};
 	}
 
-	let { title, children, showBackLink = true }: Props = $props();
-
-	const routesService = inject(WEB_ROUTES_SERVICE);
+	let { title, children, backlink }: Props = $props();
 </script>
 
 <div class="service-form__page">
@@ -22,9 +21,9 @@
 
 		<div class="text-12 service-form__footer">
 			<p>
-				{#if showBackLink}
+				{#if backlink}
 					← Back to
-					<a href={routesService.loginPath()}>Login</a>
+					<a href={backlink.href}>{backlink.label}</a>
 				{/if}
 			</p>
 
