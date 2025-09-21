@@ -1,12 +1,12 @@
 <script lang="ts">
-	// Import illustration for finalize page
-	import finalizeSvg from '$lib/assets/splash-illustrations/walkin.svg?raw';
+	import newProjectSvg from '$lib/assets/splash-illustrations/new-project.svg?raw';
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
+	import UsernameTextbox from '$lib/components/auth/UsernameTextbox.svelte';
 	import FullscreenIllustrationCard from '$lib/components/service/FullscreenIllustrationCard.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
-	import { Button, InfoMessage, Textbox, EmailTextbox } from '@gitbutler/ui';
+	import { Button, InfoMessage, EmailTextbox } from '@gitbutler/ui';
 
 	const userService = inject(USER_SERVICE);
 	const loginService = inject(LOGIN_SERVICE);
@@ -23,13 +23,17 @@
 	let username = $state<string>();
 
 	let emailTextbox: any = $state();
+	let usernameTextbox: any = $state();
 
 	let error = $state<string>();
 	let message = $state<string>();
 	const effectiveEmail = $derived(email ?? userEmail);
 	const effectiveUsername = $derived(username ?? userLogin);
 	const canSubmit = $derived(
-		!!effectiveEmail && !!effectiveUsername && (!email || emailTextbox?.isValid())
+		!!effectiveEmail &&
+			!!effectiveUsername &&
+			(!email || emailTextbox?.isValid()) &&
+			(!username || usernameTextbox?.isValid())
 	);
 
 	async function handleSubmit(event: Event) {
@@ -76,7 +80,7 @@
 	<title>GitButler | Finalize Account</title>
 </svelte:head>
 
-<FullscreenIllustrationCard illustration={finalizeSvg}>
+<FullscreenIllustrationCard illustration={newProjectSvg}>
 	{#snippet title()}
 		Almost <i>done</i>!
 	{/snippet}
@@ -86,7 +90,7 @@
 			We need these details to set up your account properly.
 		</p>
 		{#if !userLogin}
-			<Textbox bind:value={username} label="Username" />
+			<UsernameTextbox bind:this={usernameTextbox} bind:value={username} />
 		{/if}
 		{#if !userEmail}
 			<EmailTextbox bind:this={emailTextbox} bind:value={email} label="Email" />
