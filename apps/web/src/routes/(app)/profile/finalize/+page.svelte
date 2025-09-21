@@ -1,4 +1,6 @@
 <script lang="ts">
+	// Import illustration for finalize page
+	import finalizeSvg from '$lib/assets/splash-illustrations/walkin.svg?raw';
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import FullscreenIllustrationCard from '$lib/components/service/FullscreenIllustrationCard.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
@@ -9,10 +11,13 @@
 	const userService = inject(USER_SERVICE);
 	const loginService = inject(LOGIN_SERVICE);
 	const user = userService.user;
+	// const isLoggedIn = $derived($user !== undefined);
 	const userEmail = $derived($user?.email);
 	const userLogin = $derived($user?.login);
 	const authService = inject(AUTH_SERVICE);
 	const token = authService.tokenReadable;
+
+	// const isFinalized = $derived(isLoggedIn && userEmail && userLogin);
 
 	let email = $state<string>();
 	let username = $state<string>();
@@ -71,7 +76,7 @@
 	<title>GitButler | Finalize Account</title>
 </svelte:head>
 
-<FullscreenIllustrationCard>
+<FullscreenIllustrationCard illustration={finalizeSvg}>
 	{#snippet title()}
 		Almost <i>done</i>!
 	{/snippet}

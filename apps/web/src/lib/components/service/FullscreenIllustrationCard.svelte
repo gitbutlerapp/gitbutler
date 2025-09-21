@@ -6,19 +6,22 @@
 		title: Snippet;
 		children: Snippet;
 		footer?: Snippet;
+		illustration?: string;
 	}
 
-	let { title, children, footer }: Props = $props();
+	let { title, children, footer, illustration }: Props = $props();
 </script>
 
 <div class="instruction-page">
 	<div class="instruction-card__container">
 		<div class="instruction-content">
-			<h1 class="text-serif-42 instruction-content__title">
-				{@render title()}
-			</h1>
+			<div class="instruction-content__inner">
+				<h1 class="text-serif-42 instruction-content__title">
+					{@render title()}
+				</h1>
 
-			{@render children()}
+				{@render children()}
+			</div>
 
 			<div class="instruction-content__footer text-12 text-body">
 				{@render footer?.()}
@@ -26,7 +29,7 @@
 		</div>
 
 		<div class="instruction-content__illustration">
-			{@html walkininSvg}
+			{@html illustration ?? walkininSvg}
 		</div>
 	</div>
 </div>
@@ -58,8 +61,12 @@
 		background-color: var(--clr-bg-1);
 	}
 
-	.instruction-content__title {
-		margin-bottom: 40px;
+	.instruction-content__inner {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		height: 100%;
+		gap: 40px;
 	}
 
 	.instruction-content__footer {

@@ -125,9 +125,9 @@
 		{/if}
 
 		<Button type="submit" style="pop" disabled={!isFormValid}>Log in</Button>
-	</form>
 
-	<OAuthButtons mode="signup" />
+		<OAuthButtons mode="signup" />
+	</form>
 
 	{#snippet footer()}
 		<div class="auth-form__footer">

@@ -13,7 +13,7 @@
 	let password = $state<string>();
 	let passwordConfirmation = $state<string>();
 	let error = $state<string>();
-	let message = $state<string>();
+	let successMessage = $state<string>();
 
 	let emailTextbox: any = $state();
 	let passwordComponent: PasswordConfirmation | undefined = $state();
@@ -49,7 +49,7 @@
 			console.error('Login failed:', response.raw ?? response.errorMessage);
 		} else {
 			error = undefined;
-			message = response.data.message;
+			successMessage = response.data.message;
 		}
 	}
 </script>
@@ -62,17 +62,15 @@
 
 <FullscreenIllustrationCard>
 	{#snippet title()}
-		<i>Sign Up</i>
-		for GitButler
+		{#if !successMessage}
+			<i>Sign Up</i>
+			for GitButler
+		{:else}
+			🚀 Check <i>your email</i> for confirmation instructions
+		{/if}
 	{/snippet}
 
-	{#if message}
-		<InfoMessage filled outlined={false} style="success" class="m-bottom-16">
-			{#snippet content()}
-				{message}
-			{/snippet}
-		</InfoMessage>
-	{:else}
+	{#if !successMessage}
 		<form id="signup-form" class="stack-v" onsubmit={handleSubmit}>
 			<div class="auth-form__inputs">
 				<Textbox bind:value={username} label="Username" />
@@ -101,27 +99,40 @@
 			{/if}
 
 			<Button type="submit" style="pop" disabled={!isFormValid}>Create account</Button>
+
+			<OAuthButtons mode="signup" />
 		</form>
 	{/if}
 
-	<OAuthButtons mode="signup" />
-
 	{#snippet footer()}
 		<div class="auth-form__footer">
-			<p>
-				*By signing up, you agree to our
-				<a
-					href="https://app.termly.io/document/terms-and-conditions/7924c71d-80bb-4444-9381-947237b9fc0f"
-					>Terms</a
-				>
-				and
-				<a href="https://app.termly.io/document/privacy-policy/a001c8b7-505b-4eab-81e3-fcd1c72bdd79"
-					>Privacy Policy</a
-				>
-			</p>
-			<p>
-				Already have an account? <a href={routesService.loginPath()}>Log in now</a>
-			</p>
+			{#if !successMessage}
+				<p>
+					*By signing up, you agree to our
+					<a
+						href="https://app.termly.io/document/terms-and-conditions/7924c71d-80bb-4444-9381-947237b9fc0f"
+						>Terms</a
+					>
+					and
+					<a
+						href="https://app.termly.io/document/privacy-policy/a001c8b7-505b-4eab-81e3-fcd1c72bdd79"
+						>Privacy Policy</a
+					>
+				</p>
+				<p>
+					Already have an account? <a href={routesService.loginPath()}>Log in now</a>
+				</p>
+			{:else}
+				<p>
+					Need help? <a
+						href="https://github.com/gitbutlerapp/gitbutler/issues/new?template=BLANK_ISSUE"
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						Open a support request
+					</a>
+				</p>
+			{/if}
 		</div>
 	{/snippet}
 </FullscreenIllustrationCard>
