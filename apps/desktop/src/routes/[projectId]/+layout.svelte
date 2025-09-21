@@ -173,16 +173,30 @@
 
 	const backend = inject(BACKEND);
 	$effect(() => {
+		let baseTitle: string;
 		let windowTitle: string;
 		const projectTitle = currentProject?.title;
 
-		backend.getWindowTitle().then((value) => {
-			windowTitle = value;
-			if (projectTitle) backend.setWindowTitle(`${projectTitle} — ${value}`);
-		});
+		Promise.all([backend.getAppInfo(), backend.getWindowTitle()]).then(
+			([appInfo, currentTitle]) => {
+				baseTitle = appInfo.name;
+
+				if (!currentTitle.includes(' — ')) {
+					windowTitle = currentTitle;
+				}
+
+				if (projectTitle) {
+					backend.setWindowTitle(`${projectTitle} — ${baseTitle}`);
+				}
+			}
+		);
 
 		return () => {
-			if (windowTitle) backend.setWindowTitle(windowTitle);
+			if (windowTitle) {
+				backend.setWindowTitle(windowTitle);
+			} else if (baseTitle) {
+				backend.setWindowTitle(baseTitle);
+			}
 		};
 	});
 
