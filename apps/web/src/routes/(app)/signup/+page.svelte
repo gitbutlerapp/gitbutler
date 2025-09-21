@@ -1,12 +1,14 @@
 <script lang="ts">
+	import newProjectSvg from '$lib/assets/splash-illustrations/new-project.svg?raw';
 	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
 	import OAuthButtons from '$lib/components/auth/OAuthButtons.svelte';
 	import PasswordConfirmation from '$lib/components/auth/PasswordConfirmation.svelte';
+	import UsernameTextbox from '$lib/components/auth/UsernameTextbox.svelte';
 	import FullscreenIllustrationCard from '$lib/components/service/FullscreenIllustrationCard.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, EmailTextbox, Textbox, InfoMessage } from '@gitbutler/ui';
+	import { Button, EmailTextbox, InfoMessage } from '@gitbutler/ui';
 
 	let username = $state<string>();
 	let email = $state<string>();
@@ -16,10 +18,15 @@
 	let successMessage = $state<string>();
 
 	let emailTextbox: any = $state();
+	let usernameTextbox: any = $state();
 	let passwordComponent: PasswordConfirmation | undefined = $state();
 
 	const isFormValid = $derived(
-		username?.trim() && email?.trim() && emailTextbox?.isValid() && passwordComponent?.isValid?.()
+		username?.trim() &&
+			email?.trim() &&
+			emailTextbox?.isValid() &&
+			usernameTextbox?.isValid() &&
+			passwordComponent?.isValid?.()
 	);
 
 	const loginService = inject(LOGIN_SERVICE);
@@ -34,6 +41,11 @@
 
 		if (!passwordComponent?.isValid()) {
 			error = 'Please check your password and confirmation';
+			return;
+		}
+
+		if (!usernameTextbox?.isValid()) {
+			error = 'Please check your username';
 			return;
 		}
 
@@ -60,7 +72,7 @@
 
 <RedirectIfLoggedIn />
 
-<FullscreenIllustrationCard>
+<FullscreenIllustrationCard illustration={successMessage ? newProjectSvg : undefined}>
 	{#snippet title()}
 		{#if !successMessage}
 			<i>Sign Up</i>
@@ -73,7 +85,7 @@
 	{#if !successMessage}
 		<form id="signup-form" class="stack-v" onsubmit={handleSubmit}>
 			<div class="auth-form__inputs">
-				<Textbox bind:value={username} label="Username" />
+				<UsernameTextbox bind:this={usernameTextbox} bind:value={username} />
 				<EmailTextbox
 					bind:this={emailTextbox}
 					label="Email"
