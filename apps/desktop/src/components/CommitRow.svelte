@@ -75,7 +75,7 @@
 		disabled,
 		hasConflicts,
 		active,
-		editable = true,
+		editable = false,
 		onclick,
 		menu,
 		...args

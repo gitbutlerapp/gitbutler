@@ -86,7 +86,6 @@
 							});
 						}}
 						lastCommit={idx === branch.upstreamCommits.length - 1 && branch.commits.length === 0}
-						editable={false}
 					/>
 				{/each}
 				{#each branch.commits || [] as commit, idx}
@@ -109,7 +108,6 @@
 						}}
 						lastCommit={idx === branch.commits.length - 1}
 						active
-						editable={false}
 					/>
 				{/each}
 			</div>
