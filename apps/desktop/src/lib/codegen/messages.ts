@@ -286,12 +286,18 @@ export function usageStats(events: ClaudeMessage[]): {
 } {
 	let tokens = 0;
 	let cost = 0;
-	for (const event of events) {
+	const usedIds = new Set();
+	for (let i = events.length - 1; i >= 0; i--) {
+		const event = events[i]!;
 		if (event.content.type !== 'claudeOutput') continue;
 		const message = event.content.subject;
 		if (message.type !== 'assistant') continue;
 		const usage = message.message.usage;
-		if (message.message.stop_reason === 'tool_use') continue;
+
+		if (usedIds.has(message.message.id)) {
+			continue;
+		}
+		usedIds.add(message.message.id);
 		tokens += usage.input_tokens;
 		tokens += usage.output_tokens;
 
