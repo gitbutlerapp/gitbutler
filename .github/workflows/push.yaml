@@ -148,7 +148,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.8.0
+        uses: Swatinem/rust-cache@v2.8.1
         with:
           shared-key: unix-rust-testing-v2
       - run: |
@@ -207,7 +207,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.8.0
+        uses: Swatinem/rust-cache@v2.8.1
         with:
           shared-key: windows-rust-testing
       - name: 'cargo check'
