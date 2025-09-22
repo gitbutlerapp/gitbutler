@@ -30,12 +30,17 @@ type ClaudeCodeActionSource = {
 	ClaudeCode: string;
 };
 
+type CursorActionSource = {
+	ClaudeCode: string;
+};
+
 export type ActionSource =
 	| 'ButCli'
 	| 'GitButler'
 	| 'Unknown'
 	| MCPActionSource
-	| ClaudeCodeActionSource;
+	| ClaudeCodeActionSource
+	| CursorActionSource;
 
 export function isStringActionSource(
 	source: ActionSource
@@ -57,6 +62,10 @@ export function isDefinedMCPActionSource(source: ActionSource): source is Define
 
 export function isClaudeCodeActionSource(source: ActionSource): source is ClaudeCodeActionSource {
 	return typeof source === 'object' && source !== null && 'ClaudeCode' in source;
+}
+
+export function isCursorActionSource(source: ActionSource): source is CursorActionSource {
+	return typeof source === 'object' && source !== null && 'Cursor' in source;
 }
 
 /** Represents a snapshot of an automatic action taken by a GitButler automation.  */
