@@ -212,3 +212,32 @@ jobs:
           shared-key: windows-rust-testing
       - name: 'cargo check'
         run: cargo check --workspace --all-targets --features windows
+
+  # Check that all `actions/checkout` in CI jobs have `persist-credentials: false`.
+  check-no-persist-credentials:
+    runs-on: ubuntu-latest
+
+    env:
+      GLOB: .github/workflows/*.@(yaml|yml)
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: '.github/workflows'
+      - name: Generate workflows list to scan
+        run: |
+          shopt -s extglob
+          printf '%s\n' ${{ env.GLOB }} | grep -v .github/workflows/publish.yaml >workflows.list
+          cat workflows.list
+          echo "Note that publish.yaml is excluded until it's ensured to not need this feature"
+      - name: Scan workflows
+        run: |
+          shopt -s extglob
+          yq '.jobs.*.steps[]
+            | select(.uses == "actions/checkout@*" and .with.["persist-credentials"]? != false)
+            | {"file": filename, "line": line, "name": (.name // .uses)}
+            | .file + ":" + (.line | tostring) + ": " + .name
+          ' -- $(cat workflows.list) >query-output.txt
+          cat query-output.txt
+          test -z "$(<query-output.txt)"  # Report failure if we found anything.
