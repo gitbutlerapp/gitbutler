@@ -289,6 +289,7 @@
 								{active}
 								onclick={() => handleCommitClick(commit.id, true)}
 								disableCommitActions={false}
+								editable={!!stackId}
 							/>
 						{/if}
 					{/each}
@@ -428,6 +429,7 @@
 								{active}
 								onclick={() => handleCommitClick(commit.id, false)}
 								disableCommitActions={false}
+								editable={!!stackId}
 							>
 								{#snippet menu({ rightClickTrigger })}
 									{@const data = {
