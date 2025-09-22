@@ -164,7 +164,17 @@ export class FileSelectionManager {
 			case 'commit':
 				return await this.stackService.commitChangesByPaths(projectId, params.commitId, paths);
 			case 'snapshot':
-				throw new Error('unsupported');
+				// TODO: Use the commented out code once back end support restored!
+				// Without this we can't show a multi file context menu for snapshots.
+				// if (paths[0]) {
+				// 	const change = await this.oplogService.fetchDiffWorktreeByPath({
+				// 		projectId,
+				// 		snapshotId: params.snapshotId,
+				// 		path: paths[0]
+				// 	});
+				// 	return change ? [change] : [];
+				// }
+				return [];
 		}
 	}
 

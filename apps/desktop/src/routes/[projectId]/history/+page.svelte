@@ -70,17 +70,6 @@
 		return ranges.map((snapshot) => snapshot.id);
 	}
 
-	async function updateFilePreview(entry: Snapshot, path: string) {
-		const selectionId = createSnapshotSelection({ snapshotId: entry.id });
-		// Get the diff data to find the file index
-		const diffs = await historyService.getSnapshotDiff(projectId, entry.id);
-		const fileIndex = diffs.findIndex((tc) => tc.path === path);
-		if (fileIndex === -1) return;
-
-		idSelection.set(path, selectionId, fileIndex);
-		currentSelectionId = selectionId;
-	}
-
 	let scrollContainer: HTMLDivElement | undefined = $state();
 </script>
 
@@ -126,28 +115,17 @@
 						{#if entry.details}
 							<SnapshotCard
 								{projectId}
-								isWithinRestore={withinRestoreItems.includes(entry.id)}
 								{entry}
+								isWithinRestore={withinRestoreItems.includes(entry.id)}
 								onRestoreClick={() => {
 									historyService.restoreSnapshot(projectId, entry.id);
 									// In some cases, restoring the snapshot doesnt update the UI correctly
 									// Until we have that figured out, we need to reload the page.
 									location.reload();
 								}}
-								onDiffClick={(path) => {
-									if (
-										selectedFile?.path === path &&
-										selectedFile?.type === 'snapshot' &&
-										selectedFile.snapshotId === entry.id
-									) {
-										currentSelectionId = undefined;
-									} else {
-										updateFilePreview(entry, path);
-									}
+								onDiffClick={() => {
+									currentSelectionId = createSnapshotSelection({ snapshotId: entry.id });
 								}}
-								selectedFile={currentSelectionId && selectedFile && selectedFile.type === 'snapshot'
-									? { entryId: selectedFile.snapshotId, path: selectedFile.path }
-									: undefined}
 							/>
 						{/if}
 					{/each}
