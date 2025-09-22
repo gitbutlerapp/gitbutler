@@ -1,11 +1,12 @@
 <script lang="ts">
+	import FileList from '$components/FileList.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
 	import { createdOnDay, HISTORY_SERVICE } from '$lib/history/history';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { toHumanReadableTime } from '$lib/utils/time';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, Icon, FileListItem } from '@gitbutler/ui';
+	import { Button, Icon, ScrollableContainer } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
@@ -15,23 +16,10 @@
 		isWithinRestore?: boolean;
 		onRestoreClick: () => void;
 		onDiffClick: (filePath: string) => void;
-		selectedFile?:
-			| {
-					entryId: string;
-					path: string;
-			  }
-			| undefined;
 		projectId: string;
 	}
 
-	const {
-		projectId,
-		entry,
-		isWithinRestore = true,
-		selectedFile = undefined,
-		onRestoreClick,
-		onDiffClick
-	}: Props = $props();
+	const { projectId, entry, isWithinRestore = true, onRestoreClick, onDiffClick }: Props = $props();
 
 	function getShortSha(sha: string | undefined) {
 		if (!sha) return '';
@@ -223,25 +211,22 @@
 		<ReduxResult result={snapshotDiff.result} {projectId}>
 			{#snippet children(files)}
 				{#if files.length > 0 && !isRestoreSnapshot}
-					<SnapshotAttachment foldable={files.length > 2} foldedAmount={files.length}>
-						<div class="files-attacment" use:focusable={{ vertical: true }}>
-							{#each files as file, idx}
-								<div
-									use:focusable={{
-										focusable: true,
-										onActive: () => onDiffClick(file.path)
-									}}
-								>
-									<FileListItem
-										listMode="list"
-										filePath={file.path}
-										selected={selectedFile?.path === file.path &&
-											selectedFile?.entryId === entry.id}
-										hideBorder={idx === files.length - 1}
-									/>
-								</div>
-							{/each}
-						</div>
+					<SnapshotAttachment
+						foldable={files.length > 2}
+						foldedAmount={files.length}
+						foldedHeight="7rem"
+					>
+						<ScrollableContainer>
+							<FileList
+								selectionId={{ type: 'snapshot', snapshotId: entry.id }}
+								{projectId}
+								stackId={undefined}
+								changes={files}
+								listMode="list"
+								hideLastFileBorder={false}
+								onselect={(change) => onDiffClick(change.path)}
+							/>
+						</ScrollableContainer>
 					</SnapshotAttachment>
 				{/if}
 			{/snippet}
@@ -384,12 +369,6 @@
 	.snapshot-sha {
 		color: var(--clr-text-3);
 		white-space: nowrap;
-	}
-
-	/* ATTACHMENT FILES */
-	.files-attacment {
-		display: flex;
-		flex-direction: column;
 	}
 
 	/* ATTACHMENT RESTORE */

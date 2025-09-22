@@ -36,7 +36,7 @@
 		draggableFiles?: boolean;
 		ancestorMostConflictedCommitId?: string;
 		hideLastFileBorder?: boolean;
-		onselect?: () => void;
+		onselect?: (change: TreeChange) => void;
 	};
 
 	const {
@@ -182,7 +182,7 @@
 		if (e.key === 'Enter' || e.key === ' ' || e.key === 'l') {
 			e.stopPropagation();
 			selectFilesInList(e, change, changes, idSelection, selectedFileIds, true, idx, selectionId);
-			onselect?.();
+			onselect?.(change);
 			return true;
 		}
 
@@ -251,7 +251,7 @@
 		onclick={(e) => {
 			e.stopPropagation();
 			selectFilesInList(e, change, changes, idSelection, selectedFileIds, true, idx, selectionId);
-			onselect?.();
+			onselect?.(change);
 		}}
 		{conflictEntries}
 	/>
