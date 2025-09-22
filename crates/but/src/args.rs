@@ -48,6 +48,8 @@ For examples see `but rub --help`."
         #[clap(long, short = 'r')]
         repo: bool,
     },
+    /// Commands for managing the base.
+    Base(crate::base::Platform),
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
@@ -81,6 +83,8 @@ pub enum CommandName {
     Status,
     #[clap(alias = "rub")]
     Rub,
+    BaseCheck,
+    BaseUpdate,
     #[clap(
         alias = "claude-pre-tool",
         alias = "claudepretool",
