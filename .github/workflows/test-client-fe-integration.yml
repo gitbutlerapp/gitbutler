@@ -15,10 +15,13 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
         if: ${{ github.event_name != 'workflow_dispatch' }}
       - uses: actions/checkout@v5
         if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
+          persist-credentials: false
           ref: ${{ github.event.inputs.sha }}
       - name: Setup node environment
         uses: ./.github/actions/init-env-node

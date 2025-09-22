@@ -20,6 +20,8 @@ jobs:
       rust: ${{ steps.filter.outputs.rust }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -49,6 +51,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - run: pnpm prettier
 
@@ -58,6 +62,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - run: pnpm lint
 
@@ -67,6 +73,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - run: pnpm check
 
@@ -76,6 +84,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - run: pnpm test
 
@@ -89,6 +99,8 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - run: cargo fmt --check --all
       - run: cargo check --workspace --all-targets
 
@@ -102,6 +114,8 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       # TODO(qix-): we have to exclude the app here for now because for some
       # TODO(qix-): reason it doesn't build with the docs feature enabled.
       - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
@@ -114,6 +128,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: EmbarkStudios/cargo-deny-action@f2ba7abc2abebaf185c833c3961145a3c275caad # v2.0.13
         with:
           command: check bans licenses sources
@@ -129,6 +145,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.0
         with:
@@ -186,9 +204,40 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.0
         with:
           shared-key: windows-rust-testing
       - name: 'cargo check'
         run: cargo check --workspace --all-targets --features windows
+
+  # Check that all `actions/checkout` in CI jobs have `persist-credentials: false`.
+  check-no-persist-credentials:
+    runs-on: ubuntu-latest
+
+    env:
+      GLOB: .github/workflows/*.@(yaml|yml)
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: '.github/workflows'
+      - name: Generate workflows list to scan
+        run: |
+          shopt -s extglob
+          printf '%s\n' ${{ env.GLOB }} | grep -v .github/workflows/publish.yaml >workflows.list
+          cat workflows.list
+          echo "Note that publish.yaml is excluded until it's ensured to not need this feature"
+      - name: Scan workflows
+        run: |
+          shopt -s extglob
+          yq '.jobs.*.steps[]
+            | select(.uses == "actions/checkout@*" and .with.["persist-credentials"]? != false)
+            | {"file": filename, "line": line, "name": (.name // .uses)}
+            | .file + ":" + (.line | tostring) + ": " + .name
+          ' -- $(cat workflows.list) >query-output.txt
+          cat query-output.txt
+          test -z "$(<query-output.txt)"  # Report failure if we found anything.
