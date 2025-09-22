@@ -24,15 +24,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct NameAndStatus {
-    name: String,
-    status: BranchStatus,
+    pub name: String,
+    pub status: BranchStatus,
 }
 
 #[derive(Serialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct StackStatus {
-    tree_status: TreeStatus,
-    branch_statuses: Vec<NameAndStatus>,
+    pub tree_status: TreeStatus,
+    pub branch_statuses: Vec<NameAndStatus>,
 }
 
 #[derive(Serialize, PartialEq, Debug)]

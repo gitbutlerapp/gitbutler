@@ -118,6 +118,15 @@ impl Project {
             ..Default::default()
         })
     }
+    /// Finds an existing project by its path. Errors out if not found.
+    pub fn find_by_path(path: &Path) -> anyhow::Result<Project> {
+        let projects = crate::list()?;
+        let project = projects
+            .into_iter()
+            .find(|p| p.path == path)
+            .context("No project found with the given path")?;
+        Ok(project)
+    }
 }
 
 impl Project {
