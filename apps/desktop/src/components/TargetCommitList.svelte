@@ -105,6 +105,7 @@
 						commitMessage={commit.message}
 						createdAt={commit.createdAt}
 						author={commit.author}
+						editable={false}
 						onclick={() => {
 							branchesState.set({
 								commitId: commit.id,

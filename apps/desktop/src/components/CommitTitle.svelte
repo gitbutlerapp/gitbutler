@@ -6,9 +6,10 @@
 		truncate?: boolean;
 		commitMessage: string;
 		className?: string;
+		editable?: boolean;
 	};
 
-	const { commitMessage, truncate, className }: Props = $props();
+	const { commitMessage, truncate, className, editable = true }: Props = $props();
 
 	const title = $derived(splitMessage(commitMessage).title);
 
@@ -16,7 +17,7 @@
 		if (title) {
 			return title;
 		}
-		return 'Empty commit. Drag changes here';
+		return editable ? 'Empty commit. Drag changes here' : 'Empty commit';
 	}
 </script>
 
