@@ -12,11 +12,10 @@ use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_serde::BStringForFrontend;
-use gitbutler_stack::{Stack as GitButlerBranch, StackId, Target};
+use gitbutler_stack::{Stack, StackId, Target};
 use gix::object::tree::diff::Action;
-use gix::prelude::{ObjectIdExt, TreeDiffChangeExt};
+use gix::prelude::TreeDiffChangeExt;
 use gix::reference::Category;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::BTreeSet;
@@ -59,7 +58,6 @@ pub fn list_branches(
     repo.object_cache_size_if_unset(1024 * 1024);
     let has_filter = filter.is_some();
     let filter = filter.unwrap_or_default();
-    let vb_handle = ctx.project().virtual_branches();
     let platform = repo.references()?;
     let mut branches: Vec<GroupBranch> = vec![];
     for reference in platform.all()?.filter_map(Result::ok) {
@@ -89,8 +87,15 @@ pub fn list_branches(
         });
     }
 
+    let vb_handle = ctx.project().virtual_branches();
     let stacks = vb_handle.list_all_stacks()?;
-    branches.extend(stacks.iter().map(|s| GroupBranch::Virtual(s.clone())));
+    let remote_names = repo.remote_names();
+    branches.extend(
+        stacks
+            .iter()
+            .map(|s| GitButlerStack::new(s, &remote_names).map(GroupBranch::Virtual))
+            .collect::<Result<Vec<_>, _>>()?,
+    );
     let mut branches = combine_branches(branches, &repo, vb_handle.get_default_target()?)?;
 
     // Apply the filter
@@ -264,24 +269,20 @@ fn branch_group_to_branch(
     }
 
     // Virtual branch associated with this branch
-    let virtual_branch_reference = virtual_branch.map(|stack| StackReference {
-        given_name: stack.name.clone(),
-        id: stack.id,
-        in_workspace: stack.in_workspace,
-        branches: stack
-            .branches()
-            .iter()
-            .filter(|b| !b.archived)
-            .rev()
-            .map(|b| b.name())
-            .cloned()
-            .collect_vec(),
-        pull_requests: stack
-            .branches()
-            .iter()
-            .filter(|b| !b.archived)
-            .filter_map(|b| b.pr_number.map(|pr| (b.name().to_owned(), pr)))
-            .collect(),
+    let virtual_branch_reference = virtual_branch.map(|stack| {
+        let unarchived_branches = stack.unarchived_segments.iter();
+        StackReference {
+            given_name: stack.name.clone(),
+            id: stack.id,
+            in_workspace: stack.in_workspace,
+            branches: unarchived_branches
+                .clone()
+                .map(|b| b.short_name())
+                .collect(),
+            pull_requests: unarchived_branches
+                .filter_map(|b| b.pr_or_mr.map(|pr| (b.short_name().to_owned(), pr)))
+                .collect(),
+        }
     });
 
     let mut remotes: Vec<gix::remote::Name<'static>> = Vec::new();
@@ -298,7 +299,7 @@ fn branch_group_to_branch(
     // If there is a virtual branch let's get it's head. Alternatively, pick the first local branch and use it's head.
     // If there are no local branches, pick the first remote branch.
     let head_commit = if let Some(vbranch) = virtual_branch {
-        Some(vbranch.head_oid(repo)?.attach(repo))
+        Some(vbranch.head_oid(repo)?)
     } else if let Some(mut branch) = local_branches.into_iter().next() {
         branch.peel_to_id_in_place_packed(packed).ok()
     } else if let Some(mut branch) = remote_branches.into_iter().next() {
@@ -329,11 +330,95 @@ fn branch_group_to_branch(
 }
 
 /// A sum type of branch that can be a plain git branch or a virtual branch
-#[expect(clippy::large_enum_variant)]
 enum GroupBranch<'a> {
     Local(gix::Reference<'a>),
     Remote(gix::Reference<'a>),
-    Virtual(GitButlerBranch),
+    Virtual(GitButlerStack),
+}
+
+/// A type to just keep the parts we currently need.
+#[derive(Debug)]
+struct GitButlerStack {
+    id: StackId,
+    /// `true` if the stack is applied to the workspace.
+    in_workspace: bool,
+    /// The short name of the top-most segment.
+    name: String,
+    /// The full ref name of the top-most segment.
+    source_refname: Option<gix::refs::FullName>,
+    /// The full ref name of the remote tracking branch of the top-most segment.
+    upstream: Option<but_workspace::ui::ref_info::RemoteTrackingReference>,
+    /// The time at which anything in the stack was last updated.
+    updated_timestamp_ms: u128,
+    // All segments of the stack, as long as they are not archived.
+    // The tip comes first.
+    unarchived_segments: Vec<GitbutlerStackSegment>,
+}
+
+#[derive(Debug)]
+struct GitbutlerStackSegment {
+    /// The name of the segment, without support for these to be anonymous (which is a problem).
+    tip: gix::refs::FullName,
+    /// The PR or MR associated with it.
+    pr_or_mr: Option<usize>,
+}
+
+impl GitbutlerStackSegment {
+    fn short_name(&self) -> String {
+        self.tip.shorten().to_string()
+    }
+}
+
+impl GitButlerStack {
+    fn new(s: &Stack, names: &gix::remote::Names) -> anyhow::Result<Self> {
+        Ok(GitButlerStack {
+            id: s.id,
+            in_workspace: s.in_workspace,
+            name: s.name.clone(),
+            source_refname: s
+                .source_refname
+                .as_ref()
+                .and_then(|r| r.to_string().try_into().ok()),
+            upstream: s
+                .upstream
+                .as_ref()
+                .and_then(|r| {
+                    r.to_string().try_into().ok().map(|rn| {
+                        but_workspace::ui::ref_info::RemoteTrackingReference::for_ui(rn, names)
+                    })
+                })
+                .transpose()?,
+            updated_timestamp_ms: s.updated_timestamp_ms,
+            unarchived_segments: s
+                .branches()
+                .iter()
+                // The tip is at the bottom here.
+                .rev()
+                .filter(|s| !s.archived)
+                .map(|s| GitbutlerStackSegment {
+                    tip: s
+                        .full_name()
+                        .expect("full names are always valid, as their short names were valid"),
+                    pr_or_mr: s.pr_number,
+                })
+                .collect(),
+        })
+    }
+}
+
+impl GitButlerStack {
+    /// Return the top-most stack's commit id.
+    fn head_oid<'repo>(&self, repo: &'repo gix::Repository) -> anyhow::Result<gix::Id<'repo>> {
+        let tip_ref = self
+            .unarchived_segments
+            .iter()
+            .map(|s| s.tip.as_ref())
+            .next()
+            .with_context(|| format!("Stack {} didn't have a tip ref name", self.id))?;
+        repo.find_reference(tip_ref)?
+            .try_id()
+            .with_context(|| format!("'{}' was as symbolic reference", tip_ref.shorten()))
+    }
 }
 
 impl fmt::Debug for GroupBranch<'_> {
@@ -352,7 +437,7 @@ impl fmt::Debug for GroupBranch<'_> {
                 )
                 .finish(),
             GroupBranch::Virtual(branch) => formatter
-                .debug_struct("GroupBranch::Virtal")
+                .debug_struct("GroupBranch::Virtual")
                 .field("0", branch)
                 .finish(),
         }
@@ -370,12 +455,15 @@ impl GroupBranch<'_> {
             }
             // The identity of a Virtual branch is derived from the source refname, upstream or the branch given name, in that order
             GroupBranch::Virtual(branch) => {
-                let name_from_source = branch.source_refname.as_ref().and_then(|n| n.branch());
-                let name_from_upstream = branch.upstream.as_ref().map(|n| n.branch());
+                let name_from_source = branch.source_refname.as_ref().map(|n| n.shorten());
+                let name_from_upstream = branch
+                    .upstream
+                    .as_ref()
+                    .map(|n| n.display_name.as_str().into());
 
                 // If we have a source refname or upstream, use those directly
                 if let Some(name) = name_from_source.or(name_from_upstream) {
-                    return Some(name.into());
+                    return name.try_into().ok();
                 }
 
                 // Only fall back to the normalized rich name if no source/upstream is available
@@ -515,7 +603,7 @@ pub struct StackReference {
     /// List of branches that are part of the stack
     /// Ordered from newest to oldest (the most recent branch is first in the list)
     pub branches: Vec<String>,
-    /// Pull Request numbes by branch name associated with the stack
+    /// Pull Request numbers by branch name associated with the stack
     pub pull_requests: HashMap<String, usize>,
 }
 
