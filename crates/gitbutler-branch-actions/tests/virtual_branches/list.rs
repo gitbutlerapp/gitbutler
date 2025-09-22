@@ -45,7 +45,7 @@ fn one_vbranch_in_workspace_one_commit() -> Result<()> {
 #[test]
 fn two_vbranches_in_workspace_one_commit() -> Result<()> {
     init_env();
-    let ctx = project_ctx("two-vbranches-in-workspace-one-applied")?;
+    let ctx = project_ctx_without_ws3("two-vbranches-in-workspace-one-applied")?;
     let list = list_branches(
         &ctx,
         Some(BranchListingFilter {
@@ -92,7 +92,7 @@ fn two_vbranches_in_workspace_one_commit() -> Result<()> {
 #[test]
 fn one_feature_branch_and_one_vbranch_in_workspace_one_commit() -> Result<()> {
     init_env();
-    let ctx = project_ctx("a-vbranch-named-like-target-branch-short-name")?;
+    let ctx = project_ctx_without_ws3("a-vbranch-named-like-target-branch-short-name")?;
     let list = list_branches(&ctx, None)?;
     assert_eq!(
         list.len(),
@@ -118,7 +118,7 @@ fn one_feature_branch_and_one_vbranch_in_workspace_one_commit() -> Result<()> {
 #[test]
 fn one_branch_in_workspace_multiple_remotes() -> Result<()> {
     init_env();
-    let ctx = project_ctx("one-vbranch-in-workspace-two-remotes")?;
+    let ctx = project_ctx_without_ws3("one-vbranch-in-workspace-two-remotes")?;
     let list = list_branches(&ctx, None)?;
     assert_eq!(list.len(), 1, "a single virtual branch");
 
@@ -138,6 +138,8 @@ fn one_branch_in_workspace_multiple_remotes() -> Result<()> {
 
 mod util {
     use anyhow::Result;
+    use but_settings::app_settings::FeatureFlags;
+    use but_settings::AppSettings;
     use gitbutler_branch::BranchIdentity;
     use gitbutler_branch_actions::{BranchListing, BranchListingFilter};
     use gitbutler_command_context::CommandContext;
@@ -221,6 +223,17 @@ mod util {
         gitbutler_testsupport::read_only::fixture("for-listing.sh", name)
     }
 
+    pub fn project_ctx_without_ws3(name: &str) -> Result<CommandContext> {
+        gitbutler_testsupport::read_only::fixture_with_features(
+            "for-listing.sh",
+            name,
+            FeatureFlags {
+                ws3: false,
+                ..AppSettings::default().feature_flags
+            },
+        )
+    }
+
     pub fn list_branches(
         ctx: &CommandContext,
         filter: Option<BranchListingFilter>,
@@ -230,4 +243,5 @@ mod util {
         Ok(branches)
     }
 }
+use crate::virtual_branches::list::util::project_ctx_without_ws3;
 pub use util::{assert_equal, init_env, list_branches, project_ctx, ExpectedBranchListing};

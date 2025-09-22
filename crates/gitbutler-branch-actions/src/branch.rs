@@ -88,14 +88,36 @@ pub fn list_branches(
     }
 
     let vb_handle = ctx.project().virtual_branches();
-    let stacks = vb_handle.list_all_stacks()?;
     let remote_names = repo.remote_names();
-    branches.extend(
-        stacks
+    let stacks = if ctx.app_settings().feature_flags.ws3 {
+        if let Some(workspace_ref) = repo.try_find_reference("refs/heads/gitbutler/workspace")? {
+            // Let's get this here for convenience, and hope this isn't ever called by a writer (or there will be a deadlock).
+            let read_guard = ctx.project().shared_worktree_access();
+            let meta = ctx.meta(read_guard.read_permission())?;
+            let info = but_workspace::ref_info(
+                workspace_ref,
+                &*meta,
+                but_workspace::ref_info::Options {
+                    traversal: but_graph::init::Options::limited(),
+                    expensive_commit_info: false,
+                },
+            )?;
+            info.stacks
+                .into_iter()
+                .map(|s| GitButlerStack::new(s, &remote_names))
+                .collect::<Result<Vec<_>, _>>()?
+        } else {
+            Vec::new()
+        }
+    } else {
+        vb_handle
+            .list_all_stacks()?
             .iter()
-            .map(|s| GitButlerStack::new(s, &remote_names).map(GroupBranch::Virtual))
-            .collect::<Result<Vec<_>, _>>()?,
-    );
+            .map(|s| GitButlerStack::new_from_old(s, &remote_names))
+            .collect::<Result<Vec<_>, _>>()?
+    };
+
+    branches.extend(stacks.iter().map(|s| GroupBranch::Virtual(s.clone())));
     let mut branches = combine_branches(branches, &repo, vb_handle.get_default_target()?)?;
 
     // Apply the filter
@@ -135,13 +157,13 @@ pub fn list_branches(
     // To do this, we build up a list of all the branch identities that are
     // part of a stack and then filter out any branches that have been grouped
     // without a stack and match one of these identities.
-    let branch_identities_to_exclude = stacks
-        .iter()
+    let branch_identities_to_exclude: HashSet<BString> = stacks
+        .into_iter()
         .flat_map(|s| {
-            s.branches()
+            s.unarchived_segments
                 .into_iter()
-                .map(|b| BString::from(b.name().to_owned()))
-                .chain([BString::from(s.name.to_owned())])
+                .map(|b| b.short_name().into())
+                .chain(Some(s.name.into()))
         })
         .collect::<HashSet<_>>();
 
@@ -337,7 +359,7 @@ enum GroupBranch<'a> {
 }
 
 /// A type to just keep the parts we currently need.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct GitButlerStack {
     id: StackId,
     /// `true` if the stack is applied to the workspace.
@@ -355,7 +377,7 @@ struct GitButlerStack {
     unarchived_segments: Vec<GitbutlerStackSegment>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct GitbutlerStackSegment {
     /// The name of the segment, without support for these to be anonymous (which is a problem).
     tip: gix::refs::FullName,
@@ -370,16 +392,62 @@ impl GitbutlerStackSegment {
 }
 
 impl GitButlerStack {
-    fn new(s: &Stack, names: &gix::remote::Names) -> anyhow::Result<Self> {
+    fn new(
+        stack: but_workspace::branch::Stack,
+        names: &gix::remote::Names,
+    ) -> anyhow::Result<Self> {
+        let first_segment = stack.segments.first();
         Ok(GitButlerStack {
-            id: s.id,
-            in_workspace: s.in_workspace,
-            name: s.name.clone(),
-            source_refname: s
+            id: stack.id.context("Can't handle stacks without ID yet")?,
+            // The ones we have reachable are never
+            in_workspace: true,
+            name: stack
+                .name()
+                .map(|rn| rn.shorten().to_string())
+                // Hack it - the datastructure isn't suitable and this needs a `gitbutler->but` port.
+                .unwrap_or_default(),
+            source_refname: stack.ref_name().map(|rn| rn.to_owned()),
+            upstream: first_segment
+                .and_then(|s| {
+                    s.remote_tracking_ref_name.as_ref().map(|rn| {
+                        but_workspace::ui::ref_info::RemoteTrackingReference::for_ui(
+                            rn.clone(),
+                            names,
+                        )
+                    })
+                })
+                .transpose()?,
+            updated_timestamp_ms: first_segment
+                .and_then(|s| {
+                    let md = s.metadata.as_ref()?;
+                    Some(md.ref_info.updated_at?.seconds as u128 * 1_000)
+                })
+                .unwrap_or_default(),
+            unarchived_segments: stack
+                .segments
+                .iter()
+                .map(|s| GitbutlerStackSegment {
+                    tip: s.ref_name.clone().unwrap_or_else(|| {
+                        gix::refs::FullName::try_from(
+                            "refs/heads/unnamed-ref-and-we-fake-a-name-fix-me",
+                        )
+                        .expect("known to be valid statically")
+                    }),
+                    pr_or_mr: s.metadata.as_ref().and_then(|md| md.review.pull_request),
+                })
+                .collect(),
+        })
+    }
+    fn new_from_old(stack: &Stack, names: &gix::remote::Names) -> anyhow::Result<Self> {
+        Ok(GitButlerStack {
+            id: stack.id,
+            in_workspace: stack.in_workspace,
+            name: stack.name.clone(),
+            source_refname: stack
                 .source_refname
                 .as_ref()
                 .and_then(|r| r.to_string().try_into().ok()),
-            upstream: s
+            upstream: stack
                 .upstream
                 .as_ref()
                 .and_then(|r| {
@@ -388,8 +456,8 @@ impl GitButlerStack {
                     })
                 })
                 .transpose()?,
-            updated_timestamp_ms: s.updated_timestamp_ms,
-            unarchived_segments: s
+            updated_timestamp_ms: stack.updated_timestamp_ms,
+            unarchived_segments: stack
                 .branches()
                 .iter()
                 // The tip is at the bottom here.
