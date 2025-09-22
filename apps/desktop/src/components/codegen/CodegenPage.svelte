@@ -1001,7 +1001,6 @@
 							lastCommit={i === commits.length - 1}
 							{lastBranch}
 							tooltip={commitStatusLabel(commit.state.type)}
-							editable={false}
 						/>
 					{/each}
 				{/snippet}

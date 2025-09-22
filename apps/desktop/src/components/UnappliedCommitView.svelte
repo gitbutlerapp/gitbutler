@@ -30,7 +30,6 @@
 					truncate
 					commitMessage={commit.message}
 					className="text-14 text-semibold text-body"
-					editable={false}
 				/>
 			{/snippet}
 
