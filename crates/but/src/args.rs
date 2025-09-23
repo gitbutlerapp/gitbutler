@@ -50,6 +50,8 @@ For examples see `but rub --help`."
     },
     /// Commands for managing the base.
     Base(crate::base::Platform),
+    /// Commands for managing branches.
+    Branch(crate::branch::Platform),
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
@@ -85,6 +87,7 @@ pub enum CommandName {
     Rub,
     BaseCheck,
     BaseUpdate,
+    BranchNew,
     #[clap(
         alias = "claude-pre-tool",
         alias = "claudepretool",
