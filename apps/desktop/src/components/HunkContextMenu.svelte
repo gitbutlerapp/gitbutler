@@ -124,8 +124,8 @@
 >
 	{#snippet children(item)}
 		{#if isHunkContextItem(item)}
-			<ContextMenuSection>
-				{#if discardable}
+			{#if discardable}
+				<ContextMenuSection>
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_DiscardChange}
 						label="Discard change"
@@ -135,19 +135,19 @@
 							contextMenu?.close();
 						}}
 					/>
-				{/if}
-				{#if item.selectedLines !== undefined && item.selectedLines.length > 0 && discardable}
-					<ContextMenuItem
-						testId={TestId.HunkContextMenu_DiscardLines}
-						label={getDiscardLineLabel(item)}
-						icon="discard-selected"
-						onclick={() => {
-							discardHunkLines(item);
-							contextMenu?.close();
-						}}
-					/>
-				{/if}
-			</ContextMenuSection>
+					{#if item.selectedLines !== undefined && item.selectedLines.length > 0}
+						<ContextMenuItem
+							testId={TestId.HunkContextMenu_DiscardLines}
+							label={getDiscardLineLabel(item)}
+							icon="discard-selected"
+							onclick={() => {
+								discardHunkLines(item);
+								contextMenu?.close();
+							}}
+						/>
+					{/if}
+				</ContextMenuSection>
+			{/if}
 			<ContextMenuSection>
 				<ContextMenuItem
 					testId={TestId.HunkContextMenu_OpenInEditor}
