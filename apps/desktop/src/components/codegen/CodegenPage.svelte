@@ -35,7 +35,7 @@
 		formatMessages,
 		getTodos,
 		lastInteractionTime,
-		lastUserMessageSentAt,
+		thinkingOrCompactingStartedAt,
 		userFeedbackStatus,
 		usageStats,
 		reverseMessages
@@ -65,6 +65,7 @@
 		ContextMenu,
 		ContextMenuItem,
 		ContextMenuSection,
+		DropdownButton,
 		EmptyStatePlaceholder,
 		Modal
 	} from '@gitbutler/ui';
@@ -205,6 +206,11 @@
 	async function sendMessage() {
 		if (!selectedBranch) return;
 		if (!prompt) return;
+
+		if (prompt.startsWith('/compact')) {
+			compactContext();
+			return;
+		}
 
 		// Handle /add-dir command
 		if (prompt.startsWith('/add-dir ')) {
@@ -375,6 +381,17 @@
 		clearContextModal?.show();
 	}
 
+	async function compactContext() {
+		if (!selectedBranch) return;
+
+		await claudeCodeService.compactHistory({
+			projectId,
+			stackId: selectedBranch.stackId
+		});
+	}
+
+	let selectedContextAction = $state<'clear' | 'compact'>('compact');
+
 	async function performClearContextAndRules() {
 		if (!selectedBranch) return;
 
@@ -531,7 +548,6 @@
 				)}
 					{@const formattedMessages = formatMessages(events, permissionRequests, isStackActive)}
 					{@const reversedFormatterdMessages = reverseMessages(formattedMessages)}
-					{@const lastUserMessageSent = lastUserMessageSentAt(events)}
 					{@const iconName = pushStatusToIcon(branchDetailsData.pushStatus)}
 					{@const lineColor = getColorFromBranchType(
 						pushStatusToColor(branchDetailsData.pushStatus)
@@ -565,6 +581,8 @@
 							</Button>
 						{/snippet}
 						{#snippet contextActions()}
+							{@const stats = usageStats(events)}
+							<Badge>Context utilization {(stats.contextUtilization * 100).toFixed(0)}%</Badge>
 							<Button
 								kind="outline"
 								icon="mcp"
@@ -576,25 +594,45 @@
 									<Badge kind="soft">{enabledMcpServers}</Badge>
 								{/snippet}
 							</Button>
-							<Button
+							<DropdownButton
 								disabled={!hasRulesToClear || formattedMessages.length === 0}
+								loading={['running', 'compacting'].includes(currentStatus(events, isStackActive))}
 								kind="outline"
 								style="warning"
-								icon="clear-small"
-								onclick={clearContextAndRules}
+								menuSide="top"
+								autoClose={true}
+								onclick={() =>
+									selectedContextAction === 'compact' ? compactContext() : clearContextAndRules()}
 							>
-								Clear context
-							</Button>
+								{selectedContextAction === 'compact' ? 'Compact context' : 'Clear context'}
+								{#snippet contextMenuSlot()}
+									<ContextMenuSection>
+										<ContextMenuItem
+											label="Compact context"
+											icon="clear-small"
+											onclick={() => (selectedContextAction = 'compact')}
+										/>
+										<ContextMenuItem
+											label="Clear context"
+											icon="clear-small"
+											onclick={() => (selectedContextAction = 'clear')}
+										/>
+									</ContextMenuSection>
+								{/snippet}
+							</DropdownButton>
 						{/snippet}
 						{#snippet messages()}
-							{#if currentStatus(events, isStackActive) === 'running' && lastUserMessageSent}
+							{@const thinkingStatus = currentStatus(events, isStackActive)}
+							{@const startAt = thinkingOrCompactingStartedAt(events)}
+							{#if ['running', 'compacting'].includes(thinkingStatus) && startAt}
 								{@const status = userFeedbackStatus(formattedMessages)}
 								{#if status.waitingForFeedback}
 									<CodegenServiceMessageUseTool toolCall={status.toolCall} />
 								{:else}
 									<CodegenServiceMessageThinking
-										{lastUserMessageSent}
+										{startAt}
 										msSpentWaiting={status.msSpentWaiting}
+										overrideWord={thinkingStatus === 'compacting' ? 'compacting' : undefined}
 									/>
 								{/if}
 							{/if}
@@ -630,10 +668,12 @@
 
 						{#snippet input()}
 							{#if claudeAvailable.response?.status === 'available'}
+								{@const status = currentStatus(events, isStackActive)}
 								<CodegenInput
 									value={prompt}
 									onChange={(prompt) => setPrompt(prompt)}
-									loading={currentStatus(events, isStackActive) === 'running'}
+									loading={['running', 'compacting'].includes(status)}
+									compacting={status === 'compacting'}
 									onsubmit={sendMessage}
 									{onAbort}
 									sessionKey={selectedBranch
