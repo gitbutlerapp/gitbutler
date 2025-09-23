@@ -186,7 +186,13 @@
 					trackingBranch={branch.remoteTrackingBranch ?? undefined}
 					readonly={!!branch.remoteTrackingBranch}
 					onclick={() => {
-						uiState.lane(laneId).selection.set({ branchName });
+						const currentSelection = uiState.lane(laneId).selection.current;
+						// Toggle: if this branch is already selected, clear the selection
+						if (currentSelection?.branchName === branchName && !currentSelection?.commitId) {
+							uiState.lane(laneId).selection.set(undefined);
+						} else {
+							uiState.lane(laneId).selection.set({ branchName });
+						}
 						onselect?.();
 					}}
 				>

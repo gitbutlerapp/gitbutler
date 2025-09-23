@@ -181,7 +181,17 @@
 	function handleKeyDown(change: TreeChange, idx: number, e: KeyboardEvent) {
 		if (e.key === 'Enter' || e.key === ' ' || e.key === 'l') {
 			e.stopPropagation();
-			selectFilesInList(e, change, changes, idSelection, selectedFileIds, true, idx, selectionId);
+			selectFilesInList(
+				e,
+				change,
+				changes,
+				idSelection,
+				selectedFileIds,
+				true,
+				idx,
+				selectionId,
+				true
+			);
 			onselect?.(change);
 			return true;
 		}
@@ -250,7 +260,17 @@
 		}}
 		onclick={(e) => {
 			e.stopPropagation();
-			selectFilesInList(e, change, changes, idSelection, selectedFileIds, true, idx, selectionId);
+			selectFilesInList(
+				e,
+				change,
+				changes,
+				idSelection,
+				selectedFileIds,
+				true,
+				idx,
+				selectionId,
+				true
+			);
 			onselect?.(change);
 		}}
 		{conflictEntries}
