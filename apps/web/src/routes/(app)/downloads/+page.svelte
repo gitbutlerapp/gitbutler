@@ -247,6 +247,11 @@
 		line-height: 1.5;
 	}
 
+	.builds a {
+		color: #44c;
+		text-decoration: underline;
+	}
+
 	.release__notes {
 		margin-block: 0.5rem;
 		padding: 1rem;
