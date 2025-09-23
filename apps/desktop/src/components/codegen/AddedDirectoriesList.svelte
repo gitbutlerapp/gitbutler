@@ -74,6 +74,10 @@
 		&:hover .dirs-list__actions {
 			display: flex;
 		}
+
+		&:last-child {
+			border-bottom: none;
+		}
 	}
 
 	.dirs-list__actions {
