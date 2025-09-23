@@ -1,0 +1,18 @@
+[package]
+name = "but-gerrit"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+test = false
+
+[dependencies]
+sha-1 = "0.10.1"
+uuid.workspace = true
+anyhow.workspace = true
+bstr.workspace = true
+but-core.workspace = true
+gix = { workspace = true }
