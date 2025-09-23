@@ -34,7 +34,8 @@ export class MoveCommitDzHandler implements DropzoneHandler {
 	constructor(
 		private stackService: StackService,
 		private stackId: string,
-		private projectId: string
+		private projectId: string,
+		private uiState?: UiState
 	) {}
 
 	accepts(data: unknown): boolean {
@@ -55,6 +56,14 @@ export class MoveCommitDzHandler implements DropzoneHandler {
 	}
 
 	ondrop(data: CommitDropData): void {
+		// Clear the selection from the source lane if this commit was selected
+		if (this.uiState) {
+			const sourceSelection = untrack(() => this.uiState!.lane(data.stackId).selection.current);
+			if (sourceSelection?.commitId === data.commit.id) {
+				this.uiState.lane(data.stackId).selection.set(undefined);
+			}
+		}
+
 		this.stackService
 			.moveCommit({
 				projectId: this.projectId,
