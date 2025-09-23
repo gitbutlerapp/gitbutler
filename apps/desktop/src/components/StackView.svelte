@@ -299,7 +299,7 @@
 		scrollContainer={selectionPreviewScrollContainer}
 		selectionId={createWorktreeSelection({ stackId })}
 		onclose={() => {
-			idSelection.clear(createWorktreeSelection({ stackId: stackId }));
+			idSelection.clearPreview(createWorktreeSelection({ stackId: stackId }));
 		}}
 		draggableFiles
 	/>

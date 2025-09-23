@@ -120,6 +120,11 @@ export class FileSelectionManager {
 		selection.lastAdded.set(undefined);
 	}
 
+	clearPreview(selectionId: SelectionId) {
+		const selection = this.getById(selectionId);
+		selection.lastAdded.set(undefined);
+	}
+
 	keys(selectionId: SelectionId) {
 		const selection = this.getById(selectionId);
 		return Array.from(selection.entries);
