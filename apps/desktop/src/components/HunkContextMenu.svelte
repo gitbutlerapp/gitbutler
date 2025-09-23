@@ -203,6 +203,7 @@
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_SelectAll}
 						label="Select all"
+						icon="select-all"
 						onclick={() => {
 							selectAllHunkLines(item.hunk);
 							contextMenu?.close();
@@ -211,6 +212,7 @@
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_UnselectAll}
 						label="Unselect all"
+						icon="unselect-all"
 						onclick={() => {
 							unselectAllHunkLines(item.hunk);
 							contextMenu?.close();
@@ -219,6 +221,7 @@
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_InvertSelection}
 						label="Invert selection"
+						icon="invert-selection"
 						onclick={() => {
 							invertHunkSelection(item.hunk);
 							contextMenu?.close();
