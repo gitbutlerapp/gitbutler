@@ -7,6 +7,7 @@ use metrics::{Event, Metrics, Props, metrics_if_configured};
 
 use but_claude::hooks::OutputAsJson;
 mod base;
+mod branch;
 mod command;
 mod id;
 mod init;
@@ -108,6 +109,11 @@ async fn main() -> Result<()> {
                 props(start, &result),
             )
             .ok();
+            Ok(())
+        }
+        Subcommands::Branch(branch::Platform { cmd }) => {
+            let result = branch::handle(cmd, &args.current_dir, args.json);
+            metrics_if_configured(app_settings, CommandName::BranchNew, props(start, &result)).ok();
             Ok(())
         }
         Subcommands::Log => {
