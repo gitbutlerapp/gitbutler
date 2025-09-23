@@ -37,6 +37,7 @@
 		ancestorMostConflictedCommitId?: string;
 		hideLastFileBorder?: boolean;
 		onselect?: (change: TreeChange) => void;
+		allowUnselect?: boolean;
 	};
 
 	const {
@@ -50,7 +51,8 @@
 		draggableFiles,
 		ancestorMostConflictedCommitId,
 		hideLastFileBorder = true,
-		onselect
+		onselect,
+		allowUnselect = true
 	}: Props = $props();
 
 	const focusManager = inject(FOCUS_MANAGER);
@@ -190,7 +192,7 @@
 				true,
 				idx,
 				selectionId,
-				true
+				allowUnselect
 			);
 			onselect?.(change);
 			return true;
@@ -269,7 +271,7 @@
 				true,
 				idx,
 				selectionId,
-				true
+				allowUnselect
 			);
 			onselect?.(change);
 		}}

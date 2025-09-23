@@ -402,6 +402,7 @@
 					defaultValue: 16
 				}}
 				autoselect
+				allowUnselect={false}
 			/>
 		{/snippet}
 	</ReduxResult>
@@ -435,6 +436,7 @@
 					maxHeight: 32,
 					defaultValue: 16
 				}}
+				allowUnselect={false}
 			/>
 		{/snippet}
 	</ReduxResult>

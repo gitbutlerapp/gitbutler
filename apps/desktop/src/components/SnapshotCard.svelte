@@ -225,6 +225,7 @@
 								listMode="list"
 								hideLastFileBorder={false}
 								onselect={(change) => onDiffClick(change.path)}
+								allowUnselect={false}
 							/>
 						</ScrollableContainer>
 					</SnapshotAttachment>
