@@ -227,7 +227,7 @@
 				</ContextMenuSection>
 			{/if}
 		{:else}
-			Malformed item :(
+			<p class="text-12 text-semibold clr-text-2">Malformed item (·•᷄‎ࡇ•᷅ )</p>
 		{/if}
 	{/snippet}
 </ContextMenu>
