@@ -3,6 +3,7 @@ use std::path::Path;
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
     BranchStatus::{Conflicted, Empty, Integrated, SaflyUpdatable},
+    Resolution, ResolutionApproach,
     StackStatuses::{UpToDate, UpdatesRequired},
 };
 use gitbutler_project::Project;
@@ -21,9 +22,9 @@ pub enum Subcommands {
 }
 
 pub fn handle(cmd: &Subcommands, repo_path: &Path, json: bool) -> anyhow::Result<()> {
+    let project = Project::find_by_path(repo_path)?;
     match cmd {
         Subcommands::Check => {
-            let project = Project::find_by_path(repo_path)?;
             if !json {
                 println!("🔍 Checking base branch status...");
             }
@@ -101,7 +102,46 @@ pub fn handle(cmd: &Subcommands, repo_path: &Path, json: bool) -> anyhow::Result
             Ok(())
         }
         Subcommands::Update => {
-            // metrics_if_configured(app_settings, CommandName::Log, p).ok();
+            let status =
+                but_api::virtual_branches::upstream_integration_statuses(project.id, None)?;
+            let resolutions = match status {
+                UpToDate => {
+                    println!("✅ Everything is up to date");
+                    None
+                }
+                UpdatesRequired {
+                    worktree_conflicts,
+                    statuses,
+                } => {
+                    if !worktree_conflicts.is_empty() {
+                        println!(
+                            "❗️ There are uncommitted changes in the worktree that may conflict with
+                            the updates. Please commit or stash them and try again."
+                        );
+                        None
+                    } else if statuses.is_empty() {
+                        println!("✅ Everything is up to date");
+                        None
+                    } else {
+                        println!("🔄 Updating branches...");
+                        let mut resolutions = vec![];
+                        for (id, _status) in statuses {
+                            let resolution = Resolution {
+                                branch_id: id, // This is StackId
+                                approach: ResolutionApproach::Rebase,
+                                delete_integrated_branches: true,
+                                force_integrated_branches: vec![],
+                            };
+                            resolutions.push(resolution);
+                        }
+                        Some(resolutions)
+                    }
+                }
+            };
+
+            if let Some(resolutions) = resolutions {
+                but_api::virtual_branches::integrate_upstream(project.id, resolutions, None)?;
+            }
             Ok(())
         }
     }
