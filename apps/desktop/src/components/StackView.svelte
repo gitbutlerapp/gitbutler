@@ -59,6 +59,8 @@
 
 	let lanesSrollableEl = $state<HTMLDivElement>();
 
+	let isDetailsViewForcesClosed = $state(false);
+
 	const stackService = inject(STACK_SERVICE);
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
@@ -229,6 +231,11 @@
 		selection.set(undefined);
 	}
 
+	function onclosePreviewOnly() {
+		// Close the details view but keep the selection intact
+		isDetailsViewForcesClosed = true;
+	}
+
 	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stackId));
 
 	function onerror(err: unknown) {
@@ -250,7 +257,27 @@
 		return undefined;
 	}
 
-	let isDetailsViewOpen = $derived(!!(branchName || commitId || assignedKey || selectedFile));
+	let isDetailsViewOpen = $derived(
+		!!(branchName || commitId || assignedKey || selectedFile) && !isDetailsViewForcesClosed
+	);
+
+	// Track the current selection to detect when it changes
+	let previousSelection = $state<{ branchName?: string; commitId?: string }>({});
+
+	// Reset the forced closed state when selection changes to a different branch/commit
+	$effect(() => {
+		const currentSelection = { branchName, commitId };
+
+		// Check if selection actually changed
+		if (
+			currentSelection.branchName !== previousSelection.branchName ||
+			currentSelection.commitId !== previousSelection.commitId
+		) {
+			// Selection changed, allow details view to open again
+			isDetailsViewForcesClosed = false;
+			previousSelection = { ...currentSelection };
+		}
+	});
 	const DETAILS_RIGHT_PADDING_REM = 1.125;
 
 	// Function to update CSS custom property for details view width
@@ -317,7 +344,7 @@
 {/snippet}
 
 {#snippet branchView(branchName: string)}
-	<BranchView {stackId} {laneId} {projectId} {branchName} {onerror} {onclose} />
+	<BranchView {stackId} {laneId} {projectId} {branchName} {onerror} onclose={onclosePreviewOnly} />
 {/snippet}
 
 {#snippet commitView(branchName: string, commitId: string)}
@@ -333,7 +360,7 @@
 		}}
 		draggableFiles
 		{onerror}
-		{onclose}
+		onclose={onclosePreviewOnly}
 	/>
 {/snippet}
 
@@ -436,7 +463,7 @@
 	use:focusable={{
 		onKeydown: (event) => {
 			if (event.key === 'Escape' && isDetailsViewOpen) {
-				selection.set(undefined);
+				onclosePreviewOnly();
 				event.preventDefault();
 				event.stopPropagation();
 				return true;
