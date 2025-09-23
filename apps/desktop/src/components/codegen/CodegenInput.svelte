@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Tooltip, Textarea, AsyncButton } from '@gitbutler/ui';
+	import { Tooltip, AsyncButton, RichTextEditor } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 
@@ -61,6 +61,13 @@
 	}
 
 	async function handleKeypress(e: KeyboardEvent) {
+		// Global gotakey on the button doesn't work inside textarea, so we handle it here
+		if (e.key === 'c' && e.ctrlKey && onAbort) {
+			e.preventDefault();
+			onAbort();
+			return;
+		}
+
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 
@@ -80,21 +87,24 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="dialog-wrapper">
 	<div class="text-input dialog-input" onkeypress={handleKeypress} onclick={handleDialogClick}>
-		<Textarea
-			bind:textBoxEl={textareaRef}
-			bind:value
+		<RichTextEditor
+			styleContext="chat-input"
 			placeholder="What would you like to make..."
-			borderless
-			maxRows={10}
-			minRows={2}
-			onkeydown={(e) => {
-				// Global gotakey on the button doesn't work inside textarea, so we handle it here
-				if (e.key === 'c' && e.ctrlKey && onAbort) {
-					e.preventDefault();
-					onAbort();
-				}
-			}}
-		/>
+			markdown={false}
+			namespace="ChatInput"
+			onError={console.error}
+			onInput={(text) => (value = text)}
+			initialText={value}
+		>
+			{#snippet plugins()}
+				<!-- <MentionsPlugin
+					bind:this={suggestions.mentionPlugin}
+					getSuggestionItems={(q) => suggestions.getSuggestionItems(q)}
+					onUpdateSuggestion={(p) => suggestions.onSuggestionUpdate(p)}
+					onExitSuggestion={() => suggestions.onSuggestionExit()}
+				/> -->
+			{/snippet}
+		</RichTextEditor>
 
 		<div class="dialog-input__actions">
 			<div class="dialog-input__actions-item">
