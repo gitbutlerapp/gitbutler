@@ -276,6 +276,12 @@
 			// Selection changed, allow details view to open again
 			isDetailsViewForcesClosed = false;
 			previousSelection = { ...currentSelection };
+
+			// Clear file selections from the previous context to allow auto-selection
+			// to work properly for the new context
+			if (activeSelectionId) {
+				idSelection.clear(activeSelectionId);
+			}
 		}
 	});
 	const DETAILS_RIGHT_PADDING_REM = 1.125;
