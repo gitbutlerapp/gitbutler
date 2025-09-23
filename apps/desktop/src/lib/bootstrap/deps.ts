@@ -125,9 +125,8 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const gitHubClient = new GitHubClient();
-	const gitLabClient = new GitLabClient();
 	const gitLabState = new GitLabState(secretsService);
-	gitLabClient.set(gitLabState);
+	const gitLabClient = new GitLabClient(gitLabState);
 
 	// ============================================================================
 	// EXPERIMENTAL STUFF

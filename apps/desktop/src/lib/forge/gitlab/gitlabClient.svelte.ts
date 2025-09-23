@@ -15,13 +15,15 @@ export class GitLabClient {
 
 	private callbacks: (() => void)[] = [];
 
-	set(gitlabState: GitLabState) {
+	constructor(private gitlabState: GitLabState) {}
+
+	set() {
 		const subscribable = derived(
 			[
-				gitlabState.forkProjectId,
-				gitlabState.upstreamProjectId,
-				gitlabState.instanceUrl,
-				gitlabState.token
+				this.gitlabState.forkProjectId,
+				this.gitlabState.upstreamProjectId,
+				this.gitlabState.instanceUrl,
+				this.gitlabState.token
 			],
 			([forkProjectId, upstreamProjectId, instanceUrl, token]) => {
 				this.forkProjectId = forkProjectId;
@@ -34,7 +36,6 @@ export class GitLabClient {
 				} else {
 					this.api = undefined;
 				}
-				this.callbacks.every((cb) => cb());
 			}
 		);
 
