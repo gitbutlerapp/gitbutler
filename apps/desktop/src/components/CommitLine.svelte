@@ -57,13 +57,9 @@
 							d="M0.827119 6.41372C0.0460709 5.63267 0.0460709 4.36634 0.827119 3.58529L3.70602 0.706392C4.48707 -0.0746567 5.7534 -0.0746567 6.53445 0.706392L9.41335 3.58529C10.1944 4.36634 10.1944 5.63267 9.41335 6.41372L6.53445 9.29262C5.7534 10.0737 4.48707 10.0737 3.70602 9.29262L0.827119 6.41372Z"
 						/>
 					</svg>
-				</Tooltip>
-				<Tooltip text="Diverged">
-					<svg class="local-dot" viewBox="0 0 11 10" xmlns="http://www.w3.org/2000/svg">
+					<svg class="local-dot" viewBox="0 0 10 9" xmlns="http://www.w3.org/2000/svg">
 						<path
-							fill-rule="evenodd"
-							clip-rule="evenodd"
-							d="M0.740712 8.93256C1.59096 9.60118 2.66337 10 3.82893 10H5.82893C8.59035 10 10.8289 7.76142 10.8289 5C10.8289 2.23858 8.59035 0 5.82893 0H3.82893C2.66237 0 1.58912 0.399504 0.738525 1.06916L1.84289 2.17353C3.40499 3.73562 3.40499 6.26828 1.84289 7.83038L0.740712 8.93256Z"
+							d="M2.88623 2.29395C4.05781 3.46548 5.95783 3.46551 7.12939 2.29395L8.73975 0.682617C9.52337 1.56536 10.0005 2.72678 10.0005 4C10.0005 6.76126 7.76169 8.99974 5.00049 9C2.23906 9 -0.000488281 6.76142 -0.000488281 4C-0.000488281 2.72278 0.479074 1.55758 1.26709 0.673828L2.88623 2.29395Z"
 						/>
 					</svg>
 				</Tooltip>
@@ -129,19 +125,21 @@
 	.local-shadow-commit-dot {
 		box-sizing: border-box;
 		display: flex;
-		margin-left: -8px;
+		flex-direction: column;
+		align-items: center;
 
 		.shadow-dot {
 			width: 10px;
 			height: 10px;
 			fill: var(--clr-commit-shadow);
-			margin-right: -1px;
+			transform: scale(1.1);
 		}
 
 		.local-dot {
-			width: 11px;
-			height: 10px;
+			width: 10px;
+			height: 9px;
 			fill: var(--commit-local-color);
+			margin-top: -1px;
 		}
 	}
 </style>
