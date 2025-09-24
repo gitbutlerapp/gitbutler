@@ -3,13 +3,17 @@
 	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
 	import BranchRenameModal from '$components/BranchRenameModal.svelte';
 	import BranchReview from '$components/BranchReview.svelte';
+	import CommitRow from '$components/CommitRow.svelte';
 	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
 	import Drawer from '$components/Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
+	import { editPatch } from '$lib/editMode/editPatchUtils';
+	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Icon, TestId, Tooltip } from '@gitbutler/ui';
 
@@ -43,13 +47,37 @@
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
+	const uiState = inject(UI_STATE);
+	const modeService = inject(MODE_SERVICE);
 
 	const branchQuery = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchesQuery = $derived(stackService.branches(projectId, stackId));
 	const topCommitQuery = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
+	// Get conflicted commits for this branch
+	const conflictedCommitsInBranch = $derived(
+		branchQuery.response?.commits.filter((commit) => commit.hasConflicts) || []
+	);
+
 	let renameBranchModal = $state<BranchRenameModal>();
 	let deleteBranchModal = $state<DeleteBranchModal>();
+
+	// Handler for resolving conflicts - find the first (ancestor-most) conflicted commit
+	async function handleResolveConflicts() {
+		if (conflictedCommitsInBranch.length === 0 || !stackId) return;
+
+		// Find the ancestor-most conflicted commit (the last one in the array since commits are ordered from tip to base)
+		const ancestorMostConflicted = conflictedCommitsInBranch[conflictedCommitsInBranch.length - 1];
+
+		if (!ancestorMostConflicted) return;
+
+		await editPatch({
+			modeService,
+			commitId: ancestorMostConflicted.id,
+			stackId,
+			projectId
+		});
+	}
 </script>
 
 <ReduxResult
@@ -106,7 +134,7 @@
 			{/snippet}
 
 			{#if hasCommits}
-				<BranchDetails {branch}>
+				<BranchDetails {branch} onResolveConflicts={handleResolveConflicts}>
 					<BranchReview
 						{stackId}
 						{projectId}
@@ -114,6 +142,30 @@
 						prNumber={branch.prNumber || undefined}
 						reviewId={branch.reviewId || undefined}
 					/>
+
+					{#snippet conflictedCommits()}
+						{#if conflictedCommitsInBranch.length > 0}
+							{#each conflictedCommitsInBranch as commit}
+								{@const isLocalAndRemote = commit.state.type === 'LocalAndRemote'}
+								<CommitRow
+									type={commit.state.type}
+									{branchName}
+									commitId={commit.id}
+									commitMessage={commit.message}
+									createdAt={commit.createdAt}
+									hasConflicts={true}
+									disableCommitActions={true}
+									diverged={isLocalAndRemote && commit.id !== commit.state.subject}
+									active
+									onclick={() => {
+										// Open commit preview by setting selection
+										const laneState = uiState.lane(laneId);
+										laneState.selection.set({ branchName, commitId: commit.id });
+									}}
+								/>
+							{/each}
+						{/if}
+					{/snippet}
 				</BranchDetails>
 			{:else}
 				<div class="branch-view__empty-state">

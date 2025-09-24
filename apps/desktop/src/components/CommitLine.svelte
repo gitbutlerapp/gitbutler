@@ -10,6 +10,7 @@
 		tooltip?: string;
 		lastCommit?: boolean;
 		lastBranch?: boolean;
+		hasConflicts?: boolean;
 		alignDot?: 'center' | 'start';
 		hideDot?: boolean;
 	}
@@ -21,15 +22,29 @@
 		lastCommit,
 		lastBranch,
 		alignDot = 'center',
+		hasConflicts,
 		hideDot = false
 	}: Props = $props();
 
 	const color = $derived(getColorFromCommitState(commitStatus, diverged));
 
 	const rhombus = $derived(commitStatus === 'LocalAndRemote');
+
+	function getCommitColor() {
+		if (hasConflicts) {
+			return 'var(--clr-theme-err-element)';
+		}
+		return color;
+	}
 </script>
 
-<div class="commit-lines align-{alignDot}" style:--commit-color={color}>
+<div
+	class="commit-lines align-{alignDot}"
+	style:--commit-color={getCommitColor()}
+	style:--commit-local-color={hasConflicts
+		? 'var(--clr-theme-err-element)'
+		: 'var(--clr-commit-local)'}
+>
 	{#if hideDot}
 		<div class="single-line" class:dashed={lastCommit && lastBranch}></div>
 	{:else}
@@ -126,7 +141,7 @@
 		.local-dot {
 			width: 11px;
 			height: 10px;
-			fill: var(--clr-commit-local);
+			fill: var(--commit-local-color);
 		}
 	}
 </style>

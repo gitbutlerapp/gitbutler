@@ -12,7 +12,6 @@
 		stackId?: string;
 		onUncommitClick: (event: MouseEvent) => void;
 		onEditMessageClick: (event: MouseEvent) => void;
-		onPatchEditClick: (event: MouseEvent) => void;
 	}
 
 	interface RemoteCommitContextData extends BaseContextData {
@@ -44,10 +43,12 @@
 <script lang="ts">
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
+	import { editPatch } from '$lib/editMode/editPatchUtils';
+	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { ensureValue } from '$lib/utils/validation';
-	import { inject } from '@gitbutler/core/context';
+	import { inject, injectOptional } from '@gitbutler/core/context';
 	import {
 		ContextMenu,
 		ContextMenuItem,
@@ -71,6 +72,7 @@
 	const urlService = inject(URL_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
+	const modeService = injectOptional(MODE_SERVICE, undefined);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 	const [createRef, refCreation] = stackService.createReference;
 
@@ -115,6 +117,16 @@
 		});
 	}
 
+	async function handleEditPatch(commitId: string, stackId: string) {
+		if (isReadOnly) return;
+		await editPatch({
+			modeService,
+			commitId,
+			stackId,
+			projectId
+		});
+	}
+
 	function closeContextMenu() {
 		contextMenu?.close();
 	}
@@ -143,7 +155,7 @@
 		{#if contextData}
 			{@const { commitId, commitUrl, commitMessage } = contextData}
 			{#if contextData.commitStatus === 'LocalAndRemote' || contextData.commitStatus === 'LocalOnly'}
-				{@const { onUncommitClick, onEditMessageClick, onPatchEditClick } = contextData}
+				{@const { onUncommitClick, onEditMessageClick } = contextData}
 				<ContextMenuSection>
 					<ContextMenuItem
 						label="Uncommit"
@@ -174,9 +186,9 @@
 						icon="edit-commit"
 						testId={TestId.CommitRowContextMenu_EditCommit}
 						disabled={isReadOnly}
-						onclick={(e: MouseEvent) => {
-							if (!isReadOnly) {
-								onPatchEditClick?.(e);
+						onclick={async () => {
+							if (!isReadOnly && contextData.stackId) {
+								await handleEditPatch(commitId, contextData.stackId);
 								closeContextMenu();
 							}
 						}}

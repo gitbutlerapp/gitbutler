@@ -1,32 +1,25 @@
 <script lang="ts">
 	import BranchBadge from '$components/BranchBadge.svelte';
-	import { Icon, AvatarGroup, TimeAgo } from '@gitbutler/ui';
+	import { AvatarGroup, TimeAgo, Button } from '@gitbutler/ui';
 	import type { BranchDetails } from '$lib/stacks/stack';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
 		branch: BranchDetails;
 		children?: Snippet;
+		conflictedCommits?: Snippet;
+		onResolveConflicts?: () => void;
 	};
 
-	const { branch, children }: Props = $props();
+	const { branch, children, conflictedCommits, onResolveConflicts }: Props = $props();
 </script>
 
 <div class="branch-view">
 	<div class="text-12 branch-view__header-container">
 		<div class="factoid-wrap">
-			<BranchBadge pushStatus={branch.pushStatus} />
+			<BranchBadge pushStatus={branch.pushStatus} unstyled />
 			<span class="branch-view__details-divider">•</span>
 		</div>
-
-		{#if branch.isConflicted}
-			<div class="factoid-wrap">
-				<div class="branch-view__header-details-row-conflict">
-					<Icon name="warning-small" /> <span>Conflicts</span>
-				</div>
-				<span class="branch-view__details-divider">•</span>
-			</div>
-		{/if}
 
 		<div class="factoid-wrap">
 			<span class="factoid-label">Contribs:</span>
@@ -48,6 +41,22 @@
 	</div>
 
 	{@render children?.()}
+
+	{#if branch.isConflicted && conflictedCommits}
+		<div class="header-details__conflicts">
+			{@render conflictedCommits?.()}
+
+			<div class="header-details__conflicts-action">
+				<div class="stack-v gap-8">
+					<h3 class="text-13 text-semibold">Conflicted commits</h3>
+					<p class="text-12 text-body clr-text-2">
+						Begin with the earliest conflicted commit, or click the button below to start resolving.
+					</p>
+				</div>
+				<Button onclick={onResolveConflicts} style="error">Start resolving</Button>
+			</div>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -78,15 +87,23 @@
 		margin-right: 4px;
 	}
 
-	.branch-view__header-details-row-conflict {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		color: var(--clr-theme-err-element);
-	}
-
 	.branch-view__details-divider {
 		margin: 0 6px;
 		color: var(--clr-text-3);
+	}
+
+	.header-details__conflicts {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+	}
+
+	.header-details__conflicts-action {
+		display: flex;
+		flex-direction: column;
+		padding: 12px;
+		gap: 12px;
 	}
 </style>

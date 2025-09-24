@@ -3,6 +3,7 @@
 <script lang="ts">
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import BranchLabel from '$components/BranchLabel.svelte';
+	import { Badge } from '@gitbutler/ui';
 	import { TestId } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { slide } from 'svelte/transition';
@@ -18,6 +19,7 @@
 		isCommitting?: boolean;
 		isPushed: boolean;
 		lineColor: string;
+		conflicts?: boolean;
 		iconName: keyof typeof iconsJson;
 		onclick?: () => void;
 		updateBranchName: (name: string) => void;
@@ -40,6 +42,7 @@
 		readonly,
 		isPushed,
 		lineColor,
+		conflicts,
 		iconName,
 		onclick,
 		updateBranchName,
@@ -98,6 +101,12 @@
 						onChange={(name) => updateBranchName(name)}
 					/>
 				</div>
+
+				{#if conflicts}
+					<div class="branch-header__top-badges">
+						<Badge style="error">Conflicts</Badge>
+					</div>
+				{/if}
 			</div>
 
 			{#if isEmpty}
@@ -141,8 +150,8 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: flex-start;
-		padding-right: 10px;
-		padding-left: 15px;
+		padding-right: 12px;
+		padding-left: 14px;
 		overflow: hidden;
 		background-color: var(--branch-selected-bg);
 
@@ -196,7 +205,7 @@
 		align-items: center;
 		justify-content: space-between;
 		min-width: 0;
-		overflow: hidden;
+		/* overflow: hidden; */
 		gap: 4px;
 	}
 
@@ -204,6 +213,13 @@
 		flex-grow: 1;
 		align-items: center;
 		min-width: 0;
+	}
+
+	.branch-header__top-badges {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		transform: translateY(-2px);
 	}
 
 	.branch-header__content {

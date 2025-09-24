@@ -245,7 +245,7 @@
 
 					<div bind:this={filesList} class="card files">
 						<div class="header" class:show-border={isCommitListScrolled}>
-							<h3 class="text-13 text-semibold">Commit files</h3>
+							<h3 class="text-15 text-semibold">Commit files</h3>
 							<Badge>{files.length}</Badge>
 						</div>
 						<ScrollableContainer
@@ -261,16 +261,11 @@
 										filePath={file.path}
 										fileStatus={file.status}
 										{conflicted}
+										clickable={false}
 										onresolveclick={file.conflicted
 											? () => manuallyResolvedFiles.add(file.path)
 											: undefined}
 										conflictHint={file.conflictHint}
-										onclick={(e) => {
-											const treeChange = getTreeChangeForFile(file);
-											if (treeChange) {
-												contextMenu?.open(e, { changes: [treeChange] });
-											}
-										}}
 										oncontextmenu={(e) => {
 											const treeChange = getTreeChangeForFile(file);
 											if (treeChange) {
@@ -285,24 +280,28 @@
 				</div>
 
 				<p class="text-12 text-body editmode__helptext">
-					Please don't make any commits while in edit mode.
+					⚠ Please don't make any commits while in edit mode.
 					<br />
 					To exit edit mode, use the provided actions.
 				</p>
 
 				<div class="editmode__actions">
+					<div class="flex flex-1">
+						{#if conflictedFiles.length > 0}
+							<Button
+								kind="outline"
+								icon="open-editor-small"
+								reversedDirection
+								onclick={() => openAllConflictedFiles(project.path)}
+								tooltip={conflictedFiles.length === 1
+									? 'Open the conflicted file in your editor'
+									: 'Open all files with conflicts in your editor'}
+							>
+								Open conflicted files
+							</Button>
+						{/if}
+					</div>
 					<Button kind="outline" onclick={abort} disabled={loading} {loading}>Cancel</Button>
-					{#if conflictedFiles.length > 0}
-						<Button
-							style="neutral"
-							onclick={() => openAllConflictedFiles(project.path)}
-							tooltip={conflictedFiles.length === 1
-								? 'Open the conflicted file in your editor'
-								: 'Open all files with conflicts in your editor'}
-						>
-							Open conflicted files
-						</Button>
-					{/if}
 					<Button
 						testId={TestId.EditModeSaveAndExitButton}
 						style="pop"
@@ -311,7 +310,7 @@
 						disabled={loading}
 						{loading}
 					>
-						Save and exit
+						Save changes and exit
 					</Button>
 				</div>
 			</div>
@@ -393,9 +392,8 @@
 		& .header {
 			display: flex;
 			align-items: center;
-			padding-top: 16px;
-			padding-bottom: 8px;
-			padding-left: 16px;
+			padding: 16px;
+			padding-bottom: 12px;
 			gap: 4px;
 
 			&.show-border {
@@ -453,6 +451,6 @@
 
 	.editmode__helptext {
 		margin-bottom: 16px;
-		color: var(--clr-text-3);
+		color: var(--clr-text-2);
 	}
 </style>

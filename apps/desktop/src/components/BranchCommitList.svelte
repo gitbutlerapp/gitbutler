@@ -9,7 +9,7 @@
 
 	import LineOverlay from '$components/LineOverlay.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { hasConflicts, isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
+	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import {
@@ -38,8 +38,6 @@
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import type { Commit } from '$lib/branches/v3';
-	import type { CommitStatusType } from '$lib/commits/commit';
 	import type { BranchDetails } from '$lib/stacks/stack';
 
 	interface Props {
@@ -55,12 +53,6 @@
 
 		handleUncommit: (commitId: string, branchName: string) => Promise<void>;
 		startEditingCommitMessage: (branchName: string, commitId: string) => void;
-		handleEditPatch: (args: {
-			commitId: string;
-			type: CommitStatusType;
-			hasConflicts: boolean;
-			isAncestorMostConflicted: boolean;
-		}) => void;
 		onselect?: () => void;
 	}
 
@@ -76,7 +68,6 @@
 		active,
 		handleUncommit,
 		startEditingCommitMessage,
-		handleEditPatch,
 		onselect
 	}: Props = $props();
 
@@ -113,17 +104,6 @@
 	const baseSha = $derived(base?.baseSha);
 
 	let integrationModal = $state<Modal>();
-
-	function getAncestorMostConflicted(commits: Commit[]): Commit | undefined {
-		if (!commits.length) return undefined;
-		for (let i = commits.length - 1; i >= 0; i--) {
-			const commit = commits[i]!;
-			if (commit.hasConflicts) {
-				return commit;
-			}
-		}
-		return undefined;
-	}
 
 	async function handleCommitClick(commitId: string, upstream: boolean) {
 		if (selectedCommitId !== commitId) {
@@ -242,7 +222,6 @@
 	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits], { stackId })}
 		{@const hasRemoteCommits = upstreamOnlyCommits.length > 0}
 		{@const hasCommits = localAndRemoteCommits.length > 0}
-		{@const ancestorMostConflicted = getAncestorMostConflicted(localAndRemoteCommits)}
 		{@const thisIsTheRightBranch = firstBranch && selectedCommitId === undefined}
 
 		{#if !hasCommits && isCommitting && thisIsTheRightBranch}
@@ -437,14 +416,7 @@
 										commitStatus: commit.state.type,
 										commitUrl: forge.current.commitUrl(commitId),
 										onUncommitClick: () => handleUncommit(commit.id, branchName),
-										onEditMessageClick: () => startEditingCommitMessage(branchName, commit.id),
-										onPatchEditClick: () =>
-											handleEditPatch({
-												commitId: commit.id,
-												type: commit.state.type,
-												hasConflicts: hasConflicts(commit),
-												isAncestorMostConflicted: ancestorMostConflicted?.id === commit.id
-											})
+										onEditMessageClick: () => startEditingCommitMessage(branchName, commit.id)
 									}}
 									<CommitContextMenu flat {projectId} {rightClickTrigger} contextData={data} />
 								{/snippet}

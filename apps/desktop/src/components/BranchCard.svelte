@@ -23,7 +23,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { ReviewBadge, Icon, Tooltip, TestId } from '@gitbutler/ui';
+	import { ReviewBadge, TestId } from '@gitbutler/ui';
 	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -199,6 +199,7 @@
 				{isPushed}
 				onclick={args.onclick}
 				menu={args.menu}
+				conflicts={args.isConflicted}
 			>
 				{#snippet buttons()}
 					{#if args.buttons}
@@ -218,12 +219,6 @@
 
 				{#snippet content()}
 					<BranchBadge pushStatus={args.pushStatus} unstyled />
-
-					{#if args.isConflicted}
-						<Tooltip text="This branch has conflicts">
-							<Icon name="warning-small" color="error" />
-						</Tooltip>
-					{/if}
 
 					<span class="branch-header__divider">•</span>
 
