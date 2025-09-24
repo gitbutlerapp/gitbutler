@@ -3,7 +3,7 @@ use bstr::BString;
 use but_core::ui::{TreeChange, TreeStatus};
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::ui::StackDetails;
-use colored::Colorize;
+use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use std::collections::BTreeMap;
@@ -12,7 +12,7 @@ pub(crate) mod assignment;
 
 use crate::id::CliId;
 
-pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
+pub(crate) fn worktree(repo_path: &Path, _json: bool, show_files: bool) -> anyhow::Result<()> {
     let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
 
     let stacks = but_api::workspace::stacks(project.id, None)?;
@@ -44,18 +44,22 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
 
     for (_stack_id, (details, assignments)) in stack_details {
         print_group(
+            &project,
             details,
             assignments,
             &worktree_changes.worktree_changes.changes,
+            show_files,
         )?;
     }
     Ok(())
 }
 
 pub fn print_group(
+    project: &Project,
     group: Option<StackDetails>,
     assignments: Vec<FileAssignment>,
     changes: &[TreeChange],
+    show_files: bool,
 ) -> anyhow::Result<()> {
     let binding = group
         .clone()
@@ -71,18 +75,15 @@ pub fn print_group(
     .to_string()
     .underline()
     .blue();
-    println!("╭ {}    [{}]", id, name.green().bold());
+    println!("╭ {}  [{}]", id, name.green().bold());
     for fa in &assignments {
         let state = status_from_changes(changes, fa.path.clone());
-        let path = match state {
-            Some(state) => match state {
-                TreeStatus::Addition { .. } => fa.path.to_string().green(),
-                TreeStatus::Deletion { .. } => fa.path.to_string().red(),
-                TreeStatus::Modification { .. } => fa.path.to_string().yellow(),
-                TreeStatus::Rename { .. } => fa.path.to_string().purple(),
-            },
+        let path = match &state {
+            Some(state) => path_with_color(state, fa.path.to_string()),
             None => fa.path.to_string().normal(),
         };
+
+        let status = state.as_ref().map(status_letter).unwrap_or_default();
 
         let id = CliId::file_from_assignment(&fa.assignments[0])
             .to_string()
@@ -110,7 +111,7 @@ pub fn print_group(
         if !locks.is_empty() {
             locks = format!("🔒 {locks}");
         }
-        println!("│ {} ({}) {} {}", id, fa.assignments.len(), path, locks);
+        println!("│ {id}  {path} {status} {locks}");
     }
     if !assignments.is_empty() {
         println!("│");
@@ -123,7 +124,7 @@ pub fn print_group(
             .collect::<Vec<_>>(),
         None => Vec::new(),
     };
-    for commit in commits {
+    for commit in &commits {
         let conflicted_str = if commit.has_conflicts {
             "{conflicted}".red()
         } else {
@@ -142,10 +143,45 @@ pub fn print_group(
                 .take(50)
                 .collect::<String>(),
         );
-        // println!("{}│", "│ ".repeat(*nesting),);
+        if show_files {
+            let commit_details = but_api::diff::commit_details(project.id, commit.id.into())?;
+            for change in &commit_details.changes.changes {
+                let cid = CliId::committed_file(&change.path.to_string(), commit.id)
+                    .to_string()
+                    .blue()
+                    .underline();
+                let path = path_with_color(&change.status, change.path.to_string());
+                let status_letter = status_letter(&change.status);
+                println!("│ {cid}  {path} {status_letter}");
+            }
+            if commit_details.changes.changes.is_empty() {
+                println!("│     {}", "(no changes)".dimmed().italic());
+            }
+        }
+    }
+    if commits.is_empty() {
+        println!("│     {}", "(no commits)".dimmed().italic());
     }
     println!("┊");
     Ok(())
+}
+
+fn status_letter(status: &TreeStatus) -> char {
+    match status {
+        TreeStatus::Addition { .. } => 'A',
+        TreeStatus::Deletion { .. } => 'D',
+        TreeStatus::Modification { .. } => 'M',
+        TreeStatus::Rename { .. } => 'R',
+    }
+}
+
+fn path_with_color(status: &TreeStatus, path: String) -> ColoredString {
+    match status {
+        TreeStatus::Addition { .. } => path.green(),
+        TreeStatus::Deletion { .. } => path.red(),
+        TreeStatus::Modification { .. } => path.yellow(),
+        TreeStatus::Rename { .. } => path.purple(),
+    }
 }
 
 pub(crate) fn all_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {

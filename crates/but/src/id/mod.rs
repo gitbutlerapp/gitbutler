@@ -10,6 +10,10 @@ pub enum CliId {
         path: String,
         assignment: Option<StackId>,
     },
+    CommittedFile {
+        path: String,
+        commit_oid: gix::ObjectId,
+    },
     Branch {
         name: String,
     },
@@ -23,6 +27,7 @@ impl CliId {
     pub fn kind(&self) -> &'static str {
         match self {
             CliId::UncommittedFile { .. } => "an uncommitted file",
+            CliId::CommittedFile { .. } => "a committed file",
             CliId::Branch { .. } => "a branch",
             CliId::Commit { .. } => "a commit",
             CliId::Unassigned => "the unassigned area",
@@ -46,6 +51,13 @@ impl CliId {
         CliId::UncommittedFile {
             path: assignment.path.clone(),
             assignment: assignment.stack_id,
+        }
+    }
+
+    pub fn committed_file(path: &str, commit_oid: gix::ObjectId) -> Self {
+        CliId::CommittedFile {
+            path: path.to_string(),
+            commit_oid,
         }
     }
 
@@ -93,6 +105,10 @@ impl Display for CliId {
                 } else {
                     write!(f, "{}", hash(path))
                 }
+            }
+            CliId::CommittedFile { path, commit_oid } => {
+                let value = hash(&format!("{commit_oid}{path}"));
+                write!(f, "{value}")
             }
             CliId::Branch { name } => {
                 write!(f, "{}", hash(name))
