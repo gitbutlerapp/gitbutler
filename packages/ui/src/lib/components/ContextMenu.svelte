@@ -329,13 +329,6 @@
 		return isVisible;
 	}
 
-	function handleKeyNavigation(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			e.preventDefault();
-			close();
-		}
-	}
-
 	$effect(() => {
 		if (!menuContainer) return;
 		const config = { attributes: false, childList: true, subtree: true };
@@ -358,17 +351,26 @@
 </script>
 
 {#if isVisible}
-	<div class="portal-wrap" use:portal={'body'}>
-		<!-- svelte-ignore a11y_autofocus -->
+	<!-- `use:focusable` must come before `use:portal`-->
+	<div
+		class="portal-wrap"
+		use:focusable={{
+			activate: true,
+			trap: true,
+			vertical: true,
+			onEsc: () => {
+				close();
+				return true;
+			}
+		}}
+		use:portal={'body'}
+	>
 		<div
 			data-testid={testId}
 			bind:this={menuContainer}
 			tabindex="-1"
-			use:focusable={{ activate: true, isolate: true, focusable: true, dim: true, trap: true }}
-			autofocus
 			{onclick}
 			{onkeypress}
-			onkeydown={handleKeyNavigation}
 			class="context-menu hide-native-scrollbar"
 			class:top-oriented={side === 'top'}
 			class:bottom-oriented={side === 'bottom'}

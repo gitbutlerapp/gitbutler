@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '$components/Icon.svelte';
 	import Tooltip from '$components/Tooltip.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import { keysStringToArr } from '$lib/utils/hotkeys';
 	import { getContext } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
@@ -62,12 +63,13 @@
 	<button
 		data-testid={testId}
 		type="button"
-		class="menu-item focus-state no-select"
+		class="menu-item no-select"
 		style:--item-height={caption ? 'auto' : '1.625rem'}
 		class:disabled
 		{disabled}
 		onclick={handleClick}
 		onmouseenter={handleMouseEnter}
+		use:focusable={{ focusable: true, button: true }}
 	>
 		<div class="menu-item__content">
 			{#if icon}
@@ -119,6 +121,7 @@
 		padding: 6px 8px;
 		gap: 4px;
 		border-radius: var(--radius-s);
+		outline: none;
 		color: var(--clr-text-1);
 		text-align: left;
 		cursor: pointer;

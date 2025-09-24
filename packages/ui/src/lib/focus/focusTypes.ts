@@ -23,12 +23,10 @@ export interface FocusableOptions {
 	disabled?: boolean;
 	// Treat children as vertically oriented (changes arrow key behavior, automatically skips during navigation)
 	vertical?: boolean;
-	// Prevent keyboard navigation from leaving this element
-	trap?: boolean;
 	// Automatically focus this element when registered
 	activate?: boolean;
-	// Don't establish parent-child relationships with other focusables
-	isolate?: boolean;
+	// Prevent keyboard navigation from leaving this element
+	trap?: boolean;
 	// Never highlight the element
 	dim?: boolean;
 	// Automatically trigger onAction when this element becomes active

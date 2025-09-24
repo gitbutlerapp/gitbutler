@@ -110,39 +110,6 @@
 		isSubmenuOpen = false;
 		contextMenu?.close();
 	}
-
-	// Handle arrow key navigation
-	function handleKeyDown(e: KeyboardEvent) {
-		if (disabled) return;
-
-		switch (e.key) {
-			case 'ArrowRight':
-				if (submenuSide === 'right') {
-					e.preventDefault();
-					e.stopPropagation();
-					isSubmenuOpen = true;
-					contextMenu?.open();
-				}
-				break;
-			case 'ArrowLeft':
-				if (submenuSide === 'left') {
-					e.preventDefault();
-					e.stopPropagation();
-					isSubmenuOpen = true;
-					contextMenu?.open();
-				}
-				break;
-			case 'Enter':
-			case ' ':
-				e.preventDefault();
-				e.stopPropagation();
-				if (disabled) return;
-
-				isSubmenuOpen = !isSubmenuOpen;
-				contextMenu?.toggle();
-				break;
-		}
-	}
 </script>
 
 <div
@@ -151,11 +118,7 @@
 	class:active={isSubmenuOpen}
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}
-	onkeydown={handleKeyDown}
-	role="menuitem"
-	aria-haspopup="menu"
-	aria-expanded={isSubmenuOpen}
-	tabindex="-1"
+	role="group"
 >
 	<ContextMenuItem
 		{icon}
@@ -182,7 +145,6 @@
 	align={submenuVerticalAlign === 'top' ? 'start' : 'end'}
 	onclose={() => {
 		isSubmenuOpen = false;
-		menuItemElement?.focus();
 	}}
 >
 	{@render submenu({ close: closeSubmenu })}
