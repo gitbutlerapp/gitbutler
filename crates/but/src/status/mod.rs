@@ -63,7 +63,7 @@ pub fn print_group(
         .unwrap_or("UNASSIGNED".to_string());
     let name = binding.as_str();
 
-    let id = if let Some(_group) = group {
+    let id = if let Some(_group) = &group {
         CliId::branch(name)
     } else {
         CliId::unassigned()
@@ -71,8 +71,8 @@ pub fn print_group(
     .to_string()
     .underline()
     .blue();
-    println!("{}    {}", id, name.green().bold());
-    for fa in assignments {
+    println!("╭ {}    [{}]", id, name.green().bold());
+    for fa in &assignments {
         let state = status_from_changes(changes, fa.path.clone());
         let path = match state {
             Some(state) => match state {
@@ -110,9 +110,41 @@ pub fn print_group(
         if !locks.is_empty() {
             locks = format!("🔒 {locks}");
         }
-        println!("{} ({}) {} {}", id, fa.assignments.len(), path, locks);
+        println!("│ {} ({}) {} {}", id, fa.assignments.len(), path, locks);
     }
-    println!();
+    if !assignments.is_empty() {
+        println!("│");
+    }
+    let commits = match &group {
+        Some(g) => g
+            .branch_details
+            .iter()
+            .flat_map(|d| d.commits.iter().cloned())
+            .collect::<Vec<_>>(),
+        None => Vec::new(),
+    };
+    for commit in commits {
+        let conflicted_str = if commit.has_conflicts {
+            "{conflicted}".red()
+        } else {
+            "".normal()
+        };
+        println!(
+            "● {}{} {} {}",
+            &commit.id.to_string()[..2].blue().underline(),
+            &commit.id.to_string()[2..7].blue(),
+            conflicted_str,
+            commit
+                .message
+                .to_string()
+                .replace('\n', " ")
+                .chars()
+                .take(50)
+                .collect::<String>(),
+        );
+        // println!("{}│", "│ ".repeat(*nesting),);
+    }
+    println!("┊");
     Ok(())
 }
 
