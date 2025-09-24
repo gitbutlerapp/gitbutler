@@ -10,6 +10,10 @@ mod assign;
 mod move_commit;
 mod squash;
 mod undo;
+use gitbutler_oplog::{
+    OplogExt,
+    entry::{OperationKind, SnapshotDetails},
+};
 
 use crate::id::CliId;
 
@@ -28,12 +32,15 @@ pub(crate) fn handle(
             bail!(makes_no_sense_error(&source, &target))
         }
         (CliId::UncommittedFile { path, .. }, CliId::Unassigned) => {
+            create_snapshot(ctx, &project, OperationKind::MoveHunk);
             assign::unassign_file(ctx, path)
         }
         (CliId::UncommittedFile { path, assignment }, CliId::Commit { oid }) => {
+            create_snapshot(ctx, &project, OperationKind::AmendCommit);
             amend::file_to_commit(ctx, path, *assignment, oid)
         }
         (CliId::UncommittedFile { path, .. }, CliId::Branch { name }) => {
+            create_snapshot(ctx, &project, OperationKind::MoveHunk);
             assign::assign_file_to_branch(ctx, path, name)
         }
         (CliId::Unassigned, CliId::UncommittedFile { .. }) => {
@@ -42,39 +49,77 @@ pub(crate) fn handle(
         (CliId::Unassigned, CliId::Unassigned) => {
             bail!(makes_no_sense_error(&source, &target))
         }
-        (CliId::Unassigned, CliId::Commit { oid }) => amend::assignments_to_commit(ctx, None, oid),
-        (CliId::Unassigned, CliId::Branch { name: to }) => assign::assign_all(ctx, None, Some(to)),
+        (CliId::Unassigned, CliId::Commit { oid }) => {
+            create_snapshot(ctx, &project, OperationKind::AmendCommit);
+            amend::assignments_to_commit(ctx, None, oid)
+        }
+        (CliId::Unassigned, CliId::Branch { name: to }) => {
+            create_snapshot(ctx, &project, OperationKind::MoveHunk);
+            assign::assign_all(ctx, None, Some(to))
+        }
         (CliId::Commit { .. }, CliId::UncommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
         }
-        (CliId::Commit { oid }, CliId::Unassigned) => undo::commit(ctx, oid),
+        (CliId::Commit { oid }, CliId::Unassigned) => {
+            create_snapshot(ctx, &project, OperationKind::UndoCommit);
+            undo::commit(ctx, oid)
+        }
         (CliId::Commit { oid: source }, CliId::Commit { oid: destination }) => {
+            create_snapshot(ctx, &project, OperationKind::SquashCommit);
             squash::commits(ctx, source, destination)
         }
-        (CliId::Commit { oid }, CliId::Branch { name }) => move_commit::to_branch(ctx, oid, name),
+        (CliId::Commit { oid }, CliId::Branch { name }) => {
+            create_snapshot(ctx, &project, OperationKind::MoveCommit);
+            move_commit::to_branch(ctx, oid, name)
+        }
         (CliId::Branch { .. }, CliId::UncommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
         }
         (CliId::Branch { name: from }, CliId::Unassigned) => {
+            create_snapshot(ctx, &project, OperationKind::MoveHunk);
             assign::assign_all(ctx, Some(from), None)
         }
         (CliId::Branch { name }, CliId::Commit { oid }) => {
+            create_snapshot(ctx, &project, OperationKind::AmendCommit);
             amend::assignments_to_commit(ctx, Some(name), oid)
         }
         (CliId::Branch { name: from }, CliId::Branch { name: to }) => {
+            create_snapshot(ctx, &project, OperationKind::MoveHunk);
             assign::assign_all(ctx, Some(from), Some(to))
         }
-        (CliId::UncommittedFile { .. }, CliId::CommittedFile { .. }) => todo!(),
-        (CliId::CommittedFile { .. }, CliId::UncommittedFile { .. }) => todo!(),
+        (CliId::UncommittedFile { .. }, CliId::CommittedFile { .. }) => {
+            bail!(makes_no_sense_error(&source, &target))
+        }
+        (CliId::CommittedFile { .. }, CliId::UncommittedFile { .. }) => {
+            bail!(makes_no_sense_error(&source, &target))
+        }
         (CliId::CommittedFile { .. }, CliId::CommittedFile { .. }) => {
+            bail!(makes_no_sense_error(&source, &target))
+        }
+        (CliId::CommittedFile { .. }, CliId::Branch { .. }) => {
+            create_snapshot(ctx, &project, OperationKind::FileChanges);
+            // commits::commited_file_to_unassigned_stack(ctx, path, *source_id, target_branch)?;
             todo!()
         }
-        (CliId::CommittedFile { .. }, CliId::Branch { .. }) => todo!(),
-        (CliId::CommittedFile { .. }, CliId::Commit { .. }) => todo!(),
-        (CliId::CommittedFile { .. }, CliId::Unassigned) => todo!(),
-        (CliId::Branch { .. }, CliId::CommittedFile { .. }) => todo!(),
-        (CliId::Commit { .. }, CliId::CommittedFile { .. }) => todo!(),
-        (CliId::Unassigned, CliId::CommittedFile { .. }) => todo!(),
+        (CliId::CommittedFile { .. }, CliId::Commit { .. }) => {
+            create_snapshot(ctx, &project, OperationKind::FileChanges);
+            // commits::commited_file_to_another_commit(ctx, path, *source_id, *target_id)?;
+            todo!()
+        }
+        (CliId::CommittedFile { .. }, CliId::Unassigned) => {
+            create_snapshot(ctx, &project, OperationKind::FileChanges);
+            // uncommit::file_from_commit(ctx, path, commit_oid)?;
+            todo!()
+        }
+        (CliId::Branch { .. }, CliId::CommittedFile { .. }) => {
+            bail!(makes_no_sense_error(&source, &target))
+        }
+        (CliId::Commit { .. }, CliId::CommittedFile { .. }) => {
+            bail!(makes_no_sense_error(&source, &target))
+        }
+        (CliId::Unassigned, CliId::CommittedFile { .. }) => {
+            bail!(makes_no_sense_error(&source, &target))
+        }
     }
 }
 
@@ -106,4 +151,11 @@ fn ids(ctx: &mut CommandContext, source: &str, target: &str) -> anyhow::Result<(
         ));
     }
     Ok((source_result[0].clone(), target_result[0].clone()))
+}
+
+fn create_snapshot(ctx: &mut CommandContext, project: &Project, operation: OperationKind) {
+    let mut guard = project.exclusive_worktree_access();
+    let _snapshot = ctx
+        .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
+        .ok(); // Ignore errors for snapshot creation
 }
