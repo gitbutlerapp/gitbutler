@@ -7,9 +7,14 @@
 		filePath: string;
 		hideFilePath?: boolean;
 		textSize?: '12' | '13';
+		fileType?: 'regular' | 'executable' | 'symlink' | 'submodule';
+		/**
+		 * @deprecated Use fileType prop instead
+		 */
+		executable?: boolean;
 	}
 
-	let { filePath, textSize = '12', hideFilePath }: Props = $props();
+	let { filePath, textSize = '12', hideFilePath, fileType, executable }: Props = $props();
 	const fileNameAndPath = $derived(splitFilePath(filePath));
 	const filePathParts = $derived({
 		first: fileNameAndPath.path.split('/').slice(0, -1).join('/'),
@@ -18,7 +23,7 @@
 </script>
 
 <div class="file-name">
-	<FileIcon fileName={fileNameAndPath.filename} size={16} />
+	<FileIcon fileName={fileNameAndPath.filename} size={16} {fileType} {executable} />
 	<span class="text-{textSize} text-semibold file-name__name truncate">
 		{fileNameAndPath.filename}
 	</span>
