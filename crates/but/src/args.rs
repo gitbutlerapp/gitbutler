@@ -19,7 +19,14 @@ pub enum Subcommands {
     /// Provides an overview of the Workspace commit graph.
     Log,
     /// Overview of the oncommitted changes in the repository.
-    Status,
+    Status {
+        /// Determines whether the committed files should be shown as well.
+        #[clap(short = 'f', alias = "files", default_value_t = false)]
+        show_files: bool,
+    },
+    /// Overview of the uncommitted changes in the repository with files shown.
+    /// Equivalent to `but status --files`.
+    Stf,
 
     /// Combines two entities together to perform an operation.
     #[clap(
@@ -83,6 +90,8 @@ pub enum CommandName {
     Log,
     #[clap(alias = "status")]
     Status,
+    #[clap(alias = "stf")]
+    Stf,
     #[clap(alias = "rub")]
     Rub,
     BaseCheck,

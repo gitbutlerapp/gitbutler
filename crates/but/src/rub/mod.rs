@@ -64,6 +64,17 @@ pub(crate) fn handle(
         (CliId::Branch { name: from }, CliId::Branch { name: to }) => {
             assign::assign_all(ctx, Some(from), Some(to))
         }
+        (CliId::UncommittedFile { .. }, CliId::CommittedFile { .. }) => todo!(),
+        (CliId::CommittedFile { .. }, CliId::UncommittedFile { .. }) => todo!(),
+        (CliId::CommittedFile { .. }, CliId::CommittedFile { .. }) => {
+            todo!()
+        }
+        (CliId::CommittedFile { .. }, CliId::Branch { .. }) => todo!(),
+        (CliId::CommittedFile { .. }, CliId::Commit { .. }) => todo!(),
+        (CliId::CommittedFile { .. }, CliId::Unassigned) => todo!(),
+        (CliId::Branch { .. }, CliId::CommittedFile { .. }) => todo!(),
+        (CliId::Commit { .. }, CliId::CommittedFile { .. }) => todo!(),
+        (CliId::Unassigned, CliId::CommittedFile { .. }) => todo!(),
     }
 }
 
