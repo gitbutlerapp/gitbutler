@@ -106,6 +106,24 @@ describe('Updater', () => {
 		}
 		unsubscribe();
 	});
+
+	test('should respect disableAutoChecks setting', async () => {
+		const mock = vi.spyOn(backend, 'checkUpdate').mockReturnValue(mockUpdate(null));
+
+		// Set disableAutoChecks to true
+		updater.disableAutoChecks.set(true);
+
+		// Try to check for updates (should be skipped when disabled)
+		await updater.checkForUpdate();
+		expect(mock).not.toHaveBeenCalled();
+
+		// Set disableAutoChecks to false
+		updater.disableAutoChecks.set(false);
+
+		// Try to check for updates (should work when enabled)
+		await updater.checkForUpdate();
+		expect(mock).toHaveBeenCalledOnce();
+	});
 });
 
 async function mockUpdate(update: Partial<Update> | null): Promise<Update | null> {
