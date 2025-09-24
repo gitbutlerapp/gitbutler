@@ -134,39 +134,41 @@
 			{/snippet}
 
 			{#if hasCommits}
-				<BranchDetails {branch} onResolveConflicts={handleResolveConflicts}>
-					<BranchReview
-						{stackId}
-						{projectId}
-						branchName={branch.name}
-						prNumber={branch.prNumber || undefined}
-						reviewId={branch.reviewId || undefined}
-					/>
+				<div class="branch-view">
+					<BranchDetails {branch} onResolveConflicts={handleResolveConflicts}>
+						<BranchReview
+							{stackId}
+							{projectId}
+							branchName={branch.name}
+							prNumber={branch.prNumber || undefined}
+							reviewId={branch.reviewId || undefined}
+						/>
 
-					{#snippet conflictedCommits()}
-						{#if conflictedCommitsInBranch.length > 0}
-							{#each conflictedCommitsInBranch as commit}
-								{@const isLocalAndRemote = commit.state.type === 'LocalAndRemote'}
-								<CommitRow
-									type={commit.state.type}
-									{branchName}
-									commitId={commit.id}
-									commitMessage={commit.message}
-									createdAt={commit.createdAt}
-									hasConflicts={true}
-									disableCommitActions={true}
-									diverged={isLocalAndRemote && commit.id !== commit.state.subject}
-									active
-									onclick={() => {
-										// Open commit preview by setting selection
-										const laneState = uiState.lane(laneId);
-										laneState.selection.set({ branchName, commitId: commit.id });
-									}}
-								/>
-							{/each}
-						{/if}
-					{/snippet}
-				</BranchDetails>
+						{#snippet conflictedCommits()}
+							{#if conflictedCommitsInBranch.length > 0}
+								{#each conflictedCommitsInBranch as commit}
+									{@const isLocalAndRemote = commit.state.type === 'LocalAndRemote'}
+									<CommitRow
+										type={commit.state.type}
+										{branchName}
+										commitId={commit.id}
+										commitMessage={commit.message}
+										createdAt={commit.createdAt}
+										hasConflicts={true}
+										disableCommitActions={true}
+										diverged={isLocalAndRemote && commit.id !== commit.state.subject}
+										active
+										onclick={() => {
+											// Open commit preview by setting selection
+											const laneState = uiState.lane(laneId);
+											laneState.selection.set({ branchName, commitId: commit.id });
+										}}
+									/>
+								{/each}
+							{/if}
+						{/snippet}
+					</BranchDetails>
+				</div>
 			{:else}
 				<div class="branch-view__empty-state">
 					<div class="branch-view__empty-state__image">
@@ -223,6 +225,12 @@
 		&.disabled {
 			opacity: 0.3;
 		}
+	}
+
+	.branch-view {
+		position: relative;
+		/* Limit the commit view to at most 40vh to ensure other sections remain visible */
+		max-height: 50vh;
 	}
 
 	.branch-view__empty-state {
