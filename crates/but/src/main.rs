@@ -126,6 +126,11 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
             Ok(())
         }
+        Subcommands::Stf => {
+            let result = status::worktree(&args.current_dir, args.json, true);
+            metrics_if_configured(app_settings, CommandName::Stf, props(start, &result)).ok();
+            Ok(())
+        }
         Subcommands::Rub { source, target } => {
             let result = rub::handle(&args.current_dir, args.json, source, target)
                 .context("Rubbed the wrong way.");
