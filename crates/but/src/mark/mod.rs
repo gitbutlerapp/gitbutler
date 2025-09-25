@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, str::FromStr};
 
 use crate::rub::branch_name_to_stack_id;
 use anyhow::bail;
@@ -6,6 +6,7 @@ use but_rules::Operation;
 use but_settings::AppSettings;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::Project;
 pub(crate) fn handle(
     repo_path: &Path,
@@ -45,9 +46,12 @@ fn mark_commit(ctx: &mut CommandContext, oid: gix::ObjectId, delete: bool) -> an
         println!("Mark was removed");
         return Ok(());
     }
-    let action = but_rules::Action::Explicit(Operation::Amend {
-        commit_id: oid.to_string(),
-    });
+    let repo = ctx.gix_repo()?;
+    let commit = repo.find_commit(oid)?;
+    let change_id = commit.change_id().ok_or_else(|| {
+        anyhow::anyhow!("Commit {} does not have a Change-Id, cannot mark it", oid)
+    })?;
+    let action = but_rules::Action::Explicit(Operation::Amend { change_id });
     let req = but_rules::CreateRuleRequest {
         trigger: but_rules::Trigger::FileSytemChange,
         filters: vec![but_rules::Filter::PathMatchesRegex(regex::Regex::new(
@@ -97,8 +101,16 @@ pub(crate) fn stack_marked(ctx: &mut CommandContext, stack_id: StackId) -> anyho
 }
 
 pub(crate) fn commit_marked(ctx: &mut CommandContext, commit_id: String) -> anyhow::Result<bool> {
+    let repo = ctx.gix_repo()?;
+    let commit = repo.find_commit(gix::ObjectId::from_str(&commit_id)?)?;
+    let change_id = commit.change_id().ok_or_else(|| {
+        anyhow::anyhow!(
+            "Commit {} does not have a Change-Id, cannot mark it",
+            commit_id
+        )
+    })?;
     let rules = but_rules::list_rules(ctx)?
         .iter()
-        .any(|r| r.target_commit_id() == Some(commit_id.clone()));
+        .any(|r| r.target_commit_id() == Some(change_id.clone()));
     Ok(rules)
 }
