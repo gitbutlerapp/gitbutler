@@ -1,7 +1,7 @@
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
 use but_hunk_dependency::ui::HunkDependencies;
-use but_workspace::{StackId, StacksFilter, ui::StackEntry};
+use but_workspace::{DiffSpec, StackId, StacksFilter, commit_engine, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use itertools::Itertools;
 use std::str::FromStr;
@@ -26,6 +26,9 @@ pub fn process_workspace_rules(
             matches!(
                 &r.action,
                 super::Action::Explicit(super::Operation::Assign { .. })
+            ) || matches!(
+                &r.action,
+                super::Action::Explicit(super::Operation::Amend { .. })
             )
         })
         .collect_vec();
@@ -60,10 +63,68 @@ pub fn process_workspace_rules(
                         handle_assign(ctx, assignments, dependencies.as_ref()).unwrap_or_default();
                 }
             }
+            super::Action::Explicit(super::Operation::Amend { change_id }) => {
+                let assignments = matching(assignments, rule.filters.clone());
+                handle_amend(ctx, assignments, change_id).unwrap_or_default();
+            }
             _ => continue,
         };
     }
     Ok(updates)
+}
+
+fn handle_amend(
+    ctx: &mut CommandContext,
+    assignments: Vec<HunkAssignment>,
+    change_id: String,
+) -> anyhow::Result<()> {
+    let changes: Vec<DiffSpec> = assignments.into_iter().map(|a| a.into()).collect();
+    let project = ctx.project();
+    let mut guard = project.exclusive_worktree_access();
+    let repo = but_core::open_repo_for_merging(project.worktree_path())?;
+
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project().gb_dir().join("virtual_branches.toml"),
+    )?;
+    let ref_info_options = but_workspace::ref_info::Options {
+        expensive_commit_info: true,
+        traversal: meta.graph_options(),
+    };
+    let info = but_workspace::head_info(&repo, &meta, ref_info_options)?;
+    let mut commit_id: Option<gix::ObjectId> = None;
+    'outer: for stack in info.stacks {
+        for segment in stack.segments {
+            for commit in segment.commits {
+                if Some(change_id.clone()) == commit.change_id.map(|c| c.to_string()) {
+                    commit_id = Some(commit.id);
+                    break 'outer;
+                }
+            }
+        }
+    }
+
+    let commit_id = commit_id.ok_or_else(|| {
+        anyhow::anyhow!(
+            "No commit with Change-Id {} found in the current workspace",
+            change_id
+        )
+    })?;
+
+    commit_engine::create_commit_and_update_refs_with_project(
+        &repo,
+        project,
+        None,
+        commit_engine::Destination::AmendCommit {
+            commit_id,
+            // TODO: Expose this in the UI for 'edit message' functionality.
+            new_message: None,
+        },
+        None,
+        changes,
+        ctx.app_settings().context_lines,
+        guard.write_permission(),
+    )?;
+    Ok(())
 }
 
 fn get_or_create_stack_id(

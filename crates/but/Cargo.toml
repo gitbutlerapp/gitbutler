@@ -25,6 +25,7 @@ strum = { version = "0.27", features = ["derive"] }
 clap = { version = "4.5.46", features = ["derive", "env"] }
 chrono = { version = "0.4.41" }
 bstr.workspace = true
+regex = "1.11.1"
 anyhow.workspace = true
 # rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", branch = "main" }
 rmcp.workspace = true
@@ -44,8 +45,10 @@ but-hunk-dependency.workspace = true
 but-claude.workspace = true
 but-cursor.workspace = true
 but-tools.workspace = true
+but-rules.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-serde.workspace = true
+gitbutler-commit.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true

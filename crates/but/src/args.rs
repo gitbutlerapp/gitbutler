@@ -59,6 +59,14 @@ For examples see `but rub --help`."
     Base(crate::base::Platform),
     /// Commands for managing branches.
     Branch(crate::branch::Platform),
+    /// Creates or removes a rule for auto-assigning or auto-comitting
+    Mark {
+        /// The target entity that will be marked
+        target: String,
+        /// Deletes a mark
+        #[clap(long, short = 'd')]
+        delete: bool,
+    },
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.

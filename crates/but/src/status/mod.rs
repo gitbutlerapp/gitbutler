@@ -2,6 +2,7 @@ use assignment::FileAssignment;
 use bstr::BString;
 use but_core::ui::{TreeChange, TreeStatus};
 use but_hunk_assignment::HunkAssignment;
+use but_settings::AppSettings;
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
@@ -14,6 +15,8 @@ use crate::id::CliId;
 
 pub(crate) fn worktree(repo_path: &Path, _json: bool, show_files: bool) -> anyhow::Result<()> {
     let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
     let stacks = but_api::workspace::stacks(project.id, None)?;
     let worktree_changes = but_api::diff::changes_in_worktree(project.id)?;
@@ -42,13 +45,23 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool, show_files: bool) -> anyho
         stack_details.push((stack.id, (Some(details), assignments)));
     }
 
-    for (_stack_id, (details, assignments)) in stack_details {
+    for (stack_id, (details, assignments)) in stack_details {
+        let mut stack_mark = stack_id.and_then(|stack_id| {
+            if crate::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
+                Some("◀ Marked ▶".red().bold())
+            } else {
+                None
+            }
+        });
+
         print_group(
             &project,
             details,
             assignments,
             &worktree_changes.worktree_changes.changes,
             show_files,
+            &mut stack_mark,
+            ctx,
         )?;
     }
     Ok(())
@@ -60,6 +73,8 @@ pub fn print_group(
     assignments: Vec<FileAssignment>,
     changes: &[TreeChange],
     show_files: bool,
+    stack_mark: &mut Option<ColoredString>,
+    ctx: &mut CommandContext,
 ) -> anyhow::Result<()> {
     let binding = group
         .clone()
@@ -75,7 +90,13 @@ pub fn print_group(
     .to_string()
     .underline()
     .blue();
-    println!("╭ {}  [{}]", id, name.green().bold());
+    println!(
+        "╭ {}  [{}] {}",
+        id,
+        name.green().bold(),
+        stack_mark.clone().unwrap_or_default()
+    );
+    *stack_mark = None; // Only show the stack mark for the first branch
     for fa in &assignments {
         let state = status_from_changes(changes, fa.path.clone());
         let path = match &state {
@@ -125,13 +146,19 @@ pub fn print_group(
         None => Vec::new(),
     };
     for commit in &commits {
+        let marked = crate::mark::commit_marked(ctx, commit.id.to_string()).unwrap_or_default();
+        let mark = if marked {
+            Some("◀ Marked ▶".red().bold())
+        } else {
+            None
+        };
         let conflicted_str = if commit.has_conflicts {
             "{conflicted}".red()
         } else {
             "".normal()
         };
         println!(
-            "● {}{} {} {}",
+            "● {}{} {} {} {}",
             &commit.id.to_string()[..2].blue().underline(),
             &commit.id.to_string()[2..7].blue(),
             conflicted_str,
@@ -142,6 +169,7 @@ pub fn print_group(
                 .chars()
                 .take(50)
                 .collect::<String>(),
+            mark.unwrap_or_default()
         );
         if show_files {
             let commit_details = but_api::diff::commit_details(project.id, commit.id.into())?;
