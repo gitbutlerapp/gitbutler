@@ -113,7 +113,7 @@ pub fn print_group(
         }
         println!("│ {id}  {path} {status} {locks}");
     }
-    if !assignments.is_empty() {
+    if group.is_some() && !assignments.is_empty() {
         println!("│");
     }
     let commits = match &group {
@@ -159,7 +159,7 @@ pub fn print_group(
             }
         }
     }
-    if commits.is_empty() {
+    if group.is_some() && commits.is_empty() {
         println!("│     {}", "(no commits)".dimmed().italic());
     }
     println!("┊");
@@ -217,4 +217,23 @@ fn status_from_changes(changes: &[TreeChange], path: BString) -> Option<TreeStat
             None
         }
     })
+}
+
+pub(crate) fn all_committed_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
+    let mut committed_files = Vec::new();
+    let stacks = but_api::workspace::stacks(ctx.project().id, None)?;
+    for stack in stacks {
+        let details = but_api::workspace::stack_details(ctx.project().id, stack.id)?;
+        for branch in details.branch_details {
+            for commit in branch.commits {
+                let commit_details =
+                    but_api::diff::commit_details(ctx.project().id, commit.id.into())?;
+                for change in &commit_details.changes.changes {
+                    let cid = CliId::committed_file(&change.path.to_string(), commit.id);
+                    committed_files.push(cid);
+                }
+            }
+        }
+    }
+    Ok(committed_files)
 }
