@@ -88,7 +88,7 @@ For examples see `but rub --help`."
 pub enum CommandName {
     #[clap(alias = "log")]
     Log,
-    #[clap(alias = "status")]
+    #[clap(alias = "st")]
     Status,
     #[clap(alias = "stf")]
     Stf,
