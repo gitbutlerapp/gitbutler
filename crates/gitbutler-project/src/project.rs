@@ -121,9 +121,20 @@ impl Project {
     /// Finds an existing project by its path. Errors out if not found.
     pub fn find_by_path(path: &Path) -> anyhow::Result<Project> {
         let projects = crate::list()?;
+        let resolved_path = if path.is_relative() {
+            path.canonicalize().context("Failed to canonicalize path")?
+        } else {
+            path.to_path_buf()
+        };
         let project = projects
             .into_iter()
-            .find(|p| p.path == path)
+            .find(|p| {
+                // Canonicalize project path for comparison
+                match p.path.canonicalize() {
+                    Ok(proj_canon) => proj_canon == resolved_path,
+                    Err(_) => false,
+                }
+            })
             .context("No project found with the given path")?;
         Ok(project)
     }
