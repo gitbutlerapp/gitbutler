@@ -50,7 +50,7 @@
 				<div class="stack-v gap-8">
 					<h3 class="text-13 text-semibold">Conflicted commits</h3>
 					<p class="text-12 text-body clr-text-2">
-						Begin with the earliest conflicted commit, or click the button below to start resolving.
+						GitButler opens the earliest commit first, since later commits depend on it.
 					</p>
 				</div>
 				<Button onclick={onResolveConflicts} style="error">Start resolving</Button>
