@@ -18,7 +18,7 @@
 	import { type SelectionId } from '$lib/selection/key';
 	import { chunk } from '$lib/utils/array';
 	import { inject, injectOptional } from '@gitbutler/core/context';
-	import { FileListItem } from '@gitbutler/ui';
+	import { AsyncButton, FileListItem, TestId } from '@gitbutler/ui';
 	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 
@@ -258,27 +258,52 @@
 {/snippet}
 
 <div
-	class="file-list"
 	use:focusable={{
 		vertical: true,
 		onActive: (value) => (active = value)
 	}}
 >
 	<!-- Conflicted changes -->
-	{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
-		<FileListItem
-			draggable={draggableFiles}
-			filePath={path}
-			{active}
-			conflicted
-			conflictHint={conflictEntryHint(kind)}
-			listMode="list"
-			onclick={(e) => {
-				e.stopPropagation();
-				showEditPatchConfirmation(path);
-			}}
-		/>
-	{/each}
+	<div class="conflicted-entries">
+		{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
+			<FileListItem
+				draggable={draggableFiles}
+				filePath={path}
+				{active}
+				conflicted
+				conflictHint={conflictEntryHint(kind)}
+				listMode="list"
+				onclick={(e) => {
+					e.stopPropagation();
+					showEditPatchConfirmation(path);
+				}}
+			/>
+		{/each}
+		{#if Object.keys(unrepresentedConflictedEntries).length > 0 && ancestorMostConflictedCommitId}
+			<div class="conflicted-entries__action">
+				<p class="text-12 text-body clr-text-2">
+					If the branch has multiple conflicted commits, GitButler opens the earliest one first,
+					since later commits depend on it.
+				</p>
+				<AsyncButton
+					testId={TestId.CommitDrawerResolveConflictsButton}
+					kind="solid"
+					style="error"
+					wide
+					action={() =>
+						editPatch({
+							modeService,
+							commitId: ancestorMostConflictedCommitId!,
+							stackId: stackId!,
+							projectId
+						})}
+				>
+					Resolve conflicts
+				</AsyncButton>
+			</div>
+		{/if}
+	</div>
+
 	<!-- Other changes -->
 	{#if visibleFiles.length > 0}
 		{#if listMode === 'tree'}
@@ -308,3 +333,19 @@
 	onConfirm={handleConfirmEditPatch}
 	onCancel={handleCancelEditPatch}
 />
+
+<style lang="postcss">
+	.conflicted-entries {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.conflicted-entries__action {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		padding: 12px;
+		gap: 12px;
+		border-bottom: 1px solid var(--clr-border-2);
+	}
+</style>

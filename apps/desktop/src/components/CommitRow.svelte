@@ -95,6 +95,7 @@
 	class:selected
 	class:active
 	style:opacity
+	class:has-conflicts={hasConflicts}
 	class:border-top={borderTop || first}
 	class:last={lastCommit}
 	class:disabled
@@ -124,12 +125,13 @@
 		{tooltip}
 		{lastCommit}
 		{lastBranch}
+		{hasConflicts}
 	/>
 
-	<div class="commit-content">
+	<div class="commit-content" class:has-conflicts={hasConflicts}>
 		{#if hasConflicts}
 			<div class="commit-conflict-indicator">
-				<Icon name="warning" size={12} />
+				<Icon name="warning-small" />
 			</div>
 		{/if}
 
@@ -168,7 +170,7 @@
 		}
 
 		&:hover .commit-row__drag-handle {
-			opacity: 1;
+			opacity: 0.4;
 			pointer-events: auto;
 		}
 
@@ -187,6 +189,19 @@
 		&.disabled {
 			pointer-events: none;
 		}
+
+		&.has-conflicts {
+			background-color: var(--clr-theme-err-bg);
+
+			&:not(.selected):hover,
+			&.menu-shown {
+				background-color: var(--clr-theme-err-bg-muted);
+			}
+
+			.commit-name {
+				color: var(--clr-theme-err-element);
+			}
+		}
 	}
 
 	.commit-row__select-indicator {
@@ -199,6 +214,7 @@
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
 		background-color: var(--clr-selected-not-in-focus-element);
 		transition: transform var(--transition-fast);
+
 		&.active {
 			background-color: var(--clr-selected-in-focus-element);
 		}
@@ -212,6 +228,10 @@
 		padding-right: 9px;
 		overflow: hidden;
 		gap: 4px;
+
+		&.has-conflicts {
+			margin-left: -4px;
+		}
 	}
 
 	.commit-name {
@@ -236,7 +256,7 @@
 		top: 50%;
 		left: 0;
 		transform: translateY(-50%);
-		color: var(--clr-text-3);
+		color: var(--clr-text-1);
 		opacity: 0;
 		pointer-events: none;
 	}
