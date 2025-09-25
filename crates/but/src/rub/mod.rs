@@ -105,7 +105,6 @@ pub(crate) fn handle(
             (CliId::CommittedFile { path, commit_oid }, CliId::Commit { oid }) => {
                 create_snapshot(ctx, &project, OperationKind::FileChanges);
                 commits::commited_file_to_another_commit(ctx, path, *commit_oid, *oid)?;
-                todo!()
             }
             (CliId::CommittedFile { path, commit_oid }, CliId::Unassigned) => {
                 create_snapshot(ctx, &project, OperationKind::FileChanges);
