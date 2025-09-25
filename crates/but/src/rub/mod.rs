@@ -7,6 +7,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 mod amend;
 mod assign;
+mod commits;
 mod move_commit;
 mod squash;
 mod undo;
@@ -96,20 +97,18 @@ pub(crate) fn handle(
         (CliId::CommittedFile { .. }, CliId::CommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
         }
-        (CliId::CommittedFile { .. }, CliId::Branch { .. }) => {
+        (CliId::CommittedFile { path, commit_oid }, CliId::Branch { name }) => {
             create_snapshot(ctx, &project, OperationKind::FileChanges);
-            // commits::commited_file_to_unassigned_stack(ctx, path, *source_id, target_branch)?;
+            commits::commited_file_to_unassigned_stack(ctx, path, *commit_oid, name)
+        }
+        (CliId::CommittedFile { path, commit_oid }, CliId::Commit { oid }) => {
+            create_snapshot(ctx, &project, OperationKind::FileChanges);
+            commits::commited_file_to_another_commit(ctx, path, *commit_oid, *oid)?;
             todo!()
         }
-        (CliId::CommittedFile { .. }, CliId::Commit { .. }) => {
+        (CliId::CommittedFile { path, commit_oid }, CliId::Unassigned) => {
             create_snapshot(ctx, &project, OperationKind::FileChanges);
-            // commits::commited_file_to_another_commit(ctx, path, *source_id, *target_id)?;
-            todo!()
-        }
-        (CliId::CommittedFile { .. }, CliId::Unassigned) => {
-            create_snapshot(ctx, &project, OperationKind::FileChanges);
-            // uncommit::file_from_commit(ctx, path, commit_oid)?;
-            todo!()
+            commits::file_from_commit(ctx, path, commit_oid)
         }
         (CliId::Branch { .. }, CliId::CommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
