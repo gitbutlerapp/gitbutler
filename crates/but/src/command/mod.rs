@@ -12,7 +12,7 @@ pub(crate) fn handle_changes(
     handler: impl Into<but_action::ActionHandler>,
     change_description: &str,
 ) -> anyhow::Result<()> {
-    let project = Project::from_path(repo_path).expect("Failed to create project from path");
+    let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let response = but_action::handle_changes(
         ctx,
@@ -39,7 +39,7 @@ pub(crate) fn list_actions(
     offset: i64,
     limit: i64,
 ) -> anyhow::Result<()> {
-    let project = Project::from_path(repo_path).expect("Failed to create project from path");
+    let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     let response = but_action::list_actions(ctx, offset, limit)?;
