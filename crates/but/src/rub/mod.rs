@@ -11,12 +11,12 @@ mod commits;
 mod move_commit;
 mod squash;
 mod undo;
+use crate::id::CliId;
+pub(crate) use assign::branch_name_to_stack_id;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
 };
-
-use crate::id::CliId;
 
 pub(crate) fn handle(
     repo_path: &Path,

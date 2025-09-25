@@ -2,6 +2,7 @@ use assignment::FileAssignment;
 use bstr::BString;
 use but_core::ui::{TreeChange, TreeStatus};
 use but_hunk_assignment::HunkAssignment;
+use but_settings::AppSettings;
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
@@ -14,6 +15,8 @@ use crate::id::CliId;
 
 pub(crate) fn worktree(repo_path: &Path, _json: bool, show_files: bool) -> anyhow::Result<()> {
     let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
     let stacks = but_api::workspace::stacks(project.id, None)?;
     let worktree_changes = but_api::diff::changes_in_worktree(project.id)?;

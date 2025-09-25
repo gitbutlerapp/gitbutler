@@ -14,6 +14,7 @@ use crate::id::CliId;
 pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
     let stacks = stacks(ctx)?
         .iter()
         .filter_map(|s| s.id.map(|id| stack_details(ctx, id)))
