@@ -113,7 +113,7 @@ pub fn print_group(
         }
         println!("│ {id}  {path} {status} {locks}");
     }
-    if !assignments.is_empty() {
+    if group.is_some() && !assignments.is_empty() {
         println!("│");
     }
     let commits = match &group {
@@ -159,7 +159,7 @@ pub fn print_group(
             }
         }
     }
-    if commits.is_empty() {
+    if group.is_some() && commits.is_empty() {
         println!("│     {}", "(no commits)".dimmed().italic());
     }
     println!("┊");
