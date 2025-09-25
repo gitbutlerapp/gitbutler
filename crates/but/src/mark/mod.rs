@@ -14,7 +14,7 @@ pub(crate) fn handle(
     target_str: &str,
     delete: bool,
 ) -> anyhow::Result<()> {
-    let project = Project::from_path(repo_path).expect("Failed to create project from path");
+    let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let target_result = crate::id::CliId::from_str(ctx, target_str)?;
     if target_result.len() != 1 {
