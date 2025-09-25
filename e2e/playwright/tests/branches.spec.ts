@@ -252,9 +252,11 @@ test('should be able to apply a remote branch and integrate the remote changes -
 		hasText: 'Conflicting change commit'
 	});
 	await expect(conflictedCommit).toBeVisible();
+
+	// Click on the conflicted commit to open the commit drawer
 	await conflictedCommit.click();
 
-	// Click the resolve conflicts button
+	// Click the resolve conflicts button (now in the file list area)
 	await clickByTestId(page, 'commit-drawer-resolve-conflicts-button');
 
 	// Should open the edit mode
@@ -418,9 +420,11 @@ test('should be able gracefully handle adding a branch that is behind of our tar
 		hasText: 'branch1: first commit'
 	});
 	await expect(conflictedCommit).toBeVisible();
+
+	// Click on the conflicted commit to open the commit drawer
 	await conflictedCommit.click();
 
-	// Click the resolve conflicts button
+	// Click the resolve conflicts button (now in the file list area)
 	await clickByTestId(page, 'commit-drawer-resolve-conflicts-button');
 
 	// Should open the edit mode
@@ -460,7 +464,7 @@ branch1 commit 1
 	await waitForTestId(page, 'workspace-view');
 
 	const commitsAfterResolving = getByTestId(page, 'commit-row');
-	await expect(commitsAfterResolving).toHaveCount(2);
+	await expect(commitsAfterResolving).toHaveCount(3);
 
 	// Verify the file content
 	let resolvedFileContent = readFileSync(filePath, 'utf-8');
@@ -474,13 +478,17 @@ branch1 commit 1
 	);
 
 	const commitsAfterResolution = getByTestId(page, 'commit-row');
-	const conflictedCommitAfterResolution = commitsAfterResolution.filter({
-		hasText: 'branch1: second commit'
-	});
+	const conflictedCommitAfterResolution = commitsAfterResolution
+		.filter({
+			hasText: 'branch1: second commit'
+		})
+		.first();
 	await expect(conflictedCommitAfterResolution).toBeVisible();
+
+	// Click on the conflicted commit to open the commit drawer
 	await conflictedCommitAfterResolution.click();
 
-	// Click the resolve conflicts button
+	// Click the resolve conflicts button (now in the file list area)
 	await clickByTestId(page, 'commit-drawer-resolve-conflicts-button');
 
 	// Should open the edit mode

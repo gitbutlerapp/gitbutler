@@ -95,6 +95,7 @@
 	class:clickable
 	class:focused
 	class:draggable
+	class:conflicted
 	class:hide-border={hideBorder}
 	class:list-mode={listMode === 'list'}
 	aria-selected={selected}
@@ -141,6 +142,20 @@
 			</Tooltip>
 		{/if}
 
+		{#if executable}
+			<ExecutableLabel />
+		{/if}
+
+		{#if conflicted}
+			<Tooltip text={conflictHint}>
+				<div class="conflicted-icon">
+					<Icon name="warning-small" color="error" />
+				</div>
+			</Tooltip>
+		{:else if fileStatus}
+			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style={fileStatusStyle} />
+		{/if}
+
 		{#if onresolveclick}
 			{#if !conflicted}
 				<Tooltip text="Conflict resolved">
@@ -149,7 +164,6 @@
 			{:else}
 				<Button
 					type="button"
-					kind="outline"
 					class="mark-resolved-btn"
 					size="tag"
 					onclick={(e) => {
@@ -158,25 +172,9 @@
 					}}
 					icon="tick-small"
 				>
-					Mark as resolved
+					Mark resolved
 				</Button>
 			{/if}
-		{/if}
-
-		{#if conflicted}
-			<Tooltip text={conflictHint}>
-				<div class="conflicted">
-					<Icon name="warning-small" color="error" />
-				</div>
-			</Tooltip>
-		{/if}
-
-		{#if executable}
-			<ExecutableLabel />
-		{/if}
-
-		{#if fileStatus}
-			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style={fileStatusStyle} />
 		{/if}
 	</div>
 </div>
@@ -205,6 +203,14 @@
 			&:not(.selected):hover {
 				background-color: var(--clr-bg-1-muted);
 			}
+
+			&.conflicted:not(.selected):hover {
+				background-color: var(--clr-theme-err-bg-muted);
+			}
+		}
+
+		&.conflicted {
+			background-color: var(--clr-theme-err-bg);
 		}
 
 		&.selected {
@@ -225,6 +231,11 @@
 					opacity: 1;
 				}
 			}
+		}
+
+		.conflicted-icon {
+			display: flex;
+			margin-right: -2px;
 		}
 	}
 
@@ -254,11 +265,6 @@
 
 		& .locked {
 			display: flex;
-		}
-
-		& .conflicted {
-			display: flex;
-			margin-right: -2px;
 		}
 	}
 </style>

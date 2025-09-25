@@ -81,7 +81,7 @@
 	{/snippet}
 
 	<div class="filelist-wrapper" class:bottom-border={bottomBorder}>
-		{#if changes.length > 0}
+		{#if changes.length > 0 || Object.entries(conflictEntries?.entries ?? {}).length > 0}
 			<FileList
 				{selectionId}
 				{projectId}

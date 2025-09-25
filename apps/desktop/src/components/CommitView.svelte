@@ -7,10 +7,8 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import { isLocalAndRemoteCommit } from '$components/lib';
-	import { isCommit } from '$lib/branches/v3';
 	import { type CommitKey } from '$lib/commits/commit';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
-	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
@@ -19,7 +17,7 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { ensureValue } from '$lib/utils/validation';
 	import { inject, injectOptional } from '@gitbutler/core/context';
-	import { AsyncButton, Button, TestId } from '@gitbutler/ui';
+	import { Button, TestId } from '@gitbutler/ui';
 
 	import type { ComponentProps } from 'svelte';
 
@@ -137,16 +135,6 @@
 		return modeService !== undefined && !isReadOnly;
 	}
 
-	async function handleEditPatch() {
-		if (isReadOnly) return; // Prevent action in read-only mode
-		await editPatch({
-			modeService,
-			commitId: commitKey.commitId,
-			stackId: ensureValue(stackId),
-			projectId
-		});
-	}
-
 	function cancelEdit() {
 		setMode('view');
 	}
@@ -154,8 +142,6 @@
 
 <ReduxResult {stackId} {projectId} result={commitQuery.result} {onerror}>
 	{#snippet children(commit, env)}
-		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
-
 		<Drawer
 			bind:clientHeight
 			testId={TestId.CommitDrawer}
@@ -175,22 +161,6 @@
 			{/snippet}
 
 			{#snippet extraActions()}
-				{#if isConflicted}
-					<AsyncButton
-						testId={TestId.CommitDrawerResolveConflictsButton}
-						size="tag"
-						kind="solid"
-						style="error"
-						class="m-right-4"
-						action={handleEditPatch}
-						icon="warning-small"
-						tooltip={isReadOnly ? 'Read-only mode' : 'Resolve conflicts'}
-						disabled={isReadOnly}
-					>
-						Resolve
-					</AsyncButton>
-				{/if}
-
 				{#if canEdit()}
 					<Button
 						testId={TestId.CommitDrawerActionEditMessage}
@@ -213,8 +183,7 @@
 							commitStatus: commit.state.type,
 							commitUrl: forge.current.commitUrl(commit.id),
 							onUncommitClick: () => handleUncommit(),
-							onEditMessageClick: () => setMode('edit'),
-							onPatchEditClick: () => handleEditPatch()
+							onEditMessageClick: () => setMode('edit')
 						}
 					: undefined}
 				{#if data}

@@ -287,7 +287,6 @@
 							{active}
 							{handleUncommit}
 							{startEditingCommitMessage}
-							{handleEditPatch}
 							{onselect}
 						/>
 					{/snippet}
