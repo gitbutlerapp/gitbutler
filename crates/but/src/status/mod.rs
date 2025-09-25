@@ -1,5 +1,5 @@
 use assignment::FileAssignment;
-use bstr::BString;
+use bstr::{BString, ByteSlice};
 use but_core::ui::{TreeChange, TreeStatus};
 use but_hunk_assignment::HunkAssignment;
 use but_settings::AppSettings;
@@ -67,37 +67,8 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool, show_files: bool) -> anyho
     Ok(())
 }
 
-pub fn print_group(
-    project: &Project,
-    group: Option<StackDetails>,
-    assignments: Vec<FileAssignment>,
-    changes: &[TreeChange],
-    show_files: bool,
-    stack_mark: &mut Option<ColoredString>,
-    ctx: &mut CommandContext,
-) -> anyhow::Result<()> {
-    let binding = group
-        .clone()
-        .map(|g| g.derived_name)
-        .unwrap_or("UNASSIGNED".to_string());
-    let name = binding.as_str();
-
-    let id = if let Some(_group) = &group {
-        CliId::branch(name)
-    } else {
-        CliId::unassigned()
-    }
-    .to_string()
-    .underline()
-    .blue();
-    println!(
-        "╭ {}  [{}] {}",
-        id,
-        name.green().bold(),
-        stack_mark.clone().unwrap_or_default()
-    );
-    *stack_mark = None; // Only show the stack mark for the first branch
-    for fa in &assignments {
+fn print_assignments(assignments: &Vec<FileAssignment>, changes: &[TreeChange]) {
+    for fa in assignments {
         let state = status_from_changes(changes, fa.path.clone());
         let path = match &state {
             Some(state) => path_with_color(state, fa.path.to_string()),
@@ -134,61 +105,97 @@ pub fn print_group(
         }
         println!("│ {id}  {path} {status} {locks}");
     }
-    if group.is_some() && !assignments.is_empty() {
-        println!("│");
-    }
-    let commits = match &group {
-        Some(g) => g
-            .branch_details
-            .iter()
-            .flat_map(|d| d.commits.iter().cloned())
-            .collect::<Vec<_>>(),
-        None => Vec::new(),
-    };
-    for commit in &commits {
-        let marked = crate::mark::commit_marked(ctx, commit.id.to_string()).unwrap_or_default();
-        let mark = if marked {
-            Some("◀ Marked ▶".red().bold())
-        } else {
-            None
-        };
-        let conflicted_str = if commit.has_conflicts {
-            "{conflicted}".red()
-        } else {
-            "".normal()
-        };
-        println!(
-            "● {}{} {} {} {}",
-            &commit.id.to_string()[..2].blue().underline(),
-            &commit.id.to_string()[2..7].blue(),
-            conflicted_str,
-            commit
-                .message
+}
+
+pub fn print_group(
+    project: &Project,
+    group: Option<StackDetails>,
+    assignments: Vec<FileAssignment>,
+    changes: &[TreeChange],
+    show_files: bool,
+    stack_mark: &mut Option<ColoredString>,
+    ctx: &mut CommandContext,
+) -> anyhow::Result<()> {
+    if let Some(group) = &group {
+        let mut first = true;
+        for branch in &group.branch_details {
+            let id = CliId::branch(branch.name.to_str()?)
                 .to_string()
-                .replace('\n', " ")
-                .chars()
-                .take(50)
-                .collect::<String>(),
-            mark.unwrap_or_default()
-        );
-        if show_files {
-            let commit_details = but_api::diff::commit_details(project.id, commit.id.into())?;
-            for change in &commit_details.changes.changes {
-                let cid = CliId::committed_file(&change.path.to_string(), commit.id)
-                    .to_string()
-                    .blue()
-                    .underline();
-                let path = path_with_color(&change.status, change.path.to_string());
-                let status_letter = status_letter(&change.status);
-                println!("│ {cid}  {path} {status_letter}");
+                .underline()
+                .blue();
+            let notch = if first { "╭" } else { "├" };
+            if !first {
+                println!("│");
             }
-            if commit_details.changes.changes.is_empty() {
-                println!("│     {}", "(no changes)".dimmed().italic());
+            println!(
+                "{} {}  [{}] {}",
+                notch,
+                id,
+                branch.name.to_string().green().bold(),
+                stack_mark.clone().unwrap_or_default()
+            );
+            *stack_mark = None; // Only show the stack mark for the first branch
+            if first {
+                print_assignments(&assignments, changes);
+            }
+            first = false;
+            for commit in &branch.commits {
+                let marked =
+                    crate::mark::commit_marked(ctx, commit.id.to_string()).unwrap_or_default();
+                let mark = if marked {
+                    Some("◀ Marked ▶".red().bold())
+                } else {
+                    None
+                };
+                let conflicted_str = if commit.has_conflicts {
+                    "{conflicted}".red()
+                } else {
+                    "".normal()
+                };
+                println!(
+                    "● {}{} {} {} {}",
+                    &commit.id.to_string()[..2].blue().underline(),
+                    &commit.id.to_string()[2..7].blue(),
+                    conflicted_str,
+                    commit
+                        .message
+                        .to_string()
+                        .replace('\n', " ")
+                        .chars()
+                        .take(50)
+                        .collect::<String>(),
+                    mark.unwrap_or_default()
+                );
+                if show_files {
+                    let commit_details =
+                        but_api::diff::commit_details(project.id, commit.id.into())?;
+                    for change in &commit_details.changes.changes {
+                        let cid = CliId::committed_file(&change.path.to_string(), commit.id)
+                            .to_string()
+                            .blue()
+                            .underline();
+                        let path = path_with_color(&change.status, change.path.to_string());
+                        let status_letter = status_letter(&change.status);
+                        println!("│ {cid}  {path} {status_letter}");
+                    }
+                    if commit_details.changes.changes.is_empty() {
+                        println!("│     {}", "(no changes)".dimmed().italic());
+                    }
+                }
+            }
+            if branch.commits.is_empty() {
+                println!("│     {}", "(no commits)".dimmed().italic());
             }
         }
-    }
-    if group.is_some() && commits.is_empty() {
-        println!("│     {}", "(no commits)".dimmed().italic());
+    } else {
+        let id = CliId::branch("UNASSIGNED").to_string().underline().blue();
+        println!(
+            "╭ {}  [{}] {}",
+            id,
+            "UNASSIGNED".to_string().green().bold(),
+            stack_mark.clone().unwrap_or_default()
+        );
+        print_assignments(&assignments, changes);
     }
     println!("┊");
     Ok(())
