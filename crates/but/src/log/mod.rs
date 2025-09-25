@@ -12,7 +12,7 @@ use std::path::Path;
 use crate::id::CliId;
 
 pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
-    let project = Project::from_path(repo_path).expect("Failed to create project from path");
+    let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let stacks = stacks(ctx)?
         .iter()

@@ -267,7 +267,7 @@ fn get_all_files_in_display_order(ctx: &mut CommandContext) -> anyhow::Result<Ve
     use but_hunk_assignment::HunkAssignment;
     use std::collections::BTreeMap;
 
-    let project = gitbutler_project::Project::from_path(&ctx.project().path)?;
+    let project = gitbutler_project::Project::find_by_path(&ctx.project().path)?;
     let changes =
         but_core::diff::ui::worktree_changes_by_worktree_dir(project.path.clone())?.changes;
     let (assignments, _) =
