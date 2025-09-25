@@ -90,7 +90,7 @@ pub enum CommandName {
     Log,
     #[clap(alias = "st")]
     Status,
-    #[clap(alias = "stf")]
+    #[clap(alias = "stf", hide = true)]
     Stf,
     #[clap(alias = "rub")]
     Rub,
