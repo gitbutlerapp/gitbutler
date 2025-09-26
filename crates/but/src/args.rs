@@ -18,7 +18,7 @@ pub struct Args {
 pub enum Subcommands {
     /// Provides an overview of the Workspace commit graph.
     Log,
-    /// Overview of the oncommitted changes in the repository.
+    /// Overview of the uncommitted changes in the repository.
     Status {
         /// Determines whether the committed files should be shown as well.
         #[clap(short = 'f', alias = "files", default_value_t = false)]
