@@ -178,6 +178,11 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Oplog, props(start, &result)).ok();
             result
         }
+        Subcommands::Restore { oplog_sha } => {
+            let result = oplog::restore_to_oplog(&args.current_dir, args.json, oplog_sha);
+            metrics_if_configured(app_settings, CommandName::Restore, props(start, &result)).ok();
+            result
+        }
         Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, *repo)
             .context("Failed to initialize GitButler project."),
     }
