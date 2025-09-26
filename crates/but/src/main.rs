@@ -10,6 +10,7 @@ mod base;
 mod branch;
 mod command;
 mod commit;
+mod describe;
 mod id;
 mod init;
 mod log;
@@ -164,6 +165,11 @@ async fn main() -> Result<()> {
                 *only,
             );
             metrics_if_configured(app_settings, CommandName::Commit, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Describe { commit } => {
+            let result = describe::edit_commit_message(&args.current_dir, args.json, commit);
+            metrics_if_configured(app_settings, CommandName::Describe, props(start, &result)).ok();
             result
         }
         Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, *repo)
