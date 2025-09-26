@@ -181,7 +181,7 @@
 		width: 100%;
 		min-height: 100vh;
 		margin: 0 auto;
-		padding: 24px var(--layout-side-paddings);
+		padding: 24px var(--layout-side-paddings) 30px;
 		&:not(.full-screen) {
 			max-width: calc(1440px + var(--layout-side-paddings) * 2);
 		}
