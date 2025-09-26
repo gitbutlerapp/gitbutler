@@ -37,6 +37,7 @@
 		ancestorMostConflictedCommitId?: string;
 		hideLastFileBorder?: boolean;
 		onselect?: (change: TreeChange) => void;
+		allowUnselect?: boolean;
 	};
 
 	const {
@@ -50,7 +51,8 @@
 		draggableFiles,
 		ancestorMostConflictedCommitId,
 		hideLastFileBorder = true,
-		onselect
+		onselect,
+		allowUnselect = true
 	}: Props = $props();
 
 	const focusManager = inject(FOCUS_MANAGER);
@@ -181,7 +183,17 @@
 	function handleKeyDown(change: TreeChange, idx: number, e: KeyboardEvent) {
 		if (e.key === 'Enter' || e.key === ' ' || e.key === 'l') {
 			e.stopPropagation();
-			selectFilesInList(e, change, changes, idSelection, selectedFileIds, true, idx, selectionId);
+			selectFilesInList(
+				e,
+				change,
+				changes,
+				idSelection,
+				selectedFileIds,
+				true,
+				idx,
+				selectionId,
+				allowUnselect
+			);
 			onselect?.(change);
 			return true;
 		}
@@ -250,7 +262,17 @@
 		}}
 		onclick={(e) => {
 			e.stopPropagation();
-			selectFilesInList(e, change, changes, idSelection, selectedFileIds, true, idx, selectionId);
+			selectFilesInList(
+				e,
+				change,
+				changes,
+				idSelection,
+				selectedFileIds,
+				true,
+				idx,
+				selectionId,
+				allowUnselect
+			);
 			onselect?.(change);
 		}}
 		{conflictEntries}

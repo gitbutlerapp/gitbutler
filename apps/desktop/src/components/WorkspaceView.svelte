@@ -107,7 +107,7 @@
 			draggableFiles
 			scrollContainer={selectionPreviewScrollContainer}
 			onclose={() => {
-				idSelection.clear(selectionId);
+				idSelection.clearPreview(selectionId);
 			}}
 		/>
 	</ConfigurableScrollableContainer>
