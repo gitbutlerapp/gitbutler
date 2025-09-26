@@ -410,6 +410,61 @@ impl Graph {
             return Ok(());
         };
 
+        // If the target branch made it into a stack segment which can also be named differently by preferably a ref with metadata,
+        // then do that instead. Let's prevent it from showing up as its own node as this leads to undesirable workspaces.
+        if let Some((target_segment_id, local_tracking_segment_of_target)) =
+            ws_target.as_ref().and_then(|t| {
+                self[t.segment_index]
+                    .sibling_segment_id
+                    .map(|sidx| (t.segment_index, sidx))
+            })
+            && let Some(segment_id) = ws_stacks.iter().find_map(|s| {
+                s.segments.iter().find_map(|s| {
+                    if s.id != local_tracking_segment_of_target {
+                        return None;
+                    }
+                    let first_commit = s.commits.first()?;
+                    (!first_commit.refs.is_empty()).then_some(s.id)
+                })
+            })
+        {
+            let s = &mut self[segment_id];
+            let c = s
+                .commits
+                .first_mut()
+                .expect("segment was chosen because it has at least one commit");
+            let mut candidates = c.refs.clone();
+            candidates.sort_by(|a, b| {
+                meta.branch_opt(a.as_ref())
+                    .ok()
+                    .map(|md| md.is_some())
+                    .cmp(&meta.branch_opt(b.as_ref()).ok().map(|md| md.is_some()))
+                    .then_with(|| a.cmp(b))
+            });
+            let candidate = candidates
+                .pop()
+                .expect("at least one ref or we wouldn't be here");
+            let current_name = s.ref_name.take();
+            let index_to_replace = c
+                .refs
+                .iter()
+                .position(|rn| rn == &candidate)
+                .expect("candidate is from a clone of 'refs', so must be contained");
+            // effectively swap the names
+            s.metadata = meta
+                .branch_opt(candidate.as_ref())?
+                .map(SegmentMetadata::Branch);
+            s.ref_name = Some(candidate);
+            if let Some(rn) = current_name {
+                c.refs[index_to_replace] = rn;
+            }
+
+            // Make sure we dissolve the sibling relationship for correctness, the node is now not related
+            // to the target branch anymore.
+            s.sibling_segment_id = None;
+            self[target_segment_id].sibling_segment_id = None;
+        }
+
         // Setup independent stacks, first by looking at potential bases.
         let candidates = self.candidates_for_independent_branches_in_workspace(
             ws_sidx,
