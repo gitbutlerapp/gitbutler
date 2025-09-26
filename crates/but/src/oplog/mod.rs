@@ -122,11 +122,11 @@ pub(crate) fn restore_to_oplog(
     oplog_sha: &str,
 ) -> anyhow::Result<()> {
     let project = Project::find_by_path(repo_path)?;
+    let snapshots = but_api::undo::list_snapshots(project.id, 100, None, None)?;
 
     // Parse the oplog SHA (support partial SHAs)
     let commit_sha_string = if oplog_sha.len() >= 7 {
         // Try to find a snapshot that starts with this SHA
-        let snapshots = but_api::undo::list_snapshots(project.id, 100, None, None)?;
 
         let matching_snapshot = snapshots
             .iter()
@@ -139,7 +139,6 @@ pub(crate) fn restore_to_oplog(
     };
 
     // Get information about the target snapshot
-    let snapshots = but_api::undo::list_snapshots(project.id, 100, None, None)?;
     let target_snapshot = snapshots
         .iter()
         .find(|snapshot| snapshot.commit_id.to_string() == commit_sha_string)
