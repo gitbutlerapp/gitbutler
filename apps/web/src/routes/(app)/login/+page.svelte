@@ -18,6 +18,13 @@
 	let errorCode = $state<string>();
 	let confirmationSent = $state<boolean>(false);
 
+	// Clear error when user starts typing
+	function clearError() {
+		error = undefined;
+		errorCode = undefined;
+		confirmationSent = false;
+	}
+
 	const isFormValid = $derived(!!email && !!password && (!email || emailTextbox?.isValid()));
 
 	const loginService = inject(LOGIN_SERVICE);
@@ -26,6 +33,10 @@
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
+
+		// Clear previous errors when attempting to log in
+		clearError();
+
 		if (!email || !password) {
 			console.error('Email and password are required');
 			return;
