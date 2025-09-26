@@ -29,8 +29,10 @@
 		minHeight?: number;
 		/** Enabled, but does not set the width/height on the dom element */
 		passive?: boolean;
-		/** Whether the resizer is hidden */
-		hidden?: boolean;
+		/** Whether the resizer is disabled */
+		disabled?: boolean;
+		/** Whether to show the resizer border */
+		showBorder?: boolean;
 		/** Optional manager that can coordinate multiple resizers */
 		resizeGroup?: ResizeGroup;
 		/** Optional ordering of resizer for use with `resizeManager` */
@@ -58,7 +60,8 @@
 		syncName,
 		persistId,
 		passive,
-		hidden,
+		disabled,
+		showBorder = false,
 		resizeGroup,
 		order,
 		unsetMaxHeight,
@@ -82,7 +85,7 @@
 	const resizerId = Symbol();
 
 	let initial = 0;
-	let dragging = $state(false);
+	let isResizing = $state(false);
 	let resizerDiv = $state<HTMLDivElement>();
 
 	let unsubUp: () => void;
@@ -128,7 +131,7 @@
 	}
 
 	function onMouseMove(e: MouseEvent) {
-		dragging = true;
+		isResizing = true;
 		let offsetPx: number | undefined;
 		switch (direction) {
 			case 'down':
@@ -159,19 +162,19 @@
 
 		const { newValue, overflow } = applyLimits(offsetRem);
 
-		if (newValue && !passive && !hidden) {
+		if (newValue && !passive && !disabled) {
 			setValue(newValue);
 		}
 		if (overflow) {
 			onOverflow?.(overflow);
 		}
-		if (e.shiftKey && syncName && newValue !== undefined && !passive && !hidden) {
+		if (e.shiftKey && syncName && newValue !== undefined && !passive && !disabled) {
 			resizeSync.emit(syncName, resizerId, newValue);
 		}
 	}
 
 	function onMouseUp() {
-		dragging = false;
+		isResizing = false;
 		unsubUp?.();
 		unsubMove?.();
 		onResizing?.(false);
@@ -186,7 +189,7 @@
 		if (!viewport) {
 			return;
 		}
-		if (passive || hidden) {
+		if (passive || disabled) {
 			if (orientation === 'horizontal') {
 				viewport.style.width = '';
 				viewport.style.maxWidth = '';
@@ -297,15 +300,16 @@
 		setValue(defaultValue);
 	}}
 	{onclick}
-	class:hidden
+	class:disabled
 	class="resizer"
-	class:dragging
+	class:is-resizing={isResizing}
 	class:vertical={orientation === 'vertical'}
 	class:horizontal={orientation === 'horizontal'}
 	class:up={direction === 'up'}
 	class:down={direction === 'down'}
 	class:left={direction === 'left'}
 	class:right={direction === 'right'}
+	class:border={showBorder}
 	style:z-index={zIndex}
 ></div>
 
@@ -331,6 +335,42 @@
 			height: var(--resizer-thickness);
 		}
 
+		&.border.horizontal::after {
+			position: absolute;
+			top: 0;
+			width: 1px;
+			height: 100%;
+			border-left: 1px solid var(--clr-border-2);
+			content: '';
+			pointer-events: none;
+		}
+
+		&.border.horizontal.left::after {
+			left: 0;
+		}
+
+		&.border.horizontal.right::after {
+			right: 0;
+		}
+
+		&.border.vertical::after {
+			position: absolute;
+			left: 0;
+			width: 100%;
+			height: 1px;
+			border-top: 1px solid var(--clr-border-2);
+			content: '';
+			pointer-events: none;
+		}
+
+		&.border.vertical.up::after {
+			top: 0;
+		}
+
+		&.border.vertical.down::after {
+			bottom: 0;
+		}
+
 		&.right {
 			right: 0;
 		}
@@ -344,7 +384,7 @@
 			bottom: 0;
 		}
 
-		&.hidden {
+		&.disabled {
 			pointer-events: none;
 			--resizer-cursor: default;
 		}
