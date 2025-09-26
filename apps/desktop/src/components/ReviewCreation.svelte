@@ -317,6 +317,12 @@
 			if (definedPrNumbers.length > 0) {
 				updatePrStackInfo(prService, definedPrNumbers);
 			}
+
+			// Show success notification
+			const unit = prService.unit.abbr || 'PR';
+			chipToasts.success(`${unit} #${pr.number} created successfully`);
+
+			return pr;
 		} catch (err: any) {
 			console.error(err);
 			const toast = mapErrorToToast(err);
