@@ -29,6 +29,7 @@
 		autoselect?: boolean;
 		ancestorMostConflictedCommitId?: string;
 		ontoggle?: (collapsed: boolean) => void;
+		allowUnselect?: boolean;
 	};
 
 	const {
@@ -46,7 +47,8 @@
 		resizer,
 		autoselect,
 		ancestorMostConflictedCommitId,
-		ontoggle
+		ontoggle,
+		allowUnselect = true
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -91,6 +93,7 @@
 				{conflictEntries}
 				{draggableFiles}
 				{ancestorMostConflictedCommitId}
+				{allowUnselect}
 				hideLastFileBorder={false}
 			/>
 		{:else}

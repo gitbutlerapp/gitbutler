@@ -107,6 +107,7 @@
 					{selectionId}
 					changes={changes.changes}
 					stats={changes.stats}
+					allowUnselect={false}
 				/>
 			{/snippet}
 		</ReduxResult>

@@ -735,6 +735,7 @@
 									showCheckboxes={false}
 									draggableFiles={false}
 									hideLastFileBorder={true}
+									allowUnselect={false}
 								/>
 							{:else}
 								<div class="right-sidebar__changes-placeholder">

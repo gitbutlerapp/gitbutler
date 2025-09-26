@@ -46,6 +46,7 @@
 					{projectId}
 					selectionId={createCommitSelection({ commitId })}
 					changes={changes.changes}
+					allowUnselect={false}
 				/>
 			{/snippet}
 		</ReduxResult>

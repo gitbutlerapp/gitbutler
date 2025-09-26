@@ -176,7 +176,7 @@ export function updateSelection({
 			break;
 		case KeyName.Escape:
 			preventDefault();
-			fileIdSelection.clear(selectionId);
+			fileIdSelection.clearPreview(selectionId);
 			targetElement.blur();
 			break;
 	}

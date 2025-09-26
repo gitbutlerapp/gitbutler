@@ -106,7 +106,11 @@
 	let integrationModal = $state<Modal>();
 
 	async function handleCommitClick(commitId: string, upstream: boolean) {
-		if (selectedCommitId !== commitId) {
+		const currentSelection = laneState.selection.current;
+		// Toggle: if this exact commit is already selected, clear the selection
+		if (currentSelection?.commitId === commitId && currentSelection?.branchName === branchName) {
+			laneState.selection.set(undefined);
+		} else {
 			laneState.selection.set({ branchName, commitId, upstream });
 		}
 		projectState.stackId.set(stackId);
