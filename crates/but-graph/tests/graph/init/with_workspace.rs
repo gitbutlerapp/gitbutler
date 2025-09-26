@@ -1498,6 +1498,59 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
 }
 
 #[test]
+fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-ahead-and-on-stack-tip")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * dd0cca8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * e255adc (main, A) A
+    * fafd9d0 (origin/main) init
+    ");
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    └── 👉📕►►►:0[0]:gitbutler/workspace
+        └── ·dd0cca8 (⌂|🏘|1)
+            └── 📙►:2[1]:A
+                └── ·e255adc (⌂|🏘|11) ►main
+                    └── ►:1[2]:origin/main
+                        └── ·fafd9d0 (⌂|🏘|✓|11)
+    ");
+
+    // The main branch is not present, as it's the target.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    └── ≡📙:2:A on fafd9d0
+        └── 📙:2:A
+            └── ·e255adc (🏘️) ►main
+    ");
+
+    // But mention it if it's in the workspace. It should retain order.
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["main"]);
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    └── ≡📙:2:A on fafd9d0
+        ├── 📙:2:A
+        └── 📙:3:main <> origin/main →:1:⇡1
+            └── ·e255adc (🏘️)
+    ");
+
+    // But mention it if it's in the workspace. It should retain order - inverting the order is fine.
+    add_stack_with_segments(&mut meta, 1, "main", StackState::InWorkspace, &["A"]);
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    // TODO: fix order, main should be first.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    └── ≡📙:2:A on fafd9d0
+        ├── 📙:2:A
+        └── 📙:3:main <> origin/main →:1:⇡1
+            └── ·e255adc (🏘️)
+    ");
+    Ok(())
+}
+
+#[test]
 fn disambiguate_by_remote() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/disambiguate-by-remote")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"

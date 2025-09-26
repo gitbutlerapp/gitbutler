@@ -1100,5 +1100,14 @@ EOF
       create_workspace_commit_once A
     )
   )
+
+  git init local-target-ahead-and-on-stack-tip
+  (cd local-target-ahead-and-on-stack-tip
+    commit init
+    setup_target_to_match_main
+    commit A
+    git checkout -b A
+    create_workspace_commit_once A
+  )
 )
 
