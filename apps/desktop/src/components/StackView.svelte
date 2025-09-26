@@ -578,6 +578,7 @@
 						viewport={stackViewEl!}
 						zIndex="var(--z-lifted)"
 						direction="right"
+						showBorder={!isDetailsViewOpen}
 						minWidth={RESIZER_CONFIG.panel1.minWidth}
 						maxWidth={RESIZER_CONFIG.panel1.maxWidth}
 						defaultValue={RESIZER_CONFIG.panel1.defaultValue}
@@ -663,6 +664,7 @@
 			viewport={compactDiv!}
 			persistId="resizer-panel2-${stackId}"
 			direction="right"
+			showBorder
 			minWidth={RESIZER_CONFIG.panel2.minWidth}
 			maxWidth={RESIZER_CONFIG.panel2.maxWidth}
 			defaultValue={RESIZER_CONFIG.panel2.defaultValue}
@@ -679,7 +681,7 @@
 		flex-shrink: 0;
 		height: 100%;
 		overflow: hidden;
-		border-right: 1px solid var(--clr-border-2);
+		/* border-right: 1px solid var(--clr-border-2); */
 		transition: opacity 0.15s;
 
 		&.dimmed {
