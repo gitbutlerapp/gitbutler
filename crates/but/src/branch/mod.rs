@@ -29,7 +29,13 @@ pub fn handle(cmd: &Subcommands, repo_path: &Path, _json: bool) -> anyhow::Resul
             branch_name,
             anchor,
         } => {
-            if let Some(anchor_str) = anchor {
+            // Get branch name or use canned name
+            let branch_name = if let Some(name) = branch_name {
+                name.clone()
+            } else {
+                but_api::workspace::canned_branch_name(project.id)?
+            };
+            let anchor = if let Some(anchor_str) = anchor {
                 // Use the new create_reference API when anchor is provided
                 let ctx = CommandContext::open(
                     &project,
@@ -50,15 +56,9 @@ pub fn handle(cmd: &Subcommands, repo_path: &Path, _json: bool) -> anyhow::Resul
                 }
                 let anchor_id = &anchor_ids[0];
 
-                // Get branch name or use canned name
-                let branch_name = if let Some(name) = branch_name {
-                    name.clone()
-                } else {
-                    but_api::workspace::canned_branch_name(project.id)?
-                };
-
                 // Create the anchor for create_reference
-                let anchor = match anchor_id {
+                // as dependent branch
+                match anchor_id {
                     crate::id::CliId::Commit { oid } => {
                         Some(but_api::stack::create_reference::Anchor::AtCommit {
                             commit_id: (*oid).into(),
@@ -77,27 +77,20 @@ pub fn handle(cmd: &Subcommands, repo_path: &Path, _json: bool) -> anyhow::Resul
                             anchor_id.kind()
                         ));
                     }
-                };
-
-                // Use create_reference API
-                let request = but_api::stack::create_reference::Request {
-                    new_name: branch_name.clone(),
-                    anchor,
-                };
-                but_api::stack::create_reference(project.id, request)?;
-                println!("Created branch {branch_name}");
-                Ok(())
+                }
             } else {
                 // Create an independent branch
-                let req = gitbutler_branch::BranchCreateRequest {
-                    name: branch_name.clone(),
-                    ownership: None,
-                    order: None,
-                    selected_for_changes: None,
-                };
-                but_api::virtual_branches::create_virtual_branch(project.id, req)?;
-                Ok(())
-            }
+                None
+            };
+            but_api::stack::create_reference(
+                project.id,
+                but_api::stack::create_reference::Request {
+                    new_name: branch_name.clone(),
+                    anchor,
+                },
+            )?;
+            println!("Created branch {branch_name}");
+            Ok(())
         }
     }
 }
