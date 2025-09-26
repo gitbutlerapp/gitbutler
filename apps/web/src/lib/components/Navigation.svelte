@@ -32,12 +32,11 @@
 	}
 </script>
 
-<nav class="navigation">
+<nav class="navigation" class:justify-center={markOnly} class:justify-between={!markOnly}>
 	{#if markOnly}
 		<GitbutlerLogoLink markOnly />
 	{:else}
 		<GitbutlerLogoLink />
-
 		<div class="other-links">
 			{#if $user}
 				<Button
@@ -69,12 +68,8 @@
 				>
 			{:else}
 				<div class="login-signup-wrap">
-					<a href={routes.signupPath()}>
-						<Button kind="outline">Join GitButler</Button>
-					</a>
-					<a href={routes.loginPath()} title="Log in" aria-label="Log in">
-						<Button style="pop" icon="signin">Log in</Button>
-					</a>
+					<Button kind="outline" onclick={() => goto(routes.signupPath())}>Join GitButler</Button>
+					<Button style="pop" onclick={() => goto(routes.loginPath())} icon="signin">Log in</Button>
 				</div>
 			{/if}
 		</div>
@@ -99,27 +94,6 @@
 			<ContextMenuItem label="Organizations" onclick={() => goto('/organizations')} />
 		{/if}
 	</ContextMenuSection>
-	<ContextMenuSection title="Theme (⌘K)">
-		<ContextMenuItem
-			label="Dark"
-			onclick={async () => {
-				// TODO: implement theme switching
-			}}
-		/>
-		<ContextMenuItem
-			label="Light"
-			onclick={async () => {
-				// TODO: implement theme switching
-			}}
-		/>
-		<ContextMenuItem
-			label="System"
-			onclick={async () => {
-				// TODO: implement theme switching
-			}}
-		/>
-	</ContextMenuSection>
-
 	<ContextMenuSection>
 		<ContextMenuItem label="Log out" onclick={logout} />
 	</ContextMenuSection>
@@ -128,9 +102,9 @@
 <style lang="postcss">
 	.navigation {
 		display: flex;
-		justify-content: space-between;
+		align-items: center;
 		width: 100%;
-		padding: 0 0 24px;
+		padding-bottom: 24px;
 		gap: 16px;
 	}
 
