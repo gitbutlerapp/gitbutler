@@ -90,6 +90,11 @@ For examples see `but rub --help`."
         #[clap(long)]
         since: Option<String>,
     },
+    /// Restore to a specific oplog snapshot.
+    Restore {
+        /// Oplog SHA to restore to
+        oplog_sha: String,
+    },
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
@@ -131,6 +136,8 @@ pub enum CommandName {
     Describe,
     #[clap(alias = "oplog")]
     Oplog,
+    #[clap(alias = "restore")]
+    Restore,
     BaseCheck,
     BaseUpdate,
     BranchNew,

@@ -115,3 +115,84 @@ pub(crate) fn show_oplog(repo_path: &Path, json: bool, since: Option<&str>) -> a
 
     Ok(())
 }
+
+pub(crate) fn restore_to_oplog(
+    repo_path: &Path,
+    _json: bool,
+    oplog_sha: &str,
+) -> anyhow::Result<()> {
+    let project = Project::find_by_path(repo_path)?;
+
+    // Parse the oplog SHA (support partial SHAs)
+    let commit_sha_string = if oplog_sha.len() >= 7 {
+        // Try to find a snapshot that starts with this SHA
+        let snapshots = but_api::undo::list_snapshots(project.id, 100, None, None)?;
+
+        let matching_snapshot = snapshots
+            .iter()
+            .find(|snapshot| snapshot.commit_id.to_string().starts_with(oplog_sha))
+            .ok_or_else(|| anyhow::anyhow!("No oplog snapshot found matching '{}'", oplog_sha))?;
+
+        matching_snapshot.commit_id.to_string()
+    } else {
+        anyhow::bail!("Oplog SHA must be at least 7 characters long");
+    };
+
+    // Get information about the target snapshot
+    let snapshots = but_api::undo::list_snapshots(project.id, 100, None, None)?;
+    let target_snapshot = snapshots
+        .iter()
+        .find(|snapshot| snapshot.commit_id.to_string() == commit_sha_string)
+        .ok_or_else(|| anyhow::anyhow!("Snapshot {} not found in oplog", commit_sha_string))?;
+
+    let target_operation = target_snapshot
+        .details
+        .as_ref()
+        .map(|d| d.title.as_str())
+        .unwrap_or("Unknown operation");
+
+    let target_time = chrono::DateTime::from_timestamp(target_snapshot.created_at.seconds(), 0)
+        .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    println!("{}", "Restoring to oplog snapshot...".blue().bold());
+    println!(
+        "  Target: {} ({})",
+        target_operation.green(),
+        target_time.dimmed()
+    );
+    println!("  Snapshot: {}", commit_sha_string[..7].cyan().underline());
+
+    // Confirm the restoration (safety check)
+    println!(
+        "\n{}",
+        "⚠️  This will overwrite your current workspace state."
+            .yellow()
+            .bold()
+    );
+    print!("Continue with restore? [y/N]: ");
+    use std::io::{self, Write};
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    let input = input.trim().to_lowercase();
+    if input != "y" && input != "yes" {
+        println!("{}", "Restore cancelled.".yellow());
+        return Ok(());
+    }
+
+    // Restore to the target snapshot using the but-api crate
+    but_api::undo::restore_snapshot(project.id, commit_sha_string)?;
+
+    println!("\n{} Restore completed successfully!", "✓".green().bold(),);
+
+    println!(
+        "{}",
+        "\nWorkspace has been restored to the selected snapshot.".green()
+    );
+
+    Ok(())
+}
