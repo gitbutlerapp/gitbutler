@@ -696,6 +696,7 @@
 		position: relative;
 		flex-shrink: 0;
 		flex-direction: column;
+		min-height: 100%;
 		padding: 0 12px;
 
 		/* Use CSS custom properties for details view width to avoid ResizeObserver errors */

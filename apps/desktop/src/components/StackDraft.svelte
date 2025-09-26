@@ -40,7 +40,7 @@
 		class="draft-stack"
 		style:width={uiState.global.stackWidth.current + 'rem'}
 	>
-		<ConfigurableScrollableContainer>
+		<ConfigurableScrollableContainer childrenWrapHeight="100%">
 			<div class="draft-stack__scroll-wrap">
 				<div class="new-commit-view">
 					<NewCommitView {projectId} />
@@ -68,7 +68,6 @@
 					defaultValue={23}
 					minWidth={16}
 					maxWidth={64}
-					syncName="panel1"
 				/>
 			</div>
 		</ConfigurableScrollableContainer>
@@ -80,11 +79,13 @@
 			position: relative;
 			flex-shrink: 0;
 			flex-direction: column;
+			min-height: 100%;
 			border-right: 1px solid var(--clr-border-2);
 			animation: appear-in 0.2s ease-in-out forwards;
 		}
 		.draft-stack__scroll-wrap {
 			position: relative;
+			min-height: 100%;
 			padding: 12px;
 		}
 		.new-commit-view {
