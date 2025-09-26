@@ -22,7 +22,8 @@
 		Modal,
 		TestId,
 		SimpleCommitRow,
-		ScrollableContainer
+		ScrollableContainer,
+		chipToasts
 	} from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
@@ -88,6 +89,13 @@
 				.filter(isDefined);
 			if (upstreamBranchNames.length === 0) return;
 			uiState.project(projectId).branchesToPoll.add(...upstreamBranchNames);
+
+			// Show success notification
+			const branchText =
+				multipleBranches && !isLastBranchInStack
+					? `${branchName} and all branches below it`
+					: branchName;
+			chipToasts.success(`Pushed ${branchText} successfully`);
 		} catch (error: any) {
 			if (error?.code === 'errors.git.force_push_protection') {
 				forcePushProtectionModal?.show();
