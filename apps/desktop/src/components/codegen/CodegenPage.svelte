@@ -802,6 +802,7 @@
 		<Resizer
 			direction="left"
 			viewport={rightSidebarRef}
+			showBorder
 			defaultValue={24}
 			minWidth={20}
 			maxWidth={35}
@@ -1150,7 +1151,6 @@
 		position: relative;
 		flex-direction: column;
 		height: 100%;
-		border-left: 1px solid var(--clr-border-2);
 	}
 
 	.right-sidebar__placeholder {

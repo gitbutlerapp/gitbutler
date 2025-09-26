@@ -79,7 +79,7 @@
 	bind:this={containerDiv}
 	bind:clientHeight
 	class:collapsed={$collapsed}
-	class:bottom-border={bottomBorder}
+	class:bottom-border={bottomBorder && !resizer}
 	class:transparent
 	class:grow
 	class:noshrink
@@ -164,8 +164,9 @@
 			viewport={containerDiv}
 			defaultValue={undefined}
 			passive={resizer.passive}
-			hidden={$collapsed}
+			disabled={$collapsed}
 			direction="down"
+			showBorder
 			{...resizer}
 			{maxHeight}
 		/>
