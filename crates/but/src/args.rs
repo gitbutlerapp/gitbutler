@@ -95,6 +95,8 @@ For examples see `but rub --help`."
         /// Oplog SHA to restore to
         oplog_sha: String,
     },
+    /// Undo the last operation by reverting to the previous snapshot.
+    Undo,
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
@@ -138,6 +140,8 @@ pub enum CommandName {
     Oplog,
     #[clap(alias = "restore")]
     Restore,
+    #[clap(alias = "undo")]
+    Undo,
     BaseCheck,
     BaseUpdate,
     BranchNew,

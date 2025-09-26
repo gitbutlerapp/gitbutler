@@ -183,6 +183,11 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Restore, props(start, &result)).ok();
             result
         }
+        Subcommands::Undo => {
+            let result = oplog::undo_last_operation(&args.current_dir, args.json);
+            metrics_if_configured(app_settings, CommandName::Undo, props(start, &result)).ok();
+            result
+        }
         Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, *repo)
             .context("Failed to initialize GitButler project."),
     }

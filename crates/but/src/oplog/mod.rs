@@ -196,3 +196,54 @@ pub(crate) fn restore_to_oplog(
 
     Ok(())
 }
+
+pub(crate) fn undo_last_operation(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
+    let project = Project::find_by_path(repo_path)?;
+
+    // Get the last two snapshots - restore to the second one back
+    let snapshots = but_api::undo::list_snapshots(project.id, 2, None, None)?;
+
+    if snapshots.len() < 2 {
+        println!("{}", "No previous operations to undo.".yellow());
+        return Ok(());
+    }
+
+    let target_snapshot = &snapshots[1];
+
+    let target_operation = target_snapshot
+        .details
+        .as_ref()
+        .map(|d| d.title.as_str())
+        .unwrap_or("Unknown operation");
+
+    let target_time = chrono::DateTime::from_timestamp(target_snapshot.created_at.seconds(), 0)
+        .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    println!("{}", "Undoing operation...".blue().bold());
+    println!(
+        "  Reverting to: {} ({})",
+        target_operation.green(),
+        target_time.dimmed()
+    );
+
+    // Restore to the previous snapshot using the but_api
+    but_api::undo::restore_snapshot(project.id, target_snapshot.commit_id.to_string())?;
+
+    let restore_commit_short = format!(
+        "{}{}",
+        &target_snapshot.commit_id.to_string()[..7]
+            .blue()
+            .underline(),
+        &target_snapshot.commit_id.to_string()[7..12].blue().dimmed()
+    );
+
+    println!(
+        "{} Undo completed successfully! Restored to snapshot: {}",
+        "✓".green().bold(),
+        restore_commit_short
+    );
+
+    Ok(())
+}
