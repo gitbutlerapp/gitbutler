@@ -18,6 +18,7 @@ mod mark;
 mod mcp;
 mod mcp_internal;
 mod metrics;
+mod oplog;
 mod rub;
 mod status;
 
@@ -170,6 +171,11 @@ async fn main() -> Result<()> {
         Subcommands::Describe { commit } => {
             let result = describe::edit_commit_message(&args.current_dir, args.json, commit);
             metrics_if_configured(app_settings, CommandName::Describe, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Oplog { since } => {
+            let result = oplog::show_oplog(&args.current_dir, args.json, since.as_deref());
+            metrics_if_configured(app_settings, CommandName::Oplog, props(start, &result)).ok();
             result
         }
         Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, *repo)
