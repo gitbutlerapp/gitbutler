@@ -1,6 +1,8 @@
+use crate::id::CliId;
 use crate::status::assignment::FileAssignment;
+use anyhow::Result;
 use bstr::{BString, ByteSlice};
-use but_api::{commands::diff, commands::workspace, hex_hash::HexHash};
+use but_api::{commands::diff, commands::virtual_branches, commands::workspace, hex_hash::HexHash};
 use but_core::ui::TreeChange;
 use but_hunk_assignment::HunkAssignment;
 use but_settings::AppSettings;
@@ -10,6 +12,127 @@ use gitbutler_project::Project;
 use std::collections::BTreeMap;
 use std::io::{self, Write};
 use std::path::Path;
+
+pub(crate) fn insert_blank_commit(repo_path: &Path, _json: bool, target: &str) -> Result<()> {
+    let project = Project::find_by_path(repo_path)?;
+    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+
+    // Resolve the target ID
+    let cli_ids = CliId::from_str(&mut ctx, target)?;
+
+    if cli_ids.is_empty() {
+        anyhow::bail!("Target '{}' not found", target);
+    }
+
+    if cli_ids.len() > 1 {
+        anyhow::bail!(
+            "Target '{}' is ambiguous. Found {} matches",
+            target,
+            cli_ids.len()
+        );
+    }
+
+    let cli_id = &cli_ids[0];
+
+    // Determine target commit ID and offset based on CLI ID type
+    let (target_commit_id, offset, success_message) = match cli_id {
+        CliId::Commit { oid } => {
+            // For commits, insert before (offset 0) and use the commit ID directly
+            (
+                *oid,
+                0,
+                format!(
+                    "Created blank commit before commit {}",
+                    &oid.to_string()[..7]
+                ),
+            )
+        }
+        CliId::Branch { name } => {
+            // For branches, we need to find the branch and get its head commit
+            let head_commit_id = find_branch_head_commit(project.id, name)?;
+            (
+                head_commit_id,
+                -1,
+                format!("Created blank commit at the top of stack '{name}'"),
+            )
+        }
+        _ => {
+            anyhow::bail!(
+                "Target must be a commit ID or branch name, not {}",
+                cli_id.kind()
+            );
+        }
+    };
+
+    // Find the stack containing the target commit and insert blank commit
+    let stack_id = find_stack_containing_commit(project.id, target_commit_id)?;
+    virtual_branches::insert_blank_commit(
+        project.id,
+        stack_id,
+        Some(target_commit_id.to_string()),
+        offset,
+    )?;
+    println!("{success_message}");
+    Ok(())
+}
+
+fn find_branch_head_commit(
+    project_id: gitbutler_project::ProjectId,
+    branch_name: &str,
+) -> Result<gix::ObjectId> {
+    let stack_entries = workspace::stacks(project_id, None)?;
+
+    for stack_entry in &stack_entries {
+        if let Some(stack_id) = stack_entry.id {
+            let stack_details = workspace::stack_details(project_id, Some(stack_id))?;
+
+            if let Some(branch_details) = stack_details
+                .branch_details
+                .iter()
+                .find(|b| b.name == branch_name)
+            {
+                // Get the head commit of this branch (prefer regular commits over upstream)
+                return if let Some(commit) = branch_details.commits.first() {
+                    Ok(commit.id)
+                } else if let Some(commit) = branch_details.upstream_commits.first() {
+                    Ok(commit.id)
+                } else {
+                    anyhow::bail!("Branch '{}' has no commits", branch_name);
+                };
+            }
+        }
+    }
+
+    anyhow::bail!("Branch '{}' not found in any stack", branch_name);
+}
+
+fn find_stack_containing_commit(
+    project_id: gitbutler_project::ProjectId,
+    commit_id: gix::ObjectId,
+) -> Result<but_workspace::StackId> {
+    let stack_entries = workspace::stacks(project_id, None)?;
+
+    for stack_entry in &stack_entries {
+        if let Some(stack_id) = stack_entry.id {
+            let stack_details = workspace::stack_details(project_id, Some(stack_id))?;
+
+            // Check if this commit exists in any branch of this stack
+            for branch_details in &stack_details.branch_details {
+                // Check both regular commits and upstream commits
+                if branch_details.commits.iter().any(|c| c.id == commit_id)
+                    || branch_details
+                        .upstream_commits
+                        .iter()
+                        .any(|c| c.id == commit_id)
+                {
+                    return Ok(stack_id);
+                }
+            }
+        }
+    }
+
+    anyhow::bail!("Commit {} not found in any stack", commit_id);
+}
 
 pub(crate) fn commit(
     repo_path: &Path,

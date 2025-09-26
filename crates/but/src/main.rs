@@ -168,6 +168,11 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Commit, props(start, &result)).ok();
             result
         }
+        Subcommands::New { target } => {
+            let result = commit::insert_blank_commit(&args.current_dir, args.json, target);
+            metrics_if_configured(app_settings, CommandName::New, props(start, &result)).ok();
+            result
+        }
         Subcommands::Describe { commit } => {
             let result = describe::edit_commit_message(&args.current_dir, args.json, commit);
             metrics_if_configured(app_settings, CommandName::Describe, props(start, &result)).ok();
