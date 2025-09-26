@@ -94,6 +94,13 @@ export class WebRoutesService {
 		return this.toUrl(this.finalizeAccountPath());
 	}
 
+	profilePath() {
+		return '/profile';
+	}
+	profileUrl() {
+		return this.toUrl(this.profilePath());
+	}
+
 	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 	isProjectsPage = $derived(isUrl<{}>(this.isWeb, '/projects'));
 	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
