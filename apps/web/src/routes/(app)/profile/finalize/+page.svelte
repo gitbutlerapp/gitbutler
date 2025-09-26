@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import newProjectSvg from '$lib/assets/splash-illustrations/new-project.svg?raw';
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import UsernameTextbox from '$lib/components/auth/UsernameTextbox.svelte';
@@ -6,18 +7,20 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
+	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { Button, InfoMessage, EmailTextbox } from '@gitbutler/ui';
 
 	const userService = inject(USER_SERVICE);
 	const loginService = inject(LOGIN_SERVICE);
+	const routesService = inject(WEB_ROUTES_SERVICE);
 	const user = userService.user;
-	// const isLoggedIn = $derived($user !== undefined);
+	const isLoggedIn = $derived($user !== undefined);
 	const userEmail = $derived($user?.email);
 	const userLogin = $derived($user?.login);
 	const authService = inject(AUTH_SERVICE);
 	const token = authService.tokenReadable;
 
-	// const isFinalized = $derived(isLoggedIn && userEmail && userLogin);
+	const isFinalized = $derived(isLoggedIn && userEmail && userLogin);
 
 	let email = $state<string>();
 	let username = $state<string>();
@@ -67,13 +70,13 @@
 		await userService.refreshUser();
 	}
 
-	// $effect(() => {
-	// 	if (!isLoggedIn) {
-	// 		goto(routesService.loginPath());
-	// 	} else if (isFinalized) {
-	// 		goto(routesService.homePath());
-	// 	}
-	// });
+	$effect(() => {
+		if (!isLoggedIn) {
+			goto(routesService.loginPath());
+		} else if (isFinalized) {
+			goto(routesService.profilePath());
+		}
+	});
 </script>
 
 <svelte:head>
