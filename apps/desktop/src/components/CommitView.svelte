@@ -148,7 +148,14 @@
 			{resizer}
 			{grow}
 			{ontoggle}
-			{onclose}
+			onclose={() => {
+				// When the commit view is closed, we also want to unset the
+				// relevant uiState so things like commit buttons are usable.
+
+				// TODO: We should consider having a modal to confirm the cancel
+				cancelEdit();
+				onclose?.();
+			}}
 			bottomBorder
 			noshrink
 		>
