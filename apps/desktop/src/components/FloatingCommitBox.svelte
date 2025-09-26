@@ -2,7 +2,7 @@
 	import FloatingModal from '$lib/floating/FloatingModal.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { Icon } from '@gitbutler/ui';
+	import { Button, Icon } from '@gitbutler/ui';
 
 	import { type Snippet } from 'svelte';
 	import type { SnapPositionName } from '$lib/floating/types';
@@ -48,6 +48,11 @@
 		<h4 class="text-14 text-semibold">
 			{title}
 		</h4>
+		{#if onCancel}
+			<div class="close-btn">
+				<Button type="button" kind="ghost" icon="cross" onclick={onCancel} />
+			</div>
+		{/if}
 	</div>
 
 	<div class="modal-content">
@@ -79,6 +84,7 @@
 
 	.modal-header {
 		display: flex;
+		position: relative;
 		align-items: center;
 		padding: 12px;
 		gap: 8px;
@@ -89,6 +95,12 @@
 
 	.modal-header h4 {
 		flex: 1;
+	}
+
+	.close-btn {
+		position: absolute;
+		top: 10px;
+		right: 10px;
 	}
 
 	.drag-handle {
