@@ -84,6 +84,12 @@ For examples see `but rub --help`."
         /// Commit ID to edit the message for
         commit: String,
     },
+    /// Show operation history (last 20 entries).
+    Oplog {
+        /// Start from this oplog SHA instead of the head
+        #[clap(long)]
+        since: Option<String>,
+    },
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
@@ -123,6 +129,8 @@ pub enum CommandName {
     Commit,
     #[clap(alias = "describe")]
     Describe,
+    #[clap(alias = "oplog")]
+    Oplog,
     BaseCheck,
     BaseUpdate,
     BranchNew,
