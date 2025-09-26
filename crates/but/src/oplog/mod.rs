@@ -122,11 +122,11 @@ pub(crate) fn restore_to_oplog(
     oplog_sha: &str,
 ) -> anyhow::Result<()> {
     let project = Project::find_by_path(repo_path)?;
+    let snapshots = but_api::undo::list_snapshots(project.id, 100, None, None)?;
 
     // Parse the oplog SHA (support partial SHAs)
     let commit_sha_string = if oplog_sha.len() >= 7 {
         // Try to find a snapshot that starts with this SHA
-        let snapshots = but_api::undo::list_snapshots(project.id, 100, None, None)?;
 
         let matching_snapshot = snapshots
             .iter()
@@ -139,7 +139,6 @@ pub(crate) fn restore_to_oplog(
     };
 
     // Get information about the target snapshot
-    let snapshots = but_api::undo::list_snapshots(project.id, 100, None, None)?;
     let target_snapshot = snapshots
         .iter()
         .find(|snapshot| snapshot.commit_id.to_string() == commit_sha_string)
@@ -192,6 +191,57 @@ pub(crate) fn restore_to_oplog(
     println!(
         "{}",
         "\nWorkspace has been restored to the selected snapshot.".green()
+    );
+
+    Ok(())
+}
+
+pub(crate) fn undo_last_operation(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
+    let project = Project::find_by_path(repo_path)?;
+
+    // Get the last two snapshots - restore to the second one back
+    let snapshots = but_api::undo::list_snapshots(project.id, 2, None, None)?;
+
+    if snapshots.len() < 2 {
+        println!("{}", "No previous operations to undo.".yellow());
+        return Ok(());
+    }
+
+    let target_snapshot = &snapshots[1];
+
+    let target_operation = target_snapshot
+        .details
+        .as_ref()
+        .map(|d| d.title.as_str())
+        .unwrap_or("Unknown operation");
+
+    let target_time = chrono::DateTime::from_timestamp(target_snapshot.created_at.seconds(), 0)
+        .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    println!("{}", "Undoing operation...".blue().bold());
+    println!(
+        "  Reverting to: {} ({})",
+        target_operation.green(),
+        target_time.dimmed()
+    );
+
+    // Restore to the previous snapshot using the but_api
+    but_api::undo::restore_snapshot(project.id, target_snapshot.commit_id.to_string())?;
+
+    let restore_commit_short = format!(
+        "{}{}",
+        &target_snapshot.commit_id.to_string()[..7]
+            .blue()
+            .underline(),
+        &target_snapshot.commit_id.to_string()[7..12].blue().dimmed()
+    );
+
+    println!(
+        "{} Undo completed successfully! Restored to snapshot: {}",
+        "✓".green().bold(),
+        restore_commit_short
     );
 
     Ok(())
