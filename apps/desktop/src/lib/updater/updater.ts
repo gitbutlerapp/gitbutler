@@ -1,5 +1,6 @@
 import { showToast } from '$lib/notifications/toasts';
 import { InjectionToken } from '@gitbutler/core/context';
+import { persisted } from '@gitbutler/shared/persisted';
 import { get, writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type {
@@ -46,7 +47,7 @@ export const UPDATE_INTERVAL_MS = 3600000; // Hourly
  * ./scripts/release.sh --channel nightly --version "0.5.678"
  */
 export class UpdaterService {
-	readonly disableAutoChecks = writable(false);
+	readonly disableAutoChecks = persisted(false, 'disableAutoUpdateChecks');
 	readonly loading = writable(false);
 	readonly update = writable<UpdateStatus>({}, () => {
 		this.start();
