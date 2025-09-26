@@ -945,15 +945,22 @@ export class FocusManager {
 	focusElement(element: HTMLElement): void {
 		if (!element || !element.isConnected) return;
 
-		if (element.tabIndex !== -1) {
-			element.focus();
-		} else {
+		// It seems reading `document.activeElement` while handling
+		// a click often yields `<body>`, so we delay this one tick.
+		setTimeout(() => {
 			const activeElement = document.activeElement;
-			if (activeElement instanceof HTMLElement && !element.contains(activeElement)) {
-				activeElement.blur();
+			const hasFocusedChild = element.contains(activeElement);
+			// Don't refocus if active element is a child of the focusable,
+			// it helps us maintain focus on input elements.
+			if (!hasFocusedChild) {
+				if (element.tabIndex !== -1) {
+					element.focus();
+				} else if (activeElement instanceof HTMLElement) {
+					activeElement.blur();
+				}
 			}
-		}
-		scrollIntoViewIfNeeded(element);
+			scrollIntoViewIfNeeded(element);
+		}, 0);
 	}
 
 	// ============================================
