@@ -78,6 +78,11 @@ For examples see `but rub --help`."
         #[clap(short = 'o', long = "only")]
         only: bool,
     },
+    /// Insert a blank commit before the specified commit, or at the top of a stack.
+    New {
+        /// Commit ID to insert before, or branch ID to insert at top of stack
+        target: String,
+    },
     /// Edit the commit message of the specified commit.
     #[clap(alias = "desc")]
     Describe {
@@ -134,6 +139,8 @@ pub enum CommandName {
     Rub,
     #[clap(alias = "commit")]
     Commit,
+    #[clap(alias = "new")]
+    New,
     #[clap(alias = "describe")]
     Describe,
     #[clap(alias = "oplog")]
