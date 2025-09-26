@@ -78,6 +78,12 @@ For examples see `but rub --help`."
         #[clap(short = 'o', long = "only")]
         only: bool,
     },
+    /// Edit the commit message of the specified commit.
+    #[clap(alias = "desc")]
+    Describe {
+        /// Commit ID to edit the message for
+        commit: String,
+    },
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
@@ -115,6 +121,8 @@ pub enum CommandName {
     Rub,
     #[clap(alias = "commit")]
     Commit,
+    #[clap(alias = "describe")]
+    Describe,
     BaseCheck,
     BaseUpdate,
     BranchNew,
