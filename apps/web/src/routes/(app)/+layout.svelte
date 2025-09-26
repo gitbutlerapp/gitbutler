@@ -1,5 +1,5 @@
 <script lang="ts">
-	import '$lib/styles/global.css';
+	import '../../styles/global.css';
 	import { page } from '$app/state';
 	import { ButlerAIClient, BUTLER_AI_CLIENT } from '$lib/ai/service';
 	import RedirectIfNotFinalized from '$lib/auth/RedirectIfNotFinalized.svelte';
