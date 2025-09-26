@@ -9,6 +9,7 @@ use but_claude::hooks::OutputAsJson;
 mod base;
 mod branch;
 mod command;
+mod commit;
 mod id;
 mod init;
 mod log;
@@ -149,6 +150,21 @@ async fn main() -> Result<()> {
             }
             metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
             Ok(())
+        }
+        Subcommands::Commit {
+            message,
+            branch,
+            only,
+        } => {
+            let result = commit::commit(
+                &args.current_dir,
+                args.json,
+                message.as_deref(),
+                branch.as_deref(),
+                *only,
+            );
+            metrics_if_configured(app_settings, CommandName::Commit, props(start, &result)).ok();
+            result
         }
         Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, *repo)
             .context("Failed to initialize GitButler project."),

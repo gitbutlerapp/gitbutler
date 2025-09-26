@@ -67,6 +67,17 @@ For examples see `but rub --help`."
         #[clap(long, short = 'd')]
         delete: bool,
     },
+    /// Commit changes to a stack.
+    Commit {
+        /// Commit message
+        #[clap(short = 'm', long = "message")]
+        message: Option<String>,
+        /// Branch CLI ID or name to derive the stack to commit to
+        branch: Option<String>,
+        /// Only commit assigned files, not unassigned files
+        #[clap(short = 'o', long = "only")]
+        only: bool,
+    },
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
@@ -102,6 +113,8 @@ pub enum CommandName {
     Stf,
     #[clap(alias = "rub")]
     Rub,
+    #[clap(alias = "commit")]
+    Commit,
     BaseCheck,
     BaseUpdate,
     BranchNew,
