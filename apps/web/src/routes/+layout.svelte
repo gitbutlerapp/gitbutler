@@ -15,7 +15,7 @@
 	import { provide } from '@gitbutler/core/context';
 	import { WebRoutesService, WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { type Snippet } from 'svelte';
-	import '$lib/styles/global.css';
+	import '../styles/global.css';
 
 	interface Props {
 		children: Snippet;

@@ -5,7 +5,7 @@ import postcssNesting from 'postcss-nesting';
 import pxToRem from 'postcss-pxtorem';
 import path from 'path';
 
-const mediaQueriesCssPath = path.resolve('src/lib/styles/media-queries.css');
+const mediaQueriesCssPath = path.resolve('src/styles/media-queries.css');
 
 /** @type {import('postcss-load-config').Config} */
 const config = {
