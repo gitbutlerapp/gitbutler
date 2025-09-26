@@ -378,6 +378,7 @@
 							viewport={branchColumn}
 							persistId="branches-branch-column-1"
 							direction="right"
+							showBorder
 							defaultValue={20}
 							minWidth={10}
 							maxWidth={30}
@@ -388,14 +389,6 @@
 						<div class="commit-column" bind:this={commitColumn} class:non-local-pr={isNonLocalPr}>
 							{#if current.commitId}
 								<UnappliedCommitView {projectId} commitId={current.commitId} />
-								<Resizer
-									viewport={commitColumn}
-									persistId="branches-branch-column-2"
-									direction="right"
-									defaultValue={20}
-									minWidth={10}
-									maxWidth={30}
-								/>
 							{:else if current.branchName}
 								{#if current.inWorkspace && current.stackId}
 									<BranchView
@@ -416,17 +409,19 @@
 										{onerror}
 									/>
 								{/if}
-								<Resizer
-									viewport={commitColumn}
-									persistId="branches-branch-column-2"
-									direction="right"
-									defaultValue={20}
-									minWidth={10}
-									maxWidth={30}
-								/>
 							{:else if current.prNumber}
 								<PrBranchView {projectId} prNumber={current.prNumber} {onerror} />
 							{/if}
+
+							<Resizer
+								viewport={commitColumn}
+								persistId="branches-branch-column-2"
+								showBorder
+								direction="right"
+								defaultValue={20}
+								minWidth={10}
+								maxWidth={30}
+							/>
 						</div>
 					{/if}
 
@@ -493,7 +488,6 @@
 		flex-shrink: 0;
 		flex-direction: column;
 		max-height: 100%;
-		border-right: 1px solid var(--clr-border-2);
 		border-left: 1px solid var(--clr-border-2);
 	}
 
@@ -505,7 +499,6 @@
 		flex-direction: column;
 		max-height: 100%;
 		overflow: hidden;
-		border-right: 1px solid var(--clr-border-2);
 
 		&.non-local-pr {
 			flex-grow: 1;
