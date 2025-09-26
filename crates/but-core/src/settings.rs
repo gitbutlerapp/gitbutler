@@ -9,6 +9,7 @@ pub mod git {
 
     const GIT_SIGN_COMMITS: &str = "commit.gpgsign";
     const GITBUTLER_SIGN_COMMITS: &str = "gitbutler.signCommits";
+    const GITBUTLER_GERRIT_MODE: &str = "gitbutler.gerritMode";
     const SIGNING_KEY: &str = "user.signingKey";
     const SIGNING_FORMAT: &str = "gpg.format";
     const GPG_PROGRAM: &str = "gpg.program";
@@ -25,6 +26,7 @@ pub mod git {
         pub struct GitConfigSettings {
             #[serde(rename = "signCommits")]
             pub gitbutler_sign_commits: Option<bool>,
+            pub gitbutler_gerrit_mode: Option<bool>,
             pub signing_key: Option<BStringForFrontend>,
             pub signing_format: Option<BStringForFrontend>,
             pub gpg_program: Option<BStringForFrontend>,
@@ -35,6 +37,7 @@ pub mod git {
             fn from(
                 crate::GitConfigSettings {
                     gitbutler_sign_commits,
+                    gitbutler_gerrit_mode,
                     signing_key,
                     signing_format,
                     gpg_program,
@@ -43,6 +46,7 @@ pub mod git {
             ) -> Self {
                 GitConfigSettings {
                     gitbutler_sign_commits,
+                    gitbutler_gerrit_mode,
                     signing_key: signing_key.map(Into::into),
                     signing_format: signing_format.map(Into::into),
                     gpg_program: gpg_program
@@ -57,6 +61,7 @@ pub mod git {
             fn from(
                 GitConfigSettings {
                     gitbutler_sign_commits,
+                    gitbutler_gerrit_mode,
                     signing_key,
                     signing_format,
                     gpg_program,
@@ -65,6 +70,7 @@ pub mod git {
             ) -> Self {
                 crate::GitConfigSettings {
                     gitbutler_sign_commits,
+                    gitbutler_gerrit_mode,
                     signing_key: signing_key.map(Into::into),
                     signing_format: signing_format.map(Into::into),
                     gpg_program: gpg_program.map(Into::into),
@@ -89,6 +95,8 @@ pub mod git {
             /// * `commit.gpgsign` which is otherwise valid.
             /// * otherwise it defaults to `false` just like Git would.
             pub gitbutler_sign_commits: Option<bool>,
+            /// If `true`, GitButler will create ChangeId trailers and will push references in the Gerrit way
+            pub gitbutler_gerrit_mode: Option<bool>,
             /// `user.signingKey`.
             pub signing_key: Option<BString>,
             /// `gpg.format`
@@ -108,12 +116,14 @@ pub mod git {
                 .boolean(GITBUTLER_SIGN_COMMITS)
                 .or_else(|| config.boolean(GIT_SIGN_COMMITS))
                 .or(Some(false));
+            let gitbutler_gerrit_mode = config.boolean(GITBUTLER_GERRIT_MODE).or(Some(false));
             let signing_key = config.string(SIGNING_KEY).map(Cow::into_owned);
             let signing_format = config.string(SIGNING_FORMAT).map(Cow::into_owned);
             let gpg_program = config.trusted_program(GPG_PROGRAM).map(Cow::into_owned);
             let gpg_ssh_program = config.trusted_program(GPG_SSH_PROGRAM).map(Cow::into_owned);
             Ok(GitConfigSettings {
                 gitbutler_sign_commits,
+                gitbutler_gerrit_mode,
                 signing_key,
                 signing_format,
                 gpg_program,

@@ -9,6 +9,7 @@
 	import FileList from '$components/FileList.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
+	import AddedDirectoriesList from '$components/codegen/AddedDirectoriesList.svelte';
 	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
 	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
@@ -214,7 +215,7 @@
 					laneState?.addedDirs.add(path);
 					chipToasts.success(`Added directory: ${path}`);
 				} else {
-					chipToasts.error(`Invalid directory path: ${path}`);
+					chipToasts.error(`Invalid directory: ${path}`);
 				}
 			}
 			setPrompt('');
@@ -777,7 +778,7 @@
 						<Badge>{todos.length}</Badge>
 					{/snippet}
 
-					<div class="right-sidebar-list">
+					<div class="todo-list">
 						{#each todos as todo}
 							<CodegenTodo {todo} />
 						{/each}
@@ -786,32 +787,14 @@
 			{/if}
 
 			{#if addedDirs.length > 0}
-				<Drawer defaultCollapsed={false} noshrink>
-					{#snippet header()}
-						<h4 class="text-14 text-semibold truncate">Added Directories</h4>
-						<Badge>{addedDirs.length}</Badge>
-					{/snippet}
-
-					<div class="right-sidebar-list right-sidebar-list--small-gap">
-						{#each addedDirs as dir}
-							<div class="added-dir-item">
-								<span class="text-13 grow-1">{dir}</span>
-								<Button
-									kind="ghost"
-									icon="bin"
-									shrinkable
-									onclick={() => {
-										if (selectedBranch) {
-											uiState.lane(selectedBranch.stackId).addedDirs.remove(dir);
-											chipToasts.success(`Removed directory: ${dir}`);
-										}
-									}}
-									tooltip="Remove directory"
-								/>
-							</div>
-						{/each}
-					</div>
-				</Drawer>
+				<AddedDirectoriesList
+					{addedDirs}
+					onRemoveDir={(dir) => {
+						if (selectedBranch) {
+							uiState.lane(selectedBranch.stackId).addedDirs.remove(dir);
+						}
+					}}
+				/>
 			{/if}
 		{/if}
 
@@ -1169,13 +1152,6 @@
 		border-left: 1px solid var(--clr-border-2);
 	}
 
-	.right-sidebar-list {
-		display: flex;
-		flex-direction: column;
-		padding: 14px;
-		gap: 12px;
-	}
-
 	.right-sidebar__placeholder {
 		display: flex;
 		flex: 1;
@@ -1191,6 +1167,13 @@
 		justify-content: center;
 		padding: 20px;
 		background-color: var(--clr-bg-2);
+	}
+
+	.todo-list {
+		display: flex;
+		flex-direction: column;
+		padding: 14px;
+		gap: 12px;
 	}
 
 	/* NO CC AVAILABLE */
@@ -1237,15 +1220,5 @@
 		right: -3px;
 		width: 9px;
 		height: 9px;
-	}
-
-	.added-dir-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.right-sidebar-list--small-gap {
-		gap: 4px;
 	}
 </style>

@@ -18,6 +18,7 @@
 	import { FEED_FACTORY } from '$lib/feed/feed';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
+	import { GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { GIT_SERVICE } from '$lib/git/gitService';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
@@ -102,6 +103,7 @@
 
 	const gitHubClient = inject(GITHUB_CLIENT);
 	const gitLabState = inject(GITLAB_STATE);
+	const gitLabClient = inject(GITLAB_CLIENT);
 	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
 
 	// GitHub setup
@@ -110,7 +112,10 @@
 
 	// GitLab setup
 	const gitlabConfigured = $derived(gitLabState.configured);
-	$effect.pre(() => gitLabState.init(projectId, repoInfo));
+	$effect.pre(() => {
+		gitLabState.init(projectId, repoInfo);
+		gitLabClient.set(); // Temporary fix, will refactor.
+	});
 
 	// Forge factory configuration
 	$effect(() => {

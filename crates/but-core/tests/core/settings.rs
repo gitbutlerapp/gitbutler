@@ -12,12 +12,16 @@ mod git {
             actual,
             GitConfigSettings {
                 gitbutler_sign_commits: Some(false),
-                ..GitConfigSettings::default()
+                ..GitConfigSettings {
+                    gitbutler_gerrit_mode: Some(false),
+                    ..Default::default()
+                }
             },
             "by default, None of these are set in a new repository, except for the explicit gpg-sign logic"
         );
         let expected = GitConfigSettings {
             gitbutler_sign_commits: Some(true),
+            gitbutler_gerrit_mode: Some(false),
             signing_key: Some("signing key".into()),
             signing_format: Some("signing format".into()),
             gpg_program: Some("gpg program".into()),
@@ -40,7 +44,10 @@ mod git {
         let repo = gix::open_opts(tmp.path(), gix::open::Options::isolated())?;
         let expected = GitConfigSettings {
             gitbutler_sign_commits: Some(true),
-            ..Default::default()
+            ..GitConfigSettings {
+                gitbutler_gerrit_mode: Some(false),
+                ..Default::default()
+            }
         };
 
         repo.set_git_settings(&expected)?;

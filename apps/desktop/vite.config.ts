@@ -46,6 +46,10 @@ export default defineConfig({
 			strict: false
 		}
 	},
+	optimizeDeps: {
+		// Exclude local packages from pre-bundling
+		exclude: ['@gitbutler/core', '@gitbutler/ui', '@gitbutler/shared']
+	},
 	// to make use of `TAURI_ENV_DEBUG` and other env variables
 	// https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
 	envPrefix: ['VITE_', 'TAURI_'],

@@ -39,7 +39,9 @@ pub struct RemoteTrackingReference {
 }
 
 impl RemoteTrackingReference {
-    fn for_ui(
+    /// Create a new instance from `ref_name` and `remote_names`, essentially splitting the remote
+    /// name off the short name.
+    pub fn for_ui(
         ref_name: gix::refs::FullName,
         remote_names: &gix::remote::Names,
     ) -> anyhow::Result<Self> {

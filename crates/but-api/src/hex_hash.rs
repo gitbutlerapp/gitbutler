@@ -11,6 +11,12 @@ impl From<HexHash> for gix::ObjectId {
     }
 }
 
+impl From<gix::ObjectId> for HexHash {
+    fn from(value: gix::ObjectId) -> Self {
+        HexHash(value)
+    }
+}
+
 impl Deref for HexHash {
     type Target = gix::ObjectId;
 

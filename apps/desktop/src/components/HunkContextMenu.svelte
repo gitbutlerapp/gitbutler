@@ -124,8 +124,8 @@
 >
 	{#snippet children(item)}
 		{#if isHunkContextItem(item)}
-			<ContextMenuSection>
-				{#if discardable}
+			{#if discardable}
+				<ContextMenuSection>
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_DiscardChange}
 						label="Discard change"
@@ -135,19 +135,19 @@
 							contextMenu?.close();
 						}}
 					/>
-				{/if}
-				{#if item.selectedLines !== undefined && item.selectedLines.length > 0 && discardable}
-					<ContextMenuItem
-						testId={TestId.HunkContextMenu_DiscardLines}
-						label={getDiscardLineLabel(item)}
-						icon="discard-selected"
-						onclick={() => {
-							discardHunkLines(item);
-							contextMenu?.close();
-						}}
-					/>
-				{/if}
-			</ContextMenuSection>
+					{#if item.selectedLines !== undefined && item.selectedLines.length > 0}
+						<ContextMenuItem
+							testId={TestId.HunkContextMenu_DiscardLines}
+							label={getDiscardLineLabel(item)}
+							icon="discard-selected"
+							onclick={() => {
+								discardHunkLines(item);
+								contextMenu?.close();
+							}}
+						/>
+					{/if}
+				</ContextMenuSection>
+			{/if}
 			<ContextMenuSection>
 				<ContextMenuItem
 					testId={TestId.HunkContextMenu_OpenInEditor}
@@ -203,6 +203,7 @@
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_SelectAll}
 						label="Select all"
+						icon="select-all"
 						onclick={() => {
 							selectAllHunkLines(item.hunk);
 							contextMenu?.close();
@@ -211,6 +212,7 @@
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_UnselectAll}
 						label="Unselect all"
+						icon="unselect-all"
 						onclick={() => {
 							unselectAllHunkLines(item.hunk);
 							contextMenu?.close();
@@ -219,6 +221,7 @@
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_InvertSelection}
 						label="Invert selection"
+						icon="invert-selection"
 						onclick={() => {
 							invertHunkSelection(item.hunk);
 							contextMenu?.close();
@@ -227,7 +230,7 @@
 				</ContextMenuSection>
 			{/if}
 		{:else}
-			Malformed item :(
+			<p class="text-12 text-semibold clr-text-2">Malformed item (·•᷄‎ࡇ•᷅ )</p>
 		{/if}
 	{/snippet}
 </ContextMenu>

@@ -32,16 +32,24 @@
 	}
 
 	.blinking-text {
-		animation: blinking 1.5s infinite;
+		background: linear-gradient(
+			90deg,
+			var(--clr-text-2) 0%,
+			var(--clr-text-2) 50%,
+			color-mix(in srgb, var(--clr-text-2), transparent 70%) 60%,
+			var(--clr-text-2) 100%
+		);
+		background-size: 300% 100%;
+		background-clip: text;
+		-webkit-background-clip: text;
+		/* opacity: 0.6; */
+		-webkit-text-fill-color: transparent;
+		animation: gradient-sweep 3s ease-in-out infinite;
 	}
 
-	@keyframes blinking {
-		0%,
-		100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.5;
+	@keyframes gradient-sweep {
+		to {
+			background-position: 300% center;
 		}
 	}
 </style>

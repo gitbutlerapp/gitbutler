@@ -110,7 +110,7 @@
 
 	async function onContextMenu(e: MouseEvent) {
 		const changes = await idSelection.treeChanges(projectId, selectionId);
-		if (idSelection.has(change.path, selectionId)) {
+		if (idSelection.has(change.path, selectionId) && changes.length > 0) {
 			contextMenu?.open(e, { changes });
 			return;
 		}

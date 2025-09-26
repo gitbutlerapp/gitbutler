@@ -216,7 +216,7 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
         &summary,
         Some(prompt.clone()),
         ActionHandler::HandleChangesSimple,
-        Source::ClaudeCode(input.conversation_id),
+        Source::Cursor(input.conversation_id),
         Some(stack_id),
     )?;
 

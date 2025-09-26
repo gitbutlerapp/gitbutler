@@ -19,6 +19,7 @@ bstr.workspace = true
 tempfile.workspace = true
 serde = { version = "1.0.217", features = ["derive"] }
 toml.workspace = true
+but-gerrit.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true

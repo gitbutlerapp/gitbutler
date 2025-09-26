@@ -58,7 +58,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 
 	const { initiate, select } = endpoint as ApiEndpointQuery<CustomQuery<any>, Definitions>;
 
-	function track(args: { failure: boolean; startTime: number; error?: unknown }) {
+	function _track(args: { failure: boolean; startTime: number; error?: unknown }) {
 		const durationMs = Date.now() - args.startTime;
 		const parsedError = args.error !== undefined ? parseQueryError(args.error) : undefined;
 
@@ -78,7 +78,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		queryArg: unknown,
 		options?: { transform?: T; forceRefetch?: boolean }
 	) {
-		const startTime = Date.now();
+		// const startTime = Date.now();
 		const dispatch = getDispatch();
 		const result = await dispatch(
 			initiate(queryArg, {
@@ -88,10 +88,10 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		);
 		const { data, error } = result;
 		if (result.error) {
-			track({ failure: true, startTime, error });
+			// track({ failure: true, startTime, error });
 			throw error;
 		}
-		track({ failure: false, startTime });
+		// track({ failure: false, startTime });
 		if (options?.transform && data) {
 			return options.transform(data, queryArg);
 		}
@@ -102,7 +102,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		queryArg: unknown,
 		options?: { transform?: T } & StartQueryActionCreatorOptions
 	): ReactiveQuery<T extends Transformer<ReturnType<T>> ? ReturnType<T> : T, QueryExtensions> {
-		const startTime = Date.now();
+		// const startTime = Date.now();
 		const dispatch = getDispatch();
 		let query: QueryActionCreatorResult<any> | undefined;
 		const subscribe = createSubscriber(() => {
@@ -128,11 +128,11 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		const output = $derived.by(() => {
 			let data = result.data;
 			if (result.data) {
-				track({ failure: false, startTime });
+				// track({ failure: false, startTime });
 			}
 			if (result.error) {
 				const error = result.error;
-				track({ failure: true, startTime, error });
+				// track({ failure: true, startTime, error });
 				emitQueryError(error);
 			}
 			if (options?.transform && data) {

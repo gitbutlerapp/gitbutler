@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Icon } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -20,24 +19,6 @@
 
 	let isOpen: boolean = $state(false);
 	let el = $state<HTMLElement>();
-
-	let contentHeight = $state<string>();
-
-	function setHeight() {
-		contentHeight = `calc(${pxToRem(el?.scrollHeight ?? 0)}rem + ${pxToRem(8)}rem)`;
-	}
-
-	onMount(() => {
-		if (!foldable) return;
-
-		setHeight();
-	});
-
-	$effect(() => {
-		if (el) {
-			setHeight();
-		}
-	});
 </script>
 
 <div class="snapshot-attachment">
@@ -51,7 +32,7 @@
 			}
 		}}
 		class="snapshot-attachment__content"
-		style="max-height: {foldable ? (isOpen ? contentHeight : foldedHeight) : 'auto'}"
+		style="max-height: {foldable ? (isOpen ? pxToRem(300) + 'rem' : foldedHeight) : 'auto'}"
 	>
 		{@render children?.()}
 	</div>

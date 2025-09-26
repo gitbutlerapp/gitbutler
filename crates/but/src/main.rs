@@ -6,6 +6,8 @@ use but_settings::AppSettings;
 use metrics::{Event, Metrics, Props, metrics_if_configured};
 
 use but_claude::hooks::OutputAsJson;
+mod base;
+mod branch;
 mod command;
 mod id;
 mod init;
@@ -96,14 +98,37 @@ async fn main() -> Result<()> {
                 Ok(())
             }
         },
+        Subcommands::Base(base::Platform { cmd }) => {
+            let result = base::handle(cmd, &args.current_dir, args.json);
+            metrics_if_configured(
+                app_settings,
+                match cmd {
+                    base::Subcommands::Check => CommandName::BaseCheck,
+                    base::Subcommands::Update => CommandName::BaseUpdate,
+                },
+                props(start, &result),
+            )
+            .ok();
+            Ok(())
+        }
+        Subcommands::Branch(branch::Platform { cmd }) => {
+            let result = branch::handle(cmd, &args.current_dir, args.json);
+            metrics_if_configured(app_settings, CommandName::BranchNew, props(start, &result)).ok();
+            Ok(())
+        }
         Subcommands::Log => {
             let result = log::commit_graph(&args.current_dir, args.json);
             metrics_if_configured(app_settings, CommandName::Log, props(start, &result)).ok();
             Ok(())
         }
-        Subcommands::Status => {
-            let result = status::worktree(&args.current_dir, args.json);
+        Subcommands::Status { show_files } => {
+            let result = status::worktree(&args.current_dir, args.json, *show_files);
             metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
+            Ok(())
+        }
+        Subcommands::Stf => {
+            let result = status::worktree(&args.current_dir, args.json, true);
+            metrics_if_configured(app_settings, CommandName::Stf, props(start, &result)).ok();
             Ok(())
         }
         Subcommands::Rub { source, target } => {
@@ -120,7 +145,7 @@ async fn main() -> Result<()> {
     }
 }
 
-fn props<E, T, R>(start: std::time::Instant, result: R) -> Props
+pub(crate) fn props<E, T, R>(start: std::time::Instant, result: R) -> Props
 where
     R: std::ops::Deref<Target = Result<T, E>>,
     E: std::fmt::Display,

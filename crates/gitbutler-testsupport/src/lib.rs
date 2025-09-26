@@ -209,6 +209,7 @@ pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
 
 pub mod read_only {
     use crate::DRIVER;
+    use but_settings::app_settings::FeatureFlags;
     use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
@@ -226,6 +227,22 @@ pub mod read_only {
     pub fn fixture(script_name: &str, project_directory: &str) -> anyhow::Result<CommandContext> {
         let project = fixture_project(script_name, project_directory)?;
         CommandContext::open(&project, AppSettings::default())
+    }
+
+    /// As [fixture()], but allows setting `features` in the app settings
+    pub fn fixture_with_features(
+        script_name: &str,
+        project_directory: &str,
+        features: FeatureFlags,
+    ) -> anyhow::Result<CommandContext> {
+        let project = fixture_project(script_name, project_directory)?;
+        CommandContext::open(
+            &project,
+            AppSettings {
+                feature_flags: features,
+                ..Default::default()
+            },
+        )
     }
 
     /// Like [`fixture()`], but will return only the `Project` at `project_directory` after executing `script_name`.

@@ -8,6 +8,7 @@
 		ButlerAction,
 		getDisplayNameForWorkflowKind,
 		isClaudeCodeActionSource,
+		isCursorActionSource,
 		isDefinedMCPActionSource,
 		isStringActionSource,
 		isUndefinedMCPActionSource,
@@ -84,6 +85,13 @@
 					{@html butbotSvg}
 				</div>
 			</div>
+		{:else if isCursorActionSource(action.source)}
+			<div class="action-item__editor-logo">
+				<EditorLogo name="cursor" />
+				<div class="action-item__editor-source">
+					{@html butbotSvg}
+				</div>
+			</div>
 		{/if}
 		<div class="action-item__content">
 			<div class="action-item__content__header">
@@ -101,6 +109,8 @@
 						<span class="text-13 text-greyer" title={new Date(action.createdAt).toLocaleString()}>
 							{#if isClaudeCodeActionSource(action.source)}
 								Claude Hook
+							{:else if isCursorActionSource(action.source)}
+								Cursor Hook
 							{:else}
 								MCP call
 							{/if}

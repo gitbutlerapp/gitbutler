@@ -12,7 +12,13 @@
 		<div class="status-icon__minute-hand"></div>
 	{/if}
 
-	<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+	<svg
+		width="0.875rem"
+		height="0.875rem"
+		viewBox="0 0 14 14"
+		fill="none"
+		xmlns="http://www.w3.org/2000/svg"
+	>
 		{#if status === 'completed'}
 			<path
 				d="M10 5L7.14329 8.17412C6.74605 8.6155 6.05395 8.6155 5.65671 8.17412L4 6.33333"
