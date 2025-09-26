@@ -17,12 +17,28 @@
 	let error = $state<string>();
 	let errorCode = $state<string>();
 	let confirmationSent = $state<boolean>(false);
+	let resendCountdown = $state<number>(0);
+	let resendDisabled = $state<boolean>(false);
 
 	// Clear error when user starts typing
 	function clearError() {
 		error = undefined;
 		errorCode = undefined;
 		confirmationSent = false;
+	}
+
+	function startResendCountdown() {
+		resendDisabled = true;
+		resendCountdown = 30;
+
+		const timer = setInterval(() => {
+			resendCountdown--;
+			if (resendCountdown <= 0) {
+				clearInterval(timer);
+				resendDisabled = false;
+				resendCountdown = 0;
+			}
+		}, 1000);
 	}
 
 	const isFormValid = $derived(!!email && !!password && (!email || emailTextbox?.isValid()));
@@ -60,6 +76,10 @@
 			error = 'Please enter your email to resend the confirmation email.';
 			return;
 		}
+
+		// Start countdown immediately when user clicks
+		startResendCountdown();
+
 		const response = await loginService.resendConfirmationEmail(email);
 		if (response.type === 'error') {
 			error = response.errorMessage;
@@ -119,16 +139,23 @@
 				<InfoMessage filled outlined={false} style="error" class="m-bottom-16">
 					{#snippet content()}
 						{#if errorCode === 'email_not_verified'}
-							<p>
-								Verify your email before logging in. Check your inbox or <button
-									type="button"
-									class="resend-confirm-btn"
-									onclick={resendConfirmationEmail}
-									disabled={!email}
-								>
-									resend the confirmation email</button
-								>.
-							</p>
+							{#if !resendDisabled}
+								<p>
+									Verify your email before logging in. Check your inbox or <button
+										type="button"
+										class="resend-btn"
+										onclick={resendConfirmationEmail}
+										disabled={!email || resendDisabled}
+									>
+										resend the confirmation email</button
+									>.
+								</p>
+							{:else}
+								<p>
+									Verify your email before logging in. You can resend the confirmation email in {resendCountdown}
+									seconds.
+								</p>
+							{/if}
 						{:else}
 							<p>{error}</p>
 						{/if}
@@ -181,7 +208,7 @@
 		gap: 8px;
 	}
 
-	.resend-confirm-btn {
+	.resend-btn {
 		text-decoration: underline;
 		text-decoration-style: dotted;
 		cursor: pointer;
