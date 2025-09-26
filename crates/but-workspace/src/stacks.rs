@@ -228,15 +228,15 @@ pub fn stacks_v3(
             .collect()
     }
 
-    let unapplied_stacks = unapplied_stacks(repo, meta, &info.stacks)?;
     let mut stacks = match filter {
         StacksFilter::InWorkspace => into_ui_stacks(repo, info.stacks, meta),
         StacksFilter::All => {
+            let unapplied_stacks = unapplied_stacks(repo, meta, &info.stacks)?;
             let mut all_stacks = unapplied_stacks;
             all_stacks.extend(into_ui_stacks(repo, info.stacks, meta));
             all_stacks
         }
-        StacksFilter::Unapplied => unapplied_stacks,
+        StacksFilter::Unapplied => unapplied_stacks(repo, meta, &info.stacks)?,
     };
 
     let needs_filtering_to_hide_segments_not_checked_out = stacks
