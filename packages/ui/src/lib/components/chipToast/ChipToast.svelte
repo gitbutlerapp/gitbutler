@@ -80,7 +80,6 @@
 		--toast-padding: 8px 12px;
 		display: flex;
 		width: fit-content;
-		max-width: 400px;
 		border-radius: var(--radius-m);
 		background: var(--clr-scale-ntrl-10);
 		box-shadow: var(--fx-shadow-m);
