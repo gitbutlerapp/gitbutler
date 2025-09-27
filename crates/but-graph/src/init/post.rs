@@ -129,6 +129,11 @@ impl Graph {
             let assume_tip_is_not_available_in_segment_anymore = None;
             self.entrypoint = Some((new_ep_sidx, assume_tip_is_not_available_in_segment_anymore));
         } else {
+            // It's really important to get the name, as the HEAD is pointing to this segment.
+            // So find the segment with the ambiguous ref we desire, and rewrite it to be non-ambiguous.
+            // The reason we wait till now is to not disturb the workspace upgrades, which act differently
+            // if they already have a named segment.
+            // TODO: to this - it's easier than making the workspace upgrades deal with this.
             tracing::debug!(
                 "Couldn't find any segment that was named after the entrypoint ref name '{}'",
                 desired_ref_name.as_bstr()

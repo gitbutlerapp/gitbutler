@@ -51,20 +51,23 @@ fn single_stack_ambigous() -> anyhow::Result<()> {
     let (without_ref_id, ref_name) = id_at(&repo, "without-ref");
     let graph = Graph::from_commit_traversal(without_ref_id, ref_name, &*meta, standard_options())?
         .validated()?;
+    // See how tags aren't allowed to name a segment, even when used as entrypoint.
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 📕►►►:1[0]:gitbutler/workspace
     │   └── ·20de6ee (⌂|🏘)
     │       └── ►:4[1]:B <> origin/B →:5:
     │           └── ·70e9a36 (⌂|🏘|100)
-    │               └── 👉►:0[2]:tags/without-ref
-    │                   ├── ·320e105 (⌂|🏘|101)
+    │               └── ►:0[2]:anon:
+    │                   ├── 👉·320e105 (⌂|🏘|101) ►tags/without-ref
     │                   └── ·2a31450 (⌂|🏘|101) ►B-empty, ►ambiguous-01
-    │                       └── ►:5[3]:origin/B →:4:
+    │                       └── ►:6[3]:anon:
     │                           └── ·70bde6b (⌂|🏘|101) ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
     │                               └── ►:3[4]:main <> origin/main →:2:
     │                                   └── ·fafd9d0 (⌂|🏘|✓|111) ►new-A, ►new-B
-    └── ►:2[0]:origin/main →:3:
-        └── →:3: (main →:2:)
+    ├── ►:2[0]:origin/main →:3:
+    │   └── →:3: (main →:2:)
+    └── ►:5[0]:origin/B →:4:
+        └── →:6:
     ");
     // Now `HEAD` is outside a workspace, which goes to single-branch mode. But it knows it's in a workspace
     // and shows the surrounding parts, while marking the segment as entrypoint.
@@ -73,8 +76,8 @@ fn single_stack_ambigous() -> anyhow::Result<()> {
     └── ≡:4:B <> origin/B →:5:⇡1 on fafd9d0
         ├── :4:B <> origin/B →:5:⇡1
         │   └── ·70e9a36 (🏘️)
-        └── 👉:0:tags/without-ref
-            ├── ·320e105 (🏘️)
+        └── 👉:0:anon:
+            ├── ·320e105 (🏘️) ►tags/without-ref
             ├── ·2a31450 (🏘️) ►B-empty, ►ambiguous-01
             └── ❄70bde6b (🏘️) ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
     ");
@@ -3200,10 +3203,10 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         Graph::from_commit_traversal(id, ref_name, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    └── ≡👉📙:0:dependant on fafd9d0
-        ├── 👉📙:0:dependant
-        └── 📙:5:advanced-lane <> origin/advanced-lane →:4:
-            └── ❄️cbc6713 (🏘️)
+    └── ≡📙:5:advanced-lane <> origin/advanced-lane →:4: on fafd9d0
+        ├── 📙:5:advanced-lane <> origin/advanced-lane →:4:
+        └── 👉📙:6:dependant
+            └── ❄cbc6713 (🏘️)
     ");
     Ok(())
 }

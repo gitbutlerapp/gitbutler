@@ -272,6 +272,8 @@ impl Graph {
 
         let configured_remote_tracking_branches =
             remotes::configured_remote_tracking_branches(repo)?;
+        let (workspaces, target_refs) =
+            obtain_workspace_infos(repo, ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
         let refs_by_id = repo.collect_ref_mapping_by_prefix(
             [
                 "refs/heads/",
@@ -288,9 +290,11 @@ impl Graph {
             } else {
                 None
             }),
+            &workspaces
+                .iter()
+                .map(|(_, ref_name, _)| ref_name.as_ref())
+                .collect::<Vec<_>>(),
         )?;
-        let (workspaces, target_refs) =
-            obtain_workspace_infos(repo, ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
         let mut seen = gix::revwalk::graph::IdMap::<SegmentIndex>::default();
         let mut goals = Goals::default();
         // The tip transports itself.
