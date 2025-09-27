@@ -64,11 +64,13 @@ export function parseError(error: unknown): ParsedError {
 	}
 
 	if (isHttpError(error)) {
-		// Silence GitHub octokit.js when disconnected. This should ideally be
-		// prevented using `navigator.onLine` to avoid making requests when
-		// working offline.
+		// Handle "Load failed" errors more helpfully by providing context about
+		// potential connectivity issues with private Git repositories
 		if (error.status === 500 && error.message === 'Load failed') {
-			return { message: error.message, ignored: true };
+			return { 
+				message: 'Network connection failed. This may occur when accessing private Git repositories. Please check your network connection and repository permissions.',
+				description: 'Original error: Load failed'
+			};
 		}
 		return { message: error.message };
 	}
