@@ -898,9 +898,7 @@ A new multi-segment stack is created without remote and squash merged locally.
                     ],
                 },
                 Stack {
-                    id: Some(
-                        00000000-0000-0000-0000-000000000000,
-                    ),
+                    id: None,
                     base: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),

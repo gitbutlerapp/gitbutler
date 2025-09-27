@@ -517,8 +517,9 @@ impl Graph {
         }
 
         if ws.has_managed_ref() {
-            let (_lowest_base, lowest_base_sidx) =
+            let (lowest_base, lowest_base_sidx) =
                 ws_lower_bound.map_or((None, None), |(base, sidx)| (Some(base), Some(sidx)));
+            // dbg!(lowest_base, lowest_base_sidx);
             for stack_top_sidx in self
                 .inner
                 .neighbors_directed(ws_tip_segment.id, Direction::Outgoing)
@@ -570,9 +571,24 @@ impl Graph {
                         },
                         |s| Some(s.id) == ws.lower_bound_segment_id && s.metadata.is_none(),
                     )?
-                    .map(|segments| {
+                    .and_then(|segments| {
                         let stack_id = find_matching_stack_id(ws.metadata.as_ref(), &segments);
-                        Stack::from_base_and_segments(&self.inner, segments, stack_id)
+                        // If we find no stack ID, then the segment is not included in the workspace metadata,
+                        // indicating it's ignored. Just to be even more certain, if it starts with a commit
+                        // that is the workspace base, then we definitely don't want to show it - it's unapplied.
+                        if stack_id.is_none()
+                            && segments
+                                .first()
+                                .is_some_and(|s| s.commits.first().map(|c| c.id) == lowest_base)
+                        {
+                            None
+                        } else {
+                            Some(Stack::from_base_and_segments(
+                                &self.inner,
+                                segments,
+                                stack_id,
+                            ))
+                        }
                     }),
                 );
             }
@@ -702,17 +718,17 @@ fn find_matching_stack_id(
     metadata
         .stacks
         .iter()
-        .map(|s| {
+        .filter_map(|s| {
             let num_matching_refs = s
                 .branches
                 .iter()
                 .filter(|b| {
                     segments
                         .iter()
-                        .any(|s| s.ref_name.as_ref().is_some_and(|rn| rn == &b.ref_name))
+                        .any(|s| s.ref_names().any(|rn| rn == b.ref_name.as_ref()))
                 })
                 .count();
-            (s.id, num_matching_refs)
+            (num_matching_refs != 0).then_some((s.id, num_matching_refs))
         })
         .sorted_by(|(_, lhs), (_, rhs)| lhs.cmp(rhs).reverse())
         .next()

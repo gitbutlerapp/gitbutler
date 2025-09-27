@@ -386,6 +386,8 @@ pub fn queue_parents(
 /// As convenience, if `ref_name` is `Some` and the metadata is not set, it will look it up for you.
 /// If `ref_name` is `None`, and `refs_by_id_lookup` is `Some`, it will try to look up unambiguous
 /// references on that object.
+/// Note that `ref_name` should only be set if you are sure that it is unambiguous, and otherwise won't interfere with
+/// the post-processing or the workspace projection later.
 pub fn branch_segment_from_name_and_meta<T: RefMetadata>(
     ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
     meta: &OverlayMetadata<'_, T>,
