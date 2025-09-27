@@ -1,7 +1,7 @@
 use bstr::BString;
 use but_hunk_assignment::HunkAssignment;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub(crate) struct FileAssignment {
     pub path: BString,
     pub assignments: Vec<HunkAssignment>,
