@@ -233,6 +233,10 @@ pub struct Graph {
     /// The [`CommitIndex`] is empty if the entry point is an empty segment, one that is supposed to receive
     /// commits later.
     entrypoint: Option<(SegmentIndex, Option<CommitIndex>)>,
+    /// The ref_name used when starting the graph traversal. It is set to help assure that the entrypoint stays
+    /// on the correctly named segment, knowing that the post-process may alter segments quite substantially
+    /// when crating independent and dependent branches.
+    entrypoint_ref: Option<gix::refs::FullName>,
     /// The segment index of the extra target as provided for traversal.
     extra_target: Option<SegmentIndex>,
     /// It's `true` only if we have stopped the traversal due to a hard limit.
