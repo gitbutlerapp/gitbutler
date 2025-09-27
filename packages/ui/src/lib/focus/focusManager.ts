@@ -154,7 +154,7 @@ export class FocusManager {
 
 		this.unregisterElement(element);
 
-		const parentNode = options.isolate ? undefined : this.findParentNode(element);
+		const parentNode = this.findParentNode(element);
 
 		const newNode: FocusableNode = {
 			element,
@@ -166,14 +166,14 @@ export class FocusManager {
 		this.nodeMap.set(element, newNode);
 		this.establishParentChildRelationships(element, newNode, parentNode);
 		this.resolvePendingRelationships();
-		this.handlePendingRegistration(element, parentNode, options);
+		this.handlePendingRegistration(element, parentNode);
 
 		if (this.fModeManager.active) {
 			this.fModeManager.addElement(element, newNode);
 		}
 
 		if (options.activate) {
-			this.setActiveNode(newNode);
+			this.setActiveNode(this.findNavigableDescendant(newNode));
 		}
 	}
 
@@ -254,7 +254,7 @@ export class FocusManager {
 			(forward && currentIndex === navigableSiblings.length - 1) ||
 			(!forward && currentIndex === 0);
 
-		if (isAtBoundary) {
+		if (isAtBoundary && !parentNode.options.trap) {
 			// Traverse parents while vertical: true
 			const linkedTarget = this.findNextInColumnNode(currentNode, forward);
 			if (!linkedTarget) return false;
@@ -266,7 +266,7 @@ export class FocusManager {
 
 	focusNextVertical(forward: boolean): boolean {
 		if (!this.currentNode?.element) return false;
-		const nextChild = this.findInNextColumn(this.currentNode.element, forward);
+		const nextChild = this.findInNextColumn(this.currentNode, forward);
 		if (nextChild) {
 			return this.setActiveNode(nextChild);
 		}
@@ -325,6 +325,9 @@ export class FocusManager {
 				// Skip button elements - continue traversing up
 				if (navigableChild) {
 					return navigableChild;
+				}
+				if (node.options.trap) {
+					return;
 				}
 			}
 			pointer = pointer.parentElement;
@@ -521,7 +524,7 @@ export class FocusManager {
 			case 'right':
 				if (trap) return true;
 				if (!this.focusNextVertical(true)) {
-					this.focusAnyNode();
+					// this.focusAnyNode();
 				}
 				return true;
 
@@ -620,8 +623,7 @@ export class FocusManager {
 	}
 
 	// Finds focusable in adjacent column for horizontal navigation
-	findInNextColumn(element: HTMLElement, forward: boolean): FocusableNode | undefined {
-		const node = this.getNode(element);
+	findInNextColumn(node: FocusableNode, forward: boolean): FocusableNode | undefined {
 		if (!node) return undefined;
 
 		let searchNode: FocusableNode | undefined = node.parent;
@@ -631,7 +633,7 @@ export class FocusManager {
 			if (!ancestorNode) return;
 
 			// Find the current branch from the non-list parent's perspective
-			const ancestorChild = this.findChildNodeByDescendent(ancestorNode, element);
+			const ancestorChild = this.findChildNodeByDescendent(ancestorNode, node);
 			if (!ancestorChild) return;
 
 			// Find non-button siblings of the current branch for navigation
@@ -663,20 +665,22 @@ export class FocusManager {
 			if (!current.options.vertical) {
 				return current;
 			}
+			if (current.options.trap) {
+				return;
+			}
 			current = current.parent;
 		}
-		return undefined;
 	}
 
 	// Finds which child branch contains the given element
 	private findChildNodeByDescendent(
 		ancestor: FocusableNode,
-		element: HTMLElement
+		node: FocusableNode
 	): FocusableNode | undefined {
 		// Check each child (including buttons) to see which one contains our current element
 		// We need to check all children here because we're looking for containment, not navigation
 		for (const child of ancestor.children) {
-			if (this.isNodeDescendantOf(child, element)) {
+			if (this.isNodeDescendantOf(child, node.element)) {
 				return child;
 			}
 		}
@@ -773,12 +777,8 @@ export class FocusManager {
 		});
 	}
 
-	private handlePendingRegistration(
-		element: HTMLElement,
-		parentNode: FocusableNode | undefined,
-		options: FocusableOptions
-	) {
-		if (!parentNode && !options.isolate) {
+	private handlePendingRegistration(element: HTMLElement, parentNode: FocusableNode | undefined) {
+		if (!parentNode) {
 			this.pendingRelationships.push(element);
 		}
 	}
@@ -1044,7 +1044,6 @@ export class FocusManager {
 		if (node.options.disabled) flags.push('disabled');
 		if (node.options.trap) flags.push('trap');
 		if (node.options.vertical) flags.push('vertical');
-		if (node.options.isolate) flags.push('isolate');
 		if (this.isContainerElement(node)) flags.push('container');
 		const flagsStr = flags.length > 0 ? ` [${flags.join(', ')}]` : '';
 
