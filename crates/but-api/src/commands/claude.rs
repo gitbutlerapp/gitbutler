@@ -150,6 +150,25 @@ pub async fn claude_is_stack_active(app: &App, params: IsStackActiveParams) -> R
     Ok(is_active)
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompactHistoryParams {
+    pub project_id: ProjectId,
+    pub stack_id: StackId,
+}
+
+pub async fn claude_compact_history(app: &App, params: CompactHistoryParams) -> Result<(), Error> {
+    let project = gitbutler_project::get(params.project_id)?;
+    let ctx = Arc::new(Mutex::new(CommandContext::open(
+        &project,
+        AppSettings::load_from_default_path_creating()?,
+    )?));
+    app.claudes
+        .compact_history(ctx, app.broadcaster.clone(), params.stack_id)
+        .await?;
+    Ok(())
+}
+
 #[api_cmd]
 #[tauri::command(async)]
 #[instrument(err(Debug))]

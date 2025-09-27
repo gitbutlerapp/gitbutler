@@ -2,11 +2,12 @@
 	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
 
 	type Props = {
-		lastUserMessageSent: Date;
+		startAt: Date;
 		msSpentWaiting: number;
+		overrideWord?: string;
 	};
 
-	const { lastUserMessageSent, msSpentWaiting }: Props = $props();
+	const { startAt, msSpentWaiting, overrideWord }: Props = $props();
 
 	const words = [
 		'contemplating',
@@ -52,6 +53,7 @@
 	}
 
 	function getWord() {
+		if (overrideWord) return overrideWord;
 		const i = randomInt(words.length - 1);
 		return words[i];
 	}
@@ -69,9 +71,7 @@
 	}
 
 	let currentWord = $state(getWord());
-	let currentDuration = $state(
-		milisToEnglish(Date.now() - lastUserMessageSent.getTime() - msSpentWaiting)
-	);
+	let currentDuration = $state(milisToEnglish(Date.now() - startAt.getTime() - msSpentWaiting));
 
 	$effect(() => {
 		const updateWordInterval = setInterval(() => {
@@ -79,7 +79,7 @@
 		}, 1000 * 15);
 
 		const updateTimeInterval = setInterval(() => {
-			currentDuration = milisToEnglish(Date.now() - lastUserMessageSent.getTime() - msSpentWaiting);
+			currentDuration = milisToEnglish(Date.now() - startAt.getTime() - msSpentWaiting);
 		}, 100);
 
 		return () => {
