@@ -13,7 +13,7 @@ pub(crate) mod assignment;
 
 use crate::id::CliId;
 
-pub(crate) fn worktree(repo_path: &Path, _json: bool, show_files: bool) -> anyhow::Result<()> {
+pub(crate) fn worktree(repo_path: &Path, json: bool, show_files: bool) -> anyhow::Result<()> {
     let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
@@ -43,6 +43,12 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool, show_files: bool) -> anyho
         let details = but_api::workspace::stack_details(project.id, stack.id)?;
         let assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &stack.id);
         stack_details.push((stack.id, (Some(details), assignments)));
+    }
+
+    if json {
+        let json_output = serde_json::to_string_pretty(&stack_details)?;
+        println!("{json_output}");
+        return Ok(());
     }
 
     for (stack_id, (details, assignments)) in stack_details {

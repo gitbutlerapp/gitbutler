@@ -11,7 +11,7 @@ use std::path::Path;
 
 use crate::id::CliId;
 
-pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
+pub(crate) fn commit_graph(repo_path: &Path, json: bool) -> anyhow::Result<()> {
     let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
@@ -20,6 +20,10 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
         .filter_map(|s| s.id.map(|id| stack_details(ctx, id).map(|d| (id, d))))
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
+
+    if json {
+        return output_json(stacks.into_iter().map(|(_, stack)| stack).collect());
+    }
 
     let mut nesting = 0;
     for (i, (stack_id, stack)) in stacks.iter().enumerate() {
@@ -208,4 +212,10 @@ pub(crate) fn stack_details(
     } else {
         but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
     }
+}
+
+fn output_json(stacks: Vec<but_workspace::ui::StackDetails>) -> anyhow::Result<()> {
+    let json_output = serde_json::to_string_pretty(&stacks)?;
+    println!("{json_output}");
+    Ok(())
 }
