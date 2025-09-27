@@ -19,7 +19,9 @@ use gitbutler_repo::{
     RepositoryExt,
 };
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle};
+use gitbutler_stack::{
+    canned_branch_name, BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle,
+};
 use serde::Serialize;
 use tracing::instrument;
 
@@ -196,47 +198,52 @@ pub(crate) fn set_base_branch(
                 },
             );
 
-            let (upstream, upstream_head) = if let Refname::Local(head_name) = &head_name {
-                let upstream_name = target_branch_ref.with_branch(head_name.branch());
-                if upstream_name.eq(target_branch_ref) {
-                    (None, None)
-                } else {
-                    match repo.find_reference(&Refname::from(&upstream_name).to_string()) {
-                        Ok(upstream) => {
-                            let head = upstream
-                                .peel_to_commit()
-                                .map(|commit| commit.id())
-                                .context(format!(
-                                    "failed to peel upstream {} to commit",
-                                    upstream.name().unwrap()
-                                ))?;
-                            Ok((Some(upstream_name), Some(head)))
+            let (upstream, upstream_head, branch_matches_target) =
+                if let Refname::Local(head_name) = &head_name {
+                    let upstream_name = target_branch_ref.with_branch(head_name.branch());
+                    if upstream_name.eq(target_branch_ref) {
+                        (None, None, true)
+                    } else {
+                        match repo.find_reference(&Refname::from(&upstream_name).to_string()) {
+                            Ok(upstream) => {
+                                let head = upstream
+                                    .peel_to_commit()
+                                    .map(|commit| commit.id())
+                                    .context(format!(
+                                        "failed to peel upstream {} to commit",
+                                        upstream.name().unwrap()
+                                    ))?;
+                                Ok((Some(upstream_name), Some(head), false))
+                            }
+                            Err(err) if err.code() == git2::ErrorCode::NotFound => {
+                                Ok((None, None, false))
+                            }
+                            Err(error) => Err(error),
                         }
-                        Err(err) if err.code() == git2::ErrorCode::NotFound => Ok((None, None)),
-                        Err(error) => Err(error),
+                        .context(format!("failed to find upstream for {head_name}"))?
                     }
-                    .context(format!("failed to find upstream for {head_name}"))?
-                }
+                } else {
+                    (None, None, false)
+                };
+
+            let branch_name = if branch_matches_target {
+                canned_branch_name(repo)?
             } else {
-                (None, None)
+                head_name.to_string().replace("refs/heads/", "")
             };
 
             let mut branch = Stack::create(
                 ctx,
-                head_name.to_string().replace("refs/heads/", ""),
+                branch_name,
                 Some(head_name),
                 upstream,
                 upstream_head,
-                gitbutler_diff::write::hunks_onto_commit(
-                    ctx,
-                    current_head_commit.id(),
-                    gitbutler_diff::diff_files_into_hunks(&wd_diff),
-                )?,
+                current_head_commit.tree_id(),
                 current_head_commit.id(),
                 0,
                 None,
                 ctx.project().ok_with_force_push.into(),
-                true, // allow duplicate name since here we are creating a lane from an existing branch
+                !branch_matches_target, // allow duplicate name since here we are creating a lane from an existing branch
             )?;
             branch.ownership = ownership;
 
