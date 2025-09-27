@@ -3,6 +3,7 @@ use anyhow::{Context, Result};
 mod args;
 use args::{Args, CommandName, Subcommands, actions, claude, cursor};
 use but_settings::AppSettings;
+use colored::Colorize;
 use metrics::{Event, Metrics, Props, metrics_if_configured};
 
 use but_claude::hooks::OutputAsJson;
@@ -24,6 +25,14 @@ mod status;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Check if help is requested with no subcommand
+    if std::env::args().len() == 1
+        || std::env::args().any(|arg| arg == "--help" || arg == "-h") && std::env::args().len() == 2
+    {
+        print_grouped_help();
+        return Ok(());
+    }
+
     let args: Args = clap::Parser::parse();
     let app_settings = AppSettings::load_from_default_path_creating()?;
 
@@ -208,4 +217,69 @@ where
     props.insert("durationMs", start.elapsed().as_millis());
     props.insert("error", error);
     props
+}
+
+fn print_grouped_help() {
+    use clap::CommandFactory;
+    use std::collections::HashSet;
+
+    let cmd = Args::command();
+    let subcommands: Vec<_> = cmd.get_subcommands().collect();
+
+    // Define command groupings and their order (excluding MISC)
+    let groups = [
+        ("Inspection".yellow(), vec!["log", "status"]),
+        (
+            "Stack Operation".yellow(),
+            vec!["commit", "rub", "new", "describe", "branch"],
+        ),
+        (
+            "Operation History".yellow(),
+            vec!["oplog", "undo", "restore"],
+        ),
+    ];
+
+    println!("{}", "The GitButler CLI change control system".red());
+    println!();
+    println!("Usage: but [OPTIONS] <COMMAND>");
+    println!();
+
+    // Keep track of which commands we've already printed
+    let mut printed_commands = HashSet::new();
+
+    // Print grouped commands
+    for (group_name, command_names) in &groups {
+        println!("{group_name}:");
+        for cmd_name in command_names {
+            if let Some(subcmd) = subcommands.iter().find(|c| c.get_name() == *cmd_name) {
+                let about = subcmd.get_about().unwrap_or_default();
+                println!("  {:<10}{about}", cmd_name.green());
+                printed_commands.insert(cmd_name.to_string());
+            }
+        }
+        println!();
+    }
+
+    // Collect any remaining commands not in the explicit groups
+    let misc_commands: Vec<_> = subcommands
+        .iter()
+        .filter(|subcmd| !printed_commands.contains(subcmd.get_name()) && !subcmd.is_hide_set())
+        .collect();
+
+    // Print MISC section if there are any ungrouped commands
+    if !misc_commands.is_empty() {
+        println!("{}:", "Other Commands".yellow());
+        for subcmd in misc_commands {
+            let about = subcmd.get_about().unwrap_or_default();
+            println!("  {:<10}{}", subcmd.get_name().green(), about);
+        }
+        println!();
+    }
+
+    println!("{}:", "Options".yellow());
+    println!(
+        "  -C, --current-dir <PATH>  Run as if but was started in PATH instead of the current working directory [default: .]"
+    );
+    println!("  -j, --json                Whether to use JSON output format");
+    println!("  -h, --help                Print help");
 }
