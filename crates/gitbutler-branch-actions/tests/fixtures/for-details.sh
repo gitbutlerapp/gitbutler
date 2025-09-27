@@ -41,7 +41,8 @@ git clone remote complex-repo
   $CLI project add --switch-to-workspace "$local_tracking_ref"
   for round in $(seq 10); do
     echo virtual-main >> file
-    $CLI branch commit --message "virt-$round" main
+    # We will now use a canned branch name here
+    $CLI branch commit --message "virt-$round" a-branch-1
   done
 
   git checkout -b non-virtual-feature main
@@ -51,5 +52,8 @@ git clone remote complex-repo
   done
 
   # pretend the remote is at the same state as our local `main`
-  git update-ref refs/remotes/origin/main main
+  # This previously wanted to update the remote to match the local main, we no
+  # longer have a "main" virutal branch, so this has been changed to the canned
+  # branch.
+  git update-ref refs/remotes/origin/main a-branch-1
 )
