@@ -105,9 +105,12 @@ impl Stack {
 
 impl std::fmt::Debug for Stack {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct(&format!("Stack({})", self.debug_string()))
-            .field("segments", &self.segments)
-            .finish()
+        let mut s = f.debug_struct(&format!("Stack({})", self.debug_string()));
+        s.field("segments", &self.segments);
+        if let Some(stack_id) = self.id {
+            s.field("id", &stack_id);
+        }
+        s.finish()
     }
 }
 
@@ -197,6 +200,20 @@ impl StackSegment {
     /// Return the top-most commit id, or `None` if this segment is empty.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.commits.first().map(|c| c.id)
+    }
+
+    /// Returns an iterator over all reachable reference names, that is the name of the segment if present
+    /// and all ref-names pointing to/stored in local commits.
+    pub fn ref_names(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> {
+        self.ref_name
+            .as_ref()
+            .map(|r| r.as_ref())
+            .into_iter()
+            .chain(
+                self.commits
+                    .iter()
+                    .flat_map(|c| c.refs.iter().map(|r| r.as_ref())),
+            )
     }
 }
 

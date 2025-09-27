@@ -410,11 +410,22 @@ impl Graph {
                     local_tip_info
                 {
                     let local_sidx = graph.insert_root(branch_segment_from_name_and_meta_sibling(
-                        Some((local_ref_name, None)),
+                        None,
                         Some(target_segment),
                         meta,
-                        None,
+                        Some((&ctx.refs_by_id, target_local_tip)),
                     )?);
+                    // We use auto-naming based on ambiguity - if the name ends up something else,
+                    // remove the nodes sibling link.
+                    let has_sibling_link = {
+                        let s = &mut graph[local_sidx];
+                        if s.ref_name.as_ref().is_none_or(|rn| rn != &local_ref_name) {
+                            s.sibling_segment_id = None;
+                            false
+                        } else {
+                            true
+                        }
+                    };
                     let goal = goals.flag_for(target_local_tip).unwrap_or_default();
                     _ = next.push_front_exhausted((
                         target_local_tip,
@@ -425,7 +436,7 @@ impl Graph {
                             .without_allowance(),
                     ));
                     next.add_goal_to(tip, goal);
-                    (Some(local_sidx), goal)
+                    (has_sibling_link.then_some(local_sidx), goal)
                 } else {
                     (None, CommitFlags::empty())
                 };
@@ -492,13 +503,18 @@ impl Graph {
                 else {
                     continue;
                 };
-                // Avoid duplication before we create a new branch segment, these should not inetefere,
+                // Avoid duplication before we create a new branch segment, these should not interfere,
                 // just integrate.
                 if next.iter().any(|t| t.0 == segment_tip) {
                     continue;
                 };
-                let segment =
-                    branch_segment_from_name_and_meta(Some((segment.ref_name, None)), meta, None)?;
+                // We always want these segments named, we know they are supposed to be in the workspace,
+                // but don't do so forcefully (follow the rules).
+                let segment = branch_segment_from_name_and_meta(
+                    None,
+                    meta,
+                    Some((&ctx.refs_by_id, segment_tip.detach())),
+                )?;
                 let segment = graph.insert_root(segment);
                 _ = next.push_back_exhausted((
                     segment_tip.detach(),

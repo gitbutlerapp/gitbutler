@@ -1513,7 +1513,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1524,7 +1524,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1549,7 +1549,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
             },
         ),
         extra_target: Some(
-            NodeIndex(1),
+            NodeIndex(5),
         ),
         lower_bound: Some(
             NodeIndex(2),
@@ -1590,7 +1590,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [],
@@ -1601,7 +1601,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1626,7 +1626,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
             },
         ),
         extra_target: Some(
-            NodeIndex(1),
+            NodeIndex(5),
         ),
         lower_bound: Some(
             NodeIndex(2),
@@ -1678,7 +1678,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/on-top-of-dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1689,7 +1689,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1700,7 +1700,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1725,7 +1725,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
             },
         ),
         extra_target: Some(
-            NodeIndex(1),
+            NodeIndex(5),
         ),
         lower_bound: Some(
             NodeIndex(2),
@@ -1764,7 +1764,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1775,7 +1775,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/on-top-of-dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1786,7 +1786,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1811,7 +1811,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
             },
         ),
         extra_target: Some(
-            NodeIndex(1),
+            NodeIndex(5),
         ),
         lower_bound: Some(
             NodeIndex(2),
@@ -2587,6 +2587,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     let info = head_info(&repo, &meta, opts.clone())?;
 
     // The shared "A" segment is used in both stacks, as it's reachable from both.
+    // Stack A isn't listed, so it has no stack id.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -2634,9 +2635,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
             Stack {
-                id: Some(
-                    00000000-0000-0000-0000-000000000001,
-                ),
+                id: None,
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2744,9 +2743,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
             Stack {
-                id: Some(
-                    00000000-0000-0000-0000-000000000001,
-                ),
+                id: None,
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2854,9 +2851,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
             Stack {
-                id: Some(
-                    00000000-0000-0000-0000-000000000001,
-                ),
+                id: None,
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2965,9 +2960,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
             Stack {
-                id: Some(
-                    00000000-0000-0000-0000-000000000001,
-                ),
+                id: None,
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),

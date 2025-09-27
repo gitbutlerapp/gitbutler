@@ -1109,5 +1109,13 @@ EOF
     git checkout -b A
     create_workspace_commit_once A
   )
+
+  git init unapplied-branch-on-base
+  (cd unapplied-branch-on-base
+    commit init
+    git branch unapplied
+    setup_target_to_match_main
+    create_workspace_commit_once main
+  )
 )
 
