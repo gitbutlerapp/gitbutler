@@ -1,4 +1,5 @@
 import { key, type SelectionId } from '$lib/selection/key';
+import type { BranchDropData } from '$lib/branches/dropHandler';
 import type { CodegenRuleDropData } from '$lib/codegen/dropzone';
 import type { CommitDropData } from '$lib/commits/dropHandler';
 import type { TreeChange } from '$lib/hunks/change';
@@ -65,4 +66,9 @@ export class ChangeDropData {
 	}
 }
 
-export type DropData = CommitDropData | ChangeDropData | HunkDropDataV3 | CodegenRuleDropData;
+export type DropData =
+	| CommitDropData
+	| ChangeDropData
+	| HunkDropDataV3
+	| CodegenRuleDropData
+	| BranchDropData;

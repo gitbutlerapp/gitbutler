@@ -131,6 +131,23 @@
 	color: currentColor;
 }
 
+/* BRANCH DRAG CARD */
+
+.draggable-branch-card {
+	display: flex;
+	position: absolute;
+	align-items: center;
+	min-width: 50px;
+	max-width: 250px;
+	height: 36px;
+	padding: 0 10px;
+	overflow: hidden;
+	gap: 10px;
+	border: 1px solid var(--clr-border-2);
+	border-radius: var(--radius-m);
+	background-color: var(--clr-bg-1);
+}
+
 /* COMMIT DRAG CARD V3 */
 .draggable-commit-v3 {
 	display: flex;

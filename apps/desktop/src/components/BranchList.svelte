@@ -6,9 +6,12 @@
 	import BranchCommitList from '$components/BranchCommitList.svelte';
 	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
 	import ConflictResolutionConfirmModal from '$components/ConflictResolutionConfirmModal.svelte';
+	import Dropzone from '$components/Dropzone.svelte';
+	import LineOverlay from '$components/LineOverlay.svelte';
 	import PushButton from '$components/PushButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
+	import { MoveBranchDzHandler } from '$lib/branches/dropHandler';
 	import { REORDER_DROPZONE_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
@@ -124,6 +127,24 @@
 	const canPublishPR = $derived(forge.current.authenticated);
 </script>
 
+{#snippet branchInsertionDz(branchName: string)}
+	{#if !isCommitting && stackId}
+		{@const moveBranchHandler = new MoveBranchDzHandler(
+			stackService,
+			projectId,
+			stackId,
+			branchName
+		)}
+		<Dropzone handlers={[moveBranchHandler]}>
+			{#snippet overlay({ hovered, activated })}
+				<div data-testid={TestId.BranchListInsertionDropzone}>
+					<LineOverlay advertize {hovered} {activated} />
+				</div>
+			{/snippet}
+		</Dropzone>
+	{/if}
+{/snippet}
+
 <div class="branches-wrapper">
 	{#each branches as branch, i}
 		{@const branchName = branch.name}
@@ -165,6 +186,7 @@
 				{@const lastUpdatedAt = branchDetails.lastUpdatedAt}
 				{@const reviewId = branch.reviewId || undefined}
 				{@const prNumber = branch.prNumber || undefined}
+				{@render branchInsertionDz(branchName)}
 				<BranchCard
 					type="stack-branch"
 					{projectId}
@@ -182,6 +204,7 @@
 					{lastUpdatedAt}
 					{reviewId}
 					{prNumber}
+					numberOfCommits={localAndRemoteCommits.length}
 					dropzones={[stackingReorderDropzoneManager.top(branchName)]}
 					trackingBranch={branch.remoteTrackingBranch ?? undefined}
 					readonly={!!branch.remoteTrackingBranch}

@@ -113,6 +113,8 @@
 				return { text: 'Update commit message', icon: 'edit' };
 			case 'MoveCommit':
 				return { text: 'Move commit', icon: 'move-commit' };
+			case 'MoveBranch':
+				return { text: 'Move branch', icon: 'move-commit' };
 			case 'ReorderCommit':
 				return { text: 'Reorder commit', icon: 'move-commit' };
 			case 'InsertBlankCommit':

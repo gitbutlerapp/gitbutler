@@ -5,12 +5,13 @@ import { getFileIcon } from '@gitbutler/ui/components/file/getFileIcon';
 import iconsJson from '@gitbutler/ui/data/icons.json';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 import type { DropzoneRegistry } from '$lib/dragging/registry';
+import type { PushStatus } from '$lib/stacks/stack';
 import type { DragStateService } from '@gitbutler/ui/drag/dragStateService.svelte';
 
 // Added to element being dragged (not the clone that follows the cursor).
 const DRAGGING_CLASS = 'dragging';
 
-type chipType = 'file' | 'hunk' | 'ai-session';
+type chipType = 'file' | 'hunk' | 'ai-session' | 'branch';
 
 export type DraggableConfig = {
 	readonly selector?: string;
@@ -26,6 +27,7 @@ export type DraggableConfig = {
 	readonly chipType?: chipType;
 	readonly dropzoneRegistry: DropzoneRegistry;
 	readonly dragStateService?: DragStateService;
+	readonly pushStatus?: PushStatus;
 };
 
 function createElement<K extends keyof HTMLElementTagNameMap>(
@@ -239,6 +241,26 @@ function setupDragHandlers(
 			clean();
 		}
 	};
+}
+
+/////////////////////////////
+//// BRANCH DRAGGABLE ///////
+/////////////////////////////
+
+function createBranchElement(label: string | undefined): HTMLDivElement {
+	const cardEl = createElement('div', ['draggable-branch-card', 'text-15', 'text-bold'], label);
+
+	return cardEl;
+}
+
+export function draggableBranch(node: HTMLElement, initialOpts: DraggableConfig) {
+	function createClone(opts: DraggableConfig) {
+		if (opts.disabled) return;
+		return createBranchElement(opts.label);
+	}
+	return setupDragHandlers(node, initialOpts, createClone, {
+		handlerWidth: false
+	});
 }
 
 /////////////////////////////
