@@ -337,7 +337,7 @@ pub(crate) mod function {
     use crate::ref_info::{LocalCommit, LocalCommitRelation};
     use crate::ui::PushStatus;
     use crate::{AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch};
-    use anyhow::{Context, bail};
+    use anyhow::bail;
     use but_core::ref_metadata::ValueInfo;
     use but_graph::petgraph::Direction;
     use but_graph::{
@@ -488,10 +488,17 @@ pub(crate) mod function {
             msg.push_str(
                     "Run the following command in your working directory to fix this and restore the committed changes.\n\n",
                 );
-            msg.push_str(&format!("    git stash && git reset --hard {ws_commit_id} && git checkout {user_commit_id} -- .",
-                                      user_commit_id = info.commits_outside
-                                                              .first()
-                                                              .context("BUG: at least one user commit on top")?.id));
+            msg.push_str(&format!(
+                "    git stash && git reset --hard {ws_commit_id}{checkout_clause}",
+                checkout_clause = info
+                    .commits_outside
+                    .first()
+                    .map(|c| format!(
+                        " && git checkout {user_commit_id} -- .",
+                        user_commit_id = c.id
+                    ))
+                    .unwrap_or_default()
+            ));
             bail!("{msg}");
         }
         info.compute_similarity(graph, repo, opts.expensive_commit_info)?;
