@@ -92,7 +92,48 @@ impl Graph {
         // have to figure out early abort conditions, or to know what's ahead of another.
         self.compute_generation_numbers();
 
+        // Point entrypoint to the right spot after all the changes.
+        self.set_entrypoint_to_ref_name();
+
         Ok(self)
+    }
+
+    /// After everything, assure the entrypoint still points to a segment with the correct ref-name,
+    /// if one was given when starting the traversal.
+    /// If not, try to find a segment with the right ref-name.
+    ///
+    /// *This is the brute-force way of doing it, instead of ensuring that the workspace upgrade functions
+    /// that create independent and dependent branches keep everything up-to-date at all times.
+    fn set_entrypoint_to_ref_name(&mut self) {
+        let Some(((ep_sidx, _commit_idx), desired_ref_name)) =
+            self.entrypoint.zip(self.entrypoint_ref.as_ref())
+        else {
+            return;
+        };
+
+        let ep_segment_is_correctly_named = self[ep_sidx]
+            .ref_name
+            .as_ref()
+            .is_some_and(|rn| rn == desired_ref_name);
+        if ep_segment_is_correctly_named {
+            return;
+        }
+
+        let sidx_with_desired_name = self.node_weights().find_map(|s| {
+            s.ref_name
+                .as_ref()
+                .is_some_and(|rn| rn == desired_ref_name)
+                .then_some(s.id)
+        });
+        if let Some(new_ep_sidx) = sidx_with_desired_name {
+            let assume_tip_is_not_available_in_segment_anymore = None;
+            self.entrypoint = Some((new_ep_sidx, assume_tip_is_not_available_in_segment_anymore));
+        } else {
+            tracing::debug!(
+                "Couldn't find any segment that was named after the entrypoint ref name '{}'",
+                desired_ref_name.as_bstr()
+            );
+        };
     }
 
     /// This is a post-process as only in the end we are sure what is a remote commit.

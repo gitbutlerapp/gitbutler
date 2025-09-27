@@ -242,8 +242,10 @@ impl Graph {
         meta: &OverlayMetadata<'_, T>,
         options: Options,
     ) -> anyhow::Result<Self> {
+        let ref_name = ref_name.into();
         let mut graph = Graph {
             options: options.clone(),
+            entrypoint_ref: ref_name.clone(),
             ..Graph::default()
         };
         let Options {
@@ -256,7 +258,6 @@ impl Graph {
         } = options;
 
         let max_limit = Limit::new(limit);
-        let ref_name = ref_name.into();
         if ref_name
             .as_ref()
             .is_some_and(|name| name.category() == Some(Category::RemoteBranch))
@@ -333,7 +334,7 @@ impl Graph {
         };
         if tip_is_not_workspace_commit {
             let current = graph.insert_root(branch_segment_from_name_and_meta(
-                ref_name.clone().map(|rn| (rn, None)),
+                None,
                 meta,
                 Some((&ctx.refs_by_id, tip)),
             )?);
