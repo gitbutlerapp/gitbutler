@@ -1,14 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import InfoMessage, { type MessageStyle } from '$components/InfoMessage.svelte';
 	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import notFoundSvg from '$lib/assets/illustrations/not-found.svg?raw';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, Spacer, TestId } from '@gitbutler/ui';
+	import { Button, InfoMessage, type MessageStyle, Spacer, TestId } from '@gitbutler/ui';
 
 	interface Props {
 		projectId: string;

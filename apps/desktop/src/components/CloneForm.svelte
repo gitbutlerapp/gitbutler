@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import InfoMessage, { type MessageStyle } from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BACKEND } from '$lib/backend';
@@ -11,7 +10,7 @@
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { Button, Spacer, Textbox } from '@gitbutler/ui';
+	import { Button, InfoMessage, type MessageStyle, Spacer, Textbox } from '@gitbutler/ui';
 
 	import * as Sentry from '@sentry/sveltekit';
 	import { onMount } from 'svelte';
@@ -119,7 +118,7 @@
 	}
 </script>
 
-<h1 class="clone-title text-serif-40">Clone a <i>repository</i></h1>
+<h1 class="clone-title text-serif-42">Clone a <i>repository</i></h1>
 <Section>
 	<div class="clone__field repositoryUrl">
 		<div class="text-13 text-semibold clone__field--label">Clone URL</div>

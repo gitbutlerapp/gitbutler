@@ -998,7 +998,7 @@
 	<div class="not-available">
 		<DecorativeSplitView hideDetails img={vibecodingSvg}>
 			<div class="not-available__content">
-				<h1 class="text-serif-40">Set up <i>Claude Code</i></h1>
+				<h1 class="text-serif-42">Set up <i>Claude Code</i></h1>
 				<ClaudeCheck
 					claudeExecutable={claudeExecutable.current}
 					recheckedAvailability={recheckedAvailability.current}
