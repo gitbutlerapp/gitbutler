@@ -78,8 +78,8 @@ export class GitLabPrService implements ForgePrService {
 		return this.api.endpoints.getPr.useQuery({ number }, options);
 	}
 
-	async merge(method: MergeMethod, number: number) {
-		await this.api.endpoints.mergePr.mutate({ method, number });
+	async merge(method: MergeMethod, number: number, bypassRules?: boolean) {
+		await this.api.endpoints.mergePr.mutate({ method, number, bypassRules });
 	}
 
 	async reopen(number: number) {
@@ -141,11 +141,23 @@ function injectEndpoints(api: GitLabApi) {
 				},
 				invalidatesTags: (result) => [invalidatesItem(ReduxTag.GitLabPullRequests, result?.number)]
 			}),
-			mergePr: build.mutation<undefined, { number: number; method: MergeMethod }>({
-				queryFn: async ({ number }, query) => {
+			mergePr: build.mutation<
+				undefined,
+				{ number: number; method: MergeMethod; bypassRules?: boolean }
+			>({
+				queryFn: async ({ number, bypassRules }, query) => {
 					try {
 						const { api, upstreamProjectId } = gitlab(query.extra);
-						await api.MergeRequests.merge(upstreamProjectId, number);
+						const options: any = {};
+
+						// GitLab supports bypassing merge checks with force_remove_source_branch
+						// and should_remove_source_branch options
+						if (bypassRules) {
+							options.skip_ci = true;
+							options.merge_when_pipeline_succeeds = false;
+						}
+
+						await api.MergeRequests.merge(upstreamProjectId, number, options);
 						return { data: undefined };
 					} catch (e: unknown) {
 						return { error: toSerializable(e) };

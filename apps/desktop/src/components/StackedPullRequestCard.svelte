@@ -70,9 +70,9 @@
 		await prService?.reopen(pr.number);
 	}
 
-	async function handleMerge(method: MergeMethod) {
+	async function handleMerge(method: MergeMethod, bypassRules?: boolean) {
 		if (!pr) return;
-		await prService?.merge(method, pr.number);
+		await prService?.merge(method, pr.number, bypassRules);
 
 		// In a stack, after merging, update the new bottom PR target
 		// base branch to master if necessary

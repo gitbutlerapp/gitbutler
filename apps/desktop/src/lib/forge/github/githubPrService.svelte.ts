@@ -85,8 +85,8 @@ export class GitHubPrService implements ForgePrService {
 		return this.api.endpoints.getPr.useQuery({ number }, options);
 	}
 
-	async merge(method: MergeMethod, number: number) {
-		await this.api.endpoints.mergePr.mutate({ method, number });
+	async merge(method: MergeMethod, number: number, bypassRules?: boolean) {
+		await this.api.endpoints.mergePr.mutate({ method, number, bypassRules });
 	}
 
 	async reopen(number: number) {
@@ -194,23 +194,32 @@ function injectEndpoints(api: GitHubApi) {
 					}),
 				invalidatesTags: (result) => [invalidatesItem(ReduxTag.PullRequests, result?.number)]
 			}),
-			mergePr: build.mutation<void, { number: number; method: MergeMethod }>({
-				queryFn: async ({ number, method: method }, api) => {
-					const result = await ghQuery({
-						domain: 'pulls',
-						action: 'merge',
-						parameters: { pull_number: number, merge_method: method },
-						extra: api.extra
-					});
+			mergePr: build.mutation<void, { number: number; method: MergeMethod; bypassRules?: boolean }>(
+				{
+					queryFn: async ({ number, method: method, bypassRules }, api) => {
+						const parameters: any = { pull_number: number, merge_method: method };
 
-					if (result.error) {
-						return { error: result.error };
-					}
+						// Add bypass parameter if requested and available
+						if (bypassRules) {
+							parameters.bypass_required_pr_reviews = true;
+						}
 
-					return { data: undefined };
-				},
-				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)]
-			}),
+						const result = await ghQuery({
+							domain: 'pulls',
+							action: 'merge',
+							parameters,
+							extra: api.extra
+						});
+
+						if (result.error) {
+							return { error: result.error };
+						}
+
+						return { data: undefined };
+					},
+					invalidatesTags: [invalidatesList(ReduxTag.PullRequests)]
+				}
+			),
 			updatePr: build.mutation<
 				void,
 				{
