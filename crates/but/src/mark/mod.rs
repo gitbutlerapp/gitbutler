@@ -114,3 +114,27 @@ pub(crate) fn commit_marked(ctx: &mut CommandContext, commit_id: String) -> anyh
         .any(|r| r.target_commit_id() == Some(change_id.clone()));
     Ok(rules)
 }
+
+pub(crate) fn unmark(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
+    let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+
+    let rules = but_rules::list_rules(ctx)?;
+    let rule_count = rules.len();
+
+    if rule_count == 0 {
+        println!("No marks to remove");
+        return Ok(());
+    }
+
+    for rule in rules {
+        but_rules::delete_rule(ctx, &rule.id())?;
+    }
+
+    println!(
+        "Removed {} mark{}",
+        rule_count,
+        if rule_count == 1 { "" } else { "s" }
+    );
+    Ok(())
+}
