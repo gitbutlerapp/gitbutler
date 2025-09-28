@@ -254,6 +254,8 @@ export function parserFromExtension(extension: string): Parser | undefined {
 		case 'wasm':
 			return wast().language.parser;
 
+		case 'c':
+		case 'h':
 		case 'cpp':
 		case 'c++':
 		case 'hpp':
