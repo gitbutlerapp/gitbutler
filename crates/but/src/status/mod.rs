@@ -6,6 +6,8 @@ use but_settings::AppSettings;
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
+use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_oxidize::OidExt;
 use gitbutler_project::Project;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -70,12 +72,20 @@ pub(crate) fn worktree(repo_path: &Path, json: bool, show_files: bool) -> anyhow
             ctx,
         )?;
     }
-    let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir())
-        .get_default_target()?
-        .sha
-        .to_string()[..7]
-        .to_string();
-    println!("◉ {common_merge_base} (common base)");
+    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let target = stack.get_default_target()?;
+    let target_name = format!("[{}/{}]", target.branch.remote(), target.branch.branch());
+    let repo = ctx.gix_repo()?;
+    let base_commit = repo.find_commit(target.sha.to_gix())?;
+    let message = base_commit
+        .message_bstr()
+        .to_string()
+        .replace('\n', " ")
+        .chars()
+        .take(50)
+        .collect::<String>();
+    let common_merge_base = target.sha.to_string()[..7].to_string();
+    println!("◉ {common_merge_base} (common base) {target_name} {message}");
     Ok(())
 }
 
