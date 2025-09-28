@@ -24,11 +24,18 @@ pub enum Subcommands {
         /// Determines whether the committed files should be shown as well.
         #[clap(short = 'f', alias = "files", default_value_t = false)]
         show_files: bool,
+        /// Show verbose output with commit author and timestamp.
+        #[clap(short = 'v', long = "verbose", default_value_t = false)]
+        verbose: bool,
     },
     /// Overview of the uncommitted changes in the repository with files shown.
     /// Equivalent to `but status --files`.
     #[clap(hide = true)]
-    Stf,
+    Stf {
+        /// Show verbose output with commit author and timestamp.
+        #[clap(short = 'v', long = "verbose", default_value_t = false)]
+        verbose: bool,
+    },
 
     /// Combines two entities together to perform an operation.
     #[clap(
