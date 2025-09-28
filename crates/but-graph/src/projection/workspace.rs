@@ -519,7 +519,6 @@ impl Graph {
         if ws.has_managed_ref() {
             let (lowest_base, lowest_base_sidx) =
                 ws_lower_bound.map_or((None, None), |(base, sidx)| (Some(base), Some(sidx)));
-            // dbg!(lowest_base, lowest_base_sidx);
             for stack_top_sidx in self
                 .inner
                 .neighbors_directed(ws_tip_segment.id, Direction::Outgoing)
@@ -1061,8 +1060,7 @@ impl Workspace<'_> {
             }
             if !found_segment {
                 tracing::error!(
-                    "BUG: Couldn't find local segment with remote tracking ref '{rn}' - remote commits for it seem to be missing",
-                    rn = remote_tracking_ref_name.as_bstr()
+                    "BUG: Couldn't find local segment with remote tracking ref '{remote_tracking_ref_name}' - remote commits for it seem to be missing",
                 );
             }
         }

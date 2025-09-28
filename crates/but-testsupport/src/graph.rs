@@ -131,8 +131,8 @@ fn recurse_segment(
     let connected_segments = {
         let mut m = BTreeMap::<_, Vec<_>>::new();
         let below = graph.segments_below_in_order(sidx).collect::<Vec<_>>();
-        for (cidx, sidx) in below {
-            m.entry(cidx).or_default().push(sidx);
+        for (source_cidx, sidx) in below {
+            m.entry(source_cidx).or_default().push(sidx);
         }
         m
     };

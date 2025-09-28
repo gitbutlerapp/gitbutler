@@ -168,7 +168,7 @@ pub fn branch_details_v3(
             .last()
             .map(|id| id.detach())
             .unwrap_or_else(|| {
-            tracing::warn!("No merge-base found between {name} and the integration branch {integration_branch_name}", name = name.as_bstr());
+            tracing::warn!("No merge-base found between {name} and the integration branch {integration_branch_name}");
                 // default to the tip just like the code previously did, resulting in no information
                 // TODO: we should probably indicate that there is no merge-base instead of just glossing over it.
                 branch_id.detach()

@@ -114,8 +114,9 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
                 .find(|t| t.0 == ws_tip)
                 .cloned()
                 .expect("each ws-tip has one entry on queue");
-            let new_anon_segment =
-                graph.insert_root(branch_segment_from_name_and_meta(None, meta, None)?);
+            let new_anon_segment = graph.insert_segment_set_entrypoint(
+                branch_segment_from_name_and_meta(None, meta, None)?,
+            );
             // This segment acts as stand-in - always process it even if the queue says it's done.
             _ = next.push_front_exhausted((
                 ws_tip,
@@ -624,15 +625,13 @@ pub fn obtain_workspace_infos<T: RefMetadata>(
     for (rn, data) in workspaces {
         if rn.category() != Some(Category::LocalBranch) {
             tracing::warn!(
-                "Skipped workspace at ref {} as workspaces can only ever be on normal branches",
-                rn.as_bstr()
+                "Skipped workspace at ref {rn} as workspaces can only ever be on normal branches",
             );
             continue;
         }
         if target_refs.contains(&rn) {
             tracing::warn!(
-                "Skipped workspace at ref {} as it was also a target ref for another workspace (or for itself)",
-                rn.as_bstr()
+                "Skipped workspace at ref {rn} as it was also a target ref for another workspace (or for itself)",
             );
             continue;
         }
@@ -642,16 +641,13 @@ pub fn obtain_workspace_infos<T: RefMetadata>(
             .filter(|trn| trn.category() != Some(Category::RemoteBranch))
         {
             tracing::warn!(
-                "Skipped workspace at ref {} as its target reference {target} was not a remote tracking branch",
-                rn.as_bstr(),
-                target = invalid_target_ref.as_bstr(),
+                "Skipped workspace at ref {rn} as its target reference {invalid_target_ref} was not a remote tracking branch",
             );
             continue;
         }
         let Some(ws_tip) = try_refname_to_id(repo, rn.as_ref())? else {
             tracing::warn!(
-                "Ignoring stale workspace ref '{ws_ref}', which didn't exist in Git but still had workspace data",
-                ws_ref = rn.as_bstr()
+                "Ignoring stale workspace ref '{rn}', which didn't exist in Git but still had workspace data",
             );
             continue;
         };
@@ -733,11 +729,12 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
         let Some(remote_tip) = try_refname_to_id(repo, remote_tracking_branch.as_ref())? else {
             continue;
         };
-        let remote_segment = graph.insert_root(branch_segment_from_name_and_meta(
-            Some((remote_tracking_branch.clone(), None)),
-            meta,
-            None,
-        )?);
+        let remote_segment =
+            graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
+                Some((remote_tracking_branch.clone(), None)),
+                meta,
+                None,
+            )?);
 
         let remote_limit = limit.with_indirect_goal(id, goals);
         // These flags are to be attached to `id` so it can propagate itself later.

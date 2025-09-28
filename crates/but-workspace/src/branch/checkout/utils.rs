@@ -208,11 +208,7 @@ impl std::fmt::Debug for Outcome {
                     Some(edits) => edits
                         .last()
                         .map(|edit| {
-                            format!(
-                                "Update {} to {:?}",
-                                edit.name.as_bstr(),
-                                edit.change.new_value()
-                            )
+                            format!("Update {} to {:?}", edit.name, edit.change.new_value())
                         })
                         .unwrap_or_default(),
                 },

@@ -51,6 +51,7 @@ fn single_stack_ambigous() -> anyhow::Result<()> {
     let (without_ref_id, ref_name) = id_at(&repo, "without-ref");
     let graph = Graph::from_commit_traversal(without_ref_id, ref_name, &*meta, standard_options())?
         .validated()?;
+    // See how tags ARE allowed to name a segment, at least when used as entrypoint.
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 📕►►►:1[0]:gitbutler/workspace
     │   └── ·20de6ee (⌂|🏘)
@@ -59,12 +60,14 @@ fn single_stack_ambigous() -> anyhow::Result<()> {
     │               └── 👉►:0[2]:tags/without-ref
     │                   ├── ·320e105 (⌂|🏘|101)
     │                   └── ·2a31450 (⌂|🏘|101) ►B-empty, ►ambiguous-01
-    │                       └── ►:5[3]:origin/B →:4:
+    │                       └── ►:6[3]:anon:
     │                           └── ·70bde6b (⌂|🏘|101) ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
     │                               └── ►:3[4]:main <> origin/main →:2:
     │                                   └── ·fafd9d0 (⌂|🏘|✓|111) ►new-A, ►new-B
-    └── ►:2[0]:origin/main →:3:
-        └── →:3: (main →:2:)
+    ├── ►:2[0]:origin/main →:3:
+    │   └── →:3: (main →:2:)
+    └── ►:5[0]:origin/B →:4:
+        └── →:6:
     ");
     // Now `HEAD` is outside a workspace, which goes to single-branch mode. But it knows it's in a workspace
     // and shows the surrounding parts, while marking the segment as entrypoint.
@@ -295,6 +298,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     ");
 
     // Define only some of the branches, it should figure that out.
+    // It respects the order of the mention in the stack, `A` before `A-empty-01`.
     meta.data_mut().branches.clear();
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &["A-empty-01"]);
     add_stack_with_segments(&mut meta, 1, "B-empty", StackState::InWorkspace, &["B"]);
@@ -309,15 +313,15 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     │           └── ·320e105 (⌂|🏘|100) ►tags/without-ref
     │               └── 📙►:4[2]:B-empty
     │                   └── ·2a31450 (⌂|🏘|100) ►ambiguous-01
-    │                       └── 👉📙►:0[3]:A-empty-01
-    │                           └── 📙►:7[4]:A
+    │                       └── 📙►:7[3]:A
+    │                           └── 👉📙►:8[4]:A-empty-01
     │                               └── ·70bde6b (⌂|🏘|101) ►A-empty-02, ►A-empty-03
     │                                   └── ►:3[5]:main <> origin/main →:2:
     │                                       └── ·fafd9d0 (⌂|🏘|✓|111) ►new-A, ►new-B
     ├── ►:2[0]:origin/main →:3:
     │   └── →:3: (main →:2:)
     └── ►:6[0]:origin/B →:5:
-        └── →:0: (A-empty-01)
+        └── →:7: (A)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
@@ -327,8 +331,33 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
         │   └── ·320e105 (🏘️) ►tags/without-ref
         ├── 📙:4:B-empty
         │   └── ·2a31450 (🏘️) ►ambiguous-01
-        ├── 👉📙:0:A-empty-01
-        └── 📙:7:A
+        ├── 📙:7:A
+        └── 👉📙:8:A-empty-01
+            └── ❄70bde6b (🏘️) ►A-empty-02, ►A-empty-03
+    ");
+
+    add_stack_with_segments(&mut meta, 2, "new-A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 3, "new-B", StackState::InWorkspace, &[]);
+
+    let (id, ref_name) = id_at(&repo, "new-A");
+    let graph = Graph::from_commit_traversal(id, ref_name, &*meta, standard_options())?;
+
+    // We can also summon new empty stacks from branches resting on the base, and set them
+    // as entrypoint, to have two more stacks.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    ├── ≡📙:8:new-B on fafd9d0
+    │   └── 📙:8:new-B
+    ├── ≡👉📙:7:new-A on fafd9d0
+    │   └── 👉📙:7:new-A
+    └── ≡📙:5:B <> origin/B →:6:⇡2 on fafd9d0
+        ├── 📙:5:B <> origin/B →:6:⇡2
+        │   ├── ·70e9a36 (🏘️)
+        │   └── ·320e105 (🏘️) ►tags/without-ref
+        ├── 📙:4:B-empty
+        │   └── ·2a31450 (🏘️) ►ambiguous-01
+        ├── 📙:9:A
+        └── 📙:10:A-empty-01
             └── ❄70bde6b (🏘️) ►A-empty-02, ►A-empty-03
     ");
     Ok(())
@@ -717,12 +746,8 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
 
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        standard_options_with_extra_target(&repo, "main"),
-    )?
-    .validated()?;
+    let extra_target_options = standard_options_with_extra_target(&repo, "main");
+    let graph = Graph::from_head(&repo, &*meta, extra_target_options.clone())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 👉📕►►►:0[0]:gitbutler/workspace
         ├── 📙►:2[1]:A
@@ -740,22 +765,42 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     ");
 
     let (id, ref_name) = id_at(&repo, "B");
-    let graph = Graph::from_commit_traversal(id, ref_name.clone(), &*meta, standard_options())?
-        .validated()?;
-    // TODO: it shouldn't create a dependent branch here, but instead see A as a stack.
-    //       problem is that for stack creation, there is no candidate.
+    let graph =
+        Graph::from_commit_traversal(id, ref_name.clone(), &*meta, extra_target_options.clone())?
+            .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 📕►►►:1[0]:gitbutler/workspace
-        └── 👉📙►:0[1]:B
-            └── 📙►:2[2]:A
-                └── ·fafd9d0 (⌂|🏘|1) ►main
+        ├── 📙►:2[1]:A
+        │   └── ►:0[2]:anon:
+        │       └── ·fafd9d0 (⌂|🏘|1) ►main
+        └── 👉📙►:3[1]:B
+            └── →:0:
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
-    📕🏘️⚠️:1:gitbutler/workspace <> ✓!
-    └── ≡👉📙:0:B
-        ├── 👉📙:0:B
+    📕🏘️⚠️:1:gitbutler/workspace <> ✓! on fafd9d0
+    ├── ≡👉📙:3:B on fafd9d0
+    │   └── 👉📙:3:B
+    └── ≡📙:2:A on fafd9d0
         └── 📙:2:A
-            └── ·fafd9d0 (🏘️) ►main
+    ");
+
+    let (id, ref_name) = id_at(&repo, "A");
+    let graph = Graph::from_commit_traversal(id, ref_name.clone(), &*meta, extra_target_options)?
+        .validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    └── 📕►►►:1[0]:gitbutler/workspace
+        ├── 👉📙►:2[1]:A
+        │   └── ►:0[2]:anon:
+        │       └── ·fafd9d0 (⌂|🏘|1) ►main
+        └── 📙►:3[1]:B
+            └── →:0:
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:1:gitbutler/workspace <> ✓! on fafd9d0
+    ├── ≡📙:3:B on fafd9d0
+    │   └── 📙:3:B
+    └── ≡👉📙:2:A on fafd9d0
+        └── 👉📙:2:A
     ");
 
     Ok(())
@@ -1065,12 +1110,12 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     │       │           └── ·fafd9d0 (⌂|🏘|✓|11)
     │       ├── 📙►:7[1]:A
     │       │   └── →:3: (main →:2:)
-    │       └── 👉📙►:0[1]:S1
-    │           └── 📙►:8[2]:G
-    │               └── 📙►:9[3]:F
+    │       └── 👉📙►:8[1]:S1
+    │           └── 📙►:9[2]:G
+    │               └── 📙►:10[3]:F
     │                   └── ·16f132b (⌂|🏘|1)
-    │                       └── 📙►:10[4]:D
-    │                           └── 📙►:11[5]:E
+    │                       └── 📙►:11[4]:D
+    │                           └── 📙►:12[5]:E
     │                               └── ·917b9da (⌂|🏘|1)
     │                                   └── →:3: (main →:2:)
     └── ►:2[0]:origin/main →:3:
@@ -1078,13 +1123,13 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    ├── ≡👉📙:0:S1 on fafd9d0
-    │   ├── 👉📙:0:S1
-    │   ├── 📙:8:G
-    │   ├── 📙:9:F
+    ├── ≡👉📙:8:S1 on fafd9d0
+    │   ├── 👉📙:8:S1
+    │   ├── 📙:9:G
+    │   ├── 📙:10:F
     │   │   └── ·16f132b (🏘️)
-    │   ├── 📙:10:D
-    │   └── 📙:11:E
+    │   ├── 📙:11:D
+    │   └── 📙:12:E
     │       └── ·917b9da (🏘️)
     ├── ≡📙:7:A on fafd9d0
     │   └── 📙:7:A
@@ -3173,9 +3218,9 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         Graph::from_commit_traversal(id, ref_name, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    └── ≡👉📙:0:advanced-lane <> origin/advanced-lane →:4: on fafd9d0
-        ├── 👉📙:0:advanced-lane <> origin/advanced-lane →:4:
-        └── 📙:5:dependant
+    └── ≡👉📙:5:advanced-lane <> origin/advanced-lane →:4: on fafd9d0
+        ├── 👉📙:5:advanced-lane <> origin/advanced-lane →:4:
+        └── 📙:6:dependant
             └── ❄cbc6713 (🏘️)
     ");
 
@@ -3184,10 +3229,10 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         Graph::from_commit_traversal(id, ref_name, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    └── ≡👉📙:0:dependant on fafd9d0
-        ├── 👉📙:0:dependant
-        └── 📙:5:advanced-lane <> origin/advanced-lane →:4:
-            └── ❄️cbc6713 (🏘️)
+    └── ≡📙:5:advanced-lane <> origin/advanced-lane →:4: on fafd9d0
+        ├── 📙:5:advanced-lane <> origin/advanced-lane →:4:
+        └── 👉📙:6:dependant
+            └── ❄cbc6713 (🏘️)
     ");
     Ok(())
 }
@@ -3675,14 +3720,16 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     ");
 
     // We can help it by adding metadata.
+    // Note how the selection still manages to hold on to the `A` which now gets its very own
+    // empty segment.
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
-    let (id, ref_name) = id_at(&repo, "A");
+    let (id, a_ref) = id_at(&repo, "A");
     let graph =
-        Graph::from_commit_traversal(id, ref_name, &*meta, standard_options())?.validated()?;
+        Graph::from_commit_traversal(id, a_ref.clone(), &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 📕►►►:1[0]:gitbutler/workspace
-        └── 👉►:0[1]:A
-            └── 📙►:3[2]:B
+        └── 👉►:3[1]:A
+            └── 📙►:0[2]:B
                 ├── ·a62b0de (⌂|🏘|1)
                 └── ·120a217 (⌂|🏘|1)
                     └── ►:2[3]:main
@@ -3692,9 +3739,9 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     // Main can be a normal segment if there is no target ref.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️⚠️:1:gitbutler/workspace <> ✓!
-    └── ≡👉:0:A
-        ├── 👉:0:A
-        ├── 📙:3:B
+    └── ≡👉:3:A
+        ├── 👉:3:A
+        ├── 📙:0:B
         │   ├── ·a62b0de (🏘️)
         │   └── ·120a217 (🏘️)
         └── :2:main
@@ -3722,6 +3769,132 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
             └── ·fafd9d0 (🏘️)
     ");
 
+    // Order is respected
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+    let graph = Graph::from_commit_traversal(id, a_ref, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:1:gitbutler/workspace <> ✓!
+    └── ≡📙:3:B
+        ├── 📙:3:B
+        ├── 👉📙:4:A
+        │   ├── ·a62b0de (🏘️)
+        │   └── ·120a217 (🏘️)
+        └── :2:main
+            └── ·fafd9d0 (🏘️)
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/no-target-without-ws-commit-ambiguous-with-remotes")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * a62b0de (HEAD -> gitbutler/workspace, origin/B, origin/A, B, A) A2
+    * 120a217 A1
+    * fafd9d0 (main) init
+    ");
+
+    add_workspace(&mut meta);
+    // Without disambiguation, there is no segment name.
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ►:1[1]:anon:
+    │       ├── ·a62b0de (⌂|🏘|1) ►A, ►B
+    │       └── ·120a217 (⌂|🏘|1)
+    │           └── ►:4[2]:main <> origin/main
+    │               └── ·fafd9d0 (⌂|🏘|1)
+    ├── ►:2[0]:origin/A
+    │   └── →:1:
+    └── ►:3[0]:origin/B
+        └── →:1:
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:0:gitbutler/workspace <> ✓!
+    └── ≡:1:anon:
+        ├── :1:anon:
+        │   ├── ·a62b0de (🏘️) ►A, ►B
+        │   └── ·120a217 (🏘️)
+        └── :4:main <> origin/main⇡1
+            └── ·fafd9d0 (🏘️)
+    ");
+
+    // Remote handling is still happening when A is disambiguated by entrypoint.
+    let (id, a_ref) = id_at(&repo, "A");
+    let graph =
+        Graph::from_commit_traversal(id, a_ref.clone(), &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 📕►►►:1[0]:gitbutler/workspace
+    │   └── 👉►:0[1]:A <> origin/A →:2:
+    │       ├── ·a62b0de (⌂|🏘|1) ►B
+    │       └── ·120a217 (⌂|🏘|1)
+    │           └── ►:4[2]:main <> origin/main
+    │               └── ·fafd9d0 (⌂|🏘|1)
+    ├── ►:2[0]:origin/A →:0:
+    │   └── →:0: (A →:2:)
+    └── ►:3[0]:origin/B
+        └── →:0: (A →:2:)
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:1:gitbutler/workspace <> ✓!
+    └── ≡👉:0:A <> origin/A →:2:
+        ├── 👉:0:A <> origin/A →:2:
+        │   ├── ❄️a62b0de (🏘️) ►B
+        │   └── ❄️120a217 (🏘️)
+        └── :4:main <> origin/main
+            └── ❄fafd9d0 (🏘️)
+    ");
+
+    // The same is true when starting at a different ref.
+    let (id, b_ref) = id_at(&repo, "B");
+    let graph = Graph::from_commit_traversal(id, b_ref, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:1:gitbutler/workspace <> ✓!
+    └── ≡👉:0:B <> origin/B →:3:
+        ├── 👉:0:B <> origin/B →:3:
+        │   ├── ❄️a62b0de (🏘️) ►A
+        │   └── ❄️120a217 (🏘️)
+        └── :4:main <> origin/main
+            └── ❄fafd9d0 (🏘️)
+    ");
+
+    // If disambiguation happens through the workspace, 'A' still shows the right remote, and 'B' as well
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
+    let graph =
+        Graph::from_commit_traversal(id, a_ref.clone(), &*meta, standard_options())?.validated()?;
+    // NOTE: origin/A points to :5, but origin/B now also points to :5 even though it should point to :0,
+    //       a relationship still preserved though the sibling ID.
+    //       There is no easy way of fixing this as we'd have to know that this one connection, which can
+    //       indirectly reach the remote tracking segment, should remain on the local tracking segment when
+    //       reconnecting them during the segment insertion.
+    //       This is acceptable as graph connections aren't used for this, and ultimately they still
+    //       reach the right segment, just through one more indirection. Empty segments are 'looked through'
+    //       as well by all algorithms for exactly that reason.
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 📕►►►:1[0]:gitbutler/workspace
+    │   └── 👉►:5[1]:A <> origin/A →:2:
+    │       └── 📙►:0[2]:B <> origin/B →:3:
+    │           ├── ·a62b0de (⌂|🏘|1)
+    │           └── ·120a217 (⌂|🏘|1)
+    │               └── ►:4[3]:main <> origin/main
+    │                   └── ·fafd9d0 (⌂|🏘|1)
+    ├── ►:2[0]:origin/A →:5:
+    │   └── →:5: (A →:2:)
+    └── ►:3[0]:origin/B →:0:
+        └── →:5: (A →:2:)
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:1:gitbutler/workspace <> ✓!
+    └── ≡👉:5:A <> origin/A →:2:
+        ├── 👉:5:A <> origin/A →:2:
+        ├── 📙:0:B <> origin/B →:3:
+        │   ├── ❄️a62b0de (🏘️)
+        │   └── ❄️120a217 (🏘️)
+        └── :4:main <> origin/main
+            └── ❄fafd9d0 (🏘️)
+    ");
     Ok(())
 }
 

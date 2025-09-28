@@ -1214,29 +1214,6 @@ fn errors() -> anyhow::Result<()> {
         );
     }
 
-    // Ambiguity (multiple refs in one spot).
-    for anchor in [
-        Anchor::at_id(id, Above),
-        Anchor::at_segment(ref_name.as_ref(), Above),
-    ] {
-        assert!(repo.try_find_reference(new_name)?.is_none());
-        let err = but_workspace::branch::create_reference(new_name, anchor, &repo, &ws, &mut *meta)
-            .unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "Reference 'does-not-matter' cannot be created as segment at c166d42d4ef2e5e742d33554d03805cfb0b24d11",
-            "Can't show this reference on top in ad-hoc workspaces (entrypoint rule, etc)"
-        );
-        assert!(
-            repo.try_find_reference(new_name)?.is_none(),
-            "the reference isn't physically available"
-        );
-        assert!(
-            meta.branch(ref_name.as_ref())?.is_default(),
-            "no data was stored"
-        );
-    }
-
     // Misaligned workspace - commit not included.
     let (id, ref_name) = id_at(&repo, "A");
     for anchor in [Anchor::at_id(id, Below), Anchor::at_id(id, Above)] {

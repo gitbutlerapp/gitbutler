@@ -11,12 +11,21 @@ use std::ops::{Deref, Index, IndexMut};
 /// Mutation
 impl Graph {
     /// Insert `segment` to the graph so that it's not connected to any other segment, and return its index.
-    pub fn insert_root(&mut self, segment: Segment) -> SegmentIndex {
-        let index = self.inner.add_node(segment);
-        self.inner[index].id = index;
+    ///
+    /// Note that as a side effect, the [entrypoint](Self::lookup_entrypoint()) will also be set if it's not
+    /// set yet.
+    pub fn insert_segment_set_entrypoint(&mut self, segment: Segment) -> SegmentIndex {
+        let index = self.insert_segment(segment);
         if self.entrypoint.is_none() {
             self.entrypoint = Some((index, None))
         }
+        index
+    }
+
+    /// Insert `segment` to the graph so that it's not connected to any other segment, and return its index.
+    pub fn insert_segment(&mut self, segment: Segment) -> SegmentIndex {
+        let index = self.inner.add_node(segment);
+        self.inner[index].id = index;
         index
     }
 

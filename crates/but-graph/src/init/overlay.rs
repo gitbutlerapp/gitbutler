@@ -1,6 +1,5 @@
 use crate::init::walk::RefsById;
 use crate::init::{Entrypoint, Overlay};
-use crate::is_workspace_ref_name;
 use but_core::{RefMetadata, ref_metadata};
 use gix::prelude::ReferenceExt;
 use std::borrow::Cow;
@@ -173,15 +172,17 @@ impl<'repo> OverlayRepo<'repo> {
             .upstream_branch_and_remote_for_tracking_branch(name)?)
     }
 
-    // Create a mapping of all heads to the object ids they point to.
+    /// Create a mapping of all heads to the object ids they point to.
+    /// `workspace_ref_names` is the names of all known workspace references.
     pub fn collect_ref_mapping_by_prefix<'a>(
         &self,
         prefixes: impl Iterator<Item = &'a str>,
+        workspace_ref_names: &[&gix::refs::FullNameRef],
     ) -> anyhow::Result<RefsById> {
         let mut seen = (!self.nonoverriding_references.is_empty()).then(BTreeSet::new);
         let mut ref_filter =
             |r: gix::Reference<'_>| -> Option<(gix::ObjectId, gix::refs::FullName)> {
-                if is_workspace_ref_name(r.name()) {
+                if workspace_ref_names.contains(&r.name()) {
                     return None;
                 }
                 let id = r.try_id()?;
