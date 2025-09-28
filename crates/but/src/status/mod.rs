@@ -9,11 +9,28 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oxidize::OidExt;
 use gitbutler_project::Project;
+use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::Path;
 pub(crate) mod assignment;
 
 use crate::id::CliId;
+
+type StackDetail = (Option<StackDetails>, Vec<FileAssignment>);
+type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);
+
+#[derive(Serialize)]
+struct CommonMergeBase {
+    target_name: String,
+    common_merge_base: String,
+    message: String,
+}
+
+#[derive(Serialize)]
+struct WorktreeStatus {
+    stacks: Vec<StackEntry>,
+    common_merge_base: CommonMergeBase,
+}
 
 pub(crate) fn worktree(repo_path: &Path, json: bool, show_files: bool) -> anyhow::Result<()> {
     let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
@@ -37,7 +54,7 @@ pub(crate) fn worktree(repo_path: &Path, json: bool, show_files: bool) -> anyhow
             FileAssignment::from_assignments(path, assignments),
         );
     }
-    let mut stack_details = vec![];
+    let mut stack_details: Vec<StackEntry> = vec![];
 
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
     stack_details.push((None, (None, unassigned)));
@@ -47,8 +64,31 @@ pub(crate) fn worktree(repo_path: &Path, json: bool, show_files: bool) -> anyhow
         stack_details.push((stack.id, (Some(details), assignments)));
     }
 
+    // Calculate common_merge_base data
+    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let target = stack.get_default_target()?;
+    let target_name = format!("[{}/{}]", target.branch.remote(), target.branch.branch());
+    let repo = ctx.gix_repo()?;
+    let base_commit = repo.find_commit(target.sha.to_gix())?;
+    let message = base_commit
+        .message_bstr()
+        .to_string()
+        .replace('\n', " ")
+        .chars()
+        .take(50)
+        .collect::<String>();
+    let common_merge_base_data = CommonMergeBase {
+        target_name: target_name.clone(),
+        common_merge_base: target.sha.to_string()[..7].to_string(),
+        message: message.clone(),
+    };
+
     if json {
-        let json_output = serde_json::to_string_pretty(&stack_details)?;
+        let worktree_status = WorktreeStatus {
+            stacks: stack_details,
+            common_merge_base: common_merge_base_data,
+        };
+        let json_output = serde_json::to_string_pretty(&worktree_status)?;
         println!("{json_output}");
         return Ok(());
     }
@@ -72,20 +112,12 @@ pub(crate) fn worktree(repo_path: &Path, json: bool, show_files: bool) -> anyhow
             ctx,
         )?;
     }
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let target = stack.get_default_target()?;
-    let target_name = format!("[{}/{}]", target.branch.remote(), target.branch.branch());
-    let repo = ctx.gix_repo()?;
-    let base_commit = repo.find_commit(target.sha.to_gix())?;
-    let message = base_commit
-        .message_bstr()
-        .to_string()
-        .replace('\n', " ")
-        .chars()
-        .take(50)
-        .collect::<String>();
-    let common_merge_base = target.sha.to_string()[..7].to_string();
-    println!("◉ {common_merge_base} (common base) {target_name} {message}");
+    println!(
+        "◉ {} (common base) {} {}",
+        common_merge_base_data.common_merge_base,
+        common_merge_base_data.target_name,
+        common_merge_base_data.message
+    );
     Ok(())
 }
 
