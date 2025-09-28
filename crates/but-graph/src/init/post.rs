@@ -77,6 +77,9 @@ impl Graph {
         // the foundation for figuring out our workspaces more easily.
         self.workspace_upgrades(meta, repo)?;
 
+        // Point entrypoint to the right spot after all the virtual branches were added.
+        self.set_entrypoint_to_ref_name(meta)?;
+
         // However, when it comes to using remotes to disambiguate, it's better to
         // *not* do that before workspaces are sorted as it might incorrectly place
         // a segment on top of another one, setting a first-second relationship that isn't
@@ -93,6 +96,108 @@ impl Graph {
         self.compute_generation_numbers();
 
         Ok(self)
+    }
+
+    /// After everything, assure the entrypoint still points to a segment with the correct ref-name,
+    /// if one was given when starting the traversal.
+    /// If not, try to find a segment with the right ref-name.
+    ///
+    /// *This is the brute-force way of doing it, instead of ensuring that the workspace upgrade functions
+    /// that create independent and dependent branches keep everything up-to-date at all times.
+    fn set_entrypoint_to_ref_name<T: RefMetadata>(
+        &mut self,
+        meta: &OverlayMetadata<'_, T>,
+    ) -> anyhow::Result<()> {
+        let Some(((ep_sidx, _commit_idx), desired_ref_name)) =
+            self.entrypoint.zip(self.entrypoint_ref.clone())
+        else {
+            return Ok(());
+        };
+
+        let ep_segment_is_correctly_named = self[ep_sidx]
+            .ref_name
+            .as_ref()
+            .is_some_and(|rn| rn == &desired_ref_name);
+        if ep_segment_is_correctly_named {
+            return Ok(());
+        }
+
+        let (sidx_with_desired_name, sidx_with_first_commit_with_desired_name) = self
+            .node_weights()
+            .find_map(|s| {
+                s.ref_name
+                    .as_ref()
+                    .is_some_and(|rn| rn == &desired_ref_name)
+                    .then_some((Some(s.id), None))
+                    .or_else(|| {
+                        s.commits.first().and_then(|c| {
+                            c.refs
+                                .iter()
+                                .position(|rn| rn == &desired_ref_name)
+                                .map(|pos| (None, Some((s.id, pos))))
+                        })
+                    })
+            })
+            .unwrap_or_default();
+        if let Some(new_ep_sidx) = sidx_with_desired_name {
+            let assume_tip_is_not_available_in_segment_anymore = None;
+            self.entrypoint = Some((new_ep_sidx, assume_tip_is_not_available_in_segment_anymore));
+        } else if let Some((new_ep_sidx, ref_idx)) = sidx_with_first_commit_with_desired_name {
+            let s = &mut self.inner[new_ep_sidx];
+            let desired_ref_name = s
+                .commits
+                .first_mut()
+                .context("BUG: we have ref_idx because the first commit was checked")?
+                .refs
+                .remove(ref_idx);
+            if s.ref_name.is_some() {
+                // ref-name is known to not be the desired one, and the first commit of this segment has the name
+                // we seek. For that, we now create a new
+                let new_ep_sidx_first_commit_idx = s.commits.first().map(|_| 0);
+                let incoming_edges = collect_edges_at_commit_reverse_order(
+                    &self.inner,
+                    (new_ep_sidx, new_ep_sidx_first_commit_idx),
+                    Direction::Incoming,
+                );
+                let entrypoint_segment =
+                    branch_segment_from_name_and_meta(Some((desired_ref_name, None)), meta, None)?;
+                let entrypoint_sidx = self.insert_root(entrypoint_segment);
+                self.connect_segments(
+                    entrypoint_sidx,
+                    None,
+                    new_ep_sidx,
+                    new_ep_sidx_first_commit_idx,
+                );
+                for edge in incoming_edges {
+                    self.inner.add_edge(
+                        edge.source,
+                        entrypoint_sidx,
+                        Edge {
+                            src: edge.weight.src,
+                            src_id: edge.weight.src_id,
+                            dst: None,
+                            dst_id: None,
+                        },
+                    );
+                    self.inner.remove_edge(edge.id);
+                }
+                self.entrypoint = Some((entrypoint_sidx, None));
+            } else {
+                self.entrypoint = Some((new_ep_sidx, Some(0)));
+                // It's really important to get the name, as the HEAD is pointing to this segment.
+                // So find the segment with the ambiguous ref we desire, and rewrite it to be non-ambiguous.
+                // The reason we wait till now is to not disturb the workspace upgrades, which act differently
+                // if they already have a named segment.
+                // Note that any ref type works here, we just do as we are told even though tags for instance aren't usually
+                // pointed to by HEAD.
+                s.ref_name = Some(desired_ref_name);
+            }
+        } else {
+            tracing::warn!(
+                "Couldn't find any segment that was named after the entrypoint ref name or contained its name '{desired_ref_name}'",
+            );
+        };
+        Ok(())
     }
 
     /// This is a post-process as only in the end we are sure what is a remote commit.
@@ -570,7 +675,7 @@ impl Graph {
                     s.ref_name = Some(name);
                     s.metadata = md;
                 }
-                reconnect_edges(
+                reconnect_outgoing_edges(
                     self,
                     edges_from_segment_above,
                     (new_sidx_above_base_sidx, None),
@@ -675,6 +780,11 @@ impl Graph {
     /// Name ambiguous segments if they are reachable by remote tracking branch and
     /// if the first commit has (unambiguously) the matching local tracking branch.
     /// Also, link up all remote segments with their local ones, and vice versa.
+    ///
+    /// Additionally, restore possibly broken linkage to their siblings
+    /// (from remote to local tracking branch), as this connection might have been destroyed by
+    /// the insertion of empty segments. Again, instead of making that smarter, we fix it up here
+    /// because it's simpler.
     fn improve_remote_segments(
         &mut self,
         repo: &OverlayRepo<'_>,
@@ -1125,11 +1235,11 @@ fn reconnect_outgoing(
         (source_sidx, Some(source_cidx)),
         Direction::Outgoing,
     );
-    reconnect_edges(graph, edges, (target_sidx, Some(target_cidx)))
+    reconnect_outgoing_edges(graph, edges, (target_sidx, Some(target_cidx)))
 }
 
 /// Delete all `edges` and recreate the edges with `target` as new source.
-fn reconnect_edges(
+fn reconnect_outgoing_edges(
     graph: &mut PetGraph,
     edges: Vec<EdgeOwned>,
     (target_sidx, target_first_commit_id): (SegmentIndex, Option<gix::ObjectId>),

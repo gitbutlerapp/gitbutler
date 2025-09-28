@@ -738,6 +738,13 @@ EOF
     git checkout gitbutler/workspace
   )
 
+  cp -R no-target-without-ws-commit-ambiguous no-target-without-ws-commit-ambiguous-with-remotes
+  (cd no-target-without-ws-commit-ambiguous-with-remotes
+    add_main_remote_setup
+    remote_tracking_caught_up A
+    remote_tracking_caught_up B
+  )
+
   git init no-target-with-ws-commit
   (cd no-target-with-ws-commit
     commit init

@@ -242,8 +242,10 @@ impl Graph {
         meta: &OverlayMetadata<'_, T>,
         options: Options,
     ) -> anyhow::Result<Self> {
+        let ref_name = ref_name.into();
         let mut graph = Graph {
             options: options.clone(),
+            entrypoint_ref: ref_name.clone(),
             ..Graph::default()
         };
         let Options {
@@ -256,7 +258,6 @@ impl Graph {
         } = options;
 
         let max_limit = Limit::new(limit);
-        let ref_name = ref_name.into();
         if ref_name
             .as_ref()
             .is_some_and(|name| name.category() == Some(Category::RemoteBranch))
@@ -271,6 +272,8 @@ impl Graph {
 
         let configured_remote_tracking_branches =
             remotes::configured_remote_tracking_branches(repo)?;
+        let (workspaces, target_refs) =
+            obtain_workspace_infos(repo, ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
         let refs_by_id = repo.collect_ref_mapping_by_prefix(
             [
                 "refs/heads/",
@@ -287,9 +290,11 @@ impl Graph {
             } else {
                 None
             }),
+            &workspaces
+                .iter()
+                .map(|(_, ref_name, _)| ref_name.as_ref())
+                .collect::<Vec<_>>(),
         )?;
-        let (workspaces, target_refs) =
-            obtain_workspace_infos(repo, ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
         let mut seen = gix::revwalk::graph::IdMap::<SegmentIndex>::default();
         let mut goals = Goals::default();
         // The tip transports itself.
@@ -333,7 +338,7 @@ impl Graph {
         };
         if tip_is_not_workspace_commit {
             let current = graph.insert_root(branch_segment_from_name_and_meta(
-                ref_name.clone().map(|rn| (rn, None)),
+                None,
                 meta,
                 Some((&ctx.refs_by_id, tip)),
             )?);

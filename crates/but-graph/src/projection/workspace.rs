@@ -519,7 +519,6 @@ impl Graph {
         if ws.has_managed_ref() {
             let (lowest_base, lowest_base_sidx) =
                 ws_lower_bound.map_or((None, None), |(base, sidx)| (Some(base), Some(sidx)));
-            // dbg!(lowest_base, lowest_base_sidx);
             for stack_top_sidx in self
                 .inner
                 .neighbors_directed(ws_tip_segment.id, Direction::Outgoing)

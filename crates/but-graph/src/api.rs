@@ -11,6 +11,8 @@ use std::ops::{Deref, Index, IndexMut};
 /// Mutation
 impl Graph {
     /// Insert `segment` to the graph so that it's not connected to any other segment, and return its index.
+    /// Note that as a side effect, the [entrypoint](Self::lookup_entrypoint()) will also be set if it's not
+    /// set yet.
     pub fn insert_root(&mut self, segment: Segment) -> SegmentIndex {
         let index = self.inner.add_node(segment);
         self.inner[index].id = index;
