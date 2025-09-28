@@ -2,6 +2,7 @@ body {
 	/* optimise font rendering */
 	-webkit-font-smoothing: antialiased;
 	overflow-x: hidden;
+	color: var(--clr-text-1);
 	font-family: Inter, sans-serif;
 	text-rendering: optimizeLegibility;
 }

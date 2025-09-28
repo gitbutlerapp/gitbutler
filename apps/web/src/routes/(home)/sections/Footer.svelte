@@ -1,5 +1,5 @@
 <script>
-	import CtaBlock from '$home/components/CtaBlock.svelte';
+	// import CtaBlock from '$home/components/CtaBlock.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 </script>
 
@@ -7,14 +7,6 @@
 	<div class="banner">
 		<div class="banner-content">
 			<h2 class="banner-title">Start smart<br />with GitButler</h2>
-			<CtaBlock
-				secondButton={{
-					label: 'Join Discord',
-					url: jsonLinks.social.discord.url
-				}}
-				lightTheme
-				showVideoDemo={false}
-			/>
 		</div>
 		<div class="banner-image-wrapper">
 			<img class="banner-image" src="/images/footer/app-butler.webp" alt="App Butler" />

@@ -3,7 +3,6 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import Header from '$home/components/Header.svelte';
-	import * as jsonLinks from '$home/data/links.json';
 	import BlogHighlights from '$home/sections/BlogHighlights.svelte';
 	import DevelopersReview from '$home/sections/DevelopersReview.svelte';
 	import FAQ from '$home/sections/FAQ.svelte';
@@ -11,10 +10,16 @@
 	import HomeFooter from '$home/sections/Footer.svelte';
 	import Hero from '$home/sections/Hero.svelte';
 	import { AuthService, AUTH_SERVICE } from '$lib/auth/authService.svelte';
+	import * as jsonLinks from '$lib/data/links.json';
+	import { latestClientVersion } from '$lib/store';
+	import { getValidReleases } from '$lib/types/releases';
+	import { UserService, USER_SERVICE } from '$lib/user/userService';
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { provide } from '@gitbutler/core/context';
+	import { HttpClient, HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 	import { WebRoutesService, WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { type Snippet } from 'svelte';
+	import { env } from '$env/dynamic/public';
 	import '../styles/global.css';
 
 	interface Props {
@@ -28,6 +33,12 @@
 
 	const authService = new AuthService();
 	provide(AUTH_SERVICE, authService);
+
+	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.tokenReadable);
+	provide(HTTP_CLIENT, httpClient);
+
+	const userService = new UserService(httpClient);
+	provide(USER_SERVICE, userService);
 
 	const persistedToken = authService.token;
 
@@ -56,6 +67,26 @@
 	beforeNavigate(() => {
 		updateFavIcon(); // reset the icon
 	});
+
+	// Fetch latest version when showing marketing page
+	$effect(() => {
+		const isMarketingPage =
+			(page.route.id === '/(app)' && !persistedToken.current) || page.route.id === '/(app)/home';
+
+		if (isMarketingPage) {
+			fetch('https://app.gitbutler.com/api/downloads?limit=1&channel=release')
+				.then((response) => response.json())
+				.then((data) => {
+					const releases = getValidReleases(data);
+					if (releases.length > 0) {
+						latestClientVersion.set(releases[0].version);
+					}
+				})
+				.catch((error) => {
+					console.error('Failed to fetch latest version:', error);
+				});
+		}
+	});
 </script>
 
 <svelte:head>
@@ -70,13 +101,12 @@
 
 {#if (page.route.id === '/(app)' && !persistedToken.current) || page.route.id === '/(app)/home'}
 	<section class="marketing-page">
-		<Header />
 		<Hero />
-		<Features />
+		<!--<Features />
 		<DevelopersReview />
 		<BlogHighlights />
 		<FAQ />
-		<HomeFooter />
+		<HomeFooter /> -->
 	</section>
 {:else}
 	{@render children?.()}
@@ -84,34 +114,23 @@
 
 <style>
 	.marketing-page {
-		display: flex;
-		flex-direction: column;
+		--radius-xl: 20px;
+
+		display: grid;
+		grid-template-columns:
+			[full-start]
+			1fr 1fr
+			[narrow-start]
+			1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
+			[narrow-end]
+			1fr
+			[full-end];
+		column-gap: var(--layout-col-gap);
+		row-gap: 60px;
+		align-items: start;
 		width: 100%;
 		max-width: 1440px;
 		margin: 0 auto;
-		padding: 0 60px;
-
-		font-family: var(--fontfamily-mono);
-
-		/* optimise font rendering */
-		-webkit-font-smoothing: antialiased;
-		color: var(--clr-black);
-		text-rendering: optimizeLegibility;
-
-		-webkit-font-smoothing: antialiased;
-		-moz-osx-font-smoothing: grayscale;
-		text-rendering: optimizeLegibility;
-
-		@media (--mobile-viewport) {
-			padding: 0 20px;
-		}
-
-		@media (--desktop-small-viewport) {
-			padding: 0 40px;
-		}
-
-		@media (--desktop-viewport) {
-			overflow-x: hidden;
-		}
+		padding: 0 var(--layout-side-paddings);
 	}
 </style>

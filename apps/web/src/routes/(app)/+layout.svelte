@@ -154,12 +154,12 @@
 	const isSignupPage = $derived(page.url.pathname.includes('/signup'));
 	const isFinalized = $derived(page.url.pathname.includes('/finalize'));
 	const hasNavigation = $derived(!isCommitPage && !isLoginPage && !isSignupPage && !isFinalized);
-	const isFullScreen = $derived(isLoginPage || isSignupPage || isFinalized);
+	const fillFullWidth = $derived(isLoginPage || isSignupPage || isFinalized);
 </script>
 
 <RedirectIfNotFinalized />
 
-<div class="app" class:full-screen={isFullScreen}>
+<div class="app" class:fill-full-width={fillFullWidth}>
 	<Navigation markOnly={!hasNavigation} />
 
 	<main>
@@ -172,26 +172,20 @@
 
 <style lang="postcss">
 	.app {
-		--layout-side-paddings: 80px;
 		--radius-xl: 20px;
 		container-type: inline-size;
-
 		display: flex;
 		flex-direction: column;
 		width: 100%;
 		min-height: 100vh;
 		margin: 0 auto;
 		padding: 24px var(--layout-side-paddings) 30px;
-		&:not(.full-screen) {
+
+		&:not(.fill-full-width) {
 			max-width: calc(1440px + var(--layout-side-paddings) * 2);
 		}
 
-		@media (--desktop-small-viewport) {
-			--layout-side-paddings: 40px;
-		}
-
 		@media (--mobile-viewport) {
-			--layout-side-paddings: 16px;
 			padding: var(--layout-side-paddings);
 		}
 	}

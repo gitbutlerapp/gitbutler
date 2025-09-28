@@ -35,7 +35,17 @@
 		"documentation": {
 			"id": "documentation",
 			"url": "https://docs.gitbutler.com",
-			"label": "Documentation"
+			"label": "Docs"
+		},
+		"downloads": {
+			"id": "downloads",
+			"url": "/downloads",
+			"label": "Downloads"
+		},
+		"jobs": {
+			"id": "jobs",
+			"url": "https://jobs.gitbutler.com",
+			"label": "Jobs"
 		},
 		"blog": {
 			"id": "blog",
@@ -58,6 +68,11 @@
 			"id": "x",
 			"url": "https://x.com/gitbutler",
 			"label": "X"
+		},
+		"bluesky": {
+			"id": "bluesky",
+			"url": "https://bsky.app/profile/gitbutler.com",
+			"label": "Bluesky"
 		},
 		"instagram": {
 			"id": "instagram",

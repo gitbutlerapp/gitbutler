@@ -2,35 +2,29 @@
 
 :root {
 	--layout-col-gap: 20px;
-	--off-white: #f5f5f3;
-	--clr-bg: var(--off-white);
 }
 
 body {
 	min-height: 100vh;
 	background: var(--clr-bg-2);
-}
+	font-family: var(--fontfamily-default);
 
-body:has(.marketing-page) {
-	--off-white: #f5f5f3;
-	--clr-bg: var(--off-white);
-	/* gray */
-	--clr-white: #ffffff;
-	--clr-black: #000000;
-	--clr-dark-gray: #707070;
-	--clr-gray: #d0cfcb;
-	--clr-light-gray: #f1f1ed;
-	/* accent */
-	--clr-accent: #97eae5;
+	--layout-side-paddings: 80px;
+
+	@media (--desktop-small-viewport) {
+		--layout-side-paddings: 40px;
+	}
+
+	@media (--mobile-viewport) {
+		--layout-side-paddings: 16px;
+	}
 }
 
 body:has(.marketing-page)::-webkit-scrollbar {
-	/* For vertical scrollbars */
 	width: 8px;
-	/* For horizontal scrollbars */
 	height: 8px;
 }
 
 body:has(.marketing-page)::-webkit-scrollbar-thumb {
-	background: color-mix(in srgb, var(--clr-accent) 96%, var(--clr-black));
+	background: var(--clr-scale-ntrl-60);
 }

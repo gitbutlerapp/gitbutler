@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as jsonLinks from '$home/data/links.json';
+	import * as jsonLinks from '$lib/data/links.json';
 	import { onMount } from 'svelte';
 
 	let videoElement = $state<HTMLVideoElement>();

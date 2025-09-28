@@ -1,11 +1,11 @@
 <script lang="ts">
-	import TwitterCard from '$home/components/TwitterCard.svelte';
+	// import TwitterCard from '$home/components/TwitterCard.svelte';
 </script>
 
 <section class="reviews-wrapper" id="developers-preview">
 	<h2 class="title">What <i>developers<br />say</i> about us</h2>
 	<section class="reviews">
-		<div class="reviews-column">
+		<!-- <div class="reviews-column">
 			<TwitterCard
 				tweet={{
 					authorAvatar:
@@ -80,7 +80,7 @@
 					link: 'https://x.com/appfactory/status/1677010531297681409'
 				}}
 			/>
-		</div>
+		</div> -->
 	</section>
 </section>
 
