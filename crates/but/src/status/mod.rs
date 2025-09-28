@@ -73,7 +73,7 @@ pub(crate) fn worktree(
     // Calculate common_merge_base data
     let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir());
     let target = stack.get_default_target()?;
-    let target_name = format!("[{}/{}]", target.branch.remote(), target.branch.branch());
+    let target_name = format!("{}/{}", target.branch.remote(), target.branch.branch());
     let repo = ctx.gix_repo()?;
     let base_commit = repo.find_commit(target.sha.to_gix())?;
     let message = base_commit
@@ -120,9 +120,9 @@ pub(crate) fn worktree(
         )?;
     }
     println!(
-        "◉ {} (common base) {} {}",
-        common_merge_base_data.common_merge_base,
-        common_merge_base_data.target_name,
+        "◉ {} (common base) [{}] {}",
+        common_merge_base_data.common_merge_base.dimmed(),
+        common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.message
     );
     Ok(())
@@ -164,7 +164,7 @@ fn print_assignments(assignments: &Vec<FileAssignment>, changes: &[TreeChange]) 
         if !locks.is_empty() {
             locks = format!("🔒 {locks}");
         }
-        println!("│ {id}  {path} {status} {locks}");
+        println!("│   {id} {status} {path} {locks}");
     }
 }
 
@@ -190,11 +190,21 @@ pub fn print_group(
             if !first {
                 println!("│");
             }
+
+            let no_commits = if branch.commits.is_empty() {
+                "(no commits)".to_string()
+            } else {
+                "".to_string()
+            }
+            .dimmed()
+            .italic();
+
             println!(
-                "{} {}  [{}] {}",
+                "{}┄{} [{}] {} {}",
                 notch,
                 id,
                 branch.name.to_string().green().bold(),
+                no_commits,
                 stack_mark.clone().unwrap_or_default()
             );
             *stack_mark = None; // Only show the stack mark for the first branch
@@ -216,6 +226,25 @@ pub fn print_group(
                     "".normal()
                 };
 
+                let mut message = commit
+                    .message
+                    .to_string()
+                    .replace('\n', " ")
+                    .chars()
+                    .take(50)
+                    .collect::<String>()
+                    .normal();
+                if message.is_empty() {
+                    message = "(no commit message)".to_string().dimmed().italic();
+                }
+
+                let commit_details = but_api::diff::commit_details(project.id, commit.id.into())?;
+                let no_changes = if show_files && commit_details.changes.changes.is_empty() {
+                    "(no changes)".dimmed().italic()
+                } else {
+                    "".to_string().normal()
+                };
+
                 if verbose {
                     // Verbose format: author and timestamp on first line, message on second line
                     let datetime = DateTime::from_timestamp_millis(commit.created_at as i64)
@@ -223,44 +252,29 @@ pub fn print_group(
                     let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S");
 
                     println!(
-                        "● {}{} {} {} {} {}",
+                        "●   {}{} {} {} {} {} {}",
                         &commit.id.to_string()[..2].blue().underline(),
-                        &commit.id.to_string()[2..7].blue(),
-                        conflicted_str,
-                        commit.author.name.dimmed(),
+                        &commit.id.to_string()[2..7].dimmed(),
+                        commit.author.name,
                         formatted_time.to_string().dimmed(),
+                        no_changes,
+                        conflicted_str,
                         mark.unwrap_or_default()
                     );
-                    println!(
-                        "│ {}",
-                        commit
-                            .message
-                            .to_string()
-                            .replace('\n', " ")
-                            .chars()
-                            .take(100)
-                            .collect::<String>()
-                    );
+                    println!("│     {message}");
                 } else {
                     // Original format: everything on one line
                     println!(
-                        "● {}{} {} {} {}",
+                        "●   {}{} {} {} {} {}",
                         &commit.id.to_string()[..2].blue().underline(),
-                        &commit.id.to_string()[2..7].blue(),
+                        &commit.id.to_string()[2..7].dimmed(),
+                        message,
+                        no_changes,
                         conflicted_str,
-                        commit
-                            .message
-                            .to_string()
-                            .replace('\n', " ")
-                            .chars()
-                            .take(50)
-                            .collect::<String>(),
                         mark.unwrap_or_default()
                     );
                 }
                 if show_files {
-                    let commit_details =
-                        but_api::diff::commit_details(project.id, commit.id.into())?;
                     for change in &commit_details.changes.changes {
                         let cid = CliId::committed_file(&change.path.to_string(), commit.id)
                             .to_string()
@@ -268,23 +282,17 @@ pub fn print_group(
                             .underline();
                         let path = path_with_color(&change.status, change.path.to_string());
                         let status_letter = status_letter(&change.status);
-                        println!("│ {cid}  {path} {status_letter}");
-                    }
-                    if commit_details.changes.changes.is_empty() {
-                        println!("│     {}", "(no changes)".dimmed().italic());
+                        println!("│     {cid} {status_letter} {path}");
                     }
                 }
-            }
-            if branch.commits.is_empty() {
-                println!("│     {}", "(no commits)".dimmed().italic());
             }
         }
     } else {
         let id = CliId::Unassigned.to_string().underline().blue();
         println!(
-            "╭ {}  [{}] {}",
+            "╭┄{} [{}] {}",
             id,
-            "UNASSIGNED".to_string().green().bold(),
+            "Unassigned Changes".to_string().green().bold(),
             stack_mark.clone().unwrap_or_default()
         );
         print_assignments(&assignments, changes);
