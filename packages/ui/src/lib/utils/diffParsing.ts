@@ -14,6 +14,7 @@ import { wast } from '@codemirror/lang-wast';
 import { xml } from '@codemirror/lang-xml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
 import { kotlin } from '@codemirror/legacy-modes/mode/clike';
+import { powerShell } from '@codemirror/legacy-modes/mode/powershell';
 import { protobuf } from '@codemirror/legacy-modes/mode/protobuf';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
 import { NodeType, Tree, Parser } from '@lezer/common';
@@ -241,6 +242,9 @@ export function parserFromExtension(extension: string): Parser | undefined {
 			return javascript({ typescript: true }).language.parser;
 		case 'tsx':
 			return javascript({ typescript: true, jsx: true }).language.parser;
+
+		case 'ahk':
+			return StreamLanguage.define(powerShell).parser;
 
 		case 'css':
 			return css().language.parser;
