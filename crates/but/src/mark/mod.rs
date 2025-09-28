@@ -96,7 +96,7 @@ fn mark_branch(ctx: &mut CommandContext, branch_name: String, delete: bool) -> a
 pub(crate) fn stack_marked(ctx: &mut CommandContext, stack_id: StackId) -> anyhow::Result<bool> {
     let rules = but_rules::list_rules(ctx)?
         .iter()
-        .any(|r| r.target_stack_id() == Some(stack_id.to_string()));
+        .any(|r| r.target_stack_id() == Some(stack_id.to_string()) && r.session_id().is_none());
     Ok(rules)
 }
 
