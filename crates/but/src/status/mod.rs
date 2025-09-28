@@ -64,6 +64,12 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool, show_files: bool) -> anyho
             ctx,
         )?;
     }
+    let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir())
+        .get_default_target()?
+        .sha
+        .to_string()[..7]
+        .to_string();
+    println!("◉ {common_merge_base} (common base)");
     Ok(())
 }
 
