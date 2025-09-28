@@ -6,6 +6,7 @@ use crate::projection::workspace;
 use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex, SegmentMetadata};
 use anyhow::{Context as _, bail};
 use but_core::{RefMetadata, ref_metadata};
+use gix::ObjectId;
 use gix::prelude::ObjectIdExt;
 use gix::reference::Category;
 use petgraph::Direction;
@@ -52,13 +53,8 @@ impl Graph {
     ) -> anyhow::Result<Self> {
         self.hard_limit_hit = hard_limit;
 
-        // For the first id to be inserted into our entrypoint segment, set index.
-        if let Some((segment, ep_commit)) = self.entrypoint.as_mut() {
-            *ep_commit = self
-                .inner
-                .node_weight(*segment)
-                .and_then(|s| s.commit_index_of(tip));
-        }
+        // For the first id to be inserted into our entrypoint segment, set commit index.
+        self.update_entrypoint_commit_index(tip);
 
         if dangerously_skip_postprocessing_for_debugging {
             return Ok(self);
@@ -79,6 +75,8 @@ impl Graph {
 
         // Point entrypoint to the right spot after all the virtual branches were added.
         self.set_entrypoint_to_ref_name(meta)?;
+        // After the entrypoint changed, also update its commit-index again, for good measure.
+        self.update_entrypoint_commit_index(tip);
 
         // However, when it comes to using remotes to disambiguate, it's better to
         // *not* do that before workspaces are sorted as it might incorrectly place
@@ -96,6 +94,18 @@ impl Graph {
         self.compute_generation_numbers();
 
         Ok(self)
+    }
+
+    /// Ensure the entrypoint commit-index is updated to match the actual tip commit.
+    /// This may get out of sync when we do our graph manipulations, and it's easier
+    /// to set it right in post than to let everything deal with this.
+    fn update_entrypoint_commit_index(&mut self, tip: ObjectId) {
+        if let Some((segment, ep_commit)) = self.entrypoint.as_mut() {
+            *ep_commit = self
+                .inner
+                .node_weight(*segment)
+                .and_then(|s| s.commit_index_of(tip));
+        }
     }
 
     /// After everything, assure the entrypoint still points to a segment with the correct ref-name,
@@ -161,7 +171,7 @@ impl Graph {
                 );
                 let entrypoint_segment =
                     branch_segment_from_name_and_meta(Some((desired_ref_name, None)), meta, None)?;
-                let entrypoint_sidx = self.insert_root(entrypoint_segment);
+                let entrypoint_sidx = self.insert_segment_set_entrypoint(entrypoint_segment);
                 self.connect_segments(
                     entrypoint_sidx,
                     None,

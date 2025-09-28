@@ -145,7 +145,7 @@ impl Graph {
                 // It's OK to default-initialise this here as overlays are only used when redoing
                 // the traversal.
                 let (_repo, meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
-                graph.insert_root(branch_segment_from_name_and_meta(
+                graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
                     Some((ref_name, None)),
                     &meta,
                     None,
@@ -337,7 +337,7 @@ impl Graph {
             dangerously_skip_postprocessing_for_debugging,
         };
         if tip_is_not_workspace_commit {
-            let current = graph.insert_root(branch_segment_from_name_and_meta(
+            let current = graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
                 None,
                 meta,
                 Some((&ctx.refs_by_id, tip)),
@@ -388,7 +388,16 @@ impl Graph {
             // The limits for the target ref and the worktree ref are synced so they can always find each other,
             // while being able to stop when the entrypoint is included.
             ws_segment.metadata = Some(SegmentMetadata::Workspace(ws_meta));
-            let ws_segment = graph.insert_root(ws_segment);
+            let ws_segment = graph.insert_segment(ws_segment);
+            if graph.entrypoint.is_none()
+                && graph
+                    .entrypoint_ref
+                    .as_ref()
+                    .zip(ref_name.as_ref())
+                    .is_some_and(|(a, b)| a == b)
+            {
+                graph.entrypoint = Some((ws_segment, None));
+            }
             // As workspaces typically have integration branches which can help us to stop the traversal,
             // pick these up first.
             _ = next.push_front_exhausted((
@@ -403,45 +412,45 @@ impl Graph {
             ));
 
             if let Some((target_ref, target_ref_id, local_tip_info)) = target {
-                let target_segment = graph.insert_root(branch_segment_from_name_and_meta(
+                let target_segment = graph.insert_segment(branch_segment_from_name_and_meta(
                     Some((target_ref, None)),
                     meta,
                     None,
                 )?);
-                let (local_sidx, local_goal) = if let Some((local_ref_name, target_local_tip)) =
-                    local_tip_info
-                {
-                    let local_sidx = graph.insert_root(branch_segment_from_name_and_meta_sibling(
-                        None,
-                        Some(target_segment),
-                        meta,
-                        Some((&ctx.refs_by_id, target_local_tip)),
-                    )?);
-                    // We use auto-naming based on ambiguity - if the name ends up something else,
-                    // remove the nodes sibling link.
-                    let has_sibling_link = {
-                        let s = &mut graph[local_sidx];
-                        if s.ref_name.as_ref().is_none_or(|rn| rn != &local_ref_name) {
-                            s.sibling_segment_id = None;
-                            false
-                        } else {
-                            true
-                        }
+                let (local_sidx, local_goal) =
+                    if let Some((local_ref_name, target_local_tip)) = local_tip_info {
+                        let local_sidx =
+                            graph.insert_segment(branch_segment_from_name_and_meta_sibling(
+                                None,
+                                Some(target_segment),
+                                meta,
+                                Some((&ctx.refs_by_id, target_local_tip)),
+                            )?);
+                        // We use auto-naming based on ambiguity - if the name ends up something else,
+                        // remove the nodes sibling link.
+                        let has_sibling_link = {
+                            let s = &mut graph[local_sidx];
+                            if s.ref_name.as_ref().is_none_or(|rn| rn != &local_ref_name) {
+                                s.sibling_segment_id = None;
+                                false
+                            } else {
+                                true
+                            }
+                        };
+                        let goal = goals.flag_for(target_local_tip).unwrap_or_default();
+                        _ = next.push_front_exhausted((
+                            target_local_tip,
+                            CommitFlags::NotInRemote | goal,
+                            Instruction::CollectCommit { into: local_sidx },
+                            max_limit
+                                .with_indirect_goal(tip, &mut goals)
+                                .without_allowance(),
+                        ));
+                        next.add_goal_to(tip, goal);
+                        (has_sibling_link.then_some(local_sidx), goal)
+                    } else {
+                        (None, CommitFlags::empty())
                     };
-                    let goal = goals.flag_for(target_local_tip).unwrap_or_default();
-                    _ = next.push_front_exhausted((
-                        target_local_tip,
-                        CommitFlags::NotInRemote | goal,
-                        Instruction::CollectCommit { into: local_sidx },
-                        max_limit
-                            .with_indirect_goal(tip, &mut goals)
-                            .without_allowance(),
-                    ));
-                    next.add_goal_to(tip, goal);
-                    (has_sibling_link.then_some(local_sidx), goal)
-                } else {
-                    (None, CommitFlags::empty())
-                };
                 _ = next.push_front_exhausted((
                     target_ref_id,
                     CommitFlags::Integrated,
@@ -468,7 +477,7 @@ impl Graph {
                 // have to adjust the existing queue item.
                 existing_segment
             } else {
-                let extra_target_sidx = graph.insert_root(branch_segment_from_name_and_meta(
+                let extra_target_sidx = graph.insert_segment(branch_segment_from_name_and_meta(
                     None,
                     meta,
                     Some((&ctx.refs_by_id, extra_target)),
@@ -517,7 +526,7 @@ impl Graph {
                     meta,
                     Some((&ctx.refs_by_id, segment_tip.detach())),
                 )?;
-                let segment = graph.insert_root(segment);
+                let segment = graph.insert_segment(segment);
                 _ = next.push_back_exhausted((
                     segment_tip.detach(),
                     CommitFlags::NotInRemote,

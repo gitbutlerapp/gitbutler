@@ -28,7 +28,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         ..Default::default()
     };
 
-    let local_target = graph.insert_root(local_target);
+    let local_target = graph.insert_segment_set_entrypoint(local_target);
     graph.connect_new_segment(
         local_target,
         None,
@@ -96,7 +96,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
 #[test]
 fn detached_head() {
     let mut graph = Graph::default();
-    graph.insert_root(Segment {
+    graph.insert_segment_set_entrypoint(Segment {
         commits: vec![commit(id("a"), None, CommitFlags::empty())],
         ..Default::default()
     });
