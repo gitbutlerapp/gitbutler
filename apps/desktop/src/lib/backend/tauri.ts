@@ -96,7 +96,11 @@ class TauriDiskStore implements DiskStore {
 }
 
 export async function tauriLogErrorToFile(error: string) {
-	await logErrorToFile(error);
+	try {
+		await logErrorToFile(error);
+	} catch (e: unknown) {
+		console.warn('unable to log error to file', e);
+	}
 }
 
 export function tauriPathSeparator(): string {
