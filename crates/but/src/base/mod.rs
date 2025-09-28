@@ -42,7 +42,13 @@ pub fn handle(cmd: &Subcommands, repo_path: &Path, json: bool) -> anyhow::Result
                 println!(
                     "\t{} {}",
                     &commit.id[..7],
-                    &commit.description.to_string().replace('\n', " ")[..72]
+                    &commit
+                        .description
+                        .to_string()
+                        .replace('\n', " ")
+                        .chars()
+                        .take(72)
+                        .collect::<String>()
                 );
             }
             let hidden_commits = base_branch.behind.saturating_sub(3);
