@@ -120,7 +120,7 @@ pub(crate) fn worktree(
         )?;
     }
     println!(
-        "◉ {} (common base) [{}] {}",
+        "    ● {} (common base) [{}] {}",
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.message
@@ -297,7 +297,7 @@ pub fn print_group(
         );
         print_assignments(&assignments, changes);
     }
-    println!("┊");
+    println!("╰┄┄┄╮");
     Ok(())
 }
 
