@@ -323,9 +323,9 @@ fn branch_group_to_branch(
     let head_commit = if let Some(vbranch) = virtual_branch {
         Some(vbranch.head_oid(repo)?)
     } else if let Some(mut branch) = local_branches.into_iter().next() {
-        branch.peel_to_id_in_place_packed(packed).ok()
+        branch.peel_to_id_packed(packed).ok()
     } else if let Some(mut branch) = remote_branches.into_iter().next() {
-        branch.peel_to_id_in_place_packed(packed).ok()
+        branch.peel_to_id_packed(packed).ok()
     } else {
         None
     }

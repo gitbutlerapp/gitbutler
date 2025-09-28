@@ -624,15 +624,13 @@ pub fn obtain_workspace_infos<T: RefMetadata>(
     for (rn, data) in workspaces {
         if rn.category() != Some(Category::LocalBranch) {
             tracing::warn!(
-                "Skipped workspace at ref {} as workspaces can only ever be on normal branches",
-                rn.as_bstr()
+                "Skipped workspace at ref {rn} as workspaces can only ever be on normal branches",
             );
             continue;
         }
         if target_refs.contains(&rn) {
             tracing::warn!(
-                "Skipped workspace at ref {} as it was also a target ref for another workspace (or for itself)",
-                rn.as_bstr()
+                "Skipped workspace at ref {rn} as it was also a target ref for another workspace (or for itself)",
             );
             continue;
         }
@@ -642,16 +640,13 @@ pub fn obtain_workspace_infos<T: RefMetadata>(
             .filter(|trn| trn.category() != Some(Category::RemoteBranch))
         {
             tracing::warn!(
-                "Skipped workspace at ref {} as its target reference {target} was not a remote tracking branch",
-                rn.as_bstr(),
-                target = invalid_target_ref.as_bstr(),
+                "Skipped workspace at ref {rn} as its target reference {invalid_target_ref} was not a remote tracking branch",
             );
             continue;
         }
         let Some(ws_tip) = try_refname_to_id(repo, rn.as_ref())? else {
             tracing::warn!(
-                "Ignoring stale workspace ref '{ws_ref}', which didn't exist in Git but still had workspace data",
-                ws_ref = rn.as_bstr()
+                "Ignoring stale workspace ref '{rn}', which didn't exist in Git but still had workspace data",
             );
             continue;
         };

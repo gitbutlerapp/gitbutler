@@ -1060,8 +1060,7 @@ impl Workspace<'_> {
             }
             if !found_segment {
                 tracing::error!(
-                    "BUG: Couldn't find local segment with remote tracking ref '{rn}' - remote commits for it seem to be missing",
-                    rn = remote_tracking_ref_name.as_bstr()
+                    "BUG: Couldn't find local segment with remote tracking ref '{remote_tracking_ref_name}' - remote commits for it seem to be missing",
                 );
             }
         }

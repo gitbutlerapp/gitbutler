@@ -357,10 +357,7 @@ impl Graph {
             let target = ws_meta.target_ref.as_ref().and_then(|trn| {
                 let tid = try_refname_to_id(repo, trn.as_ref())
                     .map_err(|err| {
-                        tracing::warn!(
-                            "Ignoring non-existing target branch {trn}: {err}",
-                            trn = trn.as_bstr()
-                        );
+                        tracing::warn!("Ignoring non-existing target branch {trn}: {err}");
                         err
                     })
                     .ok()??;

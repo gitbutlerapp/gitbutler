@@ -46,16 +46,10 @@ impl RemoteTrackingReference {
         remote_names: &gix::remote::Names,
     ) -> anyhow::Result<Self> {
         let (category, short_name) = ref_name.category_and_short_name().with_context(|| {
-            format!(
-                "Failed to categorize presume remote reference '{}'",
-                ref_name.as_bstr()
-            )
+            format!("Failed to categorize presume remote reference '{ref_name}'")
         })?;
         if category != Category::RemoteBranch {
-            bail!(
-                "Expected '{}' to be a remote tracking branch, but was {category:?}",
-                ref_name.as_bstr()
-            );
+            bail!("Expected '{ref_name}' to be a remote tracking branch, but was {category:?}");
         }
         let (longest_remote, short_name) = remote_names
             .iter()
@@ -76,10 +70,7 @@ impl RemoteTrackingReference {
                 "Failed to find remote branch's corresponding remote"
             ))
             .with_context(|| {
-                format!(
-                    "Remote reference '{}' couldn't be matched with any known remote",
-                    ref_name.as_bstr()
-                )
+                format!("Remote reference '{ref_name}' couldn't be matched with any known remote")
             })?;
 
         Ok(RemoteTrackingReference {
