@@ -3,6 +3,7 @@ export const symbolFileExtensionsToIcons: { [key: string]: string } = {
 	accdb: 'database',
 	afphoto: 'image',
 	aiff: 'audio',
+	ahk: 'shell',
 	al: 'code-green',
 	ami: 'image',
 	apx: 'image',
