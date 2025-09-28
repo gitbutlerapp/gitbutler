@@ -4,6 +4,7 @@ use but_core::ui::{TreeChange, TreeStatus};
 use but_hunk_assignment::HunkAssignment;
 use but_settings::AppSettings;
 use but_workspace::ui::StackDetails;
+use chrono::{DateTime, TimeZone, Utc};
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -32,7 +33,12 @@ struct WorktreeStatus {
     common_merge_base: CommonMergeBase,
 }
 
-pub(crate) fn worktree(repo_path: &Path, json: bool, show_files: bool) -> anyhow::Result<()> {
+pub(crate) fn worktree(
+    repo_path: &Path,
+    json: bool,
+    show_files: bool,
+    verbose: bool,
+) -> anyhow::Result<()> {
     let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
@@ -108,6 +114,7 @@ pub(crate) fn worktree(repo_path: &Path, json: bool, show_files: bool) -> anyhow
             assignments,
             &worktree_changes.worktree_changes.changes,
             show_files,
+            verbose,
             &mut stack_mark,
             ctx,
         )?;
@@ -161,12 +168,14 @@ fn print_assignments(assignments: &Vec<FileAssignment>, changes: &[TreeChange]) 
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 pub fn print_group(
     project: &Project,
     group: Option<StackDetails>,
     assignments: Vec<FileAssignment>,
     changes: &[TreeChange],
     show_files: bool,
+    verbose: bool,
     stack_mark: &mut Option<ColoredString>,
     ctx: &mut CommandContext,
 ) -> anyhow::Result<()> {
@@ -206,20 +215,49 @@ pub fn print_group(
                 } else {
                     "".normal()
                 };
-                println!(
-                    "● {}{} {} {} {}",
-                    &commit.id.to_string()[..2].blue().underline(),
-                    &commit.id.to_string()[2..7].blue(),
-                    conflicted_str,
-                    commit
-                        .message
-                        .to_string()
-                        .replace('\n', " ")
-                        .chars()
-                        .take(50)
-                        .collect::<String>(),
-                    mark.unwrap_or_default()
-                );
+
+                if verbose {
+                    // Verbose format: author and timestamp on first line, message on second line
+                    let datetime = DateTime::from_timestamp_millis(commit.created_at as i64)
+                        .unwrap_or_else(|| Utc.timestamp_millis_opt(0).unwrap());
+                    let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S");
+
+                    println!(
+                        "● {}{} {} {} {} {}",
+                        &commit.id.to_string()[..2].blue().underline(),
+                        &commit.id.to_string()[2..7].blue(),
+                        conflicted_str,
+                        commit.author.name.dimmed(),
+                        formatted_time.to_string().dimmed(),
+                        mark.unwrap_or_default()
+                    );
+                    println!(
+                        "│ {}",
+                        commit
+                            .message
+                            .to_string()
+                            .replace('\n', " ")
+                            .chars()
+                            .take(100)
+                            .collect::<String>()
+                    );
+                } else {
+                    // Original format: everything on one line
+                    println!(
+                        "● {}{} {} {} {}",
+                        &commit.id.to_string()[..2].blue().underline(),
+                        &commit.id.to_string()[2..7].blue(),
+                        conflicted_str,
+                        commit
+                            .message
+                            .to_string()
+                            .replace('\n', " ")
+                            .chars()
+                            .take(50)
+                            .collect::<String>(),
+                        mark.unwrap_or_default()
+                    );
+                }
                 if show_files {
                     let commit_details =
                         but_api::diff::commit_details(project.id, commit.id.into())?;
