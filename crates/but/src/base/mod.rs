@@ -119,9 +119,6 @@ pub fn handle(cmd: &Subcommands, repo_path: &Path, json: bool) -> anyhow::Result
                             the updates. Please commit or stash them and try again."
                         );
                         None
-                    } else if statuses.is_empty() {
-                        println!("✅ Everything is up to date");
-                        None
                     } else {
                         println!("🔄 Updating branches...");
                         let mut resolutions = vec![];
