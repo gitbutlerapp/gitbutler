@@ -188,7 +188,7 @@ pub fn print_group(
             }
         }
     } else {
-        let id = CliId::branch("UNASSIGNED").to_string().underline().blue();
+        let id = CliId::Unassigned.to_string().underline().blue();
         println!(
             "╭ {}  [{}] {}",
             id,
