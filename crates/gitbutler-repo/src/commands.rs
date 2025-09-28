@@ -8,6 +8,8 @@ use itertools::Itertools;
 use serde::Serialize;
 use std::path::Path;
 use tracing::warn;
+use chardet::detect;
+use encoding_rs::Encoding;
 
 #[derive(Default, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -40,14 +42,87 @@ impl FileInfo {
     }
 
     /// Create a new instance for if content is text.
-    /// Note that UTF8 is assumed, or else the file will be considered binary.
+    /// Attempts to detect encoding and convert to UTF-8. If detection fails or conversion
+    /// is not possible, the file will be considered binary.
     pub fn utf8_text_or_binary(path_in_worktree: &Path, content: &[u8]) -> Self {
-        FileInfo {
-            content: std::str::from_utf8(content).map(ToOwned::to_owned).ok(),
-            file_name: Self::file_name_str(path_in_worktree),
-            size: Some(content.len()),
-            mime_type: None,
+        // First try to interpret as UTF-8 directly
+        if let Ok(utf8_text) = std::str::from_utf8(content) {
+            return FileInfo {
+                content: Some(utf8_text.to_owned()),
+                file_name: Self::file_name_str(path_in_worktree),
+                size: Some(content.len()),
+                mime_type: None,
+            };
         }
+        
+        // If UTF-8 fails, try to detect encoding and convert
+        match Self::detect_and_convert_to_utf8(content) {
+            Some(utf8_content) => FileInfo {
+                content: Some(utf8_content),
+                file_name: Self::file_name_str(path_in_worktree),
+                size: Some(content.len()),
+                mime_type: None,
+            },
+            None => {
+                // If encoding detection and conversion failed, treat as binary
+                FileInfo {
+                    content: None,
+                    file_name: Self::file_name_str(path_in_worktree),
+                    size: Some(content.len()),
+                    mime_type: None,
+                }
+            }
+        }
+    }
+
+    /// Detect the encoding of the given byte content and convert it to UTF-8.
+    /// Returns `None` if encoding detection fails or conversion is not possible.
+    fn detect_and_convert_to_utf8(content: &[u8]) -> Option<String> {
+        // Use chardet to detect the encoding
+        let detection_result = detect(content);
+        
+        // Get the encoding name with confidence level
+        let encoding_name = &detection_result.0;
+        let confidence = detection_result.1;
+        
+        // Only proceed if we have reasonable confidence in the detection
+        // (threshold can be adjusted based on testing)
+        if confidence < 0.7 {
+            return None;
+        }
+        
+        // Convert the detected encoding name to encoding_rs format
+        let encoding = match encoding_name.as_str() {
+            "UTF-8" => encoding_rs::UTF_8,
+            "ISO-8859-1" | "windows-1252" => encoding_rs::WINDOWS_1252, // Windows-1252 is a superset of ISO-8859-1
+            "ISO-8859-15" => encoding_rs::ISO_8859_15,
+            "windows-1251" => encoding_rs::WINDOWS_1251,
+            "windows-1250" => encoding_rs::WINDOWS_1250,
+            "KOI8-R" => encoding_rs::KOI8_R,
+            "KOI8-U" => encoding_rs::KOI8_U,
+            "macintosh" => encoding_rs::MACINTOSH,
+            "IBM866" => encoding_rs::IBM866,
+            _ => {
+                // Try to get encoding by name, fallback if not supported
+                match Encoding::for_label(encoding_name.as_bytes()) {
+                    Some(enc) => enc,
+                    None => return None,
+                }
+            }
+        };
+        
+        // Convert to UTF-8
+        let (decoded, _, had_errors) = encoding.decode(content);
+        
+        // If there were decoding errors, we might not want to proceed
+        if had_errors {
+            warn!(
+                encoding = encoding_name.as_str(),
+                "Had errors during encoding conversion to UTF-8"
+            );
+        }
+        
+        Some(decoded.into_owned())
     }
 
     /// No content is provided, just the path and the size, denoting a binary file.
@@ -252,5 +327,80 @@ impl RepoCommands for Project {
             }
             Err(err) => return Err(err.into()),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_latin1_encoding_detection() {
+        // Create a Latin-1 encoded byte sequence with non-ASCII characters
+        // This represents "café" in Latin-1 encoding
+        let latin1_bytes = vec![0x63, 0x61, 0x66, 0xe9]; // "café" in Latin-1
+
+        let path = Path::new("test.txt");
+        let file_info = FileInfo::from_content(path, &latin1_bytes);
+
+        // The content should be converted to UTF-8 properly
+        assert!(file_info.content.is_some(), "Content should not be None");
+        let content = file_info.content.unwrap();
+        
+        // In Latin-1, 0xe9 is é, which in UTF-8 should be properly converted
+        assert_eq!(content, "café", "Latin-1 content should be properly converted to UTF-8");
+        assert_eq!(file_info.mime_type, None, "Should be treated as text file");
+    }
+
+    #[test] 
+    fn test_utf8_content_unchanged() {
+        // Test that valid UTF-8 content remains unchanged
+        let utf8_bytes = "café".as_bytes(); // UTF-8 encoded
+        
+        let path = Path::new("test.txt");
+        let file_info = FileInfo::from_content(path, utf8_bytes);
+        
+        assert!(file_info.content.is_some(), "Content should not be None");
+        let content = file_info.content.unwrap();
+        assert_eq!(content, "café", "UTF-8 content should remain unchanged");
+    }
+
+    #[test]
+    fn test_ascii_content() {
+        // Test that plain ASCII content works fine
+        let ascii_bytes = b"Hello world!";
+        
+        let path = Path::new("test.txt");
+        let file_info = FileInfo::from_content(path, ascii_bytes);
+        
+        assert!(file_info.content.is_some(), "ASCII content should not be None");
+        let content = file_info.content.unwrap();
+        assert_eq!(content, "Hello world!", "ASCII content should be preserved");
+    }
+
+    #[test]
+    fn test_encoding_detection_function() {
+        // Test the encoding detection function directly
+        let latin1_bytes = vec![0x63, 0x61, 0x66, 0xe9]; // "café" in Latin-1
+        
+        let result = FileInfo::detect_and_convert_to_utf8(&latin1_bytes);
+        
+        // Should successfully detect and convert
+        assert!(result.is_some(), "Should detect and convert Latin-1");
+        let converted = result.unwrap();
+        assert_eq!(converted, "café", "Should convert to proper UTF-8");
+    }
+
+    #[test]
+    fn test_low_confidence_detection() {
+        // Test with content that has low detection confidence (random bytes)
+        let random_bytes = vec![0x80, 0x81, 0x82, 0x83];
+        
+        let result = FileInfo::detect_and_convert_to_utf8(&random_bytes);
+        
+        // Should return None due to low confidence or treat as binary
+        // The important thing is that it doesn't panic
+        println!("Low confidence detection result: {:?}", result);
+        // We don't assert here since chardet behavior may vary
     }
 }

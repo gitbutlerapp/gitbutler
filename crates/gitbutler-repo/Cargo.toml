@@ -35,6 +35,8 @@ toml.workspace = true
 base64 = "0.22.1"
 infer = "0.19.0"
 scopeguard = "1.2.0"
+chardet = "0.2.4"
+encoding_rs = "0.8.35"
 
 [[test]]
 name = "repo"
