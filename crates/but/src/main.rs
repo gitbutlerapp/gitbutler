@@ -165,6 +165,15 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
             Ok(())
         }
+        Subcommands::Unmark => {
+            let result = mark::unmark(&args.current_dir, args.json)
+                .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.");
+            if let Err(e) = &result {
+                eprintln!("{} {}", e, e.root_cause());
+            }
+            metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
+            Ok(())
+        }
         Subcommands::Commit {
             message,
             branch,

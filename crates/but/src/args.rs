@@ -76,6 +76,8 @@ For examples see `but rub --help`."
         #[clap(long, short = 'd')]
         delete: bool,
     },
+    /// Removes all marks from the workspace
+    Unmark,
     /// Commit changes to a stack.
     Commit {
         /// Commit message
