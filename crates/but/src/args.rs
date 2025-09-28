@@ -16,7 +16,7 @@ pub struct Args {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    /// Provides an overview of the Workspace commit graph.
+    /// Show commits on active branches in your workspace.
     Log,
     /// Overview of the uncommitted changes in the repository.
     #[clap(alias = "st")]
