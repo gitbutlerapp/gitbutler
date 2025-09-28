@@ -20,6 +20,11 @@ body {
 	}
 }
 
+/* selection change */
+body::selection {
+	background: color-mix(in srgb, var(--clr-scale-pop-60) 40%, transparent);
+}
+
 body:has(.marketing-page)::-webkit-scrollbar {
 	width: 8px;
 	height: 8px;

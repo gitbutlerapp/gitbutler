@@ -2,13 +2,15 @@
 	import { goto } from '$app/navigation';
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import Header from '$home/components/Header.svelte';
-	import BlogHighlights from '$home/sections/BlogHighlights.svelte';
-	import DevelopersReview from '$home/sections/DevelopersReview.svelte';
-	import FAQ from '$home/sections/FAQ.svelte';
-	import Features from '$home/sections/Features.svelte';
-	import HomeFooter from '$home/sections/Footer.svelte';
+	// import Header from '$home/components/Header.svelte';
+	// import BlogHighlights from '$home/sections/BlogHighlights.svelte';
+	// import DevelopersReview from '$home/sections/DevelopersReview.svelte';
+	import AiFeatures from '$home/sections/AiFeatures.svelte';
+	import FeatureUpdates from '$home/sections/FeatureUpdates.svelte';
+	import FromSocials from '$home/sections/FromSocials.svelte';
 	import Hero from '$home/sections/Hero.svelte';
+	import MainFeatures from '$home/sections/MainFeatures.svelte';
+	// import HomeFooter from '$home/sections/Footer.svelte';
 	import { AuthService, AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 	import { latestClientVersion } from '$lib/store';
@@ -102,6 +104,11 @@
 {#if (page.route.id === '/(app)' && !persistedToken.current) || page.route.id === '/(app)/home'}
 	<section class="marketing-page">
 		<Hero />
+		<MainFeatures />
+		<AiFeatures />
+		<FeatureUpdates />
+		<FromSocials />
+
 		<!--<Features />
 		<DevelopersReview />
 		<BlogHighlights />

@@ -1,8 +1,7 @@
 <script lang="ts">
 	import CtaButton from '$home/components/CtaButton.svelte';
 	import Header from '$home/components/Header.svelte';
-	import * as contentJson from '$home/data/content.json';
-	import * as jsonLinks from '$lib/data/links.json';
+	import contentJson from '$home/data/content.json';
 
 	const heroContent = contentJson.hero;
 </script>

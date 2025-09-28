@@ -2,5 +2,73 @@
 	"hero": {
 		"description": "Supercharge Your Git Workflow with the only tool that lets you manage simultaneous branches and review every commit before merging—without disrupting your existing process.",
 		"demo": "https://youtu.be/DhJtNNhCNLM?si=vQRBaxCB4srOB_NW"
-	}
+	},
+	"app-preview": {
+		"src": "/images/app-preview.png",
+		"alt": "App Preview"
+	},
+	"main-features": [
+		{
+			"title": "Parallel Branches",
+			"description": "You don’t need to switch or stash branches if you can work on several simultaneously. Fix your bug while you work on your feature.",
+			"link": "https://docs.gitbutler.com/features/branch-management/virtual-branches"
+		},
+		{
+			"title": "Stacked Branches",
+			"description": "Break a big feature into small, dependent branches, making reviews faster and integrations incremental.",
+			"link": "https://docs.gitbutler.com/features/branch-management/stacked-branches"
+		},
+		{
+			"title": "AI Assistance",
+			"description": "Let AI handle the busywork: generate branch names, commit messages, and pull request descriptions automatically.",
+			"link": "https://docs.gitbutler.com/features/branch-management/ai-assistance"
+		},
+		{
+			"title": "Unlimited Undo",
+			"description": "GitButler makes a snapshot before every operation, allowing you to go back in time to any previous point without fear of losing anything.",
+			"link": "https://docs.gitbutler.com/features/timeline"
+		},
+		{
+			"title": "Commit Editing",
+			"description": "Easily edit, reorder, squash, or split commits in any branch, even after pushing to remote.",
+			"link": "https://docs.gitbutler.com/features/branch-management/commits"
+		},
+		{
+			"title": "Git(Hub|Lab) Integration",
+			"description": "Open Pull Requests, generate PR messages with AI, automatically check PR statuses and more with our forge integrations.",
+			"link": "https://docs.gitbutler.com/features/forge-integration/github-integration"
+		}
+	],
+	"ai-features": [
+		{
+			"title": "Native AI Integration",
+			"description": "Choose from different AI models and thinking modes with built-in prompt templates for seamless development.",
+			"link": "https://docs.gitbutler.com/features/agents-tab#model-selection"
+		},
+		{
+			"title": "AI-Powered Automation",
+			"description": "AI automatically creates commits with generated messages and intelligently renames branches based on your work.",
+			"link": "https://docs.gitbutler.com/features/agents-tab"
+		},
+		{
+			"title": "Parallel AI Workflows",
+			"description": "Run multiple AI agents simultaneously on different branches - write tests on one while documenting another.",
+			"link": "https://docs.gitbutler.com/features/agents-tab"
+		},
+		{
+			"title": "Smart Context Management",
+			"description": "Jump between AI sessions instantly and continue conversations on any branch while others run in background.",
+			"link": "https://docs.gitbutler.com/features/agents-tab"
+		},
+		{
+			"title": "Intelligent Task Management",
+			"description": "Watch AI progress with real-time todo extraction and clean, collapsible tool execution views.",
+			"link": "https://docs.gitbutler.com/features/agents-tab#todo-breakout"
+		},
+		{
+			"title": "Advanced Cost Monitoring",
+			"description": "Track token usage and AI provider costs per branch in real-time to manage your spending.",
+			"link": "https://docs.gitbutler.com/features/agents-tab#token-and-cost-monitoring"
+		}
+	]
 }

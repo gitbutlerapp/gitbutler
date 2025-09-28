@@ -153,6 +153,13 @@
 		}
 	}
 
+	.social-link-arrow {
+		display: inline-block;
+		transform: scale(0.7);
+		opacity: 0;
+		transition: transform 0.15s ease-in-out;
+	}
+
 	.social-link {
 		display: block;
 		padding: 8px 14px;
@@ -165,14 +172,10 @@
 			text-decoration: none;
 
 			.social-link-arrow {
+				transform: scale(1) translate(2px, -2px);
 				opacity: 0.7;
 			}
 		}
-	}
-
-	.social-link-arrow {
-		opacity: 0;
-		transition: opacity var(--transition-fast);
 	}
 
 	.dropdown-menu {
