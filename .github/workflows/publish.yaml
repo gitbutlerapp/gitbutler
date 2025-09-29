@@ -92,10 +92,10 @@ jobs:
       matrix:
         # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-private-repositories
         platform:
-          - depot-macos-13 # [macOs, x64]
+          - depot-macos-14 # [macOs, x64]
           - depot-macos-latest # [macOs, ARM64]
-          - depot-ubuntu-24.04 # [linux, x64]
-          - depot-windows-latest # [windows, x64]
+          - depot-ubuntu-24.04-4 # [linux, x64]
+          - depot-windows-latest-4 # [windows, x64]
 
     runs-on: ${{ matrix.platform }}
 
