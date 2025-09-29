@@ -122,7 +122,7 @@ pub(crate) fn restore_to_oplog(
     oplog_sha: &str,
 ) -> anyhow::Result<()> {
     let project = Project::find_by_path(repo_path)?;
-    let snapshots = but_api::undo::list_snapshots(project.id, 100, None, None)?;
+    let snapshots = but_api::undo::list_snapshots(project.id, 1000, None, None)?;
 
     // Parse the oplog SHA (support partial SHAs)
     let commit_sha_string = if oplog_sha.len() >= 7 {
