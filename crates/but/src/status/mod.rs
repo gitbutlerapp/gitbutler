@@ -39,7 +39,15 @@ pub(crate) fn worktree(
     show_files: bool,
     verbose: bool,
 ) -> anyhow::Result<()> {
-    let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
+    let project = match Project::find_by_path(repo_path) {
+        Ok(p) => Ok(p),
+        Err(_e) => {
+            crate::init::repo(repo_path, json, false)?;
+            Project::find_by_path(repo_path)
+        }
+    }?;
+
+    // let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
