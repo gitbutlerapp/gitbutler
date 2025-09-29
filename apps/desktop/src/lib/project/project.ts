@@ -1,5 +1,5 @@
 import { goto } from '$app/navigation';
-import { showError, showToast } from '$lib/notifications/toasts';
+import { showToast } from '$lib/notifications/toasts';
 import { projectPath } from '$lib/routes/routes.svelte';
 import { TestId } from '@gitbutler/ui';
 import type { ForgeName } from '$lib/forge/interface/forge';
@@ -85,15 +85,19 @@ export type AddProjectOutcome =
 			/**
 			 * The error message received
 			 */
-			subject: string;
+			subject: {
+				path: string;
+				message: string;
+			};
 	  };
 
 /**
  * Correctly handle the outcome of an addProject operation by passing the project to the callback or
- * showing toasts as necessary.
+ * showing toasts as necessary.'get this - needs a refactor probably';
  */
 export function handleAddProjectOutcome(
 	outcome: AddProjectOutcome,
+	onInitialize: (path: string) => Promise<void>,
 	onAdded?: (project: Project) => void
 ): true {
 	switch (outcome.type) {
@@ -169,23 +173,9 @@ export function handleAddProjectOutcome(
 				extraAction: {
 					label: 'Initialize Repository',
 					onClick: async (dismiss) => {
-						try {
-							const projectPath = 'get this - needs a refactor probably';
-							await projectsService.initGitRepository(projectPath);
-							dismiss();
-							showToast({
-								title: 'Repository Initialized',
-								message: `Git repository has been successfully initialized at ${projectPath}. Loading project...`,
-								style: 'info'
-							});
-							const projectId = 'TODO: get this from somewhere';
-							// Retry setting the project active
-							await setActiveProjectOrRedirect(projectId);
-						} catch (initError) {
-							console.error('Failed to initialize repository:', initError);
-							dismiss();
-							showError('Failed to initialize repository', initError);
-						}
+						const projectPath = outcome.subject.path;
+						await onInitialize(projectPath);
+						dismiss();
 					}
 				}
 			});

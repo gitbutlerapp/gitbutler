@@ -8,8 +8,8 @@
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
-	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { useAddProject } from '$lib/project/useProjects.svelte';
 	import { ircPath, projectPath, isWorkspacePath } from '$lib/routes/routes.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
@@ -46,6 +46,8 @@
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 	const singleBranchMode = $derived($settingsStore?.featureFlags.singleBranch ?? false);
 	const backend = inject(BACKEND);
+
+	const { addProject } = useAddProject();
 
 	const mode = $derived(modeService.mode({ projectId }));
 	const currentMode = $derived(mode.response);
@@ -188,14 +190,7 @@
 						onClick={async () => {
 							newProjectLoading = true;
 							try {
-								const outcome = await projectsService.addProject();
-								if (!outcome) {
-									// User cancelled the project creation
-									newProjectLoading = false;
-									return;
-								}
-
-								handleAddProjectOutcome(outcome, (project) => goto(projectPath(project.id)));
+								await addProject();
 							} finally {
 								newProjectLoading = false;
 							}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { useAddProject } from '$lib/project/useProjects.svelte';
 	import { projectPath } from '$lib/routes/routes.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, OptionsGroup, Select, SelectItem } from '@gitbutler/ui';
@@ -22,6 +22,8 @@
 
 	let newProjectLoading = $state(false);
 	let cloneProjectLoading = $state(false);
+
+	const { addProject } = useAddProject();
 </script>
 
 <div class="project-switcher">
@@ -48,13 +50,7 @@
 				onClick={async () => {
 					newProjectLoading = true;
 					try {
-						const outcome = await projectsService.addProject();
-						if (!outcome) {
-							// User cancelled the project creation
-							newProjectLoading = false;
-							return;
-						}
-						handleAddProjectOutcome(outcome, (project) => goto(projectPath(project.id)));
+						await addProject();
 					} finally {
 						newProjectLoading = false;
 					}

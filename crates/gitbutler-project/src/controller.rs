@@ -4,7 +4,10 @@ use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_error::error;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
-use crate::{project::AddProjectOutcome, AuthKey};
+use crate::{
+    project::{AddProjectOutcome, NotAGitRepositoryOutcome},
+    AuthKey,
+};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Controller {
@@ -97,7 +100,12 @@ impl Controller {
                 }
             },
             Err(err) => {
-                return Ok(AddProjectOutcome::NotAGitRepository(err.to_string()));
+                return Ok(AddProjectOutcome::NotAGitRepository(
+                    NotAGitRepositoryOutcome {
+                        path: path.to_path_buf(),
+                        message: err.to_string(),
+                    },
+                ));
             }
         }
 

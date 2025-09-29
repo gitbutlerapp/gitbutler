@@ -183,6 +183,12 @@ impl Project {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NotAGitRepositoryOutcome {
+    pub path: PathBuf,
+    pub message: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, strum::Display)]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum AddProjectOutcome {
@@ -194,7 +200,7 @@ pub enum AddProjectOutcome {
     NonMainWorktree,
     NoWorkdir,
     NoDotGitDirectory,
-    NotAGitRepository(String),
+    NotAGitRepository(NotAGitRepositoryOutcome),
 }
 
 impl AddProjectOutcome {
@@ -229,7 +235,7 @@ impl AddProjectOutcome {
                 Err(anyhow::anyhow!("no .git directory found in repository"))
             }
             AddProjectOutcome::NotAGitRepository(msg) => {
-                Err(anyhow::anyhow!("not a git repository: {}", msg))
+                Err(anyhow::anyhow!("not a git repository: {}", msg.message))
             }
         }
     }
