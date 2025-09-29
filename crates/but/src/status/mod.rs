@@ -179,7 +179,7 @@ fn print_assignments(assignments: &Vec<FileAssignment>, changes: &[TreeChange], 
         if dotted {
             println!("┊   {id} {status} {path} {locks}");
         } else {
-            println!("│   {id} {status} {path} {locks}");
+            println!("┊│   {id} {status} {path} {locks}");
         }
     }
 }
