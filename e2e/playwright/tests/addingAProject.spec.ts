@@ -97,3 +97,44 @@ test('should handle gracefully adding a non-git directory', async ({ page, conte
 
 	await waitForTestId(page, 'add-project-not-a-git-repo-modal');
 });
+
+test('should handle adding a project with extra commit and uncommitted changes on main branch', async ({
+	page,
+	context
+}, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	const projectPath = gitbutler.pathInWorkdir('local-with-changes/');
+
+	// Set up repository with extra commit and uncommitted changes
+	await gitbutler.runScript('project-with-commit-and-uncommitted-changes.sh');
+
+	await page.goto('/');
+
+	const onboardingPage = getByTestId(page, 'onboarding-page');
+	await onboardingPage.waitFor();
+
+	clickByTestId(page, 'analytics-continue');
+
+	// Click the add local project button
+	const fileChooserPromise = page.waitForEvent('filechooser');
+	clickByTestId(page, 'add-local-project');
+
+	const fileChooser = await fileChooserPromise;
+	await fileChooser.setFiles(projectPath);
+
+	clickByTestId(page, 'set-base-branch');
+
+	// Should load the workspace directly after setting base branch
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be only one stack
+	const stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+	const stack = stacks.first();
+
+	// The stack should not have the branch called "master"
+	await expect(stack).not.toContainText('master');
+});
