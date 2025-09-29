@@ -12,6 +12,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BACKEND } from '$lib/backend';
+import { getUserErrorCode, Code } from '$lib/backend/ipc';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
@@ -22,7 +23,7 @@
 	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { GIT_SERVICE } from '$lib/git/gitService';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
-	import { showError, showInfo, showWarning } from '$lib/notifications/toasts';
+	import { showError, showInfo, showWarning, showToast } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
@@ -320,7 +321,44 @@
 			}
 		} catch (error: unknown) {
 			posthog.captureOnboarding(OnboardingEvent.SetProjectActiveFailed);
-			showError('Failed to set the project active', error);
+			
+			// Check if this is a non-git repository error
+			const errorCode = getUserErrorCode(error);
+			if (errorCode === Code.NonGitRepository) {
+				// Show special toast with git init option
+				showToast({
+					title: 'Not a Git repository',
+					message: 'The selected directory is not a Git repository. Would you like to initialize one?',
+					style: 'warning',
+					extraAction: {
+						label: 'Initialize Repository',
+						onClick: async (dismiss) => {
+							try {
+								const currentProject = projects?.find((p) => p.id === projectId);
+								if (currentProject?.path) {
+									await projectsService.initGitRepository(currentProject.path);
+									dismiss();
+									showToast({
+										title: 'Repository Initialized',
+										message: `Git repository has been successfully initialized at ${currentProject.path}. Loading project...`,
+										style: 'info'
+									});
+									// Retry setting the project active
+									await setActiveProjectOrRedirect(projectId);
+								} else {
+									throw new Error('Could not find project path');
+								}
+							} catch (initError) {
+								console.error('Failed to initialize repository:', initError);
+								dismiss();
+								showError('Failed to initialize repository', initError);
+							}
+						}
+					}
+				});
+			} else {
+				showError('Failed to set the project active', error);
+			}
 		}
 	}
 

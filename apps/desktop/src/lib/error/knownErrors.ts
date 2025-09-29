@@ -8,7 +8,8 @@ export enum Code {
 	ProjectMissing = 'errors.projects.missing',
 	SecretKeychainNotFound = 'errors.secret.keychain_notfound',
 	MissingLoginKeychain = 'errors.secret.missing_login_keychain',
-	GitHubTokenExpired = 'errors.github.expired_token'
+	GitHubTokenExpired = 'errors.github.expired_token',
+	NonGitRepository = 'errors.projects.not_git_repository'
 }
 
 export const KNOWN_ERRORS: Record<string, string> = {
@@ -34,5 +35,8 @@ With \`seahorse\` or equivalent, create a \`Login\` password store, right click 
 	`,
 	[Code.GitHubTokenExpired]: `
 Your GitHub token appears expired, please check your settings!
+	`,
+	[Code.NonGitRepository]: `
+The selected directory is not a Git repository. Would you like to initialize a Git repository in this directory?
 	`
 };

@@ -227,6 +227,7 @@ fn main() {
                     projects::list_projects,
                     projects::set_project_active,
                     projects::open_project_in_window,
+                    projects::init_git_repository,
                     repo::git_get_local_config,
                     repo::git_set_local_config,
                     repo::check_signing_settings,
