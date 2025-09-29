@@ -968,6 +968,45 @@ fn added_modified_in_worktree() -> Result<()> {
 }
 
 #[test]
+fn non_utf8_decoding() -> Result<()> {
+    let repo = repo("non-utf8-encodings")?;
+    let actual = diff::worktree_changes(&repo)?;
+    // Let's have one sample file per codepage with reasonable amounts of text for inference.
+    insta::assert_debug_snapshot!(actual, @r#"
+    WorktreeChanges {
+        changes: [
+            TreeChange {
+                path: "windows1252",
+                status: Addition {
+                    state: ChangeState {
+                        id: Sha1(0000000000000000000000000000000000000000),
+                        kind: Blob,
+                    },
+                    is_untracked: true,
+                },
+            },
+        ],
+        ignored_changes: [],
+    }
+    "#);
+    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    [
+        Patch {
+            hunks: [
+                DiffHunk("@@ -1,0 +1,1 @@
+                +€ÄÀ
+                "),
+            ],
+            is_result_of_binary_to_text_conversion: false,
+            lines_added: 1,
+            lines_removed: 0,
+        },
+    ]
+    "#);
+    Ok(())
+}
+
+#[test]
 fn modified_in_index() -> Result<()> {
     let repo = repo("modified-in-index")?;
     let actual = diff::worktree_changes(&repo)?;

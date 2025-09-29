@@ -310,3 +310,8 @@ cat <<EOF >>.git/config
 	textconv = "shift; echo ho"
 EOF
 )
+
+git init non-utf8-encodings
+(cd non-utf8-encodings
+  printf '\x80\xc4\xc0' > windows1252
+)

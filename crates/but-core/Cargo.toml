@@ -28,6 +28,7 @@ gitbutler-serde.workspace = true
 gitbutler-error.workspace = true
 uuid.workspace = true
 toml.workspace = true
+chardetng = "0.1.17"
 
 [dev-dependencies]
 but-testsupport.workspace = true

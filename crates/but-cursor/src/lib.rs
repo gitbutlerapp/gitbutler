@@ -281,7 +281,6 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
         }
     }
 
-    // dbg!(input);
     Ok(CursorHookOutput::default())
 }
 

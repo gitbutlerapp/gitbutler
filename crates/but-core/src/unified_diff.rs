@@ -30,6 +30,9 @@ pub struct DiffHunk {
     ///
     /// The line separator is the one used in the original file and may be `LF` or `CRLF`.
     /// Note that the file-portion of the header isn't used here.
+    ///
+    /// Also note that this has possibly been decoded lossily, assuming UTF8 if the encoding couldn't be determined,
+    /// replacing invalid codepoints with markers.
     #[serde(serialize_with = "gitbutler_serde::bstring_lossy::serialize")]
     pub diff: BString,
 }
@@ -181,7 +184,7 @@ impl UnifiedDiff {
                                 let mut buf = Vec::with_capacity(header_str.len() + hunk.len());
                                 buf.extend_from_slice(header_str.as_bytes());
                                 buf.extend_from_slice(hunk);
-                                buf.into()
+                                detect_and_convert_to_utf8(buf.into())
                             },
                         });
                         Ok(())
@@ -232,6 +235,22 @@ impl UnifiedDiff {
             }
         }))
     }
+}
+
+/// Detect the encoding of the given byte content and convert it to UTF-8, after attempting to guess its encoding.
+/// Even if decoding failed, we always return the original `content` in the wirst case.
+fn detect_and_convert_to_utf8(content: BString) -> BString {
+    // Use chardet to detect the encoding
+    let mut detect = chardetng::EncodingDetector::new();
+    detect.feed(&content, true);
+    let (encoding, high_confidence) = detect.guess_assess(None, true);
+    if encoding.name() == "UTF-8" || !high_confidence {
+        return content;
+    }
+
+    // Convert to UTF-8
+    let (decoded, _actual_encoding, _used_replacement_chars) = encoding.decode(&content);
+    decoded.into_owned().into()
 }
 
 fn compute_line_changes(hunks: &Vec<DiffHunk>) -> (u32, u32) {
