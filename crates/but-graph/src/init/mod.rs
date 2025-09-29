@@ -90,8 +90,7 @@ impl Options {
     pub fn limited() -> Self {
         Options {
             collect_tags: false,
-            // TODO: put this back down once the underlying issue is fixed.
-            commits_limit_hint: Some(600),
+            commits_limit_hint: Some(300),
             ..Default::default()
         }
     }
@@ -620,7 +619,11 @@ impl Graph {
             };
 
             let refs_at_commit_before_removal = ctx.refs_by_id.remove(&id).unwrap_or_default();
-            let (remote_items, maybe_goal_for_id) = try_queue_remote_tracking_branches(
+            let RemoteQueueOutcome {
+                items_to_queue_later,
+                maybe_make_id_a_goal_so_remote_can_find_local,
+                limit_to_let_local_find_remote,
+            } = try_queue_remote_tracking_branches(
                 repo,
                 &refs_at_commit_before_removal,
                 &mut graph,
@@ -635,14 +638,14 @@ impl Graph {
 
             let segment = &mut graph[segment_idx_for_id];
             let commit_idx_for_possible_fork = segment.commits.len();
-            let propagated_flags = propagated_flags | maybe_goal_for_id;
+            let propagated_flags = propagated_flags | maybe_make_id_a_goal_so_remote_can_find_local;
             let hard_limit_hit = queue_parents(
                 &mut next,
                 &info.parent_ids,
                 propagated_flags,
                 segment_idx_for_id,
                 commit_idx_for_possible_fork,
-                limit,
+                limit.additional_goal(limit_to_let_local_find_remote),
             );
             if hard_limit_hit {
                 return graph.post_processed(meta, tip, ctx.with_hard_limit());
@@ -664,13 +667,13 @@ impl Graph {
                 )?,
             );
 
-            for item in remote_items {
+            for item in items_to_queue_later {
                 if next.push_back_exhausted(item) {
                     return graph.post_processed(meta, tip, ctx.with_hard_limit());
                 }
             }
 
-            prune_integrated_tips(&mut graph, &mut next);
+            prune_integrated_tips(&mut graph, &mut next)?;
         }
 
         graph.post_processed(meta, tip, ctx)
