@@ -122,8 +122,9 @@ pub(crate) fn worktree(
             i == 0,
         )?;
     }
+    let dot = "●".purple();
     println!(
-        " ● {} (common base) [{}] {}",
+        " {dot} {} (common base) [{}] {}",
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.message
@@ -254,6 +255,18 @@ pub fn print_group(
                     "".to_string().normal()
                 };
 
+                let dot = match commit.state {
+                    but_workspace::ui::CommitState::LocalOnly => "●".normal(),
+                    but_workspace::ui::CommitState::LocalAndRemote(object_id) => {
+                        if object_id == commit.id {
+                            "●".green()
+                        } else {
+                            "◐".green()
+                        }
+                    }
+                    but_workspace::ui::CommitState::Integrated => "●".purple(),
+                };
+
                 if verbose {
                     // Verbose format: author and timestamp on first line, message on second line
                     let datetime = DateTime::from_timestamp_millis(commit.created_at as i64)
@@ -261,7 +274,7 @@ pub fn print_group(
                     let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S");
 
                     println!(
-                        "●   {}{} {} {} {} {} {}",
+                        "{dot}   {}{} {} {} {} {} {}",
                         &commit.id.to_string()[..2].blue().underline(),
                         &commit.id.to_string()[2..7].dimmed(),
                         commit.author.name,
@@ -274,7 +287,7 @@ pub fn print_group(
                 } else {
                     // Original format: everything on one line
                     println!(
-                        "●   {}{} {} {} {} {}",
+                        "{dot}   {}{} {} {} {} {}",
                         &commit.id.to_string()[..2].blue().underline(),
                         &commit.id.to_string()[2..7].dimmed(),
                         message,
