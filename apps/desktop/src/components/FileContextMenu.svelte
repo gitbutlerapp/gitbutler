@@ -177,8 +177,9 @@
 		idSelection.removeMany(selectedFiles);
 
 		if (newCommitId && branchName) {
+			const previewOpen = uiState.lane(stackId).selection.current?.previewOpen ?? false;
 			// Update the selection to the new commit
-			uiState.lane(stackId).selection.set({ branchName, commitId: newCommitId });
+			uiState.lane(stackId).selection.set({ branchName, commitId: newCommitId, previewOpen });
 		}
 		contextMenu.close();
 	}

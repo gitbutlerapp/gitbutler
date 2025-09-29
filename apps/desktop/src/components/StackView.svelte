@@ -59,8 +59,6 @@
 
 	let lanesSrollableEl = $state<HTMLDivElement>();
 
-	let isDetailsViewForcesClosed = $state(false);
-
 	const stackService = inject(STACK_SERVICE);
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
@@ -106,6 +104,7 @@
 	const commitId = $derived(selection.current?.commitId);
 	const branchName = $derived(selection.current?.branchName);
 	const upstream = $derived(selection.current?.upstream);
+	const previewOpen = $derived(selection.current?.previewOpen);
 
 	const activeSelectionId: SelectionId | undefined = $derived.by(() => {
 		if (commitId) {
@@ -232,8 +231,10 @@
 	}
 
 	function onclosePreviewOnly() {
-		// Close the details view but keep the selection intact
-		isDetailsViewForcesClosed = true;
+		const source = selection.current;
+		if (source) {
+			selection.set({ ...source, previewOpen: false });
+		}
 	}
 
 	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stackId));
@@ -258,32 +259,9 @@
 	}
 
 	let isDetailsViewOpen = $derived(
-		!!(branchName || commitId || assignedKey || selectedFile) && !isDetailsViewForcesClosed
+		(!!(branchName || commitId || selectedFile) && previewOpen) || !!assignedKey
 	);
 
-	// Track the current selection to detect when it changes
-	let previousSelection = $state<{ branchName?: string; commitId?: string }>({});
-
-	// Reset the forced closed state when selection changes to a different branch/commit
-	$effect(() => {
-		const currentSelection = { branchName, commitId };
-
-		// Check if selection actually changed
-		if (
-			currentSelection.branchName !== previousSelection.branchName ||
-			currentSelection.commitId !== previousSelection.commitId
-		) {
-			// Selection changed, allow details view to open again
-			isDetailsViewForcesClosed = false;
-			previousSelection = { ...currentSelection };
-
-			// Clear file selections from the previous context to allow auto-selection
-			// to work properly for the new context
-			if (activeSelectionId) {
-				idSelection.clear(activeSelectionId);
-			}
-		}
-	});
 	const DETAILS_RIGHT_PADDING_REM = 1.125;
 
 	// Function to update CSS custom property for details view width

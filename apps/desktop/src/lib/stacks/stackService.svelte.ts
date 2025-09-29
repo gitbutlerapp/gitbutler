@@ -726,8 +726,10 @@ export class StackService {
 			},
 			onError: (_, args) => {
 				const state = this.uiState.lane(args.laneId);
+				const previewOpen = state.selection.current?.previewOpen ?? false;
 				state.selection.set({
-					branchName: args.branchName
+					branchName: args.branchName,
+					previewOpen
 				});
 			}
 		});

@@ -19,6 +19,7 @@ export type StackSelection = {
 	branchName: string;
 	commitId?: string;
 	upstream?: boolean;
+	previewOpen: boolean;
 };
 
 export type NewCommitMessage = {
@@ -403,7 +404,8 @@ function updateStackSelection(uiState: UiState, stackId: string, details: StackD
 	// If the selected commit is not in the branch, clear the commit selection
 	if (!selection.upstream && !branchCommitIds.includes(selection.commitId)) {
 		laneState.selection.set({
-			branchName: selection.branchName
+			branchName: selection.branchName,
+			previewOpen: false
 		});
 
 		return;
@@ -415,7 +417,8 @@ function updateStackSelection(uiState: UiState, stackId: string, details: StackD
 	// If the selection is for an upstream commit and the commit is not in the upstream commits, clear the selection
 	if (selection.upstream && !upstreamCommitIds.includes(selection.commitId)) {
 		laneState.selection.set({
-			branchName: selection.branchName
+			branchName: selection.branchName,
+			previewOpen: false
 		});
 
 		return;

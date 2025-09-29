@@ -111,7 +111,7 @@
 		if (currentSelection?.commitId === commitId && currentSelection?.branchName === branchName) {
 			laneState.selection.set(undefined);
 		} else {
-			laneState.selection.set({ branchName, commitId, upstream });
+			laneState.selection.set({ branchName, commitId, upstream, previewOpen: true });
 		}
 		projectState.stackId.set(stackId);
 		onselect?.();
@@ -330,7 +330,10 @@
 								stackId,
 								$runHooks,
 								dzCommit,
-								(newId) => uiState.lane(stackId).selection.set({ branchName, commitId: newId }),
+								(newId) => {
+									const previewOpen = selection.current?.previewOpen ?? false;
+									uiState.lane(stackId).selection.set({ branchName, commitId: newId, previewOpen });
+								},
 								uiState
 							)
 						: undefined}
