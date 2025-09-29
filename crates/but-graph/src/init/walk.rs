@@ -689,6 +689,16 @@ pub fn propagate_flags_downward(
     topo.leafs.take().filter(|v| !v.is_empty())
 }
 
+pub(crate) struct RemoteQueueOutcome {
+    /// The new tips to queue officially later.
+    pub items_to_queue_later: Vec<QueueItem>,
+    /// A way for the remote to find the local tracking branch.
+    pub maybe_make_id_a_goal_so_remote_can_find_local: CommitFlags,
+    /// A way for the local tracking branch to find the remote.
+    /// Only set if `items_to_queue_later` is also set.
+    pub limit_to_let_local_find_remote: CommitFlags,
+}
+
 /// Check `refs` for refs with remote tracking branches, and return a queue for them for traversal after creating a segment
 /// named after the tracking branch.
 /// This eager queuing makes sure that the post-processing doesn't have to traverse again when it creates segments
@@ -708,8 +718,9 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
     id: gix::ObjectId,
     limit: Limit,
     goals: &mut Goals,
-) -> anyhow::Result<(Vec<QueueItem>, CommitFlags)> {
+) -> anyhow::Result<RemoteQueueOutcome> {
     let mut goal_flags = CommitFlags::empty();
+    let mut limit_flags = CommitFlags::empty();
     let mut queue = Vec::new();
     for rn in refs {
         let Some(remote_tracking_branch) = remotes::lookup_remote_tracking_branch_or_deduce_it(
@@ -737,19 +748,27 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
             )?);
 
         let remote_limit = limit.with_indirect_goal(id, goals);
+        let self_flags = goals.flag_for(remote_tip).unwrap_or_default();
+        limit_flags |= self_flags;
         // These flags are to be attached to `id` so it can propagate itself later.
         // The remote limit is for searching `id`.
+        // Also, this makes the local tracking branch look for its remote, which is important
+        // if the remote is far away as the local branch was rebased somewhere far ahead of the remote.
         goal_flags |= remote_limit.goal_flags();
         queue.push((
             remote_tip,
-            CommitFlags::empty(),
+            self_flags,
             Instruction::CollectCommit {
                 into: remote_segment,
             },
             remote_limit,
         ));
     }
-    Ok((queue, goal_flags))
+    Ok(RemoteQueueOutcome {
+        items_to_queue_later: queue,
+        maybe_make_id_a_goal_so_remote_can_find_local: goal_flags,
+        limit_to_let_local_find_remote: limit_flags,
+    })
 }
 
 pub fn possibly_split_occupied_segment(
@@ -881,20 +900,20 @@ fn propagate_goals_of_reachable_tips(
 /// as these are uninteresting.
 /// However, do so only if our entrypoint isn't integrated itself and is not in a workspace. The reason for this is that we
 /// always also traverse workspaces and their targets, even if the traversal starts outside a workspace.
-pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) {
+pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) -> anyhow::Result<()> {
     let all_integated_and_done = next.iter().all(|(_id, flags, _instruction, tip_limit)| {
         flags.contains(CommitFlags::Integrated) && tip_limit.goal_reached()
     });
     if !all_integated_and_done {
-        return;
+        return Ok(());
     }
-    if graph
-        .lookup_entrypoint()
-        .ok()
-        .and_then(|ep| ep.segment.non_empty_flags_of_first_commit())
+    let ep = graph.lookup_entrypoint()?;
+    if ep
+        .segment
+        .non_empty_flags_of_first_commit()
         .is_some_and(|flags| flags.contains(CommitFlags::Integrated))
     {
-        return;
+        return Ok(());
     }
 
     next.inner
@@ -906,4 +925,5 @@ pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) {
             }
             false
         });
+    Ok(())
 }

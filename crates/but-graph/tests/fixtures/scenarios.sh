@@ -1124,5 +1124,32 @@ EOF
     setup_target_to_match_main
     create_workspace_commit_once main
   )
+
+  git init remote-far-in-ancestry
+  (cd remote-far-in-ancestry
+    commit M1
+    git checkout -b soon-A-remote
+      commit R2
+      commit R3
+      setup_remote_tracking soon-A-remote A move
+    git checkout main
+    commit M2
+    commit M3
+    commit M4
+    commit M5
+    commit M6
+    commit M7
+    commit M8
+    commit M9
+    commit M10
+    commit M11
+    commit M12
+    setup_target_to_match_main
+    git checkout -b A
+    commit A1
+    commit A2
+    commit A3
+    create_workspace_commit_once A
+  )
 )
 
