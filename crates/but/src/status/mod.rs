@@ -124,7 +124,7 @@ pub(crate) fn worktree(
     }
     let dot = "●".purple();
     println!(
-        " {dot} {} (common base) [{}] {}",
+        "{dot} {} (common base) [{}] {}",
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.message
@@ -186,7 +186,7 @@ pub fn print_group(
     verbose: bool,
     stack_mark: &mut Option<ColoredString>,
     ctx: &mut CommandContext,
-    last: bool,
+    _last: bool,
     first: bool,
 ) -> anyhow::Result<()> {
     if let Some(group) = &group {
@@ -198,7 +198,7 @@ pub fn print_group(
                 .blue();
             let notch = if first { "╭" } else { "├" };
             if !first {
-                println!("│");
+                println!("┊│");
             }
 
             let no_commits = if branch.commits.is_empty() {
@@ -210,7 +210,7 @@ pub fn print_group(
             .italic();
 
             println!(
-                "{}┄{} [{}] {} {}",
+                "┊{}┄{} [{}] {} {}",
                 notch,
                 id,
                 branch.name.to_string().green().bold(),
@@ -274,7 +274,7 @@ pub fn print_group(
                     let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S");
 
                     println!(
-                        "{dot}   {}{} {} {} {} {} {}",
+                        "┊{dot}   {}{} {} {} {} {} {}",
                         &commit.id.to_string()[..2].blue().underline(),
                         &commit.id.to_string()[2..7].dimmed(),
                         commit.author.name,
@@ -283,11 +283,11 @@ pub fn print_group(
                         conflicted_str,
                         mark.unwrap_or_default()
                     );
-                    println!("│     {message}");
+                    println!("┊│     {message}");
                 } else {
                     // Original format: everything on one line
                     println!(
-                        "{dot}   {}{} {} {} {} {}",
+                        "┊{dot}   {}{} {} {} {} {}",
                         &commit.id.to_string()[..2].blue().underline(),
                         &commit.id.to_string()[2..7].dimmed(),
                         message,
@@ -304,7 +304,7 @@ pub fn print_group(
                             .underline();
                         let path = path_with_color(&change.status, change.path.to_string());
                         let status_letter = status_letter(&change.status);
-                        println!("│     {cid} {status_letter} {path}");
+                        println!("┊│     {cid} {status_letter} {path}");
                     }
                 }
             }
@@ -320,13 +320,9 @@ pub fn print_group(
         print_assignments(&assignments, changes, true);
     }
     if !first {
-        println!("╰╮");
+        println!("├╯");
     }
-    if last {
-        println!(" ┊");
-    } else {
-        println!(" ");
-    };
+    println!("┊");
     Ok(())
 }
 
