@@ -56,14 +56,27 @@ export async function dragAndDropByTestId(
 	await page.mouse.up();
 }
 
+type DropOptions = {
+	force?: boolean;
+	position?: {
+		x: number;
+		y: number;
+	};
+};
+
 /**
  * Drag and drop an element onto another element by their locators.
  */
-export async function dragAndDropByLocator(page: Page, source: Locator, target: Locator) {
+export async function dragAndDropByLocator(
+	page: Page,
+	source: Locator,
+	target: Locator,
+	options: DropOptions = {}
+) {
 	await source.hover();
 	await page.mouse.down();
-	await target.hover();
-	await target.hover({ force: true });
+	await target.hover({ force: options.force, position: options.position });
+	await target.hover({ force: true, position: options.position });
 	await page.mouse.up();
 }
 

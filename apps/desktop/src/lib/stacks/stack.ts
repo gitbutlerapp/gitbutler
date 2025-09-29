@@ -334,3 +334,7 @@ export type InteractiveIntegrationStep =
 				message: string | null;
 			};
 	  };
+
+export type MoveBranchResult = {
+	deletedStacks: string[];
+};

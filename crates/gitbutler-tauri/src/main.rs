@@ -262,6 +262,7 @@ fn main() {
                     virtual_branches::squash_commits,
                     virtual_branches::fetch_from_remotes,
                     virtual_branches::move_commit,
+                    virtual_branches::move_branch,
                     virtual_branches::normalize_branch_name,
                     virtual_branches::upstream_integration_statuses,
                     virtual_branches::integrate_upstream,

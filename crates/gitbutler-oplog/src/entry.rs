@@ -146,6 +146,7 @@ pub enum OperationKind {
     SquashCommit,
     UpdateCommitMessage,
     MoveCommit,
+    MoveBranch,
     RestoreFromSnapshot,
     ReorderCommit,
     InsertBlankCommit,

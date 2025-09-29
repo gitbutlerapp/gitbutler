@@ -41,7 +41,8 @@ import type {
 	StackDetails,
 	CreateRefRequest,
 	InteractiveIntegrationStep,
-	CreateBranchFromBranchOutcome
+	CreateBranchFromBranchOutcome,
+	MoveBranchResult
 } from '$lib/stacks/stack';
 import type { ReduxError } from '$lib/state/reduxError';
 
@@ -746,6 +747,10 @@ export class StackService {
 
 	get moveCommit() {
 		return this.api.endpoints.moveCommit.mutate;
+	}
+
+	get moveBranch() {
+		return this.api.endpoints.moveBranch.mutate;
 	}
 
 	get integrateUpstreamCommits() {
@@ -1461,6 +1466,40 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					invalidatesItem(ReduxTag.StackDetails, args.sourceStackId),
 					invalidatesItem(ReduxTag.StackDetails, args.targetStackId)
 				]
+			}),
+			moveBranch: build.mutation<
+				MoveBranchResult,
+				{
+					projectId: string;
+					sourceStackId: string;
+					subjectBranchName: string;
+					targetStackId: string;
+					targetBranchName: string;
+				}
+			>({
+				extraOptions: {
+					command: 'move_branch',
+					actionName: 'Move Branch'
+				},
+				query: (args) => args,
+				invalidatesTags: (result, _error, args) => {
+					if (result === undefined) return [];
+
+					if (result.deletedStacks.includes(args.sourceStackId)) {
+						// The source stack was deleted, so we need to invalidate the list of stacks.
+						return [
+							invalidatesList(ReduxTag.Stacks),
+							invalidatesList(ReduxTag.WorktreeChanges), // Moving commits can cause conflicts
+							invalidatesItem(ReduxTag.StackDetails, args.targetStackId)
+						];
+					}
+
+					return [
+						invalidatesList(ReduxTag.WorktreeChanges), // Moving commits can cause conflicts
+						invalidatesItem(ReduxTag.StackDetails, args.sourceStackId),
+						invalidatesItem(ReduxTag.StackDetails, args.targetStackId)
+					];
+				}
 			}),
 			integrateUpstreamCommits: build.mutation<
 				void,
