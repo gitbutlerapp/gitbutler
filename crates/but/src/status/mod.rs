@@ -99,7 +99,8 @@ pub(crate) fn worktree(
         return Ok(());
     }
 
-    for (stack_id, (details, assignments)) in stack_details {
+    let stack_details_len = stack_details.len();
+    for (i, (stack_id, (details, assignments))) in stack_details.into_iter().enumerate() {
         let mut stack_mark = stack_id.and_then(|stack_id| {
             if crate::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
                 Some("◀ Marked ▶".red().bold())
@@ -117,10 +118,12 @@ pub(crate) fn worktree(
             verbose,
             &mut stack_mark,
             ctx,
+            i == stack_details_len - 1,
+            i == 0,
         )?;
     }
     println!(
-        "    ● {} (common base) [{}] {}",
+        " ● {} (common base) [{}] {}",
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.message
@@ -128,7 +131,7 @@ pub(crate) fn worktree(
     Ok(())
 }
 
-fn print_assignments(assignments: &Vec<FileAssignment>, changes: &[TreeChange]) {
+fn print_assignments(assignments: &Vec<FileAssignment>, changes: &[TreeChange], dotted: bool) {
     for fa in assignments {
         let state = status_from_changes(changes, fa.path.clone());
         let path = match &state {
@@ -164,7 +167,11 @@ fn print_assignments(assignments: &Vec<FileAssignment>, changes: &[TreeChange]) 
         if !locks.is_empty() {
             locks = format!("🔒 {locks}");
         }
-        println!("│   {id} {status} {path} {locks}");
+        if dotted {
+            println!("┊   {id} {status} {path} {locks}");
+        } else {
+            println!("│   {id} {status} {path} {locks}");
+        }
     }
 }
 
@@ -178,6 +185,8 @@ pub fn print_group(
     verbose: bool,
     stack_mark: &mut Option<ColoredString>,
     ctx: &mut CommandContext,
+    last: bool,
+    first: bool,
 ) -> anyhow::Result<()> {
     if let Some(group) = &group {
         let mut first = true;
@@ -209,7 +218,7 @@ pub fn print_group(
             );
             *stack_mark = None; // Only show the stack mark for the first branch
             if first {
-                print_assignments(&assignments, changes);
+                print_assignments(&assignments, changes, false);
             }
             first = false;
             for commit in &branch.commits {
@@ -295,9 +304,16 @@ pub fn print_group(
             "Unassigned Changes".to_string().green().bold(),
             stack_mark.clone().unwrap_or_default()
         );
-        print_assignments(&assignments, changes);
+        print_assignments(&assignments, changes, true);
     }
-    println!("╰┄┄┄╮");
+    if !first {
+        println!("╰╮");
+    }
+    if last {
+        println!(" ┊");
+    } else {
+        println!(" ");
+    };
     Ok(())
 }
 
