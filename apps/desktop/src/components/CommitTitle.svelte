@@ -9,7 +9,7 @@
 		editable?: boolean;
 	};
 
-	const { commitMessage, truncate, className, editable = true }: Props = $props();
+	const { commitMessage, truncate, className, editable }: Props = $props();
 
 	const title = $derived(splitMessage(commitMessage).title);
 
