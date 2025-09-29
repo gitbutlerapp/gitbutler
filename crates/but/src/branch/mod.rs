@@ -29,18 +29,21 @@ pub fn handle(cmd: &Subcommands, repo_path: &Path, _json: bool) -> anyhow::Resul
             branch_name,
             anchor,
         } => {
+            let ctx =
+                CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
             // Get branch name or use canned name
             let branch_name = if let Some(name) = branch_name {
+                let repo = ctx.gix_repo()?;
+                if repo.try_find_reference(name)?.is_some() {
+                    println!("Branch '{name}' already exists");
+                    return Ok(());
+                }
                 name.clone()
             } else {
                 but_api::workspace::canned_branch_name(project.id)?
             };
             let anchor = if let Some(anchor_str) = anchor {
                 // Use the new create_reference API when anchor is provided
-                let ctx = CommandContext::open(
-                    &project,
-                    AppSettings::load_from_default_path_creating()?,
-                )?;
                 let mut ctx = ctx; // Make mutable for CliId resolution
 
                 // Resolve the anchor string to a CliId
