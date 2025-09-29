@@ -161,7 +161,11 @@
 										onclick={() => {
 											// Open commit preview by setting selection
 											const laneState = uiState.lane(laneId);
-											laneState.selection.set({ branchName, commitId: commit.id });
+											laneState.selection.set({
+												branchName,
+												commitId: commit.id,
+												previewOpen: true
+											});
 										}}
 									/>
 								{/each}

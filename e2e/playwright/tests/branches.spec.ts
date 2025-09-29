@@ -464,7 +464,7 @@ branch1 commit 1
 	await waitForTestId(page, 'workspace-view');
 
 	const commitsAfterResolving = getByTestId(page, 'commit-row');
-	await expect(commitsAfterResolving).toHaveCount(3);
+	await expect(commitsAfterResolving).toHaveCount(2);
 
 	// Verify the file content
 	let resolvedFileContent = readFileSync(filePath, 'utf-8');
@@ -478,11 +478,9 @@ branch1 commit 1
 	);
 
 	const commitsAfterResolution = getByTestId(page, 'commit-row');
-	const conflictedCommitAfterResolution = commitsAfterResolution
-		.filter({
-			hasText: 'branch1: second commit'
-		})
-		.first();
+	const conflictedCommitAfterResolution = commitsAfterResolution.filter({
+		hasText: 'branch1: second commit'
+	});
 	await expect(conflictedCommitAfterResolution).toBeVisible();
 
 	// Click on the conflicted commit to open the commit drawer

@@ -33,7 +33,8 @@
 		const laneState = uiState.lane(stackId);
 		laneState.selection.set({
 			branchName,
-			commitId
+			commitId,
+			previewOpen: true
 		});
 		projectState.stackId.set(stackId);
 	}
@@ -42,7 +43,8 @@
 		const projectState = uiState.project(projectId);
 		const laneState = uiState.lane(stackId);
 		laneState.selection.set({
-			branchName
+			branchName,
+			previewOpen: true
 		});
 		projectState.stackId.set(stackId);
 	}

@@ -9,7 +9,8 @@ import type {
 const MOCK_UI_SELECTION: StackSelection = {
 	branchName: 'branch-a',
 	commitId: 'commit-a-id',
-	upstream: false
+	upstream: false,
+	previewOpen: false
 };
 
 const MOCK_STACK_UI_STATE: StackState = {

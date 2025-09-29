@@ -74,7 +74,7 @@
 	}
 
 	function startEditingCommitMessage(branchName: string, commitId: string) {
-		laneState.selection.set({ branchName, commitId });
+		laneState.selection.set({ branchName, commitId, previewOpen: true });
 		projectState.exclusiveAction.set({
 			type: 'edit-commit-message',
 			stackId,
@@ -110,7 +110,7 @@
 		if (selectedCommit && selectedCommit.result.status === QueryStatus.rejected) {
 			const branchName = selection.current?.branchName;
 			if (branchName) {
-				selection.set({ branchName, commitId: undefined });
+				selection.set({ branchName, commitId: undefined, previewOpen: false });
 			}
 		}
 	});
@@ -214,7 +214,7 @@
 						if (currentSelection?.branchName === branchName && !currentSelection?.commitId) {
 							uiState.lane(laneId).selection.set(undefined);
 						} else {
-							uiState.lane(laneId).selection.set({ branchName });
+							uiState.lane(laneId).selection.set({ branchName, previewOpen: true });
 						}
 						onselect?.();
 					}}

@@ -117,7 +117,9 @@
 			message: commitMessage
 		});
 
-		uiState.lane(ensureValue(stackId)).selection.set({ branchName, commitId: newCommitId });
+		uiState
+			.lane(ensureValue(stackId))
+			.selection.set({ branchName, commitId: newCommitId, previewOpen: true });
 		setMode('view');
 	}
 

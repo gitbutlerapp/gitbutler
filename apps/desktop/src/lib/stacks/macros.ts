@@ -40,7 +40,8 @@ export default class StackMacros {
 		if (outcome.newCommit) {
 			this.uiState.lane(stack.id).selection.set({
 				branchName,
-				commitId: outcome.newCommit
+				commitId: outcome.newCommit,
+				previewOpen: true
 			});
 
 			this.uiState.project(this.projectId).stackId.set(stack.id);
@@ -116,9 +117,12 @@ export default class StackMacros {
 			throw new Error('No new commit id found for the moved changes');
 		}
 
+		const previewOpen =
+			this.uiState.lane(destinationStackId).selection.current?.previewOpen ?? false;
 		this.uiState.lane(destinationStackId).selection.set({
 			branchName,
-			commitId: newCommitId
+			commitId: newCommitId,
+			previewOpen
 		});
 		this.uiState.project(this.projectId).stackId.set(destinationStackId);
 	}
