@@ -90,7 +90,8 @@ impl Options {
     pub fn limited() -> Self {
         Options {
             collect_tags: false,
-            commits_limit_hint: Some(300),
+            // TODO: put this back down once the underlying issue is fixed.
+            commits_limit_hint: Some(600),
             ..Default::default()
         }
     }
