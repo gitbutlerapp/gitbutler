@@ -1,7 +1,7 @@
 import { FModeManager } from '$lib/focus/fModeManager';
 import { getNavigationAction, isInputElement, getElementDescription } from '$lib/focus/focusUtils';
 import { focusNextTabIndex } from '$lib/focus/tabbable';
-import { removeFromArray, scrollIntoViewIfNeeded } from '$lib/focus/utils';
+import { isContentEditable, removeFromArray, scrollIntoViewIfNeeded } from '$lib/focus/utils';
 import { parseHotkey, matchesHotkey } from '$lib/utils/hotkeySymbols';
 import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
 import { InjectionToken } from '@gitbutler/core/context';
@@ -91,14 +91,14 @@ export class FocusManager {
 
 		if (e.target instanceof HTMLElement) {
 			const focusableNode = this.findNearestFocusableElement(e.target);
-			if (focusableNode) {
+			if (focusableNode && focusableNode.element.contains(e.target)) {
 				this.setActiveNode(focusableNode);
 				this.setOutline(false);
 			}
 		}
 
 		// TODO: Find a way to update the focusable without causing target to blur.
-		if (isInputElement(e.target)) {
+		if (isInputElement(e.target) && !isContentEditable(e.target)) {
 			e.target.focus();
 		}
 	}
@@ -358,7 +358,9 @@ export class FocusManager {
 
 	private updateCurrentNode(event: KeyboardEvent): FocusableNode | undefined {
 		if (this.currentNode) return this.currentNode;
-		if (event.key === 'Tab') return;
+		// We don't want to go from no current to picking nearest navigable
+		// descendant when modifier keys are pressed.
+		if (['Tab', 'Shift', 'Ctrl', 'Meta'].includes(event.key)) return;
 
 		const firstNode = this.findNavigableDescendant(this.getDefaultRoot());
 		if (firstNode) {
