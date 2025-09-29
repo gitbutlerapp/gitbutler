@@ -139,10 +139,6 @@ pub enum Code {
     SecretKeychainNotFound,
     MissingLoginKeychain,
     GitForcePushProtection,
-    /// When trying to open a project that is not in a git repository,
-    /// this error code is used to trigger special handling in the frontend.
-    /// The frontend will show a modal offering to initialize a git repository.
-    NonGitRepository,
 }
 
 impl std::fmt::Display for Code {
@@ -161,7 +157,6 @@ impl std::fmt::Display for Code {
             Code::SecretKeychainNotFound => "errors.secret.keychain_notfound",
             Code::MissingLoginKeychain => "errors.secret.missing_login_keychain",
             Code::GitForcePushProtection => "errors.git.force_push_protection",
-            Code::NonGitRepository => "errors.projects.not_git_repository",
         };
         f.write_str(code)
     }

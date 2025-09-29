@@ -1,5 +1,5 @@
 import { goto } from '$app/navigation';
-import { showToast } from '$lib/notifications/toasts';
+import { showError, showToast } from '$lib/notifications/toasts';
 import { projectPath } from '$lib/routes/routes.svelte';
 import { TestId } from '@gitbutler/ui';
 import type { ForgeName } from '$lib/forge/interface/forge';
@@ -162,10 +162,32 @@ export function handleAddProjectOutcome(
 			return true;
 		case 'notAGitRepository':
 			showToast({
-				testId: TestId.AddProjectNotAGitRepoModal,
-				style: 'warning',
 				title: 'Not a Git repository',
-				message: `Unable to add project: ${outcome.subject}`
+				message:
+					'The selected directory is not a Git repository. Would you like to initialize one?',
+				style: 'warning',
+				extraAction: {
+					label: 'Initialize Repository',
+					onClick: async (dismiss) => {
+						try {
+							const projectPath = 'get this - needs a refactor probably';
+							await projectsService.initGitRepository(projectPath);
+							dismiss();
+							showToast({
+								title: 'Repository Initialized',
+								message: `Git repository has been successfully initialized at ${projectPath}. Loading project...`,
+								style: 'info'
+							});
+							const projectId = 'TODO: get this from somewhere';
+							// Retry setting the project active
+							await setActiveProjectOrRedirect(projectId);
+						} catch (initError) {
+							console.error('Failed to initialize repository:', initError);
+							dismiss();
+							showError('Failed to initialize repository', initError);
+						}
+					}
+				}
 			});
 			return true;
 	}

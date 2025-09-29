@@ -69,14 +69,6 @@ pub fn set_project_active(
             let err = anyhow::Error::from(err);
             if code == git2::ErrorCode::Owner {
                 err.context(gitbutler_error::error::Code::RepoOwnership)
-            } else if code == git2::ErrorCode::NotFound || 
-                      code == git2::ErrorCode::Invalid ||
-                      code == git2::ErrorCode::Config {
-                // Common error codes when a directory is not a git repository:
-                // - NotFound: .git directory or repository not found
-                // - Invalid: Invalid repository structure
-                // - Config: Repository configuration issues
-                err.context(gitbutler_error::error::Code::NonGitRepository)
             } else {
                 err
             }
@@ -225,33 +217,8 @@ Ensure these aren't touched by GitButler or avoid using it in this repository.",
 #[tauri::command]
 #[instrument(err(Debug))]
 pub fn init_git_repository(path: String) -> Result<(), Error> {
-    let repo_path = std::path::Path::new(&path);
-    
-    // Validate path
-    if !repo_path.exists() {
-        return Err(anyhow::anyhow!("Path does not exist: {}", path).into());
-    }
-    if !repo_path.is_dir() {
-        return Err(anyhow::anyhow!("Path is not a directory: {}", path).into());
-    }
-    
-    // Check if it's already a git repository
-    if git2::Repository::open(repo_path).is_ok() {
-        return Err(anyhow::anyhow!("Directory is already a Git repository").into());
-    }
-    
-    // Check if directory is writable
-    let temp_file = repo_path.join(".gitbutler_write_test");
-    if let Err(_) = std::fs::write(&temp_file, "test") {
-        return Err(anyhow::anyhow!("Directory is not writable: {}", path).into());
-    }
-    // Clean up test file
-    let _ = std::fs::remove_file(&temp_file);
-    
-    // Initialize the repository
-    git2::Repository::init(repo_path)
-        .with_context(|| format!("Failed to initialize Git repository at {}", path))?;
-    
-    tracing::info!("Successfully initialized Git repository at {}", path);
+    let path: PathBuf = path.into();
+    git2::Repository::init(&path)
+        .with_context(|| format!("Failed to initialize Git repository at {}", path.display()))?;
     Ok(())
 }
