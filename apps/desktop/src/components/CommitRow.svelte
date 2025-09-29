@@ -27,6 +27,7 @@
 		active?: boolean;
 		hasConflicts?: boolean;
 		disabled?: boolean;
+		editable?: boolean;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		onclick?: () => void;
 	};
@@ -74,6 +75,7 @@
 		disabled,
 		hasConflicts,
 		active,
+		editable,
 		onclick,
 		menu,
 		...args
@@ -146,7 +148,7 @@
 		{/if}
 
 		<div class="commit-name truncate">
-			<CommitTitle {commitMessage} truncate className="text-13 text-semibold" />
+			<CommitTitle {commitMessage} truncate className="text-13 text-semibold" {editable} />
 		</div>
 
 		{#if !args.disableCommitActions}
