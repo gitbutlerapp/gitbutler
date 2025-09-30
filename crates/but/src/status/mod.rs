@@ -221,39 +221,24 @@ pub fn print_group(
                 print_assignments(&assignments, changes, false);
             }
             first = false;
+            for commit in &branch.upstream_commits {
+                let dot = "●".yellow();
+                print_commit(
+                    commit.id,
+                    commit.created_at as i64,
+                    commit.message.to_string(),
+                    commit.author.name.clone(),
+                    dot,
+                    project.id,
+                    false,
+                    show_files,
+                    verbose,
+                    false,
+                )?;
+            }
             for commit in &branch.commits {
                 let marked =
                     crate::mark::commit_marked(ctx, commit.id.to_string()).unwrap_or_default();
-                let mark = if marked {
-                    Some("◀ Marked ▶".red().bold())
-                } else {
-                    None
-                };
-                let conflicted_str = if commit.has_conflicts {
-                    "{conflicted}".red()
-                } else {
-                    "".normal()
-                };
-
-                let mut message = commit
-                    .message
-                    .to_string()
-                    .replace('\n', " ")
-                    .chars()
-                    .take(50)
-                    .collect::<String>()
-                    .normal();
-                if message.is_empty() {
-                    message = "(no commit message)".to_string().dimmed().italic();
-                }
-
-                let commit_details = but_api::diff::commit_details(project.id, commit.id.into())?;
-                let no_changes = if show_files && commit_details.changes.changes.is_empty() {
-                    "(no changes)".dimmed().italic()
-                } else {
-                    "".to_string().normal()
-                };
-
                 let dot = match commit.state {
                     but_workspace::ui::CommitState::LocalOnly => "●".normal(),
                     but_workspace::ui::CommitState::LocalAndRemote(object_id) => {
@@ -265,47 +250,18 @@ pub fn print_group(
                     }
                     but_workspace::ui::CommitState::Integrated => "●".purple(),
                 };
-
-                if verbose {
-                    // Verbose format: author and timestamp on first line, message on second line
-                    let datetime = DateTime::from_timestamp_millis(commit.created_at as i64)
-                        .unwrap_or_else(|| Utc.timestamp_millis_opt(0).unwrap());
-                    let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S");
-
-                    println!(
-                        "┊{dot}   {}{} {} {} {} {} {}",
-                        &commit.id.to_string()[..2].blue().underline(),
-                        &commit.id.to_string()[2..7].dimmed(),
-                        commit.author.name,
-                        formatted_time.to_string().dimmed(),
-                        no_changes,
-                        conflicted_str,
-                        mark.unwrap_or_default()
-                    );
-                    println!("┊│     {message}");
-                } else {
-                    // Original format: everything on one line
-                    println!(
-                        "┊{dot}   {}{} {} {} {} {}",
-                        &commit.id.to_string()[..2].blue().underline(),
-                        &commit.id.to_string()[2..7].dimmed(),
-                        message,
-                        no_changes,
-                        conflicted_str,
-                        mark.unwrap_or_default()
-                    );
-                }
-                if show_files {
-                    for change in &commit_details.changes.changes {
-                        let cid = CliId::committed_file(&change.path.to_string(), commit.id)
-                            .to_string()
-                            .blue()
-                            .underline();
-                        let path = path_with_color(&change.status, change.path.to_string());
-                        let status_letter = status_letter(&change.status);
-                        println!("┊│     {cid} {status_letter} {path}");
-                    }
-                }
+                print_commit(
+                    commit.id,
+                    commit.created_at as i64,
+                    commit.message.to_string(),
+                    commit.author.name.clone(),
+                    dot,
+                    project.id,
+                    marked,
+                    show_files,
+                    verbose,
+                    commit.has_conflicts,
+                )?;
             }
         }
     } else {
@@ -395,4 +351,88 @@ pub(crate) fn all_committed_files(ctx: &mut CommandContext) -> anyhow::Result<Ve
         }
     }
     Ok(committed_files)
+}
+
+#[expect(clippy::too_many_arguments)]
+fn print_commit(
+    commit_id: gix::ObjectId,
+    created_at: i64,
+    message: String,
+    author_name: String,
+    dot: ColoredString,
+    project_id: gitbutler_project::ProjectId,
+    marked: bool,
+    show_files: bool,
+    verbose: bool,
+    has_conflicts: bool,
+) -> anyhow::Result<()> {
+    let mark = if marked {
+        Some("◀ Marked ▶".red().bold())
+    } else {
+        None
+    };
+    let conflicted_str = if has_conflicts {
+        "{conflicted}".red()
+    } else {
+        "".normal()
+    };
+
+    let mut message = message
+        .replace('\n', " ")
+        .chars()
+        .take(50)
+        .collect::<String>()
+        .normal();
+    if message.is_empty() {
+        message = "(no commit message)".to_string().dimmed().italic();
+    }
+
+    let commit_details = but_api::diff::commit_details(project_id, commit_id.into())?;
+    let no_changes = if show_files && commit_details.changes.changes.is_empty() {
+        "(no changes)".dimmed().italic()
+    } else {
+        "".to_string().normal()
+    };
+
+    if verbose {
+        // Verbose format: author and timestamp on first line, message on second line
+        let datetime = DateTime::from_timestamp_millis(created_at)
+            .unwrap_or_else(|| Utc.timestamp_millis_opt(0).unwrap());
+        let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S");
+
+        println!(
+            "┊{dot}   {}{} {} {} {} {} {}",
+            &commit_id.to_string()[..2].blue().underline(),
+            &commit_id.to_string()[2..7].dimmed(),
+            author_name,
+            formatted_time.to_string().dimmed(),
+            no_changes,
+            conflicted_str,
+            mark.unwrap_or_default()
+        );
+        println!("┊│     {message}");
+    } else {
+        // Original format: everything on one line
+        println!(
+            "┊{dot}   {}{} {} {} {} {}",
+            &commit_id.to_string()[..2].blue().underline(),
+            &commit_id.to_string()[2..7].dimmed(),
+            message,
+            no_changes,
+            conflicted_str,
+            mark.unwrap_or_default()
+        );
+    }
+    if show_files {
+        for change in &commit_details.changes.changes {
+            let cid = CliId::committed_file(&change.path.to_string(), commit_id)
+                .to_string()
+                .blue()
+                .underline();
+            let path = path_with_color(&change.status, change.path.to_string());
+            let status_letter = status_letter(&change.status);
+            println!("┊│     {cid} {status_letter} {path}");
+        }
+    }
+    Ok(())
 }
