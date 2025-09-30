@@ -107,6 +107,10 @@
 			padding: 8px;
 			gap: 8px;
 
+			&:disabled {
+				padding: 8px;
+			}
+
 			&.reverse-direction {
 				padding: 8px;
 			}
