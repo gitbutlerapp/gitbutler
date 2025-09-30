@@ -1,12 +1,13 @@
 <script lang="ts">
 	interface Props {
 		label?: string;
+		showArrow?: boolean;
 		disabled?: boolean;
 		reverseDirection?: boolean;
 		onclick: () => void;
 	}
 
-	const { label, disabled = false, reverseDirection, onclick }: Props = $props();
+	const { label, showArrow = true, disabled = false, reverseDirection, onclick }: Props = $props();
 </script>
 
 <button
@@ -20,12 +21,21 @@
 	{#if label}
 		<span class="arrow-button__text">{label}</span>
 	{/if}
-	<div class="arrow-button__icon">
-		<div class="arrow-button__icon-tail"></div>
-		<svg width="13" height="43" viewBox="0 0 13 43" fill="none" xmlns="http://www.w3.org/2000/svg">
-			<path d="M1.17773 1L11.5004 21.5L1.17773 42" stroke="currentColor" stroke-width="1.5" />
-		</svg>
-	</div>
+
+	{#if showArrow}
+		<div class="arrow-button__icon">
+			<div class="arrow-button__icon-tail"></div>
+			<svg
+				width="13"
+				height="43"
+				viewBox="0 0 13 43"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+			>
+				<path d="M1.17773 1L11.5004 21.5L1.17773 42" stroke="currentColor" stroke-width="1.5" />
+			</svg>
+		</div>
+	{/if}
 </button>
 
 <style>
@@ -37,14 +47,20 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: 60px;
 		cursor: pointer;
+		transition: padding 0.15s ease;
 
 		&:hover .arrow-button__icon-tail {
 			width: 36px;
 		}
 
 		&:disabled {
+			padding: 10px 10px 10px 16px;
 			cursor: not-allowed;
 			opacity: 0.5;
+
+			.arrow-button__icon-tail {
+				width: 14px;
+			}
 		}
 
 		&.reverse-direction {
