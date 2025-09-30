@@ -142,7 +142,7 @@
 			[narrow-start]
 			1fr 1fr 1fr 1fr 1fr 1fr 1fr
 			[narrow-end]
-			1fr 1fr
+			1fr [off-gridded] 1fr
 			[full-end];
 		column-gap: var(--layout-col-gap);
 		row-gap: 60px;
@@ -151,5 +151,25 @@
 		max-width: 1440px;
 		margin: 0 auto;
 		padding: 0 var(--layout-side-paddings);
+
+		@media (--desktop-small-viewport) {
+			grid-template-columns:
+				[full-start]
+				1fr
+				[narrow-start]
+				1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
+				[narrow-end off-gridded]
+				1fr
+				[full-end];
+		}
+
+		@media (--mobile-viewport) {
+			grid-template-columns:
+				[full-start narrow-start]
+				1fr 1fr 1fr 1fr
+				[narrow-end full-end off-gridded];
+			row-gap: 40px;
+			padding: 0 24px;
+		}
 	}
 </style>

@@ -78,6 +78,7 @@
 		font-size: 82px;
 		line-height: 1;
 		font-family: var(--fontfamily-accent);
+		text-wrap: balance;
 	}
 
 	.title-caption {
@@ -129,5 +130,29 @@
 		transform-origin: left bottom;
 		pointer-events: none;
 		transition: transform 0.2s ease;
+	}
+
+	@media (--mobile-viewport) {
+		.title {
+			margin-bottom: 16px;
+			font-size: 62px;
+		}
+		.cta {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 16px;
+		}
+		.video-preview {
+			aspect-ratio: 16 / 9;
+			width: 100%;
+		}
+		.title-caption {
+			display: block;
+			width: 100%;
+			margin-top: 14px;
+			transform: none;
+			font-size: 70%;
+			text-align: right;
+		}
 	}
 </style>

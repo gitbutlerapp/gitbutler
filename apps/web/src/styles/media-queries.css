@@ -2,4 +2,4 @@
 @custom-media --desktop-viewport (max-width: 1440px);
 @custom-media --desktop-small-viewport (max-width: 1280px);
 @custom-media --tablet-viewport (max-width: 1024px);
-@custom-media --mobile-viewport (max-width: 800px);
+@custom-media --mobile-viewport (max-width: 740px);

@@ -221,4 +221,8 @@
 		object-fit: cover;
 		border-radius: 16px;
 	}
+
+	.quote__job-title {
+		color: var(--clr-text-2);
+	}
 </style>

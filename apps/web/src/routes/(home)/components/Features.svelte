@@ -95,9 +95,15 @@
 			line-height: 1.5;
 		}
 
+		/* Remove right border for last column (every 3rd item) and very last item */
 		&:last-child,
 		&:nth-child(3n) {
 			border-right: none;
+		}
+
+		/* Remove bottom border for items in the last row (last 3 items) */
+		&:nth-last-child(-n + 3) {
+			border-bottom: none;
 		}
 
 		&:hover {

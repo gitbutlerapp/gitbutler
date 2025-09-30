@@ -1,4 +1,5 @@
 <script lang="ts">
+	import MobileMenu from '$home/components/MobileMenu.svelte';
 	import GitbutlerLogoLink from '$lib/components/GitbutlerLogoLink.svelte';
 	import HeaderAuthSection from '$lib/components/HeaderAuthSection.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
@@ -86,21 +87,24 @@
 		</section>
 		<HeaderAuthSection />
 	</nav>
+
+	<MobileMenu />
 </header>
 
 <style lang="scss">
 	.header {
 		display: flex;
-		grid-column: narrow-start / -2;
+		grid-column: narrow-start / off-gridded;
+		align-items: center;
 		justify-content: space-between;
 		padding-top: 48px;
 
-		@media (--mobile-viewport) {
-			padding-top: 38px;
+		@media (--tablet-viewport) {
+			padding-top: 32px;
 		}
 
-		@media (--tablet-viewport) {
-			padding-top: 20px;
+		@media (--mobile-viewport) {
+			padding-top: 16px;
 		}
 	}
 
@@ -109,8 +113,8 @@
 		align-items: center;
 		gap: 32px;
 
-		@media (--mobile-viewport) {
-			gap: 24px;
+		@media (--tablet-viewport) {
+			display: none;
 		}
 	}
 

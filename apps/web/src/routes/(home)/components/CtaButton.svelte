@@ -57,9 +57,10 @@
 	});
 </script>
 
-<a class="download-btn" href={selectedDownload.url}>
-	<div class="download-btn-title-wrapper">
-		<span class="download-btn-title">Download for {detectedOS}</span>
+<!-- DESKTOP -->
+<a class="download-btn desktop" href={selectedDownload.url}>
+	<div class="download-btn-title">
+		<span class="download-btn-title">DOWNLOAD for {detectedOS}</span>
 
 		<svg
 			class="download-btn-icon"
@@ -73,7 +74,17 @@
 
 	<span class="download-btn-version">Open Beta {$latestClientVersion}</span>
 
-	<CanvasDitheringEffect />
+	<div class="canvas-container">
+		<CanvasDitheringEffect />
+	</div>
+</a>
+
+<!-- MOBILE -->
+<a class="download-btn mobile" href={jsonLinks.resources.downloads.url}>
+	<div class="download-btn-title">
+		<span class="download-btn-title">DOWNLOAD <i>the</i> app</span>
+	</div>
+	<span class="download-btn-version">Open Beta {$latestClientVersion}</span>
 </a>
 
 <style lang="scss">
@@ -81,15 +92,22 @@
 		display: flex;
 		position: relative;
 		flex-direction: column;
-		padding: 16px 28px 24px;
+		padding: 20px 28px 24px;
 		overflow: hidden;
+		gap: 4px;
 		border: 1px solid var(--clr-scale-pop-60);
 		border-radius: var(--radius-xl);
 		background-color: var(--clr-theme-pop-soft);
 		color: var(--clr-theme-pop-on-soft);
 	}
 
-	.download-btn-title-wrapper {
+	.download-btn.mobile {
+		display: none;
+		align-items: center;
+		width: 100%;
+	}
+
+	.download-btn-title {
 		display: flex;
 		z-index: 1;
 		align-items: center;
@@ -116,5 +134,30 @@
 		text-transform: uppercase;
 		opacity: 0.6;
 		pointer-events: none;
+	}
+
+	.canvas-container {
+		z-index: 0;
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+	}
+
+	@media (--mobile-viewport) {
+		.download-btn.desktop {
+			display: none;
+		}
+		.download-btn.mobile {
+			display: flex;
+		}
+		.download-btn {
+			padding: 20px;
+		}
+		.download-btn-title {
+			font-size: 38px;
+			text-align: center;
+		}
 	}
 </style>

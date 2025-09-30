@@ -6,10 +6,18 @@
 
 body {
 	min-height: 100vh;
+	overflow-x: hidden;
 	background: var(--clr-bg-2);
 	font-family: var(--fontfamily-default);
 
 	--layout-side-paddings: 80px;
+
+	&.menu-open {
+		position: fixed;
+		width: 100%;
+		height: 100%;
+		overflow: hidden;
+	}
 
 	@media (--desktop-small-viewport) {
 		--layout-side-paddings: 40px;

@@ -55,6 +55,8 @@
 
 		&:disabled {
 			padding: 10px 10px 10px 16px;
+			background-color: var(--clr-bg-3);
+			color: var(--clr-text-2);
 			cursor: not-allowed;
 			opacity: 0.5;
 

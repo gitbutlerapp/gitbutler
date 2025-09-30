@@ -279,6 +279,7 @@
 	.download-icon {
 		width: 28px;
 		height: 28px;
+		transform: translateY(-4px);
 	}
 
 	.download-options {

@@ -59,10 +59,9 @@
 	function setInitialPosition() {
 		if (!canvas || !cachedRect) return;
 
-		// Position gradient at bottom right with some margin
-		const margin = Math.min(cachedRect.width, cachedRect.height) * 0.15; // 15% margin from edges
-		lastMouseX = cachedRect.width - margin;
-		lastMouseY = cachedRect.height - margin;
+		// Position spot on the left side of canvas
+		lastMouseX = cachedRect.width * 0.5;
+		lastMouseY = cachedRect.height / 2.3;
 
 		// Also initialize current mouse position to match initial position
 		// This ensures turbulence effects work correctly on initial load
@@ -157,30 +156,31 @@
 		// Use current position when hovering, last position when not
 		const drawX = isHovering ? mouseX : lastMouseX;
 		const drawY = isHovering ? mouseY : lastMouseY;
-		drawDitheredCircle(drawX, drawY, gradientOpacity);
+		drawDitheredCanvasWithClearArea(drawX, drawY, gradientOpacity);
 	}
 
-	function drawDitheredCircle(centerX: number, centerY: number, opacity: number = 1) {
+	function drawDitheredCanvasWithClearArea(centerX: number, centerY: number, opacity: number = 1) {
 		if (!ctx || !cachedRect) return;
 
-		// Scale parameters based on canvas size for adaptive behavior
-		const baseSize = Math.min(cachedRect.width, cachedRect.height);
-		const maxRadius = baseSize * gradientSize;
-		const maxRadiusSquared = maxRadius * maxRadius;
+		// Scale parameters based on canvas size for adaptive behavior - elliptical
+		const ellipseRadiusX = cachedRect.width * gradientSize * 1; // Width-based radius, bigger than canvas
+		const ellipseRadiusY = cachedRect.height * gradientSize * 0.8; // Height-based radius, bigger than canvas
+		const ellipseRadiusXSquared = ellipseRadiusX * ellipseRadiusX;
+		const ellipseRadiusYSquared = ellipseRadiusY * ellipseRadiusY;
 
 		// Pre-calculate all expensive operations once
-		const mouseNormX = (mouseX / cachedRect.width) * 2 - 1;
-		const mouseNormY = (mouseY / cachedRect.height) * 2 - 1;
+		const mouseNormX = (centerX / cachedRect.width) * 2 - 1;
+		const mouseNormY = (centerY / cachedRect.height) * 2 - 1;
 
 		const easedX = Math.sign(mouseNormX) * Math.pow(Math.abs(mouseNormX), 0.7);
 		const easedY = Math.sign(mouseNormY) * Math.pow(Math.abs(mouseNormY), 0.7);
 
-		const turbulenceStrength = 0.5;
+		const turbulenceStrength = 0.1; // Reduced from 0.5 to 0.1
 		const stretchX = 1 + easedX * turbulenceStrength;
 		const stretchY = 1 + easedY * turbulenceStrength;
-		const shearX = easedY * 0.4;
-		const shearY = easedX * 0.3;
-		const rotationAngle = easedX * easedY * 0.3;
+		const shearX = easedY * 0.1; // Reduced from 0.4 to 0.1
+		const shearY = easedX * 0.1; // Reduced from 0.3 to 0.1
+		const rotationAngle = easedX * easedY * 0.1; // Reduced from 0.3 to 0.1
 
 		// Pre-calculate rotation constants
 		const cosRot = Math.cos(rotationAngle);
@@ -189,15 +189,16 @@
 		// Pre-calculate wave constants
 		const waveFreq1 = 0.006;
 		const waveFreq2 = 0.015;
-		const waveAmplitude = maxRadius * 0.25;
+		const waveAmplitude = Math.max(ellipseRadiusX, ellipseRadiusY) * 0.05; // Reduced from 0.25 to 0.05
 		const absEasedX = Math.abs(easedX);
 		const absEasedY = Math.abs(easedY);
 		const piEasedX = absEasedX * Math.PI;
 		const piEasedY = absEasedY * Math.PI;
 		const waveAmp2 = waveAmplitude * 0.3;
 
-		const dotSize = Math.max(1.5, baseSize * 0.001);
-		const spacing = Math.max(4, baseSize * 0.001);
+		const baseSize = Math.min(cachedRect.width, cachedRect.height);
+		const dotSize = Math.max(1.3, baseSize * 0.01);
+		const spacing = Math.max(4, baseSize * 0.01); // Increased spacing for fewer dots
 		const halfDotSize = dotSize * 0.5;
 		const spacingInv = 1.0 / spacing; // Pre-calculate for division optimization
 		const threshold25 = 0.25;
@@ -205,63 +206,86 @@
 		ctx.fillStyle = cachedDitherColor;
 		ctx.globalAlpha = opacity;
 
-		const searchRadius = maxRadius * 1.5;
-		const searchRadiusSquared = searchRadius * searchRadius;
-		const minX = centerX - searchRadius;
-		const maxX = centerX + searchRadius;
-		const minY = centerY - searchRadius;
-		const maxY = centerY + searchRadius;
+		// Draw dithered pattern across the entire canvas, but skip the clear area
+		const canvasWidth = cachedRect.width;
+		const canvasHeight = cachedRect.height;
 
 		// Use batched drawing for better performance
 		const rects: Array<{ x: number; y: number }> = [];
 
-		for (let y = minY; y <= maxY; y += spacing) {
-			const relY = y - centerY;
-			const relYSquared = relY * relY;
-
-			for (let x = minX; x <= maxX; x += spacing) {
+		for (let y = 0; y <= canvasHeight; y += spacing) {
+			for (let x = 0; x <= canvasWidth; x += spacing) {
+				// Check if this point is within the clear area
 				const relX = x - centerX;
+				const relY = y - centerY;
 				const relXSquared = relX * relX;
-
-				// Early distance check before expensive transformations
+				const relYSquared = relY * relY;
 				const basicDistanceSquared = relXSquared + relYSquared;
-				if (basicDistanceSquared > searchRadiusSquared) continue;
 
-				// Apply transformations (optimized)
-				const rotatedX = relX * cosRot - relY * sinRot;
-				const rotatedY = relX * sinRot + relY * cosRot;
+				// Check if this point is within the elliptical gradient area
+				let gradientIntensity = 0;
+				// Quick ellipse check first
+				const ellipseCheck =
+					relXSquared / ellipseRadiusXSquared + relYSquared / ellipseRadiusYSquared;
+				if (ellipseCheck <= 2.25) {
+					// Expand check area for transformations
+					// Apply transformations to determine the gradient intensity
+					const rotatedX = relX * cosRot - relY * sinRot;
+					const rotatedY = relX * sinRot + relY * cosRot;
 
-				const transformedX = rotatedX * stretchX + rotatedY * shearX;
-				const transformedY = rotatedY * stretchY + rotatedX * shearY;
+					const transformedX = rotatedX * stretchX + rotatedY * shearX;
+					const transformedY = rotatedY * stretchY + rotatedX * shearY;
 
-				// Optimize wave calculations
-				const distance = Math.sqrt(basicDistanceSquared);
-				const angle = Math.atan2(relY, relX);
-				const wavePhaseX = piEasedX + angle * 0.5;
-				const wavePhaseY = piEasedY + distance * 0.01;
+					// Apply wave distortions
+					const distance = Math.sqrt(basicDistanceSquared);
+					const angle = Math.atan2(relY, relX);
+					const wavePhaseX = piEasedX + angle * 0.5;
+					const wavePhaseY = piEasedY + distance * 0.01;
 
-				const wave1X = Math.sin(transformedY * waveFreq1 + wavePhaseX) * waveAmplitude * absEasedX;
-				const wave1Y = Math.cos(transformedX * waveFreq1 + wavePhaseY) * waveAmplitude * absEasedY;
+					const wave1X =
+						Math.sin(transformedY * waveFreq1 + wavePhaseX) * waveAmplitude * absEasedX;
+					const wave1Y =
+						Math.cos(transformedX * waveFreq1 + wavePhaseY) * waveAmplitude * absEasedY;
 
-				const wave2X = Math.sin(transformedY * waveFreq2 - wavePhaseX * 0.7) * waveAmp2 * absEasedY;
-				const wave2Y = Math.cos(transformedX * waveFreq2 - wavePhaseY * 0.7) * waveAmp2 * absEasedX;
+					const wave2X =
+						Math.sin(transformedY * waveFreq2 - wavePhaseX * 0.7) * waveAmp2 * absEasedY;
+					const wave2Y =
+						Math.cos(transformedX * waveFreq2 - wavePhaseY * 0.7) * waveAmp2 * absEasedX;
 
-				const finalX = transformedX + wave1X + wave2X;
-				const finalY = transformedY + wave1Y + wave2Y;
-				const finalDistanceSquared = finalX * finalX + finalY * finalY;
+					const finalX = transformedX + wave1X + wave2X;
+					const finalY = transformedY + wave1Y + wave2Y;
 
-				if (finalDistanceSquared < maxRadiusSquared) {
-					const finalDistance = Math.sqrt(finalDistanceSquared);
-					const intensity = 1 - finalDistance / maxRadius;
+					// Check if final transformed point is within the ellipse
+					const finalEllipseCheck =
+						(finalX * finalX) / ellipseRadiusXSquared + (finalY * finalY) / ellipseRadiusYSquared;
 
-					// Optimize grid calculations
-					const gridX = Math.floor(x * spacingInv) & 1;
-					const gridY = Math.floor(y * spacingInv) & 1;
-					const threshold = (gridX + gridY * 2) * threshold25;
-
-					if (intensity > threshold) {
-						rects.push({ x: x - halfDotSize, y: y - halfDotSize });
+					if (finalEllipseCheck < 1.0) {
+						gradientIntensity = 1 - Math.sqrt(finalEllipseCheck);
 					}
+				}
+
+				// Apply dithering pattern with gradient effect
+				const gridX = Math.floor(x * spacingInv) & 1;
+				const gridY = Math.floor(y * spacingInv) & 1;
+				const threshold = (gridX + gridY * 3) * threshold25;
+
+				// Calculate final intensity: base background intensity reduced by gradient
+				let finalIntensity = 0.5; // Reduced base intensity for fewer dots
+
+				if (gradientIntensity > 0) {
+					// Create a more contrasted gradient with completely clear center
+					// Use a power curve to make the transition more dramatic
+					const contrastCurve = Math.pow(gradientIntensity, 0.3); // Sharper falloff
+					finalIntensity = 0.5 * (1 - contrastCurve);
+
+					// Ensure complete clearing in the center area (when gradient intensity is high)
+					if (gradientIntensity > 0.7) {
+						finalIntensity = 0;
+					}
+				}
+
+				if (finalIntensity > threshold) {
+					rects.push({ x: x - halfDotSize, y: y - halfDotSize });
 				}
 			}
 		}
