@@ -56,7 +56,7 @@
 			We send a confirmation email to <i class="clr-text-2">{email}</i>.
 		</p>
 	{:else}
-		<form class="stack-v gap-16" onsubmit={resendConfirmationEmail}>
+		<div class="stack-v gap-16">
 			<EmailTextbox bind:this={emailTextbox} bind:value={inputEmail} label="Email" />
 
 			{#if error}
@@ -83,7 +83,9 @@
 				</InfoMessage>
 			{/if}
 
-			<Button style="pop" disabled={!canSubmit}>Resend Confirmation Email</Button>
-		</form>
+			<Button style="pop" disabled={!canSubmit} onclick={resendConfirmationEmail}
+				>Resend Confirmation Email</Button
+			>
+		</div>
 	{/if}
 </FullscreenUtilityCard>
