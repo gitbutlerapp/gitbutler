@@ -54,9 +54,13 @@ async fn main() -> Result<()> {
                 handler,
             }) => {
                 let handler = *handler;
-                command::handle_changes(&args.current_dir, args.json, handler, description)
+                let project = get_or_init_project(&args.current_dir)?;
+                command::handle_changes(&project, args.json, handler, description)
             }
-            None => command::list_actions(&args.current_dir, args.json, 0, 10),
+            None => {
+                let project = get_or_init_project(&args.current_dir)?;
+                command::list_actions(&project, args.json, 0, 10)
+            }
         },
         Subcommands::Metrics {
             command_name,
@@ -112,7 +116,8 @@ async fn main() -> Result<()> {
             }
         },
         Subcommands::Base(base::Platform { cmd }) => {
-            let result = base::handle(cmd, &args.current_dir, args.json);
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = base::handle(cmd, &project, args.json);
             metrics_if_configured(
                 app_settings,
                 match cmd {
@@ -125,12 +130,14 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
-            let result = branch::handle(cmd, &args.current_dir, args.json);
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = branch::handle(cmd, &project, args.json);
             metrics_if_configured(app_settings, CommandName::BranchNew, props(start, &result)).ok();
             Ok(())
         }
         Subcommands::Log => {
-            let result = log::commit_graph(&args.current_dir, args.json);
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = log::commit_graph(&project, args.json);
             metrics_if_configured(app_settings, CommandName::Log, props(start, &result)).ok();
             Ok(())
         }
@@ -138,18 +145,21 @@ async fn main() -> Result<()> {
             show_files,
             verbose,
         } => {
-            let result = status::worktree(&args.current_dir, args.json, *show_files, *verbose);
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = status::worktree(&project, args.json, *show_files, *verbose);
             metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
             Ok(())
         }
         Subcommands::Stf { verbose } => {
-            let result = status::worktree(&args.current_dir, args.json, true, *verbose);
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = status::worktree(&project, args.json, true, *verbose);
             metrics_if_configured(app_settings, CommandName::Stf, props(start, &result)).ok();
             Ok(())
         }
         Subcommands::Rub { source, target } => {
-            let result = rub::handle(&args.current_dir, args.json, source, target)
-                .context("Rubbed the wrong way.");
+            let project = get_or_init_project(&args.current_dir)?;
+            let result =
+                rub::handle(&project, args.json, source, target).context("Rubbed the wrong way.");
             if let Err(e) = &result {
                 eprintln!("{} {}", e, e.root_cause());
             }
@@ -157,7 +167,8 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Subcommands::Mark { target, delete } => {
-            let result = mark::handle(&args.current_dir, args.json, target, *delete)
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = mark::handle(&project, args.json, target, *delete)
                 .context("Can't mark this. Taaaa-na-na-na. Can't mark this.");
             if let Err(e) = &result {
                 eprintln!("{} {}", e, e.root_cause());
@@ -166,7 +177,8 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Subcommands::Unmark => {
-            let result = mark::unmark(&args.current_dir, args.json)
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = mark::unmark(&project, args.json)
                 .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.");
             if let Err(e) = &result {
                 eprintln!("{} {}", e, e.root_cause());
@@ -179,8 +191,9 @@ async fn main() -> Result<()> {
             branch,
             only,
         } => {
+            let project = get_or_init_project(&args.current_dir)?;
             let result = commit::commit(
-                &args.current_dir,
+                &project,
                 args.json,
                 message.as_deref(),
                 branch.as_deref(),
@@ -190,27 +203,32 @@ async fn main() -> Result<()> {
             result
         }
         Subcommands::New { target } => {
-            let result = commit::insert_blank_commit(&args.current_dir, args.json, target);
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = commit::insert_blank_commit(&project, args.json, target);
             metrics_if_configured(app_settings, CommandName::New, props(start, &result)).ok();
             result
         }
         Subcommands::Describe { commit } => {
-            let result = describe::edit_commit_message(&args.current_dir, args.json, commit);
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = describe::edit_commit_message(&project, args.json, commit);
             metrics_if_configured(app_settings, CommandName::Describe, props(start, &result)).ok();
             result
         }
         Subcommands::Oplog { since } => {
-            let result = oplog::show_oplog(&args.current_dir, args.json, since.as_deref());
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = oplog::show_oplog(&project, args.json, since.as_deref());
             metrics_if_configured(app_settings, CommandName::Oplog, props(start, &result)).ok();
             result
         }
         Subcommands::Restore { oplog_sha } => {
-            let result = oplog::restore_to_oplog(&args.current_dir, args.json, oplog_sha);
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = oplog::restore_to_oplog(&project, args.json, oplog_sha);
             metrics_if_configured(app_settings, CommandName::Restore, props(start, &result)).ok();
             result
         }
         Subcommands::Undo => {
-            let result = oplog::undo_last_operation(&args.current_dir, args.json);
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = oplog::undo_last_operation(&project, args.json);
             metrics_if_configured(app_settings, CommandName::Undo, props(start, &result)).ok();
             result
         }

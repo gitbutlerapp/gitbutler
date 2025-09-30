@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -22,15 +20,14 @@ pub enum Subcommands {
     },
 }
 
-pub fn handle(cmd: &Subcommands, repo_path: &Path, _json: bool) -> anyhow::Result<()> {
-    let project = Project::find_by_path(repo_path)?;
+pub fn handle(cmd: &Subcommands, project: &Project, _json: bool) -> anyhow::Result<()> {
     match cmd {
         Subcommands::New {
             branch_name,
             anchor,
         } => {
             let ctx =
-                CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+                CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
             // Get branch name or use canned name
             let branch_name = if let Some(name) = branch_name {
                 let repo = ctx.gix_repo()?;

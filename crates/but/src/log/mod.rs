@@ -7,13 +7,11 @@ use but_workspace::{
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
-use std::path::Path;
 
 use crate::id::CliId;
 
-pub(crate) fn commit_graph(repo_path: &Path, json: bool) -> anyhow::Result<()> {
-    let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> {
+    let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
     let stacks = stacks(ctx)?
         .iter()

@@ -1,4 +1,4 @@
-use std::{path::Path, str::FromStr};
+use std::str::FromStr;
 
 use crate::rub::branch_name_to_stack_id;
 use anyhow::bail;
@@ -9,13 +9,12 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::Project;
 pub(crate) fn handle(
-    repo_path: &Path,
+    project: &Project,
     _json: bool,
     target_str: &str,
     delete: bool,
 ) -> anyhow::Result<()> {
-    let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     let target_result = crate::id::CliId::from_str(ctx, target_str)?;
     if target_result.len() != 1 {
         return Err(anyhow::anyhow!(
@@ -115,9 +114,8 @@ pub(crate) fn commit_marked(ctx: &mut CommandContext, commit_id: String) -> anyh
     Ok(rules)
 }
 
-pub(crate) fn unmark(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
-    let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+pub(crate) fn unmark(project: &Project, _json: bool) -> anyhow::Result<()> {
+    let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     let rules = but_rules::list_rules(ctx)?;
     let rule_count = rules.len();

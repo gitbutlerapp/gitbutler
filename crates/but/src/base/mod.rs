@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
     BranchStatus::{Conflicted, Empty, Integrated, SaflyUpdatable},
@@ -21,8 +19,7 @@ pub enum Subcommands {
     Update,
 }
 
-pub fn handle(cmd: &Subcommands, repo_path: &Path, json: bool) -> anyhow::Result<()> {
-    let project = Project::find_by_path(repo_path)?;
+pub fn handle(cmd: &Subcommands, project: &Project, json: bool) -> anyhow::Result<()> {
     match cmd {
         Subcommands::Check => {
             if !json {

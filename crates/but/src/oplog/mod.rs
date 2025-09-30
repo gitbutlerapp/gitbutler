@@ -1,11 +1,8 @@
 use colored::Colorize;
 use gitbutler_oplog::entry::OperationKind;
 use gitbutler_project::Project;
-use std::path::Path;
 
-pub(crate) fn show_oplog(repo_path: &Path, json: bool, since: Option<&str>) -> anyhow::Result<()> {
-    let project = Project::find_by_path(repo_path)?;
-
+pub(crate) fn show_oplog(project: &Project, json: bool, since: Option<&str>) -> anyhow::Result<()> {
     let snapshots = if let Some(since_sha) = since {
         // Get all snapshots first to find the starting point
         let all_snapshots = but_api::undo::list_snapshots(project.id, 1000, None, None)?; // Get a large number to find the SHA
@@ -117,11 +114,10 @@ pub(crate) fn show_oplog(repo_path: &Path, json: bool, since: Option<&str>) -> a
 }
 
 pub(crate) fn restore_to_oplog(
-    repo_path: &Path,
+    project: &Project,
     _json: bool,
     oplog_sha: &str,
 ) -> anyhow::Result<()> {
-    let project = Project::find_by_path(repo_path)?;
     let snapshots = but_api::undo::list_snapshots(project.id, 1000, None, None)?;
 
     // Parse the oplog SHA (support partial SHAs)
@@ -196,9 +192,7 @@ pub(crate) fn restore_to_oplog(
     Ok(())
 }
 
-pub(crate) fn undo_last_operation(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
-    let project = Project::find_by_path(repo_path)?;
-
+pub(crate) fn undo_last_operation(project: &Project, _json: bool) -> anyhow::Result<()> {
     // Get the last two snapshots - restore to the second one back
     let snapshots = but_api::undo::list_snapshots(project.id, 2, None, None)?;
 
