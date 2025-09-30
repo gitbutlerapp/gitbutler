@@ -50,7 +50,10 @@
 		error = undefined;
 		message = response.data.message;
 		authService.setToken(response.data.token);
-		window.location.href = `${env.PUBLIC_APP_HOST}successful_login?access_token=${token}`;
+		const url = new URL('successful_login', env.PUBLIC_APP_HOST);
+		url.searchParams.set('access_token', encodeURIComponent(response.data.token));
+		const path = url.toString();
+		window.location.href = path;
 	}
 </script>
 
@@ -64,7 +67,7 @@
 	title="Confirm new password"
 	backlink={{ label: 'Login', href: routesService.loginPath() }}
 >
-	<form class="form-content" onsubmit={handleSubmit}>
+	<div class="form-content">
 		<PasswordConfirmation
 			bind:this={passwordComponent}
 			bind:password
@@ -88,8 +91,8 @@
 			</InfoMessage>
 		{/if}
 
-		<Button type="submit" style="pop">Confirm Password</Button>
-	</form>
+		<Button style="pop" onclick={handleSubmit}>Confirm Password</Button>
+	</div>
 </FullscreenUtilityCard>
 
 <style lang="postcss">

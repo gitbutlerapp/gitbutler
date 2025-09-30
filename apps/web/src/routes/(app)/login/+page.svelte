@@ -67,7 +67,10 @@
 		} else {
 			const token = response.data;
 			authService.setToken(token);
-			window.location.href = `${env.PUBLIC_APP_HOST}successful_login?access_token=${token}`;
+			const url = new URL('successful_login', env.PUBLIC_APP_HOST);
+			url.searchParams.set('access_token', encodeURIComponent(token));
+			const path = url.toString();
+			window.location.href = path;
 		}
 	}
 
@@ -110,7 +113,7 @@
 		to GitButler
 	{/snippet}
 
-	<form id="login-form" class="stack-v" onsubmit={handleSubmit}>
+	<div id="login-form" class="stack-v">
 		<div class="auth-form__inputs">
 			<EmailTextbox
 				bind:this={emailTextbox}
@@ -164,10 +167,10 @@
 			</div>
 		{/if}
 
-		<Button type="submit" style="pop" disabled={!isFormValid}>Log in</Button>
+		<Button style="pop" disabled={!isFormValid} onclick={handleSubmit}>Log in</Button>
 
 		<OAuthButtons mode="signup" />
-	</form>
+	</div>
 
 	{#snippet footer()}
 		<div class="auth-form__footer">

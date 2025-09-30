@@ -52,7 +52,7 @@
 			Click the link in your email to reset your password.
 		</p>
 	{:else}
-		<form class="service-form__inputs" onsubmit={handleSubmit}>
+		<div class="service-form__inputs">
 			<EmailTextbox bind:this={emailTextbox} bind:value={email} label="Email" />
 
 			{#if error}
@@ -63,8 +63,8 @@
 				</InfoMessage>
 			{/if}
 
-			<Button style="pop" type="submit" disabled={!canSubmit}>Send a reset link</Button>
-		</form>
+			<Button style="pop" disabled={!canSubmit} onclick={handleSubmit}>Send a reset link</Button>
+		</div>
 	{/if}
 </FullscreenUtilityCard>
 
