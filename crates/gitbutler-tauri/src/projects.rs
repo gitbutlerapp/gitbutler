@@ -212,13 +212,3 @@ Ensure these aren't touched by GitButler or avoid using it in this repository.",
     }
     Ok(Some(msg))
 }
-
-/// Initialize a Git repository at the given path
-#[tauri::command]
-#[instrument(err(Debug))]
-pub fn init_git_repository(path: String) -> Result<(), Error> {
-    let path: PathBuf = path.into();
-    git2::Repository::init(&path)
-        .with_context(|| format!("Failed to initialize Git repository at {}", path.display()))?;
-    Ok(())
-}

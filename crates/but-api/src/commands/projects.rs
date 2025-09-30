@@ -1,4 +1,5 @@
 use crate::error::Error;
+use anyhow::Context;
 use but_api_macros::api_cmd;
 use gitbutler_project::{self as projects, ProjectId};
 use std::path::PathBuf;
@@ -39,4 +40,15 @@ pub fn get_project(
 #[instrument(err(Debug))]
 pub fn delete_project(project_id: ProjectId) -> Result<(), Error> {
     gitbutler_project::delete(project_id).map_err(Into::into)
+}
+
+/// Initialize a Git repository at the given path
+#[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
+pub fn init_git_repository(path: String) -> Result<(), Error> {
+    let path: PathBuf = path.into();
+    git2::Repository::init(&path)
+        .with_context(|| format!("Failed to initialize Git repository at {}", path.display()))?;
+    Ok(())
 }
