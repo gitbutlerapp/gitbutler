@@ -125,10 +125,20 @@ pub fn handle(cmd: &Subcommands, project: &Project, json: bool) -> anyhow::Resul
                     } else {
                         println!("🔄 Updating branches...");
                         let mut resolutions = vec![];
-                        for (id, _status) in statuses {
+                        for (id, status) in statuses {
+                            let approach = if status
+                                .branch_statuses
+                                .iter()
+                                .all(|s| s.status == gitbutler_branch_actions::upstream_integration::BranchStatus::Integrated)
+                            && status.tree_status != gitbutler_branch_actions::upstream_integration::TreeStatus::Conflicted
+                            {
+                                    ResolutionApproach::Delete
+                                } else {
+                                    ResolutionApproach::Rebase
+                                };
                             let resolution = Resolution {
                                 branch_id: id, // This is StackId
-                                approach: ResolutionApproach::Rebase,
+                                approach,
                                 delete_integrated_branches: true,
                                 force_integrated_branches: vec![],
                             };
