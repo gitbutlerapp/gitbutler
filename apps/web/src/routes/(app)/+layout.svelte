@@ -4,7 +4,7 @@
 	import { ButlerAIClient, BUTLER_AI_CLIENT } from '$lib/ai/service';
 	import RedirectIfNotFinalized from '$lib/auth/RedirectIfNotFinalized.svelte';
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
-	import Footer from '$lib/components/Footer.svelte';
+	import CompactFooter from '$lib/components/CompactFooter.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import { OwnerService, OWNER_SERVICE } from '$lib/owner/ownerService';
 	import { WebState, WEB_STATE } from '$lib/redux/store.svelte';
@@ -165,7 +165,7 @@
 	<main>
 		{@render children?.()}
 	</main>
-	<Footer />
+	<CompactFooter />
 </div>
 
 <ChipToastContainer />
