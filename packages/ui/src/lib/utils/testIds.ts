@@ -137,6 +137,7 @@ export enum TestId {
 	AddProjectBareRepoModal = 'add-project-bare-repo-modal',
 	AddProjectNoDotGitDirectoryModal = 'add-project-no-dot-git-directory-modal',
 	AddProjectNotAGitRepoModal = 'add-project-not-a-git-repo-modal',
+	AddProjectNotAGitRepoModalInitializeButton = 'add-project-not-a-git-repo-modal-initialize-button',
 	ChromeHeaderProjectSelector = 'chrome-header-project-selector',
 	ChromeHeaderProjectSelectorAddLocalProject = 'chrome-header-project-selector-add-local-project',
 	ChromeSideBarProjectSettingsButton = 'chrome-sidebar-project-settings-button',

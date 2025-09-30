@@ -166,11 +166,13 @@ export function handleAddProjectOutcome(
 			return true;
 		case 'notAGitRepository':
 			showToast({
+				testId: TestId.AddProjectNotAGitRepoModal,
 				title: 'Not a Git repository',
 				message:
 					'The selected directory is not a Git repository. Would you like to initialize one?',
 				style: 'warning',
 				extraAction: {
+					testId: TestId.AddProjectNotAGitRepoModalInitializeButton,
 					label: 'Initialize Repository',
 					onClick: async (dismiss) => {
 						const projectPath = outcome.subject.path;
