@@ -97,7 +97,7 @@
 		grid-column: narrow-start / off-gridded;
 		align-items: center;
 		justify-content: space-between;
-		padding-top: 48px;
+		padding-top: 40px;
 
 		@media (--tablet-viewport) {
 			padding-top: 32px;
