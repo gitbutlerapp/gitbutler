@@ -4,15 +4,13 @@ use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::Project;
-use std::path::Path;
 
 pub(crate) fn edit_commit_message(
-    repo_path: &Path,
+    project: &Project,
     _json: bool,
     commit_target: &str,
 ) -> Result<()> {
-    let project = Project::find_by_path(repo_path)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     // Resolve the commit ID
     let cli_ids = CliId::from_str(&mut ctx, commit_target)?;
@@ -33,7 +31,7 @@ pub(crate) fn edit_commit_message(
 
     match cli_id {
         CliId::Commit { oid } => {
-            edit_commit_message_by_id(&ctx, &project, *oid)?;
+            edit_commit_message_by_id(&ctx, project, *oid)?;
         }
         _ => {
             anyhow::bail!("Target must be a commit ID, not {}", cli_id.kind());

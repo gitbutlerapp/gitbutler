@@ -11,11 +11,9 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use std::collections::BTreeMap;
 use std::io::{self, Write};
-use std::path::Path;
 
-pub(crate) fn insert_blank_commit(repo_path: &Path, _json: bool, target: &str) -> Result<()> {
-    let project = Project::find_by_path(repo_path)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+pub(crate) fn insert_blank_commit(project: &Project, _json: bool, target: &str) -> Result<()> {
+    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     // Resolve the target ID
     let cli_ids = CliId::from_str(&mut ctx, target)?;
@@ -135,14 +133,13 @@ fn find_stack_containing_commit(
 }
 
 pub(crate) fn commit(
-    repo_path: &Path,
+    project: &Project,
     _json: bool,
     message: Option<&str>,
     branch_hint: Option<&str>,
     only: bool,
 ) -> anyhow::Result<()> {
-    let project = Project::find_by_path(repo_path)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     // Get all stacks using but-api
     let project_id = project.id;
