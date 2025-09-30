@@ -219,6 +219,26 @@ async fn main() -> Result<()> {
     }
 }
 
+fn get_or_init_project(
+    current_dir: &std::path::Path,
+) -> anyhow::Result<gitbutler_project::Project> {
+    let repo = gix::discover(current_dir)?;
+    if let Some(path) = repo.workdir() {
+        let project = match gitbutler_project::Project::find_by_path(path) {
+            Ok(p) => Ok(p),
+            Err(_e) => {
+                crate::init::repo(path, false, false)?;
+                gitbutler_project::Project::find_by_path(path)
+            }
+        }?;
+        Ok(project)
+    } else {
+        let error_desc = "Bare repositories are not supported.";
+        println!("{error_desc}");
+        anyhow::bail!(error_desc);
+    }
+}
+
 pub(crate) fn props<E, T, R>(start: std::time::Instant, result: R) -> Props
 where
     R: std::ops::Deref<Target = Result<T, E>>,
