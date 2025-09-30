@@ -99,7 +99,7 @@ impl Controller {
                     }
                 }
             },
-            Err(err) => {
+            Err(err @ gix::open::Error::NotARepository { .. }) => {
                 return Ok(AddProjectOutcome::NotAGitRepository(
                     NotAGitRepositoryOutcome {
                         path: path.to_path_buf(),
@@ -107,6 +107,7 @@ impl Controller {
                     },
                 ));
             }
+            Err(err) => return Err(err.into()),
         }
 
         let id = ProjectId::generate();
