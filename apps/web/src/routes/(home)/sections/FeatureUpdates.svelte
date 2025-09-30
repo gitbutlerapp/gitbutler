@@ -6,73 +6,91 @@
 		extractPlaylistId,
 		getEmbedUrl,
 		getHighQualityThumbnail,
-		getFallbackThumbnail
+		getFallbackThumbnail,
+		type YouTubePlaylist
 	} from '$lib/youtube';
 	import { onMount } from 'svelte';
 
-	import type { YouTubePlaylist } from '$lib/youtube';
-
-	const playlistUrl =
+	// Constants
+	const PLAYLIST_URL =
 		'https://youtube.com/playlist?list=PLNXkW_le40U7IH8qA5VPN6f01oC25LOj4&si=IRZbd5aBoNLWDH5g';
+	const SCROLL_AMOUNT = 400;
+	const SCROLL_UPDATE_DELAY = 300;
 
+	// State
 	let playlist: YouTubePlaylist | null = $state(null);
 	let isLoading = $state(true);
 	let error = $state('');
-	let carousel: HTMLElement = $state();
+	let carousel: HTMLElement | undefined = $state();
 	let canScrollLeft = $state(false);
 	let canScrollRight = $state(false);
 	let playingVideo: string | null = $state(null);
 
+	// Scroll utilities
 	function updateScrollState() {
 		if (!carousel) return;
-
 		canScrollLeft = carousel.scrollLeft > 0;
 		canScrollRight = carousel.scrollLeft < carousel.scrollWidth - carousel.clientWidth;
 	}
 
-	function scrollLeft() {
+	function scroll(direction: 'left' | 'right') {
 		if (!carousel) return;
-		carousel.scrollBy({ left: -400, behavior: 'smooth' });
-		setTimeout(updateScrollState, 300);
+		const scrollAmount = direction === 'left' ? -SCROLL_AMOUNT : SCROLL_AMOUNT;
+		carousel.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+		setTimeout(updateScrollState, SCROLL_UPDATE_DELAY);
 	}
 
-	function scrollRight() {
-		if (!carousel) return;
-		carousel.scrollBy({ left: 400, behavior: 'smooth' });
-		setTimeout(updateScrollState, 300);
-	}
-
-	function playVideo(videoId: string) {
+	// Video control
+	function handleVideoPlay(videoId: string) {
 		playingVideo = videoId;
 	}
 
-	$effect(() => {
-		if (carousel) {
-			// Use setTimeout to ensure DOM is fully rendered
-			setTimeout(updateScrollState, 0);
-			carousel.addEventListener('scroll', updateScrollState);
+	function openPlaylist() {
+		window.open(PLAYLIST_URL, '_blank');
+	}
 
-			return () => {
-				carousel?.removeEventListener('scroll', updateScrollState);
-			};
+	// Image error handling
+	function handleImageError(event: Event, videoId: string) {
+		const img = event.currentTarget as HTMLImageElement;
+		img.src = getFallbackThumbnail(videoId);
+	}
+
+	// Keyboard interaction
+	function handleKeydown(event: KeyboardEvent, videoId: string) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			handleVideoPlay(videoId);
 		}
+	}
+
+	// Effects
+	$effect(() => {
+		if (!carousel) return;
+
+		const timeoutId = setTimeout(updateScrollState, 0);
+		carousel.addEventListener('scroll', updateScrollState);
+
+		return () => {
+			clearTimeout(timeoutId);
+			carousel?.removeEventListener('scroll', updateScrollState);
+		};
 	});
 
-	// Also update scroll state when playlist changes
 	$effect(() => {
 		if (playlist && carousel) {
 			setTimeout(updateScrollState, 100);
 		}
 	});
 
+	// Data loading
 	onMount(async () => {
 		try {
-			const playlistId = extractPlaylistId(playlistUrl);
-			if (playlistId) {
-				playlist = await fetchPlaylistVideos(playlistId);
-			} else {
-				error = 'Invalid playlist URL';
+			const playlistId = extractPlaylistId(PLAYLIST_URL);
+			if (!playlistId) {
+				throw new Error('Invalid playlist URL');
 			}
+
+			playlist = await fetchPlaylistVideos(playlistId);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load videos';
 			console.error('Error loading playlist:', err);
@@ -87,17 +105,9 @@
 		<i>Feature</i> updates
 
 		{#snippet buttons()}
-			<ArrowButton
-				showArrow={false}
-				label="All demos"
-				onclick={() =>
-					window.open(
-						'https://youtube.com/playlist?list=PLNXkW_le40U7IH8qA5VPN6f01oC25LOj4&si=IRZbd5aBoNLWDH5g',
-						'_blank'
-					)}
-			/>
-			<ArrowButton onclick={scrollLeft} reverseDirection disabled={!canScrollLeft} />
-			<ArrowButton onclick={scrollRight} disabled={!canScrollRight} />
+			<ArrowButton showArrow={false} label="All demos" onclick={openPlaylist} />
+			<ArrowButton onclick={() => scroll('left')} reverseDirection disabled={!canScrollLeft} />
+			<ArrowButton onclick={() => scroll('right')} disabled={!canScrollRight} />
 		{/snippet}
 	</SectionHeader>
 
@@ -110,7 +120,7 @@
 			<h3>¯\_(ツ)_/¯</h3>
 			<p>Unable to load videos: {error}</p>
 			<p>
-				Please check our <a href={playlistUrl} target="_blank" rel="noopener">YouTube playlist</a>
+				Please check our <a href={PLAYLIST_URL} target="_blank" rel="noopener">YouTube playlist</a>
 				directly.
 			</p>
 		</div>
@@ -118,7 +128,7 @@
 		<div class="video-content">
 			<div class="video-carousel__container">
 				<div class="video-carousel__scroll" bind:this={carousel}>
-					{#each playlist.videos as video (video.id)}
+					{#each playlist?.videos ?? [] as video (video.id)}
 						<div class="video-embed">
 							{#if playingVideo === video.videoId}
 								<iframe
@@ -134,22 +144,14 @@
 									class="video-preview"
 									role="button"
 									tabindex="0"
-									onclick={() => playVideo(video.videoId)}
-									onkeydown={(e) => {
-										if (e.key === 'Enter' || e.key === ' ') {
-											e.preventDefault();
-											playVideo(video.videoId);
-										}
-									}}
+									onclick={() => handleVideoPlay(video.videoId)}
+									onkeydown={(e) => handleKeydown(e, video.videoId)}
 								>
 									<img
 										src={getHighQualityThumbnail(video.videoId)}
 										alt={video.title}
 										loading="lazy"
-										onerror={(e) => {
-											const img = e.currentTarget as HTMLImageElement;
-											img.src = getFallbackThumbnail(video.videoId);
-										}}
+										onerror={(e) => handleImageError(e, video.videoId)}
 									/>
 									<div class="play-button">
 										<svg
@@ -195,29 +197,27 @@
 	.video-carousel__container {
 		position: relative;
 		width: 100%;
+	}
 
-		&::after {
-			z-index: 1;
-			position: absolute;
-			top: 0;
-			right: 0;
-			width: 40px;
-			height: 100%;
-			background: linear-gradient(to left, var(--clr-bg-2), transparent);
-			content: '';
-			pointer-events: none;
-		}
-		&::before {
-			z-index: 1;
-			position: absolute;
-			top: 0;
-			left: 0;
-			width: 40px;
-			height: 100%;
-			background: linear-gradient(to right, var(--clr-bg-2), transparent);
-			content: '';
-			pointer-events: none;
-		}
+	.video-carousel__container::before,
+	.video-carousel__container::after {
+		z-index: 1;
+		position: absolute;
+		top: 0;
+		width: 40px;
+		height: 100%;
+		content: '';
+		pointer-events: none;
+	}
+
+	.video-carousel__container::before {
+		left: 0;
+		background: linear-gradient(to right, var(--clr-bg-2), transparent);
+	}
+
+	.video-carousel__container::after {
+		right: 0;
+		background: linear-gradient(to left, var(--clr-bg-2), transparent);
 	}
 
 	.video-carousel__scroll {
@@ -225,8 +225,7 @@
 		overflow-x: auto;
 		gap: 1rem;
 		scroll-behavior: smooth;
-		scroll-padding-left: 40px;
-		scroll-padding-right: 40px;
+		scroll-padding: 0 40px;
 		scroll-snap-type: x mandatory;
 		scrollbar-width: none;
 		-ms-overflow-style: none;
