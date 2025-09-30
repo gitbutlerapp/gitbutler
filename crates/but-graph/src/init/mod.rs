@@ -25,7 +25,7 @@ pub(crate) type Entrypoint = Option<(gix::ObjectId, Option<gix::refs::FullName>)
 
 /// A way to define information to be served from memory, instead of from the underlying data source, when
 /// [initializing](Graph::from_commit_traversal()) the graph.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Overlay {
     entrypoint: Entrypoint,
     nonoverriding_references: Vec<gix::refs::Reference>,

@@ -6,7 +6,8 @@ source "${BASH_SOURCE[0]%/*}/shared.sh"
 
 ### General Description
 
-# A ws-ref points to a commit, which is also owned by a stack. There is another branch outside of the workspace pointing to the same commit.
+# A ws-ref points to a non-managed commit, along with two branches pointing to the same.
+# This is an initial state where a workspace was newly created.
 git init
 commit A
 git branch A
