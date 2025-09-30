@@ -141,7 +141,7 @@
 			<div class="wiggle-animation">
 				<InfoMessage filled outlined={false} style="error" class="m-bottom-16">
 					{#snippet content()}
-						{#if errorCode !== 'email_not_verified'}
+						{#if errorCode === 'email_not_verified'}
 							{#if !resendDisabled}
 								<p>
 									Verify your email before logging in. Check your inbox or <button
