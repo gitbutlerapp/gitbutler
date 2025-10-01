@@ -483,22 +483,10 @@ pub(crate) mod function {
                 [info.commit_index_of_managed_commit]
                 .id;
             msg.push_str(
-                    "The current changes will be stashed and must be re-applied manually. Commit them otherwise.\n",
+                    "Run the following command in your working directory to fix this while leaving your worktree unchanged.\n",
                 );
-            msg.push_str(
-                    "Run the following command in your working directory to fix this and restore the committed changes.\n\n",
-                );
-            msg.push_str(&format!(
-                "    git stash && git reset --hard {ws_commit_id}{checkout_clause}",
-                checkout_clause = info
-                    .commits_outside
-                    .first()
-                    .map(|c| format!(
-                        " && git checkout {user_commit_id} -- .",
-                        user_commit_id = c.id
-                    ))
-                    .unwrap_or_default()
-            ));
+            msg.push_str("Worktree changes need to be re-committed manually for now.\n\n");
+            msg.push_str(&format!("    git reset --soft {ws_commit_id}"));
             bail!("{msg}");
         }
         info.compute_similarity(graph, repo, opts.expensive_commit_info)?;
