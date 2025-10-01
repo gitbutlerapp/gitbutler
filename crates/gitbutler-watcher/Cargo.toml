@@ -11,7 +11,7 @@ doctest = false
 [dependencies]
 gitbutler-sync.workspace = true
 gitbutler-oplog.workspace = true
-anyhow = "1.0.99"
+anyhow = "1.0.100"
 tokio = { workspace = true, features = ["macros", "sync"] }
 tokio-util = "0.7.16"
 tracing.workspace = true

@@ -7,7 +7,7 @@ publish = false
 autotests = false
 
 [dependencies]
-anyhow = "1.0.99"
+anyhow = "1.0.100"
 tracing.workspace = true
 serde = { workspace = true, features = ["std"]}
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }

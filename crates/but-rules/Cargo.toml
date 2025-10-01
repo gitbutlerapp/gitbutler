@@ -10,14 +10,14 @@ publish = false
 doctest = false
 
 [dependencies]
-anyhow = "1.0.99"
+anyhow = "1.0.100"
 itertools.workspace = true
 serde.workspace = true
-regex = "1.11.2"
+regex = "1.11.3"
 gix = { workspace = true }
-chrono = { version = "0.4.41", features = [] }
+chrono = { version = "0.4.42", features = [] }
 serde_regex = "1.1.0"
-serde_json = "1.0.143"
+serde_json = "1.0.145"
 gitbutler-command-context.workspace = true
 but-db.workspace = true
 but-core.workspace = true

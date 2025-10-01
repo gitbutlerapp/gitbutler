@@ -30,9 +30,9 @@ but-core = { workspace = true, features = ["testing"] }
 gitbutler-oxidize.workspace = true
 gix = { workspace = true, features = ["max-performance", "tracing"] }
 dirs-next = "2.0.0"
-clap = { version = "4.5.46", features = ["derive", "env"] }
-anyhow = "1.0.99"
-chrono = "0.4.41"
+clap = { version = "4.5.48", features = ["derive", "env"] }
+anyhow = "1.0.100"
+chrono = "0.4.42"
 tracing-forest = { version = "0.2.0" }
 tracing-subscriber.workspace = true
 tracing.workspace = true
