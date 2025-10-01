@@ -3248,10 +3248,10 @@ fn advanced_workspace_multi_stack() -> anyhow::Result<()> {
     insta::assert_snapshot!(err.to_string(), @r"
     Found 5 commit(s) on top of the workspace commit.
 
-    The current changes will be stashed and must be re-applied manually. Commit them otherwise.
-    Run the following command in your working directory to fix this and restore the committed changes.
+    Run the following command in your working directory to fix this while leaving your worktree unchanged.
+    Worktree changes need to be re-committed manually for now.
 
-        git stash && git reset --hard 619d5486e6f5ae7f5e4ecc4a6ea506d6c8433410 && git checkout a7131b181b20c699ecbe4f6145bbb8746716c18b -- .
+        git reset --soft 619d5486e6f5ae7f5e4ecc4a6ea506d6c8433410
     ");
     Ok(())
 }
@@ -3280,10 +3280,10 @@ fn advanced_workspace_single_stack() -> anyhow::Result<()> {
     insta::assert_snapshot!(err.to_string(), @r"
     Found 5 commit(s) on top of the workspace commit.
 
-    The current changes will be stashed and must be re-applied manually. Commit them otherwise.
-    Run the following command in your working directory to fix this and restore the committed changes.
+    Run the following command in your working directory to fix this while leaving your worktree unchanged.
+    Worktree changes need to be re-committed manually for now.
 
-        git stash && git reset --hard c58f15768a8ba280fe773ffc4820b13ad882cd84 && git checkout da912a8a455bca9e94ed65cb42328177fa891081 -- .
+        git reset --soft c58f15768a8ba280fe773ffc4820b13ad882cd84
     ");
     Ok(())
 }
