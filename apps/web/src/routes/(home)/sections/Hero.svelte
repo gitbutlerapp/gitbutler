@@ -1,13 +1,13 @@
 <script lang="ts">
 	import CtaButton from '$home/components/CtaButton.svelte';
 	import contentJson from '$home/data/content.json';
-	import MarketingHeader from '$lib/components/MarketingHeader.svelte';
+	import Header from '$lib/components/marketing/Header.svelte';
 
 	const heroContent = contentJson.hero;
 </script>
 
 <section class="hero">
-	<MarketingHeader />
+	<Header />
 	<div class="hero-content">
 		<h1 class="title">
 			Git, <i>finally</i> designed for humans.

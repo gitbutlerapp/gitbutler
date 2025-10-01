@@ -1,6 +1,6 @@
-<script>
+<script lang="ts">
 	import { page } from '$app/state';
-	import MarketingFooter from '$lib/components/MarketingFooter.svelte';
+	import Footer from '$lib/components/marketing/Footer.svelte';
 </script>
 
 <section class="wrapper">
@@ -10,7 +10,7 @@
 	<div class="subtitle">Error</div>
 </section>
 
-<MarketingFooter />
+<Footer />
 
 <style lang="scss">
 	.wrapper {

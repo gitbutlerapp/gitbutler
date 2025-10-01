@@ -1,7 +1,7 @@
 <script lang="ts">
-	import MarketingFooter from '$lib/components/MarketingFooter.svelte';
-	import MarketingHeader from '$lib/components/MarketingHeader.svelte';
-	import ReleaseCard from '$lib/components/ReleaseCard.svelte';
+	import Footer from '$lib/components/marketing/Footer.svelte';
+	import Header from '$lib/components/marketing/Header.svelte';
+	import ReleaseCard from '$lib/components/marketing/ReleaseCard.svelte';
 	import osIcons from '$lib/data/os-icons.json';
 	import { marked } from '@gitbutler/ui/utils/marked';
 	import type { Build, Release } from '$lib/types/releases';
@@ -25,7 +25,7 @@
 </svelte:head>
 
 <section class="latest-release-wrapper">
-	<MarketingHeader />
+	<Header />
 
 	<div class="latest-release">
 		<div class="latest-release__header">
@@ -160,7 +160,7 @@
 	{/each}
 </section>
 
-<MarketingFooter showDownloadLinks={false} />
+<Footer showDownloadLinks={false} />
 
 <style>
 	.latest-release-wrapper {

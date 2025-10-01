@@ -6,7 +6,7 @@
 	import Hero from '$home/sections/Hero.svelte';
 	import MainFeatures from '$home/sections/MainFeatures.svelte';
 	import SocialQuotes from '$home/sections/SocialQuotes.svelte';
-	import MarketingFooter from '$lib/components/MarketingFooter.svelte';
+	import Footer from '$lib/components/marketing/Footer.svelte';
 
 	interface Props {
 		releases?: any[];
@@ -22,4 +22,4 @@
 <SocialQuotes />
 <Changelog {releases} />
 <BlogHighlights />
-<MarketingFooter />
+<Footer />

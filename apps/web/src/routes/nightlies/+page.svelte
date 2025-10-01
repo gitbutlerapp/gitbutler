@@ -1,6 +1,6 @@
 <script lang="ts">
-	import MarketingFooter from '$lib/components/MarketingFooter.svelte';
-	import MarketingHeader from '$lib/components/MarketingHeader.svelte';
+	import Footer from '$lib/components/marketing/Footer.svelte';
+	import Header from '$lib/components/marketing/Header.svelte';
 	import osIcons from '$lib/data/os-icons.json';
 	import type { Build, Release } from '$lib/types/releases';
 
@@ -28,7 +28,7 @@
 </svelte:head>
 
 <section class="latest-nightly-wrapper">
-	<MarketingHeader />
+	<Header />
 
 	{#if latestNightly}
 		<div class="nightly-hero">
@@ -228,7 +228,7 @@
 	</section>
 {/if}
 
-<MarketingFooter showDownloadLinks={false} />
+<Footer showDownloadLinks={false} />
 
 <style>
 	.latest-nightly-wrapper {

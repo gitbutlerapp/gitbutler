@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ArrowButton from '$home/components/ArrowButton.svelte';
 	import SectionHeader from '$home/components/SectionHeader.svelte';
-	import ReleaseCard from '$lib/components/ReleaseCard.svelte';
+	import ReleaseCard from '$lib/components/marketing/ReleaseCard.svelte';
 	import type { Release } from '$lib/types/releases';
 
 	interface Props {
