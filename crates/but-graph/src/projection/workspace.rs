@@ -789,7 +789,7 @@ impl Graph {
         out
     }
 
-    /// Return `(commit, start)` if `start` has a commit, or find the first commit downstream along the first parent.
+    /// Return `(commit, owner_sidx_of_commit)` if `start` has a commit, or find the first commit downstream along the first parent.
     pub(crate) fn first_commit_or_find_along_first_parent(
         &self,
         start: SegmentIndex,

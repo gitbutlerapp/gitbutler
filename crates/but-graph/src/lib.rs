@@ -280,5 +280,32 @@ pub struct Edge {
     dst_id: Option<gix::ObjectId>,
 }
 
+impl Edge {
+    /// Useful when reusing an edge to assure it doesn't list commits that don't exist in `src_idx` and `dst_idx` anymore.
+    pub(crate) fn adjusted_for(
+        mut self,
+        src_sidx: SegmentIndex,
+        dst_sidx: SegmentIndex,
+        graph: &init::PetGraph,
+    ) -> Self {
+        let commits = &graph[src_sidx].commits;
+        let (id, idx) = commits
+            .last()
+            .map(|c| (Some(c.id), Some(commits.len() - 1)))
+            .unwrap_or_default();
+        self.src_id = id;
+        self.src = idx;
+
+        let commits = &graph[dst_sidx].commits;
+        let (id, idx) = commits
+            .first()
+            .map(|c| (Some(c.id), Some(0)))
+            .unwrap_or_default();
+        self.dst_id = id;
+        self.dst = idx;
+
+        self
+    }
+}
 /// An index into the [`Graph`].
 pub type SegmentIndex = petgraph::graph::NodeIndex;

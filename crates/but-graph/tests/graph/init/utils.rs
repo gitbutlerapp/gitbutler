@@ -1,3 +1,4 @@
+use but_core::RefMetadata;
 use but_core::ref_metadata::StackId;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_graph::virtual_branches_legacy_types::{Stack, StackBranch, Target};
@@ -51,6 +52,18 @@ pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
         "definitely outside of the workspace just to have it",
         StackState::Inactive,
     );
+}
+
+pub fn remove_target(meta: &mut VirtualBranchesTomlMetadata) {
+    let mut ws_md = meta
+        .workspace(
+            "refs/heads/gitbutler/workspace"
+                .try_into()
+                .expect("statically known to be valid"),
+        )
+        .unwrap();
+    ws_md.target_ref = None;
+    meta.set_workspace(&ws_md).unwrap();
 }
 
 pub fn add_workspace_without_target(meta: &mut VirtualBranchesTomlMetadata) {

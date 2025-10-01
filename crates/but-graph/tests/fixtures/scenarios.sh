@@ -1151,5 +1151,17 @@ EOF
     commit A3
     create_workspace_commit_once A
   )
+
+
+  git init no-ws-ref-no-ws-commit-two-branches
+  (cd no-ws-ref-no-ws-commit-two-branches
+    commit M1
+    commit M2
+
+    git branch A
+    git branch B
+
+    create_workspace_commit_once A B
+  )
 )
 
