@@ -255,7 +255,7 @@ const pricing = [
 	{
 		name: 'claude-sonnet',
 		input: 3,
-		output: 6,
+		output: 15,
 		writeCache: 3.75,
 		readCache: 0.3
 	},
