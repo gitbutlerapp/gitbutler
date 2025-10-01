@@ -40,6 +40,19 @@
 	// Releases data for changelog
 	let releases: any[] = $state([]);
 
+	// Check if current page should use marketing layout
+	const isMarketingPage = $derived(
+		(page.route.id === '/(app)' && !persistedToken.current) ||
+			page.route.id === '/(app)/home' ||
+			page.route.id === '/downloads' ||
+			page.route.id === '/nightlies'
+	);
+
+	// Check if current page should render children directly
+	const shouldRenderChildren = $derived(
+		page.route.id === '/downloads' || page.route.id === '/nightlies'
+	);
+
 	$effect(() => {
 		if (page.url.searchParams.has('gb_access_token')) {
 			const token = page.url.searchParams.get('gb_access_token');
@@ -68,11 +81,6 @@
 
 	// Fetch latest version and releases when showing marketing page
 	$effect(() => {
-		const isMarketingPage =
-			(page.route.id === '/(app)' && !persistedToken.current) ||
-			page.route.id === '/(app)/home' ||
-			page.route.id === '/downloads';
-
 		if (isMarketingPage) {
 			// Fetch latest version
 			fetch('https://app.gitbutler.com/api/downloads?limit=1&channel=release')
@@ -110,9 +118,9 @@
 	{/if}
 </svelte:head>
 
-{#if (page.route.id === '/(app)' && !persistedToken.current) || page.route.id === '/(app)/home' || page.route.id === '/downloads'}
+{#if isMarketingPage}
 	<section class="marketing-page">
-		{#if page.route.id === '/downloads'}
+		{#if shouldRenderChildren}
 			{@render children?.()}
 		{:else}
 			<HomePage {releases} />

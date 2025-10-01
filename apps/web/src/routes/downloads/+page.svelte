@@ -35,7 +35,7 @@
 				<h1>
 					{latestRelease.version}
 				</h1>
-				<div class="stack-h gap-8">
+				<div class="latest-release__header-subtitle">
 					<span>Latest release</span>
 					<span> • </span>
 					<span
@@ -122,14 +122,18 @@
 					<div class="download-options">
 						{#if latestReleaseBuilds.linux_appimage}
 							<a href={(latestReleaseBuilds.linux_appimage as Build).url} class="download-link"
-								>AppImage</a
+								>Linux Intel (AppImage)</a
 							>
 						{/if}
 						{#if latestReleaseBuilds.linux_deb}
-							<a href={(latestReleaseBuilds.linux_deb as Build).url} class="download-link">Deb</a>
+							<a href={(latestReleaseBuilds.linux_deb as Build).url} class="download-link">
+								Linux Intel (Deb)
+							</a>
 						{/if}
 						{#if latestReleaseBuilds.linux_rpm}
-							<a href={(latestReleaseBuilds.linux_rpm as Build).url} class="download-link">RPM</a>
+							<a href={(latestReleaseBuilds.linux_rpm as Build).url} class="download-link">
+								Linux Intel (RPM)
+							</a>
 						{/if}
 					</div>
 				</div>
@@ -156,7 +160,7 @@
 	{/each}
 </section>
 
-<MarketingFooter />
+<MarketingFooter showDownloadLinks={false} />
 
 <style>
 	.latest-release-wrapper {
@@ -200,6 +204,13 @@
 		}
 	}
 
+	.latest-release__header-subtitle {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+	}
+
 	.release-notes-content {
 		padding-bottom: 40px;
 		font-size: 13px;
@@ -240,6 +251,7 @@
 
 	.download-links__title {
 		font-size: 40px;
+		line-height: 1;
 		font-family: var(--fontfamily-accent);
 
 		& .arrow-down {
@@ -299,5 +311,27 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-xl);
 		font-family: var(--fontfamily-mono);
+	}
+
+	@media (--mobile-viewport) {
+		.latest-release {
+			padding: 20px;
+		}
+
+		.latest-release__header {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 12px;
+		}
+
+		.download-links__title {
+			font-size: 32px;
+
+			& .arrow-down {
+				width: 28px;
+				height: 27px;
+				transform: translateY(6px);
+			}
+		}
 	}
 </style>

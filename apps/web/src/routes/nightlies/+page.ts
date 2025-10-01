@@ -3,16 +3,13 @@ import type { PageLoad } from './$types';
 
 // eslint-disable-next-line func-style
 export const load: PageLoad = async () => {
-	const releases = await fetchAndProcessReleases(10, 'release');
 	const nightlies = await fetchAndProcessReleases(15, 'nightly');
-	const latestRelease = releases[0];
-
-	const latestReleaseBuilds = createLatestReleaseBuilds(latestRelease);
+	const latestNightly = nightlies[0] || null;
+	const latestNightlyBuilds = latestNightly ? createLatestReleaseBuilds(latestNightly) : {};
 
 	return {
 		nightlies,
-		releases,
-		latestRelease,
-		latestReleaseBuilds
+		latestNightly,
+		latestNightlyBuilds
 	};
 };

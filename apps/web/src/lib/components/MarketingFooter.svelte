@@ -1,133 +1,89 @@
 <script lang="ts">
 	import * as jsonLinks from '$lib/data/links.json';
 	import osIcons from '$lib/data/os-icons.json';
-	import { getValidReleases } from '$lib/types/releases';
-	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
-	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
-	import type { Release } from '$lib/types/releases';
 
-	let latestNightly: Release | null = null;
-	let showDropdown = false;
-
-	onMount(async () => {
-		try {
-			const response = await fetch(
-				'https://app.gitbutler.com/api/downloads?limit=1&channel=nightly'
-			);
-			const data = await response.json();
-			const builds = getValidReleases(data);
-			latestNightly = builds.length > 0 ? builds[0] : null;
-		} catch (error) {
-			console.error('Failed to fetch nightly builds:', error);
-		}
-	});
-
-	function toggleDropdown() {
-		showDropdown = !showDropdown;
+	interface Props {
+		showDownloadLinks?: boolean;
 	}
 
-	function closeDropdown() {
-		showDropdown = false;
-	}
-
-	function getPlatformLabel(platform: string): string {
-		const platformMap: { [key: string]: string } = {
-			'darwin-aarch64': 'Apple Silicon',
-			'darwin-x86_64': 'Intel Mac',
-			'windows-x86_64': 'Windows',
-			'linux-x86_64': 'Linux'
-		};
-		return platformMap[platform] || platform;
-	}
+	const { showDownloadLinks = true }: Props = $props();
 </script>
 
 <footer class="footer">
 	<div class="banner">
-		<div class="banner-content-downloads">
-			<div class="stack-v">
-				<h2 class="banner-title">Download <i>the</i> app</h2>
+		{#if showDownloadLinks}
+			<div class="banner-content-downloads">
+				<div class="stack-v">
+					<h2 class="banner-title">Download <i>the</i> app</h2>
 
-				<div class="download-links">
-					<div class="download-category">
-						<svg
-							class="download-icon"
-							viewBox="0 0 22 22"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<path d={osIcons.macos} fill="currentColor" />
-						</svg>
-						<div class="download-options">
-							<a href={jsonLinks.downloads.intelMac.url} class="download-link">
-								{jsonLinks.downloads.intelMac.label}
-							</a>
-							<a href={jsonLinks.downloads.appleSilicon.url} class="download-link">
-								{jsonLinks.downloads.appleSilicon.label}
-							</a>
+					<div class="download-links">
+						<div class="download-category">
+							<svg
+								class="download-icon"
+								viewBox="0 0 22 22"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path d={osIcons.macos} fill="currentColor" />
+							</svg>
+							<div class="download-options">
+								<a href={jsonLinks.downloads.intelMac.url} class="download-link">
+									{jsonLinks.downloads.intelMac.label}
+								</a>
+								<a href={jsonLinks.downloads.appleSilicon.url} class="download-link">
+									{jsonLinks.downloads.appleSilicon.label}
+								</a>
+							</div>
 						</div>
-					</div>
 
-					<div class="download-category">
-						<svg
-							class="download-icon"
-							viewBox="0 0 22 22"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<path d={osIcons.windows} fill="currentColor" />
-						</svg>
-						<div class="download-options">
-							<a href={jsonLinks.downloads.windowsMsi.url} class="download-link">
-								{jsonLinks.downloads.windowsMsi.label}
-							</a>
+						<div class="download-category">
+							<svg
+								class="download-icon"
+								viewBox="0 0 22 22"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path d={osIcons.windows} fill="currentColor" />
+							</svg>
+							<div class="download-options">
+								<a href={jsonLinks.downloads.windowsMsi.url} class="download-link">
+									{jsonLinks.downloads.windowsMsi.label}
+								</a>
+							</div>
 						</div>
-					</div>
 
-					<div class="download-category">
-						<svg
-							class="download-icon"
-							viewBox="0 0 22 22"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<path d={osIcons.linux} fill="currentColor" />
-						</svg>
-						<div class="download-options">
-							<a href={jsonLinks.downloads.linuxAppimage.url} class="download-link"> AppImage </a>
-							<a href={jsonLinks.downloads.linuxDeb.url} class="download-link"> Deb </a>
-							<a href={jsonLinks.downloads.linuxRpm.url} class="download-link"> RPM </a>
+						<div class="download-category">
+							<svg
+								class="download-icon"
+								viewBox="0 0 22 22"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path d={osIcons.linux} fill="currentColor" />
+							</svg>
+							<div class="download-options">
+								<a href={jsonLinks.downloads.linuxAppimage.url} class="download-link"> AppImage </a>
+								<a href={jsonLinks.downloads.linuxDeb.url} class="download-link"> Deb </a>
+								<a href={jsonLinks.downloads.linuxRpm.url} class="download-link"> RPM </a>
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
 
-			<div class="banner-nightly-text">
-				<span class="opacity-50">Experience GitButler's newest features before anyone else.</span>
-
-				<div class="nightly-dropdown" use:clickOutside={{ handler: closeDropdown }}>
-					<button type="button" class="nightly-button" onclick={toggleDropdown}>
-						<span class="nightly-button-label">Get Nightly</span>
-						<span class="nightly-button-arrow" class:rotated={showDropdown}>▼</span>
-					</button>
-
-					{#if showDropdown && latestNightly}
-						<div class="nightly-dropdown-menu" in:fly={{ y: -10, duration: 150 }}>
-							{#each latestNightly.builds as platformBuild}
-								<button
-									type="button"
-									class="nightly-platform-link"
-									onclick={() => window.open(platformBuild.url, '_blank')}
-								>
-									<span class="nightly-download-icon">⤓</span>
-									{getPlatformLabel(platformBuild.platform)}
-								</button>
-							{/each}
-						</div>
-					{/if}
+				<div class="banner-nightly-text">
+					<span class="opacity-50">Experience GitButler's newest features before anyone else.</span>
+					<a href="/nightlies" class="nightly-link"> Get Nightly </a>
 				</div>
 			</div>
-		</div>
+		{:else}
+			<div class="banner-content-downloads">
+				<h2 class="banner-title">
+					<i>Version</i> Control
+					<br />
+					With <i>Attitude</i> ⧓
+				</h2>
+			</div>
+		{/if}
 
 		<img class="banner-image" src="/images/pc-skater.svg" alt="" />
 
@@ -231,6 +187,7 @@
 		mix-blend-mode: screen;
 		filter: contrast(145%) brightness(1050%) invert(100%);
 		opacity: 0.7;
+		pointer-events: none;
 
 		&.noisy-1 {
 			bottom: -20%;
@@ -293,6 +250,12 @@
 		font-size: 16px;
 		line-height: 120%;
 		text-decoration: underline;
+		text-underline-offset: 2px;
+
+		&:hover {
+			text-decoration: underline wavy;
+			text-decoration-color: var(--clr-theme-pop-element);
+		}
 	}
 
 	.banner-image {
@@ -307,81 +270,16 @@
 		line-height: 1.6;
 	}
 
-	.nightly-dropdown {
-		display: inline-block;
-		position: relative;
-	}
-
-	.nightly-button {
-		display: flex;
-		align-items: center;
-		border: none;
-		background: none;
+	.nightly-link {
 		color: inherit;
+		text-decoration: underline;
+		text-underline-offset: 3px;
 		cursor: pointer;
-	}
-
-	.nightly-button-label {
-		text-decoration: underline dotted;
-		text-underline-offset: 2px;
-		cursor: pointer;
-	}
-
-	.nightly-button-arrow {
-		margin-left: 4px;
-		font-size: 10px;
-		transition: transform var(--transition-fast);
-
-		&.rotated {
-			transform: rotate(180deg);
-		}
-	}
-
-	.nightly-dropdown-menu {
-		z-index: 1000;
-		position: absolute;
-		right: 0;
-		bottom: 100%;
-		min-width: 250px;
-		margin-bottom: 8px;
-		padding: 8px;
-		border-radius: 6px;
-		background: var(--clr-bg-1);
-		box-shadow: var(--fx-shadow-m);
-	}
-
-	.nightly-platform-link {
-		display: flex;
-		align-items: center;
-		width: 100%;
-		padding: 8px 14px 8px 8px;
-		gap: 8px;
-		border: none;
-		border-radius: var(--radius-s);
-		background: none;
-		color: inherit;
-		font-size: 14px;
-		text-align: left;
-		text-decoration: none;
-		cursor: pointer;
-		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-2);
-			text-decoration: none;
-
-			.nightly-download-icon {
-				transform: translateY(0);
-				opacity: 1;
-			}
+			color: var(--clr-text-1);
+			text-decoration: underline wavy;
 		}
-	}
-
-	.nightly-download-icon {
-		display: inline-block;
-		transform: translateY(-2px);
-		opacity: 0;
-		transition: transform 0.15s ease-in-out;
 	}
 
 	// links section

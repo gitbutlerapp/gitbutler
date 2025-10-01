@@ -195,7 +195,7 @@
 		padding: 32px;
 		gap: 24px;
 		background-image: radial-gradient(var(--clr-border-2) 1px, transparent 1px);
-		background-size: 7px 7px;
+		background-size: 6px 6px;
 	}
 
 	.download-category {
@@ -213,10 +213,12 @@
 	.download-options {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
+		gap: 14px;
 	}
 
 	.download-link {
+		width: fit-content;
+		background-color: var(--clr-bg-2);
 		font-size: 12px;
 		font-family: var(--fontfamily-mono);
 		text-decoration: underline;
