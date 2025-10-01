@@ -14,7 +14,7 @@
 //!   - GitButler implements the concept of a branch stack. This is essentially a collection of "heads"
 //!     (pseudo branches) that contain each other.
 //!   - Always contains at least one branch.
-//!   - High level documentation here: <https://docs.gitbutler.com/features/virtual-branches/stacked-branches>
+//!   - High level documentation here: <https://docs.gitbutler.com/features/branch-management/stacked-branches>
 //! * **Target Branch**
 //!   - The branch every stack in the workspace wants to get merged into.
 //!   - It's usually a local tracking branch, but doesn't have to if no Git *remote* is associated with it.

@@ -232,7 +232,7 @@
 				>See more: <Link
 					target="_blank"
 					rel="noreferrer"
-					href="https://docs.gitbutler.com/features/virtual-branches/stacked-branches"
+					href="https://docs.gitbutler.com/features/branch-management/stacked-branches"
 					>Stacked vs. Dependent</Link
 				></span
 			>
