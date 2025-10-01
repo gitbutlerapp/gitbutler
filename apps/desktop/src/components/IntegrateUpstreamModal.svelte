@@ -107,7 +107,7 @@
 				const dontDelete = someBranchesShouldNotBeDeleted(status.stack.heads.map((b) => b.name));
 
 				results.set(status.stack.id, {
-					branchId: status.stack.id,
+					stackId: status.stack.id,
 					approach: getResolutionApproachV3(status),
 					deleteIntegratedBranches: !dontDelete,
 					forceIntegratedBranches
