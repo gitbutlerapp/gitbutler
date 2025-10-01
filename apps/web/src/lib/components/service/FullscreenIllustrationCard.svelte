@@ -107,15 +107,15 @@
 		.instruction-content__illustration {
 			display: none;
 		}
-
-		.instruction-content__title {
-			margin-bottom: 24px;
-		}
 	}
 
 	@media (max-width: 480px) {
 		.instruction-content {
 			padding: 30px 20px 20px;
+		}
+
+		.instruction-content__inner {
+			gap: 24px;
 		}
 	}
 </style>
