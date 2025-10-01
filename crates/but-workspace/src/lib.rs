@@ -61,7 +61,8 @@ pub mod snapshot;
 
 mod changeset;
 
-mod commit;
+/// Utility types for the [`WorkspaceCommit`].
+pub(crate) mod commit;
 
 /// Types used only when obtaining head-information.
 ///

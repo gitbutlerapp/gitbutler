@@ -1,5 +1,24 @@
 use crate::WorkspaceCommit;
-use bstr::ByteSlice;
+use crate::ui::StackEntryNoOpt;
+use bstr::{BString, ByteSlice};
+
+/// A minimal stack for use by [WorkspaceCommit::new_from_stacks()].
+pub struct Stack {
+    /// The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch.
+    pub tip: gix::ObjectId,
+    /// The short name of the stack, which is the name of the top-most branch, like `main` or `feature/branch` or `origin/tracking-some-PR`
+    /// or something entirely made up.
+    pub name: Option<BString>,
+}
+
+impl From<StackEntryNoOpt> for Stack {
+    fn from(value: StackEntryNoOpt) -> Self {
+        Stack {
+            tip: value.tip,
+            name: value.name().map(ToOwned::to_owned),
+        }
+    }
+}
 
 /// Construction
 impl<'repo> WorkspaceCommit<'repo> {
@@ -20,10 +39,11 @@ impl<'repo> WorkspaceCommit<'repo> {
     /// It still needs its tree set to something non-empty.
     ///
     /// `object_hash` is needed to create an empty tree hash.
-    pub(crate) fn create_commit_from_vb_state(
-        stacks: &[crate::ui::StackEntryNoOpt],
+    pub(crate) fn new_from_stacks(
+        stacks: impl IntoIterator<Item = impl Into<Stack>>,
         object_hash: gix::hash::Kind,
     ) -> gix::objs::Commit {
+        let stacks = stacks.into_iter().map(Into::into).collect::<Vec<_>>();
         // message that says how to get back to where they were
         let mut message = Self::GITBUTLER_WORKSPACE_COMMIT_TITLE.to_string();
         message.push_str("\n\n");
@@ -44,8 +64,8 @@ impl<'repo> WorkspaceCommit<'repo> {
         message.push_str("If you commit on this branch, GitButler will throw it away.\n\n");
         if !stacks.is_empty() {
             message.push_str("Here are the branches that are currently applied:\n");
-            for branch in stacks {
-                if let Some(name) = branch.name() {
+            for branch in &stacks {
+                if let Some(name) = &branch.name {
                     message.push_str(" - ");
                     message.push_str(name.to_str_lossy().as_ref());
                     message.push('\n');

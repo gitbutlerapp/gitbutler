@@ -234,13 +234,12 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     let graph =
         but_graph::Graph::from_commit_traversal(b_id, b_ref.clone(), &meta, Default::default())?;
     let ws = graph.to_workspace()?;
-    // TODO: fix this - the entrypoint shouldn't alter the stack setup.
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-    📕🏘️⚠️:1:gitbutler/workspace <> ✓!
-    └── ≡👉📙:0:B
-        ├── 👉📙:0:B
+    📕🏘️⚠️:1:gitbutler/workspace <> ✓! on e5d0542
+    ├── ≡👉📙:3:B on e5d0542
+    │   └── 👉📙:3:B
+    └── ≡📙:2:A on e5d0542
         └── 📙:2:A
-            └── ·e5d0542 (🏘️) ►main
     ");
 
     // Already applied (the HEAD points to it, it literally IS the workspace).

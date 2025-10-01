@@ -515,10 +515,7 @@ pub fn create_commit_and_update_refs(
                             .map(|stack| crate::ui::StackEntryNoOpt::try_new(repo, stack))
                             .collect::<Result<_, _>>()?;
                         stacks.sort_by(|a, b| a.name().cmp(&b.name()));
-                        let new_wc = WorkspaceCommit::create_commit_from_vb_state(
-                            &stacks,
-                            repo.object_hash(),
-                        );
+                        let new_wc = WorkspaceCommit::new_from_stacks(stacks, repo.object_hash());
                         repo.write_object(&new_wc)?.detach()
                     } else {
                         workspace_tip
