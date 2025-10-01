@@ -32,12 +32,35 @@
 
 	.section-header__title {
 		font-size: 60px;
-		line-height: 1.1;
+		line-height: 1;
 		font-family: var(--fontfamily-accent);
 	}
 
 	.section-header__buttons {
 		display: flex;
 		gap: 6px;
+	}
+
+	@media (--tablet-viewport) {
+		.section-header {
+			margin-bottom: 28px;
+			gap: 12px;
+		}
+
+		.section-header__title {
+			font-size: 50px;
+		}
+	}
+
+	@media (--mobile-viewport) {
+		.section-header {
+			margin-bottom: 20px;
+		}
+		.section-header__title {
+			font-size: 36px;
+		}
+		.section-header__buttons {
+			gap: 4px;
+		}
 	}
 </style>

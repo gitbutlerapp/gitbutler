@@ -72,7 +72,7 @@
 
 		{#snippet buttons()}
 			<ArrowButton
-				label="More to read"
+				label="Read more"
 				onclick={() => window.open('https://blog.gitbutler.com', '_blank')}
 			/>
 		{/snippet}
@@ -216,7 +216,8 @@
 			gap: 32px;
 
 			.blog-post__image-container {
-				aspect-ratio: 16 / 9;
+				align-self: flex-start;
+				aspect-ratio: 4 / 3;
 				max-width: 280px;
 			}
 		}
@@ -246,5 +247,74 @@
 	.blog-post__excerpt {
 		font-size: 15px;
 		line-height: 1.6;
+	}
+
+	@media (--desktop-small-viewport) {
+		.blog-post--secondary {
+			flex-direction: column;
+			gap: 16px;
+
+			.blog-post__image-container {
+				aspect-ratio: auto;
+				width: 100%;
+				max-width: none;
+				height: 200px;
+			}
+		}
+	}
+
+	@media (--tablet-viewport) {
+		.blog-highlights__grid {
+			flex-direction: column;
+			gap: 32px;
+		}
+
+		.blog-highlights__sideposts {
+			flex: none;
+			flex-direction: row;
+			gap: 24px;
+		}
+
+		.blog-post--featured {
+			.blog-post__image-container {
+				height: 250px;
+			}
+		}
+
+		.blog-post--secondary {
+			flex: 1;
+			gap: 16px;
+
+			.blog-post__image-container {
+				height: 150px;
+			}
+		}
+
+		.blog-post__title {
+			font-size: 38px;
+		}
+	}
+
+	@media (--mobile-viewport) {
+		.blog-post--featured {
+			.blog-post__image-container {
+				height: 200px;
+			}
+		}
+
+		.blog-highlights__sideposts {
+			flex-direction: column;
+			gap: 32px;
+		}
+
+		.blog-post--secondary {
+			.blog-post__image-container {
+				height: 200px;
+			}
+		}
+
+		.blog-post__title {
+			font-size: 36px;
+		}
 	}
 </style>

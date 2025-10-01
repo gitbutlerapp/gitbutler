@@ -36,12 +36,27 @@
 <style>
 	.features {
 		display: grid;
+		position: relative;
 		grid-template-columns: repeat(3, 1fr);
 		grid-column: full-start / full-end;
 		margin-top: 40px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-xl);
+	}
+
+	.features::before {
+		z-index: 0;
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		background-image: radial-gradient(circle, var(--clr-text-3) 1px, transparent 1px);
+		background-size: 8px 8px;
+		content: '';
+		opacity: 0.3;
+		pointer-events: none;
 	}
 
 	.features__link-indicator-text {
@@ -73,6 +88,7 @@
 
 	.feature-item {
 		display: flex;
+		z-index: 1;
 		position: relative;
 		flex-direction: column;
 		padding: 24px;
@@ -95,17 +111,6 @@
 			line-height: 1.5;
 		}
 
-		/* Remove right border for last column (every 3rd item) and very last item */
-		&:last-child,
-		&:nth-child(3n) {
-			border-right: none;
-		}
-
-		/* Remove bottom border for items in the last row (last 3 items) */
-		&:nth-last-child(-n + 3) {
-			border-bottom: none;
-		}
-
 		&:hover {
 			& .features__link-indicator-text {
 				max-width: 200px;
@@ -119,6 +124,70 @@
 			& .features__link-indicator-arrow {
 				transform: translate(2px, -2px) scale(1.2);
 			}
+		}
+	}
+
+	/* Desktop: 3-column layout (default) */
+	.feature-item:nth-child(3n) {
+		border-right: none;
+	}
+
+	.feature-item:nth-last-child(-n + 3) {
+		border-bottom: none;
+	}
+
+	/* Tablet: 2-column layout */
+	@media (max-width: 1024px) {
+		.features {
+			grid-template-columns: repeat(2, 1fr);
+		}
+
+		/* Reset desktop rules first */
+		.feature-item:nth-child(3n) {
+			border-right: 1px solid var(--clr-border-2);
+		}
+
+		.feature-item:nth-last-child(-n + 3) {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
+
+		/* Apply tablet-specific rules */
+		.feature-item:nth-child(2n) {
+			border-right: none;
+		}
+
+		.feature-item:nth-last-child(-n + 2) {
+			border-bottom: none;
+		}
+	}
+
+	/* Mobile: single-column layout */
+	@media (max-width: 740px) {
+		.features {
+			grid-template-columns: 1fr;
+			grid-column: narrow-start / off-gridded;
+			margin-top: 24px;
+		}
+
+		/* Reset all previous rules */
+		.feature-item:nth-child(3n),
+		.feature-item:nth-child(2n) {
+			border-right: none;
+		}
+
+		.feature-item:nth-last-child(-n + 3),
+		.feature-item:nth-last-child(-n + 2) {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
+
+		/* Apply mobile-specific rules */
+		.feature-item {
+			border-right: none;
+			border-bottom: 1px solid var(--clr-border-2);
+		}
+
+		.feature-item:last-child {
+			border-bottom: none;
 		}
 	}
 </style>

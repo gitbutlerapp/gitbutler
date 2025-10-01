@@ -27,26 +27,92 @@
 	// Randomize quotes before grouping into slides
 	const shuffledQuotes = shuffleArray(quotesJson);
 
-	// Group randomized quotes into slides of 4
-	const QUOTES_PER_SLIDE = 4;
-	const originalSlides: Quote[][] = [];
+	// Detect mobile viewport
+	let isMobile = false;
 
-	for (let i = 0; i < shuffledQuotes.length; i += QUOTES_PER_SLIDE) {
-		originalSlides.push(shuffledQuotes.slice(i, i + QUOTES_PER_SLIDE));
+	// Group randomized quotes into slides based on viewport
+	let QUOTES_PER_SLIDE = 4;
+	let originalSlides: Quote[][] = [];
+	let slides: Quote[][] = [];
+	let currentSlide = 1;
+	let isTransitioning = true;
+	let totalOriginalSlides = 0;
+
+	function createSlides() {
+		QUOTES_PER_SLIDE = isMobile ? 3 : 4;
+		originalSlides = [];
+
+		for (let i = 0; i < shuffledQuotes.length; i += QUOTES_PER_SLIDE) {
+			originalSlides.push(shuffledQuotes.slice(i, i + QUOTES_PER_SLIDE));
+		}
+
+		// Create infinite carousel by duplicating first and last slides
+		slides = [
+			originalSlides[originalSlides.length - 1], // Last slide at the beginning
+			...originalSlides,
+			originalSlides[0] // First slide at the end
+		];
+
+		totalOriginalSlides = originalSlides.length;
+		currentSlide = 1; // Start at the first real slide (index 1)
 	}
 
-	// Create infinite carousel by duplicating first and last slides
-	const slides: Quote[][] = [
-		originalSlides[originalSlides.length - 1], // Last slide at the beginning
-		...originalSlides,
-		originalSlides[0] // First slide at the end
-	];
+	// Mobile carousel element
+	let mobileCarouselElement: HTMLElement;
 
-	let currentSlide = 1; // Start at the first real slide (index 1)
-	let isTransitioning = true;
-	const totalOriginalSlides = originalSlides.length;
+	// Create a long list of quotes for mobile (repeat quotes multiple times for infinite feel)
+	function createMobileQuotes() {
+		const quotesPerSlide = 3;
+		const repetitions = 5; // Repeat the quotes 5 times for infinite feel
+		const mobileQuotes = [];
+
+		for (let rep = 0; rep < repetitions; rep++) {
+			for (let i = 0; i < shuffledQuotes.length; i += quotesPerSlide) {
+				mobileQuotes.push(...shuffledQuotes.slice(i, i + quotesPerSlide));
+			}
+		}
+
+		return mobileQuotes;
+	}
+
+	const mobileQuotes = createMobileQuotes();
+
+	onMount(() => {
+		// Check if mobile viewport
+		function checkMobile() {
+			isMobile = window.innerWidth < 768; // Adjust breakpoint as needed
+			createSlides();
+		}
+
+		checkMobile();
+		window.addEventListener('resize', checkMobile);
+
+		return () => {
+			window.removeEventListener('resize', checkMobile);
+		};
+	});
+
+	// Initialize slides on component load
+	createSlides();
 
 	function nextSlide() {
+		if (isMobile && mobileCarouselElement) {
+			// Mobile: scroll to next quote - calculate actual quote width including gap
+			const viewportWidth = window.innerWidth;
+			const padding = 48; // 24px on each side
+			const gap = 24; // gap between cards
+			const maxCardWidth = 400;
+
+			// Calculate effective card width: either viewport - padding or max width, whichever is smaller
+			const cardWidth = Math.min(viewportWidth - padding, maxCardWidth);
+			// Add gap to scroll to the next card properly
+			const scrollAmount = cardWidth + gap;
+
+			mobileCarouselElement.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+			return;
+		}
+
+		// Desktop: use existing infinite carousel logic
 		if (!isTransitioning) return;
 
 		currentSlide++;
@@ -64,6 +130,23 @@
 	}
 
 	function prevSlide() {
+		if (isMobile && mobileCarouselElement) {
+			// Mobile: scroll to previous quote - calculate actual quote width including gap
+			const viewportWidth = window.innerWidth;
+			const padding = 48; // 24px on each side
+			const gap = 24; // gap between cards
+			const maxCardWidth = 400;
+
+			// Calculate effective card width: either viewport - padding or max width, whichever is smaller
+			const cardWidth = Math.min(viewportWidth - padding, maxCardWidth);
+			// Add gap to scroll to the previous card properly
+			const scrollAmount = cardWidth + gap;
+
+			mobileCarouselElement.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+			return;
+		}
+
+		// Desktop: use existing infinite carousel logic
 		if (!isTransitioning) return;
 
 		currentSlide--;
@@ -92,8 +175,9 @@
 	</SectionHeader>
 
 	<div class="carousel-container">
+		<!-- Desktop carousel -->
 		<div
-			class="carousel-track"
+			class="carousel-track desktop-only"
 			class:transitioning={isTransitioning}
 			style="transform: translateX(-{currentSlide * 100}%)"
 		>
@@ -125,6 +209,31 @@
 						</blockquote>
 					{/each}
 				</div>
+			{/each}
+		</div>
+
+		<!-- Mobile scroll carousel -->
+		<div class="mobile-carousel mobile-only" bind:this={mobileCarouselElement}>
+			{#each mobileQuotes as quote, i}
+				<blockquote class="quote mobile-quote" class:snap-start={i % 3 === 0}>
+					<p class="text-15 text-body quote__text">
+						{quote.quote}
+						<a
+							title="View post on {quote.social}"
+							class="quote__source"
+							href={quote.source}
+							target="_blank"
+							rel="noopener noreferrer">[↗]</a
+						>
+					</p>
+					<div class="quote__author-info">
+						<img class="quote__author-avatar" src={quote.avatar} alt="image of {quote.author}" />
+						<div class="stack-v gap-4">
+							<p class="text-15 text-bold quote__author">{quote.author}</p>
+							<p class="text-13 quote__job-title">{quote.occupation}</p>
+						</div>
+					</div>
+				</blockquote>
 			{/each}
 		</div>
 	</div>
@@ -179,6 +288,42 @@
 		transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 
+	.mobile-carousel {
+		display: none;
+		overflow-x: auto;
+		scroll-behavior: smooth;
+		scroll-snap-type: x mandatory;
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+		grid-column: narrow-start / narrow-end;
+		padding: 0 24px;
+		gap: 24px;
+		scroll-padding-left: 24px;
+	}
+
+	.mobile-carousel::-webkit-scrollbar {
+		display: none;
+	}
+
+	.mobile-quote {
+		flex: 0 0 calc(100vw - 48px);
+		max-width: 400px;
+		scroll-snap-align: start;
+	}
+
+	.snap-start {
+		scroll-snap-align: start;
+	}
+
+	.desktop-only {
+		display: flex;
+	}
+
+	.mobile-only {
+		display: none;
+	}
+
 	.carousel-slide {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
@@ -224,5 +369,26 @@
 
 	.quote__job-title {
 		color: var(--clr-text-2);
+	}
+
+	/* Mobile viewport */
+	@media (--mobile-viewport) {
+		.carousel-container {
+			width: calc(100% + 48px);
+			margin-left: -24px;
+		}
+
+		.desktop-only {
+			display: none;
+		}
+
+		.mobile-only {
+			display: flex;
+		}
+
+		.carousel-container::after,
+		.carousel-container::before {
+			display: none;
+		}
 	}
 </style>

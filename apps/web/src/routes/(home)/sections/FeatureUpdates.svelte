@@ -26,6 +26,11 @@
 	let canScrollRight = $state(false);
 	let playingVideo: string | null = $state(null);
 
+	// Touch/swipe state
+	let touchStartX = $state(0);
+	let touchStartY = $state(0);
+	let isDragging = $state(false);
+
 	// Scroll utilities
 	function updateScrollState() {
 		if (!carousel) return;
@@ -61,6 +66,50 @@
 			event.preventDefault();
 			handleVideoPlay(videoId);
 		}
+	}
+
+	// Touch/swipe handlers
+	function handleTouchStart(event: TouchEvent) {
+		touchStartX = event.touches[0].clientX;
+		touchStartY = event.touches[0].clientY;
+		isDragging = false;
+	}
+
+	function handleTouchMove(event: TouchEvent) {
+		if (!carousel) return;
+
+		const touchX = event.touches[0].clientX;
+		const touchY = event.touches[0].clientY;
+		const deltaX = Math.abs(touchX - touchStartX);
+		const deltaY = Math.abs(touchY - touchStartY);
+
+		// If horizontal swipe is more significant than vertical, handle it
+		if (deltaX > deltaY && deltaX > 10) {
+			isDragging = true;
+			event.preventDefault(); // Prevent page scroll
+		}
+	}
+
+	function handleTouchEnd(event: TouchEvent) {
+		if (!carousel || !isDragging) return;
+
+		const touchEndX = event.changedTouches[0].clientX;
+		const touchEndY = event.changedTouches[0].clientY;
+		const deltaX = touchStartX - touchEndX;
+		const deltaY = Math.abs(touchStartY - touchEndY);
+
+		// Only handle swipe if horizontal movement is more significant
+		if (Math.abs(deltaX) > deltaY && Math.abs(deltaX) > 50) {
+			if (deltaX > 0 && canScrollRight) {
+				// Swipe left, scroll right
+				scroll('right');
+			} else if (deltaX < 0 && canScrollLeft) {
+				// Swipe right, scroll left
+				scroll('left');
+			}
+		}
+
+		isDragging = false;
 	}
 
 	// Effects
@@ -105,7 +154,9 @@
 		<i>Feature</i> updates
 
 		{#snippet buttons()}
-			<ArrowButton showArrow={false} label="All demos" onclick={openPlaylist} />
+			<div class="feature-updates__all-demos">
+				<ArrowButton showArrow={false} label="All demos" onclick={openPlaylist} />
+			</div>
 			<ArrowButton onclick={() => scroll('left')} reverseDirection disabled={!canScrollLeft} />
 			<ArrowButton onclick={() => scroll('right')} disabled={!canScrollRight} />
 		{/snippet}
@@ -127,7 +178,13 @@
 	{:else if playlist && playlist.videos.length > 0}
 		<div class="video-content">
 			<div class="video-carousel__container">
-				<div class="video-carousel__scroll" bind:this={carousel}>
+				<div
+					class="video-carousel__scroll"
+					bind:this={carousel}
+					ontouchstart={handleTouchStart}
+					ontouchmove={handleTouchMove}
+					ontouchend={handleTouchEnd}
+				>
 					{#each playlist?.videos ?? [] as video (video.id)}
 						<div class="video-embed">
 							{#if playingVideo === video.videoId}
@@ -229,6 +286,7 @@
 		scroll-snap-type: x mandatory;
 		scrollbar-width: none;
 		-ms-overflow-style: none;
+		touch-action: pan-x; /* Allow horizontal scrolling on touch devices */
 	}
 
 	.video-carousel__scroll::-webkit-scrollbar {
@@ -241,7 +299,6 @@
 		width: 560px;
 		overflow: hidden;
 		border-radius: 16px;
-
 		scroll-snap-align: start;
 
 		&:first-child {
@@ -319,6 +376,86 @@
 		a {
 			color: var(--clr-link);
 			text-decoration: underline;
+		}
+	}
+
+	.feature-updates__all-demos {
+		display: flex;
+	}
+
+	/* ===== RESPONSIVE STYLES ===== */
+
+	/* Tablet viewport */
+	@media (--tablet-viewport) {
+		/* .arrow-buttons {
+			display: none;
+		} */
+
+		.video-content {
+			width: calc(100% + 40px);
+			margin-left: -20px;
+		}
+
+		.video-carousel__container::before,
+		.video-carousel__container::after {
+			width: 20px;
+		}
+
+		.video-carousel__scroll {
+			gap: 0.75rem;
+			scroll-padding: 0 20px;
+		}
+
+		.video-embed {
+			width: 480px;
+
+			&:first-child {
+				margin-left: 20px;
+			}
+
+			&:last-child {
+				margin-right: 20px;
+			}
+		}
+	}
+
+	/* Mobile viewport */
+	@media (--mobile-viewport) {
+		.video-content {
+			width: calc(100% + 48px);
+			margin-left: -24px;
+		}
+
+		.video-carousel__container::before,
+		.video-carousel__container::after {
+			display: none;
+		}
+
+		.video-carousel__scroll {
+			gap: 0.5rem;
+			scroll-padding: 0 16px;
+		}
+
+		.video-embed {
+			width: 320px;
+			border-radius: 12px;
+
+			&:first-child {
+				margin-left: 16px;
+			}
+
+			&:last-child {
+				margin-right: 16px;
+			}
+		}
+
+		.play-button svg {
+			width: 50px;
+			height: 36px;
+		}
+
+		.feature-updates__all-demos {
+			display: none;
 		}
 	}
 </style>

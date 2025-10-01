@@ -1,5 +1,4 @@
 <script lang="ts">
-	import CanvasDitheringEffect from '$home/components/CanvasDitheringEffect.svelte';
 	import jsonLinks from '$lib/data/links.json';
 	import osIcons from '$lib/data/os-icons.json';
 	import { latestClientVersion } from '$lib/store';
@@ -73,10 +72,6 @@
 	</div>
 
 	<span class="download-btn-version">Open Beta {$latestClientVersion}</span>
-
-	<div class="canvas-container">
-		<CanvasDitheringEffect />
-	</div>
 </a>
 
 <!-- MOBILE -->
@@ -99,6 +94,18 @@
 		border-radius: var(--radius-xl);
 		background-color: var(--clr-theme-pop-soft);
 		color: var(--clr-theme-pop-on-soft);
+		transition:
+			transform 0.15s ease,
+			color 0.15s ease,
+			background-color 0.15s ease,
+			border-color 0.15s ease,
+			drop-shadow 0.2s ease;
+
+		&:hover {
+			transform: translateY(-2px) scale(1.02);
+			background-color: var(--clr-theme-pop-soft-hover);
+			box-shadow: 0 16px 16px color-mix(in srgb, var(--clr-theme-pop-element) 10%, transparent);
+		}
 	}
 
 	.download-btn.mobile {

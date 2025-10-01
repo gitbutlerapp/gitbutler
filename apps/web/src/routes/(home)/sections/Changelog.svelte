@@ -148,6 +148,16 @@
 		font-weight: 600;
 	}
 
+	/* remove top margin for first heading */
+	.release-notes :global(h1:first-child),
+	.release-notes :global(h2:first-child),
+	.release-notes :global(h3:first-child),
+	.release-notes :global(h4:first-child),
+	.release-notes :global(h5:first-child),
+	.release-notes :global(h6:first-child) {
+		margin-top: 0.6rem;
+	}
+
 	.release-notes :global(p) {
 		margin: 0.12px 0;
 	}
@@ -222,5 +232,13 @@
 		font-size: 13px;
 		text-decoration: dotted underline;
 		text-underline-offset: 2px;
+	}
+
+	@media (--mobile-viewport) {
+		.release {
+			flex-direction: column;
+			padding: 16px;
+			gap: 24px;
+		}
 	}
 </style>

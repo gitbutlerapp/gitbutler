@@ -26,13 +26,17 @@
 		<div class="arrow-button__icon">
 			<div class="arrow-button__icon-tail"></div>
 			<svg
-				width="13"
-				height="43"
+				class="arrow-button__icon-head"
 				viewBox="0 0 13 43"
 				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
 			>
-				<path d="M1.17773 1L11.5004 21.5L1.17773 42" stroke="currentColor" stroke-width="1.5" />
+				<path
+					vector-effect="non-scaling-stroke"
+					d="M1.17773 1L11.5004 21.5L1.17773 42"
+					stroke="currentColor"
+					stroke-width="1.5"
+				/>
 			</svg>
 		</div>
 	{/if}
@@ -48,10 +52,6 @@
 		border-radius: 60px;
 		cursor: pointer;
 		transition: padding 0.15s ease;
-
-		&:hover .arrow-button__icon-tail {
-			width: 36px;
-		}
 
 		&:disabled {
 			padding: 10px 10px 10px 16px;
@@ -79,11 +79,18 @@
 		font-size: 40px;
 		line-height: 1;
 		font-family: var(--fontfamily-accent);
+		white-space: nowrap;
 	}
 
 	.arrow-button__icon {
 		display: flex;
 		align-items: center;
+	}
+
+	.arrow-button__icon-head {
+		flex-shrink: 0;
+		width: 13px;
+		height: 43px;
 	}
 
 	.arrow-button__icon-tail {
@@ -92,5 +99,38 @@
 		margin-right: -10px;
 		background-color: currentColor;
 		transition: width 0.15s ease;
+	}
+
+	/* Mobile viewport */
+	@media (--mobile-viewport) {
+		.arrow-button {
+			padding: 8px;
+			gap: 8px;
+
+			&.reverse-direction {
+				padding: 8px;
+			}
+		}
+
+		.arrow-button__text {
+			font-size: 26px;
+		}
+
+		.arrow-button__icon-head {
+			width: 10px;
+			height: 28px;
+		}
+
+		.arrow-button__icon-tail {
+			width: 14px;
+			margin-right: -8px;
+		}
+	}
+
+	/* Hover effects only for devices that support hover (not mobile) */
+	@media (hover: hover) {
+		.arrow-button:hover .arrow-button__icon-tail {
+			width: 36px;
+		}
 	}
 </style>

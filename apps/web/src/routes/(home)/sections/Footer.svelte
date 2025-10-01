@@ -141,10 +141,24 @@
 		<div class="stack-v gap-12">
 			<p class="text-14 opacity-40">Keep up with us:</p>
 			<ul class="links-list">
-				{#each Object.values(jsonLinks.resources) as resource}
+				{#each Object.values(jsonLinks.social) as social}
 					<li class="link">
-						<a href={resource.url}>
-							<span>{resource.label}</span>
+						<a href={social.url}>
+							<span>{social.label}</span>
+							<svg
+								class="link-arrow"
+								width="14"
+								height="14"
+								viewBox="0 0 14 14"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path
+									d="M1 1L13 1M13 1L13 13M13 1L1 13"
+									stroke="var(--clr-black)"
+									stroke-width="1.5"
+								/>
+							</svg>
 						</a>
 					</li>
 				{/each}
@@ -152,24 +166,10 @@
 		</div>
 
 		<ul class="links-list">
-			{#each Object.values(jsonLinks.social) as social}
+			{#each Object.values(jsonLinks.resources) as resource}
 				<li class="link">
-					<a href={social.url}>
-						<span>{social.label}</span>
-						<svg
-							class="link-arrow"
-							width="14"
-							height="14"
-							viewBox="0 0 14 14"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<path
-								d="M1 1L13 1M13 1L13 13M13 1L1 13"
-								stroke="var(--clr-black)"
-								stroke-width="1.5"
-							/>
-						</svg>
+					<a href={resource.url}>
+						<span>{resource.label}</span>
 					</a>
 				</li>
 			{/each}
@@ -304,6 +304,7 @@
 		display: inline;
 		margin-bottom: 40px;
 		font-size: 14px;
+		line-height: 1.6;
 	}
 
 	.nightly-dropdown {
@@ -394,9 +395,10 @@
 
 	.links-list {
 		display: flex;
+		column-gap: 16px;
+		row-gap: 12px;
 		flex-wrap: wrap;
 		padding-bottom: 30px;
-		gap: 16px;
 
 		&:last-child {
 			border-bottom: 1px solid var(--clr-border-2);
@@ -439,6 +441,97 @@
 				color: var(--clr-text-1);
 				text-decoration: none;
 			}
+		}
+	}
+
+	@media (--desktop-small-viewport) {
+		.footer {
+			margin-bottom: 60px;
+			gap: 40px;
+		}
+
+		.banner-title {
+			margin-bottom: 28px;
+			font-size: 52px;
+		}
+
+		.banner-image {
+			width: 280px;
+			transform: translateX(10px) translateY(10px);
+		}
+
+		.links {
+			gap: 16px;
+		}
+	}
+
+	@media (--tablet-viewport) {
+		.footer {
+			flex-direction: column;
+			margin-bottom: 40px;
+			gap: 40px;
+		}
+
+		.banner {
+			padding: 24px;
+		}
+
+		.banner-title {
+			margin-bottom: 24px;
+			font-size: 42px;
+		}
+
+		.banner-image {
+			display: none;
+		}
+
+		.banner-nightly-text {
+			display: none;
+		}
+
+		.download-links {
+			display: flex;
+			column-gap: 40px;
+			flex-wrap: wrap;
+			max-width: none;
+			columns: unset;
+		}
+
+		.links {
+			flex-direction: row;
+			flex-wrap: wrap;
+			justify-content: space-between;
+			gap: 16px;
+		}
+
+		.links-list {
+			align-self: flex-end;
+			padding-bottom: 0;
+			gap: 8px 12px;
+			border-bottom: none !important;
+		}
+
+		.meta-links {
+			align-self: center;
+			width: 100%;
+			margin-top: 20px;
+			gap: 4px;
+		}
+
+		.banner-background__noisy.noisy-1 {
+			bottom: -50%;
+			left: -60%;
+		}
+		.banner-background__noisy.noisy-2 {
+			top: -50%;
+			right: -50%;
+		}
+	}
+
+	@media (max-width: 500px) {
+		.download-links {
+			column-gap: 0;
+			flex-direction: column;
 		}
 	}
 </style>
