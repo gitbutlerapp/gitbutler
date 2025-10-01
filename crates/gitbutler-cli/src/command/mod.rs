@@ -25,7 +25,7 @@ pub mod workspace {
         let resolutions: Vec<_> = super::vbranch::stacks(&ctx)?
             .into_iter()
             .map(|(id, _details)| upstream_integration::Resolution {
-                stack_id: id,
+                branch_id: id,
                 approach,
                 delete_integrated_branches: false,
                 force_integrated_branches: vec![],
