@@ -20,6 +20,11 @@
 			"url": "https://app.gitbutler.com/downloads/release/linux/x86_64/deb",
 			"label": "Linux DEB"
 		},
+		"linuxRpm": {
+			"id": "linuxRpm",
+			"url": "https://app.gitbutler.com/downloads/release/linux/x86_64/rpm",
+			"label": "Linux RPM"
+		},
 		"windowsMsi": {
 			"id": "windowsMsi",
 			"url": "https://app.gitbutler.com/downloads/release/windows/x86_64/msi",
@@ -27,10 +32,10 @@
 		}
 	},
 	"resources": {
-		"github": {
-			"id": "github",
+		"source": {
+			"id": "source",
 			"url": "https://github.com/gitbutlerapp/gitbutler",
-			"label": "GitHub"
+			"label": "Source"
 		},
 		"documentation": {
 			"id": "documentation",

@@ -3,15 +3,15 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	// import Header from '$home/components/Header.svelte';
-	// import BlogHighlights from '$home/sections/BlogHighlights.svelte';
-	// import DevelopersReview from '$home/sections/DevelopersReview.svelte';
 	import AiFeatures from '$home/sections/AiFeatures.svelte';
+	import BlogHighlights from '$home/sections/BlogHighlights.svelte';
+	// import DevelopersReview from '$home/sections/DevelopersReview.svelte';
 	import Changelog from '$home/sections/Changelog.svelte';
 	import FeatureUpdates from '$home/sections/FeatureUpdates.svelte';
+	import Footer from '$home/sections/Footer.svelte';
 	import Hero from '$home/sections/Hero.svelte';
 	import MainFeatures from '$home/sections/MainFeatures.svelte';
 	import SocialQuotes from '$home/sections/SocialQuotes.svelte';
-	// import HomeFooter from '$home/sections/Footer.svelte';
 	import { AuthService, AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 	import { latestClientVersion } from '$lib/store';
@@ -124,12 +124,8 @@
 		<FeatureUpdates />
 		<SocialQuotes />
 		<Changelog {releases} />
-
-		<!--<Features />
-		<DevelopersReview />
 		<BlogHighlights />
-		<FAQ />
-		<HomeFooter /> -->
+		<Footer />
 	</section>
 {:else}
 	{@render children?.()}
@@ -144,9 +140,9 @@
 			[full-start]
 			1fr 1fr
 			[narrow-start]
-			1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
+			1fr 1fr 1fr 1fr 1fr 1fr 1fr
 			[narrow-end]
-			1fr
+			1fr 1fr
 			[full-end];
 		column-gap: var(--layout-col-gap);
 		row-gap: 60px;

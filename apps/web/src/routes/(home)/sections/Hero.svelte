@@ -57,15 +57,17 @@
 
 <style lang="scss">
 	.hero {
-		display: flex;
-		grid-column: narrow-start / narrow-end;
+		display: grid;
+		grid-template-columns: subgrid;
+		grid-column: full-start / full-end;
 		flex-direction: column;
 		background: var(--color-hero-background);
 		color: var(--color-hero-text);
 	}
 
 	.hero-content {
-		display: flex;
+		display: grid;
+		grid-column: narrow-start / narrow-end;
 		flex-direction: column;
 		max-width: 700px;
 		padding-top: 52px;

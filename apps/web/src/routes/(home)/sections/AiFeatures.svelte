@@ -1,12 +1,15 @@
 <script lang="ts">
 	import Features from '$home/components/Features.svelte';
+	import SectionHeader from '$home/components/SectionHeader.svelte';
 	import contentJSON from '$home/data/content.json';
 
 	const aiFetures = contentJSON['ai-features'];
 </script>
 
 <section class="ai-features">
-	<h2 class="ai-features__title section-title"><i>Orchestrate Your</i> AI Tools ✨</h2>
+	<SectionHeader>
+		<i>Orchestrate Your</i> AI Tools ✨
+	</SectionHeader>
 	<div class="ai-features__video">
 		<iframe
 			width="100%"
@@ -32,14 +35,9 @@
 		background-color: var(--clr-bg-2);
 	}
 
-	.ai-features__title {
-		grid-column: narrow-start / narrow-end;
-		margin-bottom: 30px;
-	}
-
 	.ai-features__video {
 		position: relative;
-		grid-column: narrow-start / -3;
+		grid-column: narrow-start / narrow-end;
 		aspect-ratio: 16 / 9;
 		width: 100%;
 		overflow: hidden;

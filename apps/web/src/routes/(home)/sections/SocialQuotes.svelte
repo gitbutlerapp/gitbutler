@@ -1,8 +1,8 @@
 <script lang="ts">
 	import ArrowButton from '$home/components/ArrowButton.svelte';
 	import SectionHeader from '$home/components/SectionHeader.svelte';
-	import { Tooltip } from '@gitbutler/ui';
 	import quotesJson from '$home/data/social-quotes.json';
+	import { onMount } from 'svelte';
 
 	type Quote = {
 		social: string;

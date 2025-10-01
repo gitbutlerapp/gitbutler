@@ -91,6 +91,7 @@
 <style lang="scss">
 	.header {
 		display: flex;
+		grid-column: narrow-start / -2;
 		justify-content: space-between;
 		padding-top: 48px;
 
