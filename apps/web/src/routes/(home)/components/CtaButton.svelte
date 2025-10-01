@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CanvasDitheringEffect from '$home/components/CanvasDitheringEffect.svelte';
-	import * as osIcons from '$home/data/os-icons.json';
-	import * as jsonLinks from '$lib/data/links.json';
+	import jsonLinks from '$lib/data/links.json';
+	import osIcons from '$lib/data/os-icons.json';
 	import { latestClientVersion } from '$lib/store';
 	import { onMount } from 'svelte';
 

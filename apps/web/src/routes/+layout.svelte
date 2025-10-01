@@ -6,10 +6,11 @@
 	// import BlogHighlights from '$home/sections/BlogHighlights.svelte';
 	// import DevelopersReview from '$home/sections/DevelopersReview.svelte';
 	import AiFeatures from '$home/sections/AiFeatures.svelte';
+	import Changelog from '$home/sections/Changelog.svelte';
 	import FeatureUpdates from '$home/sections/FeatureUpdates.svelte';
-	import FromSocials from '$home/sections/FromSocials.svelte';
 	import Hero from '$home/sections/Hero.svelte';
 	import MainFeatures from '$home/sections/MainFeatures.svelte';
+	import SocialQuotes from '$home/sections/SocialQuotes.svelte';
 	// import HomeFooter from '$home/sections/Footer.svelte';
 	import { AuthService, AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
@@ -44,6 +45,9 @@
 
 	const persistedToken = authService.token;
 
+	// Releases data for changelog
+	let releases: any[] = $state([]);
+
 	$effect(() => {
 		if (page.url.searchParams.has('gb_access_token')) {
 			const token = page.url.searchParams.get('gb_access_token');
@@ -70,22 +74,33 @@
 		updateFavIcon(); // reset the icon
 	});
 
-	// Fetch latest version when showing marketing page
+	// Fetch latest version and releases when showing marketing page
 	$effect(() => {
 		const isMarketingPage =
 			(page.route.id === '/(app)' && !persistedToken.current) || page.route.id === '/(app)/home';
 
 		if (isMarketingPage) {
+			// Fetch latest version
 			fetch('https://app.gitbutler.com/api/downloads?limit=1&channel=release')
 				.then((response) => response.json())
 				.then((data) => {
-					const releases = getValidReleases(data);
-					if (releases.length > 0) {
-						latestClientVersion.set(releases[0].version);
+					const latestReleases = getValidReleases(data);
+					if (latestReleases.length > 0) {
+						latestClientVersion.set(latestReleases[0].version);
 					}
 				})
 				.catch((error) => {
 					console.error('Failed to fetch latest version:', error);
+				});
+
+			// Fetch latest 10 releases for changelog
+			fetch('https://app.gitbutler.com/api/downloads?limit=10&channel=release')
+				.then((response) => response.json())
+				.then((data) => {
+					releases = getValidReleases(data);
+				})
+				.catch((error) => {
+					console.error('Failed to fetch releases for changelog:', error);
 				});
 		}
 	});
@@ -107,7 +122,8 @@
 		<MainFeatures />
 		<AiFeatures />
 		<FeatureUpdates />
-		<FromSocials />
+		<SocialQuotes />
+		<Changelog {releases} />
 
 		<!--<Features />
 		<DevelopersReview />
