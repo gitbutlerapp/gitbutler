@@ -3,15 +3,7 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	// import Header from '$home/components/Header.svelte';
-	import AiFeatures from '$home/sections/AiFeatures.svelte';
-	import BlogHighlights from '$home/sections/BlogHighlights.svelte';
-	// import DevelopersReview from '$home/sections/DevelopersReview.svelte';
-	import Changelog from '$home/sections/Changelog.svelte';
-	import FeatureUpdates from '$home/sections/FeatureUpdates.svelte';
-	import Footer from '$home/sections/Footer.svelte';
-	import Hero from '$home/sections/Hero.svelte';
-	import MainFeatures from '$home/sections/MainFeatures.svelte';
-	import SocialQuotes from '$home/sections/SocialQuotes.svelte';
+	import HomePage from '$home/HomePage.svelte';
 	import { AuthService, AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 	import { latestClientVersion } from '$lib/store';
@@ -77,7 +69,9 @@
 	// Fetch latest version and releases when showing marketing page
 	$effect(() => {
 		const isMarketingPage =
-			(page.route.id === '/(app)' && !persistedToken.current) || page.route.id === '/(app)/home';
+			(page.route.id === '/(app)' && !persistedToken.current) ||
+			page.route.id === '/(app)/home' ||
+			page.route.id === '/downloads';
 
 		if (isMarketingPage) {
 			// Fetch latest version
@@ -116,16 +110,13 @@
 	{/if}
 </svelte:head>
 
-{#if (page.route.id === '/(app)' && !persistedToken.current) || page.route.id === '/(app)/home'}
+{#if (page.route.id === '/(app)' && !persistedToken.current) || page.route.id === '/(app)/home' || page.route.id === '/downloads'}
 	<section class="marketing-page">
-		<Hero />
-		<MainFeatures />
-		<AiFeatures />
-		<FeatureUpdates />
-		<SocialQuotes />
-		<Changelog {releases} />
-		<BlogHighlights />
-		<Footer />
+		{#if page.route.id === '/downloads'}
+			{@render children?.()}
+		{:else}
+			<HomePage {releases} />
+		{/if}
 	</section>
 {:else}
 	{@render children?.()}

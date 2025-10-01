@@ -41,3 +41,80 @@ body:has(.marketing-page)::-webkit-scrollbar {
 body:has(.marketing-page)::-webkit-scrollbar-thumb {
 	background: var(--clr-scale-ntrl-60);
 }
+
+/* Global release notes content styles */
+.release-notes-content {
+	font-size: 13px;
+	line-height: 1.6;
+}
+
+.release-notes-content h1,
+.release-notes-content h2,
+.release-notes-content h3,
+.release-notes-content h4,
+.release-notes-content h5,
+.release-notes-content h6 {
+	margin-top: 1.5rem;
+	margin-bottom: 0.5rem;
+	font-weight: 600;
+}
+
+/* remove top margin for first heading */
+.release-notes-content h1:first-child,
+.release-notes-content h2:first-child,
+.release-notes-content h3:first-child,
+.release-notes-content h4:first-child,
+.release-notes-content h5:first-child,
+.release-notes-content h6:first-child {
+	margin-top: 0.6rem;
+}
+
+/* remove bottom margin for last paragraph or lists */
+.release-notes-content p:last-child,
+.release-notes-content ul:last-child,
+.release-notes-content ol:last-child {
+	margin-bottom: 0;
+
+	& li:last-child {
+		margin-bottom: 0;
+	}
+}
+
+.release-notes-content p {
+	margin: 12px 0;
+}
+
+.release-notes-content ul,
+.release-notes-content ol {
+	margin: 12px 0;
+	padding-left: 1rem;
+}
+
+.release-notes-content li {
+	margin: 8px 0;
+	padding-left: 4px;
+	list-style-type: disc;
+}
+
+.release-notes-content code {
+	padding: 0.125rem 0.25rem;
+	border-radius: 0.25rem;
+	background-color: var(--color-bg-secondary);
+	font-size: 0.875rem;
+	font-family: var(--font-mono);
+}
+
+.release-notes-content pre {
+	margin: 1rem 0;
+	padding: 1rem;
+	overflow-x: auto;
+	border-radius: 0.5rem;
+	background-color: var(--color-bg-secondary);
+}
+
+.release-notes-content blockquote {
+	margin: 1rem 0;
+	padding-left: 1rem;
+	border-left: 3px solid var(--color-primary);
+	font-style: italic;
+}
