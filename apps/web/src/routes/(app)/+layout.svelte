@@ -153,7 +153,10 @@
 	const isLoginPage = $derived(page.url.pathname.includes('/login'));
 	const isSignupPage = $derived(page.url.pathname.includes('/signup'));
 	const isFinalized = $derived(page.url.pathname.includes('/finalize'));
-	const hasNavigation = $derived(!isCommitPage && !isLoginPage && !isSignupPage && !isFinalized);
+	const isLoggedinPage = $derived(page.url.pathname === '/loggedin');
+	const hasNavigation = $derived(
+		!isCommitPage && !isLoginPage && !isSignupPage && !isFinalized && !isLoggedinPage
+	);
 	const fillFullWidth = $derived(isLoginPage || isSignupPage || isFinalized);
 </script>
 
