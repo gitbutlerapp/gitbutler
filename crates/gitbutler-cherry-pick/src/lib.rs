@@ -39,7 +39,11 @@ pub trait RepositoryExt {
     ///
     /// Unless you want to find a particular side, you likely want to pass Default::default()
     /// as the [`side`](ConflictedTreeKey) which will give the automatically resolved resolution
-    fn find_real_tree(&self, commit: &git2::Commit, side: ConflictedTreeKey) -> Result<git2::Tree>;
+    fn find_real_tree(
+        &self,
+        commit: &git2::Commit,
+        side: ConflictedTreeKey,
+    ) -> Result<git2::Tree<'_>>;
 }
 
 pub trait GixRepositoryExt {

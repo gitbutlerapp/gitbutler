@@ -21,7 +21,7 @@ use tracing::instrument;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
-    fn find_branch_by_refname(&self, name: &Refname) -> Result<git2::Branch>;
+    fn find_branch_by_refname(&self, name: &Refname) -> Result<git2::Branch<'_>>;
     /// Returns the common ancestor of the given commit Oids.
     ///
     /// This is like `git merge-base --octopus`.
@@ -30,7 +30,7 @@ pub trait RepositoryExt {
     /// conflict with the libgit2 binding I upstreamed when it eventually
     /// gets merged.
     fn merge_base_octopussy(&self, ids: &[git2::Oid]) -> Result<git2::Oid>;
-    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
+    fn signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)>;
 
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
@@ -38,7 +38,7 @@ pub trait RepositoryExt {
     /// Returns the computed signature.
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a>;
-    fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
+    fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch<'_>>>;
     /// Add all untracked and modified files in the worktree to
     /// the object database, and create a tree from it.
     ///
@@ -47,7 +47,7 @@ pub trait RepositoryExt {
     ///
     /// It should also be noted that this will fail if run on an empty branch
     /// or if the HEAD branch has no commits.
-    fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> Result<Tree>;
+    fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> Result<Tree<'_>>;
 
     /// Returns the `gitbutler/workspace` branch if the head currently points to it, or fail otherwise.
     /// Use it before any modification to the repository, or extra defensively each time the

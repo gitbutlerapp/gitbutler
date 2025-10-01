@@ -24,7 +24,7 @@ pub struct BranchManager<'l> {
 }
 
 pub trait BranchManagerExt {
-    fn branch_manager(&self) -> BranchManager;
+    fn branch_manager(&self) -> BranchManager<'_>;
 }
 
 impl BranchManagerExt for CommandContext {

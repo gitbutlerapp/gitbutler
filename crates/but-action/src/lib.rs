@@ -27,7 +27,6 @@ mod grouping;
 mod openai;
 pub mod rename_branch;
 pub mod reword;
-mod serialize;
 mod simple;
 mod workflow;
 pub use action::ActionListing;
