@@ -244,6 +244,7 @@
 		grid-column: narrow-start / narrow-end;
 		flex-direction: column;
 		padding: 28px;
+		overflow: hidden;
 		gap: 32px;
 		border-radius: var(--radius-xl);
 		background-color: var(--clr-scale-ntrl-20);
@@ -253,11 +254,6 @@
 	.nightly-hero__header {
 		display: flex;
 		gap: 24px;
-	}
-
-	.nightly-hero__icon-wrapper {
-		position: relative;
-		flex-shrink: 0;
 	}
 
 	.nightly-hero__header-icon {
