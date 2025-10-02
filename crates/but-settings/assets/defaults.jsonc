@@ -57,5 +57,10 @@
 		"autoCommitAfterCompletion": true,
 		// Whether to use the configured model in .claude/settings.json instead of passing --model.
 		"useConfiguredModel": false
+	},
+	// Settings related to code reviews and pull requests.
+	"reviews": {
+		// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
+		"autoFillPrDescriptionFromCommit": true
 	}
 }
