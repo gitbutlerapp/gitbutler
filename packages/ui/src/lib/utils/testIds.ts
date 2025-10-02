@@ -24,6 +24,7 @@ export enum TestId {
 	BranchHeaderAddDependanttBranchModal = 'branch-header-add-dependent-branch-modal',
 	BranchHeaderAddDependanttBranchModal_ActionButton = 'branch-header-add-dependent-branch-modal-action-button',
 	BranchHeaderContextMenu_SquashAllCommits = 'branch-header-context-menu-squash-all-commits',
+	BranchHeaderContextMenu_AddEmptyCommit = 'branch-header-context-menu-add-empty-commit',
 	EditCommitMessageBox = 'edit-commit-message-box',
 	CommitDrawer = 'commit-drawer',
 	CommitDrawerActionUncommit = 'commit-drawer-action-uncommit',
