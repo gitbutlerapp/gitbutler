@@ -84,6 +84,18 @@
 				throw new Error('No branch selected!');
 			}
 
+			// Run commit-msg hook if hooks are enabled
+			let finalMessage = message;
+			if ($runCommitHooks) {
+				const messageHookResult = await hooksService.message(projectId, message);
+				if (messageHookResult?.status === 'failure') {
+					showError('Commit message hook failed', messageHookResult.error);
+					return;
+				} else if (messageHookResult?.status === 'message') {
+					finalMessage = messageHookResult.message;
+				}
+			}
+
 			const worktreeChanges = await uncommittedService.worktreeChanges(projectId, stackId);
 
 			// Get current editor mode from the component instance
@@ -94,7 +106,7 @@
 				projectId,
 				stackId: finalStackId,
 				selectedBranchName: finalBranchName,
-				message,
+				message: finalMessage,
 				parentId,
 				isRichTextMode
 			});
@@ -108,7 +120,7 @@
 					projectId,
 					parentId,
 					stackId: finalStackId,
-					message: message,
+					message: finalMessage,
 					stackBranchName: finalBranchName,
 					worktreeChanges
 				},
