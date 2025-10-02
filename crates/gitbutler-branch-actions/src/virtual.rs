@@ -326,36 +326,6 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             upstream_change_ids,
         })
     }
-
-    /// Used to construct [`IsCommitIntegrated`] without a [`CommandContext`]. If
-    /// you have a `CommandContext` available, use [`Self::new`] instead.
-    pub(crate) fn new_basic(
-        gix_repo: &'repo gix::Repository,
-        repo: &'repo git2::Repository,
-        graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
-        target_commit_id: gix::ObjectId,
-        upstream_tree_id: gix::ObjectId,
-        mut upstream_commits: Vec<git2::Oid>,
-    ) -> Self {
-        // Ensure upstream commits are sorted for binary search
-        upstream_commits.sort();
-        let upstream_change_ids = upstream_commits
-            .iter()
-            .filter_map(|oid| {
-                let commit = repo.find_commit(*oid).ok()?;
-                commit.change_id()
-            })
-            .sorted()
-            .collect();
-        Self {
-            gix_repo,
-            graph,
-            target_commit_id,
-            upstream_tree_id,
-            upstream_commits,
-            upstream_change_ids,
-        }
-    }
 }
 
 impl IsCommitIntegrated<'_, '_, '_> {
