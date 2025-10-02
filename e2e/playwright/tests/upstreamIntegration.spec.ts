@@ -114,3 +114,114 @@ test('should handle the update of the workspace with multiple stacks gracefully'
 	stacks = getByTestId(page, 'stack');
 	await expect(stacks).toHaveCount(1);
 });
+
+test('should handle the update of an empty branch gracefully', async ({
+	page,
+	context
+}, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	await gitbutler.runScript('project-with-stacks.sh');
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be no stacks
+	let stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(0);
+
+	// Create a new branch
+	await clickByTestId(page, 'create-stack-button');
+	const modal = await waitForTestId(page, 'create-new-branch-modal');
+
+	const input = modal.locator('#new-branch-name-input');
+	await input.fill('new-branch');
+	await clickByTestId(page, 'confirm-submit');
+
+	// There should be no stacks
+	stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+
+	// Branch one was merged in the forge
+	await gitbutler.runScript('merge-upstream-branch-to-base.sh', ['branch1']);
+
+	// Click the sync button
+	await clickByTestId(page, 'sync-button');
+
+	// Update the workspace
+	await clickByTestId(page, 'integrate-upstream-commits-button');
+	await clickByTestId(page, 'integrate-upstream-action-button');
+
+	// There should be one stack left
+	stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+});
+
+test('should handle the update of a branch with an empty commit', async ({
+	page,
+	context
+}, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	await gitbutler.runScript('project-with-stacks.sh');
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be no stacks
+	let stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(0);
+
+	// Create a new branch
+	await clickByTestId(page, 'create-stack-button');
+	const modal = await waitForTestId(page, 'create-new-branch-modal');
+
+	const input = modal.locator('#new-branch-name-input');
+	await input.fill('new-branch');
+	await clickByTestId(page, 'confirm-submit');
+
+	// There should be one stack
+	stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+
+	const branchCard = getByTestId(page, 'branch-card');
+	await branchCard.isVisible();
+	await branchCard.click({
+		button: 'right'
+	});
+
+	// Add an empty commit
+	await waitForTestId(page, 'branch-header-context-menu');
+	await clickByTestId(page, 'branch-header-context-menu-add-empty-commit');
+
+	// There should be one commit
+	let commits = getByTestId(page, 'commit-row');
+	await expect(commits).toHaveCount(1);
+
+	// Branch one was merged in the forge
+	await gitbutler.runScript('merge-upstream-branch-to-base.sh', ['branch1']);
+
+	// Click the sync button
+	await clickByTestId(page, 'sync-button');
+
+	// Update the workspace
+	await clickByTestId(page, 'integrate-upstream-commits-button');
+	await clickByTestId(page, 'integrate-upstream-action-button');
+
+	await waitForTestIdToNotExist(page, 'integrate-upstream-action-button');
+
+	// There should be one stack left
+	stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+	// There should be one commit
+	commits = getByTestId(page, 'commit-row');
+	await expect(commits).toHaveCount(1);
+});

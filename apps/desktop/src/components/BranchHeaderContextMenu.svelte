@@ -237,6 +237,7 @@
 				<ContextMenuItem
 					label="Add empty commit"
 					icon="new-empty-commit"
+					testId={TestId.BranchHeaderContextMenu_AddEmptyCommit}
 					onclick={async () => {
 						await insertBlankCommitInBranch({
 							projectId,
