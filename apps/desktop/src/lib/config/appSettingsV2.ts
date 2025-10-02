@@ -59,6 +59,10 @@ export class SettingsService {
 		await this.backend.invoke('update_claude', { update });
 	}
 
+	async updateReviews(update: Partial<Reviews>) {
+		await this.backend.invoke('update_reviews', { update });
+	}
+
 	private async nudge(): Promise<void> {
 		await this.autoOptInWs3();
 		await this.autoOptInRules();
@@ -144,6 +148,8 @@ export type AppSettings = {
 	fetch: Fetch;
 	/** Settings related to Claude Code */
 	claude: Claude;
+	/** Settings related to code reviews and pull requests */
+	reviews: Reviews;
 };
 
 export type TelemetrySettings = {
@@ -190,4 +196,9 @@ export type Claude = {
 	autoCommitAfterCompletion: boolean;
 	/** Whether to use the configured model in .claude/settings.json instead of passing --model. */
 	useConfiguredModel: boolean;
+};
+
+export type Reviews = {
+	/** Whether to auto-fill PR title and description from the first commit when a branch has only one commit. */
+	autoFillPrDescriptionFromCommit: boolean;
 };

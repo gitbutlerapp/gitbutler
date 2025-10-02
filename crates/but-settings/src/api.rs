@@ -35,6 +35,13 @@ pub struct ClaudeUpdate {
     pub use_configured_model: Option<bool>,
 }
 
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+/// Update request for [`crate::app_settings::Reviews`].
+pub struct ReviewsUpdate {
+    pub auto_fill_pr_description_from_commit: Option<bool>,
+}
+
 /// Mutation, immediately followed by writing everything to disk.
 impl AppSettingsWithDiskSync {
     pub fn update_onboarding_complete(&self, update: bool) -> Result<()> {
@@ -115,6 +122,17 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(use_configured_model) = update.use_configured_model {
             settings.claude.use_configured_model = use_configured_model;
+        }
+        settings.save()
+    }
+
+    pub fn update_reviews(&self, update: ReviewsUpdate) -> Result<()> {
+        let mut settings = self.get_mut_enforce_save()?;
+        if let Some(auto_fill_pr_description_from_commit) =
+            update.auto_fill_pr_description_from_commit
+        {
+            settings.reviews.auto_fill_pr_description_from_commit =
+                auto_fill_pr_description_from_commit;
         }
         settings.save()
     }

@@ -82,3 +82,10 @@ pub struct Claude {
     /// Whether to use the configured model in .claude/settings.json instead of passing --model.
     pub use_configured_model: bool,
 }
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Reviews {
+    /// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
+    pub auto_fill_pr_description_from_commit: bool,
+}

@@ -16,6 +16,7 @@
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { type Commit } from '$lib/branches/v3';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { projectAiGenEnabled, projectRunCommitHooks } from '$lib/config/config';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
@@ -61,6 +62,8 @@
 	const aiService = inject(AI_SERVICE);
 	const remotesService = inject(REMOTES_SERVICE);
 	const uiState = inject(UI_STATE);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const appSettings = settingsService.appSettings;
 
 	const user = userService.user;
 
@@ -111,7 +114,8 @@
 	const isSubmittingReview = $derived(stackPush.current.isLoading || isCreatingReview);
 
 	async function getDefaultTitle(commits: Commit[]): Promise<string> {
-		if (commits.length === 1) {
+		const autoFill = $appSettings?.reviews.autoFillPrDescriptionFromCommit ?? true;
+		if (autoFill && commits.length === 1) {
 			const commitMessage = commits[0]!.message;
 			const { title } = splitMessage(commitMessage);
 			return title;
@@ -126,7 +130,8 @@
 		if ($templateEnabled && $templatePath) {
 			return await stackService.template(projectId, forge.current.name, $templatePath);
 		}
-		if (commits.length === 1) {
+		const autoFill = $appSettings?.reviews.autoFillPrDescriptionFromCommit ?? true;
+		if (autoFill && commits.length === 1) {
 			return splitMessage(commits[0]!.message).description;
 		}
 		return '';
