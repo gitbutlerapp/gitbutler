@@ -84,19 +84,19 @@ describe('Upstream Integration', () => {
 			projectId: PROJECT_ID,
 			resolutions: [
 				{
-					branchId: 'stack-a-id',
+					stackId: 'stack-a-id',
 					approach: { type: 'rebase' },
 					deleteIntegratedBranches: true,
 					forceIntegratedBranches: []
 				},
 				{
-					branchId: 'stack-b-id',
+					stackId: 'stack-b-id',
 					approach: { type: 'delete' },
 					deleteIntegratedBranches: false,
 					forceIntegratedBranches: []
 				},
 				{
-					branchId: 'stack-c-id',
+					stackId: 'stack-c-id',
 					approach: {
 						type: 'delete'
 					},
@@ -104,7 +104,7 @@ describe('Upstream Integration', () => {
 					forceIntegratedBranches: []
 				}
 			],
-			branchResolution: undefined
+			baseBranchResolution: undefined
 		});
 	});
 });

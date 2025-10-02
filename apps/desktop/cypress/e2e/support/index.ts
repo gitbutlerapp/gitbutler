@@ -180,6 +180,11 @@ Cypress.on('window:before:load', (win) => {
 				return await Promise.resolve({});
 			case 'plugin:log|log':
 				return await Promise.resolve({});
+			case 'plugin:window|title':
+			case 'plugin:app|name':
+				return 'GitButler';
+			case 'plugin:app|version':
+				return '0.0.0';
 			default:
 				return raiseMissingMockError(command);
 		}
