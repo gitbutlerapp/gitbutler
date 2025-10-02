@@ -1,4 +1,5 @@
 <script lang="ts">
+	import linksJson from '$lib/data/links.json';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -29,12 +30,8 @@
 
 			<p>
 				Need help?
-				<a
-					href="https://github.com/gitbutlerapp/gitbutler/issues/new?template=BLANK_ISSUE"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					Open a support request
+				<a href={linksJson.resources.support.url} target="_blank" rel="noopener noreferrer">
+					{linksJson.resources.support.label}
 				</a>
 			</p>
 		</div>
@@ -44,10 +41,12 @@
 <style lang="postcss">
 	.service-form__page {
 		display: flex;
+		grid-column: full-start / full-end;
 		flex: 1;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
+		min-height: 100%;
 	}
 
 	.service-form {

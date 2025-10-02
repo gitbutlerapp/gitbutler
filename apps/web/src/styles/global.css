@@ -1,7 +1,9 @@
 @import '@gitbutler/ui/main.css';
 
 :root {
+	--radius-xl: 20px;
 	--layout-col-gap: 20px;
+	--layout-side-paddings: 80px;
 }
 
 body {
@@ -9,8 +11,6 @@ body {
 	overflow-x: hidden;
 	background: var(--clr-bg-2);
 	font-family: var(--fontfamily-default);
-
-	--layout-side-paddings: 80px;
 
 	&.menu-open {
 		position: fixed;

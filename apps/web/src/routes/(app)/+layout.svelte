@@ -157,14 +157,21 @@
 	const hasNavigation = $derived(
 		!isCommitPage && !isLoginPage && !isSignupPage && !isFinalized && !isLoggedinPage
 	);
-	const fillFullWidth = $derived(isLoginPage || isSignupPage || isFinalized);
+
+	function getBreadcrumbs() {
+		if (!hasNavigation) return [];
+
+		if (page.route.id === '/(app)/profile') {
+			return [{ label: 'Profile', href: '/profile' }];
+		}
+		return [];
+	}
 </script>
 
 <RedirectIfNotFinalized />
 
-<div class="app" class:fill-full-width={fillFullWidth}>
-	<Navigation markOnly={!hasNavigation} />
-
+<div class="app">
+	<Navigation markOnly={!hasNavigation} breadcrumbs={getBreadcrumbs()} />
 	<main>
 		{@render children?.()}
 	</main>
@@ -175,30 +182,50 @@
 
 <style lang="postcss">
 	.app {
-		--radius-xl: 20px;
-		container-type: inline-size;
-		display: flex;
-		flex-direction: column;
+		display: grid;
+		grid-template-rows: auto 1fr auto;
+		grid-template-columns:
+			[full-start]
+			1fr 1fr
+			[narrow-start]
+			1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
+			[narrow-end]
+			1fr 1fr
+			[full-end];
+		column-gap: var(--layout-col-gap);
+		row-gap: 24px;
+		align-items: start;
 		width: 100%;
-		min-height: 100vh;
+		max-width: calc(1440px + var(--layout-side-paddings) * 2);
+		min-height: 100dvh;
 		margin: 0 auto;
-		padding: 24px var(--layout-side-paddings) 30px;
+		padding: 0 var(--layout-side-paddings);
 
-		&:not(.fill-full-width) {
-			max-width: calc(1440px + var(--layout-side-paddings) * 2);
+		@media (--desktop-small-viewport) {
+			grid-template-columns:
+				[full-start]
+				1fr
+				[narrow-start]
+				1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
+				[narrow-end off-gridded]
+				1fr
+				[full-end];
 		}
 
 		@media (--mobile-viewport) {
-			padding: var(--layout-side-paddings);
+			grid-template-columns:
+				[full-start narrow-start]
+				1fr 1fr 1fr 1fr
+				[narrow-end full-end off-gridded];
 		}
 	}
 
 	main {
-		display: flex;
-		flex: 1;
+		display: grid;
+		grid-template-columns: subgrid;
+		grid-column: full-start / full-end;
 		flex-direction: column;
 		width: 100%;
 		min-height: 100%;
-		margin: 0 auto;
 	}
 </style>

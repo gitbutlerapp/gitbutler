@@ -56,6 +56,11 @@
 			"id": "blog",
 			"url": "https://blog.gitbutler.com",
 			"label": "Blog"
+		},
+		"support": {
+			"id": "help",
+			"url": "https://github.com/gitbutlerapp/gitbutler/issues/new?template=BLANK_ISSUE",
+			"label": "Submit a ticket"
 		}
 	},
 	"social": {

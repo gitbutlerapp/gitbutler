@@ -31,6 +31,10 @@ export { default as ModalHeader } from '$components/ModalHeader.svelte';
 export { default as ModalFooter } from '$components/ModalFooter.svelte';
 export { default as NotificationButton } from '$components/NotificationButton.svelte';
 export { default as PrStatusBadge, type PrStatusInfoType } from '$components/PrStatusBadge.svelte';
+export {
+	default as ProfilePictureUpload,
+	type Props as ProfilePictureUploadProps
+} from '$components/ProfilePictureUpload.svelte';
 export { default as RadioButton } from '$components/RadioButton.svelte';
 export { default as ReviewBadge } from '$components/ReviewBadge.svelte';
 export { default as SectionCard } from '$components/SectionCard.svelte';

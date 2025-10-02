@@ -132,14 +132,12 @@
 
 <style>
 	.marketing-page {
-		--radius-xl: 20px;
-
 		display: grid;
 		grid-template-columns:
 			[full-start]
 			1fr 1fr
 			[narrow-start]
-			1fr 1fr 1fr 1fr 1fr 1fr 1fr
+			1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
 			[narrow-end]
 			1fr [off-gridded] 1fr
 			[full-end];
@@ -148,6 +146,7 @@
 		align-items: start;
 		width: 100%;
 		max-width: 1440px;
+		min-height: 100dvh;
 		margin: 0 auto;
 		padding: 0 var(--layout-side-paddings);
 
@@ -156,7 +155,7 @@
 				[full-start]
 				1fr
 				[narrow-start]
-				1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
+				1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
 				[narrow-end off-gridded]
 				1fr
 				[full-end];
@@ -168,7 +167,6 @@
 				1fr 1fr 1fr 1fr
 				[narrow-end full-end off-gridded];
 			row-gap: 40px;
-			padding: 0 24px;
 		}
 	}
 </style>

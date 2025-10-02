@@ -37,10 +37,11 @@
 <style lang="postcss">
 	.instruction-page {
 		display: flex;
-		flex: 1;
+		grid-column: full-start / full-end;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
+		min-height: 100%;
 	}
 
 	.instruction-card__container {
