@@ -63,6 +63,10 @@ export class SettingsService {
 		await this.backend.invoke('update_reviews', { update });
 	}
 
+	async updateFetch(update: Partial<Fetch>) {
+		await this.backend.invoke('update_fetch', { update });
+	}
+
 	private async nudge(): Promise<void> {
 		await this.autoOptInWs3();
 		await this.autoOptInRules();
