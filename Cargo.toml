@@ -8,15 +8,15 @@ bstr = "1.11.1"
 gix = { version = "0.73.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [
 ] }
 gix-testtools = "0.16.1"
-insta = "1.43.1"
+insta = "1.43.2"
 git2 = { version = "0.20.0", features = [
     "vendored-openssl",
     "vendored-libgit2",
 ] }
-uuid = { version = "1.18.0", features = ["v4", "serde"] }
+uuid = { version = "1.18.1", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.143"
-thiserror = "2.0.16"
+serde_json = "1.0.145"
+thiserror = "2.0.17"
 tokio = { version = "1.47.1", default-features = false }
 keyring = { version = "3.6.3", features = [
     "apple-native",
@@ -24,13 +24,13 @@ keyring = { version = "3.6.3", features = [
     "linux-native-sync-persistent",
     "crypto-rust",
 ] }
-anyhow = "1.0.99"
+anyhow = "1.0.100"
 parking_lot = "0.12.4"
 futures = "0.3.31"
-toml = "0.8.13"
+toml = "0.9.5"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.20"
-tempfile = "3.21"
+tempfile = "3.23"
 rand = "0.9.2"
 notify-rust = "4.11.7"
 
@@ -101,15 +101,16 @@ serde_json_lenient = "0.2.3"
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
 lto = true        # Enables link to optimizations
 opt-level = "s"   # Optimize for binary size
-debug = true      # Enable debug symbols, for profiling
 
 [profile.bench]
 codegen-units = 256
 lto = false
 opt-level = 3
+debug = "line-tables-only"
 
 [profile.dev]
 incremental = false
+debug = "line-tables-only"
 
 [profile.test]
 incremental = false

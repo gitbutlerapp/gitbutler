@@ -36,7 +36,7 @@ tempfile.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true
-insta = { version = "1.43.1", features = ["json"] }
+insta = { version = "1.43.2", features = ["json"] }
 but-core = { workspace = true, features = ["testing"] }
 # for stable hashes in `gitbuter-` crates while we use them.
 # TODO: remove once `gitbutler-repo` isn't needed anymore.

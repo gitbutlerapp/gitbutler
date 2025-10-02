@@ -813,7 +813,7 @@ impl Graph {
             self[sidx]
                 .ref_name
                 .as_ref()
-                .filter(|rn| (rn.category() == Some(Category::RemoteBranch)))
+                .filter(|rn| rn.category() == Some(Category::RemoteBranch))
                 .map(|rn| (sidx, rn))
         }) {
             remote_sidx_by_ref_name.insert(remote_ref_name.clone(), remote_sidx);

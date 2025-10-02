@@ -17,11 +17,11 @@ gitbutler-oxidize.workspace = true
 gitbutler-error.workspace = true
 bstr.workspace = true
 tempfile.workspace = true
-serde = { version = "1.0.217", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 toml.workspace = true
 but-gerrit.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true
-insta = "1.43.1"
+insta = "1.43.2"
 but-core = { workspace = true, features = ["testing"] }

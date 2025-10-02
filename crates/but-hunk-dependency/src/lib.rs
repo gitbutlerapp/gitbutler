@@ -1,4 +1,3 @@
-#![feature(unsigned_signed_diff)]
 #![deny(missing_docs)]
 
 //! ## Module Guidelines

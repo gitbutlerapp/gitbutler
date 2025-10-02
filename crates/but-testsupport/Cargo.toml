@@ -14,6 +14,6 @@ anyhow.workspace = true
 termtree = "0.5.1"
 gix-testtools.workspace = true
 but-graph.workspace = true
-regex = "1.11.2"
+regex = "1.11.3"
 
 [dev-dependencies]

@@ -15,7 +15,7 @@ publish = false
 serde.workspace = true
 tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
-serde_json = "1.0.143"
+serde_json = "1.0.145"
 tracing.workspace = true
 tauri = { version = "^2.7.0", features = ["unstable"] } # For the #[tauri::command(async)] macro only
 
@@ -63,4 +63,4 @@ gitbutler-id.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
-insta = { version = "1.43.1", features = ["json"] }
+insta = { version = "1.43.2", features = ["json"] }

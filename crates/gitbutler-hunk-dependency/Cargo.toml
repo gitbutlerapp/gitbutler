@@ -7,7 +7,7 @@ publish = false
 autotests = false
 
 [dependencies]
-anyhow = "1.0.99"
+anyhow = "1.0.100"
 git2.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-serde.workspace = true

@@ -259,7 +259,7 @@ fn take_1() {
 
 #[test]
 fn equal() {
-    for (a, b, expected) in vec![
+    for (a, b, expected) in [
         (
             "src/main.rs:100-200"
                 .parse::<BranchOwnershipClaims>()

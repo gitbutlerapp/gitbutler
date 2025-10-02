@@ -16,7 +16,7 @@ testing = []
 serde = { workspace = true, features = ["std"] }
 bstr.workspace = true
 tracing.workspace = true
-anyhow = "1.0.99"
+anyhow = "1.0.100"
 gix = { workspace = true, features = [
     "dirwalk",
     "credentials",

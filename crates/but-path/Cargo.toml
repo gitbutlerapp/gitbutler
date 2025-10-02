@@ -10,5 +10,5 @@ publish = false
 doctest = false
 
 [dependencies]
-anyhow = "1.0.99"
+anyhow = "1.0.100"
 dirs = "6.0.0"

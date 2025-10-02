@@ -93,7 +93,7 @@ impl core::ops::Not for DefaultTrue {
 #[expect(clippy::bool_assert_comparison)]
 fn default_true() {
     let default_true = DefaultTrue::default();
-    assert!(default_true);
+    assert!(*default_true);
     assert_eq!(default_true, true);
     assert_eq!(!default_true, false);
     assert!(!!default_true);

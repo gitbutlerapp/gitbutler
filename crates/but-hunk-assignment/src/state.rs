@@ -1,14 +1,8 @@
 /// The name of the file holding our state, useful for watching for changes.
 use anyhow::Result;
 use gitbutler_command_context::CommandContext;
-use serde::{Deserialize, Serialize};
 
 use crate::HunkAssignment;
-
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct HunkAssignments {
-    pub assignments: Vec<HunkAssignment>,
-}
 
 pub fn assignments(ctx: &mut CommandContext) -> Result<Vec<HunkAssignment>> {
     let assignments = ctx

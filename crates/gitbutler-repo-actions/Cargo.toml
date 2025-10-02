@@ -15,7 +15,7 @@ tokio = { workspace = true, features = [
     "sync",
 ] }
 log = "^0.4"
-anyhow = "1.0.99"
+anyhow = "1.0.100"
 gitbutler-command-context.workspace = true
 tracing.workspace = true
 gitbutler-stack.workspace = true

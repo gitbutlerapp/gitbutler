@@ -18,8 +18,8 @@ test = false
 tauri-build = { version = "2.3.1", features = [] }
 
 [dependencies]
-anyhow = "1.0.99"
-backtrace = { version = "0.3.74", optional = true }
+anyhow = "1.0.100"
+backtrace = { version = "0.3.76", optional = true }
 console-subscriber = "0.4.1"
 gix = { workspace = true, features = [
     "max-performance",
@@ -30,13 +30,13 @@ serde.workspace = true
 serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
 tauri = { version = "^2.7.0", features = ["unstable"] }
 tauri-plugin-dialog = "2.3.2"
-tauri-plugin-fs = "2.4.1"
-tauri-plugin-http = "2.5.1"
-tauri-plugin-log = "2.6.0"
+tauri-plugin-fs = "2.4.2"
+tauri-plugin-http = "2.5.2"
+tauri-plugin-log = "2.7.0"
 tauri-plugin-os = "2.3.1"
 tauri-plugin-process = "2.3.0"
 tauri-plugin-shell = "2.3.1"
-tauri-plugin-single-instance = "2.3.3"
+tauri-plugin-single-instance = "2.3.4"
 tauri-plugin-store = "2.4.0"
 tauri-plugin-updater = "2.9.0"
 tauri-plugin-window-state = "2.4.0"

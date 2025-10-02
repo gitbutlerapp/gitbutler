@@ -1,6 +1,5 @@
 use crate::{hunk::VirtualBranchHunk, status::get_applied_status_cached, VirtualBranchesExt};
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::BString;
 use but_rebase::RebaseStep;
 use but_workspace::stack_ext::StackExt;
 use gitbutler_branch::dedup;
@@ -10,8 +9,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_diff::GitHunk;
 use gitbutler_oxidize::{
-    git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt,
-    ObjectIdExt, OidExt,
+    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt,
 };
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
@@ -63,26 +61,6 @@ impl From<but_workspace::ui::Author> for crate::author::Author {
             email: value.email,
             gravatar_url: value.gravatar_url,
         }
-    }
-}
-
-/// The commit-data we can use for comparison to see which remote-commit was used to craete
-/// a local commit from.
-/// Note that trees can't be used for comparison as these are typically rebased.
-#[derive(Debug, Hash, Eq, PartialEq)]
-pub(crate) struct CommitData {
-    message: BString,
-    author: gix::actor::Signature,
-}
-
-impl TryFrom<&git2::Commit<'_>> for CommitData {
-    type Error = anyhow::Error;
-
-    fn try_from(commit: &git2::Commit<'_>) -> std::result::Result<Self, Self::Error> {
-        Ok(CommitData {
-            message: commit.message_raw_bytes().into(),
-            author: git2_signature_to_gix_signature(commit.author()),
-        })
     }
 }
 
