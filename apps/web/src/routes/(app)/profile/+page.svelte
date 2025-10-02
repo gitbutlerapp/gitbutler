@@ -6,6 +6,7 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
+	import { getRecentlyPushedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { NOTIFICATION_SETTINGS_SERVICE } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { getNotificationSettingsInterest } from '@gitbutler/shared/settings/notificationSetttingsPreview.svelte';
@@ -22,6 +23,7 @@
 		appState,
 		notificationSettingsService
 	);
+	const recentProjects = getRecentlyPushedProjects();
 
 	const user = $derived(userService.user);
 	const token = $derived(authService.tokenReadable);
@@ -371,243 +373,246 @@
 				</div>
 			</SectionCard>
 
-			<h2 class="section-title">Notification settings</h2>
+			{#if recentProjects.current.length > 0}
+				<h2 class="section-title">Notification settings</h2>
 
-			<Loading loadable={notificationSettings.current}>
-				{#snippet children(notificationSettings)}
-					<SectionCard>
-						<div class="notification-settings">
-							<div class="notification-option">
-								<label class="checkbox-label" for="receive-chat-mention-emails">
-									<input
-										type="checkbox"
-										id="receive-chat-mention-emails"
-										checked={notificationSettings.receiveChatMentionEmails}
-										disabled={updatingReceiveChatMentionEmails}
-										onchange={() =>
-											updateReceiveChatMentionEmails(
-												!notificationSettings.receiveChatMentionEmails
-											)}
-									/>
-									<div class="checkbox-content">
-										<span class="checkbox-title">Chat message mention emails</span>
-										<span class="checkbox-caption">Emails when you are mentioned in a message.</span
-										>
-									</div>
-								</label>
-							</div>
-
-							<div class="notification-option">
-								<label class="checkbox-label" for="receive-chat-reply-emails">
-									<input
-										type="checkbox"
-										id="receive-chat-reply-emails"
-										checked={notificationSettings.receiveChatReplyEmails}
-										disabled={updatingReceiveChatReplyEmails}
-										onchange={() =>
-											updateReceiveChatReplyEmails(!notificationSettings.receiveChatReplyEmails)}
-									/>
-									<div class="checkbox-content">
-										<span class="checkbox-title">Chat message reply emails</span>
-										<span class="checkbox-caption"
-											>Emails when you receive a reply to a chat message.</span
-										>
-									</div>
-								</label>
-							</div>
-
-							<div class="notification-option">
-								<label class="checkbox-label" for="receive-issue-creation-emails">
-									<input
-										type="checkbox"
-										id="receive-issue-creation-emails"
-										checked={notificationSettings.receiveIssueCreationEmails}
-										disabled={updatingReceiveIssueCreationEmails}
-										onchange={() =>
-											updateReceiveIssueCreationEmails(
-												!notificationSettings.receiveIssueCreationEmails
-											)}
-									/>
-									<div class="checkbox-content">
-										<span class="checkbox-title">Issue creation emails</span>
-										<span class="checkbox-caption"
-											>Emails for new issues created in changes you are involved in.</span
-										>
-									</div>
-								</label>
-							</div>
-
-							<div class="notification-option">
-								<label class="checkbox-label" for="receive-issue-resolution-emails">
-									<input
-										type="checkbox"
-										id="receive-issue-resolution-emails"
-										checked={notificationSettings.receiveIssueResolutionEmails}
-										disabled={updatingReceiveIssueResolutionEmails}
-										onchange={() =>
-											updateReceiveIssueResolutionEmails(
-												!notificationSettings.receiveIssueResolutionEmails
-											)}
-									/>
-									<div class="checkbox-content">
-										<span class="checkbox-title">Issue status emails</span>
-										<span class="checkbox-caption"
-											>Emails for status updates of issues in changes you are involved in.</span
-										>
-									</div>
-								</label>
-							</div>
-
-							<div class="notification-option">
-								<label class="checkbox-label" for="receive-review-branch-emails">
-									<input
-										type="checkbox"
-										id="receive-review-branch-emails"
-										checked={notificationSettings.receiveReviewBranchEmails}
-										disabled={updatingReceiveReviewBranchEmails}
-										onchange={() =>
-											updateReceiveReviewBranchEmails(
-												!notificationSettings.receiveReviewBranchEmails
-											)}
-									/>
-									<div class="checkbox-content">
-										<span class="checkbox-title">Branch version update emails</span>
-										<span class="checkbox-caption"
-											>Emails when a new review branch version is created.</span
-										>
-									</div>
-								</label>
-							</div>
-
-							<div class="notification-option">
-								<label class="checkbox-label" for="receive-sign-off-emails">
-									<input
-										type="checkbox"
-										id="receive-sign-off-emails"
-										checked={notificationSettings.receiveSignOffEmails}
-										disabled={updatingReceiveSignOffEmails}
-										onchange={() =>
-											updateReceiveSignOffEmails(!notificationSettings.receiveSignOffEmails)}
-									/>
-									<div class="checkbox-content">
-										<span class="checkbox-title">Change status update emails</span>
-										<span class="checkbox-caption"
-											>Emails for updates on the review status of changes you are involved in.</span
-										>
-									</div>
-								</label>
-							</div>
-						</div>
-					</SectionCard>
-				{/snippet}
-			</Loading>
-
-			<h2 class="section-title">SSH Keys</h2>
-
-			<SectionCard>
-				<div class="ssh-keys">
-					{#if loadingSshKeys}
-						<div class="loading">Loading SSH keys...</div>
-					{:else if sshKeys.length === 0}
-						<div class="no-keys">No SSH keys added yet</div>
-					{:else}
-						{#each sshKeys as key}
-							<div class="ssh-key">
-								<div class="ssh-key-info">
-									<span class="ssh-key-name">{key.name}</span>
-									<span class="ssh-key-fingerprint">{key.fingerprint}</span>
+				<Loading loadable={notificationSettings.current}>
+					{#snippet children(notificationSettings)}
+						<SectionCard>
+							<div class="notification-settings">
+								<div class="notification-option">
+									<label class="checkbox-label" for="receive-chat-mention-emails">
+										<input
+											type="checkbox"
+											id="receive-chat-mention-emails"
+											checked={notificationSettings.receiveChatMentionEmails}
+											disabled={updatingReceiveChatMentionEmails}
+											onchange={() =>
+												updateReceiveChatMentionEmails(
+													!notificationSettings.receiveChatMentionEmails
+												)}
+										/>
+										<div class="checkbox-content">
+											<span class="checkbox-title">Chat message mention emails</span>
+											<span class="checkbox-caption"
+												>Emails when you are mentioned in a message.</span
+											>
+										</div>
+									</label>
 								</div>
+
+								<div class="notification-option">
+									<label class="checkbox-label" for="receive-chat-reply-emails">
+										<input
+											type="checkbox"
+											id="receive-chat-reply-emails"
+											checked={notificationSettings.receiveChatReplyEmails}
+											disabled={updatingReceiveChatReplyEmails}
+											onchange={() =>
+												updateReceiveChatReplyEmails(!notificationSettings.receiveChatReplyEmails)}
+										/>
+										<div class="checkbox-content">
+											<span class="checkbox-title">Chat message reply emails</span>
+											<span class="checkbox-caption"
+												>Emails when you receive a reply to a chat message.</span
+											>
+										</div>
+									</label>
+								</div>
+
+								<div class="notification-option">
+									<label class="checkbox-label" for="receive-issue-creation-emails">
+										<input
+											type="checkbox"
+											id="receive-issue-creation-emails"
+											checked={notificationSettings.receiveIssueCreationEmails}
+											disabled={updatingReceiveIssueCreationEmails}
+											onchange={() =>
+												updateReceiveIssueCreationEmails(
+													!notificationSettings.receiveIssueCreationEmails
+												)}
+										/>
+										<div class="checkbox-content">
+											<span class="checkbox-title">Issue creation emails</span>
+											<span class="checkbox-caption"
+												>Emails for new issues created in changes you are involved in.</span
+											>
+										</div>
+									</label>
+								</div>
+
+								<div class="notification-option">
+									<label class="checkbox-label" for="receive-issue-resolution-emails">
+										<input
+											type="checkbox"
+											id="receive-issue-resolution-emails"
+											checked={notificationSettings.receiveIssueResolutionEmails}
+											disabled={updatingReceiveIssueResolutionEmails}
+											onchange={() =>
+												updateReceiveIssueResolutionEmails(
+													!notificationSettings.receiveIssueResolutionEmails
+												)}
+										/>
+										<div class="checkbox-content">
+											<span class="checkbox-title">Issue status emails</span>
+											<span class="checkbox-caption"
+												>Emails for status updates of issues in changes you are involved in.</span
+											>
+										</div>
+									</label>
+								</div>
+
+								<div class="notification-option">
+									<label class="checkbox-label" for="receive-review-branch-emails">
+										<input
+											type="checkbox"
+											id="receive-review-branch-emails"
+											checked={notificationSettings.receiveReviewBranchEmails}
+											disabled={updatingReceiveReviewBranchEmails}
+											onchange={() =>
+												updateReceiveReviewBranchEmails(
+													!notificationSettings.receiveReviewBranchEmails
+												)}
+										/>
+										<div class="checkbox-content">
+											<span class="checkbox-title">Branch version update emails</span>
+											<span class="checkbox-caption"
+												>Emails when a new review branch version is created.</span
+											>
+										</div>
+									</label>
+								</div>
+
+								<div class="notification-option">
+									<label class="checkbox-label" for="receive-sign-off-emails">
+										<input
+											type="checkbox"
+											id="receive-sign-off-emails"
+											checked={notificationSettings.receiveSignOffEmails}
+											disabled={updatingReceiveSignOffEmails}
+											onchange={() =>
+												updateReceiveSignOffEmails(!notificationSettings.receiveSignOffEmails)}
+										/>
+										<div class="checkbox-content">
+											<span class="checkbox-title">Change status update emails</span>
+											<span class="checkbox-caption"
+												>Emails for updates on the review status of changes you are involved in.</span
+											>
+										</div>
+									</label>
+								</div>
+							</div>
+						</SectionCard>
+					{/snippet}
+				</Loading>
+
+				<h2 class="section-title">SSH Keys</h2>
+
+				<SectionCard>
+					<div class="ssh-keys">
+						{#if loadingSshKeys}
+							<div class="loading">Loading SSH keys...</div>
+						{:else if sshKeys.length === 0}
+							<div class="no-keys">No SSH keys added yet</div>
+						{:else}
+							{#each sshKeys as key}
+								<div class="ssh-key">
+									<div class="ssh-key-info">
+										<span class="ssh-key-name">{key.name}</span>
+										<span class="ssh-key-fingerprint">{key.fingerprint}</span>
+									</div>
+									<button
+										type="button"
+										class="delete-button"
+										title="Delete key"
+										onclick={() => deleteSshKey(key.fingerprint)}>×</button
+									>
+								</div>
+							{/each}
+						{/if}
+
+						<button type="button" class="add-key-button" onclick={() => addKeyModal?.show()}>
+							<span class="add-key-icon">+</span>
+							<span>Upload SSH Public Key</span>
+						</button>
+
+						<button
+							type="button"
+							class="add-key-button"
+							onclick={generateSshKeyToken}
+							disabled={generatingSshToken}
+						>
+							<span class="add-key-icon">+</span>
+							<span>{generatingSshToken ? 'Generating...' : 'Add Key via SSH'}</span>
+						</button>
+					</div>
+				</SectionCard>
+
+				<AddSshKeyModal bind:this={addKeyModal} onClose={onAddKeyModalClose} />
+
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				{#if showSshKeyTokenModal}
+					<div class="ssh-token-modal-backdrop" onclick={closeSshKeyTokenModal}>
+						<div class="ssh-token-modal" onclick={handleModalClick}>
+							<h3 class="ssh-token-modal__title">Add Your SSH Key</h3>
+							<p class="ssh-token-modal__description">
+								Run the following command in your terminal to add your SSH key to GitButler:
+							</p>
+							<div class="ssh-token-modal__code">
+								<code>ssh git@ssh.gitbutler.com add/{sshKeyToken}</code>
 								<button
 									type="button"
-									class="delete-button"
-									title="Delete key"
-									onclick={() => deleteSshKey(key.fingerprint)}>×</button
+									class="ssh-token-modal__copy-button"
+									onclick={() => {
+										navigator.clipboard.writeText(`ssh git@ssh.gitbutler.com add/${sshKeyToken}`);
+									}}
+								>
+									Copy
+								</button>
+							</div>
+							<p class="ssh-token-modal__note">This token will expire after use or in 5 minutes.</p>
+							<div class="ssh-token-modal__controls">
+								<button
+									type="button"
+									class="ssh-token-modal__close-button"
+									onclick={closeSshKeyTokenModal}>Close</button
 								>
 							</div>
-						{/each}
-					{/if}
-
-					<button type="button" class="add-key-button" onclick={() => addKeyModal?.show()}>
-						<span class="add-key-icon">+</span>
-						<span>Upload SSH Public Key</span>
-					</button>
-
-					<button
-						type="button"
-						class="add-key-button"
-						onclick={generateSshKeyToken}
-						disabled={generatingSshToken}
-					>
-						<span class="add-key-icon">+</span>
-						<span>{generatingSshToken ? 'Generating...' : 'Add Key via SSH'}</span>
-					</button>
-				</div>
-			</SectionCard>
-
-			<AddSshKeyModal bind:this={addKeyModal} onClose={onAddKeyModalClose} />
-
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			{#if showSshKeyTokenModal}
-				<div class="ssh-token-modal-backdrop" onclick={closeSshKeyTokenModal}>
-					<div class="ssh-token-modal" onclick={handleModalClick}>
-						<h3 class="ssh-token-modal__title">Add Your SSH Key</h3>
-						<p class="ssh-token-modal__description">
-							Run the following command in your terminal to add your SSH key to GitButler:
-						</p>
-						<div class="ssh-token-modal__code">
-							<code>ssh git@ssh.gitbutler.com add/{sshKeyToken}</code>
-							<button
-								type="button"
-								class="ssh-token-modal__copy-button"
-								onclick={() => {
-									navigator.clipboard.writeText(`ssh git@ssh.gitbutler.com add/${sshKeyToken}`);
-								}}
-							>
-								Copy
-							</button>
-						</div>
-						<p class="ssh-token-modal__note">This token will expire after use or in 5 minutes.</p>
-						<div class="ssh-token-modal__controls">
-							<button
-								type="button"
-								class="ssh-token-modal__close-button"
-								onclick={closeSshKeyTokenModal}>Close</button
-							>
 						</div>
 					</div>
-				</div>
+				{/if}
+
+				<h2 class="section-title">Experimental settings</h2>
+
+				<SectionCard labelFor="showOrganizations" orientation="row">
+					{#snippet title()}Organizations{/snippet}
+					{#snippet caption()}
+						Organizations are a way of linking together projects.
+					{/snippet}
+					{#snippet actions()}
+						<Toggle
+							id="showOrganizations"
+							checked={$featureShowOrganizations}
+							onclick={() => ($featureShowOrganizations = !$featureShowOrganizations)}
+						/>
+					{/snippet}
+				</SectionCard>
+
+				<SectionCard labelFor="showProjectPage" orientation="row">
+					{#snippet title()}User / Organization / Project Pages{/snippet}
+					{#snippet caption()}
+						This will show the stub landing pages for orgs, users and projects.
+					{/snippet}
+					{#snippet actions()}
+						<Toggle
+							id="showProjectPage"
+							checked={$featureShowProjectPage}
+							onclick={() => ($featureShowProjectPage = !$featureShowProjectPage)}
+						/>
+					{/snippet}
+				</SectionCard>
 			{/if}
-
-			<h2 class="section-title">Experimental settings</h2>
-
-			<SectionCard labelFor="showOrganizations" orientation="row">
-				{#snippet title()}Organizations{/snippet}
-				{#snippet caption()}
-					Organizations are a way of linking together projects.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="showOrganizations"
-						checked={$featureShowOrganizations}
-						onclick={() => ($featureShowOrganizations = !$featureShowOrganizations)}
-					/>
-				{/snippet}
-			</SectionCard>
-
-			<SectionCard labelFor="showProjectPage" orientation="row">
-				{#snippet title()}User / Organization / Project Pages{/snippet}
-				{#snippet caption()}
-					This will show the stub landing pages for orgs, users and projects.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="showProjectPage"
-						checked={$featureShowProjectPage}
-						onclick={() => ($featureShowProjectPage = !$featureShowProjectPage)}
-					/>
-				{/snippet}
-			</SectionCard>
 		{/if}
 	</div>
 </div>
