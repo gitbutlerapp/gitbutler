@@ -43,6 +43,7 @@
 	let loaded = $state(false);
 
 	let userPicture = $state($user?.picture);
+	let selectedPictureFile = $state<File | undefined>(undefined);
 
 	let deleteConfirmationModal: ReturnType<typeof Modal> | undefined = $state();
 
@@ -85,17 +86,15 @@
 	});
 
 	async function onSubmit(e: SubmitEvent) {
+		e.preventDefault();
+
 		if (!$user) return;
 		saving = true;
-
-		const target = e.target as HTMLFormElement;
-		const formData = new FormData(target);
-		const picture = formData.get('picture') as File | undefined;
 
 		try {
 			const updatedUser = await userService.updateUser({
 				name: newName,
-				picture: picture
+				picture: selectedPictureFile
 			});
 			updatedUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
 			userService.setUser(updatedUser);
@@ -112,8 +111,10 @@
 		const file = target.files?.[0];
 
 		if (file && fileTypes.includes(file.type)) {
+			selectedPictureFile = file;
 			userPicture = URL.createObjectURL(file);
 		} else {
+			selectedPictureFile = undefined;
 			userPicture = $user?.picture;
 			chipToasts.error('Please use a valid image file');
 		}
