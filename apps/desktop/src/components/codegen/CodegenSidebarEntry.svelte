@@ -36,6 +36,16 @@
 	}: Props = $props();
 
 	let isOpen = $state(false);
+
+	function formatNumber(n: number, fractionDigits = 0) {
+		const options: Intl.NumberFormatOptions = {
+			maximumFractionDigits: fractionDigits,
+			minimumFractionDigits: fractionDigits
+		};
+
+		// Use the user's locale (undefined) so thousands separator will match their locale.
+		return new Intl.NumberFormat(undefined, options).format(n);
+	}
 </script>
 
 <div class="codegen-entry-wrapper" use:focusable={{ focusable: true, onAction: () => onclick?.() }}>
@@ -104,7 +114,7 @@
 			<div class="entry-metadata text-12" in:fade={{ duration: 150 }}>
 				<Tooltip text="Total tokens used and cost">
 					<div class="flex gap-4 items-center">
-						<p>{tokensUsed}</p>
+						<p>{formatNumber(tokensUsed)}</p>
 						<svg
 							width="0.938rem"
 							height="0.938rem"
@@ -125,7 +135,7 @@
 							/>
 						</svg>
 						<div class="metadata-divider"></div>
-						<p>${cost.toFixed(2)}</p>
+						<p>${formatNumber(cost, 2)}</p>
 					</div>
 				</Tooltip>
 
