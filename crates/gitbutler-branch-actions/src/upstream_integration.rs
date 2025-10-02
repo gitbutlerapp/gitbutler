@@ -1,4 +1,6 @@
-use crate::{r#virtual::IsCommitIntegrated, BranchManagerExt, VirtualBranchesExt as _};
+use std::collections::HashMap;
+
+use crate::{BranchManagerExt, VirtualBranchesExt as _};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 use but_core::Reference;
@@ -264,30 +266,11 @@ fn stack_details(
 /// Takes both a gix and git2 repository. The git2 repository can't be in
 /// memory as the gix repository needs to be able to access those commits
 fn get_stack_status(
-    repo: &git2::Repository,
     gix_repo: &gix::Repository,
-    target: Target,
     new_target_commit_id: gix::ObjectId,
     stack_id: Option<StackId>,
     ctx: &CommandContext,
 ) -> Result<StackStatus> {
-    let cache = gix_repo.commit_graph_if_enabled()?;
-    let mut graph = gix_repo.revision_graph(cache.as_ref());
-    let upstream_commit_oids = repo.l(
-        gix_to_git2_oid(new_target_commit_id),
-        LogUntil::Commit(target.sha),
-        true,
-    )?;
-    let new_target_tree_id = gix_repo.find_commit(new_target_commit_id)?.tree_id()?;
-    let mut check_commit = IsCommitIntegrated::new_basic(
-        gix_repo,
-        repo,
-        &mut graph,
-        git2_to_gix_object_id(target.sha),
-        new_target_tree_id.detach(),
-        upstream_commit_oids,
-    );
-
     let mut unintegrated_branch_found = false;
 
     let mut last_head: git2::Oid = gix_to_git2_oid(new_target_commit_id);
@@ -298,10 +281,25 @@ fn get_stack_status(
 
     let branches = details.branch_details;
     for branch in &branches {
-        let branch_head = repo.find_commit(branch.tip.to_git2())?;
+        let local_commits = &branch.commits;
+
+        let Some(branch_head) = local_commits.first() else {
+            branch_statuses.push(NameAndStatus {
+                name: branch.name.to_string(),
+                status: BranchStatus::Empty,
+            });
+
+            continue;
+        };
+
         // If an integrated branch has been found, there is no need to bother
         // with subsequent branches.
-        if !unintegrated_branch_found && check_commit.is_integrated(&branch_head)? {
+        if !unintegrated_branch_found
+            && matches!(
+                branch_head.state,
+                but_workspace::ui::CommitState::Integrated
+            )
+        {
             branch_statuses.push(NameAndStatus {
                 name: branch.name.to_string(),
                 status: BranchStatus::Integrated,
@@ -317,17 +315,6 @@ fn get_stack_status(
         // mergable is rebasable.
         // Doing both would be preferable, but we don't communicate that
         // to the frontend at the minute.
-        let local_commits = &branch.commits;
-
-        if local_commits.is_empty() {
-            branch_statuses.push(NameAndStatus {
-                name: branch.name.to_string(),
-                status: BranchStatus::Empty,
-            });
-
-            continue;
-        }
-
         let local_commit_ids = local_commits
             .iter()
             .map(|commit| commit.id)
@@ -455,9 +442,7 @@ pub fn upstream_integration_statuses(
             Ok((
                 stack.id,
                 get_stack_status(
-                    repo,
                     &gix_repo_in_memory,
-                    target.clone(),
                     git2_to_gix_object_id(new_target.id()),
                     stack.id,
                     context.ctx,
@@ -756,20 +741,6 @@ fn compute_resolutions(
                     ))
                 }
                 ResolutionApproach::Rebase => {
-                    let gix_repo = gitbutler_command_context::gix_repo_for_merging(repo.path())?;
-                    let cache = gix_repo.commit_graph_if_enabled()?;
-                    let mut graph = gix_repo.revision_graph(cache.as_ref());
-                    let upstream_commit_oids =
-                        repo.l(new_target.id(), LogUntil::Commit(target.sha), true)?;
-                    let mut check_commit = IsCommitIntegrated::new_basic(
-                        &gix_repo,
-                        repo,
-                        &mut graph,
-                        git2_to_gix_object_id(target.sha),
-                        git2_to_gix_object_id(new_target.tree_id()),
-                        upstream_commit_oids,
-                    );
-
                     // Rebase the commits, then try rebasing the tree. If
                     // the tree ends up conflicted, commit the tree.
 
@@ -782,6 +753,12 @@ fn compute_resolutions(
                     };
 
                     let details = stack_details(context.ctx, stack.id)?;
+                    let mut commit_map = HashMap::new();
+                    for branch in &details.branch_details {
+                        for commit in &branch.commits {
+                            commit_map.insert(commit.id, commit.clone());
+                        }
+                    }
 
                     let all_steps = details.as_rebase_steps(context.gix_repo)?;
                     let branches_before = as_buckets(all_steps.clone());
@@ -794,7 +771,9 @@ fn compute_resolutions(
                                 new_message: _,
                             } => {
                                 let commit = repo.find_commit(commit_id.to_git2()).ok()?;
-                                let is_integrated = check_commit.is_integrated(&commit).ok()?;
+                                let is_integrated = commit_map.get(&commit_id).is_some_and(|c| {
+                                    matches!(c.state, but_workspace::ui::CommitState::Integrated)
+                                });
                                 let forced = forced_integrated(
                                     &resolution.force_integrated_branches,
                                     &branches_before,

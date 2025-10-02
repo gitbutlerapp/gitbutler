@@ -30,5 +30,8 @@ export const MOCK_APP_SETTINGS: AppSettings = {
 		dangerouslyAllowAllPermissions: false,
 		autoCommitAfterCompletion: true,
 		useConfiguredModel: false
+	},
+	reviews: {
+		autoFillPrDescriptionFromCommit: true
 	}
 };

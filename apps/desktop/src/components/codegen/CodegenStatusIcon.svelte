@@ -1,5 +1,8 @@
 <script lang="ts">
-	export let status: 'pending' | 'in_progress' | 'completed';
+	type Props = {
+		status: 'pending' | 'in_progress' | 'completed';
+	};
+	const { status }: Props = $props();
 </script>
 
 <div

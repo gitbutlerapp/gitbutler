@@ -221,6 +221,16 @@ async fn handle_command(
             .and_then(|params| {
                 settings::update_claude(&app_settings_sync, params).map(|r| json!(r))
             }),
+        "update_fetch" => serde_json::from_value(request.params)
+            .to_error()
+            .and_then(|params| {
+                settings::update_fetch(&app_settings_sync, params).map(|r| json!(r))
+            }),
+        "update_reviews" => serde_json::from_value(request.params)
+            .to_error()
+            .and_then(|params| {
+                settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))
+            }),
         // Secret management
         "secret_get_global" => secret::secret_get_global_cmd(request.params),
         "secret_set_global" => secret::secret_set_global_cmd(request.params),

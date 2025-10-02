@@ -20,6 +20,8 @@ pub struct AppSettings {
     pub fetch: app_settings::Fetch,
     /// Settings related to Claude Code.
     pub claude: app_settings::Claude,
+    /// Settings related to code reviews and pull requests.
+    pub reviews: app_settings::Reviews,
 }
 
 impl Default for AppSettings {
