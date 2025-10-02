@@ -8,6 +8,7 @@
 
 <section class="hero">
 	<Header />
+
 	<div class="hero-content">
 		<h1 class="title">
 			Git, <i>finally</i> designed for humans.
@@ -56,6 +57,14 @@
 </section>
 
 <style lang="scss">
+	.hero-imagine {
+		position: relative;
+		width: 300px;
+		height: 120px;
+		margin-bottom: 40px;
+		border: 1px solid var(--clr-border-2);
+		background-color: var(--clr-theme-pop-soft);
+	}
 	.hero {
 		display: grid;
 		grid-template-columns: subgrid;

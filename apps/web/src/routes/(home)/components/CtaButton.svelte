@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ImagineCanvas from '$home/sections/ImagineCanvas.svelte';
 	import jsonLinks from '$lib/data/links.json';
 	import osIcons from '$lib/data/os-icons.json';
 	import { latestClientVersion } from '$lib/store';
@@ -6,6 +7,9 @@
 
 	let detectedOS = $state('');
 	let selectedDownload = $state(jsonLinks.downloads.appleSilicon);
+	let tiltX = $state(0);
+	let tiltY = $state(0);
+	let isHovering = $state(false);
 
 	// OS detection mapping for cleaner logic
 	const osDetectionMap = [
@@ -51,15 +55,55 @@
 		return osIcons[osKey] || osIcons.macos;
 	}
 
+	// Tilt effect handlers (only for non-touch devices)
+	function handleMouseMove(e: MouseEvent) {
+		// Skip tilt effect on touch devices
+		if (window.matchMedia('(pointer: coarse)').matches) return;
+
+		const target = e.currentTarget as HTMLElement;
+		const rect = target.getBoundingClientRect();
+		const x = e.clientX - rect.left;
+		const y = e.clientY - rect.top;
+
+		// Calculate tilt based on mouse position (max 6 degrees)
+		const centerX = rect.width / 2;
+		const centerY = rect.height / 2;
+		const maxTilt = 6;
+
+		tiltY = ((x - centerX) / centerX) * maxTilt;
+		tiltX = ((centerY - y) / centerY) * maxTilt;
+	}
+
+	function handleMouseEnter() {
+		// Skip hover effect on touch devices
+		if (window.matchMedia('(pointer: coarse)').matches) return;
+		isHovering = true;
+	}
+
+	function handleMouseLeave() {
+		isHovering = false;
+		tiltX = 0;
+		tiltY = 0;
+	}
+
 	onMount(() => {
 		detectOS();
 	});
 </script>
 
 <!-- DESKTOP -->
-<a class="download-btn desktop" href={selectedDownload.url}>
-	<div class="download-btn-title">
-		<span class="download-btn-title">DOWNLOAD for {detectedOS}</span>
+<a
+	class="download-btn desktop"
+	href={selectedDownload.url}
+	onmouseenter={handleMouseEnter}
+	onmouseleave={handleMouseLeave}
+	onmousemove={handleMouseMove}
+	style:transform="perspective(1000px) rotateX({tiltX}deg) rotateY({tiltY}deg) translateY({isHovering
+		? '-2px'
+		: '0'}) scale({isHovering ? 1.02 : 1})"
+>
+	<div class="download-btn__title">
+		<span class="download-btn__title">DOWNLOAD for {detectedOS}</span>
 
 		<svg
 			class="download-btn-icon"
@@ -71,15 +115,21 @@
 		</svg>
 	</div>
 
-	<span class="download-btn-version">Open Beta {$latestClientVersion}</span>
+	<span class="download-btn__version">Open Beta {$latestClientVersion}</span>
+
+	<div class="download-btn__canvas-cover"></div>
+	<ImagineCanvas />
 </a>
 
 <!-- MOBILE -->
 <a class="download-btn mobile" href={jsonLinks.resources.downloads.url}>
-	<div class="download-btn-title">
-		<span class="download-btn-title">DOWNLOAD <i>the</i> app</span>
+	<div class="download-btn__title">
+		<span class="download-btn__title">DOWNLOAD <i>the</i> app</span>
 	</div>
-	<span class="download-btn-version">Open Beta {$latestClientVersion}</span>
+	<span class="download-btn__version">Open Beta {$latestClientVersion}</span>
+
+	<div class="download-btn__canvas-cover"></div>
+	<ImagineCanvas />
 </a>
 
 <style lang="scss">
@@ -90,21 +140,24 @@
 		padding: 20px 28px 24px;
 		overflow: hidden;
 		gap: 4px;
+		transform-style: preserve-3d;
 		border: 1px solid var(--clr-scale-pop-60);
 		border-radius: var(--radius-xl);
 		background-color: var(--clr-theme-pop-soft);
 		color: var(--clr-theme-pop-on-soft);
 		transition:
-			transform 0.15s ease,
+			transform 0.15s ease-out,
 			color 0.15s ease,
 			background-color 0.15s ease,
 			border-color 0.15s ease,
-			drop-shadow 0.2s ease;
+			box-shadow 0.2s ease;
+		will-change: transform;
 
-		&:hover {
-			transform: translateY(-2px) scale(1.02);
-			background-color: var(--clr-theme-pop-soft-hover);
-			box-shadow: 0 16px 16px color-mix(in srgb, var(--clr-theme-pop-element) 10%, transparent);
+		@media (pointer: fine) {
+			&:hover {
+				background-color: var(--clr-theme-pop-soft-hover);
+				box-shadow: 0 12px 26px color-mix(in srgb, var(--clr-theme-pop-element) 30%, transparent);
+			}
 		}
 	}
 
@@ -114,7 +167,7 @@
 		width: 100%;
 	}
 
-	.download-btn-title {
+	.download-btn__title {
 		display: flex;
 		z-index: 1;
 		align-items: center;
@@ -122,7 +175,8 @@
 		pointer-events: none;
 	}
 
-	.download-btn-title {
+	.download-btn__title {
+		z-index: 2;
 		font-size: 42px;
 		line-height: 1;
 		font-family: var(--fontfamily-accent);
@@ -133,8 +187,8 @@
 		height: 28px;
 	}
 
-	.download-btn-version {
-		z-index: 1;
+	.download-btn__version {
+		z-index: 2;
 		margin-top: 2px;
 		font-size: 14px;
 		font-family: var(--fontfamily-mono);
@@ -144,12 +198,26 @@
 	}
 
 	.canvas-container {
-		z-index: 0;
 		position: absolute;
 		top: 0;
 		left: 0;
 		width: 100%;
 		height: 100%;
+	}
+
+	.download-btn__canvas-cover {
+		z-index: 1;
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: radial-gradient(
+			ellipse at center,
+			var(--clr-scale-pop-90) 40%,
+			rgba(255, 255, 255, 0) 100%
+		);
+		pointer-events: none;
 	}
 
 	@media (--mobile-viewport) {
@@ -162,7 +230,7 @@
 		.download-btn {
 			padding: 20px;
 		}
-		.download-btn-title {
+		.download-btn__title {
 			font-size: 38px;
 			text-align: center;
 		}
