@@ -125,7 +125,11 @@ pub fn handle(cmd: &Subcommands, project: &Project, json: bool) -> anyhow::Resul
                     } else {
                         println!("🔄 Updating branches...");
                         let mut resolutions = vec![];
-                        for (id, status) in statuses {
+                        for (maybe_stack_id, status) in statuses {
+                            let Some(stack_id) = maybe_stack_id else {
+                                println!("No stack ID, assuming we're on single-branch mode...",);
+                                continue;
+                            };
                             let approach = if status
                                 .branch_statuses
                                 .iter()
@@ -137,7 +141,7 @@ pub fn handle(cmd: &Subcommands, project: &Project, json: bool) -> anyhow::Resul
                                     ResolutionApproach::Rebase
                                 };
                             let resolution = Resolution {
-                                branch_id: id, // This is StackId
+                                stack_id,
                                 approach,
                                 delete_integrated_branches: true,
                                 force_integrated_branches: vec![],

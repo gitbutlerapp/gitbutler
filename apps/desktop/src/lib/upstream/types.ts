@@ -49,7 +49,7 @@ export type ResolutionApproach = {
 };
 
 export type Resolution = {
-	branchId: string;
+	stackId: string;
 	approach: ResolutionApproach;
 	deleteIntegratedBranches: boolean;
 	forceIntegratedBranches: string[];

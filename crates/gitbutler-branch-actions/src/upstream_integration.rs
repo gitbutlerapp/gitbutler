@@ -1,10 +1,11 @@
-use crate::stack::branch_integrated;
 use crate::{r#virtual::IsCommitIntegrated, BranchManagerExt, VirtualBranchesExt as _};
 use anyhow::{anyhow, bail, Context, Result};
+use bstr::ByteSlice;
 use but_core::Reference;
+use but_graph::VirtualBranchesTomlMetadata;
 use but_rebase::{RebaseOutput, RebaseStep};
 use but_workspace::ref_info::Options;
-use but_workspace::stack_ext::StackExt;
+use but_workspace::stack_ext::StackDetailsExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{
@@ -16,7 +17,7 @@ use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo::{logging::LogUntil, rebase::gitbutler_merge_commits};
 use gitbutler_serde::BStringForFrontend;
 
-use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
+use gitbutler_stack::{StackId, Target, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 use gix::merge::tree::TreatAsUnresolved;
 use serde::{Deserialize, Serialize};
@@ -62,7 +63,7 @@ pub enum StackStatuses {
     UpdatesRequired {
         #[serde(rename = "worktreeConflicts")]
         worktree_conflicts: Vec<BStringForFrontend>,
-        statuses: Vec<(StackId, StackStatus)>,
+        statuses: Vec<(Option<StackId>, StackStatus)>,
     },
 }
 
@@ -148,8 +149,7 @@ impl StackStatus {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Resolution {
-    // TODO(CTO): Rename to stack_id
-    pub branch_id: StackId,
+    pub stack_id: StackId,
     pub approach: ResolutionApproach,
     pub delete_integrated_branches: bool,
     /// A list of references that the application should consider as integrated even if they are not deteced as such.
@@ -172,7 +172,7 @@ enum IntegrationResult {
 pub struct UpstreamIntegrationContext<'a> {
     _permission: Option<&'a mut WorktreeWritePermission>,
     repo: &'a git2::Repository,
-    stacks_in_workspace: Vec<Stack>,
+    stacks_in_workspace: Vec<but_workspace::ui::StackEntry>,
     new_target: git2::Commit<'a>,
     target: Target,
     ctx: &'a CommandContext,
@@ -209,7 +209,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
             |oid| repo.find_commit(oid),
         )?;
 
-        let stacks_in_workspace = virtual_branches_handle.list_stacks_in_workspace()?;
+        let stacks_in_workspace = stacks(ctx, gix_repo)?;
 
         Ok(Self {
             _permission: Some(permission),
@@ -223,6 +223,43 @@ impl<'a> UpstreamIntegrationContext<'a> {
     }
 }
 
+fn stacks(
+    ctx: &CommandContext,
+    repo: &gix::Repository,
+) -> anyhow::Result<Vec<but_workspace::ui::StackEntry>> {
+    let project = ctx.project();
+    if ctx.app_settings().feature_flags.ws3 {
+        let meta =
+            VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
+        but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace, None)
+    } else {
+        but_workspace::stacks(
+            ctx,
+            &project.gb_dir(),
+            repo,
+            but_workspace::StacksFilter::InWorkspace,
+        )
+    }
+}
+
+fn stack_details(
+    ctx: &CommandContext,
+    stack_id: Option<StackId>,
+) -> anyhow::Result<but_workspace::ui::StackDetails> {
+    if ctx.app_settings().feature_flags.ws3 {
+        let repo = ctx.gix_repo_for_merging_non_persisting()?;
+        let meta = VirtualBranchesTomlMetadata::from_path(
+            ctx.project().gb_dir().join("virtual_branches.toml"),
+        )?;
+        but_workspace::stack_details_v3(stack_id, &repo, &meta)
+    } else {
+        let Some(stack_id) = stack_id else {
+            bail!("Failed to get stack details: stack ID not provided");
+        };
+        but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
+    }
+}
+
 /// Returns the status of a stack
 /// Takes both a gix and git2 repository. The git2 repository can't be in
 /// memory as the gix repository needs to be able to access those commits
@@ -231,7 +268,7 @@ fn get_stack_status(
     gix_repo: &gix::Repository,
     target: Target,
     new_target_commit_id: gix::ObjectId,
-    stack: &Stack,
+    stack_id: Option<StackId>,
     ctx: &CommandContext,
 ) -> Result<StackStatus> {
     let cache = gix_repo.commit_graph_if_enabled()?;
@@ -257,19 +294,16 @@ fn get_stack_status(
 
     let mut branch_statuses: Vec<NameAndStatus> = vec![];
 
-    let branches = stack.branches();
-    for branch in &branches {
-        if branch.archived {
-            continue;
-        }
+    let details = stack_details(ctx, stack_id)?;
 
+    let branches = details.branch_details;
+    for branch in &branches {
+        let branch_head = repo.find_commit(branch.tip.to_git2())?;
         // If an integrated branch has been found, there is no need to bother
         // with subsequent branches.
-        if !unintegrated_branch_found
-            && branch_integrated(&mut check_commit, branch, repo, gix_repo)?
-        {
+        if !unintegrated_branch_found && check_commit.is_integrated(&branch_head)? {
             branch_statuses.push(NameAndStatus {
-                name: branch.name().to_owned(),
+                name: branch.name.to_string(),
                 status: BranchStatus::Integrated,
             });
 
@@ -283,21 +317,20 @@ fn get_stack_status(
         // mergable is rebasable.
         // Doing both would be preferable, but we don't communicate that
         // to the frontend at the minute.
-        let commits = branch.commits(ctx, stack)?;
+        let local_commits = &branch.commits;
 
-        if commits.local_commits.is_empty() {
+        if local_commits.is_empty() {
             branch_statuses.push(NameAndStatus {
-                name: branch.name().to_owned(),
+                name: branch.name.to_string(),
                 status: BranchStatus::Empty,
             });
 
             continue;
         }
 
-        let local_commit_ids = commits
-            .local_commits
+        let local_commit_ids = local_commits
             .iter()
-            .map(|commit| commit.id())
+            .map(|commit| commit.id)
             .rev()
             .collect::<Vec<_>>();
 
@@ -305,9 +338,8 @@ fn get_stack_status(
 
         let steps: Vec<RebaseStep> = local_commit_ids
             .iter()
-            .rev()
             .map(|commit_id| RebaseStep::Pick {
-                commit_id: commit_id.to_gix(),
+                commit_id: *commit_id,
                 new_message: None,
             })
             .collect();
@@ -328,7 +360,7 @@ fn get_stack_status(
         last_head = new_head_oid;
 
         branch_statuses.push(NameAndStatus {
-            name: branch.name().to_owned(),
+            name: branch.name.to_string(),
             status: if any_conflicted {
                 BranchStatus::Conflicted { rebasable: false }
             } else {
@@ -359,11 +391,13 @@ pub fn upstream_integration_statuses(
         return Ok(StackStatuses::UpToDate);
     };
 
+    let new_target_id = new_target.id().to_gix();
+
     let heads = stacks_in_workspace
         .iter()
-        .map(|stack| stack.head_oid(&gix_repo))
-        .chain(Some(Ok(new_target.id().to_gix())))
-        .collect::<Result<Vec<_>>>()?;
+        .map(|stack| stack.tip)
+        .chain(std::iter::once(new_target_id))
+        .collect::<Vec<_>>();
 
     // The merge base tree of all of the applied stacks plus the new target
     let merge_base_tree = gix_repo
@@ -425,7 +459,7 @@ pub fn upstream_integration_statuses(
                     &gix_repo_in_memory,
                     target.clone(),
                     git2_to_gix_object_id(new_target.id()),
-                    stack,
+                    stack.id,
                     context.ctx,
                 )?,
             ))
@@ -477,7 +511,7 @@ pub(crate) fn integrate_upstream(
         let all_resolutions_are_up_to_date = resolutions.iter().all(|resolution| {
             let Some(status) = statuses
                 .iter()
-                .find(|status| status.0 == resolution.branch_id)
+                .find(|status| status.0 == Some(resolution.stack_id))
             else {
                 return false;
             };
@@ -498,20 +532,39 @@ pub(crate) fn integrate_upstream(
         // could enter a much worse state if we're simultaniously updating trees
 
         // Delete branches
-        for (stack_id, integration_result) in &integration_results {
+        for (maybe_stack_id, integration_result) in &integration_results {
             if !matches!(integration_result, IntegrationResult::DeleteBranch) {
                 continue;
             };
 
-            let stack = virtual_branches_state.get_stack(*stack_id)?;
+            let Some(stack_id) = maybe_stack_id else {
+                // If the stack ID is not defined, we're on single-branch mode, so nothing to delete.
+                continue;
+            };
+
+            let maybe_stack = context
+                .stacks_in_workspace
+                .iter()
+                .find(|s| s.id == Some(*stack_id));
+
+            let Some(stack) = maybe_stack else {
+                // The integration results should match the stacks in the workspace,
+                // so this should never happen.
+                bail!(
+                    "Failed to find stack while integrating upstream: {:?}",
+                    stack_id
+                );
+            };
+
             virtual_branches_state.delete_branch_entry(stack_id)?;
             let delete_local_refs = resolutions
                 .iter()
-                .find(|r| r.branch_id == *stack_id)
+                .find(|r| r.stack_id == *stack_id)
                 .map(|r| r.delete_integrated_branches)
                 .unwrap_or(false);
+
             if delete_local_refs {
-                for head in stack.heads {
+                for head in &stack.heads {
                     head.delete_reference(&gix_repo).ok();
                 }
             }
@@ -520,8 +573,13 @@ pub(crate) fn integrate_upstream(
         let permission = context._permission.expect("Permission provided above");
 
         // Unapply branches
-        for (stack_id, integration_result) in &integration_results {
+        for (maybe_stack_id, integration_result) in &integration_results {
             if !matches!(integration_result, IntegrationResult::UnapplyBranch) {
+                continue;
+            };
+
+            let Some(stack_id) = maybe_stack_id else {
+                // If the stack ID is not defined, we're on single-branch mode, so nothing to unapply.
                 continue;
             };
 
@@ -542,7 +600,7 @@ pub(crate) fn integrate_upstream(
         })?;
 
         // Update branch trees
-        for (branch_id, integration_result) in &integration_results {
+        for (maybe_stack_id, integration_result) in &integration_results {
             let IntegrationResult::UpdatedObjects {
                 head,
                 tree,
@@ -553,7 +611,12 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            let Some(stack) = stacks.iter_mut().find(|branch| branch.id == *branch_id) else {
+            let Some(stack_id) = maybe_stack_id else {
+                // If the stack ID is not defined, we're on single-branch mode and there's nothing to update.
+                continue;
+            };
+
+            let Some(stack) = stacks.iter_mut().find(|stack| stack.id == *stack_id) else {
                 continue;
             };
 
@@ -565,7 +628,7 @@ pub(crate) fn integrate_upstream(
 
             let delete_local_refs = resolutions
                 .iter()
-                .find(|r| r.branch_id == *branch_id)
+                .find(|r| r.stack_id == *stack_id)
                 .map(|r| r.delete_integrated_branches)
                 .unwrap_or(false);
 
@@ -641,7 +704,7 @@ fn compute_resolutions(
     context: &UpstreamIntegrationContext,
     resolutions: &[Resolution],
     base_branch_resolution_approach: Option<BaseBranchResolutionApproach>,
-) -> Result<Vec<(StackId, IntegrationResult)>> {
+) -> Result<Vec<(Option<StackId>, IntegrationResult)>> {
     let UpstreamIntegrationContext {
         repo,
         new_target,
@@ -653,31 +716,26 @@ fn compute_resolutions(
     let results = resolutions
         .iter()
         .map(|resolution| {
-            let Some(branch_stack) = stacks_in_workspace
+            let Some(stack) = stacks_in_workspace
                 .iter()
-                .find(|branch| branch.id == resolution.branch_id)
+                .find(|stack| stack.id == Some(resolution.stack_id))
             else {
                 bail!("Failed to find virtual branch");
             };
 
             match resolution.approach {
-                ResolutionApproach::Unapply => {
-                    Ok((branch_stack.id, IntegrationResult::UnapplyBranch))
-                }
-                ResolutionApproach::Delete => {
-                    Ok((branch_stack.id, IntegrationResult::DeleteBranch))
-                }
+                ResolutionApproach::Unapply => Ok((stack.id, IntegrationResult::UnapplyBranch)),
+                ResolutionApproach::Delete => Ok((stack.id, IntegrationResult::DeleteBranch)),
                 ResolutionApproach::Merge => {
                     // Make a merge commit on top of the branch commits,
                     // then rebase the tree ontop of that. If the tree ends
                     // up conflicted, commit the tree.
-                    let target_commit =
-                        repo.find_commit(branch_stack.head_oid(context.gix_repo)?.to_git2())?;
-                    let top_branch = branch_stack.heads.last().context("top branch not found")?;
+                    let target_commit = repo.find_commit(stack.tip.to_git2())?;
+                    let top_branch = stack.heads.last().context("top branch not found")?;
 
                     // These two go into the merge commit message.
                     let incoming_branch_name = target.branch.fullname();
-                    let target_branch_name = &top_branch.name();
+                    let target_branch_name = top_branch.name.to_str()?;
 
                     let new_head = gitbutler_merge_commits(
                         repo,
@@ -688,7 +746,7 @@ fn compute_resolutions(
                     )?;
 
                     Ok((
-                        branch_stack.id,
+                        stack.id,
                         IntegrationResult::UpdatedObjects {
                             head: new_head.id(),
                             tree: None,
@@ -723,7 +781,9 @@ fn compute_resolutions(
                         new_target.id()
                     };
 
-                    let all_steps = branch_stack.as_rebase_steps(context.ctx, context.gix_repo)?;
+                    let details = stack_details(context.ctx, stack.id)?;
+
+                    let all_steps = details.as_rebase_steps(context.gix_repo)?;
                     let branches_before = as_buckets(all_steps.clone());
                     // Filter out any integrated commits
                     let steps = all_steps
@@ -777,7 +837,7 @@ fn compute_resolutions(
                     let new_head = output.top_commit.to_git2();
 
                     Ok((
-                        branch_stack.id,
+                        stack.id,
                         IntegrationResult::UpdatedObjects {
                             head: new_head,
                             tree: None,

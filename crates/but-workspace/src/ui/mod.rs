@@ -1,5 +1,6 @@
 use anyhow::Context;
 use bstr::{BStr, BString, ByteSlice};
+use gix::refs::transaction::{Change, PreviousValue, RefEdit, RefLog};
 use serde::Serialize;
 
 /// Utilities for diffing, with workspace integration.
@@ -81,6 +82,27 @@ pub struct StackHeadInfo {
     /// If `true`, then this head is checked directly so `HEAD` points to it, and this is only ever `true` for a single head.
     /// This is `false` if the worktree is checked out.
     pub is_checked_out: bool,
+}
+
+impl StackHeadInfo {
+    /// Delete the reference for this head from the repository if it exists and matches the expected OID.
+    pub fn delete_reference(&self, repo: &gix::Repository) -> anyhow::Result<()> {
+        let oid = self.tip;
+        let ref_name = format!("refs/heads/{}", self.name.to_str()?.trim_matches('/'));
+        let current_name: BString = ref_name.into();
+        if let Some(reference) = repo.try_find_reference(&current_name)? {
+            let delete = RefEdit {
+                change: Change::Delete {
+                    expected: PreviousValue::MustExistAndMatch(oid.into()),
+                    log: RefLog::AndReference,
+                },
+                name: reference.name().into(),
+                deref: false,
+            };
+            repo.edit_reference(delete)?;
+        }
+        Ok(())
+    }
 }
 
 /// Represents a lightweight version of a [`Stack`] for listing.
