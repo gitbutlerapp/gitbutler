@@ -337,4 +337,16 @@ export type InteractiveIntegrationStep =
 
 export type MoveBranchResult = {
 	deletedStacks: string[];
+	unappliedStacks: string[];
 };
+
+export function handleMoveBranchResult(result: MoveBranchResult) {
+	if (result.unappliedStacks.length > 0) {
+		showToast({
+			testId: TestId.StacksUnappliedToast,
+			title: 'Heads up: We had to unapply some stacks to move this branch',
+			message: `It seems that the branch moved couldn't be applied cleanly alongside your other ${result.unappliedStacks.length} ${result.unappliedStacks.length === 1 ? 'stack' : 'stacks'}.
+You can always re-apply them later from the branches page.`
+		});
+	}
+}

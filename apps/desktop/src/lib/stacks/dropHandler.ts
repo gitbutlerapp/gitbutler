@@ -1,3 +1,4 @@
+import { BranchDropData } from '$lib/branches/dropHandler';
 import { changesToDiffSpec } from '$lib/commits/utils';
 import { ChangeDropData } from '$lib/dragging/draggables';
 import StackMacros from '$lib/stacks/macros';
@@ -8,6 +9,7 @@ import type { DiffService } from '$lib/hunks/diffService.svelte';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
+import { handleMoveBranchResult } from '$lib/stacks/stack';
 
 /** Handler when drop changes on a special outside lanes dropzone. */
 export class OutsideLaneDzHandler implements DropzoneHandler {
@@ -23,13 +25,25 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 		this.macros = new StackMacros(this.projectId, this.stackService, this.uiState);
 	}
 
-	accepts(data: unknown) {
+	private acceptsChangeDropData(data: unknown): data is ChangeDropData {
 		if (!(data instanceof ChangeDropData)) return false;
 		if (data.selectionId.type === 'commit' && data.stackId === undefined) return false;
 		return true;
 	}
 
-	async ondrop(data: ChangeDropData) {
+	private acceptsBranchDropData(data: unknown): data is BranchDropData {
+		if (!(data instanceof BranchDropData)) return false;
+		if (data.hasConflicts) return false;
+		if (data.numberOfBranchesInStack <= 1) return false; // Can't tear off the last branch of a stack
+		if (data.numberOfCommits === 0) return false; // TODO: Allow to rip empty branches
+		return true;
+	}
+
+	accepts(data: unknown) {
+		return this.acceptsChangeDropData(data) || this.acceptsBranchDropData(data);
+	}
+
+	async ondropChangeData(data: ChangeDropData) {
 		switch (data.selectionId.type) {
 			case 'branch': {
 				const newBranchName = await this.stackService.fetchNewBranchName(this.projectId);
@@ -110,6 +124,30 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 					assignments
 				});
 			}
+		}
+	}
+
+	async ondropBranchData(data: BranchDropData) {
+		await this.stackService
+			.tearOffBranch({
+				projectId: this.projectId,
+				sourceStackId: data.stackId,
+				subjectBranchName: data.branchName
+			})
+			.then((result) => {
+				handleMoveBranchResult(result);
+			});
+	}
+
+	async ondrop(data: unknown): Promise<void> {
+		if (this.acceptsChangeDropData(data)) {
+			await this.ondropChangeData(data);
+			return;
+		}
+
+		if (this.acceptsBranchDropData(data)) {
+			await this.ondropBranchData(data);
+			return;
 		}
 	}
 }

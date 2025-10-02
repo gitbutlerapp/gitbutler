@@ -493,6 +493,26 @@ pub fn move_branch(
     )
 }
 
+pub fn tear_off_branch(
+    ctx: &CommandContext,
+    source_stack_id: StackId,
+    subject_branch_name: &str,
+) -> Result<MoveBranchResult> {
+    let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    ensure_open_workspace_mode(ctx).context("Moving a branch requires open workspace mode")?;
+    let _ = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::TearOffBranch),
+        guard.write_permission(),
+    );
+    crate::move_branch::tear_off_branch(
+        ctx,
+        source_stack_id,
+        subject_branch_name,
+        guard.write_permission(),
+    )
+}
+
 #[instrument(level = tracing::Level::DEBUG, skip(ctx), err(Debug))]
 pub fn create_virtual_branch_from_branch(
     ctx: &CommandContext,

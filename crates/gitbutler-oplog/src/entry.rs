@@ -147,6 +147,7 @@ pub enum OperationKind {
     UpdateCommitMessage,
     MoveCommit,
     MoveBranch,
+    TearOffBranch,
     RestoreFromSnapshot,
     ReorderCommit,
     InsertBlankCommit,

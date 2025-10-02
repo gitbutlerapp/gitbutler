@@ -505,6 +505,20 @@ pub fn move_branch(
 #[api_cmd]
 #[tauri::command(async)]
 #[instrument(err(Debug))]
+pub fn tear_off_branch(
+    project_id: ProjectId,
+    source_stack_id: StackId,
+    subject_branch_name: String,
+) -> Result<MoveBranchResult, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    gitbutler_branch_actions::tear_off_branch(&ctx, source_stack_id, subject_branch_name.as_str())
+        .map_err(Into::into)
+}
+
+#[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
 pub fn update_commit_message(
     project_id: ProjectId,
     stack_id: StackId,
