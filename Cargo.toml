@@ -110,6 +110,7 @@ opt-level = 3
 
 [profile.dev]
 incremental = false
+debug = "line-tables-only"
 
 [profile.test]
 incremental = false
