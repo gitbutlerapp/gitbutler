@@ -15,7 +15,7 @@
 	{#if !markOnly}
 		<span class="logo-text">GitButler</span>
 	{/if}
-	<div class="logo-mark">
+	<div class="logo-mark" class:mark-only={markOnly}>
 		<svg
 			width="100%"
 			height="100%"
@@ -42,11 +42,13 @@
 		font-family: var(--fontfamily-accent);
 	}
 
-	.logo-mark,
-	.logo-ghost {
+	.logo-mark {
 		display: flex;
 		width: 28px;
 		height: 100%;
-		margin-top: 5px;
+
+		&:not(.mark-only) {
+			margin-top: 5px;
+		}
 	}
 </style>

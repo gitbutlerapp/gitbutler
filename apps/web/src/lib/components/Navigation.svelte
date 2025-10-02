@@ -13,7 +13,7 @@
 	{#if markOnly}
 		<GitbutlerLogoLink markOnly />
 	{:else}
-		<GitbutlerLogoLink />
+		<GitbutlerLogoLink markOnly />
 		<HeaderAuthSection />
 	{/if}
 </nav>
@@ -25,34 +25,5 @@
 		width: 100%;
 		padding-bottom: 24px;
 		gap: 16px;
-	}
-
-	.logo {
-		display: flex;
-		align-items: center;
-		overflow: hidden;
-		gap: 12px;
-	}
-
-	.logo-mark {
-		display: flex;
-		width: 28px;
-		height: 100%;
-		margin-top: 5px;
-	}
-
-	.logo-text {
-		font-size: 44px;
-		line-height: 1;
-		font-family: var(--fontfamily-accent);
-	}
-
-	/* MODIFIERS */
-	:global(.navigation .hidden-on-desktop) {
-		display: none;
-
-		@media (--mobile-viewport) {
-			display: block;
-		}
 	}
 </style>
