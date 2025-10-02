@@ -4,6 +4,6 @@ version = "0.0.0"
 edition = "2021"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
-
+rust-version = "1.89"
 [dependencies]
 anyhow = "1.0.100"
