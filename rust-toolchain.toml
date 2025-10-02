@@ -2,9 +2,7 @@
 channel = "nightly-2025-09-09"
 components = [
     "rustfmt",
-    "rustc-dev",
     "clippy",
     "rust-src",
-    "llvm-tools-preview",
 ]
 profile = "minimal"
