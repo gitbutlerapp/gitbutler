@@ -5,7 +5,7 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 description = "Types to represent Git commit graphs as connected segments, and perform various operations on these."
 publish = false
-
+rust-version = "1.89"
 [lib]
 doctest = false
 test = true

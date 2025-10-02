@@ -50,8 +50,10 @@ pub struct InputDiffHunk {
 impl InputDiffHunk {
     /// Compute the amount of lines that are left when substracting old-lines from new-lines.
     pub fn net_lines(&self) -> anyhow::Result<i32> {
-        self.new_lines
-            .checked_signed_diff(self.old_lines)
+        // TODO: use `checked_signed_diff` instead when stable.
+        (self.new_lines as i64)
+            .checked_sub(self.old_lines as i64)
+            .and_then(|n| i32::try_from(n).ok())
             .ok_or(anyhow!("u32 -> i32 conversion overflow"))
     }
 }

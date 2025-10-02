@@ -2664,6 +2664,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "file-id"
+version = "0.2.3"
+source = "git+https://github.com/Byron/notify#1ef23915e81b9bd780c6cf76c9a649d11bf60d57"
+dependencies = [
+ "windows-sys 0.60.2",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3407,6 +3415,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
+ "file-id 0.2.3",
  "futures",
  "gitbutler-error",
  "gix",
@@ -3449,7 +3458,7 @@ version = "0.0.0"
 dependencies = [
  "crossbeam-channel",
  "deser-hjson",
- "file-id",
+ "file-id 0.2.2",
  "gitbutler-notify-debouncer",
  "mock_instant",
  "notify",

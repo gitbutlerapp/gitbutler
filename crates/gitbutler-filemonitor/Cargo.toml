@@ -3,7 +3,7 @@ name = "gitbutler-filemonitor"
 version = "0.0.0"
 edition = "2021"
 publish = false
-
+rust-version = "1.89"
 [lib]
 test = false
 doctest = false
