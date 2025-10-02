@@ -696,50 +696,6 @@ impl Graph {
                 .map(|(c, sidx)| (c.id, sidx))
         }
     }
-
-    /// Compute the loweset merge-base between two segments.
-    /// Such a merge-base is reachable from all possible paths from `a` and `b`.
-    ///
-    /// We know this works as all branching and merging is represented by a segment.
-    /// Thus, the merge-base is always the first commit of the returned segment
-    // TODO: should be multi, with extra segments as third parameter
-    // TODO: actually find the lowest merge-base, right now it just finds the first merge-base, but that's not
-    //       the lowest.
-    fn first_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
-        // TODO(perf): improve this by allowing to set bitflags on the segments themselves, to allow
-        //       marking them accordingly, just like Git does.
-        //       Right now we 'emulate' bitflags on pre-allocated data with two data sets, expensive
-        //       in comparison.
-        //       And yes, let's avoid `gix::Repository::merge_base` as we have free
-        //       generation numbers here and can avoid work duplication.
-        let mut segments_reachable_by_b = BTreeSet::new();
-        self.visit_all_segments_including_start_until(b, Direction::Outgoing, |s| {
-            segments_reachable_by_b.insert(s.id);
-            // Collect everything, keep it simple.
-            // This is fast* as completely in memory.
-            // *means slow compared to an array traversal with memory locality.
-            false
-        });
-
-        let mut candidate = None;
-        self.visit_all_segments_including_start_until(a, Direction::Outgoing, |s| {
-            if candidate.is_some() {
-                return true;
-            }
-            let prune = segments_reachable_by_b.contains(&s.id);
-            if prune {
-                candidate = Some(s.id);
-            }
-            prune
-        });
-        if candidate.is_none() {
-            // TODO: improve this - workspaces shouldn't be like this but if they are, do we deal with it well?
-            tracing::warn!(
-                "Couldn't find merge-base between segments {a:?} and {b:?} - this might lead to unexpected results"
-            )
-        }
-        candidate
-    }
 }
 
 /// This works as named segments have been created in a prior step. Thus, we are able to find best matches by

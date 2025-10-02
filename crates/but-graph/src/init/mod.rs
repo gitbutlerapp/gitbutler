@@ -29,6 +29,7 @@ pub(crate) type Entrypoint = Option<(gix::ObjectId, Option<gix::refs::FullName>)
 pub struct Overlay {
     entrypoint: Entrypoint,
     nonoverriding_references: Vec<gix::refs::Reference>,
+    overriding_references: Vec<gix::refs::Reference>,
     meta_branches: Vec<(gix::refs::FullName, ref_metadata::Branch)>,
     workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
 }

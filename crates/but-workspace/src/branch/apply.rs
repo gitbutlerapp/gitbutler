@@ -1,3 +1,4 @@
+use crate::branch::OnWorkspaceMergeConflict;
 use crate::branch::checkout::UncommitedWorktreeChanges;
 use std::borrow::Cow;
 
@@ -8,6 +9,8 @@ pub struct Outcome<'graph> {
     pub graph: Cow<'graph, but_graph::Graph>,
     /// `true` if we created the given workspace ref as it didn't exist yet.
     pub workspace_ref_created: bool,
+    /// If not `None`, an actual merge was attempted, but depending on [the settings](OnWorkspaceMergeConflict), this was persisted or not.
+    pub workspace_merge: Option<crate::commit::merge::Outcome>,
 }
 
 impl Outcome<'_> {
@@ -41,16 +44,6 @@ pub enum IntegrationMode {
     MergeIfNeeded,
 }
 
-/// What to do if the applied branch conflicts with the existing branches?
-#[derive(Default, Debug, Copy, Clone)]
-pub enum OnWorkspaceConflict {
-    /// Provide additional information about the stack that conflicted and the files involved in it,
-    /// and don't perform the operation.
-    #[default]
-    AbortAndReportConflictingStack,
-    // TODO: unapply all conflicting (needs unapply)
-}
-
 /// Decide how a newly created workspace reference should be named.
 #[derive(Default, Debug, Clone)]
 pub enum WorkspaceReferenceNaming {
@@ -67,7 +60,7 @@ pub struct Options {
     /// how the branch should be brought into the workspace.
     pub integration_mode: IntegrationMode,
     /// Decide how to deal with conflicts when creating the workspace merge commit to bring in each stack.
-    pub on_workspace_conflict: OnWorkspaceConflict,
+    pub on_workspace_conflict: OnWorkspaceMergeConflict,
     /// How the workspace reference should be named should it be created.
     /// The creation is always needed if there are more than one branch applied.
     pub workspace_reference_naming: WorkspaceReferenceNaming,
@@ -83,13 +76,16 @@ pub(crate) mod function {
     use super::{IntegrationMode, Options, Outcome, WorkspaceReferenceNaming};
     use crate::WorkspaceCommit;
     use crate::branch::checkout;
+    use crate::ext::ObjectStorageExt;
     use crate::ref_info::WorkspaceExt;
     use anyhow::{Context, bail};
+    use but_core::ref_metadata::Workspace;
     use but_core::{RefMetadata, ref_metadata};
     use but_graph::init::Overlay;
     use but_graph::projection::WorkspaceKind;
-    use gix::refs::Target;
+    use gitbutler_oxidize::GixRepositoryExt;
     use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog};
+    use gix::refs::{FullNameRef, Target};
     use std::borrow::Cow;
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
@@ -108,21 +104,25 @@ pub(crate) mod function {
     ///
     /// Note that when we exit early as the branch is already present, we ignore the `integration_mode` which controls how the workspace
     /// merge commit is treated.
+    ///
+    /// Note that options have no effect if `branch` is already in the workspace, so `apply` is *not* a way
+    /// to alter certain aspects of the workspace by applying the same branch again.
     pub fn apply<'graph>(
         branch: &gix::refs::FullNameRef,
         workspace: &but_graph::projection::Workspace<'graph>,
-        repo: &mut gix::Repository,
+        repo: &gix::Repository,
         meta: &mut impl RefMetadata,
         Options {
             integration_mode,
-            on_workspace_conflict: _,
+            on_workspace_conflict,
             workspace_reference_naming,
             uncommitted_changes,
-            order: _to_be_used_in_merge,
+            order,
         }: Options,
     ) -> anyhow::Result<Outcome<'graph>> {
-        if repo
-            .try_find_reference(branch)?
+        let branch_ref = repo.try_find_reference(branch)?;
+        if branch_ref
+            .as_ref()
             .is_some_and(|r| matches!(r.target(), gix::refs::TargetRef::Symbolic(_)))
         {
             bail!(
@@ -139,16 +139,15 @@ pub(crate) mod function {
             return Ok(Outcome {
                 graph: Cow::Borrowed(workspace.graph),
                 workspace_ref_created,
+                workspace_merge: None,
             });
         } else if workspace.refname_is_segment(branch) {
             // This means our workspace encloses the desired branch, but it's not checked out yet.
             let commit_to_checkout = workspace
                 .tip_commit()
                 .context("Workspace must point to a commit to check out")?;
-            let ep = workspace.graph.lookup_entrypoint()?;
             let current_head_commit = workspace
-                .graph
-                .tip_skip_empty(ep.segment_index)
+                .graph.entrypoint_commit()
                 .context("The entrypoint must have a commit - it's equal to HEAD, and we skipped unborn earlier")?;
             crate::branch::safe_checkout(
                 current_head_commit.id,
@@ -171,6 +170,7 @@ pub(crate) mod function {
             return Ok(Outcome {
                 graph: Cow::Owned(graph),
                 workspace_ref_created: false,
+                workspace_merge: None,
             });
         };
 
@@ -260,7 +260,7 @@ pub(crate) mod function {
         {
             let ws_mut: &mut ref_metadata::Workspace = &mut ws_md;
             for rn in &branches_to_apply {
-                ws_mut.add_new_stack_if_not_present(rn);
+                ws_mut.add_or_insert_new_stack_if_not_present(rn, order);
             }
         }
         let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
@@ -272,11 +272,6 @@ pub(crate) mod function {
 
         let overlay = Overlay::default()
             .with_entrypoint(ws_ref_id, Some(workspace_ref_name_to_update.clone()))
-            .with_references_if_new(Some(gix::refs::Reference {
-                name: workspace_ref_name_to_update.clone(),
-                target: Target::Object(ws_ref_id),
-                peeled: Some(ws_ref_id),
-            }))
             .with_branch_metadata_override(branch_mds)
             .with_workspace_metadata_override(ws_md_override);
         let graph = workspace
@@ -287,6 +282,7 @@ pub(crate) mod function {
         let all_applied_branches_are_already_visible = branches_to_apply
             .iter()
             .all(|rn| workspace.refname_is_segment(rn));
+        let needs_ws_ref_creation = !ws_ref_exists;
         if all_applied_branches_are_already_visible {
             let head_id = repo.head_id().context("BUG: we assume HEAD is born here")?;
             if head_id != ws_ref_id {
@@ -294,38 +290,30 @@ pub(crate) mod function {
                     "Sanity check failed: we assume HEAD already points to where it must, but it really doesn't: {head_id} != {ws_ref_id}"
                 );
             }
-            meta.set_workspace(&ws_md)?;
-            // Always re-obtain the branch information after it was set
-            // or stuff will go wrong right now.
-            // TODO: remove this note and keep using existing handles once vb.toml is gone.
-            for rn in branches_to_apply {
-                let mut md = meta.branch(rn)?;
-                md.update_times(false /* is new ref */);
-                meta.set_branch(&md)?;
-            }
-
-            let ws_commit = WorkspaceCommit::from_graph_workspace(
+            persist_metadata(meta, &branches_to_apply, &ws_md)?;
+            let ws_commit_with_new_message = WorkspaceCommit::from_graph_workspace(
                 &workspace,
                 repo,
                 head_id.object()?.peel_to_tree()?.id,
             )?;
-            let new_head_id = ws_commit.id.detach();
-            let (graph, new_head_id) = if (ws_commit.id != head_id
+            let ws_commit_with_new_message = ws_commit_with_new_message.id.detach();
+            let (graph, new_head_id) = if (ws_commit_with_new_message != head_id
                 && workspace.kind.has_managed_commit())
                 || needs_workspace_commit_without_remerge(&workspace, integration_mode)
             {
                 let graph = graph.redo_traversal_with_overlay(
                     repo,
                     meta,
-                    overlay
-                        .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone())),
+                    overlay.with_entrypoint(
+                        ws_commit_with_new_message,
+                        Some(workspace_ref_name_to_update.clone()),
+                    ),
                 )?;
-                (graph, new_head_id)
+                (graph, ws_commit_with_new_message)
             } else {
                 (graph, ws_ref_id)
             };
 
-            let needs_ws_ref_creation = !ws_ref_exists;
             set_head_to_reference(
                 repo,
                 new_head_id,
@@ -334,29 +322,90 @@ pub(crate) mod function {
             return Ok(Outcome {
                 graph: Cow::Owned(graph),
                 workspace_ref_created: needs_ws_ref_creation,
+                workspace_merge: None,
             });
         }
-        dbg!(
-            workspace_ref_name_to_update,
-            branches_to_apply
-                .iter()
-                .map(|rn| (rn, workspace.refname_is_segment(rn)))
-                .collect::<Vec<_>>()
-        );
-        // Everything worked? Assure the ref exists now that (nearly nothing) can go wrong anymore.
-        let _workspace_ref_created = false; // TODO: use rval of reference update to know if it existed.
+        // We will want to merge, but be sure the branch exists, can't apply non-existing.
+        if branch_ref.is_none() {
+            bail!(
+                "Cannot apply non-existing branch '{branch}'",
+                branch = branch.shorten()
+            );
+        }
+        // At this point, the workspace-metadata already knows the new branch(es), but the workspace itself
+        // doesn't see one or more of to-be-applied branches. These are, however, part of the graph by now,
+        // and we want to try to create a workspace merge.
+        let mut in_memory_repo = repo.clone().for_tree_diffing()?.with_object_memory();
+        let merge_result = WorkspaceCommit::from_new_merge_with_metadata(
+            &ws_md.stacks,
+            workspace.graph,
+            &in_memory_repo,
+            Some(branch),
+        )?;
 
-        // if let Some(branch_md) = branch_to_apply_metadata {
-        //     meta.set_branch(branch_md)?;
-        // }
+        if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
+            return Ok(Outcome {
+                graph: Cow::Owned(graph),
+                workspace_ref_created: needs_ws_ref_creation,
+                workspace_merge: Some(merge_result),
+            });
+        }
 
-        todo!(
-            "prepare outcome once all values were written out and the graph was regenerated - the simulation is now reality"
-        );
-        // Ok(Outcome {
-        //     graph: Cow::Borrowed(workspace.graph),
-        //     workspace_ref_created,
-        // })
+        // All work is done, persist and exit.
+        // Note that it could be that some stacks aren't merged in,
+        // while being present in the workspace metadata.
+        // This is OK for us. We also trust that the hero-branch was merged in, no matter what.
+        if let Some(storage) = in_memory_repo.objects.take_object_memory() {
+            storage.persist(repo)?;
+            drop(in_memory_repo);
+        }
+        let prev_head_id = graph
+            .entrypoint_commit()
+            .context("BUG: how is it possible that there is no head commit?")?
+            .id;
+        let new_head_id = merge_result.workspace_commit_id;
+        let graph = graph.redo_traversal_with_overlay(
+            repo,
+            meta,
+            overlay.with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone())),
+        )?;
+        persist_metadata(meta, &branches_to_apply, &ws_md)?;
+        set_head_to_reference(
+            repo,
+            new_head_id,
+            (!ws_ref_exists).then_some(workspace_ref_name_to_update.as_ref()),
+        )?;
+        crate::branch::safe_checkout(
+            prev_head_id,
+            new_head_id,
+            repo,
+            checkout::Options {
+                uncommitted_changes,
+            },
+        )?;
+
+        Ok(Outcome {
+            graph: Cow::Owned(graph),
+            workspace_ref_created: needs_ws_ref_creation,
+            workspace_merge: Some(merge_result),
+        })
+    }
+
+    fn persist_metadata<T: RefMetadata>(
+        meta: &mut T,
+        branches_to_apply: &Vec<&FullNameRef>,
+        ws_md: &T::Handle<Workspace>,
+    ) -> anyhow::Result<()> {
+        meta.set_workspace(ws_md)?;
+        // Always re-obtain the branch information after it was set
+        // or stuff will go wrong right now.
+        // TODO: remove this note and keep using existing handles once vb.toml is gone.
+        for rn in branches_to_apply {
+            let mut md = meta.branch(rn)?;
+            md.update_times(false /* is new ref */);
+            meta.set_branch(&md)?;
+        }
+        Ok(())
     }
 
     /// Set `HEAD` to point to `new_ref` if not `None`, but in any case, set what `HEAD` points to to be `new_ref_target`.

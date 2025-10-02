@@ -232,6 +232,7 @@ pub struct AncestorWorkspaceCommit {
 
 /// A representation of the commit that is the tip of the workspace i.e., usually what `HEAD` points to,
 /// possibly in its managed form in which it merges two or more stacks together, and we can rewrite it at will.
+#[derive(Debug, Clone)]
 pub struct WorkspaceCommit<'repo> {
     /// The id of the commit itself.
     pub id: gix::Id<'repo>,
@@ -347,6 +348,25 @@ pub(crate) mod utils {
             old_lines,
             new_start,
             new_lines,
+        }
+    }
+}
+
+pub(crate) mod ext {
+    use gix::objs::Write;
+
+    pub trait ObjectStorageExt {
+        /// Write all in-memory objects into the given writer.
+        fn persist(&self, out: impl gix::objs::Write) -> anyhow::Result<()>;
+    }
+
+    impl ObjectStorageExt for gix::odb::memory::Storage {
+        fn persist(&self, out: impl Write) -> anyhow::Result<()> {
+            for (kind, data) in self.values() {
+                out.write_buf(*kind, data)
+                    .map_err(anyhow::Error::from_boxed)?;
+            }
+            Ok(())
         }
     }
 }

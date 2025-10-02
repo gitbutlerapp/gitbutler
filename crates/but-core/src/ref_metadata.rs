@@ -38,21 +38,45 @@ pub struct Workspace {
 
 /// Mutations
 impl Workspace {
-    /// Insert `branch` as new stack if it's not yet contained in the workspace, and return
-    /// Returns `true` if the ref was newly added, or false if it already existed.
-    pub fn add_new_stack_if_not_present(&mut self, branch: &FullNameRef) -> bool {
+    /// Insert `branch` as new stack if it's not yet contained in the workspace and if `order` is not `None` or push
+    /// it to the end of the stack list.
+    /// Note that `order` is only relevant at insertion time.
+    /// Returns `true` if the ref was newly added, or `false` if it already existed.
+    pub fn add_or_insert_new_stack_if_not_present(
+        &mut self,
+        branch: &FullNameRef,
+        order: Option<usize>,
+    ) -> bool {
         if self.contains_ref(branch) {
             return false;
         };
 
-        self.stacks.push(WorkspaceStack {
+        let stack = WorkspaceStack {
             id: StackId::generate(),
             branches: vec![WorkspaceStackBranch {
                 ref_name: branch.to_owned(),
                 archived: false,
             }],
-        });
+        };
+        match order.map(|idx| idx.min(self.stacks.len())) {
+            None => {
+                self.stacks.push(stack);
+            }
+            Some(existing_index) => {
+                self.stacks.insert(existing_index, stack);
+            }
+        }
         true
+    }
+}
+
+/// Access
+impl Workspace {
+    /// Return the names of the tips of all stacks in the workspace.
+    pub fn stack_names(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> {
+        self.stacks
+            .iter()
+            .filter_map(|s| s.ref_name().map(|rn| rn.as_ref()))
     }
 
     /// Return `true` if the branch with `name` is the workspace target or the targets local tracking branch,
@@ -77,10 +101,7 @@ impl Workspace {
             Ok(local_tracking_branch.as_ref() == name)
         }
     }
-}
 
-/// Access
-impl Workspace {
     /// Return `true` if `name` is a reference mentioned in our [stacks](Workspace::stacks).
     pub fn contains_ref(&self, name: &gix::refs::FullNameRef) -> bool {
         self.stacks

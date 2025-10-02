@@ -93,7 +93,6 @@ impl Graph {
         // Finally, once all segments were added, it's good to generations
         // have to figure out early abort conditions, or to know what's ahead of another.
         self.compute_generation_numbers();
-
         Ok(self)
     }
 
