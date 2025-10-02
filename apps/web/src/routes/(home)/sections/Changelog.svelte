@@ -17,7 +17,7 @@
 	}
 
 	function goToFullChangelog() {
-		window.open('https://github.com/gitbutlerapp/gitbutler/releases', '_blank');
+		window.open('/downloads', '_self');
 	}
 </script>
 
@@ -26,10 +26,7 @@
 		Changelog
 
 		{#snippet buttons()}
-			<ArrowButton
-				label="All updates"
-				onclick={() => window.open('https://github.com/gitbutlerapp/gitbutler/releases', '_blank')}
-			/>
+			<ArrowButton label="All updates" onclick={goToFullChangelog} />
 		{/snippet}
 	</SectionHeader>
 
