@@ -42,6 +42,13 @@ pub struct ReviewsUpdate {
     pub auto_fill_pr_description_from_commit: Option<bool>,
 }
 
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+/// Update request for [`crate::app_settings::Fetch`].
+pub struct FetchUpdate {
+    pub auto_fetch_interval_minutes: Option<isize>,
+}
+
 /// Mutation, immediately followed by writing everything to disk.
 impl AppSettingsWithDiskSync {
     pub fn update_onboarding_complete(&self, update: bool) -> Result<()> {
@@ -133,6 +140,14 @@ impl AppSettingsWithDiskSync {
         {
             settings.reviews.auto_fill_pr_description_from_commit =
                 auto_fill_pr_description_from_commit;
+        }
+        settings.save()
+    }
+
+    pub fn update_fetch(&self, update: FetchUpdate) -> Result<()> {
+        let mut settings = self.get_mut_enforce_save()?;
+        if let Some(auto_fetch_interval_minutes) = update.auto_fetch_interval_minutes {
+            settings.fetch.auto_fetch_interval_minutes = auto_fetch_interval_minutes;
         }
         settings.save()
     }

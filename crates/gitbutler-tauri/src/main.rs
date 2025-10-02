@@ -307,6 +307,8 @@ fn main() {
                     settings::update_feature_flags,
                     settings::update_telemetry_distinct_id,
                     settings::update_claude,
+                    settings::update_fetch,
+                    settings::update_reviews,
                     action::list_actions,
                     action::handle_changes,
                     action::list_workflows,

@@ -1,6 +1,8 @@
 //! In place of commands.rs
 use but_api_macros::api_cmd;
-use but_settings::api::{ClaudeUpdate, FeatureFlagsUpdate, ReviewsUpdate, TelemetryUpdate};
+use but_settings::api::{
+    ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate,
+};
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use serde::Deserialize;
 use tracing::instrument;
@@ -102,5 +104,20 @@ pub fn update_reviews(
 ) -> Result<(), Error> {
     app_settings_sync
         .update_reviews(params.update)
+        .map_err(|e| e.into())
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateFetchParams {
+    pub update: FetchUpdate,
+}
+
+pub fn update_fetch(
+    app_settings_sync: &AppSettingsWithDiskSync,
+    params: UpdateFetchParams,
+) -> Result<(), Error> {
+    app_settings_sync
+        .update_fetch(params.update)
         .map_err(|e| e.into())
 }

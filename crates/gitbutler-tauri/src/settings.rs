@@ -1,6 +1,8 @@
 #![allow(deprecated)]
 use but_api::commands::settings;
-use but_settings::api::{ClaudeUpdate, FeatureFlagsUpdate, TelemetryUpdate};
+use but_settings::api::{
+    ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate,
+};
 use but_settings::AppSettingsWithDiskSync;
 use tauri::State;
 use tracing::instrument;
@@ -62,4 +64,22 @@ pub fn update_claude(
     update: ClaudeUpdate,
 ) -> Result<(), Error> {
     settings::update_claude(&app_settings_sync, settings::UpdateClaudeParams { update })
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app_settings_sync), err(Debug))]
+pub fn update_fetch(
+    app_settings_sync: State<'_, AppSettingsWithDiskSync>,
+    update: FetchUpdate,
+) -> Result<(), Error> {
+    settings::update_fetch(&app_settings_sync, settings::UpdateFetchParams { update })
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app_settings_sync), err(Debug))]
+pub fn update_reviews(
+    app_settings_sync: State<'_, AppSettingsWithDiskSync>,
+    update: ReviewsUpdate,
+) -> Result<(), Error> {
+    settings::update_reviews(&app_settings_sync, settings::UpdateReviewsParams { update })
 }
