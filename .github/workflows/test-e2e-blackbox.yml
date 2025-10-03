@@ -1,4 +1,6 @@
 name: E2E Blackbox Tests
+env:
+  RUSTUP_TOOLCHAIN: stable
 on:
   pull_request:
     branches: [master]

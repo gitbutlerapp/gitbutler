@@ -7,6 +7,7 @@ on:
 
 env:
   RUST_BACKTRACE: full
+  RUSTUP_TOOLCHAIN: stable
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -169,7 +170,9 @@ jobs:
         env:
           GITBUTLER_TESTS_NO_CLEANUP: '1'
         name: cargo test
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: |
+          rustup component add clippy
+          cargo clippy --workspace --all-targets -- -D warnings
         name: cargo clippy
       - run: |
           set -e

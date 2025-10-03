@@ -1,5 +1,6 @@
 [toolchain]
-channel = "stable"
+# IMPORTANT: This should match CI so it won't download the toolchain all the time.
+channel = "1.90"
 components = [
     "rustfmt",
     "clippy",
