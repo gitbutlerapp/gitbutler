@@ -1,9 +1,8 @@
 <script lang="ts">
-	import InfoMessage from '$components/InfoMessage.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, SectionCard, Select, SelectItem } from '@gitbutler/ui';
+	import { Button, InfoMessage, SectionCard, Select, SelectItem } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 

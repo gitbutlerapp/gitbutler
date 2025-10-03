@@ -43,12 +43,14 @@
 		actions,
 		onclick
 	}: Props = $props();
+
+	const element = $derived(labelFor ? 'label' : 'div');
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<label
-	for={labelFor}
+<svelte:element
+	this={element}
+	role="presentation"
+	for={labelFor || undefined}
 	class="section-card"
 	style:flex-direction={orientation}
 	class:center-align={centerAlign && orientation === 'row'}
@@ -94,7 +96,7 @@
 			{@render actions?.()}
 		</div>
 	{/if}
-</label>
+</svelte:element>
 
 <style lang="postcss">
 	.section-card {

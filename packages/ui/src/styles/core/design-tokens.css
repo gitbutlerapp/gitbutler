@@ -460,6 +460,7 @@
 	--text-fontfamily-accent: But Serif;
 	--text-fontfamily-default: Inter;
 	--text-fontfamily-mono: Geist Mono;
+	--text-lineheight-accent: 110%;
 	--text-lineheight-body: 160%;
 	--text-lineheight-default: 120%;
 	--text-weight-bold: 600;

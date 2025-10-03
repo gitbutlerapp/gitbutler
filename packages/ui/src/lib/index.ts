@@ -18,6 +18,7 @@ export { default as EmptyStatePlaceholder } from '$components/EmptyStatePlacehol
 export { default as HunkDiff, type LineClickParams } from '$components/hunkDiff/HunkDiff.svelte';
 export { default as Icon, type IconName } from '$components/Icon.svelte';
 export { default as InfoButton } from '$components/InfoButton.svelte';
+export { default as InfoMessage, type MessageStyle } from '$components/InfoMessage.svelte';
 export {
 	default as IntegrationSeriesRow,
 	type BranchShouldBeDeletedMap
@@ -30,6 +31,10 @@ export { default as ModalHeader } from '$components/ModalHeader.svelte';
 export { default as ModalFooter } from '$components/ModalFooter.svelte';
 export { default as NotificationButton } from '$components/NotificationButton.svelte';
 export { default as PrStatusBadge, type PrStatusInfoType } from '$components/PrStatusBadge.svelte';
+export {
+	default as ProfilePictureUpload,
+	type Props as ProfilePictureUploadProps
+} from '$components/ProfilePictureUpload.svelte';
 export { default as RadioButton } from '$components/RadioButton.svelte';
 export { default as ReviewBadge } from '$components/ReviewBadge.svelte';
 export { default as SectionCard } from '$components/SectionCard.svelte';

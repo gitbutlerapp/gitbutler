@@ -14,6 +14,7 @@
 	import {
 		Button,
 		Modal,
+		ProfilePictureUpload,
 		SectionCard,
 		Select,
 		SelectItem,
@@ -34,8 +35,6 @@
 
 	const cliManager = inject(CLI_MANAGER);
 	const [instalCLI, installingCLI] = cliManager.install;
-
-	const fileTypes = ['image/jpeg', 'image/png'];
 
 	let saving = $state(false);
 	let newName = $state('');
@@ -84,22 +83,23 @@
 		}
 	});
 
+	let selectedPictureFile: File | undefined = $state();
+
 	async function onSubmit(e: SubmitEvent) {
 		if (!$user) return;
 		saving = true;
 
-		const target = e.target as HTMLFormElement;
-		const formData = new FormData(target);
-		const picture = formData.get('picture') as File | undefined;
+		e.preventDefault();
 
 		try {
 			const updatedUser = await userService.updateUser({
 				name: newName,
-				picture: picture
+				picture: selectedPictureFile
 			});
 			updatedUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
 			userService.setUser(updatedUser);
 			chipToasts.success('Profile updated');
+			selectedPictureFile = undefined;
 		} catch (err: any) {
 			console.error(err);
 			showError('Failed to update user', err);
@@ -107,16 +107,9 @@
 		saving = false;
 	}
 
-	function onPictureChange(e: Event) {
-		const target = e.target as HTMLInputElement;
-		const file = target.files?.[0];
-
-		if (file && fileTypes.includes(file.type)) {
-			userPicture = URL.createObjectURL(file);
-		} else {
-			userPicture = $user?.picture;
-			chipToasts.error('Please use a valid image file');
-		}
+	function onPictureChange(file: File) {
+		selectedPictureFile = file;
+		userPicture = URL.createObjectURL(file);
 	}
 
 	async function onDeleteClicked() {
@@ -143,22 +136,11 @@
 {#if $user}
 	<SectionCard>
 		<form onsubmit={onSubmit} class="profile-form">
-			<label id="profile-picture" class="profile-pic-wrapper focus-state" for="picture">
-				<input
-					onchange={onPictureChange}
-					type="file"
-					id="picture"
-					name="picture"
-					accept={fileTypes.join(',')}
-					class="hidden-input"
-				/>
-
-				{#if $user.picture}
-					<img class="profile-pic" src={userPicture} alt="" referrerpolicy="no-referrer" />
-				{/if}
-
-				<span class="profile-pic__edit-label text-11 text-semibold">Edit</span>
-			</label>
+			<ProfilePictureUpload
+				bind:picture={userPicture}
+				onFileSelect={onPictureChange}
+				onInvalidFileType={() => chipToasts.error('Please use a valid image file')}
+			/>
 
 			<div id="contact-info" class="contact-info">
 				<div class="contact-info__fields">
@@ -302,56 +284,6 @@
 	.profile-form {
 		display: flex;
 		gap: 24px;
-	}
-
-	.hidden-input {
-		z-index: var(--z-ground);
-		position: absolute;
-		width: 100%;
-		height: 100%;
-		cursor: pointer;
-		opacity: 0;
-	}
-
-	.profile-pic-wrapper {
-		position: relative;
-		width: 100px;
-		height: 100px;
-		overflow: hidden;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-scale-pop-70);
-		transition: opacity var(--transition-medium);
-
-		&:hover,
-		&:focus-within {
-			& .profile-pic__edit-label {
-				opacity: 1;
-			}
-
-			& .profile-pic {
-				opacity: 0.8;
-			}
-		}
-	}
-
-	.profile-pic {
-		width: 100%;
-		height: 100%;
-
-		object-fit: cover;
-		background-color: var(--clr-scale-pop-70);
-	}
-
-	.profile-pic__edit-label {
-		position: absolute;
-		bottom: 8px;
-		left: 8px;
-		padding: 4px 6px;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-scale-ntrl-20);
-		color: var(--clr-core-ntrl-100);
-		opacity: 0;
-		transition: opacity var(--transition-medium);
 	}
 
 	.contact-info {

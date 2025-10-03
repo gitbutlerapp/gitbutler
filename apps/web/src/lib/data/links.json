@@ -20,6 +20,11 @@
 			"url": "https://app.gitbutler.com/downloads/release/linux/x86_64/deb",
 			"label": "Linux DEB"
 		},
+		"linuxRpm": {
+			"id": "linuxRpm",
+			"url": "https://app.gitbutler.com/downloads/release/linux/x86_64/rpm",
+			"label": "Linux RPM"
+		},
 		"windowsMsi": {
 			"id": "windowsMsi",
 			"url": "https://app.gitbutler.com/downloads/release/windows/x86_64/msi",
@@ -27,20 +32,35 @@
 		}
 	},
 	"resources": {
-		"github": {
-			"id": "github",
+		"source": {
+			"id": "source",
 			"url": "https://github.com/gitbutlerapp/gitbutler",
-			"label": "GitHub"
+			"label": "Source"
 		},
 		"documentation": {
 			"id": "documentation",
 			"url": "https://docs.gitbutler.com",
-			"label": "Documentation"
+			"label": "Docs"
+		},
+		"downloads": {
+			"id": "downloads",
+			"url": "/downloads",
+			"label": "Downloads"
+		},
+		"jobs": {
+			"id": "jobs",
+			"url": "https://jobs.gitbutler.com",
+			"label": "Jobs"
 		},
 		"blog": {
 			"id": "blog",
 			"url": "https://blog.gitbutler.com",
 			"label": "Blog"
+		},
+		"support": {
+			"id": "help",
+			"url": "https://github.com/gitbutlerapp/gitbutler/issues/new?template=BLANK_ISSUE",
+			"label": "Submit a ticket"
 		}
 	},
 	"social": {
@@ -58,6 +78,11 @@
 			"id": "x",
 			"url": "https://x.com/gitbutler",
 			"label": "X"
+		},
+		"bluesky": {
+			"id": "bluesky",
+			"url": "https://bsky.app/profile/gitbutler.com",
+			"label": "Bluesky"
 		},
 		"instagram": {
 			"id": "instagram",
