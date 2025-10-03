@@ -18,6 +18,8 @@
 		"oauthClientId": "cd51880daa675d9e6452"
 	},
 	"featureFlags": {
+		/// Use the V3 version of apply and unapply.
+		"apply3": false,
 		// Enables the v3 safe checkout.
 		"cv3": false,
 		/// Enable the usage of V3 workspace APIs.

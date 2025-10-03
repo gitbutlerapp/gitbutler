@@ -371,7 +371,7 @@ impl Graph {
                 .commit_id_by_index(e.dst)
                 .map(|c| c.to_hex_with_len(HEX).to_string())
                 .unwrap_or_else(|| "dst".into());
-            format!(", label = \"⚠️{src} → {dst} ({err})\", fontname = Courier")
+            format!(", label = \"⚠{src} → {dst} ({err})\", fontname = Courier")
         };
         let dot = petgraph::dot::Dot::with_attr_getters(&self.inner, &[], &edge_attrs, &node_attrs);
         format!("{dot:?}")

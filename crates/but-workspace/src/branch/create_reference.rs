@@ -112,7 +112,6 @@ pub(super) mod function {
     use but_core::{RefMetadata, ref_metadata};
     use gix::refs::transaction::PreviousValue;
     use std::borrow::{Borrow, Cow};
-    use std::ops::DerefMut;
 
     /// Create a new reference named `ref_name` to point at a commit relative to `anchor`.
     /// If `anchor` is `None` this means the branch should be placed above the lower bound of the workspace, effectively
@@ -258,7 +257,7 @@ pub(super) mod function {
         let graph_with_new_ref = {
             // Always update the metadata, this may help disambiguating.
             let mut branch_md = meta.branch(ref_name)?;
-            update_branch_metadata::<T>(ref_name, repo, &mut branch_md)?;
+            update_branch_metadata(ref_name, repo, &mut branch_md)?;
 
             workspace.graph.redo_traversal_with_overlay(
                 repo,
@@ -328,23 +327,19 @@ pub(super) mod function {
         // To avoid duplication, fetch the 'real' one and do the update again.
         // TODO: remove this in favor of keeping the previous handle once we have a sane `meta` impl
         let mut branch_md = meta.branch(ref_name)?;
-        update_branch_metadata::<T>(ref_name, repo, &mut branch_md)?;
+        update_branch_metadata(ref_name, repo, &mut branch_md)?;
         meta.set_branch(&branch_md)?;
 
         Ok(graph_with_new_ref)
     }
 
-    fn update_branch_metadata<T: RefMetadata>(
+    fn update_branch_metadata(
         ref_name: &gix::refs::FullNameRef,
         repo: &gix::Repository,
-        md: &mut T::Handle<ref_metadata::Branch>,
+        md: &mut ref_metadata::Branch,
     ) -> anyhow::Result<()> {
         let is_new_ref = repo.try_find_reference(ref_name)?.is_none();
-        let md_ref: &mut ref_metadata::Branch = md.deref_mut();
-        md_ref.ref_info.set_updated_to_now();
-        if is_new_ref {
-            md.ref_info.set_created_to_now();
-        }
+        md.update_times(is_new_ref);
         Ok(())
     }
 

@@ -27,6 +27,13 @@ impl Stack {
             .and_then(|s| s.commits.first().map(|c| c.id))
     }
 
+    /// Return the name of the first segment of the stack.
+    pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
+        self.segments
+            .first()
+            .and_then(|s| s.ref_name.as_ref().map(|rn| rn.as_ref()))
+    }
+
     /// Return the first commit of the first non-empty segment, or `None` this stack is completely empty, or has only empty segments.
     pub fn tip_skip_empty(&self) -> Option<gix::ObjectId> {
         self.segments.iter().find_map(|s| {
@@ -36,6 +43,7 @@ impl Stack {
             s.commits.first().map(|c| c.id)
         })
     }
+
     /// The [base](StackSegment::base) of the last of our segments.
     pub fn base(&self) -> Option<gix::ObjectId> {
         self.segments.last().and_then(|s| s.base)

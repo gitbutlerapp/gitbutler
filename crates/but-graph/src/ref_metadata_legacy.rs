@@ -365,38 +365,40 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             stack.in_workspace = false;
         }
 
+        let new_target_branch = value
+            .target_ref
+            .as_ref()
+            .map(|rn| branch_from_ref_name(rn.as_ref()))
+            .transpose()?;
         // We don't support initialising this yet, for now just changes.
         let mut changed_target = false;
-        if let Some(target) = self.data_mut().default_target.as_mut() {
-            if target.push_remote_name != value.push_remote {
-                target.push_remote_name = value.push_remote.clone();
+        match (&mut self.data_mut().default_target, new_target_branch) {
+            (existing @ Some(_), None) => {
+                // Have to clear everything then due to limitations of the data structure.
+                *existing = None;
                 changed_target = true;
             }
-            if let Some((category, short_name)) = value
-                .target_ref
-                .as_ref()
-                .and_then(|rn| rn.category_and_short_name())
-            {
-                if category == Category::RemoteBranch {
-                    // TODO: remove this as we don't handle symbolic names with slashes correctly.
-                    // At least try to not always set this value, but this test is also ambiguous.
-                    if !short_name.ends_with_str(target.branch.branch()) {
-                        let slash_pos = short_name.find_byte(b'/').context(
-                            "remote branch didn't have '/' in the name, but should be 'origin/foo'",
-                        )?;
-                        target.branch = RemoteRefname::new(
-                            short_name[..slash_pos].to_str_lossy().as_ref(),
-                            short_name[slash_pos + 1..].to_str_lossy().as_ref(),
-                        );
-                        changed_target = true;
-                    }
-                } else {
-                    bail!(
-                        "Cannot set target branches to a branch that isn't a remote tracking branch: '{short_name}'"
-                    );
+            (None, Some(_new)) => {
+                bail!(
+                    "Cannot reasonably set a target in the old data structure as we don't have repo access here"
+                )
+            }
+            (Some(existing), Some(new)) => {
+                if existing.branch != new {
+                    existing.branch = new;
+                    changed_target = true;
                 }
             }
+            (None, None) => {}
         }
+
+        if let Some(target) = self.data_mut().default_target.as_mut()
+            && target.push_remote_name != value.push_remote
+        {
+            target.push_remote_name = value.push_remote.clone();
+            changed_target = true;
+        }
+
         if changed_target {
             self.snapshot.changed_at = Some(Instant::now());
         }
@@ -513,6 +515,27 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             Ok(true)
         }
     }
+}
+
+fn branch_from_ref_name(ref_name: &FullNameRef) -> anyhow::Result<RemoteRefname> {
+    let (category, short_name) = ref_name
+        .category_and_short_name()
+        .context("couldn't classify supposed remote tracking branch")?;
+    if category != Category::RemoteBranch {
+        bail!(
+            "Cannot set target branches to a branch that isn't a remote tracking branch: '{short_name}'"
+        );
+    }
+
+    // TODO: remove this as we don't handle symbolic names with slashes correctly.
+    // At least try to not always set this value, but this test is also ambiguous.
+    let slash_pos = short_name
+        .find_byte(b'/')
+        .context("remote branch didn't have '/' in the name, but should be 'origin/foo'")?;
+    Ok(RemoteRefname::new(
+        short_name[..slash_pos].to_str_lossy().as_ref(),
+        short_name[slash_pos + 1..].to_str_lossy().as_ref(),
+    ))
 }
 
 impl VirtualBranchesTomlMetadata {

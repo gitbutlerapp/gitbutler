@@ -1,4 +1,5 @@
 use crate::Id;
+use gix::refs::FullNameRef;
 
 /// Metadata about workspaces, associated with references that are designated to a workspace,
 /// i.e. `refs/heads/gitbutler/workspaces/<name>`.
@@ -35,7 +36,72 @@ pub struct Workspace {
     pub push_remote: Option<String>,
 }
 
+/// Mutations
 impl Workspace {
+    /// Insert `branch` as new stack if it's not yet contained in the workspace and if `order` is not `None` or push
+    /// it to the end of the stack list.
+    /// Note that `order` is only relevant at insertion time.
+    /// Returns `true` if the ref was newly added, or `false` if it already existed.
+    pub fn add_or_insert_new_stack_if_not_present(
+        &mut self,
+        branch: &FullNameRef,
+        order: Option<usize>,
+    ) -> bool {
+        if self.contains_ref(branch) {
+            return false;
+        };
+
+        let stack = WorkspaceStack {
+            id: StackId::generate(),
+            branches: vec![WorkspaceStackBranch {
+                ref_name: branch.to_owned(),
+                archived: false,
+            }],
+        };
+        match order.map(|idx| idx.min(self.stacks.len())) {
+            None => {
+                self.stacks.push(stack);
+            }
+            Some(existing_index) => {
+                self.stacks.insert(existing_index, stack);
+            }
+        }
+        true
+    }
+}
+
+/// Access
+impl Workspace {
+    /// Return the names of the tips of all stacks in the workspace.
+    pub fn stack_names(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> {
+        self.stacks
+            .iter()
+            .filter_map(|s| s.ref_name().map(|rn| rn.as_ref()))
+    }
+
+    /// Return `true` if the branch with `name` is the workspace target or the targets local tracking branch,
+    /// using `repo` for the lookup of the local tracking branch.
+    pub fn is_branch_the_target_or_its_local_tracking_branch(
+        &self,
+        name: &gix::refs::FullNameRef,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<bool> {
+        let Some(target_ref) = self.target_ref.as_ref() else {
+            return Ok(false);
+        };
+
+        if target_ref.as_ref() == name {
+            Ok(true)
+        } else {
+            let Some((local_tracking_branch, _remote_name)) =
+                repo.upstream_branch_and_remote_for_tracking_branch(target_ref.as_ref())?
+            else {
+                return Ok(false);
+            };
+            Ok(local_tracking_branch.as_ref() == name)
+        }
+    }
+
     /// Return `true` if `name` is a reference mentioned in our [stacks](Workspace::stacks).
     pub fn contains_ref(&self, name: &gix::refs::FullNameRef) -> bool {
         self.stacks
@@ -90,6 +156,18 @@ pub struct Branch {
     pub description: Option<String>,
     /// Information about possibly ongoing reviews in various forges.
     pub review: Review,
+}
+
+/// Mutations
+impl Branch {
+    /// Claim that we now updated the branch in some way, and possibly also set the created time
+    /// if `is_new_ref` is `true`
+    pub fn update_times(&mut self, is_new_ref: bool) {
+        self.ref_info.set_updated_to_now();
+        if is_new_ref {
+            self.ref_info.set_created_to_now();
+        }
+    }
 }
 
 impl std::fmt::Debug for Branch {

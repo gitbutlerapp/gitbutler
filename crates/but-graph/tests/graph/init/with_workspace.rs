@@ -1,4 +1,6 @@
-use crate::init::utils::{add_workspace_without_target, standard_options_with_extra_target};
+use crate::init::utils::{
+    add_workspace_without_target, remove_target, standard_options_with_extra_target,
+};
 use crate::init::{StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev};
 use crate::init::{read_only_in_memory_scenario, standard_options};
 use but_graph::Graph;
@@ -2423,7 +2425,7 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependant()
     ├── ►:1[0]:origin/main →:2:
     │   └── →:2: (main →:1:)
     └── ►:4[0]:origin/advanced-lane →:6:
-        └── →:5: (dependant)
+        └── →:6: (advanced-lane →:4:)
     ");
 
     // When putting the dependent branch on top as empty segment, the frozen state is retained.
@@ -3241,7 +3243,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     ├── ►:1[0]:origin/main →:2:
     │   └── →:2: (main →:1:)
     └── ►:4[0]:origin/advanced-lane →:6:
-        └── →:5: (dependant)
+        └── →:6: (advanced-lane →:4:)
     ");
 
     // The dependant branch is empty and on top of the one with the remote
@@ -3960,7 +3962,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     ├── ►:2[0]:origin/A →:5:
     │   └── →:5: (A →:2:)
     └── ►:3[0]:origin/B →:0:
-        └── →:5: (A →:2:)
+        └── →:0: (B →:3:)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️⚠️:1:gitbutler/workspace <> ✓!
@@ -5141,6 +5143,105 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
     // This will be an empty workspace.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0");
 
+    Ok(())
+}
+
+#[test]
+fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/unapplied-branch-on-base")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * a26ae77 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * fafd9d0 (origin/main, unapplied, main) init
+    ");
+    add_workspace(&mut meta);
+    remove_target(&mut meta);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ·a26ae77 (⌂|🏘|1)
+    │       └── ►:2[1]:main <> origin/main →:1:
+    │           └── ·fafd9d0 (⌂|🏘|11) ►unapplied
+    └── ►:1[0]:origin/main →:2:
+        └── →:2: (main →:1:)
+    ");
+
+    // the main branch is disambiguated by its remote reference.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓!
+    └── ≡:2:main <> origin/main →:1:
+        └── :2:main <> origin/main →:1:
+            └── ❄️fafd9d0 (🏘️) ►unapplied
+    ");
+
+    // The 'unapplied' branch can be added on top of that, and we make clear we want `main` as well.
+    add_stack_with_segments(&mut meta, 1, "unapplied", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "main", StackState::InWorkspace, &[]);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ·a26ae77 (⌂|🏘|1)
+    │       ├── 📙►:3[1]:unapplied
+    │       │   └── ►:2[2]:anon:
+    │       │       └── ·fafd9d0 (⌂|🏘|✓|11)
+    │       └── 📙►:4[1]:main <> origin/main →:1:
+    │           └── →:2:
+    └── ►:1[0]:origin/main →:4:
+        └── →:4: (main →:1:)
+    ");
+
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    ├── ≡📙:4:main <> origin/main →:1: on fafd9d0
+    │   └── 📙:4:main <> origin/main →:1:
+    └── ≡📙:3:unapplied on fafd9d0
+        └── 📙:3:unapplied
+    ");
+
+    // We simulate an unapplied branch on the base by giving it branch metadata, but not listing
+    // it in the workspace.
+    add_stack_with_segments(&mut meta, 1, "unapplied", StackState::Inactive, &[]);
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+
+    // Now only `main` shows up.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    └── ≡📙:3:main <> origin/main →:1: on fafd9d0
+        └── 📙:3:main <> origin/main →:1:
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-ws-ref-no-ws-commit-two-branches")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * bce0c5e (HEAD -> gitbutler/workspace, main, B, A) M2
+    * 3183e43 M1
+    ");
+    remove_target(&mut meta);
+    add_stack_with_segments(&mut meta, 0, "main", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    └── 👉📕►►►:0[0]:gitbutler/workspace
+        ├── 📙►:2[1]:main
+        │   └── ►:1[2]:anon: →:3:
+        │       ├── ·bce0c5e (⌂|🏘|1) ►B
+        │       └── ·3183e43 (⌂|🏘|1)
+        └── 📙►:3[1]:A
+            └── →:1:
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:0:gitbutler/workspace <> ✓! on bce0c5e
+    ├── ≡📙:3:A on bce0c5e
+    │   └── 📙:3:A
+    └── ≡📙:2:main on bce0c5e
+        └── 📙:2:main
+    ");
     Ok(())
 }
 

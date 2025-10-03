@@ -63,6 +63,53 @@ impl Graph {
     }
 }
 
+/// Merge-base computation
+impl Graph {
+    /// Compute the lowest merge-base between two segments.
+    /// Such a merge-base is reachable from all possible paths from `a` and `b`.
+    ///
+    /// The segment representing the merge-base is expected to not be empty, as its first commit
+    /// is usually what one is interested in.
+    // TODO: should be multi, with extra segments as third parameter
+    // TODO: actually find the lowest merge-base, right now it just finds the first merge-base, but that's not
+    //       the lowest.
+    pub fn first_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
+        // TODO(perf): improve this by allowing to set bitflags on the segments themselves, to allow
+        //       marking them accordingly, just like Git does.
+        //       Right now we 'emulate' bitflags on pre-allocated data with two data sets, expensive
+        //       in comparison.
+        //       And yes, let's avoid `gix::Repository::merge_base` as we have free
+        //       generation numbers here and can avoid work duplication.
+        let mut segments_reachable_by_b = BTreeSet::new();
+        self.visit_all_segments_including_start_until(b, Direction::Outgoing, |s| {
+            segments_reachable_by_b.insert(s.id);
+            // Collect everything, keep it simple.
+            // This is fast* as completely in memory.
+            // *means slow compared to an array traversal with memory locality.
+            false
+        });
+
+        let mut candidate = None;
+        self.visit_all_segments_including_start_until(a, Direction::Outgoing, |s| {
+            if candidate.is_some() {
+                return true;
+            }
+            let prune = segments_reachable_by_b.contains(&s.id);
+            if prune {
+                candidate = Some(s.id);
+            }
+            prune
+        });
+        if candidate.is_none() {
+            // TODO: improve this - workspaces shouldn't be like this but if they are, do we deal with it well?
+            tracing::warn!(
+                "Couldn't find merge-base between segments {a:?} and {b:?} - this might lead to unexpected results"
+            )
+        }
+        candidate
+    }
+}
+
 /// Query
 /// ‼️Useful only if one knows the graph traversal was started where one expects, or else the graph may be partial.
 impl Graph {
@@ -130,6 +177,11 @@ impl Graph {
         sidx_with_commits.and_then(|sidx| self[sidx].commits.first())
     }
 
+    /// The first commit reachable by skipping over empty segments starting at the entrypoint segment.
+    pub fn entrypoint_commit(&self) -> Option<&Commit> {
+        self.tip_skip_empty(self.entrypoint?.0)
+    }
+
     /// Visit the ancestry of `start` along the first parents, itself excluded, until `stop` returns `true`.
     /// Also return the segment that we stopped at.
     /// **Important**: `stop` is not called with `start`, this is a feature.
@@ -169,6 +221,12 @@ impl Graph {
     /// Claim that the graph was pruned without regard to the core graph algorithm.
     pub fn set_hard_limit_hit(&mut self) {
         self.hard_limit_hit = true;
+    }
+
+    /// Lookup the segment of `sidx` and then find its sibling segment, if it has one.
+    pub fn lookup_sibling_segment(&self, sidx: SegmentIndex) -> Option<&Segment> {
+        self.inner
+            .node_weight(self.inner.node_weight(sidx)?.sibling_segment_id?)
     }
 
     /// Return the entry-point of the graph as configured during traversal.
