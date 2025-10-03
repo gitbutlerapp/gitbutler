@@ -4,7 +4,7 @@ use but_core::{RefMetadata, ref_metadata};
 use gix::prelude::ReferenceExt;
 use gix::refs::Target;
 use std::borrow::Cow;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 impl Overlay {
     /// Serve the given `refs` from memory, as if they would exist.
@@ -73,19 +73,22 @@ impl Overlay {
         T: RefMetadata,
     {
         let Overlay {
-            mut nonoverriding_references,
-            mut overriding_references,
+            nonoverriding_references,
+            overriding_references,
             meta_branches,
             workspace,
             entrypoint,
         } = self;
-        // Make sure that duplicates from later determine the value.
-        nonoverriding_references.reverse();
-        overriding_references.reverse();
         (
             OverlayRepo {
-                nonoverriding_references: nonoverriding_references.into_iter().collect(),
-                overriding_references: overriding_references.into_iter().collect(),
+                nonoverriding_references: nonoverriding_references
+                    .into_iter()
+                    .map(|r| (r.name.clone(), r))
+                    .collect(),
+                overriding_references: overriding_references
+                    .into_iter()
+                    .map(|r| (r.name.clone(), r))
+                    .collect(),
                 inner: repo,
             },
             OverlayMetadata {
@@ -100,8 +103,8 @@ impl Overlay {
 
 pub(crate) struct OverlayRepo<'repo> {
     inner: &'repo gix::Repository,
-    nonoverriding_references: BTreeSet<gix::refs::Reference>,
-    overriding_references: BTreeSet<gix::refs::Reference>,
+    nonoverriding_references: BTreeMap<gix::refs::FullName, gix::refs::Reference>,
+    overriding_references: BTreeMap<gix::refs::FullName, gix::refs::Reference>,
 }
 
 /// Note that functions with `'repo` in their return value technically leak the bare repo, and it's
@@ -115,19 +118,11 @@ impl<'repo> OverlayRepo<'repo> {
         &self,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<gix::Reference<'repo>>> {
-        if let Some(r) = self
-            .overriding_references
-            .iter()
-            .find(|r| r.name.as_ref() == ref_name)
-        {
+        if let Some(r) = self.overriding_references.get(ref_name) {
             Ok(Some(r.clone().attach(self.inner)))
         } else if let Some(rn) = self.inner.try_find_reference(ref_name)? {
             Ok(Some(rn))
-        } else if let Some(r) = self
-            .nonoverriding_references
-            .iter()
-            .find(|r| r.name.as_ref() == ref_name)
-        {
+        } else if let Some(r) = self.nonoverriding_references.get(ref_name) {
             Ok(Some(r.clone().attach(self.inner)))
         } else {
             Ok(None)
@@ -138,11 +133,7 @@ impl<'repo> OverlayRepo<'repo> {
         &self,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<gix::Reference<'repo>> {
-        if let Some(r) = self
-            .overriding_references
-            .iter()
-            .find(|r| r.name.as_ref() == ref_name)
-        {
+        if let Some(r) = self.overriding_references.get(ref_name) {
             return Ok(r.clone().attach(self.inner));
         }
         Ok(self
@@ -151,11 +142,7 @@ impl<'repo> OverlayRepo<'repo> {
             .or_else(|err| match err {
                 gix::reference::find::existing::Error::Find(_) => Err(err),
                 gix::reference::find::existing::Error::NotFound { .. } => {
-                    if let Some(r) = self
-                        .nonoverriding_references
-                        .iter()
-                        .find(|r| r.name.as_ref() == ref_name)
-                    {
+                    if let Some(r) = self.nonoverriding_references.get(ref_name) {
                         Ok(r.clone().attach(self.inner))
                     } else {
                         Err(err)
@@ -239,7 +226,7 @@ impl<'repo> OverlayRepo<'repo> {
             // apply overrides - they are seen first and take the spot of everything.
             for (commit_id, git_reference) in self
                 .overriding_references
-                .iter()
+                .values()
                 .filter(|rn| rn.name.as_bstr().starts_with(prefix.as_bytes()))
                 .filter_map(|rn| ref_filter(rn.clone().attach(self.inner)))
             {
@@ -263,7 +250,7 @@ impl<'repo> OverlayRepo<'repo> {
             // apply overrides (new only)
             for (commit_id, git_reference) in self
                 .nonoverriding_references
-                .iter()
+                .values()
                 .filter(|rn| rn.name.as_bstr().starts_with(prefix.as_bytes()))
                 .filter_map(|rn| ref_filter(rn.clone().attach(self.inner)))
             {

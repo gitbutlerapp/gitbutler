@@ -77,23 +77,15 @@ pub mod merge {
                 .filter_map(|s| s.branches.first())
                 .filter_map(|top_segment| {
                     let stack_tip_name = top_segment.ref_name.as_ref();
-                    match graph.named_segment_by_ref_name(stack_tip_name) {
+                    match graph.segment_and_commit_by_ref_name(stack_tip_name) {
                         None => {
                             missing_stacks.push(top_segment.ref_name.to_owned());
                             None
                         }
-                        Some(segment) => graph
-                            .tip_skip_empty(segment.id)
-                            .map(|c| Ok((stack_tip_name, c.id, segment.id)))
-                            .or_else(|| {
-                                Some(Err(anyhow::anyhow!(
-                                    "Base segment {id} didn't have a single commit reachable",
-                                    id = segment.id.index()
-                                )))
-                            }),
+                        Some((segment, commit)) => Some((stack_tip_name, commit.id, segment.id)),
                     }
                 })
-                .collect::<Result<_, _>>()?;
+                .collect();
 
             let conflicting_stacks = Vec::new();
             let mut prev_base_sidx = None;
@@ -139,7 +131,7 @@ pub mod merge {
                         merge_options.clone(),
                     )?;
                     if merge.has_unresolved_conflicts(conflict_kind) {
-                        todo!("conflict handling - hero or not: {hero_stack:?}");
+                        bail!("TODO: conflict handling with hero-special: {hero_stack:?}");
                     }
                     merge_tree_id = merge.tree.write()?.detach().into();
                 }

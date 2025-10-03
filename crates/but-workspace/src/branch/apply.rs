@@ -79,14 +79,15 @@ pub(crate) mod function {
     use crate::ext::ObjectStorageExt;
     use crate::ref_info::WorkspaceExt;
     use anyhow::{Context, bail};
+    use but_core::RefMetadata;
     use but_core::ref_metadata::Workspace;
-    use but_core::{RefMetadata, ref_metadata};
     use but_graph::init::Overlay;
     use but_graph::projection::WorkspaceKind;
     use gitbutler_oxidize::GixRepositoryExt;
     use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog};
     use gix::refs::{FullNameRef, Target};
     use std::borrow::Cow;
+    use tracing::instrument;
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
     /// along with its `meta`-data if it doesn't exist yet.
@@ -107,6 +108,7 @@ pub(crate) mod function {
     ///
     /// Note that options have no effect if `branch` is already in the workspace, so `apply` is *not* a way
     /// to alter certain aspects of the workspace by applying the same branch again.
+    #[instrument(level = tracing::Level::DEBUG, skip(workspace, repo, meta), err(Debug))]
     pub fn apply<'graph>(
         branch: &gix::refs::FullNameRef,
         workspace: &but_graph::projection::Workspace<'graph>,
@@ -258,7 +260,7 @@ pub(crate) mod function {
 
         let mut ws_md = meta.workspace(workspace_ref_name_to_update.as_ref())?;
         {
-            let ws_mut: &mut ref_metadata::Workspace = &mut ws_md;
+            let ws_mut: &mut Workspace = &mut ws_md;
             for rn in &branches_to_apply {
                 ws_mut.add_or_insert_new_stack_if_not_present(rn, order);
             }
@@ -370,11 +372,6 @@ pub(crate) mod function {
             overlay.with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone())),
         )?;
         persist_metadata(meta, &branches_to_apply, &ws_md)?;
-        set_head_to_reference(
-            repo,
-            new_head_id,
-            (!ws_ref_exists).then_some(workspace_ref_name_to_update.as_ref()),
-        )?;
         crate::branch::safe_checkout(
             prev_head_id,
             new_head_id,
@@ -384,6 +381,11 @@ pub(crate) mod function {
             },
         )?;
 
+        set_head_to_reference(
+            repo,
+            new_head_id,
+            (!ws_ref_exists).then_some(workspace_ref_name_to_update.as_ref()),
+        )?;
         Ok(Outcome {
             graph: Cow::Owned(graph),
             workspace_ref_created: needs_ws_ref_creation,

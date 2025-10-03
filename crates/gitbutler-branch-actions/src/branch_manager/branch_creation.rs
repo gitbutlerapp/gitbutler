@@ -2,6 +2,9 @@ use super::BranchManager;
 use crate::r#virtual as vbranch;
 use crate::{hunk::VirtualBranchHunk, integration::update_workspace_commit, VirtualBranchesExt};
 use anyhow::{anyhow, bail, Context, Result};
+use but_workspace::branch::apply::{IntegrationMode, WorkspaceReferenceNaming};
+use but_workspace::branch::checkout::UncommitedWorktreeChanges;
+use but_workspace::branch::OnWorkspaceMergeConflict;
 use but_workspace::stack_ext::StackExt;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch::{self, dedup};
@@ -139,6 +142,39 @@ impl BranchManager<'_> {
         pr_number: Option<usize>,
         perm: &mut WorktreeWritePermission,
     ) -> Result<(StackId, Vec<StackId>)> {
+        // Assume that this is always about 'apply' and hijack the entire method.
+        // That way we'd learn what's missing.
+        if self.ctx.app_settings().feature_flags.apply3 {
+            let (repo, mut meta, graph) = self.ctx.graph_and_meta_mut_and_repo(perm)?;
+            let ws = graph.to_workspace()?;
+            let target = target.to_string();
+            let branch_to_apply = target.as_str().try_into()?;
+            let out = but_workspace::branch::apply(
+                branch_to_apply,
+                &ws,
+                &repo,
+                &mut *meta,
+                but_workspace::branch::apply::Options {
+                    integration_mode: IntegrationMode::AlwaysMerge,
+                    on_workspace_conflict:
+                        OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
+                    workspace_reference_naming: WorkspaceReferenceNaming::Default,
+                    uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+                    order: None,
+                },
+            )?;
+            let ws = out.graph.to_workspace()?;
+            let unapplied_stacks_to_be_done = Vec::new();
+            let applied_branch_stack_id = ws
+                .find_segment_and_stack_by_refname(branch_to_apply)
+                .with_context(||
+                    format!("Failed to apply branch and we probably have to handle more of the outcome\n{out:?}")
+                )?
+                .0
+                .id
+                .context("BUG: newly applied stacks should always have a stack id")?;
+            return Ok((applied_branch_stack_id, unapplied_stacks_to_be_done));
+        }
         let old_cwd = (!self.ctx.app_settings().feature_flags.cv3)
             .then(|| self.ctx.repo().create_wd_tree(0).map(|tree| tree.id()))
             .transpose()?;
