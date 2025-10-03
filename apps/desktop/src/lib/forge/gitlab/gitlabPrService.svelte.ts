@@ -125,11 +125,15 @@ function injectEndpoints(api: GitLabApi) {
 				PullRequest,
 				{ head: string; base: string; title: string; body: string; draft: boolean }
 			>({
-				queryFn: async ({ head, base, title, body }, query) => {
+				queryFn: async ({ head, base, title, body, draft }, query) => {
 					try {
 						const { api, upstreamProjectId, forkProjectId } = gitlab(query.extra);
 						const upstreamProject = await api.Projects.show(upstreamProjectId);
-						const mr = await api.MergeRequests.create(forkProjectId, head, base, title, {
+
+						// GitLab uses title prefix to mark drafts: "Draft:", "[Draft]", or "(Draft)"
+						const finalTitle = draft ? `[Draft]: ${title}` : title;
+
+						const mr = await api.MergeRequests.create(forkProjectId, head, base, finalTitle, {
 							description: body,
 							targetProjectId: upstreamProject.id,
 							removeSourceBranch: true
