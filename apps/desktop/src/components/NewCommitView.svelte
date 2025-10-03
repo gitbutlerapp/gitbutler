@@ -32,6 +32,7 @@
 	const laneState = $derived(uiState.lane(stackId || 'new-commit-view--new-stack'));
 
 	const [createCommitInStack, commitCreation] = stackService.createCommit();
+	const [runMessageHook] = hooksService.message;
 
 	let isCooking = $state(false);
 
@@ -87,7 +88,7 @@
 			// Run commit-msg hook if hooks are enabled
 			let finalMessage = message;
 			if ($runCommitHooks) {
-				const messageHookResult = await hooksService.message(projectId, message);
+				const messageHookResult = await runMessageHook({ projectId, message });
 				if (messageHookResult?.status === 'failure') {
 					showError('Commit message hook failed', messageHookResult.error);
 					return;

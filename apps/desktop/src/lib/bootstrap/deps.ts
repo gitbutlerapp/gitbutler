@@ -185,7 +185,7 @@ export function initDependencies(args: {
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const branchService = new BranchService(clientState['backendApi']);
 	const remotesService = new RemotesService(backend);
-	const hooksService = new HooksService(backend);
+	const hooksService = new HooksService(clientState.backendApi);
 
 	// ============================================================================
 	// STACKS & WORKSPACE MANAGEMENT
