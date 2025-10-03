@@ -1,4 +1,6 @@
 name: 'Publish'
+env:
+  RUSTUP_TOOLCHAIN: stable
 on:
   schedule:
     # every day at 3am
