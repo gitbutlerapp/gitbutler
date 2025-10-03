@@ -8,11 +8,11 @@
 		args: {
 			picture: 'https://avatars.githubusercontent.com/u/1942963?v=4',
 			alt: 'User avatar',
-			size: 100
+			size: 6.25
 		},
 		argTypes: {
 			size: {
-				control: { type: 'number', min: 50, max: 200, step: 10 }
+				control: { type: 'number', min: 3, max: 12, step: 0.25 }
 			}
 		}
 	});
@@ -56,12 +56,12 @@
 		<div style="display: flex; gap: 24px; align-items: flex-end;">
 			<div>
 				<p style="margin-bottom: 8px; font-size: 12px; color: var(--clr-scale-ntrl-30);">
-					Small (60px)
+					Small (3.75rem)
 				</p>
 				<ProfilePictureUpload
 					picture="https://avatars.githubusercontent.com/u/1942963?v=4"
 					alt="Small avatar"
-					size={60}
+					size={3.75}
 					onFileSelect={(file) => {
 						chipToasts.success(`File selected: ${file.name}`);
 					}}
@@ -72,12 +72,12 @@
 			</div>
 			<div>
 				<p style="margin-bottom: 8px; font-size: 12px; color: var(--clr-scale-ntrl-30);">
-					Default (100px)
+					Default (6.25rem)
 				</p>
 				<ProfilePictureUpload
 					picture="https://avatars.githubusercontent.com/u/1942963?v=4"
 					alt="Default avatar"
-					size={100}
+					size={6.25}
 					onFileSelect={(file) => {
 						chipToasts.success(`File selected: ${file.name}`);
 					}}
@@ -88,12 +88,12 @@
 			</div>
 			<div>
 				<p style="margin-bottom: 8px; font-size: 12px; color: var(--clr-scale-ntrl-30);">
-					Large (150px)
+					Large (9.375rem)
 				</p>
 				<ProfilePictureUpload
 					picture="https://avatars.githubusercontent.com/u/1942963?v=4"
 					alt="Large avatar"
-					size={150}
+					size={9.375}
 					onFileSelect={(file) => {
 						chipToasts.success(`File selected: ${file.name}`);
 					}}

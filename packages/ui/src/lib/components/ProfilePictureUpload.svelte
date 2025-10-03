@@ -41,7 +41,7 @@
 		onFileSelect,
 		onInvalidFileType,
 		class: className,
-		size = 100
+		size = 6.25
 	}: Props = $props();
 
 	let previewUrl = $derived(picture);
@@ -62,7 +62,7 @@
 <label
 	class="profile-pic-wrapper focus-state {className || ''}"
 	for="profile-picture-upload"
-	style="width: {size}px; height: {size}px;"
+	style="width: {size}rem; height: {size}rem;"
 >
 	<input
 		onchange={handleFileChange}
