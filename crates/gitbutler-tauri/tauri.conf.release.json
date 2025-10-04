@@ -7,11 +7,11 @@
 	"bundle": {
 		"active": true,
 		"icon": [
-			"icons/32x32.png",
-			"icons/128x128.png",
-			"icons/128x128@2x.png",
-			"icons/icon.icns",
-			"icons/icon.ico"
+			"icons/release/32x32.png",
+			"icons/release/128x128.png",
+			"icons/release/128x128@2x.png",
+			"icons/release/icon.icns",
+			"icons/release/icon.ico"
 		],
 		"externalBin": ["gitbutler-git-setsid", "gitbutler-git-askpass", "but-testing", "but"]
 	},
