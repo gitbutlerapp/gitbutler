@@ -32,7 +32,7 @@ export interface ForgePrService {
 		baseBranchName,
 		upstreamName
 	}: CreatePullRequestArgs): Promise<PullRequest>;
-	merge(method: MergeMethod, prNumber: number): Promise<void>;
+	merge(method: MergeMethod, prNumber: number, bypassRules?: boolean): Promise<void>;
 	reopen(prNumber: number): Promise<void>;
 	update(
 		prNumber: number,
