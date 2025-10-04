@@ -178,6 +178,13 @@ pub enum CommandName {
     )]
     ClaudePostTool,
     #[clap(
+        alias = "claude-bash-post-tool",
+        alias = "claudebashposttool",
+        alias = "claudeBashPostTool",
+        alias = "ClaudeBashPostTool"
+    )]
+    ClaudeBashPostTool,
+    #[clap(
         alias = "claude-stop",
         alias = "claudestop",
         alias = "claudeStop",
@@ -240,6 +247,8 @@ pub mod claude {
         PreTool,
         #[clap(alias = "post-tool-use")]
         PostTool,
+        #[clap(alias = "bash-post-tool-use")]
+        BashPostTool,
         Stop,
         #[clap(alias = "pp")]
         PermissionPromptMcp,
