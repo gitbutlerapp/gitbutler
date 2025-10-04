@@ -220,7 +220,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     )?;
     // A workspace commit was created, even though it does nothing.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 0cde2a9 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * c18fa47 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * e5d0542 (origin/main, main, B, A) A
     ");
 
@@ -245,7 +245,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
 
     // It's idempotent, but has to update the workspace commit nonetheless for the comment, which depends on the stacks.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 586a62e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * df26e1f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\
     * e5d0542 (origin/main, main, B, A) A
     ");
@@ -453,7 +453,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 49d4b34 (A) A1
-    | *   9af353b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | *   08fe1a8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | |\  
     | | * f57c528 (B) B1
     | |/  
@@ -509,7 +509,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     ");
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *-.   4912314 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *-.   f2f2560 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\ \  
     | | * f57c528 (B) B1
     | * | aaa195b (C) C1

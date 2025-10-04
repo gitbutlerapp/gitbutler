@@ -279,7 +279,7 @@ impl<'repo> WorkspaceCommit<'repo> {
         }
         message.push_str("For more information about what we're doing here, check out our docs:\n");
         message
-            .push_str("https://docs.gitbutler.com/features/virtual-branches/integration-branch\n");
+            .push_str("https://docs.gitbutler.com/features/branch-management/integration-branch\n");
 
         let author = commit_signature(commit_time("GIT_COMMITTER_DATE"));
         gix::objs::Commit {
