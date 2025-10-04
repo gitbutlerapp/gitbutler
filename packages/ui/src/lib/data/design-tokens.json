@@ -2996,22 +2996,22 @@
 		"tooltip": {
 			"border": {
 				"$type": "color",
-				"$value": "{clr-core.ntrl.10}",
+				"$value": "{clr-core.ntrl.80}",
 				"$description": "",
 				"$extensions": {
 					"mode": {
-						"light": "{clr-core.ntrl.10}",
+						"light": "{clr-core.ntrl.80}",
 						"dark": "{clr-core.ntrl.30}"
 					}
 				}
 			},
 			"bg": {
 				"$type": "color",
-				"$value": "{clr-core.ntrl.10}",
+				"$value": "{clr-core.ntrl.95}",
 				"$description": "",
 				"$extensions": {
 					"mode": {
-						"light": "{clr-core.ntrl.10}",
+						"light": "{clr-core.ntrl.95}",
 						"dark": "{clr-core.ntrl.10}"
 					}
 				}
@@ -3630,6 +3630,14 @@
 				"$extensions": {
 					"mode": {}
 				}
+			},
+			"accent": {
+				"$type": "string",
+				"$value": "110%",
+				"$description": "",
+				"$extensions": {
+					"mode": {}
+				}
 			}
 		},
 		"fontfamily": {
@@ -3769,7 +3777,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius", "text", "opacity"],
-			"createdAt": "2025-09-14T13:52:32.744Z"
+			"createdAt": "2025-10-04T00:10:28.531Z"
 		}
 	}
 }

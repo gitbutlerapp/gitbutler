@@ -35,30 +35,32 @@
 </script>
 
 <div class="modal-settings-wrapper">
-	<div class="settings-sidebar" use:focusable>
-		<h3 class="settings-sidebar__title text-16 text-bold">{title}</h3>
-		<div class="settings-sidebar__links">
-			{#each pages.filter((p) => !p.adminOnly || isAdmin) as page}
-				{@const selected = page.id === currentSelectedId}
-				<button
-					type="button"
-					class="text-14 text-semibold settings-sidebar__links-item"
-					class:selected
-					onclick={() => selectPage(page.id)}
-				>
-					<div class="settings-sidebar__links-item__icon">
-						<Icon name={page.icon} />
-					</div>
-					<span>{page.label}</span>
-				</button>
-			{/each}
-		</div>
-
-		{#if footer}
-			<div class="settings-sidebar__footer">
-				{@render footer()}
+	<div class="settings-sidebar__wrapper">
+		<div class="settings-sidebar" use:focusable>
+			<h3 class="settings-sidebar__title text-16 text-bold">{title}</h3>
+			<div class="settings-sidebar__links">
+				{#each pages.filter((p) => !p.adminOnly || isAdmin) as page}
+					{@const selected = page.id === currentSelectedId}
+					<button
+						type="button"
+						class="text-14 text-semibold settings-sidebar__links-item"
+						class:selected
+						onclick={() => selectPage(page.id)}
+					>
+						<div class="settings-sidebar__links-item__icon">
+							<Icon name={page.icon} />
+						</div>
+						<span>{page.label}</span>
+					</button>
+				{/each}
 			</div>
-		{/if}
+
+			{#if footer}
+				<div class="settings-sidebar__footer">
+					{@render footer()}
+				</div>
+			{/if}
+		</div>
 	</div>
 
 	<section class="page-view" use:focusable={{ vertical: true }}>
@@ -79,13 +81,22 @@
 		max-height: 1000px;
 	}
 
+	.settings-sidebar__wrapper {
+		flex: 0 0 230px;
+		padding: 8px;
+		padding-right: 0;
+		background-color: var(--clr-bg-2);
+	}
+
 	.settings-sidebar {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		max-width: 210px;
+		height: 100%;
 		padding: 16px 12px 12px 12px;
-		border-right: 1px solid var(--clr-border-2);
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 	}
 
