@@ -34,7 +34,7 @@ export function projectAiExperimentalFeaturesEnabled(projectId: string): Persist
 
 export function projectRunCommitHooks(projectId: string): Persisted<boolean> {
 	const key = 'projectRunCommitHooks_';
-	return persisted(false, key + projectId);
+	return persisted(true, key + projectId);
 }
 
 export function persistedChatModelName<T extends string>(

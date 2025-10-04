@@ -339,7 +339,13 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 				commitId: commit.id,
 				worktreeChanges
 			});
-			await this.args.hooksService.runPostCommitHooks(projectId);
+			if (runHooks) {
+				try {
+					await this.args.hooksService.runPostCommitHooks(projectId);
+				} catch {
+					return;
+				}
+			}
 		}
 	}
 }
