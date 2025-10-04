@@ -131,7 +131,7 @@ pub fn update_workspace_commit(
         message.push_str("\n\n");
     }
     message.push_str("For more information about what we're doing here, check out our docs:\n");
-    message.push_str("https://docs.gitbutler.com/features/virtual-branches/integration-branch\n");
+    message.push_str("https://docs.gitbutler.com/features/branch-management/integration-branch\n");
 
     let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
     let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
