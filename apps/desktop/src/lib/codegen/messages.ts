@@ -22,6 +22,13 @@ export type Message =
 			message: string;
 			toolCalls: ToolCall[];
 			toolCallsPendingApproval: ToolCall[];
+	  }
+	| {
+			type: 'claude';
+			subtype: 'compaction';
+			message: string;
+			toolCalls: ToolCall[];
+			toolCallsPendingApproval: ToolCall[];
 	  };
 
 export type ToolCall = {
@@ -58,7 +65,7 @@ export function formatMessages(
 	let toolCalls: Record<string, ToolCall> = {};
 	let lastAssistantMessage: Message | undefined = undefined;
 
-	for (const event of events) {
+	for (const [_idx, event] of events.entries()) {
 		if (event.content.type === 'userInput') {
 			wrapUpAgentSide();
 			out.push({
@@ -134,7 +141,9 @@ export function formatMessages(
 			if (
 				subject.type === 'claudeExit' ||
 				subject.type === 'userAbort' ||
-				subject.type === 'unhandledException'
+				subject.type === 'unhandledException' ||
+				subject.type === 'compactStart' ||
+				subject.type === 'compactFinished'
 			) {
 				wrapUpAgentSide();
 			}
@@ -171,6 +180,16 @@ export function formatMessages(
 				const message: Message = {
 					type: 'claude',
 					message: `I've stopped! What can I help you with next?`,
+					toolCalls: [],
+					toolCallsPendingApproval: []
+				};
+				out.push(message);
+			}
+			if (subject.type === 'compactFinished') {
+				const message: Message = {
+					type: 'claude',
+					subtype: 'compaction',
+					message: `Context compaction completed: ${subject.subject.summary}`,
 					toolCalls: [],
 					toolCallsPendingApproval: []
 				};
@@ -250,21 +269,24 @@ const pricing = [
 		input: 15,
 		output: 75,
 		writeCache: 18.75,
-		readCache: 1.5
+		readCache: 1.5,
+		context: 200_000
 	},
 	{
 		name: 'claude-sonnet',
 		input: 3,
 		output: 6,
 		writeCache: 3.75,
-		readCache: 0.3
+		readCache: 0.3,
+		context: 200_000
 	},
 	{
 		name: 'claude-haiku',
 		input: 0.8,
 		output: 4,
 		writeCache: 1,
-		readCache: 0.08
+		readCache: 0.08,
+		context: 200_000
 	}
 ] as const;
 
@@ -283,26 +305,46 @@ const webRequestCost = 10;
 export function usageStats(events: ClaudeMessage[]): {
 	tokens: number;
 	cost: number;
+	/** Percentage (0 to 1) of how full the context is */
+	contextUtilization: number;
 } {
 	let tokens = 0;
-	let cost = 0;
-	const usedIds = new Set();
+	let contextUtilization = 0;
+	let lastAssistantMessage;
+
 	for (let i = events.length - 1; i >= 0; i--) {
 		const event = events[i]!;
 		if (event.content.type !== 'claudeOutput') continue;
 		const message = event.content.subject;
 		if (message.type !== 'assistant') continue;
-		const usage = message.message.usage;
+		lastAssistantMessage = message;
+		break;
+	}
 
-		if (usedIds.has(message.message.id)) {
-			continue;
-		}
-		usedIds.add(message.message.id);
+	if (lastAssistantMessage) {
+		const usage = lastAssistantMessage.message.usage;
+		tokens += usage.cache_read_input_tokens ?? 0;
 		tokens += usage.input_tokens;
 		tokens += usage.output_tokens;
+		const modelPricing = findModelPricing(lastAssistantMessage.message.model);
+		if (modelPricing) {
+			contextUtilization = tokens / modelPricing.context;
+		}
+	}
 
+	let cost = 0;
+	const usedIds = new Set();
+
+	for (let i = events.length - 1; i >= 0; i--) {
+		const event = events[i]!;
+		if (event.content.type !== 'claudeOutput') continue;
+		const message = event.content.subject;
+		if (message.type !== 'assistant') continue;
+		if (usedIds.has(message.message.id)) continue;
+		usedIds.add(message.message.id);
 		const modelPricing = findModelPricing(message.message.model);
 		if (!modelPricing) continue;
+		const usage = message.message.usage;
 
 		cost += (usage.input_tokens * modelPricing.input) / 1_000_000;
 		cost += (usage.output_tokens * modelPricing.output) / 1_000_000;
@@ -311,7 +353,7 @@ export function usageStats(events: ClaudeMessage[]): {
 		cost += ((usage.server_tool_use?.web_search_requests || 0) * webRequestCost) / 1_000;
 	}
 
-	return { tokens, cost };
+	return { tokens, cost, contextUtilization };
 }
 
 function findModelPricing(name: string) {
@@ -334,11 +376,20 @@ export function currentStatus(events: ClaudeMessage[], isActive: boolean): Claud
 		// this to conditionally return 'enabled' or 'completed'
 		return 'enabled';
 	}
+
+	if (
+		lastEvent.content.type === 'gitButlerMessage' &&
+		lastEvent.content.subject.type === 'compactStart'
+	) {
+		return 'compacting';
+	}
+
 	if (
 		lastEvent.content.type === 'gitButlerMessage' &&
 		(lastEvent.content.subject.type === 'userAbort' ||
 			lastEvent.content.subject.type === 'claudeExit' ||
-			lastEvent.content.subject.type === 'unhandledException')
+			lastEvent.content.subject.type === 'unhandledException' ||
+			lastEvent.content.subject.type === 'compactFinished')
 	) {
 		// Once we have the TODOs, if all the TODOs are completed, we can change
 		// this to conditionally return 'enabled' or 'completed'
@@ -358,11 +409,15 @@ function normalizeDate(date: Date): Date {
 /**
  * Thinking duration in ms
  */
-export function lastUserMessageSentAt(events: ClaudeMessage[]): Date | undefined {
+export function thinkingOrCompactingStartedAt(events: ClaudeMessage[]): Date | undefined {
 	let event: ClaudeMessage | undefined;
 	for (let i = events.length - 1; i >= 0; --i) {
-		if (events[i]!.content.type === 'userInput') {
-			event = events[i]!;
+		const e = events[i]!;
+		if (
+			e.content.type === 'userInput' ||
+			(e.content.type === 'gitButlerMessage' && e.content.subject.type === 'compactStart')
+		) {
+			event = e;
 			break;
 		}
 	}

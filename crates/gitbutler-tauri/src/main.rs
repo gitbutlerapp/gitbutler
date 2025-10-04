@@ -351,6 +351,7 @@ fn main() {
                     claude::claude_get_messages,
                     claude::claude_cancel_session,
                     claude::claude_is_stack_active,
+                    claude::claude_compact_history,
                     but_api::claude::claude_get_session_details,
                     but_api::claude::claude_list_permission_requests,
                     but_api::claude::claude_update_permission_request,

@@ -136,6 +136,16 @@ export type GitButlerMessage =
 			subject: {
 				message: string;
 			};
+	  }
+	| {
+			type: 'compactStart';
+			subject: undefined;
+	  }
+	| {
+			type: 'compactFinished';
+			subject: {
+				summary: string;
+			};
 	  };
 
 /**
@@ -152,7 +162,7 @@ export function sessionMessage(sessionDetails: ClaudeSessionDetails): string | u
 	return sessionDetails.summary ?? sessionDetails.lastPrompt ?? undefined;
 }
 
-export type ClaudeStatus = 'disabled' | 'enabled' | 'running' | 'completed';
+export type ClaudeStatus = 'disabled' | 'enabled' | 'running' | 'completed' | 'compacting';
 
 export type ClaudePermissionRequest = {
 	/** Maps to the tool_use_id from the MCP request */
