@@ -137,6 +137,10 @@ export class ProjectsService {
 	unsetLastOpenedProject() {
 		this.persistedId.set(undefined);
 	}
+
+	async initGitRepository(path: string): Promise<void> {
+		return await this.backend.invoke('init_git_repository', { path });
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {

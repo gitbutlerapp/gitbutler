@@ -6,6 +6,7 @@
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import cloneRepoSvg from '$lib/assets/welcome/clone-repo.svg?raw';
 	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
+	import { showToast } from '$lib/notifications/toasts';
 	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
@@ -17,21 +18,31 @@
 	let newProjectLoading = $state(false);
 	let directoryInputElement = $state<HTMLInputElement | undefined>();
 
-	async function onNewProject() {
-		newProjectLoading = true;
+	async function addProject(path: string) {
 		try {
-			const testDirectoryPath = directoryInputElement?.value;
-			const outcome = await projectsService.addProject(testDirectoryPath ?? '');
-
+			const outcome = await projectsService.addProject(path);
 			posthog.captureOnboarding(OnboardingEvent.AddLocalProject);
+
 			if (outcome) {
-				handleAddProjectOutcome(outcome);
+				handleAddProjectOutcome(outcome, async (path: string) => {
+					await projectsService.initGitRepository(path);
+					showToast({
+						title: 'Repository Initialized',
+						message: `Git repository has been successfully initialized at ${path}. Loading project...`,
+						style: 'info'
+					});
+					await addProject(path);
+				});
 			}
 		} catch (e: unknown) {
 			posthog.captureOnboarding(OnboardingEvent.AddLocalProjectFailed, e);
-		} finally {
-			newProjectLoading = false;
 		}
+	}
+
+	async function onNewProject() {
+		newProjectLoading = true;
+		await addProject(directoryInputElement?.value ?? '');
+		newProjectLoading = false;
 	}
 
 	async function onCloneProject() {
