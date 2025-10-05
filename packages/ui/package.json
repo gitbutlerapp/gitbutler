@@ -17,12 +17,9 @@
 		"dev:package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css --watch",
 		"package": "pnpm run --sequential \"/^package:.*/\"",
 		"package:svelte": "svelte-kit sync && svelte-package",
-		"package:styles": "pnpm run sync:tokens && pnpm run sync:fonts && postcss ./src/styles/main.css -o ./dist/styles/main.css && npm run package:fonts",
-		"package:fonts": "cp -r ./src/styles/fonts ./dist/styles/",
-		"sync:tokens": "cp node_modules/@gitbutler/design-core/tokens/tokens.css src/styles/tokens.css",
-		"sync:fonts": "cp node_modules/@gitbutler/design-core/fonts/fonts.css src/styles/fonts/fonts.css && cp -r node_modules/@gitbutler/design-core/fonts/but-head src/styles/fonts/ 2>/dev/null || true",
+		"package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css",
 		"prepublishOnly": "pnpm run package",
-		"prepare": "svelte-kit sync && pnpm run sync:tokens && pnpm run sync:fonts",
+		"prepare": "svelte-kit sync",
 		"storybook": "storybook dev --no-open -p 6006",
 		"storybook:build": "storybook build",
 		"test": "vitest run --mode development",
@@ -79,7 +76,8 @@
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"vite": "catalog:",
-		"vitest": "catalog:"
+		"vitest": "catalog:",
+		"@gitbutler/design-core": "github:gitbutlerapp/design-core#semver:^1.0.0"
 	},
 	"peerDependencies": {
 		"svelte": "^4.0.0 || ^5.0.0-0"
@@ -120,7 +118,6 @@
 		"@giphy/js-types": "^5.1.0",
 		"@giphy/svelte-components": "^1.1.0",
 		"@gitbutler/core": "workspace:*",
-		"@gitbutler/design-core": "github:gitbutlerapp/design-core#1.0.2",
 		"@lexical/link": "0.27.1",
 		"@lexical/list": "0.27.1",
 		"@lexical/markdown": "0.27.1",
