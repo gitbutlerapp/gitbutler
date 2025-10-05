@@ -181,7 +181,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@gitbutler/design-core':
-        specifier: github:gitbutlerapp/design-core#semver:^1.0.0
+        specifier: https://github.com/gitbutlerapp/design-core.git#semver:^1.0.0
         version: git+https://git@github.com:gitbutlerapp/design-core.git#41c276738724910b5504603ef21da9fdde67504c
       '@gitbutler/shared':
         specifier: workspace:*
@@ -389,7 +389,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@gitbutler/design-core':
-        specifier: github:gitbutlerapp/design-core#semver:^1.0.0
+        specifier: https://github.com/gitbutlerapp/design-core.git#semver:^1.0.0
         version: git+https://git@github.com:gitbutlerapp/design-core.git#41c276738724910b5504603ef21da9fdde67504c
       '@gitbutler/shared':
         specifier: workspace:*
@@ -774,7 +774,7 @@ importers:
         specifier: ^2.0.8
         version: 2.0.8(postcss@8.5.6)
       '@gitbutler/design-core':
-        specifier: github:gitbutlerapp/design-core#semver:^1.0.0
+        specifier: https://github.com/gitbutlerapp/design-core.git#semver:^1.0.0
         version: git+https://git@github.com:gitbutlerapp/design-core.git#41c276738724910b5504603ef21da9fdde67504c
       '@lezer/common':
         specifier: ^1.2.3
