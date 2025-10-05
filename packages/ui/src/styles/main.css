@@ -1,4 +1,5 @@
 /* BASE */
+@import './tokens.css';
 @import './core/reset.css';
 @import './core/general.css';
 @import './core/variables.css';

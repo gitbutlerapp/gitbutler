@@ -679,9 +679,12 @@ importers:
       '@giphy/svelte-components':
         specifier: ^1.1.0
         version: 1.1.0(svelte@5.38.0)
+      '@gitbutler/core':
+        specifier: workspace:*
+        version: link:../core
       '@gitbutler/design-core':
-        specifier: github:gitbutlerapp/design-core#1.0.0
-        version: git+https://git@github.com:gitbutlerapp/design-core.git#e5b44c238839f7640ee68a917407951c7074825e
+        specifier: github:gitbutlerapp/design-core#1.0.2
+        version: git+https://git@github.com:gitbutlerapp/design-core.git#41c276738724910b5504603ef21da9fdde67504c
       '@lexical/link':
         specifier: 0.27.1
         version: 0.27.1
@@ -767,9 +770,6 @@ importers:
       '@csstools/postcss-bundler':
         specifier: ^2.0.8
         version: 2.0.8(postcss@8.5.6)
-      '@gitbutler/core':
-        specifier: workspace:*
-        version: link:../core
       '@lezer/common':
         specifier: ^1.2.3
         version: 1.2.3
@@ -1640,9 +1640,9 @@ packages:
     resolution: {integrity: sha512-oC5cM6jS7aFOp0luTw5mWSRuMgdxwHRLZQ/aWkI+ETMfsprR/HyxsXfljlMY/XJ/fRxTbRJiodR5Axf66WjO3w==}
     engines: {node: '>=18.20.0'}
 
-  '@gitbutler/design-core@git+https://git@github.com:gitbutlerapp/design-core.git#e5b44c238839f7640ee68a917407951c7074825e':
-    resolution: {commit: e5b44c238839f7640ee68a917407951c7074825e, repo: git@github.com:gitbutlerapp/design-core.git, type: git}
-    version: 1.0.0
+  '@gitbutler/design-core@git+https://git@github.com:gitbutlerapp/design-core.git#41c276738724910b5504603ef21da9fdde67504c':
+    resolution: {commit: 41c276738724910b5504603ef21da9fdde67504c, repo: git@github.com:gitbutlerapp/design-core.git, type: git}
+    version: 1.0.2
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -5847,10 +5847,6 @@ packages:
     resolution: {integrity: sha512-BhXM0Au22RwUneMPwSCnyhTOizdWoIEPU9sp0Aqa1PnDMR5Wv2FGXYDjuzJEIX+Eo2Rb8xuYe5jrnm5QowQFkw==}
     engines: {node: '>=16.10'}
 
-  merge-anything@5.1.7:
-    resolution: {integrity: sha512-eRtbOb1N5iyH0tkQDAoQ4Ipsp/5qSR79Dzrz8hEPxRX10RWWR/iQXdoKmBSRCThY1Fh5EhISDtpSc93fpxUniQ==}
-    engines: {node: '>=12.13'}
-
   merge-stream@2.0.0:
     resolution: {integrity: sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==}
 
@@ -8918,7 +8914,7 @@ snapshots:
       '@gitbeaker/core': 42.5.0
       '@gitbeaker/requester-utils': 42.5.0
 
-  '@gitbutler/design-core@git+https://git@github.com:gitbutlerapp/design-core.git#e5b44c238839f7640ee68a917407951c7074825e': {}
+  '@gitbutler/design-core@git+https://git@github.com:gitbutlerapp/design-core.git#41c276738724910b5504603ef21da9fdde67504c': {}
 
   '@humanfs/core@0.19.1': {}
 
