@@ -330,10 +330,7 @@
 	.actions-icon__monitor {
 		transform-box: fill-box;
 		transform-origin: center;
-		transition:
-			fill 0.2s,
-			stroke 0.2s,
-			transform 0.3s;
+		transition: transform 0.3s;
 	}
 
 	.actions-icon__star {
