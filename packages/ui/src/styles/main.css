@@ -1,7 +1,6 @@
 /* BASE */
 @import './core/reset.css';
 @import './core/general.css';
-@import './core/design-tokens.css';
 @import './core/variables.css';
 @import './fonts/fonts.css';
 
