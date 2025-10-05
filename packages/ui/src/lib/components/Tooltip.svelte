@@ -144,8 +144,10 @@
 		border: 1px solid var(--clr-tooltip-border);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-tooltip-bg);
-		box-shadow: var(--fx-shadow-s);
-		color: var(--clr-core-ntrl-80);
+		box-shadow:
+			0px 1px 2px rgba(0, 0, 0, 0.15),
+			0px 4px 14px rgba(0, 0, 0, 0.07);
+		color: var(--clr-text-1);
 		text-align: left;
 		white-space: pre-line;
 		word-break: break-word;
