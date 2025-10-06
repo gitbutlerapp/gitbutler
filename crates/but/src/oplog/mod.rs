@@ -117,6 +117,7 @@ pub(crate) fn restore_to_oplog(
     project: &Project,
     _json: bool,
     oplog_sha: &str,
+    force: bool,
 ) -> anyhow::Result<()> {
     let snapshots = but_api::undo::list_snapshots(project.id, 1000, None, None)?;
 
@@ -160,23 +161,25 @@ pub(crate) fn restore_to_oplog(
     println!("  Snapshot: {}", commit_sha_string[..7].cyan().underline());
 
     // Confirm the restoration (safety check)
-    println!(
-        "\n{}",
-        "⚠️  This will overwrite your current workspace state."
-            .yellow()
-            .bold()
-    );
-    print!("Continue with restore? [y/N]: ");
-    use std::io::{self, Write};
-    io::stdout().flush()?;
+    if !force {
+        println!(
+            "\n{}",
+            "⚠️  This will overwrite your current workspace state."
+                .yellow()
+                .bold()
+        );
+        print!("Continue with restore? [y/N]: ");
+        use std::io::{self, Write};
+        io::stdout().flush()?;
 
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
 
-    let input = input.trim().to_lowercase();
-    if input != "y" && input != "yes" {
-        println!("{}", "Restore cancelled.".yellow());
-        return Ok(());
+        let input = input.trim().to_lowercase();
+        if input != "y" && input != "yes" {
+            println!("{}", "Restore cancelled.".yellow());
+            return Ok(());
+        }
     }
 
     // Restore to the target snapshot using the but-api crate

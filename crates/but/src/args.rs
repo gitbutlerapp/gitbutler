@@ -110,6 +110,9 @@ For examples see `but rub --help`."
     Restore {
         /// Oplog SHA to restore to
         oplog_sha: String,
+        /// Skip confirmation prompt
+        #[clap(short = 'f', long = "force")]
+        force: bool,
     },
     /// Undo the last operation by reverting to the previous snapshot.
     Undo,
