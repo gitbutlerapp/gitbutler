@@ -1676,7 +1676,7 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fde0e0ec90c9dfb3b4b1a0891a7dcd0e2bffde2f7efed5fe7c9bb00e5bfb915e"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -3075,7 +3075,7 @@ version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc257fdb4038301ce4b9cd1b3b51704509692bb3ff716a410cbd07925d9dae55"
 dependencies = [
- "rustix 1.0.8",
+ "rustix 1.1.2",
  "windows-targets 0.52.6",
 ]
 
@@ -3887,7 +3887,7 @@ dependencies = [
 [[package]]
 name = "gix"
 version = "0.73.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "gix-actor 0.35.4",
  "gix-attributes 0.27.0",
@@ -3958,7 +3958,7 @@ dependencies = [
 [[package]]
 name = "gix-actor"
 version = "0.35.4"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-date 0.10.5",
@@ -3989,7 +3989,7 @@ dependencies = [
 [[package]]
 name = "gix-attributes"
 version = "0.27.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-glob 0.21.0",
@@ -4015,7 +4015,7 @@ dependencies = [
 [[package]]
 name = "gix-bitmap"
 version = "0.2.14"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "thiserror 2.0.17",
 ]
@@ -4032,7 +4032,7 @@ dependencies = [
 [[package]]
 name = "gix-chunk"
 version = "0.4.11"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "thiserror 2.0.17",
 ]
@@ -4040,7 +4040,7 @@ dependencies = [
 [[package]]
 name = "gix-command"
 version = "0.6.2"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-path 0.10.20",
@@ -4065,7 +4065,7 @@ dependencies = [
 [[package]]
 name = "gix-commitgraph"
 version = "0.29.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-chunk 0.4.11 (git+https://github.com/GitoxideLabs/gitoxide?branch=main)",
@@ -4078,7 +4078,7 @@ dependencies = [
 [[package]]
 name = "gix-config"
 version = "0.46.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-config-value",
@@ -4098,7 +4098,7 @@ dependencies = [
 [[package]]
 name = "gix-config-value"
 version = "0.15.1"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bitflags 2.9.4",
  "bstr",
@@ -4110,7 +4110,7 @@ dependencies = [
 [[package]]
 name = "gix-credentials"
 version = "0.30.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-command",
@@ -4141,7 +4141,7 @@ dependencies = [
 [[package]]
 name = "gix-date"
 version = "0.10.5"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "itoa",
@@ -4154,7 +4154,7 @@ dependencies = [
 [[package]]
 name = "gix-diff"
 version = "0.53.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-attributes 0.27.0",
@@ -4177,7 +4177,7 @@ dependencies = [
 [[package]]
 name = "gix-dir"
 version = "0.15.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-discover 0.41.0",
@@ -4212,7 +4212,7 @@ dependencies = [
 [[package]]
 name = "gix-discover"
 version = "0.41.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "dunce",
@@ -4241,7 +4241,7 @@ dependencies = [
 [[package]]
 name = "gix-features"
 version = "0.43.1"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bytes",
  "crc32fast",
@@ -4261,7 +4261,7 @@ dependencies = [
 [[package]]
 name = "gix-filter"
 version = "0.20.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "encoding_rs",
@@ -4295,7 +4295,7 @@ dependencies = [
 [[package]]
 name = "gix-fs"
 version = "0.16.1"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "fastrand",
@@ -4320,7 +4320,7 @@ dependencies = [
 [[package]]
 name = "gix-glob"
 version = "0.21.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bitflags 2.9.4",
  "bstr",
@@ -4344,7 +4344,7 @@ dependencies = [
 [[package]]
 name = "gix-hash"
 version = "0.19.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "faster-hex",
  "gix-features 0.43.1",
@@ -4367,7 +4367,7 @@ dependencies = [
 [[package]]
 name = "gix-hashtable"
 version = "0.9.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "gix-hash 0.19.0",
  "hashbrown 0.16.0",
@@ -4390,7 +4390,7 @@ dependencies = [
 [[package]]
 name = "gix-ignore"
 version = "0.16.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-glob 0.21.0",
@@ -4423,7 +4423,7 @@ dependencies = [
  "itoa",
  "libc",
  "memmap2",
- "rustix 1.0.8",
+ "rustix 1.1.2",
  "smallvec",
  "thiserror 2.0.17",
 ]
@@ -4431,7 +4431,7 @@ dependencies = [
 [[package]]
 name = "gix-index"
 version = "0.41.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bitflags 2.9.4",
  "bstr",
@@ -4450,7 +4450,7 @@ dependencies = [
  "itoa",
  "libc",
  "memmap2",
- "rustix 1.0.8",
+ "rustix 1.1.2",
  "serde",
  "smallvec",
  "thiserror 2.0.17",
@@ -4470,7 +4470,7 @@ dependencies = [
 [[package]]
 name = "gix-lock"
 version = "18.0.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "gix-tempfile 18.0.0",
  "gix-utils 0.3.0 (git+https://github.com/GitoxideLabs/gitoxide?branch=main)",
@@ -4480,7 +4480,7 @@ dependencies = [
 [[package]]
 name = "gix-mailmap"
 version = "0.27.2"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-actor 0.35.4",
@@ -4492,7 +4492,7 @@ dependencies = [
 [[package]]
 name = "gix-merge"
 version = "0.6.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-command",
@@ -4516,7 +4516,7 @@ dependencies = [
 [[package]]
 name = "gix-negotiate"
 version = "0.21.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bitflags 2.9.4",
  "gix-commitgraph 0.29.0",
@@ -4552,7 +4552,7 @@ dependencies = [
 [[package]]
 name = "gix-object"
 version = "0.50.2"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-actor 0.35.4",
@@ -4573,7 +4573,7 @@ dependencies = [
 [[package]]
 name = "gix-odb"
 version = "0.70.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "arc-swap",
  "gix-date 0.10.5",
@@ -4594,7 +4594,7 @@ dependencies = [
 [[package]]
 name = "gix-pack"
 version = "0.60.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "clru",
  "gix-chunk 0.4.11 (git+https://github.com/GitoxideLabs/gitoxide?branch=main)",
@@ -4615,7 +4615,7 @@ dependencies = [
 [[package]]
 name = "gix-packetline"
 version = "0.19.1"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "faster-hex",
@@ -4626,7 +4626,7 @@ dependencies = [
 [[package]]
 name = "gix-packetline-blocking"
 version = "0.19.1"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "faster-hex",
@@ -4651,7 +4651,7 @@ dependencies = [
 [[package]]
 name = "gix-path"
 version = "0.10.20"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-trace 0.1.13 (git+https://github.com/GitoxideLabs/gitoxide?branch=main)",
@@ -4664,7 +4664,7 @@ dependencies = [
 [[package]]
 name = "gix-pathspec"
 version = "0.12.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bitflags 2.9.4",
  "bstr",
@@ -4678,19 +4678,19 @@ dependencies = [
 [[package]]
 name = "gix-prompt"
 version = "0.11.1"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "gix-command",
  "gix-config-value",
  "parking_lot",
- "rustix 1.0.8",
+ "rustix 1.1.2",
  "thiserror 2.0.17",
 ]
 
 [[package]]
 name = "gix-protocol"
 version = "0.51.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-credentials",
@@ -4727,7 +4727,7 @@ dependencies = [
 [[package]]
 name = "gix-quote"
 version = "0.6.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-utils 0.3.0 (git+https://github.com/GitoxideLabs/gitoxide?branch=main)",
@@ -4758,7 +4758,7 @@ dependencies = [
 [[package]]
 name = "gix-ref"
 version = "0.53.1"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "gix-actor 0.35.4",
  "gix-features 0.43.1",
@@ -4779,7 +4779,7 @@ dependencies = [
 [[package]]
 name = "gix-refspec"
 version = "0.31.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-hash 0.19.0",
@@ -4792,7 +4792,7 @@ dependencies = [
 [[package]]
 name = "gix-revision"
 version = "0.35.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bitflags 2.9.4",
  "bstr",
@@ -4825,7 +4825,7 @@ dependencies = [
 [[package]]
 name = "gix-revwalk"
 version = "0.21.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "gix-commitgraph 0.29.0",
  "gix-date 0.10.5",
@@ -4851,19 +4851,19 @@ dependencies = [
 [[package]]
 name = "gix-sec"
 version = "0.12.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bitflags 2.9.4",
  "gix-path 0.10.20",
  "libc",
  "serde",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.1",
 ]
 
 [[package]]
 name = "gix-shallow"
 version = "0.5.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-hash 0.19.0",
@@ -4875,7 +4875,7 @@ dependencies = [
 [[package]]
 name = "gix-status"
 version = "0.20.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "filetime",
@@ -4897,7 +4897,7 @@ dependencies = [
 [[package]]
 name = "gix-submodule"
 version = "0.20.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-config",
@@ -4926,7 +4926,7 @@ dependencies = [
 [[package]]
 name = "gix-tempfile"
 version = "18.0.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "dashmap",
  "gix-fs 0.16.1",
@@ -4969,7 +4969,7 @@ checksum = "e2ccaf54b0b1743a695b482ca0ab9d7603744d8d10b2e5d1a332fef337bee658"
 [[package]]
 name = "gix-trace"
 version = "0.1.13"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "tracing-core",
 ]
@@ -4977,7 +4977,7 @@ dependencies = [
 [[package]]
 name = "gix-transport"
 version = "0.48.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "base64 0.22.1",
  "bstr",
@@ -5013,7 +5013,7 @@ dependencies = [
 [[package]]
 name = "gix-traverse"
 version = "0.47.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bitflags 2.9.4",
  "gix-commitgraph 0.29.0",
@@ -5029,7 +5029,7 @@ dependencies = [
 [[package]]
 name = "gix-url"
 version = "0.32.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-features 0.43.1",
@@ -5053,7 +5053,7 @@ dependencies = [
 [[package]]
 name = "gix-utils"
 version = "0.3.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "fastrand",
@@ -5073,7 +5073,7 @@ dependencies = [
 [[package]]
 name = "gix-validate"
 version = "0.10.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "thiserror 2.0.17",
@@ -5101,7 +5101,7 @@ dependencies = [
 [[package]]
 name = "gix-worktree"
 version = "0.42.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-attributes 0.27.0",
@@ -5120,7 +5120,7 @@ dependencies = [
 [[package]]
 name = "gix-worktree-state"
 version = "0.20.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#0a576b968e61e9a675ae630bae3f6c0fd9422ac3"
+source = "git+https://github.com/GitoxideLabs/gitoxide?branch=main#c295db098db9576e12318e7c73864cf270297b1d"
 dependencies = [
  "bstr",
  "gix-features 0.43.1",
@@ -6201,9 +6201,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.174"
+version = "0.2.176"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
+checksum = "58f929b4d672ea937a23a1ab494143d968337a5f47e56d0815df1e0890ddf174"
 
 [[package]]
 name = "libdbus-sys"
@@ -6313,9 +6313,9 @@ checksum = "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab"
 
 [[package]]
 name = "linux-raw-sys"
-version = "0.9.4"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd945864f07fe9f5371a27ad7b52a172b4b499999f1d97574c9fa68373937e12"
+checksum = "df1d3c3b53da64cf5760482273a98e575c651a67eec7f77df96b5b642de8f039"
 
 [[package]]
 name = "litemap"
@@ -8495,14 +8495,14 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.0.8"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11181fbabf243db407ef8df94a6ce0b2f9a733bd8be4ad02b4eda9602296cac8"
+checksum = "cd15f8a2c5551a84d56efdc1cd049089e409ac19a3072d5037a17fd70719ff3e"
 dependencies = [
  "bitflags 2.9.4",
  "errno",
  "libc",
- "linux-raw-sys 0.9.4",
+ "linux-raw-sys 0.11.0",
  "windows-sys 0.60.2",
 ]
 
@@ -10068,7 +10068,7 @@ dependencies = [
  "fastrand",
  "getrandom 0.3.3",
  "once_cell",
- "rustix 1.0.8",
+ "rustix 1.1.2",
  "windows-sys 0.60.2",
 ]
 
@@ -11245,7 +11245,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -11514,6 +11514,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2f500e4d28234f72040990ec9d39e3a6b950f9f22d3dba18416c35882612bcb"
 dependencies = [
  "windows-targets 0.53.2",
+]
+
+[[package]]
+name = "windows-sys"
+version = "0.61.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f109e41dd4a3c848907eb83d5a42ea98b3769495597450cf6d153507b166f0f"
+dependencies = [
+ "windows-link 0.2.0",
 ]
 
 [[package]]
@@ -11956,7 +11965,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d65cbf2f12c15564212d48f4e3dfb87923d25d611f2aed18f4cb23f0413d89e"
 dependencies = [
  "libc",
- "rustix 1.0.8",
+ "rustix 1.1.2",
 ]
 
 [[package]]
