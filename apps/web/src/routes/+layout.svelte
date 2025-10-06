@@ -16,6 +16,8 @@
 	import { WebRoutesService, WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { type Snippet } from 'svelte';
 	import { get } from 'svelte/store';
+	import '@gitbutler/design-core/tokens';
+	import '@gitbutler/design-core/fonts';
 	import '$lib/styles/global.css';
 
 	interface Props {
