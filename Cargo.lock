@@ -2666,7 +2666,7 @@ dependencies = [
 [[package]]
 name = "file-id"
 version = "0.2.3"
-source = "git+https://github.com/Byron/notify#1ef23915e81b9bd780c6cf76c9a649d11bf60d57"
+source = "git+https://github.com/notify-rs/notify?rev=978fe719b066a8ce76b9a9d346546b1569eecfb6#978fe719b066a8ce76b9a9d346546b1569eecfb6"
 dependencies = [
  "windows-sys 0.60.2",
 ]
