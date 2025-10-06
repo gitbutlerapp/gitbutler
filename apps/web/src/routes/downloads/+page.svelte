@@ -49,12 +49,6 @@
 			</div>
 		</div>
 
-		{#if latestRelease.notes}
-			<div class="release-notes-content">
-				{@html marked(latestRelease.notes)}
-			</div>
-		{/if}
-
 		<div class="download-links__wrapper">
 			<h3 class="download-links__title">
 				DOWNLOAD <i>the</i> app
@@ -140,6 +134,12 @@
 			</div>
 		</div>
 
+		{#if latestRelease.notes}
+			<div class="release-notes-content">
+				{@html marked(latestRelease.notes)}
+			</div>
+		{/if}
+
 		<div class="nightly-info">
 			<p class="text-14 text-body clr-text-2">
 				Experience GitButler’s newest features before anyone else. ⋆˚₊
@@ -147,14 +147,20 @@
 				☽˚.⋆
 			</p>
 		</div>
+
+		<div class="latest-release-background__noisy noisy-1"></div>
+		<div class="latest-release-background__noisy noisy-2"></div>
 	</div>
 </section>
 
 <section class="releases">
-	{#each data.releases as release (release.version)}
+	{#each data.releases.filter((release) => release.version !== latestRelease.version) as release (release.version)}
 		<ReleaseCard
 			{release}
-			showSeparator={release !== data.releases[data.releases.length - 1]}
+			showSeparator={release !==
+				data.releases.filter((r) => r.version !== latestRelease.version)[
+					data.releases.filter((r) => r.version !== latestRelease.version).length - 1
+				]}
 			showDownloadLinks
 		/>
 	{/each}
@@ -172,17 +178,20 @@
 
 	.latest-release {
 		display: flex;
+		position: relative;
 		grid-column: narrow-start / narrow-end;
 		flex-direction: column;
 		padding: 28px;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-xl);
+		background: var(--clr-bg-1);
 	}
 
 	.latest-release__header {
 		display: flex;
 		align-items: center;
-		margin-bottom: 16px;
+		margin-bottom: 28px;
 		gap: 20px;
 	}
 
@@ -221,6 +230,7 @@
 		display: flex;
 		position: relative;
 		flex-direction: column;
+		margin-bottom: 24px;
 		padding: 30px 0 40px;
 
 		&::after,
@@ -301,7 +311,51 @@
 	}
 
 	.nightly-info {
+		position: relative;
 		padding: 24px 0 0;
+
+		&::after {
+			z-index: 0;
+			position: absolute;
+			top: 0;
+			right: 0;
+			left: 0;
+			height: 1px;
+			background: repeating-linear-gradient(
+				to right,
+				var(--clr-text-2),
+				var(--clr-text-2) 2px,
+				transparent 2px,
+				transparent 6px
+			);
+			content: '';
+			pointer-events: none;
+		}
+	}
+
+	.latest-release-background__noisy {
+		position: absolute;
+		width: 500px;
+		height: 240px;
+		transform: scale(3) rotate(25deg);
+		border-radius: 50%;
+		background:
+			radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0)),
+			url("data:image/svg+xml,%3Csvg viewBox='0 0 600 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+		mix-blend-mode: multiply;
+		filter: contrast(145%) brightness(1100%);
+		opacity: 0.05;
+		pointer-events: none;
+
+		&.noisy-1 {
+			bottom: -10%;
+			left: -20%;
+		}
+
+		&.noisy-2 {
+			top: -10%;
+			right: -20%;
+		}
 	}
 
 	.releases {
