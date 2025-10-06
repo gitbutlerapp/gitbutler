@@ -154,6 +154,8 @@ pub enum Subcommands {
         /// A resolvable reference name.
         ref_name: String,
     },
+    /// List all available branches for which details can be obtained.
+    BranchList,
     /// Returns everything we know about the given ref, or `HEAD`.
     RefInfo {
         /// Perform all possible computations.
