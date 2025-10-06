@@ -424,7 +424,6 @@
 		border: none;
 		background: none;
 		text-align: left;
-		cursor: pointer;
 		transition: background-color 0.1s ease;
 
 		&:hover {

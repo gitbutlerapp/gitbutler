@@ -177,7 +177,6 @@
 		font-family: var(--fontfamily-mono);
 
 		text-underline-offset: 3px;
-		cursor: pointer;
 		transition: color 0.1s ease;
 
 		span:first-child {

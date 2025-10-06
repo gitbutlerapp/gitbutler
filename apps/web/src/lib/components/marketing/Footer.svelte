@@ -262,7 +262,6 @@
 		color: inherit;
 		text-decoration: underline;
 		text-underline-offset: 3px;
-		cursor: pointer;
 
 		&:hover {
 			color: var(--clr-text-1);

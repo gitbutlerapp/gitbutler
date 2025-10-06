@@ -74,7 +74,6 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		color: var(--clr-scale-ntrl-0);
-		cursor: pointer;
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);

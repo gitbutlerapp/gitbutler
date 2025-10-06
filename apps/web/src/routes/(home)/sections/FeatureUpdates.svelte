@@ -320,7 +320,6 @@
 		position: relative;
 		width: 100%;
 		height: 100%;
-		cursor: pointer;
 		transition: transform 0.2s ease;
 	}
 

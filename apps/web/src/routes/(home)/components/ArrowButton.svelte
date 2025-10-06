@@ -50,7 +50,6 @@
 		gap: 10px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: 60px;
-		cursor: pointer;
 		transition: padding 0.15s ease;
 
 		&:disabled {

@@ -175,7 +175,6 @@
 
 	.blog-post {
 		text-decoration: none;
-		cursor: pointer;
 		transition:
 			transform 0.1s ease-in-out,
 			background-color 0.1s ease-in-out;
