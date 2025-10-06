@@ -77,7 +77,7 @@
 		"svelte-check": "catalog:svelte",
 		"vite": "catalog:",
 		"vitest": "catalog:",
-		"@gitbutler/design-core": "https://github.com/gitbutlerapp/design-core.git#semver:^1.0.0"
+		"@gitbutler/design-core": "^1.0.3"
 	},
 	"peerDependencies": {
 		"svelte": "^4.0.0 || ^5.0.0-0"
