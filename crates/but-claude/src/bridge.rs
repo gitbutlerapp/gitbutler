@@ -20,20 +20,20 @@
 //!   more complex with more unknowns.
 
 use crate::{
-    ClaudeMessage, ClaudeMessageContent, ClaudeUserParams, PermissionMode, ThinkingLevel,
-    Transcript, UserInput,
+    ClaudeMessage, ClaudeMessageContent, ClaudeUserParams, GitButlerMessage, PermissionMode,
+    ThinkingLevel, Transcript, UserInput,
     claude_config::fmt_claude_settings,
     claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
     claude_settings::ClaudeSettings,
-    db,
+    db::{self, list_messages_by_session},
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
+    send_claude_message,
 };
 use anyhow::{Result, bail};
-use but_broadcaster::{Broadcaster, FrontendEvent};
+use but_broadcaster::Broadcaster;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::{
     collections::HashMap,
     io::{BufRead, BufReader, PipeReader, Read as _},
@@ -53,11 +53,11 @@ use tokio::{
 /// assumes one CC per stack at any given time.
 pub struct Claudes {
     /// A set that contains all the currently running requests
-    requests: Mutex<HashMap<StackId, Arc<Claude>>>,
+    pub(crate) requests: Mutex<HashMap<StackId, Arc<Claude>>>,
 }
 
 pub struct Claude {
-    kill: UnboundedSender<()>,
+    pub(crate) kill: UnboundedSender<()>,
 }
 
 impl Claudes {
@@ -81,6 +81,23 @@ impl Claudes {
         } else {
             self.spawn_claude(ctx, broadcaster, stack_id, user_params)
                 .await
+        };
+
+        Ok(())
+    }
+
+    pub async fn compact_history(
+        &self,
+        ctx: Arc<Mutex<CommandContext>>,
+        broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
+        stack_id: StackId,
+    ) -> Result<()> {
+        if self.requests.lock().await.contains_key(&stack_id) {
+            bail!(
+                "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
+            )
+        } else {
+            self.compact(ctx, broadcaster, stack_id).await
         };
 
         Ok(())
@@ -189,6 +206,21 @@ impl Claudes {
         let broadcaster = broadcaster.clone();
 
         let session = upsert_session(ctx.clone(), session_id, stack_id).await?;
+        let summary_to_resume = {
+            let mut ctx = ctx.lock().await;
+            let messages = list_messages_by_session(&mut ctx, session.id)?;
+
+            if let Some(ClaudeMessage { content, .. }) = messages.last() {
+                match content {
+                    ClaudeMessageContent::GitButlerMessage(GitButlerMessage::CompactFinished {
+                        summary,
+                    }) => Some(summary.clone()),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        };
         {
             let mut ctx = ctx.lock().await;
             send_claude_message(
@@ -221,6 +253,7 @@ impl Claudes {
             project.path.clone(),
             ctx.clone(),
             user_params,
+            summary_to_resume,
         )
         .await?;
         let cmd_exit = tokio::select! {
@@ -234,7 +267,7 @@ impl Claudes {
 
         handle_exit(
             ctx.clone(),
-            broadcaster,
+            broadcaster.clone(),
             stack_id,
             session_id,
             read_stderr,
@@ -244,9 +277,11 @@ impl Claudes {
         .await?;
 
         // Send completion notification
-        let app_settings = ctx.lock().await.app_settings().clone();
-        if let Err(e) = crate::notifications::notify_completion(&app_settings) {
-            tracing::warn!("Failed to send completion notification: {}", e);
+        {
+            let app_settings = ctx.lock().await.app_settings().clone();
+            if let Err(e) = crate::notifications::notify_completion(&app_settings) {
+                tracing::warn!("Failed to send completion notification: {}", e);
+            }
         }
 
         Ok(())
@@ -324,6 +359,7 @@ async fn spawn_command(
     project_path: std::path::PathBuf,
     ctx: Arc<Mutex<CommandContext>>,
     user_params: ClaudeUserParams,
+    summary_to_resume: Option<String>,
 ) -> Result<Child> {
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
@@ -400,7 +436,10 @@ async fn spawn_command(
 
     let current_id = Transcript::current_valid_session_id(&project_path, &session).await?;
 
-    if let Some(current_id) = current_id {
+    // If we are resuming after a compaction, we always want to create a new session with a random ID.
+    if summary_to_resume.is_some() {
+        command.args(["--session-id", &format!("{}", uuid::Uuid::new_v4())]);
+    } else if let Some(current_id) = current_id {
         command.args(["--resume", &format!("{current_id}")]);
     } else {
         // Ensure that there isn't an existant invalid transcript
@@ -420,10 +459,20 @@ async fn spawn_command(
 
     command.arg("-p");
 
-    command.arg(format_message(
-        &user_params.message,
-        user_params.thinking_level,
-    ));
+    if let Some(summary_to_resume) = summary_to_resume {
+        command.arg(format_message_with_summary(
+            &summary_to_resume,
+            &user_params.message,
+            user_params.thinking_level,
+        ));
+    } else if user_params.message.starts_with("/") {
+        command.arg(&user_params.message);
+    } else {
+        command.arg(format_message(
+            &user_params.message,
+            user_params.thinking_level,
+        ));
+    }
     tracing::info!("spawn_command: {:?}", command);
     Ok(command.spawn()?)
 }
@@ -461,6 +510,29 @@ Sorry, this project is managed by GitButler so you must integrate upstream upstr
 </response>
 </example>
 </git-usage>";
+
+fn format_message_with_summary(
+    summary: &str,
+    message: &str,
+    thinking_level: ThinkingLevel,
+) -> String {
+    let message = format!(
+        "<previous-conversation>
+This conversation is a continuation of a previous one.
+
+Here is a summary of the previous conversation for you to keep in mind.
+<summary>
+{summary}
+</summary>
+</previous-conversation>
+
+Here is the next message by the user:
+
+{message}"
+    );
+
+    format_message(&message, thinking_level)
+}
 
 fn format_message(message: &str, thinking_level: ThinkingLevel) -> String {
     match thinking_level {
@@ -544,23 +616,6 @@ impl Default for Claudes {
     fn default() -> Self {
         Self::new()
     }
-}
-
-async fn send_claude_message(
-    ctx: &mut CommandContext,
-    broadcaster: Arc<Mutex<Broadcaster>>,
-    session_id: uuid::Uuid,
-    stack_id: StackId,
-    content: ClaudeMessageContent,
-) -> Result<()> {
-    let message = db::save_new_message(ctx, session_id, content.clone())?;
-    let project_id = ctx.project().id;
-
-    broadcaster.lock().await.send(FrontendEvent {
-        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
-        payload: json!(message),
-    });
-    Ok(())
 }
 
 /// Result of checking Claude Code availability

@@ -1,4 +1,12 @@
+use std::sync::Arc;
+
+use anyhow::Result;
+use but_broadcaster::{Broadcaster, FrontendEvent};
+use but_workspace::StackId;
+use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 pub mod bridge;
 pub use bridge::ClaudeCheckResult;
@@ -6,6 +14,7 @@ pub(crate) mod claude_config;
 pub mod claude_mcp;
 pub mod claude_settings;
 pub mod claude_sub_agents;
+pub mod compact;
 pub use claude_sub_agents::SubAgent;
 pub(crate) mod claude_transcript;
 pub use claude_transcript::Transcript;
@@ -81,6 +90,12 @@ pub enum GitButlerMessage {
     UserAbort,
     UnhandledException {
         message: String,
+    },
+    /// Compact operation has started.
+    CompactStart,
+    /// Compact operation has finished.
+    CompactFinished {
+        summary: String,
     },
 }
 
@@ -165,4 +180,21 @@ pub struct ClaudeUserParams {
     pub permission_mode: PermissionMode,
     pub disabled_mcp_servers: Vec<String>,
     pub add_dirs: Vec<String>,
+}
+
+pub async fn send_claude_message(
+    ctx: &mut CommandContext,
+    broadcaster: Arc<Mutex<Broadcaster>>,
+    session_id: uuid::Uuid,
+    stack_id: StackId,
+    content: ClaudeMessageContent,
+) -> Result<()> {
+    let message = db::save_new_message(ctx, session_id, content.clone())?;
+    let project_id = ctx.project().id;
+
+    broadcaster.lock().await.send(FrontendEvent {
+        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+        payload: json!(message),
+    });
+    Ok(())
 }

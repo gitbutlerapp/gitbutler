@@ -1,6 +1,7 @@
 use but_api::{
     commands::claude::{
-        self, CancelSessionParams, GetMessagesParams, IsStackActiveParams, SendMessageParams,
+        self, CancelSessionParams, CompactHistoryParams, GetMessagesParams, IsStackActiveParams,
+        SendMessageParams,
     },
     error::Error,
     App,
@@ -86,6 +87,23 @@ pub async fn claude_is_stack_active(
     claude::claude_is_stack_active(
         &app,
         IsStackActiveParams {
+            project_id,
+            stack_id,
+        },
+    )
+    .await
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub async fn claude_compact_history(
+    app: State<'_, App>,
+    project_id: ProjectId,
+    stack_id: StackId,
+) -> Result<(), Error> {
+    claude::claude_compact_history(
+        &app,
+        CompactHistoryParams {
             project_id,
             stack_id,
         },
