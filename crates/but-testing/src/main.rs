@@ -133,6 +133,10 @@ async fn main() -> Result<()> {
         args::Subcommands::Stacks { workspace_only } => {
             command::stacks::list(&args.current_dir, args.json, args.v3, *workspace_only)
         }
+        args::Subcommands::BranchList => {
+            let (_repo, project) = repo_and_maybe_project(&args, RepositoryOpenMode::Merge)?;
+            command::branch_list(project)
+        }
         args::Subcommands::BranchDetails { ref_name } => {
             command::stacks::branch_details(ref_name, &args.current_dir, args.v3)
         }
