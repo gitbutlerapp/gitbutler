@@ -16,6 +16,8 @@
 	import { type Snippet } from 'svelte';
 	import { env } from '$env/dynamic/public';
 	import '../styles/global.css';
+	import '@gitbutler/design-core/tokens';
+	import '@gitbutler/design-core/fonts';
 
 	interface Props {
 		children: Snippet;

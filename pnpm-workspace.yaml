@@ -2,6 +2,8 @@
 # https://pnpm.io/settings#minimumreleaseage
 # Packages can be exclude from this setting with the `minimumReleaseAgeExclude` property.
 minimumReleaseAge: 2880
+minimumReleaseAgeExclude:
+  - '@gitbutler/design-core'
 packages:
   - 'apps/*'
   - 'packages/*'

@@ -6,6 +6,7 @@
 	interface Props {
 		value: string;
 		loading: boolean;
+		compacting: boolean;
 		onsubmit: () => Promise<void>;
 		onAbort?: () => Promise<void>;
 		actions: Snippet;
@@ -15,6 +16,7 @@
 	let {
 		value = $bindable(),
 		loading,
+		compacting,
 		onsubmit,
 		onAbort,
 		actions,
@@ -102,7 +104,7 @@
 			</div>
 
 			<div class="dialog-input__actions-item">
-				{#if showAbortButton && onAbort}
+				{#if !compacting && showAbortButton && onAbort}
 					<div class="flex" in:fade={{ duration: 150 }} out:fade={{ duration: 100 }}>
 						<AsyncButton
 							kind="outline"

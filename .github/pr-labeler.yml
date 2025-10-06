@@ -19,7 +19,3 @@ rust:
 '@gitbutler/no-relative-imports':
   - changed-files:
       - any-glob-to-any-file: packages/no-relative-imports/**/*
-
-'@gitbutler/design-tokens':
-  - changed-files:
-      - any-glob-to-any-file: packages/design-tokens/**/*

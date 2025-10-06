@@ -9,7 +9,6 @@
 	import FileList from '$components/FileList.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import AddedDirectoriesList from '$components/codegen/AddedDirectoriesList.svelte';
 	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
 	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
@@ -35,7 +34,7 @@
 		formatMessages,
 		getTodos,
 		lastInteractionTime,
-		lastUserMessageSentAt,
+		thinkingOrCompactingStartedAt,
 		userFeedbackStatus,
 		usageStats,
 		reverseMessages
@@ -65,6 +64,7 @@
 		ContextMenu,
 		ContextMenuItem,
 		ContextMenuSection,
+		DropdownButton,
 		EmptyStatePlaceholder,
 		Modal
 	} from '@gitbutler/ui';
@@ -206,6 +206,11 @@
 		if (!selectedBranch) return;
 		if (!prompt) return;
 
+		if (prompt.startsWith('/compact')) {
+			compactContext();
+			return;
+		}
+
 		// Handle /add-dir command
 		if (prompt.startsWith('/add-dir ')) {
 			const path = prompt.slice('/add-dir '.length).trim();
@@ -215,7 +220,7 @@
 					laneState?.addedDirs.add(path);
 					chipToasts.success(`Added directory: ${path}`);
 				} else {
-					chipToasts.error(`Invalid directory: ${path}`);
+					chipToasts.error(`Invalid directory path: ${path}`);
 				}
 			}
 			setPrompt('');
@@ -375,6 +380,17 @@
 		clearContextModal?.show();
 	}
 
+	async function compactContext() {
+		if (!selectedBranch) return;
+
+		await claudeCodeService.compactHistory({
+			projectId,
+			stackId: selectedBranch.stackId
+		});
+	}
+
+	let selectedContextAction = $state<'clear' | 'compact'>('compact');
+
 	async function performClearContextAndRules() {
 		if (!selectedBranch) return;
 
@@ -531,7 +547,6 @@
 				)}
 					{@const formattedMessages = formatMessages(events, permissionRequests, isStackActive)}
 					{@const reversedFormatterdMessages = reverseMessages(formattedMessages)}
-					{@const lastUserMessageSent = lastUserMessageSentAt(events)}
 					{@const iconName = pushStatusToIcon(branchDetailsData.pushStatus)}
 					{@const lineColor = getColorFromBranchType(
 						pushStatusToColor(branchDetailsData.pushStatus)
@@ -565,6 +580,8 @@
 							</Button>
 						{/snippet}
 						{#snippet contextActions()}
+							{@const stats = usageStats(events)}
+							<Badge>Context utilization {(stats.contextUtilization * 100).toFixed(0)}%</Badge>
 							<Button
 								kind="outline"
 								icon="mcp"
@@ -576,25 +593,45 @@
 									<Badge kind="soft">{enabledMcpServers}</Badge>
 								{/snippet}
 							</Button>
-							<Button
+							<DropdownButton
 								disabled={!hasRulesToClear || formattedMessages.length === 0}
+								loading={['running', 'compacting'].includes(currentStatus(events, isStackActive))}
 								kind="outline"
 								style="warning"
-								icon="clear-small"
-								onclick={clearContextAndRules}
+								menuSide="top"
+								autoClose={true}
+								onclick={() =>
+									selectedContextAction === 'compact' ? compactContext() : clearContextAndRules()}
 							>
-								Clear context
-							</Button>
+								{selectedContextAction === 'compact' ? 'Compact context' : 'Clear context'}
+								{#snippet contextMenuSlot()}
+									<ContextMenuSection>
+										<ContextMenuItem
+											label="Compact context"
+											icon="clear-small"
+											onclick={() => (selectedContextAction = 'compact')}
+										/>
+										<ContextMenuItem
+											label="Clear context"
+											icon="clear-small"
+											onclick={() => (selectedContextAction = 'clear')}
+										/>
+									</ContextMenuSection>
+								{/snippet}
+							</DropdownButton>
 						{/snippet}
 						{#snippet messages()}
-							{#if currentStatus(events, isStackActive) === 'running' && lastUserMessageSent}
+							{@const thinkingStatus = currentStatus(events, isStackActive)}
+							{@const startAt = thinkingOrCompactingStartedAt(events)}
+							{#if ['running', 'compacting'].includes(thinkingStatus) && startAt}
 								{@const status = userFeedbackStatus(formattedMessages)}
 								{#if status.waitingForFeedback}
 									<CodegenServiceMessageUseTool toolCall={status.toolCall} />
 								{:else}
 									<CodegenServiceMessageThinking
-										{lastUserMessageSent}
+										{startAt}
 										msSpentWaiting={status.msSpentWaiting}
+										overrideWord={thinkingStatus === 'compacting' ? 'compacting' : undefined}
 									/>
 								{/if}
 							{/if}
@@ -630,10 +667,12 @@
 
 						{#snippet input()}
 							{#if claudeAvailable.response?.status === 'available'}
+								{@const status = currentStatus(events, isStackActive)}
 								<CodegenInput
 									value={prompt}
 									onChange={(prompt) => setPrompt(prompt)}
-									loading={currentStatus(events, isStackActive) === 'running'}
+									loading={['running', 'compacting'].includes(status)}
+									compacting={status === 'compacting'}
 									onsubmit={sendMessage}
 									{onAbort}
 									sessionKey={selectedBranch
@@ -779,7 +818,7 @@
 						<Badge>{todos.length}</Badge>
 					{/snippet}
 
-					<div class="todo-list">
+					<div class="right-sidebar-list">
 						{#each todos as todo}
 							<CodegenTodo {todo} />
 						{/each}
@@ -788,14 +827,32 @@
 			{/if}
 
 			{#if addedDirs.length > 0}
-				<AddedDirectoriesList
-					{addedDirs}
-					onRemoveDir={(dir) => {
-						if (selectedBranch) {
-							uiState.lane(selectedBranch.stackId).addedDirs.remove(dir);
-						}
-					}}
-				/>
+				<Drawer defaultCollapsed={false} noshrink>
+					{#snippet header()}
+						<h4 class="text-14 text-semibold truncate">Added Directories</h4>
+						<Badge>{addedDirs.length}</Badge>
+					{/snippet}
+
+					<div class="right-sidebar-list right-sidebar-list--small-gap">
+						{#each addedDirs as dir}
+							<div class="added-dir-item">
+								<span class="text-13 grow-1">{dir}</span>
+								<Button
+									kind="ghost"
+									icon="bin"
+									shrinkable
+									onclick={() => {
+										if (selectedBranch) {
+											uiState.lane(selectedBranch.stackId).addedDirs.remove(dir);
+											chipToasts.success(`Removed directory: ${dir}`);
+										}
+									}}
+									tooltip="Remove directory"
+								/>
+							</div>
+						{/each}
+					</div>
+				</Drawer>
 			{/if}
 		{/if}
 
@@ -1153,6 +1210,13 @@
 		height: 100%;
 	}
 
+	.right-sidebar-list {
+		display: flex;
+		flex-direction: column;
+		padding: 14px;
+		gap: 12px;
+	}
+
 	.right-sidebar__placeholder {
 		display: flex;
 		flex: 1;
@@ -1168,13 +1232,6 @@
 		justify-content: center;
 		padding: 20px;
 		background-color: var(--clr-bg-2);
-	}
-
-	.todo-list {
-		display: flex;
-		flex-direction: column;
-		padding: 14px;
-		gap: 12px;
 	}
 
 	/* NO CC AVAILABLE */
@@ -1221,5 +1278,15 @@
 		right: -3px;
 		width: 9px;
 		height: 9px;
+	}
+
+	.added-dir-item {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.right-sidebar-list--small-gap {
+		gap: 4px;
 	}
 </style>

@@ -497,6 +497,16 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "claude_compact_history" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = claude::claude_compact_history(&app, params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         "claude_get_prompt_templates" => claude::claude_get_prompt_templates_cmd(request.params),
         "claude_write_prompt_templates" => {
             claude::claude_write_prompt_templates_cmd(request.params)
