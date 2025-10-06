@@ -17,9 +17,7 @@
 		"dev:package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css --watch",
 		"package": "pnpm run --sequential \"/^package:.*/\"",
 		"package:svelte": "svelte-kit sync && svelte-package",
-		"package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css && npm run package:fonts",
-		"package:fonts": "cp -r ./src/styles/fonts ./dist/styles/",
-		"design-tokens:build": "npx tz build && prettier --write ./src/lib/data/design-tokens.json ./src/styles/core/design-tokens.css",
+		"package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css",
 		"prepublishOnly": "pnpm run package",
 		"prepare": "svelte-kit sync",
 		"storybook": "storybook dev --no-open -p 6006",
@@ -45,7 +43,6 @@
 		"@codemirror/language": "^6.11.2",
 		"@codemirror/legacy-modes": "^6.5.1",
 		"@csstools/postcss-bundler": "^2.0.8",
-		"@gitbutler/core": "workspace:*",
 		"@lezer/common": "^1.2.3",
 		"@lezer/highlight": "^1.2.1",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
@@ -59,9 +56,6 @@
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/package": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
-		"@terrazzo/cli": "0.6.0",
-		"@terrazzo/parser": "0.6.0",
-		"@terrazzo/plugin-css": "0.6.0",
 		"@types/diff-match-patch": "^1.0.36",
 		"@types/postcss-pxtorem": "^6.1.0",
 		"@vitest/browser": "catalog:",
@@ -82,7 +76,8 @@
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"vite": "catalog:",
-		"vitest": "catalog:"
+		"vitest": "catalog:",
+		"@gitbutler/design-core": "^1.0.3"
 	},
 	"peerDependencies": {
 		"svelte": "^4.0.0 || ^5.0.0-0"
@@ -122,6 +117,7 @@
 		"@giphy/js-fetch-api": "^5.7.0",
 		"@giphy/js-types": "^5.1.0",
 		"@giphy/svelte-components": "^1.1.0",
+		"@gitbutler/core": "workspace:*",
 		"@lexical/link": "0.27.1",
 		"@lexical/list": "0.27.1",
 		"@lexical/markdown": "0.27.1",

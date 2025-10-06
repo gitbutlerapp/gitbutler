@@ -1,3 +1,5 @@
+minimumReleaseAgeExclude:
+  - '@gitbutler/design-core'
 packages:
   - 'apps/*'
   - 'packages/*'
