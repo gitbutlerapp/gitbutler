@@ -104,7 +104,7 @@ pub fn list_branches(
             )?;
             info.stacks
                 .into_iter()
-                .map(|s| GitButlerStack::new(s, &remote_names))
+                .filter_map(|s| GitButlerStack::try_new(s, &remote_names).transpose())
                 .collect::<Result<Vec<_>, _>>()?
         } else {
             Vec::new()
@@ -392,13 +392,14 @@ impl GitbutlerStackSegment {
 }
 
 impl GitButlerStack {
-    fn new(
+    fn try_new(
         stack: but_workspace::branch::Stack,
         names: &gix::remote::Names,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<Option<Self>> {
+        let Some(id) = stack.id else { return Ok(None) };
         let first_segment = stack.segments.first();
-        Ok(GitButlerStack {
-            id: stack.id.context("Can't handle stacks without ID yet")?,
+        Ok(Some(GitButlerStack {
+            id,
             // The ones we have reachable are never
             in_workspace: true,
             name: stack
@@ -436,7 +437,7 @@ impl GitButlerStack {
                     pr_or_mr: s.metadata.as_ref().and_then(|md| md.review.pull_request),
                 })
                 .collect(),
-        })
+        }))
     }
     fn new_from_old(stack: &Stack, names: &gix::remote::Names) -> anyhow::Result<Self> {
         Ok(GitButlerStack {

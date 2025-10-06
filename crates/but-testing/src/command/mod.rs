@@ -108,6 +108,7 @@ pub fn parse_diff_spec(arg: &Option<String>) -> Result<Option<Vec<DiffSpec>>, an
 mod commit;
 use crate::command::discard_change::IndicesOrHeaders;
 pub use commit::commit;
+use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_command_context::CommandContext;
 
 pub mod diff;
@@ -726,4 +727,17 @@ fn path_to_rela_path(path: &Path) -> anyhow::Result<BString> {
         gix::path::to_unix_separators_on_windows(gix::path::os_str_into_bstr(path.as_os_str())?)
             .into_owned();
     Ok(rela_path)
+}
+
+pub fn branch_list(project: Option<Project>) -> anyhow::Result<()> {
+    let project = project.context("legacy code needs project")?;
+    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    debug_print(gitbutler_branch_actions::list_branches(
+        &ctx,
+        Some(BranchListingFilter {
+            local: None,
+            applied: None,
+        }),
+        None,
+    )?)
 }
