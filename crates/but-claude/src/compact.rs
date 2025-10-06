@@ -12,13 +12,14 @@
 //! of the conversation so far and then start a new session where the first
 //! message contains the summary
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{Context, Result};
 use but_broadcaster::Broadcaster;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gix::bstr::ByteSlice;
+use serde::Deserialize;
 use tokio::{
     process::Command,
     sync::{Mutex, mpsc::unbounded_channel},
@@ -31,6 +32,47 @@ use crate::{
     rules::list_claude_assignment_rules,
     send_claude_message,
 };
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ModelUsage {
+    input_tokens: u32,
+    output_tokens: u32,
+    cache_read_input_tokens: Option<u32>,
+}
+
+#[derive(Debug)]
+struct Model<'a> {
+    name: &'a str,
+    subtype: Option<&'a str>,
+    context: u32,
+}
+
+const COMPACTION_BUFFER: u32 = 15_000;
+
+const MODELS: &[Model<'static>] = &[
+    Model {
+        name: "opus",
+        subtype: None,
+        context: 200_000,
+    },
+    // Ordering the 1m model before the 200k model so it matches first.
+    Model {
+        name: "sonnet",
+        subtype: Some("[1m]"),
+        context: 1_000_000,
+    },
+    Model {
+        name: "sonnet",
+        subtype: None,
+        context: 200_000,
+    },
+    Model {
+        name: "haiku",
+        subtype: None,
+        context: 200_000,
+    },
+];
 
 impl Claudes {
     pub(crate) async fn compact(
@@ -122,6 +164,66 @@ impl Claudes {
 
         Ok(())
     }
+
+    pub(crate) async fn maybe_compact_context(
+        &self,
+        ctx: Arc<Mutex<CommandContext>>,
+        broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
+        stack_id: StackId,
+    ) -> Result<()> {
+        let rule = {
+            let mut ctx = ctx.lock().await;
+            list_claude_assignment_rules(&mut ctx)?
+                .into_iter()
+                .find(|rule| rule.stack_id == stack_id)
+        };
+        let Some(rule) = rule else {
+            return Ok(());
+        };
+
+        let messages = {
+            let mut ctx = ctx.lock().await;
+            db::list_messages_by_session(&mut ctx, rule.session_id)?
+        };
+
+        // Find the last result message
+        let Some(output) = messages.into_iter().rev().find_map(|m| match m.content {
+            ClaudeMessageContent::ClaudeOutput(o) => {
+                if o["type"].as_str() == Some("result") {
+                    Some(o)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }) else {
+            return Ok(());
+        };
+
+        let usage: HashMap<String, ModelUsage> =
+            serde_json::from_value(output["modelUsage"].clone())?;
+
+        for (name, usage) in usage {
+            if let Some(model) = find_model(name) {
+                let total = usage.cache_read_input_tokens.unwrap_or(0)
+                    + usage.input_tokens
+                    + usage.output_tokens;
+                if total > (model.context - COMPACTION_BUFFER) {
+                    self.compact(ctx.clone(), broadcaster.clone(), stack_id)
+                        .await;
+                    break;
+                }
+            };
+        }
+
+        Ok(())
+    }
+}
+
+fn find_model(name: String) -> Option<&'static Model<'static>> {
+    MODELS
+        .iter()
+        .find(|&m| name.contains(m.name) && m.subtype.map(|s| name.contains(s)).unwrap_or(true))
 }
 
 pub async fn generate_summary(

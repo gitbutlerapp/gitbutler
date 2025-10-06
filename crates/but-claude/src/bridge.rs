@@ -77,10 +77,11 @@ impl Claudes {
         if self.requests.lock().await.contains_key(&stack_id) {
             bail!(
                 "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
-            )
+            );
         } else {
-            self.spawn_claude(ctx, broadcaster, stack_id, user_params)
-                .await
+            self.spawn_claude(ctx.clone(), broadcaster.clone(), stack_id, user_params)
+                .await;
+            let _ = self.maybe_compact_context(ctx, broadcaster, stack_id).await;
         };
 
         Ok(())
