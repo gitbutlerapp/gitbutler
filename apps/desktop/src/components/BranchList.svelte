@@ -166,7 +166,8 @@
 				commitQuery.result
 			)}
 		>
-			{#snippet children([localAndRemoteCommits, upstreamOnlyCommits, branchDetails, commit])}
+			{#snippet children([localAndRemoteCommits, _upstreamOnlyCommits, branchDetails, commit])}
+				{@const upstreamOnlyCommits = []}
 				{@const firstBranch = i === 0}
 				{@const lastBranch = i === branches.length - 1}
 				{@const iconName = getIconFromCommitState(commit?.id, commit?.state)}

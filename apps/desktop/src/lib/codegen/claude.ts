@@ -119,6 +119,10 @@ export class ClaudeCodeService {
 	get verifyPath() {
 		return this.api.endpoints.verifyPath.mutate;
 	}
+
+	get compactHistory() {
+		return this.api.endpoints.compactHistory.mutate;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -316,6 +320,20 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Verify Path'
 				},
 				query: (args) => args
+			}),
+			compactHistory: build.mutation<
+				undefined,
+				{
+					projectId: string;
+					stackId: string;
+				}
+			>({
+				extraOptions: {
+					command: 'claude_compact_history',
+					actionName: 'Compact History'
+				},
+				query: (args) => args,
+				invalidatesTags: [invalidatesList(ReduxTag.ClaudeStackActive)]
 			})
 		})
 	});
