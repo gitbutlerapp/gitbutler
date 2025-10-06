@@ -26,6 +26,7 @@
 		"start:desktop": "pnpm --filter @gitbutler/desktop run preview",
 		"check": "turbo run check --no-daemon",
 		"tauri": "cross-env CARGO_TARGET_DIR=$PNPM_SCRIPT_SRC_DIR/target/tauri tauri",
+		"tauri-for-release": "tauri",
 		"lint": "turbo run //#globallint --no-daemon",
 		"globallint": "prettier --check . && eslint .",
 		"prettier": "prettier --check",
