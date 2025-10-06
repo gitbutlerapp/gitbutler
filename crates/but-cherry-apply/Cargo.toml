@@ -1,0 +1,20 @@
+[package]
+name = "but-cherry-apply"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+[lib]
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+gix.workspace = true
+but-workspace.workspace = true
+but-rebase.workspace = true
+but-graph.workspace = true
+gitbutler-oxidize.workspace = true
+gitbutler-branch-actions.workspace = true
+gitbutler-command-context.workspace = true
+serde.workspace = true

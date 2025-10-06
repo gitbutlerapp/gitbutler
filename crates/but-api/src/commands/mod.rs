@@ -1,4 +1,5 @@
 pub mod askpass;
+pub mod cherry_apply;
 pub mod claude;
 pub mod cli;
 pub mod config;
