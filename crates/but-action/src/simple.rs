@@ -131,7 +131,9 @@ fn handle_changes_simple_inner(
                 .entry(stack_id)
                 .or_default()
                 .push(assignment.into());
-        } else {
+        } else if exclusive_stack.is_none() {
+            // If there is an exclusive stack. We don't want to do anything with
+            // the unassigned changes.
             stack_assignments
                 .entry(default_stack_id)
                 .or_default()
