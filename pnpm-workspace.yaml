@@ -11,7 +11,7 @@ packages:
   - 'e2e'
 
 catalog:
-  'vite': '6.3.5'
+  'vite': '6.3.6'
   'vitest': '3.2.4'
   '@vitest/browser': '3.2.4'
   '@vitest/ui': '3.2.4'
