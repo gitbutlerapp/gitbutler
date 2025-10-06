@@ -1,4 +1,5 @@
 <script lang="ts">
+	import HeaderAuthSection from '$lib/components/HeaderAuthSection.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 	import osIcons from '$lib/data/os-icons.json';
 
@@ -94,42 +95,29 @@
 	</div>
 
 	<div class="links">
-		<div class="stack-v gap-12">
-			<p class="text-14 opacity-40">Keep up with us:</p>
-			<ul class="links-list">
-				{#each Object.values(jsonLinks.social) as social}
-					<li class="link">
-						<a href={social.url}>
-							<span>{social.label}</span>
-							<svg
-								class="link-arrow"
-								width="14"
-								height="14"
-								viewBox="0 0 14 14"
-								fill="none"
-								xmlns="http://www.w3.org/2000/svg"
-							>
-								<path
-									d="M1 1L13 1M13 1L13 13M13 1L1 13"
-									stroke="var(--clr-black)"
-									stroke-width="1.5"
-								/>
-							</svg>
-						</a>
-					</li>
-				{/each}
-			</ul>
-		</div>
+		<ul class="links-list">
+			{#each Object.values(jsonLinks.social) as social}
+				<li class="text-14 link">
+					<a href={social.url}>
+						<span>{social.label}</span>
+					</a>
+				</li>
+			{/each}
+		</ul>
+
+		<hr class="links-divider" />
 
 		<ul class="links-list">
 			{#each Object.values(jsonLinks.resources) as resource}
-				<li class="link">
+				<li class="text-16 link">
 					<a href={resource.url}>
 						<span>{resource.label}</span>
 					</a>
 				</li>
 			{/each}
 		</ul>
+
+		<HeaderAuthSection />
 
 		<div class="meta-links">
 			<span class="meta-links__copyright"
@@ -159,7 +147,7 @@
 	.banner {
 		display: flex;
 		position: relative;
-		flex: 3;
+		flex: 3.2;
 		padding: 36px 0 0 48px;
 	}
 
@@ -288,7 +276,13 @@
 		flex: 1;
 		flex-direction: column;
 		align-self: flex-end;
-		gap: 24px;
+		gap: 34px;
+	}
+
+	.links-divider {
+		margin: 0;
+		border: none;
+		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.links-list {
@@ -296,17 +290,9 @@
 		column-gap: 16px;
 		row-gap: 12px;
 		flex-wrap: wrap;
-		padding-bottom: 30px;
-
-		&:last-child {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
 	}
 
 	.link {
-		font-size: 14px;
-		line-height: 1.3;
-
 		a {
 			display: inline-flex;
 			align-items: center;
@@ -359,7 +345,7 @@
 		}
 
 		.links {
-			gap: 16px;
+			gap: 28px;
 		}
 	}
 
@@ -400,6 +386,10 @@
 			flex-wrap: wrap;
 			justify-content: space-between;
 			gap: 16px;
+		}
+
+		.links-divider {
+			display: none;
 		}
 
 		.links-list {

@@ -32,20 +32,20 @@
 		}
 	},
 	"resources": {
-		"source": {
-			"id": "source",
-			"url": "https://github.com/gitbutlerapp/gitbutler",
-			"label": "Source"
+		"downloads": {
+			"id": "downloads",
+			"url": "/downloads",
+			"label": "Downloads"
 		},
 		"documentation": {
 			"id": "documentation",
 			"url": "https://docs.gitbutler.com",
 			"label": "Docs"
 		},
-		"downloads": {
-			"id": "downloads",
-			"url": "/downloads",
-			"label": "Downloads"
+		"source": {
+			"id": "source",
+			"url": "https://github.com/gitbutlerapp/gitbutler",
+			"label": "Source"
 		},
 		"jobs": {
 			"id": "jobs",
@@ -56,11 +56,6 @@
 			"id": "blog",
 			"url": "https://blog.gitbutler.com",
 			"label": "Blog"
-		},
-		"support": {
-			"id": "help",
-			"url": "https://github.com/gitbutlerapp/gitbutler/issues/new?template=BLANK_ISSUE",
-			"label": "Submit a ticket"
 		}
 	},
 	"social": {
@@ -119,6 +114,11 @@
 			"id": "youtube-demo",
 			"url": "https://youtu.be/agfyTN3HpRM?si=jVyMeMrWIaMa0Jdp",
 			"label": "YouTube Demo"
+		},
+		"support": {
+			"id": "help",
+			"url": "https://github.com/gitbutlerapp/gitbutler/issues/new?template=BLANK_ISSUE",
+			"label": "Submit a ticket"
 		}
 	}
 }

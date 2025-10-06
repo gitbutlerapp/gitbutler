@@ -124,7 +124,7 @@
 
 					<span class="text-12 tip-link__arrow-icon">[↗]</span>
 				</a>
-				<a class="tip-link" href={linkJson.resources.support.url}>
+				<a class="tip-link" href={linkJson.other.support.url}>
 					<div class="tip-link__title">
 						<Icon name="chat" color="var(--clr-text-2)" />
 						<h3 class="text-14 text-semibold">Need Help?</h3>

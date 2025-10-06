@@ -30,8 +30,8 @@
 
 			<p>
 				Need help?
-				<a href={linksJson.resources.support.url} target="_blank" rel="noopener noreferrer">
-					{linksJson.resources.support.label}
+				<a href={linksJson.other.support.url} target="_blank" rel="noopener noreferrer">
+					{linksJson.other.support.label}
 				</a>
 			</p>
 		</div>

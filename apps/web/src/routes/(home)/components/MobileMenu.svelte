@@ -35,18 +35,8 @@
 {#if isMenuOpen}
 	<div class="mobile-menu" transition:scale={{ start: 0.95, duration: 150 }}>
 		<div class="mobile-menu__content">
-			<HeaderAuthSection />
-
 			<div class="stack-v gap-40">
 				<nav class="mobile-nav">
-					<a
-						href={linkJson.resources.source.url}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="mobile-link"
-					>
-						{linkJson.resources.source.label}
-					</a>
 					<a href={linkJson.resources.downloads.url} target="_self" class="mobile-link">
 						{linkJson.resources.downloads.label}
 					</a>
@@ -56,6 +46,14 @@
 						rel="noopener noreferrer"
 						class="mobile-link">{linkJson.resources.documentation.label}</a
 					>
+					<a
+						href={linkJson.resources.source.url}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="mobile-link"
+					>
+						{linkJson.resources.source.label}
+					</a>
 					<a
 						href={linkJson.resources.blog.url}
 						target="_blank"
@@ -69,6 +67,8 @@
 						class="mobile-link">{linkJson.resources.jobs.label}</a
 					>
 				</nav>
+
+				<HeaderAuthSection />
 
 				<div class="mobile-socials">
 					{#each Object.values(linkJson.social) as social}
@@ -147,7 +147,7 @@
 	.mobile-menu__content {
 		display: flex;
 		flex-direction: column;
-		justify-content: space-between;
+		justify-content: flex-end;
 		width: 100%;
 		height: 100%;
 		padding: 44px;
@@ -165,7 +165,7 @@
 		width: 100%;
 		height: 100dvh; /* Dynamic viewport height for mobile browsers */
 		backdrop-filter: blur(16px);
-		background: color-mix(in srgb, var(--clr-bg-2) 50%, transparent);
+		background: color-mix(in srgb, var(--clr-bg-2) 70%, transparent);
 	}
 
 	.mobile-nav {

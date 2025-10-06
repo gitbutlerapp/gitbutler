@@ -1,48 +1,29 @@
 <script lang="ts">
 	import MobileMenu from '$home/components/MobileMenu.svelte';
 	import GitbutlerLogoLink from '$lib/components/GitbutlerLogoLink.svelte';
-	import HeaderAuthSection from '$lib/components/HeaderAuthSection.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
-	import { fly } from 'svelte/transition';
-
-	const socialLinks = Object.values(jsonLinks.social);
-
-	let isDropdownOpen = false;
-
-	function toggleDropdown() {
-		isDropdownOpen = !isDropdownOpen;
-	}
-
-	function closeDropdown() {
-		isDropdownOpen = false;
-	}
-
-	function clickOutside(node: HTMLElement) {
-		function handleClick(event: MouseEvent) {
-			if (!node.contains(event.target as Node)) {
-				closeDropdown();
-			}
-		}
-
-		document.addEventListener('click', handleClick, true);
-
-		return {
-			destroy() {
-				document.removeEventListener('click', handleClick, true);
-			}
-		};
-	}
+	import { Icon } from '@gitbutler/ui';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 </script>
 
 <!-- Link snippet for reusable navigation links -->
-{#snippet link(
-	href: string,
-	label: string,
-	target: string = '_blank',
-	rel: string = 'noopener noreferrer'
-)}
-	<a {href} {target} {rel} class="text-14 text-semibold link-snippet">
-		{label}
+{#snippet link(props: {
+	href: string;
+	label: string;
+	icon?: keyof typeof iconsJson;
+	target?: string;
+	rel?: string;
+})}
+	<a
+		href={props.href}
+		target={props.target ?? '_blank'}
+		rel={props.rel ?? 'noopener noreferrer'}
+		class="text-14 text-semibold link-snippet"
+	>
+		<span>{props.label}</span>
+		{#if props.icon}
+			<Icon name={props.icon} />
+		{/if}
 	</a>
 {/snippet}
 
@@ -51,41 +32,31 @@
 
 	<nav class="header-nav">
 		<section class="flex gap-20">
-			<!-- link to the downloads page -->
-			{@render link(
-				jsonLinks.resources.downloads.url,
-				jsonLinks.resources.downloads.label,
-				'_self',
-				''
-			)}
-			{@render link(jsonLinks.resources.documentation.url, jsonLinks.resources.documentation.label)}
-			{@render link(jsonLinks.resources.blog.url, jsonLinks.resources.blog.label)}
-
-			<div class="social-dropdown" use:clickOutside>
-				<button type="button" class="text-14 text-semibold social-button" onclick={toggleDropdown}>
-					<span class="social-button-label">Community</span>
-					<span class="social-button-arrow" class:rotated={isDropdownOpen}>▼</span>
-				</button>
-
-				{#if isDropdownOpen}
-					<div class="dropdown-menu" in:fly={{ y: -10, duration: 150 }}>
-						{#each socialLinks as socialLink}
-							<a
-								href={socialLink.url}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="text-14 text-semibold social-link"
-							>
-								{socialLink.label}
-
-								<span class="social-link-arrow">↗</span>
-							</a>
-						{/each}
-					</div>
-				{/if}
-			</div>
+			{@render link({
+				href: jsonLinks.resources.downloads.url,
+				label: jsonLinks.resources.downloads.label,
+				target: '_self',
+				rel: ''
+			})}
+			{@render link({
+				href: jsonLinks.resources.documentation.url,
+				label: jsonLinks.resources.documentation.label
+			})}
+			{@render link({
+				href: jsonLinks.resources.source.url,
+				label: 'View Source',
+				icon: 'github-outline'
+			})}
+			{@render link({
+				href: jsonLinks.social.discord.url,
+				label: 'Community',
+				icon: 'discord-outline'
+			})}
+			{@render link({
+				href: jsonLinks.resources.jobs.url,
+				label: jsonLinks.resources.jobs.label
+			})}
 		</section>
-		<HeaderAuthSection />
 	</nav>
 
 	<MobileMenu />
@@ -119,14 +90,20 @@
 	}
 
 	.link-snippet {
+		display: flex;
+		align-items: center;
+		gap: 6px;
 		text-decoration: none;
+		text-decoration-color: var(--clr-theme-pop-element);
+		text-decoration-thickness: 2px;
+		text-underline-offset: 4px;
 		transition:
 			color var(--transition-fast),
 			text-decoration var(--transition-fast);
 
 		&:hover {
 			color: var(--clr-text-1);
-			text-decoration: underline;
+			text-decoration-line: underline;
 		}
 	}
 
