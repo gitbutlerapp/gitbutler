@@ -220,9 +220,9 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Oplog, props(start, &result)).ok();
             result
         }
-        Subcommands::Restore { oplog_sha } => {
+        Subcommands::Restore { oplog_sha, force } => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result = oplog::restore_to_oplog(&project, args.json, oplog_sha);
+            let result = oplog::restore_to_oplog(&project, args.json, oplog_sha, *force);
             metrics_if_configured(app_settings, CommandName::Restore, props(start, &result)).ok();
             result
         }
