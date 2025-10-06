@@ -61,8 +61,8 @@ windows = { version = "0.62.0", features = [
     "Win32_System_Threading",
 ] }
 tokio = { workspace = true, optional = true, features = ["sync", "rt"] }
-# TODO: use released version once https://github.com/notify-rs/notify/pull/716 was merged and published.
-file-id = { git = "https://github.com/Byron/notify", version = "0.2.3" }
+# TODO: use released version once published.
+file-id = { git = "https://github.com/notify-rs/notify", rev = "978fe719b066a8ce76b9a9d346546b1569eecfb6", version = "0.2.3" }
 
 [dev-dependencies]
 assert_cmd = "2.0.17"
