@@ -2,8 +2,9 @@ use crate::init::walk::RefsById;
 use crate::init::{Entrypoint, Overlay};
 use but_core::{RefMetadata, ref_metadata};
 use gix::prelude::ReferenceExt;
+use gix::refs::Target;
 use std::borrow::Cow;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 impl Overlay {
     /// Serve the given `refs` from memory, as if they would exist.
@@ -16,6 +17,13 @@ impl Overlay {
         self
     }
 
+    /// Serve the given `refs` from memory, which is like creating the reference or as if its value was set,
+    /// completely overriding the value in the repository.
+    pub fn with_references(mut self, refs: impl IntoIterator<Item = gix::refs::Reference>) -> Self {
+        self.overriding_references.extend(refs);
+        self
+    }
+
     /// Override the starting position of the traversal by setting it to `id`,
     /// and optionally, by providing the `ref_name` that points to `id`.
     pub fn with_entrypoint(
@@ -23,6 +31,13 @@ impl Overlay {
         id: gix::ObjectId,
         ref_name: Option<gix::refs::FullName>,
     ) -> Self {
+        if let Some(ref_name) = &ref_name {
+            self.overriding_references.push(gix::refs::Reference {
+                name: ref_name.to_owned(),
+                target: Target::Object(id),
+                peeled: Some(id),
+            })
+        }
         self.entrypoint = Some((id, ref_name));
         self
     }
@@ -59,13 +74,21 @@ impl Overlay {
     {
         let Overlay {
             nonoverriding_references,
+            overriding_references,
             meta_branches,
             workspace,
             entrypoint,
         } = self;
         (
             OverlayRepo {
-                nonoverriding_references,
+                nonoverriding_references: nonoverriding_references
+                    .into_iter()
+                    .map(|r| (r.name.clone(), r))
+                    .collect(),
+                overriding_references: overriding_references
+                    .into_iter()
+                    .map(|r| (r.name.clone(), r))
+                    .collect(),
                 inner: repo,
             },
             OverlayMetadata {
@@ -80,7 +103,8 @@ impl Overlay {
 
 pub(crate) struct OverlayRepo<'repo> {
     inner: &'repo gix::Repository,
-    nonoverriding_references: Vec<gix::refs::Reference>,
+    nonoverriding_references: BTreeMap<gix::refs::FullName, gix::refs::Reference>,
+    overriding_references: BTreeMap<gix::refs::FullName, gix::refs::Reference>,
 }
 
 /// Note that functions with `'repo` in their return value technically leak the bare repo, and it's
@@ -94,13 +118,11 @@ impl<'repo> OverlayRepo<'repo> {
         &self,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<gix::Reference<'repo>>> {
-        if let Some(rn) = self.inner.try_find_reference(ref_name)? {
+        if let Some(r) = self.overriding_references.get(ref_name) {
+            Ok(Some(r.clone().attach(self.inner)))
+        } else if let Some(rn) = self.inner.try_find_reference(ref_name)? {
             Ok(Some(rn))
-        } else if let Some(r) = self
-            .nonoverriding_references
-            .iter()
-            .find(|r| r.name.as_ref() == ref_name)
-        {
+        } else if let Some(r) = self.nonoverriding_references.get(ref_name) {
             Ok(Some(r.clone().attach(self.inner)))
         } else {
             Ok(None)
@@ -111,17 +133,16 @@ impl<'repo> OverlayRepo<'repo> {
         &self,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<gix::Reference<'repo>> {
+        if let Some(r) = self.overriding_references.get(ref_name) {
+            return Ok(r.clone().attach(self.inner));
+        }
         Ok(self
             .inner
             .find_reference(ref_name)
             .or_else(|err| match err {
                 gix::reference::find::existing::Error::Find(_) => Err(err),
                 gix::reference::find::existing::Error::NotFound { .. } => {
-                    if let Some(r) = self
-                        .nonoverriding_references
-                        .iter()
-                        .find(|r| r.name.as_ref() == ref_name)
-                    {
+                    if let Some(r) = self.nonoverriding_references.get(ref_name) {
                         Ok(r.clone().attach(self.inner))
                     } else {
                         Err(err)
@@ -202,6 +223,18 @@ impl<'repo> OverlayRepo<'repo> {
             };
         let mut all_refs_by_id = gix::hashtable::HashMap::<_, Vec<_>>::default();
         for prefix in prefixes {
+            // apply overrides - they are seen first and take the spot of everything.
+            for (commit_id, git_reference) in self
+                .overriding_references
+                .values()
+                .filter(|rn| rn.name.as_bstr().starts_with(prefix.as_bytes()))
+                .filter_map(|rn| ref_filter(rn.clone().attach(self.inner)))
+            {
+                all_refs_by_id
+                    .entry(commit_id)
+                    .or_default()
+                    .push(git_reference);
+            }
             for (commit_id, git_reference) in self
                 .inner
                 .references()?
@@ -214,10 +247,10 @@ impl<'repo> OverlayRepo<'repo> {
                     .or_default()
                     .push(git_reference);
             }
-            // apply overrides
+            // apply overrides (new only)
             for (commit_id, git_reference) in self
                 .nonoverriding_references
-                .iter()
+                .values()
                 .filter(|rn| rn.name.as_bstr().starts_with(prefix.as_bytes()))
                 .filter_map(|rn| ref_filter(rn.clone().attach(self.inner)))
             {

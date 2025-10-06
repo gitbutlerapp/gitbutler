@@ -1,4 +1,5 @@
 use crate::branch::checkout::{Outcome, UncommitedWorktreeChanges};
+use crate::ext::ObjectStorageExt;
 use crate::snapshot;
 use crate::snapshot::create_tree::no_workspace_and_meta;
 use anyhow::bail;
@@ -7,7 +8,6 @@ use but_core::TreeStatus;
 use gix::diff::rewrites::tracker::{Change, ChangeKind};
 use gix::diff::tree::visit;
 use gix::merge::tree::TreatAsUnresolved;
-use gix::objs::Write;
 use gix::prelude::ObjectIdExt;
 use std::collections::{BTreeSet, VecDeque};
 
@@ -114,11 +114,7 @@ pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
                         }
                         let res = Some(worktree_cherry_pick.tree.write()?.detach());
                         if let Some(memory) = repo_in_memory.objects.take_object_memory() {
-                            for (kind, data) in memory.values() {
-                                repo_in_memory
-                                    .write_buf(*kind, data)
-                                    .map_err(anyhow::Error::from_boxed)?;
-                            }
+                            memory.persist(repo_in_memory)?;
                         }
                         res
                     } else {

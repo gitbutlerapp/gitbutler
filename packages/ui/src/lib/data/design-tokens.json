@@ -2996,22 +2996,22 @@
 		"tooltip": {
 			"border": {
 				"$type": "color",
-				"$value": "{clr-core.ntrl.10}",
+				"$value": "{clr-core.ntrl.80}",
 				"$description": "",
 				"$extensions": {
 					"mode": {
-						"light": "{clr-core.ntrl.10}",
+						"light": "{clr-core.ntrl.80}",
 						"dark": "{clr-core.ntrl.30}"
 					}
 				}
 			},
 			"bg": {
 				"$type": "color",
-				"$value": "{clr-core.ntrl.10}",
+				"$value": "{clr-core.ntrl.95}",
 				"$description": "",
 				"$extensions": {
 					"mode": {
-						"light": "{clr-core.ntrl.10}",
+						"light": "{clr-core.ntrl.95}",
 						"dark": "{clr-core.ntrl.10}"
 					}
 				}
@@ -3777,7 +3777,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius", "text", "opacity"],
-			"createdAt": "2025-09-19T16:34:33.041Z"
+			"createdAt": "2025-09-14T13:52:32.744Z"
 		}
 	}
 }

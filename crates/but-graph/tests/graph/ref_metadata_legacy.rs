@@ -791,6 +791,43 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
 }
 
 #[test]
+fn target_journey() -> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    let ws_name = "refs/heads/gitbutler/workspace".try_into()?;
+    let mut ws = store.workspace(ws_name)?;
+    assert_eq!(
+        ws.target_ref,
+        Some("refs/remotes/origin/sub-name/main".try_into()?)
+    );
+
+    let expected_target: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
+    ws.target_ref = Some(expected_target.clone());
+    store.set_workspace(&ws)?;
+
+    let mut ws = store.workspace(ws_name)?;
+    assert_eq!(
+        ws.target_ref,
+        Some(expected_target.clone()),
+        "can change the name as well"
+    );
+
+    ws.target_ref = None;
+    store.set_workspace(&ws)?;
+
+    let mut ws = store.workspace(ws_name)?;
+    ws.target_ref = Some(expected_target);
+
+    let err = store.set_workspace(&ws).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Cannot reasonably set a target in the old data structure as we don't have repo access here",
+        "cannot do that as the data structures are too incompatible, can't set all values and certainly shouldn't make it up"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
     let workspace_name = "refs/heads/gitbutler/integration".try_into()?;

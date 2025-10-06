@@ -12,6 +12,7 @@ use gix::reference::Category;
 use petgraph::Direction;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::EdgeRef;
+use petgraph::visit::NodeRef;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::instrument;
 
@@ -92,7 +93,6 @@ impl Graph {
         // Finally, once all segments were added, it's good to generations
         // have to figure out early abort conditions, or to know what's ahead of another.
         self.compute_generation_numbers();
-
         Ok(self)
     }
 
@@ -439,6 +439,27 @@ impl Graph {
                         .map(|cidx| (sidx, &base_segment.commits[cidx]))
                 })
             })
+            .chain(
+                self.inner
+                    .neighbors_directed(ws_sidx, Direction::Outgoing)
+                    .filter_map(|s| {
+                        // This rule means that if there is no target, we'd want to put new independent stacks
+                        // onto segments which then are ambiguous so they get pulled out.
+                        if target.is_some() {
+                            return None;
+                        }
+                        // It's a very specialised filter… will that lead to strange behaviour later?
+                        let segment = &self[s];
+                        if segment.ref_name.is_some() {
+                            return None;
+                        }
+                        segment
+                            .commits
+                            .first()
+                            .filter(|c| !c.refs.is_empty())
+                            .map(|c| (s.id(), c))
+                    }),
+            )
             .collect();
         out.sort_by_key(|t| t.1.id);
         out.dedup_by_key(|t| t.1.id);
@@ -913,6 +934,37 @@ impl Graph {
         }
         for (remote_sidx, local_sidx) in links_from_remote_to_local {
             self[remote_sidx].sibling_segment_id = Some(local_sidx);
+
+            // If both remote and local point to the same commit, make sure that the remote points to the local segment.
+            if let Some((
+                (_remote_commit, _owner_of_commit_same_as_local),
+                (_local_commmit, owner_of_commit_same_as_remote),
+            )) = self
+                .first_commit_or_find_along_first_parent(remote_sidx)
+                .zip(self.first_commit_or_find_along_first_parent(local_sidx))
+                .filter(|((a, a_sidx), (b, b_sidx))| a.id == b.id && a_sidx == b_sidx)
+            {
+                let outgoing: Vec<_> = self
+                    .edges_directed_in_order_of_creation(remote_sidx, Direction::Outgoing)
+                    .into_iter()
+                    .map(EdgeOwned::from)
+                    .collect();
+                let remote_is_connected_to_local =
+                    outgoing.iter().any(|e| e.target.id() == local_sidx);
+                if !remote_is_connected_to_local
+                    && let Some(edge) = outgoing.iter().find(|e| {
+                        outgoing.len() == 1 || e.target.id() == owner_of_commit_same_as_remote
+                    })
+                {
+                    self.inner.remove_edge(edge.id);
+                    self.inner.add_edge(
+                        remote_sidx,
+                        local_sidx,
+                        edge.weight
+                            .adjusted_for(remote_sidx, local_sidx, &self.inner),
+                    );
+                }
+            }
         }
         Ok(())
     }

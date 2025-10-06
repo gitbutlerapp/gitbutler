@@ -70,6 +70,23 @@ impl Workspace<'_> {
             .all(|s| s.segments.iter().all(|s| !s.is_entrypoint))
     }
 
+    /// Return `true` if the branch with `name` is the workspace target or the targets local tracking branch.
+    pub fn is_branch_the_target_or_its_local_tracking_branch(
+        &self,
+        name: &gix::refs::FullNameRef,
+    ) -> bool {
+        let Some(t) = self.target.as_ref() else {
+            return false;
+        };
+
+        t.ref_name.as_ref() == name
+            || self
+                .graph
+                .lookup_sibling_segment(t.segment_index)
+                .and_then(|local_tracking_segment| local_tracking_segment.ref_name.as_ref())
+                .is_some_and(|local_tracking_ref| local_tracking_ref.as_ref() == name)
+    }
+
     /// Return the `commit` at the tip of the workspace itself, and do so by following empty segments along the
     /// first parent until the first commit is found.
     /// This importantly is different from the [`Graph::lookup_entrypoint()`] `commit`, as the entrypoint could be anywhere
@@ -265,6 +282,24 @@ pub enum WorkspaceKind {
 }
 
 impl WorkspaceKind {
+    /// Return `true` if this workspace has a managed reference, meaning we control certain aspects of it
+    /// by means of workspace metadata that is associated with that ref.
+    /// If `false`, we are more conservative and may not support all features.
+    pub fn has_managed_ref(&self) -> bool {
+        matches!(
+            self,
+            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. }
+        )
+    }
+
+    /// Return `true` if we have a workspace commit, a commit that merges all stacks together.
+    /// Implies `has_managed_ref() == true`.
+    pub fn has_managed_commit(&self) -> bool {
+        matches!(self, WorkspaceKind::Managed { .. })
+    }
+}
+
+impl WorkspaceKind {
     fn managed(ref_name: &Option<gix::refs::FullName>) -> anyhow::Result<Self> {
         Ok(WorkspaceKind::Managed {
             ref_name: ref_name
@@ -279,7 +314,7 @@ impl WorkspaceKind {
 #[derive(Debug, Clone)]
 pub struct Target {
     /// The name of the target branch, i.e. the branch that all [Stacks](Stack) want to get merged into.
-    /// Typically, this is `origin/main`.
+    /// Typically, this is `refs/remotes/origin/main`.
     pub ref_name: gix::refs::FullName,
     /// The index to the respective segment in the graph.
     pub segment_index: SegmentIndex,
@@ -438,7 +473,7 @@ impl Graph {
             lower_bound: None,
         };
 
-        let ws_lower_bound = if ws.has_managed_ref() {
+        let ws_lower_bound = if ws.kind.has_managed_ref() {
             self.compute_lowest_base(ws.id, ws.target.as_ref(), self.extra_target)
                 .or_else(|| {
                     // target not available? Try the base of the workspace itself
@@ -501,7 +536,7 @@ impl Graph {
             *lower_bound_segment_id = None;
         }
 
-        if ws.has_managed_ref() && self[ws.id].commits.is_empty() {
+        if ws.kind.has_managed_ref() && self[ws.id].commits.is_empty() {
             ws.kind = WorkspaceKind::ManagedMissingWorkspaceCommit {
                 ref_name: ws_tip_segment
                     .ref_name
@@ -516,7 +551,7 @@ impl Graph {
                 .is_some_and(|rn| rn.as_bstr().starts_with_str("refs/heads/gitbutler/"))
         }
 
-        if ws.has_managed_ref() {
+        if ws.kind.has_managed_ref() {
             let (lowest_base, lowest_base_sidx) =
                 ws_lower_bound.map_or((None, None), |(base, sidx)| (Some(base), Some(sidx)));
             for stack_top_sidx in self
@@ -661,50 +696,6 @@ impl Graph {
                 .map(|(c, sidx)| (c.id, sidx))
         }
     }
-
-    /// Compute the loweset merge-base between two segments.
-    /// Such a merge-base is reachable from all possible paths from `a` and `b`.
-    ///
-    /// We know this works as all branching and merging is represented by a segment.
-    /// Thus, the merge-base is always the first commit of the returned segment
-    // TODO: should be multi, with extra segments as third parameter
-    // TODO: actually find the lowest merge-base, right now it just finds the first merge-base, but that's not
-    //       the lowest.
-    fn first_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
-        // TODO(perf): improve this by allowing to set bitflags on the segments themselves, to allow
-        //       marking them accordingly, just like Git does.
-        //       Right now we 'emulate' bitflags on pre-allocated data with two data sets, expensive
-        //       in comparison.
-        //       And yes, let's avoid `gix::Repository::merge_base` as we have free
-        //       generation numbers here and can avoid work duplication.
-        let mut segments_reachable_by_b = BTreeSet::new();
-        self.visit_all_segments_including_start_until(b, Direction::Outgoing, |s| {
-            segments_reachable_by_b.insert(s.id);
-            // Collect everything, keep it simple.
-            // This is fast* as completely in memory.
-            // *means slow compared to an array traversal with memory locality.
-            false
-        });
-
-        let mut candidate = None;
-        self.visit_all_segments_including_start_until(a, Direction::Outgoing, |s| {
-            if candidate.is_some() {
-                return true;
-            }
-            let prune = segments_reachable_by_b.contains(&s.id);
-            if prune {
-                candidate = Some(s.id);
-            }
-            prune
-        });
-        if candidate.is_none() {
-            // TODO: improve this - workspaces shouldn't be like this but if they are, do we deal with it well?
-            tracing::warn!(
-                "Couldn't find merge-base between segments {a:?} and {b:?} - this might lead to unexpected results"
-            )
-        }
-        candidate
-    }
 }
 
 /// This works as named segments have been created in a prior step. Thus, we are able to find best matches by
@@ -789,7 +780,7 @@ impl Graph {
         out
     }
 
-    /// Return `(commit, start)` if `start` has a commit, or find the first commit downstream along the first parent.
+    /// Return `(commit, owner_sidx_of_commit)` if `start` has a commit, or find the first commit downstream along the first parent.
     pub(crate) fn first_commit_or_find_along_first_parent(
         &self,
         start: SegmentIndex,
@@ -1070,15 +1061,6 @@ impl Workspace<'_> {
 
 /// Query
 impl<'graph> Workspace<'graph> {
-    /// Return `true` if this workspace is managed, meaning we control certain aspects of it.
-    /// If `false`, we are more conservative and may not support all features.
-    pub fn has_managed_ref(&self) -> bool {
-        matches!(
-            self.kind,
-            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. }
-        )
-    }
-
     /// Return `true` if the workspace has workspace metadata associated with it.
     /// This is relevant when creating references for example.
     pub fn has_metadata(&self) -> bool {

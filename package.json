@@ -26,6 +26,7 @@
 		"start:desktop": "pnpm --filter @gitbutler/desktop run preview",
 		"check": "turbo run check --no-daemon",
 		"tauri": "cross-env CARGO_TARGET_DIR=$PNPM_SCRIPT_SRC_DIR/target/tauri tauri",
+		"tauri-for-release": "tauri",
 		"lint": "turbo run //#globallint --no-daemon",
 		"globallint": "prettier --check . && eslint .",
 		"prettier": "prettier --check",
@@ -39,7 +40,7 @@
 	"devDependencies": {
 		"@eslint/js": "9.33.0",
 		"@gitbutler/no-relative-imports": "workspace:*",
-		"@tauri-apps/cli": "^2.7.1",
+		"@tauri-apps/cli": "^2.7.4",
 		"@types/eslint": "9.6.1",
 		"@types/node": "^22.17.0",
 		"@typescript-eslint/parser": "^8.39.0",

@@ -27,6 +27,8 @@ pub struct FeatureFlags {
     pub ws3: bool,
     /// Turn on the set a v3 version of checkout
     pub cv3: bool,
+    /// Use the V3 version of apply and unapply.
+    pub apply3: bool,
     /// Enable undo/redo support.
     ///
     /// ### Progression for implementation

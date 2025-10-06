@@ -75,7 +75,7 @@ OS="$(os)"
 DIST="release"
 
 function tauri() {
-	(cd "$PWD/.." && pnpm tauri "$@")
+	(cd "$PWD/.." && pnpm tauri-for-release "$@")
 }
 
 while [[ $# -gt 0 ]]; do
