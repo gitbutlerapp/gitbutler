@@ -12,7 +12,7 @@
 //! of the conversation so far and then start a new session where the first
 //! message contains the summary
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use but_broadcaster::Broadcaster;
@@ -34,11 +34,11 @@ use crate::{
 };
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
 struct ModelUsage {
     input_tokens: u32,
     output_tokens: u32,
     cache_read_input_tokens: Option<u32>,
+    cache_creation_input_tokens: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -189,7 +189,7 @@ impl Claudes {
         // Find the last result message
         let Some(output) = messages.into_iter().rev().find_map(|m| match m.content {
             ClaudeMessageContent::ClaudeOutput(o) => {
-                if o["type"].as_str() == Some("result") {
+                if o["type"].as_str() == Some("assistant") {
                     Some(o)
                 } else {
                     None
@@ -200,21 +200,24 @@ impl Claudes {
             return Ok(());
         };
 
-        let usage: HashMap<String, ModelUsage> =
-            serde_json::from_value(output["modelUsage"].clone())?;
+        let model_name = output["message"]["model"]
+            .as_str()
+            .context("could not find model property")?;
+        dbg!(&output);
 
-        for (name, usage) in usage {
-            if let Some(model) = find_model(name) {
-                let total = usage.cache_read_input_tokens.unwrap_or(0)
-                    + usage.input_tokens
-                    + usage.output_tokens;
-                if total > (model.context - COMPACTION_BUFFER) {
-                    self.compact(ctx.clone(), broadcaster.clone(), stack_id)
-                        .await;
-                    break;
-                }
-            };
-        }
+        if let Some(model) = find_model(model_name.to_owned()) {
+            let usage: ModelUsage = serde_json::from_value(output["message"]["usage"].clone())?;
+
+            let total = usage.cache_read_input_tokens.unwrap_or(0)
+                + usage.cache_creation_input_tokens.unwrap_or(0)
+                + usage.input_tokens
+                + usage.output_tokens;
+            dbg!(total, model.context - COMPACTION_BUFFER);
+            if total > (model.context - COMPACTION_BUFFER) {
+                self.compact(ctx.clone(), broadcaster.clone(), stack_id)
+                    .await;
+            }
+        };
 
         Ok(())
     }
