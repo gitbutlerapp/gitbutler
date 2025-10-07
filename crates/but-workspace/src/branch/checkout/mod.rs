@@ -17,6 +17,10 @@ pub enum UncommitedWorktreeChanges {
 pub struct Options {
     /// How to deal with uncommitted changes.
     pub uncommitted_changes: UncommitedWorktreeChanges,
+    /// If `true`, do not change `HEAD` to the new commit.
+    ///
+    /// This is typically to be avoided, but may be used if you want to change the HEAD location yourself.
+    pub skip_head_update: bool,
 }
 
 /// The successful outcome of [super::safe_checkout()] operation.

@@ -3,6 +3,9 @@ use but_core::UnifiedDiff;
 use but_db::poll::ItemKind;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
+use but_workspace::branch::OnWorkspaceMergeConflict;
+use but_workspace::branch::apply::{IntegrationMode, WorkspaceReferenceNaming};
+use but_workspace::branch::checkout::UncommitedWorktreeChanges;
 use but_workspace::branch::create_reference::{Anchor, Position};
 use but_workspace::{DiffSpec, HunkHeader};
 use gitbutler_project::{Project, ProjectId};
@@ -631,6 +634,32 @@ pub fn remove_reference(
     }
     // write metadata if there are projects - this is a special case while we use vb.toml.
     ManuallyDrop::into_inner(meta);
+    Ok(())
+}
+
+pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyhow::Result<()> {
+    let (repo, project, graph, mut meta) =
+        repo_and_maybe_project_and_graph(args, RepositoryOpenMode::Merge)?;
+    let branch = repo.find_reference(short_name)?;
+    let ws = graph.to_workspace()?;
+    _ = but_workspace::branch::apply(
+        branch.name(),
+        &ws,
+        &repo,
+        &mut *meta,
+        but_workspace::branch::apply::Options {
+            integration_mode: IntegrationMode::AlwaysMerge,
+            on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
+            workspace_reference_naming: WorkspaceReferenceNaming::Default,
+            uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+            order,
+        },
+    )?;
+
+    if project.is_some() {
+        // write metadata if there are projects - this is a special case while we use vb.toml.
+        ManuallyDrop::into_inner(meta);
+    }
     Ok(())
 }
 

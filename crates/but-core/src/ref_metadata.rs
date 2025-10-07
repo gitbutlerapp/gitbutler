@@ -36,8 +36,27 @@ pub struct Workspace {
     pub push_remote: Option<String>,
 }
 
+impl Workspace {}
+
 /// Mutations
 impl Workspace {
+    /// Remove the named segment `branch`, which removes the whole stack if it's empty after removing a segment
+    /// of that name.
+    /// Returns `true` if it was removed or `false` if it wasn't found.
+    pub fn remove_segment(&mut self, branch: &FullNameRef) -> bool {
+        let Some((stack_idx, segment_idx)) = self.find_owner_indexes_by_name(branch) else {
+            return false;
+        };
+
+        let stack = &mut self.stacks[stack_idx];
+        stack.branches.remove(segment_idx);
+
+        if stack.branches.is_empty() {
+            self.stacks.remove(stack_idx);
+        }
+        true
+    }
+
     /// Insert `branch` as new stack if it's not yet contained in the workspace and if `order` is not `None` or push
     /// it to the end of the stack list.
     /// Note that `order` is only relevant at insertion time.
@@ -67,6 +86,28 @@ impl Workspace {
             }
         }
         true
+    }
+
+    /// Insert `branch` as new segment if it's not yet contained in the workspace,
+    /// and insert it above the given `anchor` segment name, which maybe the tip of a stack or any segment within one
+    /// Returns `true` if the ref was newly added, or `false` if it already existed, or `None` if `anchor` didn't exist.
+    pub fn insert_new_segment_above_anchor_if_not_present(
+        &mut self,
+        branch: &FullNameRef,
+        anchor: &FullNameRef,
+    ) -> Option<bool> {
+        if self.contains_ref(branch) {
+            return Some(false);
+        };
+        let (stack_idx, segment_idx) = self.find_owner_indexes_by_name(anchor)?;
+        self.stacks[stack_idx].branches.insert(
+            segment_idx,
+            WorkspaceStackBranch {
+                ref_name: branch.to_owned(),
+                archived: false,
+            },
+        );
+        Some(true)
     }
 }
 

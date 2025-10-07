@@ -157,6 +157,7 @@ pub(crate) mod function {
                 repo,
                 checkout::Options {
                     uncommitted_changes,
+                    skip_head_update: false,
                 },
             )?;
             let graph = workspace.graph.redo_traversal_with_overlay(
@@ -335,8 +336,9 @@ pub(crate) mod function {
             );
         }
         // At this point, the workspace-metadata already knows the new branch(es), but the workspace itself
-        // doesn't see one or more of to-be-applied branches. These are, however, part of the graph by now,
-        // and we want to try to create a workspace merge.
+        // doesn't see one or more of to-be-applied branches (to become stacks).
+        // These are, however, part of the graph by now, and we want to try to create a workspace
+        // merge.
         let mut in_memory_repo = repo.clone().for_tree_diffing()?.with_object_memory();
         let merge_result = WorkspaceCommit::from_new_merge_with_metadata(
             &ws_md.stacks,
@@ -353,6 +355,110 @@ pub(crate) mod function {
             });
         }
 
+        let prev_head_id = graph
+            .entrypoint_commit()
+            .context("BUG: how is it possible that there is no head commit?")?
+            .id;
+        let mut new_head_id = merge_result.workspace_commit_id;
+        let overlay =
+            overlay.with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()));
+        let mut graph =
+            graph.redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone())?;
+
+        let workspace = graph.to_workspace()?;
+        let collect_unapplied_branches = |workspace: &but_graph::projection::Workspace| {
+            branches_to_apply
+                .iter()
+                .filter(|rn| !workspace.refname_is_segment(rn))
+                .collect::<Vec<_>>()
+        };
+        let unapplied_branches = collect_unapplied_branches(&workspace);
+        if !unapplied_branches.is_empty() {
+            // Now that the merge is done, try to redo the operation one last time with dependent branches instead.
+            // Only do that for the still unapplied branches, which should always find some sort of anchor.
+            let ws_mut: &mut Workspace = &mut ws_md;
+            for branch_to_remove in &unapplied_branches {
+                ws_mut.remove_segment(branch_to_remove);
+            }
+            for rn in &unapplied_branches {
+                // Here we have to check if the new ref would be able to become its own stack,
+                // or if it has to be a dependent branch. Stacks only work if the ref rests on a base
+                // outside the workspace, so if we find it in the workspace (in an ambiguous spot) it must be
+                // a dependent branch
+                if let Some(segment_to_insert_above) = workspace
+                    .stacks
+                    .iter()
+                    .flat_map(|stack| stack.segments.iter())
+                    .find_map(|segment| {
+                        segment.commits.iter().flat_map(|c| c.refs.iter()).find_map(
+                            |ambiguous_rn| {
+                                (ambiguous_rn.as_ref() == **rn)
+                                    .then_some(segment.ref_name.as_ref())
+                                    .flatten()
+                            },
+                        )
+                    })
+                {
+                    if ws_mut
+                        .insert_new_segment_above_anchor_if_not_present(
+                            rn,
+                            segment_to_insert_above.as_ref(),
+                        )
+                        .is_none()
+                    {
+                        // For now bail, until we know it's worth fixing this case automatically.
+                        bail!(
+                            "Missing reference {segment_to_insert_above} which should be known to workspace metadata to serve as insertion position for {rn}"
+                        );
+                    }
+                } else {
+                    bail!(
+                        "Unexpectedly failed to find anchor for {rn} to make it a dependent branch"
+                    )
+                }
+            }
+
+            // Redo the merge, with the different stack configuration.
+            // Note that this is the exception, typically using stacks will be fine.
+            let merge_result = WorkspaceCommit::from_new_merge_with_metadata(
+                &ws_md.stacks,
+                workspace.graph,
+                &in_memory_repo,
+                Some(branch),
+            )?;
+
+            if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
+                return Ok(Outcome {
+                    graph: Cow::Owned(graph),
+                    workspace_ref_created: needs_ws_ref_creation,
+                    workspace_merge: Some(merge_result),
+                });
+            }
+            new_head_id = merge_result.workspace_commit_id;
+            let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
+
+            graph = graph.redo_traversal_with_overlay(
+                &in_memory_repo,
+                meta,
+                overlay
+                    .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
+                    .with_workspace_metadata_override(ws_md_override),
+            )?;
+            let workspace = graph.to_workspace()?;
+            let unapplied_branches = collect_unapplied_branches(&workspace);
+
+            if !unapplied_branches.is_empty() {
+                bail!(
+                    "Unexpectedly failed to apply {branches} which is/are still not in the workspace",
+                    branches = unapplied_branches
+                        .iter()
+                        .map(|rn| rn.shorten().to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+        }
+
         // All work is done, persist and exit.
         // Note that it could be that some stacks aren't merged in,
         // while being present in the workspace metadata.
@@ -361,16 +467,6 @@ pub(crate) mod function {
             storage.persist(repo)?;
             drop(in_memory_repo);
         }
-        let prev_head_id = graph
-            .entrypoint_commit()
-            .context("BUG: how is it possible that there is no head commit?")?
-            .id;
-        let new_head_id = merge_result.workspace_commit_id;
-        let graph = graph.redo_traversal_with_overlay(
-            repo,
-            meta,
-            overlay.with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone())),
-        )?;
         persist_metadata(meta, &branches_to_apply, &ws_md)?;
         crate::branch::safe_checkout(
             prev_head_id,
@@ -378,6 +474,7 @@ pub(crate) mod function {
             repo,
             checkout::Options {
                 uncommitted_changes,
+                skip_head_update: true,
             },
         )?;
 
@@ -416,10 +513,9 @@ pub(crate) mod function {
         new_ref_target: gix::ObjectId,
         new_ref: Option<&gix::refs::FullNameRef>,
     ) -> anyhow::Result<()> {
-        // This also means we want HEAD to point to it.
-        let head_message = "GitButler switch to workspace during apply-branch".into();
         let edits = match new_ref {
             None => {
+                let head_message = "GitButler checkout workspace during apply-branch".into();
                 vec![RefEdit {
                     change: Change::Update {
                         log: LogChange {
@@ -435,6 +531,8 @@ pub(crate) mod function {
                 }]
             }
             Some(new_ref) => {
+                // This also means we want HEAD to point to it.
+                let head_message = "GitButler switch to workspace during apply-branch".into();
                 vec![
                     RefEdit {
                         change: Change::Update {

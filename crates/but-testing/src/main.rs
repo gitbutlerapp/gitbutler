@@ -7,6 +7,7 @@ use command::parse_diff_spec;
 use gix::bstr::BString;
 
 mod args;
+use crate::args::Subcommands;
 use crate::command::{RepositoryOpenMode, repo_and_maybe_project};
 use args::Args;
 
@@ -31,6 +32,7 @@ async fn main() -> Result<()> {
     }
 
     match &args.cmd {
+        Subcommands::Apply { branch_name, order } => command::apply(&args, branch_name, *order),
         args::Subcommands::AddProject {
             switch_to_workspace,
             path,
@@ -39,7 +41,6 @@ async fn main() -> Result<()> {
             path.to_owned(),
             switch_to_workspace.to_owned(),
         ),
-
         args::Subcommands::RemoveReference {
             permit_empty_stacks,
             keep_metadata,
