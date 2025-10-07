@@ -947,9 +947,13 @@ dependencies = [
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-stack",
+ "gitbutler-testsupport",
  "gitbutler-workspace",
  "gix",
+ "gix-testtools",
+ "insta",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -35,7 +35,7 @@ use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_change
 use gix::{ObjectId, Repository};
 use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 pub enum CherryApplyStatus {
     CausesWorkspaceConflict,
@@ -156,8 +156,6 @@ fn cherry_pick_conflicts(repo: &Repository, from: ObjectId, onto: ObjectId) -> R
         .context("The commit to be cherry picked must have a parent")?
         .object()?
         .into_commit();
-
-    dbg!(&from, &onto, &base);
 
     Ok(!repo.merges_cleanly(
         base.tree_id()?.detach(),
