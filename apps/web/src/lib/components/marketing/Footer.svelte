@@ -117,7 +117,7 @@
 			{/each}
 		</ul>
 
-		<HeaderAuthSection />
+		<HeaderAuthSection hideIfUserAuthenticated />
 
 		<div class="meta-links">
 			<span class="meta-links__copyright"

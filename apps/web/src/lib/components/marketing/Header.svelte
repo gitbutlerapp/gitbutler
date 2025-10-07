@@ -1,9 +1,15 @@
 <script lang="ts">
 	import MobileMenu from '$home/components/MobileMenu.svelte';
 	import GitbutlerLogoLink from '$lib/components/GitbutlerLogoLink.svelte';
+	import UserAuthAvatar from '$lib/components/UserAuthAvatar.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/core/context';
 	import { Icon } from '@gitbutler/ui';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
+
+	const userService = inject(USER_SERVICE);
+	const user = $derived(userService.user);
 </script>
 
 <!-- Link snippet for reusable navigation links -->
@@ -57,6 +63,10 @@
 				label: jsonLinks.resources.jobs.label
 			})}
 		</section>
+
+		{#if $user}
+			<UserAuthAvatar user={$user} />
+		{/if}
 	</nav>
 
 	<MobileMenu />
@@ -105,72 +115,5 @@
 			color: var(--clr-text-1);
 			text-decoration-line: underline;
 		}
-	}
-
-	.social-dropdown {
-		display: inline-block;
-		position: relative;
-	}
-
-	.social-button {
-		display: flex;
-		align-items: center;
-		border: none;
-		background: none;
-		color: inherit;
-		cursor: pointer;
-
-		&:hover .social-button-label {
-			text-decoration: underline dotted;
-		}
-	}
-
-	.social-button-arrow {
-		margin-left: 4px;
-		font-size: 10px;
-		transition: transform var(--transition-fast);
-
-		&.rotated {
-			transform: rotate(180deg);
-		}
-	}
-
-	.social-link-arrow {
-		display: inline-block;
-		transform: scale(0.7);
-		opacity: 0;
-		transition: transform 0.15s ease-in-out;
-	}
-
-	.social-link {
-		display: block;
-		padding: 8px 14px;
-		border-radius: var(--radius-s);
-		text-decoration: none;
-		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: var(--clr-bg-2);
-			text-decoration: none;
-
-			.social-link-arrow {
-				transform: scale(1) translate(2px, -2px);
-				opacity: 0.7;
-			}
-		}
-	}
-
-	.dropdown-menu {
-		z-index: 1000;
-		position: absolute;
-		top: 100%;
-		right: 0;
-		min-width: 160px;
-		margin-top: 8px;
-		padding: 8px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: 6px;
-		background: var(--clr-bg-1);
-		box-shadow: var(--fx-shadow-m);
 	}
 </style>
