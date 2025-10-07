@@ -15,8 +15,8 @@ use std::sync::Arc;
 
 use but_api::App;
 use but_api::{
-    cli, config, diff, forge, git, modes, open, remotes, repo, rules, secret, stack, undo, users,
-    virtual_branches, workspace,
+    cherry_apply, cli, config, diff, forge, git, modes, open, remotes, repo, rules, secret, stack,
+    undo, users, virtual_branches, workspace,
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
@@ -238,6 +238,8 @@ fn main() {
                     repo::pre_commit_hook_diffspecs,
                     repo::post_commit_hook,
                     repo::message_hook,
+                    cherry_apply::cherry_apply_status,
+                    cherry_apply::cherry_apply,
                     virtual_branches::create_virtual_branch,
                     virtual_branches::delete_local_branch,
                     virtual_branches::get_base_branch_data,

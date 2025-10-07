@@ -11,6 +11,7 @@ import { BACKEND } from '$lib/backend';
 import ClipboardService, { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 import BaseBranchService, { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 import { BranchService, BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
+import { CherryApplyService, CHERRY_APPLY_SERVICE } from '$lib/cherryApply/cherryApplyService';
 import CLIManager, { CLI_MANAGER } from '$lib/cli/cli';
 import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/codegen/claude';
 import { AppSettings, APP_SETTINGS } from '$lib/config/appSettings';
@@ -184,6 +185,7 @@ export function initDependencies(args: {
 	const gitService = new GitService(backend, clientState.backendApi);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const branchService = new BranchService(clientState['backendApi']);
+	const cherryApplyService = new CherryApplyService(clientState.backendApi);
 	const remotesService = new RemotesService(backend);
 	const hooksService = new HooksService(backend);
 
@@ -314,6 +316,7 @@ export function initDependencies(args: {
 		[BACKEND, backend],
 		[BASE_BRANCH_SERVICE, baseBranchService],
 		[BRANCH_SERVICE, branchService],
+		[CHERRY_APPLY_SERVICE, cherryApplyService],
 		[CLAUDE_CODE_SERVICE, claudeCodeService],
 		[CLIENT_STATE, clientState],
 		[CLIPBOARD_SERVICE, clipboardService],

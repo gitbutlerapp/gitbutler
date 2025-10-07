@@ -12,9 +12,9 @@ use axum::{
 use but_api::{
     App, NoParams,
     commands::{
-        askpass, claude, cli, config, diff, forge, git, github, modes, open, projects as iprojects,
-        remotes, repo, rules, secret, settings, stack, undo, users, virtual_branches, workspace,
-        zip,
+        askpass, cherry_apply, claude, cli, config, diff, forge, git, github, modes, open,
+        projects as iprojects, remotes, repo, rules, secret, settings, stack, undo, users,
+        virtual_branches, workspace, zip,
     },
     error::ToError as _,
 };
@@ -162,6 +162,9 @@ async fn handle_command(
         "changes_in_branch" => diff::changes_in_branch_cmd(request.params),
         "changes_in_worktree" => diff::changes_in_worktree_cmd(request.params),
         "assign_hunk" => diff::assign_hunk_cmd(request.params),
+        // Cherry apply commands
+        "cherry_apply_status" => cherry_apply::cherry_apply_status_cmd(request.params),
+        "cherry_apply" => cherry_apply::cherry_apply_cmd(request.params),
         // Workspace commands
         "stacks" => workspace::stacks_cmd(request.params),
         "head_info" => workspace::head_info_cmd(request.params),
