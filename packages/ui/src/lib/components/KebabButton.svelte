@@ -68,6 +68,17 @@
 		onclick?.(e.currentTarget as HTMLElement);
 	}
 
+	function onKeyDown(e: KeyboardEvent) {
+		if (e.key !== 'Enter') {
+			return;
+		}
+		e.stopPropagation();
+		e.preventDefault();
+		isContextMenuOpen = !isContextMenuOpen;
+		openedViaClick = isContextMenuOpen; // Track if opened via click
+		onclick?.(e.currentTarget as HTMLElement);
+	}
+
 	$effect(() => {
 		if (contextElement) {
 			contextElement.addEventListener('contextmenu', onContextMenu);
@@ -110,6 +121,7 @@
 		class:visible={visible || isContextMenuOpen}
 		class:activated={activated || (isContextMenuOpen && openedViaClick)}
 		onclick={onClick}
+		onkeypress={onKeyDown}
 		data-testid={testId}
 	>
 		<Icon name="kebab" />
@@ -123,6 +135,7 @@
 		kind="ghost"
 		activated={activated || (isContextMenuOpen && openedViaClick)}
 		onclick={onClick}
+		onkeydown={onKeyDown}
 	/>
 {/if}
 
