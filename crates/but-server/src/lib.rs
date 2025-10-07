@@ -286,6 +286,7 @@ async fn handle_command(
         "fetch_from_remotes" => virtual_branches::fetch_from_remotes_cmd(request.params),
         "move_commit" => virtual_branches::move_commit_cmd(request.params),
         "move_branch" => virtual_branches::move_branch_cmd(request.params),
+        "tear_off_branch" => virtual_branches::tear_off_branch_cmd(request.params),
         "update_commit_message" => virtual_branches::update_commit_message_cmd(request.params),
         "find_commit" => virtual_branches::find_commit_cmd(request.params),
         "upstream_integration_statuses" => {

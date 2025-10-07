@@ -6,6 +6,7 @@ export class BranchDropData {
 		readonly stackId: string,
 		readonly branchName: string,
 		readonly hasConflicts: boolean,
+		readonly numberOfBranchesInStack: number,
 		readonly numberOfCommits: number
 	) {}
 

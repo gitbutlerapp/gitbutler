@@ -755,6 +755,10 @@ export class StackService {
 		return this.api.endpoints.moveBranch.mutate;
 	}
 
+	get tearOffBranch() {
+		return this.api.endpoints.tearOffBranch.mutate;
+	}
+
 	get integrateUpstreamCommits() {
 		return this.api.endpoints.integrateUpstreamCommits.useMutation();
 	}
@@ -1485,9 +1489,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				},
 				query: (args) => args,
 				invalidatesTags: (result, _error, args) => {
-					if (result === undefined) return [];
-
-					if (result.deletedStacks.includes(args.sourceStackId)) {
+					if (result?.deletedStacks.includes(args.sourceStackId)) {
 						// The source stack was deleted, so we need to invalidate the list of stacks.
 						return [
 							invalidatesList(ReduxTag.Stacks),
@@ -1500,6 +1502,27 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 						invalidatesList(ReduxTag.WorktreeChanges), // Moving commits can cause conflicts
 						invalidatesItem(ReduxTag.StackDetails, args.sourceStackId),
 						invalidatesItem(ReduxTag.StackDetails, args.targetStackId)
+					];
+				}
+			}),
+			tearOffBranch: build.mutation<
+				MoveBranchResult,
+				{
+					projectId: string;
+					sourceStackId: string;
+					subjectBranchName: string;
+				}
+			>({
+				extraOptions: {
+					command: 'tear_off_branch',
+					actionName: 'Tear Off Branch'
+				},
+				query: (args) => args,
+				invalidatesTags: (_result, _error, args) => {
+					return [
+						invalidatesList(ReduxTag.Stacks),
+						invalidatesList(ReduxTag.WorktreeChanges), // Moving commits can cause conflicts
+						invalidatesItem(ReduxTag.StackDetails, args.sourceStackId)
 					];
 				}
 			}),

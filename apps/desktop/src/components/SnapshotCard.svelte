@@ -115,6 +115,8 @@
 				return { text: 'Move commit', icon: 'move-commit' };
 			case 'MoveBranch':
 				return { text: 'Move branch', icon: 'move-commit' };
+			case 'TearOffBranch':
+				return { text: 'Tear off branch', icon: 'move-commit' };
 			case 'ReorderCommit':
 				return { text: 'Reorder commit', icon: 'move-commit' };
 			case 'InsertBlankCommit':
