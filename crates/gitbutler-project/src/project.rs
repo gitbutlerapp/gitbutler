@@ -131,7 +131,7 @@ impl Project {
             .find(|p| {
                 // Canonicalize project path for comparison
                 match p.path.canonicalize() {
-                    Ok(proj_canon) => proj_canon == resolved_path,
+                    Ok(proj_canon) => resolved_path.starts_with(proj_canon),
                     Err(_) => false,
                 }
             })
