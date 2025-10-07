@@ -172,14 +172,14 @@
 		}
 	}
 
-	.marketing-page {
+	/* .marketing-page {
 		cursor: var(--cursor-custom);
-	}
+	} */
 
-	.marketing-page :global(a),
+	/* .marketing-page :global(a),
 	.marketing-page :global(button),
 	.marketing-page :global([role='button']),
 	.marketing-page :global([role='link']) {
 		cursor: var(--cursor-pointer);
-	}
+	} */
 </style>
