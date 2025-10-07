@@ -5,7 +5,7 @@
 	import SshKeysSection from './components/SshKeysSection.svelte';
 	import SupporterCard from './components/SupporterCard.svelte';
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
-	import linkJson from '$lib/data/links.json';
+	import linksJson from '$lib/data/links.json';
 	import { SSH_KEY_SERVICE } from '$lib/sshKeyService';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
@@ -31,6 +31,33 @@
 
 	const user = $derived(userService.user);
 	const token = $derived(authService.tokenReadable);
+
+	// Detect user's operating system
+	const detectedOS = $derived.by(() => {
+		if (typeof window === 'undefined') return 'macOS';
+
+		const userAgent = window.navigator.userAgent.toLowerCase();
+
+		if (userAgent.includes('mac')) return 'macOS';
+		if (userAgent.includes('win')) return 'Windows';
+		if (userAgent.includes('linux')) return 'Linux';
+
+		return 'macOS'; // default fallback
+	});
+
+	const downloadButtonText = $derived(`Download GitButler for ${detectedOS}`);
+
+	const downloadLink = $derived.by(() => {
+		switch (detectedOS) {
+			case 'Windows':
+				return linksJson.downloads.windowsMsi.url;
+			case 'Linux':
+				return linksJson.downloads.linuxAppimage.url;
+			case 'macOS':
+			default:
+				return linksJson.downloads.appleSilicon.url;
+		}
+	});
 
 	function logout() {
 		authService.clearToken();
@@ -87,6 +114,32 @@
 				<Spacer />
 			</div>
 
+			<div class="download-app-banner">
+				<div class="download-card">
+					<div class="download-card__header">
+						<img class="download-card__icon" src="/images/app-icon.svg" alt="" />
+
+						<p class="text-12 text-body clr-text-2 text-balance">
+							Get the desktop app for Mac, Windows, and Linux.
+						</p>
+					</div>
+
+					<Button style="neutral" wide onclick={() => window.open(downloadLink, '_blank')}>
+						{downloadButtonText}
+					</Button>
+
+					<hr class="download-card__divider" />
+
+					<p class="download-card__other-text text-12">
+						Get the app for
+						<a href={linksJson.resources.downloads.url} target="_self" rel="noopener noreferrer">
+							other platforms
+						</a>
+						↗
+					</p>
+				</div>
+			</div>
+
 			{#if $user?.supporter}
 				<SupporterCard />
 			{/if}
@@ -94,7 +147,7 @@
 			<div class="tips-section">
 				<a
 					class="tip-link"
-					href={linkJson.resources.documentation.url}
+					href={linksJson.resources.documentation.url}
 					target="_blank"
 					rel="noopener noreferrer"
 				>
@@ -106,34 +159,32 @@
 						Explore comprehensive guides and best practices.
 					</p>
 
-					<span class="text-12 tip-link__arrow-icon">[↗]</span>
+					<span class="tip-link__arrow-icon">↗</span>
 				</a>
 				<a
 					class="tip-link"
-					href={linkJson.social.discord.url}
+					href={linksJson.social.discord.url}
 					target="_blank"
 					rel="noopener noreferrer"
 				>
 					<div class="tip-link__title">
-						<Icon name="discord" color="var(--clr-text-2)" />
+						<Icon name="discord-outline" color="var(--clr-text-2)" />
 						<h3 class="text-14 text-semibold">Join the Community</h3>
 					</div>
-					<p class="text-12 text-body clr-text-2">
-						Connect with other users and get support on Discord.
-					</p>
+					<p class="text-12 text-body clr-text-2">Join our Discord for help and discussion.</p>
 
-					<span class="text-12 tip-link__arrow-icon">[↗]</span>
+					<span class="tip-link__arrow-icon">↗</span>
 				</a>
-				<a class="tip-link" href={linkJson.other.support.url}>
+				<a class="tip-link" href={linksJson.other.support.url}>
 					<div class="tip-link__title">
 						<Icon name="chat" color="var(--clr-text-2)" />
 						<h3 class="text-14 text-semibold">Need Help?</h3>
 					</div>
 					<p class="text-12 text-body clr-text-2">
-						Submit a ticket and our support team will assist you.
+						Create an issue on GitHub. We're here to assist!
 					</p>
 
-					<span class="text-12 tip-link__arrow-icon">[↗]</span>
+					<span class="tip-link__arrow-icon">↗</span>
 				</a>
 			</div>
 		</div>
@@ -203,7 +254,8 @@
 			background-color: var(--clr-bg-1-muted);
 
 			& .tip-link__arrow-icon {
-				color: var(--clr-text-1);
+				transform: translateX(0);
+				opacity: 1;
 			}
 		}
 	}
@@ -217,10 +269,14 @@
 
 	.tip-link__arrow-icon {
 		position: absolute;
-		top: 10px;
+		top: 8px;
 		right: 10px;
+		transform: translateX(-2px);
 		color: var(--clr-text-2);
+		font-size: 16px;
+		opacity: 0;
 		transition:
+			opacity var(--transition-fast),
 			color var(--transition-fast),
 			transform var(--transition-medium);
 	}
@@ -228,6 +284,63 @@
 	.profile_mobile-separator {
 		display: none;
 		width: 100%;
+	}
+
+	.download-app-banner {
+		width: 100%;
+	}
+
+	.download-card {
+		display: flex;
+		flex-direction: column;
+		padding: 16px;
+		gap: 16px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
+	}
+
+	.download-card__header {
+		display: flex;
+		gap: 12px;
+	}
+
+	.download-card__icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 38px;
+		height: 38px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-theme-pop-bg);
+	}
+
+	.download-card__other-text {
+		color: var(--clr-text-2);
+		text-align: center;
+		transition: color var(--transition-fast);
+
+		& a {
+			text-decoration: underline;
+
+			&:hover {
+				color: var(--clr-text-1);
+				text-decoration: underline wavy var(--clr-theme-pop-element);
+			}
+		}
+	}
+
+	.download-card__divider {
+		width: 100%;
+		height: 1px;
+		border: none;
+		background: repeating-linear-gradient(
+			to right,
+			var(--clr-border-2),
+			var(--clr-border-2) 2px,
+			transparent 2px,
+			transparent 4px
+		);
 	}
 
 	@media (--tablet-viewport) {
@@ -253,6 +366,16 @@
 
 		.profile_mobile-separator {
 			display: block;
+		}
+
+		.download-card {
+			align-items: center;
+		}
+
+		.download-card__header {
+			flex-direction: column;
+			align-items: center;
+			text-align: center;
 		}
 	}
 </style>
