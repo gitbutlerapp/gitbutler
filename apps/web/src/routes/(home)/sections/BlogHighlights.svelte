@@ -18,7 +18,7 @@
 
 	async function fetchRSSFeed() {
 		try {
-			const response = await fetch('https://blog.gitbutler.com/rss/3');
+			const response = await fetch('https://blog.gitbutler.com/rss/3/featured');
 			const text = await response.text();
 			const parser = new DOMParser();
 			const xml = parser.parseFromString(text, 'text/xml');
