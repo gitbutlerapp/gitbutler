@@ -25,6 +25,14 @@ mod status;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if let Ok(color_override) = std::env::var("COLOR_OVERRIDE") {
+        match color_override.to_lowercase().as_str() {
+            "true" | "1" | "on" | "yes" => colored::control::set_override(true),
+            "false" | "0" | "off" | "no" => colored::control::set_override(false),
+            _ => {}
+        }
+    }
+
     // Check if help is requested with no subcommand
     if std::env::args().len() == 1
         || std::env::args().any(|arg| arg == "--help" || arg == "-h") && std::env::args().len() == 2
