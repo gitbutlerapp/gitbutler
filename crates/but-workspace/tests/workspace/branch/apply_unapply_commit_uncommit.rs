@@ -522,6 +522,84 @@ fn detached_head_journey() -> anyhow::Result<()> {
 }
 
 #[test]
+fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "no-ws-ref-stack-and-dependent-branch",
+            |_meta| {},
+        )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * f084d61 (C, B, A) A2
+    * 7076dee (E, D) A1
+    * 85efbe4 (HEAD -> main, origin/main) M
+    ");
+
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    ⌂:0:main <> ✓!
+    └── ≡:0:main
+        └── :0:main
+            └── ·85efbe4
+    ");
+
+    // Apply `A` first.
+    let out =
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+    insta::assert_debug_snapshot!(out, @r"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: true,
+    }
+    ");
+    let graph = out.graph;
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
+    └── ≡📙:3:A on 85efbe4
+        └── 📙:3:A
+            ├── ·f084d61 (🏘️) ►B, ►C
+            └── ·7076dee (🏘️) ►D, ►E
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 6a706b7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * f084d61 (C, B, A) A2
+    * 7076dee (E, D) A1
+    * 85efbe4 (origin/main, main) M
+    ");
+
+    // Apply `B` - the only sane way is to make it its own stack, but allow it to diverge.
+    let out =
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())
+            .expect("apply actually works");
+    insta::assert_debug_snapshot!(out, @r"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+    }
+    ");
+
+    let graph = out.graph;
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
+    └── ≡📙:4:B on 85efbe4
+        ├── 📙:4:B
+        └── 📙:5:A
+            ├── ·f084d61 (🏘️) ►C
+            └── ·7076dee (🏘️) ►D, ►E
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * badd1b4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * f084d61 (C, B, A) A2
+    * 7076dee (E, D) A1
+    * 85efbe4 (origin/main, main) M
+    ");
+
+    // TODO: add all other dependent branches as well.
+    Ok(())
+}
+
+#[test]
 fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
