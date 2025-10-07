@@ -15,6 +15,7 @@
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
 	import CodegenMcpConfigModal from '$components/codegen/CodegenMcpConfigModal.svelte';
+	import CodegenPromptConfigModal from '$components/codegen/CodegenPromptConfigModal.svelte';
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
@@ -121,6 +122,7 @@
 	let templateContextMenu = $state<ContextMenu>();
 	let templateTrigger = $state<HTMLButtonElement>();
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
+	let promptConfigModal = $state<CodegenPromptConfigModal>();
 
 	const modelOptions: { label: string; value: ModelType }[] = [
 		{ label: 'Sonnet', value: 'sonnet' },
@@ -137,7 +139,19 @@
 		{ label: 'Accept edits', value: 'acceptEdits' }
 	];
 
-	const promptTemplates = $derived(claudeCodeService.promptTemplates(undefined));
+	const promptTemplates = $derived(claudeCodeService.promptTemplates(projectId));
+	const promptDirs = $derived(claudeCodeService.promptDirs(projectId));
+
+	async function openPromptConfigDir(path: string) {
+		await claudeCodeService.createPromptDir({ projectId, path });
+
+		const editorUri = getEditorUri({
+			schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+			path: [path]
+		});
+
+		urlService.openExternalUrl(editorUri);
+	}
 
 	const projectState = uiState.project(projectId);
 	const selectedBranch = $derived(projectState.selectedClaudeSession.current);
@@ -332,21 +346,6 @@
 	function insertTemplate(template: string) {
 		setPrompt(prompt + (prompt ? '\n\n' : '') + template);
 		templateContextMenu?.close();
-	}
-
-	async function configureTemplates() {
-		templateContextMenu?.close();
-
-		const templatesPath = await claudeCodeService.fetchPromptTemplatesPath(undefined);
-
-		if (templatesPath) {
-			const editorUri = getEditorUri({
-				schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-				path: [templatesPath]
-			});
-
-			urlService.openExternalUrl(editorUri);
-		}
 	}
 
 	function showInWorkspace() {
@@ -1151,7 +1150,7 @@
 	<ContextMenuSection>
 		<ReduxResult result={promptTemplates.result} {projectId}>
 			{#snippet children(promptTemplates, { projectId: _projectId })}
-				{#each promptTemplates.templates as template}
+				{#each promptTemplates as template}
 					<ContextMenuItem
 						label={template.label}
 						onclick={() => insertTemplate(template.template)}
@@ -1162,12 +1161,20 @@
 	</ContextMenuSection>
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Edit in {$userSettings.defaultCodeEditor.displayName}"
+			label="Edit templates"
 			icon="open-editor"
-			onclick={configureTemplates}
+			onclick={() => promptConfigModal?.show()}
 		/>
 	</ContextMenuSection>
 </ContextMenu>
+
+{#if promptDirs.response}
+	<CodegenPromptConfigModal
+		bind:this={promptConfigModal}
+		promptDirs={promptDirs.response}
+		{openPromptConfigDir}
+	/>
+{/if}
 
 <style lang="postcss">
 	.page {

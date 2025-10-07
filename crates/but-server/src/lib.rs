@@ -511,12 +511,10 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
-        "claude_get_prompt_templates" => claude::claude_get_prompt_templates_cmd(request.params),
-        "claude_write_prompt_templates" => {
-            claude::claude_write_prompt_templates_cmd(request.params)
-        }
-        "claude_get_prompt_templates_path" => {
-            claude::claude_get_prompt_templates_path_cmd(request.params)
+        "claude_list_prompt_templates" => claude::claude_list_prompt_templates_cmd(request.params),
+        "claude_get_prompt_dirs" => claude::claude_get_prompt_dirs_cmd(request.params),
+        "claude_maybe_create_prompt_dir" => {
+            claude::claude_maybe_create_prompt_dir_cmd(request.params)
         }
         "claude_get_sub_agents" => {
             #[derive(Deserialize)]

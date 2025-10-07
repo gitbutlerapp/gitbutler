@@ -358,9 +358,9 @@ fn main() {
                     but_api::claude::claude_list_permission_requests,
                     but_api::claude::claude_update_permission_request,
                     but_api::claude::claude_check_available,
-                    but_api::claude::claude_get_prompt_templates,
-                    but_api::claude::claude_write_prompt_templates,
-                    but_api::claude::claude_get_prompt_templates_path,
+                    but_api::claude::claude_list_prompt_templates,
+                    but_api::claude::claude_get_prompt_dirs,
+                    but_api::claude::claude_maybe_create_prompt_dir,
                     but_api::claude::claude_get_mcp_config,
                     but_api::claude::claude_get_sub_agents,
                     but_api::claude::claude_verify_path
