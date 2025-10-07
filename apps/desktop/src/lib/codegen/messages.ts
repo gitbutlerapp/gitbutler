@@ -334,6 +334,7 @@ export function usageStats(events: ClaudeMessage[]): {
 	if (lastAssistantMessage) {
 		const usage = lastAssistantMessage.message.usage;
 		tokens += usage.cache_read_input_tokens ?? 0;
+		tokens += usage.cache_creation_input_tokens ?? 0;
 		tokens += usage.input_tokens;
 		tokens += usage.output_tokens;
 		const modelPricing = findModelPricing(lastAssistantMessage.message.model);
