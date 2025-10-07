@@ -12,7 +12,7 @@ test.afterEach(async () => {
 	gitbutler?.destroy();
 });
 
-test('move branch to top of other stack', async ({ page, context }, testInfo) => {
+test('move branch to top of other stack and tear it off', async ({ page, context }, testInfo) => {
 	const workdir = testInfo.outputPath('workdir');
 	const configdir = testInfo.outputPath('config');
 	gitbutler = await startGitButler(workdir, configdir, context);
@@ -49,6 +49,23 @@ test('move branch to top of other stack', async ({ page, context }, testInfo) =>
 	// Should have moved branch1 to the top of stack2
 	stacks = page.getByTestId('stack');
 	await expect(stacks).toHaveCount(1);
+	branchHeaders = page.getByTestId('branch-header');
+	await expect(branchHeaders).toHaveCount(2);
+
+	// Now tear off branch2
+	const updatedBranch1Locator = branchHeaders.filter({ hasText: 'branch2' });
+	const stackDropzone = await waitForTestId(page, 'stack-offlane-dropzone');
+	await dragAndDropByLocator(page, updatedBranch1Locator, stackDropzone, {
+		force: true,
+		position: {
+			x: 10,
+			y: 10
+		}
+	});
+
+	// Should have two stacks again
+	stacks = page.getByTestId('stack');
+	await expect(stacks).toHaveCount(2);
 	branchHeaders = page.getByTestId('branch-header');
 	await expect(branchHeaders).toHaveCount(2);
 });
