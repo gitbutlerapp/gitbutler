@@ -239,6 +239,7 @@ fn main() {
                     repo::post_commit_hook,
                     repo::message_hook,
                     cherry_apply::cherry_apply_status,
+                    cherry_apply::cherry_apply,
                     virtual_branches::create_virtual_branch,
                     virtual_branches::delete_local_branch,
                     virtual_branches::get_base_branch_data,

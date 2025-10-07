@@ -164,6 +164,7 @@ async fn handle_command(
         "assign_hunk" => diff::assign_hunk_cmd(request.params),
         // Cherry apply commands
         "cherry_apply_status" => cherry_apply::cherry_apply_status_cmd(request.params),
+        "cherry_apply" => cherry_apply::cherry_apply_cmd(request.params),
         // Workspace commands
         "stacks" => workspace::stacks_cmd(request.params),
         "head_info" => workspace::head_info_cmd(request.params),

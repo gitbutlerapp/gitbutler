@@ -853,6 +853,7 @@ dependencies = [
  "but-action",
  "but-api-macros",
  "but-broadcaster",
+ "but-cherry-apply",
  "but-claude",
  "but-core",
  "but-feedback",
@@ -931,6 +932,24 @@ dependencies = [
  "serde_json",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "but-cherry-apply"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-graph",
+ "but-rebase",
+ "but-workspace",
+ "gitbutler-branch-actions",
+ "gitbutler-command-context",
+ "gitbutler-oxidize",
+ "gitbutler-project",
+ "gitbutler-stack",
+ "gitbutler-workspace",
+ "gix",
+ "serde",
 ]
 
 [[package]]

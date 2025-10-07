@@ -17,4 +17,7 @@ but-graph.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-command-context.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-workspace.workspace = true
+gitbutler-project.workspace = true
 serde.workspace = true

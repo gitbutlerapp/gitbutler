@@ -28,17 +28,23 @@ export class CherryApplyService {
 	get status() {
 		return this.api.endpoints.cherryApplyStatus.useQuery;
 	}
+
+	get apply() {
+		return this.api.endpoints.cherryApply.useMutation;
+	}
 }
 
 function injectEndpoints(backendApi: BackendApi) {
 	return backendApi.injectEndpoints({
 		endpoints: (build) => ({
-			cherryApplyStatus: build.query<CherryApplyStatus, { projectId: string; subject: string }>(
-				{
-					extraOptions: { command: 'cherry_apply_status' },
-					query: (args) => args
-				}
-			)
+			cherryApplyStatus: build.query<CherryApplyStatus, { projectId: string; subject: string }>({
+				extraOptions: { command: 'cherry_apply_status' },
+				query: (args) => args
+			}),
+			cherryApply: build.mutation<void, { projectId: string; subject: string; target: string }>({
+				extraOptions: { command: 'cherry_apply' },
+				query: (args) => args
+			})
 		})
 	});
 }

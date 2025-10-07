@@ -22,11 +22,16 @@
 //!
 //!   - otherwise, it can be applied anywhere
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use but_graph::VirtualBranchesTomlMetadata;
-use but_workspace::{StackId, StacksFilter, stacks_v3};
+use but_rebase::Rebase;
+use but_workspace::{StackId, StacksFilter, stack_ext::StackExt, stacks_v3};
+use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::GixRepositoryExt;
+use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
+use gitbutler_stack::VirtualBranchesHandle;
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
 use gix::{ObjectId, Repository};
 use serde::Serialize;
 
@@ -40,8 +45,12 @@ pub enum CherryApplyStatus {
     NoStacks,
 }
 
-pub fn cherry_apply_status(ctx: &CommandContext, subject: ObjectId) -> Result<CherryApplyStatus> {
-    let repo = ctx.gix_repo()?;
+pub fn cherry_apply_status(
+    ctx: &CommandContext,
+    _perm: &WorktreeReadPermission,
+    subject: ObjectId,
+) -> Result<CherryApplyStatus> {
+    let repo = ctx.gix_repo_for_merging_non_persisting()?;
     let project = ctx.project();
     let meta =
         VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
@@ -53,12 +62,13 @@ pub fn cherry_apply_status(ctx: &CommandContext, subject: ObjectId) -> Result<Ch
 
     let mut locked_stack = None;
     for stack in stacks {
+        dbg!(&stack);
         let tip = stack
             .heads
             .first()
             .context("Stacks always have a head")?
             .tip;
-        if cherry_pick_conflicts(&repo, subject, tip)? {
+        if dbg!(cherry_pick_conflicts(&repo, subject, tip)?) {
             if locked_stack.is_some() {
                 // Locked stack has already been set to another stack. Now there
                 // are at least two stacks that it should be locked to, so we
@@ -73,12 +83,67 @@ pub fn cherry_apply_status(ctx: &CommandContext, subject: ObjectId) -> Result<Ch
             }
         }
     }
+    dbg!(&locked_stack);
 
     if let Some(stack) = locked_stack {
         Ok(CherryApplyStatus::LockedToStack(stack))
     } else {
         Ok(CherryApplyStatus::ApplicableToAnyStack)
     }
+}
+
+pub fn cherry_apply(
+    ctx: &CommandContext,
+    perm: &mut WorktreeWritePermission,
+    subject: ObjectId,
+    target: StackId,
+) -> Result<()> {
+    let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
+    let status = cherry_apply_status(ctx, perm.read_permission(), subject)?;
+    // Has the frontend told us to do something naughty?
+    match status {
+        CherryApplyStatus::ApplicableToAnyStack => (),
+        CherryApplyStatus::CausesWorkspaceConflict => {
+            bail!("Attempting to cherry pick commit that causes workspace conflicts.")
+        }
+        CherryApplyStatus::NoStacks => {
+            bail!("Attempting to cherry pick into a workspace with no applied stacks")
+        }
+        CherryApplyStatus::LockedToStack(stack) => {
+            if stack != target {
+                bail!(
+                    "Attempting to cherry pick into a different branch that which it is locked to"
+                )
+            }
+        }
+    };
+
+    let repo = ctx.gix_repo_for_merging()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let mut stack = vb_state.get_stack(target)?;
+    let mut steps = stack.as_rebase_steps(ctx, &repo)?;
+    // Insert before the head references (len - 1)
+    steps.insert(
+        steps.len() - 1,
+        but_rebase::RebaseStep::Pick {
+            commit_id: subject,
+            new_message: None,
+        },
+    );
+    let mut rebase = Rebase::new(&repo, stack.merge_base(ctx)?, None)?;
+    rebase.steps(steps)?;
+    rebase.rebase_noops(false);
+    let output = rebase.rebase()?;
+    stack.set_heads_from_rebase_output(ctx, output.references)?;
+
+    {
+        let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
+        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+    }
+
+    update_workspace_commit(&vb_state, ctx)?;
+
+    Ok(())
 }
 
 // Can a given commit be cleanly cherry picked onto another commit
@@ -92,14 +157,11 @@ fn cherry_pick_conflicts(repo: &Repository, from: ObjectId, onto: ObjectId) -> R
         .object()?
         .into_commit();
 
-    let (merge_options_fail_fast, conflict_kind) = repo.merge_options_no_rewrites_fail_fast()?;
-    let result = repo.merge_trees(
-        base.tree_id()?,
-        from.tree_id()?,
-        onto.tree_id()?,
-        repo.default_merge_labels(),
-        merge_options_fail_fast,
-    )?;
+    dbg!(&from, &onto, &base);
 
-    Ok(result.has_unresolved_conflicts(conflict_kind))
+    Ok(!repo.merges_cleanly(
+        base.tree_id()?.detach(),
+        from.tree_id()?.detach(),
+        onto.tree_id()?.detach(),
+    )?)
 }
