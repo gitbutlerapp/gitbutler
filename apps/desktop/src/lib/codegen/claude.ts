@@ -6,7 +6,8 @@ import {
 	type ThinkingLevel,
 	type ModelType,
 	type PermissionMode,
-	type PromptTemplates,
+	type PromptTemplate,
+	type PromptDir,
 	type McpConfig,
 	type SubAgent
 } from '$lib/codegen/types';
@@ -88,24 +89,24 @@ export class ClaudeCodeService {
 		return this.api.endpoints.getSessionDetails.fetch;
 	}
 
-	get promptTemplates() {
-		return this.api.endpoints.getPromptTemplates.useQuery;
+	promptTemplates(projectId: string) {
+		return this.api.endpoints.listPromptTemplates.useQuery({ projectId });
 	}
 
 	get fetchPromptTemplates() {
-		return this.api.endpoints.getPromptTemplates.fetch;
+		return this.api.endpoints.listPromptTemplates.fetch;
 	}
 
-	get writePromptTemplates() {
-		return this.api.endpoints.writePromptTemplates.mutate;
+	promptDirs(projectId: string) {
+		return this.api.endpoints.getPromptDirs.useQuery({ projectId });
 	}
 
-	get promptTemplatesPath() {
-		return this.api.endpoints.getPromptTemplatesPath.useQuery;
+	get fetchPromptDirs() {
+		return this.api.endpoints.getPromptDirs.fetch;
 	}
 
-	get fetchPromptTemplatesPath() {
-		return this.api.endpoints.getPromptTemplatesPath.fetch;
+	get createPromptDir() {
+		return this.api.endpoints.createPromptDir.mutate;
 	}
 
 	get mcpConfig() {
@@ -280,25 +281,20 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					unsubscribe();
 				}
 			}),
-			getPromptTemplates: build.query<PromptTemplates, undefined>({
-				extraOptions: { command: 'claude_get_prompt_templates' },
-				query: () => undefined
-			}),
-			writePromptTemplates: build.mutation<
-				undefined,
-				{
-					templates: PromptTemplates;
-				}
-			>({
-				extraOptions: {
-					command: 'claude_write_prompt_templates',
-					actionName: 'Write Prompt Templates'
-				},
+			listPromptTemplates: build.query<PromptTemplate[], { projectId: string }>({
+				extraOptions: { command: 'claude_list_prompt_templates' },
 				query: (args) => args
 			}),
-			getPromptTemplatesPath: build.query<string, undefined>({
-				extraOptions: { command: 'claude_get_prompt_templates_path' },
-				query: () => undefined
+			getPromptDirs: build.query<PromptDir[], { projectId: string }>({
+				extraOptions: { command: 'claude_get_prompt_dirs' },
+				query: (args) => args
+			}),
+			createPromptDir: build.mutation<undefined, { projectId: string; path: string }>({
+				extraOptions: {
+					command: 'claude_maybe_create_prompt_dir',
+					actionName: 'Create Prompt Directory'
+				},
+				query: (args) => args
 			}),
 			getMcpConfig: build.query<McpConfig, { projectId: string }>({
 				extraOptions: { command: 'claude_get_mcp_config' },
