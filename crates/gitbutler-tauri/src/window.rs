@@ -320,5 +320,13 @@ pub fn create(
     .disable_drag_drop_handler()
     .title_bar_style(tauri::TitleBarStyle::Overlay)
     .build()?;
+
+    use tauri::LogicalPosition;
+    use tauri::Manager;
+    use tauri_plugin_trafficlights_positioner::WindowExt;
+    if let Some(window) = window.get_window(label) {
+        window.setup_traffic_lights_inset(LogicalPosition::new(16.0, 25.0))?;
+    }
+
     Ok(window)
 }
