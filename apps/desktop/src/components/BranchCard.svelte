@@ -78,6 +78,7 @@
 		contextMenu?: typeof BranchHeaderContextMenu;
 		dropzones: DropzoneHandler[];
 		numberOfCommits: number;
+		numberOfBranchesInStack: number;
 		onclick: () => void;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
@@ -161,7 +162,13 @@
 		viewportId: 'board-viewport',
 		data:
 			args.type === 'stack-branch' && args.stackId
-				? new BranchDropData(args.stackId, branchName, args.isConflicted, args.numberOfCommits)
+				? new BranchDropData(
+						args.stackId,
+						branchName,
+						args.isConflicted,
+						args.numberOfBranchesInStack,
+						args.numberOfCommits
+					)
 				: undefined,
 		dropzoneRegistry,
 		dragStateService
