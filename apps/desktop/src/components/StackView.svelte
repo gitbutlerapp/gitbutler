@@ -226,10 +226,6 @@
 		checkFilesForCommit();
 	}
 
-	export function onclose() {
-		selection.set(undefined);
-	}
-
 	function onclosePreviewOnly() {
 		// Clear file selections for the active branch or commit
 		if (activeSelectionId) {
@@ -324,7 +320,6 @@
 		{projectId}
 		{selectionId}
 		diffOnly={true}
-		onclose={() => {}}
 		draggableFiles={selectionId.type === 'commit'}
 	/>
 {/snippet}
