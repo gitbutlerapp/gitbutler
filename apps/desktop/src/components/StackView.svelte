@@ -255,9 +255,14 @@
 		return undefined;
 	}
 
-	let isDetailsViewOpen = $derived(
-		(!!(branchName || commitId || selectedFile) && previewOpen) || !!assignedKey
-	);
+	// Details view can be opened in two ways:
+	// 1. User selects a branch/commit/file and opens preview
+	// 2. Files are assigned to this stack (assignedKey exists)
+	const hasActiveSelection = $derived(!!(branchName || commitId || selectedFile));
+	const isPreviewOpenForSelection = $derived(hasActiveSelection && previewOpen);
+	const hasAssignedFiles = $derived(!!assignedKey);
+
+	let isDetailsViewOpen = $derived(isPreviewOpenForSelection || hasAssignedFiles);
 
 	const DETAILS_RIGHT_PADDING_REM = 1.125;
 
