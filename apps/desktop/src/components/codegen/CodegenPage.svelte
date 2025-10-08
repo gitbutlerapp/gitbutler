@@ -448,10 +448,7 @@
 	$effect(() => {
 		function handleKeydown(event: KeyboardEvent) {
 			// Ignore if user is typing in an input or textarea
-			if (
-				event.target instanceof HTMLInputElement ||
-				event.target instanceof HTMLTextAreaElement
-			) {
+			if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
 				return;
 			}
 
