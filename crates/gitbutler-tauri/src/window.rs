@@ -1,3 +1,6 @@
+use but_api::error::Error;
+use tracing::instrument;
+
 pub(crate) mod state {
     use std::{collections::BTreeMap, sync::Arc};
 
@@ -323,9 +326,10 @@ pub fn create(
     Ok(window)
 }
 
-#[tauri::command]
-pub fn set_window_title(window: tauri::Window, title: String) -> Result<(), String> {
-    window.set_title(&title).map_err(|e| e.to_string())?;
+#[tauri::command(async)]
+#[instrument(skip(window), err(Debug))]
+pub fn set_window_title(window: tauri::Window, title: String) -> anyhow::Result<(), Error> {
+    window.set_title(&title).map_err(anyhow::Error::from)?;
 
     #[cfg(target_os = "macos")]
     {
@@ -333,7 +337,7 @@ pub fn set_window_title(window: tauri::Window, title: String) -> Result<(), Stri
         use tauri_plugin_trafficlights_positioner::WindowExt;
         window
             .setup_traffic_lights_inset(LogicalPosition::new(16.0, 25.0))
-            .map_err(|e| e.to_string())?;
+            .map_err(anyhow::Error::from)?;
     }
 
     Ok(())
