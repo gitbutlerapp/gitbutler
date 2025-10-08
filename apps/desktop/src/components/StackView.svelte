@@ -132,7 +132,6 @@
 	let stackViewEl = $state<HTMLDivElement>();
 	let compactDiv = $state<HTMLDivElement>();
 
-	let changedFilesCollapsed = $state<boolean>();
 	let active = $state(false);
 
 	const defaultBranchQuery = $derived(stackService.defaultBranch(projectId, stackId));
@@ -226,15 +225,13 @@
 		checkFilesForCommit();
 	}
 
-	export function onclose() {
-		selection.set(undefined);
-	}
-
 	function onclosePreviewOnly() {
-		const source = selection.current;
-		if (source) {
-			selection.set({ ...source, previewOpen: false });
+		// Clear file selections for the active branch or commit
+		if (activeSelectionId) {
+			idSelection.clear(activeSelectionId);
 		}
+		// Clear the lane selection (branch/commit)
+		selection.set(undefined);
 	}
 
 	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stackId));
@@ -258,9 +255,14 @@
 		return undefined;
 	}
 
-	let isDetailsViewOpen = $derived(
-		(!!(branchName || commitId || selectedFile) && previewOpen) || !!assignedKey
-	);
+	// Details view can be opened in two ways:
+	// 1. User selects a branch/commit/file and opens preview
+	// 2. Files are assigned to this stack (assignedKey exists)
+	const hasActiveSelection = $derived(!!(branchName || commitId || selectedFile));
+	const isPreviewOpenForSelection = $derived(hasActiveSelection && previewOpen);
+	const hasAssignedFiles = $derived(!!assignedKey);
+
+	let isDetailsViewOpen = $derived(isPreviewOpenForSelection || hasAssignedFiles);
 
 	const DETAILS_RIGHT_PADDING_REM = 1.125;
 
@@ -273,20 +275,28 @@
 
 	// Set initial CSS custom properties when details view opens/closes
 	$effect(() => {
-		if (stackViewEl) {
+		const element = stackViewEl;
+		if (element) {
 			if (isDetailsViewOpen) {
 				// Set default width if not already set or is zero
-				const currentWidth = stackViewEl.style.getPropertyValue('--details-view-width');
+				const currentWidth = element.style.getPropertyValue('--details-view-width');
 				if (!currentWidth || currentWidth === '0rem') {
-					stackViewEl.style.setProperty(
+					element.style.setProperty(
 						'--details-view-width',
 						`${RESIZER_CONFIG.panel2.defaultValue}rem`
 					);
 				}
 			} else {
-				stackViewEl.style.setProperty('--details-view-width', '0rem');
+				element.style.setProperty('--details-view-width', '0rem');
 			}
 		}
+
+		// Cleanup function to reset the property when the effect reruns or component unmounts
+		return () => {
+			if (element) {
+				element.style.removeProperty('--details-view-width');
+			}
+		};
 	});
 
 	let selectionPreviewScrollContainer: HTMLDivElement | undefined = $state();
@@ -322,7 +332,6 @@
 		{projectId}
 		{selectionId}
 		diffOnly={true}
-		onclose={() => {}}
 		draggableFiles={selectionId.type === 'commit'}
 	/>
 {/snippet}
@@ -369,9 +378,6 @@
 				draggableFiles
 				selectionId={createCommitSelection({ commitId, stackId: stackId })}
 				noshrink={!!previewKey}
-				ontoggle={(collapsed) => {
-					changedFilesCollapsed = collapsed;
-				}}
 				changes={changes.changes.filter(
 					(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
 				)}
@@ -408,9 +414,6 @@
 				autoselect
 				selectionId={createBranchSelection({ stackId: stackId, branchName, remote: undefined })}
 				noshrink={!!previewKey}
-				ontoggle={() => {
-					changedFilesCollapsed = !changedFilesCollapsed;
-				}}
 				changes={changes.changes}
 				stats={changes.stats}
 				resizer={{
@@ -551,21 +554,23 @@
 					</div>
 
 					<!-- RESIZE PANEL 1 -->
-					<Resizer
-						persistId="resizer-panel1-${stackId}"
-						viewport={stackViewEl!}
-						zIndex="var(--z-lifted)"
-						direction="right"
-						showBorder={!isDetailsViewOpen}
-						minWidth={RESIZER_CONFIG.panel1.minWidth}
-						maxWidth={RESIZER_CONFIG.panel1.maxWidth}
-						defaultValue={RESIZER_CONFIG.panel1.defaultValue}
-						syncName="panel1"
-						onWidth={(newWidth) => {
-							// Update the persisted stack width when panel1 resizer changes
-							persistedStackWidth.set(newWidth);
-						}}
-					/>
+					{#if stackViewEl}
+						<Resizer
+							persistId="resizer-panel1-${stackId}"
+							viewport={stackViewEl}
+							zIndex="var(--z-lifted)"
+							direction="right"
+							showBorder={!isDetailsViewOpen}
+							minWidth={RESIZER_CONFIG.panel1.minWidth}
+							maxWidth={RESIZER_CONFIG.panel1.maxWidth}
+							defaultValue={RESIZER_CONFIG.panel1.defaultValue}
+							syncName="panel1"
+							onWidth={(newWidth) => {
+								// Update the persisted stack width when panel1 resizer changes
+								persistedStackWidth.set(newWidth);
+							}}
+						/>
+					{/if}
 				{/snippet}
 			</ReduxResult>
 		</div>
@@ -638,17 +643,19 @@
 		</div>
 
 		<!-- DETAILS VIEW WIDTH RESIZER - Only show when details view is open -->
-		<Resizer
-			viewport={compactDiv!}
-			persistId="resizer-panel2-${stackId}"
-			direction="right"
-			showBorder
-			minWidth={RESIZER_CONFIG.panel2.minWidth}
-			maxWidth={RESIZER_CONFIG.panel2.maxWidth}
-			defaultValue={RESIZER_CONFIG.panel2.defaultValue}
-			syncName="panel2"
-			onWidth={updateDetailsViewWidth}
-		/>
+		{#if compactDiv}
+			<Resizer
+				viewport={compactDiv}
+				persistId="resizer-panel2-${stackId}"
+				direction="right"
+				showBorder
+				minWidth={RESIZER_CONFIG.panel2.minWidth}
+				maxWidth={RESIZER_CONFIG.panel2.maxWidth}
+				defaultValue={RESIZER_CONFIG.panel2.defaultValue}
+				syncName="panel2"
+				onWidth={updateDetailsViewWidth}
+			/>
+		{/if}
 	{/if}
 </div>
 
