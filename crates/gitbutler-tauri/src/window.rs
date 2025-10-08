@@ -325,7 +325,9 @@ pub fn create(
     use tauri::Manager;
     use tauri_plugin_trafficlights_positioner::WindowExt;
     if let Some(window) = window.get_window(label) {
-        window.setup_traffic_lights_inset(LogicalPosition::new(16.0, 25.0))?;
+        // Note that these lights get reset when the Window label is changed!
+        // See https://github.com/tauri-apps/tauri/issues/13044 .
+        window.setup_traffic_lights_inset(LogicalPosition::new(16.0, 28.0))?;
     }
 
     Ok(window)
