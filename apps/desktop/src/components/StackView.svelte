@@ -132,7 +132,6 @@
 	let stackViewEl = $state<HTMLDivElement>();
 	let compactDiv = $state<HTMLDivElement>();
 
-	let changedFilesCollapsed = $state<boolean>();
 	let active = $state(false);
 
 	const defaultBranchQuery = $derived(stackService.defaultBranch(projectId, stackId));
@@ -374,9 +373,6 @@
 				draggableFiles
 				selectionId={createCommitSelection({ commitId, stackId: stackId })}
 				noshrink={!!previewKey}
-				ontoggle={(collapsed) => {
-					changedFilesCollapsed = collapsed;
-				}}
 				changes={changes.changes.filter(
 					(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
 				)}
@@ -413,9 +409,6 @@
 				autoselect
 				selectionId={createBranchSelection({ stackId: stackId, branchName, remote: undefined })}
 				noshrink={!!previewKey}
-				ontoggle={() => {
-					changedFilesCollapsed = !changedFilesCollapsed;
-				}}
 				changes={changes.changes}
 				stats={changes.stats}
 				resizer={{
