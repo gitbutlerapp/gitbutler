@@ -1,0 +1,94 @@
+[package]
+name = "gitbutler-tauri"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+[lib]
+doctest = false
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[[bin]]
+name = "gitbutler-tauri"
+path = "src/main.rs"
+test = false
+
+[build-dependencies]
+tauri-build = { version = "2.3.1", features = [] }
+
+[dependencies]
+anyhow = "1.0.100"
+backtrace = { version = "0.3.76", optional = true }
+console-subscriber = "0.4.1"
+gix = { workspace = true, features = [
+    "max-performance",
+    "blocking-http-transport-curl",
+    "worktree-mutation",
+] }
+serde.workspace = true
+serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
+tauri = { version = "^2.7.0", features = ["unstable"] }
+tauri-plugin-dialog = "2.3.2"
+tauri-plugin-fs = "2.4.2"
+tauri-plugin-http = "2.5.2"
+tauri-plugin-log = "2.7.0"
+tauri-plugin-os = "2.3.1"
+tauri-plugin-process = "2.3.0"
+tauri-plugin-shell = "2.3.1"
+tauri-plugin-single-instance = "2.3.4"
+tauri-plugin-store = "2.4.0"
+tauri-plugin-updater = "2.9.0"
+tauri-plugin-window-state = "2.4.0"
+tauri-plugin-clipboard-manager = "2.3.0"
+
+parking_lot.workspace = true
+log = "^0.4"
+git2.workspace = true
+# The features here optimize for performance.
+tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot"] }
+tracing.workspace = true
+tracing-appender = "0.2.3"
+tracing-subscriber.workspace = true
+tracing-forest = { version = "0.2.0" }
+gitbutler-watcher.workspace = true
+gitbutler-repo-actions.workspace = true
+gitbutler-command-context.workspace = true
+but-feedback.workspace = true
+gitbutler-project.workspace = true
+gitbutler-error.workspace = true
+gitbutler-secret.workspace = true
+gitbutler-id.workspace = true
+but-broadcaster.workspace = true
+but-db.workspace = true
+but-settings.workspace = true
+but-workspace.workspace = true
+but-core.workspace = true
+but-action.workspace = true
+but-bot.workspace = true
+but-api.workspace = true
+but-claude.workspace = true
+open = "5"
+url = "2.5.4"
+but-path.workspace = true
+uuid.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri-plugin-trafficlights-positioner = { git = "https://github.com/gitbutlerapp/tauri-plugin-trafficlights-positioner", branch = "v2" }
+
+[lints.clippy]
+all = "deny"
+perf = "deny"
+correctness = "deny"
+
+[features]
+default = ["custom-protocol", "devtools"]
+## A forwarding to all crates that have windows-specific adjustments for testing on non-Windows.
+windows = []
+devtools = ["tauri/devtools"]
+
+# this feature is used for production builds where `devPath` points to the filesystem
+# DO NOT remove this
+custom-protocol = ["tauri/custom-protocol"]
+
+error-context = ["dep:backtrace"]

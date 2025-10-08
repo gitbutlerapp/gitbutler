@@ -1,0 +1,9 @@
+{
+	"extends": "./other/tsconfig.json",
+	"compilerOptions": {
+		"paths": {
+			"bam": ["./foo"],
+			"overriden": ["./lib/bar"]
+		}
+	}
+}

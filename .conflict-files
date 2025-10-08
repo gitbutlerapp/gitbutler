@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/components/StackView.svelte"]
+ourEntries = ["apps/desktop/src/components/StackView.svelte"]
+theirEntries = ["apps/desktop/src/components/StackView.svelte"]
