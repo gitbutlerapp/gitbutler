@@ -30,6 +30,7 @@
 	import vibecodingSvg from '$lib/assets/illustrations/vibecoding.svg?raw';
 	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
+	import { useSendMessage } from '$lib/codegen/messageQueue.svelte';
 	import {
 		currentStatus,
 		formatMessages,
@@ -49,7 +50,6 @@
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { CODEGEN_ANALYTICS } from '$lib/soup/codegenAnalytics';
 	import { pushStatusToColor, pushStatusToIcon } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
@@ -58,6 +58,7 @@
 	import { createBranchRef } from '$lib/utils/branch';
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
+	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import {
 		Badge,
 		Button,
@@ -89,7 +90,6 @@
 	const stackService = inject(STACK_SERVICE);
 	const projectsService = inject(PROJECTS_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
-	const codegenAnalytics = inject(CODEGEN_ANALYTICS);
 	const uiState = inject(UI_STATE);
 	const user = inject(USER);
 	const urlService = inject(URL_SERVICE);
@@ -108,7 +108,6 @@
 			aiRules.some((rule) => rule.action.subject.subject.target.subject === stack.id)
 		);
 	});
-	const [sendClaudeMessage] = claudeCodeService.sendMessage;
 	const mcpConfig = $derived(claudeCodeService.mcpConfig({ projectId }));
 
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
@@ -164,14 +163,6 @@
 		selectedBranch?.stackId ? uiState.lane(selectedBranch.stackId) : undefined
 	);
 
-	const prompt = $derived(
-		selectedBranch ? uiState.lane(selectedBranch.stackId).prompt.current : ''
-	);
-	function setPrompt(prompt: string) {
-		if (!selectedBranch) return;
-		uiState.lane(selectedBranch.stackId).prompt.set(prompt);
-	}
-
 	// File list data
 	const branchChanges = $derived(
 		selectedBranch
@@ -214,64 +205,6 @@
 		} else {
 			projectState.selectedClaudeSession.set(undefined);
 		}
-	}
-
-	async function sendMessage() {
-		if (!selectedBranch) return;
-		if (!prompt) return;
-
-		if (prompt.startsWith('/compact')) {
-			compactContext();
-			return;
-		}
-
-		// Handle /add-dir command
-		if (prompt.startsWith('/add-dir ')) {
-			const path = prompt.slice('/add-dir '.length).trim();
-			if (path) {
-				const isValid = await claudeCodeService.verifyPath({ projectId, path });
-				if (isValid) {
-					laneState?.addedDirs.add(path);
-					chipToasts.success(`Added directory: ${path}`);
-				} else {
-					chipToasts.error(`Invalid directory path: ${path}`);
-				}
-			}
-			setPrompt('');
-			return;
-		}
-
-		if (prompt.startsWith('/')) {
-			chipToasts.warning('Slash commands are not yet supported');
-			setPrompt('');
-			return;
-		}
-
-		// Await analytics data before sending message
-		const analyticsProperties = await codegenAnalytics.getCodegenProperties({
-			projectId,
-			stackId: selectedBranch.stackId,
-			message: prompt,
-			thinkingLevel: selectedThinkingLevel,
-			model: selectedModel
-		});
-
-		const promise = sendClaudeMessage(
-			{
-				projectId,
-				stackId: selectedBranch.stackId,
-				message: prompt,
-				thinkingLevel: selectedThinkingLevel,
-				model: selectedModel,
-				permissionMode: selectedPermissionMode,
-				disabledMcpServers: uiState.lane(selectedBranch.stackId).disabledMcpServers.current,
-				addDirs: laneState?.addedDirs.current || []
-			},
-			{ properties: analyticsProperties }
-		);
-
-		setPrompt('');
-		await promise;
 	}
 
 	async function onApproval(id: string) {
@@ -342,6 +275,14 @@
 				return 'Normal';
 		}
 	}
+
+	const { prompt, setPrompt, sendMessage } = useSendMessage({
+		projectId: reactive(() => projectId),
+		selectedBranch: reactive(() => selectedBranch),
+		thinkingLevel: reactive(() => selectedThinkingLevel),
+		model: reactive(() => selectedModel),
+		permissionMode: reactive(() => selectedPermissionMode)
+	});
 
 	function insertTemplate(template: string) {
 		setPrompt(prompt + (prompt ? '\n\n' : '') + template);
@@ -668,7 +609,7 @@
 							{#if claudeAvailable.response?.status === 'available'}
 								{@const status = currentStatus(events, isStackActive)}
 								<CodegenInput
-									value={prompt}
+									value={prompt.current}
 									onChange={(prompt) => setPrompt(prompt)}
 									loading={['running', 'compacting'].includes(status)}
 									compacting={status === 'compacting'}

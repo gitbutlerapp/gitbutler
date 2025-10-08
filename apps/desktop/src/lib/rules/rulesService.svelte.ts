@@ -48,6 +48,19 @@ export default class RulesService {
 		);
 	}
 
+	aiRules({ projectId }: { projectId: string }) {
+		return this.api.endpoints.listWorkspaceRules.useQuery(
+			{ projectId },
+			{
+				transform: (result): AiRule[] => {
+					const allRules = workspaceRulesSelectors.selectAll(result);
+					const rules = allRules.filter(isAiRule);
+					return rules;
+				}
+			}
+		);
+	}
+
 	/**
 	 * Finds all the Codegen rules for a given stack id and returns just the first one.
 	 *
