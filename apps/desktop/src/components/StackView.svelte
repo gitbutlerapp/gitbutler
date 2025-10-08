@@ -271,20 +271,28 @@
 
 	// Set initial CSS custom properties when details view opens/closes
 	$effect(() => {
-		if (stackViewEl) {
+		const element = stackViewEl;
+		if (element) {
 			if (isDetailsViewOpen) {
 				// Set default width if not already set or is zero
-				const currentWidth = stackViewEl.style.getPropertyValue('--details-view-width');
+				const currentWidth = element.style.getPropertyValue('--details-view-width');
 				if (!currentWidth || currentWidth === '0rem') {
-					stackViewEl.style.setProperty(
+					element.style.setProperty(
 						'--details-view-width',
 						`${RESIZER_CONFIG.panel2.defaultValue}rem`
 					);
 				}
 			} else {
-				stackViewEl.style.setProperty('--details-view-width', '0rem');
+				element.style.setProperty('--details-view-width', '0rem');
 			}
 		}
+
+		// Cleanup function to reset the property when the effect reruns or component unmounts
+		return () => {
+			if (element) {
+				element.style.removeProperty('--details-view-width');
+			}
+		};
 	});
 
 	let selectionPreviewScrollContainer: HTMLDivElement | undefined = $state();
