@@ -442,21 +442,32 @@
 	let rightSidebarRef = $state<HTMLDivElement>();
 	let createBranchModal = $state<CreateBranchModal>();
 
-	function handleKeydown(event: KeyboardEvent) {
-		// Ignore if user is typing in an input or textarea
-		if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
-			return;
+	// Handle Cmd+P shortcut for cycling permission mode
+	// Use capture phase to run before FocusManager, so we can handle this shortcut
+	// while letting navigation shortcuts (Cmd+1, 2, 3, 4) pass through
+	$effect(() => {
+		function handleKeydown(event: KeyboardEvent) {
+			// Ignore if user is typing in an input or textarea
+			if (
+				event.target instanceof HTMLInputElement ||
+				event.target instanceof HTMLTextAreaElement
+			) {
+				return;
+			}
+
+			// Handle Cmd+P to cycle permission mode
+			if (event.key === 'p' && event.metaKey) {
+				event.preventDefault();
+				event.stopPropagation();
+				cyclePermissionMode();
+			}
 		}
 
-		// Handle Shift+Tab to cycle permission mode
-		if (event.key === 'p' && event.metaKey) {
-			event.preventDefault();
-			cyclePermissionMode();
-		}
-	}
+		// Use capture phase to intercept Cmd+P before FocusManager
+		document.addEventListener('keydown', handleKeydown, { capture: true });
+		return () => document.removeEventListener('keydown', handleKeydown, { capture: true });
+	});
 </script>
-
-<svelte:window onkeydown={handleKeydown} />
 
 {#if selectedBranch?.stackId}
 	<ReduxResult result={mcpConfig.result} {projectId} stackId={selectedBranch.stackId}>
