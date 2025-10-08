@@ -177,20 +177,6 @@ fn main() {
                         menu::handle_event(handle, &window.clone(), &event)
                     });
 
-                    #[cfg(target_os = "macos")]
-                    use tauri::LogicalPosition;
-                    #[cfg(target_os = "macos")]
-                    use tauri_plugin_trafficlights_positioner::WindowExt;
-                    #[cfg(target_os = "macos")]
-                    // NOTE: Make sure you only call this ONCE per window.
-                    {
-                        if let Some(window) = tauri_app.get_window("main") {
-                            #[cfg(target_os = "macos")]
-                            // NOTE: Make sure you only call this ONCE per window.
-                            window.setup_traffic_lights_inset(LogicalPosition::new(16.0, 25.0))?;
-                        };
-                    }
-
                     Ok(())
                 })
                 .plugin(tauri_plugin_http::init())
