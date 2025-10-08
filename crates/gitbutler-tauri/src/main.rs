@@ -288,6 +288,7 @@ fn main() {
                     config::store_author_globally_if_unset,
                     config::get_author_info,
                     menu::menu_item_set_enabled,
+                    gitbutler_tauri::window::set_window_title,
                     github::init_device_oauth,
                     github::check_auth_status,
                     askpass::submit_prompt_response,

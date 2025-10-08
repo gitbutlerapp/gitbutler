@@ -322,3 +322,19 @@ pub fn create(
     .build()?;
     Ok(window)
 }
+
+#[tauri::command]
+pub fn set_window_title(window: tauri::Window, title: String) -> Result<(), String> {
+    window.set_title(&title).map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::LogicalPosition;
+        use tauri_plugin_trafficlights_positioner::WindowExt;
+        window
+            .setup_traffic_lights_inset(LogicalPosition::new(16.0, 25.0))
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}

@@ -76,7 +76,7 @@ export default class Tauri implements IBackend {
 		if (!this.appWindow) {
 			this.appWindow = getCurrentWindow();
 		}
-		this.appWindow.setTitle(title);
+		this.invoke('set_window_title', { title });
 	}
 }
 
