@@ -231,10 +231,12 @@
 	}
 
 	function onclosePreviewOnly() {
-		const source = selection.current;
-		if (source) {
-			selection.set({ ...source, previewOpen: false });
+		// Clear file selections for the active branch or commit
+		if (activeSelectionId) {
+			idSelection.clear(activeSelectionId);
 		}
+		// Clear the lane selection (branch/commit)
+		selection.set(undefined);
 	}
 
 	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stackId));
