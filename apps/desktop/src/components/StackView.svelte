@@ -554,21 +554,23 @@
 					</div>
 
 					<!-- RESIZE PANEL 1 -->
-					<Resizer
-						persistId="resizer-panel1-${stackId}"
-						viewport={stackViewEl!}
-						zIndex="var(--z-lifted)"
-						direction="right"
-						showBorder={!isDetailsViewOpen}
-						minWidth={RESIZER_CONFIG.panel1.minWidth}
-						maxWidth={RESIZER_CONFIG.panel1.maxWidth}
-						defaultValue={RESIZER_CONFIG.panel1.defaultValue}
-						syncName="panel1"
-						onWidth={(newWidth) => {
-							// Update the persisted stack width when panel1 resizer changes
-							persistedStackWidth.set(newWidth);
-						}}
-					/>
+					{#if stackViewEl}
+						<Resizer
+							persistId="resizer-panel1-${stackId}"
+							viewport={stackViewEl}
+							zIndex="var(--z-lifted)"
+							direction="right"
+							showBorder={!isDetailsViewOpen}
+							minWidth={RESIZER_CONFIG.panel1.minWidth}
+							maxWidth={RESIZER_CONFIG.panel1.maxWidth}
+							defaultValue={RESIZER_CONFIG.panel1.defaultValue}
+							syncName="panel1"
+							onWidth={(newWidth) => {
+								// Update the persisted stack width when panel1 resizer changes
+								persistedStackWidth.set(newWidth);
+							}}
+						/>
+					{/if}
 				{/snippet}
 			</ReduxResult>
 		</div>
@@ -641,17 +643,19 @@
 		</div>
 
 		<!-- DETAILS VIEW WIDTH RESIZER - Only show when details view is open -->
-		<Resizer
-			viewport={compactDiv!}
-			persistId="resizer-panel2-${stackId}"
-			direction="right"
-			showBorder
-			minWidth={RESIZER_CONFIG.panel2.minWidth}
-			maxWidth={RESIZER_CONFIG.panel2.maxWidth}
-			defaultValue={RESIZER_CONFIG.panel2.defaultValue}
-			syncName="panel2"
-			onWidth={updateDetailsViewWidth}
-		/>
+		{#if compactDiv}
+			<Resizer
+				viewport={compactDiv}
+				persistId="resizer-panel2-${stackId}"
+				direction="right"
+				showBorder
+				minWidth={RESIZER_CONFIG.panel2.minWidth}
+				maxWidth={RESIZER_CONFIG.panel2.maxWidth}
+				defaultValue={RESIZER_CONFIG.panel2.defaultValue}
+				syncName="panel2"
+				onWidth={updateDetailsViewWidth}
+			/>
+		{/if}
 	{/if}
 </div>
 
