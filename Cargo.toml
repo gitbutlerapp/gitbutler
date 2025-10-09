@@ -91,6 +91,7 @@ but-cursor = { path = "crates/but-cursor" }
 but-broadcaster = { path = "crates/but-broadcaster" }
 but-gerrit = { path = "crates/but-gerrit" }
 but-cherry-apply = { path = "crates/but-cherry-apply" }
+but-github = { path = "crates/but-github" }
 git2-hooks = { version = "0.5.0" }
 itertools = "0.14.0"
 dirs = "6.0.0"
