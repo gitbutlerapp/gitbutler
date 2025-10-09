@@ -220,7 +220,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     )?;
     // A workspace commit was created, even though it does nothing.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * c18fa47 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 5169839 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * e5d0542 (origin/main, main, B, A) A
     ");
 
@@ -245,7 +245,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
 
     // It's idempotent, but has to update the workspace commit nonetheless for the comment, which depends on the stacks.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * df26e1f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 0da7d7b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\
     * e5d0542 (origin/main, main, B, A) A
     ");
@@ -452,13 +452,12 @@ fn detached_head_journey() -> anyhow::Result<()> {
     }
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 49d4b34 (A) A1
-    | *   08fe1a8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    | |\  
-    | | * f57c528 (B) B1
-    | |/  
-    |/|   
-    | * aaa195b (C) C1
+    *   f2d8a20 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * f57c528 (B) B1
+    * | aaa195b (C) C1
+    |/  
+    | * 49d4b34 (A) A1
     |/  
     * 3183e43 (main) M1
     ");
@@ -509,7 +508,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     ");
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *-.   f2f2560 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *-.   40e102f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\ \  
     | | * f57c528 (B) B1
     | * | aaa195b (C) C1
@@ -561,7 +560,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
             └── ·7076dee (🏘️) ►D, ►E
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 6a706b7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 8444317 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * f084d61 (C, B, A) A2
     * 7076dee (E, D) A1
     * 85efbe4 (origin/main, main) M
@@ -589,7 +588,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
             └── ·7076dee (🏘️) ►D, ►E
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * badd1b4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 102321c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * f084d61 (C, B, A) A2
     * 7076dee (E, D) A1
     * 85efbe4 (origin/main, main) M
