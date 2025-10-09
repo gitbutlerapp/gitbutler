@@ -7,14 +7,6 @@
 
 	let isPlaying = $state(false);
 
-	// Extract video ID from the embed URL
-	function getVideoId(embedUrl: string): string {
-		const match = embedUrl.match(/embed\/([^?]+)/);
-		return match ? match[1] : '';
-	}
-
-	const videoId = getVideoId(contentJSON['ai-fetures-demo']);
-
 	function playVideo() {
 		isPlaying = true;
 	}

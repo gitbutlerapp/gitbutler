@@ -10,11 +10,20 @@
 
 	// Convert YouTube URL to embed URL with autoplay
 	function getYouTubeEmbedUrl(url: string): string {
-		const youtubeRegex = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/;
+		// If it's already an embed URL, just add/update autoplay parameter
+		if (url.includes('/embed/')) {
+			const urlObj = new URL(url);
+			urlObj.searchParams.set('autoplay', '1');
+			return urlObj.toString();
+		}
+
+		// Otherwise, convert watch/short URL to embed with autoplay
+		const youtubeRegex = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^?&]+)/;
 		const match = url.match(youtubeRegex);
 		if (match) {
 			return `https://www.youtube.com/embed/${match[1]}?autoplay=1`;
 		}
+
 		return url;
 	}
 
