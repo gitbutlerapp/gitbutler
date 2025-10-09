@@ -2,7 +2,6 @@
 	import { goto } from '$app/navigation';
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	// import Header from '$home/components/Header.svelte';
 	import HomePage from '$home/HomePage.svelte';
 	import { AuthService, AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
