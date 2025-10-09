@@ -857,6 +857,7 @@ dependencies = [
  "but-claude",
  "but-core",
  "but-feedback",
+ "but-github",
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
@@ -1080,6 +1081,17 @@ dependencies = [
  "gix",
  "sha-1",
  "uuid",
+]
+
+[[package]]
+name = "but-github"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-settings",
+ "reqwest 0.12.23",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3760,6 +3772,7 @@ dependencies = [
  "but-core",
  "but-db",
  "but-feedback",
+ "but-github",
  "but-path",
  "but-settings",
  "but-workspace",
