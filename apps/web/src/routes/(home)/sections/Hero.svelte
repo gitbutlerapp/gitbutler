@@ -18,7 +18,7 @@
 </script>
 
 <section class="hero">
-	<Header />
+	<Header disableLogoLink />
 
 	<div class="hero-content">
 		<h1 class="title">

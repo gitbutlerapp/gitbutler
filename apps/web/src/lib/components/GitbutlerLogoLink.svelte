@@ -4,14 +4,15 @@
 
 	interface Props {
 		markOnly?: boolean;
+		disabled?: boolean;
 	}
 
-	const { markOnly }: Props = $props();
+	const { markOnly, disabled = false }: Props = $props();
 
 	const routes = inject(WEB_ROUTES_SERVICE);
 </script>
 
-<a href={routes.homePath()} class="logo" aria-label="main nav" title="Go to Home">
+{#snippet logoContent()}
 	{#if !markOnly}
 		<span class="logo-text">GitButler</span>
 	{/if}
@@ -26,7 +27,17 @@
 			<path d="M0 22V0L11.4819 9.63333L23 0V22L11.4819 12.4L0 22Z" fill="var(--clr-text-1)" />
 		</svg>
 	</div>
-</a>
+{/snippet}
+
+{#if disabled}
+	<div class="logo" aria-label="main nav">
+		{@render logoContent()}
+	</div>
+{:else}
+	<a href={routes.homePath()} class="logo" aria-label="main nav" title="Go to Home">
+		{@render logoContent()}
+	</a>
+{/if}
 
 <style lang="postcss">
 	.logo {

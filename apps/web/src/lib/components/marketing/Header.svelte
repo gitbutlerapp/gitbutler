@@ -8,8 +8,14 @@
 	import { Icon } from '@gitbutler/ui';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
+	interface Props {
+		disableLogoLink?: boolean;
+	}
+
 	const userService = inject(USER_SERVICE);
 	const user = $derived(userService.user);
+
+	const { disableLogoLink }: Props = $props();
 </script>
 
 <!-- Link snippet for reusable navigation links -->
@@ -34,7 +40,7 @@
 {/snippet}
 
 <header class="header">
-	<GitbutlerLogoLink />
+	<GitbutlerLogoLink disabled={disableLogoLink} />
 
 	<nav class="header-nav">
 		<section class="flex gap-20">
