@@ -11,32 +11,38 @@
 		{
 			"title": "Parallel Branches",
 			"description": "You don’t need to switch or stash branches if you can work on several simultaneously. Fix your bug while you work on your feature.",
-			"link": "https://docs.gitbutler.com/features/branch-management/virtual-branches"
+			"link": "https://docs.gitbutler.com/features/branch-management/virtual-branches",
+			"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 28 24\"><path fill=\"currentColor\" d=\"M23.875 3a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-20a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h20ZM10.75 19.5h6.5v-15h-6.5v15Zm8 0h5.125a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H18.75v15ZM3.875 4.5a1.5 1.5 0 0 0-1.5 1.5v12a1.5 1.5 0 0 0 1.5 1.5H9.25v-15H3.875Z\"/></svg>"
 		},
 		{
 			"title": "Stacked Branches",
 			"description": "Break a big feature into small, dependent branches, making reviews faster and integrations incremental.",
-			"link": "https://docs.gitbutler.com/features/branch-management/stacked-branches"
+			"link": "https://docs.gitbutler.com/features/branch-management/stacked-branches",
+			"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 27 24\"><path fill=\"currentColor\" d=\"M22.156 2.406a3 3 0 0 1 2.846 2.996v13.48a3 3 0 0 1-2.846 2.997l-.154.004H4.666a3 3 0 0 1-3-3V5.403a3 3 0 0 1 3-3h17.336l.154.003Zm-18.99 15.59v.887a1.5 1.5 0 0 0 1.5 1.5h17.336a1.5 1.5 0 0 0 1.5-1.5v-.887H3.166Zm0-5.566v4.066h20.336V12.43H3.166Zm1.5-8.528a1.5 1.5 0 0 0-1.5 1.5v5.528h20.336V5.402a1.5 1.5 0 0 0-1.5-1.5H4.666Z\"/></svg>"
 		},
 		{
 			"title": "AI Assistance",
 			"description": "No more 'did some stuff' commits. Let AI handle the busywork: generate branch names, commit messages, and PR descriptions automatically.",
-			"link": "https://docs.gitbutler.com/features/branch-management/ai-assistance"
+			"link": "https://docs.gitbutler.com/features/branch-management/ai-assistance",
+			"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 25 24\"><g clip-path=\"url(#a)\"><path fill=\"currentColor\" d=\"M12.516 3.915c.364-1.093 1.91-1.093 2.275 0l.963 2.888a4.502 4.502 0 0 0 2.598 2.756l.249.09 2.887.963c1.094.365 1.094 1.91 0 2.276l-2.887.963a4.502 4.502 0 0 0-2.847 2.846l-.963 2.888c-.354 1.06-1.815 1.093-2.238.1l-.037-.1-.963-2.888a4.492 4.492 0 0 0-.562-1.124L3.535 23.03l-1.06-1.06 7.473-7.475a4.5 4.5 0 0 0-1.242-.644l-2.888-.963c-1.093-.365-1.093-1.91 0-2.276l2.888-.963a4.502 4.502 0 0 0 2.756-2.597l.09-.25.964-2.887Zm.46 3.362a6.003 6.003 0 0 1-3.796 3.795l-2.033.677 2.034.679a6.001 6.001 0 0 1 3.795 3.795l.677 2.032.678-2.032a6 6 0 0 1 3.795-3.795l2.033-.679-2.032-.677a6.002 6.002 0 0 1-3.796-3.795l-.678-2.035-.677 2.035ZM21.678 1.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Z\"/></g><defs><clipPath id=\"a\"><path fill=\"currentColor\" d=\"M.666 0h24v24h-24z\"/></clipPath></defs></svg>"
 		},
 		{
 			"title": "Unlimited Undo",
 			"description": "GitButler makes a snapshot before every operation, allowing you to go back in time to any previous point without fear of losing anything.",
-			"link": "https://docs.gitbutler.com/features/timeline"
+			"link": "https://docs.gitbutler.com/features/timeline",
+			"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" d=\"M9.228 4.775 5.51 8.493h9.857a5.75 5.75 0 0 1 0 11.5h-5v-1.5h5a4.25 4.25 0 0 0 0-8.5H5.506l3.722 3.722-1.061 1.06-5.53-5.53 5.53-5.53 1.06 1.06Z\"/></svg>"
 		},
 		{
 			"title": "Commit Editing",
 			"description": "Easily edit, reorder, squash, or split commits in any branch, even after pushing to remote. Never wrestle with rebase again.",
-			"link": "https://docs.gitbutler.com/features/branch-management/commits"
+			"link": "https://docs.gitbutler.com/features/branch-management/commits",
+			"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 25 24\"><path fill=\"currentColor\" d=\"M14.345 15.67c1.99 0 3.645 1.429 3.997 3.316h4.66v1.5h-4.661a4.067 4.067 0 0 1-7.991 0H2.002v-1.5h8.348a4.066 4.066 0 0 1 3.995-3.316Zm0 1.5a2.566 2.566 0 1 0 .001 5.132 2.566 2.566 0 0 0-.001-5.132ZM10.867 1.478a1.75 1.75 0 0 1 2.475 0l3.409 3.408a1.75 1.75 0 0 1 0 2.474l-8.515 8.515H2.354V9.991l8.513-8.513Zm-7.014 9.135v3.762h3.762l5.912-5.912L9.765 4.7l-5.912 5.913Z\"/></svg>"
 		},
 		{
 			"title": "Git(Hub|Lab) Integration",
 			"description": "Open Pull Requests, generate PR messages with AI, automatically check PR statuses and more with our forge integrations.",
-			"link": "https://docs.gitbutler.com/features/forge-integration/github-integration"
+			"link": "https://docs.gitbutler.com/features/forge-integration/github-integration",
+			"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 51 24\"><path fill=\"currentColor\" d=\"M6.895 2.788a4.99 4.99 0 0 1 2.783.646c.296.167.534.339.707.478a12.241 12.241 0 0 1 5.47-.004c.16-.135.374-.293.644-.449.601-.347 1.471-.672 2.611-.676l.232.003.49.017.18.454c.564 1.404.428 2.557.261 3.203.711.897 1.12 2.007 1.12 3.307 0 2.388-.878 3.972-2.194 4.977-.798.61-1.724.98-2.635 1.214a3.32 3.32 0 0 1 1.073 2.441v3.144h-1.5v-3.144c0-.604-.3-1.17-.801-1.508l-.898-.608c-.647-.438-.39-1.428.367-1.522l.47-.068c1.099-.176 2.18-.504 3.013-1.14.908-.694 1.605-1.817 1.606-3.786 0-1.085-.375-1.948-1.007-2.622l-.328-.35.18-.443c.064-.161.346-.942.044-2.052a3.619 3.619 0 0 0-1.534.458c-.217.125-.375.25-.475.339-.05.044-.084.08-.104.1l-.017.018.001-.001-.304.372-.467-.126a10.726 10.726 0 0 0-5.507 0l-.433.115-.306-.325v-.001l-.028-.025a3.7 3.7 0 0 0-.668-.482A3.545 3.545 0 0 0 7.48 4.29c-.306 1.116-.023 1.9.042 2.062l.177.437-.318.349a3.786 3.786 0 0 0-1.014 2.629c0 1.966.701 3.095 1.613 3.792.956.73 2.233 1.054 3.475 1.202.758.09 1.021 1.084.37 1.524l-.898.607a1.823 1.823 0 0 0-.803 1.51v3.141h-1.5v-1.265c-.609-.075-1.108-.243-1.527-.488-.575-.337-.937-.78-1.208-1.154-.3-.413-.435-.644-.644-.832-.15-.135-.333-.237-.697-.238a.75.75 0 0 1 0-1.5c.738 0 1.279.243 1.702.624.364.329.652.788.853 1.065.228.315.444.56.752.741.186.11.431.208.769.268V18.4c0-.934.393-1.816 1.068-2.44-.905-.231-1.827-.603-2.623-1.211-1.317-1.007-2.202-2.595-2.202-4.983 0-1.306.427-2.413 1.12-3.302-.168-.646-.304-1.8.261-3.208l.176-.439.472-.03ZM44.124 2.469c.319-.01.61.183.725.481l2.663 6.932 1.357 3.533a.75.75 0 0 1-.252.87l-9.502 7.1a.75.75 0 0 1-.897 0l-9.503-7.1a.75.75 0 0 1-.251-.87l1.357-3.533 2.663-6.932.051-.107a.751.751 0 0 1 1.365.152l2 6.405h5.534l1.999-6.405.044-.11a.75.75 0 0 1 .647-.416Zm-4.053 16.33 7.194-5.377-.97-2.522h-3.758L40.071 18.8Zm-10.004-5.377 7.193 5.376-2.464-7.898h-3.759l-.97 2.522Zm8.599 4.846 2.3-7.368h-4.599l2.299 7.368ZM31.613 9.4h2.715L33.11 5.501l-1.497 3.9Zm11.392 0h2.715l-1.498-3.899-1.217 3.9Z\"/></svg>"
 		}
 	],
 	"ai-fetures-demo": "https://www.youtube.com/embed/lTOo4v5KGkk?si=T7arPbqm9iJIzxZQ",
@@ -44,17 +50,20 @@
 		{
 			"title": "Built in Claude Code GUI",
 			"description": "Run Claude Code in our integrated Agents Tab, a beautiful graphical interface for your Claude agents.",
-			"link": "https://docs.gitbutler.com/features/agents-tab"
+			"link": "https://docs.gitbutler.com/features/agents-tab",
+			"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><g clip-path=\"url(#a)\"><path fill=\"currentColor\" d=\"m4.709 15.955 4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 0 1-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-5.469-1.299-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006Z\"/></g><defs><clipPath id=\"a\"><path fill=\"currentColor\" d=\"M0 0h24v24H0z\"/></clipPath></defs></svg>"
 		},
 		{
 			"title": "Parallel, Branch Based Agents",
 			"description": "Launch multiple agents in parallel, separating context and work into assigned branches, all in a single working directory.",
-			"link": "https://docs.gitbutler.com/features/ai-integration/mcp-server"
+			"link": "https://docs.gitbutler.com/features/ai-integration/mcp-server",
+			"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 41 24\"><path stroke=\"currentColor\" stroke-width=\"1.5\" d=\"M4.166 1.75h10A3.25 3.25 0 0 1 17.416 5v14a3.25 3.25 0 0 1-3.25 3.25h-10A3.25 3.25 0 0 1 .916 19V5a3.25 3.25 0 0 1 3.25-3.25Z\"/><path fill=\"currentColor\" d=\"M4.44 12.38a.4.4 0 0 1 0-.76l2.31-.77a2.002 2.002 0 0 0 1.266-1.266l.77-2.31a.4.4 0 0 1 .76 0l.77 2.31c.2.598.668 1.067 1.266 1.266l2.31.77a.4.4 0 0 1 0 .76l-2.31.77c-.598.2-1.067.668-1.266 1.266l-.77 2.31a.4.4 0 0 1-.76 0l-.77-2.31A2.002 2.002 0 0 0 6.75 13.15l-2.31-.77Z\"/><path stroke=\"currentColor\" stroke-width=\"1.5\" d=\"M27.166 1.75h9A3.25 3.25 0 0 1 39.416 5v14a3.25 3.25 0 0 1-3.25 3.25h-9a3.25 3.25 0 0 1-3.25-3.25V5a3.25 3.25 0 0 1 3.25-3.25Z\"/><path fill=\"currentColor\" d=\"M26.467 12.38c-.401-.122-.401-.638 0-.76l2.542-.77c.657-.2 1.173-.668 1.392-1.266l.847-2.31c.134-.365.702-.365.836 0l.847 2.31c.22.598.735 1.067 1.393 1.266l2.54.77c.402.122.402.638 0 .76l-2.54.77c-.658.2-1.174.668-1.393 1.266l-.847 2.31c-.134.365-.702.365-.836 0l-.847-2.31c-.22-.598-.735-1.067-1.392-1.266l-2.542-.77Z\"/><path stroke=\"currentColor\" stroke-width=\"1.5\" d=\"M17.166 12h7\"/></svg>"
 		},
 		{
 			"title": "Integrate with any Agent",
 			"description": "Use GitButler for you automatic version control with Cursor or Claude hooks, or with any other agent via our MCP server.",
-			"link": "https://docs.gitbutler.com/features/ai-integration/ai-overview"
+			"link": "https://docs.gitbutler.com/features/ai-integration/ai-overview",
+			"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 49 24\"><rect width=\"16.5\" height=\"16.5\" x=\"4.75\" y=\"5.25\" stroke=\"currentColor\" stroke-width=\"1.5\" rx=\"4.25\"/><path stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\" d=\"M9.576 15.793c2.104 1.215 4.557 1.323 6.85 0\"/><circle cx=\"10\" cy=\"11.672\" r=\"1.5\" fill=\"currentColor\"/><circle cx=\"16\" cy=\"11.672\" r=\"1.5\" fill=\"currentColor\"/><path fill=\"currentColor\" d=\"M21.25 9c.697 0 1.046 0 1.335.058a3 3 0 0 1 2.357 2.357c.058.29.058.638.058 1.335s0 1.046-.058 1.335a3 3 0 0 1-2.357 2.357c-.29.058-.638.058-1.335.058h-.75V9h.75ZM8.5 6c0-1.398 0-2.097.228-2.648a3 3 0 0 1 1.624-1.624C10.903 1.5 11.602 1.5 13 1.5c1.398 0 2.097 0 2.648.228a3 3 0 0 1 1.624 1.624c.228.551.228 1.25.228 2.648h-9ZM4.75 9c-.697 0-1.045 0-1.335.058a3 3 0 0 0-2.357 2.357C1 11.705 1 12.053 1 12.75s0 1.046.058 1.335a3 3 0 0 0 2.357 2.357c.29.058.638.058 1.335.058h.75V9h-.75Z\"/><path stroke=\"currentColor\" stroke-width=\"1.5\" d=\"M36 3.75h8A3.25 3.25 0 0 1 47.25 7v11A3.25 3.25 0 0 1 44 21.25h-8A3.25 3.25 0 0 1 32.75 18V7A3.25 3.25 0 0 1 36 3.75ZM26 12.5h5\"/><path stroke=\"currentColor\" stroke-width=\"1.5\" d=\"m36 12.539 1.948 1.648a2 2 0 0 0 2.84-.26L44 10\"/></svg>"
 		}
 	]
 }

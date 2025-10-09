@@ -4,13 +4,19 @@
 			title: string;
 			description: string;
 			link?: string;
+			icon?: string;
 		}[];
 	}
 
 	const { items }: Props = $props();
 </script>
 
-{#snippet cardContent(title: string, description: string)}
+{#snippet cardContent(title: string, description: string, icon?: string)}
+	{#if icon}
+		<div class="feature-item__icon">
+			{@html icon}
+		</div>
+	{/if}
 	<div class="m-bottom-8">
 		<h3>{title}</h3>
 	</div>
@@ -30,11 +36,11 @@
 					<div class="features__link-indicator-brakets">]</div>
 				</div>
 
-				{@render cardContent(item.title, item.description)}
+				{@render cardContent(item.title, item.description, item.icon)}
 			</a>
 		{:else}
 			<div class="feature-item">
-				{@render cardContent(item.title, item.description)}
+				{@render cardContent(item.title, item.description, item.icon)}
 			</div>
 		{/if}
 	{/each}
@@ -150,6 +156,17 @@
 			& .features__link-indicator-arrow {
 				transform: translate(2px, -2px) scale(1.2);
 			}
+		}
+	}
+
+	.feature-item__icon {
+		height: 24px;
+		margin-bottom: 12px;
+		color: var(--clr-text-2);
+
+		& :global(svg) {
+			width: auto;
+			height: 100%;
 		}
 	}
 
