@@ -8,7 +8,7 @@
 
 <section class="ai-features">
 	<SectionHeader>
-		<i>Orchestrate Your</i> AI Tools ✨
+		<i>Orchestrate</i> your AI Tools ✨
 	</SectionHeader>
 	<div class="ai-features__video">
 		<iframe
