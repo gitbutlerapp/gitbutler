@@ -67,6 +67,10 @@ export class SettingsService {
 		await this.backend.invoke('update_fetch', { update });
 	}
 
+	async updateUi(update: Partial<UiSettings>) {
+		await this.backend.invoke('update_ui', { update });
+	}
+
 	private async nudge(): Promise<void> {
 		await this.autoOptInWs3();
 		await this.autoOptInRules();
@@ -154,6 +158,8 @@ export type AppSettings = {
 	claude: Claude;
 	/** Settings related to code reviews and pull requests */
 	reviews: Reviews;
+	/** UI settings */
+	ui: UiSettings;
 };
 
 export type TelemetrySettings = {
@@ -205,4 +211,9 @@ export type Claude = {
 export type Reviews = {
 	/** Whether to auto-fill PR title and description from the first commit when a branch has only one commit. */
 	autoFillPrDescriptionFromCommit: boolean;
+};
+
+export type UiSettings = {
+	/** Whether to use the native system title bar. */
+	useNativeTitleBar: boolean;
 };

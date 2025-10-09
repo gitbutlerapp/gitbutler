@@ -1,7 +1,7 @@
 #![allow(deprecated)]
 use but_api::commands::settings;
 use but_settings::api::{
-    ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate,
+    ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate,
 };
 use but_settings::AppSettingsWithDiskSync;
 use tauri::State;
@@ -82,4 +82,13 @@ pub fn update_reviews(
     update: ReviewsUpdate,
 ) -> Result<(), Error> {
     settings::update_reviews(&app_settings_sync, settings::UpdateReviewsParams { update })
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app_settings_sync), err(Debug))]
+pub fn update_ui(
+    app_settings_sync: State<'_, AppSettingsWithDiskSync>,
+    update: UiUpdate,
+) -> Result<(), Error> {
+    settings::update_ui(&app_settings_sync, settings::UpdateUiParams { update })
 }

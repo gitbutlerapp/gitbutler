@@ -64,5 +64,10 @@
 	"reviews": {
 		// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
 		"autoFillPrDescriptionFromCommit": true
+	},
+	// UI settings.
+	"ui": {
+		// Whether to use the native system title bar.
+		"useNativeTitleBar": false
 	}
 }

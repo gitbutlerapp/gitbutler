@@ -91,3 +91,10 @@ pub struct Reviews {
     /// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
     pub auto_fill_pr_description_from_commit: bool,
 }
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UiSettings {
+    /// Whether to use the native system title bar.
+    pub use_native_title_bar: bool,
+}
