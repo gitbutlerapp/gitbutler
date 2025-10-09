@@ -1,9 +1,20 @@
 <script lang="ts">
 	import CtaButton from '$home/components/CtaButton.svelte';
+	import VideoOverlay from '$home/components/VideoOverlay.svelte';
 	import contentJson from '$home/data/content.json';
 	import Header from '$lib/components/marketing/Header.svelte';
 
 	const heroContent = contentJson.hero;
+
+	let showVideoOverlay = false;
+
+	function openVideoOverlay() {
+		showVideoOverlay = true;
+	}
+
+	function closeVideoOverlay() {
+		showVideoOverlay = false;
+	}
 </script>
 
 <section class="hero">
@@ -20,14 +31,13 @@
 
 		<section class="cta">
 			<CtaButton />
-			<a
+			<button
+				type="button"
 				class="video-preview"
-				href={heroContent.demo}
-				target="_blank"
-				rel="noopener noreferrer"
+				onclick={openVideoOverlay}
 				aria-label="Watch demo video"
-				on:mouseenter={(e) => e.currentTarget.querySelector('video')?.play()}
-				on:mouseleave={(e) => {
+				onmouseenter={(e) => e.currentTarget.querySelector('video')?.play()}
+				onmouseleave={(e) => {
 					const video = e.currentTarget.querySelector('video');
 					if (video) {
 						video.pause();
@@ -51,10 +61,14 @@
 				</svg>
 
 				<video src="/images/demo-preview/demo.mp4#t=0.1" loop muted playsinline></video>
-			</a>
+			</button>
 		</section>
 	</div>
 </section>
+
+{#if showVideoOverlay}
+	<VideoOverlay videoUrl={heroContent.demo} onClose={closeVideoOverlay} />
+{/if}
 
 <style lang="scss">
 	.hero-imagine {
@@ -114,8 +128,12 @@
 		display: inline-block;
 		position: relative;
 		width: 200px;
+		padding: 0;
 		overflow: hidden;
+		border: none;
 		border-radius: var(--radius-xl);
+		background: none;
+		cursor: pointer;
 
 		video {
 			position: absolute;

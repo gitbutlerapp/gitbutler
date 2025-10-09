@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ArrowButton from '$home/components/ArrowButton.svelte';
 	import SectionHeader from '$home/components/SectionHeader.svelte';
+	import VideoOverlay from '$home/components/VideoOverlay.svelte';
 	import {
 		fetchPlaylistVideos,
 		extractPlaylistId,
@@ -24,7 +25,8 @@
 	let carousel: HTMLElement | undefined = $state();
 	let canScrollLeft = $state(false);
 	let canScrollRight = $state(false);
-	let playingVideo: string | null = $state(null);
+	let showVideoOverlay = $state(false);
+	let selectedVideoUrl = $state('');
 
 	// Touch/swipe state
 	let touchStartX = $state(0);
@@ -47,7 +49,13 @@
 
 	// Video control
 	function handleVideoPlay(videoId: string) {
-		playingVideo = videoId;
+		selectedVideoUrl = getEmbedUrl(videoId);
+		showVideoOverlay = true;
+	}
+
+	function closeVideoOverlay() {
+		showVideoOverlay = false;
+		selectedVideoUrl = '';
 	}
 
 	function openPlaylist() {
@@ -187,49 +195,38 @@
 				>
 					{#each playlist?.videos ?? [] as video (video.id)}
 						<div class="video-embed">
-							{#if playingVideo === video.videoId}
-								<iframe
-									src={`${getEmbedUrl(video.videoId)}?autoplay=1`}
-									title={video.title}
-									frameborder="0"
-									allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-									referrerpolicy="strict-origin-when-cross-origin"
-									allowfullscreen
-								></iframe>
-							{:else}
-								<div
-									class="video-preview"
-									role="button"
-									tabindex="0"
-									onclick={() => handleVideoPlay(video.videoId)}
-									onkeydown={(e) => handleKeydown(e, video.videoId)}
-								>
-									<img
-										src={getHighQualityThumbnail(video.videoId)}
-										alt={video.title}
-										loading="lazy"
-										onerror={(e) => handleImageError(e, video.videoId)}
-									/>
-									<div class="play-button">
-										<svg
-											width="70"
-											height="50"
-											viewBox="0 0 70 50"
-											fill="none"
-											xmlns="http://www.w3.org/2000/svg"
-										>
-											<path
-												d="M68.5375 8.50243C67.7324 5.51706 65.3606 3.16596 62.3484 2.36806C56.8899 0.917969 35 0.917969 35 0.917969C35 0.917969 13.1104 0.917969 7.6516 2.36806C4.6394 3.16596 2.26705 5.51706 1.46255 8.50243C0 13.9135 0 25.2037 0 25.2037C0 25.2037 0 36.4933 1.46255 41.905C2.26705 44.8906 4.6394 47.2412 7.6513 48.0399C13.1101 49.4894 34.9997 49.4895 34.9997 49.4895C34.9997 49.4895 56.8896 49.4894 62.3481 48.0399C65.3603 47.2415 67.7321 44.8907 68.5372 41.9053C70 36.4936 70 25.204 70 25.204C70 25.204 70.0003 13.9135 68.5375 8.50243Z"
-												fill="#FF0000"
-											/>
-											<path
-												d="M27.1426 34.5937L45.438 24.1861L27.1426 13.7773V34.5937Z"
-												fill="white"
-											/>
-										</svg>
-									</div>
+							<div
+								class="video-preview"
+								role="button"
+								tabindex="0"
+								onclick={() => handleVideoPlay(video.videoId)}
+								onkeydown={(e) => handleKeydown(e, video.videoId)}
+							>
+								<img
+									src={getHighQualityThumbnail(video.videoId)}
+									alt={video.title}
+									loading="lazy"
+									onerror={(e) => handleImageError(e, video.videoId)}
+								/>
+								<div class="play-button">
+									<svg
+										width="70"
+										height="50"
+										viewBox="0 0 70 50"
+										fill="none"
+										xmlns="http://www.w3.org/2000/svg"
+									>
+										<path
+											d="M68.5375 8.50243C67.7324 5.51706 65.3606 3.16596 62.3484 2.36806C56.8899 0.917969 35 0.917969 35 0.917969C35 0.917969 13.1104 0.917969 7.6516 2.36806C4.6394 3.16596 2.26705 5.51706 1.46255 8.50243C0 13.9135 0 25.2037 0 25.2037C0 25.2037 0 36.4933 1.46255 41.905C2.26705 44.8906 4.6394 47.2412 7.6513 48.0399C13.1101 49.4894 34.9997 49.4895 34.9997 49.4895C34.9997 49.4895 56.8896 49.4894 62.3481 48.0399C65.3603 47.2415 67.7321 44.8907 68.5372 41.9053C70 36.4936 70 25.204 70 25.204C70 25.204 70.0003 13.9135 68.5375 8.50243Z"
+											fill="#FF0000"
+										/>
+										<path
+											d="M27.1426 34.5937L45.438 24.1861L27.1426 13.7773V34.5937Z"
+											fill="white"
+										/>
+									</svg>
 								</div>
-							{/if}
+							</div>
 						</div>
 					{/each}
 				</div>
@@ -237,6 +234,10 @@
 		</div>
 	{/if}
 </section>
+
+{#if showVideoOverlay}
+	<VideoOverlay videoUrl={selectedVideoUrl} onClose={closeVideoOverlay} />
+{/if}
 
 <style>
 	.feature-updates {
@@ -308,12 +309,6 @@
 		&:last-child {
 			margin-right: 40px;
 		}
-	}
-
-	.video-embed iframe {
-		width: 100%;
-		height: 100%;
-		border: none;
 	}
 
 	.video-preview {
