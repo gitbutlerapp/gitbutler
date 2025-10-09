@@ -26,6 +26,7 @@ export type Operation =
 	| 'UpdateCommitMessage'
 	| 'MoveCommit'
 	| 'MoveBranch'
+	| 'TearOffBranch'
 	| 'RestoreFromSnapshot'
 	| 'ReorderCommit'
 	| 'InsertBlankCommit'

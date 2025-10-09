@@ -70,6 +70,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
             &gix_repo,
             but_workspace::branch::checkout::Options {
                 uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+                skip_head_update: false,
             },
         )?;
     } else {

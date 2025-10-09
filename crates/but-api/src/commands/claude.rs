@@ -172,27 +172,32 @@ pub async fn claude_compact_history(app: &App, params: CompactHistoryParams) -> 
 #[api_cmd]
 #[tauri::command(async)]
 #[instrument(err(Debug))]
-pub fn claude_get_prompt_templates() -> Result<prompt_templates::PromptTemplates, Error> {
-    let templates = prompt_templates::load_prompt_templates()?;
+pub fn claude_list_prompt_templates(
+    project_id: ProjectId,
+) -> Result<Vec<prompt_templates::PromptTemplate>, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let templates = prompt_templates::list_templates(&project)?;
     Ok(templates)
 }
 
 #[api_cmd]
 #[tauri::command(async)]
 #[instrument(err(Debug))]
-pub fn claude_write_prompt_templates(
-    templates: prompt_templates::PromptTemplates,
-) -> Result<(), Error> {
-    prompt_templates::write_prompt_templates(&templates)?;
-    Ok(())
+pub fn claude_get_prompt_dirs(
+    project_id: ProjectId,
+) -> Result<Vec<prompt_templates::PromptDir>, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let dirs = prompt_templates::prompt_dirs(&project)?;
+    Ok(dirs)
 }
 
 #[api_cmd]
 #[tauri::command(async)]
 #[instrument(err(Debug))]
-pub fn claude_get_prompt_templates_path() -> Result<String, Error> {
-    let path = prompt_templates::get_prompt_templates_path_string()?;
-    Ok(path)
+pub fn claude_maybe_create_prompt_dir(project_id: ProjectId, path: String) -> Result<(), Error> {
+    let project = gitbutler_project::get(project_id)?;
+    prompt_templates::maybe_create_dir(&project, &path)?;
+    Ok(())
 }
 
 #[tauri::command(async)]

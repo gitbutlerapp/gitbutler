@@ -195,8 +195,10 @@ export type PromptTemplate = {
 	template: string;
 };
 
-export type PromptTemplates = {
-	templates: PromptTemplate[];
+export type PromptDir = {
+	label: string;
+	path: string;
+	filters: string[];
 };
 
 export type McpConfig = {

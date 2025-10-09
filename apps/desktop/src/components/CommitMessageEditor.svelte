@@ -199,8 +199,11 @@
 		{aiIsLoading}
 		{suggestionsHandler}
 		useRuler={uiState.global.useRuler.current}
-		onChange={(text: string) => {
-			onChange?.({ description: text });
+		onChange={(value) => {
+			// Updating the description prevents resetting the editor value
+			// when toggling between inline and modal view.
+			description = value;
+			onChange?.({ description: value });
 		}}
 		onKeyDown={(e: KeyboardEvent) => {
 			if (e.key === 'Tab' && e.shiftKey) {

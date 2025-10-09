@@ -8,8 +8,8 @@ pub use actions::{
     insert_blank_commit, integrate_branch_with_steps, integrate_upstream,
     integrate_upstream_commits, list_commit_files, move_branch, move_commit, push_base_branch,
     reorder_stack, resolve_upstream_integration, set_base_branch, set_target_push_remote,
-    squash_commits, unapply_stack, undo_commit, update_commit_message, update_stack_order,
-    update_virtual_branch, upstream_integration_statuses,
+    squash_commits, tear_off_branch, unapply_stack, undo_commit, update_commit_message,
+    update_stack_order, update_virtual_branch, upstream_integration_statuses,
 };
 mod squash;
 

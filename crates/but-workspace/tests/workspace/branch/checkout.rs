@@ -827,6 +827,7 @@ fn unrelated_additions_do_not_affect_worktree_changes() -> anyhow::Result<()> {
 fn overwrite_options() -> checkout::Options {
     checkout::Options {
         uncommitted_changes: UncommitedWorktreeChanges::KeepConflictingInSnapshotAndOverwrite,
+        skip_head_update: false,
     }
 }
 

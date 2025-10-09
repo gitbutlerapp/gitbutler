@@ -12,9 +12,9 @@ use axum::{
 use but_api::{
     App, NoParams,
     commands::{
-        askpass, claude, cli, config, diff, forge, git, github, modes, open, projects as iprojects,
-        remotes, repo, rules, secret, settings, stack, undo, users, virtual_branches, workspace,
-        zip,
+        askpass, cherry_apply, claude, cli, config, diff, forge, git, github, modes, open,
+        projects as iprojects, remotes, repo, rules, secret, settings, stack, undo, users,
+        virtual_branches, workspace, zip,
     },
     error::ToError as _,
 };
@@ -162,6 +162,9 @@ async fn handle_command(
         "changes_in_branch" => diff::changes_in_branch_cmd(request.params),
         "changes_in_worktree" => diff::changes_in_worktree_cmd(request.params),
         "assign_hunk" => diff::assign_hunk_cmd(request.params),
+        // Cherry apply commands
+        "cherry_apply_status" => cherry_apply::cherry_apply_status_cmd(request.params),
+        "cherry_apply" => cherry_apply::cherry_apply_cmd(request.params),
         // Workspace commands
         "stacks" => workspace::stacks_cmd(request.params),
         "head_info" => workspace::head_info_cmd(request.params),
@@ -283,6 +286,7 @@ async fn handle_command(
         "fetch_from_remotes" => virtual_branches::fetch_from_remotes_cmd(request.params),
         "move_commit" => virtual_branches::move_commit_cmd(request.params),
         "move_branch" => virtual_branches::move_branch_cmd(request.params),
+        "tear_off_branch" => virtual_branches::tear_off_branch_cmd(request.params),
         "update_commit_message" => virtual_branches::update_commit_message_cmd(request.params),
         "find_commit" => virtual_branches::find_commit_cmd(request.params),
         "upstream_integration_statuses" => {
@@ -507,12 +511,10 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
-        "claude_get_prompt_templates" => claude::claude_get_prompt_templates_cmd(request.params),
-        "claude_write_prompt_templates" => {
-            claude::claude_write_prompt_templates_cmd(request.params)
-        }
-        "claude_get_prompt_templates_path" => {
-            claude::claude_get_prompt_templates_path_cmd(request.params)
+        "claude_list_prompt_templates" => claude::claude_list_prompt_templates_cmd(request.params),
+        "claude_get_prompt_dirs" => claude::claude_get_prompt_dirs_cmd(request.params),
+        "claude_maybe_create_prompt_dir" => {
+            claude::claude_maybe_create_prompt_dir_cmd(request.params)
         }
         "claude_get_sub_agents" => {
             #[derive(Deserialize)]

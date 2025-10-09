@@ -36,6 +36,14 @@ pub struct Args {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
+    /// Make an existing branch appear in the workspace.
+    Apply {
+        /// The 0-based place in the worktree into which the branch should be inserted.
+        #[clap(long, short = 'o')]
+        order: Option<usize>,
+        /// The name of the branch to apply to the workspace, like `feature` or `origin/other`.
+        branch_name: String,
+    },
     /// Add the given Git repository as project for use with GitButler.
     AddProject {
         /// The long name of the remote reference to track, like `refs/remotes/origin/main`,

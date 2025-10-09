@@ -63,6 +63,7 @@ export enum TestId {
 	ToastInfoMessage = 'toast-info-message',
 	Stack = 'stack',
 	StackHeader = 'stack-header',
+	StackOfflaneDropzone = 'stack-offlane-dropzone',
 	BranchesViewApplyBranchButton = 'branches-view-apply-branch-button',
 	BranchesViewDeleteLocalBranchButton = 'branches-view-delete-local-branch-button',
 	BranchesViewApplyFromForkButton = 'branches-view-apply-from-fork-button',

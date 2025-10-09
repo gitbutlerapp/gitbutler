@@ -1,5 +1,7 @@
 <script lang="ts">
 	import BranchCard from '$components/BranchCard.svelte';
+	import BranchesViewCommitContextMenu from '$components/BranchesViewCommitContextMenu.svelte';
+	import CherryApplyModal from '$components/CherryApplyModal.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { pushStatusToColor, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
@@ -29,6 +31,9 @@
 	const uiState = inject(UI_STATE);
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);
+
+	let cherryApplyModal = $state<CherryApplyModal>();
+	let selectedCommitId = $state<string>();
 </script>
 
 <ReduxResult result={branchQuery.result} {projectId} {stackId} {onerror}>
@@ -40,6 +45,16 @@
 		{/if}
 	{/snippet}
 </ReduxResult>
+
+{#snippet commitMenu(rightClickTrigger: HTMLElement, commitId: string)}
+	<BranchesViewCommitContextMenu
+		{rightClickTrigger}
+		onCherryPick={() => {
+			selectedCommitId = commitId;
+			cherryApplyModal?.open();
+		}}
+	/>
+{/snippet}
 
 {#snippet branchCard(branch: BranchDetails, env: { projectId: string; stackId?: string })}
 	{@const commitColor = getColorFromBranchType(pushStatusToColor(branch.pushStatus))}
@@ -68,8 +83,12 @@
 		{#snippet branchContent()}
 			<div class="branch-commits hide-when-empty">
 				{#each branch.upstreamCommits || [] as commit, idx}
+					{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
+						{@render commitMenu(rightClickTrigger, commit.id)}
+					{/snippet}
 					<CommitRow
-						disableCommitActions
+						disableCommitActions={false}
+						stackId={env.stackId}
 						type="Remote"
 						active
 						commitMessage={commit.message}
@@ -86,11 +105,18 @@
 							});
 						}}
 						lastCommit={idx === branch.upstreamCommits.length - 1 && branch.commits.length === 0}
-					/>
+						menu={branchesState.current.inWorkspace || branchesState.current.isTarget
+							? undefined
+							: menu}
+					></CommitRow>
 				{/each}
 				{#each branch.commits || [] as commit, idx}
+					{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
+						{@render commitMenu(rightClickTrigger, commit.id)}
+					{/snippet}
 					<CommitRow
-						disableCommitActions
+						disableCommitActions={false}
+						stackId={env.stackId}
 						type={branch.commits.at(0)?.state.type || 'LocalOnly'}
 						diverged={commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
 						commitMessage={commit.message}
@@ -108,12 +134,17 @@
 						}}
 						lastCommit={idx === branch.commits.length - 1}
 						active
-					/>
+						menu={branchesState.current.inWorkspace || branchesState.current.isTarget
+							? undefined
+							: menu}
+					></CommitRow>
 				{/each}
 			</div>
 		{/snippet}
 	</BranchCard>
 {/snippet}
+
+<CherryApplyModal bind:this={cherryApplyModal} {projectId} subject={selectedCommitId} />
 
 <style lang="postcss">
 	.branch-commits {

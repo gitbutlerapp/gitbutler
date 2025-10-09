@@ -15,8 +15,8 @@ use std::sync::Arc;
 
 use but_api::App;
 use but_api::{
-    cli, config, diff, forge, git, modes, open, remotes, repo, rules, secret, stack, undo, users,
-    virtual_branches, workspace,
+    cherry_apply, cli, config, diff, forge, git, modes, open, remotes, repo, rules, secret, stack,
+    undo, users, virtual_branches, workspace,
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
@@ -177,20 +177,6 @@ fn main() {
                         menu::handle_event(handle, &window.clone(), &event)
                     });
 
-                    #[cfg(target_os = "macos")]
-                    use tauri::LogicalPosition;
-                    #[cfg(target_os = "macos")]
-                    use tauri_plugin_trafficlights_positioner::WindowExt;
-                    #[cfg(target_os = "macos")]
-                    // NOTE: Make sure you only call this ONCE per window.
-                    {
-                        if let Some(window) = tauri_app.get_window("main") {
-                            #[cfg(target_os = "macos")]
-                            // NOTE: Make sure you only call this ONCE per window.
-                            window.setup_traffic_lights_inset(LogicalPosition::new(16.0, 25.0))?;
-                        };
-                    }
-
                     Ok(())
                 })
                 .plugin(tauri_plugin_http::init())
@@ -238,6 +224,8 @@ fn main() {
                     repo::pre_commit_hook_diffspecs,
                     repo::post_commit_hook,
                     repo::message_hook,
+                    cherry_apply::cherry_apply_status,
+                    cherry_apply::cherry_apply,
                     virtual_branches::create_virtual_branch,
                     virtual_branches::delete_local_branch,
                     virtual_branches::get_base_branch_data,
@@ -356,9 +344,9 @@ fn main() {
                     but_api::claude::claude_list_permission_requests,
                     but_api::claude::claude_update_permission_request,
                     but_api::claude::claude_check_available,
-                    but_api::claude::claude_get_prompt_templates,
-                    but_api::claude::claude_write_prompt_templates,
-                    but_api::claude::claude_get_prompt_templates_path,
+                    but_api::claude::claude_list_prompt_templates,
+                    but_api::claude::claude_get_prompt_dirs,
+                    but_api::claude::claude_maybe_create_prompt_dir,
                     but_api::claude::claude_get_mcp_config,
                     but_api::claude::claude_get_sub_agents,
                     but_api::claude::claude_verify_path

@@ -206,6 +206,7 @@
 					{reviewId}
 					{prNumber}
 					numberOfCommits={localAndRemoteCommits.length}
+					numberOfBranchesInStack={branches.length}
 					dropzones={[stackingReorderDropzoneManager.top(branchName)]}
 					trackingBranch={branch.remoteTrackingBranch ?? undefined}
 					readonly={!!branch.remoteTrackingBranch}

@@ -168,7 +168,7 @@ impl BranchManager<'_> {
             let applied_branch_stack_id = ws
                 .find_segment_and_stack_by_refname(branch_to_apply)
                 .with_context(||
-                    format!("Failed to apply branch and we probably have to handle more of the outcome\n{out:?}")
+                    format!("BUG: Can't find the branch to apply in workspace, but the 'apply' function should have failed instead \n{out:?}")
                 )?
                 .0
                 .id

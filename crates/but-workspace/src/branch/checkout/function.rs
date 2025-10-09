@@ -50,6 +50,7 @@ pub fn safe_checkout(
     repo: &gix::Repository,
     Options {
         uncommitted_changes: conflicting_worktree_changes_opts,
+        skip_head_update,
     }: Options,
 ) -> anyhow::Result<Outcome> {
     let source_tree = current_head_id.attach(repo).object()?.peel_to_tree()?;
@@ -138,7 +139,7 @@ pub fn safe_checkout(
     }
 
     let mut head_update = None;
-    if new_object.kind.is_commit() {
+    if new_object.kind.is_commit() && !skip_head_update {
         let needs_update = repo
             .head()?
             .id()
