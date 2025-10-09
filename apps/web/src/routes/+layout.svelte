@@ -120,13 +120,15 @@
 </svelte:head>
 
 {#if isMarketingPage}
-	<section class="marketing-page">
-		{#if shouldRenderChildren}
-			{@render children?.()}
-		{:else}
-			<HomePage {releases} />
-		{/if}
-	</section>
+	<div class="cursor-wrapper">
+		<section class="marketing-page">
+			{#if shouldRenderChildren}
+				{@render children?.()}
+			{:else}
+				<HomePage {releases} />
+			{/if}
+		</section>
+	</div>
 {:else}
 	{@render children?.()}
 {/if}
@@ -171,14 +173,17 @@
 		}
 	}
 
-	/* .marketing-page {
+	.cursor-wrapper {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
 		cursor: var(--cursor-custom);
-	} */
+	}
 
-	/* .marketing-page :global(a),
-	.marketing-page :global(button),
-	.marketing-page :global([role='button']),
-	.marketing-page :global([role='link']) {
+	.cursor-wrapper :global(a),
+	.cursor-wrapper :global(button),
+	.cursor-wrapper :global([role='button']),
+	.cursor-wrapper :global([role='link']) {
 		cursor: var(--cursor-pointer);
-	} */
+	}
 </style>
