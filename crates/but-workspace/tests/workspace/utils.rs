@@ -30,7 +30,7 @@ fn writable_scenario_inner(
 
 fn freeze_time(opts: gix::open::Options) -> gix::open::Options {
     use gix::config::tree::{User, gitoxide};
-    let time = "2000-01-01 00:00:00 +0000".into();
+    let time = "968492580 +0000".into();
     opts.config_overrides(
         [
             User::NAME.validated_assignment("user".into()),
@@ -43,6 +43,11 @@ fn freeze_time(opts: gix::open::Options) -> gix::open::Options {
     )
 }
 
+/// Provide a scenario but assure the returned repository will write objects to memory, with environment control.
+pub fn read_only_in_memory_scenario_env(name: &str) -> anyhow::Result<gix::Repository> {
+    read_only_in_memory_scenario_named_env(name, "", gix::open::permissions::Environment::all())
+}
+
 /// Provide a scenario but assure the returned repository will write objects to memory.
 pub fn read_only_in_memory_scenario(name: &str) -> anyhow::Result<gix::Repository> {
     read_only_in_memory_scenario_named(name, "")
@@ -53,11 +58,24 @@ pub fn read_only_in_memory_scenario_named(
     script_name: &str,
     dirname: &str,
 ) -> anyhow::Result<gix::Repository> {
+    read_only_in_memory_scenario_named_env(
+        script_name,
+        dirname,
+        gix::open::permissions::Environment::isolated(),
+    )
+}
+
+/// Provide a scenario but assure the returned repository will write objects to memory, in a subdirectory `dirname`.
+pub fn read_only_in_memory_scenario_named_env(
+    script_name: &str,
+    dirname: &str,
+    open_env: gix::open::permissions::Environment,
+) -> anyhow::Result<gix::Repository> {
     let root = gix_testtools::scripted_fixture_read_only(format!("scenario/{script_name}.sh"))
         .map_err(anyhow::Error::from_boxed)?;
     let mut options = gix::open::Options::isolated();
-    options.permissions.env = gix::open::permissions::Environment::all();
-    let repo = gix::open_opts(root.join(dirname), options)?.with_object_memory();
+    options.permissions.env = open_env;
+    let repo = gix::open_opts(root.join(dirname), freeze_time(options))?.with_object_memory();
     Ok(repo)
 }
 

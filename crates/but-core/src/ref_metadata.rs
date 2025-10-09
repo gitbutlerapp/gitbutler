@@ -237,7 +237,8 @@ impl std::fmt::Debug for Branch {
     }
 }
 
-struct MaybeDebug<'a, T: std::fmt::Debug>(&'a Option<T>);
+/// A utility to prevent `Option` from being too verbose in debug printings.
+pub struct MaybeDebug<'a, T: std::fmt::Debug>(pub &'a Option<T>);
 
 impl<T: std::fmt::Debug> std::fmt::Debug for MaybeDebug<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

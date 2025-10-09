@@ -22,11 +22,11 @@ fn update_unborn_head() -> anyhow::Result<()> {
         snapshot_tree: None,
         num_deleted_files: 0,
         num_added_or_updated_files: 0,
-        head_update: "Update refs/heads/main to Some(Object(Sha1(6f695b43b0a2fc309a7444d3e918226f1561c66c)))",
+        head_update: "Update refs/heads/main to Some(Object(Sha1(118ba3a86f303103ce45c23515d5cae2eca717c2)))",
     }
     "#);
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 6f695b4 (HEAD -> main) init");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 118ba3a (HEAD -> main) init");
     insta::assert_snapshot!(git_status(&repo)?, @r"");
     Ok(())
 }

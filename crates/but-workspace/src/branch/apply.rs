@@ -110,7 +110,7 @@ pub(crate) mod function {
     /// to alter certain aspects of the workspace by applying the same branch again.
     #[instrument(level = tracing::Level::DEBUG, skip(workspace, repo, meta), err(Debug))]
     pub fn apply<'graph>(
-        branch: &gix::refs::FullNameRef,
+        branch: &FullNameRef,
         workspace: &but_graph::projection::Workspace<'graph>,
         repo: &gix::Repository,
         meta: &mut impl RefMetadata,

@@ -2,14 +2,15 @@ use crate::WorkspaceCommit;
 use crate::ui::StackEntryNoOpt;
 use anyhow::Context;
 use bstr::{BString, ByteSlice};
+use but_core::ref_metadata::MaybeDebug;
 
 /// A minimal stack for use by [WorkspaceCommit::new_from_stacks()].
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Stack {
     /// The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch.
     pub tip: gix::ObjectId,
-    /// The short name of the stack, which is the name of the top-most branch, like `main` or `feature/branch` or `origin/tracking-some-PR`
-    /// or something entirely made up.
+    /// The short name of the stack, which is the name of the top-most branch,
+    /// like `main` or `feature/branch` or `origin/tracking-some-PR` or something entirely made up.
     pub name: Option<BString>,
 }
 
@@ -22,13 +23,35 @@ impl From<StackEntryNoOpt> for Stack {
     }
 }
 
+impl std::fmt::Debug for Stack {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Stack { tip, name } = self;
+        write!(
+            f,
+            "Stack {{ tip: {tip}, name: {name:?} }}",
+            tip = tip.to_hex_with_len(7),
+            name = MaybeDebug(name)
+        )
+    }
+}
+
 /// Structures related to creating a merge-commit along with the respective tree.
 pub mod merge {
     use super::Stack;
     use crate::WorkspaceCommit;
     use anyhow::{Context, bail};
+    use but_graph::SegmentIndex;
     use gitbutler_oxidize::GixRepositoryExt;
     use gix::prelude::ObjectIdExt;
+
+    /// A minimal stack for to represent a stack that conflicted.
+    #[derive(Debug, Clone)]
+    pub struct ConflictingStack {
+        /// The tip that could not be merged in.
+        pub tip: gix::ObjectId,
+        /// The name of the references to be merged, it pointed to `tip`.
+        pub ref_name: gix::refs::FullName,
+    }
 
     /// The outcome of a workspace-merge operation via [WorkspaceCommit::from_new_merge_with_metadata()].
     #[derive(Debug)]
@@ -41,7 +64,7 @@ pub mod merge {
         /// The stacks that were listed in the input, and whose tips couldn't be found in the graph.
         pub missing_stacks: Vec<gix::refs::FullName>,
         /// All information about each stack, in order of occurrence, that could ultimately not be merged.
-        pub conflicting_stacks: Vec<()>,
+        pub conflicting_stacks: Vec<ConflictingStack>,
     }
 
     impl Outcome {
@@ -65,14 +88,39 @@ pub mod merge {
         /// IMPORTANT: This inherently needs the tips to be represented by named branches, so this can't be used to
         ///            re-merge a workspace with lost or renamed branches. It is, however, good to 'fix' workspaces
         ///            whose tips were advanced and now are outside the workspace.
+        ///
+        /// ### Shortcoming: inefficient conflict behaviour
+        ///
+        /// In order to find out exactly which branches conflicts, we repeat the whole operations with different configuration.
+        /// One could be better and only repeat what didn't change, to avoid repeating unnecessarily.
+        /// But that shouldn't usually matter unless in the biggest repositories with tree-merge times past a 500ms or so.
         pub fn from_new_merge_with_metadata(
             stacks: &[but_core::ref_metadata::WorkspaceStack],
             graph: &but_graph::Graph,
             repo: &gix::Repository,
             hero_stack: Option<&gix::refs::FullNameRef>,
         ) -> anyhow::Result<Outcome> {
+            #[derive(Debug)]
+            enum Instruction {
+                Merge,
+                MergeTrial {
+                    hero_sidx: SegmentIndex,
+                    hero_tree_id: gix::ObjectId,
+                },
+                Skip,
+                CertainConflict,
+            }
+            use Instruction as I;
+            impl Instruction {
+                fn should_skip(&self) -> bool {
+                    match self {
+                        I::Merge | I::MergeTrial { .. } => false,
+                        I::Skip | I::CertainConflict => true,
+                    }
+                }
+            }
             let mut missing_stacks = Vec::new();
-            let tips: Vec<_> = stacks
+            let mut tips: Vec<_> = stacks
                 .iter()
                 .filter_map(|s| s.branches.first())
                 .filter_map(|top_segment| {
@@ -82,90 +130,225 @@ pub mod merge {
                             missing_stacks.push(top_segment.ref_name.to_owned());
                             None
                         }
-                        Some((segment, commit)) => Some((stack_tip_name, commit.id, segment.id)),
+                        Some((segment, commit)) => {
+                            Some((I::Merge, stack_tip_name, commit.id, segment.id))
+                        }
                     }
                 })
                 .collect();
 
-            let conflicting_stacks = Vec::new();
-            let mut prev_base_sidx = None;
-            let mut merge_tree_id = None;
-            let mut stacks = Vec::new();
-            let mut previous_tip = None;
-            let (merge_options, conflict_kind) = repo.merge_options_fail_fast()?;
-            let labels_uninteresting_as_no_conflict_allowed = repo.default_merge_labels();
-            for (ref_name, commit_id, sidx) in tips {
-                let this_tree_id = peel_to_tree(commit_id.attach(repo))?;
-                if let Some((prev_tree_id, prev_sidx)) = previous_tip {
-                    let base_tree_id = {
-                        // This is critical: we enforce using the lowest merge-base by using
-                        // the previous iterations merge-base.
-                        // This is the same as computing the merge-base between the new
-                        // (non-existing merge-commit) and the next tip.
-                        let first_sidx = prev_base_sidx.unwrap_or(prev_sidx);
-                        let base_sidx =
-                            graph.first_merge_base(first_sidx, sidx).with_context(|| {
-                                format!(
-                                    "Couldn't find merge-base between segments {l} and {r}",
-                                    l = first_sidx.index(),
-                                    r = sidx.index()
-                                )
-                            })?;
-                        prev_base_sidx = Some(base_sidx);
-                        let base_commit_id = graph.tip_skip_empty(base_sidx).with_context(|| {
-                            format!(
-                                "Base segment {base} between {l} and {r} didn't have  single commit reachable",
-                                base = base_sidx.index(),
-                                l = first_sidx.index(),
-                                r = sidx.index()
-                            )
-                        })?.id.attach(repo);
-                        peel_to_tree(base_commit_id)?
-                    };
-
-                    let mut merge = repo.merge_trees(
-                        base_tree_id,
-                        merge_tree_id.unwrap_or(prev_tree_id),
-                        this_tree_id,
-                        labels_uninteresting_as_no_conflict_allowed,
-                        merge_options.clone(),
-                    )?;
-                    if merge.has_unresolved_conflicts(conflict_kind) {
-                        bail!("TODO: conflict handling with hero-special: {hero_stack:?}");
+            let mut ran_merge_trials_loop_safety = false;
+            #[allow(clippy::indexing_slicing)]
+            'retry_loop: loop {
+                let mut prev_base_sidx = None;
+                let mut merge_tree_id = None;
+                let mut previous_tip = None;
+                let (merge_options, conflict_kind) = repo.merge_options_fail_fast()?;
+                let labels_uninteresting_as_no_conflict_allowed = repo.default_merge_labels();
+                'tips_loop: for tip_idx in 0..tips.len() {
+                    let (mode, ref_name, commit_id, sidx) = &mut tips[tip_idx];
+                    let sidx = *sidx;
+                    if mode.should_skip() {
+                        continue;
                     }
-                    merge_tree_id = merge.tree.write()?.detach().into();
+                    let this_tree_id = peel_to_tree(commit_id.attach(repo))?;
+                    if let Some((prev_tree_id, prev_sidx)) = previous_tip {
+                        let (base_tree_id, base_sidx) = {
+                            // This is critical: we enforce using the lowest merge-base by using
+                            // the previous iterations merge-base.
+                            // This is the same as computing the merge-base between the new
+                            // (non-existing merge-commit) and the next tip.
+                            let left = prev_base_sidx.unwrap_or(prev_sidx);
+                            compute_merge_base(graph, repo, left, sidx)?
+                        };
+
+                        let mut merge = repo.merge_trees(
+                            base_tree_id,
+                            merge_tree_id.unwrap_or(prev_tree_id),
+                            this_tree_id,
+                            labels_uninteresting_as_no_conflict_allowed,
+                            merge_options.clone(),
+                        )?;
+                        let is_hero = hero_stack.is_some_and(|hero| hero == *ref_name);
+                        if merge.has_unresolved_conflicts(conflict_kind) {
+                            if matches!(mode, I::MergeTrial { .. }) {
+                                bail!(
+                                    "BUG: Found {ref_name} in merge-trial, even though these shouldn't fail without the hero merged in"
+                                );
+                            }
+                            if is_hero {
+                                // We definitely want this one, so must restart the whole operation
+                                // while disallowing the most recent allowed tip.
+                                let err_msg = format!(
+                                    "BUG: if there was no allowed stack in front of {ref_name}, then we aren't here as no merge can be done with just one branch"
+                                );
+                                let presumed_conflicting_tip = tips[..tip_idx]
+                                    .iter_mut()
+                                    .rev()
+                                    .find(|(mode, ..)| !mode.should_skip())
+                                    .context(err_msg)?;
+                                presumed_conflicting_tip.0 = I::Skip;
+                                continue 'retry_loop;
+                            } else {
+                                // Ignore this stack, continue with the others.
+                                *mode = I::Skip;
+                                continue 'tips_loop;
+                            }
+                        } else if is_hero {
+                            // Look back and see if there is any skipped stacks. If so, we now merged the hero branch successfully,
+                            //
+                            // This means that skipping some worked. Now we want to try to re-enable previously disabled ones to learn if they
+                            // were really at fault. Imagine `G1 X X X X X H` with H being hero and G1 being the good ones.
+                            // It's notable how multiple branches of these X can be good, but some in the middle can also be bad - imagine
+                            // one file being wrong in one, and another in another stack, so two stacks are causing conflicts while some
+                            // in between are not causing conflicts.
+                            // With this, we might find that it's actually `G1 X G2 G3 X G4 H`, and we don't unnecessarily unapply unrelated branches.
+                            // However, we only know that the first X is definitely a conflict, and all others we have to test one after another
+                            // by test-merging H right after the X under test.
+
+                            // First, mark the first X as conflict as we know it for sure.
+                            let mut saw_first_certain_conflict = false;
+                            let mut has_merge_trials = false;
+                            for (mode, _, _, _) in &mut tips[..tip_idx] {
+                                match mode {
+                                    I::Merge => continue,
+                                    I::MergeTrial { .. } => bail!(
+                                        "BUG: found a merge-trial, even though trial should be concluded by now"
+                                    ),
+                                    I::CertainConflict => saw_first_certain_conflict = true,
+                                    I::Skip => {
+                                        if saw_first_certain_conflict {
+                                            *mode = I::MergeTrial {
+                                                hero_sidx: sidx,
+                                                hero_tree_id: this_tree_id,
+                                            };
+                                            has_merge_trials = true;
+                                        } else {
+                                            *mode = I::CertainConflict;
+                                            saw_first_certain_conflict = true;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if has_merge_trials {
+                                if ran_merge_trials_loop_safety {
+                                    bail!(
+                                        "BUG: somehow we managed to try to run merge-trials twice, probably leading to an infinite loop"
+                                    );
+                                }
+                                ran_merge_trials_loop_safety = true;
+                                continue 'retry_loop;
+                            }
+                            // We are past possible trials and proceed as usual, with future conflicting stacks just being dropped.
+                        } else if let I::MergeTrial {
+                            hero_sidx,
+                            hero_tree_id,
+                        } = *mode
+                        {
+                            // This stack merged cleanly, and now we have to merge the hero into that result to see if it works.
+                            // This tells us if this is stack merges cleanly or causes a real conflict in conjunction with hero.
+                            let base_tree_id =
+                                compute_merge_base(graph, repo, base_sidx, hero_sidx)?.0;
+                            let merge = repo.merge_trees(
+                                base_tree_id,
+                                merge.tree.write()?,
+                                hero_tree_id,
+                                labels_uninteresting_as_no_conflict_allowed,
+                                merge_options.clone(),
+                            )?;
+                            let trial_outcome = if merge.has_unresolved_conflicts(conflict_kind) {
+                                I::CertainConflict
+                            } else {
+                                I::Merge
+                            };
+                            *mode = trial_outcome;
+                            if matches!(mode, I::CertainConflict) {
+                                // Now that we know it's actually a conflict, do not retain more state so
+                                // the conflicting one isn't recorded in the merge.
+                                continue 'tips_loop;
+                            }
+                        }
+                        prev_base_sidx = Some(base_sidx);
+                        merge_tree_id = merge.tree.write()?.detach().into();
+                    }
+                    previous_tip = Some((this_tree_id, sidx));
                 }
-                stacks.push(Stack {
-                    tip: commit_id,
-                    name: Some(ref_name.shorten().to_owned()),
+
+                let (stacks, conflicting_stacks) = tips.iter().fold(
+                    (Vec::new(), Vec::new()),
+                    |(mut stacks, mut conflicting_stacks), (mode, ref_name, commit_id, _sidx)| {
+                        if mode.should_skip() {
+                            conflicting_stacks.push(ConflictingStack {
+                                tip: *commit_id,
+                                ref_name: (*ref_name).to_owned(),
+                            });
+                        } else {
+                            stacks.push(Stack {
+                                tip: *commit_id,
+                                name: Some(ref_name.shorten().to_owned()),
+                            });
+                        }
+                        (stacks, conflicting_stacks)
+                    },
+                );
+
+                if stacks.is_empty() {
+                    bail!(
+                        "BUG: Cannot merge nothing, don't call me like that, we assume this is empty: {conflicting_stacks:#?}"
+                    )
+                }
+
+                let merge_tree_id = merge_tree_id
+                    .or({
+                        // Just one stack?
+                        previous_tip.map(|t| t.0)
+                    })
+                    .context("having stacks means the loop ran once")?;
+
+                // Finally, create the merge-commit itself.
+                let mut ws_commit =
+                    Self::new_from_stacks(stacks.iter().cloned(), repo.object_hash());
+                ws_commit.tree = merge_tree_id;
+                Self::fixup_times(&mut ws_commit, repo);
+
+                let workspace_commit_id = repo.write_object(&ws_commit)?.detach();
+                return Ok(Outcome {
+                    workspace_commit_id,
+                    stacks,
+                    missing_stacks,
+                    conflicting_stacks,
                 });
-                previous_tip = Some((this_tree_id, sidx));
             }
-
-            if stacks.is_empty() {
-                bail!("BUG: Cannot merge nothing, don't call me like that")
-            }
-
-            let merge_tree_id = merge_tree_id.unwrap_or_else(|| {
-                // Just one stack?
-                previous_tip
-                    .expect("having stacks means the loop ran once")
-                    .0
-            });
-
-            // Finally, create the merge-commit itself.
-            let mut ws_commit = Self::new_from_stacks(stacks.iter().cloned(), repo.object_hash());
-            ws_commit.tree = merge_tree_id;
-            Self::fixup_times(&mut ws_commit, repo);
-
-            let workspace_commit_id = repo.write_object(&ws_commit)?.detach();
-            Ok(Outcome {
-                workspace_commit_id,
-                stacks,
-                missing_stacks,
-                conflicting_stacks,
-            })
         }
+    }
+
+    fn compute_merge_base(
+        graph: &but_graph::Graph,
+        repo: &gix::Repository,
+        left: SegmentIndex,
+        right: SegmentIndex,
+    ) -> anyhow::Result<(gix::ObjectId, SegmentIndex)> {
+        let base_sidx = graph.first_merge_base(left, right).with_context(|| {
+            format!(
+                "Couldn't find merge-base between segments {l} and {r}",
+                l = left.index(),
+                r = right.index()
+            )
+        })?;
+        let base_commit_id = graph
+            .tip_skip_empty(base_sidx)
+            .with_context(|| {
+                format!(
+                    "Base segment {base} between {l} and {r} didn't have  single commit reachable",
+                    base = base_sidx.index(),
+                    l = left.index(),
+                    r = right.index()
+                )
+            })?
+            .id
+            .attach(repo);
+        Ok((peel_to_tree(base_commit_id)?, base_sidx))
     }
 
     fn peel_to_tree(commit: gix::Id) -> anyhow::Result<gix::ObjectId> {
