@@ -10,6 +10,15 @@
 	const { items }: Props = $props();
 </script>
 
+{#snippet cardContent(title: string, description: string)}
+	<div class="m-bottom-8">
+		<h3>{title}</h3>
+	</div>
+	<div>
+		<p>{description}</p>
+	</div>
+{/snippet}
+
 <section class="features">
 	{#each items as item}
 		{#if item.link}
@@ -21,13 +30,11 @@
 					<div class="features__link-indicator-brakets">]</div>
 				</div>
 
-				<h3>{item.title}</h3>
-				<p>{item.description}</p>
+				{@render cardContent(item.title, item.description)}
 			</a>
 		{:else}
 			<div class="feature-item">
-				<h3>{item.title}</h3>
-				<p>{item.description}</p>
+				{@render cardContent(item.title, item.description)}
 			</div>
 		{/if}
 	{/each}
@@ -96,6 +103,17 @@
 		border-right: 1px solid var(--clr-border-2);
 		border-bottom: 1px solid var(--clr-border-2);
 		text-decoration: none;
+		transition: background-color var(--transition-fast);
+
+		p,
+		h3 {
+			display: inline;
+			box-decoration-break: clone;
+			-webkit-box-decoration-break: clone;
+			width: fit-content;
+			background: var(--clr-bg-2);
+			transition: background-color var(--transition-fast);
+		}
 
 		h3 {
 			max-width: 90%;
@@ -109,9 +127,17 @@
 			flex-grow: 1;
 			font-size: 15px;
 			line-height: 1.5;
+			opacity: 0.8;
 		}
 
 		&:hover {
+			background-color: var(--clr-bg-1-muted);
+
+			p,
+			h3 {
+				background-color: var(--clr-bg-1-muted);
+			}
+
 			& .features__link-indicator-text {
 				max-width: 200px;
 				margin-right: 4px;
