@@ -71,7 +71,10 @@ export async function fetchPlaylistVideos(playlistId: string): Promise<YouTubePl
 
 		// Use a CORS proxy to access the RSS feed
 		const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`;
-		const response = await fetch(proxyUrl);
+		const response = await fetch(proxyUrl, {
+			// Add timeout to prevent hanging
+			signal: AbortSignal.timeout(5000)
+		});
 
 		if (response.ok) {
 			const data = await response.json();
@@ -80,27 +83,39 @@ export async function fetchPlaylistVideos(playlistId: string): Promise<YouTubePl
 
 			const entries = Array.from(xmlDoc.querySelectorAll('entry')).slice(0, 10);
 			const playlistTitle = xmlDoc.querySelector('title')?.textContent || 'YouTube Playlist';
+			const channelTitle = xmlDoc.querySelector('author > name')?.textContent || 'YouTube Channel';
 
-			const videos: YouTubeVideo[] = entries.map((entry, index) => {
-				const videoId =
-					entry.querySelector('yt\\:videoId, videoId')?.textContent || `video_${index}`;
-				const title = entry.querySelector('title')?.textContent || 'Untitled Video';
-				const description =
-					entry.querySelector('media\\:description, description')?.textContent || '';
-				const publishedAt =
-					entry.querySelector('published')?.textContent || new Date().toISOString();
+			const videos: YouTubeVideo[] = entries
+				.map((entry) => {
+					// Try multiple ways to get videoId for better compatibility
+					const videoId =
+						entry.querySelector('yt\\:videoId')?.textContent ||
+						entry.querySelector('videoId')?.textContent ||
+						entry.querySelector('id')?.textContent?.split(':').pop() ||
+						null;
 
-				return {
-					id: `${index}`,
-					title,
-					description,
-					thumbnail: getHighQualityThumbnail(videoId),
-					publishedAt,
-					channelTitle: 'GitButler',
-					videoId,
-					url: getVideoUrl(videoId)
-				};
-			});
+					if (!videoId) return null;
+
+					const title = entry.querySelector('title')?.textContent || 'Untitled Video';
+					const description =
+						entry.querySelector('media\\:description')?.textContent ||
+						entry.querySelector('description')?.textContent ||
+						'';
+					const publishedAt =
+						entry.querySelector('published')?.textContent || new Date().toISOString();
+
+					return {
+						id: videoId,
+						title,
+						description,
+						thumbnail: getHighQualityThumbnail(videoId),
+						publishedAt,
+						channelTitle,
+						videoId,
+						url: getVideoUrl(videoId)
+					};
+				})
+				.filter((video): video is YouTubeVideo => video !== null);
 
 			return {
 				id: playlistId,
