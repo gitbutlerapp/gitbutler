@@ -2,8 +2,9 @@ use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oplog::entry::OperationKind;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, entry::Snapshot};
+use gitbutler_oxidize::OidExt;
 use gitbutler_project::ProjectId;
 use tracing::instrument;
 
@@ -27,6 +28,22 @@ pub fn list_snapshots(
         exclude_kind.unwrap_or_default(),
     )?;
     Ok(snapshots)
+}
+
+#[api_cmd]
+#[tauri::command(async)]
+#[instrument(err(Debug))]
+pub fn create_snapshot(
+    project_id: ProjectId,
+    message: Option<String>,
+) -> Result<gix::ObjectId, Error> {
+    let project = gitbutler_project::get(project_id).context("failed to get project")?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut guard = project.exclusive_worktree_access();
+    let mut details = SnapshotDetails::new(OperationKind::OnDemandSnapshot);
+    details.body = message;
+    let oid = ctx.create_snapshot(details, guard.write_permission())?;
+    Ok(oid.to_gix())
 }
 
 #[api_cmd]
