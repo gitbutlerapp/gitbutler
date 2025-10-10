@@ -94,6 +94,6 @@ export async function fillMeta(html: string, url: string) {
 	}
 
 	// Default fallback for non-review pages
-	metaTags = metaTags.replaceAll('%image%', `${env.PUBLIC_APP_HOST}og-image.png`);
+	metaTags = metaTags.replaceAll('%image%', `${env.PUBLIC_CLOUD_HOST}og-image.png`);
 	return html.replace('%metatags%', metaTags);
 }
