@@ -514,55 +514,8 @@
 
 	.integration-radio-content {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 6px;
 	}
-
-	/* .integration-radio-option {
-		display: flex;
-		align-items: flex-start;
-		margin-bottom: 0;
-		padding: 12px 16px;
-		border-radius: 8px;
-		cursor: pointer;
-		transition: background 0.15s;
-	}
-	.integration-radio-option input[type='radio'] {
-		width: 18px;
-		height: 18px;
-		margin-top: 2px;
-		margin-right: 12px;
-		accent-color: var(--clr-accent-1, #009688);
-	}
-	.integration-radio-content {
-		display: flex;
-		flex-direction: column;
-	}
-	.integration-radio-title {
-		margin-bottom: 2px;
-		color: var(--clr-text-1);
-		font-weight: 600;
-		font-size: 15px;
-	}
-	.integration-radio-caption {
-		color: var(--clr-text-2);
-		font-size: 13px;
-	}
-	.integration-rebase-btn {
-		width: 100%;
-		margin-top: 8px;
-		padding: 12px 0;
-		border: none;
-		border-radius: 8px;
-		background: #e6a23c;
-		color: #fff;
-		font-weight: 600;
-		font-size: 16px;
-		cursor: pointer;
-		transition: background 0.15s;
-	}
-	.integration-rebase-btn:disabled {
-		cursor: not-allowed;
-		opacity: 0.7;
-	} */
 </style>
