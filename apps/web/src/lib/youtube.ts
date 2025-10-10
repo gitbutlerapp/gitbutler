@@ -73,7 +73,7 @@ export async function fetchPlaylistVideos(playlistId: string): Promise<YouTubePl
 		const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`;
 		const response = await fetch(proxyUrl, {
 			// Add timeout to prevent hanging
-			signal: AbortSignal.timeout(5000)
+			signal: AbortSignal.timeout(10000)
 		});
 
 		if (response.ok) {
@@ -139,59 +139,59 @@ export async function fetchPlaylistVideos(playlistId: string): Promise<YouTubePl
 function getGitButlerPlaylistFallback(playlistId: string): YouTubePlaylist {
 	const videos: YouTubeVideo[] = [
 		{
-			id: '1',
-			title: 'GitButler: A New Way to Git',
+			id: 'NOYK7LTFvZM',
+			title: 'Using Cursor Hooks for automatic version control',
 			description:
-				'Introducing GitButler - a Git client that makes complex Git workflows simple and visual.',
-			thumbnail: 'https://img.youtube.com/vi/A8-aLZ8e5tw/mqdefault.jpg',
-			publishedAt: '2024-03-15T10:00:00Z',
+				'Here we demonstrate how to use GitButler with the new Cursor Hooks functionality to automate creating branches for chat sessions and committing work as you go with smart commit messages. Never lose a step again.',
+			thumbnail: 'https://img.youtube.com/vi/NOYK7LTFvZM/maxresdefault.jpg',
+			publishedAt: '2025-09-29T20:50:53+00:00',
 			channelTitle: 'GitButler',
-			videoId: 'A8-aLZ8e5tw',
-			url: getVideoUrl('A8-aLZ8e5tw')
+			videoId: 'NOYK7LTFvZM',
+			url: getVideoUrl('NOYK7LTFvZM')
 		},
 		{
-			id: '2',
-			title: 'Virtual Branches Explained',
+			id: 'JzxXNS0SfUE',
+			title: 'Squashing Git Commits together',
 			description:
-				'Learn about GitButlers virtual branches feature that lets you work on multiple features simultaneously.',
-			thumbnail: 'https://img.youtube.com/vi/ChNLvCmJFss/mqdefault.jpg',
-			publishedAt: '2024-03-20T14:30:00Z',
+				"In this episode we'll be showing you how to take multiple Git commits and magically turn them into one. We will do this with reset, rebase and GitButler (the easy way).",
+			thumbnail: 'https://img.youtube.com/vi/JzxXNS0SfUE/maxresdefault.jpg',
+			publishedAt: '2025-09-29T15:01:27+00:00',
 			channelTitle: 'GitButler',
-			videoId: 'ChNLvCmJFss',
-			url: getVideoUrl('ChNLvCmJFss')
+			videoId: 'JzxXNS0SfUE',
+			url: getVideoUrl('JzxXNS0SfUE')
 		},
 		{
-			id: '3',
-			title: 'Getting Started with GitButler',
+			id: 'ttZ3GX0sYTE',
+			title: 'Splitting Git Commits (the easy way)',
 			description:
-				'A quick tutorial on how to get started with GitButler and set up your first project.',
-			thumbnail: 'https://img.youtube.com/vi/YjCY-3rBd5g/mqdefault.jpg',
-			publishedAt: '2024-03-25T16:45:00Z',
+				"In this episode, we'll be showing you how to split a commit in Git in a few different ways. With reset, with rebase and with GitButler (the easy way).",
+			thumbnail: 'https://img.youtube.com/vi/ttZ3GX0sYTE/maxresdefault.jpg',
+			publishedAt: '2025-09-26T16:01:22+00:00',
 			channelTitle: 'GitButler',
-			videoId: 'YjCY-3rBd5g',
-			url: getVideoUrl('YjCY-3rBd5g')
+			videoId: 'ttZ3GX0sYTE',
+			url: getVideoUrl('ttZ3GX0sYTE')
 		},
 		{
-			id: '4',
-			title: 'Advanced GitButler Features',
+			id: 'r8bmF5UpZbY',
+			title: 'Editing Commits - No longer a Pain in the Git',
 			description:
-				'Explore advanced features like AI commit messages, hunk management, and workflow automation.',
-			thumbnail: 'https://img.youtube.com/vi/Qz8Bz9QvVpU/mqdefault.jpg',
-			publishedAt: '2024-04-01T12:15:00Z',
+				'Here we go over how to "fix up" a commit in both Git and GitButler. We\'ll look at how to drag and drop a modified file on a commit to amend it in GitButler and then do the same functional thing using vanilla Git via fixup commits and autosquashing rebase commands.',
+			thumbnail: 'https://img.youtube.com/vi/r8bmF5UpZbY/maxresdefault.jpg',
+			publishedAt: '2025-09-18T11:49:34+00:00',
 			channelTitle: 'GitButler',
-			videoId: 'Qz8Bz9QvVpU',
-			url: getVideoUrl('Qz8Bz9QvVpU')
+			videoId: 'r8bmF5UpZbY',
+			url: getVideoUrl('r8bmF5UpZbY')
 		},
 		{
-			id: '5',
-			title: 'GitButler vs Traditional Git',
+			id: 'iJ9qJ-xcQ-U',
+			title: 'Uncommitting in Git and GitButler',
 			description:
-				'Compare GitButler with traditional Git workflows and see why teams are switching.',
-			thumbnail: 'https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-			publishedAt: '2024-04-05T09:30:00Z',
+				'Scott talks about how to uncommit a commit, something that is not always as simple as you may think, especially uncommitting something in the middle of a series. \n\nHe demonstrates how to do it with two clicks in GitButler and then how to accomplish the same thing in vanilla Git - once just dropping the commit and then how to do it and still keep the changes in that commit in your working directory.\n\n0:22 - Uncommitting in GitButler\n1:16 - Uncommitting with the Git CLI\n2:12 - Dropping a commit in Git\n2:58 - Again, but keep the commit’s changes\n4:27 - Wrap up',
+			thumbnail: 'https://img.youtube.com/vi/iJ9qJ-xcQ-U/maxresdefault.jpg',
+			publishedAt: '2025-09-02T13:55:23+00:00',
 			channelTitle: 'GitButler',
-			videoId: 'dQw4w9WgXcQ',
-			url: getVideoUrl('dQw4w9WgXcQ')
+			videoId: 'iJ9qJ-xcQ-U',
+			url: getVideoUrl('iJ9qJ-xcQ-U')
 		}
 	];
 
