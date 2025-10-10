@@ -203,7 +203,6 @@ impl Claudes {
         let model_name = output["message"]["model"]
             .as_str()
             .context("could not find model property")?;
-        dbg!(&output);
 
         if let Some(model) = find_model(model_name.to_owned()) {
             let usage: ModelUsage = serde_json::from_value(output["message"]["usage"].clone())?;
@@ -212,7 +211,6 @@ impl Claudes {
                 + usage.cache_creation_input_tokens.unwrap_or(0)
                 + usage.input_tokens
                 + usage.output_tokens;
-            dbg!(total, model.context - COMPACTION_BUFFER);
             if total > (model.context - COMPACTION_BUFFER) {
                 self.compact(ctx.clone(), broadcaster.clone(), stack_id)
                     .await;
