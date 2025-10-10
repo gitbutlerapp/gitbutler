@@ -1,0 +1,3 @@
+ancestorEntries = []
+ourEntries = ["apps/web/src/routes/nightlies/+page.svelte", "apps/web/src/lib/components/marketing/Footer.svelte"]
+theirEntries = ["apps/web/src/routes/nightlies/+page.svelte", "apps/web/src/lib/components/marketing/Footer.svelte"]

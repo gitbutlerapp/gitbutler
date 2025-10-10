@@ -1,0 +1,1 @@
+- use pnpm rather than npm for typescript and svelte related tasks
