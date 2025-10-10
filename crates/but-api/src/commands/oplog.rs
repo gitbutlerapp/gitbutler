@@ -1,3 +1,21 @@
+//! GitButler has an operation log (oplog) that records significant actions taken within a project.
+//! The oplog records snapshots of the project state at the time when an operation was initiated.
+//!
+//! Using the oplog, it is possible to restore the project to a previous state by reverting to one of these snapshots.
+//! This includes the state of the working directory as well as commmit history and references.
+//!
+//! This module provides commands to interact with the oplog, including listing snapshots, creating new snapshots,
+//! restoring to a snapshot, and viewing differences between snapshots.
+//!
+//! An example usage:
+//!   - A user squashes two commits together.
+//!   - Listing the shapshot will show a new snapshot with the operation kind `SquashCommit`.
+//!   - Restoring to the snapshot will revert the project to the state before the squash.
+//!   - A new snapshot is created for the restore operation.
+//!
+//! Depending on the snapshot operation kind, there may be a payload (body) with additional details about the operation (e.g. commit message).
+//! Refer to `gitbutler_oplog::entry::Snapshot` and `gitbutler_oplog::entry::SnapshotDetails` for the metadata stored.
+//!
 use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_settings::AppSettings;
@@ -10,6 +28,17 @@ use tracing::instrument;
 
 use crate::error::Error;
 
+/// List snapshots in the oplog.
+///
+/// - `project_id`: The ID of the project to list snapshots for.
+/// - `limit`: Maximum number of snapshots to return.
+/// - `sha`: Optional SHA to filter snapshots starting from a specific commit.
+/// - `exclude_kind`: Optional list of operation kinds to exclude from the results.
+///
+/// Returns a vector of `Snapshot` entries.
+///
+/// # Errors
+/// Returns an error if the project cannot be found or if there is an issue accessing the oplog.
 #[api_cmd]
 #[tauri::command(async)]
 #[instrument(err(Debug))]
@@ -30,6 +59,15 @@ pub fn list_snapshots(
     Ok(snapshots)
 }
 
+/// Creates a new, on-demand snapshot in the oplog.
+///
+/// - `project_id`: The ID of the project to create a snapshot for.
+/// - `message`: Optional message to include with the snapshot.
+///
+/// Returns the OID of the created snapshot.
+///
+/// # Errors
+/// Returns an error if the project cannot be found or if there is an issue creating the snapshot.
 #[api_cmd]
 #[tauri::command(async)]
 #[instrument(err(Debug))]
@@ -46,6 +84,18 @@ pub fn create_snapshot(
     Ok(oid.to_gix())
 }
 
+/// Restores the project to a specific snapshot. This operation also creates a new snapshot in the oplog.
+///
+/// - `project_id`: The ID of the project to restore.
+/// - `sha`: The SHA of the snapshot to restore to.
+///
+/// # Errors
+/// Returns an error if the project cannot be found, if the snapshot SHA is invalid, or if there is an issue during the restore operation.
+///
+/// # Side Effects
+/// This operation modifies the repository state, reverting it to the specified snapshot.
+/// This includes the state of the working directory as well as commmit history and references.
+/// Additionally, a new snapshot is created in the oplog to record the restore action.
 #[api_cmd]
 #[tauri::command(async)]
 #[instrument(err(Debug))]
@@ -60,6 +110,17 @@ pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<(), Error>
     Ok(())
 }
 
+/// Computes the file tree difference between the the state of the project at a specific snapshot and the current state.
+/// Not all snapshots may have a meaningful file tree difference, in which case the result may be empty.
+/// An example of a snapshot that does have file tree diffs is a `CreateCommit` snapshot where the commit introduced changes to files.
+///
+/// - `project_id`: The ID of the project to compute the diff for.
+/// - `sha`: The SHA of the snapshot to diff against the current state.
+///
+/// Returns a vector of `TreeChange` entries representing the differences.
+///
+/// # Errors
+/// Returns an error if the project cannot be found, if the snapshot SHA is invalid, or if there is an issue computing the diff.
 #[api_cmd]
 #[tauri::command(async)]
 #[instrument(err(Debug))]
