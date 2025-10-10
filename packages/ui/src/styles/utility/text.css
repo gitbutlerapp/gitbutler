@@ -91,17 +91,17 @@
 }
 
 /* Serif Classes */
-.text-serif-40 {
+.text-serif-42 {
 	font-weight: 400;
-	font-size: 2.5rem;
-	line-height: var(--text-lineheight-default);
+	font-size: 2.625rem;
+	line-height: var(--text-lineheight-accent);
 	font-family: var(--fontfamily-accent);
 }
 
 .text-serif-32 {
 	font-weight: 400;
 	font-size: 2rem;
-	line-height: var(--text-lineheight-default);
+	line-height: var(--text-lineheight-accent);
 	font-family: var(--fontfamily-accent);
 }
 

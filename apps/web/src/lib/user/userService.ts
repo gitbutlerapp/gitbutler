@@ -73,6 +73,16 @@ export class UserService {
 		return user;
 	}
 
+	async refreshUser() {
+		try {
+			const user = await this.fetchUser();
+			this.user.set(user);
+			this.error.set(undefined);
+		} catch (error) {
+			this.error.set(error);
+		}
+	}
+
 	clearUser() {
 		this.user.set(undefined);
 	}

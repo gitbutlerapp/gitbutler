@@ -4,8 +4,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Badge, TestId } from '@gitbutler/ui';
-	import type { MessageStyle } from '$components/InfoMessage.svelte';
+	import { Badge, TestId, type MessageStyle } from '@gitbutler/ui';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 

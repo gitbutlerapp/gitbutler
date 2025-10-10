@@ -1,0 +1,128 @@
+@import '@gitbutler/ui/main.css';
+
+:root {
+	--radius-xl: 20px;
+	--layout-col-gap: 20px;
+	--layout-side-paddings: 80px;
+	--cursor-custom:
+		url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="53" fill="none" viewBox="0 0 40 53"><g filter="url(%23a)"><path fill="%23000" d="m34.069 23.461-12.372 6.712 7.106 13.1-4.366 2.368-7.106-13.1-12.372 6.712-.447-35.55 29.557 19.758Z"/><path fill="%23fff" d="m36.47 23.572-13.087 7.1 7.106 13.1-6.55 3.553-7.106-13.1-13.088 7.1L3.242 1.36l33.229 22.213Zm-7.665 19.7-7.106-13.1 12.372-6.71L4.514 3.703l.447 35.55 12.372-6.711 7.106 13.099 4.366-2.369Z"/></g><defs><filter id="a" width="39.23" height="51.965" x=".242" y=".359" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" result="hardAlpha" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"/><feOffset dy="2"/><feGaussianBlur stdDeviation="1.5"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/><feBlend in2="BackgroundImageFix" result="effect1_dropShadow_1184_11083"/><feBlend in="SourceGraphic" in2="effect1_dropShadow_1184_11083" result="shape"/></filter></defs></svg>')
+			0 0,
+		auto;
+	--cursor-pointer:
+		url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="47" height="64" fill="none" viewBox="0 0 47 64"><g filter="url(%23a)"><path fill="%23fff" d="M11.963 2.08c4.586-2.296 8.892 2.222 11.427 5.518 2.693 3.503 6.396 9.163 8.116 12.772 8.54 6.524 11.262 12.616 8.54 19.837 2.597 1.1 3.8 3.561 2.722 7.103-1.158 3.8-4.636 9.283-10.906 10.85-3.176.792-7.204-.338-7.93-3.915-4.136-.459-7.287-3.412-8.761-7.206-2.858 1.26-5.76-.71-7.484-2.931-1.46-1.882-2.728-4.476-3.742-7.49-1.665-4.947.177-9.423 2.996-11.268.1-3.99 3.69-7.39 7.705-7.114-2.257-2.982-4.83-6.173-5.53-9.932-.475-2.555.451-5.026 2.847-6.225Z"/><path stroke="%23000" stroke-width="1.5" d="M37.472 41.372c3.543-6.81 1.333-12.42-7.455-19.803m7.455 19.803c2.496.011 4.518 2.15 3.543 5.353-1.045 3.43-4.163 8.23-9.573 9.582-4.329 1.08-6.433-1.96-5.476-4.075m11.506-10.86c-.592 1.274-2.267 3.52-2.956 4.123m-4.5-23.926C26.707 15.479 18.73.753 12.83 3.706c-3.39 1.696-2.005 5.958 1.409 10.752 2.3 3.23 4.833 6.2 7.017 9.753-2.287-2.934-5.81-4.96-8.81-3.873-3.37 1.223-3.932 4.842-3.472 6.066m21.043-4.835c1.9 3.495 4.634 11.011 5.5 16.107M8.974 26.404c-2.336.694-4.916 4.562-3.23 9.576 1.95 5.795 4.74 9.536 7.52 9.54 1.642.002 2.53-1.035 2.875-2.874M8.974 26.404c2.04-.848 5.884.756 8.819 4.25m-1.654 11.992c.079 3.023 1.946 6.842 4.024 8.224 2.115 1.408 4.678 1.77 5.803 1.362m-9.827-9.586c.265-1.418-.12-5.185-3.787-8.901m13.614 18.487c1.124-.407 2.075-.867 3.347-1.694m-5.646-15.975c.819 1.312 1.809 3.887 2.096 5.325m1.722-8.848c.819 1.312 1.809 3.887 2.096 5.324"/></g><defs><filter id="a" width="45.852" height="62.945" x=".313" y=".453" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" result="hardAlpha" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"/><feOffset dy="2"/><feGaussianBlur stdDeviation="1.5"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/><feBlend in2="BackgroundImageFix" result="effect1_dropShadow_1364_31379"/><feBlend in="SourceGraphic" in2="effect1_dropShadow_1364_31379" result="shape"/></filter></defs></svg>')
+			7 0,
+		pointer;
+}
+
+body {
+	min-height: 100dvh;
+	overflow-x: hidden;
+	background: var(--clr-bg-2);
+	font-family: var(--fontfamily-default);
+
+	&.menu-open {
+		position: fixed;
+		width: 100%;
+		height: 100%;
+		overflow: hidden;
+	}
+
+	@media (--desktop-small-viewport) {
+		--layout-side-paddings: 40px;
+	}
+
+	@media (--mobile-viewport) {
+		--layout-side-paddings: 16px;
+	}
+}
+
+/* selection change */
+body::selection {
+	background: color-mix(in srgb, var(--clr-scale-pop-60) 40%, transparent);
+}
+
+body:has(.marketing-page)::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+body:has(.marketing-page)::-webkit-scrollbar-thumb {
+	background: var(--clr-scale-ntrl-60);
+}
+
+/* Global release notes content styles */
+.release-notes-content {
+	font-size: 13px;
+	line-height: 1.6;
+}
+
+.release-notes-content h1,
+.release-notes-content h2,
+.release-notes-content h3,
+.release-notes-content h4,
+.release-notes-content h5,
+.release-notes-content h6 {
+	margin-top: 1.5rem;
+	margin-bottom: 0.5rem;
+	font-weight: 600;
+}
+
+/* remove top margin for first heading */
+.release-notes-content h1:first-child,
+.release-notes-content h2:first-child,
+.release-notes-content h3:first-child,
+.release-notes-content h4:first-child,
+.release-notes-content h5:first-child,
+.release-notes-content h6:first-child {
+	margin-top: 0.6rem;
+}
+
+/* remove bottom margin for last paragraph or lists */
+.release-notes-content p:last-child,
+.release-notes-content ul:last-child,
+.release-notes-content ol:last-child {
+	margin-bottom: 0;
+
+	& li:last-child {
+		margin-bottom: 0;
+	}
+}
+
+.release-notes-content p {
+	margin: 12px 0;
+}
+
+.release-notes-content ul,
+.release-notes-content ol {
+	margin: 12px 0;
+	padding-left: 1rem;
+}
+
+.release-notes-content li {
+	margin: 8px 0;
+	padding-left: 4px;
+	list-style-type: disc;
+}
+
+.release-notes-content code {
+	padding: 0.125rem 0.25rem;
+	border-radius: 0.25rem;
+	background-color: var(--color-bg-secondary);
+	font-size: 0.875rem;
+	font-family: var(--font-mono);
+}
+
+.release-notes-content pre {
+	margin: 1rem 0;
+	padding: 1rem;
+	overflow-x: auto;
+	border-radius: 0.5rem;
+	background-color: var(--color-bg-secondary);
+}
+
+.release-notes-content blockquote {
+	margin: 1rem 0;
+	padding-left: 1rem;
+	border-left: 3px solid var(--color-primary);
+	font-style: italic;
+}

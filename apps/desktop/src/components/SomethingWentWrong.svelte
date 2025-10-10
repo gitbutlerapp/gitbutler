@@ -1,8 +1,8 @@
 <script lang="ts">
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import InfoMessage from '$components/InfoMessage.svelte';
 	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
+	import { InfoMessage } from '@gitbutler/ui';
 
 	interface Props {
 		projectId?: string;

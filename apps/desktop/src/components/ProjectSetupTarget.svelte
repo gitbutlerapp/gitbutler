@@ -58,7 +58,7 @@
 <div class="project-setup">
 	<div class="stack-v gap-4">
 		<ProjectNameLabel {projectName} />
-		<h1 class="text-serif-40">Configure your <i>workspace</i></h1>
+		<h1 class="text-serif-42">Configure your <i>workspace</i></h1>
 	</div>
 
 	<div class="project-setup__fields">

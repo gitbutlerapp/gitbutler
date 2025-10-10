@@ -1,9 +1,10 @@
 <script lang="ts">
-	import '$lib/styles/global.css';
+	import '../../styles/global.css';
 	import { page } from '$app/state';
 	import { ButlerAIClient, BUTLER_AI_CLIENT } from '$lib/ai/service';
+	import RedirectIfNotFinalized from '$lib/auth/RedirectIfNotFinalized.svelte';
 	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
-	import Footer from '$lib/components/Footer.svelte';
+	import CompactFooter from '$lib/components/CompactFooter.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import { OwnerService, OWNER_SERVICE } from '$lib/owner/ownerService';
 	import { WebState, WEB_STATE } from '$lib/redux/store.svelte';
@@ -20,6 +21,7 @@
 		CHAT_CHANNELS_SERVICE
 	} from '@gitbutler/shared/chat/chatChannelsService';
 	import { FeedService, FEED_SERVICE } from '@gitbutler/shared/feeds/service';
+	import LoginService, { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import { HttpClient, HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 	import {
 		OrganizationService,
@@ -73,6 +75,9 @@
 
 	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.tokenReadable);
 	provide(HTTP_CLIENT, httpClient);
+
+	const loginService = new LoginService(httpClient);
+	provide(LOGIN_SERVICE, loginService);
 
 	const aiService = new ButlerAIClient(httpClient);
 	provide(BUTLER_AI_CLIENT, aiService);
@@ -145,47 +150,82 @@
 	provide(RULES_SERVICE, rulesService);
 
 	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
+	const isLoginPage = $derived(page.url.pathname.includes('/login'));
+	const isSignupPage = $derived(page.url.pathname.includes('/signup'));
+	const isFinalized = $derived(page.url.pathname.includes('/finalize'));
+	const isLoggedinPage = $derived(page.url.pathname === '/loggedin');
+	const hasNavigation = $derived(
+		!isCommitPage && !isLoginPage && !isSignupPage && !isFinalized && !isLoggedinPage
+	);
+
+	function getBreadcrumbs() {
+		if (!hasNavigation) return [];
+
+		if (page.route.id === '/(app)/profile') {
+			return [{ label: 'Profile', href: '/profile' }];
+		}
+		return [];
+	}
 </script>
 
-<div class="app">
-	{#if !isCommitPage}
-		<Navigation />
-	{/if}
+<RedirectIfNotFinalized />
 
+<div class="app">
+	<Navigation markOnly={!hasNavigation} breadcrumbs={getBreadcrumbs()} />
 	<main>
 		{@render children?.()}
 	</main>
-	<Footer />
+	<CompactFooter />
 </div>
+
 <ChipToastContainer />
 
 <style lang="postcss">
 	.app {
-		--layout-side-paddings: 80px;
-		container-type: inline-size;
-
-		display: flex;
-		flex-direction: column;
+		display: grid;
+		grid-template-rows: auto 1fr auto;
+		grid-template-columns:
+			[full-start]
+			1fr 1fr
+			[narrow-start]
+			1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
+			[narrow-end]
+			1fr 1fr
+			[full-end];
+		column-gap: var(--layout-col-gap);
+		row-gap: 24px;
+		align-items: start;
+		width: 100%;
 		max-width: calc(1440px + var(--layout-side-paddings) * 2);
-		min-height: 100vh;
+		min-height: 100dvh;
 		margin: 0 auto;
-		padding: 24px var(--layout-side-paddings);
+		padding: 0 var(--layout-side-paddings);
 
 		@media (--desktop-small-viewport) {
-			--layout-side-paddings: 40px;
+			grid-template-columns:
+				[full-start]
+				1fr
+				[narrow-start]
+				1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
+				[narrow-end off-gridded]
+				1fr
+				[full-end];
 		}
 
 		@media (--mobile-viewport) {
-			--layout-side-paddings: 16px;
-			padding: var(--layout-side-paddings);
+			grid-template-columns:
+				[full-start narrow-start]
+				1fr 1fr 1fr 1fr
+				[narrow-end full-end off-gridded];
 		}
 	}
 
 	main {
-		display: flex;
-		flex: 1;
+		display: grid;
+		grid-template-columns: subgrid;
+		grid-column: full-start / full-end;
 		flex-direction: column;
 		width: 100%;
-		margin: 0 auto;
+		min-height: 100%;
 	}
 </style>

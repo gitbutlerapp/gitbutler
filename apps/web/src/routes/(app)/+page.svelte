@@ -1,13 +1,22 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import RedirectToProfileIfLoggedIn from '$lib/auth/RedirectToProfileIfLoggedIn.svelte';
+	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { isFound } from '@gitbutler/shared/network/loadable';
 	import { getRecentlyPushedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button } from '@gitbutler/ui';
+
+	const authService = inject(AUTH_SERVICE);
+	const persistedToken = authService.token;
 
 	const routes = inject(WEB_ROUTES_SERVICE);
+	const userService = inject(USER_SERVICE);
+	const user = userService.user;
+
+	const loggedIn = $derived($user !== undefined);
 	const recentProjects = getRecentlyPushedProjects();
 	let hasRecentProjects = $state(false);
 
@@ -25,14 +34,25 @@
 			}
 		}
 	});
+
+	$effect(() => {
+		if (!loggedIn && persistedToken.current) {
+			// Clear any stale tokens if the user is not logged in
+			authService.clearToken();
+		}
+	});
 </script>
 
-{#if hasRecentProjects}
+{#if !loggedIn}
+	<p>Loading...</p>
+{:else if hasRecentProjects}
 	<DashboardLayout>
 		<p>You have no recent projects!</p>
 	</DashboardLayout>
 {:else}
-	<div class="empty-state-container">
+	<!-- For now, just redirect the user back to the  -->
+	<RedirectToProfileIfLoggedIn />
+	<!-- <div class="empty-state-container">
 		<div class="empty-state">
 			<div class="empty-state-icon">
 				<svg
@@ -84,11 +104,11 @@
 				</a>
 			</div>
 		</div>
-	</div>
+	</div> -->
 {/if}
 
 <style lang="postcss">
-	.empty-state-container {
+	/* .empty-state-container {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -141,5 +161,5 @@
 			flex-direction: column;
 			gap: 12px;
 		}
-	}
+	} */
 </style>

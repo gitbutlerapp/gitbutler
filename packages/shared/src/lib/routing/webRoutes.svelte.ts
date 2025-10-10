@@ -67,7 +67,7 @@ export class WebRoutesService {
 	}
 
 	resetPasswordPath() {
-		return `/login/reset-password`;
+		return `/login/forgot-password`;
 	}
 	resetPasswordUrl() {
 		return this.toUrl(this.resetPasswordPath());
@@ -92,6 +92,13 @@ export class WebRoutesService {
 	}
 	finalizeAccountUrl() {
 		return this.toUrl(this.finalizeAccountPath());
+	}
+
+	profilePath() {
+		return '/profile';
+	}
+	profileUrl() {
+		return this.toUrl(this.profilePath());
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-empty-object-type

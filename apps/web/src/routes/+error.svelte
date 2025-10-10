@@ -1,6 +1,6 @@
-<script>
+<script lang="ts">
 	import { page } from '$app/state';
-	import Footer from '$home/sections/Footer.svelte';
+	import Footer from '$lib/components/marketing/Footer.svelte';
 </script>
 
 <section class="wrapper">

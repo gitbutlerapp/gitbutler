@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import InfoMessage from '$components/InfoMessage.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CHERRY_APPLY_SERVICE } from '$lib/cherryApply/cherryApplyService';
 	import { workspacePath } from '$lib/routes/routes.svelte';
@@ -8,7 +7,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, Modal, RadioButton, SectionCard } from '@gitbutler/ui';
+	import { Button, InfoMessage, Modal, RadioButton, SectionCard } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;

@@ -1,162 +1,185 @@
 <script lang="ts">
-	import CtaBlock from '$home/components/CtaBlock.svelte';
-	import * as jsonLinks from '$lib/data/links.json';
+	import CtaButton from '$home/components/CtaButton.svelte';
+	import VideoOverlay from '$home/components/VideoOverlay.svelte';
+	import contentJson from '$home/data/content.json';
+	import Header from '$lib/components/marketing/Header.svelte';
+
+	const heroContent = contentJson.hero;
+
+	let showVideoOverlay = false;
+
+	function openVideoOverlay() {
+		showVideoOverlay = true;
+	}
+
+	function closeVideoOverlay() {
+		showVideoOverlay = false;
+	}
 </script>
 
-<section class="hero" id="hero">
-	<div class="content">
-		<h1 class="title">Git Branching,<br /><i>Refined</i></h1>
-		<p class="caption">A Git client for simultaneous branches on top of your existing workflow.</p>
+<section class="hero">
+	<Header disableLogoLink />
 
-		<div class="desktop-Ctas">
-			<CtaBlock
-				secondButton={{
-					label: 'View Source',
-					url: jsonLinks.resources.github.url
+	<div class="hero-content">
+		<h1 class="title">
+			Git, <i>finally</i> designed for humans.
+			<i class="title-caption">(And AI Agents)</i>
+		</h1>
+		<p class="description">
+			{heroContent.description}
+		</p>
+
+		<section class="cta">
+			<CtaButton />
+			<button
+				type="button"
+				class="video-preview"
+				onclick={openVideoOverlay}
+				aria-label="Watch demo video"
+				onmouseenter={(e) => e.currentTarget.querySelector('video')?.play()}
+				onmouseleave={(e) => {
+					const video = e.currentTarget.querySelector('video');
+					if (video) {
+						video.pause();
+						video.currentTime = 0;
+					}
 				}}
-			/>
-		</div>
-	</div>
+			>
+				<svg
+					class="play-icon"
+					width="49"
+					height="34"
+					viewBox="0 0 49 34"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path
+						d="M47.9762 5.30912C47.4126 3.21936 45.7524 1.57359 43.6438 1.01506C39.8229 0 24.5 0 24.5 0C24.5 0 9.17728 0 5.35611 1.01506C3.24758 1.57359 1.58693 3.21936 1.02378 5.30912C0 9.09688 0 17 0 17C0 17 0 24.9027 1.02378 28.6909C1.58693 30.7808 3.24758 32.4262 5.3559 32.9854C9.17708 34 24.4998 34 24.4998 34C24.4998 34 39.8227 34 43.6436 32.9854C45.7522 32.4264 47.4124 30.7808 47.976 28.6911C48.9999 24.9029 48.9999 17.0002 48.9999 17.0002C48.9999 17.0002 48.9999 9.09709 47.976 5.30933"
+						fill="#FF0000"
+					/>
+					<path d="M19 23.5714L31.8068 16.2861L19 9V23.5714Z" fill="white" />
+				</svg>
 
-	<div class="preview">
-		<video
-			class="video"
-			autoplay
-			loop
-			muted
-			playsinline
-			src="https://d3brppdydubvmf.cloudfront.net/videos/web/main-preview.mp4#t=0.1"
-		></video>
-		<div class="video-shadow"></div>
-	</div>
-
-	<div class="mobile-Ctas">
-		<CtaBlock
-			secondButton={{
-				label: 'View Source',
-				url: jsonLinks.resources.github.url
-			}}
-		/>
+				<video src="/images/demo-preview/demo.mp4#t=0.1" loop muted playsinline></video>
+			</button>
+		</section>
 	</div>
 </section>
 
+{#if showVideoOverlay}
+	<VideoOverlay videoUrl={heroContent.demo} onClose={closeVideoOverlay} />
+{/if}
+
 <style lang="scss">
-	.hero {
-		display: flex;
+	.hero-imagine {
 		position: relative;
-		padding-top: 60px;
-		padding-bottom: 90px;
-		gap: 80px;
-
-		@media (max-width: 1100px) {
-			flex-direction: column;
-			padding-top: 40px;
-			padding-bottom: 60px;
-			gap: 50px;
-		}
-
-		@media (max-width: 500px) {
-			padding-top: 20px;
-			padding-bottom: 40px;
-			gap: 30px;
-		}
+		width: 300px;
+		height: 120px;
+		margin-bottom: 40px;
+		border: 1px solid var(--clr-border-2);
+		background-color: var(--clr-theme-pop-soft);
 	}
-
-	.desktop-Ctas {
-		display: flex;
+	.hero {
+		display: grid;
+		grid-template-columns: subgrid;
+		grid-column: full-start / full-end;
 		flex-direction: column;
-
-		@media (max-width: 1100px) {
-			display: none;
-		}
+		background: var(--color-hero-background);
+		color: var(--color-hero-text);
 	}
 
-	.mobile-Ctas {
-		display: none;
-
-		@media (max-width: 1100px) {
-			display: flex;
-			flex-direction: column;
-		}
-	}
-
-	.content {
-		container-type: inline-size;
-		display: flex;
-		flex: 1;
+	.hero-content {
+		display: grid;
+		grid-column: narrow-start / narrow-end;
 		flex-direction: column;
+		max-width: 700px;
+		padding-top: 52px;
 	}
 
 	.title {
-		margin-top: 30px;
-		margin-bottom: 40px;
-		font-size: min(10vw, 16cqw);
-		line-height: 92%;
-
-		font-family:
-			PP Editorial New,
-			serif;
-
-		@media (max-width: 700px) {
-			margin-bottom: 30px;
-			font-size: 16cqw;
-		}
-	}
-
-	.caption {
-		max-width: 520px;
-		margin-bottom: 40px;
-		color: var(--clr-dark-gray);
-		font-size: 22px;
-		line-height: 150%;
+		margin-bottom: 32px;
+		font-size: 82px;
+		line-height: 1;
+		font-family: var(--fontfamily-accent);
 		text-wrap: balance;
-
-		@media (max-width: 1100px) {
-			margin-bottom: 0;
-			font-size: 20px;
-		}
-
-		@media (max-width: 500px) {
-			font-size: 18px;
-		}
 	}
 
-	.preview {
+	.title-caption {
+		display: inline-flex;
+		transform: translateY(14px);
+		color: var(--clr-text-2);
+		font-size: 63%;
+	}
+
+	.description {
+		max-width: 520px;
+		color: var(--clr-text-2);
+		font-size: 16px;
+		line-height: 1.5;
+	}
+
+	.cta {
+		display: flex;
+		margin-top: 40px;
+		gap: 24px;
+	}
+
+	.video-preview {
+		display: inline-block;
 		position: relative;
-		flex: 1.2;
-	}
+		width: 200px;
+		padding: 0;
+		overflow: hidden;
+		border: none;
+		border-radius: var(--radius-xl);
+		background: none;
+		cursor: pointer;
 
-	.video,
-	.video-shadow {
-		position: absolute;
-		min-width: 860px;
-		height: 555px;
-		border-radius: 12px;
-	}
-
-	.video {
-		z-index: 2;
-		object-fit: cover;
-		border: 1px solid var(--clr-gray);
-		background-color: var(--clr-bg);
-
-		@media (max-width: 1100px) {
-			position: relative;
+		video {
+			position: absolute;
+			top: 0;
+			left: 0;
 			width: 100%;
-			height: auto;
+			height: 100%;
+			object-fit: cover;
+		}
+
+		&:hover .play-icon {
+			transform: scale(1.1);
 		}
 	}
 
-	.video-shadow {
-		z-index: -1;
-		top: 40px;
-		left: 40px;
-		border-radius: 12px;
-		background-image: url('/images/patterns/random-noise-1.gif');
-		opacity: 0.3;
+	.play-icon {
+		z-index: 1;
+		position: absolute;
+		bottom: 16px;
+		left: 16px;
+		transform-origin: left bottom;
+		pointer-events: none;
+		transition: transform 0.2s ease;
+	}
 
-		@media (max-width: 1100px) {
-			display: none;
+	@media (--mobile-viewport) {
+		.title {
+			margin-bottom: 16px;
+			font-size: 62px;
+		}
+		.cta {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 16px;
+		}
+		.video-preview {
+			aspect-ratio: 16 / 9;
+			width: 100%;
+		}
+		.title-caption {
+			display: block;
+			width: 100%;
+			margin-top: 14px;
+			transform: none;
+			font-size: 70%;
+			text-align: right;
 		}
 	}
 </style>

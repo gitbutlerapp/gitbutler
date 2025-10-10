@@ -126,6 +126,7 @@ export default class LoginService {
 	}
 
 	async createAccountWithEmail(
+		username: string,
 		email: string,
 		password: string,
 		passwordConfirmation: string
@@ -133,6 +134,7 @@ export default class LoginService {
 		return await this.sendPostRequest(
 			'sessions/sign_up_email',
 			{
+				login: username,
 				email,
 				password,
 				password_confirmation: passwordConfirmation
