@@ -6,9 +6,9 @@
 	--layout-side-paddings: 80px;
 	--cursor-custom: url('/images/cursors/cursor-default.svg') 0 0, auto;
 	--cursor-custom-2x: -webkit-image-set(url('/images/cursors/cursor-default-2x.svg') 2x) 0 0, auto;
-	--cursor-pointer: url('/images/cursors/cursor-pointer.svg') 7 0, pointer;
+	--cursor-pointer: url('/images/cursors/cursor-pointer.svg') 2 0, pointer;
 	--cursor-pointer-2x:
-		-webkit-image-set(url('/images/cursors/cursor-pointer-2x.svg') 2x) 7 0, pointer;
+		-webkit-image-set(url('/images/cursors/cursor-pointer-2x.svg') 2x) 2 0, pointer;
 }
 
 body {
