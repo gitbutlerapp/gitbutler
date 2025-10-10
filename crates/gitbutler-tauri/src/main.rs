@@ -15,8 +15,8 @@ use std::sync::Arc;
 
 use but_api::App;
 use but_api::{
-    cherry_apply, cli, config, diff, forge, git, modes, open, remotes, repo, rules, secret, stack,
-    undo, users, virtual_branches, workspace,
+    cherry_apply, cli, config, diff, forge, git, modes, open, oplog, remotes, repo, rules, secret,
+    stack, users, virtual_branches, workspace,
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
@@ -266,9 +266,10 @@ fn main() {
                     stack::push_stack_to_review,
                     secret::secret_get_global,
                     secret::secret_set_global,
-                    undo::list_snapshots,
-                    undo::restore_snapshot,
-                    undo::snapshot_diff,
+                    oplog::list_snapshots,
+                    oplog::create_snapshot,
+                    oplog::restore_snapshot,
+                    oplog::snapshot_diff,
                     config::get_gb_config,
                     config::set_gb_config,
                     config::store_author_globally_if_unset,
