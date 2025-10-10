@@ -43,6 +43,7 @@ pub mod merge {
     use but_graph::SegmentIndex;
     use gitbutler_oxidize::GixRepositoryExt;
     use gix::prelude::ObjectIdExt;
+    use tracing::instrument;
 
     /// A minimal stack for to represent a stack that conflicted.
     #[derive(Debug, Clone)]
@@ -94,6 +95,7 @@ pub mod merge {
         /// In order to find out exactly which branches conflicts, we repeat the whole operations with different configuration.
         /// One could be better and only repeat what didn't change, to avoid repeating unnecessarily.
         /// But that shouldn't usually matter unless in the biggest repositories with tree-merge times past a 500ms or so.
+        #[instrument(level = tracing::Level::DEBUG, skip(graph, repo), err(Debug))]
         pub fn from_new_merge_with_metadata(
             stacks: &[but_core::ref_metadata::WorkspaceStack],
             graph: &but_graph::Graph,

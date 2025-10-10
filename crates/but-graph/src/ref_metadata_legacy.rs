@@ -2,6 +2,7 @@ use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch,
 use anyhow::{Context, bail};
 use bstr::ByteSlice;
 use but_core::RefMetadata;
+use but_core::ref_metadata::StackKind::{Applied, AppliedAndUnapplied};
 use but_core::ref_metadata::{
     Branch, RefInfo, StackId, ValueInfo, Workspace, WorkspaceStack, WorkspaceStackBranch,
 };
@@ -201,7 +202,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
 
     fn workspace(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Workspace>> {
         if is_workspace_ref_name(ref_name) {
-            let value = Self::workspace_from_data(&self.snapshot.content);
+            let value = Self::workspace_from_data(self.data());
             Ok(VBTomlMetadataHandle {
                 is_default: value == default_workspace(),
                 ref_name: ref_name.to_owned(),
@@ -219,7 +220,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
     }
 
     fn branch(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Branch>> {
-        let Some((stack, branch)) = self.snapshot.content.branches.values().find_map(|stack| {
+        let Some((stack, branch)) = self.data().branches.values().find_map(|stack| {
             stack.heads.iter().find_map(|branch| {
                 full_branch_name(branch.name.as_str()).and_then(|full_name| {
                     (full_name.as_ref() == ref_name).then_some((stack, branch))
@@ -261,17 +262,16 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
     fn set_workspace(&mut self, value: &Self::Handle<Workspace>) -> anyhow::Result<()> {
         let ref_name = value.ref_name.as_ref();
         if !is_workspace_ref_name(ref_name) {
-            bail!("This backend doesn't support arbitrary workspaces");
+            bail!("This backend doesn't support saving arbitrary workspaces");
         }
 
         // Find exactly one stack-id per branch name, and assign all branches to it.
         // `stacks` is the target state, and we have to make an actual stack look like it.
         let mut seen_stack_ids = HashSet::new();
         for stack in &value.stacks {
-            let stack_branches = &stack.branches;
             let mut branches_to_create = Vec::new();
             let mut stack_id = None::<StackId>;
-            for stack_branch in stack_branches {
+            for stack_branch in &stack.branches {
                 let branch = self.branch(stack_branch.ref_name.as_ref())?;
                 if branch.is_default() {
                     branches_to_create.push(stack_branch);
@@ -282,20 +282,37 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 }
                 if stack_id.is_none() {
                     stack_id = *branch.stack_id.borrow();
-                } else if stack_id != *branch.stack_id.borrow() {
-                    bail!(
-                        "BUG: unexpected situation where branch has stack-id {:?} but is associated with stack {stack_id:?}",
-                        branch.stack_id()
-                    );
+                } else if let Some(stack_id) = branch.stack_id.borrow().zip(stack_id).and_then(
+                    |(branch_stack_id, stack_id)| (branch_stack_id != stack_id).then_some(stack_id),
+                ) {
+                    // This branch was in another stack previously, but is now assigned to this one
+                    // via the workspace data.
+                    // Make sure we move it in the underlying data structure to here.
+                    let to_move =
+                        self.remove_branch(branch.ref_name.as_ref())?
+                            .with_context(|| {
+                                format!(
+                                    "BUG: couldn't remove branch {branch} from its original stack",
+                                    branch = branch.ref_name
+                                )
+                            })?;
+                    self.data_mut()
+                        .branches
+                        .get_mut(&stack_id)
+                        .context(
+                            "BUG: stack id we saw should exist for inserting moved stack branch",
+                        )?
+                        .heads
+                        .push(to_move);
                 }
             }
 
-            let stack = match stack_id {
+            let vb_stack = match stack_id {
                 None => {
-                    let branch_for_stack = match stack_branches.iter().find(|branch| {
+                    let branch_for_stack = match stack.branches.iter().find(|branch| {
                         !branches_to_create
                             .iter()
-                            .any(|other_branch| other_branch.ref_name.eq(&branch.ref_name))
+                            .any(|other_branch| other_branch.ref_name == branch.ref_name)
                     }) {
                         Some(branch) => branch,
                         None => branches_to_create.pop().context(
@@ -308,16 +325,14 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     let new_stack_id = branch.stack_id.borrow().expect("was just created");
                     *branch.stack_id.borrow_mut() = Some(stack.id);
                     let mut vb_stack = self
-                        .snapshot
-                        .content
+                        .data_mut()
                         .branches
                         .remove(&new_stack_id)
                         .expect("just added");
                     vb_stack.id = stack.id;
-                    self.snapshot.content.branches.insert(stack.id, vb_stack);
+                    self.data_mut().branches.insert(stack.id, vb_stack);
                     let vb_stack = self
-                        .snapshot
-                        .content
+                        .data_mut()
                         .branches
                         .get_mut(&stack.id)
                         .expect("just added");
@@ -325,44 +340,48 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     vb_stack
                 }
                 Some(stack_id) => self
-                    .snapshot
-                    .content
+                    .data_mut()
                     .branches
                     .get_mut(&stack_id)
                     .expect("we just looked it up"),
             };
             for branch in branches_to_create {
-                stack.heads.push(branch_to_stack_branch(
+                vb_stack.heads.push(branch_to_stack_branch(
                     branch.ref_name.as_ref(),
                     &Branch::default(),
                     branch.archived,
                 ))
             }
-            stack.in_workspace = !stack.heads.is_empty();
-            stack.heads.sort_by_key(|head| {
-                stack_branches.iter().enumerate().find_map(|(idx, branch)| {
+            vb_stack.in_workspace = stack.in_workspace;
+            vb_stack.heads.sort_by_key(|head| {
+                stack.branches.iter().enumerate().find_map(|(idx, branch)| {
                     (branch.ref_name.shorten() == head.name.as_str()).then_some(idx)
                 })
             });
 
             // remove heads that aren't there anymore.
-            stack.heads.retain(|head| {
-                stack_branches
+            vb_stack.heads.retain(|head| {
+                stack
+                    .branches
                     .iter()
                     .any(|branch| branch.ref_name.shorten() == head.name)
             });
             // branches now match our order
-            for (vb_stack, stack) in stack.heads.iter_mut().zip(stack_branches.iter()) {
+            for (vb_stack, stack) in vb_stack.heads.iter_mut().zip(stack.branches.iter()) {
                 vb_stack.archived = stack.archived;
             }
-            stack.heads.reverse()
+            vb_stack.heads.reverse()
         }
 
-        for (key, stack) in &mut self.snapshot.content.branches {
-            if seen_stack_ids.contains(key) {
-                continue;
-            }
-            stack.in_workspace = false;
+        let stacks_to_delete: Vec<_> = self
+            .data()
+            .branches
+            .keys()
+            .copied()
+            .filter(|sid| !seen_stack_ids.contains(&sid))
+            .collect();
+        for sid in stacks_to_delete {
+            self.data_mut().branches.remove(&sid);
         }
 
         let new_target_branch = value
@@ -434,14 +453,16 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     - one first has to get them, which binds values to their name.",
                     );
 
-                let stack_branch = ws.find_branch(ref_name);
+                let metadata_stack_indices =
+                    ws.find_owner_indexes_by_name(ref_name, AppliedAndUnapplied);
                 self.snapshot.changed_at = Some(Instant::now());
                 *description = value.description.clone();
                 *pr_number = value.review.pull_request;
                 *review_id = value.review.review_id.clone();
-                stack.in_workspace = stack_branch.is_some();
-                if let Some(stack_branch) = stack_branch {
-                    *archived = stack_branch.archived;
+                if let Some((stack_idx, segment_idx)) = metadata_stack_indices {
+                    let meta_stack = &ws.stacks[stack_idx];
+                    stack.in_workspace = meta_stack.in_workspace;
+                    *archived = meta_stack.branches[segment_idx].archived;
                 }
                 Ok(())
             }
@@ -450,11 +471,11 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 let stack = Stack::new_with_just_heads(
                     vec![branch_to_stack_branch(ref_name, value, false)],
                     now_ms,
-                    self.snapshot.content.branches.len(),
-                    ws.contains_ref(ref_name),
+                    self.data().branches.len(),
+                    ws.contains_ref(ref_name, Applied),
                 );
                 *value.stack_id.borrow_mut() = Some(stack.id);
-                self.snapshot.content.branches.insert(stack.id, stack);
+                self.data_mut().branches.insert(stack.id, stack);
                 self.snapshot.changed_at = Some(Instant::now());
                 Ok(())
             }
@@ -473,46 +494,14 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 }
             } else {
                 let existed_as_non_default =
-                    Self::workspace_from_data(&self.snapshot.content) != default_workspace();
+                    Self::workspace_from_data(self.data()) != default_workspace();
                 self.snapshot.content = Default::default();
                 // Make sure it's not going to be written in its default state.
                 self.snapshot.claim_unchanged();
                 Ok(existed_as_non_default)
             }
         } else {
-            let branch = self.branch(ref_name)?;
-            if branch.is_default() {
-                return Ok(false);
-            }
-
-            let Some((stack_id, branch_idx)) =
-                self.snapshot.content.branches.values().find_map(|stack| {
-                    stack
-                        .heads
-                        .iter()
-                        .enumerate()
-                        .find_map(|(branch_idx, branch)| {
-                            full_branch_name(branch.name.as_str()).and_then(|full_name| {
-                                (full_name.as_ref() == ref_name).then_some((stack.id, branch_idx))
-                            })
-                        })
-                })
-            else {
-                return Ok(false);
-            };
-
-            let stack = self
-                .snapshot
-                .content
-                .branches
-                .get_mut(&stack_id)
-                .expect("still there");
-            stack.heads.remove(branch_idx);
-            if stack.heads.is_empty() {
-                self.snapshot.content.branches.remove(&stack_id);
-            }
-            self.snapshot.changed_at = Some(Instant::now());
-            Ok(true)
+            Ok(self.remove_branch(ref_name)?.is_some())
         }
     }
 }
@@ -558,10 +547,10 @@ impl VirtualBranchesTomlMetadata {
             ref_info: managed_ref_info(),
             stacks: stacks
                 .iter()
-                .filter(|s| s.in_workspace)
                 .sorted_by_key(|s| s.order)
                 .map(|s| WorkspaceStack {
                     id: s.id,
+                    in_workspace: s.in_workspace,
                     branches: s
                         .heads
                         .iter()
@@ -580,6 +569,39 @@ impl VirtualBranchesTomlMetadata {
             target_ref: target_branch,
             push_remote,
         }
+    }
+
+    fn remove_branch(&mut self, ref_name: &FullNameRef) -> anyhow::Result<Option<StackBranch>> {
+        let branch = self.branch(ref_name)?;
+        if branch.is_default() {
+            return Ok(None);
+        }
+
+        let Some((stack_id, branch_idx)) = self.data().branches.values().find_map(|stack| {
+            stack
+                .heads
+                .iter()
+                .enumerate()
+                .find_map(|(branch_idx, branch)| {
+                    full_branch_name(branch.name.as_str()).and_then(|full_name| {
+                        (full_name.as_ref() == ref_name).then_some((stack.id, branch_idx))
+                    })
+                })
+        }) else {
+            return Ok(None);
+        };
+
+        let stack = self
+            .data_mut()
+            .branches
+            .get_mut(&stack_id)
+            .expect("still there");
+        let removed = stack.heads.remove(branch_idx);
+        if stack.heads.is_empty() {
+            self.data_mut().branches.remove(&stack_id);
+        }
+        self.snapshot.changed_at = Some(Instant::now());
+        Ok(Some(removed))
     }
 }
 

@@ -14,6 +14,7 @@ use anyhow::Context;
 use bstr::{BStr, ByteSlice};
 use but_core::ref_metadata;
 use but_core::ref_metadata::StackId;
+use but_core::ref_metadata::StackKind::Applied;
 use gix::reference::Category;
 use itertools::Itertools;
 use petgraph::{Direction, prelude::EdgeRef, visit::NodeRef};
@@ -706,8 +707,7 @@ fn find_matching_stack_id(
 ) -> Option<StackId> {
     let metadata = metadata?;
     metadata
-        .stacks
-        .iter()
+        .stacks(Applied)
         .filter_map(|s| {
             let num_matching_refs = s
                 .branches
@@ -937,7 +937,7 @@ impl Workspace<'_> {
     /// (possibly allowing it to be turned off, etc).
     fn prune_archived_segments(&mut self) {
         let Some(md) = &self.metadata else { return };
-        let archived_stack_branches = md.stacks.iter().flat_map(|s| {
+        let archived_stack_branches = md.stacks(Applied).flat_map(|s| {
             s.branches
                 .iter()
                 .filter_map(|s| s.archived.then_some(s.ref_name.as_ref()))

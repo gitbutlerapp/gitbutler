@@ -19,9 +19,10 @@ pub struct Workspace {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
 
-    /// An array entry for each parent of the *workspace commit* the last time we saw it.
-    /// The first parent, and always the first parent, could have a tip named `Self::target_ref`,
-    /// and if so, it's not meant to be visible when asking for stacks.
+    /// An array entry for each parent of the *workspace commit* the last time we saw it, and while it is
+    /// considered to be inside the workspace, *or outside of it*.
+    /// The first parent, and always the first parent, or the first entry in this list,
+    /// could have a tip named `Self::target_ref`, and if so, it's not meant to be visible when asking for stacks.
     pub stacks: Vec<WorkspaceStack>,
 
     /// The name of the reference to integrate with, if present.
@@ -36,15 +37,15 @@ pub struct Workspace {
     pub push_remote: Option<String>,
 }
 
-impl Workspace {}
-
 /// Mutations
 impl Workspace {
     /// Remove the named segment `branch`, which removes the whole stack if it's empty after removing a segment
     /// of that name.
     /// Returns `true` if it was removed or `false` if it wasn't found.
     pub fn remove_segment(&mut self, branch: &FullNameRef) -> bool {
-        let Some((stack_idx, segment_idx)) = self.find_owner_indexes_by_name(branch) else {
+        let Some((stack_idx, segment_idx)) =
+            self.find_owner_indexes_by_name(branch, StackKind::AppliedAndUnapplied)
+        else {
             return false;
         };
 
@@ -59,19 +60,25 @@ impl Workspace {
 
     /// Insert `branch` as new stack if it's not yet contained in the workspace and if `order` is not `None` or push
     /// it to the end of the stack list.
-    /// Note that `order` is only relevant at insertion time.
+    /// If a new stack is created, it's considered to be *in* the workspace. If there is an existing stack, it will
+    /// also be put *in* the workspace as a side effect.
+    /// Note that `order` is only relevant at insertion time, not if the branch already exists.
     /// Returns `true` if the ref was newly added, or `false` if it already existed.
     pub fn add_or_insert_new_stack_if_not_present(
         &mut self,
         branch: &FullNameRef,
         order: Option<usize>,
     ) -> bool {
-        if self.contains_ref(branch) {
+        if let Some((stack_idx, _)) =
+            self.find_owner_indexes_by_name(branch, StackKind::AppliedAndUnapplied)
+        {
+            self.stacks[stack_idx].in_workspace = true;
             return false;
         };
 
         let stack = WorkspaceStack {
             id: StackId::generate(),
+            in_workspace: true,
             branches: vec![WorkspaceStackBranch {
                 ref_name: branch.to_owned(),
                 archived: false,
@@ -96,10 +103,11 @@ impl Workspace {
         branch: &FullNameRef,
         anchor: &FullNameRef,
     ) -> Option<bool> {
-        if self.contains_ref(branch) {
+        if self.contains_ref(branch, StackKind::AppliedAndUnapplied) {
             return Some(false);
         };
-        let (stack_idx, segment_idx) = self.find_owner_indexes_by_name(anchor)?;
+        let (stack_idx, segment_idx) =
+            self.find_owner_indexes_by_name(anchor, StackKind::AppliedAndUnapplied)?;
         self.stacks[stack_idx].branches.insert(
             segment_idx,
             WorkspaceStackBranch {
@@ -111,12 +119,45 @@ impl Workspace {
     }
 }
 
+/// Determine what kind of stack a query operation is interested in.
+#[derive(Debug, Clone, Copy)]
+pub enum StackKind {
+    /// Find stacks that are meant to be applied only.
+    Applied,
+    /// Find all stacks.
+    AppliedAndUnapplied,
+}
+
 /// Access
 impl Workspace {
+    /// Return all stacks that are supposed to be inside the workspace, i.e. applied.
+    /// Use `kind` for filtering.
+    pub fn stacks(&self, kind: StackKind) -> impl Iterator<Item = &WorkspaceStack> {
+        self.stacks.iter().filter(move |s| {
+            if matches!(kind, StackKind::Applied) {
+                s.in_workspace
+            } else {
+                true
+            }
+        })
+    }
+
+    /// Return all stacks that are supposed to be inside the workspace as mutable reference, i.e. applied.
+    /// Use `kind` for filtering.
+    pub fn stacks_mut(&mut self, kind: StackKind) -> impl Iterator<Item = &mut WorkspaceStack> {
+        self.stacks.iter_mut().filter(move |s| {
+            if matches!(kind, StackKind::Applied) {
+                s.in_workspace
+            } else {
+                true
+            }
+        })
+    }
+
     /// Return the names of the tips of all stacks in the workspace.
-    pub fn stack_names(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> {
-        self.stacks
-            .iter()
+    /// Use `kind` for filtering.
+    pub fn stack_names(&self, kind: StackKind) -> impl Iterator<Item = &gix::refs::FullNameRef> {
+        self.stacks(kind)
             .filter_map(|s| s.ref_name().map(|rn| rn.as_ref()))
     }
 
@@ -143,19 +184,21 @@ impl Workspace {
         }
     }
 
-    /// Return `true` if `name` is a reference mentioned in our [stacks](Workspace::stacks).
-    pub fn contains_ref(&self, name: &gix::refs::FullNameRef) -> bool {
-        self.stacks
-            .iter()
+    /// Return `true` if `name` is an applied reference mentioned in our [stacks](Workspace::stacks).
+    /// Use `kind` for filtering.
+    pub fn contains_ref(&self, name: &gix::refs::FullNameRef, kind: StackKind) -> bool {
+        self.stacks(kind)
             .any(|stack| stack.branches.iter().any(|b| b.ref_name.as_ref() == name))
     }
 
-    /// Find a given `name` within our stack branches and return it for modification.
+    /// Find a given `name` within our applied stack branches and return it for modification.
+    /// Use `kind` for filtering.
     pub fn find_branch_mut(
         &mut self,
         name: &gix::refs::FullNameRef,
+        kind: StackKind,
     ) -> Option<&mut WorkspaceStackBranch> {
-        self.stacks.iter_mut().find_map(|stack| {
+        self.stacks_mut(kind).find_map(|stack| {
             stack
                 .branches
                 .iter_mut()
@@ -163,21 +206,26 @@ impl Workspace {
         })
     }
 
-    /// Find a given `name` within our stack branches and return it.
-    pub fn find_branch(&self, name: &gix::refs::FullNameRef) -> Option<&WorkspaceStackBranch> {
-        self.stacks
-            .iter()
+    /// Find a given `name` within our applied stack branches and return it.
+    /// Use `kind` for filtering.
+    pub fn find_branch(
+        &self,
+        name: &gix::refs::FullNameRef,
+        kind: StackKind,
+    ) -> Option<&WorkspaceStackBranch> {
+        self.stacks(kind)
             .find_map(|stack| stack.branches.iter().find(|b| b.ref_name.as_ref() == name))
     }
 
-    /// Find the `(stack_idx, branch_idx)` of `name` within our stack branches and return it,
+    /// Find the `(stack_idx, branch_idx)` of `name` within our applied stack branches and return it,
     /// for direct access like `ws.stacks[stack_idx].branches[branch_idx]`.
+    /// Use `kind` for filtering.
     pub fn find_owner_indexes_by_name(
         &self,
         name: &gix::refs::FullNameRef,
+        kind: StackKind,
     ) -> Option<(usize, usize)> {
-        self.stacks
-            .iter()
+        self.stacks(kind)
             .enumerate()
             .find_map(|(stack_idx, stack)| {
                 stack.branches.iter().enumerate().find_map(|(seg_idx, b)| {
@@ -299,7 +347,8 @@ impl RefInfo {
 /// The ID of a stack for somewhat stable identification of ever-changing stacks.
 pub type StackId = Id<'S'>;
 
-/// A stack that was applied to the workspace, i.e. a parent of the *workspace commit*.
+/// A stack that was, at some point in time, applied to the workspace, i.e. a parent of the *workspace commit*.
+/// Note that if `in_workspace` is `false`, it's not considered unapplied.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceStack {
     /// A unique and stable identifier for the stack itself.
@@ -311,11 +360,20 @@ pub struct WorkspaceStack {
     ///
     /// Thus, branches are stored in traversal order, from the tip towards the base.
     pub branches: Vec<WorkspaceStackBranch>,
+    /// If `true`, the entire stack is expected to be visible in the workspace.
+    /// If `false`, it's considered unapplied, and is not supposed to be reachable from the workspace commit
+    /// nor is it usually shown.
+    ///
+    /// The reason we have to keep stacks that aren't in the workspace is to keep
+    /// information about their constituent branches, as well as their stack-ids which should remain as stable as possible.
+    /// It's notable that stack-ids will change, and it's not possible overall to have a stack identity as such as
+    /// the contained branches can be reshuffled at will.
+    pub in_workspace: bool,
 }
 
 /// A branch within a [`WorkspaceStack`], holding per-branch metadata that is
 /// stored alongside a stack that is available in a workspace.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct WorkspaceStackBranch {
     /// The name of the branch.
     pub ref_name: gix::refs::FullName,
@@ -326,6 +384,16 @@ pub struct WorkspaceStackBranch {
     /// However, they must disappear once the whole stack has been integrated and the workspace has moved past it.
     /// Note that this flag must be stored with the workspace as it must survive the deletion of a reference.
     pub archived: bool,
+}
+
+impl std::fmt::Debug for WorkspaceStackBranch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let WorkspaceStackBranch { ref_name, archived } = self;
+        f.debug_struct("WorkspaceStackBranch")
+            .field("ref_name", &ref_name.as_bstr())
+            .field("archived", archived)
+            .finish()
+    }
 }
 
 impl WorkspaceStack {
