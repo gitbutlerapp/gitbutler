@@ -243,3 +243,40 @@ pub(crate) fn undo_last_operation(project: &Project, _json: bool) -> anyhow::Res
 
     Ok(())
 }
+
+pub(crate) fn create_snapshot(
+    project: &Project,
+    json: bool,
+    message: Option<&str>,
+) -> anyhow::Result<()> {
+    let snapshot_id = but_api::oplog::create_snapshot(project.id, message.map(String::from))?;
+
+    if json {
+        let output = serde_json::json!({
+            "snapshot_id": snapshot_id.to_string(),
+            "message": message.unwrap_or(""),
+            "operation": "create_snapshot"
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        println!("{}", "Snapshot created successfully!".green().bold());
+
+        if let Some(msg) = message {
+            println!("  Message: {}", msg.cyan());
+        }
+
+        println!(
+            "  Snapshot ID: {}{}",
+            snapshot_id.to_string()[..7].blue().underline(),
+            snapshot_id.to_string()[7..12].blue().dimmed()
+        );
+
+        println!(
+            "\n{} Use 'but restore {}' to restore to this snapshot later.",
+            "💡".bright_blue(),
+            &snapshot_id.to_string()[..7]
+        );
+    }
+
+    Ok(())
+}

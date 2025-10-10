@@ -232,6 +232,12 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Undo, props(start, &result)).ok();
             result
         }
+        Subcommands::Snapshot { message } => {
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = oplog::create_snapshot(&project, args.json, message.as_deref());
+            metrics_if_configured(app_settings, CommandName::Snapshot, props(start, &result)).ok();
+            result
+        }
         Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, *repo)
             .context("Failed to initialize GitButler project."),
     }
@@ -285,7 +291,7 @@ fn print_grouped_help() {
         ),
         (
             "Operation History".yellow(),
-            vec!["oplog", "undo", "restore"],
+            vec!["oplog", "undo", "restore", "snapshot"],
         ),
     ];
 
