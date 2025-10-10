@@ -108,6 +108,7 @@ pub(super) mod function {
 
     use crate::branch::create_reference::{Anchor, Position};
     use anyhow::{Context, bail};
+    use but_core::ref_metadata::StackKind::AppliedAndUnapplied;
     use but_core::ref_metadata::{StackId, WorkspaceStack, WorkspaceStackBranch};
     use but_core::{RefMetadata, ref_metadata};
     use gix::refs::transaction::PreviousValue;
@@ -348,7 +349,12 @@ pub(super) mod function {
         new_ref: &gix::refs::FullNameRef,
         instruction: Instruction<'_>,
     ) -> anyhow::Result<()> {
-        if ws_meta.find_branch(new_ref).is_some() {
+        if let Some((stack_idx, _)) =
+            ws_meta.find_owner_indexes_by_name(new_ref, AppliedAndUnapplied)
+        {
+            // Just pretend its applied, and if it really is reachable, this will assure the
+            // created ref name can be found.
+            ws_meta.stacks[stack_idx].in_workspace = true;
             return Ok(());
         }
         match instruction {
@@ -373,6 +379,7 @@ pub(super) mod function {
             // create new
             Instruction::Independent => ws_meta.stacks.push(WorkspaceStack {
                 id: StackId::generate(),
+                in_workspace: true,
                 branches: vec![WorkspaceStackBranch {
                     ref_name: new_ref.to_owned(),
                     archived: false,
@@ -384,14 +391,17 @@ pub(super) mod function {
                 position,
             } => {
                 let (stack_idx, branch_idx) = ws_meta
-                    .find_owner_indexes_by_name(anchor_ref.as_ref())
+                    .find_owner_indexes_by_name(anchor_ref.as_ref(), AppliedAndUnapplied)
                     .with_context(|| {
                         format!(
                             "Couldn't find anchor '{}' in workspace metadata - it's not consolidated",
                             anchor_ref.shorten()
                         )
                     })?;
-                let branches = &mut ws_meta.stacks[stack_idx].branches;
+                let stack = &mut ws_meta.stacks[stack_idx];
+                // Just assure it's there, to facilitate the new branch actually shows up.
+                stack.in_workspace = true;
+                let branches = &mut stack.branches;
                 branches.insert(
                     match position {
                         Position::Above => branch_idx,

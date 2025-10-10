@@ -3,7 +3,9 @@ use but_core::ref_metadata::{StackId, ValueInfo, WorkspaceStack, WorkspaceStackB
 use but_graph::VirtualBranchesTomlMetadata;
 use but_graph::virtual_branches_legacy_types::Target;
 use but_testsupport::gix_testtools::tempfile::{TempDir, tempdir};
-use but_testsupport::{debug_str, sanitize_uuids_and_timestamps_with_mapping};
+use but_testsupport::{
+    debug_str, sanitize_uuids_and_timestamps, sanitize_uuids_and_timestamps_with_mapping,
+};
 use gitbutler_reference::RemoteRefname;
 use std::ops::Deref;
 use std::path::PathBuf;
@@ -48,110 +50,87 @@ fn read_only() -> anyhow::Result<()> {
             id: 1,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/A",
-                    ),
+                    ref_name: "refs/heads/A",
                     archived: false,
                 },
             ],
+            in_workspace: true,
         },
         WorkspaceStack {
             id: 2,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/B-top",
-                    ),
+                    ref_name: "refs/heads/B-top",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/B",
-                    ),
+                    ref_name: "refs/heads/B",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/C-top-empty",
-                    ),
+                    ref_name: "refs/heads/C-top-empty",
                     archived: true,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/C-empty",
-                    ),
+                    ref_name: "refs/heads/C-empty",
                     archived: true,
                 },
             ],
+            in_workspace: true,
         },
         WorkspaceStack {
             id: 3,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/C-top",
-                    ),
+                    ref_name: "refs/heads/C-top",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/C-middle",
-                    ),
+                    ref_name: "refs/heads/C-middle",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/C",
-                    ),
+                    ref_name: "refs/heads/C",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/D-top-empty",
-                    ),
+                    ref_name: "refs/heads/D-top-empty",
                     archived: true,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/D-middle-empty",
-                    ),
+                    ref_name: "refs/heads/D-middle-empty",
                     archived: true,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/D-empty",
-                    ),
+                    ref_name: "refs/heads/D-empty",
                     archived: true,
                 },
             ],
+            in_workspace: true,
         },
         WorkspaceStack {
             id: 4,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/D-top",
-                    ),
+                    ref_name: "refs/heads/D-top",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/D",
-                    ),
+                    ref_name: "refs/heads/D",
                     archived: false,
                 },
             ],
+            in_workspace: true,
         },
         WorkspaceStack {
             id: 5,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/E",
-                    ),
+                    ref_name: "refs/heads/E",
                     archived: false,
                 },
             ],
+            in_workspace: true,
         },
     ]
     "#);
@@ -379,6 +358,150 @@ fn read_only() -> anyhow::Result<()> {
 }
 
 #[test]
+fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_unapply()
+-> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    store.data_mut().default_target = None;
+
+    let ws_ref = "refs/heads/gitbutler/workspace".try_into()?;
+    let mut ws_md = store.workspace(ws_ref)?;
+    insta::assert_debug_snapshot!(ws_md.deref(), @r#"
+    Workspace {
+        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+        stacks: [],
+        target_ref: None,
+        push_remote: None,
+    }
+    "#);
+
+    let branch1: gix::refs::FullName = "refs/heads/in-workspace".try_into()?;
+    let stack_id1 = StackId::from_number_for_testing(1);
+    let branch2: gix::refs::FullName = "refs/heads/outside-workspace".try_into()?;
+    let stack_id2 = StackId::from_number_for_testing(2);
+    ws_md.stacks.push(WorkspaceStack {
+        id: stack_id1,
+        in_workspace: true,
+        branches: vec![WorkspaceStackBranch {
+            ref_name: branch1.clone(),
+            archived: false,
+        }],
+    });
+    ws_md.stacks.push(WorkspaceStack {
+        id: stack_id2,
+        in_workspace: false,
+        branches: vec![WorkspaceStackBranch {
+            ref_name: branch2.clone(),
+            archived: false,
+        }],
+    });
+    store.set_workspace(&ws_md)?;
+
+    let ws_md = store.workspace(ws_ref)?;
+    insta::assert_debug_snapshot!(ws_md.deref(), @r#"
+    Workspace {
+        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+        stacks: [
+            WorkspaceStack {
+                id: 00000000-0000-0000-0000-000000000001,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/in-workspace",
+                        archived: false,
+                    },
+                ],
+                in_workspace: true,
+            },
+            WorkspaceStack {
+                id: 00000000-0000-0000-0000-000000000002,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/outside-workspace",
+                        archived: false,
+                    },
+                ],
+                in_workspace: false,
+            },
+        ],
+        target_ref: None,
+        push_remote: None,
+    }
+    "#);
+
+    let toml_path = store.path().to_owned();
+    drop(store);
+
+    let mut store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
+    let mut ws_md = store.workspace(ws_ref)?;
+    insta::assert_debug_snapshot!(ws_md.deref(), @r#"
+    Workspace {
+        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+        stacks: [
+            WorkspaceStack {
+                id: 00000000-0000-0000-0000-000000000001,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/in-workspace",
+                        archived: false,
+                    },
+                ],
+                in_workspace: true,
+            },
+            WorkspaceStack {
+                id: 00000000-0000-0000-0000-000000000002,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/outside-workspace",
+                        archived: false,
+                    },
+                ],
+                in_workspace: false,
+            },
+        ],
+        target_ref: None,
+        push_remote: None,
+    }
+    "#);
+
+    ws_md.stacks[0].in_workspace = false;
+    ws_md.stacks[1].in_workspace = true;
+
+    // It's totally possible to change 'in_workspace' directly.
+    store.set_workspace(&ws_md)?;
+    let ws_md = store.workspace(ws_ref)?;
+    insta::assert_debug_snapshot!(ws_md.deref(), @r#"
+    Workspace {
+        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+        stacks: [
+            WorkspaceStack {
+                id: 00000000-0000-0000-0000-000000000001,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/in-workspace",
+                        archived: false,
+                    },
+                ],
+                in_workspace: false,
+            },
+            WorkspaceStack {
+                id: 00000000-0000-0000-0000-000000000002,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/outside-workspace",
+                        archived: false,
+                    },
+                ],
+                in_workspace: true,
+            },
+        ],
+        target_ref: None,
+        push_remote: None,
+    }
+    "#);
+
+    Ok(())
+}
+
+#[test]
 fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
     store.data_mut().default_target = None;
@@ -401,18 +524,29 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     let workspace_name: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
     let mut ws = store.workspace(workspace_name.as_ref())?;
     assert!(
-        ws.is_default(),
-        "the branch isn't auto-added to the workspace - this needs us to modify the workspace itself"
+        !ws.is_default(),
+        "the branch is auto-added to the workspace - even though it's not 'in_workspace'"
     );
-    assert_eq!(
-        ws.stacks.len(),
-        0,
-        "stacks aren't visible unless a branch is explicitly added to the workspace"
-    );
+    let actual = sanitize_uuids_and_timestamps(debug_str(&ws.stacks));
+    insta::assert_snapshot!(actual, @r#"
+    [
+        WorkspaceStack {
+            id: 1,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/feat",
+                    archived: false,
+                },
+            ],
+            in_workspace: false,
+        },
+    ]
+    "#);
     // add the first branch to the workspace.
     let ignored_id = StackId::from_number_for_testing(2);
     ws.stacks.push(WorkspaceStack {
         id: ignored_id,
+        in_workspace: true,
         branches: vec![WorkspaceStackBranch {
             ref_name: branch_name.clone(),
             archived: false,
@@ -432,12 +566,11 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
             id: 1,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/feat",
-                    ),
+                    ref_name: "refs/heads/feat",
                     archived: false,
                 },
             ],
+            in_workspace: true,
         },
     ]
     "#);
@@ -472,18 +605,15 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
             id: 1,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/feat-on-top",
-                    ),
+                    ref_name: "refs/heads/feat-on-top",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/feat",
-                    ),
+                    ref_name: "refs/heads/feat",
                     archived: false,
                 },
             ],
+            in_workspace: true,
         },
     ]
     "#);
@@ -550,18 +680,15 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
             id: 1,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/feat-on-top",
-                    ),
+                    ref_name: "refs/heads/feat-on-top",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/feat",
-                    ),
+                    ref_name: "refs/heads/feat",
                     archived: false,
                 },
             ],
+            in_workspace: true,
         },
     ]
     "#);
@@ -588,24 +715,19 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
             id: 1,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/feat-on-top",
-                    ),
+                    ref_name: "refs/heads/feat-on-top",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/feat-in-middle",
-                    ),
+                    ref_name: "refs/heads/feat-in-middle",
                     archived: true,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/feat",
-                    ),
+                    ref_name: "refs/heads/feat",
                     archived: false,
                 },
             ],
+            in_workspace: true,
         },
     ]
     "#);
@@ -627,8 +749,8 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     let mut ws = store.workspace(ws.as_ref())?;
     assert_eq!(
         ws.stacks.len(),
-        1,
-        "The workspace wasn't automatically updated"
+        2,
+        "The workspace is automatically updated, as we see out-of-workspace stacks"
     );
     // insert it as archived just because.
     let second_id = branch
@@ -636,6 +758,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         .expect("can also set a valid id, it doesn't matter");
     ws.stacks.push(WorkspaceStack {
         id: second_id,
+        in_workspace: true,
         branches: vec![WorkspaceStackBranch {
             ref_name: branch.as_ref().into(), /* always a matching name */
             archived: true,
@@ -651,35 +774,29 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
             id: 1,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/feat-on-top",
-                    ),
+                    ref_name: "refs/heads/feat-on-top",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/feat-in-middle",
-                    ),
+                    ref_name: "refs/heads/feat-in-middle",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/feat",
-                    ),
+                    ref_name: "refs/heads/feat",
                     archived: false,
                 },
             ],
+            in_workspace: true,
         },
         WorkspaceStack {
             id: 2,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/second-stack",
-                    ),
+                    ref_name: "refs/heads/second-stack",
                     archived: true,
                 },
             ],
+            in_workspace: true,
         },
     ]
     "#);
@@ -699,6 +816,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     // Add it again, then remove it by removing the branch.
     ws.stacks.push(WorkspaceStack {
         id: StackId::from_number_for_testing(2),
+        in_workspace: true,
         branches: vec![WorkspaceStackBranch {
             ref_name: second_stack.clone(),
             archived: true,
@@ -834,6 +952,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     let mut ws = store.workspace(workspace_name)?;
     ws.stacks.push(WorkspaceStack {
         id: StackId::from_number_for_testing(1),
+        in_workspace: false,
         branches: vec![
             WorkspaceStackBranch {
                 ref_name: "refs/heads/top".try_into()?,
@@ -851,6 +970,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     });
     ws.stacks.push(WorkspaceStack {
         id: StackId::from_number_for_testing(2),
+        in_workspace: true,
         branches: vec![WorkspaceStackBranch {
             ref_name: "refs/heads/second-branch".try_into()?,
             archived: false,
@@ -865,35 +985,29 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
             id: 00000000-0000-0000-0000-000000000001,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/top",
-                    ),
+                    ref_name: "refs/heads/top",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/one-below-top",
-                    ),
+                    ref_name: "refs/heads/one-below-top",
                     archived: true,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/base",
-                    ),
+                    ref_name: "refs/heads/base",
                     archived: true,
                 },
             ],
+            in_workspace: false,
         },
         WorkspaceStack {
             id: 00000000-0000-0000-0000-000000000002,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/second-branch",
-                    ),
+                    ref_name: "refs/heads/second-branch",
                     archived: false,
                 },
             ],
+            in_workspace: true,
         },
     ]
     "#);
@@ -911,29 +1025,25 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
             id: 00000000-0000-0000-0000-000000000001,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/top",
-                    ),
+                    ref_name: "refs/heads/top",
                     archived: false,
                 },
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/one-below-top",
-                    ),
+                    ref_name: "refs/heads/one-below-top",
                     archived: true,
                 },
             ],
+            in_workspace: false,
         },
         WorkspaceStack {
             id: 00000000-0000-0000-0000-000000000002,
             branches: [
                 WorkspaceStackBranch {
-                    ref_name: FullName(
-                        "refs/heads/second-branch",
-                    ),
+                    ref_name: "refs/heads/second-branch",
                     archived: false,
                 },
             ],
+            in_workspace: true,
         },
     ]
     "#);
@@ -957,20 +1067,95 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     assert_eq!(
         stored_ws.deref(),
         ws.deref(),
-        "this state reproduces when queried"
+        "this state reproduces when queried, so no stack is left"
     );
 
     let toml_path = store.path().to_owned();
     drop(store);
 
     // Stacks are still there, but not in workspace, they carry data. But can't test it due to hashmap-instability.
-    let store = VirtualBranchesTomlMetadata::from_path(toml_path)?;
+    let mut store = VirtualBranchesTomlMetadata::from_path(toml_path)?;
+    let stored_ws = store.workspace(workspace_name)?;
+    assert_eq!(
+        stored_ws.deref(),
+        ws.deref(),
+        "this state reproduces when queried after storage was reread, so no stack is left"
+    );
+
     let below_top: &gix::refs::FullNameRef = "refs/heads/one-below-top".try_into()?;
     let branch = store.branch(below_top)?;
     assert!(
-        !branch.is_default(),
-        "Workspace branches are implicitly created, this isn't the case in a normal backend implementation"
+        branch.is_default(),
+        "Workspace branches have been deleted, so they remain gone, and this branch was recreate."
     );
+    // The stack with the branch now exists, and it is NOT in the workspace by default - this is a feature of
+    // the implementation under test here, this data is disjoint otherwise.
+    // By making it not in the workspace, users should be forced to not rely on this.
+    store.set_branch(&branch)?;
+    insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{:#?}", store.workspace(workspace_name)?.deref())), @r#"
+    Workspace {
+        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+        stacks: [
+            WorkspaceStack {
+                id: 1,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/one-below-top",
+                        archived: false,
+                    },
+                ],
+                in_workspace: false,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/sub-name/main",
+            ),
+        ),
+        push_remote: None,
+    }
+    "#);
+
+    // Create a branch implicitly, but turn it into a dependent branch later.
+    let another_branch: &gix::refs::FullNameRef = "refs/heads/two-below-top".try_into()?;
+    let branch = store.branch(another_branch)?;
+    store.set_branch(&branch)?;
+
+    let mut ws = store.workspace(workspace_name)?;
+    let branch = ws.stacks[1].branches.pop().expect("exactly one branch");
+    ws.stacks.pop();
+    // Ordering also works
+    ws.stacks[0].branches.insert(0, branch);
+    store
+        .set_workspace(&ws)
+        .expect("setting the data works, despite having changed the branch association");
+    insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{:#?}", store.workspace(workspace_name)?.deref())), @r#"
+    Workspace {
+        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+        stacks: [
+            WorkspaceStack {
+                id: 1,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/two-below-top",
+                        archived: false,
+                    },
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/one-below-top",
+                        archived: false,
+                    },
+                ],
+                in_workspace: false,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/sub-name/main",
+            ),
+        ),
+        push_remote: None,
+    }
+    "#);
 
     Ok(())
 }
@@ -1019,7 +1204,7 @@ fn roundtrip_journey(metadata: &mut impl RefMetadata) -> anyhow::Result<()> {
                 continue;
             }
             assert_eq!(
-                &*metadata.workspace(ref_name.as_ref())?,
+                metadata.workspace(ref_name.as_ref())?.deref(),
                 ws_from_iter,
                 "nothing should change, it's a no-op"
             );
@@ -1030,7 +1215,7 @@ fn roundtrip_journey(metadata: &mut impl RefMetadata) -> anyhow::Result<()> {
                 .set_branch(&br)
                 .expect("updates have no reason to fail, even if no-op");
             assert_eq!(
-                &*metadata.branch(ref_name.as_ref())?,
+                metadata.branch(ref_name.as_ref())?.deref(),
                 br_from_iter,
                 "nothing should change, it's a no-op"
             );

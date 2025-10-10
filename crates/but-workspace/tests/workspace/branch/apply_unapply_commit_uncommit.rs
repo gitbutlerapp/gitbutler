@@ -196,7 +196,9 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
 
     // Reset the workspace to 'unapply', but keep the per-branch metadata.
     let mut ws_md = meta.workspace(ws.ref_name().expect("proper gb workspace"))?;
-    ws_md.stacks.clear();
+    for stack in &mut ws_md.stacks {
+        stack.in_workspace = false;
+    }
     meta.set_workspace(&ws_md)?;
 
     let graph = graph.redo_traversal_with_overlay(&repo, &meta, Overlay::default())?;

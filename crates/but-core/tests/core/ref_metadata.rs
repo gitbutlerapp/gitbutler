@@ -1,4 +1,5 @@
 mod workspace {
+    use but_core::ref_metadata::StackKind::AppliedAndUnapplied;
     use but_core::ref_metadata::Workspace;
 
     #[test]
@@ -13,11 +14,17 @@ mod workspace {
 
         let b_ref = r("refs/heads/B");
         assert!(ws.add_or_insert_new_stack_if_not_present(b_ref, Some(0)));
-        assert_eq!(ws.stack_names().collect::<Vec<_>>(), [b_ref, a_ref]);
+        assert_eq!(
+            ws.stack_names(AppliedAndUnapplied).collect::<Vec<_>>(),
+            [b_ref, a_ref]
+        );
 
         let c_ref = r("refs/heads/C");
         assert!(ws.add_or_insert_new_stack_if_not_present(c_ref, None));
-        assert_eq!(ws.stack_names().collect::<Vec<_>>(), [b_ref, a_ref, c_ref]);
+        assert_eq!(
+            ws.stack_names(AppliedAndUnapplied).collect::<Vec<_>>(),
+            [b_ref, a_ref, c_ref]
+        );
 
         assert!(ws.remove_segment(a_ref));
         assert!(ws.remove_segment(b_ref));
@@ -74,24 +81,19 @@ mod workspace {
                     id: 1,
                     branches: [
                         WorkspaceStackBranch {
-                            ref_name: FullName(
-                                "refs/heads/B",
-                            ),
+                            ref_name: "refs/heads/B",
                             archived: false,
                         },
                         WorkspaceStackBranch {
-                            ref_name: FullName(
-                                "refs/heads/C",
-                            ),
+                            ref_name: "refs/heads/C",
                             archived: false,
                         },
                         WorkspaceStackBranch {
-                            ref_name: FullName(
-                                "refs/heads/A",
-                            ),
+                            ref_name: "refs/heads/A",
                             archived: false,
                         },
                     ],
+                    in_workspace: true,
                 },
             ],
             target_ref: None,

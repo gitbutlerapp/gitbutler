@@ -448,6 +448,7 @@ mod from_new_merge_with_metadata {
                 .into_iter()
                 .map(|short_name| WorkspaceStack {
                     id: StackId::generate(),
+                    in_workspace: true,
                     branches: vec![WorkspaceStackBranch {
                         ref_name: Category::LocalBranch
                             .to_full_name(short_name)

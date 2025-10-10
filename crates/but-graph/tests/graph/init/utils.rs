@@ -49,7 +49,7 @@ pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
     add_stack(
         meta,
         usize::MAX,
-        "definitely outside of the workspace just to have it",
+        "definitely-outside-of-the-workspace-just-to-have-it",
         StackState::Inactive,
     );
 }

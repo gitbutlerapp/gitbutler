@@ -62,13 +62,12 @@ pub fn cherry_apply_status(
 
     let mut locked_stack = None;
     for stack in stacks {
-        dbg!(&stack);
         let tip = stack
             .heads
             .first()
             .context("Stacks always have a head")?
             .tip;
-        if dbg!(cherry_pick_conflicts(&repo, subject, tip)?) {
+        if cherry_pick_conflicts(&repo, subject, tip)? {
             if locked_stack.is_some() {
                 // Locked stack has already been set to another stack. Now there
                 // are at least two stacks that it should be locked to, so we
@@ -83,7 +82,6 @@ pub fn cherry_apply_status(
             }
         }
     }
-    dbg!(&locked_stack);
 
     if let Some(stack) = locked_stack {
         Ok(CherryApplyStatus::LockedToStack(stack))

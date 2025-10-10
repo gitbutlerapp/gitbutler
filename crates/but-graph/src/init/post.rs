@@ -5,6 +5,7 @@ use crate::init::{PetGraph, branch_segment_from_name_and_meta, remotes};
 use crate::projection::workspace;
 use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex, SegmentMetadata};
 use anyhow::{Context as _, bail};
+use but_core::ref_metadata::StackKind::{Applied, AppliedAndUnapplied};
 use but_core::{RefMetadata, ref_metadata};
 use gix::ObjectId;
 use gix::prelude::ObjectIdExt;
@@ -533,7 +534,7 @@ impl Graph {
             .ok()
             .and_then(|mut ws| {
                 let md = ws.metadata.take();
-                md.map(|d| (ws.id, ws.stacks, d, ws.target))
+                md.map(|md| (ws.id, ws.stacks, md, ws.target))
             })
         else {
             return Ok(());
@@ -734,9 +735,10 @@ impl Graph {
             .collect();
         edges_pointing_to_named_segment.sort_by_key(|(_e, sidx, rn)| {
             let res = ws_data.stacks.iter().position(|s| {
-                s.branches
-                    .first()
-                    .is_some_and(|b| Some(&b.ref_name) == rn.as_ref())
+                s.in_workspace
+                    && s.branches
+                        .first()
+                        .is_some_and(|b| Some(&b.ref_name) == rn.as_ref())
             });
             // This makes it so that edges that weren't mentioned in workspace metadata
             // retain their relative order, with first-come-first-serve semantics.
@@ -794,8 +796,7 @@ impl Graph {
 
                 s.ref_name.as_ref().is_some_and(|rn| {
                     let is_known_to_workspace = ws_data
-                        .stacks
-                        .iter()
+                        .stacks(AppliedAndUnapplied)
                         .any(|s| s.branches.iter().any(|b| &b.ref_name == rn));
                     if is_known_to_workspace {
                         named_segment_id = Some(s.id);
@@ -1011,7 +1012,7 @@ fn find_all_desired_stack_refs_in_commit<'a>(
         &'a [SegmentIndex],
     )>,
 ) -> impl Iterator<Item = Vec<gix::refs::FullName>> + 'a {
-    ws_data.stacks.iter().filter_map(move |stack| {
+    ws_data.stacks(Applied).filter_map(move |stack| {
         if let Some((_, _, ws_stacks, candidates)) = graph_and_ws_idx_and_candidates
             && ws_stacks
                 .iter()

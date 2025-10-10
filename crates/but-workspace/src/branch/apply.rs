@@ -1,5 +1,6 @@
 use crate::branch::OnWorkspaceMergeConflict;
 use crate::branch::checkout::UncommitedWorktreeChanges;
+use but_core::ref_metadata::StackId;
 use std::borrow::Cow;
 
 /// Returned by [function::apply()].
@@ -11,6 +12,8 @@ pub struct Outcome<'graph> {
     pub workspace_ref_created: bool,
     /// If not `None`, an actual merge was attempted, but depending on [the settings](OnWorkspaceMergeConflict), this was persisted or not.
     pub workspace_merge: Option<crate::commit::merge::Outcome>,
+    /// The ids of all stacks that were conflicting and thus didn't get applied, and tip ref names can be derived from that.
+    pub conflicting_stack_ids: Vec<StackId>,
 }
 
 impl Outcome<'_> {
@@ -80,7 +83,8 @@ pub(crate) mod function {
     use crate::ref_info::WorkspaceExt;
     use anyhow::{Context, bail};
     use but_core::RefMetadata;
-    use but_core::ref_metadata::Workspace;
+    use but_core::ref_metadata::StackKind::AppliedAndUnapplied;
+    use but_core::ref_metadata::{StackId, Workspace};
     use but_graph::init::Overlay;
     use but_graph::projection::WorkspaceKind;
     use gitbutler_oxidize::GixRepositoryExt;
@@ -135,6 +139,7 @@ pub(crate) mod function {
         if workspace.is_branch_the_target_or_its_local_tracking_branch(branch) {
             bail!("Cannot add the target '{branch}' branch to its own workspace");
         }
+        let conflicting_stack_ids = Vec::new();
         if workspace.is_reachable_from_entrypoint(branch) {
             let workspace_ref_created = false;
             // When exiting early, don't try to adjust the ws commit.
@@ -142,6 +147,7 @@ pub(crate) mod function {
                 graph: Cow::Borrowed(workspace.graph),
                 workspace_ref_created,
                 workspace_merge: None,
+                conflicting_stack_ids,
             });
         } else if workspace.refname_is_segment(branch) {
             // This means our workspace encloses the desired branch, but it's not checked out yet.
@@ -174,6 +180,7 @@ pub(crate) mod function {
                 graph: Cow::Owned(graph),
                 workspace_ref_created: false,
                 workspace_merge: None,
+                conflicting_stack_ids,
             });
         };
 
@@ -326,6 +333,7 @@ pub(crate) mod function {
                 graph: Cow::Owned(graph),
                 workspace_ref_created: needs_ws_ref_creation,
                 workspace_merge: None,
+                conflicting_stack_ids,
             });
         }
         // We will want to merge, but be sure the branch exists, can't apply non-existing.
@@ -348,10 +356,13 @@ pub(crate) mod function {
         )?;
 
         if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
+            let conflicting_stack_ids =
+                corelate_conflicting_stack_ids(&ws_md, &merge_result.conflicting_stacks);
             return Ok(Outcome {
                 graph: Cow::Owned(graph),
                 workspace_ref_created: needs_ws_ref_creation,
                 workspace_merge: Some(merge_result),
+                conflicting_stack_ids,
             });
         }
 
@@ -428,10 +439,13 @@ pub(crate) mod function {
             )?;
 
             if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
+                let conflicting_stack_ids =
+                    corelate_conflicting_stack_ids(&ws_md, &merge_result.conflicting_stacks);
                 return Ok(Outcome {
                     graph: Cow::Owned(graph),
                     workspace_ref_created: needs_ws_ref_creation,
                     workspace_merge: Some(merge_result),
+                    conflicting_stack_ids,
                 });
             }
             new_head_id = merge_result.workspace_commit_id;
@@ -487,7 +501,21 @@ pub(crate) mod function {
             graph: Cow::Owned(graph),
             workspace_ref_created: needs_ws_ref_creation,
             workspace_merge: Some(merge_result),
+            conflicting_stack_ids,
         })
+    }
+
+    fn corelate_conflicting_stack_ids(
+        ws: &Workspace,
+        conflicts: &[crate::commit::merge::ConflictingStack],
+    ) -> Vec<StackId> {
+        conflicts
+            .iter()
+            .filter_map(|cs| {
+                ws.find_stack_with_branch(cs.ref_name.as_ref(), AppliedAndUnapplied)
+                    .map(|stack| stack.id)
+            })
+            .collect()
     }
 
     fn persist_metadata<T: RefMetadata>(
