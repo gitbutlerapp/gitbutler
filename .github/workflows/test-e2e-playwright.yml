@@ -2,8 +2,6 @@ name: E2E Tests Playwright
 on:
   pull_request:
     branches: [master]
-    paths-ignore:
-      - 'apps/web/**'
   workflow_dispatch:
     inputs:
       sha:
