@@ -1,8 +1,11 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Mutex};
 
 use anyhow::{Context, Result};
 use but_settings::AppSettings;
+use gitbutler_secret::{Sensitive, secret};
 use serde::{Deserialize, Serialize};
+
+mod client;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Verification {
@@ -73,7 +76,28 @@ pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<String> 
 
     let rsp_body = res.text().await.context("Failed to get response body")?;
 
-    serde_json::from_str::<AccessTokenContainer>(&rsp_body)
+    let access_token = serde_json::from_str::<AccessTokenContainer>(&rsp_body)
         .map(|rsp_body| rsp_body.access_token)
-        .context("Failed to parse response body")
+        .context("Failed to parse response body")?;
+
+    let gh = client::GitHubClient::new(&access_token).context("Failed to create GitHub client")?;
+    let user = gh
+        .get_authenticated()
+        .await
+        .context("Failed to get authenticated user")?;
+
+    println!("Authenticated as: {} ({})", user.login, user.email);
+    // persist_access_token(&access_token).context("Failed to persist access token")?;
+
+    Ok(access_token)
+}
+
+fn persist_access_token(access_token: &str) -> Result<()> {
+    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
+    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
+    secret::persist(
+        "github-access-token", // TODO: In order to support multiple accounts, this needs to be more complex
+        &Sensitive(access_token.to_string()),
+        secret::Namespace::Global,
+    )
 }
