@@ -62,6 +62,9 @@ export class UserService {
 					.catch((err) => {
 						this.error.set(err);
 					});
+			} else if (!available) {
+				// If authentication is no longer available, clear the user
+				this.user.set(undefined);
 			}
 		});
 	}
