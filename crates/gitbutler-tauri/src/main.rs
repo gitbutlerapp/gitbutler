@@ -267,6 +267,7 @@ fn main() {
                     secret::secret_get_global,
                     secret::secret_set_global,
                     oplog::list_snapshots,
+                    oplog::create_snapshot,
                     oplog::restore_snapshot,
                     oplog::snapshot_diff,
                     config::get_gb_config,

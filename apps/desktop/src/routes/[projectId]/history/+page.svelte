@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import CreateSnapshotModal from '$components/CreateSnapshotModal.svelte';
 	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
@@ -13,7 +14,7 @@
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { createSnapshotSelection, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/core/context';
-	import { EmptyStatePlaceholder, Icon } from '@gitbutler/ui';
+	import { EmptyStatePlaceholder, Icon, Button } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snapshot } from '$lib/history/types';
 
@@ -36,6 +37,7 @@
 	const withinRestoreItems = $derived(findRestorationRanges($snapshots));
 
 	let currentSelectionId: SelectionId | undefined = $state(undefined);
+	let createSnapshotModal: CreateSnapshotModal;
 
 	// Derive selectedFile from the selection service
 	const selectedFile = $derived.by(() => {
@@ -163,6 +165,15 @@
 		<div bind:this={sidebarEl} class="history-view__snapshots" use:focusable={{ vertical: true }}>
 			<div class="history-view__snapshots-header">
 				<h3 class="history-view__snapshots-header-title text-15 text-bold">Operations history</h3>
+				<Button
+					size="tag"
+					kind="outline"
+					icon="camera"
+					tooltip="Create a manual snapshot of your current state"
+					onclick={() => createSnapshotModal?.show()}
+				>
+					Create snapshot
+				</Button>
 			</div>
 			{@render historyEntries()}
 		</div>
@@ -188,6 +199,8 @@
 		{/if}
 	</div>
 </div>
+
+<CreateSnapshotModal {projectId} bind:this={createSnapshotModal} />
 
 <style lang="postcss">
 	.history-view {

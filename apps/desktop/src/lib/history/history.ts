@@ -123,6 +123,15 @@ export class HistoryService {
 	async restoreSnapshot(projectId: string, sha: string) {
 		await this.api.endpoints.restoreSnapshot.mutate({ projectId, sha });
 	}
+
+	async createSnapshot(projectId: string, message?: string) {
+		await this.backend.invoke<string>('create_snapshot', {
+			projectId,
+			message: message?.trim() || undefined
+		});
+		// Refresh snapshots list after creating
+		this.snapshots(projectId).load();
+	}
 }
 
 export function createdOnDay(d: Date) {
