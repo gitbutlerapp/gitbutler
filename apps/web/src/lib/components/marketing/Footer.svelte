@@ -165,26 +165,31 @@
 
 	.banner-background__noisy {
 		position: absolute;
-		width: 500px;
-		height: 240px;
-		transform: scale(3) rotate(25deg);
+		width: 140%;
+		height: 1140px;
+		transform: rotate(45deg);
 		border-radius: 50%;
 		background:
 			radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0)),
-			url("data:image/svg+xml,%3Csvg viewBox='0 0 600 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+			url("data:image/svg+xml,%3Csvg viewBox='0 0 800 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 		mix-blend-mode: screen;
 		filter: contrast(145%) brightness(1050%) invert(100%);
 		opacity: 0.7;
 		pointer-events: none;
 
+		@media all and (-webkit-min-device-pixel-ratio: 0) and (min-resolution: 0.001dpcm) {
+			mix-blend-mode: color-dodge;
+			filter: contrast(125%) brightness(650%) invert(100%);
+		}
+
 		&.noisy-1 {
 			bottom: -20%;
-			left: -20%;
+			left: 20%;
 		}
 
 		&.noisy-2 {
 			top: -10%;
-			right: -20%;
+			right: 20%;
 		}
 	}
 

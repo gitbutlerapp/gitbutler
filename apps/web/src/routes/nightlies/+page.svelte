@@ -457,13 +457,13 @@
 	/* HERO BACKGROUND */
 	.background__noisy {
 		position: absolute;
-		width: 500px;
-		height: 240px;
-		transform: scale(3) rotate(-25deg);
+		width: 100%;
+		height: 1240px;
+		transform: rotate(45deg);
 		border-radius: 50%;
 		background:
 			radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0)),
-			url("data:image/svg+xml,%3Csvg viewBox='0 0 600 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+			url("data:image/svg+xml,%3Csvg viewBox='0 0 800 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 		mix-blend-mode: screen;
 		filter: contrast(145%) brightness(1050%) invert(100%);
 		opacity: 0.2;
@@ -471,11 +471,11 @@
 
 		&.noisy-1 {
 			top: -20%;
-			left: -20%;
+			left: 40%;
 		}
 
 		&.noisy-2 {
-			right: -20%;
+			right: 30%;
 			bottom: -10%;
 		}
 	}
@@ -518,6 +518,21 @@
 
 		.release-row__links {
 			padding: 16px;
+		}
+
+		.background__noisy {
+			width: 120%;
+			transform: rotate(25deg);
+
+			&.noisy-1 {
+				top: -70%;
+				left: -30%;
+			}
+
+			&.noisy-2 {
+				right: -60%;
+				bottom: -60%;
+			}
 		}
 	}
 </style>
