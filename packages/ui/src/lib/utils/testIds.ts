@@ -147,9 +147,12 @@ export enum TestId {
 	SyncButton = 'sync-button',
 	EditMode = 'edit-mode',
 	EditModeSaveAndExitButton = 'edit-mode-save-and-exit-button',
-	StacksUnappliedToast = 'stacks-unapplied-toast'
+	StacksUnappliedToast = 'stacks-unapplied-toast',
+	CreateSnapshotModal = 'create-snapshot-modal',
+	CreateSnapshotModal_ActionButton = 'create-snapshot-modal-action-button'
 }
 
 export enum ElementId {
-	NewBranchNameInput = 'new-branch-name-input'
+	NewBranchNameInput = 'new-branch-name-input',
+	SnapshotDescriptionInput = 'snapshot-description-input'
 }

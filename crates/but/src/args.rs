@@ -116,6 +116,12 @@ For examples see `but rub --help`."
     },
     /// Undo the last operation by reverting to the previous snapshot.
     Undo,
+    /// Create an on-demand snapshot with optional message.
+    Snapshot {
+        /// Message to include with the snapshot
+        #[clap(short = 'm', long = "message")]
+        message: Option<String>,
+    },
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
@@ -163,6 +169,8 @@ pub enum CommandName {
     Restore,
     #[clap(alias = "undo")]
     Undo,
+    #[clap(alias = "snapshot")]
+    Snapshot,
     BaseCheck,
     BaseUpdate,
     BranchNew,

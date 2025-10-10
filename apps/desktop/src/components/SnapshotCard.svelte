@@ -150,6 +150,13 @@
 				return { text: 'Revert snapshot' };
 			case 'SplitBranch':
 				return { text: 'Split branch', icon: 'branch-local' };
+			case 'OnDemandSnapshot':
+				return {
+					text: snapshotDetails.body
+						? `Manual snapshot: ${snapshotDetails.body}`
+						: 'Manual snapshot',
+					icon: 'camera'
+				};
 			default:
 				return { text: snapshotDetails.operation, icon: 'commit' };
 		}

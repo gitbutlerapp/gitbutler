@@ -163,6 +163,7 @@ pub enum OperationKind {
     AutoHandleChangesBefore,
     AutoHandleChangesAfter,
     SplitBranch,
+    OnDemandSnapshot,
     #[default]
     Unknown,
 }

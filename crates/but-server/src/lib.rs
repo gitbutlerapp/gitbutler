@@ -12,8 +12,8 @@ use axum::{
 use but_api::{
     App, NoParams,
     commands::{
-        askpass, cherry_apply, claude, cli, config, diff, forge, git, github, modes, open,
-        projects as iprojects, remotes, repo, rules, secret, settings, stack, undo, users,
+        askpass, cherry_apply, claude, cli, config, diff, forge, git, github, modes, open, oplog,
+        projects as iprojects, remotes, repo, rules, secret, settings, stack, users,
         virtual_branches, workspace, zip,
     },
     error::ToError as _,
@@ -328,9 +328,9 @@ async fn handle_command(
         "push_stack" => stack::push_stack_cmd(request.params),
         "push_stack_to_review" => stack::push_stack_to_review_cmd(request.params),
         // Undo/Snapshot commands
-        "list_snapshots" => undo::list_snapshots_cmd(request.params),
-        "restore_snapshot" => undo::restore_snapshot_cmd(request.params),
-        "snapshot_diff" => undo::snapshot_diff_cmd(request.params),
+        "list_snapshots" => oplog::list_snapshots_cmd(request.params),
+        "restore_snapshot" => oplog::restore_snapshot_cmd(request.params),
+        "snapshot_diff" => oplog::snapshot_diff_cmd(request.params),
         // "oplog_diff_worktrees" => undo::oplog_diff_worktrees(&ctx, request.params),
         // Config management commands
         "get_gb_config" => config::get_gb_config_cmd(request.params),
