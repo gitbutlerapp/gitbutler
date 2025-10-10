@@ -164,7 +164,6 @@ impl BranchManager<'_> {
                 },
             )?;
             let ws = out.graph.to_workspace()?;
-            let unapplied_stacks_to_be_done = Vec::new();
             let applied_branch_stack_id = ws
                 .find_segment_and_stack_by_refname(branch_to_apply)
                 .with_context(||
@@ -173,7 +172,7 @@ impl BranchManager<'_> {
                 .0
                 .id
                 .context("BUG: newly applied stacks should always have a stack id")?;
-            return Ok((applied_branch_stack_id, unapplied_stacks_to_be_done));
+            return Ok((applied_branch_stack_id, out.conflicting_stack_ids));
         }
         let old_cwd = (!self.ctx.app_settings().feature_flags.cv3)
             .then(|| self.ctx.repo().create_wd_tree(0).map(|tree| tree.id()))

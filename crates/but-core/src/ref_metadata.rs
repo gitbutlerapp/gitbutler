@@ -184,14 +184,14 @@ impl Workspace {
         }
     }
 
-    /// Return `true` if `name` is an applied reference mentioned in our [stacks](Workspace::stacks).
+    /// Return `true` if `name` is an reference mentioned in our [stacks](Workspace::stacks).
     /// Use `kind` for filtering.
     pub fn contains_ref(&self, name: &gix::refs::FullNameRef, kind: StackKind) -> bool {
         self.stacks(kind)
             .any(|stack| stack.branches.iter().any(|b| b.ref_name.as_ref() == name))
     }
 
-    /// Find a given `name` within our applied stack branches and return it for modification.
+    /// Find a given `name` within our stack branches and return it for modification.
     /// Use `kind` for filtering.
     pub fn find_branch_mut(
         &mut self,
@@ -206,7 +206,7 @@ impl Workspace {
         })
     }
 
-    /// Find a given `name` within our applied stack branches and return it.
+    /// Find a given `name` within our stack branches and return it.
     /// Use `kind` for filtering.
     pub fn find_branch(
         &self,
@@ -215,6 +215,21 @@ impl Workspace {
     ) -> Option<&WorkspaceStackBranch> {
         self.stacks(kind)
             .find_map(|stack| stack.branches.iter().find(|b| b.ref_name.as_ref() == name))
+    }
+
+    /// Find a given `name` within our stack branches and return the stack itself.
+    /// Use `kind` for filtering.
+    pub fn find_stack_with_branch(
+        &self,
+        name: &gix::refs::FullNameRef,
+        kind: StackKind,
+    ) -> Option<&WorkspaceStack> {
+        self.stacks(kind).find_map(|stack| {
+            stack
+                .branches
+                .iter()
+                .find_map(|b| (b.ref_name.as_ref() == name).then_some(stack))
+        })
     }
 
     /// Find the `(stack_idx, branch_idx)` of `name` within our applied stack branches and return it,

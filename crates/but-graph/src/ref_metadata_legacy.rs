@@ -378,7 +378,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             .branches
             .keys()
             .copied()
-            .filter(|sid| !seen_stack_ids.contains(&sid))
+            .filter(|sid| !seen_stack_ids.contains(sid))
             .collect();
         for sid in stacks_to_delete {
             self.data_mut().branches.remove(&sid);
