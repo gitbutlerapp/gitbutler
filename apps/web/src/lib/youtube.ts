@@ -1,3 +1,5 @@
+import { env } from '$env/dynamic/public';
+
 export interface YouTubeVideo {
 	id: string;
 	title: string;
@@ -60,67 +62,45 @@ export function getFallbackThumbnail(videoId: string): string {
 	return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
+type APIYouTubeVideo = {
+	description: string;
+	published_at: string;
+	thumbnail_url: string;
+	title: string;
+	video_id: string;
+};
+
+function mapAPIToYouTubeVideo(apiVideo: APIYouTubeVideo): YouTubeVideo {
+	return {
+		id: apiVideo.video_id,
+		title: apiVideo.title,
+		description: apiVideo.description,
+		thumbnail: getHighQualityThumbnail(apiVideo.video_id),
+		publishedAt: apiVideo.published_at,
+		channelTitle: 'GitButler', // Static since we know the channel
+		videoId: apiVideo.video_id,
+		url: getVideoUrl(apiVideo.video_id)
+	};
+}
+
 /**
  * Fetches videos from a YouTube playlist without requiring an API key
  * Uses a combination of RSS feed and fallback data
  */
 export async function fetchPlaylistVideos(playlistId: string): Promise<YouTubePlaylist> {
 	try {
-		// Try to fetch from YouTube RSS feed (works without API key but has limitations)
-		const rssUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`;
-
-		// Use a CORS proxy to access the RSS feed
-		const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`;
-		const response = await fetch(proxyUrl, {
+		const response = await fetch(`${env.PUBLIC_APP_HOST}api/youtube/playlist`, {
 			// Add timeout to prevent hanging
 			signal: AbortSignal.timeout(10000)
 		});
 
 		if (response.ok) {
-			const data = await response.json();
-			const parser = new DOMParser();
-			const xmlDoc = parser.parseFromString(data.contents, 'text/xml');
-
-			const entries = Array.from(xmlDoc.querySelectorAll('entry')).slice(0, 10);
-			const playlistTitle = xmlDoc.querySelector('title')?.textContent || 'YouTube Playlist';
-			const channelTitle = xmlDoc.querySelector('author > name')?.textContent || 'YouTube Channel';
-
-			const videos: YouTubeVideo[] = entries
-				.map((entry) => {
-					// Try multiple ways to get videoId for better compatibility
-					const videoId =
-						entry.querySelector('yt\\:videoId')?.textContent ||
-						entry.querySelector('videoId')?.textContent ||
-						entry.querySelector('id')?.textContent?.split(':').pop() ||
-						null;
-
-					if (!videoId) return null;
-
-					const title = entry.querySelector('title')?.textContent || 'Untitled Video';
-					const description =
-						entry.querySelector('media\\:description')?.textContent ||
-						entry.querySelector('description')?.textContent ||
-						'';
-					const publishedAt =
-						entry.querySelector('published')?.textContent || new Date().toISOString();
-
-					return {
-						id: videoId,
-						title,
-						description,
-						thumbnail: getHighQualityThumbnail(videoId),
-						publishedAt,
-						channelTitle,
-						videoId,
-						url: getVideoUrl(videoId)
-					};
-				})
-				.filter((video): video is YouTubeVideo => video !== null);
-
+			const data = (await response.json()) as { videos: APIYouTubeVideo[] };
+			const videos = data.videos.map(mapAPIToYouTubeVideo);
 			return {
 				id: playlistId,
-				title: playlistTitle,
-				description: 'GitButler Feature Updates and Tutorials',
+				title: 'GitButler Feature Updates',
+				description: 'Latest GitButler tutorials, feature demonstrations, and updates',
 				videos
 			};
 		}
