@@ -8,19 +8,31 @@ mod workspace {
         assert_eq!(ws.stacks.len(), 0);
 
         let a_ref = r("refs/heads/A");
-        assert!(ws.add_or_insert_new_stack_if_not_present(a_ref, Some(100)));
-        assert!(!ws.add_or_insert_new_stack_if_not_present(a_ref, Some(200)));
+        assert_eq!(
+            ws.add_or_insert_new_stack_if_not_present(a_ref, Some(100)),
+            (0, 0)
+        );
+        assert_eq!(
+            ws.add_or_insert_new_stack_if_not_present(a_ref, Some(200)),
+            (0, 0)
+        );
         assert_eq!(ws.stacks.len(), 1);
 
         let b_ref = r("refs/heads/B");
-        assert!(ws.add_or_insert_new_stack_if_not_present(b_ref, Some(0)));
+        assert_eq!(
+            ws.add_or_insert_new_stack_if_not_present(b_ref, Some(0)),
+            (0, 0)
+        );
         assert_eq!(
             ws.stack_names(AppliedAndUnapplied).collect::<Vec<_>>(),
             [b_ref, a_ref]
         );
 
         let c_ref = r("refs/heads/C");
-        assert!(ws.add_or_insert_new_stack_if_not_present(c_ref, None));
+        assert_eq!(
+            ws.add_or_insert_new_stack_if_not_present(c_ref, None),
+            (2, 0)
+        );
         assert_eq!(
             ws.stack_names(AppliedAndUnapplied).collect::<Vec<_>>(),
             [b_ref, a_ref, c_ref]
@@ -55,7 +67,10 @@ mod workspace {
             None,
             "anchor doesn't exist"
         );
-        assert!(ws.add_or_insert_new_stack_if_not_present(a_ref, None));
+        assert_eq!(
+            ws.add_or_insert_new_stack_if_not_present(a_ref, None),
+            (0, 0)
+        );
         assert_eq!(
             ws.insert_new_segment_above_anchor_if_not_present(b_ref, a_ref),
             Some(true),
@@ -71,6 +86,12 @@ mod workspace {
         assert_eq!(
             ws.insert_new_segment_above_anchor_if_not_present(c_ref, a_ref),
             Some(true)
+        );
+
+        assert_eq!(
+            ws.add_or_insert_new_stack_if_not_present(a_ref, None),
+            (0, 2),
+            "adding a new stack can 'fail' if the segment is already present, but not as stack tip"
         );
 
         insta::assert_snapshot!(but_testsupport::sanitize_uuids_and_timestamps(format!("{ws:#?}")), @r#"

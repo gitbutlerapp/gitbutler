@@ -5,10 +5,13 @@ use crate::ref_info::with_workspace_commit::utils::{
 use crate::utils::r;
 use but_core::RefMetadata;
 use but_graph::init::{Options, Overlay};
-use but_testsupport::{graph_workspace, id_at, visualize_commit_graph_all};
+use but_testsupport::{
+    git, graph_workspace, id_at, sanitize_uuids_and_timestamps, visualize_commit_graph_all,
+};
 use but_workspace::branch::OnWorkspaceMergeConflict;
 use but_workspace::branch::apply::{IntegrationMode, WorkspaceReferenceNaming};
 use but_workspace::branch::checkout::UncommitedWorktreeChanges;
+use gix::refs::Category;
 
 #[test]
 fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
@@ -48,6 +51,55 @@ fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
     );
 
     // TODO: unapply, commit, uncommit
+    Ok(())
+}
+
+#[test]
+fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
+-> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-no-ws-commit-one-stack-one-branch",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::Inactive, &["B"]);
+            },
+        )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A");
+
+    // We know a stack, but nothing is actually in the workspace.
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @"📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542");
+
+    // Put "B" into the workspace, even though it's the dependent branch of A.
+    let out =
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
+    insta::assert_debug_snapshot!(out, @r"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+    }
+    ");
+    let graph = out.graph;
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542
+    └── ≡📙:2:B on e5d0542
+        └── 📙:2:B
+    ");
+
+    // Applying A is always a new stack then.
+    let out =
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+    insta::assert_snapshot!(graph_workspace(&out.graph.to_workspace()?), @r"
+    📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542
+    ├── ≡📙:3:A on e5d0542
+    │   └── 📙:3:A
+    └── ≡📙:2:B on e5d0542
+        └── 📙:2:B
+    ");
+
+    // It's all virtual.
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A");
     Ok(())
 }
 
@@ -247,7 +299,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
 
     // It's idempotent, but has to update the workspace commit nonetheless for the comment, which depends on the stacks.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 0da7d7b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 4f21fe4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\
     * e5d0542 (origin/main, main, B, A) A
     ");
@@ -255,10 +307,10 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     let ws = out.graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓! on e5d0542
-    ├── ≡📙:3:B on e5d0542
-    │   └── 📙:3:B
-    └── ≡📙:2:A on e5d0542
-        └── 📙:2:A
+    ├── ≡📙:3:A on e5d0542
+    │   └── 📙:3:A
+    └── ≡📙:2:B on e5d0542
+        └── 📙:2:B
     ");
 
     Ok(())
@@ -523,6 +575,114 @@ fn detached_head_journey() -> anyhow::Result<()> {
 }
 
 #[test]
+fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "no-ws-ref-stack-and-dependent-branch",
+            |meta| {
+                add_stack_with_segments(meta, 1, "C", StackState::Inactive, &["E"]);
+                add_stack_with_segments(meta, 2, "B", StackState::Inactive, &["D"]);
+            },
+        )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * f084d61 (C, B, A) A2
+    * 7076dee (E, D) A1
+    * 85efbe4 (HEAD -> main, origin/main) M
+    ");
+
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    ⌂:0:main <> ✓!
+    └── ≡:0:main
+        └── :0:main
+            └── ·85efbe4
+    ");
+
+    // Apply the dependent branch, to bring in only the dependent branch
+    let out =
+        but_workspace::branch::apply(r("refs/heads/E"), &ws, &repo, &mut meta, default_options())?;
+    insta::assert_debug_snapshot!(out, @r"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: true,
+    }
+    ");
+
+    let graph = out.graph;
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
+    └── ≡📙:4:E on 85efbe4
+        └── 📙:4:E
+            └── ·7076dee (🏘️) ►D
+    ");
+
+    // Apply the former tip of the stack, to create a new stack. Note how it won't double-list the
+    // other stack.
+    let out =
+        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, default_options())?;
+    let graph = out.graph;
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
+    ├── ≡📙:5:C on 7076dee
+    │   └── 📙:5:C
+    │       └── ·f084d61 (🏘️) ►A, ►B
+    └── ≡📙:6:E on 85efbe4
+        └── 📙:6:E
+            └── ·7076dee (🏘️) ►D
+    ");
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   ef9bcae (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * f084d61 (C, B, A) A2
+    |/  
+    * 7076dee (E, D) A1
+    * 85efbe4 (origin/main, main) M
+    ");
+
+    // Adding `B` as tip of an unapplied stack brings in the whole stack.
+    // BUT: Currently it overrides the previous stack C, which points to the same commit, and avoids any merge!
+    // Accepting this behaviour for now as it's quite rare to have such ambiguity, even though I'd love if one day
+    // for this to just work as people might intuitively want, even if that means the same commit is used multiple times.
+    let out =
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
+    let graph = out.graph;
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
+    ├── ≡📙:6:B on 7076dee
+    │   └── 📙:6:B
+    │       └── ·f084d61 (🏘️) ►A, ►C
+    └── ≡📙:5:E on 85efbe4
+        └── 📙:5:E
+            └── ·7076dee (🏘️) ►D
+    ");
+
+    // Applying C again… works, but it's creating a dependent stack.
+    // This is what happens because we notice that C can't be applied as independent stack due to the graph algorithm,
+    // and then it tries it a dependent stack, which should always work.
+    let out =
+        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, default_options())
+            .unwrap();
+    let graph = out.graph;
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
+    ├── ≡📙:5:C on 7076dee
+    │   ├── 📙:5:C
+    │   └── 📙:6:B
+    │       └── ·f084d61 (🏘️) ►A
+    └── ≡📙:7:E on 85efbe4
+        └── 📙:7:E
+            └── ·7076dee (🏘️) ►D
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
@@ -597,6 +757,316 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
     ");
 
     // TODO: add all other dependent branches as well.
+    Ok(())
+}
+
+#[test]
+fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
+    let (_tmp, mut graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "various-heads-for-multi-line-merge-conflict",
+            |_meta| {},
+        )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * d3cce74 (clean-A) add A
+    | * 115e41b (clean-B) add B
+    |/  
+    | * 34c4591 (clean-C) add C
+    |/  
+    | * bf09eae (conflict-F1) add F1
+    |/  
+    | * f2ce66d (conflict-F2) add F2
+    |/  
+    | * 4bbb93c (HEAD -> conflict-hero) add conflicting-F2
+    | * 98519e9 add conflicting-F1
+    |/  
+    * 85efbe4 (main, gitbutler/workspace) M
+    ");
+
+    assert!(git(&repo).args(["checkout", "main"]).status()?.success());
+    assert!(
+        git(&repo)
+            .args(["branch", "-d", "gitbutler/workspace"])
+            .status()?
+            .success()
+    );
+    graph = graph.redo_traversal_with_overlay(&repo, &meta, Overlay::default())?;
+
+    for branch_to_apply in [
+        "clean-A",
+        "conflict-F1",
+        "clean-B",
+        "conflict-F2",
+        "clean-C",
+    ] {
+        let ws = graph.to_workspace()?;
+        let out = but_workspace::branch::apply(
+            Category::LocalBranch
+                .to_full_name(branch_to_apply)?
+                .as_ref(),
+            &ws,
+            &repo,
+            &mut meta,
+            default_options(),
+        )
+        .unwrap_or_else(|err| panic!("{branch_to_apply}: {err}"));
+        graph = out.graph.into_owned();
+    }
+
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓! on 85efbe4
+    ├── ≡📙:6:clean-C on 85efbe4
+    │   └── 📙:6:clean-C
+    │       └── ·34c4591 (🏘️)
+    ├── ≡📙:5:conflict-F2 on 85efbe4
+    │   └── 📙:5:conflict-F2
+    │       └── ·f2ce66d (🏘️)
+    ├── ≡📙:4:clean-B on 85efbe4
+    │   └── 📙:4:clean-B
+    │       └── ·115e41b (🏘️)
+    ├── ≡📙:3:conflict-F1 on 85efbe4
+    │   └── 📙:3:conflict-F1
+    │       └── ·bf09eae (🏘️)
+    ├── ≡📙:2:clean-A on 85efbe4
+    │   └── 📙:2:clean-A
+    │       └── ·d3cce74 (🏘️)
+    └── ≡📙:7:main on 85efbe4
+        └── 📙:7:main
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *-------.   e86e251 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\ \ \ \ \  
+    | | | | | * 34c4591 (clean-C) add C
+    | |_|_|_|/  
+    |/| | | |   
+    | | | | * f2ce66d (conflict-F2) add F2
+    | |_|_|/  
+    |/| | |   
+    | | | * 115e41b (clean-B) add B
+    | |_|/  
+    |/| |   
+    | | * bf09eae (conflict-F1) add F1
+    | |/  
+    |/|   
+    | * d3cce74 (clean-A) add A
+    |/  
+    | * 4bbb93c (conflict-hero) add conflicting-F2
+    | * 98519e9 add conflicting-F1
+    |/  
+    * 85efbe4 (main) M
+    ");
+
+    let ws = graph.to_workspace()?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/conflict-hero"),
+        &ws,
+        &repo,
+        &mut meta,
+        default_options(),
+    )?;
+    insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{:#?}", out)), @r"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+        conflicting_stack_ids: [
+            1,
+            2,
+        ],
+    }
+    ");
+    let graph = out.graph.into_owned();
+    let ws = graph.to_workspace()?;
+    // By default, it fails and just reports the conflicting stacks, so it's the same as it was before.
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓! on 85efbe4
+    ├── ≡📙:6:clean-C on 85efbe4
+    │   └── 📙:6:clean-C
+    │       └── ·34c4591 (🏘️)
+    ├── ≡📙:5:conflict-F2 on 85efbe4
+    │   └── 📙:5:conflict-F2
+    │       └── ·f2ce66d (🏘️)
+    ├── ≡📙:4:clean-B on 85efbe4
+    │   └── 📙:4:clean-B
+    │       └── ·115e41b (🏘️)
+    ├── ≡📙:3:conflict-F1 on 85efbe4
+    │   └── 📙:3:conflict-F1
+    │       └── ·bf09eae (🏘️)
+    ├── ≡📙:2:clean-A on 85efbe4
+    │   └── 📙:2:clean-A
+    │       └── ·d3cce74 (🏘️)
+    └── ≡📙:8:main on 85efbe4
+        └── 📙:8:main
+    ");
+    let conflicting_stacks = out
+        .conflicting_stack_ids
+        .iter()
+        .filter_map(|id| {
+            ws.find_stack_by_id(*id)
+                .and_then(|s| s.ref_name().map(|rn| rn.to_string()))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        conflicting_stacks,
+        ["refs/heads/conflict-F1", "refs/heads/conflict-F2"]
+    );
+
+    let out = but_workspace::branch::apply(
+        r("refs/heads/conflict-hero"),
+        &ws,
+        &repo,
+        &mut meta,
+        but_workspace::branch::apply::Options {
+            on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
+            ..default_options()
+        },
+    )?;
+    // It does still report conflicts.
+    insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{:#?}", out)), @r"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+        conflicting_stack_ids: [
+            1,
+            2,
+        ],
+    }
+    ");
+
+    // Now the other stacks are unapplied.
+    let graph = out.graph.into_owned();
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓! on 85efbe4
+    ├── ≡📙:5:conflict-hero on 85efbe4
+    │   └── 📙:5:conflict-hero
+    │       ├── ·4bbb93c (🏘️)
+    │       └── ·98519e9 (🏘️)
+    ├── ≡📙:4:clean-C on 85efbe4
+    │   └── 📙:4:clean-C
+    │       └── ·34c4591 (🏘️)
+    ├── ≡📙:3:clean-B on 85efbe4
+    │   └── 📙:3:clean-B
+    │       └── ·115e41b (🏘️)
+    ├── ≡📙:2:clean-A on 85efbe4
+    │   └── 📙:2:clean-A
+    │       └── ·d3cce74 (🏘️)
+    └── ≡📙:6:main on 85efbe4
+        └── 📙:6:main
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *-----.   2eed225 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\ \ \ \  
+    | | | | * 4bbb93c (conflict-hero) add conflicting-F2
+    | | | | * 98519e9 add conflicting-F1
+    | |_|_|/  
+    |/| | |   
+    | | | * 34c4591 (clean-C) add C
+    | |_|/  
+    |/| |   
+    | | * 115e41b (clean-B) add B
+    | |/  
+    |/|   
+    | * d3cce74 (clean-A) add A
+    |/  
+    | * bf09eae (conflict-F1) add F1
+    |/  
+    | * f2ce66d (conflict-F2) add F2
+    |/  
+    * 85efbe4 (main) M
+    ");
+
+    let ws_md = sanitize_uuids_and_timestamps(format!(
+        "{:#?}",
+        ws.metadata
+            .as_ref()
+            .expect("managed workspace has metadata")
+    ));
+    insta::assert_snapshot!(ws_md, @r#"
+    Workspace {
+        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+        stacks: [
+            WorkspaceStack {
+                id: 1,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/main",
+                        archived: false,
+                    },
+                ],
+                in_workspace: true,
+            },
+            WorkspaceStack {
+                id: 2,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/clean-A",
+                        archived: false,
+                    },
+                ],
+                in_workspace: true,
+            },
+            WorkspaceStack {
+                id: 3,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/conflict-F1",
+                        archived: false,
+                    },
+                ],
+                in_workspace: false,
+            },
+            WorkspaceStack {
+                id: 4,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/clean-B",
+                        archived: false,
+                    },
+                ],
+                in_workspace: true,
+            },
+            WorkspaceStack {
+                id: 5,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/conflict-F2",
+                        archived: false,
+                    },
+                ],
+                in_workspace: false,
+            },
+            WorkspaceStack {
+                id: 6,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/clean-C",
+                        archived: false,
+                    },
+                ],
+                in_workspace: true,
+            },
+            WorkspaceStack {
+                id: 7,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/conflict-hero",
+                        archived: false,
+                    },
+                ],
+                in_workspace: true,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+        push_remote: None,
+    }
+    "#);
+
     Ok(())
 }
 
