@@ -95,9 +95,9 @@ pub mod merge {
         /// In order to find out exactly which branches conflicts, we repeat the whole operations with different configuration.
         /// One could be better and only repeat what didn't change, to avoid repeating unnecessarily.
         /// But that shouldn't usually matter unless in the biggest repositories with tree-merge times past a 500ms or so.
-        #[instrument(level = tracing::Level::DEBUG, skip(graph, repo), err(Debug))]
-        pub fn from_new_merge_with_metadata(
-            stacks: &[but_core::ref_metadata::WorkspaceStack],
+        #[instrument(level = tracing::Level::DEBUG, skip(stacks, graph, repo), err(Debug))]
+        pub fn from_new_merge_with_metadata<'a>(
+            stacks: impl IntoIterator<Item = &'a but_core::ref_metadata::WorkspaceStack>,
             graph: &but_graph::Graph,
             repo: &gix::Repository,
             hero_stack: Option<&gix::refs::FullNameRef>,
@@ -123,7 +123,7 @@ pub mod merge {
             }
             let mut missing_stacks = Vec::new();
             let mut tips: Vec<_> = stacks
-                .iter()
+                .into_iter()
                 .filter_map(|s| s.branches.first())
                 .filter_map(|top_segment| {
                     let stack_tip_name = top_segment.ref_name.as_ref();

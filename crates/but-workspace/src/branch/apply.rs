@@ -10,7 +10,8 @@ pub struct Outcome<'graph> {
     pub graph: Cow<'graph, but_graph::Graph>,
     /// `true` if we created the given workspace ref as it didn't exist yet.
     pub workspace_ref_created: bool,
-    /// If not `None`, an actual merge was attempted, but depending on [the settings](OnWorkspaceMergeConflict), this was persisted or not.
+    /// If not `None`, an actual merge was attempted, but depending on [the settings](OnWorkspaceMergeConflict),
+    /// this was persisted or not.
     pub workspace_merge: Option<crate::commit::merge::Outcome>,
     /// The ids of all stacks that were conflicting and thus didn't get applied, and tip ref names can be derived from that.
     pub conflicting_stack_ids: Vec<StackId>,
@@ -26,10 +27,19 @@ impl Outcome<'_> {
 
 impl std::fmt::Debug for Outcome<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Outcome")
-            .field("workspace_changed", &self.workspace_changed())
-            .field("workspace_ref_created", &self.workspace_ref_created)
-            .finish()
+        let Outcome {
+            graph: _,
+            workspace_ref_created,
+            workspace_merge: _,
+            conflicting_stack_ids,
+        } = self;
+        let mut dbg = f.debug_struct("Outcome");
+        dbg.field("workspace_changed", &self.workspace_changed())
+            .field("workspace_ref_created", workspace_ref_created);
+        if !conflicting_stack_ids.is_empty() {
+            dbg.field("conflicting_stack_ids", conflicting_stack_ids);
+        }
+        dbg.finish()
     }
 }
 
@@ -75,6 +85,7 @@ pub struct Options {
     pub order: Option<usize>,
 }
 
+#[allow(clippy::indexing_slicing)]
 pub(crate) mod function {
     use super::{IntegrationMode, Options, Outcome, WorkspaceReferenceNaming};
     use crate::WorkspaceCommit;
@@ -270,7 +281,22 @@ pub(crate) mod function {
         {
             let ws_mut: &mut Workspace = &mut ws_md;
             for rn in &branches_to_apply {
-                ws_mut.add_or_insert_new_stack_if_not_present(rn, order);
+                let (stack_idx, branch_idx) =
+                    ws_mut.add_or_insert_new_stack_if_not_present(rn, order);
+                let stack = &mut ws_mut.stacks[stack_idx];
+                if branch_idx != 0 && !stack.in_workspace {
+                    // For now, just delete the branches that came before it so it's index 0/top most.
+                    // That way we bring in a new portion of the stack, but discard information like the `archived` flag
+                    // which probably leads to other issues down the line.
+                    let mut segment_idx = 0;
+                    stack.branches.retain(|_| {
+                        let keep = segment_idx >= branch_idx;
+                        segment_idx += 1;
+                        keep
+                    });
+                }
+                // Just be sure the new (or old) stack is in the workspace, and we will bring in the whole stack.
+                stack.in_workspace = true;
             }
         }
         let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
@@ -349,11 +375,12 @@ pub(crate) mod function {
         // merge.
         let mut in_memory_repo = repo.clone().for_tree_diffing()?.with_object_memory();
         let merge_result = WorkspaceCommit::from_new_merge_with_metadata(
-            &ws_md.stacks,
+            ws_md.stacks.iter().filter(|s| s.in_workspace),
             workspace.graph,
             &in_memory_repo,
             Some(branch),
         )?;
+        ensure_no_missing_stacks(&merge_result)?;
 
         if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
             let conflicting_stack_ids =
@@ -432,11 +459,12 @@ pub(crate) mod function {
             // Redo the merge, with the different stack configuration.
             // Note that this is the exception, typically using stacks will be fine.
             let merge_result = WorkspaceCommit::from_new_merge_with_metadata(
-                &ws_md.stacks,
+                ws_md.stacks.iter().filter(|s| s.in_workspace),
                 workspace.graph,
                 &in_memory_repo,
                 Some(branch),
             )?;
+            ensure_no_missing_stacks(&merge_result)?;
 
             if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
                 let conflicting_stack_ids =
@@ -609,6 +637,17 @@ pub(crate) mod function {
                 WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => true,
             },
             IntegrationMode::MergeIfNeeded => false,
+        }
+    }
+
+    fn ensure_no_missing_stacks(merge: &crate::commit::merge::Outcome) -> anyhow::Result<()> {
+        if merge.missing_stacks.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(
+                "Somehow some of the new stacks weren't part of the graph: {:#?}",
+                merge.missing_stacks
+            ))
         }
     }
 }

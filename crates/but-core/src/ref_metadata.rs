@@ -60,20 +60,21 @@ impl Workspace {
 
     /// Insert `branch` as new stack if it's not yet contained in the workspace and if `order` is not `None` or push
     /// it to the end of the stack list.
-    /// If a new stack is created, it's considered to be *in* the workspace. If there is an existing stack, it will
-    /// also be put *in* the workspace as a side effect.
+    /// If a new stack is created, it's considered to be *in* the workspace. If there is an existing stack, it
+    /// may also be marked as *outside the workspace*, we do not change this.
     /// Note that `order` is only relevant at insertion time, not if the branch already exists.
-    /// Returns `true` if the ref was newly added, or `false` if it already existed.
+    /// Returns `(stack_id, segment_idx)` of the stack that was either newly created, or already present.
+    /// Note that `segment_idx` may be non-0 if `branch` already existed as segment, and the caller has to
+    /// deal with this.
     pub fn add_or_insert_new_stack_if_not_present(
         &mut self,
         branch: &FullNameRef,
         order: Option<usize>,
-    ) -> bool {
-        if let Some((stack_idx, _)) =
+    ) -> (usize, usize) {
+        if let Some(owners) =
             self.find_owner_indexes_by_name(branch, StackKind::AppliedAndUnapplied)
         {
-            self.stacks[stack_idx].in_workspace = true;
-            return false;
+            return owners;
         };
 
         let stack = WorkspaceStack {
@@ -84,15 +85,18 @@ impl Workspace {
                 archived: false,
             }],
         };
-        match order.map(|idx| idx.min(self.stacks.len())) {
+        let stack_idx = match order.map(|idx| idx.min(self.stacks.len())) {
             None => {
+                let idx = self.stacks.len();
                 self.stacks.push(stack);
+                idx
             }
             Some(existing_index) => {
                 self.stacks.insert(existing_index, stack);
+                existing_index
             }
-        }
-        true
+        };
+        (stack_idx, 0)
     }
 
     /// Insert `branch` as new segment if it's not yet contained in the workspace,
