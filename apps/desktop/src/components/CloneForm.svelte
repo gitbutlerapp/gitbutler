@@ -4,9 +4,7 @@
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BACKEND } from '$lib/backend';
 	import { GIT_SERVICE } from '$lib/git/gitService';
-	import { handleAddProjectOutcome } from '$lib/project/project';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { projectPath } from '$lib/routes/routes.svelte';
+	import { useAddProject } from '$lib/project/useProjects.svelte';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -15,7 +13,6 @@
 	import * as Sentry from '@sentry/sveltekit';
 	import { onMount } from 'svelte';
 
-	const projectsService = inject(PROJECTS_SERVICE);
 	const gitService = inject(GIT_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
 	const backend = inject(BACKEND);
@@ -61,6 +58,14 @@
 		return String(error);
 	}
 
+	const { addProject } = useAddProject(() => {
+		posthog.captureOnboarding(
+			OnboardingEvent.ClonedProjectFailed,
+			'Failed to add project after cloning'
+		);
+		throw new Error('Failed to add project after cloning.');
+	});
+
 	async function cloneRepository() {
 		loading = true;
 		savedTargetDirPath.set(targetDirPath);
@@ -87,16 +92,7 @@
 			await gitService.cloneRepo(repositoryUrl, targetDir);
 
 			posthog.captureOnboarding(OnboardingEvent.ClonedProject);
-			const outcome = await projectsService.addProject(targetDir);
-			if (!outcome) {
-				posthog.captureOnboarding(
-					OnboardingEvent.ClonedProjectFailed,
-					'Failed to add project after cloning'
-				);
-				throw new Error('Failed to add project after cloning.');
-			}
-
-			handleAddProjectOutcome(outcome, (project) => goto(projectPath(project.id)));
+			await addProject(targetDir);
 		} catch (e) {
 			Sentry.captureException(e);
 			const errorMessage = getErrorMessage(e);

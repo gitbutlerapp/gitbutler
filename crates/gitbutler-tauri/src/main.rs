@@ -210,6 +210,7 @@ fn main() {
                     but_api::projects::get_project,
                     but_api::projects::update_project,
                     but_api::projects::delete_project,
+                    but_api::projects::init_git_repository,
                     projects::list_projects,
                     projects::set_project_active,
                     projects::open_project_in_window,
