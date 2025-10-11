@@ -1,3 +1,4 @@
+import { messageQueueAdapter, messageQueueSlice } from '$lib/codegen/messageQueueSlice';
 import { tauriBaseQuery } from '$lib/state/backendQuery';
 import { butlerModule } from '$lib/state/butlerModule';
 import { ReduxTag } from '$lib/state/tags';
@@ -56,6 +57,10 @@ export class ClientState {
 	// incorrect casting `as` seems difficult to avoid.
 	rootState = $state.raw<ReturnType<typeof this.store.getState> | undefined>(undefined);
 	readonly uiState = $derived(this.rootState?.uiState);
+
+	readonly messageQueue = $derived(
+		this.rootState?.messageQueue ?? messageQueueAdapter.getInitialState()
+	);
 
 	/** rtk-query api for communicating with the back end. */
 	readonly backendApi: BackendApi;
@@ -145,16 +150,24 @@ function createStore(params: {
 		backendApi,
 		githubApi,
 		gitlabApi
-	).inject({
-		reducerPath: uiStateSlice.reducerPath,
-		reducer: persistReducer(
-			{
-				key: uiStateSlice.reducerPath,
-				storage: storage
-			},
-			uiStateSlice.reducer
-		)
-	});
+	)
+		.inject({
+			reducerPath: uiStateSlice.reducerPath,
+			reducer: persistReducer(
+				{
+					key: uiStateSlice.reducerPath,
+					storage: storage
+				},
+				uiStateSlice.reducer
+			)
+		})
+		.inject({
+			reducerPath: messageQueueSlice.reducerPath,
+			reducer: persistReducer(
+				{ key: messageQueueSlice.reducerPath, storage },
+				messageQueueSlice.reducer
+			)
+		});
 
 	const store = configureStore({
 		reducer,
