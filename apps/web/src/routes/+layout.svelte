@@ -178,7 +178,12 @@
 		flex-direction: column;
 		width: 100%;
 		cursor: var(--cursor-custom);
-		cursor: var(--cursor-custom-2x);
+	}
+
+	@supports (-webkit-image-set(url('') 1x)) {
+		.cursor-wrapper {
+			cursor: var(--cursor-custom-2x);
+		}
 	}
 
 	.cursor-wrapper :global(a),
@@ -186,6 +191,14 @@
 	.cursor-wrapper :global([role='button']),
 	.cursor-wrapper :global([role='link']) {
 		cursor: var(--cursor-pointer);
-		cursor: var(--cursor-pointer-2x);
+	}
+
+	@supports (-webkit-image-set(url('') 1x)) {
+		.cursor-wrapper :global(a),
+		.cursor-wrapper :global(button),
+		.cursor-wrapper :global([role='button']),
+		.cursor-wrapper :global([role='link']) {
+			cursor: var(--cursor-pointer-2x);
+		}
 	}
 </style>
