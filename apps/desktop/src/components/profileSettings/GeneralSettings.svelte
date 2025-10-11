@@ -52,7 +52,8 @@
 		{ schemeIdentifer: 'vscode-insiders', displayName: 'VSCode Insiders' },
 		{ schemeIdentifer: 'windsurf', displayName: 'Windsurf' },
 		{ schemeIdentifer: 'zed', displayName: 'Zed' },
-		{ schemeIdentifer: 'cursor', displayName: 'Cursor' }
+		{ schemeIdentifer: 'cursor', displayName: 'Cursor' },
+		{ schemeIdentifer: 'trae', displayName: 'Trae' }
 	];
 	const editorOptionsForSelect = editorOptions.map((option) => ({
 		label: option.displayName,
