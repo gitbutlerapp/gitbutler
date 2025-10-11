@@ -200,14 +200,20 @@ pub fn push_stack(
     for branch in stack_branches {
         if branch.archived {
             // Nothing to push for this one
+            tracing::debug!(branch = branch.name, "skipping archived branch for pushing");
             continue;
         }
         if branch.head_oid(&gix_repo)? == merge_base.id().to_gix() {
             // Nothing to push for this one
+            tracing::debug!(
+                branch = branch.name,
+                "nothing to push as head_oid == merge_base"
+            );
             continue;
         }
         if branch_integrated(&mut check_commit, &branch, repo, &gix_repo)? {
             // Already integrated, nothing to push
+            tracing::debug!(branch = branch.name, "Skipping push for integrated branch");
             continue;
         }
         let push_details = stack.push_details(ctx, branch.name().to_owned())?;
