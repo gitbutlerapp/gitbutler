@@ -138,9 +138,9 @@
 		display: grid;
 		grid-template-columns:
 			[full-start]
-			1fr 1fr
+			repeat(2, 1fr)
 			[narrow-start]
-			1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
+			repeat(8, 1fr)
 			[narrow-end]
 			1fr [off-gridded] 1fr
 			[full-end];
@@ -158,7 +158,7 @@
 				[full-start]
 				1fr
 				[narrow-start]
-				1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
+				repeat(10, 1fr)
 				[narrow-end off-gridded]
 				1fr
 				[full-end];
@@ -167,7 +167,7 @@
 		@media (--mobile-viewport) {
 			grid-template-columns:
 				[full-start narrow-start]
-				1fr 1fr 1fr 1fr
+				repeat(4, 1fr)
 				[narrow-end full-end off-gridded];
 			row-gap: 40px;
 		}
