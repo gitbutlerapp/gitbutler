@@ -133,7 +133,7 @@
 	{@render children?.()}
 {/if}
 
-<style>
+<style lang="postcss">
 	.marketing-page {
 		display: grid;
 		grid-template-columns:
