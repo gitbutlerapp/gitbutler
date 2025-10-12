@@ -207,7 +207,7 @@
 				1fr
 				[narrow-start]
 				1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
-				[narrow-end off-gridded]
+				[narrow-end off-center]
 				1fr
 				[full-end];
 		}
@@ -216,7 +216,7 @@
 			grid-template-columns:
 				[full-start narrow-start]
 				1fr 1fr 1fr 1fr
-				[narrow-end full-end off-gridded];
+				[narrow-end full-end off-center];
 		}
 	}
 

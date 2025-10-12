@@ -208,7 +208,7 @@
 	@media (max-width: 740px) {
 		.features {
 			grid-template-columns: 1fr;
-			grid-column: narrow-start / off-gridded;
+			grid-column: narrow-start / off-center;
 			margin-top: 24px;
 		}
 
