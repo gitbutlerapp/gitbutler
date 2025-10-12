@@ -186,11 +186,11 @@
 		grid-template-rows: auto 1fr auto;
 		grid-template-columns:
 			[full-start]
-			1fr 1fr
+			repeat(2, 1fr)
 			[narrow-start]
-			1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
+			repeat(8, 1fr)
 			[narrow-end]
-			1fr 1fr
+			1fr [off-center] 1fr
 			[full-end];
 		column-gap: var(--layout-col-gap);
 		row-gap: 24px;
@@ -206,8 +206,8 @@
 				[full-start]
 				1fr
 				[narrow-start]
-				1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr
-				[narrow-end off-gridded]
+				repeat(10, 1fr)
+				[narrow-end off-center]
 				1fr
 				[full-end];
 		}
@@ -215,8 +215,8 @@
 		@media (--mobile-viewport) {
 			grid-template-columns:
 				[full-start narrow-start]
-				1fr 1fr 1fr 1fr
-				[narrow-end full-end off-gridded];
+				repeat(4, 1fr)
+				[narrow-end full-end off-center];
 		}
 	}
 

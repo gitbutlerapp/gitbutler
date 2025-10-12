@@ -133,7 +133,7 @@
 	{@render children?.()}
 {/if}
 
-<style>
+<style lang="postcss">
 	.marketing-page {
 		display: grid;
 		grid-template-columns:
@@ -142,7 +142,7 @@
 			[narrow-start]
 			repeat(8, 1fr)
 			[narrow-end]
-			1fr [off-gridded] 1fr
+			1fr [off-center] 1fr
 			[full-end];
 		column-gap: var(--layout-col-gap);
 		row-gap: 60px;
@@ -159,7 +159,7 @@
 				1fr
 				[narrow-start]
 				repeat(10, 1fr)
-				[narrow-end off-gridded]
+				[narrow-end off-center]
 				1fr
 				[full-end];
 		}
@@ -168,7 +168,7 @@
 			grid-template-columns:
 				[full-start narrow-start]
 				repeat(4, 1fr)
-				[narrow-end full-end off-gridded];
+				[narrow-end full-end off-center];
 			row-gap: 40px;
 		}
 	}
