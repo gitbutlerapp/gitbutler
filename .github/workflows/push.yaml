@@ -94,8 +94,6 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -107,6 +105,8 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+      - run: sudo scripts/install-debian-dependencies.sh
+        name: Install Dependencies
       - run: cargo fmt --check --all
       - run: cargo check --workspace --all-targets
       - name: cargo clippy
@@ -138,16 +138,19 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      # TODO(qix-): we have to exclude the app here for now because for some
-      # TODO(qix-): reason it doesn't build with the docs feature enabled.
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.1
+        with:
+          shared-key: rust-docs
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - run: sudo scripts/install-debian-dependencies.sh
+        name: Install Dependencies
       - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
         env:
           RUSTDOCFLAGS: -Dwarnings
@@ -182,18 +185,7 @@ jobs:
         with:
           shared-key: rust-testing
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - run: |
-          sudo apt update
-          sudo apt install libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libxdo-dev \
-            libssl-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            cmake
+      - run: sudo scripts/install-debian-dependencies.sh
         name: Install Dependencies
       - run: |
           cargo test --workspace
