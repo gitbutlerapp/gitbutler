@@ -17,6 +17,8 @@ jobs:
   test:
     name: e2e-blackbox
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -24,28 +26,21 @@ jobs:
         with:
           persist-credentials: false
         if: ${{ github.event_name != 'workflow_dispatch' }}
+        name: Checkout
       - uses: actions/checkout@v5
+        name: Checkout (specific commit from manual dispatch)
         if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
           persist-credentials: false
           ref: ${{ github.event.inputs.sha }}
-      - name: Install Tauri OS dependencies
-        run: |
-          sudo scripts/install-tauri-debian-dependencies.sh
-          sudo apt install webkit2gtk-driver ffmpeg xvfb
-      - name: Setup rust-toolchain stable
-        id: rust-toolchain
-        uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v4
+      # TODO: put these into the docker image
+      - name: Install Webdriver dependencies
+        run: apt update && apt install -y webkit2gtk-driver ffmpeg xvfb
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.1
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: cargo-${{ steps.rust-toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: cargo-
+          shared-key: e2e-blackbox-rust-binaries
+          save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
       - name: Build CLI
