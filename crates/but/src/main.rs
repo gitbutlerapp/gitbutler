@@ -208,9 +208,9 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::New, props(start, &result)).ok();
             result
         }
-        Subcommands::Describe { commit } => {
+        Subcommands::Describe { target } => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result = describe::edit_commit_message(&project, args.json, commit);
+            let result = describe::describe_target(&project, args.json, target);
             metrics_if_configured(app_settings, CommandName::Describe, props(start, &result)).ok();
             result
         }

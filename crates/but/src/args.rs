@@ -97,8 +97,8 @@ For examples see `but rub --help`."
     /// Edit the commit message of the specified commit.
     #[clap(alias = "desc")]
     Describe {
-        /// Commit ID to edit the message for
-        commit: String,
+        /// Commit ID to edit the message for, or branch ID to rename
+        target: String,
     },
     /// Show operation history (last 20 entries).
     Oplog {

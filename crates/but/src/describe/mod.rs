@@ -5,24 +5,20 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::Project;
 
-pub(crate) fn edit_commit_message(
-    project: &Project,
-    _json: bool,
-    commit_target: &str,
-) -> Result<()> {
+pub(crate) fn describe_target(project: &Project, _json: bool, target: &str) -> Result<()> {
     let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     // Resolve the commit ID
-    let cli_ids = CliId::from_str(&mut ctx, commit_target)?;
+    let cli_ids = CliId::from_str(&mut ctx, target)?;
 
     if cli_ids.is_empty() {
-        anyhow::bail!("Commit '{}' not found", commit_target);
+        anyhow::bail!("ID '{}' not found", target);
     }
 
     if cli_ids.len() > 1 {
         anyhow::bail!(
-            "Commit '{}' is ambiguous. Found {} matches",
-            commit_target,
+            "Target ID '{}' is ambiguous. Found {} matches",
+            target,
             cli_ids.len()
         );
     }
@@ -30,6 +26,9 @@ pub(crate) fn edit_commit_message(
     let cli_id = &cli_ids[0];
 
     match cli_id {
+        CliId::Branch { name } => {
+            edit_branch_name(&ctx, project, name)?;
+        }
         CliId::Commit { oid } => {
             edit_commit_message_by_id(&ctx, project, *oid)?;
         }
@@ -38,6 +37,33 @@ pub(crate) fn edit_commit_message(
         }
     }
 
+    Ok(())
+}
+
+fn edit_branch_name(_ctx: &CommandContext, project: &Project, branch_name: &str) -> Result<()> {
+    // Find which stack this branch belongs to
+    let stacks =
+        but_api::workspace::stacks(project.id, Some(but_workspace::StacksFilter::InWorkspace))?;
+    for stack_entry in &stacks {
+        if stack_entry.heads.iter().all(|b| b.name != branch_name) {
+            // Not found in this stack,
+            continue;
+        }
+
+        if let Some(sid) = stack_entry.id {
+            let new_name = get_branch_name_from_editor(branch_name)?;
+            but_api::stack::update_branch_name(
+                project.id,
+                sid,
+                branch_name.to_owned(),
+                new_name.clone(),
+            )?;
+            println!("Renamed branch '{}' to '{}", branch_name, new_name);
+            return Ok(());
+        }
+    }
+
+    println!("Branch '{}' not found in any stack", branch_name);
     Ok(())
 }
 
@@ -202,6 +228,49 @@ fn get_commit_message_from_editor(
     }
 
     Ok(message)
+}
+
+fn get_branch_name_from_editor(current_name: &str) -> Result<String> {
+    let editor = get_editor_command()?;
+
+    let temp_dir = std::env::temp_dir();
+    let temp_file = temp_dir.join(format!("but_branch_name_{}", std::process::id()));
+
+    let mut template = String::new();
+    template.push_str(current_name);
+    if !current_name.is_empty() && !current_name.ends_with('\n') {
+        template.push('\n');
+    }
+    template.push_str("\n# Please enter the new branch name. Lines starting\n");
+    template.push_str("# with '#' will be ignored, and an empty name aborts the operation.\n");
+    template.push_str("#\n");
+
+    std::fs::write(&temp_file, template)?;
+
+    let status = std::process::Command::new(&editor)
+        .arg(&temp_file)
+        .status()?;
+
+    if !status.success() {
+        anyhow::bail!("Editor exited with non-zero status");
+    }
+
+    let content = std::fs::read_to_string(&temp_file)?;
+    std::fs::remove_file(&temp_file).ok();
+
+    let branch_name = content
+        .lines()
+        .filter(|line| !line.starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string();
+
+    if branch_name.is_empty() {
+        anyhow::bail!("Aborting due to empty branch name");
+    }
+
+    Ok(branch_name)
 }
 
 fn get_editor_command() -> Result<String> {
