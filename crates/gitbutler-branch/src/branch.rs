@@ -81,3 +81,9 @@ impl TryFrom<&BStr> for BranchIdentity {
         gix::refs::PartialName::try_from(value.to_owned()).map(BranchIdentity)
     }
 }
+
+impl std::fmt::Display for BranchIdentity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.as_ref().as_bstr().to_str_lossy())
+    }
+}

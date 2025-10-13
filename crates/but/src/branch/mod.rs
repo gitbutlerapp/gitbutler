@@ -4,6 +4,8 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use std::io::{self, Write};
 
+mod list;
+
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
     #[clap(subcommand)]
@@ -28,6 +30,12 @@ pub enum Subcommands {
         /// Force deletion without confirmation
         #[clap(long, short = 'f')]
         force: bool,
+    },
+    /// List the branches in the repository
+    List {
+        /// Show only local branches
+        #[clap(long, short = 'l')]
+        local: bool,
     },
 }
 
@@ -124,6 +132,7 @@ pub fn handle(cmd: &Subcommands, project: &Project, _json: bool) -> anyhow::Resu
             println!("Branch '{}' not found in any stack", branch_name);
             Ok(())
         }
+        Subcommands::List { local } => list::list(project, *local),
     }
 }
 
