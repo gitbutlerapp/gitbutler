@@ -13,6 +13,8 @@ jobs:
   test:
     name: e2e-playwright
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     timeout-minutes: 60
     env:
       DESKTOP_PORT: 3000
@@ -21,8 +23,6 @@ jobs:
       VITE_BUTLER_PORT: 6978
       VITE_BUTLER_HOST: 'localhost'
       VITE_BUILD_TARGET: 'web'
-      BUT_TESTING: ${{ github.workspace}}/target/debug/but-testing
-      GIT_CONFIG_GLOBAL: ${{ github.workspace }}/e2e/playwright/fixtures/.gitconfig
     steps:
       - uses: actions/checkout@v5
         with:
@@ -36,12 +36,12 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: unix-rust-testing-v2
-      - name: Install Tauri OS dependencies
-        run: sudo scripts/install-tauri-debian-dependencies.sh
-      - name: Setup rust-toolchain stable
-        id: rust-toolchain
-        uses: dtolnay/rust-toolchain@stable
+          shared-key: rust-but-server-gitbutler-git-but-testing-binary
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Preset Git Configuration and but-testing location
+        run: |
+          echo "GIT_CONFIG_GLOBAL=$PWD/e2e/playwright/fixtures/.gitconfig" >> $GITHUB_ENV
+          echo BUT_TESTING=$PWD/target/debug/but-testing >> $GITHUB_ENV
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
       - id: get_playwright_version
@@ -53,8 +53,11 @@ jobs:
           path: |
             ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
-      - if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: cd e2e && pnpm exec playwright install --with-deps
+      - run: cd e2e && pnpm exec playwright install --with-deps
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - run: apt install -y libnss3
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        name: Install missing deps after cache hit
       - name: Build gitbutler-git
         run: cargo build -p gitbutler-git
       - name: Build but-server
@@ -70,6 +73,6 @@ jobs:
         with:
           name: playwright-report
           path: |
-            ${{ github.workspace }}/e2e/playwright-report/
-            ${{ github.workspace }}/e2e/test-results/
+            ./e2e/playwright-report/
+            ./e2e/test-results/
           retention-days: 30
