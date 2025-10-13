@@ -31,14 +31,8 @@ jobs:
           ref: ${{ github.event.inputs.sha }}
       - name: Install Tauri OS dependencies
         run: |
-          sudo apt update && sudo apt install -y \
-            libsoup-3.0-0 \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            libwebkit2gtk-4.1-dev \
-            webkit2gtk-driver \
-            ffmpeg \
-            xvfb
+          sudo scripts/install-tauri-debian-dependencies.sh
+          sudo apt install webkit2gtk-driver ffmpeg xvfb
       - name: Setup rust-toolchain stable
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@stable
