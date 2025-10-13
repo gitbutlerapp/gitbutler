@@ -13,6 +13,8 @@ jobs:
   test:
     name: e2e-playwright
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     timeout-minutes: 60
     env:
       DESKTOP_PORT: 3000
@@ -22,7 +24,6 @@ jobs:
       VITE_BUTLER_HOST: 'localhost'
       VITE_BUILD_TARGET: 'web'
       BUT_TESTING: ${{ github.workspace}}/target/debug/but-testing
-      GIT_CONFIG_GLOBAL: ${{ github.workspace }}/e2e/playwright/fixtures/.gitconfig
     steps:
       - uses: actions/checkout@v5
         with:
@@ -36,12 +37,15 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: unix-rust-testing-v2
-      - name: Install Tauri OS dependencies
-        run: sudo scripts/install-tauri-debian-dependencies.sh
+          shared-key: rust-but-server-binary
+          # TODO: only on master
+#          save-if: ${{ github.ref == 'refs/heads/master' }}
+      # TODO: remove this
       - name: Setup rust-toolchain stable
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@stable
+      - name: Preset Git Configuration
+        run: echo "GIT_CONFIG_GLOBAL=$PWD/e2e/playwright/fixtures/.gitconfig" >> $GITHUB_ENV
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
       - id: get_playwright_version
