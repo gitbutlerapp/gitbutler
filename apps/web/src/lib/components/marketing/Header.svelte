@@ -19,17 +19,11 @@
 </script>
 
 <!-- Link snippet for reusable navigation links -->
-{#snippet link(props: {
-	href: string;
-	label: string;
-	icon?: keyof typeof iconsJson;
-	target?: string;
-	rel?: string;
-})}
+{#snippet link(props: { href: string; label: string; icon?: keyof typeof iconsJson })}
 	<a
 		href={props.href}
-		target={props.target ?? '_blank'}
-		rel={props.rel ?? 'noopener noreferrer'}
+		target="_self"
+		rel="noopener noreferrer"
 		class="text-14 text-semibold link-snippet"
 	>
 		<span>{props.label}</span>
@@ -45,24 +39,26 @@
 	<nav class="header-nav">
 		<section class="flex gap-20">
 			{@render link({
-				href: jsonLinks.resources.downloads.url,
-				label: jsonLinks.resources.downloads.label,
-				target: '_self',
-				rel: ''
-			})}
-			{@render link({
 				href: jsonLinks.resources.documentation.url,
 				label: jsonLinks.resources.documentation.label
 			})}
 			{@render link({
 				href: jsonLinks.resources.source.url,
-				label: 'View Source',
+				label: 'Source',
 				icon: 'github-outline'
 			})}
 			{@render link({
 				href: jsonLinks.social.discord.url,
 				label: 'Community',
 				icon: 'discord-outline'
+			})}
+			{@render link({
+				href: jsonLinks.resources.blog.url,
+				label: jsonLinks.resources.blog.label
+			})}
+			{@render link({
+				href: jsonLinks.resources.downloads.url,
+				label: jsonLinks.resources.downloads.label
 			})}
 			{@render link({
 				href: jsonLinks.resources.jobs.url,
