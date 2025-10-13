@@ -153,8 +153,6 @@
 	<div class="vibe-icon {status}">
 		{#if status === 'running'}
 			<Icon name="spinner" />
-		{:else if status === 'completed'}
-			<Icon name="success" />
 		{/if}
 	</div>
 {/snippet}
@@ -293,10 +291,6 @@
 
 	.vibe-icon {
 		display: flex;
-
-		&.completed {
-			color: var(--clr-theme-succ-element);
-		}
 	}
 
 	.active-indicator {

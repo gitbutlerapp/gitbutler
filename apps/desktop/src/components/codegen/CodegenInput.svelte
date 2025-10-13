@@ -66,7 +66,7 @@
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 
-			if (loading || value.trim().length === 0) return;
+			if (value.trim().length === 0) return;
 
 			await handleSubmit();
 		}
@@ -125,7 +125,7 @@
 					<button
 						class="send-button"
 						type="button"
-						disabled={loading || value.trim().length === 0}
+						disabled={value.trim().length === 0}
 						class:loading
 						style="pop"
 						onclick={handleSubmit}
@@ -133,7 +133,6 @@
 					>
 						<svg
 							class="circle-icon"
-							class:spinner={loading}
 							viewBox="0 0 18 18"
 							fill="none"
 							xmlns="http://www.w3.org/2000/svg"
@@ -149,7 +148,6 @@
 
 						<svg
 							class="arrow-icon"
-							class:spinner={loading}
 							viewBox="0 0 16 16"
 							fill="none"
 							xmlns="http://www.w3.org/2000/svg"

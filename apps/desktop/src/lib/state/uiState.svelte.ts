@@ -337,7 +337,7 @@ export type GlobalProperty<T> = {
 	ArrayPropertyMethods<T>;
 
 /** Type returned by the build function for global properties. */
-type GlobalStore<T extends DefaultConfig> = {
+export type GlobalStore<T extends DefaultConfig> = {
 	[K in keyof T]: GlobalProperty<T[K]>;
 };
 
