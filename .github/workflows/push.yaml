@@ -94,19 +94,19 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
           shared-key: rust-lint
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - run: sudo scripts/install-debian-dependencies.sh
-        name: Install Dependencies
       - run: cargo fmt --check --all
       - run: cargo check --workspace --all-targets
       - name: cargo clippy
@@ -138,6 +138,8 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -149,8 +151,6 @@ jobs:
         with:
           shared-key: rust-docs
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - run: sudo scripts/install-debian-dependencies.sh
-        name: Install Dependencies
       - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
         env:
           RUSTDOCFLAGS: -Dwarnings
@@ -171,6 +171,8 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
     defaults:
@@ -185,8 +187,6 @@ jobs:
         with:
           shared-key: rust-testing
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - run: sudo scripts/install-debian-dependencies.sh
-        name: Install Dependencies
       - run: |
           cargo test --workspace
         env:

@@ -37,18 +37,8 @@ jobs:
         uses: Swatinem/rust-cache@v2.8.1
         with:
           shared-key: unix-rust-testing-v2
-      - run: |
-          sudo apt update
-          sudo apt install libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libxdo-dev \
-            libssl-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            cmake
+      - name: Install Tauri OS dependencies
+        run: sudo scripts/install-tauri-debian-dependencies.sh
       - name: Setup rust-toolchain stable
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@stable
