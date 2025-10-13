@@ -321,7 +321,7 @@ jobs:
         # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-private-repositories
         platform:
           - macos-13 # [macOs, x64]
-          - macos-latest # [macOs, ARM64]
+          - macos-15 # [macOs, ARM64]
           - ubuntu-24.04 # [linux, x64]
           - windows-latest # [windows, x64]
     steps:
