@@ -1,5 +1,8 @@
 name: E2E Tests Playwright
 on:
+  push:
+    branches:
+      - master
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -44,9 +47,12 @@ jobs:
           echo BUT_TESTING=$PWD/target/debug/but-testing >> $GITHUB_ENV
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
+        if: ${{ github.ref != 'refs/heads/master' }}
       - id: get_playwright_version
         uses: eviden-actions/get-playwright-version@v1
+        if: ${{ github.ref != 'refs/heads/master' }}
       - name: Cache playwright binaries
+        if: ${{ github.ref != 'refs/heads/master' }}
         uses: actions/cache@v4
         id: playwright-cache
         with:
@@ -66,8 +72,10 @@ jobs:
         run: cargo build -p but-testing
       - name: Build SvelteKit
         run: pnpm build:desktop
+        if: ${{ github.ref != 'refs/heads/master' }}
       - name: Run Playwright tests
         run: pnpm exec turbo run test:e2e:playwright
+        if: ${{ github.ref != 'refs/heads/master' }}
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:

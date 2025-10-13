@@ -2,6 +2,9 @@ name: E2E Blackbox Tests
 env:
   RUSTUP_TOOLCHAIN: stable
 on:
+  push:
+    branches:
+      - master
   pull_request:
     branches: [master]
     paths-ignore:
@@ -36,6 +39,7 @@ jobs:
       # TODO: put these into the docker image
       - name: Install Webdriver dependencies
         run: apt update && apt install -y webkit2gtk-driver ffmpeg xvfb
+        if: ${{ github.ref != 'refs/heads/master' }}
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
@@ -43,6 +47,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
+        if: ${{ github.ref != 'refs/heads/master' }}
       - name: Build CLI
         run: cargo build -p gitbutler-cli
       - name: Build SvelteKit
@@ -50,6 +55,7 @@ jobs:
       - name: Build Tauri
         run: pnpm build:test
       - name: Install tauri-driver
+        if: ${{ github.ref != 'refs/heads/master' }}
         run: |
           if [ ! -e "$HOME/.cargo/bin/tauri-driver" ]; then
             cargo install tauri-driver
@@ -58,6 +64,7 @@ jobs:
       # Run it through `xvfb-run` to have a fake display server which allows our
       # application to run headless without any changes to the code
       - name: WebdriverIO
+        if: ${{ github.ref != 'refs/heads/master' }}
         run: xvfb-run pnpm test:e2e:blackbox
 
       - uses: actions/upload-artifact@v4
