@@ -37,13 +37,9 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: rust-but-server-binary
+          shared-key: rust-but-server-gitbutler-git-but-testing-binary
           # TODO: only on master
 #          save-if: ${{ github.ref == 'refs/heads/master' }}
-      # TODO: remove this
-      - name: Setup rust-toolchain stable
-        id: rust-toolchain
-        uses: dtolnay/rust-toolchain@stable
       - name: Preset Git Configuration
         run: echo "GIT_CONFIG_GLOBAL=$PWD/e2e/playwright/fixtures/.gitconfig" >> $GITHUB_ENV
       - name: Setup node environment
