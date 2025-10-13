@@ -5,12 +5,16 @@
 	import HomePage from '$home/HomePage.svelte';
 	import { AuthService, AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
+	import { WebState } from '$lib/redux/store.svelte';
 	import { latestClientVersion } from '$lib/store';
 	import { getValidReleases } from '$lib/types/releases';
 	import { UserService, USER_SERVICE } from '$lib/user/userService';
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { provide } from '@gitbutler/core/context';
 	import { HttpClient, HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
+	import { PROJECT_SERVICE, ProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { getRecentlyPushedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService, WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { type Snippet } from 'svelte';
 	import { env } from '$env/dynamic/public';
@@ -36,14 +40,21 @@
 	const userService = new UserService(httpClient);
 	provide(USER_SERVICE, userService);
 
+	const webState = new WebState();
+	provide(APP_STATE, webState);
+
+	const projectService = new ProjectService(httpClient, webState.appDispatch);
+	provide(PROJECT_SERVICE, projectService);
+
 	const persistedToken = authService.token;
 
 	// Releases data for changelog
 	let releases: any[] = $state([]);
+	const recentProjects = getRecentlyPushedProjects();
 
 	// Check if current page should use marketing layout
 	const isMarketingPage = $derived(
-		(page.route.id === '/(app)' && !persistedToken.current) ||
+		(page.route.id === '/(app)' && recentProjects.current.length === 0) ||
 			page.route.id === '/(app)/home' ||
 			page.route.id === '/downloads' ||
 			page.route.id === '/nightlies'
