@@ -73,9 +73,11 @@
 	}
 
 	.markdown pre {
-		margin: 1em 0;
-		padding: 1em;
-		overflow: auto;
+		margin-bottom: 16px;
+		padding: 16px;
+		padding-bottom: 0;
+		overflow-x: scroll;
+		overflow-y: auto;
 		border: 1px solid var(--clr-border-3);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-2);
