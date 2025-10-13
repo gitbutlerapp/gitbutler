@@ -120,7 +120,17 @@ impl Project {
     }
     /// Finds an existing project by its path. Errors out if not found.
     pub fn find_by_path(path: &Path) -> anyhow::Result<Project> {
-        let projects = crate::list()?;
+        let mut projects = crate::list()?;
+        // Sort projects by longest pathname to shortest.
+        // We need to do this because users might have one gitbutler project
+        // nexted insided of another via a gitignored folder.
+        // We want to match on the longest project path.
+        projects.sort_by(|a, b| {
+            b.path
+                .to_string_lossy()
+                .len()
+                .cmp(&a.path.to_string_lossy().len())
+        });
         let resolved_path = if path.is_relative() {
             path.canonicalize().context("Failed to canonicalize path")?
         } else {
