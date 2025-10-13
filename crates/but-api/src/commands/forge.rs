@@ -14,7 +14,7 @@ use tracing::instrument;
 use crate::error::Error;
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<String>, Error> {
     let project = gitbutler_project::get_validated(project_id)?;
@@ -22,7 +22,7 @@ pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<Strin
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn pr_template(
     project_id: ProjectId,

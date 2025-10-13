@@ -7,14 +7,14 @@ use tracing::instrument;
 use crate::error::Error;
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn install_cli() -> Result<(), Error> {
     do_install_cli().map_err(Error::from)
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn cli_path() -> Result<String, Error> {
     let cli_path = get_cli_path()?;

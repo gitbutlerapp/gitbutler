@@ -6,14 +6,14 @@ use tracing::instrument;
 use crate::error::Error;
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn secret_get_global(handle: String) -> Result<Option<String>, Error> {
     Ok(secret::retrieve(&handle, secret::Namespace::Global)?.map(|s| s.0))
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn secret_set_global(handle: String, secret: String) -> Result<(), Error> {
     static FAIR_QUEUE: Mutex<()> = Mutex::new(());

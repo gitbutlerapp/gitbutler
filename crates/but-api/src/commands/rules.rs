@@ -12,7 +12,7 @@ use tracing::instrument;
 use crate::error::Error;
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn create_workspace_rule(
     project_id: ProjectId,
@@ -26,7 +26,7 @@ pub fn create_workspace_rule(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn delete_workspace_rule(project_id: ProjectId, id: String) -> Result<(), Error> {
     let ctx = &mut CommandContext::open(
@@ -37,7 +37,7 @@ pub fn delete_workspace_rule(project_id: ProjectId, id: String) -> Result<(), Er
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn update_workspace_rule(
     project_id: ProjectId,
@@ -51,7 +51,7 @@ pub fn update_workspace_rule(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn list_workspace_rules(project_id: ProjectId) -> Result<Vec<WorkspaceRule>, Error> {
     let ctx = &mut CommandContext::open(

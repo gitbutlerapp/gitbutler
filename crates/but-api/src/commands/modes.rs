@@ -13,7 +13,7 @@ use tracing::instrument;
 use crate::error::Error;
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn operating_mode(project_id: ProjectId) -> Result<OperatingMode, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -22,7 +22,7 @@ pub fn operating_mode(project_id: ProjectId) -> Result<OperatingMode, Error> {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn enter_edit_mode(
     project_id: ProjectId,
@@ -37,7 +37,7 @@ pub fn enter_edit_mode(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -49,7 +49,7 @@ pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), E
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -61,7 +61,7 @@ pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<(), Er
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn edit_initial_index_state(
     project_id: ProjectId,
@@ -73,7 +73,7 @@ pub fn edit_initial_index_state(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn edit_changes_from_initial(project_id: ProjectId) -> Result<Vec<TreeChange>, Error> {
     let project = gitbutler_project::get(project_id)?;

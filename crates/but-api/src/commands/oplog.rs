@@ -40,7 +40,7 @@ use crate::error::Error;
 /// # Errors
 /// Returns an error if the project cannot be found or if there is an issue accessing the oplog.
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn list_snapshots(
     project_id: ProjectId,
@@ -69,7 +69,7 @@ pub fn list_snapshots(
 /// # Errors
 /// Returns an error if the project cannot be found or if there is an issue creating the snapshot.
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn create_snapshot(
     project_id: ProjectId,
@@ -97,7 +97,7 @@ pub fn create_snapshot(
 /// This includes the state of the working directory as well as commmit history and references.
 /// Additionally, a new snapshot is created in the oplog to record the restore action.
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<(), Error> {
     let project = gitbutler_project::get(project_id).context("failed to get project")?;
@@ -122,7 +122,7 @@ pub fn restore_snapshot(project_id: ProjectId, sha: String) -> Result<(), Error>
 /// # Errors
 /// Returns an error if the project cannot be found, if the snapshot SHA is invalid, or if there is an issue computing the diff.
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn snapshot_diff(
     project_id: ProjectId,

@@ -8,7 +8,7 @@ use gitbutler_stack::StackId;
 use tracing::instrument;
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn cherry_apply_status(
     project_id: ProjectId,
@@ -25,7 +25,7 @@ pub fn cherry_apply_status(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn cherry_apply(project_id: ProjectId, subject: String, target: StackId) -> Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;

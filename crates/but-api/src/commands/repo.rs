@@ -17,7 +17,7 @@ use crate::error::Error;
 use crate::error::ToError;
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn git_get_local_config(project_id: ProjectId, key: String) -> Result<Option<String>, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -25,7 +25,7 @@ pub fn git_get_local_config(project_id: ProjectId, key: String) -> Result<Option
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn git_set_local_config(
     project_id: ProjectId,
@@ -37,7 +37,7 @@ pub fn git_set_local_config(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn check_signing_settings(project_id: ProjectId) -> Result<bool, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -45,7 +45,7 @@ pub fn check_signing_settings(project_id: ProjectId) -> Result<bool, Error> {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn git_clone_repository(repository_url: String, target_dir: PathBuf) -> Result<(), Error> {
     let should_interrupt = AtomicBool::new(false);
@@ -61,7 +61,7 @@ pub fn git_clone_repository(repository_url: String, target_dir: PathBuf) -> Resu
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn get_uncommited_files(project_id: ProjectId) -> Result<Vec<RemoteBranchFile>, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -70,7 +70,7 @@ pub fn get_uncommited_files(project_id: ProjectId) -> Result<Vec<RemoteBranchFil
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn get_commit_file(
     project_id: ProjectId,
@@ -83,7 +83,7 @@ pub fn get_commit_file(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn get_workspace_file(
     project_id: ProjectId,
@@ -94,7 +94,7 @@ pub fn get_workspace_file(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn pre_commit_hook(
     project_id: ProjectId,
@@ -107,7 +107,7 @@ pub fn pre_commit_hook(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn pre_commit_hook_diffspecs(
     project_id: ProjectId,
@@ -136,7 +136,7 @@ pub fn pre_commit_hook_diffspecs(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn post_commit_hook(project_id: ProjectId) -> Result<HookResult, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -145,7 +145,7 @@ pub fn post_commit_hook(project_id: ProjectId) -> Result<HookResult, Error> {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn message_hook(project_id: ProjectId, message: String) -> Result<MessageHookResult, Error> {
     let project = gitbutler_project::get(project_id)?;

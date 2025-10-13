@@ -9,7 +9,9 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 readme = "../../README.md"
 publish = false
 rust-version = "1.89"
+
 [features]
+tauri = ["dep:tauri"]
 
 [dependencies]
 serde.workspace = true
@@ -17,7 +19,7 @@ tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
 serde_json = "1.0.145"
 tracing.workspace = true
-tauri = { version = "^2.7.0", features = ["unstable"] } # For the #[tauri::command(async)] macro only
+tauri = { version = "^2.7.0", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
 
 but-settings.workspace = true
 but-github.workspace = true

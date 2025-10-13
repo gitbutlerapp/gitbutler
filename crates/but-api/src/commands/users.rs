@@ -59,7 +59,7 @@ impl TryFrom<User> for UserWithSecrets {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn get_user() -> Result<Option<UserWithSecrets>, Error> {
     match gitbutler_user::get_user()? {
@@ -75,7 +75,7 @@ pub fn get_user() -> Result<Option<UserWithSecrets>, Error> {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn set_user(user: User) -> Result<User, Error> {
     gitbutler_user::set_user(&user)?;
@@ -83,7 +83,7 @@ pub fn set_user(user: User) -> Result<User, Error> {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn delete_user() -> Result<(), Error> {
     gitbutler_user::delete_user()?;

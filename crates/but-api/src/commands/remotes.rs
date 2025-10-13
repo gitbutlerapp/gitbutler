@@ -7,7 +7,7 @@ use tracing::instrument;
 use crate::error::Error;
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn list_remotes(project_id: ProjectId) -> Result<Vec<GitRemote>, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -15,7 +15,7 @@ pub fn list_remotes(project_id: ProjectId) -> Result<Vec<GitRemote>, Error> {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn add_remote(project_id: ProjectId, name: String, url: String) -> Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;

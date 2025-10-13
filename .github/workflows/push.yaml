@@ -105,6 +105,21 @@ jobs:
       - run: cargo fmt --check --all
       - run: cargo check --workspace --all-targets
 
+  rust-but-binary-no-tauri:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - run: |
+          sudo apt update
+          sudo apt install -y libdbus-1-dev pkg-config
+      - run: cargo build -p but
+
   rust-docs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
