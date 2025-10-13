@@ -26,14 +26,14 @@ use crate::error::Error;
 // Parameter structs for all functions
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn normalize_branch_name(name: String) -> Result<String, Error> {
     Ok(normalize_name(&name)?)
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn create_virtual_branch(
     project_id: ProjectId,
@@ -97,7 +97,7 @@ pub fn create_virtual_branch(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn delete_local_branch(
     project_id: ProjectId,
@@ -111,7 +111,7 @@ pub fn delete_local_branch(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn create_virtual_branch_from_branch(
     project_id: ProjectId,
@@ -128,7 +128,7 @@ pub fn create_virtual_branch_from_branch(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn integrate_upstream_commits(
     project_id: ProjectId,
@@ -148,7 +148,7 @@ pub fn integrate_upstream_commits(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn get_initial_integration_steps_for_branch(
     project_id: ProjectId,
@@ -169,7 +169,7 @@ pub fn get_initial_integration_steps_for_branch(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn integrate_branch_with_steps(
     project_id: ProjectId,
@@ -184,7 +184,7 @@ pub fn integrate_branch_with_steps(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn get_base_branch_data(project_id: ProjectId) -> Result<Option<BaseBranch>, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -197,7 +197,7 @@ pub fn get_base_branch_data(project_id: ProjectId) -> Result<Option<BaseBranch>,
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn set_base_branch(
     project_id: ProjectId,
@@ -225,7 +225,7 @@ pub fn set_base_branch(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn push_base_branch(project_id: ProjectId, with_force: bool) -> Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -235,7 +235,7 @@ pub fn push_base_branch(project_id: ProjectId, with_force: bool) -> Result<(), E
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn update_stack_order(
     project_id: ProjectId,
@@ -248,7 +248,7 @@ pub fn update_stack_order(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -271,7 +271,7 @@ pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<(), Err
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn can_apply_remote_branch(
     project_id: ProjectId,
@@ -285,7 +285,7 @@ pub fn can_apply_remote_branch(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn list_commit_files(
     project_id: ProjectId,
@@ -298,7 +298,7 @@ pub fn list_commit_files(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn amend_virtual_branch(
     project_id: ProjectId,
@@ -314,7 +314,7 @@ pub fn amend_virtual_branch(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn undo_commit(
     project_id: ProjectId,
@@ -329,7 +329,7 @@ pub fn undo_commit(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn insert_blank_commit(
     project_id: ProjectId,
@@ -353,7 +353,7 @@ pub fn insert_blank_commit(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn reorder_stack(
     project_id: ProjectId,
@@ -367,7 +367,7 @@ pub fn reorder_stack(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn find_git_branches(
     project_id: ProjectId,
@@ -380,7 +380,7 @@ pub fn find_git_branches(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn list_branches(
     project_id: ProjectId,
@@ -393,7 +393,7 @@ pub fn list_branches(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn get_branch_listing_details(
     project_id: ProjectId,
@@ -406,7 +406,7 @@ pub fn get_branch_listing_details(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn squash_commits(
     project_id: ProjectId,
@@ -432,7 +432,7 @@ pub fn squash_commits(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn fetch_from_remotes(
     project_id: ProjectId,
@@ -465,7 +465,7 @@ pub fn fetch_from_remotes(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn move_commit(
     project_id: ProjectId,
@@ -481,7 +481,7 @@ pub fn move_commit(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn move_branch(
     project_id: ProjectId,
@@ -503,7 +503,7 @@ pub fn move_branch(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn tear_off_branch(
     project_id: ProjectId,
@@ -517,7 +517,7 @@ pub fn tear_off_branch(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn update_commit_message(
     project_id: ProjectId,
@@ -534,7 +534,7 @@ pub fn update_commit_message(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn find_commit(
     project_id: ProjectId,
@@ -547,7 +547,7 @@ pub fn find_commit(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn upstream_integration_statuses(
     project_id: ProjectId,
@@ -564,7 +564,7 @@ pub fn upstream_integration_statuses(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn integrate_upstream(
     project_id: ProjectId,
@@ -580,7 +580,7 @@ pub fn integrate_upstream(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn resolve_upstream_integration(
     project_id: ProjectId,

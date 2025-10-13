@@ -10,7 +10,7 @@ use tracing::instrument;
 use crate::error::Error;
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn get_app_settings() -> Result<AppSettings, Error> {
     let app_settings = AppSettings::load_from_default_path_creating()?;

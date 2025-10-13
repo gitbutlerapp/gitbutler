@@ -14,7 +14,7 @@ use crate::error::Error;
 use crate::error::ToError as _;
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn git_remote_branches(project_id: ProjectId) -> Result<Vec<RemoteRefname>, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -23,7 +23,7 @@ pub fn git_remote_branches(project_id: ProjectId) -> Result<Vec<RemoteRefname>, 
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn git_test_push(
     project_id: ProjectId,
@@ -37,7 +37,7 @@ pub fn git_test_push(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn git_test_fetch(
     project_id: ProjectId,
@@ -54,7 +54,7 @@ pub fn git_test_fetch(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn git_index_size(project_id: ProjectId) -> Result<usize, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -68,7 +68,7 @@ pub fn git_index_size(project_id: ProjectId) -> Result<usize, Error> {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn delete_all_data() -> Result<(), Error> {
     for project in gitbutler_project::list().context("failed to list projects")? {
@@ -79,7 +79,7 @@ pub fn delete_all_data() -> Result<(), Error> {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn git_set_global_config(key: String, value: String) -> Result<String, Error> {
     let mut config = git2::Config::open_default().to_error()?;
@@ -88,7 +88,7 @@ pub fn git_set_global_config(key: String, value: String) -> Result<String, Error
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn git_remove_global_config(key: String) -> Result<(), Error> {
     let mut config = git2::Config::open_default().to_error()?;
@@ -97,7 +97,7 @@ pub fn git_remove_global_config(key: String) -> Result<(), Error> {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn git_get_global_config(key: String) -> Result<Option<String>, Error> {
     let config = git2::Config::open_default().to_error()?;

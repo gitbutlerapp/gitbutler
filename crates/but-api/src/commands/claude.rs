@@ -61,7 +61,7 @@ pub fn claude_get_messages(
     Ok(messages)
 }
 
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub async fn claude_get_session_details(
     project_id: ProjectId,
@@ -92,7 +92,7 @@ pub async fn claude_get_session_details(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn claude_list_permission_requests(
     project_id: ProjectId,
@@ -102,7 +102,7 @@ pub fn claude_list_permission_requests(
     Ok(but_claude::db::list_all_permission_requests(&mut ctx)?)
 }
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn claude_update_permission_request(
     project_id: ProjectId,
@@ -130,7 +130,7 @@ pub async fn claude_cancel_session(app: &App, params: CancelSessionParams) -> Re
     Ok(cancelled)
 }
 
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub async fn claude_check_available() -> Result<ClaudeCheckResult, Error> {
     let app_settings = AppSettings::load_from_default_path_creating()?;
@@ -170,7 +170,7 @@ pub async fn claude_compact_history(app: &App, params: CompactHistoryParams) -> 
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn claude_list_prompt_templates(
     project_id: ProjectId,
@@ -181,7 +181,7 @@ pub fn claude_list_prompt_templates(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn claude_get_prompt_dirs(
     project_id: ProjectId,
@@ -192,7 +192,7 @@ pub fn claude_get_prompt_dirs(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn claude_maybe_create_prompt_dir(project_id: ProjectId, path: String) -> Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -200,7 +200,7 @@ pub fn claude_maybe_create_prompt_dir(project_id: ProjectId, path: String) -> Re
     Ok(())
 }
 
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub async fn claude_get_mcp_config(project_id: ProjectId) -> Result<McpConfig, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -209,7 +209,7 @@ pub async fn claude_get_mcp_config(project_id: ProjectId) -> Result<McpConfig, E
     Ok(mcp_config.mcp_servers())
 }
 
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub async fn claude_get_sub_agents(
     project_id: ProjectId,
@@ -219,7 +219,7 @@ pub async fn claude_get_sub_agents(
     Ok(sub_agents)
 }
 
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub async fn claude_verify_path(project_id: ProjectId, path: String) -> Result<bool, Error> {
     let project = gitbutler_project::get(project_id)?;

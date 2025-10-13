@@ -23,7 +23,7 @@ use tracing::instrument;
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs(
     project_id: ProjectId,
@@ -46,7 +46,7 @@ pub struct CommitDetails {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn commit_details(
     project_id: ProjectId,
@@ -73,7 +73,7 @@ pub fn commit_details(
 /// Note that `stack_id` is deprecated in favor of `branch_name`
 /// *(which should be a full ref-name as well and make `remote` unnecessary)*
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn changes_in_branch(
     project_id: ProjectId,
@@ -112,7 +112,7 @@ fn changes_in_branch_inner(ctx: CommandContext, branch: Refname) -> anyhow::Resu
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChanges, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -165,7 +165,7 @@ pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChan
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn assign_hunk(
     project_id: ProjectId,

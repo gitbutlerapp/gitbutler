@@ -26,7 +26,7 @@ fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMet
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -50,7 +50,7 @@ pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo, Er
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn stacks(
     project_id: ProjectId,
@@ -70,7 +70,7 @@ pub fn stacks(
 
 #[cfg(unix)]
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn show_graph_svg(project_id: ProjectId) -> Result<(), Error> {
     use but_settings::AppSettings;
@@ -125,7 +125,7 @@ pub fn show_graph_svg(project_id: ProjectId) -> Result<(), Error> {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn stack_details(
     project_id: ProjectId,
@@ -148,7 +148,7 @@ pub fn stack_details(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn branch_details(
     project_id: ProjectId,
@@ -186,7 +186,7 @@ pub fn branch_details(
 /// `stack_branch_name` is the short name of the reference that the UI knows is present in a given segment.
 /// It is necessary to insert the new commit into the right bucket.
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn create_commit_from_worktree_changes(
     project_id: ProjectId,
@@ -231,7 +231,7 @@ pub fn create_commit_from_worktree_changes(
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn amend_commit_from_worktree_changes(
     project_id: ProjectId,
@@ -269,7 +269,7 @@ pub fn amend_commit_from_worktree_changes(
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn discard_worktree_changes(
     project_id: ProjectId,
@@ -314,7 +314,7 @@ impl From<MoveChangesResult> for UIMoveChangesResult {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn move_changes_between_commits(
     project_id: ProjectId,
@@ -349,7 +349,7 @@ pub fn move_changes_between_commits(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn split_branch(
     project_id: ProjectId,
@@ -392,7 +392,7 @@ pub fn split_branch(
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn split_branch_into_dependent_branch(
     project_id: ProjectId,
@@ -431,7 +431,7 @@ pub fn split_branch_into_dependent_branch(
 /// specified.
 /// If `assign_to` is not provided, the changes will be unassigned.
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn uncommit_changes(
     project_id: ProjectId,
@@ -514,7 +514,7 @@ pub fn uncommit_changes(
 /// Immediately after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
 /// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn stash_into_branch(
     project_id: ProjectId,
@@ -581,7 +581,7 @@ pub fn stash_into_branch(
 /// Returns a new available branch name based on a simple template - user_initials-branch-count
 /// The main point of this is to be able to provide branch names that are not already taken.
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn canned_branch_name(project_id: ProjectId) -> Result<String, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -593,7 +593,7 @@ pub fn canned_branch_name(project_id: ProjectId) -> Result<String, Error> {
 }
 
 #[api_cmd]
-#[tauri::command(async)]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn target_commits(
     project_id: ProjectId,
