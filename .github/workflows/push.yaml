@@ -263,4 +263,4 @@ jobs:
             | .file + ":" + (.line | tostring) + ": " + .name
           ' -- $(cat workflows.list) >query-output.txt
           cat query-output.txt
-          test -z "$(<query-output.txt)"  # Report failure if we found anything.eck
+          test -z "$(<query-output.txt)"  # Report failure if we found anything
