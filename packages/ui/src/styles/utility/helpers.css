@@ -13,11 +13,11 @@
 pre {
 	&::-webkit-scrollbar {
 		width: 14px;
-		background-color: transaparent;
+		background-color: transparent;
 	}
 
 	&::-webkit-scrollbar-track {
-		background-color: transaparent;
+		background-color: transparent;
 	}
 
 	&::-webkit-scrollbar-thumb {
