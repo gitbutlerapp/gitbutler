@@ -1375,6 +1375,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-worktrees"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-db",
+ "gitbutler-command-context",
+ "gitbutler-oxidize",
+ "gitbutler-project",
+ "gitbutler-stack",
+ "gitbutler-testsupport",
+ "gix",
+ "gix-testtools",
+ "insta",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "byte-unit"
 version = "5.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"

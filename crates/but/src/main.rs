@@ -22,6 +22,7 @@ mod metrics;
 mod oplog;
 mod rub;
 mod status;
+mod worktree;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -133,6 +134,12 @@ async fn main() -> Result<()> {
             let project = get_or_init_project(&args.current_dir)?;
             let result = branch::handle(cmd, &project, args.json);
             metrics_if_configured(app_settings, CommandName::BranchNew, props(start, &result)).ok();
+            Ok(())
+        }
+        Subcommands::Worktree(worktree::Platform { cmd }) => {
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = worktree::handle(cmd, &project, args.json);
+            metrics_if_configured(app_settings, CommandName::Worktree, props(start, &result)).ok();
             Ok(())
         }
         Subcommands::Log => {

@@ -68,6 +68,9 @@ For examples see `but rub --help`."
     Base(crate::base::Platform),
     /// Commands for managing branches.
     Branch(crate::branch::Platform),
+    /// Commands for managing worktrees.
+    #[clap(hide = true)]
+    Worktree(crate::worktree::Platform),
     /// Creates or removes a rule for auto-assigning or auto-comitting
     Mark {
         /// The target entity that will be marked
@@ -209,6 +212,7 @@ pub enum CommandName {
         alias = "CursorStop"
     )]
     CursorStop,
+    Worktree,
     #[default]
     Unknown,
 }

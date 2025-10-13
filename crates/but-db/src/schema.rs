@@ -86,3 +86,12 @@ diesel::table! {
         approved -> Nullable<Bool>,
     }
 }
+
+diesel::table! {
+    worktrees (id) {
+        id -> Text,
+        base -> Text,
+        path -> Text,
+        source -> Text,
+    }
+}

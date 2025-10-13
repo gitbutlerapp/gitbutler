@@ -1,0 +1,26 @@
+[package]
+name = "but-worktrees"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+[lib]
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+but-db.workspace = true
+gix.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-project.workspace = true
+gitbutler-stack.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+gix-testtools.workspace = true
+gitbutler-testsupport.workspace = true
+gitbutler-oxidize.workspace = true
+insta.workspace = true
