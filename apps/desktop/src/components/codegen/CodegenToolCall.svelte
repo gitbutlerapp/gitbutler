@@ -142,6 +142,8 @@
 
 	.tool-call-content :global(pre) {
 		margin: 0;
+		padding-bottom: 0px;
+		overflow-x: scroll;
 	}
 
 	/* STANDALONE MODE */
