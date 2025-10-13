@@ -47,7 +47,6 @@ jobs:
           echo BUT_TESTING=$PWD/target/debug/but-testing >> $GITHUB_ENV
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
-        if: ${{ github.ref != 'refs/heads/master' }}
       - id: get_playwright_version
         uses: eviden-actions/get-playwright-version@v1
         if: ${{ github.ref != 'refs/heads/master' }}
@@ -60,9 +59,9 @@ jobs:
             ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
       - run: cd e2e && pnpm exec playwright install --with-deps
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' && github.ref != 'refs/heads/master' }}
       - run: apt install -y libnss3
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        if: ${{ steps.playwright-cache.outputs.cache-hit == 'true' && github.ref != 'refs/heads/master' }}
         name: Install missing deps after cache hit
       - name: Build gitbutler-git
         run: cargo build -p gitbutler-git
@@ -72,7 +71,6 @@ jobs:
         run: cargo build -p but-testing
       - name: Build SvelteKit
         run: pnpm build:desktop
-        if: ${{ github.ref != 'refs/heads/master' }}
       - name: Run Playwright tests
         run: pnpm exec turbo run test:e2e:playwright
         if: ${{ github.ref != 'refs/heads/master' }}
