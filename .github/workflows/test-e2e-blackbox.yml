@@ -51,7 +51,6 @@ jobs:
         run: cargo build -p gitbutler-cli
       - name: Build SvelteKit
         run: pnpm build:desktop -- --mode development
-        if: ${{ github.ref != 'refs/heads/master' }}
       - name: Build Tauri
         run: pnpm build:test
       - name: Install tauri-driver
