@@ -121,14 +121,14 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
           shared-key: rust-but-binary
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
       - run: |
           sudo apt update
           sudo apt install -y libdbus-1-dev pkg-config
@@ -225,6 +225,7 @@ jobs:
       - check-rust-windows
       - rust-test
       - rust-lint
+      - rust-but-binary-no-tauri
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
@@ -262,4 +263,4 @@ jobs:
             | .file + ":" + (.line | tostring) + ": " + .name
           ' -- $(cat workflows.list) >query-output.txt
           cat query-output.txt
-          test -z "$(<query-output.txt)"  # Report failure if we found anything.
+          test -z "$(<query-output.txt)"  # Report failure if we found anything.eck
