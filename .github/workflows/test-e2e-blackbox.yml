@@ -2,6 +2,9 @@ name: E2E Blackbox Tests
 env:
   RUSTUP_TOOLCHAIN: stable
 on:
+  push:
+    branches:
+      - master
   pull_request:
     branches: [master]
     paths-ignore:
@@ -17,6 +20,8 @@ jobs:
   test:
     name: e2e-blackbox
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -24,30 +29,25 @@ jobs:
         with:
           persist-credentials: false
         if: ${{ github.event_name != 'workflow_dispatch' }}
+        name: Checkout
       - uses: actions/checkout@v5
+        name: Checkout (specific commit from manual dispatch)
         if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
           persist-credentials: false
           ref: ${{ github.event.inputs.sha }}
-      - name: Install Tauri OS dependencies
-        run: |
-          sudo scripts/install-tauri-debian-dependencies.sh
-          sudo apt install webkit2gtk-driver ffmpeg xvfb
-      - name: Setup rust-toolchain stable
-        id: rust-toolchain
-        uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v4
+      # TODO: put these into the docker image
+      - name: Install Webdriver dependencies
+        run: apt update && apt install -y webkit2gtk-driver ffmpeg xvfb
+        if: ${{ github.ref != 'refs/heads/master' }}
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.1
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: cargo-${{ steps.rust-toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: cargo-
+          shared-key: e2e-blackbox-rust-binaries
+          save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
+        if: ${{ github.ref != 'refs/heads/master' }}
       - name: Build CLI
         run: cargo build -p gitbutler-cli
       - name: Build SvelteKit
@@ -55,6 +55,7 @@ jobs:
       - name: Build Tauri
         run: pnpm build:test
       - name: Install tauri-driver
+        if: ${{ github.ref != 'refs/heads/master' }}
         run: |
           if [ ! -e "$HOME/.cargo/bin/tauri-driver" ]; then
             cargo install tauri-driver
@@ -63,6 +64,7 @@ jobs:
       # Run it through `xvfb-run` to have a fake display server which allows our
       # application to run headless without any changes to the code
       - name: WebdriverIO
+        if: ${{ github.ref != 'refs/heads/master' }}
         run: xvfb-run pnpm test:e2e:blackbox
 
       - uses: actions/upload-artifact@v4
