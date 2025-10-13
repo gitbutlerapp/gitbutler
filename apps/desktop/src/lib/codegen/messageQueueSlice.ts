@@ -1,10 +1,20 @@
 import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
+import type { ModelType, PermissionMode, ThinkingLevel } from '$lib/codegen/types';
+
+type Message = {
+	thinkingLevel: ThinkingLevel;
+	model: ModelType;
+	permissionMode: PermissionMode;
+	prompt: string;
+};
 
 export type MessageQueue = {
-	stackId: string;
 	projectId: string;
+	stackId: string;
+	head: string;
+	isProcessing: boolean;
 	// Ordered from youngest to oldeset
-	messages: string[];
+	messages: Message[];
 };
 
 export const messageQueueAdapter = createEntityAdapter<MessageQueue, MessageQueue['stackId']>({
@@ -20,4 +30,4 @@ export const messageQueueSlice = createSlice({
 	}
 });
 
-export const { selectAll: selectAllMessageQueues } = messageQueueAdapter.getSelectors();
+export const messageQueueSelectors = messageQueueAdapter.getSelectors();

@@ -18,6 +18,7 @@
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { initDependencies } from '$lib/bootstrap/deps';
+	import { useMessageQueue } from '$lib/codegen/messageQueue.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { ircEnabled, ircServer, codegenEnabled, fModeEnabled } from '$lib/config/uiFeatureFlags';
@@ -46,6 +47,8 @@
 
 	const { backend } = data;
 	initDependencies(data);
+
+	useMessageQueue();
 
 	const clientState = inject(CLIENT_STATE);
 	const posthog = inject(POSTHOG_WRAPPER);

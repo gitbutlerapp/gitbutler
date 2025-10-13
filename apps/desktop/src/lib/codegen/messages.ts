@@ -413,6 +413,31 @@ export function currentStatus(events: ClaudeMessage[], isActive: boolean): Claud
 	return 'running';
 }
 
+export type CompletedStatus =
+	| { type: 'notCompleted' }
+	| { type: 'noMessagesSent' }
+	| { type: 'completed'; code: number };
+
+export function isCompletedWithStatus(events: ClaudeMessage[], isActive: boolean): CompletedStatus {
+	if (events.length === 0) return { type: 'noMessagesSent' };
+	const status = currentStatus(events, isActive);
+	if (status === 'enabled') {
+		// The last event after 'completed' is _usually_ "claudeExit", but not
+		// always. If it is, we use it, or just assume success.
+		const lastEvent = events.at(-1)!;
+		if (
+			lastEvent.content.type === 'gitButlerMessage' &&
+			lastEvent.content.subject.type === 'claudeExit'
+		) {
+			return { type: 'completed', code: lastEvent.content.subject.subject.code };
+		} else {
+			return { type: 'completed', code: 0 };
+		}
+	} else {
+		return { type: 'notCompleted' };
+	}
+}
+
 function normalizeDate(date: Date): Date {
 	return new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
 }

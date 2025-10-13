@@ -31,6 +31,7 @@
 	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { useSendMessage } from '$lib/codegen/messageQueue.svelte';
+	import { messageQueueSelectors, messageQueueSlice } from '$lib/codegen/messageQueueSlice';
 	import {
 		currentStatus,
 		formatMessages,
@@ -52,6 +53,7 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { pushStatusToColor, pushStatusToIcon } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { USER } from '$lib/user/user';
@@ -95,6 +97,7 @@
 	const urlService = inject(URL_SERVICE);
 	const userSettings = inject(SETTINGS);
 	const settingsService = inject(SETTINGS_SERVICE);
+	const clientState = inject(CLIENT_STATE);
 	const claudeSettings = $derived($settingsService?.claude);
 
 	const stacks = $derived(stackService.stacks(projectId));
@@ -395,6 +398,17 @@
 			cyclePermissionMode();
 		}
 	}
+
+	const queue = $derived(
+		messageQueueSelectors
+			.selectAll(clientState.messageQueue)
+			.find(
+				(q) =>
+					q.head === selectedBranch?.head &&
+					q.stackId === selectedBranch?.stackId &&
+					q.projectId === projectId
+			)
+	);
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -694,8 +708,9 @@
 
 {#snippet rightSidebar(events: ClaudeMessage[])}
 	{@const addedDirs = laneState?.addedDirs.current || []}
+	{@const queueLength = queue?.messages.length || 0}
 	<div class="right-sidebar" bind:this={rightSidebarRef}>
-		{#if !branchChanges || !selectedBranch || (branchChanges.response && branchChanges.response.changes.length === 0 && getTodos(events).length === 0 && addedDirs.length === 0)}
+		{#if !branchChanges || !selectedBranch || (branchChanges.response && branchChanges.response.changes.length === 0 && getTodos(events).length === 0 && addedDirs.length === 0 && queueLength === 0)}
 			<div class="right-sidebar__placeholder">
 				<EmptyStatePlaceholder
 					image={filesAndChecksSvg}
@@ -714,7 +729,7 @@
 				<ReduxResult result={branchChanges.result} {projectId}>
 					{#snippet children({ changes }, { projectId })}
 						<Drawer
-							bottomBorder={todos.length > 0 || addedDirs.length > 0}
+							bottomBorder={todos.length > 0 || addedDirs.length > 0 || queueLength > 0}
 							grow
 							defaultCollapsed={todos.length > 0}
 							notFoldable
@@ -752,7 +767,11 @@
 			{/if}
 
 			{#if todos.length > 0}
-				<Drawer defaultCollapsed={false} noshrink>
+				<Drawer
+					defaultCollapsed={false}
+					noshrink
+					bottomBorder={addedDirs.length > 0 || queueLength > 0}
+				>
 					{#snippet header()}
 						<h4 class="text-14 text-semibold truncate">Todos</h4>
 						<Badge>{todos.length}</Badge>
@@ -767,7 +786,7 @@
 			{/if}
 
 			{#if addedDirs.length > 0}
-				<Drawer defaultCollapsed={false} noshrink>
+				<Drawer defaultCollapsed={false} noshrink bottomBorder={queueLength > 0}>
 					{#snippet header()}
 						<h4 class="text-14 text-semibold truncate">Added Directories</h4>
 						<Badge>{addedDirs.length}</Badge>
@@ -788,6 +807,38 @@
 										}
 									}}
 									tooltip="Remove directory"
+								/>
+							</div>
+						{/each}
+					</div>
+				</Drawer>
+			{/if}
+
+			{#if queue && queue.messages.length > 0}
+				<Drawer defaultCollapsed={false} noshrink>
+					{#snippet header()}
+						<h4 class="text-14 text-semibold truncate">Queued Message</h4>
+					{/snippet}
+
+					<div class="right-sidebar-list right-sidebar-list--small-gap">
+						{#each queue.messages as message}
+							<div class="message-queue-item">
+								<span class="text-13 grow-1 message-queue-item-text">{message.prompt}</span>
+								<Button
+									kind="ghost"
+									icon="bin"
+									shrinkable
+									onclick={() => {
+										if (selectedBranch) {
+											clientState.dispatch(
+												messageQueueSlice.actions.upsert({
+													...queue,
+													messages: queue.messages.filter((m) => m !== message)
+												})
+											);
+										}
+									}}
+									tooltip="Remove prompt from queue"
 								/>
 							</div>
 						{/each}
@@ -867,7 +918,7 @@
 			projectId,
 			stackId
 		})}
-		{@const sidebarIsStackActive = claudeCodeService.isStackActive(projectId, stackId)}
+		{@const isActive = claudeCodeService.isStackActive(projectId, stackId)}
 		{@const rule = rulesService.aiRuleForStack({ projectId, stackId })}
 
 		<ReduxResult
@@ -876,7 +927,7 @@
 				commits.result,
 				branchDetails.result,
 				events.result,
-				sidebarIsStackActive.result,
+				isActive.result,
 				rule.result
 			)}
 			{projectId}
@@ -995,7 +1046,7 @@
 	<div class="not-available">
 		<DecorativeSplitView hideDetails img={vibecodingSvg}>
 			<div class="not-available__content">
-				<h1 class="text-serif-42">Set up <i>Claude Code</i></h1>
+				<h1 class="text-serif-40">Set up <i>Claude Code</i></h1>
 				<ClaudeCheck
 					claudeExecutable={claudeExecutable.current}
 					recheckedAvailability={recheckedAvailability.current}
@@ -1232,6 +1283,18 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+	}
+
+	.message-queue-item {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.message-queue-item-text {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.right-sidebar-list--small-gap {
