@@ -1,6 +1,8 @@
 use but_settings::AppSettings;
+use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use std::io::{self, Write};
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -17,6 +19,15 @@ pub enum Subcommands {
         /// Anchor point - either a commit ID or branch name to create the new branch from
         #[clap(long, short = 'a')]
         anchor: Option<String>,
+    },
+    /// Deletes a branch from the workspace
+    #[clap(short_flag = 'd')]
+    Delete {
+        /// Name of the branch to delete
+        branch_name: String,
+        /// Force deletion without confirmation
+        #[clap(long, short = 'f')]
+        force: bool,
     },
 }
 
@@ -92,5 +103,54 @@ pub fn handle(cmd: &Subcommands, project: &Project, _json: bool) -> anyhow::Resu
             println!("Created branch {branch_name}");
             Ok(())
         }
+        Subcommands::Delete { branch_name, force } => {
+            let stacks = but_api::workspace::stacks(
+                project.id,
+                Some(but_workspace::StacksFilter::InWorkspace),
+            )?;
+
+            // Find which stack this branch belongs to
+            for stack_entry in &stacks {
+                if stack_entry.heads.iter().all(|b| b.name != *branch_name) {
+                    // Not found in this stack,
+                    continue;
+                }
+
+                if let Some(sid) = stack_entry.id {
+                    return confirm_branch_deletion(project, sid, branch_name, force);
+                }
+            }
+
+            println!("Branch '{}' not found in any stack", branch_name);
+            Ok(())
+        }
     }
+}
+
+fn confirm_branch_deletion(
+    project: &Project,
+    sid: StackId,
+    branch_name: &String,
+    force: &bool,
+) -> Result<(), anyhow::Error> {
+    if !force {
+        println!(
+            "Are you sure you want to delete branch '{}'? [y/N]:",
+            branch_name
+        );
+
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        let input = input.trim().to_lowercase();
+        if input != "y" && input != "yes" {
+            println!("Aborted branch deletion.");
+            return Ok(());
+        }
+    }
+
+    but_api::stack::remove_branch(project.id, sid, branch_name.clone())?;
+    println!("Deleted branch {branch_name}");
+    Ok(())
 }
