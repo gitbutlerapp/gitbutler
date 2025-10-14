@@ -99,6 +99,8 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -107,12 +109,12 @@ jobs:
         with:
           shared-key: rust-lint
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - run: cargo fmt --check --all
-      - run: cargo check --workspace --all-targets
+      - run: depot cargo fmt --check --all
+      - run: depot cargo check --workspace --all-targets
       - name: cargo clippy
         run: |
           rustup component add clippy
-          cargo clippy --workspace --all-targets -- -D warnings
+          depot cargo clippy --workspace --all-targets -- -D warnings
 
   rust-but-binary-no-tauri:
     needs: changes
@@ -121,6 +123,8 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -132,7 +136,7 @@ jobs:
       - run: |
           sudo apt update
           sudo apt install -y libdbus-1-dev pkg-config
-      - run: cargo build -p but
+      - run: depot cargo build -p but
 
   rust-docs:
     needs: changes
@@ -143,6 +147,8 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -151,7 +157,7 @@ jobs:
         with:
           shared-key: rust-docs
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
+      - run: depot cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
         env:
           RUSTDOCFLAGS: -Dwarnings
 
@@ -179,6 +185,8 @@ jobs:
       run:
         shell: bash
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -188,15 +196,15 @@ jobs:
           shared-key: rust-testing
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - run: |
-          cargo test --workspace
+          depot cargo test --workspace
         env:
           GITBUTLER_TESTS_NO_CLEANUP: '1'
         name: cargo test
       - run: |
           set -e
-          cargo check -p gitbutler-tauri --no-default-features
+          depot cargo check -p gitbutler-tauri --no-default-features
           for feature in devtools custom-protocol error-context; do
-            cargo check -p gitbutler-tauri --no-default-features --features "$feature"
+            depot cargo check -p gitbutler-tauri --no-default-features --features "$feature"
           done
         name: Check Tauri App
 
@@ -207,6 +215,8 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -216,7 +226,7 @@ jobs:
           shared-key: rust-testing
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: 'cargo check'
-        run: cargo check --workspace --all-targets --features windows
+        run: depot cargo check --workspace --all-targets --features windows
 
   check-rust:
     if: always()
@@ -230,6 +240,8 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - name: Decide whether the needed jobs succeeded or failed
         uses: re-actors/alls-green@release/v1
         with:

@@ -25,6 +25,8 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -48,7 +50,7 @@ jobs:
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
       - name: Build CLI
-        run: cargo build -p gitbutler-cli
+        run: depot cargo build -p gitbutler-cli
       - name: Build SvelteKit
         run: pnpm build:desktop -- --mode development
       - name: Build Tauri

@@ -27,6 +27,8 @@ jobs:
       VITE_BUTLER_HOST: 'localhost'
       VITE_BUILD_TARGET: 'web'
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -65,11 +67,11 @@ jobs:
         if: ${{ steps.playwright-cache.outputs.cache-hit == 'true' && github.ref != 'refs/heads/master' }}
         name: Install missing deps after cache hit
       - name: Build gitbutler-git
-        run: cargo build -p gitbutler-git
+        run: depot cargo build -p gitbutler-git
       - name: Build but-server
-        run: cargo build -p but-server
+        run: depot cargo build -p but-server
       - name: Build but-testing
-        run: cargo build -p but-testing
+        run: depot cargo build -p but-testing
       - name: Build SvelteKit
         run: pnpm build:desktop
         if: ${{ github.ref != 'refs/heads/master' }}
