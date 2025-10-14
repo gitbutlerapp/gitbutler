@@ -18,8 +18,8 @@ mod command;
 async fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
 
-    if args.trace {
-        trace::init()?;
+    if args.trace > 0 {
+        trace::init(args.trace)?;
     }
     let _op_span = tracing::info_span!("cli-op").entered();
     static CHANNEL: Option<&str> = option_env!("CHANNEL");
@@ -224,13 +224,17 @@ mod trace {
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
 
-    pub fn init() -> anyhow::Result<()> {
+    pub fn init(level: u8) -> anyhow::Result<()> {
         tracing_subscriber::registry()
             .with(
                 tracing_forest::ForestLayer::from(
                     tracing_forest::printer::PrettyPrinter::new().writer(std::io::stderr),
                 )
-                .with_filter(LevelFilter::DEBUG),
+                .with_filter(match level {
+                    1 => LevelFilter::INFO,
+                    2 => LevelFilter::DEBUG,
+                    _ => LevelFilter::TRACE,
+                }),
             )
             .init();
         Ok(())
