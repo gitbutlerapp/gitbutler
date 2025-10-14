@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CodegenAssistantMessage from '$components/codegen/CodegenAssistantMessage.svelte';
+	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
 	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
 	import CodegenToolCalls from '$components/codegen/CodegenToolCalls.svelte';
 	import CodegenUserMessage from '$components/codegen/CodegenUserMessage.svelte';
@@ -21,11 +22,11 @@
 	<CodegenUserMessage content={message.message} avatarUrl={userAvatarUrl} />
 {:else if message.type === 'claude'}
 	{#if 'subtype' in message && message.subtype === 'compaction'}
-		<CodegenAssistantMessage content="The conversation has been compacted.">
+		<CodegenServiceMessage style="neutral" face="compacted" reverseElementsOrder>
 			{#snippet extraContent()}
 				{@render compactionSummary(message.message)}
 			{/snippet}
-		</CodegenAssistantMessage>
+		</CodegenServiceMessage>
 	{:else}
 		<CodegenAssistantMessage content={message.message}>
 			{#snippet extraContent()}
@@ -51,7 +52,6 @@
 {#snippet compactionSummary(summary: string)}
 	<div class="compaction-summary__wrapper">
 		<div class="compaction-summary" class:expanded>
-			<!-- Header for multiple tool calls -->
 			<button
 				type="button"
 				class="compaction-summary__header"
@@ -60,10 +60,10 @@
 				<div class="compaction-summary__arrow" class:expanded>
 					<Icon name="chevron-right" />
 				</div>
-				<span class="text-13 text-semibold">Compaction summary</span>
+				<p class="text-13 text-italic clr-text-2">Conversation compacted to preserve context</p>
 			</button>
 			{#if expanded}
-				<div class="compaction-summary__content">
+				<div class="text-13 compaction-summary__content">
 					<Markdown content={summary} />
 				</div>
 			{/if}
@@ -73,14 +73,11 @@
 
 <style lang="postcss">
 	.compaction-summary__wrapper {
-		container-name: assistant-message;
-		container-type: inline-size;
+		max-width: var(--message-max-width);
+		width: fit-content;
 	}
 
 	.compaction-summary {
-		width: fit-content;
-		max-width: var(--message-max-width);
-		max-width: 100%;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
@@ -94,14 +91,15 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
-		padding: 8px 12px 8px 8px;
+		padding: 10px 12px 10px 8px;
 		gap: 8px;
-		border: none;
+		background-color: var(--clr-bg-2);
+
 		cursor: pointer;
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--clr-bg-2-muted);
 
 			.compaction-summary__arrow {
 				color: var(--clr-text-2);

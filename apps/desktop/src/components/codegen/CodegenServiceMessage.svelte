@@ -1,24 +1,35 @@
 <script lang="ts">
-	import { ButPcAvatar } from '@gitbutler/ui';
+	import { ButPcAvatar, type faceType } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
-		children: Snippet;
+		children?: Snippet;
 		style: 'neutral' | 'pop' | 'error';
-		face: 'idle' | 'thinking' | 'waiting';
+		face: faceType;
+		extraContent?: Snippet;
+		reverseElementsOrder?: boolean;
 	};
 
-	const { children, style, face }: Props = $props();
+	const { children, style, face, extraContent, reverseElementsOrder }: Props = $props();
 </script>
 
 <div class="service-message__wrapper">
 	<div class="service-message">
 		<ButPcAvatar mode={face} />
-		<div
-			class="service-message__bubble service-message__bubble--{style} service-message__bubble--animate"
-			class:service-message__bubble--wiggle={face === 'waiting'}
-		>
-			{@render children()}
+
+		<div class="service-message__content" class:reverse={reverseElementsOrder}>
+			{#if children}
+				<div
+					class="service-message__bubble service-message__bubble--{style} service-message__bubble--animate"
+					class:service-message__bubble--wiggle={face === 'waiting'}
+				>
+					{@render children()}
+				</div>
+			{/if}
+
+			{#if extraContent}
+				{@render extraContent()}
+			{/if}
 		</div>
 	</div>
 </div>
@@ -32,10 +43,25 @@
 	.service-message {
 		display: flex;
 		align-items: flex-end;
+		width: 100%;
 		gap: 14px;
+	}
+	.service-message__content {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		overflow: hidden;
+		gap: 10px;
+		text-wrap: wrap;
+		word-break: break-word;
+
+		&.reverse {
+			flex-direction: column-reverse;
+		}
 	}
 	.service-message__bubble {
 		display: flex;
+		width: fit-content;
 		max-width: var(--message-max-width);
 		padding: 10px 12px;
 		border-radius: var(--radius-ml);
