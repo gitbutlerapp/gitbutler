@@ -1,5 +1,5 @@
 // Main UI Components
-export { default as ButPcAvatar } from '$components/ButPcAvatar.svelte';
+export { default as ButPcAvatar, type faceType } from '$components/ButPcAvatar.svelte';
 export { default as AsyncButton } from '$components/AsyncButton.svelte';
 export { default as Badge } from '$components/Badge.svelte';
 export { default as Button, type Props as ButtonProps } from '$components/Button.svelte';
