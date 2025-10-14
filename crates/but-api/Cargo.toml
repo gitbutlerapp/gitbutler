@@ -27,6 +27,7 @@ gitbutler-user.workspace = true
 gitbutler-project.workspace = true
 gitbutler-secret.workspace = true
 but-workspace.workspace = true
+but-worktrees.workspace = true
 but-core.workspace = true
 but-hunk-assignment.workspace = true
 but-action.workspace = true

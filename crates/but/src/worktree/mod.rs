@@ -24,11 +24,31 @@ pub enum Subcommands {
         dry: bool,
     },
 }
+pub fn handle(cmd: &Subcommands, project: &gitbutler_project::Project, json: bool) -> Result<()> {
+    match handle_inner(cmd, project, json) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            Err(e)
+        }
+    }
+}
 
-pub fn handle(cmd: &Subcommands, _project: &gitbutler_project::Project, _json: bool) -> Result<()> {
+pub fn handle_inner(
+    cmd: &Subcommands,
+    project: &gitbutler_project::Project,
+    json: bool,
+) -> Result<()> {
     match cmd {
         Subcommands::New { reference } => {
-            todo!("Create new worktree from reference: {}", reference)
+            let output = but_api::worktree::worktree_new(project.id, reference.clone())?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("Created worktree at: {}", output.created.path.display());
+                println!("Reference: {}", output.created.reference);
+            }
+            Ok(())
         }
         Subcommands::List => {
             todo!("List all worktrees")

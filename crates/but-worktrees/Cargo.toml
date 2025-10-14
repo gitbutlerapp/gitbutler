@@ -11,6 +11,8 @@ doctest = false
 [dependencies]
 anyhow.workspace = true
 but-db.workspace = true
+but-workspace.workspace = true
+but-graph.workspace = true
 gix.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
@@ -18,6 +20,8 @@ gitbutler-stack.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
+bstr.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 gix-testtools.workspace = true

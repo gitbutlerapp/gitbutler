@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use gitbutler_command_context::CommandContext;
-use uuid::Uuid;
+use std::path::Path;
 
 use crate::{Worktree, WorktreeSource};
 
@@ -12,9 +12,10 @@ pub fn save_worktree(ctx: &mut CommandContext, worktree: Worktree) -> Result<()>
     Ok(())
 }
 
-/// Retrieve a worktree by its ID.
-pub fn get_worktree(ctx: &mut CommandContext, id: Uuid) -> Result<Option<Worktree>> {
-    let worktree = ctx.db()?.worktrees().get(&id.to_string())?;
+/// Retrieve a worktree by its path.
+pub fn get_worktree(ctx: &mut CommandContext, path: &Path) -> Result<Option<Worktree>> {
+    let path_str = path.to_string_lossy();
+    let worktree = ctx.db()?.worktrees().get(&path_str)?;
     match worktree {
         Some(w) => Ok(Some(w.try_into()?)),
         None => Ok(None),
@@ -22,8 +23,9 @@ pub fn get_worktree(ctx: &mut CommandContext, id: Uuid) -> Result<Option<Worktre
 }
 
 /// Delete a worktree from the database.
-pub fn delete_worktree(ctx: &mut CommandContext, id: Uuid) -> Result<()> {
-    ctx.db()?.worktrees().delete(&id.to_string())?;
+pub fn delete_worktree(ctx: &mut CommandContext, path: &Path) -> Result<()> {
+    let path_str = path.to_string_lossy();
+    ctx.db()?.worktrees().delete(&path_str)?;
     Ok(())
 }
 
@@ -45,9 +47,9 @@ impl TryFrom<but_db::Worktree> for Worktree {
         let path = std::path::PathBuf::from(value.path);
 
         Ok(Worktree {
-            id: Uuid::parse_str(&value.id)?,
-            base,
             path,
+            reference: value.reference,
+            base,
             source,
         })
     }
@@ -62,9 +64,9 @@ impl TryFrom<Worktree> for but_db::Worktree {
         let path = value.path.to_string_lossy().to_string();
 
         Ok(but_db::Worktree {
-            id: value.id.to_string(),
-            base,
             path,
+            reference: value.reference,
+            base,
             source,
         })
     }

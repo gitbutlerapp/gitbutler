@@ -88,10 +88,10 @@ diesel::table! {
 }
 
 diesel::table! {
-    worktrees (id) {
-        id -> Text,
-        base -> Text,
+    worktrees (path) {
         path -> Text,
+        reference -> Text,
+        base -> Text,
         source -> Text,
     }
 }

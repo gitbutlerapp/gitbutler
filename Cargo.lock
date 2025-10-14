@@ -865,6 +865,7 @@ dependencies = [
  "but-rules",
  "but-settings",
  "but-workspace",
+ "but-worktrees",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
@@ -1379,7 +1380,10 @@ name = "but-worktrees"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bstr",
  "but-db",
+ "but-graph",
+ "but-workspace",
  "gitbutler-command-context",
  "gitbutler-oxidize",
  "gitbutler-project",
@@ -1390,6 +1394,7 @@ dependencies = [
  "insta",
  "serde",
  "serde_json",
+ "tracing",
  "uuid",
 ]
 
