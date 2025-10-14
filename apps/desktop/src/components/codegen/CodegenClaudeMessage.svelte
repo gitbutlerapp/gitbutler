@@ -74,10 +74,10 @@
 <style lang="postcss">
 	.compaction-summary__wrapper {
 		max-width: var(--message-max-width);
-		width: fit-content;
 	}
 
 	.compaction-summary {
+		width: fit-content;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
@@ -94,7 +94,6 @@
 		padding: 10px 12px 10px 8px;
 		gap: 8px;
 		background-color: var(--clr-bg-2);
-
 		cursor: pointer;
 		transition: background-color var(--transition-fast);
 
@@ -110,9 +109,7 @@
 	.compaction-summary__arrow {
 		display: flex;
 		color: var(--clr-text-3);
-		transition:
-,
-			transform var(--transition-medium);
+		transition: transform var(--transition-medium);
 
 		&.expanded {
 			transform: rotate(90deg);
