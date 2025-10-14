@@ -89,8 +89,8 @@ diesel::table! {
 
 diesel::table! {
     worktrees (path) {
-        path -> Text,
-        reference -> Text,
+        path -> Binary,
+        reference -> Binary,
         base -> Text,
         source -> Text,
     }

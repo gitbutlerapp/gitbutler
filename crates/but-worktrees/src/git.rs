@@ -1,12 +1,11 @@
 use std::path::Path;
 
 use anyhow::{Result, bail};
-use tracing::{Level, event};
 
 pub(crate) fn git_worktree_add(
     project_path: &Path,
     path: &Path,
-    branch_name: &str,
+    branch_name: &gix::refs::PartialNameRef,
     commit: gix::ObjectId,
 ) -> Result<()> {
     let output =
@@ -14,13 +13,13 @@ pub(crate) fn git_worktree_add(
             .current_dir(project_path)
             .arg("worktree")
             .arg("add")
-            .args(["-B", branch_name])
+            .args(["-B", &branch_name.to_string()])
             .arg(path.as_os_str())
             .arg(commit.to_string())
             .output()?;
 
-    event!(Level::INFO, "{}", str::from_utf8(&output.stdout)?);
-    event!(Level::ERROR, "{}", str::from_utf8(&output.stderr)?);
+    tracing::info!("{}", str::from_utf8(&output.stdout)?);
+    tracing::error!("{}", str::from_utf8(&output.stderr)?);
 
     if output.status.success() {
         Ok(())

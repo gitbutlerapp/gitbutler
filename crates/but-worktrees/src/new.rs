@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use bstr::BStr;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_workspace::{StacksFilter, stacks_v3};
 use gitbutler_command_context::CommandContext;
@@ -21,7 +20,7 @@ pub struct NewWorktreeOutcome {
 pub fn worktree_new(
     ctx: &mut CommandContext,
     _perm: &WorktreeReadPermission,
-    refname: &str,
+    refname: &gix::refs::PartialNameRef,
 ) -> Result<NewWorktreeOutcome> {
     let repo = ctx.gix_repo_for_merging()?;
     let meta = VirtualBranchesTomlMetadata::from_path(
@@ -31,22 +30,26 @@ pub fn worktree_new(
     let head = stacks
         .into_iter()
         .flat_map(|s| s.heads)
-        .find(|h| h.name == BStr::new(refname))
+        .find(|h| {
+            gix::refs::PartialName::try_from(h.name.clone())
+                .map(|n| n.as_ref() == refname)
+                .unwrap_or(false)
+        })
         .context("Failed to find matching head")?;
 
     // Used as a method of generating the path & refrence name.
     let id = uuid::Uuid::new_v4();
 
     let path = worktree_path(ctx.project(), id);
-    let branch_name = worktree_branch_name(id);
+    let branch_name = gix::refs::PartialName::try_from(format!("gitbutler/worktree/{}", id))?;
 
-    git_worktree_add(&ctx.project().path, &path, &branch_name, head.tip)?;
+    git_worktree_add(&ctx.project().path, &path, branch_name.as_ref(), head.tip)?;
 
     let worktree = Worktree {
         path: path.canonicalize()?,
-        reference: format!("refs/heads/{}", branch_name),
+        reference: gix::refs::FullName::try_from(format!("refs/heads/gitbutler/worktree/{}", id))?,
         base: head.tip,
-        source: WorktreeSource::Branch(head.name.to_string()),
+        source: WorktreeSource::Branch(refname.to_owned()),
     };
     save_worktree(ctx, worktree.clone())?;
 
@@ -55,8 +58,4 @@ pub fn worktree_new(
 
 fn worktree_path(project: &Project, id: uuid::Uuid) -> PathBuf {
     project.gb_dir().join("worktrees").join(id.to_string())
-}
-
-fn worktree_branch_name(id: uuid::Uuid) -> String {
-    format!("gitbutler/worktree/{}", id)
 }
