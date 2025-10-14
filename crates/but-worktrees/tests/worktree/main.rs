@@ -23,7 +23,7 @@ mod util {
     }
 }
 
-mod stacked_and_parallel {
+mod worktree_new {
     use super::*;
     use anyhow::Context;
     use but_graph::VirtualBranchesTomlMetadata;
@@ -182,6 +182,107 @@ mod stacked_and_parallel {
             *worktree_repo.head()?.referent_name().unwrap().as_bstr(),
             outcome.created.reference,
             "Worktree should have reference checked out"
+        );
+
+        Ok(())
+    }
+}
+
+mod worktree_list {
+    use super::*;
+    use but_graph::VirtualBranchesTomlMetadata;
+    use but_workspace::{StacksFilter, stacks_v3};
+    use but_worktrees::{WorktreeHealthStatus, list::worktree_list, new::worktree_new};
+    use gitbutler_branch_actions::BranchManagerExt as _;
+    use gix::refs::transaction::PreviousValue;
+    use util::test_ctx;
+
+    #[test]
+    fn can_list_worktrees() -> anyhow::Result<()> {
+        let test_ctx = test_ctx("stacked-and-parallel")?;
+        let mut ctx = test_ctx.ctx;
+
+        let repo = ctx.gix_repo()?;
+
+        let mut guard = ctx.project().exclusive_worktree_access();
+
+        let a = worktree_new(&mut ctx, guard.read_permission(), "feature-a")?; // To stay Normal
+        let b = worktree_new(&mut ctx, guard.read_permission(), "feature-a")?; // To be BranchMissing
+        let c = worktree_new(&mut ctx, guard.read_permission(), "feature-a")?; // To be BranchNotCheckedOut
+        let d = worktree_new(&mut ctx, guard.read_permission(), "feature-a")?; // To be WorktreeMissing
+        let e = worktree_new(&mut ctx, guard.read_permission(), "feature-c")?; // To be WorkspaceBranchMissing
+
+        let all = &[&a, &b, &c, &d, &e];
+
+        // All should start normal
+        assert!(
+            worktree_list(&mut ctx, guard.read_permission())?
+                .entries
+                .iter()
+                .all(|e| all.iter().any(|a| a.created == e.worktree)
+                    && e.status == WorktreeHealthStatus::Normal)
+        );
+
+        // remove b's branch
+        repo.find_reference(&b.created.reference)?.delete()?;
+
+        // checkout a different branch on c
+        repo.reference(
+            "refs/heads/new-ref",
+            c.created.base,
+            PreviousValue::Any,
+            "New reference :D",
+        )?;
+        std::process::Command::from(gix::command::prepare(gix::path::env::exe_invocation()))
+            .current_dir(&c.created.path)
+            .arg("switch")
+            .arg("new-ref")
+            .output()?;
+
+        // delete d's worktree
+        std::process::Command::from(gix::command::prepare(gix::path::env::exe_invocation()))
+            .current_dir(&ctx.project().path)
+            .arg("worktree")
+            .arg("remove")
+            .arg("-f")
+            .arg(d.created.path.as_os_str())
+            .output()?;
+
+        // remove `feature-c` branch from workspace
+        // It would be nice to invoke the `but` cli here...
+        let meta = VirtualBranchesTomlMetadata::from_path(
+            ctx.project().gb_dir().join("virtual_branches.toml"),
+        )?;
+        let stack = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?
+            .into_iter()
+            .find(|s| s.heads.iter().any(|h| h.name == b"feature-c"))
+            .unwrap();
+        let branch_manager = ctx.branch_manager();
+        branch_manager.unapply(
+            stack.id.unwrap(),
+            guard.write_permission(),
+            false,
+            vec![],
+            ctx.app_settings().feature_flags.cv3,
+        )?;
+
+        assert!(
+            worktree_list(&mut ctx, guard.read_permission())?
+                .entries
+                .into_iter()
+                .all(|entry| if entry.worktree == a.created {
+                    entry.status == WorktreeHealthStatus::Normal
+                } else if entry.worktree == b.created {
+                    entry.status == WorktreeHealthStatus::BranchMissing
+                } else if entry.worktree == c.created {
+                    entry.status == WorktreeHealthStatus::BranchNotCheckedOut
+                } else if entry.worktree == d.created {
+                    entry.status == WorktreeHealthStatus::WorktreeMissing
+                } else if entry.worktree == e.created {
+                    entry.status == WorktreeHealthStatus::WorkspaceBranchMissing
+                } else {
+                    false
+                })
         );
 
         Ok(())

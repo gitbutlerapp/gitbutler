@@ -1384,6 +1384,7 @@ dependencies = [
  "but-db",
  "but-graph",
  "but-workspace",
+ "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-oxidize",
  "gitbutler-project",

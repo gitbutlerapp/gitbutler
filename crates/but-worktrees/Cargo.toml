@@ -25,6 +25,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 gix-testtools.workspace = true
+gitbutler-branch-actions.workspace = true
 gitbutler-testsupport.workspace = true
 gitbutler-oxidize.workspace = true
 insta.workspace = true

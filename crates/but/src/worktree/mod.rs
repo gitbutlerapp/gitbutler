@@ -51,7 +51,20 @@ pub fn handle_inner(
             Ok(())
         }
         Subcommands::List => {
-            todo!("List all worktrees")
+            let output = but_api::worktree::worktree_list(project.id)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else if output.entries.is_empty() {
+                println!("No worktrees found");
+            } else {
+                for entry in &output.entries {
+                    println!("Path: {}", entry.worktree.path.display());
+                    println!("  Reference: {}", entry.worktree.reference);
+                    println!("  Status: {:?}", entry.status);
+                    println!();
+                }
+            }
+            Ok(())
         }
         Subcommands::Integrate { worktree_id, dry } => {
             if *dry {

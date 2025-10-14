@@ -13,6 +13,7 @@ pub fn save_worktree(ctx: &mut CommandContext, worktree: Worktree) -> Result<()>
 }
 
 /// Retrieve a worktree by its path.
+#[allow(unused)]
 pub fn get_worktree(ctx: &mut CommandContext, path: &Path) -> Result<Option<Worktree>> {
     let path_str = path.to_string_lossy();
     let worktree = ctx.db()?.worktrees().get(&path_str)?;
@@ -23,6 +24,7 @@ pub fn get_worktree(ctx: &mut CommandContext, path: &Path) -> Result<Option<Work
 }
 
 /// Delete a worktree from the database.
+#[allow(unused)]
 pub fn delete_worktree(ctx: &mut CommandContext, path: &Path) -> Result<()> {
     let path_str = path.to_string_lossy();
     ctx.db()?.worktrees().delete(&path_str)?;
