@@ -49,6 +49,13 @@ pub struct FetchUpdate {
     pub auto_fetch_interval_minutes: Option<isize>,
 }
 
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+/// Update request for [`crate::app_settings::UiSettings`].
+pub struct UiUpdate {
+    pub use_native_title_bar: Option<bool>,
+}
+
 /// Mutation, immediately followed by writing everything to disk.
 impl AppSettingsWithDiskSync {
     pub fn update_onboarding_complete(&self, update: bool) -> Result<()> {
@@ -148,6 +155,14 @@ impl AppSettingsWithDiskSync {
         let mut settings = self.get_mut_enforce_save()?;
         if let Some(auto_fetch_interval_minutes) = update.auto_fetch_interval_minutes {
             settings.fetch.auto_fetch_interval_minutes = auto_fetch_interval_minutes;
+        }
+        settings.save()
+    }
+
+    pub fn update_ui(&self, update: UiUpdate) -> Result<()> {
+        let mut settings = self.get_mut_enforce_save()?;
+        if let Some(use_native_title_bar) = update.use_native_title_bar {
+            settings.ui.use_native_title_bar = use_native_title_bar;
         }
         settings.save()
     }
