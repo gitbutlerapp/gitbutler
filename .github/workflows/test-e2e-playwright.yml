@@ -15,7 +15,7 @@ on:
 jobs:
   test:
     name: e2e-playwright
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-8
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
     timeout-minutes: 60

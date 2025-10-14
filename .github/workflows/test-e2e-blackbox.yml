@@ -19,7 +19,7 @@ on:
 jobs:
   test:
     name: e2e-blackbox
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-8
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
