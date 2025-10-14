@@ -1383,6 +1383,7 @@ dependencies = [
  "bstr",
  "but-db",
  "but-graph",
+ "but-testsupport",
  "but-workspace",
  "gitbutler-branch-actions",
  "gitbutler-command-context",

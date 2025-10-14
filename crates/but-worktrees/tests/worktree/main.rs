@@ -206,6 +206,7 @@ mod worktree_new {
 mod worktree_list {
     use super::*;
     use but_graph::VirtualBranchesTomlMetadata;
+    use but_testsupport::git;
     use but_workspace::{StacksFilter, stacks_v3};
     use but_worktrees::{WorktreeHealthStatus, list::worktree_list, new::worktree_new};
     use gitbutler_branch_actions::BranchManagerExt as _;
@@ -250,15 +251,14 @@ mod worktree_list {
             PreviousValue::Any,
             "New reference :D",
         )?;
-        std::process::Command::from(gix::command::prepare(gix::path::env::exe_invocation()))
+        git(&repo)
             .current_dir(&c.created.path)
             .arg("switch")
             .arg("new-ref")
             .output()?;
 
         // delete d's worktree
-        std::process::Command::from(gix::command::prepare(gix::path::env::exe_invocation()))
-            .current_dir(&ctx.project().path)
+        git(&repo)
             .arg("worktree")
             .arg("remove")
             .arg("-f")
