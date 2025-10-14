@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { splitMessage } from '$lib/utils/commitMessage';
-	import { TestId, Tooltip } from '@gitbutler/ui';
+	import { MarkdownContent, TestId, Tooltip } from '@gitbutler/ui';
+	import { Lexer } from 'marked';
 
 	type Props = {
 		truncate?: boolean;
@@ -13,6 +14,23 @@
 
 	const title = $derived(splitMessage(commitMessage).title);
 
+	const markdownOptions = {
+		async: false,
+		breaks: true,
+		gfm: true,
+		pedantic: false,
+		renderer: null,
+		silent: false,
+		tokenizer: null,
+		walkTokens: null
+	};
+
+	const tokens = $derived.by(() => {
+		if (!title) return [];
+		const lexer = new Lexer(markdownOptions);
+		return lexer.lex(title);
+	});
+
 	function getTitle() {
 		if (title) {
 			return title;
@@ -24,10 +42,22 @@
 <Tooltip text={getTitle()}>
 	<h3
 		data-testid={TestId.CommitDrawerTitle}
-		class="{className} commit-title"
+		class="{className} commit-title commit-title-markdown"
 		class:truncate
 		class:clr-text-3={!title}
 	>
-		{getTitle()}
+		{#if title && tokens.length > 0}
+			<MarkdownContent type="init" {tokens} />
+		{:else}
+			{getTitle()}
+		{/if}
 	</h3>
 </Tooltip>
+
+<style>
+	/* Make paragraphs inline in commit titles to avoid invalid HTML nesting */
+	:global(.commit-title-markdown p) {
+		display: inline;
+		margin: 0;
+	}
+</style>

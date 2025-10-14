@@ -8,7 +8,7 @@
 	import { rejoinParagraphs, truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Avatar, Icon, TestId, TimeAgo, Tooltip } from '@gitbutler/ui';
+	import { Avatar, Icon, Markdown, TestId, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	type Props = {
@@ -83,7 +83,7 @@
 	</div>
 
 	{#if description && description.trim()}
-		<p
+		<div
 			class="description"
 			class:expanded
 			style:--commit-message-font={$rewrapCommitMessage
@@ -93,9 +93,9 @@
 			data-testid={TestId.CommitDrawerDescription}
 		>
 			{#if expanded}
-				{description}
+				<Markdown content={description} />
 			{:else}
-				{abbreviated}
+				<Markdown content={abbreviated} />
 			{/if}
 			{#if isAbbrev}
 				<button onclick={() => (expanded = !expanded)} type="button" class="readmore text-bold">
@@ -106,7 +106,7 @@
 					{/if}
 				</button>
 			{/if}
-		</p>
+		</div>
 	{/if}
 </div>
 
@@ -141,7 +141,6 @@
 		font-size: 13px;
 		line-height: var(--text-lineheight-body);
 		font-family: var(--commit-message-font);
-		white-space: pre-line;
 	}
 
 	.readmore {
