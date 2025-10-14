@@ -105,7 +105,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: rust-lint
+          shared-key: lint
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - run: cargo fmt --check --all
       - run: cargo check --workspace --all-targets
@@ -127,7 +127,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: rust-but-binary
+          shared-key: but-binary
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - run: |
           sudo apt update
@@ -149,7 +149,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: rust-docs
+          shared-key: docs
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
         env:
@@ -185,7 +185,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: rust-testing
+          shared-key: cargo-test
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - run: |
           cargo test --workspace
@@ -213,7 +213,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: rust-testing
+          shared-key: cargo-test
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: 'cargo check'
         run: cargo check --workspace --all-targets --features windows
