@@ -137,7 +137,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: app-release-build
+          shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
 
@@ -191,6 +191,13 @@ jobs:
         with:
           name: sveltekit-build
           path: ./apps/desktop/build/
+      - name: Set release build optimization env vars
+        shell: bash
+        if: github.event.inputs.channel == 'release'
+        run: |
+          echo "CARGO_PROFILE_RELEASE_LTO=fat" >> $GITHUB_ENV
+          echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1" >> $GITHUB_ENV
+          echo "CARGO_PROFILE_RELEASE_OPT_LEVEL=s" >> $GITHUB_ENV
       - name: Build binary
         shell: bash
         run: |
