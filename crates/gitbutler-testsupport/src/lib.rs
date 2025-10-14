@@ -71,7 +71,7 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
 }
 
 pub mod writable {
-    use crate::DRIVER;
+    use crate::{BUT_DRIVER, DRIVER};
     use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
@@ -102,6 +102,49 @@ pub mod writable {
         let root = gix_testtools::scripted_fixture_writable_with_args(
             script_name,
             Some(DRIVER.display().to_string()),
+            gix_testtools::Creation::ExecuteScript,
+        )
+        .expect("script execution always succeeds");
+
+        let project = Project {
+            id: ProjectId::generate(),
+            title: project_directory.to_owned(),
+            path: root.path().join(project_directory),
+            ..Default::default()
+        };
+        Ok((project, root))
+    }
+
+    /// Use the `but` CLI instead of `gitbutler-cli` for fixtures that need stacking support.
+    pub fn but_fixture(
+        script_name: &str,
+        project_directory: &str,
+    ) -> anyhow::Result<(CommandContext, TempDir)> {
+        but_fixture_with_settings(script_name, project_directory, |_| {})
+    }
+
+    /// Use the `but` CLI instead of `gitbutler-cli` for fixtures that need stacking support.
+    pub fn but_fixture_with_settings(
+        script_name: &str,
+        project_directory: &str,
+        change_settings: fn(&mut AppSettings),
+    ) -> anyhow::Result<(CommandContext, TempDir)> {
+        let (project, tempdir) = but_fixture_project(script_name, project_directory)?;
+        let mut settings = AppSettings::default();
+        change_settings(&mut settings);
+        let open = CommandContext::open(&project, settings);
+        let ctx = open?;
+        Ok((ctx, tempdir))
+    }
+
+    /// Use the `but` CLI instead of `gitbutler-cli` for fixtures that need stacking support.
+    pub fn but_fixture_project(
+        script_name: &str,
+        project_directory: &str,
+    ) -> anyhow::Result<(Project, TempDir)> {
+        let root = gix_testtools::scripted_fixture_writable_with_args(
+            script_name,
+            Some(BUT_DRIVER.display().to_string()),
             gix_testtools::Creation::ExecuteScript,
         )
         .expect("script execution always succeeds");
@@ -302,6 +345,25 @@ pub(crate) static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
     assert!(
         path.is_file(),
         "Expecting driver to be located at {path:?} - we also assume a certain crate location"
+    );
+    path.canonicalize()
+        .expect("canonicalization works as the CWD is valid and there are no symlinks to resolve")
+});
+
+pub(crate) static BUT_DRIVER: Lazy<PathBuf> = Lazy::new(|| {
+    let mut cargo = std::process::Command::new(env!("CARGO"));
+    let res = cargo
+        .args(["build", "-p=but"])
+        .status()
+        .expect("cargo should run fine");
+    assert!(res.success(), "cargo invocation should be successful");
+
+    let path = Path::new("../../target")
+        .join("debug")
+        .join(if cfg!(windows) { "but.exe" } else { "but" });
+    assert!(
+        path.is_file(),
+        "Expecting but driver to be located at {path:?} - we also assume a certain crate location"
     );
     path.canonicalize()
         .expect("canonicalization works as the CWD is valid and there are no symlinks to resolve")

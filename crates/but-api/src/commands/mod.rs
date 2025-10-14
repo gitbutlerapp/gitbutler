@@ -20,4 +20,5 @@ pub mod stack;
 pub mod users;
 pub mod virtual_branches;
 pub mod workspace;
+pub mod worktree;
 pub mod zip;

@@ -865,6 +865,7 @@ dependencies = [
  "but-rules",
  "but-settings",
  "but-workspace",
+ "but-worktrees",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
@@ -1372,6 +1373,29 @@ dependencies = [
  "tempfile",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "but-worktrees"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "but-db",
+ "but-graph",
+ "but-workspace",
+ "gitbutler-command-context",
+ "gitbutler-oxidize",
+ "gitbutler-project",
+ "gitbutler-stack",
+ "gitbutler-testsupport",
+ "gix",
+ "gix-testtools",
+ "insta",
+ "serde",
+ "serde_json",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

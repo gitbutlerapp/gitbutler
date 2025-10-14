@@ -19,6 +19,8 @@ mod file_write_locks;
 pub use file_write_locks::FileWriteLock;
 mod workspace_rules;
 pub use workspace_rules::WorkspaceRule;
+mod worktrees;
+pub use worktrees::Worktree;
 
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
