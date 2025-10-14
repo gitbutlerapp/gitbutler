@@ -1,12 +1,26 @@
-<!-- BRANCH HEADER PURE COMPONENT -->
-<!-- ONLY CONCERNED ABOUT STYLE 😎 -->
+<script lang="ts" module>
+	export type DragableBranchData = {
+		disabled: boolean;
+		label: string;
+		pushStatus: PushStatus | undefined;
+		viewportId: string;
+		data: BranchDropData | undefined;
+	};
+</script>
+
 <script lang="ts">
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import BranchLabel from '$components/BranchLabel.svelte';
+	import { BranchDropData } from '$lib/branches/dropHandler';
+	import { draggableBranch, type DraggableConfig } from '$lib/dragging/draggable';
+	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
+	import { inject } from '@gitbutler/core/context';
 	import { Badge } from '@gitbutler/ui';
 	import { TestId } from '@gitbutler/ui';
+	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { slide } from 'svelte/transition';
+	import type { PushStatus } from '$lib/stacks/stack';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
@@ -29,6 +43,7 @@
 		content?: Snippet;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
+		dragArgs?: DragableBranchData;
 	};
 
 	const {
@@ -49,13 +64,32 @@
 		emptyState,
 		content,
 		menu,
-		buttons
+		buttons,
+		dragArgs
 	}: Props = $props();
+
+	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
+	const dragStateService = inject(DRAG_STATE_SERVICE);
 
 	let rightClickTrigger = $state<HTMLDivElement>();
 	let active = $state(false);
 
 	const actionsVisible = $derived(!draft && !isCommitting && (buttons || menu));
+
+	const draggableBranchConfig = $derived.by<DraggableConfig>(() => {
+		if (!dragArgs) {
+			return {
+				disabled: true,
+				dropzoneRegistry,
+				dragStateService
+			};
+		}
+		return {
+			...dragArgs,
+			dropzoneRegistry,
+			dragStateService
+		};
+	});
 </script>
 
 <div
@@ -79,6 +113,8 @@
 		{onclick}
 		onkeypress={onclick}
 		tabindex="0"
+		data-remove-from-panning
+		use:draggableBranch={draggableBranchConfig}
 	>
 		{#if selected && !draft}
 			<div
@@ -122,7 +158,7 @@
 	</div>
 
 	{#if actionsVisible}
-		<div class="branch-hedaer__actions-row" class:draft class:new-branch={isEmpty}>
+		<div class="branch-hedaer__actions-row" class:draft class:new-branch={isEmpty} data-no-drag>
 			{#if buttons}
 				<div class="text-12 branch-header__actions">
 					{@render buttons()}

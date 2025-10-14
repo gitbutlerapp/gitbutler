@@ -16,7 +16,7 @@
 	import { CodegenRuleDropData, CodegenRuleDropHandler } from '$lib/codegen/dropzone';
 	import { useGoToCodegenPage } from '$lib/codegen/redirect.svelte';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
-	import { draggableBranch, draggableChips } from '$lib/dragging/draggable';
+	import { draggableChips } from '$lib/dragging/draggable';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
@@ -154,25 +154,6 @@
 	class:draft={args.type === 'draft-branch'}
 	data-series-name={branchName}
 	data-testid={TestId.BranchCard}
-	data-remove-from-panning
-	use:draggableBranch={{
-		disabled: args.type !== 'stack-branch' || args.isConflicted,
-		label: branchName,
-		pushStatus: args.type === 'stack-branch' ? args.pushStatus : undefined,
-		viewportId: 'board-viewport',
-		data:
-			args.type === 'stack-branch' && args.stackId
-				? new BranchDropData(
-						args.stackId,
-						branchName,
-						args.isConflicted,
-						args.numberOfBranchesInStack,
-						args.numberOfCommits
-					)
-				: undefined,
-		dropzoneRegistry,
-		dragStateService
-	}}
 >
 	{#if args.type === 'stack-branch'}
 		{@const moveHandler = args.stackId
@@ -220,6 +201,22 @@
 				onclick={args.onclick}
 				menu={args.menu}
 				conflicts={args.isConflicted}
+				dragArgs={{
+					disabled: args.isConflicted,
+					label: branchName,
+					pushStatus: args.pushStatus,
+					viewportId: 'board-viewport',
+					data:
+						args.type === 'stack-branch' && args.stackId
+							? new BranchDropData(
+									args.stackId,
+									branchName,
+									args.isConflicted,
+									args.numberOfBranchesInStack,
+									args.numberOfCommits
+								)
+							: undefined
+				}}
 			>
 				{#snippet buttons()}
 					{#if args.buttons}
