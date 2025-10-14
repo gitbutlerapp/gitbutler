@@ -20,10 +20,8 @@ git clone remote stacked-and-parallel
   git config user.name "Author"
   git config user.email "author@example.com"
 
-  echo A
   # Initialize GitButler project
   $CLI init
-  echo B
 
   # Create feature-a stack (base branch)
   $CLI branch new feature-a
@@ -31,7 +29,6 @@ git clone remote stacked-and-parallel
   $CLI commit -m "feature-a: add line 1" feature-a
   echo "feature-a line 2" >> file.txt
   $CLI commit -m "feature-a: add line 2" feature-a
-  echo C
 
   # Create feature-b stack (stacked on feature-a)
   $CLI branch new feature-b --anchor feature-a

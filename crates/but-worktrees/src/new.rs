@@ -43,7 +43,7 @@ pub fn worktree_new(
     git_worktree_add(&ctx.project().path, &path, &branch_name, head.tip)?;
 
     let worktree = Worktree {
-        path,
+        path: path.canonicalize()?,
         reference: format!("refs/heads/{}", branch_name),
         base: head.tip,
         source: WorktreeSource::Branch(head.name.to_string()),
