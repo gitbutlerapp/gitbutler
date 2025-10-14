@@ -220,13 +220,20 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
     }
 
     fn branch(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Branch>> {
-        let Some((stack, branch)) = self.data().branches.values().find_map(|stack| {
-            stack.heads.iter().find_map(|branch| {
-                full_branch_name(branch.name.as_str()).and_then(|full_name| {
-                    (full_name.as_ref() == ref_name).then_some((stack, branch))
+        let Some((stack, branch)) = self
+            .data()
+            .branches
+            .values()
+            // There shouldn't be duplication, but let's be sure it's deterministic if it is.
+            .sorted_by_key(|s| s.order)
+            .find_map(|stack| {
+                stack.heads.iter().find_map(|branch| {
+                    full_branch_name(branch.name.as_str()).and_then(|full_name| {
+                        (full_name.as_ref() == ref_name).then_some((stack, branch))
+                    })
                 })
             })
-        }) else {
+        else {
             return Ok(VBTomlMetadataHandle {
                 is_default: true,
                 ref_name: ref_name.to_owned(),
@@ -371,6 +378,12 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 vb_stack.archived = stack.archived;
             }
             vb_stack.heads.reverse()
+        }
+
+        for (stack_idx, stack) in value.stacks.iter().enumerate() {
+            if let Some(vb_stack) = self.data_mut().branches.get_mut(&stack.id) {
+                vb_stack.order = stack_idx;
+            }
         }
 
         let stacks_to_delete: Vec<_> = self
