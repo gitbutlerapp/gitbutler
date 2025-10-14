@@ -3,8 +3,13 @@ use crate::init::utils::{
 };
 use crate::init::{StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev};
 use crate::init::{read_only_in_memory_scenario, standard_options};
+use but_core::RefMetadata;
+use but_core::ref_metadata::{StackId, WorkspaceStack, WorkspaceStackBranch};
 use but_graph::Graph;
-use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
+use but_graph::init::Overlay;
+use but_testsupport::{
+    InMemoryRefMetadata, graph_tree, graph_workspace, visualize_commit_graph_all,
+};
 
 #[test]
 fn single_stack_ambigous() -> anyhow::Result<()> {
@@ -2279,6 +2284,78 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         └── :0:anon:
             ├── ·34d0715 (🏘️|✓)
             └── ·eb5f731 (🏘️|✓)
+    ");
+    Ok(())
+}
+
+#[test]
+fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
+    let (mut repo, _) = read_only_in_memory_scenario("ws/main-with-remote-and-workspace-ref")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 956a3de (origin/main) on-remote-only
+    * 3183e43 (HEAD -> main, gitbutler/workspace) M1
+    ");
+
+    // Use an in-memory version directly as vb.toml can't bring in remote branches.
+    let mut meta = InMemoryRefMetadata::default();
+    let ws_ref = "refs/heads/gitbutler/workspace".try_into()?;
+    let mut ws = meta.workspace(ws_ref)?;
+    for (idx, ref_name) in ["refs/heads/main", "refs/remotes/origin/main"]
+        .into_iter()
+        .enumerate()
+    {
+        ws.stacks.push(WorkspaceStack {
+            id: StackId::from_number_for_testing(idx as u128),
+            branches: vec![WorkspaceStackBranch {
+                ref_name: ref_name.try_into()?,
+                archived: false,
+            }],
+            in_workspace: true,
+        });
+        meta.branches.push((
+            ref_name.try_into()?,
+            but_core::ref_metadata::Branch::default(),
+        ))
+    }
+    meta.set_workspace(&ws)?;
+
+    let graph = Graph::from_head(&repo, &meta, standard_options())?.validated()?;
+    // Main is a normal branch, and its remote is known.
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 📕►►►:1[0]:gitbutler/workspace
+    │   └── 👉📙►:0[1]:main <> origin/main →:2:
+    │       └── ·3183e43 (⌂|🏘|1)
+    └── 📙►:2[0]:origin/main →:0:
+        └── ·956a3de (⌂)
+            └── →:0: (main →:2:)
+    ");
+    // The workspace shows the remote commit, there is nothing special about the target.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:1:gitbutler/workspace <> ✓!
+    └── ≡👉📙:0:main <> origin/main →:2:⇡1
+        └── 👉📙:0:main <> origin/main →:2:⇡1
+            └── ·3183e43 (🏘️)
+    ");
+
+    // If the remote isn't setup officially, deduction still works as we find
+    // symbolic remote names for deduction in workspace ref names as well.
+    repo.config_snapshot_mut()
+        .remove_section("branch", Some("main".into()));
+    let graph = graph.redo_traversal_with_overlay(&repo, &meta, Overlay::default())?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 📕►►►:1[0]:gitbutler/workspace
+    │   └── 👉📙►:0[1]:main <> origin/main →:2:
+    │       └── ·3183e43 (⌂|🏘|1)
+    └── 📙►:2[0]:origin/main →:0:
+        └── ·956a3de (⌂)
+            └── →:0: (main →:2:)
+    ");
+
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️⚠️:1:gitbutler/workspace <> ✓!
+    └── ≡👉📙:0:main <> origin/main →:2:⇡1
+        └── 👉📙:0:main <> origin/main →:2:⇡1
+            └── ·3183e43 (🏘️)
     ");
     Ok(())
 }

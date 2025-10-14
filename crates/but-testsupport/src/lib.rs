@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 mod in_memory_meta;
-pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle};
+pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
 
 /// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
 /// i.e. `hunk_header("-1,10", "+1,10")`.
