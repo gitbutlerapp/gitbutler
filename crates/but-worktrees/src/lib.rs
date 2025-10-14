@@ -19,7 +19,7 @@ pub mod new;
 pub enum WorktreeSource {
     /// The worktree was created from a branch. This is the given name of the
     /// branch
-    Branch(String),
+    Branch(gix::refs::PartialName),
 }
 
 /// A worktree entry representing a Git worktree.
@@ -32,7 +32,7 @@ pub struct Worktree {
     pub path: PathBuf,
     /// The git reference this worktree was created from. This is a fully
     /// qualified reference
-    pub reference: String,
+    pub reference: gix::refs::FullName,
     /// The base commit (ObjectId) from which this worktree was created.
     pub base: gix::ObjectId,
     /// The source from which this worktree was created.

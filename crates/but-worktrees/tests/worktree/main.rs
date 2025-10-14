@@ -33,6 +33,7 @@ mod worktree_new {
 
     #[test]
     fn can_create_worktree_from_feature_a() -> anyhow::Result<()> {
+        let feature_a_name = gix::refs::PartialName::try_from("feature-a")?;
         let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
         let guard = test_ctx.ctx.project().exclusive_worktree_access();
@@ -51,7 +52,11 @@ mod worktree_new {
             .find(|h| h.name == b"feature-a")
             .context("Expect to find feature-a")?;
 
-        let outcome = worktree_new(&mut test_ctx.ctx, guard.read_permission(), "feature-a")?;
+        let outcome = worktree_new(
+            &mut test_ctx.ctx,
+            guard.read_permission(),
+            feature_a_name.as_ref(),
+        )?;
 
         assert_eq!(
             outcome.created.base, feature_a.tip,
@@ -59,7 +64,7 @@ mod worktree_new {
         );
         assert_eq!(
             outcome.created.source,
-            WorktreeSource::Branch("feature-a".into()),
+            WorktreeSource::Branch(feature_a_name),
             "The base should the the same as the tip of feature-a"
         );
         let worktree = repo.worktrees()?[0].clone();
@@ -75,8 +80,8 @@ mod worktree_new {
             "Worktree should have base checked out"
         );
         assert_eq!(
-            *worktree_repo.head()?.referent_name().unwrap().as_bstr(),
-            outcome.created.reference,
+            worktree_repo.head()?.referent_name().unwrap(),
+            outcome.created.reference.as_ref(),
             "Worktree should have reference checked out"
         );
 
@@ -85,6 +90,7 @@ mod worktree_new {
 
     #[test]
     fn can_create_worktree_from_feature_b() -> anyhow::Result<()> {
+        let feature_b_name = gix::refs::PartialName::try_from("feature-b")?;
         let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
         let guard = test_ctx.ctx.project().exclusive_worktree_access();
@@ -103,7 +109,11 @@ mod worktree_new {
             .find(|h| h.name == b"feature-b")
             .context("Expect to find feature-b")?;
 
-        let outcome = worktree_new(&mut test_ctx.ctx, guard.read_permission(), "feature-b")?;
+        let outcome = worktree_new(
+            &mut test_ctx.ctx,
+            guard.read_permission(),
+            feature_b_name.as_ref(),
+        )?;
 
         assert_eq!(
             outcome.created.base, feature_b.tip,
@@ -111,7 +121,7 @@ mod worktree_new {
         );
         assert_eq!(
             outcome.created.source,
-            WorktreeSource::Branch("feature-b".into()),
+            WorktreeSource::Branch(feature_b_name),
             "The source should be feature-b"
         );
         let worktree = repo.worktrees()?[0].clone();
@@ -127,8 +137,8 @@ mod worktree_new {
             "Worktree should have base checked out"
         );
         assert_eq!(
-            *worktree_repo.head()?.referent_name().unwrap().as_bstr(),
-            outcome.created.reference,
+            worktree_repo.head()?.referent_name().unwrap(),
+            outcome.created.reference.as_ref(),
             "Worktree should have reference checked out"
         );
 
@@ -137,6 +147,7 @@ mod worktree_new {
 
     #[test]
     fn can_create_worktree_from_feature_c() -> anyhow::Result<()> {
+        let feature_c_name = gix::refs::PartialName::try_from("feature-c")?;
         let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
         let guard = test_ctx.ctx.project().exclusive_worktree_access();
@@ -155,7 +166,11 @@ mod worktree_new {
             .find(|h| h.name == b"feature-c")
             .context("Expect to find feature-c")?;
 
-        let outcome = worktree_new(&mut test_ctx.ctx, guard.read_permission(), "feature-c")?;
+        let outcome = worktree_new(
+            &mut test_ctx.ctx,
+            guard.read_permission(),
+            feature_c_name.as_ref(),
+        )?;
 
         assert_eq!(
             outcome.created.base, feature_c.tip,
@@ -163,7 +178,7 @@ mod worktree_new {
         );
         assert_eq!(
             outcome.created.source,
-            WorktreeSource::Branch("feature-c".into()),
+            WorktreeSource::Branch(feature_c_name),
             "The source should be feature-c"
         );
         let worktree = repo.worktrees()?[0].clone();
@@ -179,8 +194,8 @@ mod worktree_new {
             "Worktree should have base checked out"
         );
         assert_eq!(
-            *worktree_repo.head()?.referent_name().unwrap().as_bstr(),
-            outcome.created.reference,
+            worktree_repo.head()?.referent_name().unwrap(),
+            outcome.created.reference.as_ref(),
             "Worktree should have reference checked out"
         );
 
@@ -206,11 +221,13 @@ mod worktree_list {
 
         let mut guard = ctx.project().exclusive_worktree_access();
 
-        let a = worktree_new(&mut ctx, guard.read_permission(), "feature-a")?; // To stay Normal
-        let b = worktree_new(&mut ctx, guard.read_permission(), "feature-a")?; // To be BranchMissing
-        let c = worktree_new(&mut ctx, guard.read_permission(), "feature-a")?; // To be BranchNotCheckedOut
-        let d = worktree_new(&mut ctx, guard.read_permission(), "feature-a")?; // To be WorktreeMissing
-        let e = worktree_new(&mut ctx, guard.read_permission(), "feature-c")?; // To be WorkspaceBranchMissing
+        let feature_a_name = gix::refs::PartialName::try_from("feature-a")?;
+        let feature_c_name = gix::refs::PartialName::try_from("feature-c")?;
+        let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?; // To stay Normal
+        let b = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?; // To be BranchMissing
+        let c = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?; // To be BranchNotCheckedOut
+        let d = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?; // To be WorktreeMissing
+        let e = worktree_new(&mut ctx, guard.read_permission(), feature_c_name.as_ref())?; // To be WorkspaceBranchMissing
 
         let all = &[&a, &b, &c, &d, &e];
 

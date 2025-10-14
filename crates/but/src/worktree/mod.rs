@@ -41,7 +41,10 @@ pub fn handle_inner(
 ) -> Result<()> {
     match cmd {
         Subcommands::New { reference } => {
-            let output = but_api::worktree::worktree_new(project.id, reference.clone())?;
+            let output = but_api::worktree::worktree_new(
+                project.id,
+                gix::refs::PartialName::try_from(reference.clone())?,
+            )?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&output)?);
             } else {

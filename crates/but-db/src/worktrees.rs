@@ -12,10 +12,16 @@ use serde::{Deserialize, Serialize};
 #[diesel(table_name = crate::schema::worktrees)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 #[diesel(primary_key(path))]
+/// This struct should not be consumed directly. Instead use the
+/// [but_worktrees::Worktree] struct.
 pub struct Worktree {
-    pub path: String,
-    pub reference: String,
+    /// A canonicalized path represented in bytes
+    pub path: Vec<u8>,
+    /// A fully qualified reference serialized from gix::refs::FullNameRef
+    pub reference: Vec<u8>,
+    /// A commit oid serialized as hexidecimal string
     pub base: String,
+    /// JSON stringification of [but_worktrees::WorktreeSource]
     pub source: String,
 }
 
@@ -37,7 +43,7 @@ impl WorktreesHandle<'_> {
         Ok(())
     }
 
-    pub fn get(&mut self, path: &str) -> Result<Option<Worktree>, diesel::result::Error> {
+    pub fn get(&mut self, path: &[u8]) -> Result<Option<Worktree>, diesel::result::Error> {
         let worktree = worktrees
             .filter(crate::schema::worktrees::path.eq(path))
             .first::<Worktree>(&mut self.db.conn)
@@ -45,7 +51,7 @@ impl WorktreesHandle<'_> {
         Ok(worktree)
     }
 
-    pub fn delete(&mut self, path: &str) -> Result<(), diesel::result::Error> {
+    pub fn delete(&mut self, path: &[u8]) -> Result<(), diesel::result::Error> {
         diesel::delete(worktrees.filter(crate::schema::worktrees::path.eq(path)))
             .execute(&mut self.db.conn)?;
         Ok(())
