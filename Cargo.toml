@@ -101,8 +101,10 @@ rmcp = { version = "0.1.5" }
 serde_json_lenient = "0.2.3"
 
 [profile.release]
-lto = "thin"      # Enables link to optimizations, but don't go all out on compile time.
-opt-level = "s"   # Optimize for binary size
+# There are no overrides here as we optimise for fast release builds,
+# which are used when building locally and when making Nightly builds.
+# The Stable release builds override the relevant settings at release time
+# to optimise for size.
 
 [profile.bench]
 codegen-units = 256
