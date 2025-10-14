@@ -100,8 +100,7 @@ rmcp = { version = "0.1.5" }
 serde_json_lenient = "0.2.3"
 
 [profile.release]
-codegen-units = 1 # Compile crates one after another so the compiler can optimize better
-lto = true        # Enables link to optimizations
+lto = "thin"      # Enables link to optimizations, but don't go all out on compile time.
 opt-level = "s"   # Optimize for binary size
 
 [profile.bench]

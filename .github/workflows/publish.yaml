@@ -134,6 +134,10 @@ jobs:
       - uses: actions/checkout@v5
         with:
           token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.1
+        with:
+          shared-key: app-release-build
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
 
@@ -183,6 +187,7 @@ jobs:
             gir1.2-webkit2-4.1=2.44.0-2;
 
       - uses: actions/download-artifact@v5
+        name: Download SvelteKit build output
         with:
           name: sveltekit-build
           path: ./apps/desktop/build/

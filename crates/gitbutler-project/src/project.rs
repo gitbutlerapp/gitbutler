@@ -126,10 +126,12 @@ impl Project {
         // nexted insided of another via a gitignored folder.
         // We want to match on the longest project path.
         projects.sort_by(|a, b| {
-            b.path
-                .to_string_lossy()
+            a.path
+                .as_os_str()
                 .len()
-                .cmp(&a.path.to_string_lossy().len())
+                .cmp(&b.path.as_os_str().len())
+                // longest first
+                .reverse()
         });
         let resolved_path = if path.is_relative() {
             path.canonicalize().context("Failed to canonicalize path")?
