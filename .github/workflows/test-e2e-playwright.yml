@@ -39,7 +39,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: rust-but-server-gitbutler-git-but-testing-binary
+          shared-key: e2e-playwright-rust-binaries
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Preset Git Configuration and but-testing location
         run: |
