@@ -197,6 +197,7 @@ jobs:
         run: |
           echo "CARGO_PROFILE_RELEASE_LTO=fat" >> $GITHUB_ENV
           echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1" >> $GITHUB_ENV
+          echo "CARGO_PROFILE_RELEASE_OPT_LEVEL=s" >> $GITHUB_ENV
       - name: Build binary
         shell: bash
         run: |
