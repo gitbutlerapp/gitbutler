@@ -22,6 +22,8 @@ pub struct AppSettings {
     pub claude: app_settings::Claude,
     /// Settings related to code reviews and pull requests.
     pub reviews: app_settings::Reviews,
+    /// UI settings.
+    pub ui: app_settings::UiSettings,
 }
 
 impl Default for AppSettings {

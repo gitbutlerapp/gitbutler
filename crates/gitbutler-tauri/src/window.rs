@@ -307,6 +307,12 @@ pub fn create(
     window_relative_url: String,
 ) -> tauri::Result<tauri::WebviewWindow> {
     tracing::info!("creating window '{label}' created at '{window_relative_url}'");
+
+    let use_native_title_bar = but_settings::AppSettings::load_from_default_path_creating()
+        .ok()
+        .map(|settings| settings.ui.use_native_title_bar)
+        .unwrap_or(false);
+
     let window = tauri::WebviewWindowBuilder::new(
         handle,
         label,
@@ -316,25 +322,31 @@ pub fn create(
     .title(handle.package_info().name.clone())
     .min_inner_size(1000.0, 600.0)
     .inner_size(1160.0, 720.0)
-    .hidden_title(true)
     .disable_drag_drop_handler()
-    .title_bar_style(tauri::TitleBarStyle::Overlay)
+    .hidden_title(!use_native_title_bar)
+    .title_bar_style(if use_native_title_bar {
+        tauri::TitleBarStyle::Visible
+    } else {
+        tauri::TitleBarStyle::Overlay
+    })
     .build()?;
 
-    use tauri::LogicalPosition;
-    use tauri::Manager;
-    use tauri_plugin_trafficlights_positioner::WindowExt;
-    if let Some(window) = window.get_window(label) {
-        // Note that these lights get reset when the Window label is changed!
-        // See https://github.com/tauri-apps/tauri/issues/13044 .
-        // TODO: stop doing this entirely and work with the defaults, my preference,
-        //       create a build script that makes it clear which MacOS version we are using
-        //       to conditionally compile the right value.
-        let y_offset_for_small_dots_in_pre_tahoe = 25.0;
-        window.setup_traffic_lights_inset(LogicalPosition::new(
-            16.0,
-            y_offset_for_small_dots_in_pre_tahoe,
-        ))?;
+    if !use_native_title_bar {
+        use tauri::LogicalPosition;
+        use tauri::Manager;
+        use tauri_plugin_trafficlights_positioner::WindowExt;
+        if let Some(window) = window.get_window(label) {
+            // Note that these lights get reset when the Window label is changed!
+            // See https://github.com/tauri-apps/tauri/issues/13044 .
+            // TODO: stop doing this entirely and work with the defaults, my preference,
+            //       create a build script that makes it clear which MacOS version we are using
+            //       to conditionally compile the right value.
+            let y_offset_for_small_dots_in_pre_tahoe = 25.0;
+            window.setup_traffic_lights_inset(LogicalPosition::new(
+                16.0,
+                y_offset_for_small_dots_in_pre_tahoe,
+            ))?;
+        }
     }
 
     Ok(window)

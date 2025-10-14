@@ -45,6 +45,7 @@
 	const isWorkspace = $derived(isWorkspacePath());
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 	const singleBranchMode = $derived($settingsStore?.featureFlags.singleBranch ?? false);
+	const useCustomTitleBar = $derived(!($settingsStore?.ui.useNativeTitleBar ?? false));
 	const backend = inject(BACKEND);
 
 	const mode = $derived(modeService.mode({ projectId }));
@@ -112,12 +113,12 @@
 <div
 	class="chrome-header"
 	class:mac={backend.platformName === 'macos'}
-	data-tauri-drag-region
+	data-tauri-drag-region={useCustomTitleBar}
 	class:single-branch={singleBranchMode}
 	use:focusable
 >
-	<div class="chrome-left" data-tauri-drag-region>
-		<div class="chrome-left-buttons" class:macos={backend.platformName === 'macos'}>
+	<div class="chrome-left" data-tauri-drag-region={useCustomTitleBar}>
+		<div class="chrome-left-buttons" class:has-traffic-lights={useCustomTitleBar}>
 			<SyncButton {projectId} disabled={actionsDisabled} />
 
 			{#if isHasUpstreamCommits}
@@ -138,7 +139,7 @@
 		</div>
 	</div>
 
-	<div class="chrome-center" data-tauri-drag-region>
+	<div class="chrome-center" data-tauri-drag-region={useCustomTitleBar}>
 		<div class="chrome-selector-wrapper">
 			<Select
 				searchable
@@ -244,7 +245,7 @@
 		{/if}
 	</div>
 
-	<div class="chrome-right" data-tauri-drag-region>
+	<div class="chrome-right" data-tauri-drag-region={useCustomTitleBar}>
 		{#if $ircEnabled}
 			<NotificationButton
 				hasUnread={isNotificationsUnread}
@@ -429,8 +430,8 @@
 		gap: 8px;
 	}
 
-	/** Mac padding added here to not affect header flex-box sizing. */
-	.mac .chrome-left-buttons {
+	/** Mac padding added here to not affect header flex-box sizing, only applied when using custom title bar. */
+	.mac .chrome-left-buttons.has-traffic-lights {
 		padding-left: 70px;
 	}
 

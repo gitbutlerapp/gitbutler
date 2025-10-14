@@ -33,5 +33,8 @@ export const MOCK_APP_SETTINGS: AppSettings = {
 	},
 	reviews: {
 		autoFillPrDescriptionFromCommit: true
+	},
+	ui: {
+		useNativeTitleBar: false
 	}
 };

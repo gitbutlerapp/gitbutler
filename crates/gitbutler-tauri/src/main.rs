@@ -299,6 +299,7 @@ fn main() {
                     settings::update_claude,
                     settings::update_fetch,
                     settings::update_reviews,
+                    settings::update_ui,
                     action::list_actions,
                     action::handle_changes,
                     action::list_workflows,
