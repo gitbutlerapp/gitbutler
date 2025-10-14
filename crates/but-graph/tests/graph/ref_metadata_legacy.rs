@@ -1054,7 +1054,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     let err = store.set_workspace(&ws).unwrap_err();
     assert_eq!(
         err.to_string(),
-        "BUG: do not pop off the last branch, remove the whole stack"
+        "BUG: incoming stack is probably empty, caller should have removed the whole stack"
     );
     ws.stacks.pop();
     assert_eq!(ws.stacks.len(), 1);

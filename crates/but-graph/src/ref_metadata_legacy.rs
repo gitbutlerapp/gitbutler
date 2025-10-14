@@ -323,7 +323,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     }) {
                         Some(branch) => branch,
                         None => branches_to_create.pop().context(
-                            "BUG: do not pop off the last branch, remove the whole stack",
+                            "BUG: incoming stack is probably empty, caller should have removed the whole stack",
                         )?,
                     };
 
@@ -560,6 +560,8 @@ impl VirtualBranchesTomlMetadata {
             ref_info: managed_ref_info(),
             stacks: stacks
                 .iter()
+                // We aren't able to handle these well, so let's ignore them.
+                .filter(|stack| !stack.heads.is_empty())
                 .sorted_by_key(|s| s.order)
                 .map(|s| WorkspaceStack {
                     id: s.id,
