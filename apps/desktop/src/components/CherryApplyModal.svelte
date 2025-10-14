@@ -68,7 +68,7 @@
 			case 'lockedToStack':
 				return 'This commit conflicts when applied to the selected stack, as such it must be applied to the selected stack to avoid a workspace conflict.';
 			case 'causesWorkspaceConflict':
-				return "This commit can't be applied since it would cause a workspace.";
+				return "This commit can't be applied since it would cause a workspace conflict.";
 			case 'noStacks':
 				return 'No stacks are currently applied to the workspace.';
 		}
