@@ -1,5 +1,5 @@
 use but_settings::AppSettings;
-use but_workspace::StackId;
+use but_workspace::{StackId, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use std::io::{self, Write};
@@ -36,6 +36,14 @@ pub enum Subcommands {
         /// Show only local branches
         #[clap(long, short = 'l')]
         local: bool,
+    },
+    /// Unapply a branch from the workspace
+    Unapply {
+        /// Name of the branch to unapply
+        branch_name: String,
+        /// Force unapply without confirmation
+        #[clap(long, short = 'f')]
+        force: bool,
     },
 }
 
@@ -133,7 +141,66 @@ pub fn handle(cmd: &Subcommands, project: &Project, _json: bool) -> anyhow::Resu
             Ok(())
         }
         Subcommands::List { local } => list::list(project, *local),
+        Subcommands::Unapply { branch_name, force } => {
+            let stacks = but_api::workspace::stacks(
+                project.id,
+                Some(but_workspace::StacksFilter::InWorkspace),
+            )?;
+
+            // Find which stack this branch belongs to
+            for stack_entry in &stacks {
+                if stack_entry.heads.iter().all(|b| b.name != *branch_name) {
+                    // Not found in this stack,
+                    continue;
+                }
+
+                if let Some(sid) = stack_entry.id {
+                    return confirm_unapply_stack(project, sid, stack_entry, force);
+                }
+            }
+
+            println!("Branch '{}' not found in any stack", branch_name);
+            Ok(())
+        }
     }
+}
+
+fn confirm_unapply_stack(
+    project: &Project,
+    sid: StackId,
+    stack_entry: &StackEntry,
+    force: &bool,
+) -> Result<(), anyhow::Error> {
+    let branches = stack_entry
+        .heads
+        .iter()
+        .map(|head| head.name.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    if !force {
+        println!(
+            "Are you sure you want to unapply stack with branches '{}'? [y/N]:",
+            branches
+        );
+
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        let input = input.trim().to_lowercase();
+        if input != "y" && input != "yes" {
+            println!("Aborted unapply operation.");
+            return Ok(());
+        }
+    }
+
+    but_api::virtual_branches::unapply_stack(project.id, sid)?;
+    println!(
+        "Unapplied stack with branches '{}' from workspace",
+        branches
+    );
+    Ok(())
 }
 
 fn confirm_branch_deletion(
