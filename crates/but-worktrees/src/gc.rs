@@ -1,16 +1,13 @@
 use crate::{Worktree, WorktreeHealthStatus, WorktreeSource};
 use anyhow::Result;
-use but_workspace::ui::StackHeadInfo;
 
 pub fn get_health(
     repo: &gix::Repository,
     worktree: &Worktree,
-    heads: &[StackHeadInfo],
+    ws_segment_names: &[gix::refs::PartialName],
 ) -> Result<WorktreeHealthStatus> {
-    if !heads.iter().any(|h| match &worktree.source {
-        WorktreeSource::Branch(b) => gix::refs::PartialName::try_from(h.name.clone())
-            .map(|n| n == b.clone())
-            .unwrap_or(false),
+    if !ws_segment_names.iter().any(|h| match &worktree.source {
+        WorktreeSource::Branch(b) => b == h,
     }) {
         return Ok(WorktreeHealthStatus::WorkspaceBranchMissing);
     };
