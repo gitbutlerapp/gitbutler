@@ -49,7 +49,7 @@ jobs:
   prettier:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'false' &&  needs.changes.outputs.docs == 'true'}}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
@@ -60,7 +60,7 @@ jobs:
   lint-node:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-4
     steps:
       - uses: actions/checkout@v5
         with:
@@ -71,7 +71,7 @@ jobs:
   check-node:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-4
     steps:
       - uses: actions/checkout@v5
         with:
@@ -82,7 +82,7 @@ jobs:
   unittest-node:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
@@ -93,7 +93,7 @@ jobs:
   rust-lint:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-8
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
@@ -117,7 +117,7 @@ jobs:
   rust-but-binary-no-tauri:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-8
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -137,7 +137,7 @@ jobs:
   rust-docs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
@@ -170,7 +170,7 @@ jobs:
   rust-test:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-8
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
@@ -202,7 +202,7 @@ jobs:
 
   check-rust-windows:
     needs: changes
-    runs-on: windows-latest
+    runs-on: depot-windows-latest-8
     if: ${{ needs.changes.outputs.rust == 'true' }}
     env:
       CARGO_TERM_COLOR: always
@@ -226,7 +226,7 @@ jobs:
       - rust-test
       - rust-lint
       - rust-but-binary-no-tauri
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-8
     env:
       CARGO_TERM_COLOR: always
     steps:
