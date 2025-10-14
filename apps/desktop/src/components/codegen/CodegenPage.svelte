@@ -68,7 +68,6 @@
 		ContextMenu,
 		ContextMenuItem,
 		ContextMenuSection,
-		DropdownButton,
 		EmptyStatePlaceholder,
 		Modal
 	} from '@gitbutler/ui';
@@ -323,40 +322,52 @@
 		clearContextModal?.show();
 	}
 
+	let clearLoading = $state(false);
+	let compactLoading = $state(false);
+
 	async function compactContext() {
 		if (!selectedBranch) return;
 
-		await claudeCodeService.compactHistory({
-			projectId,
-			stackId: selectedBranch.stackId
-		});
+		compactLoading = true;
+		try {
+			await claudeCodeService.compactHistory({
+				projectId,
+				stackId: selectedBranch.stackId
+			});
+		} finally {
+			compactLoading = false;
+		}
 	}
-
-	let selectedContextAction = $state<'clear' | 'compact'>('compact');
 
 	async function performClearContextAndRules() {
 		if (!selectedBranch) return;
 
-		const events = await claudeCodeService.fetchMessages({
-			projectId,
-			stackId: selectedBranch.stackId
-		});
-		const sessionId = getCurrentSessionId(events);
-		if (!sessionId) return;
+		clearLoading = true;
 
-		const rules = await rulesService.fetchListWorkspaceRules(projectId);
-
-		const toDelete = rules.filter((rule) =>
-			rule.filters.some(
-				(filter) => filter.type === 'claudeCodeSessionId' && filter.subject === sessionId
-			)
-		);
-
-		for (const rule of toDelete) {
-			await rulesService.deleteWorkspaceRuleMutate({
+		try {
+			const events = await claudeCodeService.fetchMessages({
 				projectId,
-				id: rule.id
+				stackId: selectedBranch.stackId
 			});
+			const sessionId = getCurrentSessionId(events);
+			if (!sessionId) return;
+
+			const rules = await rulesService.fetchListWorkspaceRules(projectId);
+
+			const toDelete = rules.filter((rule) =>
+				rule.filters.some(
+					(filter) => filter.type === 'claudeCodeSessionId' && filter.subject === sessionId
+				)
+			);
+
+			for (const rule of toDelete) {
+				await rulesService.deleteWorkspaceRuleMutate({
+					projectId,
+					id: rule.id
+				});
+			}
+		} finally {
+			clearLoading = false;
 		}
 	}
 
@@ -512,30 +523,28 @@
 
 					<CodegenChatLayout branchName={selectedBranch.head}>
 						{#snippet branchIcon()}
-							<BranchHeaderIcon {iconName} color={lineColor} />
+							<BranchHeaderIcon {iconName} color={lineColor} large />
 						{/snippet}
 						{#snippet workspaceActions()}
 							<Button
+								icon="workbench-small"
 								kind="outline"
 								size="tag"
-								icon="workbench-small"
 								reversedDirection
 								onclick={showInWorkspace}>Show in workspace</Button
 							>
 							<Button
-								kind="outline"
 								icon="open-editor-small"
+								kind="outline"
 								size="tag"
-								tooltip="Open in editor"
+								tooltip="Open in {$userSettings.defaultCodeEditor.displayName}"
 								onclick={openInEditor}
 								reversedDirection
-							>
-								Open in {$userSettings.defaultCodeEditor.displayName}
-							</Button>
+							/>
 						{/snippet}
 						{#snippet contextActions()}
 							{@const stats = usageStats(events)}
-							<Badge>Context utilization {(stats.contextUtilization * 100).toFixed(0)}%</Badge>
+
 							<Button
 								kind="outline"
 								icon="mcp"
@@ -547,32 +556,40 @@
 									<Badge kind="soft">{enabledMcpServers}</Badge>
 								{/snippet}
 							</Button>
-							<DropdownButton
-								disabled={!hasRulesToClear || formattedMessages.length === 0}
-								loading={['running', 'compacting'].includes(currentStatus(events, isStackActive))}
-								kind="outline"
-								style="warning"
-								menuSide="top"
-								autoClose={true}
-								onclick={() =>
-									selectedContextAction === 'compact' ? compactContext() : clearContextAndRules()}
-							>
-								{selectedContextAction === 'compact' ? 'Compact context' : 'Clear context'}
-								{#snippet contextMenuSlot()}
-									<ContextMenuSection>
-										<ContextMenuItem
-											label="Compact context"
-											icon="clear-small"
-											onclick={() => (selectedContextAction = 'compact')}
-										/>
-										<ContextMenuItem
-											label="Clear context"
-											icon="clear-small"
-											onclick={() => (selectedContextAction = 'clear')}
-										/>
-									</ContextMenuSection>
-								{/snippet}
-							</DropdownButton>
+
+							<div class="flex gap-4">
+								<div
+									class="text-11 context-utilization-badge"
+									style="--context-utilization: {stats.contextUtilization}"
+								>
+									{(stats.contextUtilization * 100).toFixed(0)}% context used
+								</div>
+
+								<div class="flex">
+									<Button
+										icon="clear"
+										kind="outline"
+										tooltip="Clear context and associated rules"
+										disabled={!hasRulesToClear ||
+											formattedMessages.length === 0 ||
+											['running', 'compacting'].includes(currentStatus(events, isStackActive))}
+										loading={clearLoading}
+										customStyle="border-top-right-radius: 0; border-bottom-right-radius: 0;"
+										onclick={() => clearContextAndRules()}
+									/>
+									<Button
+										icon="compact"
+										kind="outline"
+										tooltip="Compact context"
+										customStyle="border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: none;"
+										disabled={!hasRulesToClear ||
+											formattedMessages.length === 0 ||
+											['running', 'compacting'].includes(currentStatus(events, isStackActive))}
+										loading={compactLoading}
+										onclick={() => compactContext()}
+									/>
+								</div>
+							</div>
 						{/snippet}
 						{#snippet messages()}
 							{@const thinkingStatus = currentStatus(events, isStackActive)}
@@ -1174,7 +1191,6 @@
 		width: 100%;
 		height: 100%;
 		gap: 8px;
-
 		/* SHARABLE */
 		--message-max-width: 620px;
 	}
@@ -1200,6 +1216,29 @@
 
 	.chat-view__no-branches-placeholder {
 		background-color: var(--clr-bg-2);
+	}
+
+	.context-utilization-badge {
+		display: flex;
+		position: relative;
+		align-items: center;
+		justify-content: center;
+		height: var(--size-button);
+		padding: 0 8px;
+		overflow: hidden;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-theme-ntrl-soft);
+		color: var(--clr-text-2);
+
+		&::after {
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			width: calc(var(--context-utilization) * 100%);
+			height: 3px;
+			background: var(--clr-text-3);
+			content: '';
+		}
 	}
 
 	.right-sidebar {

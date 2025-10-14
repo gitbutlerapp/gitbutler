@@ -88,7 +88,6 @@
 
 	.tool-calls-container {
 		width: fit-content;
-		max-width: var(--message-max-width);
 		max-width: 100%;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
