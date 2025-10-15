@@ -259,9 +259,9 @@ pub fn push_stack(
     run_hooks: bool,
 ) -> Result<PushResult, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     gitbutler_branch_actions::stack::push_stack(
-        &ctx,
+        &mut ctx,
         stack_id,
         with_force,
         skip_force_push_protection,

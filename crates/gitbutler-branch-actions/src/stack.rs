@@ -157,7 +157,7 @@ pub fn update_branch_pr_number(
 /// Pushes all series in the stack to the remote.
 /// This operation will error out if the target has no push remote configured.
 pub fn push_stack(
-    ctx: &CommandContext,
+    ctx: &mut CommandContext,
     stack_id: StackId,
     with_force: bool,
     skip_force_push_protection: bool,
@@ -171,10 +171,13 @@ pub fn push_stack(
 
     let repo = ctx.repo();
     let default_target = state.get_default_target()?;
-    let merge_base = repo.find_commit(repo.merge_base(
-        stack.head_oid(&repo.to_gix()?)?.to_git2(),
-        default_target.sha,
-    )?)?;
+    let merge_base_id = repo
+        .find_commit(repo.merge_base(
+            stack.head_oid(&repo.to_gix()?)?.to_git2(),
+            default_target.sha,
+        )?)?
+        .id()
+        .to_gix();
 
     // First fetch, because we dont want to push integrated series
     ctx.fetch(
@@ -183,8 +186,6 @@ pub fn push_stack(
     )?;
     let gix_repo = ctx.gix_repo_for_merging_non_persisting()?;
     let cache = gix_repo.commit_graph_if_enabled()?;
-    let mut graph = gix_repo.revision_graph(cache.as_ref());
-    let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
     let stack_branches = stack.branches();
     let mut result = PushResult {
         remote: default_target.push_remote_name(),
@@ -203,7 +204,7 @@ pub fn push_stack(
             tracing::debug!(branch = branch.name, "skipping archived branch for pushing");
             continue;
         }
-        if branch.head_oid(&gix_repo)? == merge_base.id().to_gix() {
+        if branch.head_oid(&gix_repo)? == merge_base_id {
             // Nothing to push for this one
             tracing::debug!(
                 branch = branch.name,
@@ -211,11 +212,15 @@ pub fn push_stack(
             );
             continue;
         }
-        if branch_integrated(&mut check_commit, &branch, repo, &gix_repo)? {
+        let mut graph = gix_repo.revision_graph(cache.as_ref());
+        let mut check_commit =
+            IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
+        if branch_integrated(&mut check_commit, &branch, ctx.repo(), &gix_repo)? {
             // Already integrated, nothing to push
             tracing::debug!(branch = branch.name, "Skipping push for integrated branch");
             continue;
         }
+        drop(graph);
         let push_details = stack.push_details(ctx, branch.name().to_owned())?;
 
         if run_hooks {
