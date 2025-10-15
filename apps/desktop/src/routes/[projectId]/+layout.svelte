@@ -18,6 +18,7 @@
 	import { FEED_FACTORY } from '$lib/feed/feed';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
+	import { useGitHubAccessToken } from '$lib/forge/github/hooks.svelte';
 	import { GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { GIT_SERVICE } from '$lib/git/gitService';
@@ -29,10 +30,10 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
 	import { combineResults } from '$lib/state/helpers';
-	import { USER_SERVICE } from '$lib/user/userService';
 	import { debounce } from '$lib/utils/debounce';
 	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/core/context';
+	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { onDestroy, untrack, type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
@@ -45,16 +46,11 @@
 	const { projectId } = $derived(data);
 
 	// Core services
-	const userService = inject(USER_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
 	const projectsService = inject(PROJECTS_SERVICE);
 	const clientState = inject(CLIENT_STATE);
-
-	// User state
-	const user = $derived(userService.user);
-	const accessToken = $derived($user?.github_access_token);
 
 	// Project data
 	const projectsQuery = $derived(projectsService.projects());
@@ -106,8 +102,10 @@
 	const gitLabClient = inject(GITLAB_CLIENT);
 	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
 
+	const githubAccessToken = useGitHubAccessToken(reactive(() => projectId));
+
 	// GitHub setup
-	$effect.pre(() => gitHubClient.setToken(accessToken));
+	$effect.pre(() => gitHubClient.setToken(githubAccessToken.current));
 	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
 
 	// GitLab setup
@@ -123,7 +121,7 @@
 			repo: repoInfo,
 			pushRepo: forkInfo,
 			baseBranch: baseBranchName,
-			githubAuthenticated: !!$user?.github_access_token,
+			githubAuthenticated: !!githubAccessToken.current,
 			gitlabAuthenticated: !!$gitlabConfigured,
 			forgeOverride: projects?.find((project) => project.id === projectId)?.forge_override
 		});
