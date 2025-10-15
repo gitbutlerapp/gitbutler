@@ -40,6 +40,12 @@ pub(crate) fn move_branch(
     let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
     let source_merge_base = source_stack.merge_base(ctx)?;
 
+    let source_branch = source_stack
+        .branches()
+        .into_iter()
+        .find(|b| b.name == subject_branch_name)
+        .context("Subject branch not found in source stack")?;
+
     let destination_stack = vb_state.get_stack_in_workspace(target_stack_id)?;
     let destination_merge_base = destination_stack.merge_base(ctx)?;
 
@@ -63,6 +69,7 @@ pub(crate) fn move_branch(
         destination_stack,
         destination_merge_base,
         subject_branch_steps,
+        source_branch.pr_number,
     )?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
@@ -151,6 +158,7 @@ fn inject_branch_steps_into_destination(
     destination_stack: gitbutler_stack::Stack,
     destination_merge_base: gix::ObjectId,
     subject_branch_steps: Vec<RebaseStep>,
+    subject_branch_pr_number: Option<usize>,
 ) -> Result<(), anyhow::Error> {
     let new_destination_steps = inject_branch_steps(
         ctx,
@@ -176,16 +184,16 @@ fn inject_branch_steps_into_destination(
 
     let target_branch_head = target_branch_reference.commit_id;
 
-    destination_stack.add_series(
-        ctx,
-        StackBranch::new(
-            CommitOrChangeId::CommitId(target_branch_head.to_string()),
-            subject_branch_name.to_string(),
-            None,
-            &repository,
-        )?,
-        Some(target_branch_name.to_string()),
+    let mut new_head = StackBranch::new(
+        CommitOrChangeId::CommitId(target_branch_head.to_string()),
+        subject_branch_name.to_string(),
+        None,
+        &repository,
     )?;
+
+    new_head.pr_number = subject_branch_pr_number;
+
+    destination_stack.add_series(ctx, new_head, Some(target_branch_name.to_string()))?;
 
     destination_stack.set_stack_head(
         vb_state,
