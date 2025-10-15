@@ -355,7 +355,7 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = github::check_auth_status(params).await;
+                    let result = github::check_auth_status(&app_settings_sync, params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
