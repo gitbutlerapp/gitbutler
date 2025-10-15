@@ -103,6 +103,8 @@ pub struct Project {
     pub snapshot_lines_threshold: Option<usize>,
     #[serde(default)]
     pub forge_override: Option<String>,
+    #[serde(default)]
+    pub preferred_forge_user: Option<String>,
 }
 
 /// Instantiation
