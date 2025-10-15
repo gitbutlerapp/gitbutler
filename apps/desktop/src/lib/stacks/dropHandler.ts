@@ -1,11 +1,13 @@
 import { BranchDropData } from '$lib/branches/dropHandler';
 import { changesToDiffSpec } from '$lib/commits/utils';
 import { ChangeDropData } from '$lib/dragging/draggables';
+import { unstackPRs, updateStackPrs } from '$lib/forge/shared/prFooter';
 import StackMacros from '$lib/stacks/macros';
 import { handleMoveBranchResult } from '$lib/stacks/stack';
 import { ensureValue } from '$lib/utils/validation';
 import { chipToasts } from '@gitbutler/ui';
 import type { DropzoneHandler } from '$lib/dragging/handler';
+import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 import type { DiffService } from '$lib/hunks/diffService.svelte';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
@@ -17,10 +19,12 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 
 	constructor(
 		private stackService: StackService,
+		private prService: ForgePrService | undefined,
 		private projectId: string,
 		private readonly uiState: UiState,
 		private readonly uncommittedService: UncommittedService,
-		private readonly diffService: DiffService
+		private readonly diffService: DiffService,
+		private readonly baseBranchName: string | undefined
 	) {
 		this.macros = new StackMacros(this.projectId, this.stackService, this.uiState);
 	}
@@ -134,9 +138,26 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 				sourceStackId: data.stackId,
 				subjectBranchName: data.branchName
 			})
-			.then((result) => {
+			.then(async (result) => {
 				handleMoveBranchResult(result);
+				return await this.updatePrDescriptions(data);
 			});
+	}
+
+	private async updatePrDescriptions(data: BranchDropData) {
+		if (this.prService === undefined) return;
+		if (data.prNumber === undefined) return;
+		if (this.baseBranchName === undefined) return;
+		const prs = [data.prNumber, ...data.allOtherPrNumbersInStack];
+
+		if (data.allOtherPrNumbersInStack.length === 1) {
+			await unstackPRs(this.prService, prs, this.baseBranchName);
+			return;
+		}
+
+		await unstackPRs(this.prService, [data.prNumber], this.baseBranchName);
+		const branchDetails = await this.stackService.fetchBranches(this.projectId, data.stackId);
+		await updateStackPrs(this.prService, branchDetails, this.baseBranchName);
 	}
 
 	async ondrop(data: unknown): Promise<void> {

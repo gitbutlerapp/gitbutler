@@ -71,6 +71,7 @@
 		trackingBranch?: string;
 		isNewBranch?: boolean;
 		prNumber?: number;
+		allOtherPrNumbersInStack: number[];
 		reviewId?: string;
 		pushStatus: PushStatus;
 		lastUpdatedAt?: number;
@@ -213,7 +214,9 @@
 									branchName,
 									args.isConflicted,
 									args.numberOfBranchesInStack,
-									args.numberOfCommits
+									args.numberOfCommits,
+									args.prNumber,
+									args.allOtherPrNumbersInStack
 								)
 							: undefined
 				}}

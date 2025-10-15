@@ -11,6 +11,7 @@
 	import PushButton from '$components/PushButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { MoveBranchDzHandler } from '$lib/branches/dropHandler';
 	import { REORDER_DROPZONE_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
@@ -44,7 +45,9 @@
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const prService = $derived(forge.current.prService);
 	const urlService = inject(URL_SERVICE);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stackId);
@@ -125,15 +128,19 @@
 	);
 
 	const canPublishPR = $derived(forge.current.authenticated);
+	const baseBranchNameResponse = $derived(baseBranchService.baseBranchShortName(projectId));
+	const baseBranchName = $derived(baseBranchNameResponse.response);
 </script>
 
 {#snippet branchInsertionDz(branchName: string)}
 	{#if !isCommitting && stackId}
 		{@const moveBranchHandler = new MoveBranchDzHandler(
 			stackService,
+			prService,
 			projectId,
 			stackId,
-			branchName
+			branchName,
+			baseBranchName
 		)}
 		<Dropzone handlers={[moveBranchHandler]}>
 			{#snippet overlay({ hovered, activated })}
@@ -187,6 +194,10 @@
 				{@const lastUpdatedAt = branchDetails.lastUpdatedAt}
 				{@const reviewId = branch.reviewId || undefined}
 				{@const prNumber = branch.prNumber || undefined}
+				{@const allOtherPrNumbersInStack = branches
+					.filter((b) => b.name !== branchName)
+					.map((b) => b.prNumber)
+					.filter((n): n is number => n !== undefined)}
 				{@render branchInsertionDz(branchName)}
 				<BranchCard
 					type="stack-branch"
@@ -205,6 +216,7 @@
 					{lastUpdatedAt}
 					{reviewId}
 					{prNumber}
+					{allOtherPrNumbersInStack}
 					numberOfCommits={localAndRemoteCommits.length}
 					numberOfBranchesInStack={branches.length}
 					dropzones={[stackingReorderDropzoneManager.top(branchName)]}

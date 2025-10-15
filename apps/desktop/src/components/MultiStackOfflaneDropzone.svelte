@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Dropzone from '$components/Dropzone.svelte';
 	import MultiStackCreateNew from '$components/MultiStackCreateNew.svelte';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { OutsideLaneDzHandler } from '$lib/stacks/dropHandler';
@@ -26,8 +28,21 @@
 	const uiState = inject(UI_STATE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const diffService = inject(DIFF_SERVICE);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const prService = $derived(forge.current.prService);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const baseBranchNameResponse = $derived(baseBranchService.baseBranchShortName(projectId));
+	const baseBranchName = $derived(baseBranchNameResponse.response);
 	const dzHandler = $derived(
-		new OutsideLaneDzHandler(stackService, projectId, uiState, uncommittedService, diffService)
+		new OutsideLaneDzHandler(
+			stackService,
+			prService,
+			projectId,
+			uiState,
+			uncommittedService,
+			diffService,
+			baseBranchName
+		)
 	);
 </script>
 

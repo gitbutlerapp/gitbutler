@@ -42,6 +42,23 @@ export default class BaseBranchService {
 		);
 	}
 
+	baseBranchShortName(projectId: string) {
+		return this.api.endpoints.baseBranch.useQuery(
+			{
+				projectId
+			},
+			{
+				transform: (data) =>
+					mapBaseBranch(data, (baseBranch) => {
+						if (baseBranch.branchName.startsWith(baseBranch.remoteName + '/')) {
+							return baseBranch.branchName.substring(baseBranch.remoteName.length + 1);
+						}
+						return baseBranch.branchName;
+					})
+			}
+		);
+	}
+
 	repo(projectId: string) {
 		return this.api.endpoints.baseBranch.useQuery(
 			{
