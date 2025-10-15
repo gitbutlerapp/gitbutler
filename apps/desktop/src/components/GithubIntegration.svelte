@@ -80,12 +80,8 @@
 		}
 	}
 
-	function forgetGitHub(): void {
-		if ($user) {
-			$user.github_access_token = '';
-			$user.github_username = '';
-			userService.setUser($user);
-		}
+	async function forgetGitHub() {
+		await githubUserService.forgetGitHubUsernames($usernames);
 	}
 </script>
 

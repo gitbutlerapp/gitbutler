@@ -54,6 +54,12 @@ export class GitHubUserService {
 		return this.backendApi.endpoints.forgetGitHubUsername.useMutation();
 	}
 
+	async forgetGitHubUsernames(usernames: string[]) {
+		for (const username of usernames) {
+			await this.backendApi.endpoints.forgetGitHubUsername.mutate(username);
+		}
+	}
+
 	authenticatedUser(username: string) {
 		return this.backendApi.endpoints.getAccessToken.useQuery(username);
 	}
