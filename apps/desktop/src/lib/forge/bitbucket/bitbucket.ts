@@ -16,6 +16,7 @@ export const BITBUCKET_DOMAIN = 'bitbucket.org';
 export class BitBucket implements Forge {
 	readonly name: ForgeName = 'bitbucket';
 	readonly authenticated: boolean;
+	readonly isLoading = false;
 	private baseUrl: string;
 	private baseBranch: string;
 	private forkStr?: string;

@@ -105,7 +105,7 @@
 	const githubAccessToken = useGitHubAccessToken(reactive(() => projectId));
 
 	// GitHub setup
-	$effect.pre(() => gitHubClient.setToken(githubAccessToken.current));
+	$effect.pre(() => gitHubClient.setToken(githubAccessToken.accessToken.current));
 	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
 
 	// GitLab setup
@@ -121,7 +121,8 @@
 			repo: repoInfo,
 			pushRepo: forkInfo,
 			baseBranch: baseBranchName,
-			githubAuthenticated: !!githubAccessToken.current,
+			githubAuthenticated: !!githubAccessToken.accessToken.current,
+			githubIsLoading: githubAccessToken.isLoading.current,
 			gitlabAuthenticated: !!$gitlabConfigured,
 			forgeOverride: projects?.find((project) => project.id === projectId)?.forge_override
 		});

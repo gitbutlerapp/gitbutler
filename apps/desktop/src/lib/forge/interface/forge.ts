@@ -14,6 +14,7 @@ export type ForgeName = 'github' | 'gitlab' | 'bitbucket' | 'azure' | 'default';
 
 export interface Forge {
 	readonly name: ForgeName;
+	readonly isLoading: boolean;
 	readonly authenticated: boolean;
 	// Lists PRs for the repo.
 	get listService(): ForgeListingService | undefined;

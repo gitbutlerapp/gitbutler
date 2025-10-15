@@ -19,6 +19,7 @@ export const GITHUB_DOMAIN = 'github.com';
 export class GitHub implements Forge {
 	readonly name: ForgeName = 'github';
 	readonly authenticated: boolean;
+	readonly isLoading: boolean;
 	private baseUrl: string;
 
 	private api: ReturnType<typeof injectEndpoints>;
@@ -28,11 +29,13 @@ export class GitHub implements Forge {
 			posthog?: PostHogWrapper;
 			client: GitHubClient;
 			api: GitHubApi;
+			isLoading: boolean;
 		}
 	) {
-		const { client, api, authenticated, repo } = params;
+		const { client, api, authenticated, repo, isLoading } = params;
 		const { owner, name } = repo;
 		this.authenticated = authenticated;
+		this.isLoading = isLoading;
 
 		// Use the protocol from repo if available, otherwise default to https
 		// For SSH remote URLs, always use HTTPS for browser compatibility

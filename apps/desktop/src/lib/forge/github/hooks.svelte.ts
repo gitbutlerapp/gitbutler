@@ -40,10 +40,15 @@ export function usePreferredGitHubUsername(projectId: Reactive<string>): GitHubP
 	};
 }
 
+type GitHubAccess = {
+	accessToken: Reactive<string | undefined>;
+	isLoading: Reactive<boolean>;
+};
+
 /**
  * Return the GitHub access token for the given project ID, based on the preferred GitHub username.
  */
-export function useGitHubAccessToken(projectId: Reactive<string>): Reactive<string | undefined> {
+export function useGitHubAccessToken(projectId: Reactive<string>): GitHubAccess {
 	const githubUserService = inject(GITHUB_USER_SERVICE);
 	const { preferredGitHubUsername } = usePreferredGitHubUsername(projectId);
 	const ghUserResponse = $derived.by(() => {
@@ -51,5 +56,8 @@ export function useGitHubAccessToken(projectId: Reactive<string>): Reactive<stri
 		return githubUserService.authenticatedUser(preferredGitHubUsername.current);
 	});
 	const aceessToken = $derived(ghUserResponse?.response?.accessToken);
-	return reactive(() => aceessToken);
+	return {
+		accessToken: reactive(() => aceessToken),
+		isLoading: reactive(() => ghUserResponse?.result.isLoading ?? false)
+	};
 }
