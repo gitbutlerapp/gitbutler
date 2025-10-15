@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Tooltip, Textarea, AsyncButton } from '@gitbutler/ui';
+	import { Tooltip, RichTextEditor, AsyncButton } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 
@@ -24,20 +24,17 @@
 		sessionKey
 	}: Props = $props();
 
-	let textareaRef = $state<HTMLTextAreaElement>();
+	let editorRef = $state<ReturnType<typeof RichTextEditor>>();
 
 	// Focus when component mounts or when session changes
 	$effect(() => {
-		if (textareaRef && sessionKey) {
+		if (editorRef && sessionKey) {
 			// Additional focus with longer delay to handle parent component timing
 			setTimeout(() => {
-				textareaRef?.focus();
+				// editorRef?.focus();
+				console.log('blah');
 			}, 0);
 		}
-	});
-
-	$effect(() => {
-		onChange(value);
 	});
 
 	let showAbortButton = $state(false);
@@ -59,43 +56,46 @@
 	});
 
 	async function handleSubmit() {
+		const text = await editorRef?.getPlaintext();
+		if (!text || text.trim().length === 0) return;
 		await onsubmit();
 	}
 
-	async function handleKeypress(e: KeyboardEvent) {
-		if (e.key === 'Enter' && !e.shiftKey) {
-			e.preventDefault();
+	function handleEditorKeyDown(event: KeyboardEvent | null): boolean {
+		if (!event) return false;
 
-			if (value.trim().length === 0) return;
-
-			await handleSubmit();
+		// Handle Ctrl+C to abort
+		if (event.key === 'c' && event.ctrlKey && onAbort) {
+			event.preventDefault();
+			onAbort();
+			return true;
 		}
-	}
 
-	function handleDialogClick(e: MouseEvent) {
-		// Don't focus if clicking on buttons or other interactive elements
-		if (e.target !== e.currentTarget) return;
-		textareaRef?.focus();
+		// Handle Enter to submit
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			handleSubmit();
+			return true;
+		}
+
+		return false;
 	}
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="dialog-wrapper">
-	<div class="text-input dialog-input" onkeypress={handleKeypress} onclick={handleDialogClick}>
-		<Textarea
-			bind:textBoxEl={textareaRef}
+	<div class="text-input dialog-input">
+		<RichTextEditor
+			bind:this={editorRef}
 			bind:value
+			namespace="codegen-input"
+			markdown={false}
+			styleContext="chat-input"
 			placeholder="What would you like to make..."
-			borderless
-			maxRows={10}
-			minRows={2}
-			onkeydown={(e) => {
-				// Global gotakey on the button doesn't work inside textarea, so we handle it here
-				if (e.key === 'c' && e.ctrlKey && onAbort) {
-					e.preventDefault();
-					onAbort();
-				}
-			}}
+			minHeight="4rem"
+			onError={(e: unknown) => console.warn('Editor error', e)}
+			initialText={value}
+			{onChange}
+			onKeyDown={handleEditorKeyDown}
 		/>
 
 		<div class="dialog-input__actions">
