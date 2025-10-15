@@ -51,7 +51,7 @@
 		loading = true;
 		if (!$user) return;
 		try {
-			const accessToken = await githubUserService.checkAuthStatus({ deviceCode });
+			const { accessToken, login } = await githubUserService.checkAuthStatus({ deviceCode });
 			// We don't want to directly modify $user because who knows what state that puts you in
 			let mutableUser = structuredClone($user);
 			mutableUser.github_access_token = accessToken;
@@ -59,9 +59,7 @@
 
 			// After we call setUser, we want to re-clone the user store, as the userService itself sets the user store
 			mutableUser = structuredClone($user);
-			// TODO: Remove setting of gh username since it isn't used anywhere.
-			const githbLogin = await githubUserService.fetchGitHubLogin();
-			mutableUser.github_username = githbLogin.name || undefined;
+			mutableUser.github_username = login ?? undefined;
 			userService.setUser(mutableUser);
 			toasts.success('GitHub authenticated');
 		} catch (err: any) {

@@ -14,6 +14,13 @@ type Verification = {
 	device_code: string;
 };
 
+type AuthStatusResponse = {
+	accessToken: string;
+	login: string;
+	name: string | null;
+	email: string | null;
+};
+
 export class GitHubUserService {
 	private api: ReturnType<typeof injectEndpoints>;
 
@@ -33,7 +40,7 @@ export class GitHubUserService {
 	}
 
 	async checkAuthStatus(params: { deviceCode: string }) {
-		return await this.backend.invoke<string>('check_auth_status', params);
+		return await this.backend.invoke<AuthStatusResponse>('check_auth_status', params);
 	}
 }
 
