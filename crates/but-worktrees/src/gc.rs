@@ -4,7 +4,7 @@ use anyhow::Result;
 pub fn get_health(
     repo: &gix::Repository,
     worktree: &Worktree,
-    ws_segment_names: &[gix::refs::PartialName],
+    ws_segment_names: &[gix::refs::FullName],
 ) -> Result<WorktreeHealthStatus> {
     if !ws_segment_names.iter().any(|h| match &worktree.source {
         WorktreeSource::Branch(b) => b == h,

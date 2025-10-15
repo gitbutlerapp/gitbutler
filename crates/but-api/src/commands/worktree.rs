@@ -12,7 +12,7 @@ use tracing::instrument;
 #[instrument(err(Debug))]
 pub fn worktree_new(
     project_id: ProjectId,
-    reference: gix::refs::PartialName,
+    reference: gix::refs::FullName,
 ) -> Result<NewWorktreeOutcome, Error> {
     let project = gitbutler_project::get(project_id)?;
     let guard = project.exclusive_worktree_access();

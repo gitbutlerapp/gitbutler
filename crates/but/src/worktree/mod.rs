@@ -41,10 +41,14 @@ pub fn handle_inner(
 ) -> Result<()> {
     match cmd {
         Subcommands::New { reference } => {
-            let output = but_api::worktree::worktree_new(
-                project.id,
-                gix::refs::PartialName::try_from(reference.clone())?,
-            )?;
+            // Naivly append refs/heads/ if it's not present to always have a
+            // full reference.
+            let reference = if reference.starts_with("refs/heads/") {
+                gix::refs::FullName::try_from(format!("refs/heads/{}", reference))?
+            } else {
+                gix::refs::FullName::try_from(reference.clone())?
+            };
+            let output = but_api::worktree::worktree_new(project.id, reference)?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&output)?);
             } else {
