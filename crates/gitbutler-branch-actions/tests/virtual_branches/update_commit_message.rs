@@ -142,7 +142,7 @@ fn forcepush_allowed() {
 
         ctx,
         ..
-    } = &Test::default();
+    } = &mut Test::default();
 
     gitbutler_branch_actions::set_base_branch(
         ctx,

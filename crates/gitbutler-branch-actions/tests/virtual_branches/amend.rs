@@ -15,7 +15,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
 
         ctx,
         ..
-    } = &Test::default();
+    } = &mut Test::default();
 
     gitbutler_project::update_with_path(
         data_dir.as_ref().unwrap(),
