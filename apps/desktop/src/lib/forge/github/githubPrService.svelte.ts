@@ -228,7 +228,7 @@ function injectEndpoints(api: GitHubApi) {
 						action: 'update',
 						parameters: {
 							pull_number: number,
-							target_base: update.targetBase,
+							base: update.targetBase,
 							body: update.description,
 							state: update.state
 						},
