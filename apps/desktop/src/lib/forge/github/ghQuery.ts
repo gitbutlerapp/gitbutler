@@ -89,11 +89,11 @@ export async function ghQuery<
 
 		// Check for stacked PR across forks error (base field invalid)
 		let code: string | undefined;
-		if (isErrorlike(err) && 'response' in err) {
-			const response = (err as any).response;
-			if (response?.data?.errors instanceof Array) {
-				const hasInvalidBaseError = response.data.errors.some(
-					(error: any) =>
+		if (isGitHubError(err)) {
+			const errors = err.response.data.errors;
+			if (errors instanceof Array) {
+				const hasInvalidBaseError = errors.some(
+					(error) =>
 						error.resource === 'PullRequest' && error.field === 'base' && error.code === 'invalid'
 				);
 				if (hasInvalidBaseError) {
@@ -154,6 +154,35 @@ function extractDomainAndAction<
 		return { domain: args.domain, action: String(args.action) };
 	}
 	return undefined;
+}
+
+/**
+ * Type for GitHub API error response structure.
+ */
+interface GitHubErrorResponse {
+	response: {
+		data: {
+			errors?: Array<{
+				resource?: string;
+				field?: string;
+				code?: string;
+			}>;
+		};
+	};
+}
+
+/**
+ * Typeguard for checking if an error has the GitHub error response structure.
+ */
+function isGitHubError(err: unknown): err is GitHubErrorResponse {
+	return (
+		isErrorlike(err) &&
+		'response' in err &&
+		typeof (err as any).response === 'object' &&
+		(err as any).response !== null &&
+		'data' in (err as any).response &&
+		typeof (err as any).response.data === 'object'
+	);
 }
 
 /**
