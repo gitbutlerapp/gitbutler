@@ -557,12 +557,14 @@
 								{/snippet}
 							</Button>
 
-							<div class="flex gap-4">
+							<div class="flex gap-4 overflow-hidden">
 								<div
 									class="text-11 context-utilization-badge"
 									style="--context-utilization: {stats.contextUtilization}"
 								>
-									{(stats.contextUtilization * 100).toFixed(0)}% context used
+									<span class="truncate">
+										{(stats.contextUtilization * 100).toFixed(0)}% context used
+									</span>
 								</div>
 
 								<div class="flex">
