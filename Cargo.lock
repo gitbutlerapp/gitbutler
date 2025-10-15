@@ -1306,6 +1306,7 @@ name = "but-testsupport"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "but-graph",
  "gix",
  "gix-testtools",
