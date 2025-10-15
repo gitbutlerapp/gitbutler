@@ -73,9 +73,7 @@
 					locale: cloudUser.locale || 'en',
 					access_token: cloudUser.access_token || 'impossible-situation',
 					role: cloudUser.role || 'user',
-					supporter: cloudUser.supporter || false,
-					github_access_token: $user?.github_access_token,
-					github_username: $user?.github_username
+					supporter: cloudUser.supporter || false
 				};
 				userPicture = userData.picture;
 				userService.setUser(userData);
@@ -97,7 +95,6 @@
 				name: newName,
 				picture: selectedPictureFile
 			});
-			updatedUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
 			userService.setUser(updatedUser);
 			chipToasts.success('Profile updated');
 			selectedPictureFile = undefined;

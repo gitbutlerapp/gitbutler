@@ -21,6 +21,7 @@ export type ForgeConfig = {
 	pushRepo?: RepoInfo;
 	baseBranch?: string;
 	githubAuthenticated?: boolean;
+	githubIsLoading?: boolean;
 	gitlabAuthenticated?: boolean;
 	forgeOverride?: ForgeName;
 };
@@ -33,7 +34,9 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 	private _config: any = undefined;
 	private _determinedForgeType = $state<ForgeName>('default');
 	private _canSetupIntegration = $derived.by(() => {
-		return isAvalilableForge(this._determinedForgeType) && !this._forge.authenticated
+		return isAvalilableForge(this._determinedForgeType) &&
+			!this._forge.authenticated &&
+			!this._forge.isLoading
 			? this._determinedForgeType
 			: undefined;
 	});
@@ -66,8 +69,15 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			return;
 		}
 		this._config = config;
-		const { repo, pushRepo, baseBranch, githubAuthenticated, gitlabAuthenticated, forgeOverride } =
-			config;
+		const {
+			repo,
+			pushRepo,
+			baseBranch,
+			githubAuthenticated,
+			githubIsLoading,
+			gitlabAuthenticated,
+			forgeOverride
+		} = config;
 		if (repo && baseBranch) {
 			this._determinedForgeType = this.determineForgeType(repo);
 			this._forge = this.build({
@@ -75,6 +85,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				pushRepo,
 				baseBranch,
 				githubAuthenticated,
+				githubIsLoading,
 				gitlabAuthenticated,
 				forgeOverride
 			});
@@ -88,6 +99,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		pushRepo,
 		baseBranch,
 		githubAuthenticated,
+		githubIsLoading,
 		gitlabAuthenticated,
 		forgeOverride
 	}: {
@@ -95,6 +107,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		pushRepo?: RepoInfo;
 		baseBranch: string;
 		githubAuthenticated?: boolean;
+		githubIsLoading?: boolean;
 		gitlabAuthenticated?: boolean;
 		forgeOverride: ForgeName | undefined;
 	}): Forge {
@@ -119,7 +132,8 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				api: gitHubApi,
 				client: gitHubClient,
 				posthog: posthog,
-				authenticated: !!githubAuthenticated
+				authenticated: !!githubAuthenticated,
+				isLoading: githubIsLoading ?? false
 			});
 		}
 		if (forgeType === 'gitlab') {

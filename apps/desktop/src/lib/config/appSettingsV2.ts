@@ -1,6 +1,6 @@
 import { InjectionToken } from '@gitbutler/core/context';
 import { getStorageItem, setStorageItem } from '@gitbutler/shared/persisted';
-import { writable } from 'svelte/store';
+import { derived, writable } from 'svelte/store';
 import type { IBackend } from '$lib/backend';
 
 export const SETTINGS_SERVICE = new InjectionToken<SettingsService>('SettingsService');
@@ -15,6 +15,14 @@ export class SettingsService {
 		return () => {
 			unsubscribe();
 		};
+	});
+
+	/**
+	 * This are the GitHub usernames that are known to the application.
+	 * They are known but not necessarily active.
+	 */
+	readonly knownGitHubUsernames = derived(this.appSettings, (appSettings) => {
+		return appSettings?.forgeIntegrations.github.knownUsernames ?? [];
 	});
 
 	readonly subscribe = this.appSettings.subscribe;
@@ -160,6 +168,20 @@ export type AppSettings = {
 	reviews: Reviews;
 	/** UI settings */
 	ui: UiSettings;
+	/** Settings related to the forge integrations. */
+	forgeIntegrations: ForgeIntegrations;
+};
+
+export type ForgeIntegrations = {
+	/** Settings related to GitHub integration */
+	github: GitHubSettings;
+};
+
+export type GitHubSettings = {
+	/** The list of known GitHub users. This tracks the users that have authenticated through the application.
+	 * That does not mean that the user is currently "active" in the app, just that they have authenticated at some point.
+	 */
+	knownUsernames: string[];
 };
 
 export type TelemetrySettings = {

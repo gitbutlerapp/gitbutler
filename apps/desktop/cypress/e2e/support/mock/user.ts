@@ -11,7 +11,5 @@ export const MOCK_USER: User = {
 	access_token: 'mock-access-token',
 	role: 'user',
 	supporter: true,
-	github_access_token: 'mock-github-token',
-	github_username: 'testuser',
 	login: 'testuser'
 };

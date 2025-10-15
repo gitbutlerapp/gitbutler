@@ -30,6 +30,7 @@ export type Project = {
 	// Produced just for the frontend to determine if the project is open in any window.
 	is_open: boolean;
 	forge_override: ForgeName | undefined;
+	preferred_forge_user: string | null;
 };
 
 export function vscodePath(path: string) {

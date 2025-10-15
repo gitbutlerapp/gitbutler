@@ -22,6 +22,7 @@ export const GITLAB_SUB_DOMAIN = 'gitlab'; // For self hosted instance of Gitlab
 export class GitLab implements Forge {
 	readonly name: ForgeName = 'gitlab';
 	readonly authenticated: boolean;
+	readonly isLoading: boolean;
 	private baseUrl: string;
 	private baseBranch: string;
 	private forkStr?: string;
@@ -50,6 +51,8 @@ export class GitLab implements Forge {
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
 		this.authenticated = authenticated;
+		// TODO: Set this correctly based on whether we're waiting for the credentials to be loaded or not.
+		this.isLoading = false;
 
 		this.api = injectEndpoints(api);
 

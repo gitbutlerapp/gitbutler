@@ -1,13 +1,8 @@
 <script lang="ts">
-	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
 	import GithubIntegration from '$components/GithubIntegration.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { SectionCard, Spacer, Toggle } from '@gitbutler/ui';
-
-	const userService = inject(USER_SERVICE);
-	const user = userService.user;
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = settingsService.appSettings;
@@ -19,11 +14,7 @@
 	}
 </script>
 
-{#if !$user}
-	<AuthorizationBanner />
-	<Spacer />
-{/if}
-<GithubIntegration disabled={!$user} />
+<GithubIntegration />
 
 <Spacer />
 

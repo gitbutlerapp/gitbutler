@@ -13,6 +13,7 @@ import type { TagDescription } from '@reduxjs/toolkit/query';
 export class DefaultForge implements Forge {
 	name: ForgeName;
 	authenticated = false;
+	isLoading = false;
 
 	constructor() {
 		this.name = 'default';

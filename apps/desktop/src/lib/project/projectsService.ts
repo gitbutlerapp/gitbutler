@@ -49,6 +49,11 @@ export class ProjectsService {
 		await this.api.endpoints.updateProject.mutate({ project });
 	}
 
+	async updatePreferredForgeUser(projectId: string, preferred_forge_user: string | null) {
+		const project = await this.fetchProject(projectId, true);
+		await this.updateProject({ ...project, preferred_forge_user });
+	}
+
 	async deleteProject(projectId: string) {
 		return await this.api.endpoints.deleteProject.mutate({ projectId });
 	}

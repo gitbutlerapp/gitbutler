@@ -22,7 +22,6 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { ircEnabled, ircServer, codegenEnabled, fModeEnabled } from '$lib/config/uiFeatureFlags';
-	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import { IRC_CLIENT } from '$lib/irc/ircClient.svelte';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -61,11 +60,6 @@
 
 	const userService = inject(USER_SERVICE);
 	const user = $derived(userService.user);
-
-	// GitHub token management
-	const gitHubClient = inject(GITHUB_CLIENT);
-	const accessToken = $derived($user?.github_access_token);
-	$effect(() => gitHubClient.setToken(accessToken));
 
 	// Project tracking
 	const projectsService = inject(PROJECTS_SERVICE);

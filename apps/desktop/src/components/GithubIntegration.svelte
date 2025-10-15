@@ -1,9 +1,10 @@
 <script lang="ts">
+	import GithubUserLoginState from '$components/GithubUserLoginState.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import githubLogoSvg from '$lib/assets/unsized-logos/github.svg?raw';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 
@@ -12,17 +13,16 @@
 
 	interface Props {
 		minimal?: boolean;
-		disabled?: boolean;
 	}
 
-	const { minimal = false, disabled = false }: Props = $props();
+	const { minimal = false }: Props = $props();
 
 	const githubUserService = inject(GITHUB_USER_SERVICE);
-	const userService = inject(USER_SERVICE);
-	const user = userService.user;
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
+	const appSettings = inject(SETTINGS_SERVICE);
+	const usernames = appSettings.knownGitHubUsernames;
 
 	// step flags
 	let codeCopied = $state(false);
@@ -49,20 +49,8 @@
 
 	async function gitHubOauthCheckStatus(deviceCode: string) {
 		loading = true;
-		if (!$user) return;
 		try {
-			const accessToken = await githubUserService.checkAuthStatus({ deviceCode });
-			// We don't want to directly modify $user because who knows what state that puts you in
-			let mutableUser = structuredClone($user);
-			mutableUser.github_access_token = accessToken;
-			await userService.setUser(mutableUser);
-
-			// After we call setUser, we want to re-clone the user store, as the userService itself sets the user store
-			mutableUser = structuredClone($user);
-			// TODO: Remove setting of gh username since it isn't used anywhere.
-			const githbLogin = await githubUserService.fetchGitHubLogin();
-			mutableUser.github_username = githbLogin.name || undefined;
-			userService.setUser(mutableUser);
+			await githubUserService.checkAuthStatus({ deviceCode });
 			toasts.success('GitHub authenticated');
 		} catch (err: any) {
 			console.error(err);
@@ -78,23 +66,19 @@
 		}
 	}
 
-	function forgetGitHub(): void {
-		if ($user) {
-			$user.github_access_token = '';
-			$user.github_username = '';
-			userService.setUser($user);
-		}
+	async function forgetGitHub() {
+		await githubUserService.forgetGitHubUsernames($usernames);
 	}
 </script>
 
 {#if minimal}
-	<Button style="pop" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
+	<Button style="pop" onclick={gitHubStartOauth}>Authorize</Button>
 {:else}
 	<div class="stack-v gap-8">
 		<SectionCard orientation="row">
 			{#snippet iconSide()}
 				<div class="icon-wrapper">
-					{#if $user?.github_access_token}
+					{#if $usernames.length > 0}
 						<div class="icon-wrapper__tick">
 							<Icon name="success" color="success" size={18} />
 						</div>
@@ -104,18 +88,34 @@
 					</div>
 				</div>
 			{/snippet}
+
 			{#snippet title()}
 				GitHub
 			{/snippet}
+
 			{#snippet caption()}
 				Allows you to view and create Pull Requests.
 			{/snippet}
-			{#if $user?.github_access_token}
-				<Button kind="outline" {disabled} icon="bin-small" onclick={forgetGitHub}>Forget</Button>
-			{:else}
-				<Button style="pop" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
+
+			{#if $usernames.length > 1}
+				<Button kind="outline" icon="bin-small" onclick={forgetGitHub} style="error"
+					>Forget all</Button
+				>
+			{:else if $usernames.length === 0}
+				<Button style="pop" onclick={gitHubStartOauth}>Authorize</Button>
 			{/if}
 		</SectionCard>
+		{#each $usernames as username}
+			<GithubUserLoginState {username} />
+		{/each}
+
+		{#if $usernames.length > 0}
+			<div class="centered-row">
+				<Button style="pop" disabled={showAuthFlow} onclick={gitHubStartOauth}
+					>Add another account</Button
+				>
+			</div>
+		{/if}
 
 		{#if showAuthFlow}
 			<div in:fade={{ duration: 100 }}>
@@ -307,5 +307,10 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		user-select: text;
+	}
+
+	.centered-row {
+		display: flex;
+		justify-content: center;
 	}
 </style>

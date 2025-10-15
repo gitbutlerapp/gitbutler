@@ -14,7 +14,5 @@ export type User = {
 	access_token: string;
 	role: string | undefined;
 	supporter: boolean;
-	github_access_token: string | undefined;
-	github_username: string | undefined;
 	login?: string;
 };

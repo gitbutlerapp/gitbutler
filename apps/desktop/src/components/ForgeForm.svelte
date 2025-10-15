@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { usePreferredGitHubUsername } from '$lib/forge/github/hooks.svelte';
 	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
+	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { Link, SectionCard, Select, SelectItem, Spacer, Textbox } from '@gitbutler/ui';
 
 	import type { ForgeName } from '$lib/forge/interface/forge';
@@ -12,6 +14,10 @@
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const gitLabState = inject(GITLAB_STATE);
+	const { preferredGitHubUsername, githubUsernames } = usePreferredGitHubUsername(
+		reactive(() => projectId)
+	);
+
 	const token = gitLabState.token;
 	const forkProjectId = gitLabState.forkProjectId;
 	const upstreamProjectId = gitLabState.upstreamProjectId;
@@ -60,7 +66,7 @@
 </script>
 
 <div>
-	<SectionCard roundedBottom={forge.current.name !== 'gitlab'}>
+	<SectionCard roundedBottom={!['github', 'gitlab'].includes(forge.current.name)}>
 		{#snippet title()}
 			Forge override
 		{/snippet}
@@ -141,6 +147,44 @@
 					href="https://docs.gitbutler.com/troubleshooting/custom-csp">docs</Link
 				>
 			{/snippet}
+		</SectionCard>
+	{/if}
+
+	{#if forge.current.name === 'github'}
+		<SectionCard roundedTop={false}>
+			{#snippet title()}
+				Configure GitHub integration
+			{/snippet}
+
+			{#snippet caption()}
+				Enable pull request creation.
+				<br />
+				Read more about the GitHub integration in the <Link
+					href="https://docs.gitbutler.com/features/forge-integration/github-integration">docs</Link
+				>.
+			{/snippet}
+
+			{#if githubUsernames.current.length === 0}
+				<!-- TODO: Link to the general settings -->
+				<p>Make sure that you've logged in correctly from the General Settings</p>
+			{:else}
+				<Select
+					label="GitHub account for this project"
+					value={preferredGitHubUsername.current}
+					options={githubUsernames.current.map((u) => ({ label: u, value: u }))}
+					onselect={(value) => {
+						projectsService.updatePreferredForgeUser(projectId, value);
+					}}
+					disabled={githubUsernames.current.length <= 1}
+					wide
+				>
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem selected={item.value === preferredGitHubUsername.current} {highlighted}>
+							{item.label}
+						</SelectItem>
+					{/snippet}
+				</Select>
+			{/if}
 		</SectionCard>
 	{/if}
 </div>

@@ -33,6 +33,7 @@ pub struct UpdateRequest {
     pub forge_override: Option<String>,
     #[serde(default = "default_false")]
     pub unset_forge_override: bool,
+    pub preferred_forge_user: Option<String>,
 }
 
 fn default_false() -> bool {
@@ -109,6 +110,10 @@ impl Storage {
 
         if let Some(forge_override) = &update_request.forge_override {
             project.forge_override = Some(forge_override.clone());
+        }
+
+        if let Some(preferred_forge_user) = &update_request.preferred_forge_user {
+            project.preferred_forge_user = Some(preferred_forge_user.clone());
         }
 
         if update_request.unset_forge_override {

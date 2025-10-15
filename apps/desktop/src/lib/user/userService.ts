@@ -51,12 +51,6 @@ export class UserService {
 		this.posthog.setAnonymousPostHogUser();
 		this.user.set(undefined);
 	}
-	readonly accessToken$ = derived(this.user, (user) => {
-		if (user?.github_access_token) {
-			return user.github_access_token;
-		}
-		return undefined;
-	});
 
 	constructor(
 		private backend: IBackend,

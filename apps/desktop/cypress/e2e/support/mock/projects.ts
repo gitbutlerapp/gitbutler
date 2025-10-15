@@ -15,7 +15,8 @@ export const MOCK_PROJECT_A: Project = {
 	use_diff_context: true,
 	snapshot_lines_threshold: 5,
 	is_open: false,
-	forge_override: undefined
+	forge_override: undefined,
+	preferred_forge_user: null
 };
 
 export function createMockProject(id: string, title: string, path: string): Project {

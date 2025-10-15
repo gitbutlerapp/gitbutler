@@ -18,6 +18,7 @@ export const AZURE_DOMAIN = 'dev.azure.com';
 export class AzureDevOps implements Forge {
 	readonly name: ForgeName = 'azure';
 	readonly authenticated: boolean;
+	readonly isLoading = false;
 	private baseUrl: string;
 	private repo: RepoInfo;
 	private baseBranch: string;
