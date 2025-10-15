@@ -164,36 +164,29 @@
 			>
 				{#snippet custom()}
 					<svg
-						width="1.125rem"
+						width="1.188rem"
 						height="1.125rem"
-						viewBox="0 0 18 18"
+						viewBox="0 0 19 18"
 						fill="none"
-						stroke="currentColor"
 						xmlns="http://www.w3.org/2000/svg"
 					>
-						{#if !isHistoryPath()}
-							<path
-								d="M7 1H5C2.79086 1 1 2.79086 1 5V13C1 15.2091 2.79086 17 5 17H13C15.2091 17 17 15.2091 17 13V11"
-								stroke-width="1.5"
-							/>
-							<path
-								d="M17 11V5C17 2.79086 15.2091 1 13 1H7"
-								stroke-width="1.5"
-								stroke-dasharray="1.5 1.5"
-							/>
-						{:else}
-							<rect
-								x="1"
-								y="1"
-								width="1rem"
-								height="1rem"
-								rx="4"
-								fill="var(--clr-history-bg)"
-								stroke="var(--clr-history-bg)"
-								stroke-width="1.5"
-							/>
+						{#if isHistoryPath()}
+							<circle cx="9.82397" cy="8.75" r="8" fill="#FBDB79" />
 						{/if}
-						<path d="M8 4V10H14" stroke="var(--clr-history-arrows)" stroke-width="1.5" />
+						<path
+							d="M9.10022 4.20642V9.29948H14.1933"
+							stroke="var(--clr-history-arrows)"
+							stroke-width="1.5"
+						/>
+						<path
+							d="M2.40555 5.75C3.59233 2.81817 6.46666 0.75 9.82403 0.75C14.2423 0.75 17.824 4.33172 17.824 8.75C17.824 13.1683 14.2423 16.75 9.82403 16.75C6.27881 16.75 3.2722 14.4439 2.22241 11.25"
+							stroke="var(--clr-history-outline)"
+							stroke-width="1.5"
+						/>
+						<path
+							d="M0.134062 2.98321C0.0845897 2.54051 0.595053 2.25899 0.943069 2.53705L5.68617 6.32661C6.03419 6.60466 5.8723 7.16468 5.42961 7.21415L1.16327 7.69092C0.888835 7.72159 0.641501 7.52398 0.610832 7.24954L0.134062 2.98321Z"
+							fill="var(--clr-history-outline)"
+						/>
 					</svg>
 				{/snippet}
 			</Button>
@@ -515,9 +508,10 @@
 		aspect-ratio: 1 / 1;
 		height: unset;
 		border-radius: var(--radius-ml);
-
 		/* codegen icon */
 		--clr-codegen-star: currentColor;
+		--clr-history-outline: currentColor;
+		--clr-history-arrows: currentColor;
 	}
 	:global(.sidebar .btn-square.btn-active) {
 		--icon-opacity: 1;
@@ -533,8 +527,8 @@
 		--clr-target-bg: #ff9774;
 		--clr-target-lines: #fff;
 		/* history icon */
-		--clr-history-bg: #fbdb79;
-		--clr-history-arrows: #0a0a0a;
+		--clr-history-arrows: #000;
+		--clr-history-outline: #e98959;
 		/* settings icon */
 		--clr-settings-bg: var(--label-clr);
 		/* claude icon */

@@ -1,23 +1,15 @@
 <script lang="ts">
-	import { Avatar, Icon, Markdown } from '@gitbutler/ui';
+	import { Markdown } from '@gitbutler/ui';
 
 	interface Props {
 		content?: string;
 		avatarUrl?: string;
 	}
 
-	let { content, avatarUrl }: Props = $props();
+	let { content }: Props = $props();
 </script>
 
 <div class="message-user">
-	{#if avatarUrl}
-		<Avatar size="large" srcUrl={avatarUrl} tooltip="" />
-	{:else}
-		<div class="user-icon">
-			<Icon name="profile" />
-		</div>
-	{/if}
-
 	<div class="text-13 text-body message-bubble">
 		<Markdown {content} />
 	</div>
@@ -41,7 +33,7 @@
 		overflow: hidden;
 		gap: 16px;
 		border-radius: var(--radius-ml);
-		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
 		background-color: var(--clr-bg-2);
 		text-wrap: wrap;
 		word-break: break-word;

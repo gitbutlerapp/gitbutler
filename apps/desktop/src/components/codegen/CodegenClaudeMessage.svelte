@@ -11,15 +11,14 @@
 		message: Message;
 		onApproval?: (id: string) => Promise<void>;
 		onRejection?: (id: string) => Promise<void>;
-		userAvatarUrl?: string;
 	};
-	const { message, onApproval, onRejection, userAvatarUrl }: Props = $props();
+	const { message, onApproval, onRejection }: Props = $props();
 
 	let expanded = $state(false);
 </script>
 
 {#if message.type === 'user'}
-	<CodegenUserMessage content={message.message} avatarUrl={userAvatarUrl} />
+	<CodegenUserMessage content={message.message} />
 {:else if message.type === 'claude'}
 	{#if 'subtype' in message && message.subtype === 'compaction'}
 		<CodegenServiceMessage style="neutral" face="compacted" reverseElementsOrder>
