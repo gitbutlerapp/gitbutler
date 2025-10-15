@@ -36,7 +36,7 @@
 
 <div class="chat" use:focusable={{ vertical: true }}>
 	<div class="chat-header" use:focusable>
-		<div class="flex gap-10 justify-between">
+		<div class="flex gap-10 justify-between overflow-hidden">
 			{@render branchIcon()}
 
 			<div class="chat-header__title">
@@ -48,7 +48,7 @@
 			</div>
 		</div>
 
-		<div class="flex gap-8">
+		<div class="flex gap-8 overflow-hidden">
 			{@render contextActions()}
 		</div>
 	</div>
