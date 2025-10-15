@@ -127,6 +127,14 @@
 			<GithubUserLoginState {username} {disabled} />
 		{/each}
 
+		{#if $usernames.length > 0}
+			<div class="centered-row">
+				<Button style="pop" disabled={disabled || showAuthFlow} onclick={gitHubStartOauth}
+					>Add another account</Button
+				>
+			</div>
+		{/if}
+
 		{#if showAuthFlow}
 			<div in:fade={{ duration: 100 }}>
 				<SectionCard orientation="row">
@@ -317,5 +325,10 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		user-select: text;
+	}
+
+	.centered-row {
+		display: flex;
+		justify-content: center;
 	}
 </style>
