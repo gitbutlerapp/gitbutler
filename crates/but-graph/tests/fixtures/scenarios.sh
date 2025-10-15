@@ -1163,5 +1163,14 @@ EOF
 
     create_workspace_commit_once A B
   )
+
+  git init main-with-remote-and-workspace-ref
+  (cd main-with-remote-and-workspace-ref
+    commit M1
+    commit on-remote-only
+    setup_target_to_match_main
+    git reset --hard @~1
+    git branch gitbutler/workspace
+  )
 )
 

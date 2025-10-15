@@ -168,6 +168,7 @@ impl Queue {
 }
 
 /// A queue to keep track of tips, which additionally counts how much was queued over time.
+#[derive(Debug)]
 pub struct Queue {
     pub inner: VecDeque<QueueItem>,
     /// The current number of queued items.

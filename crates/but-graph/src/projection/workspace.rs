@@ -404,7 +404,7 @@ impl Graph {
     /// The [`extra_target`](crate::init::Options::extra_target) options extends the workspace to include that target as base.
     /// This affects what we consider to be the part of the workspace.
     /// Typically, that's a previous location of the target segment.
-    #[instrument(skip(self), err(Debug))]
+    #[instrument(level = tracing::Level::TRACE, skip(self), err(Debug))]
     pub fn to_workspace(&self) -> anyhow::Result<Workspace<'_>> {
         self.to_workspace_inner(workspace::Downgrade::Allow)
     }

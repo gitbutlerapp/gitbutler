@@ -3,10 +3,11 @@ use crate::ref_info::with_workspace_commit::utils::{
     named_writable_scenario_with_description_and_graph,
 };
 use crate::utils::r;
-use but_core::RefMetadata;
+use but_core::{RefMetadata, ref_metadata};
 use but_graph::init::{Options, Overlay};
 use but_testsupport::{
-    git, graph_workspace, id_at, sanitize_uuids_and_timestamps, visualize_commit_graph_all,
+    InMemoryRefMetadata, git, graph_workspace, id_at, sanitize_uuids_and_timestamps,
+    visualize_commit_graph_all,
 };
 use but_workspace::branch::OnWorkspaceMergeConflict;
 use but_workspace::branch::apply::{IntegrationMode, WorkspaceReferenceNaming};
@@ -100,6 +101,52 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
 
     // It's all virtual.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A");
+    Ok(())
+}
+
+#[test]
+fn main_with_advanced_remote() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, _vb_version_cannot_have_remotes, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "main-with-advanced-remote",
+            |_meta| {},
+        )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 552e7dc (origin/main) only-on-remote
+    * 3183e43 (HEAD -> main) M1
+    ");
+
+    let mut meta = InMemoryRefMetadata::default();
+    meta.workspaces.push((
+        "refs/heads/gitbutler/workspace".try_into()?,
+        ref_metadata::Workspace::default(),
+    ));
+    let ws = graph.to_workspace()?;
+    // note how the remote isn't interesting as we have no target configured, nor an extra target.
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    ⌂:0:main <> ✓!
+    └── ≡:0:main
+        └── :0:main
+            └── ·3183e43
+    ");
+
+    // We cannot apply remote tracking branches directly, but it resolves automatically to local tracking branches.
+    let out = but_workspace::branch::apply(
+        r("refs/remotes/origin/main"),
+        &ws,
+        &repo,
+        &mut meta,
+        default_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r"
+    Outcome {
+        workspace_changed: false,
+        workspace_ref_created: false,
+    }
+    ");
+
+    // TODO: show how a proper local tracking branch is created on the fly.
     Ok(())
 }
 
@@ -1383,19 +1430,34 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
     }
     ");
 
-    // Cannot apply branch without a base.
-    let err = but_workspace::branch::apply(
+    // Cannot apply branch without a base,
+    // but since remote is transformed into a local tracking branch, it's a noop.
+    let out = but_workspace::branch::apply(
         r("refs/remotes/orphan/main"),
         &ws,
         &repo,
         &mut *meta,
         default_options(),
-    )
-    .unwrap_err();
-    assert_eq!(
-        err.to_string(),
-        "Cannot create reference on unborn branch 'main'"
-    );
+    )?;
+    insta::assert_debug_snapshot!(out, @r"
+    Outcome {
+        workspace_changed: false,
+        workspace_ref_created: false,
+    }
+    ");
+
+    let ws = out.graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    ⌂:0:main <> ✓!
+    └── ≡:0:main
+        └── :0:main
+    ");
+
+    // TODO: can we reproduce this original error?
+    // assert_eq!(
+    //     err.to_string(),
+    //     "Cannot create reference on unborn branch 'main'"
+    // );
     Ok(())
 }
 

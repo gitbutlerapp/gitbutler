@@ -95,7 +95,7 @@ pub mod merge {
         /// In order to find out exactly which branches conflicts, we repeat the whole operations with different configuration.
         /// One could be better and only repeat what didn't change, to avoid repeating unnecessarily.
         /// But that shouldn't usually matter unless in the biggest repositories with tree-merge times past a 500ms or so.
-        #[instrument(level = tracing::Level::DEBUG, skip(stacks, graph, repo), err(Debug))]
+        #[instrument(name = "re-merge workspace commit", level = tracing::Level::DEBUG, skip(stacks, graph, repo), err(Debug))]
         pub fn from_new_merge_with_metadata<'a>(
             stacks: impl IntoIterator<Item = &'a but_core::ref_metadata::WorkspaceStack>,
             graph: &but_graph::Graph,
@@ -297,7 +297,7 @@ pub mod merge {
 
                 if stacks.is_empty() {
                     bail!(
-                        "BUG: Cannot merge nothing, don't call me like that, we assume this is empty: {conflicting_stacks:#?}"
+                        "BUG: Cannot merge nothing, no tips ended up in the graph: `missing_stacks` = {missing_stacks:?}, `conflicting_stacks` = {conflicting_stacks:?}, `tips` = : {tips:?}"
                     )
                 }
 

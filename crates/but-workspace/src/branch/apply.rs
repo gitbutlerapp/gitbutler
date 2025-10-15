@@ -99,6 +99,7 @@ pub(crate) mod function {
     use but_graph::init::Overlay;
     use but_graph::projection::WorkspaceKind;
     use gitbutler_oxidize::GixRepositoryExt;
+    use gix::reference::Category;
     use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog};
     use gix::refs::{FullNameRef, Target};
     use std::borrow::Cow;
@@ -106,6 +107,7 @@ pub(crate) mod function {
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
     /// along with its `meta`-data if it doesn't exist yet.
+    /// If `branch` is a remote tracking branch, we will instead apply the local tracking branch if it exists or fail otherwise.
     /// Otherwise, add it to the existing `workspace`, and update its metadata accordingly.
     /// **This means that the contents of `branch` is observable from the new state of `repo`**.
     ///
@@ -123,7 +125,7 @@ pub(crate) mod function {
     ///
     /// Note that options have no effect if `branch` is already in the workspace, so `apply` is *not* a way
     /// to alter certain aspects of the workspace by applying the same branch again.
-    #[instrument(level = tracing::Level::DEBUG, skip(workspace, repo, meta), err(Debug))]
+    #[instrument(skip(workspace, repo, meta), err(Debug))]
     pub fn apply<'graph>(
         branch: &FullNameRef,
         workspace: &but_graph::projection::Workspace<'graph>,
@@ -149,6 +151,24 @@ pub(crate) mod function {
         }
         if workspace.is_branch_the_target_or_its_local_tracking_branch(branch) {
             bail!("Cannot add the target '{branch}' branch to its own workspace");
+        }
+        let branch_storage: gix::refs::FullName;
+        let mut branch = branch;
+        if branch
+            .category()
+            .is_some_and(|c| c == Category::RemoteBranch)
+        {
+            // TODO(gix): we really want to have a function to retunr the local tracking branch
+            //            fix this in other places, too.
+            let Some((upstream_branch_name, _remote_name)) =
+                repo.upstream_branch_and_remote_for_tracking_branch(branch)?
+            else {
+                // TODO: actually create a local trakcing branch with proper configuration.
+                bail!("Couldn't find remote refspecs that would match {branch}");
+            };
+            branch_storage = upstream_branch_name;
+            // Pretend the upstream branch is also the local tracking name.
+            branch = branch_storage.as_ref();
         }
         let conflicting_stack_ids = Vec::new();
         if workspace.is_reachable_from_entrypoint(branch) {

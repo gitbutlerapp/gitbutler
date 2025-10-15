@@ -467,7 +467,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
 
     // It's totally possible to change 'in_workspace' directly.
     store.set_workspace(&ws_md)?;
-    let ws_md = store.workspace(ws_ref)?;
+    let mut ws_md = store.workspace(ws_ref)?;
     insta::assert_debug_snapshot!(ws_md.deref(), @r#"
     Workspace {
         ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
@@ -487,6 +487,56 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
                 branches: [
                     WorkspaceStackBranch {
                         ref_name: "refs/heads/outside-workspace",
+                        archived: false,
+                    },
+                ],
+                in_workspace: true,
+            },
+        ],
+        target_ref: None,
+        push_remote: None,
+    }
+    "#);
+
+    // Remotes can be part of the workspace as well.
+    ws_md.stacks.clear();
+    for (number, ref_name) in [
+        (3, "refs/remotes/origin/feature"),
+        (4, "refs/remotes/fork/other-feature"),
+    ] {
+        ws_md.stacks.push(WorkspaceStack {
+            id: StackId::from_number_for_testing(number),
+            in_workspace: true,
+            branches: vec![WorkspaceStackBranch {
+                ref_name: ref_name.try_into()?,
+                archived: false,
+            }],
+        });
+    }
+    store.set_workspace(&ws_md)?;
+
+    // We are NOT able to retrieve the original names as the backend can't capture it thanks to partial names and the
+    // assumption that we never use remote branches directly.
+    let ws_md = store.workspace(ws_ref)?;
+    insta::assert_debug_snapshot!(ws_md.deref(), @r#"
+    Workspace {
+        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+        stacks: [
+            WorkspaceStack {
+                id: 00000000-0000-0000-0000-000000000003,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/origin/feature",
+                        archived: false,
+                    },
+                ],
+                in_workspace: true,
+            },
+            WorkspaceStack {
+                id: 00000000-0000-0000-0000-000000000004,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/fork/other-feature",
                         archived: false,
                     },
                 ],

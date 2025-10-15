@@ -718,6 +718,7 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
     id: gix::ObjectId,
     limit: Limit,
     goals: &mut Goals,
+    next: &Queue,
 ) -> anyhow::Result<RemoteQueueOutcome> {
     let mut goal_flags = CommitFlags::empty();
     let mut limit_flags = CommitFlags::empty();
@@ -738,6 +739,18 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
         // Note that we don't connect the remote segment yet as it still has to reach
         // any segment really. It could be anywhere and point to anything.
         let Some(remote_tip) = try_refname_to_id(repo, remote_tracking_branch.as_ref())? else {
+            continue;
+        };
+
+        // It can happen a remote is in the workspace and was already queued as workspace tip.
+        // Don't double-queue.
+        if next.iter().any(|t| {
+            t.0 == remote_tip
+                && graph[t.2.segment_idx()]
+                    .ref_name
+                    .as_ref()
+                    .is_some_and(|rn| rn == &remote_tracking_branch)
+        }) {
             continue;
         };
         let remote_segment =

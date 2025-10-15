@@ -225,7 +225,7 @@ impl Graph {
     /// * The traversal is cut short when there is only tips which are integrated
     /// * The traversal is always as long as it needs to be to fully reconcile possibly disjoint branches, despite
     ///   this sometimes costing some time when the remote is far ahead in a huge repository.
-    #[instrument(skip(meta, ref_name), err(Debug))]
+    #[instrument(level = tracing::Level::DEBUG, skip(meta, ref_name), err(Debug))]
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
@@ -304,7 +304,7 @@ impl Graph {
                 .flag_for(tip)
                 .expect("we more than one bitflags for this");
 
-        let target_symbolic_remote_names: Vec<_> = {
+        let symbolic_remote_names: Vec<_> = {
             let remote_names = repo.remote_names();
             let mut v: Vec<_> = workspaces
                 .iter()
@@ -318,6 +318,14 @@ impl Graph {
                         .into_iter()
                         .chain(data.push_remote.clone().map(|push_remote| (0, push_remote)))
                 })
+                .chain(workspaces.iter().flat_map(|(_, _, data)| {
+                    data.stacks.iter().flat_map(|s| {
+                        s.branches.iter().flat_map(|b| {
+                            remotes::extract_remote_name(b.ref_name.as_ref(), &remote_names)
+                                .map(|remote| (1, remote))
+                        })
+                    })
+                }))
                 .collect();
             v.sort();
             v.dedup();
@@ -330,7 +338,7 @@ impl Graph {
             .any(|(_, wsrn, _)| Some(wsrn) == ref_name.as_ref());
         let mut ctx = post::Context {
             repo,
-            symbolic_remote_names: &target_symbolic_remote_names,
+            symbolic_remote_names: &symbolic_remote_names,
             configured_remote_tracking_branches: &configured_remote_tracking_branches,
             inserted_proxy_segments: Vec::new(),
             refs_by_id,
@@ -523,11 +531,24 @@ impl Graph {
                 };
                 // We always want these segments named, we know they are supposed to be in the workspace,
                 // but don't do so forcefully (follow the rules).
-                let segment = branch_segment_from_name_and_meta(
+                let segment_name = &segment.ref_name;
+                let mut segment = branch_segment_from_name_and_meta(
                     None,
                     meta,
                     Some((&ctx.refs_by_id, segment_tip.detach())),
                 )?;
+
+                // However, if this is a remote segment that is explicitly mentioned, and we couldn't name
+                // it, then just fix it up here as we really want that name.
+                let is_remote = segment_name
+                    .category()
+                    .is_some_and(|c| c == Category::RemoteBranch);
+                if segment.ref_name.is_none() && is_remote {
+                    segment.ref_name = Some(segment_name.clone());
+                    segment.metadata = meta
+                        .branch_opt(segment_name.as_ref())?
+                        .map(SegmentMetadata::Branch);
+                }
                 let segment = graph.insert_segment(segment);
                 _ = next.push_back_exhausted((
                     segment_tip.detach(),
@@ -622,20 +643,21 @@ impl Graph {
 
             let refs_at_commit_before_removal = ctx.refs_by_id.remove(&id).unwrap_or_default();
             let RemoteQueueOutcome {
-                items_to_queue_later,
+                items_to_queue_later: remote_items_to_queue_later,
                 maybe_make_id_a_goal_so_remote_can_find_local,
                 limit_to_let_local_find_remote,
             } = try_queue_remote_tracking_branches(
                 repo,
                 &refs_at_commit_before_removal,
                 &mut graph,
-                &target_symbolic_remote_names,
+                &symbolic_remote_names,
                 &configured_remote_tracking_branches,
                 &target_refs,
                 meta,
                 id,
                 limit,
                 &mut goals,
+                &next,
             )?;
 
             let segment = &mut graph[segment_idx_for_id];
@@ -669,7 +691,7 @@ impl Graph {
                 )?,
             );
 
-            for item in items_to_queue_later {
+            for item in remote_items_to_queue_later {
                 if next.push_back_exhausted(item) {
                     return graph.post_processed(meta, tip, ctx.with_hard_limit());
                 }
