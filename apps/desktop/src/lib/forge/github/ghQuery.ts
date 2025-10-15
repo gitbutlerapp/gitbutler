@@ -86,7 +86,26 @@ export async function ghQuery<
 			: 'GitHub API error';
 
 		const message = isErrorlike(err) ? err.message : String(err);
-		const code = message.startsWith('Not Found -') ? Code.GitHubTokenExpired : undefined;
+
+		// Check for stacked PR across forks error (base field invalid)
+		let code: string | undefined;
+		if (isErrorlike(err) && 'response' in err) {
+			const response = (err as any).response;
+			if (response?.data?.errors instanceof Array) {
+				const hasInvalidBaseError = response.data.errors.some(
+					(error: any) =>
+						error.resource === 'PullRequest' && error.field === 'base' && error.code === 'invalid'
+				);
+				if (hasInvalidBaseError) {
+					code = Code.GitHubStackedPrFork;
+				}
+			}
+		}
+
+		// Check for expired token
+		if (!code && message.startsWith('Not Found -')) {
+			code = Code.GitHubTokenExpired;
+		}
 
 		return { error: { name: title, message, code } };
 	}
