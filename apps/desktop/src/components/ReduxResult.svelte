@@ -1,9 +1,10 @@
 <script lang="ts" module>
 	type A = unknown;
 	type B = string | undefined;
+	type C = string | undefined;
 </script>
 
-<script lang="ts" generics="A, B extends string | undefined">
+<script lang="ts" generics="A, B extends string | undefined, C extends string | undefined">
 	import { isParsedError } from '$lib/error/parser';
 
 	import { Icon, InfoMessage } from '@gitbutler/ui';
@@ -11,31 +12,34 @@
 	import type { Result } from '$lib/state/helpers';
 	import type { Snippet } from 'svelte';
 
-	type Env<B> = {
-		projectId: string;
+	type Env<B, C> = {
+		projectId: C;
 		stackId: B;
 	};
 
-	type Props<A, B extends string | undefined> = {
+	type StackEnv<B> = B extends undefined ? { stackId?: B } : { stackId: B };
+	type ProjectEnv<C> = C extends undefined ? { projectId?: C } : { projectId: C };
+
+	type Props<A, B extends string | undefined, C extends string | undefined> = {
 		result: Result<A> | undefined;
-		projectId: string;
-		children: Snippet<[A, Env<B>]>;
+		children: Snippet<[A, Env<B, C>]>;
 		loading?: Snippet<[A | undefined]>;
 		error?: Snippet<[unknown]>;
 		onerror?: (err: unknown) => void;
-	} & (B extends undefined ? { stackId?: B } : { stackId: B });
+	} & StackEnv<B> &
+		ProjectEnv<C>;
 
-	const props: Props<A, B> = $props();
+	const props: Props<A, B, C> = $props();
 
 	type Display = {
 		result: Result<A> | undefined;
-		env: Env<B>;
+		env: Env<B, C>;
 	};
 
 	let cache: Display | undefined;
 
 	const display = $derived.by<Display>(() => {
-		const env = { projectId: props.projectId, stackId: props.stackId as B };
+		const env = { projectId: props.projectId as C, stackId: props.stackId as B };
 		if (props.result?.error) {
 			return { result: props.result, env };
 		}
