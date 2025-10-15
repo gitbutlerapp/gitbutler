@@ -1,5 +1,6 @@
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
+import type { BranchDetails } from '$lib/stacks/stack';
 
 export const STACKING_FOOTER_BOUNDARY_TOP = '<!-- GitButler Footer Boundary Top -->';
 export const STACKING_FOOTER_BOUNDARY_BOTTOM = '<!-- GitButler Footer Boundary Bottom -->';
@@ -30,6 +31,77 @@ export async function updatePrDescriptionTables(prService: ForgePrService, prNum
 	}
 }
 
+type PrUpdate = {
+	prNumber: number;
+	targetBase: string;
+	description: string;
+};
+
+export async function updateStackPrs(
+	prService: ForgePrService,
+	branchDetails: BranchDetails[],
+	baseBranchName: string
+) {
+	if (branchDetails.length <= 1) return;
+	const allPrNumbers = branchDetails.map((b) => b.prNumber).filter(isDefined);
+	const updates: PrUpdate[] = [];
+	let prevBranch: string | undefined = undefined;
+
+	for (let i = branchDetails.length - 1; i >= 0; i--) {
+		const details = branchDetails[i];
+		if (!details) continue;
+		const prNumber = details.prNumber;
+		if (!isDefined(prNumber)) {
+			prevBranch = details.name;
+			continue;
+		}
+		const pr = await prService.fetch(prNumber);
+
+		if (!isDefined(pr)) {
+			prevBranch = details.name;
+			continue;
+		}
+
+		updates.push({
+			prNumber,
+			description: updateBody(pr.body, pr.number, allPrNumbers, prService.unit.symbol),
+			targetBase: prevBranch ?? baseBranchName
+		});
+		prevBranch = details.name;
+	}
+
+	if (updates.length > 0) {
+		await Promise.all(
+			updates.map(async ({ prNumber, targetBase, description }) => {
+				await prService.update(prNumber, { description, targetBase });
+			})
+		);
+	}
+}
+
+/**
+ * Remove the PR description footer fromt the given PR numbers.
+ */
+export async function unstackPRs(
+	prService: ForgePrService,
+	prNumbers: number[],
+	baseBranchName: string
+) {
+	if (prService && prNumbers.length > 0) {
+		const prs = await Promise.all(prNumbers.map(async (id) => await prService.fetch(id)));
+		const updates = prs.filter(isDefined).map((pr) => ({
+			prNumber: pr.number,
+			description: clearFooter(pr.body)
+		}));
+
+		await Promise.all(
+			updates.map(async ({ prNumber, description }) => {
+				await prService.update(prNumber, { description, targetBase: baseBranchName });
+			})
+		);
+	}
+}
+
 /**
  * Replaces or inserts a new footer into an existing body of text.
  */
@@ -43,6 +115,20 @@ function updateBody(
 	const tail = (body?.split(STACKING_FOOTER_BOUNDARY_BOTTOM).at(1) || '').trim();
 	const footer = generateFooter(prNumber, allPrNumbers, symbol);
 	const description = head + '\n\n' + footer + '\n\n' + tail;
+	return description;
+}
+
+/**
+ * Remove the footer from an existing body of text.
+ */
+function clearFooter(body: string | undefined) {
+	if (!body) return body;
+	if (!body.includes(STACKING_FOOTER_BOUNDARY_TOP)) return body;
+	if (!body.includes(STACKING_FOOTER_BOUNDARY_BOTTOM)) return body;
+
+	const head = (body?.split(STACKING_FOOTER_BOUNDARY_TOP).at(0) || '').trim();
+	const tail = (body?.split(STACKING_FOOTER_BOUNDARY_BOTTOM).at(1) || '').trim();
+	const description = head + '\n\n' + tail;
 	return description;
 }
 
