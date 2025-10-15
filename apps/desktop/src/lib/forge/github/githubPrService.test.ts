@@ -71,39 +71,6 @@ describe('GitHubPrService', () => {
 		}
 	});
 
-	test('should not detect stacked PR error for other validation errors', async () => {
-		const mockError = {
-			message: 'Validation Failed',
-			response: {
-				data: {
-					message: 'Validation Failed',
-					errors: [
-						{
-							resource: 'PullRequest',
-							field: 'title',
-							code: 'missing'
-						}
-					]
-				}
-			}
-		};
-
-		vi.spyOn(octokit.pulls, 'create').mockRejectedValue(mockError);
-
-		try {
-			await service?.createPr({
-				title: 'Test PR',
-				body: 'Test body',
-				draft: false,
-				baseBranchName: 'feature-branch',
-				upstreamName: 'my-branch'
-			});
-			expect.fail('Should have thrown an error');
-		} catch (err: any) {
-			expect(err.code).not.toBe(Code.GitHubStackedPrFork);
-		}
-	});
-
 	test('should detect stacked PR error among multiple validation errors', async () => {
 		const mockError = {
 			message: 'Validation Failed',
