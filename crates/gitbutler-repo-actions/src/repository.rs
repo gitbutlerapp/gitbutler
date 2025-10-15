@@ -17,6 +17,7 @@ use gitbutler_repo::{
 };
 pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()>;
+    /// Returns the stderr output of the git executable if used.
     fn push(
         &self,
         head: git2::Oid,
@@ -25,7 +26,7 @@ pub trait RepoActionsExt {
         force_push_protection: bool,
         refspec: Option<String>,
         askpass_broker: Option<Option<StackId>>,
-    ) -> Result<()>;
+    ) -> Result<String>;
     fn commit(
         &self,
         message: &str,
@@ -67,13 +68,13 @@ impl RepoActionsExt for CommandContext {
             RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
 
         match self.push(commit_id, &refname, false, false, None, askpass) {
-            Ok(()) => Ok(()),
+            Ok(_) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
 
         let empty_refspec = Some(format!(":refs/heads/{branch_name}"));
         match self.push(commit_id, &refname, false, false, empty_refspec, askpass) {
-            Ok(()) => Ok(()),
+            Ok(_) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
 
@@ -163,7 +164,7 @@ impl RepoActionsExt for CommandContext {
         force_push_protection: bool,
         refspec: Option<String>,
         askpass_broker: Option<Option<StackId>>,
-    ) -> Result<()> {
+    ) -> Result<String> {
         let use_git_executable = self.project().preferred_key == AuthKey::SystemExecutable;
         if !use_git_executable && force_push_protection {
             bail!("Force push protection is only supported when 'Using the Git executable'");
@@ -245,7 +246,7 @@ impl RepoActionsExt for CommandContext {
                                 branch = branch.branch(),
                                 "pushed git branch"
                             );
-                            return Ok(());
+                            return Ok("".to_string());
                         }
                         Err(err) => match err.class() {
                             git2::ErrorClass::Net | git2::ErrorClass::Http => {

@@ -347,7 +347,7 @@ pub async fn push<P, F, Fut, E, Extra>(
     force_push_protection: bool,
     on_prompt: F,
     extra: Extra,
-) -> Result<(), crate::Error<Error<E>>>
+) -> Result<String, crate::Error<Error<E>>>
 where
     P: AsRef<Path>,
     E: GitExecutor,
@@ -375,7 +375,7 @@ where
         execute_with_auth_harness(repo_path, &executor, &args, None, on_prompt, extra).await?;
 
     if status == 0 {
-        return Ok(());
+        return Ok(stderr);
     }
 
     let base_error = Error::<E>::Failed {
