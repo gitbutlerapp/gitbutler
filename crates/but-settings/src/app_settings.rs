@@ -20,7 +20,7 @@ pub struct GitHubOAuthAppSettings {
     pub oauth_client_id: String,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct FeatureFlags {
     /// Enable the usage of V3 workspace APIs.
@@ -61,7 +61,7 @@ pub struct ExtraCsp {
     pub hosts: Vec<String>,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Fetch {
     /// The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching.
@@ -85,16 +85,28 @@ pub struct Claude {
     pub use_configured_model: bool,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Reviews {
     /// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
     pub auto_fill_pr_description_from_commit: bool,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct UiSettings {
     /// Whether to use the native system title bar.
     pub use_native_title_bar: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ForgeIntegrations {
+    pub github: GitHubIntegration,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GitHubIntegration {
+    pub known_usernames: Vec<String>,
 }

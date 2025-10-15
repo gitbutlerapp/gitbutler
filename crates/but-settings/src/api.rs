@@ -166,4 +166,41 @@ impl AppSettingsWithDiskSync {
         }
         settings.save()
     }
+
+    pub fn add_known_github_username(&self, username: &str) -> Result<()> {
+        let mut settings = self.get_mut_enforce_save()?;
+        if !settings
+            .forge_integrations
+            .github
+            .known_usernames
+            .contains(&username.to_string())
+        {
+            settings
+                .forge_integrations
+                .github
+                .known_usernames
+                .push(username.to_string());
+            settings.save()?;
+        }
+        Ok(())
+    }
+
+    pub fn remove_known_github_username(&self, username: &str) -> Result<()> {
+        let mut settings = self.get_mut_enforce_save()?;
+        if let Some(pos) = settings
+            .forge_integrations
+            .github
+            .known_usernames
+            .iter()
+            .position(|x| x == username)
+        {
+            settings
+                .forge_integrations
+                .github
+                .known_usernames
+                .remove(pos);
+            settings.save()?;
+        }
+        Ok(())
+    }
 }
