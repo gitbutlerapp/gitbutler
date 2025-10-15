@@ -18,7 +18,7 @@ pub struct NewWorktreeOutcome {
 pub fn worktree_new(
     ctx: &mut CommandContext,
     perm: &WorktreeReadPermission,
-    refname: &gix::refs::PartialNameRef,
+    refname: &gix::refs::FullNameRef,
 ) -> Result<NewWorktreeOutcome> {
     let repo = ctx.gix_repo_for_merging()?;
 
@@ -28,10 +28,7 @@ pub fn worktree_new(
         .stacks
         .into_iter()
         .flat_map(|s| s.segments)
-        .filter_map(|s| {
-            s.ref_name
-                .and_then(|n| gix::refs::PartialName::try_from(n.shorten().to_owned()).ok())
-        });
+        .filter_map(|s| s.ref_name);
 
     if !ws_segment_names.any(|n| n.as_ref() == refname) {
         bail!("Branch not found in workspace");
@@ -45,7 +42,7 @@ pub fn worktree_new(
     let path = worktree_path(ctx.project(), id);
     let branch_name = gix::refs::PartialName::try_from(format!("gitbutler/worktree/{}", id))?;
 
-    git_worktree_add(
+    let reference = git_worktree_add(
         &ctx.project().path,
         &path,
         branch_name.as_ref(),
@@ -54,7 +51,7 @@ pub fn worktree_new(
 
     let worktree = Worktree {
         path: path.canonicalize()?,
-        reference: gix::refs::FullName::try_from(format!("refs/heads/gitbutler/worktree/{}", id))?,
+        reference,
         base: to_checkout.detach(),
         source: WorktreeSource::Branch(refname.to_owned()),
     };

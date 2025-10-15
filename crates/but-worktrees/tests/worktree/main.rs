@@ -33,7 +33,7 @@ mod worktree_new {
 
     #[test]
     fn can_create_worktree_from_feature_a() -> anyhow::Result<()> {
-        let feature_a_name = gix::refs::PartialName::try_from("feature-a")?;
+        let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
         let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
         let guard = test_ctx.ctx.project().exclusive_worktree_access();
@@ -90,7 +90,7 @@ mod worktree_new {
 
     #[test]
     fn can_create_worktree_from_feature_b() -> anyhow::Result<()> {
-        let feature_b_name = gix::refs::PartialName::try_from("feature-b")?;
+        let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
         let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
         let guard = test_ctx.ctx.project().exclusive_worktree_access();
@@ -147,7 +147,7 @@ mod worktree_new {
 
     #[test]
     fn can_create_worktree_from_feature_c() -> anyhow::Result<()> {
-        let feature_c_name = gix::refs::PartialName::try_from("feature-c")?;
+        let feature_c_name = gix::refs::FullName::try_from("refs/heads/feature-c")?;
         let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
         let guard = test_ctx.ctx.project().exclusive_worktree_access();
@@ -222,8 +222,8 @@ mod worktree_list {
 
         let mut guard = ctx.project().exclusive_worktree_access();
 
-        let feature_a_name = gix::refs::PartialName::try_from("feature-a")?;
-        let feature_c_name = gix::refs::PartialName::try_from("feature-c")?;
+        let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
+        let feature_c_name = gix::refs::FullName::try_from("refs/heads/feature-c")?;
         let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?; // To stay Normal
         let b = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?; // To be BranchMissing
         let c = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?; // To be BranchNotCheckedOut

@@ -32,10 +32,7 @@ pub fn worktree_list(
         .stacks
         .into_iter()
         .flat_map(|s| s.segments)
-        .filter_map(|s| {
-            s.ref_name
-                .and_then(|n| gix::refs::PartialName::try_from(n.shorten().to_owned()).ok())
-        })
+        .filter_map(|s| s.ref_name)
         .collect::<Vec<_>>();
 
     let entries = list_worktrees(ctx)?

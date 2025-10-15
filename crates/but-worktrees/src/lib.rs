@@ -19,7 +19,7 @@ pub mod new;
 pub enum WorktreeSource {
     /// The worktree was created from a branch. This is the given name of the
     /// branch
-    Branch(gix::refs::PartialName),
+    Branch(gix::refs::FullName),
 }
 
 /// A worktree entry representing a Git worktree.
