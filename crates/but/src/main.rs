@@ -20,6 +20,7 @@ mod mcp;
 mod mcp_internal;
 mod metrics;
 mod oplog;
+mod push;
 mod rub;
 mod status;
 mod worktree;
@@ -209,6 +210,12 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Commit, props(start, &result)).ok();
             result
         }
+        Subcommands::Push(push_args) => {
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = push::handle(push_args, &project, args.json);
+            metrics_if_configured(app_settings, CommandName::Push, props(start, &result)).ok();
+            result
+        }
         Subcommands::New { target } => {
             let project = get_or_init_project(&args.current_dir)?;
             let result = commit::insert_blank_commit(&project, args.json, target);
@@ -294,7 +301,7 @@ fn print_grouped_help() {
         ("Inspection".yellow(), vec!["log", "status"]),
         (
             "Stack Operation".yellow(),
-            vec!["commit", "rub", "new", "describe", "branch"],
+            vec!["commit", "push", "rub", "new", "describe", "branch"],
         ),
         (
             "Operation History".yellow(),

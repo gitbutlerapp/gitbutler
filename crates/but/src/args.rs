@@ -92,6 +92,8 @@ For examples see `but rub --help`."
         #[clap(short = 'o', long = "only")]
         only: bool,
     },
+    /// Push a branch/stack to remote.
+    Push(crate::push::Args),
     /// Insert a blank commit before the specified commit, or at the top of a stack.
     New {
         /// Commit ID to insert before, or branch ID to insert at top of stack
@@ -162,6 +164,8 @@ pub enum CommandName {
     Rub,
     #[clap(alias = "commit")]
     Commit,
+    #[clap(alias = "push")]
+    Push,
     #[clap(alias = "new")]
     New,
     #[clap(alias = "describe")]
