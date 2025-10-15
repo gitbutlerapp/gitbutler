@@ -5,7 +5,6 @@
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 
@@ -14,14 +13,11 @@
 
 	interface Props {
 		minimal?: boolean;
-		disabled?: boolean;
 	}
 
-	const { minimal = false, disabled = false }: Props = $props();
+	const { minimal = false }: Props = $props();
 
 	const githubUserService = inject(GITHUB_USER_SERVICE);
-	const userService = inject(USER_SERVICE);
-	const user = userService.user;
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
@@ -53,18 +49,8 @@
 
 	async function gitHubOauthCheckStatus(deviceCode: string) {
 		loading = true;
-		if (!$user) return;
 		try {
-			const { accessToken, login } = await githubUserService.checkAuthStatus({ deviceCode });
-			// We don't want to directly modify $user because who knows what state that puts you in
-			let mutableUser = structuredClone($user);
-			mutableUser.github_access_token = accessToken;
-			await userService.setUser(mutableUser);
-
-			// After we call setUser, we want to re-clone the user store, as the userService itself sets the user store
-			mutableUser = structuredClone($user);
-			mutableUser.github_username = login ?? undefined;
-			userService.setUser(mutableUser);
+			await githubUserService.checkAuthStatus({ deviceCode });
 			toasts.success('GitHub authenticated');
 		} catch (err: any) {
 			console.error(err);
@@ -86,7 +72,7 @@
 </script>
 
 {#if minimal}
-	<Button style="pop" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
+	<Button style="pop" onclick={gitHubStartOauth}>Authorize</Button>
 {:else}
 	<div class="stack-v gap-8">
 		<SectionCard orientation="row">
@@ -112,20 +98,20 @@
 			{/snippet}
 
 			{#if $usernames.length > 1}
-				<Button kind="outline" {disabled} icon="bin-small" onclick={forgetGitHub} style="error"
+				<Button kind="outline" icon="bin-small" onclick={forgetGitHub} style="error"
 					>Forget all</Button
 				>
 			{:else if $usernames.length === 0}
-				<Button style="pop" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
+				<Button style="pop" onclick={gitHubStartOauth}>Authorize</Button>
 			{/if}
 		</SectionCard>
 		{#each $usernames as username}
-			<GithubUserLoginState {username} {disabled} />
+			<GithubUserLoginState {username} />
 		{/each}
 
 		{#if $usernames.length > 0}
 			<div class="centered-row">
-				<Button style="pop" disabled={disabled || showAuthFlow} onclick={gitHubStartOauth}
+				<Button style="pop" disabled={showAuthFlow} onclick={gitHubStartOauth}
 					>Add another account</Button
 				>
 			</div>
