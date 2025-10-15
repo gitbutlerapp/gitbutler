@@ -1,7 +1,9 @@
 <script lang="ts">
+	import GithubUserLoginState from '$components/GithubUserLoginState.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import githubLogoSvg from '$lib/assets/unsized-logos/github.svg?raw';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { URL_SERVICE } from '$lib/utils/url';
@@ -23,6 +25,8 @@
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
+	const appSettings = inject(SETTINGS_SERVICE);
+	const usernames = appSettings.knownGitHubUsernames;
 
 	// step flags
 	let codeCopied = $state(false);
@@ -92,7 +96,7 @@
 		<SectionCard orientation="row">
 			{#snippet iconSide()}
 				<div class="icon-wrapper">
-					{#if $user?.github_access_token}
+					{#if $usernames.length > 0}
 						<div class="icon-wrapper__tick">
 							<Icon name="success" color="success" size={18} />
 						</div>
@@ -102,18 +106,26 @@
 					</div>
 				</div>
 			{/snippet}
+
 			{#snippet title()}
 				GitHub
 			{/snippet}
+
 			{#snippet caption()}
 				Allows you to view and create Pull Requests.
 			{/snippet}
-			{#if $user?.github_access_token}
-				<Button kind="outline" {disabled} icon="bin-small" onclick={forgetGitHub}>Forget</Button>
-			{:else}
+
+			{#if $usernames.length > 1}
+				<Button kind="outline" {disabled} icon="bin-small" onclick={forgetGitHub} style="error"
+					>Forget all</Button
+				>
+			{:else if $usernames.length === 0}
 				<Button style="pop" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 			{/if}
 		</SectionCard>
+		{#each $usernames as username}
+			<GithubUserLoginState {username} {disabled} />
+		{/each}
 
 		{#if showAuthFlow}
 			<div in:fade={{ duration: 100 }}>
