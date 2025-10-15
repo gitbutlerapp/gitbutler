@@ -56,7 +56,6 @@
 	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { USER } from '$lib/user/user';
 	import { createBranchRef } from '$lib/utils/branch';
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
@@ -92,7 +91,6 @@
 	const projectsService = inject(PROJECTS_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
 	const uiState = inject(UI_STATE);
-	const user = inject(USER);
 	const urlService = inject(URL_SERVICE);
 	const userSettings = inject(SETTINGS);
 	const settingsService = inject(SETTINGS_SERVICE);
@@ -628,12 +626,7 @@
 								</div>
 							{:else}
 								{#each reversedFormatterdMessages as message}
-									<CodegenClaudeMessage
-										{message}
-										{onApproval}
-										{onRejection}
-										userAvatarUrl={$user?.picture}
-									/>
+									<CodegenClaudeMessage {message} {onApproval} {onRejection} />
 								{/each}
 							{/if}
 						{/snippet}
