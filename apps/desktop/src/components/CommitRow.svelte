@@ -254,6 +254,7 @@
 	}
 
 	.commit-row__drag-handle {
+		display: flex;
 		position: absolute;
 		top: 50%;
 		left: 0;

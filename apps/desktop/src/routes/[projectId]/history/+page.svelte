@@ -168,7 +168,7 @@
 				<Button
 					size="tag"
 					kind="outline"
-					icon="camera"
+					icon="camera-small"
 					tooltip="Create a manual snapshot of your current state"
 					onclick={() => createSnapshotModal?.show()}
 				>
@@ -229,7 +229,7 @@
 	.history-view__snapshots-header {
 		display: flex;
 		align-items: center;
-		padding: 12px 14px;
+		padding: 12px 12px 12px 14px;
 		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
