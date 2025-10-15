@@ -4,6 +4,8 @@ use sha1::{Digest, Sha1};
 use std::fmt::Display;
 use uuid::Uuid;
 
+pub mod parse;
+
 #[derive(Clone, Debug)]
 pub struct GerritChangeId(String);
 
