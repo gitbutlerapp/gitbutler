@@ -269,6 +269,7 @@ pub fn push_stack(
         if gerrit_mode {
             let push_output = but_gerrit::parse::push_output(&out)?;
             but_gerrit::record_push_metadata(
+                ctx,
                 &gix_repo,
                 stack
                     .commits(ctx)?

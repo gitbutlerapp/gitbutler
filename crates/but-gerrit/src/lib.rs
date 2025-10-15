@@ -1,5 +1,6 @@
 use bstr::{BString, ByteSlice};
 use but_core::commit::HeadersV2;
+use gitbutler_command_context::CommandContext;
 use sha1::{Digest, Sha1};
 use std::fmt::Display;
 use uuid::Uuid;
@@ -66,11 +67,49 @@ fn with_change_id_trailer(msg: BString, change_id: Uuid) -> BString {
 }
 
 pub fn record_push_metadata(
+    ctx: &mut CommandContext,
     repo: &gix::Repository,
     candidate_ids: Vec<gix::ObjectId>,
     push_output: PushOutput,
 ) -> anyhow::Result<()> {
-    let _mappings = mappings(repo, candidate_ids, push_output)?;
+    let mappings = mappings(repo, candidate_ids, push_output)?;
+    let mut db = ctx.db()?.gerrit_metadata();
+
+    for mapping in mappings {
+        let existing = db.get(&mapping.change_id)?;
+        let now = chrono::Utc::now().naive_utc();
+        let commit_id_str = mapping.commit_id.to_string();
+
+        match existing {
+            Some(existing_meta) => {
+                // Check if commit_id has changed
+                if existing_meta.commit_id != commit_id_str {
+                    // Update the entry with new commit_id and updated_at
+                    let updated_meta = but_db::GerritMeta {
+                        change_id: mapping.change_id,
+                        commit_id: commit_id_str,
+                        review_url: mapping.review_url,
+                        created_at: existing_meta.created_at, // Keep original creation time
+                        updated_at: now,
+                    };
+                    db.update(updated_meta)?;
+                }
+                // If commit_id matches, do nothing
+            }
+            None => {
+                // Create new entry
+                let new_meta = but_db::GerritMeta {
+                    change_id: mapping.change_id,
+                    commit_id: commit_id_str,
+                    review_url: mapping.review_url,
+                    created_at: now,
+                    updated_at: now,
+                };
+                db.insert(new_meta)?;
+            }
+        }
+    }
+
     Ok(())
 }
 

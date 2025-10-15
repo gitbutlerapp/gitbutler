@@ -52,4 +52,18 @@ impl GerritMetadataHandle<'_> {
             .execute(&mut self.db.conn)?;
         Ok(())
     }
+
+    /// Update an existing GerritMeta entry
+    pub fn update(&mut self, meta: GerritMeta) -> anyhow::Result<()> {
+        use crate::schema::gerrit_metadata::{change_id, commit_id, review_url, updated_at};
+
+        diesel::update(gerrit_metadata.filter(change_id.eq(&meta.change_id)))
+            .set((
+                commit_id.eq(&meta.commit_id),
+                review_url.eq(&meta.review_url),
+                updated_at.eq(&meta.updated_at),
+            ))
+            .execute(&mut self.db.conn)?;
+        Ok(())
+    }
 }
