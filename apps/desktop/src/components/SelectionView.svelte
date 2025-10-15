@@ -6,7 +6,7 @@
 	import { isExecutableStatus } from '$lib/hunks/change';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { readKey, type SelectionId } from '$lib/selection/key';
+	import { type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/core/context';
 
 	type Props = {
@@ -35,13 +35,11 @@
 	const diffService = inject(DIFF_SERVICE);
 
 	const selection = $derived(selectionId ? idSelection.valuesReactive(selectionId) : undefined);
-	const lastAdded = $derived(selectionId ? idSelection.getById(selectionId).lastAdded : undefined);
 
-	const selectedFile = $derived.by(() => {
-		if (!selectionId || !selection) return;
-		if (selection.current.length === 0) return;
-		if (selection.current.length === 1 || !$lastAdded) return selection.current[0];
-		return readKey($lastAdded.key);
+	const selectedFiles = $derived.by(() => {
+		if (!selectionId || !selection) return [];
+		if (selection.current.length === 0) return [];
+		return selection.current;
 	});
 
 	const stackId = $derived(
@@ -52,49 +50,51 @@
 </script>
 
 <div class="selection-view" data-testid={testId}>
-	{#if selectedFile}
-		{@const changeQuery = idSelection.changeByKey(projectId, selectedFile)}
-		<ReduxResult {projectId} result={changeQuery.result}>
-			{#snippet children(change)}
-				{@const diffQuery = diffService.getDiff(projectId, change)}
-				{@const isExecutable = isExecutableStatus(change.status)}
-				<ReduxResult {projectId} result={diffQuery.result}>
-					{#snippet children(diff, env)}
-						<div
-							class="selected-change-item"
-							class:bottom-border={bottomBorder}
-							data-remove-from-panning
-						>
-							{#if !diffOnly}
-								<FileListItemWrapper
-									selectionId={selectedFile}
+	{#if selectedFiles.length > 0}
+		{#each selectedFiles as selectedFile, index (selectedFile.path)}
+			{@const changeQuery = idSelection.changeByKey(projectId, selectedFile)}
+			<ReduxResult {projectId} result={changeQuery.result}>
+				{#snippet children(change)}
+					{@const diffQuery = diffService.getDiff(projectId, change)}
+					{@const isExecutable = isExecutableStatus(change.status)}
+					<ReduxResult {projectId} result={diffQuery.result}>
+						{#snippet children(diff, env)}
+							<div
+								class="selected-change-item"
+								class:bottom-border={bottomBorder || index < selectedFiles.length - 1}
+								data-remove-from-panning
+							>
+								{#if !diffOnly}
+									<FileListItemWrapper
+										selectionId={selectedFile}
+										projectId={env.projectId}
+										{scrollContainer}
+										{change}
+										{diff}
+										{draggable}
+										isHeader
+										executable={isExecutable}
+										listMode="list"
+										onCloseClick={onclose}
+									/>
+								{/if}
+								<UnifiedDiffView
 									projectId={env.projectId}
-									{scrollContainer}
+									{stackId}
+									commitId={selectedFile.type === 'commit' ? selectedFile.commitId : undefined}
+									{draggable}
 									{change}
 									{diff}
-									{draggable}
-									isHeader
-									executable={isExecutable}
-									listMode="list"
-									onCloseClick={onclose}
+									{selectable}
+									selectionId={selectedFile}
+									topPadding={diffOnly}
 								/>
-							{/if}
-							<UnifiedDiffView
-								projectId={env.projectId}
-								{stackId}
-								commitId={selectedFile.type === 'commit' ? selectedFile.commitId : undefined}
-								{draggable}
-								{change}
-								{diff}
-								{selectable}
-								selectionId={selectedFile}
-								topPadding={diffOnly}
-							/>
-						</div>
-					{/snippet}
-				</ReduxResult>
-			{/snippet}
-		</ReduxResult>
+							</div>
+						{/snippet}
+					</ReduxResult>
+				{/snippet}
+			</ReduxResult>
+		{/each}
 	{:else}
 		<FilePreviewPlaceholder />
 	{/if}
@@ -104,6 +104,7 @@
 	.selection-view {
 		display: flex;
 		flex-grow: 1;
+		flex-direction: column;
 		width: 100%;
 		height: 100%;
 	}
