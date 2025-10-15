@@ -21,6 +21,7 @@ describe('GitHubPrService', () => {
 			baseBranch: 'main',
 			api: gitHubApi,
 			authenticated: true,
+			isLoading: false,
 			client: gitHubClient
 		});
 		service = gh.prService;

@@ -18,7 +18,8 @@ describe('GitHub', () => {
 			client: gitHubClient,
 			repo,
 			baseBranch: id,
-			authenticated: true
+			authenticated: true,
+			isLoading: false
 		});
 		const url = gh.commitUrl(id);
 		expect(url).toMatch(new RegExp(`/${id}$`));
@@ -35,7 +36,8 @@ describe('GitHub', () => {
 			client: gitHubClient,
 			repo: sshRepo,
 			baseBranch: id,
-			authenticated: true
+			authenticated: true,
+			isLoading: false
 		});
 
 		expect(gh.commitUrl('abc123')).toBe('https://github.com/test-owner/test-repo/commit/abc123');
@@ -52,7 +54,8 @@ describe('GitHub', () => {
 			client: gitHubClient,
 			repo: sshRepo,
 			baseBranch: 'main',
-			authenticated: true
+			authenticated: true,
+			isLoading: false
 		});
 
 		const branch = gh.branch('feature-branch');
@@ -72,7 +75,8 @@ describe('GitHub', () => {
 			client: gitHubClient,
 			repo: sshRepo,
 			baseBranch: id,
-			authenticated: true
+			authenticated: true,
+			isLoading: false
 		});
 
 		expect(gh.commitUrl('abc123')).toBe('https://github.com/test-owner/test-repo/commit/abc123');
@@ -91,7 +95,8 @@ describe('GitHub', () => {
 			client: gitHubClient,
 			repo: enterpriseRepo,
 			baseBranch: id,
-			authenticated: true
+			authenticated: true,
+			isLoading: false
 		});
 
 		expect(gh.commitUrl('abc123')).toBe(
