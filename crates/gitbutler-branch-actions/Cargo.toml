@@ -22,6 +22,7 @@ gitbutler-serde.workspace = true
 gitbutler-id.workspace = true
 gitbutler-time.workspace = true
 but-settings.workspace = true
+but-gerrit.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-url.workspace = true
 gitbutler-fs.workspace = true

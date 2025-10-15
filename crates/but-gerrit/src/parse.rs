@@ -79,10 +79,12 @@ pub fn push_output(output: &str) -> Result<PushOutput> {
         }
 
         // Parse processing info
-        if line.contains("Processing changes:") && line.contains("refs:")
-            && let Some(info) = parse_processing_info(line) {
-                processing_info = Some(info);
-            }
+        if line.contains("Processing changes:")
+            && line.contains("refs:")
+            && let Some(info) = parse_processing_info(line)
+        {
+            processing_info = Some(info);
+        }
     }
 
     Ok(PushOutput {

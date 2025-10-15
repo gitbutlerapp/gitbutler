@@ -4,6 +4,9 @@ use sha1::{Digest, Sha1};
 use std::fmt::Display;
 use uuid::Uuid;
 
+use crate::parse::PushOutput;
+use gitbutler_commit::commit_ext::CommitExt;
+
 pub mod parse;
 
 #[derive(Clone, Debug)]
@@ -60,6 +63,52 @@ fn with_change_id_trailer(msg: BString, change_id: Uuid) -> BString {
     }
 
     result
+}
+
+pub fn record_push_metadata(
+    repo: &gix::Repository,
+    candidate_ids: Vec<gix::ObjectId>,
+    push_output: PushOutput,
+) -> anyhow::Result<()> {
+    let _mappings = mappings(repo, candidate_ids, push_output)?;
+    Ok(())
+}
+
+struct ChangeIdMapping {
+    commit_id: gix::ObjectId,
+    change_id: String,
+    review_url: String,
+}
+
+fn mappings(
+    repo: &gix::Repository,
+    candidate_ids: Vec<gix::ObjectId>,
+    push_output: PushOutput,
+) -> anyhow::Result<Vec<ChangeIdMapping>> {
+    let mut mappings = vec![];
+    for id in candidate_ids {
+        let commit = repo.find_commit(id)?;
+        let msg = commit.message_bstr().to_string();
+        let title = msg.lines().next().unwrap_or_default();
+
+        let change_id_review_url = push_output
+            .changes
+            .iter()
+            .find(|c| c.commit_title == title)
+            .and_then(|c| {
+                commit
+                    .change_id()
+                    .map(|change_id| (change_id, c.url.clone()))
+            });
+        if let Some((change_id, review_url)) = change_id_review_url {
+            mappings.push(ChangeIdMapping {
+                commit_id: id,
+                change_id,
+                review_url,
+            });
+        }
+    }
+    Ok(mappings)
 }
 
 #[cfg(test)]
