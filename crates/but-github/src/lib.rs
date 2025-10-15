@@ -116,3 +116,48 @@ fn persist_gh_access_token(login: &str, access_token: &str) -> Result<()> {
         secret::Namespace::Global,
     )
 }
+
+pub fn forget_gh_access_token(login: &str) -> Result<()> {
+    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
+    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
+    let handle = format!("github-access-token-{}", login);
+    secret::delete(&handle, secret::Namespace::Global)
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthenticatedUser {
+    pub access_token: String,
+    pub login: String,
+    pub avatar_url: Option<String>,
+    pub name: Option<String>,
+    pub email: Option<String>,
+}
+
+pub async fn get_gh_user(login: &str) -> Result<Option<AuthenticatedUser>> {
+    if let Some(access_token) = get_gh_access_token(login)? {
+        let gh =
+            client::GitHubClient::new(&access_token).context("Failed to create GitHub client")?;
+        let user = gh
+            .get_authenticated()
+            .await
+            .context("Failed to get authenticated user")?;
+        Ok(Some(AuthenticatedUser {
+            access_token,
+            login: user.login,
+            avatar_url: user.avatar_url,
+            name: user.name,
+            email: user.email,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+fn get_gh_access_token(login: &str) -> Result<Option<String>> {
+    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
+    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
+    let handle = format!("github-access-token-{}", login);
+    let access_token = secret::retrieve(&handle, secret::Namespace::Global)?;
+    Ok(access_token.map(|s| s.0))
+}

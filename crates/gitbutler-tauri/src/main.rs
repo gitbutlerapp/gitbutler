@@ -278,6 +278,8 @@ fn main() {
                     menu::menu_item_set_enabled,
                     github::init_device_oauth,
                     github::check_auth_status,
+                    github::forget_github_username,
+                    github::get_gh_user,
                     askpass::submit_prompt_response,
                     remotes::list_remotes,
                     remotes::add_remote,
