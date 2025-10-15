@@ -39,7 +39,7 @@ export const MOCK_APP_SETTINGS: AppSettings = {
 	},
 	forgeIntegrations: {
 		github: {
-			knownUsernames: []
+			knownUsernames: ['but']
 		}
 	}
 };

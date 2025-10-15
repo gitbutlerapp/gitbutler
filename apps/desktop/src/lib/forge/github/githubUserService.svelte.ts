@@ -21,7 +21,7 @@ type AuthStatusResponse = {
 	email: string | null;
 };
 
-type AuthenticatedUser = {
+export type AuthenticatedUser = {
 	accessToken: string;
 	login: string;
 	name: string | null;

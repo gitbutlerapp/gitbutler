@@ -1,6 +1,7 @@
 import { getBaseBranchData, getRemoteBranches } from './mock/baseBranch';
 import { MOCK_BRANCH_LISTINGS } from './mock/branches';
 import { MOCK_TREE_CHANGES, MOCK_UNIFIED_DIFF } from './mock/changes';
+import { MOCK_AUTH_USER } from './mock/github';
 import { MOCK_OPEN_WORKSPACE_MODE } from './mock/mode';
 import { getProject, isGetProjectArgs, listProjects } from './mock/projects';
 import { getSecret, isGetSecretArgs } from './mock/secrets';
@@ -164,6 +165,8 @@ Cypress.on('window:before:load', (win) => {
 				return await Promise.resolve();
 			case 'update_feature_flags':
 				return await Promise.resolve();
+			case 'get_gh_user':
+				return MOCK_AUTH_USER;
 			case 'get_app_settings':
 				return MOCK_APP_SETTINGS;
 			case 'plugin:event|unlisten':
