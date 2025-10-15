@@ -95,3 +95,13 @@ diesel::table! {
         source -> Text,
     }
 }
+
+diesel::table! {
+    gerrit_metadata (change_id) {
+        change_id -> Text,
+        commit_id -> Text,
+        review_url -> Text,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
