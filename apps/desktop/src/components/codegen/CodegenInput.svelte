@@ -9,7 +9,8 @@
 		compacting: boolean;
 		onsubmit: () => Promise<void>;
 		onAbort?: () => Promise<void>;
-		actions: Snippet;
+		actionsOnLeft: Snippet;
+		actionsOnRight: Snippet;
 		onChange: (value: string) => void;
 		sessionKey?: string; // Used to trigger refocus when switching sessions
 	}
@@ -19,7 +20,8 @@
 		compacting,
 		onsubmit,
 		onAbort,
-		actions,
+		actionsOnLeft,
+		actionsOnRight,
 		onChange,
 		sessionKey
 	}: Props = $props();
@@ -99,11 +101,15 @@
 		/>
 
 		<div class="dialog-input__actions">
-			<div class="dialog-input__actions-item">
-				{@render actions()}
+			<div class="dialog-input__actions-group">
+				{@render actionsOnLeft()}
 			</div>
 
-			<div class="dialog-input__actions-item">
+			<div class="dialog-input__actions-group">
+				{@render actionsOnRight()}
+
+				<div class="dialog-input__actions-group__separator"></div>
+
 				{#if !compacting && showAbortButton && onAbort}
 					<div class="flex" in:fade={{ duration: 150 }} out:fade={{ duration: 100 }}>
 						<AsyncButton
@@ -168,8 +174,6 @@
 					</button>
 				</Tooltip>
 			</div>
-
-			<div class="dialog-input__fade"></div>
 		</div>
 	</div>
 </div>
@@ -205,13 +209,29 @@
 		padding-top: 10px;
 		gap: 8px;
 		pointer-events: none;
+
+		&::after {
+			position: absolute;
+			top: 0;
+			right: 12px;
+			left: 12px;
+			height: 1px;
+			background-color: var(--clr-border-3);
+			content: '';
+		}
 	}
 
-	.dialog-input__actions-item {
+	.dialog-input__actions-group {
 		display: flex;
-		align-items: center;
+		position: relative;
 		gap: 4px;
 		pointer-events: all;
+	}
+
+	.dialog-input__actions-group__separator {
+		width: 1px;
+		margin: 0 5px;
+		background-color: var(--clr-border-3);
 	}
 
 	/* SEND BUTTON */
@@ -221,8 +241,8 @@
 		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		width: var(--size-button);
 		height: var(--size-button);
+		padding: 0 6px;
 		border-radius: var(--radius-btn);
 		background-color: var(--clr-theme-pop-element);
 		color: var(--clr-theme-pop-on-element);
@@ -243,18 +263,6 @@
 			cursor: not-allowed;
 			opacity: 0.5;
 		}
-	}
-
-	.dialog-input__fade {
-		z-index: 1;
-		position: absolute;
-		top: 0;
-		right: 14px;
-		left: 0;
-		height: 15px;
-		transform: translateY(-100%);
-		background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 2%, var(--clr-bg-1) 100%);
-		pointer-events: none;
 	}
 
 	.circle-icon {

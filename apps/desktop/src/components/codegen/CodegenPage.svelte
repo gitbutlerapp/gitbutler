@@ -130,7 +130,12 @@
 		{ label: 'Opus Planning', value: 'opusplan' }
 	];
 
-	const thinkingLevels: ThinkingLevel[] = ['normal', 'think', 'megaThink', 'ultraThink'];
+	const thinkingLevels: { label: string; shortLabel: string; value: ThinkingLevel }[] = [
+		{ label: 'Normal', shortLabel: 'Normal', value: 'normal' },
+		{ label: 'Think', shortLabel: 'Think', value: 'think' },
+		{ label: 'Mega think', shortLabel: 'Mega', value: 'megaThink' },
+		{ label: 'Ultra think', shortLabel: 'Ultra', value: 'ultraThink' }
+	];
 
 	const permissionModeOptions: { label: string; value: PermissionMode }[] = [
 		{ label: 'Edit with permission', value: 'default' },
@@ -261,19 +266,10 @@
 		}
 	}
 
-	function thinkingLevelToUiLabel(level: ThinkingLevel): string {
-		switch (level) {
-			case 'normal':
-				return 'Normal';
-			case 'think':
-				return 'Think';
-			case 'megaThink':
-				return 'Mega think';
-			case 'ultraThink':
-				return 'Ultra think';
-			default:
-				return 'Normal';
-		}
+	function thinkingLevelToUiLabel(level: ThinkingLevel, short: boolean = false): string {
+		const thinkingLevel = thinkingLevels.find((t) => t.value === level);
+		if (!thinkingLevel) return 'Normal';
+		return short ? thinkingLevel.shortLabel : thinkingLevel.label;
 	}
 
 	const { prompt, setPrompt, sendMessage } = useSendMessage({
@@ -645,22 +641,22 @@
 										? `${selectedBranch.stackId}-${selectedBranch.head}`
 										: undefined}
 								>
-									{#snippet actions()}
+									{#snippet actionsOnLeft()}
 										{@const permissionModeLabel = permissionModeOptions.find(
 											(a) => a.value === selectedPermissionMode
 										)?.label}
-										<div class="flex m-right-4 gap-4">
-											<Button disabled kind="outline" icon="attachment" reversedDirection />
+										<div class="flex m-right-4 gap-2">
+											<Button disabled kind="ghost" icon="attachment" reversedDirection />
 											<Button
 												bind:el={templateTrigger}
-												kind="outline"
+												kind="ghost"
 												icon="script"
 												tooltip="Insert template"
 												onclick={(e) => templateContextMenu?.toggle(e)}
 											/>
 											<Button
 												bind:el={thinkingModeTrigger}
-												kind="outline"
+												kind="ghost"
 												icon="thinking"
 												reversedDirection
 												onclick={() => thinkingModeContextMenu?.toggle()}
@@ -669,17 +665,19 @@
 											/>
 											<Button
 												bind:el={permissionModeTrigger}
-												kind="outline"
+												kind="ghost"
 												icon={getPermissionModeIcon(selectedPermissionMode)}
 												shrinkable
 												onclick={() => permissionModeContextMenu?.toggle()}
 												tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
 													? 'Permission modes disable when all permissions are allowed'
-													: `Permission mode: ${permissionModeLabel}`}
+													: permissionModeLabel}
 												disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
 											/>
 										</div>
+									{/snippet}
 
+									{#snippet actionsOnRight()}
 										{#if !claudeSettings?.useConfiguredModel}
 											<Button
 												bind:el={modelTrigger}
@@ -1073,7 +1071,7 @@
 {/snippet}
 
 {#snippet thinkingBtnText()}
-	{thinkingLevelToUiLabel(selectedThinkingLevel)}
+	{thinkingLevelToUiLabel(selectedThinkingLevel, true)}
 {/snippet}
 
 <ClaudeCodeSettingsModal bind:this={settingsModal} onClose={() => {}} />
@@ -1099,7 +1097,7 @@
 	{/snippet}
 </Modal>
 
-<ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top" align="start">
+<ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top" align="end">
 	<ContextMenuSection>
 		{#each modelOptions as option}
 			<ContextMenuItem
@@ -1120,9 +1118,9 @@
 	<ContextMenuSection>
 		{#each thinkingLevels as level}
 			<ContextMenuItem
-				label={thinkingLevelToUiLabel(level)}
-				selected={selectedThinkingLevel === level}
-				onclick={() => selectThinkingLevel(level)}
+				label={level.label}
+				selected={selectedThinkingLevel === level.value}
+				onclick={() => selectThinkingLevel(level.value)}
 			/>
 		{/each}
 	</ContextMenuSection>
@@ -1138,7 +1136,6 @@
 		{#each permissionModeOptions as option}
 			<ContextMenuItem
 				label={option.label}
-				icon={getPermissionModeIcon(option.value)}
 				selected={selectedPermissionMode === option.value}
 				onclick={() => selectPermissionMode(option.value)}
 			/>
