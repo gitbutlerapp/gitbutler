@@ -42,7 +42,8 @@ import type {
 	CreateRefRequest,
 	InteractiveIntegrationStep,
 	CreateBranchFromBranchOutcome,
-	MoveBranchResult
+	MoveBranchResult,
+	GerritPushFlag
 } from '$lib/stacks/stack';
 import type { ReduxError } from '$lib/state/reduxError';
 
@@ -1120,6 +1121,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					skipForcePushProtection: boolean;
 					branch: string;
 					runHooks: boolean;
+					gerritFlag: GerritPushFlag | undefined;
 				}
 			>({
 				extraOptions: {
