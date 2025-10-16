@@ -280,7 +280,7 @@ pub(crate) fn save_and_return_to_workspace(
         .context("Failed to set head reference")?;
     repository.checkout_head(Some(CheckoutBuilder::new().force()))?;
 
-    update_workspace_commit(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let uncommtied_changes = get_uncommited_changes(ctx)?;

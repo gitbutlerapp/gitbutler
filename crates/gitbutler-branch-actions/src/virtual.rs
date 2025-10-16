@@ -1,25 +1,25 @@
-use crate::{hunk::VirtualBranchHunk, status::get_applied_status_cached, VirtualBranchesExt};
-use anyhow::{anyhow, bail, Context, Result};
+use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk, status::get_applied_status_cached};
+use anyhow::{Context, Result, anyhow, bail};
 use but_rebase::RebaseStep;
 use but_workspace::stack_ext::StackExt;
-use gitbutler_branch::dedup;
 use gitbutler_branch::BranchUpdateRequest;
+use gitbutler_branch::dedup;
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_diff::GitHunk;
 use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt,
+    GixRepositoryExt, ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid,
 };
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
-use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
+use gitbutler_reference::{Refname, RemoteRefname, normalize_branch_name};
 use gitbutler_repo::{
-    logging::{LogUntil, RepositoryExt as _},
     RepositoryExt,
+    logging::{LogUntil, RepositoryExt as _},
 };
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{
-    reconcile_claims, BranchOwnershipClaims, Stack, StackId, Target, VirtualBranchesHandle,
+    BranchOwnershipClaims, Stack, StackId, Target, VirtualBranchesHandle, reconcile_claims,
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use itertools::Itertools;
@@ -269,7 +269,7 @@ pub fn commit(
     let vb_state = ctx.project().virtual_branches();
     branch.set_stack_head(&vb_state, &gix_repo, commit_oid, Some(tree_oid))?;
 
-    crate::integration::update_workspace_commit(&vb_state, ctx)
+    crate::integration::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     Ok(commit_oid)
@@ -505,7 +505,7 @@ pub(crate) fn insert_blank_commit(
 
     stack.set_stack_head(&vb_state, &repo, output.top_commit.to_git2(), None)?;
 
-    crate::integration::update_workspace_commit(&vb_state, ctx)
+    crate::integration::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     let blank_commit_id = commit_map
@@ -583,7 +583,7 @@ pub(crate) fn update_commit_message(
     stack.set_stack_head(&vb_state, &gix_repo, new_head, None)?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
-    crate::integration::update_workspace_commit(&vb_state, ctx)
+    crate::integration::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     output

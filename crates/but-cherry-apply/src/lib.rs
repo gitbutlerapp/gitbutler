@@ -139,7 +139,7 @@ pub fn cherry_apply(
         update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
     }
 
-    update_workspace_commit(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     Ok(())
 }

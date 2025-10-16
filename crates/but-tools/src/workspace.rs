@@ -926,7 +926,7 @@ pub fn move_file_changes(
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx)?;
+    gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx, false)?;
 
     // Emit an event to update the stack details in the UI.
     let project_id = ctx.project().id;
@@ -1400,7 +1400,7 @@ pub fn split_branch(
         ctx.app_settings().context_lines,
     )?;
 
-    update_workspace_commit(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     let refname = Refname::Local(LocalRefname::new(&params.new_branch_name, None));
     let branch_manager = ctx.branch_manager();

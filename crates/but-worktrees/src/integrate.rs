@@ -80,7 +80,7 @@ pub fn worktree_integrate(
     let after = WorkspaceState::create(ctx, perm.read_permission())?;
     update_uncommited_changes(ctx, before, after, perm)?;
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    update_workspace_commit(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     git_worktree_remove(&ctx.project().path, path, true)?;
     delete_worktree_meta(ctx, path)?;

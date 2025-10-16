@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
+use crate::{branch_manager::BranchManagerExt, VirtualBranchesExt};
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
+use but_workspace::branch::checkout::UncommitedWorktreeChanges;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch::{self, GITBUTLER_WORKSPACE_REFERENCE};
 use gitbutler_command_context::CommandContext;
@@ -15,8 +17,6 @@ use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
-
-use crate::{branch_manager::BranchManagerExt, VirtualBranchesExt};
 
 const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
 pub const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";
@@ -53,6 +53,7 @@ fn write_workspace_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
 pub fn update_workspace_commit(
     vb_state: &VirtualBranchesHandle,
     ctx: &CommandContext,
+    checkout_new_worktree: bool,
 ) -> Result<git2::Oid> {
     let target = vb_state
         .get_default_target()
@@ -76,6 +77,7 @@ pub fn update_workspace_commit(
             });
         }
     }
+    let prev_head_id = head_ref.target();
 
     let vb_state = ctx.project().virtual_branches();
 
@@ -151,6 +153,21 @@ pub fn update_workspace_commit(
         parents.iter().collect::<Vec<_>>().as_slice(),
     )?;
 
+    let checkout_res = if checkout_new_worktree && let Some(prev_head_id) = prev_head_id {
+        let res = but_workspace::branch::safe_checkout(
+            prev_head_id.to_gix(),
+            final_commit.to_gix(),
+            &gix_repo,
+            but_workspace::branch::checkout::Options {
+                uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+                skip_head_update: true,
+            },
+        );
+        Some(res)
+    } else {
+        None
+    };
+
     // Create or replace the workspace branch reference, then set as HEAD.
     repo.reference(
         &GITBUTLER_WORKSPACE_REFERENCE.clone().to_string(),
@@ -163,6 +180,12 @@ pub fn update_workspace_commit(
     let mut index = repo.index()?;
     index.read_tree(&workspace_tree)?;
     index.write()?;
+
+    // Everything is written out already, so if we fail here, we do so to surface the error
+    // that prevented the checkout to be performed. The operation is still successful, on reload.
+    if let Some(res) = checkout_res {
+        res?;
+    }
 
     Ok(final_commit)
 }

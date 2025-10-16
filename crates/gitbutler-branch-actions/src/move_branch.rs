@@ -1,15 +1,15 @@
 use anyhow::{Context, Result};
 use but_graph::virtual_branches_legacy_types::CommitOrChangeId;
 use but_rebase::{Rebase, RebaseStep};
-use but_workspace::stack_ext::StackExt;
 use but_workspace::StackId;
+use but_workspace::stack_ext::StackExt;
 use gitbutler_cherry_pick::GixRepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
-use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
 use gix::refs::transaction::PreviousValue;
 use serde::Serialize;
 
@@ -74,7 +74,7 @@ pub(crate) fn move_branch(
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
-    crate::integration::update_workspace_commit(&vb_state, ctx)
+    crate::integration::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     Ok(MoveBranchResult {
@@ -130,7 +130,7 @@ pub(crate) fn tear_off_branch(
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
-    crate::integration::update_workspace_commit(&vb_state, ctx)
+    crate::integration::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     let branch_manager = ctx.branch_manager();

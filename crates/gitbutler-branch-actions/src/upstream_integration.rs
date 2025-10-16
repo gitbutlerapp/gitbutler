@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{BranchManagerExt, VirtualBranchesExt as _};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use bstr::ByteSlice;
 use but_core::Reference;
 use but_graph::VirtualBranchesTomlMetadata;
@@ -11,16 +11,16 @@ use but_workspace::stack_ext::StackDetailsExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt,
+    GixRepositoryExt, ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid,
 };
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_repo::RepositoryExt as _;
+use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_repo::{logging::LogUntil, rebase::gitbutler_merge_commits};
 use gitbutler_serde::BStringForFrontend;
 
 use gitbutler_stack::{StackId, Target, VirtualBranchesHandle};
-use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
 use gix::merge::tree::TreatAsUnresolved;
 use serde::{Deserialize, Serialize};
 
@@ -628,7 +628,7 @@ pub(crate) fn integrate_upstream(
             update_uncommited_changes(ctx, old_workspace, new_workspace, permission)?;
         }
 
-        crate::integration::update_workspace_commit(&virtual_branches_state, ctx)?;
+        crate::integration::update_workspace_commit(&virtual_branches_state, ctx, false)?;
     }
 
     Ok(IntegrationOutcome {

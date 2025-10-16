@@ -1,10 +1,11 @@
 [package]
 name = "gitbutler-branch-actions"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [dependencies]
 tracing.workspace = true
 anyhow = "1.0.100"

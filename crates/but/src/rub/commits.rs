@@ -42,7 +42,7 @@ pub fn commited_file_to_another_commit(
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    update_workspace_commit(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     println!("Moved files between commits!");
 
@@ -94,7 +94,7 @@ pub fn uncommit_file(
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    update_workspace_commit(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,

@@ -77,7 +77,7 @@ fn dirty_target() {
     fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let old = std::env::var("GIT_AUTHOR_NAME").ok();
-    std::env::set_var("GIT_AUTHOR_NAME", "GitButler");
+    unsafe { std::env::set_var("GIT_AUTHOR_NAME", "GitButler") };
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
@@ -90,7 +90,9 @@ fn dirty_target() {
     assert_eq!(stacks.len(), 1);
     assert_eq!(stacks[0].1.derived_name, "g-branch-1");
     if let Some(old) = old {
-        std::env::set_var("GIT_AUTHOR_NAME", old);
+        unsafe {
+            std::env::set_var("GIT_AUTHOR_NAME", old);
+        }
     }
 }
 
@@ -143,7 +145,9 @@ fn commit_on_target() {
     let Test { repo, ctx, .. } = &Test::default();
 
     let old = std::env::var("GIT_AUTHOR_NAME").ok();
-    std::env::set_var("GIT_AUTHOR_NAME", "GitButler");
+    unsafe {
+        std::env::set_var("GIT_AUTHOR_NAME", "GitButler");
+    }
 
     fs::write(repo.path().join("file.txt"), "content").unwrap();
     repo.commit_all("commit on target");
@@ -161,7 +165,9 @@ fn commit_on_target() {
     assert_eq!(stacks[0].1.derived_name, "g-branch-1");
     assert_eq!(stacks[0].1.branch_details[0].clone().commits.len(), 1);
     if let Some(old) = old {
-        std::env::set_var("GIT_AUTHOR_NAME", old);
+        unsafe {
+            std::env::set_var("GIT_AUTHOR_NAME", old);
+        }
     }
 }
 

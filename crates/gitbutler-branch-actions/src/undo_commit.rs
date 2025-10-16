@@ -1,4 +1,4 @@
-use anyhow::{bail, Context as _, Result};
+use anyhow::{Context as _, Result, bail};
 use but_rebase::RebaseStep;
 use but_workspace::stack_ext::StackExt;
 use gitbutler_command_context::CommandContext;
@@ -61,7 +61,7 @@ pub(crate) fn undo_commit(
 
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
-    crate::integration::update_workspace_commit(&vb_state, ctx)
+    crate::integration::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     Ok(stack)

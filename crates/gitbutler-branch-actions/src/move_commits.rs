@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::dependencies::commit_dependencies_from_workspace;
 use crate::VirtualBranchesExt;
-use crate::{compute_workspace_dependencies, BranchStatus};
-use anyhow::{anyhow, bail};
+use crate::dependencies::commit_dependencies_from_workspace;
+use crate::{BranchStatus, compute_workspace_dependencies};
 use anyhow::{Context, Result};
+use anyhow::{anyhow, bail};
 use but_rebase::RebaseStep;
 use but_workspace::stack_ext::StackExt;
 use gitbutler_command_context::CommandContext;
@@ -12,7 +12,7 @@ use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
-use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
 use serde::Serialize;
 
 /// move a commit from one stack to another
@@ -74,7 +74,7 @@ pub(crate) fn move_commit(
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     // Even if this fails, it's not actionable
     let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
-    crate::integration::update_workspace_commit(&vb_state, ctx)
+    crate::integration::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     Ok(None)
