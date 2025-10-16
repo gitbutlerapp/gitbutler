@@ -124,6 +124,7 @@
 			githubAuthenticated: !!githubAccessToken.accessToken.current,
 			githubIsLoading: githubAccessToken.isLoading.current,
 			gitlabAuthenticated: !!$gitlabConfigured,
+			detectedForgeProvider: baseBranch?.forgeProvider ?? undefined,
 			forgeOverride: projects?.find((project) => project.id === projectId)?.forge_override
 		});
 	});
