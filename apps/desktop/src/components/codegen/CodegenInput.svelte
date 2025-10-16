@@ -1,6 +1,5 @@
 <script lang="ts">
 	import CodegenInputQueued from '$components/codegen/CodegenInputQueued.svelte';
-	import { type MessageQueue } from '$lib/codegen/messageQueueSlice';
 	import { Tooltip, Textarea, AsyncButton } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
@@ -13,9 +12,8 @@
 		onAbort?: () => Promise<void>;
 		actionsOnLeft: Snippet;
 		actionsOnRight: Snippet;
-		queuedMessages?: MessageQueue;
-		onDeleteQueuedMessage: (message: any) => void;
-		onDeleteAllQueuedMessages: () => void;
+		projectId: string;
+		selectedBranch: { stackId: string; head: string } | undefined;
 		onChange: (value: string) => void;
 		sessionKey?: string; // Used to trigger refocus when switching sessions
 	}
@@ -27,9 +25,8 @@
 		onAbort,
 		actionsOnLeft,
 		actionsOnRight,
-		queuedMessages,
-		onDeleteQueuedMessage,
-		onDeleteAllQueuedMessages,
+		projectId,
+		selectedBranch,
 		onChange,
 		sessionKey
 	}: Props = $props();
@@ -92,11 +89,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="dialog-wrapper">
 	<div class="text-input dialog-input" onkeypress={handleKeypress} onclick={handleDialogClick}>
-		<CodegenInputQueued
-			queue={queuedMessages}
-			onDeleteMessage={onDeleteQueuedMessage}
-			onDeleteAll={onDeleteAllQueuedMessages}
-		/>
+		<CodegenInputQueued {projectId} {selectedBranch} />
 
 		<Textarea
 			bind:textBoxEl={textareaRef}

@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { type MessageQueue } from '$lib/codegen/messageQueueSlice';
+	import { messageQueueSelectors, messageQueueSlice } from '$lib/codegen/messageQueueSlice';
+	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
+	import { inject } from '@gitbutler/core/context';
 	import { Icon, Button } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 
@@ -11,12 +13,46 @@
 	};
 
 	interface Props {
-		queue?: MessageQueue;
-		onDeleteMessage: (message: Message) => void;
-		onDeleteAll: () => void;
+		projectId: string;
+		selectedBranch: { stackId: string; head: string } | undefined;
 	}
 
-	const { queue, onDeleteMessage, onDeleteAll }: Props = $props();
+	const { projectId, selectedBranch }: Props = $props();
+
+	const clientState = inject(CLIENT_STATE);
+
+	const queue = $derived(
+		messageQueueSelectors
+			.selectAll(clientState.messageQueue)
+			.find(
+				(q) =>
+					q.head === selectedBranch?.head &&
+					q.stackId === selectedBranch?.stackId &&
+					q.projectId === projectId
+			)
+	);
+
+	function deleteMessage(message: any) {
+		if (selectedBranch && queue) {
+			clientState.dispatch(
+				messageQueueSlice.actions.upsert({
+					...queue,
+					messages: queue.messages.filter((m) => m !== message)
+				})
+			);
+		}
+	}
+
+	function deleteAllMessages() {
+		if (selectedBranch && queue) {
+			clientState.dispatch(
+				messageQueueSlice.actions.upsert({
+					...queue,
+					messages: []
+				})
+			);
+		}
+	}
 </script>
 
 {#snippet messageContent(message: Message)}
@@ -28,7 +64,7 @@
 			icon="bin"
 			size="tag"
 			shrinkable
-			onclick={() => onDeleteMessage(message)}
+			onclick={() => deleteMessage(message)}
 			tooltip="Remove from queue"
 		/>
 	</div>
@@ -43,8 +79,10 @@
 			</div>
 
 			{#if queue.messages.length > 1}
-				<button type="button" onclick={onDeleteAll} class="text-11 text-semibold queue-clear-button"
-					>Clear all</button
+				<button
+					type="button"
+					onclick={deleteAllMessages}
+					class="text-11 text-semibold queue-clear-button">Clear all</button
 				>
 			{/if}
 		</div>
