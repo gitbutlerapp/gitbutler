@@ -131,15 +131,13 @@
 </svelte:head>
 
 {#if isMarketingPage}
-	<div class="cursor-wrapper">
-		<section class="marketing-page">
-			{#if shouldRenderChildren}
-				{@render children?.()}
-			{:else}
-				<HomePage {releases} />
-			{/if}
-		</section>
-	</div>
+	<section class="marketing-page">
+		{#if shouldRenderChildren}
+			{@render children?.()}
+		{:else}
+			<HomePage {releases} />
+		{/if}
+	</section>
 {:else}
 	{@render children?.()}
 {/if}
@@ -181,35 +179,6 @@
 				repeat(4, 1fr)
 				[narrow-end full-end off-center];
 			row-gap: 40px;
-		}
-	}
-
-	.cursor-wrapper {
-		display: flex;
-		flex-direction: column;
-		width: 100%;
-		cursor: var(--cursor-custom);
-	}
-
-	@supports (-webkit-image-set(url('') 1x)) {
-		.cursor-wrapper {
-			cursor: var(--cursor-custom-2x);
-		}
-	}
-
-	.cursor-wrapper :global(a),
-	.cursor-wrapper :global(button),
-	.cursor-wrapper :global([role='button']),
-	.cursor-wrapper :global([role='link']) {
-		cursor: var(--cursor-pointer);
-	}
-
-	@supports (-webkit-image-set(url('') 1x)) {
-		.cursor-wrapper :global(a),
-		.cursor-wrapper :global(button),
-		.cursor-wrapper :global([role='button']),
-		.cursor-wrapper :global([role='link']) {
-			cursor: var(--cursor-pointer-2x);
 		}
 	}
 </style>
