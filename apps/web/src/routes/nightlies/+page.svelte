@@ -172,7 +172,7 @@
 			Other <i>nightly</i> builds:
 		</h3>
 
-		{#each data.nightlies as release (release.version)}
+		{#each data.nightlies as release, index (`${release.version}-${release.sha}-${index}`)}
 			<div class="release-row">
 				<button
 					type="button"
