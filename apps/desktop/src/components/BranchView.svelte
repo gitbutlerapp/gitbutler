@@ -153,6 +153,7 @@
 										{branchName}
 										commitId={commit.id}
 										commitMessage={commit.message}
+										gerritReviewUrl={commit.gerritReviewUrl}
 										createdAt={commit.createdAt}
 										hasConflicts={true}
 										disableCommitActions={true}
