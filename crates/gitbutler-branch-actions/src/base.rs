@@ -11,6 +11,7 @@ use but_workspace::branch::checkout::UncommitedWorktreeChanges;
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
+use gitbutler_forge::forge::ForgeName;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -47,6 +48,7 @@ pub struct BaseBranch {
     pub diverged_ahead: Vec<git2::Oid>,
     #[serde(with = "gitbutler_serde::oid_vec")]
     pub diverged_behind: Vec<git2::Oid>,
+    pub forge_provider: Option<ForgeName>,
 }
 
 #[instrument(skip(ctx), err(Debug))]
@@ -383,6 +385,8 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
         target.remote_url.clone()
     };
 
+    let forge_provider = gitbutler_forge::determine_forge_from_url(&remote_url);
+
     let base = BaseBranch {
         branch_name: target.branch.fullname(),
         remote_name: target.branch.remote().to_string(),
@@ -405,6 +409,7 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
         diverged,
         diverged_ahead,
         diverged_behind,
+        forge_provider,
     };
     Ok(base)
 }
