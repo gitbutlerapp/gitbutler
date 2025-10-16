@@ -1,4 +1,6 @@
 <script lang="ts">
+	import CodegenInputQueued from '$components/codegen/CodegenInputQueued.svelte';
+	import { type MessageQueue } from '$lib/codegen/messageQueueSlice';
 	import { Tooltip, Textarea, AsyncButton } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
@@ -11,6 +13,9 @@
 		onAbort?: () => Promise<void>;
 		actionsOnLeft: Snippet;
 		actionsOnRight: Snippet;
+		queuedMessages?: MessageQueue;
+		onDeleteQueuedMessage: (message: any) => void;
+		onDeleteAllQueuedMessages: () => void;
 		onChange: (value: string) => void;
 		sessionKey?: string; // Used to trigger refocus when switching sessions
 	}
@@ -22,6 +27,9 @@
 		onAbort,
 		actionsOnLeft,
 		actionsOnRight,
+		queuedMessages,
+		onDeleteQueuedMessage,
+		onDeleteAllQueuedMessages,
 		onChange,
 		sessionKey
 	}: Props = $props();
@@ -84,6 +92,12 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="dialog-wrapper">
 	<div class="text-input dialog-input" onkeypress={handleKeypress} onclick={handleDialogClick}>
+		<CodegenInputQueued
+			queue={queuedMessages}
+			onDeleteMessage={onDeleteQueuedMessage}
+			onDeleteAll={onDeleteAllQueuedMessages}
+		/>
+
 		<Textarea
 			bind:textBoxEl={textareaRef}
 			bind:value
@@ -100,15 +114,15 @@
 			}}
 		/>
 
-		<div class="dialog-input__actions">
-			<div class="dialog-input__actions-group">
+		<div class="actions">
+			<div class="actions-group">
 				{@render actionsOnLeft()}
 			</div>
 
-			<div class="dialog-input__actions-group">
+			<div class="actions-group">
 				{@render actionsOnRight()}
 
-				<div class="dialog-input__actions-group__separator"></div>
+				<div class="actions-separator"></div>
 
 				{#if !compacting && showAbortButton && onAbort}
 					<div class="flex" in:fade={{ duration: 150 }} out:fade={{ duration: 100 }}>
@@ -197,7 +211,7 @@
 		transition: border-color var(--transition-fast);
 	}
 
-	.dialog-input__actions {
+	.actions {
 		display: flex;
 		z-index: 2;
 		position: relative;
@@ -221,14 +235,14 @@
 		}
 	}
 
-	.dialog-input__actions-group {
+	.actions-group {
 		display: flex;
 		position: relative;
 		gap: 4px;
 		pointer-events: all;
 	}
 
-	.dialog-input__actions-group__separator {
+	.actions-separator {
 		width: 1px;
 		margin: 0 5px;
 		background-color: var(--clr-border-3);

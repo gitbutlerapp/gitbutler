@@ -635,6 +635,27 @@
 									onChange={(prompt) => setPrompt(prompt)}
 									loading={['running', 'compacting'].includes(status)}
 									compacting={status === 'compacting'}
+									queuedMessages={queue}
+									onDeleteQueuedMessage={(message) => {
+										if (selectedBranch && queue) {
+											clientState.dispatch(
+												messageQueueSlice.actions.upsert({
+													...queue,
+													messages: queue.messages.filter((m) => m !== message)
+												})
+											);
+										}
+									}}
+									onDeleteAllQueuedMessages={() => {
+										if (selectedBranch && queue) {
+											clientState.dispatch(
+												messageQueueSlice.actions.upsert({
+													...queue,
+													messages: []
+												})
+											);
+										}
+									}}
 									onsubmit={sendMessage}
 									{onAbort}
 									sessionKey={selectedBranch
@@ -817,38 +838,6 @@
 										}
 									}}
 									tooltip="Remove directory"
-								/>
-							</div>
-						{/each}
-					</div>
-				</Drawer>
-			{/if}
-
-			{#if queue && queue.messages.length > 0}
-				<Drawer defaultCollapsed={false} noshrink>
-					{#snippet header()}
-						<h4 class="text-14 text-semibold truncate">Queued Message</h4>
-					{/snippet}
-
-					<div class="right-sidebar-list right-sidebar-list--small-gap">
-						{#each queue.messages as message}
-							<div class="message-queue-item">
-								<span class="text-13 grow-1 message-queue-item-text">{message.prompt}</span>
-								<Button
-									kind="ghost"
-									icon="bin"
-									shrinkable
-									onclick={() => {
-										if (selectedBranch) {
-											clientState.dispatch(
-												messageQueueSlice.actions.upsert({
-													...queue,
-													messages: queue.messages.filter((m) => m !== message)
-												})
-											);
-										}
-									}}
-									tooltip="Remove prompt from queue"
 								/>
 							</div>
 						{/each}
