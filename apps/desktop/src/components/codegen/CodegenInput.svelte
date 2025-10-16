@@ -273,43 +273,4 @@
 		transform: translate(-50%, -50%);
 		transition: transform 0.2s;
 	}
-
-	/* SPINNER ANIMATION */
-	.circle-icon.spinner {
-		animation: spin 1s linear infinite;
-	}
-	.circle-icon.spinner circle {
-		--gap-length: 100;
-		animation: dash 2s infinite linear;
-	}
-	.arrow-icon.spinner {
-		opacity: 0;
-		transition: opacity 0.2s ease-in-out;
-	}
-
-	@keyframes spin {
-		from {
-			stroke-width: 2.2;
-			transform: rotate(0deg) scale(0.7);
-		}
-		to {
-			stroke-width: 2.2;
-			transform: rotate(360deg) scale(0.7);
-		}
-	}
-
-	@keyframes dash {
-		0% {
-			stroke-dasharray: 1, var(--gap-length);
-			stroke-dashoffset: 0;
-		}
-		50% {
-			stroke-dasharray: 60, var(--gap-length);
-			stroke-dashoffset: -30;
-		}
-		100% {
-			stroke-dasharray: 100, var(--gap-length);
-			stroke-dashoffset: -50;
-		}
-	}
 </style>

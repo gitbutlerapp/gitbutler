@@ -43,16 +43,4 @@
 			background-color: var(--clr-bg-1);
 		}
 	}
-
-	.user-icon {
-		display: flex;
-		flex-shrink: 0;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		border-radius: 16px;
-		background: var(--clr-theme-pop-element);
-		color: var(--clr-theme-pop-on-element);
-	}
 </style>
