@@ -355,7 +355,7 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = github::check_auth_status(&app_settings_sync, params).await;
+                    let result = github::check_auth_status(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -365,7 +365,7 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = github::forget_github_username(&app_settings_sync, params);
+                    let result = github::forget_github_username(params);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
