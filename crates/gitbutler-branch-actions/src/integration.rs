@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use crate::{branch_manager::BranchManagerExt, VirtualBranchesExt};
-use anyhow::{anyhow, Context, Result};
+use crate::{VirtualBranchesExt, branch_manager::BranchManagerExt};
+use anyhow::{Context, Result, anyhow};
 use bstr::ByteSlice;
 use but_workspace::branch::checkout::UncommitedWorktreeChanges;
 use gitbutler_branch::BranchCreateRequest;
@@ -12,9 +12,9 @@ use gitbutler_error::error::Marker;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
+use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
 
@@ -66,16 +66,16 @@ pub fn update_workspace_commit(
     let head_ref = repo.head()?;
     let workspace_filepath = repo.path().join("workspace");
     let mut prev_branch = read_workspace_file(&workspace_filepath)?;
-    if let Some(branch) = &prev_branch {
-        if branch.head != GITBUTLER_WORKSPACE_REFERENCE.to_string() {
-            // we are moving from a regular branch to our gitbutler workspace branch, write a file to
-            // .git/workspace with the previous head and name
-            write_workspace_file(&head_ref, workspace_filepath)?;
-            prev_branch = Some(PreviousHead {
-                head: head_ref.target().unwrap().to_string(),
-                sha: head_ref.target().unwrap().to_string(),
-            });
-        }
+    if let Some(branch) = &prev_branch
+        && branch.head != GITBUTLER_WORKSPACE_REFERENCE.to_string()
+    {
+        // we are moving from a regular branch to our gitbutler workspace branch, write a file to
+        // .git/workspace with the previous head and name
+        write_workspace_file(&head_ref, workspace_filepath)?;
+        prev_branch = Some(PreviousHead {
+            head: head_ref.target().unwrap().to_string(),
+            sha: head_ref.target().unwrap().to_string(),
+        });
     }
     let prev_head_id = head_ref.target();
 

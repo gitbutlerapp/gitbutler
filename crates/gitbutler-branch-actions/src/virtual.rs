@@ -340,10 +340,10 @@ impl IsCommitIntegrated<'_, '_, '_> {
             return Ok(false);
         }
 
-        if let Some(change_id) = commit.change_id() {
-            if self.upstream_change_ids.binary_search(&change_id).is_ok() {
-                return Ok(true);
-            }
+        if let Some(change_id) = commit.change_id()
+            && self.upstream_change_ids.binary_search(&change_id).is_ok()
+        {
+            return Ok(true);
         }
 
         if self.upstream_commits.binary_search(&commit.id()).is_ok() {
@@ -472,13 +472,13 @@ pub(crate) fn insert_blank_commit(
     let mut updated_steps = vec![];
     for step in steps.iter() {
         updated_steps.push(step.clone());
-        if let RebaseStep::Pick { commit_id, .. } = step {
-            if commit_id == &commit.id().to_gix() {
-                updated_steps.push(RebaseStep::Pick {
-                    commit_id: blank_commit_oid.to_gix(),
-                    new_message: None,
-                });
-            }
+        if let RebaseStep::Pick { commit_id, .. } = step
+            && commit_id == &commit.id().to_gix()
+        {
+            updated_steps.push(RebaseStep::Pick {
+                commit_id: blank_commit_oid.to_gix(),
+                new_message: None,
+            });
         }
     }
     // if the  commit is the merge_base, then put the blank commit at the beginning
@@ -567,10 +567,9 @@ pub(crate) fn update_commit_message(
             commit_id: id,
             new_message,
         } = step
+            && *id == commit_id.to_gix()
         {
-            if *id == commit_id.to_gix() {
-                *new_message = Some(message.into());
-            }
+            *new_message = Some(message.into());
         }
     }
     let merge_base = stack.merge_base(ctx)?;

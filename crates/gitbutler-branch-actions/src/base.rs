@@ -117,10 +117,10 @@ pub(crate) fn set_base_branch(
     }
 
     // if target exists, and it is the same as the requested branch, we should go back
-    if let Ok(target) = default_target(&ctx.project().gb_dir()) {
-        if target.branch.eq(target_branch_ref) {
-            return go_back_to_integration(ctx, &target);
-        }
+    if let Ok(target) = default_target(&ctx.project().gb_dir())
+        && target.branch.eq(target_branch_ref)
+    {
+        return go_back_to_integration(ctx, &target);
     }
 
     // lookup a branch by name

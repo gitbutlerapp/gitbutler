@@ -7,7 +7,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
 use gitbutler_project::{self as projects, Project, ProjectId};
 use gitbutler_reference::Refname;
-use gitbutler_testsupport::{paths, TestProject, VAR_NO_CLEANUP};
+use gitbutler_testsupport::{TestProject, VAR_NO_CLEANUP, paths};
 use tempfile::TempDir;
 
 struct Test {

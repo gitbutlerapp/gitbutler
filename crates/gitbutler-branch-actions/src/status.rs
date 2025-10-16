@@ -1,16 +1,16 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
+use crate::VirtualBranchesExt;
 use crate::branch_manager::BranchManagerExt;
 use crate::dependencies::compute_workspace_dependencies;
-use crate::VirtualBranchesExt;
 use crate::{
-    file::{virtual_hunks_into_virtual_files, VirtualBranchFile},
-    hunk::{file_hunks_from_diffs, VirtualBranchHunk},
+    file::{VirtualBranchFile, virtual_hunks_into_virtual_files},
+    hunk::{VirtualBranchHunk, file_hunks_from_diffs},
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
-use gitbutler_diff::{diff_files_into_hunks, Hunk};
+use gitbutler_diff::{Hunk, diff_files_into_hunks};
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_oxidize::ObjectIdExt;
@@ -73,9 +73,11 @@ pub fn get_applied_status_cached(
 
     if virtual_branches.is_empty() && !base_diffs.is_empty() {
         if let Some(perm) = perm {
-            virtual_branches = vec![branch_manager
-                .create_virtual_branch(&BranchCreateRequest::default(), perm)
-                .context("failed to create default branch")?];
+            virtual_branches = vec![
+                branch_manager
+                    .create_virtual_branch(&BranchCreateRequest::default(), perm)
+                    .context("failed to create default branch")?,
+            ];
         } else {
             bail!("Would have to create virtual-branch but write permissions aren't available")
         }

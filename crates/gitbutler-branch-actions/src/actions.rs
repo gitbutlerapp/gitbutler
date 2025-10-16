@@ -9,26 +9,25 @@ use crate::upstream_integration::{
     StackStatuses, UpstreamIntegrationContext,
 };
 use crate::{
-    base,
+    VirtualBranchesExt, base,
     base::BaseBranch,
     branch_manager::BranchManagerExt,
     file::RemoteBranchFile,
     remote,
     remote::{RemoteBranchData, RemoteCommit},
-    VirtualBranchesExt,
 };
 use anyhow::{Context, Result};
-use but_workspace::{commit_engine, stack_heads_info, ui, DiffSpec};
+use but_workspace::{DiffSpec, commit_engine, stack_heads_info, ui};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_oplog::{
-    entry::{OperationKind, SnapshotDetails},
     OplogExt, SnapshotExt,
+    entry::{OperationKind, SnapshotDetails},
 };
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_project::FetchResult;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;

@@ -59,11 +59,10 @@ pub fn find_git_branches(ctx: &CommandContext, branch_name: &str) -> Result<Vec<
         .iter()
         .filter_map(|remote_name| {
             let branch_name = format!("{remote_name}/{branch_name}");
-            let blah = repo
-                .find_branch(&branch_name, BranchType::Remote)
+
+            repo.find_branch(&branch_name, BranchType::Remote)
                 .ok()
-                .and_then(|branch| branch_to_remote_branch(ctx, &branch, &[remote_name]).ok());
-            blah
+                .and_then(|branch| branch_to_remote_branch(ctx, &branch, &[remote_name]).ok())
         })
         .collect();
 

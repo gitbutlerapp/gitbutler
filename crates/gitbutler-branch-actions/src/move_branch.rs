@@ -331,16 +331,16 @@ fn inject_branch_steps(
     let branch_ref_name = branch_ref.name().to_owned();
 
     for step in destination_steps {
-        if let RebaseStep::Reference(but_core::Reference::Git(name)) = &step {
-            if *name == branch_ref_name {
-                new_destination_steps.extend(branch_steps.clone());
-            }
+        if let RebaseStep::Reference(but_core::Reference::Git(name)) = &step
+            && *name == branch_ref_name
+        {
+            new_destination_steps.extend(branch_steps.clone());
         }
 
-        if let RebaseStep::Reference(but_core::Reference::Virtual(name)) = &step {
-            if *name == destination_branch_name {
-                new_destination_steps.extend(branch_steps.clone());
-            }
+        if let RebaseStep::Reference(but_core::Reference::Virtual(name)) = &step
+            && *name == destination_branch_name
+        {
+            new_destination_steps.extend(branch_steps.clone());
         }
 
         new_destination_steps.push(step);

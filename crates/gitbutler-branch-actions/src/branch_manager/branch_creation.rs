@@ -204,10 +204,10 @@ impl BranchManager<'_> {
 
         let default_target = vb_state.get_default_target()?;
 
-        if let Refname::Remote(remote_upstream) = target {
-            if default_target.branch == *remote_upstream {
-                bail!("cannot create a branch from default target")
-            }
+        if let Refname::Remote(remote_upstream) = target
+            && default_target.branch == *remote_upstream
+        {
+            bail!("cannot create a branch from default target")
         }
 
         let repo = self.ctx.repo();
@@ -448,15 +448,15 @@ impl BranchManager<'_> {
 
                 // Don't try to undo commit if its conflicted
                 if !potential_wip_commit.is_conflicted() {
-                    if let Some(headers) = potential_wip_commit.gitbutler_headers() {
-                        if headers.change_id == wip_commit_to_unapply.clone() {
-                            stack = crate::undo_commit::undo_commit(
-                                self.ctx,
-                                stack.id,
-                                stack.head_oid(&gix_repo)?.to_git2(),
-                                perm,
-                            )?;
-                        }
+                    if let Some(headers) = potential_wip_commit.gitbutler_headers()
+                        && headers.change_id == wip_commit_to_unapply.clone()
+                    {
+                        stack = crate::undo_commit::undo_commit(
+                            self.ctx,
+                            stack.id,
+                            stack.head_oid(&gix_repo)?.to_git2(),
+                            perm,
+                        )?;
                     }
 
                     stack.not_in_workspace_wip_change_id = None;
