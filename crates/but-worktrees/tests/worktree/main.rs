@@ -1,3 +1,5 @@
+mod integrate;
+
 /// Tests for worktree creation and management
 mod util {
     use gitbutler_command_context::CommandContext;
@@ -20,6 +22,17 @@ mod util {
         pub ctx: CommandContext,
         pub handle: VirtualBranchesHandle,
         pub tmpdir: TempDir,
+    }
+
+    pub trait IntoString {
+        fn output_string(&mut self) -> anyhow::Result<String>;
+    }
+
+    impl IntoString for std::process::Command {
+        fn output_string(&mut self) -> anyhow::Result<String> {
+            let output = self.output()?;
+            Ok(str::from_utf8(&output.stdout)?.to_owned())
+        }
     }
 }
 
@@ -200,7 +213,7 @@ mod worktree_list {
 
         // All should start normal
         assert!(
-            dbg!(worktree_list(&mut ctx, guard.read_permission())?)
+            worktree_list(&mut ctx, guard.read_permission())?
                 .entries
                 .iter()
                 .all(|e| all.iter().any(|a| a.created == *e))

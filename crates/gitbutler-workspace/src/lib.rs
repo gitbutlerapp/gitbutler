@@ -35,3 +35,22 @@ pub fn workspace_base(
 
     Ok(merge_base_id)
 }
+
+pub fn workspace_base_from_heads(
+    ctx: &CommandContext,
+    _perm: &WorktreeReadPermission,
+    heads: &[gix::ObjectId],
+) -> Result<gix::ObjectId> {
+    let gix_repo = ctx.gix_repo_for_merging()?;
+    let repo = ctx.repo();
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let default_target = vb_state.get_default_target()?;
+    let target_branch_commit = repo.find_commit(default_target.sha)?.id().to_gix();
+    let merge_base_id = gix_repo
+        .merge_base_octopus([heads, &[target_branch_commit]].concat())?
+        .object()?
+        .id()
+        .detach();
+
+    Ok(merge_base_id)
+}

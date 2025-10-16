@@ -39,3 +39,31 @@ pub(crate) fn git_worktree_add(
         )
     }
 }
+
+/// Removes a git worktree
+pub(crate) fn git_worktree_remove(project_path: &Path, path: &Path, force: bool) -> Result<()> {
+    let mut command =
+        std::process::Command::from(gix::command::prepare(gix::path::env::exe_invocation()));
+    command.current_dir(project_path);
+    command.arg("worktree");
+    command.arg("remove");
+    command.arg(path.as_os_str());
+
+    if force {
+        command.arg("--force");
+    }
+
+    let output = command.output()?;
+
+    tracing::info!("{}", str::from_utf8(&output.stdout)?);
+    tracing::error!("{}", str::from_utf8(&output.stderr)?);
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        bail!(
+            "Failed to create worktree\n\n{}",
+            str::from_utf8(&output.stderr).unwrap_or("")
+        )
+    }
+}

@@ -7,7 +7,7 @@ use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission}
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 
-use crate::workspace_base;
+use crate::{workspace_base, workspace_base_from_heads};
 
 /// A snapshot of the workspace at a point in time.
 #[derive(Debug)]
@@ -50,6 +50,8 @@ impl WorkspaceState {
     ) -> Result<Self> {
         let repo = ctx.repo();
 
+        let base = workspace_base_from_heads(ctx, perm, heads)?;
+
         let heads = heads
             .iter()
             .map(|head| -> Result<git2::Oid> {
@@ -59,8 +61,7 @@ impl WorkspaceState {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let base = workspace_base(ctx, perm)?.to_git2();
-        let base_tree_id = repo.find_commit(base)?.tree_id();
+        let base_tree_id = repo.find_commit(base.to_git2())?.tree_id();
 
         Ok(WorkspaceState {
             heads,

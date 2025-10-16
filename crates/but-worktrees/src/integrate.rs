@@ -5,17 +5,23 @@ use bstr::{BString, ByteSlice};
 use but_rebase::{Rebase, RebaseOutput, RebaseStep};
 use but_status::create_wd_tree;
 use but_workspace::stack_ext::StackExt;
+use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{GixRepositoryExt as _, ObjectIdExt};
-use gitbutler_project::access::WorktreeReadPermission;
-use gitbutler_stack::VirtualBranchesHandle;
-use gitbutler_workspace::branch_trees::{WorkspaceState, merge_workspace, move_tree};
+use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
+use gitbutler_stack::{Stack, VirtualBranchesHandle};
+use gitbutler_workspace::branch_trees::{
+    WorkspaceState, merge_workspace, move_tree, update_uncommited_changes,
+};
 use gix::prelude::ObjectIdExt as _;
 use serde::{Deserialize, Serialize};
 
-use crate::db::get_worktree_meta;
+use crate::{
+    db::{delete_worktree_meta, get_worktree_meta},
+    git::git_worktree_remove,
+};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "data", rename_all = "camelCase")]
 /// This gets used as a public API in the CLI so be careful when modifying.
 pub enum WorktreeIntegrationStatus {
@@ -51,6 +57,42 @@ pub fn worktree_integration_status(
     Ok(worktree_integration_inner(ctx, perm, path, target)?.0)
 }
 
+/// Integrates a worktree if it's integratable
+///
+/// This function makes use of older APIs because there is not yet an
+/// alternative to the rebase engine.
+pub fn worktree_integrate(
+    ctx: &mut CommandContext,
+    perm: &mut WorktreeWritePermission,
+    path: &Path,
+    target: &gix::refs::FullNameRef,
+) -> Result<()> {
+    let before = WorkspaceState::create(ctx, perm.read_permission())?;
+
+    let result = worktree_integration_inner(ctx, perm.read_permission(), path, target)?;
+    let (WorktreeIntegrationStatus::Integratable { .. }, Some(mut status)) = result else {
+        bail!("Worktree failed integration checks");
+    };
+
+    status
+        .stack
+        .set_heads_from_rebase_output(ctx, status.rebase_output.references)?;
+    let after = WorkspaceState::create(ctx, perm.read_permission())?;
+    update_uncommited_changes(ctx, before, after, perm)?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    update_workspace_commit(&vb_state, ctx)?;
+
+    git_worktree_remove(&ctx.project().path, path, true)?;
+    delete_worktree_meta(ctx, path)?;
+
+    Ok(())
+}
+
+struct IntegrationResult {
+    rebase_output: RebaseOutput,
+    stack: Stack,
+}
+
 /// Performs the workspace integration operations in memory, returning the
 /// status, and output if it's integratable
 fn worktree_integration_inner(
@@ -58,7 +100,7 @@ fn worktree_integration_inner(
     perm: &WorktreeReadPermission,
     path: &Path,
     target: &gix::refs::FullNameRef,
-) -> Result<(WorktreeIntegrationStatus, Option<RebaseOutput>)> {
+) -> Result<(WorktreeIntegrationStatus, Option<IntegrationResult>)> {
     let repo = ctx.gix_repo_for_merging()?;
 
     let target_ref = repo.find_reference(target)?;
@@ -120,7 +162,7 @@ fn worktree_integration_inner(
         .find(|s| {
             s.branches()
                 .iter()
-                .any(|b| b.name.as_bytes() == target.as_bstr())
+                .any(|b| b.name.as_bytes() == target.shorten())
         })
         .context("Failed to find branch in vb state")?
         .clone();
@@ -228,6 +270,9 @@ fn worktree_integration_inner(
             commits_above_conflict,
             working_dir_conflicts,
         },
-        Some(output),
+        Some(IntegrationResult {
+            rebase_output: output,
+            stack,
+        }),
     ))
 }
