@@ -178,10 +178,17 @@ fn update_push_status(branch: &mut but_workspace::ui::BranchDetails) {
         )
     });
 
+    let all_pushed = branch
+        .commits
+        .iter()
+        .all(|c| matches!(c.state, but_workspace::ui::CommitState::LocalAndRemote(remote_id) if c.id == remote_id));
+
     branch.push_status = if has_diverged {
         but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce
     } else if has_local_only {
         but_workspace::ui::PushStatus::UnpushedCommits
+    } else if all_pushed {
+        but_workspace::ui::PushStatus::NothingToPush
     } else {
         branch.push_status
     };
@@ -250,6 +257,7 @@ pub fn branch_details(
         .unwrap_or(false);
     if gerrit_mode {
         handle_gerrit(&mut details, &repo, &mut ctx)?;
+        update_push_status(&mut details);
     }
     Ok(details)
 }
