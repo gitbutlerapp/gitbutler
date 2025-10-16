@@ -40,7 +40,8 @@ const MOCK_BASE_BRANCH_DATA = {
 	conflicted: false,
 	diverged: false,
 	divergedAhead: [],
-	divergedBehind: []
+	divergedBehind: [],
+	forgeProvider: 'github'
 };
 
 export type BaseBranchData = typeof MOCK_BASE_BRANCH_DATA;
