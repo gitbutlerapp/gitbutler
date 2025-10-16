@@ -17,12 +17,10 @@ use serde::{Deserialize, Serialize};
 pub struct Worktree {
     /// A canonicalized path represented in bytes
     pub path: Vec<u8>,
-    /// A fully qualified reference serialized from gix::refs::FullNameRef
-    pub reference: Vec<u8>,
     /// A commit oid serialized as hexidecimal string
     pub base: String,
-    /// JSON stringification of [but_worktrees::WorktreeSource]
-    pub source: String,
+    /// Optionally a full ref that the worktree was created from
+    pub created_from_ref: Option<Vec<u8>>,
 }
 
 impl DbHandle {

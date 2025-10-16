@@ -1,3 +1,5 @@
+mod integrate;
+
 /// Tests for worktree creation and management
 mod util {
     use gitbutler_command_context::CommandContext;
@@ -21,6 +23,17 @@ mod util {
         pub handle: VirtualBranchesHandle,
         pub tmpdir: TempDir,
     }
+
+    pub trait IntoString {
+        fn output_string(&mut self) -> anyhow::Result<String>;
+    }
+
+    impl IntoString for std::process::Command {
+        fn output_string(&mut self) -> anyhow::Result<String> {
+            let output = self.output()?;
+            Ok(str::from_utf8(&output.stdout)?.to_owned())
+        }
+    }
 }
 
 mod worktree_new {
@@ -28,7 +41,7 @@ mod worktree_new {
     use anyhow::Context;
     use but_graph::VirtualBranchesTomlMetadata;
     use but_workspace::{StacksFilter, stacks_v3};
-    use but_worktrees::{WorktreeSource, new::worktree_new};
+    use but_worktrees::new::worktree_new;
     use util::test_ctx;
 
     #[test]
@@ -59,12 +72,8 @@ mod worktree_new {
         )?;
 
         assert_eq!(
-            outcome.created.base, feature_a.tip,
-            "The base should the the same as the tip of feature-a"
-        );
-        assert_eq!(
-            outcome.created.source,
-            WorktreeSource::Branch(feature_a_name),
+            outcome.created.base,
+            Some(feature_a.tip),
             "The base should the the same as the tip of feature-a"
         );
         let worktree = repo.worktrees()?[0].clone();
@@ -75,14 +84,9 @@ mod worktree_new {
             "Worktree should be created where we say"
         );
         assert_eq!(
-            worktree_repo.head()?.id().unwrap(),
+            Some(worktree_repo.head()?.id().unwrap().detach()),
             outcome.created.base,
             "Worktree should have base checked out"
-        );
-        assert_eq!(
-            worktree_repo.head()?.referent_name().unwrap(),
-            outcome.created.reference.as_ref(),
-            "Worktree should have reference checked out"
         );
 
         Ok(())
@@ -116,13 +120,9 @@ mod worktree_new {
         )?;
 
         assert_eq!(
-            outcome.created.base, feature_b.tip,
+            outcome.created.base,
+            Some(feature_b.tip),
             "The base should the the same as the tip of feature-b"
-        );
-        assert_eq!(
-            outcome.created.source,
-            WorktreeSource::Branch(feature_b_name),
-            "The source should be feature-b"
         );
         let worktree = repo.worktrees()?[0].clone();
         let worktree_repo = worktree.clone().into_repo()?;
@@ -132,14 +132,9 @@ mod worktree_new {
             "Worktree should be created where we say"
         );
         assert_eq!(
-            worktree_repo.head()?.id().unwrap(),
+            Some(worktree_repo.head()?.id().unwrap().detach()),
             outcome.created.base,
             "Worktree should have base checked out"
-        );
-        assert_eq!(
-            worktree_repo.head()?.referent_name().unwrap(),
-            outcome.created.reference.as_ref(),
-            "Worktree should have reference checked out"
         );
 
         Ok(())
@@ -173,13 +168,9 @@ mod worktree_new {
         )?;
 
         assert_eq!(
-            outcome.created.base, feature_c.tip,
+            outcome.created.base,
+            Some(feature_c.tip),
             "The base should the the same as the tip of feature-c"
-        );
-        assert_eq!(
-            outcome.created.source,
-            WorktreeSource::Branch(feature_c_name),
-            "The source should be feature-c"
         );
         let worktree = repo.worktrees()?[0].clone();
         let worktree_repo = worktree.clone().into_repo()?;
@@ -189,14 +180,9 @@ mod worktree_new {
             "Worktree should be created where we say"
         );
         assert_eq!(
-            worktree_repo.head()?.id().unwrap(),
+            Some(worktree_repo.head()?.id().unwrap().detach()),
             outcome.created.base,
             "Worktree should have base checked out"
-        );
-        assert_eq!(
-            worktree_repo.head()?.referent_name().unwrap(),
-            outcome.created.reference.as_ref(),
-            "Worktree should have reference checked out"
         );
 
         Ok(())
@@ -205,12 +191,7 @@ mod worktree_new {
 
 mod worktree_list {
     use super::*;
-    use but_graph::VirtualBranchesTomlMetadata;
-    use but_testsupport::git;
-    use but_workspace::{StacksFilter, stacks_v3};
-    use but_worktrees::{WorktreeHealthStatus, list::worktree_list, new::worktree_new};
-    use gitbutler_branch_actions::BranchManagerExt as _;
-    use gix::refs::transaction::PreviousValue;
+    use but_worktrees::{list::worktree_list, new::worktree_new};
     use util::test_ctx;
 
     #[test]
@@ -218,17 +199,15 @@ mod worktree_list {
         let test_ctx = test_ctx("stacked-and-parallel")?;
         let mut ctx = test_ctx.ctx;
 
-        let repo = ctx.gix_repo()?;
-
-        let mut guard = ctx.project().exclusive_worktree_access();
+        let guard = ctx.project().exclusive_worktree_access();
 
         let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
         let feature_c_name = gix::refs::FullName::try_from("refs/heads/feature-c")?;
-        let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?; // To stay Normal
-        let b = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?; // To be BranchMissing
-        let c = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?; // To be BranchNotCheckedOut
-        let d = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?; // To be WorktreeMissing
-        let e = worktree_new(&mut ctx, guard.read_permission(), feature_c_name.as_ref())?; // To be WorkspaceBranchMissing
+        let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
+        let b = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
+        let c = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
+        let d = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
+        let e = worktree_new(&mut ctx, guard.read_permission(), feature_c_name.as_ref())?;
 
         let all = &[&a, &b, &c, &d, &e];
 
@@ -237,69 +216,7 @@ mod worktree_list {
             worktree_list(&mut ctx, guard.read_permission())?
                 .entries
                 .iter()
-                .all(|e| all.iter().any(|a| a.created == e.worktree)
-                    && e.status == WorktreeHealthStatus::Normal)
-        );
-
-        // remove b's branch
-        repo.find_reference(&b.created.reference)?.delete()?;
-
-        // checkout a different branch on c
-        repo.reference(
-            "refs/heads/new-ref",
-            c.created.base,
-            PreviousValue::Any,
-            "New reference :D",
-        )?;
-        git(&repo)
-            .current_dir(&c.created.path)
-            .arg("switch")
-            .arg("new-ref")
-            .output()?;
-
-        // delete d's worktree
-        git(&repo)
-            .arg("worktree")
-            .arg("remove")
-            .arg("-f")
-            .arg(d.created.path.as_os_str())
-            .output()?;
-
-        // remove `feature-c` branch from workspace
-        // It would be nice to invoke the `but` cli here...
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
-        )?;
-        let stack = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?
-            .into_iter()
-            .find(|s| s.heads.iter().any(|h| h.name == b"feature-c"))
-            .unwrap();
-        let branch_manager = ctx.branch_manager();
-        branch_manager.unapply(
-            stack.id.unwrap(),
-            guard.write_permission(),
-            false,
-            vec![],
-            ctx.app_settings().feature_flags.cv3,
-        )?;
-
-        assert!(
-            worktree_list(&mut ctx, guard.read_permission())?
-                .entries
-                .into_iter()
-                .all(|entry| if entry.worktree == a.created {
-                    entry.status == WorktreeHealthStatus::Normal
-                } else if entry.worktree == b.created {
-                    entry.status == WorktreeHealthStatus::BranchMissing
-                } else if entry.worktree == c.created {
-                    entry.status == WorktreeHealthStatus::BranchNotCheckedOut
-                } else if entry.worktree == d.created {
-                    entry.status == WorktreeHealthStatus::WorktreeMissing
-                } else if entry.worktree == e.created {
-                    entry.status == WorktreeHealthStatus::WorkspaceBranchMissing
-                } else {
-                    false
-                })
+                .all(|e| all.iter().any(|a| a.created == *e))
         );
 
         Ok(())
