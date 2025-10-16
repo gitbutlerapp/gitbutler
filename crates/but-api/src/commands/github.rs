@@ -1,7 +1,9 @@
 //! In place of commands.rs
 use anyhow::Result;
+use but_api_macros::api_cmd;
 use but_github::{AuthStatusResponse, AuthenticatedUser, CheckAuthStatusParams, Verification};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{NoParams, error::Error};
 
@@ -46,9 +48,19 @@ pub async fn check_auth_status(
     }
 }
 
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
 pub fn forget_github_username(login: String) -> Result<(), Error> {
     but_github::forget_gh_access_token(&login).ok();
     Ok(())
+}
+
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn list_known_github_usernames() -> Result<Vec<String>, Error> {
+    but_github::list_known_github_usernames().map_err(Into::into)
 }
 
 #[derive(Debug, Serialize)]
