@@ -181,16 +181,16 @@ echo 'commit message' > $1
         let statuses = repo.statuses(Some(&mut opts))?;
 
         for entry in statuses.iter() {
-            if let Some(path) = entry.path() {
-                if path == file_path {
-                    // Check if the file is staged (index updated but not committed)
-                    let status = entry.status();
-                    if status.contains(git2::Status::INDEX_NEW)
-                        || status.contains(git2::Status::INDEX_MODIFIED)
-                        || status.contains(git2::Status::INDEX_DELETED)
-                    {
-                        return Ok(true);
-                    }
+            if let Some(path) = entry.path()
+                && path == file_path
+            {
+                // Check if the file is staged (index updated but not committed)
+                let status = entry.status();
+                if status.contains(git2::Status::INDEX_NEW)
+                    || status.contains(git2::Status::INDEX_MODIFIED)
+                    || status.contains(git2::Status::INDEX_DELETED)
+                {
+                    return Ok(true);
                 }
             }
         }

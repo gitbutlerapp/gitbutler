@@ -109,7 +109,7 @@ fn one_feature_branch_and_one_vbranch_in_workspace_one_commit() -> Result<()> {
             has_local: true,
         },
         "virtual branches can have the name of the target, even though it's probably not going to work when pushing. \
-        The remotes of the local `refs/heads/main` are not shown"
+        The remotes of the local `refs/heads/main` are not shown",
     );
 
     Ok(())
@@ -138,8 +138,8 @@ fn one_branch_in_workspace_multiple_remotes() -> Result<()> {
 
 mod util {
     use anyhow::Result;
-    use but_settings::app_settings::FeatureFlags;
     use but_settings::AppSettings;
+    use but_settings::app_settings::FeatureFlags;
     use gitbutler_branch::BranchIdentity;
     use gitbutler_branch_actions::{BranchListing, BranchListingFilter};
     use gitbutler_command_context::CommandContext;
@@ -215,7 +215,7 @@ mod util {
             ("GIT_COMMITTER_EMAIL", "committer@example.com"),
             ("GIT_COMMITTER_NAME", "committer"),
         ] {
-            std::env::set_var(name, value);
+            unsafe { std::env::set_var(name, value) };
         }
     }
 
@@ -244,4 +244,4 @@ mod util {
     }
 }
 use crate::virtual_branches::list::util::project_ctx_without_ws3;
-pub use util::{assert_equal, init_env, list_branches, project_ctx, ExpectedBranchListing};
+pub use util::{ExpectedBranchListing, assert_equal, init_env, list_branches, project_ctx};

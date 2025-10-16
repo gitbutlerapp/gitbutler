@@ -19,8 +19,8 @@ pub use r#virtual::{BranchStatus, VirtualBranchHunksByPathMap};
 /// This was previously `pub use r#virtual::*;`
 pub mod internal {
     pub use super::branch_upstream_integration;
-    pub use super::r#virtual::*;
     pub use super::remote::find_git_branches;
+    pub use super::r#virtual::*;
 }
 
 mod branch_manager;
@@ -70,8 +70,8 @@ mod hunk;
 pub use hunk::{VirtualBranchHunkRange, VirtualBranchHunkRangeMap};
 
 pub use branch::{
-    get_branch_listing_details, list_branches, Author, BranchListing, BranchListingDetails,
-    BranchListingFilter,
+    Author, BranchListing, BranchListingDetails, BranchListingFilter, get_branch_listing_details,
+    list_branches,
 };
 
 pub use integration::GITBUTLER_WORKSPACE_COMMIT_TITLE;

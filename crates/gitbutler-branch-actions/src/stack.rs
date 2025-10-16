@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::actions::Verify;
 use crate::r#virtual::PushResult;
-use crate::{r#virtual::IsCommitIntegrated, VirtualBranchesExt};
+use crate::{VirtualBranchesExt, r#virtual::IsCommitIntegrated};
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 
 /// Adds a new "series/branch" to the Stack.

@@ -1,12 +1,12 @@
 use std::{path::Path, time};
 
 use crate::{
+    VirtualBranchesExt,
     hunk::VirtualBranchHunk,
     integration::update_workspace_commit,
-    remote::{commit_to_remote_commit, RemoteCommit},
-    VirtualBranchesExt,
+    remote::{RemoteCommit, commit_to_remote_commit},
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use but_workspace::branch::checkout::UncommitedWorktreeChanges;
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
@@ -16,12 +16,12 @@ use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
-    logging::{LogUntil, RepositoryExt as _},
     RepositoryExt,
+    logging::{LogUntil, RepositoryExt as _},
 };
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{
-    canned_branch_name, BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle,
+    BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle, canned_branch_name,
 };
 use serde::Serialize;
 use tracing::instrument;
@@ -96,7 +96,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
 
     let base = target_to_base_branch(ctx, default_target)?;
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    update_workspace_commit(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx, false)?;
     Ok(base)
 }
 
@@ -117,10 +117,10 @@ pub(crate) fn set_base_branch(
     }
 
     // if target exists, and it is the same as the requested branch, we should go back
-    if let Ok(target) = default_target(&ctx.project().gb_dir()) {
-        if target.branch.eq(target_branch_ref) {
-            return go_back_to_integration(ctx, &target);
-        }
+    if let Ok(target) = default_target(&ctx.project().gb_dir())
+        && target.branch.eq(target_branch_ref)
+    {
+        return go_back_to_integration(ctx, &target);
     }
 
     // lookup a branch by name
@@ -256,7 +256,7 @@ pub(crate) fn set_base_branch(
 
     set_exclude_decoration(ctx)?;
 
-    update_workspace_commit(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx, true)?;
 
     let base = target_to_base_branch(ctx, &target)?;
     Ok(base)

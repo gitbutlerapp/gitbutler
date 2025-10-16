@@ -1,24 +1,24 @@
-use anyhow::{bail, Context, Ok, Result};
+use anyhow::{Context, Ok, Result, bail};
 use but_rebase::RebaseStep;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_oplog::{
-    entry::{OperationKind, SnapshotDetails},
     OplogExt,
+    entry::{OperationKind, SnapshotDetails},
 };
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
-    logging::{LogUntil, RepositoryExt},
     RepositoryExt as _,
+    logging::{LogUntil, RepositoryExt},
 };
 use gitbutler_stack::StackId;
-use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
 use itertools::Itertools;
 
 use crate::{
-    reorder::{commits_order, reorder_stack},
     VirtualBranchesExt,
+    reorder::{commits_order, reorder_stack},
 };
 
 /// Squashes one or multiple commuits from a virtual branch into a destination commit
@@ -255,7 +255,7 @@ fn do_squash_commits(
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
-    crate::integration::update_workspace_commit(&vb_state, ctx)
+    crate::integration::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
     Ok(new_commit_oid)

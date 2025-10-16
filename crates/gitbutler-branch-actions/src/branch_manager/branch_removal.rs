@@ -10,9 +10,9 @@ use gitbutler_stack::StackId;
 use gitbutler_workspace::workspace_base;
 use tracing::instrument;
 
-use super::{checkout_remerged_head, BranchManager};
-use crate::r#virtual as vbranch;
+use super::{BranchManager, checkout_remerged_head};
 use crate::VirtualBranchesExt;
+use crate::r#virtual as vbranch;
 
 impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
@@ -42,18 +42,18 @@ impl BranchManager<'_> {
         let repo = self.ctx.repo();
 
         // Commit any assigned diffspecs if such exist so that it will be part of the unapplied branch.
-        if !assigned_diffspec.is_empty() {
-            if let Some(head) = stack.heads.last().map(|h| h.name.to_string()) {
-                but_workspace::commit_engine::create_commit_simple(
-                    self.ctx,
-                    stack_id,
-                    None,
-                    assigned_diffspec,
-                    "WIP Assignments".to_string(),
-                    head.to_owned(),
-                    perm,
-                )?;
-            }
+        if !assigned_diffspec.is_empty()
+            && let Some(head) = stack.heads.last().map(|h| h.name.to_string())
+        {
+            but_workspace::commit_engine::create_commit_simple(
+                self.ctx,
+                stack_id,
+                None,
+                assigned_diffspec,
+                "WIP Assignments".to_string(),
+                head.to_owned(),
+                perm,
+            )?;
         }
 
         // doing this earlier in the flow, in case any of the steps that follow fail
@@ -124,7 +124,7 @@ impl BranchManager<'_> {
         vbranch::ensure_selected_for_changes(&vb_state)
             .context("failed to ensure selected for changes")?;
 
-        crate::integration::update_workspace_commit(&vb_state, self.ctx)
+        crate::integration::update_workspace_commit(&vb_state, self.ctx, false)
             .context("failed to update gitbutler workspace")?;
 
         Ok(stack

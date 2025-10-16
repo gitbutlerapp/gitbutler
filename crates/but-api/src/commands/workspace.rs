@@ -420,7 +420,7 @@ pub fn move_changes_between_commits(
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    update_workspace_commit(&vb_state, &ctx)?;
+    update_workspace_commit(&vb_state, &ctx, false)?;
 
     Ok(result.into())
 }
@@ -454,7 +454,7 @@ pub fn split_branch(
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    update_workspace_commit(&vb_state, &ctx)?;
+    update_workspace_commit(&vb_state, &ctx, false)?;
 
     let refname = Refname::Local(LocalRefname::new(&new_branch_name, None));
     let branch_manager = ctx.branch_manager();
@@ -497,7 +497,7 @@ pub fn split_branch_into_dependent_branch(
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    update_workspace_commit(&vb_state, &ctx)?;
+    update_workspace_commit(&vb_state, &ctx, false)?;
 
     Ok(move_changes_result.into())
 }
@@ -555,7 +555,7 @@ pub fn uncommit_changes(
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    update_workspace_commit(&vb_state, &ctx)?;
+    update_workspace_commit(&vb_state, &ctx, false)?;
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
@@ -640,7 +640,7 @@ pub fn stash_into_branch(
     );
 
     let vb_state = VirtualBranchesHandle::new(project.gb_dir());
-    gitbutler_branch_actions::update_workspace_commit(&vb_state, &ctx)
+    gitbutler_branch_actions::update_workspace_commit(&vb_state, &ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     branch_manager.unapply(

@@ -1,10 +1,10 @@
 use super::BranchManager;
 use crate::r#virtual as vbranch;
-use crate::{hunk::VirtualBranchHunk, integration::update_workspace_commit, VirtualBranchesExt};
-use anyhow::{anyhow, bail, Context, Result};
+use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk, integration::update_workspace_commit};
+use anyhow::{Context, Result, anyhow, bail};
+use but_workspace::branch::OnWorkspaceMergeConflict;
 use but_workspace::branch::apply::{IntegrationMode, WorkspaceReferenceNaming};
 use but_workspace::branch::checkout::UncommitedWorktreeChanges;
-use but_workspace::branch::OnWorkspaceMergeConflict;
 use but_workspace::stack_ext::StackExt;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch::{self, dedup};
@@ -13,15 +13,15 @@ use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt, RepoExt};
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::rebase::gitbutler_merge_commits;
 use gitbutler_repo::RepositoryExt as _;
+use gitbutler_repo::rebase::gitbutler_merge_commits;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
-use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes_with_tree};
 use serde::Serialize;
 use tracing::instrument;
 
@@ -130,7 +130,7 @@ impl BranchManager<'_> {
         vb_state.set_stack(branch.clone())?;
         self.ctx.add_branch_reference(&branch)?;
 
-        update_workspace_commit(&vb_state, self.ctx)?;
+        update_workspace_commit(&vb_state, self.ctx, false)?;
 
         Ok(branch)
     }
@@ -204,10 +204,10 @@ impl BranchManager<'_> {
 
         let default_target = vb_state.get_default_target()?;
 
-        if let Refname::Remote(remote_upstream) = target {
-            if default_target.branch == *remote_upstream {
-                bail!("cannot create a branch from default target")
-            }
+        if let Refname::Remote(remote_upstream) = target
+            && default_target.branch == *remote_upstream
+        {
+            bail!("cannot create a branch from default target")
         }
 
         let repo = self.ctx.repo();
@@ -448,15 +448,15 @@ impl BranchManager<'_> {
 
                 // Don't try to undo commit if its conflicted
                 if !potential_wip_commit.is_conflicted() {
-                    if let Some(headers) = potential_wip_commit.gitbutler_headers() {
-                        if headers.change_id == wip_commit_to_unapply.clone() {
-                            stack = crate::undo_commit::undo_commit(
-                                self.ctx,
-                                stack.id,
-                                stack.head_oid(&gix_repo)?.to_git2(),
-                                perm,
-                            )?;
-                        }
+                    if let Some(headers) = potential_wip_commit.gitbutler_headers()
+                        && headers.change_id == wip_commit_to_unapply.clone()
+                    {
+                        stack = crate::undo_commit::undo_commit(
+                            self.ctx,
+                            stack.id,
+                            stack.head_oid(&gix_repo)?.to_git2(),
+                            perm,
+                        )?;
                     }
 
                     stack.not_in_workspace_wip_change_id = None;
@@ -482,7 +482,7 @@ impl BranchManager<'_> {
         }
         res?;
 
-        update_workspace_commit(&vb_state, self.ctx)?;
+        update_workspace_commit(&vb_state, self.ctx, false)?;
 
         Ok((stack.name, unapplied_stacks))
     }

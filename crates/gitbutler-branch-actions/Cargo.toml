@@ -1,16 +1,16 @@
 [package]
 name = "gitbutler-branch-actions"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [dependencies]
 tracing.workspace = true
 anyhow = "1.0.100"
 git2.workspace = true
 gix = { workspace = true, features = ["blob-diff", "revision", "merge"] }
-tokio.workspace = true
 uuid = { workspace = true }
 gitbutler-oplog.workspace = true
 gitbutler-repo.workspace = true
@@ -19,13 +19,11 @@ gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-error.workspace = true
 gitbutler-serde.workspace = true
-gitbutler-id.workspace = true
 gitbutler-time.workspace = true
 but-settings.workspace = true
 but-gerrit.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-url.workspace = true
-gitbutler-fs.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-cherry-pick.workspace = true
@@ -39,7 +37,6 @@ but-rebase.workspace = true
 but-core.workspace = true
 but-graph.workspace = true
 serde = { workspace = true, features = ["std"] }
-serde-error = "0.1.3"
 bstr.workspace = true
 git2-hooks.workspace = true
 url = { version = "2.5.4", features = ["serde"] }
@@ -47,7 +44,6 @@ md5 = "0.8.0"
 itertools = "0.14"
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
-toml.workspace = true
 
 [dev-dependencies]
 pretty_assertions = "1.4"

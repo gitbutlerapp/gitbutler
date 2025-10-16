@@ -3,8 +3,8 @@ use anyhow::Result;
 use gitbutler_command_context::CommandContext;
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_hunk_dependency::{
-    calculate_hunk_dependencies, HunkDependencyOptions, InputCommit, InputDiff, InputFile,
-    InputStack,
+    HunkDependencyOptions, InputCommit, InputDiff, InputFile, InputStack,
+    calculate_hunk_dependencies,
 };
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_oxidize::RepoExt;
@@ -13,8 +13,8 @@ use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_stack::Stack;
 use gitbutler_stack::StackId;
 
-use crate::file::list_virtual_commit_files;
 use crate::BranchStatus;
+use crate::file::list_virtual_commit_files;
 
 pub fn compute_workspace_dependencies(
     ctx: &CommandContext,
