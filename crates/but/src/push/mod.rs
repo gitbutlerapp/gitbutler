@@ -37,6 +37,7 @@ pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()>
         args.skip_force_push_protection,
         branch_name.clone(),
         args.run_hooks,
+        None,
     )?;
 
     println!("Push completed successfully");

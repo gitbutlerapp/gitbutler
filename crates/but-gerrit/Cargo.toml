@@ -19,4 +19,5 @@ but-db.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-command-context.workspace = true
 chrono = "0.4.42"
+serde = { workspace = true, features = ["std"] }
 gix = { workspace = true }

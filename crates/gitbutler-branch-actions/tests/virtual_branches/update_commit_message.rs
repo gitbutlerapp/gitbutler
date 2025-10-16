@@ -180,6 +180,7 @@ fn forcepush_allowed() {
         false,
         stack_entry.name().map(|n| n.to_string()).unwrap(),
         false, // run_hooks
+        None,
     )
     .unwrap();
 

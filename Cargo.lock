@@ -853,6 +853,7 @@ dependencies = [
  "but-claude",
  "but-core",
  "but-feedback",
+ "but-gerrit",
  "but-github",
  "but-graph",
  "but-hunk-assignment",
@@ -1081,6 +1082,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-commit",
  "gix",
+ "serde",
  "sha-1",
  "uuid",
 ]
