@@ -124,6 +124,7 @@
 	let promptConfigModal = $state<CodegenPromptConfigModal>();
 
 	const modelOptions: { label: string; value: ModelType }[] = [
+		{ label: 'Haiku', value: 'haiku' },
 		{ label: 'Sonnet', value: 'sonnet' },
 		{ label: 'Sonnet 1m', value: 'sonnet[1m]' },
 		{ label: 'Opus', value: 'opus' },

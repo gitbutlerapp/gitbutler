@@ -292,10 +292,10 @@ const pricing = [
 	},
 	{
 		name: 'haiku',
-		input: 0.8,
-		output: 4,
-		writeCache: 1,
-		readCache: 0.08,
+		input: 1,
+		output: 5,
+		writeCache: 1.25,
+		readCache: 0.1,
 		context: 200_000
 	}
 ] as const;

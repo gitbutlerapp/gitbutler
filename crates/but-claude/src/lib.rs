@@ -141,6 +141,7 @@ pub enum ThinkingLevel {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelType {
+    Haiku,
     Sonnet,
     #[serde(rename = "sonnet[1m]")]
     Sonnet1m,
@@ -153,6 +154,7 @@ impl ModelType {
     /// Convert the model type to the CLI argument string format.
     pub fn to_cli_string(&self) -> &str {
         match self {
+            ModelType::Haiku => "haiku",
             ModelType::Sonnet => "sonnet",
             ModelType::Sonnet1m => "sonnet[1m]",
             ModelType::Opus => "opus",
