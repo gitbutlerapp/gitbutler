@@ -47,6 +47,7 @@
 		placeholder?: string;
 		minHeight?: string;
 		onFocus?: () => void;
+		value?: string;
 		onBlur?: () => void;
 		onChange?: OnChangeCallback;
 		onInput?: OnInputCallback;
@@ -56,7 +57,7 @@
 		wrapCountValue?: number;
 	};
 
-	const {
+	let {
 		disabled,
 		namespace,
 		markdown,
@@ -66,6 +67,7 @@
 		plugins,
 		placeholder,
 		onFocus,
+		value = $bindable(''),
 		onBlur,
 		onChange,
 		onInput,
@@ -165,18 +167,14 @@
 	// Initial text is available asynchronously so we need to be able to
 	// insert initial text after first render.
 	$effect(() => {
-		updateInitialtext(initialText);
+		updateInitialtext(initialText || '');
 	});
 
-	async function updateInitialtext(initialText: string | undefined) {
-		if (initialText) {
-			const currentText = await getPlaintext();
-			if (currentText?.trim() === '') {
-				setText(initialText);
-				if (wrapCountValue !== undefined) {
-					wrapAll();
-				}
-			}
+	async function updateInitialtext(initialText: string) {
+		console.log('setting text');
+		setText(initialText);
+		if (wrapCountValue !== undefined) {
+			wrapAll();
 		}
 	}
 
@@ -253,10 +251,14 @@
 		</div>
 
 		<EmojiPlugin bind:this={emojiPlugin} />
-
-		{#if onChange}
-			<OnChangePlugin {markdown} {onChange} maxLength={wrapCountValue} />
-		{/if}
+		<OnChangePlugin
+			{markdown}
+			onChange={(newValue, changeUpToAnchor, textAfterAnchor) => {
+				value = newValue;
+				onChange?.(newValue, changeUpToAnchor, textAfterAnchor);
+			}}
+			maxLength={wrapCountValue}
+		/>
 
 		{#if onInput}
 			<OnInput {markdown} {onInput} maxLength={wrapCountValue} />
