@@ -930,14 +930,14 @@ export class StackService {
 	}
 
 	templates(projectId: string, forgeName: string) {
-		return this.api.endpoints.templates.useQuery({ projectId, forge: { name: forgeName } });
+		return this.api.endpoints.templates.useQuery({ projectId, forge: forgeName });
 	}
 
 	async template(projectId: string, forgeName: string, relativePath: string) {
 		return await this.api.endpoints.template.fetch({
 			relativePath,
 			projectId,
-			forge: { name: forgeName }
+			forge: forgeName
 		});
 	}
 
@@ -1728,14 +1728,11 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					unsubscribe();
 				}
 			}),
-			templates: build.query<string[], { projectId: string; forge: { name: string } }>({
+			templates: build.query<string[], { projectId: string; forge: string }>({
 				extraOptions: { command: 'pr_templates' },
 				query: (args) => args
 			}),
-			template: build.query<
-				string,
-				{ projectId: string; forge: { name: string }; relativePath: string }
-			>({
+			template: build.query<string, { projectId: string; forge: string; relativePath: string }>({
 				extraOptions: { command: 'pr_template' },
 				query: (args) => args
 			})

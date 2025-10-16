@@ -33,6 +33,7 @@ gitbutler-oxidize.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-hunk-dependency.workspace = true
 gitbutler-workspace.workspace = true
+gitbutler-forge.workspace = true
 but-workspace.workspace = true
 but-rebase.workspace = true
 but-core.workspace = true

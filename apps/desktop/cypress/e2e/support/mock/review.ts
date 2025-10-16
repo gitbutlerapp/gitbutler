@@ -3,7 +3,7 @@ import type { InvokeArgs } from '@tauri-apps/api/core';
 export type GetReviewTemplateParams = {
 	relativePath: string;
 	projectId: string;
-	forge: { name: string };
+	forge: string;
 };
 
 export function isGetReviewTemplateParams(
@@ -16,9 +16,7 @@ export function isGetReviewTemplateParams(
 		'relativePath' in args &&
 		'projectId' in args &&
 		'forge' in args &&
-		typeof args.forge === 'object' &&
-		args.forge !== null &&
-		'name' in args.forge
+		typeof args.forge === 'string'
 	);
 }
 

@@ -7,6 +7,7 @@ import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from '$lib/forge/gitlab/gitl
 import { InjectionToken } from '@gitbutler/core/context';
 import { deepCompare } from '@gitbutler/shared/compare';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
+import type { ForgeProvider } from '$lib/baseBranch/baseBranch';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
 import type { GitHubApi, GitLabApi } from '$lib/state/clientState.svelte';
@@ -23,6 +24,7 @@ export type ForgeConfig = {
 	githubAuthenticated?: boolean;
 	githubIsLoading?: boolean;
 	gitlabAuthenticated?: boolean;
+	detectedForgeProvider: ForgeProvider | undefined;
 	forgeOverride?: ForgeName;
 };
 
@@ -76,10 +78,11 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			githubAuthenticated,
 			githubIsLoading,
 			gitlabAuthenticated,
+			detectedForgeProvider,
 			forgeOverride
 		} = config;
 		if (repo && baseBranch) {
-			this._determinedForgeType = this.determineForgeType(repo);
+			this._determinedForgeType = this.determineForgeType(repo, detectedForgeProvider);
 			this._forge = this.build({
 				repo,
 				pushRepo,
@@ -87,6 +90,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				githubAuthenticated,
 				githubIsLoading,
 				gitlabAuthenticated,
+				detectedForgeProvider,
 				forgeOverride
 			});
 		} else {
@@ -101,6 +105,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		githubAuthenticated,
 		githubIsLoading,
 		gitlabAuthenticated,
+		detectedForgeProvider,
 		forgeOverride
 	}: {
 		repo: RepoInfo;
@@ -109,9 +114,10 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		githubAuthenticated?: boolean;
 		githubIsLoading?: boolean;
 		gitlabAuthenticated?: boolean;
+		detectedForgeProvider: ForgeProvider | undefined;
 		forgeOverride: ForgeName | undefined;
 	}): Forge {
-		let forgeType = this.determineForgeType(repo);
+		let forgeType = this.determineForgeType(repo, detectedForgeProvider);
 		if (forgeType === 'default' && forgeOverride) {
 			forgeType = forgeOverride;
 		}
@@ -155,7 +161,13 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		return this.default;
 	}
 
-	private determineForgeType(repo: RepoInfo): ForgeName {
+	private determineForgeType(
+		repo: RepoInfo,
+		detectedForgeProvider: ForgeProvider | undefined
+	): ForgeName {
+		if (detectedForgeProvider) {
+			return detectedForgeProvider;
+		}
 		const domain = repo.domain;
 
 		if (domain.includes(GITHUB_DOMAIN)) {

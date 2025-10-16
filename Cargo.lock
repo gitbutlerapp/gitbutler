@@ -3302,6 +3302,7 @@ dependencies = [
  "gitbutler-commit",
  "gitbutler-diff",
  "gitbutler-error",
+ "gitbutler-forge",
  "gitbutler-fs",
  "gitbutler-git",
  "gitbutler-hunk-dependency",

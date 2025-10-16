@@ -53,6 +53,7 @@ describe.concurrent('DefaultforgeFactory', () => {
 					owner: 'test-owner'
 				},
 				baseBranch: 'some-base',
+				detectedForgeProvider: undefined,
 				forgeOverride: undefined
 			})
 		).instanceOf(GitHub);
@@ -75,6 +76,7 @@ describe.concurrent('DefaultforgeFactory', () => {
 					owner: 'test-owner'
 				},
 				baseBranch: 'some-base',
+				detectedForgeProvider: undefined,
 				forgeOverride: undefined
 			})
 		).instanceOf(GitLab);
@@ -97,8 +99,53 @@ describe.concurrent('DefaultforgeFactory', () => {
 					owner: 'test-owner'
 				},
 				baseBranch: 'some-base',
+				detectedForgeProvider: undefined,
 				forgeOverride: undefined
 			})
 		).instanceOf(GitLab);
+	});
+
+	test('Respects detectedForgeProvider: GitHub', async () => {
+		const factory = new DefaultForgeFactory({
+			gitHubClient,
+			gitHubApi,
+			gitLabClient,
+			gitLabApi,
+			posthog,
+			dispatch
+		});
+		const result = factory.build({
+			repo: {
+				domain: 'gitlab.com',
+				name: 'test-repo',
+				owner: 'test-owner'
+			},
+			baseBranch: 'main',
+			detectedForgeProvider: 'github',
+			forgeOverride: undefined
+		});
+		expect(result).instanceOf(GitHub);
+	});
+
+	test('Respects detectedForgeProvider: GitLab', async () => {
+		const factory = new DefaultForgeFactory({
+			gitHubClient,
+			gitHubApi,
+			gitLabClient,
+			gitLabApi,
+			posthog,
+			dispatch
+		});
+		const result = factory.build({
+			repo: {
+				domain: 'github.com',
+				name: 'test-repo',
+				owner: 'test-owner'
+			},
+			baseBranch: 'main',
+			detectedForgeProvider: 'gitlab',
+			forgeOverride: undefined
+		});
+		expect(result).instanceOf(GitLab);
 	});
 });

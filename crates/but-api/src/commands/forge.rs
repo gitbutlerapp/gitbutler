@@ -48,3 +48,10 @@ pub fn pr_template(
         .content
         .context("PR template was not valid UTF-8")?)
 }
+
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn determine_forge_from_url(url: String) -> Result<Option<ForgeName>, Error> {
+    Ok(gitbutler_forge::determine_forge_from_url(&url))
+}
