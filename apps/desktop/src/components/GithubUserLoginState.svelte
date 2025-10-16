@@ -50,7 +50,7 @@
 			<Button
 				kind="outline"
 				icon="bin-small"
-				disabled={disabled || user === null}
+				{disabled}
 				onclick={() => forget(username)}
 				loading={forgetting.current.isLoading}>Forget</Button
 			>
