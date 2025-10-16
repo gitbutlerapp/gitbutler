@@ -52,7 +52,7 @@ gitbutler-branch = { path = "crates/gitbutler-branch" }
 gitbutler-reference = { path = "crates/gitbutler-reference" }
 gitbutler-error = { path = "crates/gitbutler-error" }
 gitbutler-serde = { path = "crates/gitbutler-serde" }
-gitbutler-secret = { path = "crates/gitbutler-secret" }
+but-secret = { path = "crates/but-secret" }
 gitbutler-storage = { path = "crates/gitbutler-storage" }
 gitbutler-fs = { path = "crates/gitbutler-fs" }
 gitbutler-time = { path = "crates/gitbutler-time" }

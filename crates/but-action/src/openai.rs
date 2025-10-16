@@ -11,9 +11,9 @@ use async_openai::{
     },
 };
 
+use but_secret::{Sensitive, secret};
 use but_tools::tool::Toolset;
 use futures::StreamExt;
-use gitbutler_secret::{Sensitive, secret};
 use reqwest::header::{HeaderMap, HeaderValue};
 use schemars::{JsonSchema, schema_for};
 use serde::de::DeserializeOwned;

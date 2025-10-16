@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gitbutler_secret::Sensitive;
+use but_secret::Sensitive;
 use octorust::{Client, auth::Credentials, types::UsersGetByUsernameResponseOneOf};
 use serde::{Deserialize, Serialize};
 

@@ -8,7 +8,7 @@ rust-version = "1.89"
 autotests = false
 
 [dependencies]
-gitbutler-secret.workspace = true
+but-secret.workspace = true
 gitbutler-storage.workspace = true
 but-path.workspace = true
 anyhow = "1.0.100"

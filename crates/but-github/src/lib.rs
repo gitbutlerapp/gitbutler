@@ -1,8 +1,8 @@
 use std::{collections::HashMap, sync::Mutex};
 
 use anyhow::{Context, Result};
+use but_secret::{Sensitive, secret};
 use but_settings::AppSettings;
-use gitbutler_secret::{Sensitive, secret};
 use serde::{Deserialize, Serialize};
 
 mod client;

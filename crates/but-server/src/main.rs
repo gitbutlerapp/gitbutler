@@ -6,7 +6,7 @@ async fn main() -> anyhow::Result<()> {
     // This isn't an issue for actual release build (i.e. nightly, production),
     // hence the specific condition.
     if cfg!(debug_assertions) && cfg!(target_os = "macos") {
-        gitbutler_secret::secret::git_credentials::setup().ok();
+        but_secret::secret::git_credentials::setup().ok();
     }
     but_server::run().await;
     Ok(())

@@ -1,4 +1,4 @@
-use gitbutler_secret::Sensitive;
+use but_secret::Sensitive;
 
 #[test]
 fn sensitive_does_not_debug_print_itself() {

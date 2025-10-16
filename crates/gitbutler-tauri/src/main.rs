@@ -35,7 +35,7 @@ fn main() {
 
     gitbutler_project::configure_git2();
     let mut tauri_context = generate_context!();
-    gitbutler_secret::secret::set_application_namespace(&tauri_context.config().identifier);
+    but_secret::secret::set_application_namespace(&tauri_context.config().identifier);
 
     let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
@@ -103,7 +103,7 @@ fn main() {
                     // This isn't an issue for actual release build (i.e. nightly, production),
                     // hence the specific condition.
                     if cfg!(debug_assertions) && cfg!(target_os = "macos") {
-                        gitbutler_secret::secret::git_credentials::setup().ok();
+                        but_secret::secret::git_credentials::setup().ok();
                     }
 
                     // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
