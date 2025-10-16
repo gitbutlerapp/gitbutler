@@ -36,6 +36,7 @@ but-rebase.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-branch-actions.workspace = true
+gitbutler-commit.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-reference.workspace = true

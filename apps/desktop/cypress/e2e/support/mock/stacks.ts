@@ -61,7 +61,8 @@ export const MOCK_COMMIT: Commit = {
 	hasConflicts: false,
 	state: MOCK_COMMIT_STATE_LOCAL,
 	createdAt: 1714000000000,
-	author: MOCK_AUTHOR
+	author: MOCK_AUTHOR,
+	gerritReviewUrl: undefined
 };
 
 export function createMockCommit(override: Partial<Commit>): Commit {

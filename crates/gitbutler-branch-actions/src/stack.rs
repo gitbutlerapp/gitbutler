@@ -9,6 +9,7 @@ use gitbutler_repo::hooks;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::StackId;
 use gitbutler_stack::{PatchReferenceUpdate, StackBranch};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::actions::Verify;
@@ -256,7 +257,7 @@ pub fn push_stack(
             None
         };
 
-        ctx.push(
+        let out = ctx.push(
             push_details.head,
             &push_details.remote_refname,
             with_force,
@@ -264,6 +265,20 @@ pub fn push_stack(
             refspec,
             Some(Some(stack.id)),
         )?;
+
+        if gerrit_mode {
+            let push_output = but_gerrit::parse::push_output(&out)?;
+            but_gerrit::record_push_metadata(
+                ctx,
+                &gix_repo,
+                stack
+                    .commits(ctx)?
+                    .iter()
+                    .map(|id| id.to_gix())
+                    .collect_vec(),
+                push_output,
+            )?;
+        }
 
         result.branch_to_remote.push((
             branch.name().to_owned(),

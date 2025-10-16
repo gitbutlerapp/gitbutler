@@ -2,6 +2,8 @@
 	import CommitLine from '$components/CommitLine.svelte';
 	import CommitTitle from '$components/CommitTitle.svelte';
 	import { type CommitStatusType } from '$lib/commits/commit';
+	import { URL_SERVICE } from '$lib/utils/url';
+	import { inject } from '@gitbutler/core/context';
 	import { Avatar, Icon, TestId } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 
@@ -28,6 +30,7 @@
 		hasConflicts?: boolean;
 		disabled?: boolean;
 		editable?: boolean;
+		gerritReviewUrl?: string;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		onclick?: () => void;
 	};
@@ -76,12 +79,28 @@
 		hasConflicts,
 		active,
 		editable,
+		gerritReviewUrl,
 		onclick,
 		menu,
 		...args
 	}: Props = $props();
 
 	let container = $state<HTMLDivElement>();
+
+	const urlService = inject(URL_SERVICE);
+
+	function extractReviewId(url: string | undefined): string | null {
+		if (!url) return null;
+		// Extract review ID from URLs like: http://15a45d4cba1a/c/gerrit-test/+/41
+		const match = url.match(/\+\/(\d+)/);
+		return match?.[1] ?? null;
+	}
+
+	async function openGerritReview() {
+		if (gerritReviewUrl) {
+			await urlService.openExternalUrl(gerritReviewUrl);
+		}
+	}
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -149,6 +168,21 @@
 
 		<div class="commit-name truncate">
 			<CommitTitle {commitMessage} truncate className="text-13 text-semibold" {editable} />
+			{#if gerritReviewUrl}
+				{@const reviewId = extractReviewId(gerritReviewUrl)}
+				{#if reviewId}
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<div
+						class="gerrit-review-pill"
+						role="button"
+						tabindex="0"
+						onclick={openGerritReview}
+						title="Open Gerrit review #{reviewId}"
+					>
+						<span class="text-10 text-semibold">{reviewId}</span>
+					</div>
+				{/if}
+			{/if}
 		</div>
 
 		{#if !args.disableCommitActions}
@@ -239,7 +273,10 @@
 	.commit-name {
 		display: flex;
 		flex: 1;
+		align-items: center;
+		min-width: 0; /* Allow truncation to work properly */
 		padding: 14px 0 14px 0;
+		gap: 6px;
 	}
 
 	.commit-author-avatar {
@@ -262,5 +299,36 @@
 		color: var(--clr-text-1);
 		opacity: 0;
 		pointer-events: none;
+	}
+
+	.gerrit-review-pill {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: fit-content;
+		height: var(--size-icon);
+		margin-left: 6px;
+		padding: 0 4px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1-muted);
+		color: var(--clr-text-2);
+		line-height: 1;
+		cursor: pointer;
+		transition:
+			opacity var(--transition-fast),
+			background-color var(--transition-fast),
+			border-color var(--transition-fast);
+
+		&:hover {
+			border-color: var(--clr-border-1);
+			background-color: var(--clr-bg-1);
+			color: var(--clr-text-1);
+		}
+
+		&:focus {
+			outline: 2px solid var(--clr-focus-border);
+			outline-offset: 1px;
+		}
 	}
 </style>

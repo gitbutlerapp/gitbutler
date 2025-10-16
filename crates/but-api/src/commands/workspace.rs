@@ -1,9 +1,11 @@
 use std::collections::{BTreeSet, HashSet, VecDeque};
+use std::str::FromStr;
 
 use crate::error::Error;
 use crate::hex_hash::HexHash;
 use anyhow::Context;
 use but_api_macros::api_cmd;
+use but_core::RepositoryExt;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_graph::petgraph::Direction;
 use but_hunk_assignment::HunkAssignmentRequest;
@@ -13,6 +15,7 @@ use but_workspace::commit_engine::StackSegmentId;
 use but_workspace::{commit_engine, ui::StackEntry};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project::{Project, ProjectId};
@@ -132,8 +135,8 @@ pub fn stack_details(
     stack_id: Option<StackId>,
 ) -> Result<but_workspace::ui::StackDetails, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    if ctx.app_settings().feature_flags.ws3 {
+    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut details = if ctx.app_settings().feature_flags.ws3 {
         let repo = ctx.gix_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(ctx.project())?;
         but_workspace::stack_details_v3(stack_id, &repo, &meta)
@@ -143,8 +146,73 @@ pub fn stack_details(
             stack_id.context("BUG(opt-stack-id)")?,
             &ctx,
         )
+    }?;
+    let repo = ctx.gix_repo()?;
+    let gerrit_mode = ctx
+        .gix_repo()?
+        .git_settings()?
+        .gitbutler_gerrit_mode
+        .unwrap_or(false);
+    if gerrit_mode {
+        for branch in details.branch_details.iter_mut() {
+            handle_gerrit(branch, &repo, &mut ctx)?;
+            update_push_status(branch);
+        }
     }
-    .map_err(Into::into)
+    Ok(details)
+}
+
+fn update_push_status(branch: &mut but_workspace::ui::BranchDetails) {
+    // If there are any commits that are LocalOnly, then the branch push state should be UnpushedCommits
+    // However, if there are alos any LocalAndRemote commits where the id != remote_commit_id, then it should be UnpushedCommitsRequiringForce
+
+    let has_local_only = branch
+        .commits
+        .iter()
+        .any(|c| matches!(c.state, but_workspace::ui::CommitState::LocalOnly));
+
+    let has_diverged = branch.commits.iter().any(|c| {
+        matches!(
+            c.state,
+            but_workspace::ui::CommitState::LocalAndRemote(remote_id) if c.id != remote_id
+        )
+    });
+
+    branch.push_status = if has_diverged {
+        but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce
+    } else if has_local_only {
+        but_workspace::ui::PushStatus::UnpushedCommits
+    } else {
+        branch.push_status
+    };
+}
+
+fn handle_gerrit(
+    branch: &mut but_workspace::ui::BranchDetails,
+    repo: &gix::Repository,
+    ctx: &mut CommandContext,
+) -> anyhow::Result<()> {
+    let mut db = ctx.db()?.gerrit_metadata();
+    for commit in branch.commits.iter_mut() {
+        let change_id = repo
+            .find_commit(commit.id)
+            .map_err(anyhow::Error::from)
+            .and_then(|c| c.change_id().ok_or(anyhow::anyhow!("no change-id")));
+        if let Ok(change_id) = change_id
+            && let Some(meta) = db.get(&change_id)?
+        {
+            commit.gerrit_review_url = Some(meta.review_url.clone());
+            if commit.id.to_string() == meta.commit_id {
+                // Pushed, and identical at the remote
+                commit.state = but_workspace::ui::CommitState::LocalAndRemote(commit.id);
+            } else {
+                // Pushed but diverged
+                let remote_oid = gix::ObjectId::from_str(&meta.commit_id)?;
+                commit.state = but_workspace::ui::CommitState::LocalAndRemote(remote_oid);
+            }
+        }
+    }
+    Ok(())
 }
 
 #[api_cmd]
@@ -156,8 +224,8 @@ pub fn branch_details(
     remote: Option<String>,
 ) -> Result<but_workspace::ui::BranchDetails, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    if ctx.app_settings().feature_flags.ws3 {
+    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut details = if ctx.app_settings().feature_flags.ws3 {
         let repo = ctx.gix_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(ctx.project())?;
         let ref_name: gix::refs::FullName = match remote.as_deref() {
@@ -173,8 +241,17 @@ pub fn branch_details(
         but_workspace::branch_details_v3(&repo, ref_name.as_ref(), &meta)
     } else {
         but_workspace::branch_details(&project.gb_dir(), &branch_name, remote.as_deref(), &ctx)
+    }?;
+    let repo = ctx.gix_repo()?;
+    let gerrit_mode = ctx
+        .gix_repo()?
+        .git_settings()?
+        .gitbutler_gerrit_mode
+        .unwrap_or(false);
+    if gerrit_mode {
+        handle_gerrit(&mut details, &repo, &mut ctx)?;
     }
-    .map_err(Into::into)
+    Ok(details)
 }
 
 /// Create a new commit with `message` on top of `parent_id` that contains all `changes`.

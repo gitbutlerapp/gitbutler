@@ -25,6 +25,11 @@ export type Commit = {
 	readonly createdAt: number;
 	/** The author of the commit. */
 	readonly author: Author;
+	/**
+	 * Optional URL to the Gerrit review for this commit, if applicable.
+	 * Only populated if Gerrit mode is enabled and the commit has an associated review.
+	 */
+	readonly gerritReviewUrl: string | undefined;
 };
 
 /** List of changes, stats and metadata for a commit */

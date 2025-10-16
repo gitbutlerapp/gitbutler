@@ -17,7 +17,8 @@ const MOCK_COMMIT_A: Commit = {
 	hasConflicts: false,
 	state: { type: 'LocalOnly' },
 	createdAt: 1672531200000, // Example timestamp
-	author: MOCK_AUTHOR_A
+	author: MOCK_AUTHOR_A,
+	gerritReviewUrl: undefined
 };
 
 const MOCK_UPSTREAM_COMMIT_A: UpstreamCommit = {

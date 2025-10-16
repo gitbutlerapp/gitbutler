@@ -405,6 +405,7 @@
 								diverged={commit.state.type === 'LocalAndRemote' &&
 									commit.id !== commit.state.subject}
 								createdAt={commit.createdAt}
+								gerritReviewUrl={commit.gerritReviewUrl}
 								{stackId}
 								{branchName}
 								{first}

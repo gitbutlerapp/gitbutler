@@ -1,8 +1,14 @@
 use bstr::{BString, ByteSlice};
 use but_core::commit::HeadersV2;
+use gitbutler_command_context::CommandContext;
 use sha1::{Digest, Sha1};
 use std::fmt::Display;
 use uuid::Uuid;
+
+use crate::parse::PushOutput;
+use gitbutler_commit::commit_ext::CommitExt;
+
+pub mod parse;
 
 #[derive(Clone, Debug)]
 pub struct GerritChangeId(String);
@@ -58,6 +64,90 @@ fn with_change_id_trailer(msg: BString, change_id: Uuid) -> BString {
     }
 
     result
+}
+
+pub fn record_push_metadata(
+    ctx: &mut CommandContext,
+    repo: &gix::Repository,
+    candidate_ids: Vec<gix::ObjectId>,
+    push_output: PushOutput,
+) -> anyhow::Result<()> {
+    let mappings = mappings(repo, candidate_ids, push_output)?;
+    let mut db = ctx.db()?.gerrit_metadata();
+
+    for mapping in mappings {
+        let existing = db.get(&mapping.change_id)?;
+        let now = chrono::Utc::now().naive_utc();
+        let commit_id_str = mapping.commit_id.to_string();
+
+        match existing {
+            Some(existing_meta) => {
+                // Check if commit_id has changed
+                if existing_meta.commit_id != commit_id_str {
+                    // Update the entry with new commit_id and updated_at
+                    let updated_meta = but_db::GerritMeta {
+                        change_id: mapping.change_id,
+                        commit_id: commit_id_str,
+                        review_url: mapping.review_url,
+                        created_at: existing_meta.created_at, // Keep original creation time
+                        updated_at: now,
+                    };
+                    db.update(updated_meta)?;
+                }
+                // If commit_id matches, do nothing
+            }
+            None => {
+                // Create new entry
+                let new_meta = but_db::GerritMeta {
+                    change_id: mapping.change_id,
+                    commit_id: commit_id_str,
+                    review_url: mapping.review_url,
+                    created_at: now,
+                    updated_at: now,
+                };
+                db.insert(new_meta)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+struct ChangeIdMapping {
+    commit_id: gix::ObjectId,
+    change_id: String,
+    review_url: String,
+}
+
+fn mappings(
+    repo: &gix::Repository,
+    candidate_ids: Vec<gix::ObjectId>,
+    push_output: PushOutput,
+) -> anyhow::Result<Vec<ChangeIdMapping>> {
+    let mut mappings = vec![];
+    for id in candidate_ids {
+        let commit = repo.find_commit(id)?;
+        let msg = commit.message_bstr().to_string();
+        let title = msg.lines().next().unwrap_or_default();
+
+        let change_id_review_url = push_output
+            .changes
+            .iter()
+            .find(|c| c.commit_title == title)
+            .and_then(|c| {
+                commit
+                    .change_id()
+                    .map(|change_id| (change_id, c.url.clone()))
+            });
+        if let Some((change_id, review_url)) = change_id_review_url {
+            mappings.push(ChangeIdMapping {
+                commit_id: id,
+                change_id,
+                review_url,
+            });
+        }
+    }
+    Ok(mappings)
 }
 
 #[cfg(test)]

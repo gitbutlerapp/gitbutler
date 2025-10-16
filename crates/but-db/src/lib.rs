@@ -21,6 +21,8 @@ mod workspace_rules;
 pub use workspace_rules::WorkspaceRule;
 mod worktrees;
 pub use worktrees::Worktree;
+mod gerrit_metadata;
+pub use gerrit_metadata::GerritMeta;
 
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");

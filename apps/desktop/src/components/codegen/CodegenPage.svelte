@@ -1036,6 +1036,7 @@
 							disableCommitActions
 							commitId={commit.id}
 							commitMessage={commit.message}
+							gerritReviewUrl={commit.gerritReviewUrl}
 							type={commit.state.type}
 							diverged={commit.state.type === 'LocalAndRemote' &&
 								commit.id !== commit.state.subject}

@@ -103,6 +103,7 @@
 						commitId={commit.id}
 						branchName={baseBranch.branchName}
 						commitMessage={commit.message}
+						gerritReviewUrl={commit.gerritReviewUrl}
 						createdAt={commit.createdAt}
 						author={commit.author}
 						onclick={() => {

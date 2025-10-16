@@ -15,4 +15,8 @@ uuid.workspace = true
 anyhow.workspace = true
 bstr.workspace = true
 but-core.workspace = true
+but-db.workspace = true
+gitbutler-commit.workspace = true
+gitbutler-command-context.workspace = true
+chrono = "0.4.42"
 gix = { workspace = true }

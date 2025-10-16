@@ -288,6 +288,9 @@ pub struct Commit {
     pub created_at: i128,
     /// The author of the commit.
     pub author: Author,
+    /// Optional URL to the Gerrit review for this commit, if applicable.
+    /// Only populated if Gerrit mode is enabled and the commit has an associated review.
+    pub gerrit_review_url: Option<String>,
 }
 
 impl TryFrom<gix::Commit<'_>> for Commit {
@@ -301,6 +304,7 @@ impl TryFrom<gix::Commit<'_>> for Commit {
             state: CommitState::LocalAndRemote(commit.id),
             created_at: i128::from(commit.time()?.seconds) * 1000,
             author: commit.author()?.into(),
+            gerrit_review_url: None,
         })
     }
 }
