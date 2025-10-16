@@ -173,7 +173,8 @@
 				withForce,
 				skipForcePushProtection: false, // override available for regular push
 				branch: branchName,
-				runHooks: $runHooks
+				runHooks: $runHooks,
+				gerritFlag: undefined
 			});
 
 			if (firstPush) {

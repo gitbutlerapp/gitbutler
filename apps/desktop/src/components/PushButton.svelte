@@ -81,7 +81,8 @@
 				withForce,
 				skipForcePushProtection,
 				branch: branchName,
-				runHooks: $runHooks
+				runHooks: $runHooks,
+				gerritFlag: undefined
 			});
 
 			const upstreamBranchNames = pushResult.branchToRemote

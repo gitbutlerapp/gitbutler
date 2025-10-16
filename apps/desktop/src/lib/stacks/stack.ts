@@ -53,6 +53,13 @@ export type Stack = {
 	order: number;
 };
 
+export type GerritPushFlag =
+	| { type: 'Wip' }
+	| { type: 'Ready' }
+	| { type: 'Private' }
+	| { type: 'Hashtag'; subject: string }
+	| { type: 'Topic'; subject: string };
+
 /**
  * Return (future) type of Tauri `stacks` command.
  * It's currently used to assure the frontend doesn't accidentally see

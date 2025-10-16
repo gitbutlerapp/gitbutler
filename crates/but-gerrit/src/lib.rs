@@ -7,11 +7,11 @@ use uuid::Uuid;
 
 use crate::parse::PushOutput;
 use gitbutler_commit::commit_ext::CommitExt;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 pub mod parse;
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum PushFlag {
     Wip,
     Ready,
@@ -28,32 +28,6 @@ impl Display for PushFlag {
             PushFlag::Private => write!(f, "%private"),
             PushFlag::Hashtag(tag) => write!(f, "%t={}", tag),
             PushFlag::Topic(topic) => write!(f, "%topic={}", topic),
-        }
-    }
-}
-
-impl Serialize for PushFlag {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
-    }
-}
-
-impl<'de> Deserialize<'de> for PushFlag {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        match s.as_str() {
-            "%wip" => Ok(PushFlag::Wip),
-            "%ready" => Ok(PushFlag::Ready),
-            "%private" => Ok(PushFlag::Private),
-            _ if s.starts_with("%t=") => Ok(PushFlag::Hashtag(s[3..].to_string())),
-            _ if s.starts_with("%topic=") => Ok(PushFlag::Topic(s[7..].to_string())),
-            _ => Err(serde::de::Error::custom(format!("Unknown PushFlag: {}", s))),
         }
     }
 }
