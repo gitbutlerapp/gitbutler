@@ -7,8 +7,8 @@ use tracing::instrument;
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
-pub fn update_project(project: projects::UpdateRequest) -> Result<projects::Project, Error> {
-    Ok(gitbutler_project::update(&project)?)
+pub fn update_project(project: projects::UpdateRequest) -> Result<projects::api::Project, Error> {
+    Ok(gitbutler_project::update(&project)?.into())
 }
 
 /// Adds an existing git repository as a GitButler project.
@@ -26,11 +26,11 @@ pub fn add_project(path: PathBuf) -> Result<projects::AddProjectOutcome, Error> 
 pub fn get_project(
     project_id: ProjectId,
     no_validation: Option<bool>,
-) -> Result<projects::Project, Error> {
+) -> Result<projects::api::Project, Error> {
     if no_validation.unwrap_or(false) {
-        Ok(gitbutler_project::get_raw(project_id)?)
+        Ok(gitbutler_project::get_raw(project_id)?.into())
     } else {
-        Ok(gitbutler_project::get_validated(project_id)?)
+        Ok(gitbutler_project::get_validated(project_id)?.into())
     }
 }
 
