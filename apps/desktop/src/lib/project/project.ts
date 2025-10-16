@@ -88,15 +88,19 @@ export type AddProjectOutcome =
 			/**
 			 * The error message received
 			 */
-			subject: string;
+			subject: {
+				path: string;
+				message: string;
+			};
 	  };
 
 /**
  * Correctly handle the outcome of an addProject operation by passing the project to the callback or
- * showing toasts as necessary.
+ * showing toasts as necessary.'get this - needs a refactor probably';
  */
 export function handleAddProjectOutcome(
 	outcome: AddProjectOutcome,
+	onInitialize: (path: string) => Promise<void>,
 	onAdded?: (project: Project) => void
 ): true {
 	switch (outcome.type) {
@@ -166,9 +170,19 @@ export function handleAddProjectOutcome(
 		case 'notAGitRepository':
 			showToast({
 				testId: TestId.AddProjectNotAGitRepoModal,
-				style: 'warning',
 				title: 'Not a Git repository',
-				message: `Unable to add project: ${outcome.subject}`
+				message:
+					'The selected directory is not a Git repository. Would you like to initialize one?',
+				style: 'warning',
+				extraAction: {
+					testId: TestId.AddProjectNotAGitRepoModalInitializeButton,
+					label: 'Initialize Repository',
+					onClick: async (dismiss) => {
+						const projectPath = outcome.subject.path;
+						await onInitialize(projectPath);
+						dismiss();
+					}
+				}
 			});
 			return true;
 	}

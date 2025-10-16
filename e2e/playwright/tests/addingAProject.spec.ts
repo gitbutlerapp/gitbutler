@@ -96,6 +96,12 @@ test('should handle gracefully adding a non-git directory', async ({ page, conte
 	await fileChooser.setFiles(projectPath);
 
 	await waitForTestId(page, 'add-project-not-a-git-repo-modal');
+	// Click it in order to close the select dropdown behind
+	await clickByTestId(page, 'add-project-not-a-git-repo-modal', true);
+
+	await clickByTestId(page, 'add-project-not-a-git-repo-modal-initialize-button');
+
+	await waitForTestId(page, 'workspace-view');
 });
 
 test('should handle adding a project with extra commit and uncommitted changes on main branch', async ({
