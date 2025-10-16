@@ -18,16 +18,95 @@ pub struct Args {
     /// Run pre-push hooks
     #[clap(long, short = 'r', default_value_t = true)]
     pub run_hooks: bool,
+    /// Mark change as work-in-progress (Gerrit)
+    #[clap(long, short = 'w', group = "gerrit", hide = true)]
+    pub wip: bool,
+    /// Mark change as ready for review (Gerrit)  
+    #[clap(long, short = 'y', group = "gerrit", hide = true)]
+    pub ready: bool,
+    /// Add hashtag to change (Gerrit)
+    #[clap(long, short = 'a', group = "gerrit", value_name = "TAG", hide = true)]
+    pub hashtag: Option<String>,
+    /// Add custom topic to change (Gerrit)
+    #[clap(long, short = 't', group = "gerrit", value_name = "TOPIC", hide = true)]
+    pub topic: Option<String>,
+    /// Use branch name as topic (Gerrit)
+    #[clap(
+        long = "tb",
+        alias = "topic-from-branch",
+        group = "gerrit",
+        hide = true
+    )]
+    pub topic_from_branch: bool,
+    /// Use branch name as hashtag (Gerrit)
+    #[clap(
+        long = "ab",
+        alias = "hashtag-from-branch",
+        group = "gerrit",
+        hide = true
+    )]
+    pub hashtag_from_branch: bool,
+}
+
+fn get_gerrit_flag(
+    args: &Args,
+    branch_name: &str,
+    gerrit_mode: bool,
+) -> anyhow::Result<Option<but_gerrit::PushFlag>> {
+    let has_gerrit_flag = args.wip
+        || args.ready
+        || args.hashtag.is_some()
+        || args.topic.is_some()
+        || args.topic_from_branch
+        || args.hashtag_from_branch;
+
+    if has_gerrit_flag && !gerrit_mode {
+        return Err(anyhow::anyhow!(
+            "Gerrit push flags (--wip, --ready, --hashtag, --topic, --topic-from-branch, --hashtag-from-branch) can only be used when gerrit_mode is enabled for this repository"
+        ));
+    }
+
+    if args.wip {
+        Ok(Some(but_gerrit::PushFlag::Wip))
+    } else if args.ready {
+        Ok(Some(but_gerrit::PushFlag::Ready))
+    } else if let Some(hashtag) = &args.hashtag {
+        if hashtag.trim().is_empty() {
+            return Err(anyhow::anyhow!("Hashtag cannot be empty"));
+        }
+        Ok(Some(but_gerrit::PushFlag::Hashtag(hashtag.clone())))
+    } else if let Some(topic) = &args.topic {
+        if topic.trim().is_empty() {
+            return Err(anyhow::anyhow!("Topic cannot be empty"));
+        }
+        Ok(Some(but_gerrit::PushFlag::Topic(topic.clone())))
+    } else if args.topic_from_branch {
+        Ok(Some(but_gerrit::PushFlag::Topic(branch_name.to_string())))
+    } else if args.hashtag_from_branch {
+        Ok(Some(but_gerrit::PushFlag::Hashtag(branch_name.to_string())))
+    } else {
+        Ok(None)
+    }
 }
 
 pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()> {
     let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+
+    // Check gerrit mode early
+    let gerrit_mode = ctx
+        .gix_repo()?
+        .git_settings()?
+        .gitbutler_gerrit_mode
+        .unwrap_or(false);
 
     // Resolve branch_id to actual branch name
     let branch_name = resolve_branch_name(&mut ctx, &args.branch_id)?;
 
     // Find stack_id from branch name
     let stack_id = find_stack_id_by_branch_name(project, &branch_name)?;
+
+    // Convert CLI args to gerrit flag with validation
+    let gerrit_flag = get_gerrit_flag(args, &branch_name, gerrit_mode)?;
 
     // Call push_stack
     let result: PushResult = but_api::stack::push_stack(
@@ -37,16 +116,11 @@ pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()>
         args.skip_force_push_protection,
         branch_name.clone(),
         args.run_hooks,
-        None,
+        gerrit_flag,
     )?;
 
     println!("Push completed successfully");
     println!("Pushed to remote: {}", result.remote);
-    let gerrit_mode = ctx
-        .gix_repo()?
-        .git_settings()?
-        .gitbutler_gerrit_mode
-        .unwrap_or(false);
     if !gerrit_mode && !result.branch_to_remote.is_empty() {
         for (branch, remote_ref) in &result.branch_to_remote {
             println!("  {} -> {}", branch, remote_ref);
@@ -54,6 +128,59 @@ pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()>
     }
 
     Ok(())
+}
+
+pub fn print_help() {
+    // Print basic push help
+    println!("Push a branch/stack to remote");
+    println!();
+    println!("Usage: but push [OPTIONS] <BRANCH_ID>");
+    println!();
+    println!("Arguments:");
+    println!("  <BRANCH_ID>  Branch name or CLI ID to push");
+    println!();
+    println!("Options:");
+    println!("  -f, --with-force                  Force push even if it's not fast-forward");
+    println!("  -s, --skip-force-push-protection  Skip force push protection checks");
+    println!("  -r, --run-hooks                   Run pre-push hooks");
+
+    // Check if gerrit mode is enabled and show gerrit options
+    if is_gerrit_enabled_for_help() {
+        println!();
+        println!("Gerrit Options:");
+        println!("  -w, --wip                         Mark change as work-in-progress (Gerrit)");
+        println!("  -y, --ready                       Mark change as ready for review (Gerrit)");
+        println!("  -a, --hashtag <TAG>               Add hashtag to change (Gerrit)");
+        println!("      --ab, --hashtag-from-branch   Use branch name as hashtag (Gerrit)");
+        println!("  -t, --topic <TOPIC>               Add custom topic to change (Gerrit)");
+        println!("      --tb, --topic-from-branch     Use branch name as topic (Gerrit)");
+        println!();
+        println!("Note: Only one Gerrit option can be used at a time.");
+    }
+
+    println!("  -h, --help                        Print help");
+}
+
+fn is_gerrit_enabled_for_help() -> bool {
+    // Parse the -C flag from command line arguments
+    let args: Vec<String> = std::env::args().collect();
+    let mut current_dir = std::path::Path::new(".");
+
+    // Look for -C flag
+    for (i, arg) in args.iter().enumerate() {
+        if arg == "-C" && i + 1 < args.len() {
+            current_dir = std::path::Path::new(&args[i + 1]);
+            break;
+        }
+    }
+
+    // Try to check if we're in a gerrit-enabled repository for help display
+    if let Ok(repo) = gix::discover(current_dir)
+        && let Ok(settings) = repo.git_settings()
+    {
+        return settings.gitbutler_gerrit_mode.unwrap_or(false);
+    }
+    false
 }
 
 fn resolve_branch_name(ctx: &mut CommandContext, branch_id: &str) -> anyhow::Result<String> {

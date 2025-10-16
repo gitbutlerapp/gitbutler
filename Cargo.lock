@@ -766,6 +766,7 @@ dependencies = [
  "but-claude",
  "but-core",
  "but-cursor",
+ "but-gerrit",
  "but-graph",
  "but-hunk-assignment",
  "but-rules",
