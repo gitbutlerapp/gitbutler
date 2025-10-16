@@ -172,8 +172,8 @@
 	.latest-release-wrapper {
 		display: grid;
 		grid-template-columns: subgrid;
+		row-gap: 30px;
 		grid-column: full-start / full-end;
-		gap: 30px;
 	}
 
 	.latest-release {

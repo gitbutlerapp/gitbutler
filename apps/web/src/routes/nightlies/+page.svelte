@@ -172,7 +172,7 @@
 			Other <i>nightly</i> builds:
 		</h3>
 
-		{#each data.nightlies as release (release.version)}
+		{#each data.nightlies as release, index (`${release.version}-${release.sha}-${index}`)}
 			<div class="release-row">
 				<button
 					type="button"
@@ -234,8 +234,8 @@
 	.latest-nightly-wrapper {
 		display: grid;
 		grid-template-columns: subgrid;
+		row-gap: 30px;
 		grid-column: full-start / full-end;
-		gap: 30px;
 	}
 
 	.nightly-hero {
