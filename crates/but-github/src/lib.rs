@@ -46,10 +46,9 @@ pub struct CheckAuthStatusParams {
     pub device_code: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct AuthStatusResponse {
-    pub access_token: String,
+    pub access_token: Sensitive<String>,
     pub login: String,
     pub name: Option<String>,
     pub email: Option<String>,
@@ -85,9 +84,11 @@ pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<AuthStat
 
     let rsp_body = res.text().await.context("Failed to get response body")?;
 
-    let access_token = serde_json::from_str::<AccessTokenContainer>(&rsp_body)
-        .map(|rsp_body| rsp_body.access_token)
-        .context("Failed to parse response body")?;
+    let access_token = Sensitive(
+        serde_json::from_str::<AccessTokenContainer>(&rsp_body)
+            .map(|rsp_body| rsp_body.access_token)
+            .context("Failed to parse response body")?,
+    );
 
     let gh = client::GitHubClient::new(&access_token).context("Failed to create GitHub client")?;
     let user = gh
@@ -106,15 +107,11 @@ pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<AuthStat
     })
 }
 
-fn persist_gh_access_token(login: &str, access_token: &str) -> Result<()> {
+fn persist_gh_access_token(login: &str, access_token: &Sensitive<String>) -> Result<()> {
     static FAIR_QUEUE: Mutex<()> = Mutex::new(());
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
     let handle = format!("github-access-token-{}", login);
-    secret::persist(
-        &handle,
-        &Sensitive(access_token.to_string()),
-        secret::Namespace::Global,
-    )
+    secret::persist(&handle, access_token, secret::Namespace::Global)
 }
 
 pub fn forget_gh_access_token(login: &str) -> Result<()> {
@@ -124,10 +121,9 @@ pub fn forget_gh_access_token(login: &str) -> Result<()> {
     secret::delete(&handle, secret::Namespace::Global)
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct AuthenticatedUser {
-    pub access_token: String,
+    pub access_token: Sensitive<String>,
     pub login: String,
     pub avatar_url: Option<String>,
     pub name: Option<String>,
@@ -154,10 +150,10 @@ pub async fn get_gh_user(login: &str) -> Result<Option<AuthenticatedUser>> {
     }
 }
 
-fn get_gh_access_token(login: &str) -> Result<Option<String>> {
+fn get_gh_access_token(login: &str) -> Result<Option<Sensitive<String>>> {
     static FAIR_QUEUE: Mutex<()> = Mutex::new(());
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
     let handle = format!("github-access-token-{}", login);
     let access_token = secret::retrieve(&handle, secret::Namespace::Global)?;
-    Ok(access_token.map(|s| s.0))
+    Ok(access_token)
 }

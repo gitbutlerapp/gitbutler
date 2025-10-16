@@ -1,4 +1,5 @@
 use anyhow::Result;
+use gitbutler_secret::Sensitive;
 use octorust::{Client, auth::Credentials, types::UsersGetByUsernameResponseOneOf};
 use serde::{Deserialize, Serialize};
 
@@ -7,10 +8,10 @@ pub struct GitHubClient {
 }
 
 impl GitHubClient {
-    pub fn new(access_token: &str) -> Result<Self> {
+    pub fn new(access_token: &Sensitive<String>) -> Result<Self> {
         let github = Client::new(
             String::from("gb-github-integration"),
-            Credentials::Token(String::from(access_token)),
+            Credentials::Token(access_token.to_string()),
         )?;
 
         Ok(Self { github })
