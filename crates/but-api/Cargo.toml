@@ -29,6 +29,7 @@ but-secret.workspace = true
 but-workspace.workspace = true
 but-worktrees.workspace = true
 but-core.workspace = true
+but-gerrit.workspace = true
 but-hunk-assignment.workspace = true
 but-action.workspace = true
 but-api-macros.workspace = true

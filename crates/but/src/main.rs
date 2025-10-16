@@ -35,6 +35,15 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    // The but push --help output is different if gerrit mode is enabled, hence the special handling
+    let args_vec: Vec<String> = std::env::args().collect();
+    if args_vec.iter().any(|arg| arg == "push")
+        && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
+    {
+        push::print_help();
+        return Ok(());
+    }
+
     let args: Args = clap::Parser::parse();
     let app_settings = AppSettings::load_from_default_path_creating()?;
 

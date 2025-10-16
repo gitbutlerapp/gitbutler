@@ -43,6 +43,7 @@ but-claude.workspace = true
 but-cursor.workspace = true
 but-tools.workspace = true
 but-rules.workspace = true
+but-gerrit.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-commit.workspace = true
