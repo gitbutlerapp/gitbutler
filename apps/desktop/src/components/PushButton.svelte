@@ -1,8 +1,10 @@
 <script lang="ts">
+	import GerritPushModal from '$components/GerritPushModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import {
 		branchHasConflicts,
 		branchHasUnpushedCommits,
@@ -26,6 +28,7 @@
 		chipToasts
 	} from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
+	import type { GerritPushFlag } from '$lib/stacks/stack';
 
 	type Props = {
 		projectId: string;
@@ -46,10 +49,17 @@
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
+	const projectsService = inject(PROJECTS_SERVICE);
 	const uiState = inject(UI_STATE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
+
+	// Get current project to check gerrit_mode
+	const projectsQuery = $derived(projectsService.projects());
+	const projects = $derived(projectsQuery.response);
+	const currentProject = $derived(projects?.find((p) => p.id === projectId));
+	const isGerritMode = $derived(currentProject?.gerrit_mode ?? false);
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stackId);
@@ -64,6 +74,11 @@
 	const runHooks = $derived(projectRunCommitHooks(projectId));
 
 	function handleClick(args: { withForce: boolean; skipForcePushProtection: boolean }) {
+		if (isGerritMode) {
+			gerritModal?.show();
+			return;
+		}
+
 		if (multipleBranches && !isLastBranchInStack && !$doNotShowPushBelowWarning) {
 			confirmationModal?.show();
 			return;
@@ -72,8 +87,12 @@
 		push(args);
 	}
 
-	async function push(args: { withForce: boolean; skipForcePushProtection: boolean }) {
-		const { withForce, skipForcePushProtection } = args;
+	async function push(args: {
+		withForce: boolean;
+		skipForcePushProtection: boolean;
+		gerritFlag?: GerritPushFlag;
+	}) {
+		const { withForce, skipForcePushProtection, gerritFlag } = args;
 		try {
 			const pushResult = await pushStack({
 				projectId,
@@ -82,7 +101,7 @@
 				skipForcePushProtection,
 				branch: branchName,
 				runHooks: $runHooks,
-				gerritFlag: undefined
+				gerritFlag
 			});
 
 			const upstreamBranchNames = pushResult.branchToRemote
@@ -144,6 +163,8 @@
 	const doNotShowPushBelowWarning = persisted<boolean>(false, 'doNotShowPushBelowWarning');
 	let confirmationModal = $state<ReturnType<typeof Modal>>();
 	let forcePushProtectionModal = $state<ReturnType<typeof Modal>>();
+	let gerritModal = $state<GerritPushModal>();
+	let pendingGerritFlag = $state<GerritPushFlag | undefined>();
 </script>
 
 <ReduxResult {projectId} result={combineResults(branchDetails.result, branchesQuery.result)}>
@@ -178,7 +199,8 @@
 			bind:this={confirmationModal}
 			onSubmit={async (close) => {
 				close();
-				push({ withForce, skipForcePushProtection: false });
+				push({ withForce, skipForcePushProtection: false, gerritFlag: pendingGerritFlag });
+				pendingGerritFlag = undefined;
 			}}
 		>
 			<p>
@@ -217,7 +239,8 @@
 			bind:this={forcePushProtectionModal}
 			onSubmit={async (close) => {
 				close();
-				push({ withForce, skipForcePushProtection: true });
+				push({ withForce, skipForcePushProtection: true, gerritFlag: pendingGerritFlag });
+				pendingGerritFlag = undefined;
 			}}
 		>
 			<p class="description">
@@ -254,6 +277,25 @@
 				</div>
 			{/snippet}
 		</Modal>
+
+		<GerritPushModal
+			bind:this={gerritModal}
+			{projectId}
+			{stackId}
+			{branchName}
+			{multipleBranches}
+			{isFirstBranchInStack}
+			{isLastBranchInStack}
+			onPush={(gerritFlag) => {
+				if (multipleBranches && !isLastBranchInStack && !$doNotShowPushBelowWarning) {
+					// Store the gerrit flag for later use when confirmation modal completes
+					pendingGerritFlag = gerritFlag;
+					confirmationModal?.show();
+				} else {
+					push({ withForce, skipForcePushProtection: false, gerritFlag });
+				}
+			}}
+		/>
 	{/snippet}
 </ReduxResult>
 

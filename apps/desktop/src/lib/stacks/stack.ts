@@ -54,11 +54,11 @@ export type Stack = {
 };
 
 export type GerritPushFlag =
-	| { type: 'Wip' }
-	| { type: 'Ready' }
-	| { type: 'Private' }
-	| { type: 'Hashtag'; subject: string }
-	| { type: 'Topic'; subject: string };
+	| { type: 'wip' }
+	| { type: 'ready' }
+	| { type: 'private' }
+	| { type: 'hashtag'; subject: string }
+	| { type: 'topic'; subject: string };
 
 /**
  * Return (future) type of Tauri `stacks` command.
