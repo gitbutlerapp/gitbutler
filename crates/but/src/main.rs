@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
     let app_settings = AppSettings::load_from_default_path_creating()?;
 
     let namespace = option_env!("IDENTIFIER").unwrap_or("com.gitbutler.app");
-    gitbutler_secret::secret::set_application_namespace(namespace);
+    but_secret::secret::set_application_namespace(namespace);
     let start = std::time::Instant::now();
 
     match &args.cmd {

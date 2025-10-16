@@ -40,4 +40,4 @@ gitbutler-watcher.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 tracing-forest = { version = "0.2.0" }
-gitbutler-secret.workspace = true
+but-secret.workspace = true

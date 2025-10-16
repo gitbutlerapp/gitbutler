@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use gitbutler_secret::secret;
+use but_secret::secret;
 
 use super::{storage::Storage, User};
 

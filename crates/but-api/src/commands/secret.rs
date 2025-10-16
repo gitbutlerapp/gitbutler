@@ -1,5 +1,5 @@
 use but_api_macros::api_cmd;
-use gitbutler_secret::{Sensitive, secret};
+use but_secret::{Sensitive, secret};
 use std::sync::Mutex;
 use tracing::instrument;
 

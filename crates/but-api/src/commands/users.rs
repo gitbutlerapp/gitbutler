@@ -1,13 +1,12 @@
+use crate::error::Error;
 use anyhow::Result;
 use but_api_macros::api_cmd;
 use gitbutler_user::User;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use crate::error::Error;
-
 #[derive(Debug, Deserialize, Serialize)]
-pub struct UserWithSecrets {
+pub struct UserWithSecretsSensitive {
     pub id: u64,
     pub name: Option<String>,
     pub login: Option<String>,
@@ -22,7 +21,7 @@ pub struct UserWithSecrets {
     pub github_username: Option<String>,
 }
 
-impl TryFrom<User> for UserWithSecrets {
+impl TryFrom<User> for UserWithSecretsSensitive {
     type Error = anyhow::Error;
 
     fn try_from(value: User) -> Result<Self, Self::Error> {
@@ -41,7 +40,7 @@ impl TryFrom<User> for UserWithSecrets {
             github_username,
             ..
         } = value;
-        Ok(UserWithSecrets {
+        Ok(UserWithSecretsSensitive {
             id,
             name,
             login,
@@ -61,7 +60,7 @@ impl TryFrom<User> for UserWithSecrets {
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
-pub fn get_user() -> Result<Option<UserWithSecrets>, Error> {
+pub fn get_user() -> Result<Option<UserWithSecretsSensitive>, Error> {
     match gitbutler_user::get_user()? {
         Some(user) => {
             if let Err(err) = user.access_token() {

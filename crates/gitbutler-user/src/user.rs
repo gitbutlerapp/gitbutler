@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use anyhow::{Context, Result};
-use gitbutler_secret::{secret, Sensitive};
+use but_secret::{secret, Sensitive};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]

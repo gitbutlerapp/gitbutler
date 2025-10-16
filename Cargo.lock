@@ -771,6 +771,7 @@ dependencies = [
  "but-hunk-assignment",
  "but-hunk-dependency",
  "but-rules",
+ "but-secret",
  "but-settings",
  "but-tools",
  "but-workspace",
@@ -786,7 +787,6 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-oxidize",
  "gitbutler-project",
- "gitbutler-secret",
  "gitbutler-serde",
  "gitbutler-stack",
  "gix",
@@ -814,6 +814,7 @@ dependencies = [
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
+ "but-secret",
  "but-settings",
  "but-tools",
  "but-workspace",
@@ -827,7 +828,6 @@ dependencies = [
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
- "gitbutler-secret",
  "gitbutler-serde",
  "gitbutler-stack",
  "gix",
@@ -863,6 +863,7 @@ dependencies = [
  "but-hunk-dependency",
  "but-rebase",
  "but-rules",
+ "but-secret",
  "but-settings",
  "but-workspace",
  "but-worktrees",
@@ -881,7 +882,6 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-repo-actions",
- "gitbutler-secret",
  "gitbutler-serde",
  "gitbutler-stack",
  "gitbutler-sync",
@@ -1089,8 +1089,8 @@ name = "but-github"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-secret",
  "but-settings",
- "gitbutler-secret",
  "octorust",
  "reqwest 0.12.23",
  "serde",
@@ -1220,6 +1220,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-secret"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-error",
+ "gix",
+ "keyring",
+ "serde",
+ "tracing",
+]
+
+[[package]]
 name = "but-server"
 version = "0.0.0"
 dependencies = [
@@ -1229,10 +1241,10 @@ dependencies = [
  "but-broadcaster",
  "but-feedback",
  "but-path",
+ "but-secret",
  "but-settings",
  "futures-util",
  "gitbutler-project",
- "gitbutler-secret",
  "gitbutler-watcher",
  "serde",
  "serde_json",
@@ -3696,18 +3708,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-secret"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "gitbutler-error",
- "gix",
- "keyring",
- "serde",
- "tracing",
-]
-
-[[package]]
 name = "gitbutler-serde"
 version = "0.0.0"
 dependencies = [
@@ -3803,6 +3803,7 @@ dependencies = [
  "but-feedback",
  "but-github",
  "but-path",
+ "but-secret",
  "but-settings",
  "but-workspace",
  "console-subscriber",
@@ -3812,7 +3813,6 @@ dependencies = [
  "gitbutler-id",
  "gitbutler-project",
  "gitbutler-repo-actions",
- "gitbutler-secret",
  "gitbutler-watcher",
  "gix",
  "log",
@@ -3894,7 +3894,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-path",
- "gitbutler-secret",
+ "but-secret",
  "gitbutler-storage",
  "keyring",
  "serde",
