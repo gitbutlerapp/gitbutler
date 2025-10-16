@@ -37,7 +37,12 @@
 		<div class="mobile-menu__content">
 			<div class="stack-v gap-40">
 				<nav class="mobile-nav">
-					<a href={linkJson.resources.downloads.url} target="_self" class="mobile-link">
+					<a
+						href={linkJson.resources.downloads.url}
+						target="_self"
+						class="mobile-link"
+						data-sveltekit-preload-data="hover"
+					>
 						{linkJson.resources.downloads.label}
 					</a>
 					<a
