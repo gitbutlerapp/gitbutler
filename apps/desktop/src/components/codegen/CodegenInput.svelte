@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CodegenInputQueued from '$components/codegen/CodegenInputQueued.svelte';
 	import { Tooltip, Textarea, AsyncButton } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
@@ -9,7 +10,10 @@
 		compacting: boolean;
 		onsubmit: () => Promise<void>;
 		onAbort?: () => Promise<void>;
-		actions: Snippet;
+		actionsOnLeft: Snippet;
+		actionsOnRight: Snippet;
+		projectId: string;
+		selectedBranch: { stackId: string; head: string } | undefined;
 		onChange: (value: string) => void;
 		sessionKey?: string; // Used to trigger refocus when switching sessions
 	}
@@ -19,7 +23,10 @@
 		compacting,
 		onsubmit,
 		onAbort,
-		actions,
+		actionsOnLeft,
+		actionsOnRight,
+		projectId,
+		selectedBranch,
 		onChange,
 		sessionKey
 	}: Props = $props();
@@ -82,6 +89,8 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="dialog-wrapper">
 	<div class="text-input dialog-input" onkeypress={handleKeypress} onclick={handleDialogClick}>
+		<CodegenInputQueued {projectId} {selectedBranch} />
+
 		<Textarea
 			bind:textBoxEl={textareaRef}
 			bind:value
@@ -98,12 +107,16 @@
 			}}
 		/>
 
-		<div class="dialog-input__actions">
-			<div class="dialog-input__actions-item">
-				{@render actions()}
+		<div class="actions">
+			<div class="actions-group">
+				{@render actionsOnLeft()}
 			</div>
 
-			<div class="dialog-input__actions-item">
+			<div class="actions-group">
+				{@render actionsOnRight()}
+
+				<div class="actions-separator"></div>
+
 				{#if !compacting && showAbortButton && onAbort}
 					<div class="flex" in:fade={{ duration: 150 }} out:fade={{ duration: 100 }}>
 						<AsyncButton
@@ -168,8 +181,6 @@
 					</button>
 				</Tooltip>
 			</div>
-
-			<div class="dialog-input__fade"></div>
 		</div>
 	</div>
 </div>
@@ -193,7 +204,7 @@
 		transition: border-color var(--transition-fast);
 	}
 
-	.dialog-input__actions {
+	.actions {
 		display: flex;
 		z-index: 2;
 		position: relative;
@@ -205,13 +216,29 @@
 		padding-top: 10px;
 		gap: 8px;
 		pointer-events: none;
+
+		&::after {
+			position: absolute;
+			top: 0;
+			right: 12px;
+			left: 12px;
+			height: 1px;
+			background-color: var(--clr-border-3);
+			content: '';
+		}
 	}
 
-	.dialog-input__actions-item {
+	.actions-group {
 		display: flex;
-		align-items: center;
+		position: relative;
 		gap: 4px;
 		pointer-events: all;
+	}
+
+	.actions-separator {
+		width: 1px;
+		margin: 0 5px;
+		background-color: var(--clr-border-3);
 	}
 
 	/* SEND BUTTON */
@@ -221,8 +248,8 @@
 		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		width: var(--size-button);
 		height: var(--size-button);
+		padding: 0 6px;
 		border-radius: var(--radius-btn);
 		background-color: var(--clr-theme-pop-element);
 		color: var(--clr-theme-pop-on-element);
@@ -245,18 +272,6 @@
 		}
 	}
 
-	.dialog-input__fade {
-		z-index: 1;
-		position: absolute;
-		top: 0;
-		right: 14px;
-		left: 0;
-		height: 15px;
-		transform: translateY(-100%);
-		background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 2%, var(--clr-bg-1) 100%);
-		pointer-events: none;
-	}
-
 	.circle-icon {
 		width: 18px;
 		height: 18px;
@@ -272,44 +287,5 @@
 		height: 16px;
 		transform: translate(-50%, -50%);
 		transition: transform 0.2s;
-	}
-
-	/* SPINNER ANIMATION */
-	.circle-icon.spinner {
-		animation: spin 1s linear infinite;
-	}
-	.circle-icon.spinner circle {
-		--gap-length: 100;
-		animation: dash 2s infinite linear;
-	}
-	.arrow-icon.spinner {
-		opacity: 0;
-		transition: opacity 0.2s ease-in-out;
-	}
-
-	@keyframes spin {
-		from {
-			stroke-width: 2.2;
-			transform: rotate(0deg) scale(0.7);
-		}
-		to {
-			stroke-width: 2.2;
-			transform: rotate(360deg) scale(0.7);
-		}
-	}
-
-	@keyframes dash {
-		0% {
-			stroke-dasharray: 1, var(--gap-length);
-			stroke-dashoffset: 0;
-		}
-		50% {
-			stroke-dasharray: 60, var(--gap-length);
-			stroke-dashoffset: -30;
-		}
-		100% {
-			stroke-dasharray: 100, var(--gap-length);
-			stroke-dashoffset: -50;
-		}
 	}
 </style>
