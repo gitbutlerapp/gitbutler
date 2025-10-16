@@ -42,6 +42,31 @@ impl WorkspaceState {
             base: base_tree_id,
         })
     }
+
+    pub fn create_from_heads(
+        ctx: &CommandContext,
+        perm: &WorktreeReadPermission,
+        heads: &[gix::ObjectId],
+    ) -> Result<Self> {
+        let repo = ctx.repo();
+
+        let heads = heads
+            .iter()
+            .map(|head| -> Result<git2::Oid> {
+                let commit = repo.find_commit(head.to_git2())?;
+                let tree = repo.find_real_tree(&commit, Default::default())?;
+                Ok(tree.id())
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let base = workspace_base(ctx, perm)?.to_git2();
+        let base_tree_id = repo.find_commit(base)?.tree_id();
+
+        Ok(WorkspaceState {
+            heads,
+            base: base_tree_id,
+        })
+    }
 }
 
 /// Update the uncommited changes from one snapshot of the workspace and rebase
@@ -118,7 +143,7 @@ fn move_tree_between_workspaces(
 }
 
 /// Cherry pick a tree from one base tree on to another, favoring the contents of the tree when conflicts occur
-fn move_tree(
+pub fn move_tree(
     repo: &git2::Repository,
     tree: git2::Oid,
     old_workspace: git2::Oid,
@@ -141,7 +166,7 @@ fn move_tree(
 /// to the given base.
 ///
 /// If there are no heads provided, the base will be returned.
-fn merge_workspace(repo: &git2::Repository, workspace: WorkspaceState) -> Result<git2::Oid> {
+pub fn merge_workspace(repo: &git2::Repository, workspace: WorkspaceState) -> Result<git2::Oid> {
     let mut output = workspace.base;
 
     for head in workspace.heads {

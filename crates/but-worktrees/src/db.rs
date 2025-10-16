@@ -5,17 +5,17 @@ use bstr::BString;
 use gitbutler_command_context::CommandContext;
 use std::path::Path;
 
-use crate::{Worktree, WorktreeSource};
+use crate::WorktreeMeta;
 
 /// Save a new worktree to the database.
-pub fn save_worktree(ctx: &mut CommandContext, worktree: Worktree) -> Result<()> {
+pub fn save_worktree_meta(ctx: &mut CommandContext, worktree: WorktreeMeta) -> Result<()> {
     ctx.db()?.worktrees().insert(worktree.try_into()?)?;
     Ok(())
 }
 
 /// Retrieve a worktree by its path.
 #[allow(unused)]
-pub fn get_worktree(ctx: &mut CommandContext, path: &Path) -> Result<Option<Worktree>> {
+pub fn get_worktree_meta(ctx: &mut CommandContext, path: &Path) -> Result<Option<WorktreeMeta>> {
     let path_str = path.to_string_lossy();
     let worktree = ctx.db()?.worktrees().get(&gix::path::into_bstr(path))?;
     match worktree {
@@ -26,13 +26,13 @@ pub fn get_worktree(ctx: &mut CommandContext, path: &Path) -> Result<Option<Work
 
 /// Delete a worktree from the database.
 #[allow(unused)]
-pub fn delete_worktree(ctx: &mut CommandContext, path: &Path) -> Result<()> {
+pub fn delete_worktree_meta(ctx: &mut CommandContext, path: &Path) -> Result<()> {
     ctx.db()?.worktrees().delete(&gix::path::into_bstr(path))?;
     Ok(())
 }
 
 /// List all worktrees in the database.
-pub fn list_worktrees(ctx: &mut CommandContext) -> Result<Vec<Worktree>> {
+pub fn list_worktree_meta(ctx: &mut CommandContext) -> Result<Vec<WorktreeMeta>> {
     let worktrees = ctx.db()?.worktrees().list()?;
     worktrees
         .into_iter()
@@ -40,35 +40,29 @@ pub fn list_worktrees(ctx: &mut CommandContext) -> Result<Vec<Worktree>> {
         .collect::<Result<_, _>>()
 }
 
-impl TryFrom<but_db::Worktree> for Worktree {
+impl TryFrom<but_db::Worktree> for WorktreeMeta {
     type Error = anyhow::Error;
 
     fn try_from(value: but_db::Worktree) -> Result<Self, Self::Error> {
-        let source: WorktreeSource = serde_json::from_str(&value.source)?;
-        let base = gix::ObjectId::from_hex(value.base.as_bytes())?;
-        let path = gix::path::from_byte_slice(&value.path).to_owned();
-
-        Ok(Worktree {
-            path,
-            reference: gix::refs::FullName::try_from(BString::from(value.reference))?,
-            base,
-            source,
+        Ok(WorktreeMeta {
+            path: gix::path::from_byte_slice(&value.path).to_owned(),
+            created_from_ref: value
+                .created_from_ref
+                .map(|r| gix::refs::FullName::try_from(BString::from(r)))
+                .transpose()?,
+            base: gix::ObjectId::from_hex(value.base.as_bytes())?,
         })
     }
 }
 
-impl TryFrom<Worktree> for but_db::Worktree {
+impl TryFrom<WorktreeMeta> for but_db::Worktree {
     type Error = anyhow::Error;
 
-    fn try_from(value: Worktree) -> Result<Self, Self::Error> {
-        let source = serde_json::to_string(&value.source)?;
-        let base = value.base.to_hex().to_string();
-
+    fn try_from(value: WorktreeMeta) -> Result<Self, Self::Error> {
         Ok(but_db::Worktree {
             path: gix::path::into_bstr(&value.path).to_vec(),
-            reference: value.reference.as_bstr().to_vec(),
-            base,
-            source,
+            created_from_ref: value.created_from_ref.map(|c| c.as_bstr().to_vec()),
+            base: value.base.to_hex().to_string(),
         })
     }
 }

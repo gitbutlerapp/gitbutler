@@ -90,9 +90,8 @@ diesel::table! {
 diesel::table! {
     worktrees (path) {
         path -> Binary,
-        reference -> Binary,
         base -> Text,
-        source -> Text,
+        created_from_ref -> Nullable<Binary>,
     }
 }
 
