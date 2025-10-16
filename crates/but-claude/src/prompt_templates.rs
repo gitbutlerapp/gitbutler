@@ -5,9 +5,9 @@ use std::{
 
 use anyhow::Result;
 use gitbutler_project::Project;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PromptTemplate {
     pub label: String,
@@ -31,7 +31,7 @@ fn default_template() -> Vec<PromptTemplate> {
     ]
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PromptDir {
     pub label: String,
