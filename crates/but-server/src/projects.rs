@@ -104,7 +104,7 @@ pub async fn list_projects(extra: &Extra) -> Result<serde_json::Value, but_api::
             .into_iter()
             .map(|project| ProjectForFrontend {
                 is_open: active_projects.projects.contains_key(&project.id),
-                inner: project,
+                inner: project.into(),
             })
             .collect::<Vec<_>>();
 
@@ -140,7 +140,7 @@ pub async fn set_project_active(
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct ProjectForFrontend {
     #[serde(flatten)]
-    pub inner: Project,
+    pub inner: gitbutler_project::api::Project,
     /// Tell if the project is known to be open in a Window in the frontend.
     pub is_open: bool,
 }

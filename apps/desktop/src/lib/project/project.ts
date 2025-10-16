@@ -31,6 +31,8 @@ export type Project = {
 	is_open: boolean;
 	forge_override: ForgeName | undefined;
 	preferred_forge_user: string | null;
+	// Gerrit mode enabled for this project, derived from git configuration
+	gerrit_mode: boolean;
 };
 
 export function vscodePath(path: string) {
