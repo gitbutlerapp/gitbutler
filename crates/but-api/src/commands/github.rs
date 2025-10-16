@@ -54,13 +54,10 @@ pub fn forget_github_username(
     app_settings_sync: &AppSettingsWithDiskSync,
     login: String,
 ) -> Result<(), Error> {
-    but_github::forget_gh_access_token(&login)
+    but_github::forget_gh_access_token(&login).ok();
+    app_settings_sync
+        .remove_known_github_username(&login)
         .map_err(Into::into)
-        .and_then(|_| {
-            app_settings_sync
-                .remove_known_github_username(&login)
-                .map_err(Into::into)
-        })
 }
 
 #[derive(Debug, Serialize)]
