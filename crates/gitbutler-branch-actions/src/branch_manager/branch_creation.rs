@@ -22,10 +22,10 @@ use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tracing::instrument;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateBranchFromBranchOutcome {
     pub stack_id: StackId,

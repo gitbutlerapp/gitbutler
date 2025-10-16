@@ -1,7 +1,7 @@
 use anyhow::Result;
 use but_secret::Sensitive;
 use octorust::{Client, auth::Credentials, types::UsersGetByUsernameResponseOneOf};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 pub struct GitHubClient {
     github: Client,
@@ -50,7 +50,7 @@ impl GitHubClient {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Serialize)]
 pub struct AuthenticatedUser {
     pub login: String,
     pub avatar_url: Option<String>,

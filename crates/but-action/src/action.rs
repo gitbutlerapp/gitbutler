@@ -173,7 +173,7 @@ pub fn list_actions(
     Ok(ActionListing { total, actions })
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActionListing {
     pub total: i64,

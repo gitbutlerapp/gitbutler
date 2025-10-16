@@ -36,7 +36,7 @@ pub fn tree_change_diffs(
     Ok(change.unified_diff(&repo, app_settings.context_lines)?)
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommitDetails {
     pub commit: but_workspace::ui::Commit,

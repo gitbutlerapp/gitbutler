@@ -41,7 +41,7 @@ impl From<crate::WorktreeChanges> for WorktreeChanges {
 }
 
 /// All the changes that were made to the tree, including stats
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TreeChanges {
     /// The changes that were made to the tree.
@@ -125,7 +125,7 @@ impl From<gix::object::tree::diff::Stats> for TreeStats {
     }
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TreeStats {
     /// The total amount of lines added.

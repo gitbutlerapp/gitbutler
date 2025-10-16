@@ -11,11 +11,11 @@ use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 use gix::refs::transaction::PreviousValue;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::BranchManagerExt;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MoveBranchResult {
     /// The stacks that were deleted as a result of the move.

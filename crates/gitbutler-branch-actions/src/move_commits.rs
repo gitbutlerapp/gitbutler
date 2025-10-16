@@ -13,7 +13,7 @@ use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// move a commit from one stack to another
 ///
@@ -100,7 +100,7 @@ fn get_source_branch_diffs(
     Ok(uncommitted_changes_diff)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum MoveCommitIllegalAction {
     /// The commit being moved has dependencies on some of its parent commits.

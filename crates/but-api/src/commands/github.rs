@@ -3,13 +3,13 @@ use crate::{NoParams, error::Error};
 use anyhow::Result;
 use but_github::{AuthStatusResponse, AuthenticatedUser, CheckAuthStatusParams, Verification};
 use but_settings::AppSettingsWithDiskSync;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 pub async fn init_device_oauth(_params: NoParams) -> Result<Verification, Error> {
     but_github::init_device_oauth().await.map_err(Into::into)
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthStatusResponseSensitive {
     pub access_token: String,
@@ -63,7 +63,7 @@ pub fn forget_github_username(
         })
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthenticatedUserSensitive {
     pub access_token: String,

@@ -33,7 +33,7 @@ use anyhow::{Result, bail};
 use but_broadcaster::Broadcaster;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::{
     collections::HashMap,
     io::{BufRead, BufReader, PipeReader, Read as _},
@@ -620,7 +620,7 @@ impl Default for Claudes {
 }
 
 /// Result of checking Claude Code availability
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ClaudeCheckResult {
     /// Claude Code is available and returned a version

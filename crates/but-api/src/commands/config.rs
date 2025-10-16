@@ -46,7 +46,7 @@ pub fn store_author_globally_if_unset(
 }
 
 /// Represents the author information from the git configuration.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Serialize)]
 pub struct AuthorInfo {
     /// The name of the author.
     #[serde(with = "bstring_opt_lossy")]

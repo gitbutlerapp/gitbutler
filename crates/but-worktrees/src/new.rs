@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use anyhow::{Result, bail};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, access::WorktreeReadPermission};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::{Worktree, WorktreeSource, db::save_worktree, git::git_worktree_add};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// This gets used as a public API in the CLI so be careful when modifying.
 pub struct NewWorktreeOutcome {

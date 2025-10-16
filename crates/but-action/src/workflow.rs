@@ -90,7 +90,7 @@ pub enum Trigger {
 }
 
 /// Represents a workflow that was executed by GitButler.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Workflow {
     /// Unique identifier for the workflow.
@@ -230,7 +230,7 @@ pub fn list_workflows(
     Ok(WorkflowList { total, workflows })
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkflowList {
     total: i64,
