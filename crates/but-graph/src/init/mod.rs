@@ -1,6 +1,6 @@
 use anyhow::{Context, bail};
 use bstr::ByteSlice;
-use but_core::{RefMetadata, ref_metadata};
+use but_core::{RefMetadata, extract_remote_name, ref_metadata};
 use gix::{
     hashtable::hash_map::Entry,
     prelude::{ObjectIdExt, ReferenceExt},
@@ -320,7 +320,7 @@ impl Graph {
                     data.target_ref
                         .as_ref()
                         .and_then(|target| {
-                            remotes::extract_remote_name(target.as_ref(), &remote_names)
+                            extract_remote_name(target.as_ref(), &remote_names)
                                 .map(|remote| (1, remote))
                         })
                         .into_iter()
@@ -329,7 +329,7 @@ impl Graph {
                 .chain(workspaces.iter().flat_map(|(_, _, data)| {
                     data.stacks.iter().flat_map(|s| {
                         s.branches.iter().flat_map(|b| {
-                            remotes::extract_remote_name(b.ref_name.as_ref(), &remote_names)
+                            extract_remote_name(b.ref_name.as_ref(), &remote_names)
                                 .map(|remote| (1, remote))
                         })
                     })

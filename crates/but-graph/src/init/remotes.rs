@@ -60,25 +60,6 @@ pub fn lookup_remote_tracking_branch_or_deduce_it(
     }))
 }
 
-pub fn extract_remote_name(
-    ref_name: &gix::refs::FullNameRef,
-    remotes: &gix::remote::Names<'_>,
-) -> Option<String> {
-    let (category, shorthand_name) = ref_name.category_and_short_name()?;
-    if !matches!(category, Category::RemoteBranch) {
-        return None;
-    }
-
-    let longest_remote = remotes
-        .iter()
-        .rfind(|reference_name| shorthand_name.starts_with(reference_name))
-        .ok_or(anyhow::anyhow!(
-            "Failed to find remote branch's corresponding remote"
-        ))
-        .ok()?;
-    Some(longest_remote.to_string())
-}
-
 pub fn lookup_remote_tracking_branch(
     repo: &OverlayRepo<'_>,
     ref_name: &gix::refs::FullNameRef,
