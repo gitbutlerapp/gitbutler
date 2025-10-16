@@ -25,6 +25,7 @@
 		target="_self"
 		rel="noopener noreferrer"
 		class="text-14 text-semibold link-snippet"
+		data-sveltekit-preload-data="hover"
 	>
 		<span>{props.label}</span>
 		{#if props.icon}

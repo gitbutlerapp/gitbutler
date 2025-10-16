@@ -30,6 +30,16 @@ export function findBuild(
 }
 
 /**
+ * Remove duplicate releases based on version, keeping the first occurrence.
+ * This is useful when the API returns duplicate releases with the same version.
+ */
+export function deduplicateReleases(releases: Release[]): Release[] {
+	return releases.filter(
+		(release, index, self) => self.findIndex((r) => r.version === release.version) === index
+	);
+}
+
+/**
  * Create standardized build mapping for the latest release with common platform configurations
  */
 export function createLatestReleaseBuilds(latestRelease: Release): {
@@ -46,13 +56,16 @@ export function createLatestReleaseBuilds(latestRelease: Release): {
 }
 
 /**
- * Process all releases by applying processBuilds to each release's builds array
+ * Process all releases by applying processBuilds to each release's builds array and removing duplicates
  */
 export function processAllReleases(releases: Release[]): Release[] {
-	return releases.map((release) => ({
+	const processedReleases = releases.map((release) => ({
 		...release,
 		builds: processBuilds(release.builds)
 	}));
+
+	// Remove duplicate releases based on version using the dedicated function
+	return deduplicateReleases(processedReleases);
 }
 
 /**
