@@ -871,6 +871,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
+ "gitbutler-commit",
  "gitbutler-edit-mode",
  "gitbutler-error",
  "gitbutler-forge",
