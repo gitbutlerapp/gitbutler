@@ -1,4 +1,5 @@
 use anyhow::{Context, bail};
+use bstr::ByteSlice;
 use but_core::{RefMetadata, ref_metadata};
 use gix::{
     hashtable::hash_map::Entry,
@@ -226,7 +227,7 @@ impl Graph {
     /// * The traversal is cut short when there is only tips which are integrated
     /// * The traversal is always as long as it needs to be to fully reconcile possibly disjoint branches, despite
     ///   this sometimes costing some time when the remote is far ahead in a huge repository.
-    #[instrument(level = tracing::Level::DEBUG, skip(meta, ref_name), err(Debug))]
+    #[instrument(level = tracing::Level::DEBUG, skip_all, fields(tip = ?tip, options = ?options, ref_name), err(Debug))]
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
@@ -245,6 +246,12 @@ impl Graph {
         options: Options,
     ) -> anyhow::Result<Self> {
         let ref_name = ref_name.into();
+        {
+            if let Some(name) = &ref_name {
+                let span = tracing::Span::current();
+                span.record("ref_name", name.as_bstr().to_str_lossy().as_ref());
+            }
+        }
         let mut graph = Graph {
             options: options.clone(),
             entrypoint_ref: ref_name.clone(),

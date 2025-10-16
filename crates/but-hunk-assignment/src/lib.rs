@@ -393,7 +393,7 @@ pub fn assignments_with_fallback(
 /// This needs to be ran only after the worktree has changed.
 ///
 /// If `worktree_changes` is `None`, they will be fetched automatically.
-#[instrument(skip(ctx, worktree_assignments), err(Debug))]
+#[instrument(skip(ctx, worktree_assignments, deps), err(Debug))]
 fn reconcile_with_worktree_and_locks(
     ctx: &mut CommandContext,
     set_assignment_from_locks: bool,
