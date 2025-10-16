@@ -234,6 +234,7 @@ pub fn print_group(
                     show_files,
                     verbose,
                     false,
+                    None,
                 )?;
             }
             for commit in &branch.commits {
@@ -261,6 +262,7 @@ pub fn print_group(
                     show_files,
                     verbose,
                     commit.has_conflicts,
+                    commit.gerrit_review_url.clone(),
                 )?;
             }
         }
@@ -365,6 +367,7 @@ fn print_commit(
     show_files: bool,
     verbose: bool,
     has_conflicts: bool,
+    review_url: Option<String>,
 ) -> anyhow::Result<()> {
     let mark = if marked {
         Some("◀ Marked ▶".red().bold())
@@ -401,25 +404,27 @@ fn print_commit(
         let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S");
 
         println!(
-            "┊{dot}   {}{} {} {} {} {} {}",
+            "┊{dot}   {}{} {} {} {} {} {} {}",
             &commit_id.to_string()[..2].blue().underline(),
             &commit_id.to_string()[2..7].dimmed(),
             author_name,
             formatted_time.to_string().dimmed(),
             no_changes,
             conflicted_str,
+            review_url.unwrap_or_default(),
             mark.unwrap_or_default()
         );
         println!("┊│     {message}");
     } else {
         // Original format: everything on one line
         println!(
-            "┊{dot}   {}{} {} {} {} {}",
+            "┊{dot}   {}{} {} {} {} {} {}",
             &commit_id.to_string()[..2].blue().underline(),
             &commit_id.to_string()[2..7].dimmed(),
             message,
             no_changes,
             conflicted_str,
+            review_url.unwrap_or_default(),
             mark.unwrap_or_default()
         );
     }
