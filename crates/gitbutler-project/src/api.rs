@@ -1,3 +1,4 @@
+use but_core::RepositoryExt;
 use serde::{Deserialize, Serialize};
 use std::path;
 
@@ -40,10 +41,22 @@ pub struct Project {
     pub forge_override: Option<String>,
     #[serde(default)]
     pub preferred_forge_user: Option<String>,
+    /// Gerrit mode enabled for this project, derived from git configuration
+    #[serde(default)]
+    pub gerrit_mode: bool,
 }
 
 impl From<crate::Project> for Project {
     fn from(project: crate::Project) -> Self {
+        let gerrit_mode = match gix::open(&project.path) {
+            Ok(repo) => repo
+                .git_settings()
+                .ok()
+                .and_then(|s| s.gitbutler_gerrit_mode)
+                .unwrap_or(false),
+            Err(_) => false,
+        };
+
         Self {
             id: project.id,
             title: project.title,
@@ -60,6 +73,7 @@ impl From<crate::Project> for Project {
             snapshot_lines_threshold: project.snapshot_lines_threshold,
             forge_override: project.forge_override,
             preferred_forge_user: project.preferred_forge_user,
+            gerrit_mode,
         }
     }
 }
@@ -82,6 +96,7 @@ impl From<Project> for crate::Project {
             snapshot_lines_threshold: api_project.snapshot_lines_threshold,
             forge_override: api_project.forge_override,
             preferred_forge_user: api_project.preferred_forge_user,
+            // Note: gerrit_mode is not included as it's derived, not persisted
         }
     }
 }

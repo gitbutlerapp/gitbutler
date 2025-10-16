@@ -15,6 +15,7 @@ but-path.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-id.workspace = true
 gitbutler-storage.workspace = true
+but-core.workspace = true
 git2.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 uuid.workspace = true
