@@ -201,6 +201,7 @@ fn handle_gerrit(
         if let Ok(change_id) = change_id
             && let Some(meta) = db.get(&change_id)?
         {
+            commit.gerrit_review_url = Some(meta.review_url.clone());
             if commit.id.to_string() == meta.commit_id {
                 // Pushed, and identical at the remote
                 commit.state = but_workspace::ui::CommitState::LocalAndRemote(commit.id);

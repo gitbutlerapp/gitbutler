@@ -653,6 +653,7 @@ impl From<&LocalCommit> for ui::Commit {
             author: author
                 .to_ref(&mut gix::date::parse::TimeBuf::default())
                 .into(),
+            gerrit_review_url: None,
         }
     }
 }
@@ -845,6 +846,7 @@ pub fn local_and_remote_commits(
             state,
             created_at,
             author: commit.author().into(),
+            gerrit_review_url: None,
         };
         local_and_remote.push(api_commit);
     }

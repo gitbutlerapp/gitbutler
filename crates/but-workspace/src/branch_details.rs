@@ -355,6 +355,7 @@ fn local_commits(
                 state: CommitState::LocalAndRemote(commit.id().to_gix()),
                 created_at: i128::from(commit.time().seconds()) * 1000,
                 author,
+                gerrit_review_url: None,
             }
         })
         .collect())
@@ -391,6 +392,7 @@ fn local_commits_gix(
             state: CommitState::LocalAndRemote(info.id),
             created_at: i128::from(commit.committer.time.seconds) * 1000,
             author,
+            gerrit_review_url: None,
         });
     }
     Ok(out)
