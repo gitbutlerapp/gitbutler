@@ -64,6 +64,7 @@ storybook-static
 # Claude
 .swarm
 .claude-flow
+/.agents/
 
 # Auto-generated design tokens
 packages/ui/src/styles/tokens.css
