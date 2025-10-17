@@ -1,9 +1,9 @@
 <script lang="ts">
 	import GithubUserLoginState from '$components/GithubUserLoginState.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import githubLogoSvg from '$lib/assets/unsized-logos/github.svg?raw';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
@@ -21,8 +21,8 @@
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
-	const appSettings = inject(SETTINGS_SERVICE);
-	const usernames = appSettings.knownGitHubUsernames;
+
+	const usernames = githubUserService.usernames();
 
 	// step flags
 	let codeCopied = $state(false);
@@ -72,40 +72,44 @@
 {:else}
 	<div class="stack-v gap-16">
 		<div class="stack-v">
-			{#each $usernames as username}
-				<GithubUserLoginState {username} isFirst={$usernames.indexOf(username) === 0} />
-			{/each}
+			<ReduxResult result={usernames.result}>
+				{#snippet children(usernames)}
+					{#each usernames as username}
+						<GithubUserLoginState {username} isFirst={usernames.indexOf(username) === 0} />
+					{/each}
 
-			<SectionCard
-				orientation="row"
-				background={$usernames.length > 0 ? 'disabled' : undefined}
-				roundedTop={$usernames.length === 0}
-			>
-				{#snippet iconSide()}
-					<div class="icon-wrapper__logo">
-						{@html githubLogoSvg}
-					</div>
-				{/snippet}
-
-				{#snippet title()}
-					GitHub
-				{/snippet}
-
-				{#snippet caption()}
-					Allows you to create Pull Requests
-				{/snippet}
-
-				{#if $usernames.length === 0}
-					<Button style="pop" onclick={gitHubStartOauth} icon="plus-small">Add account</Button>
-				{:else}
-					<Button
-						style="neutral"
-						disabled={showAuthFlow}
-						onclick={gitHubStartOauth}
-						icon="plus-small">Add another account</Button
+					<SectionCard
+						orientation="row"
+						background={usernames.length > 0 ? 'disabled' : undefined}
+						roundedTop={usernames.length === 0}
 					>
-				{/if}
-			</SectionCard>
+						{#snippet iconSide()}
+							<div class="icon-wrapper__logo">
+								{@html githubLogoSvg}
+							</div>
+						{/snippet}
+
+						{#snippet title()}
+							GitHub
+						{/snippet}
+
+						{#snippet caption()}
+							Allows you to create Pull Requests
+						{/snippet}
+
+						{#if usernames.length === 0}
+							<Button style="pop" onclick={gitHubStartOauth} icon="plus-small">Add account</Button>
+						{:else}
+							<Button
+								style="neutral"
+								disabled={showAuthFlow}
+								onclick={gitHubStartOauth}
+								icon="plus-small">Add another account</Button
+							>
+						{/if}
+					</SectionCard>
+				{/snippet}
+			</ReduxResult>
 		</div>
 
 		{#if showAuthFlow}

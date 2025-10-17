@@ -1,4 +1,3 @@
-import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 import { inject } from '@gitbutler/core/context';
@@ -15,13 +14,10 @@ type GitHubPreferences = {
  * GitHub usernames in the application settings and the project's preferred forge user.
  */
 export function usePreferredGitHubUsername(projectId: Reactive<string>): GitHubPreferences {
-	let githubUsernames = $state<string[]>([]);
-	const appSettings = inject(SETTINGS_SERVICE);
+	const githubUserService = inject(GITHUB_USER_SERVICE);
 	const projectsService = inject(PROJECTS_SERVICE);
-	const knownGitHubUsernames = $derived(appSettings.knownGitHubUsernames);
-	knownGitHubUsernames.subscribe((value) => {
-		githubUsernames = value;
-	});
+	const githubUsernamesResponse = githubUserService.usernames();
+	const githubUsernames = $derived(githubUsernamesResponse?.response ?? []);
 
 	const projectQuery = $derived(projectsService.getProject(projectId.current));
 	const project = $derived(projectQuery.response);
