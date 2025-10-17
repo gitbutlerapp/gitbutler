@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_rebase::{Rebase, RebaseOutput, RebaseStep};
@@ -16,10 +14,7 @@ use gitbutler_workspace::branch_trees::{
 use gix::prelude::ObjectIdExt as _;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    db::{delete_worktree_meta, get_worktree_meta},
-    git::git_worktree_remove,
-};
+use crate::{WorktreeId, db::get_worktree_meta, git::git_worktree_remove};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "data", rename_all = "camelCase")]
@@ -51,10 +46,10 @@ pub enum WorktreeIntegrationStatus {
 pub fn worktree_integration_status(
     ctx: &mut CommandContext,
     perm: &WorktreeReadPermission,
-    path: &Path,
+    id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<WorktreeIntegrationStatus> {
-    Ok(worktree_integration_inner(ctx, perm, path, target)?.0)
+    Ok(worktree_integration_inner(ctx, perm, id, target)?.0)
 }
 
 /// Integrates a worktree if it's integratable
@@ -64,12 +59,12 @@ pub fn worktree_integration_status(
 pub fn worktree_integrate(
     ctx: &mut CommandContext,
     perm: &mut WorktreeWritePermission,
-    path: &Path,
+    id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<()> {
     let before = WorkspaceState::create(ctx, perm.read_permission())?;
 
-    let result = worktree_integration_inner(ctx, perm.read_permission(), path, target)?;
+    let result = worktree_integration_inner(ctx, perm.read_permission(), id, target)?;
     let (WorktreeIntegrationStatus::Integratable { .. }, Some(mut status)) = result else {
         bail!("Worktree failed integration checks");
     };
@@ -82,8 +77,7 @@ pub fn worktree_integrate(
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
-    git_worktree_remove(&ctx.project().path, path, true)?;
-    delete_worktree_meta(ctx, path)?;
+    git_worktree_remove(&ctx.project().path, id, true)?;
 
     Ok(())
 }
@@ -98,7 +92,7 @@ struct IntegrationResult {
 fn worktree_integration_inner(
     ctx: &mut CommandContext,
     perm: &WorktreeReadPermission,
-    path: &Path,
+    id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<(WorktreeIntegrationStatus, Option<IntegrationResult>)> {
     let repo = ctx.gix_repo_for_merging()?;
@@ -108,7 +102,7 @@ fn worktree_integration_inner(
     let git_worktree = repo
         .worktrees()?
         .into_iter()
-        .find(|w| w.base().map(|b| b == path).unwrap_or(false))
+        .find(|w| w.id() == id.as_bstr())
         .expect("Health dictates this exists");
     let worktree_repo = git_worktree.into_repo()?;
     let worktree_head = worktree_repo.head()?;
@@ -117,7 +111,7 @@ fn worktree_integration_inner(
     };
 
     // Find the base which we will use for the "cherry pick".
-    let wt_meta = get_worktree_meta(ctx, path)?;
+    let wt_meta = get_worktree_meta(&repo, id)?;
     let base = {
         // If we have worktree metadata and the base hasn't been dropped entirly
         // from history, we will use that.

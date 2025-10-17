@@ -88,14 +88,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    worktrees (path) {
-        path -> Binary,
-        base -> Text,
-        created_from_ref -> Nullable<Binary>,
-    }
-}
-
-diesel::table! {
     gerrit_metadata (change_id) {
         change_id -> Text,
         commit_id -> Text,

@@ -774,6 +774,7 @@ dependencies = [
  "but-settings",
  "but-tools",
  "but-workspace",
+ "but-worktrees",
  "chrono",
  "clap",
  "colored",

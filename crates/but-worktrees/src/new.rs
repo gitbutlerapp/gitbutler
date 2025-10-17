@@ -5,7 +5,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, access::WorktreeReadPermission};
 use serde::Serialize;
 
-use crate::{Worktree, WorktreeMeta, db::save_worktree_meta, git::git_worktree_add};
+use crate::{Worktree, WorktreeId, WorktreeMeta, db::save_worktree_meta, git::git_worktree_add};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,11 +36,12 @@ pub fn worktree_new(
 
     let to_checkout = repo.find_reference(refname)?.id();
 
-    // Used as a method of generating the path & refrence name.
-    let id = uuid::Uuid::new_v4();
+    // Generate a new worktree ID
+    let id = WorktreeId::new();
 
-    let path = worktree_path(ctx.project(), id);
-    let branch_name = gix::refs::PartialName::try_from(format!("gitbutler/worktree/{}", id))?;
+    let path = worktree_path(ctx.project(), &id);
+    let branch_name =
+        gix::refs::PartialName::try_from(format!("gitbutler/worktree/{}", id.as_str()))?;
 
     git_worktree_add(
         &ctx.project().path,
@@ -52,15 +53,16 @@ pub fn worktree_new(
     let path = path.canonicalize()?;
 
     let meta = WorktreeMeta {
+        id: id.clone(),
         created_from_ref: Some(refname.to_owned()),
-        path: path.clone(),
         base: to_checkout.detach(),
     };
 
-    save_worktree_meta(ctx, meta)?;
+    save_worktree_meta(&repo, meta)?;
 
     Ok(NewWorktreeOutcome {
         created: Worktree {
+            id,
             created_from_ref: Some(refname.to_owned()),
             path,
             base: Some(to_checkout.detach()),
@@ -68,6 +70,6 @@ pub fn worktree_new(
     })
 }
 
-fn worktree_path(project: &Project, id: uuid::Uuid) -> PathBuf {
-    project.gb_dir().join("worktrees").join(id.to_string())
+fn worktree_path(project: &Project, id: &WorktreeId) -> PathBuf {
+    project.gb_dir().join("worktrees").join(id.as_str())
 }

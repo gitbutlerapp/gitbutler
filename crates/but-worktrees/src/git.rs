@@ -3,6 +3,8 @@ use std::path::Path;
 use anyhow::{Result, bail};
 use bstr::BString;
 
+use crate::WorktreeId;
+
 /// Creates a git worktree.
 ///
 /// Git does not accept fully qualified branch names. The given parital ref will
@@ -41,13 +43,13 @@ pub(crate) fn git_worktree_add(
 }
 
 /// Removes a git worktree
-pub(crate) fn git_worktree_remove(project_path: &Path, path: &Path, force: bool) -> Result<()> {
+pub(crate) fn git_worktree_remove(project_path: &Path, id: &WorktreeId, force: bool) -> Result<()> {
     let mut command =
         std::process::Command::from(gix::command::prepare(gix::path::env::exe_invocation()));
     command.current_dir(project_path);
     command.arg("worktree");
     command.arg("remove");
-    command.arg(path.as_os_str());
+    command.arg(id.as_str());
 
     if force {
         command.arg("--force");
