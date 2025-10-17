@@ -1,7 +1,6 @@
-use std::{collections::HashMap, path::Path, time::Duration};
-
 use futures::{FutureExt, select};
 use rand::Rng;
+use std::{collections::HashMap, path::Path, time::Duration};
 
 use super::executor::{AskpassServer, GitExecutor, Pid, Socket};
 use crate::RefSpec;
@@ -51,8 +50,10 @@ pub enum RepositoryError<
     AskpassDeviceMismatch,
     #[error("failed to perform askpass security check; executable mismatch")]
     AskpassExecutableMismatch,
-    #[error("Askpass Not found. Run `cargo build -p gitbutler-git` to get the binaries needed")]
-    AskpassExecutableNotFound,
+    #[error(
+        "askpass binary at '{path}' not found. Run `cargo build -p gitbutler-git` to get the binaries needed"
+    )]
+    AskpassExecutableNotFound { path: String },
 }
 
 /// Higher level errors that can occur when interacting with the CLI.
@@ -78,7 +79,9 @@ where
     Fut: std::future::Future<Output = Option<String>>,
     Extra: Send + Clone,
 {
-    let path = std::env::current_exe().map_err(Error::<E>::NoSelfExe)?;
+    let mut current_exe = std::env::current_exe().map_err(Error::<E>::NoSelfExe)?;
+    current_exe = current_exe.canonicalize().unwrap_or(current_exe);
+    tracing::trace!(?current_exe);
 
     // TODO(qix-): Get parent PID of connecting processes to make sure they're us.
     //let our_pid = std::process::id();
@@ -89,9 +92,9 @@ where
     // TODO(qix-): Thus, we have to do this under test. It's not ideal, but
     // TODO(qix-): it works for now.
     #[cfg(feature = "test-askpass-path")]
-    let path = path.parent().unwrap();
+    let current_exe = current_exe.parent().unwrap();
 
-    let askpath_path = path
+    let askpath_path = current_exe
         .with_file_name({
             #[cfg(unix)]
             {
@@ -106,14 +109,14 @@ where
         .into_owned();
 
     #[cfg(unix)]
-    let setsid_path = path
+    let setsid_path = current_exe
         .with_file_name("gitbutler-git-setsid")
         .to_string_lossy()
         .into_owned();
 
     let res = executor.stat(&askpath_path).await.map_err(Error::<E>::Exec);
     if res.is_err() {
-        return Err(Error::<E>::AskpassExecutableNotFound);
+        return Err(Error::<E>::AskpassExecutableNotFound { path: askpath_path });
     }
     let askpath_stat = res?;
 
