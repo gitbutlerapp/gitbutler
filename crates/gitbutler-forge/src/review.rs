@@ -1,6 +1,8 @@
 use std::path::{self};
 
+use anyhow::{Error, Result};
 use gitbutler_fs::list_files;
+use serde::{Deserialize, Serialize};
 
 use crate::forge::ForgeName;
 
@@ -167,6 +169,120 @@ fn is_review_template_azure(_path_str: &str) -> bool {
 fn is_valid_review_template_path_azure(_path: &path::Path) -> bool {
     // TODO: implement
     false
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ForgeReviewLabel {
+    pub name: String,
+    pub description: Option<String>,
+    pub color: String,
+}
+
+impl From<but_github::GitHubPrLabel> for ForgeReviewLabel {
+    fn from(label: but_github::GitHubPrLabel) -> Self {
+        ForgeReviewLabel {
+            name: label.name,
+            description: label.description,
+            color: label.color,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ForgeUser {
+    pub id: i64,
+    pub login: String,
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub avatar_url: Option<String>,
+    pub is_bot: bool,
+}
+
+impl From<but_github::GitHubUser> for ForgeUser {
+    fn from(user: but_github::GitHubUser) -> Self {
+        ForgeUser {
+            id: user.id,
+            login: user.login,
+            name: user.name,
+            email: user.email,
+            avatar_url: user.avatar_url,
+            is_bot: user.is_bot,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ForgeReview {
+    pub html_url: String,
+    pub number: i64,
+    pub title: String,
+    pub body: Option<String>,
+    pub author: Option<ForgeUser>,
+    pub labels: Vec<ForgeReviewLabel>,
+    pub draft: bool,
+    pub source_branch: String,
+    pub target_branch: String,
+    pub sha: String,
+    pub created_at: Option<String>,
+    pub modified_at: Option<String>,
+    pub merged_at: Option<String>,
+    pub closed_at: Option<String>,
+    pub repository_ssh_url: Option<String>,
+    pub repository_https_url: Option<String>,
+    pub repo_owner: Option<String>,
+    pub reviewers: Vec<ForgeUser>,
+}
+
+impl From<but_github::PullRequest> for ForgeReview {
+    fn from(pr: but_github::PullRequest) -> Self {
+        ForgeReview {
+            html_url: pr.html_url,
+            number: pr.number,
+            title: pr.title,
+            body: pr.body,
+            author: pr.author.map(ForgeUser::from),
+            labels: pr.labels.into_iter().map(ForgeReviewLabel::from).collect(),
+            draft: pr.draft,
+            source_branch: pr.source_branch,
+            target_branch: pr.target_branch,
+            sha: pr.sha,
+            created_at: pr.created_at,
+            modified_at: pr.modified_at,
+            merged_at: pr.merged_at,
+            closed_at: pr.closed_at,
+            repository_ssh_url: pr.repository_ssh_url,
+            repository_https_url: pr.repository_https_url,
+            repo_owner: pr.repo_owner,
+            reviewers: pr
+                .requested_reviewers
+                .into_iter()
+                .map(ForgeUser::from)
+                .collect(),
+        }
+    }
+}
+
+/// List the open reviews (e.g. pull requests) for a given forge repository
+pub async fn list_forge_reviews(
+    preferred_forge_user: &Option<String>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+) -> Result<Vec<ForgeReview>> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let pulls = but_github::pr::list(preferred_forge_user, owner, repo).await?;
+            Ok(pulls.into_iter().map(ForgeReview::from).collect())
+        }
+        _ => Err(Error::msg(format!(
+            "Listing reviews for forge {:?} is not implemented yet.",
+            forge,
+        ))),
+    }
 }
 
 #[cfg(test)]

@@ -6,6 +6,8 @@ use but_settings::AppSettings;
 use serde::{Deserialize, Serialize};
 
 mod client;
+pub mod pr;
+pub use client::{GitHubPrLabel, GitHubUser, PullRequest};
 mod token;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
