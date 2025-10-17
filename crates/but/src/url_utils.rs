@@ -147,14 +147,19 @@ fn extract_gerrit_base_url(url: &str) -> Option<String> {
     // Handle Gerrit URLs: ssh://user@gerrit.example.com:29418/project.git or https://gerrit.example.com/a/project.git
     if url.contains("gerrit") || url.contains(":29418") {
         if url.starts_with("ssh://") {
-            // SSH format: ssh://user@gerrit.example.com:29418/project.git
+            // SSH format: ssh://user@gerrit.example.com:29418/project.git or ssh://localhost:29418/project.git
             let after_ssh = &url[6..]; // Skip "ssh://"
-            if let Some(at_pos) = after_ssh.find('@') {
-                let after_at = &after_ssh[at_pos + 1..];
-                if let Some(colon_pos) = after_at.find(':') {
-                    let host = &after_at[..colon_pos];
-                    return Some(format!("https://{}", host));
-                }
+            let host_part = if let Some(at_pos) = after_ssh.find('@') {
+                // Has user part: ssh://user@hostname:port/path
+                &after_ssh[at_pos + 1..]
+            } else {
+                // No user part: ssh://hostname:port/path
+                after_ssh
+            };
+
+            if let Some(colon_pos) = host_part.find(':') {
+                let host = &host_part[..colon_pos];
+                return Some(format!("https://{}", host));
             }
         } else if url.starts_with("https://") {
             // HTTPS format: https://gerrit.example.com/a/project.git

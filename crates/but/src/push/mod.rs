@@ -1,26 +1,83 @@
 use but_core::RepositoryExt;
 use but_settings::AppSettings;
 use but_workspace::StackId;
+use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use gitbutler_repo::RepoCommands;
 
-/// Display branch URL if available
-fn show_branch_url(project: &Project, branch_name: &str, gerrit_mode: bool) {
+/// Display branch URL if available, or Gerrit review URLs for commits
+fn show_branch_or_review_urls(project: &Project, branch_name: &str, gerrit_mode: bool) -> anyhow::Result<()> {
+    if gerrit_mode {
+        // For Gerrit, show review URLs for commits that were just pushed
+        show_gerrit_review_urls(project, branch_name)
+    } else {
+        // For GitHub/GitLab, show branch URL
+        show_branch_url(project, branch_name)
+    }
+}
+
+/// Show Gerrit review URLs for commits on the branch
+fn show_gerrit_review_urls(project: &Project, branch_name: &str) -> anyhow::Result<()> {
+    // Get the branch details to find commits with review URLs
+    let stacks = but_api::workspace::stacks(project.id, None)?;
+
+    for stack in stacks {
+        let details = but_api::workspace::stack_details(project.id, stack.id)?;
+
+        // Look for the branch that was just pushed
+        for branch in details.branch_details {
+            if branch.name.to_string() == branch_name {
+                println!();
+                let mut found_any = false;
+
+                // Show review URLs for commits that have them
+                for commit in &branch.commits {
+                    if let Some(review_url) = &commit.gerrit_review_url {
+                        if !found_any {
+                            println!("Gerrit reviews:");
+                            found_any = true;
+                        }
+                        println!("  {}{}: {}",
+                            &commit.id.to_string()[..2].blue().underline(),
+                            &commit.id.to_string()[2..7].blue(),
+                            review_url
+                        );
+                    }
+                }
+
+                if !found_any {
+                    // Fallback to dashboard URL if no specific review URLs
+                    if let Ok(remotes) = project.remotes() {
+                        if let Some(remote) = remotes.first() {
+                            if let Some(remote_url) = &remote.url {
+                                if let Some(dashboard_url) = crate::url_utils::generate_branch_url(remote_url, branch_name, true) {
+                                    println!("View changes: {}", dashboard_url);
+                                }
+                            }
+                        }
+                    }
+                }
+                return Ok(());
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Show branch URL for non-Gerrit remotes
+fn show_branch_url(project: &Project, branch_name: &str) -> anyhow::Result<()> {
     if let Ok(remotes) = project.remotes() {
         if let Some(remote) = remotes.first() {
             if let Some(remote_url) = &remote.url {
-                if let Some(branch_url) = crate::url_utils::generate_branch_url(remote_url, branch_name, gerrit_mode) {
+                if let Some(branch_url) = crate::url_utils::generate_branch_url(remote_url, branch_name, false) {
                     println!();
-                    if gerrit_mode {
-                        println!("View changes: {}", branch_url);
-                    } else {
-                        println!("Branch URL: {}", branch_url);
-                    }
+                    println!("Branch URL: {}", branch_url);
                 }
             }
         }
     }
+    Ok(())
 }
 
 /// Extract a user-friendly error message from push errors
@@ -201,7 +258,9 @@ pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()>
             }
 
             // Show URL for successful push
-            show_branch_url(project, &branch_name, gerrit_mode);
+            if let Err(e) = show_branch_or_review_urls(project, &branch_name, gerrit_mode) {
+                eprintln!("Warning: Failed to show URLs: {}", e);
+            }
         }
         Err(e) => {
             // Extract and display a more user-friendly error message
@@ -209,9 +268,12 @@ pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()>
             println!("Push failed: {}", error_msg);
 
             // Still show URL even when push fails
-            show_branch_url(project, &branch_name, gerrit_mode);
+            if let Err(e) = show_branch_or_review_urls(project, &branch_name, gerrit_mode) {
+                eprintln!("Warning: Failed to show URLs: {}", e);
+            }
 
-            return Err(e.into());
+            // Exit with error code but don't propagate the full error to avoid duplicate output
+            std::process::exit(1);
         }
     }
 
