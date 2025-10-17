@@ -160,6 +160,7 @@
 			<div class="commit-author-avatar">
 				<Avatar
 					srcUrl={author.gravatarUrl}
+					username={author.name}
 					tooltip={`${author.name} (${author.email})`}
 					size="medium"
 				/>

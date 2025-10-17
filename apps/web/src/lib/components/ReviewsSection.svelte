@@ -68,7 +68,7 @@
 	function getContributorAvatars(contributors: Contributor[]) {
 		return contributors.map((contributor) => ({
 			srcUrl: contributor.user?.avatarUrl || '/images/default-avatar.png',
-			name: contributor.user?.name || 'User'
+			username: contributor.user?.name || 'User'
 		}));
 	}
 </script>

@@ -229,7 +229,11 @@
 								{#if commit}
 									<div class="text-11 commit-card__details">
 										{#if authorImgUrl && commit.author.email}
-											<Avatar srcUrl={authorImgUrl} tooltip={commit.author.email} />
+											<Avatar
+												srcUrl={authorImgUrl}
+												username={commit.author.name || commit.author.email}
+												tooltip={commit.author.email}
+											/>
 											<span class="commit-card__divider">•</span>
 										{/if}
 										<span class="">{editModeMetadata.commitOid.slice(0, 7)}</span>

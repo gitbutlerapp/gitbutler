@@ -2,7 +2,7 @@
 	export interface Props {
 		avatars: {
 			srcUrl: string;
-			name: string;
+			username: string;
 		}[];
 		maxAvatars?: number;
 		size?: 'small' | 'medium' | 'large';
@@ -26,7 +26,7 @@
 		if (leftAvatars <= maxTooltipLength) {
 			return avatars
 				.slice(maxAvatars)
-				.map((avatar) => avatar.name)
+				.map((avatar) => avatar.username)
 				.join(', ');
 		}
 
@@ -34,7 +34,7 @@
 			return (
 				avatars
 					.slice(maxAvatars, maxAvatars + maxTooltipLength)
-					.map((avatar) => avatar.name)
+					.map((avatar) => avatar.username)
 					.join(', ') + ` and ${leftAvatars - maxTooltipLength} more`
 			);
 		}
@@ -45,7 +45,12 @@
 	<div class="avatar-grouping">
 		{#each avatars as avatar, i}
 			{#if i < maxAvatars}
-				<Avatar {size} srcUrl={avatar.srcUrl} tooltip={avatar.name} />
+				<Avatar
+					{size}
+					srcUrl={avatar.srcUrl}
+					tooltip={avatar.username}
+					username={avatar.username}
+				/>
 			{/if}
 		{/each}
 		{#if avatars.length > maxAvatars}

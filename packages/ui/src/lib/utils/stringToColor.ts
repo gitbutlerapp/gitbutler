@@ -14,7 +14,9 @@ const colors = [
 export function stringToColor(name: string | undefined) {
 	const trimmed = name?.replace(/\s/g, '');
 	if (!trimmed) {
-		return `linear-gradient(45deg, ${colors[0][0]} 15%, ${colors[0][1]} 90%)`;
+		// Return a random color when no string is provided
+		const randomIndex = Math.floor(Math.random() * colors.length);
+		return colors[randomIndex];
 	}
 
 	const startHash = trimmed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
