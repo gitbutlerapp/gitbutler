@@ -48,6 +48,28 @@ impl GitHubClient {
             })
             .map_err(Into::into)
     }
+
+    pub async fn list_open_pulls(&self, owner: &str, repo: &str) -> Result<Vec<PullRequest>> {
+        let pulls = self
+            .github
+            .pulls()
+            .list_all(
+                owner,
+                repo,
+                octorust::types::IssuesListState::Open,
+                "",
+                "",
+                octorust::types::PullsListSort::Created,
+                octorust::types::Order::default(),
+            )
+            .await
+            .map(|response| response.body)?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+
+        Ok(pulls)
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -56,4 +78,105 @@ pub struct AuthenticatedUser {
     pub avatar_url: Option<String>,
     pub name: Option<String>,
     pub email: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GitHubUser {
+    pub id: i64,
+    pub login: String,
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub avatar_url: Option<String>,
+    pub is_bot: bool,
+}
+
+impl From<octorust::types::SimpleUser> for GitHubUser {
+    fn from(user: octorust::types::SimpleUser) -> Self {
+        GitHubUser {
+            id: user.id,
+            login: user.login,
+            name: (!user.name.is_empty()).then_some(user.name),
+            email: (!user.email.is_empty()).then_some(user.email),
+            avatar_url: (!user.avatar_url.is_empty()).then_some(user.avatar_url),
+            is_bot: user.type_.to_lowercase() == "bot",
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct GitHubPrLabel {
+    pub id: i64,
+    pub name: String,
+    pub description: Option<String>,
+    pub color: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PullRequest {
+    pub html_url: String,
+    pub number: i64,
+    pub title: String,
+    pub body: Option<String>,
+    pub author: Option<GitHubUser>,
+    pub labels: Vec<GitHubPrLabel>,
+    pub draft: bool,
+    pub source_branch: String,
+    pub target_branch: String,
+    pub sha: String,
+    pub created_at: Option<String>,
+    pub modified_at: Option<String>,
+    pub merged_at: Option<String>,
+    pub closed_at: Option<String>,
+    pub repository_ssh_url: Option<String>,
+    pub repository_https_url: Option<String>,
+    pub repo_owner: Option<String>,
+    pub requested_reviewers: Vec<GitHubUser>,
+}
+
+impl From<octorust::types::PullRequestSimple> for PullRequest {
+    fn from(pr: octorust::types::PullRequestSimple) -> Self {
+        let author = pr.user.map(Into::into);
+
+        let labels = pr
+            .labels
+            .into_iter()
+            .map(|label| GitHubPrLabel {
+                id: label.id,
+                name: label.name,
+                description: (!label.description.is_empty()).then_some(label.description),
+                color: label.color,
+            })
+            .collect();
+
+        let requested_reviewers = pr.requested_reviewers.into_iter().map(Into::into).collect();
+
+        PullRequest {
+            html_url: pr.html_url,
+            number: pr.number,
+            title: pr.title,
+            body: (!pr.body.is_empty()).then_some(pr.body),
+            author,
+            labels,
+            draft: pr.draft,
+            source_branch: pr.head.label,
+            target_branch: pr.base.label,
+            sha: pr.head.sha,
+            created_at: pr.created_at.map(|d| d.to_string()),
+            modified_at: pr.updated_at.map(|d| d.to_string()),
+            merged_at: pr.merged_at.map(|d| d.to_string()),
+            closed_at: pr.closed_at.map(|d| d.to_string()),
+            repository_ssh_url: pr
+                .base
+                .repo
+                .as_ref()
+                .and_then(|r| (!r.ssh_url.is_empty()).then(|| r.ssh_url.to_owned())),
+            repository_https_url: pr
+                .head
+                .repo
+                .as_ref()
+                .and_then(|r| (!r.clone_url.is_empty()).then(|| r.clone_url.to_owned())),
+            repo_owner: pr.head.repo.and_then(|r| r.owner.map(|o| o.login)),
+            requested_reviewers,
+        }
+    }
 }
