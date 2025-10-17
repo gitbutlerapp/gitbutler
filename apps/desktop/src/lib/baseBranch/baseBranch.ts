@@ -7,6 +7,13 @@ export interface RemoteBranchInfo {
 
 export type ForgeProvider = 'github' | 'gitlab' | 'bitbucket' | 'azure';
 
+export type ForgeRepoInfo = {
+	forge: ForgeProvider;
+	owner: string;
+	repo: string;
+	protocol: string;
+};
+
 export class BaseBranch {
 	branchName!: string;
 	remoteName!: string;
@@ -25,7 +32,7 @@ export class BaseBranch {
 	diverged!: boolean;
 	divergedAhead!: string[];
 	divergedBehind!: string[];
-	forgeProvider!: ForgeProvider | null;
+	forgeRepoInfo!: ForgeRepoInfo | null;
 
 	actualPushRemoteName(): string {
 		return this.pushRemoteName || this.remoteName;

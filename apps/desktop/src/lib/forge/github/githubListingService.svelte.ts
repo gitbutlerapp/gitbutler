@@ -6,24 +6,26 @@ import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { PullRequest } from '$lib/forge/interface/types';
-import type { GitHubApi } from '$lib/state/clientState.svelte';
+import type { BackendApi, GitHubApi } from '$lib/state/clientState.svelte';
 
 export class GitHubListingService implements ForgeListingService {
 	private api: ReturnType<typeof injectEndpoints>;
+	private backendApi: ReturnType<typeof injectBackendEndpoints>;
 
-	constructor(gitHubApi: GitHubApi) {
+	constructor(gitHubApi: GitHubApi, backendApi: BackendApi) {
 		this.api = injectEndpoints(gitHubApi);
+		this.backendApi = injectBackendEndpoints(backendApi);
 	}
 
 	list(projectId: string, pollingInterval?: number) {
-		return this.api.endpoints.listPrs.useQuery(projectId, {
+		return this.backendApi.endpoints.listPrs.useQuery(projectId, {
 			transform: (result) => prSelectors.selectAll(result),
 			subscriptionOptions: { pollingInterval }
 		});
 	}
 
 	getByBranch(projectId: string, branchName: string) {
-		return this.api.endpoints.listPrs.useQuery(projectId, {
+		return this.backendApi.endpoints.listPrs.useQuery(projectId, {
 			transform: (result) => {
 				return prSelectors.selectById(result, branchName);
 			}
@@ -31,7 +33,7 @@ export class GitHubListingService implements ForgeListingService {
 	}
 
 	filterByBranch(projectId: string, branchName: string[]) {
-		return this.api.endpoints.listPrs.useQueryState(projectId, {
+		return this.backendApi.endpoints.listPrs.useQueryState(projectId, {
 			transform: (result) => prSelectors.selectByIds(result, branchName)
 		});
 	}
@@ -47,36 +49,31 @@ export class GitHubListingService implements ForgeListingService {
 	}
 
 	async refresh(projectId: string): Promise<void> {
-		await this.api.endpoints.listPrs.fetch(projectId, { forceRefetch: true });
+		await this.backendApi.endpoints.listPrs.fetch(projectId, { forceRefetch: true });
 	}
+}
+
+function injectBackendEndpoints(api: BackendApi) {
+	return api.injectEndpoints({
+		endpoints: (build) => ({
+			listPrs: build.query<EntityState<PullRequest, string>, string>({
+				extraOptions: {
+					command: 'list_reviews'
+				},
+				query: (projectId) => ({ projectId }),
+				transformResponse: (response: PullRequest[]) => {
+					// TODO: this is not the right type
+					return prAdapter.addMany(prAdapter.getInitialState(), response);
+				},
+				providesTags: [providesList(ReduxTag.PullRequests)]
+			})
+		})
+	});
 }
 
 function injectEndpoints(api: GitHubApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			listPrs: build.query<EntityState<PullRequest, string>, string>({
-				queryFn: async (_, api) => {
-					const result = await ghQuery<'pulls', 'list', 'required'>(
-						async (octokit, repository) => ({
-							data: await octokit.paginate(octokit.rest.pulls.list, repository)
-						}),
-						api.extra,
-						'required'
-					);
-
-					if (result.error) {
-						return { error: result.error };
-					}
-
-					return {
-						data: prAdapter.addMany(
-							prAdapter.getInitialState(),
-							result.data.map((item) => ghResponseToInstance(item))
-						)
-					};
-				},
-				providesTags: [providesList(ReduxTag.PullRequests)]
-			}),
 			listPrsByBranch: build.query<PullRequest | null, { projectId: string; branchName: string }>({
 				queryFn: async ({ branchName }, api) => {
 					const result = await ghQuery<'pulls', 'list', 'required'>(

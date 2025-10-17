@@ -10,7 +10,7 @@ import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
 import type { ForgeArguments } from '$lib/forge/interface/types';
-import type { GitHubApi } from '$lib/state/clientState.svelte';
+import type { BackendApi, GitHubApi } from '$lib/state/clientState.svelte';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 import type { TagDescription } from '@reduxjs/toolkit/query';
 
@@ -29,6 +29,7 @@ export class GitHub implements Forge {
 			posthog?: PostHogWrapper;
 			client: GitHubClient;
 			api: GitHubApi;
+			backendApi: BackendApi;
 			isLoading: boolean;
 		}
 	) {
@@ -58,8 +59,8 @@ export class GitHub implements Forge {
 
 	get listService() {
 		if (!this.authenticated) return;
-		const { api: gitHubApi } = this.params;
-		return new GitHubListingService(gitHubApi);
+		const { api: gitHubApi, backendApi } = this.params;
+		return new GitHubListingService(gitHubApi, backendApi);
 	}
 
 	get prService() {
