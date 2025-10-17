@@ -109,7 +109,9 @@ pub(super) mod function {
 
     use std::borrow::{Borrow, Cow};
 
+    use crate::branch::create_reference::{Anchor, Position};
     use anyhow::{Context, bail};
+    use but_core::ref_metadata::WorkspaceCommitRelation::Merged;
     use but_core::{
         RefMetadata, ref_metadata,
         ref_metadata::{
@@ -117,8 +119,6 @@ pub(super) mod function {
         },
     };
     use gix::refs::transaction::PreviousValue;
-
-    use crate::branch::create_reference::{Anchor, Position};
 
     /// Create a new reference named `ref_name` to point at a commit relative to `anchor`.
     /// If `anchor` is `None` this means the branch should be placed above the lower bound of the workspace, effectively
@@ -360,7 +360,7 @@ pub(super) mod function {
         {
             // Just pretend its applied, and if it really is reachable, this will assure the
             // created ref name can be found.
-            ws_meta.stacks[stack_idx].in_workspace = true;
+            ws_meta.stacks[stack_idx].workspacecommit_relation = Merged;
             return Ok(());
         }
         match instruction {
@@ -385,7 +385,7 @@ pub(super) mod function {
             // create new
             Instruction::Independent => ws_meta.stacks.push(WorkspaceStack {
                 id: StackId::generate(),
-                in_workspace: true,
+                workspacecommit_relation: Merged,
                 branches: vec![WorkspaceStackBranch {
                     ref_name: new_ref.to_owned(),
                     archived: false,
@@ -406,7 +406,7 @@ pub(super) mod function {
                     })?;
                 let stack = &mut ws_meta.stacks[stack_idx];
                 // Just assure it's there, to facilitate the new branch actually shows up.
-                stack.in_workspace = true;
+                stack.workspacecommit_relation = Merged;
                 let branches = &mut stack.branches;
                 branches.insert(
                     match position {

@@ -522,7 +522,7 @@ impl Graph {
             for segment in ws_metadata
                 .stacks
                 .into_iter()
-                .filter(|s| s.in_workspace)
+                .filter(|s| s.is_in_workspace())
                 .flat_map(|s| s.branches.into_iter())
             {
                 let Some(segment_tip) = repo

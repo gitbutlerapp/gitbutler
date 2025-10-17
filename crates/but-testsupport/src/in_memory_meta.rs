@@ -3,6 +3,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use but_core::ref_metadata::WorkspaceCommitRelation;
 use but_core::{
     ref_metadata,
     ref_metadata::{Branch, StackId, Workspace, WorkspaceStackBranch},
@@ -180,7 +181,7 @@ impl InMemoryRefMetadata {
         let _stack = ref_metadata::WorkspaceStack {
             id: StackId::from_number_for_testing(stack_id as u128),
             branches: vec![stack_segment_from_partial_name(stack_name)],
-            in_workspace: false,
+            workspacecommit_relation: WorkspaceCommitRelation::Outside,
         };
         // Leave this for later, for now it's OK to use the vb.toml version.
         // Eventually we probably want to avoid using it.
