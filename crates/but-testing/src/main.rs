@@ -218,6 +218,14 @@ async fn main() -> Result<()> {
                 )
             }
         },
+        args::Subcommands::MoveBranch {
+            stack_branch_subject_name,
+            stack_branch_destination_name,
+        } => command::stacks::move_branch(
+            stack_branch_subject_name,
+            stack_branch_destination_name,
+            &args.current_dir,
+        ),
     }
 }
 

@@ -370,6 +370,60 @@ pub mod stacks {
         Ok(stack_entry)
     }
 
+    /// Add a branch to an existing stack by looking up the stack by name.
+    pub fn move_branch(
+        subject_branch: &str,
+        destination_branch: &str,
+        current_dir: &Path,
+    ) -> anyhow::Result<()> {
+        let project = project_from_path(current_dir)?;
+        // Enable v3 feature flags for the command context
+        let app_settings = AppSettings {
+            feature_flags: but_settings::app_settings::FeatureFlags {
+                ws3: true,
+                apply3: false,
+                cv3: false,
+                undo: false,
+                actions: false,
+                butbot: false,
+                rules: false,
+                single_branch: false,
+            },
+            ..AppSettings::default()
+        };
+
+        let ctx = CommandContext::open(&project, app_settings)?;
+        let repo = ctx.gix_repo()?;
+
+        let stacks = but_workspace::stacks(&ctx, &project.gb_dir(), &repo, Default::default())?;
+        let subject_stack = stacks
+            .clone()
+            .into_iter()
+            .find(|s| s.heads.iter().any(|h| h.name == subject_branch))
+            .context(format!(
+                "No stack branch found with name '{subject_branch}'"
+            ))?;
+
+        let destination_stack = stacks
+            .into_iter()
+            .find(|s| s.heads.iter().any(|h| h.name == destination_branch))
+            .context(format!(
+                "No stack branch found with name '{destination_branch}'"
+            ))?;
+
+        let outcome = gitbutler_branch_actions::move_branch(
+            &ctx,
+            destination_stack
+                .id
+                .context("BUG(opt-destination-stack-id)")?,
+            destination_branch,
+            subject_stack.id.context("BUG(opt-subject-stack-id)")?,
+            subject_branch,
+        )?;
+
+        debug_print(outcome)
+    }
+
     /// Create a new branch in the current project.
     ///
     /// If `id` is provided, it will be used to add the branch to an existing stack.
