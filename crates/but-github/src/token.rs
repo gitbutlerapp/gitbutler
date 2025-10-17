@@ -34,6 +34,11 @@ pub fn get_gh_access_token(login: &str) -> Result<Option<Sensitive<String>>> {
         .map(|entry| entry.access_token.sensitive()))
 }
 
+pub fn list_known_github_usernames() -> Result<Vec<String>> {
+    let map = retrieve_github_oauth_access_token_map()?;
+    Ok(map.into_iter().map(|entry| entry.username).collect())
+}
+
 const GITHUB_OAUTH_ACCESS_TOKEN_MAP_KEY: &str = "github_oauth_access_token_map";
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
