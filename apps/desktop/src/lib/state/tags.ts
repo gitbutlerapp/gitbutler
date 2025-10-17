@@ -13,6 +13,7 @@ export enum ReduxTag {
 	 */
 	BranchChanges = 'BranchChanges',
 	ForgeUser = 'ForgeUser',
+	GitHubUserList = 'GitHubUserList',
 	PullRequests = 'PullRequests',
 	GitLabPullRequests = 'GitLabPullRequests',
 	Checks = 'Checks',
