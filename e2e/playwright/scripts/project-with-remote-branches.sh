@@ -33,6 +33,15 @@ git commit -am "branch2: second commit"
 git checkout master
 popd
 
+# Create branch3
+pushd remote-project
+git checkout -b branch3
+echo "branch3 commit 1" >> b_file
+git add b_file
+git commit -am "branch3: first commit"
+git checkout master
+popd
+
 # Clone the remote into a folder and add the project to the application.
 git clone remote-project local-clone
 pushd local-clone

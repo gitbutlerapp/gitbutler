@@ -25,6 +25,7 @@
 	import Checkbox from '$components/Checkbox.svelte';
 	import Icon from '$components/Icon.svelte';
 	import SeriesIcon from '$components/SeriesIcon.svelte';
+	import { TestId } from '$lib/utils/testIds';
 	const {
 		testId,
 		series,
@@ -37,13 +38,16 @@
 </script>
 
 {#snippet stackBranch({ name, status }: Branch, isLast: boolean)}
-	<div class="series-branch {status}">
+	<div class="series-branch {status}" data-integration-row-branch-name={name}>
 		<div class="structure-lines" class:last={isLast}></div>
 		<div class="branch-info">
 			<span class="text-12 text-semibold truncate">{name}</span>
 
 			{#if status}
-				<span class="status-badge text-10 text-semibold">
+				<span
+					class="status-badge text-10 text-semibold"
+					data-testid={TestId.IntegrateUpstreamSeriesRowStatusBadge}
+				>
 					{#if status === 'conflicted'}
 						Conflicted
 					{:else if status === 'integrated'}
