@@ -54,7 +54,12 @@ pub fn worktree_integration_status(
     path: &Path,
     target: &gix::refs::FullNameRef,
 ) -> Result<WorktreeIntegrationStatus> {
-    Ok(worktree_integration_inner(ctx, perm, path, target)?.0)
+    // Canonicalize the path to match what's in the database
+    let canonical_path = path
+        .canonicalize()
+        .with_context(|| format!("Failed to canonicalize path: {}", path.display()))?;
+
+    Ok(worktree_integration_inner(ctx, perm, &canonical_path, target)?.0)
 }
 
 /// Integrates a worktree if it's integratable
@@ -67,9 +72,14 @@ pub fn worktree_integrate(
     path: &Path,
     target: &gix::refs::FullNameRef,
 ) -> Result<()> {
+    // Canonicalize the path to match what's in the database
+    let canonical_path = path
+        .canonicalize()
+        .with_context(|| format!("Failed to canonicalize path: {}", path.display()))?;
+
     let before = WorkspaceState::create(ctx, perm.read_permission())?;
 
-    let result = worktree_integration_inner(ctx, perm.read_permission(), path, target)?;
+    let result = worktree_integration_inner(ctx, perm.read_permission(), &canonical_path, target)?;
     let (WorktreeIntegrationStatus::Integratable { .. }, Some(mut status)) = result else {
         bail!("Worktree failed integration checks");
     };
@@ -82,8 +92,8 @@ pub fn worktree_integrate(
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
-    git_worktree_remove(&ctx.project().path, path, true)?;
-    delete_worktree_meta(ctx, path)?;
+    git_worktree_remove(&ctx.project().path, &canonical_path, true)?;
+    delete_worktree_meta(ctx, &canonical_path)?;
 
     Ok(())
 }

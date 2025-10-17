@@ -26,7 +26,6 @@ pub fn get_worktree_meta(ctx: &mut CommandContext, path: &Path) -> Result<Option
 }
 
 /// Delete a worktree from the database.
-#[allow(unused)]
 pub fn delete_worktree_meta(ctx: &mut CommandContext, path: &Path) -> Result<()> {
     ctx.db()?.worktrees().delete(&gix::path::into_bstr(path))?;
     Ok(())

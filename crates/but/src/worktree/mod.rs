@@ -29,6 +29,14 @@ pub enum Subcommands {
         #[clap(long)]
         dry: bool,
     },
+    /// Destroy worktree(s)
+    Destroy {
+        /// The path to the worktree to destroy, or a reference to destroy all worktrees created from it
+        target: String,
+        /// Treat the target as a reference instead of a path
+        #[clap(long)]
+        reference: bool,
+    },
 }
 pub fn handle(cmd: &Subcommands, project: &gitbutler_project::Project, json: bool) -> Result<()> {
     match handle_inner(cmd, project, json) {
@@ -172,6 +180,42 @@ pub fn handle_inner(
                 } else {
                     println!("Successfully integrated worktree at: {}", path.display());
                     println!("Target: {}", target_ref);
+                }
+            }
+
+            Ok(())
+        }
+        Subcommands::Destroy { target, reference } => {
+            if *reference {
+                // Treat target as a reference - parse it
+                let reference = if target.starts_with("refs/") {
+                    gix::refs::FullName::try_from(target.clone())?
+                } else {
+                    // Assume it's a branch name and prepend refs/heads/
+                    gix::refs::FullName::try_from(format!("refs/heads/{}", target))?
+                };
+
+                let output = but_api::worktree::worktree_destroy_by_reference(project.id, reference.clone())?;
+
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&output)?);
+                } else if output.destroyed_paths.is_empty() {
+                    println!("No worktrees found for reference: {}", reference);
+                } else {
+                    println!("Destroyed {} worktree(s) for reference: {}", output.destroyed_paths.len(), reference);
+                    for path in &output.destroyed_paths {
+                        println!("  - {}", path.display());
+                    }
+                }
+            } else {
+                // Treat target as a path
+                let path = PathBuf::from(target);
+                let output = but_api::worktree::worktree_destroy_by_path(project.id, path.clone())?;
+
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&output)?);
+                } else {
+                    println!("Destroyed worktree at: {}", path.display());
                 }
             }
 

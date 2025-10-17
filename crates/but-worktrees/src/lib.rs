@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod db;
+pub mod destroy;
 pub(crate) mod git;
 pub mod integrate;
 pub mod list;
