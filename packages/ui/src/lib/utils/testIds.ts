@@ -53,6 +53,7 @@ export enum TestId {
 	IntegrateUpstreamCommitsButton = 'integrate-upstream-commits-button',
 	IntegrateUpstreamCommitsModal = 'integrate-upstream-commits-modal',
 	IntegrateUpstreamSeriesRow = 'integrate-upstream-series-row',
+	IntegrateUpstreamSeriesRowStatusBadge = 'integrate-upstream-series-row-status-badge',
 	IntegrateUpstreamActionButton = 'integrate-upstream-action-button',
 	FileListModeOption = 'file-list-mode-option',
 	FileListTreeFolder = 'file-list-tree-folder',

@@ -16,10 +16,9 @@
 		{
 			check: (ua: string) => ua.includes('mac'),
 			os: 'macOS',
-			getDownload: (ua: string) =>
-				ua.includes('arm64') || ua.includes('aarch64')
-					? jsonLinks.downloads.appleSilicon
-					: jsonLinks.downloads.intelMac
+			// There is no good way of determining the arminess of a mac, so we
+			// should just assume appleSilicon.
+			getDownload: () => jsonLinks.downloads.appleSilicon
 		},
 		{
 			check: (ua: string) => ua.includes('windows'),
@@ -41,7 +40,7 @@
 
 		if (detected) {
 			detectedOS = detected.os;
-			selectedDownload = detected.getDownload(userAgent);
+			selectedDownload = detected.getDownload();
 		} else {
 			// Default to macOS Apple Silicon if OS can't be detected
 			detectedOS = 'macOS';

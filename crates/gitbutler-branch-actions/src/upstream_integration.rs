@@ -272,8 +272,6 @@ fn get_stack_status(
     stack_id: Option<StackId>,
     ctx: &CommandContext,
 ) -> Result<StackStatus> {
-    let mut unintegrated_branch_found = false;
-
     let mut last_head: git2::Oid = gix_to_git2_oid(new_target_commit_id);
 
     let mut branch_statuses: Vec<NameAndStatus> = vec![];
@@ -293,24 +291,18 @@ fn get_stack_status(
             continue;
         };
 
-        // If an integrated branch has been found, there is no need to bother
-        // with subsequent branches.
-        if !unintegrated_branch_found
-            && matches!(
-                branch_head.state,
-                but_workspace::ui::CommitState::Integrated
-            )
-        {
+        // Check if the branch in question has already been integrated
+        if matches!(
+            branch_head.state,
+            but_workspace::ui::CommitState::Integrated
+        ) {
             branch_statuses.push(NameAndStatus {
                 name: branch.name.to_string(),
                 status: BranchStatus::Integrated,
             });
 
             continue;
-        } else {
-            unintegrated_branch_found = true;
         }
-
         // Rebase the commits and see if any conflict
         // Rebasing is preferable to merging, as not everything that is
         // mergable is rebasable.

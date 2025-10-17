@@ -41,7 +41,7 @@ test('should be able to apply a remote branch', async ({ page, context }, testIn
 	await expect(header).toContainText('origin/master');
 
 	const branchListCards = getByTestId(page, 'branch-list-card');
-	await expect(branchListCards).toHaveCount(2);
+	await expect(branchListCards).toHaveCount(3);
 
 	const firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
 	await expect(firstBranchCard).toBeVisible();
@@ -88,7 +88,7 @@ test('should be able to apply a remote branch and integrate the remote changes -
 	await expect(header).toContainText('origin/master');
 
 	const branchListCards = getByTestId(page, 'branch-list-card');
-	await expect(branchListCards).toHaveCount(2);
+	await expect(branchListCards).toHaveCount(3);
 
 	const firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
 	await expect(firstBranchCard).toBeVisible();
@@ -345,7 +345,7 @@ test('should be able gracefully handle adding a branch that is ahead of our targ
 	await expect(header).toContainText('origin/master');
 
 	const branchListCards = getByTestId(page, 'branch-list-card');
-	await expect(branchListCards).toHaveCount(2);
+	await expect(branchListCards).toHaveCount(3);
 
 	const firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
 	await expect(firstBranchCard).toBeVisible();
@@ -399,7 +399,7 @@ test('should be able gracefully handle adding a branch that is behind of our tar
 	await expect(header).toContainText('origin/master');
 
 	const branchListCards = getByTestId(page, 'branch-list-card');
-	await expect(branchListCards).toHaveCount(2);
+	await expect(branchListCards).toHaveCount(3);
 
 	const firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
 	await expect(firstBranchCard).toBeVisible();
