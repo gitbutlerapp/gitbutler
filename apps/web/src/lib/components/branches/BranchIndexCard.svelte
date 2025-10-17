@@ -28,7 +28,7 @@
 
 	const branch = $derived(getBranchReview(uuid));
 
-	let contributors = $state<Array<{ srcUrl: string; name: string }>>([]);
+	let contributors = $state<Array<{ srcUrl: string; username: string }>>([]);
 
 	$effect(() => {
 		(async () => {

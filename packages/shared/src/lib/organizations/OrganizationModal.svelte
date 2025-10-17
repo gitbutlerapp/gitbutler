@@ -58,7 +58,7 @@
 								{#snippet children(user)}
 									<Avatar
 										size="medium"
-										tooltip={user?.name || 'Unknown'}
+										username={user?.name || 'Unknown'}
 										srcUrl={user?.avatarUrl || ''}
 									/>
 									<p>{user?.name}</p>

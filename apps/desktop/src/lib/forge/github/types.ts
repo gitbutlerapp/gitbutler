@@ -42,7 +42,7 @@ export function parseGitHubDetailedPullRequest(
 	const reviewers =
 		data.requested_reviewers?.map((reviewer) => ({
 			srcUrl: reviewer.avatar_url,
-			name: reviewer.name || reviewer.login
+			username: reviewer.name || reviewer.login
 		})) || [];
 
 	const permissions: PullRequestPermissions | undefined = data.permissions

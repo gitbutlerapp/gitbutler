@@ -34,7 +34,7 @@
 					<Avatar
 						size="medium"
 						srcUrl={pr.author?.gravatarUrl || ''}
-						tooltip={pr.author?.name || 'Unknown Author'}
+						username={pr.author?.name || 'Unknown Author'}
 					/>
 					<div class="pr-request-data__wrapper">
 						<p class="pr-request-data__sentence text-13">

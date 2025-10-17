@@ -5,7 +5,7 @@ export function detailedMrToInstance(data: ExpandedMergeRequestSchema): Detailed
 	const reviewers =
 		data.reviewers?.map((reviewer) => ({
 			srcUrl: reviewer.avatar_url,
-			name: reviewer.name
+			username: reviewer.name
 		})) || [];
 
 	return {

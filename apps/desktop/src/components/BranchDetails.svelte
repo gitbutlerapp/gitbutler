@@ -26,7 +26,7 @@
 			<AvatarGroup
 				maxAvatars={2}
 				avatars={branch.authors.map((a) => ({
-					name: a.name,
+					username: a.name,
 					srcUrl: a.gravatarUrl
 				}))}
 			/>

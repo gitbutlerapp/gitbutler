@@ -63,7 +63,7 @@
 		}
 	});
 
-	let avatars = $state<{ name: string; srcUrl: string }[]>([]);
+	let avatars = $state<{ username: string; srcUrl: string }[]>([]);
 
 	$effect(() => {
 		setAvatars(ownedByUser, branchListingDetails);
@@ -78,13 +78,13 @@
 					? $user?.picture
 					: await gravatarUrlFromEmail(email);
 
-			avatars = [{ name, srcUrl: srcUrl }];
+			avatars = [{ username: name, srcUrl: srcUrl }];
 		} else if (branchListingDetails) {
 			avatars = branchListingDetails.authors
 				? await Promise.all(
 						branchListingDetails.authors.map(async (author) => {
 							return {
-								name: author.name || unknownName,
+								username: author.name || unknownName,
 								srcUrl:
 									(author.email?.toLowerCase() === $user?.email?.toLowerCase()
 										? $user?.picture

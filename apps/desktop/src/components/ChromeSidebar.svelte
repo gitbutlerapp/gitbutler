@@ -29,6 +29,7 @@
 		TestId
 	} from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
+	import { stringToColor } from '@gitbutler/ui/utils/stringToColor';
 
 	import { slide } from 'svelte/transition';
 
@@ -312,7 +313,10 @@
 			>
 				{#snippet custom()}
 					<div class="user-button">
-						<div class="user-icon">
+						<div
+							class="user-icon"
+							style="background-color: {stringToColor($user?.email || 'guest')}"
+						>
 							{#if $user?.picture}
 								<img
 									class="user-icon__image"

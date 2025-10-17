@@ -71,7 +71,7 @@
 						</div>
 					{/if}
 					{#if user?.avatarUrl}
-						<Avatar size="large" tooltip={username} srcUrl={user?.avatarUrl} />
+						<Avatar size="large" {username} srcUrl={user?.avatarUrl} />
 					{:else}
 						<div class="icon-wrapper__logo">
 							{@html githubLogoSvg}

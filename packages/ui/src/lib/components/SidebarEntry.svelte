@@ -17,7 +17,7 @@
 		branchDetails?: { commitCount: number; linesAdded: number; linesRemoved: number };
 		remotes?: string[];
 		local?: boolean;
-		avatars?: { name: string; srcUrl: string }[];
+		avatars?: { username: string; srcUrl: string }[];
 	}
 
 	const {

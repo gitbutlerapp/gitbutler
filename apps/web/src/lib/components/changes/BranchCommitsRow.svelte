@@ -33,9 +33,9 @@
 
 	const branch = $derived(getBranchReview(branchUuid));
 	const change = $derived(getPatch(branchUuid, changeId));
-	let contributors = $state<Array<{ srcUrl: string; name: string }>>([]);
-	let approvers = $state<Array<{ srcUrl: string; name: string }>>([]);
-	let rejectors = $state<Array<{ srcUrl: string; name: string }>>([]);
+	let contributors = $state<Array<{ srcUrl: string; username: string }>>([]);
+	let approvers = $state<Array<{ srcUrl: string; username: string }>>([]);
+	let rejectors = $state<Array<{ srcUrl: string; username: string }>>([]);
 
 	$effect(() => {
 		(async () => {

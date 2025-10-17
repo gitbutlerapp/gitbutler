@@ -60,7 +60,7 @@ export interface DetailedPullRequest {
 	state: 'open' | 'closed';
 	baseRepo?: RepoInfo | undefined;
 	baseBranch: string;
-	reviewers: { srcUrl: string; name: string }[];
+	reviewers: { srcUrl: string; username: string }[];
 	commentsCount: number;
 	permissions?: PullRequestPermissions;
 	repositorySshUrl?: string;
