@@ -34,7 +34,7 @@ test('should be able to amend a file to a commit', async ({ page, context }, tes
 	await expect(header).toContainText('origin/master');
 
 	const branchListCards = getByTestId(page, 'branch-list-card');
-	await expect(branchListCards).toHaveCount(2);
+	await expect(branchListCards).toHaveCount(3);
 
 	const firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
 	await expect(firstBranchCard).toBeVisible();
