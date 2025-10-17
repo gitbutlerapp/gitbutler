@@ -3,7 +3,7 @@ use std::{path::PathBuf, str};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
-use gitbutler_repo::credentials::{help, Credential, SshCredential};
+use gitbutler_repo::credentials::{Credential, SshCredential, help};
 use gitbutler_testsupport::test_repository;
 use gitbutler_user as users;
 

@@ -7,7 +7,7 @@ use crate::{
     stack::{Stack, StackId},
     target::Target,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use but_graph::virtual_branches_legacy_types;
 use git2::Repository;
 use gitbutler_error::error::Code;

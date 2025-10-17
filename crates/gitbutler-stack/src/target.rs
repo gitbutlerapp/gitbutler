@@ -28,11 +28,10 @@ pub struct Target {
 
 impl Target {
     pub fn push_remote_name(&self) -> String {
-        let upstream_remote = match &self.push_remote_name {
+        match &self.push_remote_name {
             Some(remote) => remote.clone(),
             None => self.branch.remote().to_owned(),
-        };
-        upstream_remote
+        }
     }
 
     /// Returns the head sha of the remote branch this target is tracking.

@@ -197,11 +197,7 @@ impl ToHeaders for ConflictEntries {
         CommitHeadersV2 {
             conflicted: Some({
                 let entries = self.total_entries();
-                if entries > 0 {
-                    entries as u64
-                } else {
-                    1
-                }
+                if entries > 0 { entries as u64 } else { 1 }
             }),
             ..Default::default()
         }

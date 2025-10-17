@@ -1,7 +1,7 @@
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
 use but_graph::VirtualBranchesTomlMetadata;
-use but_workspace::{ui::StackDetails, StackId, StacksFilter};
+use but_workspace::{StackId, StacksFilter, ui::StackDetails};
 use gitbutler_command_context::CommandContext;
 use gix::bstr::BStr;
 /// Direct access to lower-level utilities for cases where this is enough.
@@ -252,8 +252,8 @@ pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
 
 pub mod read_only {
     use crate::DRIVER;
-    use but_settings::app_settings::FeatureFlags;
     use but_settings::AppSettings;
+    use but_settings::app_settings::FeatureFlags;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
     use once_cell::sync::Lazy;

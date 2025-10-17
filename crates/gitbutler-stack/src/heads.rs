@@ -1,10 +1,10 @@
+use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
-use anyhow::Result;
 use itertools::Itertools;
 
-use crate::stack_branch::CommitOrChangeId;
 use crate::StackBranch;
+use crate::stack_branch::CommitOrChangeId;
 
 pub(crate) fn get_head(heads: &[StackBranch], name: &str) -> Result<(usize, StackBranch)> {
     let (idx, head) = heads
@@ -140,7 +140,10 @@ pub fn add_head(
             if &last_head.1 != last_patch {
                 // error - invalid state - this would result in orphaned patches
                 bail!(
-                    "The newest head must point to the newest patch in the stack. The newest patch is {}, while the newest head with name {} points patch {}", last_patch, last_head.0.name(), last_head.1
+                    "The newest head must point to the newest patch in the stack. The newest patch is {}, while the newest head with name {} points patch {}",
+                    last_patch,
+                    last_head.0.name(),
+                    last_head.1
                 );
             }
         } else {

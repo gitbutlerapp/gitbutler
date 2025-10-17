@@ -202,7 +202,7 @@ mod tests {
 
     use gitbutler_stack::StackId;
 
-    use crate::{input::InputFile, parse_diff_from_string, InputDiff};
+    use crate::{InputDiff, input::InputFile, parse_diff_from_string};
 
     use super::*;
 

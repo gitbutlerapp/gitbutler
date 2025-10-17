@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use git2::{ApplyLocation, ApplyOptions, Repository};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{ChangeType, FileDiff, GitHunk, Hunk};

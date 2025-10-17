@@ -1,5 +1,5 @@
-use crate::{remote::GitRemote, Config, RepositoryExt};
-use anyhow::{bail, Result};
+use crate::{Config, RepositoryExt, remote::GitRemote};
+use anyhow::{Result, bail};
 use base64::engine::Engine as _;
 use git2::Oid;
 use gitbutler_project::Project;

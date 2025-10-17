@@ -1,4 +1,4 @@
-use gitbutler_hunk_dependency::{parse_diff_from_string, HunkRange, InputDiff, PathRanges};
+use gitbutler_hunk_dependency::{HunkRange, InputDiff, PathRanges, parse_diff_from_string};
 use gitbutler_stack::StackId;
 
 #[test]

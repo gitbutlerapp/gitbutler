@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Context, Result};
-use gitbutler_notify_debouncer::{new_debouncer, Debouncer, NoCache};
+use anyhow::{Context, Result, anyhow};
+use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
 use gitbutler_project::ProjectId;
 use notify::{RecommendedWatcher, Watcher};
 use std::{collections::HashSet, path::Path, time::Duration};
@@ -152,10 +152,9 @@ pub fn spawn(
                     if classified_file_paths
                         .iter()
                         .any(|(_, kind)| *kind == FileKind::Project)
-                    {
-                        if let Ok(repo) = gix::open(&worktree_path) {
-                            if let Ok(index) = repo.index_or_empty() {
-                                if let Ok(mut excludes) = repo.excludes(
+                        && let Ok(repo) = gix::open(&worktree_path)
+                            && let Ok(index) = repo.index_or_empty()
+                                && let Ok(mut excludes) = repo.excludes(
                                     &index,
                                     None,
                                     gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped,
@@ -174,9 +173,6 @@ pub fn spawn(
                                         }
                                     }
                                 }
-                            }
-                        }
-                    }
                     let (mut stripped_git_paths, mut worktree_relative_paths) =
                         (HashSet::new(), HashSet::new());
                     for (file_path, kind) in classified_file_paths {

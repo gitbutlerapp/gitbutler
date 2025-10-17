@@ -1,6 +1,6 @@
 use crate::Config;
 use crate::SignaturePurpose;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use bstr::BString;
 use but_core::{GitConfigSettings, RepositoryExt as RepositoryExtGix};
 use but_status::create_wd_tree;
@@ -9,8 +9,8 @@ use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
 use gitbutler_oxidize::ObjectIdExt as _;
 use gitbutler_oxidize::{
-    git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, gix_to_git2_signature,
-    RepoExt,
+    RepoExt, git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid,
+    gix_to_git2_signature,
 };
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::objs::WriteTo;
@@ -189,8 +189,8 @@ impl RepositoryExt for git2::Repository {
                             .context(Code::CommitSigningFailed));
                     } else {
                         tracing::warn!(
-                                "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
-                            );
+                            "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
+                        );
                         return Err(err);
                     }
                 }

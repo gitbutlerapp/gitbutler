@@ -8,10 +8,12 @@ fn less_than_two_commits() {
 
     let commit = test_repository.commit_tree(None, &[]);
 
-    assert!(test_repository
-        .repository
-        .merge_base_octopussy(&[commit.id()])
-        .is_err());
+    assert!(
+        test_repository
+            .repository
+            .merge_base_octopussy(&[commit.id()])
+            .is_err()
+    );
 }
 
 #[test]

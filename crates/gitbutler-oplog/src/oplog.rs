@@ -1,7 +1,7 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     fs,
-    str::{from_utf8, FromStr},
+    str::{FromStr, from_utf8},
     time::Duration,
 };
 
@@ -12,25 +12,25 @@ use super::{
     reflog::set_reference_to_oplog,
     state::OplogHandle,
 };
-use anyhow::{anyhow, bail, Context, Result};
-use but_core::{diff::tree_changes, TreeChange};
+use anyhow::{Context, Result, anyhow, bail};
+use but_core::{TreeChange, diff::tree_changes};
 use but_graph::virtual_branches_legacy_types;
 use git2::FileMode;
 use gitbutler_command_context::{CommandContext, RepositoryExtLite};
 use gitbutler_oxidize::ObjectIdExt as _;
 use gitbutler_oxidize::RepoExt;
 use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_time_to_git2, gix_to_git2_oid, GixRepositoryExt, OidExt,
+    GixRepositoryExt, OidExt, git2_to_gix_object_id, gix_time_to_git2, gix_to_git2_oid,
 };
 use gitbutler_project::{
+    AUTO_TRACK_LIMIT_BYTES, Project,
     access::{WorktreeReadPermission, WorktreeWritePermission},
-    Project, AUTO_TRACK_LIMIT_BYTES,
 };
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
 use gitbutler_stack::{Stack, VirtualBranchesHandle, VirtualBranchesState};
 use gix::prelude::ObjectIdExt;
-use gix::{bstr::ByteSlice, ObjectId};
+use gix::{ObjectId, bstr::ByteSlice};
 use tracing::instrument;
 
 /// The Oplog allows for crating snapshots of the current state of the project as well as restoring to a previous snapshot.
@@ -229,10 +229,10 @@ impl OplogExt for CommandContext {
                 .ok()
                 .and_then(|msg| SnapshotDetails::from_str(msg).ok());
             let commit_time = gix_time_to_git2(commit.time()?);
-            if let Some(details) = &details {
-                if exclude_kind.contains(&details.operation) {
-                    continue;
-                }
+            if let Some(details) = &details
+                && exclude_kind.contains(&details.operation)
+            {
+                continue;
             }
 
             snapshots.push(Snapshot {
@@ -323,28 +323,27 @@ fn get_workdir_tree(
         .ok()
         .and_then(|msg| SnapshotDetails::from_str(msg).ok());
     // In version 3 snapshots, the worktree is stored directly in the snapshot tree
-    if let Some(details) = details {
-        if details.version == Version(3) {
-            let worktree_entry = snapshot_commit
-                .tree()?
-                .lookup_entry_by_path("worktree")?
-                .context(format!(
-                    "no entry at 'worktree' on sha {:?}, version: {:?}",
-                    &snapshot_commit.id(),
-                    &details.version,
-                ))?;
-            let worktree_id = worktree_entry.id().detach();
-            return Ok(worktree_id);
-        }
+    if let Some(details) = details
+        && details.version == Version(3)
+    {
+        let worktree_entry = snapshot_commit
+            .tree()?
+            .lookup_entry_by_path("worktree")?
+            .context(format!(
+                "no entry at 'worktree' on sha {:?}, version: {:?}",
+                &snapshot_commit.id(),
+                &details.version,
+            ))?;
+        let worktree_id = worktree_entry.id().detach();
+        return Ok(worktree_id);
     }
     match wd_trees_cache {
         Some(cache) => {
-            if let Entry::Vacant(entry) = cache.entry(snapshot_commit.id) {
-                if let Ok(tree_id) =
+            if let Entry::Vacant(entry) = cache.entry(snapshot_commit.id)
+                && let Ok(tree_id) =
                     tree_from_applied_vbranches(repo, gix_to_git2_oid(snapshot_commit.id), ctx)
-                {
-                    entry.insert(git2_to_gix_object_id(tree_id));
-                }
+            {
+                entry.insert(git2_to_gix_object_id(tree_id));
             }
             cache.get(&snapshot_commit.id).copied().ok_or_else(|| {
                 anyhow!("Could not get a tree of all applied virtual branches merged")
@@ -901,7 +900,9 @@ fn tree_from_applied_vbranches(
             merge_option_fail_fast.clone(),
         )?;
         if merge.has_unresolved_conflicts(conflict_kind) {
-            tracing::warn!("Failed to merge tree {branch_id} - this branch is probably applied at a time when it should not be");
+            tracing::warn!(
+                "Failed to merge tree {branch_id} - this branch is probably applied at a time when it should not be"
+            );
         } else {
             let id = merge.tree.write()?.detach();
             workdir_tree_id = id;

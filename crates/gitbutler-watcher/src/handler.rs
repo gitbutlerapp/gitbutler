@@ -100,28 +100,27 @@ impl Handler {
                 .err()
                 .map(|err| serde_error::Error::new(&**err)),
         };
-        if ctx.app_settings().feature_flags.rules {
-            if let Ok(update_count) = but_rules::handler::process_workspace_rules(
+        if ctx.app_settings().feature_flags.rules
+            && let Ok(update_count) = but_rules::handler::process_workspace_rules(
                 ctx,
                 &assignments,
                 &dependencies.as_ref().ok().cloned(),
-            ) {
-                if update_count > 0 {
-                    // Getting these again since they were updated
-                    let (assignments, assignments_error) =
-                        assignments_and_errors(ctx, wt_changes.changes.clone(), &dependencies)?;
-                    changes = but_hunk_assignment::WorktreeChanges {
-                        worktree_changes: wt_changes.into(),
-                        assignments,
-                        assignments_error: assignments_error.clone(),
-                        dependencies: dependencies.as_ref().ok().cloned(),
-                        dependencies_error: dependencies
-                            .as_ref()
-                            .err()
-                            .map(|err| serde_error::Error::new(&**err)),
-                    };
-                }
-            }
+            )
+            && update_count > 0
+        {
+            // Getting these again since they were updated
+            let (assignments, assignments_error) =
+                assignments_and_errors(ctx, wt_changes.changes.clone(), &dependencies)?;
+            changes = but_hunk_assignment::WorktreeChanges {
+                worktree_changes: wt_changes.into(),
+                assignments,
+                assignments_error: assignments_error.clone(),
+                dependencies: dependencies.as_ref().ok().cloned(),
+                dependencies_error: dependencies
+                    .as_ref()
+                    .err()
+                    .map(|err| serde_error::Error::new(&**err)),
+            };
         }
         let _ = self.emit_app_event(Change::WorktreeChanges {
             project_id: ctx.project().id,

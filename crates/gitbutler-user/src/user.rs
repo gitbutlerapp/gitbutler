@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use anyhow::{Context, Result};
-use but_secret::{secret, Sensitive};
+use but_secret::{Sensitive, secret};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]

@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use bstr::BString;
 use gix::{
     dir::walk::EmissionMode,
-    tempfile::{create_dir::Retries, AutoRemove, ContainingDirectory},
+    tempfile::{AutoRemove, ContainingDirectory, create_dir::Retries},
 };
 use serde::de::DeserializeOwned;
 use walkdir::WalkDir;

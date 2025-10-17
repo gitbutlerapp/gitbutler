@@ -1,7 +1,7 @@
 use anyhow::Result;
 use but_settings::AppSettings;
-use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_project::Project;
+use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 

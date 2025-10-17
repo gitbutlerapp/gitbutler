@@ -16,8 +16,8 @@ pub mod claude;
 pub mod logs;
 pub mod menu;
 pub mod window;
-pub use window::state::event::ChangeForFrontend;
 pub use window::state::WindowState;
+pub use window::state::event::ChangeForFrontend;
 
 pub mod action;
 pub mod askpass;

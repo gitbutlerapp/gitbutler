@@ -174,8 +174,8 @@ mod set_target_ref {
     use tempfile::tempdir;
 
     use super::{
-        set_reference_to_oplog, ReflogCommits, GITBUTLER_COMMIT_AUTHOR_EMAIL,
-        GITBUTLER_COMMIT_AUTHOR_NAME,
+        GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME, ReflogCommits,
+        set_reference_to_oplog,
     };
 
     #[test]

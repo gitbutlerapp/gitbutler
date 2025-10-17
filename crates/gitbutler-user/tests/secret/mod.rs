@@ -1,7 +1,7 @@
 //! Note that these tests *must* be run in their own process, as they rely on having a deterministic
 //! credential store. Due to its global nature, tests cannot run in parallel
 //! (or mixed with parallel tests that set their own credential store)
-use but_secret::{secret, Sensitive};
+use but_secret::{Sensitive, secret};
 use serial_test::serial;
 
 #[test]
@@ -9,9 +9,11 @@ use serial_test::serial;
 fn retrieve_unknown_is_none() {
     credentials::setup();
     for ns in all_namespaces() {
-        assert!(secret::retrieve("does not exist for sure", *ns)
-            .expect("no error to ask for non-existing")
-            .is_none());
+        assert!(
+            secret::retrieve("does not exist for sure", *ns)
+                .expect("no error to ask for non-existing")
+                .is_none()
+        );
     }
 }
 

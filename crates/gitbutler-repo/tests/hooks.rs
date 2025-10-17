@@ -1,4 +1,4 @@
-use gitbutler_repo::hooks::{pre_push, HookResult};
+use gitbutler_repo::hooks::{HookResult, pre_push};
 use gitbutler_testsupport::TestProject;
 use std::fs;
 #[cfg(unix)]

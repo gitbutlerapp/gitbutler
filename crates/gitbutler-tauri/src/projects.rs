@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use but_api::error::Error;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
@@ -10,7 +10,7 @@ use tauri::{State, Window};
 use tracing::instrument;
 
 use crate::window::state::ProjectAccessMode;
-use crate::{window, WindowState};
+use crate::{WindowState, window};
 
 #[tauri::command(async)]
 #[instrument(skip(window_state), err(Debug))]
@@ -152,7 +152,10 @@ fn assure_database_valid(gb_dir: PathBuf) -> anyhow::Result<Option<String>> {
                 backup_path.display()
             )));
         }
-        bail!("Database file at '{db_path} has {max_attempts} corrupted copies - giving up, application probably won't work", db_path = db_path.display());
+        bail!(
+            "Database file at '{db_path} has {max_attempts} corrupted copies - giving up, application probably won't work",
+            db_path = db_path.display()
+        );
     }
     Ok(None)
 }

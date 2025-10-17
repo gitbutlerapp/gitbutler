@@ -1,9 +1,9 @@
 #![allow(deprecated)]
 use but_api::commands::settings;
+use but_settings::AppSettingsWithDiskSync;
 use but_settings::api::{
     ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate,
 };
-use but_settings::AppSettingsWithDiskSync;
 use tauri::State;
 use tracing::instrument;
 

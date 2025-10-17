@@ -106,8 +106,8 @@ pub mod git_credentials {
 
     use anyhow::Result;
     use keyring::{
-        credential::{CredentialApi, CredentialBuilderApi, CredentialPersistence},
         Credential,
+        credential::{CredentialApi, CredentialBuilderApi, CredentialPersistence},
     };
     use tracing::instrument;
 

@@ -457,10 +457,12 @@ fn non_files_are_ignored() -> anyhow::Result<()> {
     let test = TestingRepository::open_with_initial_commit(&[]);
 
     let fifo_path = test.tempdir.path().join("fifo");
-    assert!(std::process::Command::new("mkfifo")
-        .arg(&fifo_path)
-        .status()?
-        .success());
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&fifo_path)
+            .status()?
+            .success()
+    );
 
     let tree: git2::Tree = test.repository.create_wd_tree(MAX_SIZE)?;
     assert_eq!(
@@ -478,10 +480,12 @@ fn tracked_file_swapped_with_non_file() -> anyhow::Result<()> {
 
     let fifo_path = test.tempdir.path().join("soon-fifo");
     std::fs::remove_file(&fifo_path)?;
-    assert!(std::process::Command::new("mkfifo")
-        .arg(&fifo_path)
-        .status()?
-        .success());
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&fifo_path)
+            .status()?
+            .success()
+    );
 
     let tree: git2::Tree = test.repository.create_wd_tree(MAX_SIZE)?;
     assert_eq!(

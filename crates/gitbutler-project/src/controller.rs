@@ -1,10 +1,10 @@
 use std::path::{Component, Path, PathBuf};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use gitbutler_error::error;
 
-use super::{storage, storage::UpdateRequest, Project, ProjectId};
-use crate::{project::AddProjectOutcome, AuthKey};
+use super::{Project, ProjectId, storage, storage::UpdateRequest};
+use crate::{AuthKey, project::AddProjectOutcome};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Controller {
@@ -214,17 +214,17 @@ impl Controller {
             }
         }
 
-        if !project.gb_dir().exists() {
-            if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
-                tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", project.gb_dir().display());
-            }
+        if !project.gb_dir().exists()
+            && let Err(error) = std::fs::create_dir_all(project.gb_dir())
+        {
+            tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", project.gb_dir().display());
         }
         // Clean up old virtual_branches.toml that was never used
         let old_virtual_branches_path = project.path.join(".git").join("virtual_branches.toml");
-        if old_virtual_branches_path.exists() {
-            if let Err(error) = std::fs::remove_file(old_virtual_branches_path) {
-                tracing::error!(project_id = %project.id, ?error, "failed to remove old virtual_branches.toml");
-            }
+        if old_virtual_branches_path.exists()
+            && let Err(error) = std::fs::remove_file(old_virtual_branches_path)
+        {
+            tracing::error!(project_id = %project.id, ?error, "failed to remove old virtual_branches.toml");
         }
 
         #[cfg(windows)]
@@ -246,16 +246,16 @@ impl Controller {
 
         self.projects_storage.purge(project.id)?;
 
-        if let Err(error) = std::fs::remove_dir_all(self.project_metadata_dir(project.id)) {
-            if error.kind() != std::io::ErrorKind::NotFound {
-                tracing::error!(project_id = %id, ?error, "failed to remove project data",);
-            }
+        if let Err(error) = std::fs::remove_dir_all(self.project_metadata_dir(project.id))
+            && error.kind() != std::io::ErrorKind::NotFound
+        {
+            tracing::error!(project_id = %id, ?error, "failed to remove project data",);
         }
 
-        if project.gb_dir().exists() {
-            if let Err(error) = std::fs::remove_dir_all(project.gb_dir()) {
-                tracing::error!(project_id = %project.id, ?error, "failed to remove {:?} on project delete", project.gb_dir());
-            }
+        if project.gb_dir().exists()
+            && let Err(error) = std::fs::remove_dir_all(project.gb_dir())
+        {
+            tracing::error!(project_id = %project.id, ?error, "failed to remove {:?} on project delete", project.gb_dir());
         }
 
         Ok(())

@@ -25,11 +25,10 @@ pub fn bot(
 
     let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
     match openai {
-        Some(openai) => but_bot::bot(project_id, message_id, emitter, ctx, &openai, chat_messages).map_err(|e| Error::from(anyhow::anyhow!(e))),
-        None => {
-            Err(Error::from(anyhow::anyhow!(
-                "No valid credentials found for AI provider. Please configure your GitButler account credentials."
-            )))
-        }
+        Some(openai) => but_bot::bot(project_id, message_id, emitter, ctx, &openai, chat_messages)
+            .map_err(|e| Error::from(anyhow::anyhow!(e))),
+        None => Err(Error::from(anyhow::anyhow!(
+            "No valid credentials found for AI provider. Please configure your GitButler account credentials."
+        ))),
     }
 }

@@ -1,6 +1,6 @@
 use but_api::{
-    commands::github::{self},
     NoParams,
+    commands::github::{self},
 };
 use but_github::{CheckAuthStatusParams, Verification};
 use but_settings::AppSettingsWithDiskSync;

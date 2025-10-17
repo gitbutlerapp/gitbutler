@@ -1,6 +1,6 @@
 use std::{collections::HashSet, fmt, str::FromStr};
 
-use crate::{file_ownership::OwnershipClaim, Stack};
+use crate::{Stack, file_ownership::OwnershipClaim};
 use anyhow::Result;
 use but_graph::virtual_branches_legacy_types;
 use itertools::Itertools;

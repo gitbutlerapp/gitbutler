@@ -1,10 +1,10 @@
 use but_api::{
+    App,
     commands::claude::{
         self, CancelSessionParams, CompactHistoryParams, GetMessagesParams, IsStackActiveParams,
         SendMessageParams,
     },
     error::Error,
-    App,
 };
 use but_claude::{ClaudeMessage, ClaudeUserParams, ModelType, PermissionMode, ThinkingLevel};
 use but_workspace::StackId;

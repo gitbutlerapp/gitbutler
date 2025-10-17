@@ -41,8 +41,8 @@ use std::{
     collections::{BinaryHeap, HashMap, VecDeque},
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     time::Duration,
 };
@@ -55,8 +55,8 @@ use file_id::FileId;
 use mock_instant::thread_local::Instant;
 pub use notify;
 use notify::{
-    event::{ModifyKind, RemoveKind, RenameMode},
     Error, ErrorKind, Event, EventKind, RecommendedWatcher, Watcher,
+    event::{ModifyKind, RemoveKind, RenameMode},
 };
 use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 
@@ -683,10 +683,8 @@ fn sort_events(events: Vec<DebouncedEvent>) -> Vec<DebouncedEvent> {
             push_next = true;
         }
 
-        if push_next {
-            if let Some(event) = events.front() {
-                min_time_heap.push(Reverse((event.time, path)));
-            }
+        if push_next && let Some(event) = events.front() {
+            min_time_heap.push(Reverse((event.time, path)));
         }
     }
 

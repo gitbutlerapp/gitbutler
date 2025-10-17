@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 
 mod args;
 use args::Args;
@@ -110,9 +110,9 @@ pub fn data_dir(
 
 mod trace {
     use tracing::metadata::LevelFilter;
+    use tracing_subscriber::Layer;
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
-    use tracing_subscriber::Layer;
 
     pub fn init() -> anyhow::Result<()> {
         tracing_subscriber::registry()

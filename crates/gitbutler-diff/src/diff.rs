@@ -26,8 +26,8 @@ pub enum ChangeType {
 }
 impl From<git2::Delta> for ChangeType {
     fn from(v: git2::Delta) -> Self {
-        use git2::Delta as D;
         use ChangeType as C;
+        use git2::Delta as D;
         match v {
             D::Added => C::Added,
             D::Untracked => C::Untracked,
@@ -243,15 +243,13 @@ pub fn hunks_by_filepath(
                         .and_then(|repo| repo.workdir())
                         .map(|workdir| workdir.join(file_path))
                         .zip(repo)
-                    {
-                        if !delta.new_file().id().is_zero() && full_path.exists() {
+                        && !delta.new_file().id().is_zero() && full_path.exists() {
                             let oid = repo.blob_path(full_path.as_path()).unwrap();
                             if delta.new_file().id() != oid {
                                 err = Some(format!("we only store the file which is already known by the diff system, but it was different: {} != {}", delta.new_file().id(), oid));
                                 return false
                             }
                         }
-                    }
                     Some(LineOrHexHash::HexHashOfBinaryBlob(delta.new_file().id().to_string()))
                 }
                 D::FileHeader => None,

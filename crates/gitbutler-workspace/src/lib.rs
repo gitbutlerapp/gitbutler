@@ -2,7 +2,7 @@ pub mod branch_trees;
 
 #[expect(deprecated)]
 pub use branch_trees::{
-    compute_updated_branch_head, compute_updated_branch_head_for_commits, BranchHeadAndTree,
+    BranchHeadAndTree, compute_updated_branch_head, compute_updated_branch_head_for_commits,
 };
 
 use anyhow::Result;

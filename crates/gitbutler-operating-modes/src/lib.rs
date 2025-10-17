@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use bstr::BString;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
