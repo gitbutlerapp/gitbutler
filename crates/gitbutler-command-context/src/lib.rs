@@ -1,9 +1,14 @@
+use std::{
+    ops::{Deref, DerefMut},
+    path::Path,
+};
+
 use anyhow::Result;
 use but_settings::AppSettings;
-use gitbutler_project::Project;
-use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
-use std::ops::{Deref, DerefMut};
-use std::path::Path;
+use gitbutler_project::{
+    Project,
+    access::{WorktreeReadPermission, WorktreeWritePermission},
+};
 
 pub struct CommandContext {
     /// The git repository of the `project` itself.

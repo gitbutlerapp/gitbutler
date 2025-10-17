@@ -1,8 +1,11 @@
-use crate::snapshot::args_for_worktree_changes;
-use crate::utils::{read_only_in_memory_scenario, visualize_index};
 use but_testsupport::visualize_tree;
 use but_workspace::snapshot;
 use gix::prelude::ObjectIdExt;
+
+use crate::{
+    snapshot::args_for_worktree_changes,
+    utils::{read_only_in_memory_scenario, visualize_index},
+};
 
 #[test]
 fn unborn_added_to_index() -> anyhow::Result<()> {

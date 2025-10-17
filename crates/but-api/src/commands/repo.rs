@@ -1,3 +1,5 @@
+use std::{path::PathBuf, sync::atomic::AtomicBool};
+
 use anyhow::{Context as _, Result};
 use but_api_macros::api_cmd;
 use but_graph::virtual_branches_legacy_types::BranchOwnershipClaims;
@@ -7,14 +9,13 @@ use gitbutler_branch_actions::{RemoteBranchFile, hooks};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::ProjectId;
-use gitbutler_repo::hooks::{HookResult, MessageHookResult};
-use gitbutler_repo::{FileInfo, RepoCommands};
-use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
+use gitbutler_repo::{
+    FileInfo, RepoCommands,
+    hooks::{HookResult, MessageHookResult},
+};
 use tracing::instrument;
 
-use crate::error::Error;
-use crate::error::ToError;
+use crate::error::{Error, ToError};
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

@@ -1,16 +1,21 @@
-use std::collections::HashMap;
-use std::io::{self, Read};
-use std::path::Path;
-use std::str::FromStr;
+use std::{
+    collections::HashMap,
+    io::{self, Read},
+    path::Path,
+    str::FromStr,
+};
 
 use anyhow::{Context, Result, anyhow};
-use but_action::rename_branch::RenameBranchParams;
-use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
+use but_action::{
+    ActionHandler, OpenAiProvider, Source, rename_branch::RenameBranchParams, reword::CommitEvent,
+};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
-use but_workspace::ui::{StackDetails, StackEntry};
-use but_workspace::{HunkHeader, StackId, StacksFilter};
+use but_workspace::{
+    HunkHeader, StackId, StacksFilter,
+    ui::{StackDetails, StackEntry},
+};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, access::WorktreeWritePermission};
@@ -20,8 +25,9 @@ use serde::{Deserialize, Serialize};
 // use crate::command::file_lock;
 
 mod file_lock;
-use crate::claude_transcript::Transcript;
 use uuid::Uuid;
+
+use crate::claude_transcript::Transcript;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClaudePostToolUseInput {

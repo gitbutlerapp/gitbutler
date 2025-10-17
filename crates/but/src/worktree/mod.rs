@@ -1,6 +1,7 @@
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 use but_api::worktree::IntegrationStatus;
-use std::path::PathBuf;
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {

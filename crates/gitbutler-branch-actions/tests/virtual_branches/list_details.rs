@@ -1,5 +1,6 @@
-use crate::virtual_branches::list;
 use gitbutler_branch_actions::BranchListingDetails;
+
+use crate::virtual_branches::list;
 
 #[test]
 fn one_vbranch_in_workspace_empty_details() -> anyhow::Result<()> {

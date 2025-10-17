@@ -1,5 +1,5 @@
-use crate::Config;
-use crate::SignaturePurpose;
+use std::str;
+
 use anyhow::{Context, Result, anyhow, bail};
 use bstr::BString;
 use but_core::{GitConfigSettings, RepositoryExt as RepositoryExtGix};
@@ -7,15 +7,15 @@ use but_status::create_wd_tree;
 use git2::Tree;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
-use gitbutler_oxidize::ObjectIdExt as _;
 use gitbutler_oxidize::{
-    RepoExt, git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid,
-    gix_to_git2_signature,
+    ObjectIdExt as _, RepoExt, git2_signature_to_gix_signature, git2_to_gix_object_id,
+    gix_to_git2_oid, gix_to_git2_signature,
 };
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::objs::WriteTo;
-use std::str;
 use tracing::instrument;
+
+use crate::{Config, SignaturePurpose};
 
 /// Extension trait for `git2::Repository`.
 ///

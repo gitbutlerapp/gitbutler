@@ -1,7 +1,8 @@
-use but_core::RefMetadata;
-use but_core::ref_metadata::StackId;
-use but_graph::VirtualBranchesTomlMetadata;
-use but_graph::virtual_branches_legacy_types::{Stack, StackBranch, Target};
+use but_core::{RefMetadata, ref_metadata::StackId};
+use but_graph::{
+    VirtualBranchesTomlMetadata,
+    virtual_branches_legacy_types::{Stack, StackBranch, Target},
+};
 
 pub fn read_only_in_memory_scenario(
     name: &str,

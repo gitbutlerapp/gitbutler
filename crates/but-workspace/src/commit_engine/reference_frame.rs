@@ -1,8 +1,8 @@
-use crate::commit_engine::{ReferenceFrame, reference_frame};
 use anyhow::{Context, bail};
 use gitbutler_stack::{StackId, VirtualBranchesState};
-use gix::prelude::ObjectIdExt;
-use gix::revision::walk::Sorting;
+use gix::{prelude::ObjectIdExt, revision::walk::Sorting};
+
+use crate::commit_engine::{ReferenceFrame, reference_frame};
 
 /// How to infer the reference frame.
 pub enum InferenceMode {

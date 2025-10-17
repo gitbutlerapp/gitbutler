@@ -1,8 +1,13 @@
-use crate::ranges::paths::PathRanges;
-use crate::ranges::tests::{id_from_hex_char, input_hunk_from_unified_diff};
-use crate::{HunkRange, InputDiffHunk};
 use but_core::TreeStatusKind;
 use but_workspace::StackId;
+
+use crate::{
+    HunkRange, InputDiffHunk,
+    ranges::{
+        paths::PathRanges,
+        tests::{id_from_hex_char, input_hunk_from_unified_diff},
+    },
+};
 
 #[test]
 fn stack_simple() -> anyhow::Result<()> {

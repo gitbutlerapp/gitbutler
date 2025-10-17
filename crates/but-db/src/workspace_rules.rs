@@ -1,10 +1,10 @@
-use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl};
-
-use crate::DbHandle;
-use crate::schema::workspace_rules::dsl::workspace_rules;
-
-use diesel::prelude::{Insertable, Queryable, Selectable};
+use diesel::{
+    ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl,
+    prelude::{Insertable, Queryable, Selectable},
+};
 use serde::{Deserialize, Serialize};
+
+use crate::{DbHandle, schema::workspace_rules::dsl::workspace_rules};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::workspace_rules)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]

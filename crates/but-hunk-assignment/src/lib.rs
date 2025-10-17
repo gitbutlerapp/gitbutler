@@ -615,11 +615,11 @@ pub fn assignments_to_requests(assignments: Vec<HunkAssignment>) -> Vec<HunkAssi
 
 #[cfg(test)]
 mod tests {
-    use crate::reconcile::MultipleOverlapping;
-
-    use super::*;
     use bstr::BString;
     use but_workspace::{HunkHeader, StackId};
+
+    use super::*;
+    use crate::reconcile::MultipleOverlapping;
 
     impl HunkAssignment {
         pub fn new(

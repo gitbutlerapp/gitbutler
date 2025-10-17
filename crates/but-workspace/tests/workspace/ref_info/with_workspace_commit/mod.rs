@@ -3293,9 +3293,11 @@ mod journey;
 mod legacy;
 
 pub(crate) mod utils {
-    use but_graph::VirtualBranchesTomlMetadata;
-    use but_graph::init::Options;
-    use but_graph::virtual_branches_legacy_types::{Stack, StackBranch, Target};
+    use but_graph::{
+        VirtualBranchesTomlMetadata,
+        init::Options,
+        virtual_branches_legacy_types::{Stack, StackBranch, Target},
+    };
     use but_testsupport::gix_testtools::tempfile::TempDir;
     use gitbutler_stack::StackId;
 
@@ -3494,9 +3496,10 @@ pub(crate) mod utils {
         stack_id
     }
 }
-use crate::ref_info::utils::standard_options;
-use crate::ref_info::with_workspace_commit::utils::{
-    StackState, add_stack_with_segments, add_workspace,
-};
 use utils::add_stack;
 pub use utils::read_only_in_memory_scenario;
+
+use crate::ref_info::{
+    utils::standard_options,
+    with_workspace_commit::utils::{StackState, add_stack_with_segments, add_workspace},
+};

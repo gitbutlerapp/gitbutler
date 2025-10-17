@@ -10,7 +10,6 @@ use async_openai::{
         CreateChatCompletionRequestArgs, ResponseFormat, ResponseFormatJsonSchema,
     },
 };
-
 use but_secret::{Sensitive, secret};
 use but_tools::tool::Toolset;
 use futures::StreamExt;

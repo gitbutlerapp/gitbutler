@@ -1,7 +1,8 @@
-use crate::{HunkHeader, commit_engine::HunkRange};
 use anyhow::Context;
 use bstr::{BStr, BString, ByteSlice};
 use but_core::unified_diff::DiffHunk;
+
+use crate::{HunkHeader, commit_engine::HunkRange};
 
 /// Given an `old_image` and a `new_image`, along with `hunks` that represent selections in `new_image`, apply these
 /// hunks to `old_image` and return the newly constructed image.

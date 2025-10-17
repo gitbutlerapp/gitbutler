@@ -1,7 +1,10 @@
-use but_action::ActionHandler;
-use but_action::OpenAiProvider;
-use but_action::Source;
-use but_action::reword::CommitEvent;
+use std::{
+    collections::HashMap,
+    io::{self, Read},
+    str::FromStr,
+};
+
+use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
@@ -9,13 +12,11 @@ use but_workspace::StacksFilter;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use gitbutler_stack::VirtualBranchesHandle;
-use gix::diff::blob::unified_diff::ConsumeBinaryHunk;
-use gix::diff::blob::unified_diff::ContextSize;
-use gix::diff::blob::{Algorithm, UnifiedDiff};
+use gix::diff::blob::{
+    Algorithm, UnifiedDiff,
+    unified_diff::{ConsumeBinaryHunk, ContextSize},
+};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::io::{self, Read};
-use std::str::FromStr;
 
 pub mod db;
 pub mod workspace_identifier;

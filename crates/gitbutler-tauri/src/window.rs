@@ -332,8 +332,7 @@ pub fn create(
     .build()?;
 
     if !use_native_title_bar {
-        use tauri::LogicalPosition;
-        use tauri::Manager;
+        use tauri::{LogicalPosition, Manager};
         use tauri_plugin_trafficlights_positioner::WindowExt;
         if let Some(window) = window.get_window(label) {
             // Note that these lights get reset when the Window label is changed!

@@ -1,6 +1,8 @@
-use crate::init::types::TopoWalk;
-use crate::{CommitFlags, CommitIndex, Graph, SegmentIndex, SegmentMetadata};
 use petgraph::Direction;
+
+use crate::{
+    CommitFlags, CommitIndex, Graph, SegmentIndex, SegmentMetadata, init::types::TopoWalk,
+};
 
 impl Graph {
     /// Return the number segments whose commits are all exclusively in a remote.

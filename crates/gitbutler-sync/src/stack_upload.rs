@@ -1,6 +1,5 @@
 use anyhow::{Result, bail};
 // A happy little module for uploading stacks.
-
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::HasCommitHeaders as _;
 use gitbutler_oplog::reflog::{ReflogCommits, set_reference_to_oplog};

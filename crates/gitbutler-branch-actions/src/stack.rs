@@ -1,21 +1,24 @@
 use anyhow::{Context, Result};
 use but_core::RepositoryExt;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gitbutler_oplog::{OplogExt, SnapshotExt};
+use gitbutler_operating_modes::ensure_open_workspace_mode;
+use gitbutler_oplog::{
+    OplogExt, SnapshotExt,
+    entry::{OperationKind, SnapshotDetails},
+};
 use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo::hooks;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::StackId;
-use gitbutler_stack::{PatchReferenceUpdate, StackBranch};
+use gitbutler_stack::{PatchReferenceUpdate, StackBranch, StackId};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::actions::Verify;
-use crate::r#virtual::PushResult;
-use crate::{VirtualBranchesExt, r#virtual::IsCommitIntegrated};
-use gitbutler_operating_modes::ensure_open_workspace_mode;
+use crate::{
+    VirtualBranchesExt,
+    actions::Verify,
+    r#virtual::{IsCommitIntegrated, PushResult},
+};
 
 /// Adds a new "series/branch" to the Stack.
 /// This is in fact just creating a new  GitButler patch reference (head) and associates it with the stack.

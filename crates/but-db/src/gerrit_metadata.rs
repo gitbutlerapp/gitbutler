@@ -1,10 +1,10 @@
-use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl};
-
-use crate::DbHandle;
-use crate::schema::gerrit_metadata::dsl::gerrit_metadata;
-
-use diesel::prelude::{Insertable, Queryable, Selectable};
+use diesel::{
+    ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl,
+    prelude::{Insertable, Queryable, Selectable},
+};
 use serde::{Deserialize, Serialize};
+
+use crate::{DbHandle, schema::gerrit_metadata::dsl::gerrit_metadata};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::gerrit_metadata)]

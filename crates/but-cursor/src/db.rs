@@ -1,10 +1,10 @@
-use crate::workspace_identifier::get_single_folder_workspace_identifier;
-use anyhow::Result;
-use diesel::prelude::*;
-use diesel::sql_query;
-use diesel::sql_types::Text;
-use serde::{Deserialize, Serialize};
 use std::path::Path;
+
+use anyhow::Result;
+use diesel::{prelude::*, sql_query, sql_types::Text};
+use serde::{Deserialize, Serialize};
+
+use crate::workspace_identifier::get_single_folder_workspace_identifier;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Generation {

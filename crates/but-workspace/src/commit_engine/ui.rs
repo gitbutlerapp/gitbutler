@@ -1,7 +1,8 @@
 #![allow(missing_docs)]
-use crate::commit_engine::RejectionReason;
 use gitbutler_serde::BStringForFrontend;
 use serde::Serialize;
+
+use crate::commit_engine::RejectionReason;
 
 /// The JSON serializable type of [super::CreateCommitOutcome].
 // TODO(ST): this type should contain mappings from old to new commits so that the UI knows what state to update, maybe.

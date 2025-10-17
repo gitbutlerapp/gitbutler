@@ -2,8 +2,7 @@
 //!
 //! This code is a fork of the [`gitbutler_branch_actions::virtual::IsCommitIntegrated`]
 
-use anyhow::anyhow;
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oxidize::{GixRepositoryExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_repo::{

@@ -1,17 +1,15 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a [reference frame](ReferenceFrame).
 
-use crate::{DiffSpec, commit_engine::reference_frame::InferenceMode};
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RepositoryExt;
-use but_rebase::RebaseOutput;
-use but_rebase::commit::DateMode;
-use but_rebase::merge::ConflictErrorContext;
+use but_rebase::{RebaseOutput, commit::DateMode, merge::ConflictErrorContext};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle, VirtualBranchesState};
-use gix::prelude::ObjectIdExt as _;
-use gix::refs::transaction::PreviousValue;
+use gix::{prelude::ObjectIdExt as _, refs::transaction::PreviousValue};
+
+use crate::{DiffSpec, commit_engine::reference_frame::InferenceMode};
 
 pub(crate) mod tree;
 use tree::{CreateTreeOutcome, create_tree};
@@ -22,9 +20,10 @@ pub mod reference_frame;
 mod refs;
 
 mod hunks;
-use crate::WorkspaceCommit;
 pub use hunks::apply_hunks;
 pub use tree::apply_worktree_changes;
+
+use crate::WorkspaceCommit;
 
 /// Types for use in the frontend with serialization support.
 pub mod ui;

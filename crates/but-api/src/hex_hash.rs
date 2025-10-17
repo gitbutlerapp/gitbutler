@@ -1,5 +1,6 @@
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{ops::Deref, str::FromStr};
+
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// A type that deserializes a hexadecimal hash into an object id automatically.
 #[derive(Debug, Clone, Copy)]

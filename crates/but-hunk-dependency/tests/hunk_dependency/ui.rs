@@ -211,6 +211,8 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
 }
 
 mod util {
+    use std::{collections::HashSet, path::PathBuf};
+
     use but_core::unified_diff::DiffHunk;
     use but_hunk_dependency::ui::{
         HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
@@ -218,8 +220,6 @@ mod util {
     use gitbutler_command_context::CommandContext;
     use gitbutler_stack::StackId;
     use itertools::Itertools;
-    use std::collections::HashSet;
-    use std::path::PathBuf;
 
     pub fn to_stable_string(deps: HunkDependencies) -> String {
         let stack_ids = stack_ids_by_diffs(&deps);

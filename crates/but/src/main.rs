@@ -2,11 +2,10 @@ use anyhow::{Context, Result};
 
 mod args;
 use args::{Args, CommandName, Subcommands, actions, claude, cursor};
+use but_claude::hooks::OutputAsJson;
 use but_settings::AppSettings;
 use colored::Colorize;
 use metrics::{Event, Metrics, Props, metrics_if_configured};
-
-use but_claude::hooks::OutputAsJson;
 mod base;
 mod branch;
 mod command;
@@ -299,8 +298,9 @@ where
 }
 
 fn print_grouped_help() {
-    use clap::CommandFactory;
     use std::collections::HashSet;
+
+    use clap::CommandFactory;
 
     let cmd = Args::command();
     let subcommands: Vec<_> = cmd.get_subcommands().collect();

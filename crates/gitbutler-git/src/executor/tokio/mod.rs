@@ -5,8 +5,9 @@ mod unix;
 #[cfg(windows)]
 mod windows;
 
-use gix::bstr::ByteSlice;
 use std::{collections::HashMap, path::Path};
+
+use gix::bstr::ByteSlice;
 use tokio::process::Command;
 
 #[cfg(unix)]

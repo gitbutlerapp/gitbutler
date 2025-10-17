@@ -1,13 +1,14 @@
+use but_testsupport::assure_stable_env;
+use but_workspace::{DiffSpec, commit_engine};
+use commit_engine::Destination;
+use gix::prelude::ObjectIdExt;
+
 use crate::utils::{
     CONTEXT_LINES, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace, diff_spec,
     hunk_header, read_only_in_memory_scenario, to_change_specs_all_hunks_with_context_lines,
     to_change_specs_whole_file, visualize_tree, writable_scenario, writable_scenario_with_ssh_key,
     write_sequence,
 };
-use but_testsupport::assure_stable_env;
-use but_workspace::{DiffSpec, commit_engine};
-use commit_engine::Destination;
-use gix::prelude::ObjectIdExt;
 
 mod with_refs_update {}
 

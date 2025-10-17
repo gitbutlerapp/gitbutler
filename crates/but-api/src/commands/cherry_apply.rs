@@ -1,4 +1,3 @@
-use crate::error::Error;
 use but_api_macros::api_cmd;
 use but_cherry_apply::CherryApplyStatus;
 use but_settings::AppSettings;
@@ -6,6 +5,8 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
 use tracing::instrument;
+
+use crate::error::Error;
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

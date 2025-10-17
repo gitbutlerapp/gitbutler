@@ -9,12 +9,13 @@ mod commits;
 mod move_commit;
 mod squash;
 mod undo;
-use crate::id::CliId;
 pub(crate) use assign::branch_name_to_stack_id;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
 };
+
+use crate::id::CliId;
 
 pub(crate) fn handle(
     project: &Project,
@@ -259,9 +260,10 @@ fn parse_range(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<Cli
     ))
 }
 fn get_all_files_in_display_order(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
+    use std::collections::BTreeMap;
+
     use bstr::BString;
     use but_hunk_assignment::HunkAssignment;
-    use std::collections::BTreeMap;
 
     let project = gitbutler_project::Project::find_by_path(&ctx.project().path)?;
     let changes =

@@ -3,17 +3,18 @@
 //! It will only affect the commit-graph, and never the alter the worktree in any way.
 #![deny(missing_docs)]
 
-use crate::commit::DateMode;
 use anyhow::{Context, Ok, Result, anyhow, bail};
 use bstr::BString;
-use gix::objs::Exists;
-use gix::prelude::ObjectIdExt;
+use gix::{objs::Exists, prelude::ObjectIdExt};
 use tracing::instrument;
+
+use crate::commit::DateMode;
 
 /// Types for use with cherry-picking
 pub mod cherry_pick;
-use crate::cherry_pick::{EmptyCommit, PickMode};
 pub use cherry_pick::function::cherry_pick_one;
+
+use crate::cherry_pick::{EmptyCommit, PickMode};
 
 /// Utilities to create commits (and deal with signing)
 pub mod commit;

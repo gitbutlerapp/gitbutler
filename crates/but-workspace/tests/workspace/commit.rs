@@ -1,10 +1,11 @@
 mod from_new_merge_with_metadata {
-    use crate::ref_info::with_workspace_commit::utils::named_read_only_in_memory_scenario;
     use bstr::ByteSlice;
     use but_graph::init::Options;
     use but_testsupport::{visualize_commit_graph_all, visualize_tree};
     use but_workspace::WorkspaceCommit;
     use gix::prelude::ObjectIdExt;
+
+    use crate::ref_info::with_workspace_commit::utils::named_read_only_in_memory_scenario;
 
     #[test]
     fn without_conflict_journey() -> anyhow::Result<()> {
@@ -421,10 +422,11 @@ mod from_new_merge_with_metadata {
     }
 
     mod utils {
-        use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack_with_segments};
         use but_core::ref_metadata::{StackId, WorkspaceStack, WorkspaceStackBranch};
         use but_graph::VirtualBranchesTomlMetadata;
         use gix::refs::Category;
+
+        use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack_with_segments};
 
         pub fn add_stacks(
             meta: &mut VirtualBranchesTomlMetadata,

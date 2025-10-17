@@ -1,10 +1,10 @@
-use diesel::{ExpressionMethods, Identifiable, OptionalExtension as _, QueryDsl, RunQueryDsl};
-
-use crate::DbHandle;
-use crate::schema::worktrees::dsl::worktrees;
-
-use diesel::prelude::{Insertable, Queryable, Selectable};
+use diesel::{
+    ExpressionMethods, Identifiable, OptionalExtension as _, QueryDsl, RunQueryDsl,
+    prelude::{Insertable, Queryable, Selectable},
+};
 use serde::{Deserialize, Serialize};
+
+use crate::{DbHandle, schema::worktrees::dsl::worktrees};
 
 #[derive(
     Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable, Identifiable,

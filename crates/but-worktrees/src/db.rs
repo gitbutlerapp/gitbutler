@@ -1,9 +1,10 @@
 //! Database operations for worktrees.
 
+use std::path::Path;
+
 use anyhow::Result;
 use bstr::BString;
 use gitbutler_command_context::CommandContext;
-use std::path::Path;
 
 use crate::WorktreeMeta;
 

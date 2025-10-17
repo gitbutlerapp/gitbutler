@@ -110,9 +110,7 @@ pub fn data_dir(
 
 mod trace {
     use tracing::metadata::LevelFilter;
-    use tracing_subscriber::Layer;
-    use tracing_subscriber::layer::SubscriberExt;
-    use tracing_subscriber::util::SubscriberInitExt;
+    use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
     pub fn init() -> anyhow::Result<()> {
         tracing_subscriber::registry()

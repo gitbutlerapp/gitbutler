@@ -1,7 +1,7 @@
+use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
+
 use anyhow::{Context, bail};
 use parking_lot::{ArcRwLockReadGuard, ArcRwLockWriteGuard, RawRwLock};
-use std::path::PathBuf;
-use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{Project, ProjectId};
 

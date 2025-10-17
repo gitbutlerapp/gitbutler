@@ -20,8 +20,7 @@ use gitbutler_oxidize::{
     GixRepositoryExt, ObjectIdExt, OidExt, RepoExt, git2_to_gix_object_id, gix_to_git2_index,
 };
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
-use gitbutler_repo::RepositoryExt;
-use gitbutler_repo::{SignaturePurpose, signature};
+use gitbutler_repo::{RepositoryExt, SignaturePurpose, signature};
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes_with_tree};
 use serde::Serialize;

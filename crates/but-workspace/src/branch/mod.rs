@@ -410,8 +410,9 @@
 //!                                      junctions', decide which parent to
 //!                                      walk along.
 //! ```
-use crate::ref_info;
 use but_core::ref_metadata::StackId;
+
+use crate::ref_info;
 
 /// An even more minimal version of the [`StackEntry](crate::StackEntry) with enough information to query
 /// more information about a Stack.

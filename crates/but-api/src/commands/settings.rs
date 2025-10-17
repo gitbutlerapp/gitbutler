@@ -1,9 +1,11 @@
 //! In place of commands.rs
 use but_api_macros::api_cmd;
-use but_settings::api::{
-    ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate,
+use but_settings::{
+    AppSettings, AppSettingsWithDiskSync,
+    api::{
+        ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate,
+    },
 };
-use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use serde::Deserialize;
 use tracing::instrument;
 

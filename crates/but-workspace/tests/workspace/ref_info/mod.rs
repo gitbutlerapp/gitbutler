@@ -1,5 +1,6 @@
-use crate::ref_info::utils::{read_only_in_memory_scenario, standard_options};
 use but_workspace::{StacksFilter, ref_info, stack_details_v3, stacks_v3};
+
+use crate::ref_info::utils::{read_only_in_memory_scenario, standard_options};
 
 /// All tests that use a workspace commit for a fully managed, explicit workspace.
 pub(crate) mod with_workspace_commit;

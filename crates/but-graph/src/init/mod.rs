@@ -13,8 +13,9 @@ mod walk;
 use walk::*;
 
 pub(crate) mod types;
-use crate::init::overlay::{OverlayMetadata, OverlayRepo};
 use types::{Goals, Instruction, Limit, Queue};
+
+use crate::init::overlay::{OverlayMetadata, OverlayRepo};
 
 mod remotes;
 

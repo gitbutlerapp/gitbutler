@@ -1,6 +1,7 @@
+use std::collections::BTreeSet;
+
 use bstr::BString;
 use but_graph::VirtualBranchesTomlMetadata;
-use std::collections::BTreeSet;
 
 /// A way to determine what should be included in the snapshot when calling [create_tree()](function::create_tree).
 #[derive(Debug, Clone)]
@@ -58,15 +59,16 @@ pub fn no_workspace_and_meta() -> Option<(
 }
 
 pub(super) mod function {
-    use super::{Outcome, State};
-    use crate::{DiffSpec, commit_engine};
+    use std::collections::BTreeSet;
+
     use anyhow::{Context, bail};
     use bstr::{BString, ByteSlice};
     use but_core::{ChangeState, RefMetadata};
-    use gix::diff::index::Change;
-    use gix::object::tree::EntryKind;
-    use std::collections::BTreeSet;
+    use gix::{diff::index::Change, object::tree::EntryKind};
     use tracing::instrument;
+
+    use super::{Outcome, State};
+    use crate::{DiffSpec, commit_engine};
 
     /// Create a tree that represents the snapshot for the given `selection`, whereas the basis for these changes
     /// is the `head_tree_id` *(i.e. the tree to which `HEAD` is ultimately pointing to)* -

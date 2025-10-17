@@ -1,7 +1,6 @@
+use std::{ffi::OsString, path::PathBuf, process::Stdio};
+
 use bstr::BStr;
-use std::ffi::OsString;
-use std::path::PathBuf;
-use std::process::Stdio;
 use tracing::instrument;
 
 /// Prepare `program` for invocation with a Git-compatible shell to help it pick up more of the usual environment on Windows.
@@ -63,8 +62,9 @@ fn parse_key_value_pairs<'a>(input: impl Into<&'a BStr>) -> Vec<(OsString, OsStr
 
 #[cfg(test)]
 mod extract_login_shell_command {
-    use super::parse_key_value_pairs;
     use std::ffi::OsString;
+
+    use super::parse_key_value_pairs;
 
     #[test]
     fn parse_key_value_pairs_various_inputs() {

@@ -1,7 +1,10 @@
+use std::{
+    ffi::OsString,
+    ops::{Deref, DerefMut},
+};
+
 use bstr::{BStr, BString, ByteSlice};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::ffi::OsString;
-use std::ops::{Deref, DerefMut};
 
 /// A form of `BString` for use in structures that are going to be serialized for the frontend as string.
 ///

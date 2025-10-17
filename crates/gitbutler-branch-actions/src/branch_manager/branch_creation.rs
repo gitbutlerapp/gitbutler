@@ -1,29 +1,33 @@
-use super::BranchManager;
-use crate::r#virtual as vbranch;
-use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk, integration::update_workspace_commit};
 use anyhow::{Context, Result, anyhow, bail};
-use but_workspace::branch::OnWorkspaceMergeConflict;
-use but_workspace::branch::apply::{IntegrationMode, WorkspaceReferenceNaming};
-use but_workspace::branch::checkout::UncommitedWorktreeChanges;
-use but_workspace::stack_ext::StackExt;
-use gitbutler_branch::BranchCreateRequest;
-use gitbutler_branch::{self, dedup};
+use but_workspace::{
+    branch::{
+        OnWorkspaceMergeConflict,
+        apply::{IntegrationMode, WorkspaceReferenceNaming},
+        checkout::UncommitedWorktreeChanges,
+    },
+    stack_ext::StackExt,
+};
+use gitbutler_branch::{self, BranchCreateRequest, dedup};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt, RepoExt};
-use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
-use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_project::{AUTO_TRACK_LIMIT_BYTES, access::WorktreeWritePermission};
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::RepositoryExt as _;
-use gitbutler_repo::rebase::gitbutler_merge_commits;
+use gitbutler_repo::{RepositoryExt as _, rebase::gitbutler_merge_commits};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes_with_tree};
 use serde::Serialize;
 use tracing::instrument;
+
+use super::BranchManager;
+use crate::{
+    VirtualBranchesExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
+    r#virtual as vbranch,
+};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

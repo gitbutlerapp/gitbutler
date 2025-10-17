@@ -3,11 +3,11 @@ use std::{
     vec,
 };
 
-use crate::utils::PaniclessSubtraction;
-use crate::{HunkRange, InputDiffHunk};
 use anyhow::{Context, bail};
 use but_core::TreeStatusKind;
 use but_workspace::StackId;
+
+use crate::{HunkRange, InputDiffHunk, utils::PaniclessSubtraction};
 
 /// Adds sequential diffs from sequential commits for a specific path, and shifts line numbers
 /// with additions and deletions. It is expected that diffs are added one commit at a time,

@@ -1,12 +1,18 @@
-use crate::command::discard_change::IndicesOrHeaders;
-use crate::command::{debug_print, indices_or_headers_to_hunk_headers, path_to_rela_path};
+use std::path::Path;
+
 use anyhow::bail;
 use but_core::TreeChange;
-use but_workspace::DiffSpec;
-use but_workspace::commit_engine::{ReferenceFrame, StackSegmentId, create_commit_and_update_refs};
+use but_workspace::{
+    DiffSpec,
+    commit_engine::{ReferenceFrame, StackSegmentId, create_commit_and_update_refs},
+};
 use gitbutler_project::Project;
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
-use std::path::Path;
+
+use crate::command::{
+    debug_print, discard_change::IndicesOrHeaders, indices_or_headers_to_hunk_headers,
+    path_to_rela_path,
+};
 
 #[expect(clippy::too_many_arguments)]
 pub fn commit(

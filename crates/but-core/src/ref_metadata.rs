@@ -1,5 +1,6 @@
-use crate::Id;
 use gix::refs::FullNameRef;
+
+use crate::Id;
 
 /// Metadata about workspaces, associated with references that are designated to a workspace,
 /// i.e. `refs/heads/gitbutler/workspaces/<name>`.

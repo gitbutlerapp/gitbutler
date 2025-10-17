@@ -1,10 +1,12 @@
+use std::path::PathBuf;
+
+use gix::prelude::ObjectIdExt;
+
 use crate::{
     Commit,
     commit::ConflictEntries,
     ui::{TreeChanges, WorktreeChanges},
 };
-use gix::prelude::ObjectIdExt;
-use std::path::PathBuf;
 
 /// See [`super::worktree_changes()`].
 pub fn worktree_changes_by_worktree_dir(worktree_dir: PathBuf) -> anyhow::Result<WorktreeChanges> {

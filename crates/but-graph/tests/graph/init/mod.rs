@@ -726,8 +726,9 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
 mod with_workspace;
 
 mod utils;
-use crate::init::utils::standard_options_with_extra_target;
 pub use utils::{
     StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev,
     read_only_in_memory_scenario, standard_options,
 };
+
+use crate::init::utils::standard_options_with_extra_target;

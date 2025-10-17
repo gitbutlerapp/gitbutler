@@ -1,15 +1,23 @@
-use crate::branch::checkout::{Outcome, UncommitedWorktreeChanges};
-use crate::ext::ObjectStorageExt;
-use crate::snapshot;
-use crate::snapshot::create_tree::no_workspace_and_meta;
+use std::collections::{BTreeSet, VecDeque};
+
 use anyhow::bail;
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use but_core::TreeStatus;
-use gix::diff::rewrites::tracker::{Change, ChangeKind};
-use gix::diff::tree::visit;
-use gix::merge::tree::TreatAsUnresolved;
-use gix::prelude::ObjectIdExt;
-use std::collections::{BTreeSet, VecDeque};
+use gix::{
+    diff::{
+        rewrites::tracker::{Change, ChangeKind},
+        tree::visit,
+    },
+    merge::tree::TreatAsUnresolved,
+    prelude::ObjectIdExt,
+};
+
+use crate::{
+    branch::checkout::{Outcome, UncommitedWorktreeChanges},
+    ext::ObjectStorageExt,
+    snapshot,
+    snapshot::create_tree::no_workspace_and_meta,
+};
 
 pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
     changed_files: &[(ChangeKind, BString)],

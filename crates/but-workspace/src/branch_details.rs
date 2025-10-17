@@ -1,18 +1,18 @@
-use crate::ref_info::function::workspace_data_of_default_workspace_branch;
-use crate::ui::{CommitState, PushStatus, UpstreamCommit};
-use crate::{state_handle, ui};
+use std::{collections::HashSet, path::Path};
+
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Code;
 use gitbutler_oxidize::OidExt;
-use gix::date::parse::TimeBuf;
-use gix::prelude::ObjectIdExt;
-use gix::reference::Category;
-use gix::remote::Direction;
+use gix::{date::parse::TimeBuf, prelude::ObjectIdExt, reference::Category, remote::Direction};
 use itertools::Itertools;
-use std::collections::HashSet;
-use std::path::Path;
+
+use crate::{
+    ref_info::function::workspace_data_of_default_workspace_branch,
+    state_handle, ui,
+    ui::{CommitState, PushStatus, UpstreamCommit},
+};
 
 /// Returns information about the current state of a branch.
 pub fn branch_details(

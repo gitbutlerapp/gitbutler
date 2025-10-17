@@ -4,9 +4,10 @@ use std::{
 };
 
 use gitbutler_repo::RepositoryExt as _;
-use gitbutler_testsupport::gix_testtools::scripted_fixture_read_only;
-use gitbutler_testsupport::testing_repository::TestingRepository;
-use gitbutler_testsupport::visualize_git2_tree;
+use gitbutler_testsupport::{
+    gix_testtools::scripted_fixture_read_only, testing_repository::TestingRepository,
+    visualize_git2_tree,
+};
 
 const MAX_SIZE: u64 = 20;
 
@@ -26,8 +27,9 @@ const MAX_SIZE: u64 = 20;
 /// | modify             | modify            | upsert |
 #[cfg(test)]
 mod head_upsert_truthtable {
-    use super::*;
     use gitbutler_testsupport::visualize_git2_tree;
+
+    use super::*;
 
     // | add                | delete            | no-action |
     #[test]

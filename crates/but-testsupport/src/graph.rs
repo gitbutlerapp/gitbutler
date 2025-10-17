@@ -1,10 +1,9 @@
-use but_graph::SegmentMetadata;
-use but_graph::{EntryPoint, Graph, SegmentIndex};
-
-use termtree::Tree;
-
-use but_graph::projection::StackCommitDebugFlags;
 use std::collections::{BTreeMap, BTreeSet};
+
+use but_graph::{
+    EntryPoint, Graph, SegmentIndex, SegmentMetadata, projection::StackCommitDebugFlags,
+};
+use termtree::Tree;
 
 type StringTree = Tree<String>;
 

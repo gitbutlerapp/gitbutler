@@ -1,10 +1,11 @@
-use anyhow::{Result, bail};
-use std::path::{Path, PathBuf};
 use std::{
     fs,
     io::{self, Read, Write},
     path,
+    path::{Path, PathBuf},
 };
+
+use anyhow::{Result, bail};
 use walkdir::{DirEntry, WalkDir};
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 

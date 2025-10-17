@@ -1,11 +1,9 @@
 /// A module to bundle configuration we *write* per repository, but read as normal.
 pub mod git {
+    use std::{borrow::Cow, ffi::OsString, io::Write, path::Path};
+
     use anyhow::Result;
     use bstr::{BString, ByteSlice};
-    use std::borrow::Cow;
-    use std::ffi::OsString;
-    use std::io::Write;
-    use std::path::Path;
 
     const GIT_SIGN_COMMITS: &str = "commit.gpgsign";
     const GITBUTLER_SIGN_COMMITS: &str = "gitbutler.signCommits";
@@ -81,8 +79,9 @@ pub mod git {
     }
 
     pub(crate) mod types {
-        use bstr::BString;
         use std::ffi::OsString;
+
+        use bstr::BString;
 
         /// Settings that are retrieved from Git and written into the repository-local configuration.
         ///

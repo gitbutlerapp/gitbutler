@@ -1,6 +1,7 @@
+use std::path::Path;
+
 use but_graph::VirtualBranchesTomlMetadata;
 use gitbutler_project::Project;
-use std::path::Path;
 
 pub fn project_from_path(path: &Path) -> anyhow::Result<Project> {
     Project::from_path(path)

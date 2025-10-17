@@ -1,21 +1,19 @@
 use anyhow::Result;
 use but_core::Reference;
-use but_rebase::Rebase;
-use but_rebase::RebaseStep;
-use but_rebase::ReferenceSpec;
+use but_rebase::{Rebase, RebaseStep, ReferenceSpec};
 use gitbutler_cherry_pick::GixRepositoryExt;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
-use gitbutler_oxidize::OidExt;
+use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
-use gitbutler_stack::CommitOrChangeId;
-use gitbutler_stack::StackBranch;
-use gitbutler_stack::{StackId, VirtualBranchesHandle};
+use gitbutler_stack::{CommitOrChangeId, StackBranch, StackId, VirtualBranchesHandle};
 
-use crate::MoveChangesResult;
-use crate::stack_ext::StackExt;
-use crate::tree_manipulation::remove_changes_from_commit_in_stack::keep_only_file_changes_in_commit;
-use crate::tree_manipulation::remove_changes_from_commit_in_stack::remove_file_changes_from_commit;
+use crate::{
+    MoveChangesResult,
+    stack_ext::StackExt,
+    tree_manipulation::remove_changes_from_commit_in_stack::{
+        keep_only_file_changes_in_commit, remove_file_changes_from_commit,
+    },
+};
 
 /// Splits a branch by creating a new branch with the specified changes.
 ///

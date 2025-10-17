@@ -1,14 +1,16 @@
-use crate::ref_info::with_workspace_commit::utils::{
-    StackState, add_stack_with_segments,
-    named_writable_scenario_with_args_and_description_and_graph,
-    named_writable_scenario_with_description_and_graph,
-};
-use crate::utils::r;
 use but_core::RefMetadata;
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 use but_workspace::branch::remove_reference;
-use gix::refs::Category;
-use gix::refs::transaction::PreviousValue;
+use gix::refs::{Category, transaction::PreviousValue};
+
+use crate::{
+    ref_info::with_workspace_commit::utils::{
+        StackState, add_stack_with_segments,
+        named_writable_scenario_with_args_and_description_and_graph,
+        named_writable_scenario_with_description_and_graph,
+    },
+    utils::r,
+};
 
 #[test]
 fn no_errors_due_to_idempotency_in_empty_workspace() -> anyhow::Result<()> {

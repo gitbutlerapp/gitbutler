@@ -1,14 +1,14 @@
 //! Utility types related to discarding changes in the worktree.
 
+use std::collections::HashMap;
+
 use anyhow::Context;
 use bstr::ByteSlice as _;
 use but_core::ChangeState;
 use but_rebase::{RebaseOutput, RebaseStep};
-use std::collections::HashMap;
-
-use crate::{DiffSpec, HunkHeader, commit_engine::apply_hunks};
 
 use super::hunk::{HunkSubstraction, subtract_hunks};
+use crate::{DiffSpec, HunkHeader, commit_engine::apply_hunks};
 
 /// Takes a rebase output and returns the commit mapping with any extra
 /// mapping overrides provided.

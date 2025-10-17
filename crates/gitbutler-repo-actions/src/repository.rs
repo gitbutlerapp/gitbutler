@@ -7,13 +7,13 @@ use gitbutler_error::error::Code;
 use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_stack::{Stack, StackId};
-
-use crate::askpass;
 use gitbutler_repo::{
     RepositoryExt, credentials,
     logging::{LogUntil, RepositoryExt as _},
 };
+use gitbutler_stack::{Stack, StackId};
+
+use crate::askpass;
 pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()>;
     /// Returns the stderr output of the git executable if used.

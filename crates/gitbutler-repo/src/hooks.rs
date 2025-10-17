@@ -1,14 +1,13 @@
-use crate::staging;
+use std::{io::Write, path::PathBuf, process::Stdio};
+
 use anyhow::Result;
 use bstr::ByteSlice;
-use git2_hooks;
-use git2_hooks::HookResult as H;
+use git2_hooks::{self, HookResult as H};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::GitHunk;
 use serde::Serialize;
-use std::io::Write;
-use std::path::PathBuf;
-use std::process::Stdio;
+
+use crate::staging;
 
 #[derive(Serialize, PartialEq, Debug, Clone)]
 pub struct MessageData {

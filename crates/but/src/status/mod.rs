@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_core::ui::{TreeChange, TreeStatus};
@@ -11,7 +13,6 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oxidize::OidExt;
 use gitbutler_project::Project;
 use serde::Serialize;
-use std::collections::BTreeMap;
 pub(crate) mod assignment;
 
 use crate::id::CliId;

@@ -1,19 +1,26 @@
-use crate::commit_engine::refs_update::utils::{
-    graph_commit_outcome, has_signature, stack_with_branches, write_vrbranches_to_refs,
-    write_worktree_file,
-};
-use crate::commit_engine::utils::assure_no_worktree_changes;
-use crate::utils::{
-    CONTEXT_LINES, hunk_header, read_only_in_memory_scenario, to_change_specs_all_hunks,
-    to_change_specs_whole_file, visualize_index, visualize_index_with_content, visualize_tree,
-    worktree_changes_with_diffs, writable_scenario, writable_scenario_with_ssh_key, write_sequence,
-};
 use but_testsupport::{assure_stable_env, visualize_commit_graph};
-use but_workspace::DiffSpec;
-use but_workspace::commit_engine::{Destination, ReferenceFrame, StackSegmentId};
+use but_workspace::{
+    DiffSpec,
+    commit_engine::{Destination, ReferenceFrame, StackSegmentId},
+};
 use gitbutler_stack::VirtualBranchesState;
-use gix::prelude::ObjectIdExt;
-use gix::refs::transaction::PreviousValue;
+use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
+
+use crate::{
+    commit_engine::{
+        refs_update::utils::{
+            graph_commit_outcome, has_signature, stack_with_branches, write_vrbranches_to_refs,
+            write_worktree_file,
+        },
+        utils::assure_no_worktree_changes,
+    },
+    utils::{
+        CONTEXT_LINES, hunk_header, read_only_in_memory_scenario, to_change_specs_all_hunks,
+        to_change_specs_whole_file, visualize_index, visualize_index_with_content, visualize_tree,
+        worktree_changes_with_diffs, writable_scenario, writable_scenario_with_ssh_key,
+        write_sequence,
+    },
+};
 
 #[test]
 fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {

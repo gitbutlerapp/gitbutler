@@ -1,9 +1,10 @@
 use std::{collections::HashSet, fmt, str::FromStr};
 
-use crate::{Stack, file_ownership::OwnershipClaim};
 use anyhow::Result;
 use but_graph::virtual_branches_legacy_types;
 use itertools::Itertools;
+
+use crate::{Stack, file_ownership::OwnershipClaim};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BranchOwnershipClaims {

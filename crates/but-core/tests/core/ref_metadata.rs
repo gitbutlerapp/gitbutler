@@ -1,6 +1,5 @@
 mod workspace {
-    use but_core::ref_metadata::StackKind::AppliedAndUnapplied;
-    use but_core::ref_metadata::Workspace;
+    use but_core::ref_metadata::{StackKind::AppliedAndUnapplied, Workspace};
 
     #[test]
     fn add_new_stack_if_not_present_journey() {

@@ -1,12 +1,11 @@
-use crate::init::PetGraph;
-use crate::{Edge, Graph, Segment, SegmentIndex, SegmentMetadata};
+use std::collections::BTreeMap;
+
 use anyhow::{Context, bail};
 use bstr::{BString, ByteSlice, ByteVec};
 use gix::reference::Category;
-use petgraph::prelude::EdgeRef;
-use petgraph::stable_graph::EdgeReference;
-use petgraph::visit::IntoEdgeReferences;
-use std::collections::BTreeMap;
+use petgraph::{prelude::EdgeRef, stable_graph::EdgeReference, visit::IntoEdgeReferences};
+
+use crate::{Edge, Graph, Segment, SegmentIndex, SegmentMetadata, init::PetGraph};
 
 /// Debugging
 impl Graph {
@@ -247,9 +246,7 @@ impl Graph {
     #[cfg(unix)]
     #[tracing::instrument(skip(self))]
     pub fn open_as_svg(&self) {
-        use std::io::Write;
-        use std::process::Stdio;
-        use std::sync::atomic::AtomicUsize;
+        use std::{io::Write, process::Stdio, sync::atomic::AtomicUsize};
 
         static SUFFIX: AtomicUsize = AtomicUsize::new(0);
         let suffix = SUFFIX.fetch_add(1, std::sync::atomic::Ordering::SeqCst);

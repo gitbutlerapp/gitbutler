@@ -1,27 +1,32 @@
-use crate::ref_info::with_workspace_commit::utils::{
-    named_read_only_in_memory_scenario, named_writable_scenario,
-};
-use crate::utils::{r, rc};
-use but_core::RefMetadata;
-use but_core::ref_metadata::ValueInfo;
+use std::borrow::Cow;
+
+use but_core::{RefMetadata, ref_metadata::ValueInfo};
 use but_graph::init::Options;
 use but_testsupport::{graph_workspace, id_at, id_by_rev, visualize_commit_graph_all};
 use but_workspace::branch::create_reference::{Anchor, Position::*};
-use std::borrow::Cow;
+
+use crate::{
+    ref_info::with_workspace_commit::utils::{
+        named_read_only_in_memory_scenario, named_writable_scenario,
+    },
+    utils::{r, rc},
+};
 
 mod with_workspace {
-    use crate::ref_info::with_workspace_commit::utils::{
-        StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
-        named_writable_scenario, named_writable_scenario_with_description,
-    };
-    use crate::utils::{r, rc};
-    use but_core::RefMetadata;
-    use but_core::ref_metadata::ValueInfo;
-    use but_graph::VirtualBranchesTomlMetadata;
-    use but_graph::init::Options;
+    use std::borrow::Cow;
+
+    use but_core::{RefMetadata, ref_metadata::ValueInfo};
+    use but_graph::{VirtualBranchesTomlMetadata, init::Options};
     use but_testsupport::{graph_workspace, id_at, id_by_rev, visualize_commit_graph_all};
     use but_workspace::branch::create_reference::{Anchor, Position::*};
-    use std::borrow::Cow;
+
+    use crate::{
+        ref_info::with_workspace_commit::utils::{
+            StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
+            named_writable_scenario, named_writable_scenario_with_description,
+        },
+        utils::{r, rc},
+    };
 
     #[test]
     fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {

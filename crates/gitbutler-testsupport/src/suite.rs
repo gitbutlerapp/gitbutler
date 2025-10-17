@@ -9,8 +9,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_repo::RepositoryExt;
 use tempfile::{TempDir, tempdir};
 
-use crate::test_project::setup_config;
-use crate::{VAR_NO_CLEANUP, init_opts, init_opts_bare};
+use crate::{VAR_NO_CLEANUP, init_opts, init_opts_bare, test_project::setup_config};
 
 pub struct Suite {
     pub local_app_data: Option<TempDir>,

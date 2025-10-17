@@ -1,4 +1,5 @@
-use crate::{Stack, VirtualBranchesHandle};
+use std::{fmt::Display, str::FromStr};
+
 use anyhow::{Ok, Result};
 use bstr::{BString, ByteSlice};
 use but_graph::virtual_branches_legacy_types;
@@ -13,7 +14,8 @@ use gix::refs::{
 };
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, str::FromStr};
+
+use crate::{Stack, VirtualBranchesHandle};
 
 /// A GitButler-specific reference type that points to a commit or a patch (change).
 /// The principal difference between a `PatchReference` and a regular git reference is that a `PatchReference` can point to a change (patch) that is mutable.

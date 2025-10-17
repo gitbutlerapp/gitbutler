@@ -13,19 +13,17 @@
 
 use std::sync::Arc;
 
-use but_api::App;
 use but_api::{
-    cherry_apply, cli, config, diff, forge, git, modes, open, oplog, remotes, repo, rules, secret,
-    stack, users, virtual_branches, workspace,
+    App, cherry_apply, cli, config, diff, forge, git, modes, open, oplog, remotes, repo, rules,
+    secret, stack, users, virtual_branches, workspace,
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
-use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::{
-    WindowState, action, askpass, bot, claude, env, github, logs, menu, projects, settings, zip,
+    WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, github, logs, menu,
+    projects, settings, zip,
 };
-use tauri::Emitter;
-use tauri::{Manager, generate_context};
+use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_log::{Target, TargetKind};
 use tokio::sync::Mutex;
 

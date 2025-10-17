@@ -1,9 +1,10 @@
-use but_core::RepositoryExt;
-use serde::{Deserialize, Serialize};
 use std::path;
 
+use but_core::RepositoryExt;
+use serde::{Deserialize, Serialize};
+
 use crate::{
-    default_true::DefaultTrue, ApiProject, AuthKey, CodePushState, FetchResult, ProjectId,
+    ApiProject, AuthKey, CodePushState, FetchResult, ProjectId, default_true::DefaultTrue,
 };
 
 /// API-specific project type that can be enriched with computed/derived data

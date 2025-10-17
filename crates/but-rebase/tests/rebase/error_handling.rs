@@ -1,7 +1,9 @@
-use crate::utils::{fixture, four_commits};
+use std::str::FromStr;
+
 use but_rebase::{Rebase, RebaseStep};
 use gix::ObjectId;
-use std::str::FromStr;
+
+use crate::utils::{fixture, four_commits};
 
 fn non_existing_commit() -> gix::ObjectId {
     ObjectId::from_str("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee").unwrap()

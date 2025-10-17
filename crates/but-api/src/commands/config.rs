@@ -1,3 +1,4 @@
+use but_api_macros::api_cmd;
 use but_core::{RepositoryExt, settings::git::ui::GitConfigSettings};
 use gitbutler_project::ProjectId;
 use gitbutler_serde::bstring_opt_lossy;
@@ -6,7 +7,6 @@ use serde::Serialize;
 use tracing::instrument;
 
 use crate::error::Error;
-use but_api_macros::api_cmd;
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

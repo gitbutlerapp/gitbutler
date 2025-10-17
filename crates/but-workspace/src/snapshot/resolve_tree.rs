@@ -36,12 +36,14 @@ pub struct Options {
 }
 
 pub(super) mod function {
-    use super::{Options, Outcome};
+    use std::collections::BTreeSet;
+
     use anyhow::{Context, bail};
     use bstr::ByteSlice;
     use gitbutler_oxidize::GixRepositoryExt;
     use gix::index::entry::{Flags, Stage};
-    use std::collections::BTreeSet;
+
+    use super::{Options, Outcome};
 
     /// Given the `snapshot_tree` as previously returned via [super::create_tree::Outcome::snapshot_tree], extract data and…
     ///

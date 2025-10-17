@@ -1,11 +1,10 @@
 pub mod branch_trees;
 
+use anyhow::Result;
 #[expect(deprecated)]
 pub use branch_trees::{
     BranchHeadAndTree, compute_updated_branch_head, compute_updated_branch_head_for_commits,
 };
-
-use anyhow::Result;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::OidExt;
 use gitbutler_project::access::WorktreeReadPermission;

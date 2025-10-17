@@ -1,5 +1,6 @@
-use super::*;
 use bstr::BString;
+
+use super::*;
 
 #[test]
 fn empty() {

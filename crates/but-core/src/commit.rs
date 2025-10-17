@@ -1,10 +1,11 @@
-use crate::Commit;
+use std::{collections::HashSet, path::PathBuf, str::FromStr};
+
 use anyhow::{Context, bail};
 use bstr::{BString, ByteSlice};
 use gix::prelude::ObjectIdExt;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
-use std::{collections::HashSet, path::PathBuf};
+
+use crate::Commit;
 
 /// A unique ID to track any commit.
 pub type ChangeId = crate::Id<'C'>;

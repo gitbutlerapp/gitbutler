@@ -1,8 +1,13 @@
-use but_core::ref_metadata;
-use but_core::ref_metadata::{Branch, StackId, Workspace, WorkspaceStackBranch};
+use std::{
+    any::Any,
+    ops::{Deref, DerefMut},
+};
+
+use but_core::{
+    ref_metadata,
+    ref_metadata::{Branch, StackId, Workspace, WorkspaceStackBranch},
+};
 use gix::refs::{Category, FullName, PartialName};
-use std::any::Any;
-use std::ops::{Deref, DerefMut};
 
 /// A trivial in-memory implementation of the ref-metadata trait, and one that ideally works correctly.
 #[derive(Debug, Default)]

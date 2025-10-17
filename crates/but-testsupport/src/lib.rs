@@ -1,12 +1,14 @@
 //! Utilities for testing.
 #![deny(missing_docs)]
 
-use gix::Repository;
-use gix::bstr::{BStr, ByteSlice};
-use gix::config::tree::Key;
+use std::{collections::HashMap, path::Path};
+
+use gix::{
+    Repository,
+    bstr::{BStr, ByteSlice},
+    config::tree::Key,
+};
 pub use gix_testtools;
-use std::collections::HashMap;
-use std::path::Path;
 
 mod in_memory_meta;
 pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};

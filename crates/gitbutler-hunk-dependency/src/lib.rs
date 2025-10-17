@@ -6,12 +6,9 @@ pub(crate) mod stack;
 pub mod utils;
 pub(crate) mod workspace;
 
-pub use {
-    hunk::HunkRange,
-    input::{InputCommit, InputDiff, InputFile, InputStack, parse_diff_from_string},
-    locks::{HunkDependencyOptions, HunkLock, calculate_hunk_dependencies},
-    path::PathRanges,
-    stack::StackRanges,
-    workspace::RangeCalculationError,
-    workspace::WorkspaceRanges,
-};
+pub use hunk::HunkRange;
+pub use input::{InputCommit, InputDiff, InputFile, InputStack, parse_diff_from_string};
+pub use locks::{HunkDependencyOptions, HunkLock, calculate_hunk_dependencies};
+pub use path::PathRanges;
+pub use stack::StackRanges;
+pub use workspace::{RangeCalculationError, WorkspaceRanges};

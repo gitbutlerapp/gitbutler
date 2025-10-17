@@ -1,6 +1,5 @@
 use std::{path::PathBuf, sync::Arc};
 
-use crate::Change;
 use anyhow::{Context, Result};
 use but_core::TreeChange;
 use but_hunk_assignment::HunkAssignment;
@@ -11,6 +10,8 @@ use gitbutler_filemonitor::InternalEvent;
 use gitbutler_operating_modes::operating_mode;
 use gitbutler_project::ProjectId;
 use tracing::instrument;
+
+use crate::Change;
 
 /// A type that contains enough state to make decisions based on changes in the filesystem, which themselves
 /// may trigger [Changes](Change)

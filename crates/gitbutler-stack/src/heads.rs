@@ -1,10 +1,7 @@
-use anyhow::Result;
-use anyhow::anyhow;
-use anyhow::bail;
+use anyhow::{Result, anyhow, bail};
 use itertools::Itertools;
 
-use crate::StackBranch;
-use crate::stack_branch::CommitOrChangeId;
+use crate::{StackBranch, stack_branch::CommitOrChangeId};
 
 pub(crate) fn get_head(heads: &[StackBranch], name: &str) -> Result<(usize, StackBranch)> {
     let (idx, head) = heads

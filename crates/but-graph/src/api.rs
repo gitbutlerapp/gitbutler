@@ -1,12 +1,17 @@
-use crate::init::PetGraph;
-use crate::{Commit, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex};
+use std::{
+    collections::{BTreeSet, VecDeque},
+    ops::{Deref, Index, IndexMut},
+};
+
 use anyhow::{Context, bail};
-use petgraph::Direction;
-use petgraph::prelude::EdgeRef;
-use petgraph::stable_graph::EdgeReference;
-use petgraph::visit::{IntoEdgeReferences, Visitable};
-use std::collections::{BTreeSet, VecDeque};
-use std::ops::{Deref, Index, IndexMut};
+use petgraph::{
+    Direction,
+    prelude::EdgeRef,
+    stable_graph::EdgeReference,
+    visit::{IntoEdgeReferences, Visitable},
+};
+
+use crate::{Commit, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex, init::PetGraph};
 
 /// Mutation
 impl Graph {

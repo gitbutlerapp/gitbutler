@@ -1,9 +1,10 @@
-use crate::error::Error;
 use anyhow::Result;
 use but_api_macros::api_cmd;
 use gitbutler_user::User;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
+
+use crate::error::Error;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UserWithSecretsSensitive {

@@ -5,6 +5,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gix::ObjectId;
 
+use super::MoveChangesResult;
 use crate::{
     DiffSpec,
     stack_ext::StackExt,
@@ -13,8 +14,6 @@ use crate::{
         replace_pick_with_commit,
     },
 };
-
-use super::MoveChangesResult;
 
 /// Removes the specified changes from a given commit.
 ///

@@ -1,7 +1,8 @@
-use crate::branch::OnWorkspaceMergeConflict;
-use crate::branch::checkout::UncommitedWorktreeChanges;
-use but_core::ref_metadata::StackId;
 use std::borrow::Cow;
+
+use but_core::ref_metadata::StackId;
+
+use crate::branch::{OnWorkspaceMergeConflict, checkout::UncommitedWorktreeChanges};
 
 /// Returned by [function::apply()].
 pub struct Outcome<'graph> {
@@ -87,23 +88,26 @@ pub struct Options {
 
 #[allow(clippy::indexing_slicing)]
 pub(crate) mod function {
-    use super::{IntegrationMode, Options, Outcome, WorkspaceReferenceNaming};
-    use crate::WorkspaceCommit;
-    use crate::branch::checkout;
-    use crate::ext::ObjectStorageExt;
-    use crate::ref_info::WorkspaceExt;
-    use anyhow::{Context, bail};
-    use but_core::RefMetadata;
-    use but_core::ref_metadata::StackKind::AppliedAndUnapplied;
-    use but_core::ref_metadata::{StackId, Workspace};
-    use but_graph::init::Overlay;
-    use but_graph::projection::WorkspaceKind;
-    use gitbutler_oxidize::GixRepositoryExt;
-    use gix::reference::Category;
-    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog};
-    use gix::refs::{FullNameRef, Target};
     use std::borrow::Cow;
+
+    use anyhow::{Context, bail};
+    use but_core::{
+        RefMetadata,
+        ref_metadata::{StackId, StackKind::AppliedAndUnapplied, Workspace},
+    };
+    use but_graph::{init::Overlay, projection::WorkspaceKind};
+    use gitbutler_oxidize::GixRepositoryExt;
+    use gix::{
+        reference::Category,
+        refs::{
+            FullNameRef, Target,
+            transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+        },
+    };
     use tracing::instrument;
+
+    use super::{IntegrationMode, Options, Outcome, WorkspaceReferenceNaming};
+    use crate::{WorkspaceCommit, branch::checkout, ext::ObjectStorageExt, ref_info::WorkspaceExt};
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
     /// along with its `meta`-data if it doesn't exist yet.

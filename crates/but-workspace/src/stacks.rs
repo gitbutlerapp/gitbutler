@@ -1,8 +1,8 @@
-use crate::integrated::IsCommitIntegrated;
-use crate::ref_info::Segment;
-use crate::ref_info::{Commit, LocalCommit, LocalCommitRelation};
-use crate::ui::{CommitState, PushStatus, StackDetails};
-use crate::{RefInfo, StacksFilter, branch, head_info, ref_info, state_handle, ui};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
+
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RefMetadata;
@@ -13,8 +13,15 @@ use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
 use gitbutler_stack::{Stack, StackBranch, StackId};
 use gix::date::parse::TimeBuf;
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
-use std::path::Path;
+
+use crate::{
+    RefInfo, StacksFilter, branch, head_info,
+    integrated::IsCommitIntegrated,
+    ref_info,
+    ref_info::{Commit, LocalCommit, LocalCommitRelation, Segment},
+    state_handle, ui,
+    ui::{CommitState, PushStatus, StackDetails},
+};
 
 /// Get a stable `StackId` for the given `name`. It's fetched from `meta`, assuming it's backed by a toml file
 /// and assuming that `name` is stored there as applied or unapplied branch.

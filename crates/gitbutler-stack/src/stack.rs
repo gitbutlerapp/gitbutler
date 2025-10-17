@@ -1,37 +1,31 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::str::FromStr;
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+};
 
-use anyhow::Context;
-use anyhow::Result;
-use anyhow::anyhow;
-use anyhow::bail;
+use anyhow::{Context, Result, anyhow, bail};
 use but_core::Reference;
+pub use but_core::ref_metadata::StackId;
+use but_graph::virtual_branches_legacy_types;
 use but_rebase::ReferenceSpec;
 use git2::Commit;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
-use gitbutler_oxidize::OidExt;
-use gitbutler_oxidize::RepoExt;
+use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_reference::{Refname, RemoteRefname, VirtualRefname, normalize_branch_name};
-use gitbutler_repo::RepositoryExt;
-use gitbutler_repo::logging::LogUntil;
-use gitbutler_repo::logging::RepositoryExt as _;
-use gix::utils::str::decompose;
-use gix::validate::reference::name_partial;
+use gitbutler_repo::{
+    RepositoryExt,
+    logging::{LogUntil, RepositoryExt as _},
+};
+use gix::{utils::str::decompose, validate::reference::name_partial};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::StackBranch;
-use crate::heads::add_head;
-use crate::heads::get_head;
-use crate::heads::remove_head;
-use crate::stack_branch::CommitOrChangeId;
-use crate::stack_branch::remote_reference;
-use crate::{VirtualBranchesHandle, ownership::BranchOwnershipClaims};
-
-pub use but_core::ref_metadata::StackId;
-use but_graph::virtual_branches_legacy_types;
+use crate::{
+    StackBranch, VirtualBranchesHandle,
+    heads::{add_head, get_head, remove_head},
+    ownership::BranchOwnershipClaims,
+    stack_branch::{CommitOrChangeId, remote_reference},
+};
 
 // this is the struct for the virtual branch data that is stored in our data
 // store. it is more or less equivalent to a git branch reference, but it is not
@@ -1020,8 +1014,9 @@ fn remote_reference_exists(
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use git2::{Signature, Time};
+
+    use super::*;
 
     #[test]
     fn gen_name() -> Result<()> {

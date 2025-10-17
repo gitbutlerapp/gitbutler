@@ -1,8 +1,8 @@
-use crate::WorkspaceCommit;
-use crate::ui::StackEntryNoOpt;
 use anyhow::Context;
 use bstr::{BString, ByteSlice};
 use but_core::ref_metadata::MaybeDebug;
+
+use crate::{WorkspaceCommit, ui::StackEntryNoOpt};
 
 /// A minimal stack for use by [WorkspaceCommit::new_from_stacks()].
 #[derive(Clone)]
@@ -37,13 +37,14 @@ impl std::fmt::Debug for Stack {
 
 /// Structures related to creating a merge-commit along with the respective tree.
 pub mod merge {
-    use super::Stack;
-    use crate::WorkspaceCommit;
     use anyhow::{Context, bail};
     use but_graph::SegmentIndex;
     use gitbutler_oxidize::GixRepositoryExt;
     use gix::prelude::ObjectIdExt;
     use tracing::instrument;
+
+    use super::Stack;
+    use crate::WorkspaceCommit;
 
     /// A minimal stack for to represent a stack that conflicted.
     #[derive(Debug, Clone)]

@@ -1,9 +1,10 @@
 //! In place of commands.rs
-use crate::{NoParams, error::Error};
 use anyhow::Result;
 use but_github::{AuthStatusResponse, AuthenticatedUser, CheckAuthStatusParams, Verification};
 use but_settings::AppSettingsWithDiskSync;
 use serde::Serialize;
+
+use crate::{NoParams, error::Error};
 
 pub async fn init_device_oauth(_params: NoParams) -> Result<Verification, Error> {
     but_github::init_device_oauth().await.map_err(Into::into)

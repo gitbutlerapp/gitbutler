@@ -1,12 +1,5 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
-use crate::VirtualBranchesExt;
-use crate::branch_manager::BranchManagerExt;
-use crate::dependencies::compute_workspace_dependencies;
-use crate::{
-    file::{VirtualBranchFile, virtual_hunks_into_virtual_files},
-    hunk::{VirtualBranchHunk, file_hunks_from_diffs},
-};
 use anyhow::{Context, Result, bail};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
@@ -17,6 +10,14 @@ use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim, Stack, StackId};
 use tracing::instrument;
+
+use crate::{
+    VirtualBranchesExt,
+    branch_manager::BranchManagerExt,
+    dependencies::compute_workspace_dependencies,
+    file::{VirtualBranchFile, virtual_hunks_into_virtual_files},
+    hunk::{VirtualBranchHunk, file_hunks_from_diffs},
+};
 
 /// Represents the uncommitted status of the applied virtual branches in the workspace.
 #[derive(Debug)]

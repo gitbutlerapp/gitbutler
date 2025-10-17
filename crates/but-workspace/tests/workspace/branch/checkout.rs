@@ -1,11 +1,13 @@
-use crate::branch::checkout::utils::build_commit;
-use crate::utils::{
-    read_only_in_memory_scenario, visualize_index, writable_scenario, writable_scenario_slow,
-};
 use but_testsupport::{git_status, visualize_commit_graph_all, visualize_disk_tree_skip_dot_git};
-use but_workspace::branch::checkout::UncommitedWorktreeChanges;
-use but_workspace::branch::{checkout, safe_checkout};
+use but_workspace::branch::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout};
 use gix::object::tree::EntryKind;
+
+use crate::{
+    branch::checkout::utils::build_commit,
+    utils::{
+        read_only_in_memory_scenario, visualize_index, writable_scenario, writable_scenario_slow,
+    },
+};
 
 #[test]
 fn update_unborn_head() -> anyhow::Result<()> {

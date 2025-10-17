@@ -1,5 +1,6 @@
-use anyhow::Result;
 use std::fmt::Display;
+
+use anyhow::Result;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PushOutput {

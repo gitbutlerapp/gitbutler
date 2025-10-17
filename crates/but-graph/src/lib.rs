@@ -199,10 +199,9 @@
 #![deny(missing_docs)]
 
 mod segment;
-pub use segment::{Commit, CommitFlags, Segment, SegmentMetadata};
-
 /// Use this for basic types like [`petgraph::Direction`], and graph algorithms.
 pub use petgraph;
+pub use segment::{Commit, CommitFlags, Segment, SegmentMetadata};
 
 mod api;
 /// Produce a graph from a Git repository.

@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 
-use crate::VirtualBranchesExt;
-use crate::dependencies::commit_dependencies_from_workspace;
-use crate::{BranchStatus, compute_workspace_dependencies};
-use anyhow::{Context, Result};
-use anyhow::{anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use but_rebase::RebaseStep;
 use but_workspace::stack_ext::StackExt;
 use gitbutler_command_context::CommandContext;
@@ -14,6 +10,11 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
 use serde::Serialize;
+
+use crate::{
+    BranchStatus, VirtualBranchesExt, compute_workspace_dependencies,
+    dependencies::commit_dependencies_from_workspace,
+};
 
 /// move a commit from one stack to another
 ///

@@ -1,6 +1,7 @@
+use std::path::PathBuf;
+
 use gitbutler_reference::RemoteRefname;
 use gitbutler_stack::StackId;
-use std::path::PathBuf;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "gitbutler-cli", about = "A CLI for GitButler", version = option_env!("GIX_VERSION"))]

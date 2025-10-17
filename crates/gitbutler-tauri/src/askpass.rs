@@ -1,9 +1,7 @@
-use but_api::commands::askpass;
+use but_api::{commands::askpass, error::Error};
 use gitbutler_id::id::Id;
 use gitbutler_repo_actions::askpass::AskpassRequest;
 use tracing::instrument;
-
-use but_api::error::Error;
 
 #[tauri::command(async)]
 #[instrument(skip(response))]

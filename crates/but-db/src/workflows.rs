@@ -1,11 +1,15 @@
-use diesel::dsl::count_star;
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, associations::HasTable};
-
-use crate::schema::workflows::dsl::workflows;
-use crate::{DbHandle, schema::workflows as schema};
-
-use diesel::prelude::{Insertable, Queryable, Selectable};
+use diesel::{
+    ExpressionMethods, QueryDsl, RunQueryDsl,
+    associations::HasTable,
+    dsl::count_star,
+    prelude::{Insertable, Queryable, Selectable},
+};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    DbHandle,
+    schema::{workflows as schema, workflows::dsl::workflows},
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::workflows)]

@@ -4,10 +4,11 @@ use bstr::{BStr, ByteSlice};
 pub use tree_changes::tree_changes;
 
 mod worktree;
+pub use worktree::{worktree_changes, worktree_changes_no_renames};
+
 use crate::{
     ChangeState, IgnoredWorktreeChange, ModeFlags, TreeChange, TreeStatus, TreeStatusKind,
 };
-pub use worktree::{worktree_changes, worktree_changes_no_renames};
 
 /// conversion functions for use in the UI
 pub mod ui;
@@ -107,8 +108,9 @@ impl ModeFlags {
 #[cfg(test)]
 mod tests {
     mod flags {
-        use crate::ModeFlags;
         use gix::objs::tree::EntryKind;
+
+        use crate::ModeFlags;
 
         #[test]
         fn calculate() {

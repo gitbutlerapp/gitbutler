@@ -20,8 +20,10 @@ use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gitbutler_oplog::{OplogExt, entry::Snapshot};
+use gitbutler_oplog::{
+    OplogExt,
+    entry::{OperationKind, Snapshot, SnapshotDetails},
+};
 use gitbutler_oxidize::OidExt;
 use gitbutler_project::ProjectId;
 use tracing::instrument;

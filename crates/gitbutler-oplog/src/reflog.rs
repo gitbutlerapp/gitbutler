@@ -1,14 +1,14 @@
 use std::path::Path;
 
-use crate::state::OplogHandle;
 use anyhow::Result;
 use gitbutler_fs::write;
 use gitbutler_oxidize::OidExt as _;
 use gitbutler_project::Project;
 use gitbutler_repo::{GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME};
 use gitbutler_stack::VirtualBranchesHandle;
-use gix::config::tree::Key;
-use gix::date::parse::TimeBuf;
+use gix::{config::tree::Key, date::parse::TimeBuf};
+
+use crate::state::OplogHandle;
 
 /// A collection of commits that we want to protect from `git GC`.
 ///

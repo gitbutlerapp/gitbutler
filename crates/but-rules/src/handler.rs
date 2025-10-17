@@ -1,10 +1,11 @@
+use std::str::FromStr;
+
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
 use but_hunk_dependency::ui::HunkDependencies;
 use but_workspace::{DiffSpec, StackId, StacksFilter, commit_engine, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use itertools::Itertools;
-use std::str::FromStr;
 
 use crate::{Filter, StackTarget};
 

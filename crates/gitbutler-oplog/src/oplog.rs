@@ -5,33 +5,30 @@ use std::{
     time::Duration,
 };
 
-use crate::{entry::Version, reflog::ReflogCommits};
+use anyhow::{Context, Result, anyhow, bail};
+use but_core::{TreeChange, diff::tree_changes};
+use but_graph::virtual_branches_legacy_types;
+use git2::FileMode;
+use gitbutler_command_context::{CommandContext, RepositoryExtLite};
+use gitbutler_oxidize::{
+    GixRepositoryExt, ObjectIdExt as _, OidExt, RepoExt, git2_to_gix_object_id, gix_time_to_git2,
+    gix_to_git2_oid,
+};
+use gitbutler_project::{
+    AUTO_TRACK_LIMIT_BYTES, Project,
+    access::{WorktreeReadPermission, WorktreeWritePermission},
+};
+use gitbutler_repo::{RepositoryExt, SignaturePurpose};
+use gitbutler_stack::{Stack, VirtualBranchesHandle, VirtualBranchesState};
+use gix::{ObjectId, bstr::ByteSlice, prelude::ObjectIdExt};
+use tracing::instrument;
 
 use super::{
     entry::{OperationKind, Snapshot, SnapshotDetails, Trailer},
     reflog::set_reference_to_oplog,
     state::OplogHandle,
 };
-use anyhow::{Context, Result, anyhow, bail};
-use but_core::{TreeChange, diff::tree_changes};
-use but_graph::virtual_branches_legacy_types;
-use git2::FileMode;
-use gitbutler_command_context::{CommandContext, RepositoryExtLite};
-use gitbutler_oxidize::ObjectIdExt as _;
-use gitbutler_oxidize::RepoExt;
-use gitbutler_oxidize::{
-    GixRepositoryExt, OidExt, git2_to_gix_object_id, gix_time_to_git2, gix_to_git2_oid,
-};
-use gitbutler_project::{
-    AUTO_TRACK_LIMIT_BYTES, Project,
-    access::{WorktreeReadPermission, WorktreeWritePermission},
-};
-use gitbutler_repo::RepositoryExt;
-use gitbutler_repo::SignaturePurpose;
-use gitbutler_stack::{Stack, VirtualBranchesHandle, VirtualBranchesState};
-use gix::prelude::ObjectIdExt;
-use gix::{ObjectId, bstr::ByteSlice};
-use tracing::instrument;
+use crate::{entry::Version, reflog::ReflogCommits};
 
 /// The Oplog allows for crating snapshots of the current state of the project as well as restoring to a previous snapshot.
 /// Snapshots include the state of the working directory as well as all additional GitButler state (e.g. virtual branches, conflict state).

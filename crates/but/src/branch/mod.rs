@@ -1,8 +1,9 @@
+use std::io::{self, Write};
+
 use but_settings::AppSettings;
 use but_workspace::{StackId, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
-use std::io::{self, Write};
 
 mod list;
 

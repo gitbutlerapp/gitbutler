@@ -1,21 +1,30 @@
+use std::{
+    borrow::Cow,
+    io::{Write, stdout},
+    mem::ManuallyDrop,
+    path::Path,
+};
+
 use anyhow::{Context, anyhow, bail};
 use but_core::UnifiedDiff;
 use but_db::poll::ItemKind;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
-use but_workspace::branch::OnWorkspaceMergeConflict;
-use but_workspace::branch::apply::{IntegrationMode, WorkspaceReferenceNaming};
-use but_workspace::branch::checkout::UncommitedWorktreeChanges;
-use but_workspace::branch::create_reference::{Anchor, Position};
-use but_workspace::{DiffSpec, HunkHeader};
+use but_workspace::{
+    DiffSpec, HunkHeader,
+    branch::{
+        OnWorkspaceMergeConflict,
+        apply::{IntegrationMode, WorkspaceReferenceNaming},
+        checkout::UncommitedWorktreeChanges,
+        create_reference::{Anchor, Position},
+    },
+};
 use gitbutler_project::{Project, ProjectId};
-use gix::bstr::{BString, ByteSlice};
-use gix::odb::store::RefreshMode;
-use gix::refs::Category;
-use std::borrow::Cow;
-use std::io::{Write, stdout};
-use std::mem::ManuallyDrop;
-use std::path::Path;
+use gix::{
+    bstr::{BString, ByteSlice},
+    odb::store::RefreshMode,
+    refs::Category,
+};
 use tokio::sync::mpsc::unbounded_channel;
 
 pub(crate) const UI_CONTEXT_LINES: u32 = 3;
@@ -109,20 +118,23 @@ pub fn parse_diff_spec(arg: &Option<String>) -> Result<Option<Vec<DiffSpec>>, an
 }
 
 mod commit;
-use crate::command::discard_change::IndicesOrHeaders;
 pub use commit::commit;
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_command_context::CommandContext;
+
+use crate::command::discard_change::IndicesOrHeaders;
 
 pub mod diff;
 pub mod project;
 
 pub mod assignment {
-    use crate::command::{debug_print, project_from_path};
+    use std::path::Path;
+
     use but_hunk_assignment::HunkAssignmentRequest;
     use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
-    use std::path::Path;
+
+    use crate::command::{debug_print, project_from_path};
 
     pub fn hunk_assignments(current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
@@ -161,17 +173,17 @@ pub mod assignment {
 }
 
 pub mod stacks {
-    use crate::command::{debug_print, project_from_path, ref_metadata_toml};
+    use std::{path::Path, str::FromStr};
+
     use anyhow::Context;
     use but_settings::AppSettings;
     use but_workspace::{StacksFilter, stack_branches, ui};
     use gitbutler_command_context::CommandContext;
     use gitbutler_reference::{Refname, RemoteRefname};
     use gitbutler_stack::StackId;
-    use gix::bstr::ByteSlice;
-    use gix::refs::Category;
-    use std::path::Path;
-    use std::str::FromStr;
+    use gix::{bstr::ByteSlice, refs::Category};
+
+    use crate::command::{debug_print, project_from_path, ref_metadata_toml};
 
     pub fn list(
         current_dir: &Path,

@@ -1,13 +1,14 @@
+use std::fmt::Display;
+
 use bstr::{BString, ByteSlice};
 use but_core::commit::HeadersV2;
 use gitbutler_command_context::CommandContext;
+use gitbutler_commit::commit_ext::CommitExt;
+use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
-use std::fmt::Display;
 use uuid::Uuid;
 
 use crate::parse::PushOutput;
-use gitbutler_commit::commit_ext::CommitExt;
-use serde::{Deserialize, Serialize};
 
 pub mod parse;
 #[derive(Clone, Debug, Serialize, Deserialize)]

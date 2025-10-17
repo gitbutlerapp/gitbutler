@@ -4,21 +4,25 @@
 //! This property allows changeset IDs to be used to determine if two different commits, or sets of commits,
 //! represent the same change.
 
+use std::{
+    borrow::Borrow,
+    collections::{HashMap, HashSet, VecDeque, hash_map::Entry},
+    ops::Deref,
+    time::Duration,
+};
+
+use bstr::{BStr, BString, ByteSlice, ByteVec};
+use but_core::{ChangeState, commit::TreeKind};
+use gix::{
+    diff::tree::{Visit, visit},
+    object::tree::EntryKind,
+    prelude::ObjectIdExt,
+};
+
 use crate::{
     RefInfo,
     ref_info::{LocalCommit, LocalCommitRelation},
     ui::PushStatus,
-};
-use bstr::{BStr, BString, ByteSlice, ByteVec};
-use but_core::{ChangeState, commit::TreeKind};
-use gix::diff::tree::{Visit, visit};
-use gix::{object::tree::EntryKind, prelude::ObjectIdExt};
-use std::collections::VecDeque;
-use std::ops::Deref;
-use std::time::Duration;
-use std::{
-    borrow::Borrow,
-    collections::{HashMap, HashSet, hash_map::Entry},
 };
 
 /// The ID of a changeset, calculated as Git hash for convenience.
