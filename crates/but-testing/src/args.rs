@@ -230,6 +230,12 @@ pub enum Subcommands {
         #[clap(long, short = 'u', default_value_t = false)]
         remote: bool,
     },
+    MoveBranch {
+        /// The name of the branch in a stack to move to the top of the destination stack.
+        stack_branch_subject_name: String,
+        /// The name of the branch in a stack to which the subject branch will be moved on top of.
+        stack_branch_destination_name: String,
+    },
     /// Create a reference at the given position (dependent and independent)
     CreateReference {
         /// Create the branch above the given commit or branch short name.
