@@ -1,6 +1,7 @@
-use crate::git2_to_gix_object_id;
 use anyhow::{Context, Result};
 use gix::merge::tree::{Options, TreatAsUnresolved};
+
+use crate::git2_to_gix_object_id;
 
 pub trait GixRepositoryExt: Sized {
     /// Configure the repository for diff operations between trees.

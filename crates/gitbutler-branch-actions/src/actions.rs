@@ -1,21 +1,3 @@
-use super::r#virtual as vbranch;
-use crate::branch_upstream_integration;
-use crate::branch_upstream_integration::IntegrationStrategy;
-use crate::move_branch::MoveBranchResult;
-use crate::move_commits::{self, MoveCommitIllegalAction};
-use crate::reorder::{self, StackOrder};
-use crate::upstream_integration::{
-    self, BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
-    StackStatuses, UpstreamIntegrationContext,
-};
-use crate::{
-    VirtualBranchesExt, base,
-    base::BaseBranch,
-    branch_manager::BranchManagerExt,
-    file::RemoteBranchFile,
-    remote,
-    remote::{RemoteBranchData, RemoteCommit},
-};
 use anyhow::{Context, Result};
 use but_workspace::{DiffSpec, commit_engine, stack_heads_info, ui};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
@@ -26,14 +8,31 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_project::FetchResult;
-use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_project::{FetchResult, access::WorktreeWritePermission};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, StackId};
-
 use tracing::instrument;
+
+use super::r#virtual as vbranch;
+use crate::{
+    VirtualBranchesExt, base,
+    base::BaseBranch,
+    branch_manager::BranchManagerExt,
+    branch_upstream_integration,
+    branch_upstream_integration::IntegrationStrategy,
+    file::RemoteBranchFile,
+    move_branch::MoveBranchResult,
+    move_commits::{self, MoveCommitIllegalAction},
+    remote,
+    remote::{RemoteBranchData, RemoteCommit},
+    reorder::{self, StackOrder},
+    upstream_integration::{
+        self, BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
+        StackStatuses, UpstreamIntegrationContext,
+    },
+};
 
 pub fn create_commit(
     ctx: &CommandContext,

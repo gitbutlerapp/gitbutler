@@ -1,7 +1,8 @@
-use crate::DiffSpec;
 use anyhow::{Context, bail};
 use bstr::ByteSlice;
 use but_core::{ChangeState, TreeStatus};
+
+use crate::DiffSpec;
 
 /// Discard the given `changes` in the worktree of `repo`. If a change could not be matched with an actual worktree change, for
 /// instance due to a race, that's not an error, instead it will be returned in the result Vec, along with all hunks that couldn't
@@ -189,15 +190,17 @@ pub fn discard_workspace_changes(
 }
 
 mod file {
-    use crate::tree_manipulation::discard_worktree_changes::file::index::mark_entry_for_deletion;
+    use std::path::{Path, PathBuf};
+
     use anyhow::{Context, bail};
     use bstr::{BStr, BString, ByteSlice, ByteVec};
     use but_core::ChangeState;
-    use gix::filter::plumbing::driver::apply::Delay;
-    use gix::object::tree::EntryKind;
-    use gix::prelude::ObjectIdExt;
-    use gix::tempfile::create_dir::Retries;
-    use std::path::{Path, PathBuf};
+    use gix::{
+        filter::plumbing::driver::apply::Delay, object::tree::EntryKind, prelude::ObjectIdExt,
+        tempfile::create_dir::Retries,
+    };
+
+    use crate::tree_manipulation::discard_worktree_changes::file::index::mark_entry_for_deletion;
 
     pub enum RestoreMode {
         /// Assume the resource to be restored doesn't exist as it was deleted.
@@ -543,16 +546,22 @@ mod file {
 }
 
 mod hunk {
-    use crate::HunkHeader;
-    use crate::commit_engine::apply_hunks;
-    use crate::commit_engine::tree::worktree_file_to_git_in_buf;
-    use crate::tree_manipulation::hunk::{HunkSubstraction, subtract_hunks};
     use anyhow::bail;
     use bstr::ByteSlice;
     use but_core::{ChangeState, TreeChange, UnifiedDiff};
-    use gix::filter::plumbing::driver::apply::{Delay, MaybeDelayed};
-    use gix::filter::plumbing::pipeline::convert::ToWorktreeOutcome;
-    use gix::prelude::ObjectIdExt;
+    use gix::{
+        filter::plumbing::{
+            driver::apply::{Delay, MaybeDelayed},
+            pipeline::convert::ToWorktreeOutcome,
+        },
+        prelude::ObjectIdExt,
+    };
+
+    use crate::{
+        HunkHeader,
+        commit_engine::{apply_hunks, tree::worktree_file_to_git_in_buf},
+        tree_manipulation::hunk::{HunkSubstraction, subtract_hunks},
+    };
 
     /// Discard `hunks_to_discard` in the resource at `wt_change`, whose previous version is `previous_state` and is expected to
     /// be tracked and readable from the object database. We will always read what's currently on disk as the current version

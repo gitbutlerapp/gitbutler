@@ -13,19 +13,17 @@
 
 use std::sync::Arc;
 
-use but_api::App;
 use but_api::{
-    cherry_apply, cli, config, diff, forge, git, modes, open, oplog, remotes, repo, rules, secret,
-    stack, users, virtual_branches, workspace,
+    App, cherry_apply, cli, config, diff, forge, git, modes, open, oplog, remotes, repo, rules,
+    secret, stack, users, virtual_branches, workspace,
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
-use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::{
-    action, askpass, bot, claude, env, github, logs, menu, projects, settings, zip, WindowState,
+    WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, github, logs, menu,
+    projects, settings, zip,
 };
-use tauri::Emitter;
-use tauri::{generate_context, Manager};
+use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_log::{Target, TargetKind};
 use tokio::sync::Mutex;
 
@@ -409,9 +407,13 @@ fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
 
     fn doit() {
         if let Some(terminal_vars) = but_core::cmd::extract_interactive_login_shell_environment() {
-            tracing::info!("Inheriting static interactive shell environment, valid for the entire runtime of the application");
+            tracing::info!(
+                "Inheriting static interactive shell environment, valid for the entire runtime of the application"
+            );
             for (key, value) in terminal_vars {
-                std::env::set_var(key, value);
+                unsafe {
+                    std::env::set_var(key, value);
+                }
             }
         } else {
             tracing::info!(

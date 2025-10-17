@@ -1,9 +1,10 @@
 #![allow(missing_docs)]
-use crate::{IgnoredWorktreeChange, UnifiedDiff};
 use bstr::BString;
 use gitbutler_serde::BStringForFrontend;
 use gix::object::tree::EntryKind;
 use serde::{Deserialize, Serialize};
+
+use crate::{IgnoredWorktreeChange, UnifiedDiff};
 
 /// The type returned by [`crate::diff::worktree_changes()`].
 #[derive(Debug, Clone, Serialize)]

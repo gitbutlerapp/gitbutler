@@ -1,18 +1,20 @@
-use crate::utils::{
-    assure_nonconflicting, conflicted, fixture_writable, four_commits_writable, visualize_tree,
-};
 use anyhow::Result;
 use bstr::ByteSlice;
 use but_rebase::{Rebase, RebaseStep};
 use but_testsupport::{assure_stable_env, visualize_commit_graph};
 use gix::prelude::ObjectIdExt;
 
+use crate::utils::{
+    assure_nonconflicting, conflicted, fixture_writable, four_commits_writable, visualize_tree,
+};
+
 mod error_handling;
 
 mod commit {
     mod store_author_globally_if_unset {
-        use crate::utils::{fixture, fixture_writable};
         use but_rebase::commit;
+
+        use crate::utils::{fixture, fixture_writable};
 
         #[test]
         fn fail_if_nothing_can_be_written() -> anyhow::Result<()> {
@@ -684,8 +686,7 @@ pub mod utils {
     use anyhow::Result;
     use but_rebase::RebaseOutput;
     use but_testsupport::gix_testtools;
-    use gix::ObjectId;
-    use gix::prelude::ObjectIdExt;
+    use gix::{ObjectId, prelude::ObjectIdExt};
 
     /// Returns a fixture that may not be written to, objects will never touch disk either.
     pub fn fixture(fixture_name: &str) -> Result<gix::Repository> {

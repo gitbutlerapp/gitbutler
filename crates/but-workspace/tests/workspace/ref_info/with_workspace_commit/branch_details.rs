@@ -1,6 +1,7 @@
-use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
 use but_testsupport::visualize_commit_graph_all;
 use but_workspace::branch_details_v3;
+
+use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
 
 #[test]
 fn disjoint() -> anyhow::Result<()> {

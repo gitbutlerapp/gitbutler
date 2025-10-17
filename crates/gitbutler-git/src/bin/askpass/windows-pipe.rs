@@ -8,21 +8,21 @@ use std::{
 };
 
 use windows::{
-    core::PWSTR,
     Win32::{
         Foundation::{
-            CloseHandle, DuplicateHandle, DUPLICATE_SAME_ACCESS, ERROR_PIPE_NOT_CONNECTED,
+            CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, ERROR_PIPE_NOT_CONNECTED,
             GENERIC_READ, GENERIC_WRITE, HANDLE, WIN32_ERROR,
         },
         Storage::FileSystem::{
-            CreateFileW, FlushFileBuffers, ReadFile, WriteFile, FILE_ATTRIBUTE_NORMAL,
-            FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+            CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_SHARE_WRITE,
+            FlushFileBuffers, OPEN_EXISTING, ReadFile, WriteFile,
         },
         System::{
-            Pipes::{WaitNamedPipeW, NMPWAIT_USE_DEFAULT_WAIT},
+            Pipes::{NMPWAIT_USE_DEFAULT_WAIT, WaitNamedPipeW},
             Threading::GetCurrentProcess,
         },
     },
+    core::PWSTR,
 };
 
 #[derive(Debug)]

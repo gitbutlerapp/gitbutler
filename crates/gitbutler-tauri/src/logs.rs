@@ -3,7 +3,7 @@ use std::{fs, net::Ipv4Addr, path::Path, time::Duration};
 use tauri::{AppHandle, Manager};
 use tracing::{instrument, metadata::LevelFilter, subscriber::set_global_default};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, Layer};
+use tracing_subscriber::{Layer, fmt::format::FmtSpan, layer::SubscriberExt};
 
 pub fn init(app_handle: &AppHandle, performance_logging: bool) {
     let logs_dir = app_handle
@@ -121,16 +121,16 @@ fn prune_old_logs(
 
             let filename = entry.file_name();
             let filename = filename.to_str()?;
-            if let Some(prefix) = log_filename_prefix {
-                if !filename.starts_with(prefix) {
-                    return None;
-                }
+            if let Some(prefix) = log_filename_prefix
+                && !filename.starts_with(prefix)
+            {
+                return None;
             }
 
-            if let Some(suffix) = log_filename_suffix {
-                if !filename.ends_with(suffix) {
-                    return None;
-                }
+            if let Some(suffix) = log_filename_suffix
+                && !filename.ends_with(suffix)
+            {
+                return None;
             }
 
             let created = metadata.created().ok()?;

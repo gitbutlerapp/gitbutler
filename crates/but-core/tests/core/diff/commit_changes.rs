@@ -1,6 +1,7 @@
-use crate::commit::conflict_repo;
-use crate::diff::ui::repo;
-use crate::diff::unified_diffs;
+use crate::{
+    commit::conflict_repo,
+    diff::{ui::repo, unified_diffs},
+};
 
 #[test]
 fn many_changes() -> anyhow::Result<()> {

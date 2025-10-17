@@ -19,6 +19,27 @@
 //! - This might give us more flexabiity in the long run, but initially seems
 //!   more complex with more unknowns.
 
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader, PipeReader, Read as _},
+    process::ExitStatus,
+    sync::Arc,
+};
+
+use anyhow::{Result, bail};
+use but_broadcaster::Broadcaster;
+use but_workspace::StackId;
+use gitbutler_command_context::CommandContext;
+use serde::Serialize;
+use tokio::{
+    fs,
+    process::{Child, Command},
+    sync::{
+        Mutex,
+        mpsc::{UnboundedSender, unbounded_channel},
+    },
+};
+
 use crate::{
     ClaudeMessage, ClaudeMessageContent, ClaudeUserParams, GitButlerMessage, PermissionMode,
     ThinkingLevel, Transcript, UserInput,
@@ -28,25 +49,6 @@ use crate::{
     db::{self, list_messages_by_session},
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
     send_claude_message,
-};
-use anyhow::{Result, bail};
-use but_broadcaster::Broadcaster;
-use but_workspace::StackId;
-use gitbutler_command_context::CommandContext;
-use serde::Serialize;
-use std::{
-    collections::HashMap,
-    io::{BufRead, BufReader, PipeReader, Read as _},
-    process::ExitStatus,
-    sync::Arc,
-};
-use tokio::{
-    fs,
-    process::{Child, Command},
-    sync::{
-        Mutex,
-        mpsc::{UnboundedSender, unbounded_channel},
-    },
 };
 
 /// Holds the CC instances. Currently keyed by stackId, since our current model
@@ -320,8 +322,10 @@ async fn handle_exit(
             // On *nix try to kill claude more gently.
             #[cfg(unix)]
             {
-                use nix::sys::signal::{self, Signal};
-                use nix::unistd::Pid;
+                use nix::{
+                    sys::signal::{self, Signal},
+                    unistd::Pid,
+                };
                 if let Some(pid) = handle.id() {
                     signal::kill(Pid::from_raw(pid as i32), Signal::SIGINT)?;
                     handle.wait().await?;

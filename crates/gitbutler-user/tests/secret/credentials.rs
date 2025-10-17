@@ -5,8 +5,8 @@ use std::{
 };
 
 use keyring::{
-    credential::{CredentialApi, CredentialBuilderApi, CredentialPersistence},
     Credential, Result,
+    credential::{CredentialApi, CredentialBuilderApi, CredentialPersistence},
 };
 
 #[derive(Default)]

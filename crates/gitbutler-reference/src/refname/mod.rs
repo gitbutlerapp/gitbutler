@@ -7,9 +7,9 @@ use std::{fmt, str::FromStr};
 
 pub use error::Error;
 pub use local::Refname as LocalRefname;
-pub use r#virtual::Refname as VirtualRefname;
 pub use remote::Refname as RemoteRefname;
 use serde::{Deserialize, Serialize};
+pub use r#virtual::Refname as VirtualRefname;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Refname {

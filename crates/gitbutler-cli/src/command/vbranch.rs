@@ -1,9 +1,9 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
-use but_workspace::{ui::StackDetails, StackId, StacksFilter};
+use but_workspace::{StackId, StacksFilter, ui::StackDetails};
 use gitbutler_branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest};
-use gitbutler_branch_actions::{get_branch_listing_details, list_branches, BranchManagerExt};
+use gitbutler_branch_actions::{BranchManagerExt, get_branch_listing_details, list_branches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::Project;

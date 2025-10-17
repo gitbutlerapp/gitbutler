@@ -10,12 +10,15 @@ pub use resolve_tree::function::resolve_tree;
 
 /// Utilities for associating snapshot-trees with commits and additional metadata.
 mod commit {
+    use std::{
+        fmt,
+        fmt::{Display, Formatter},
+        str::FromStr,
+    };
+
     use anyhow::anyhow;
     use but_core::RefMetadata;
     use serde::Serialize;
-    use std::fmt;
-    use std::fmt::{Display, Formatter};
-    use std::str::FromStr;
 
     /// A commit representing a snapshot, along with metadata.
     #[expect(dead_code)]

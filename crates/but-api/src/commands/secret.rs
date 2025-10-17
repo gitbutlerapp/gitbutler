@@ -1,6 +1,7 @@
+use std::sync::Mutex;
+
 use but_api_macros::api_cmd;
 use but_secret::{Sensitive, secret};
-use std::sync::Mutex;
 use tracing::instrument;
 
 use crate::error::Error;

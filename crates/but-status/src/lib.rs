@@ -10,11 +10,14 @@ pub fn create_wd_tree(
     repo: &gix::Repository,
     untracked_limit_in_bytes: u64,
 ) -> anyhow::Result<gix::ObjectId> {
-    use bstr::ByteSlice;
-    use gix::bstr::BStr;
-    use gix::status;
-    use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
     use std::collections::HashSet;
+
+    use bstr::ByteSlice;
+    use gix::{
+        bstr::BStr,
+        status,
+        status::plumbing::index_as_worktree::{Change, EntryStatus},
+    };
 
     let (mut pipeline, index) = repo.filter_pipeline(None)?;
     let mut added_worktree_file = |rela_path: &BStr,
@@ -150,8 +153,7 @@ pub fn create_wd_tree(
 
 /// Gets the status of a given repository.
 pub fn get_status(repo: &gix::Repository) -> anyhow::Result<Vec<gix::status::Item>> {
-    use gix::dir::walk::EmissionMode;
-    use gix::status::tree_index::TrackRenames;
+    use gix::{dir::walk::EmissionMode, status::tree_index::TrackRenames};
 
     let status_changes = repo
         .status(gix::progress::Discard)?

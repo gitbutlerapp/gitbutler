@@ -7,7 +7,6 @@ pub use dedup::{dedup, dedup_fmt};
 mod branch;
 pub mod serde;
 pub use branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest};
-
 use lazy_static::lazy_static;
 lazy_static! {
     pub static ref GITBUTLER_WORKSPACE_REFERENCE: gitbutler_reference::LocalRefname =

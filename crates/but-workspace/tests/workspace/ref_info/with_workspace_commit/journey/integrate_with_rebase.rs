@@ -1,8 +1,11 @@
 //! A loose collection of states that users typically encounter.
-use crate::ref_info::utils::standard_options;
-use crate::ref_info::with_workspace_commit::utils::named_read_only_in_memory_scenario_with_description;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_testsupport::visualize_commit_graph_all;
+
+use crate::ref_info::{
+    utils::standard_options,
+    with_workspace_commit::utils::named_read_only_in_memory_scenario_with_description,
+};
 
 #[test]
 fn two_commits_rebased_onto_target() -> anyhow::Result<()> {

@@ -1,8 +1,9 @@
+use std::ops::Deref;
+
 use bstr::{BStr, ByteSlice};
 use but_graph::virtual_branches_legacy_types;
 use gitbutler_stack::StackId;
 use serde::{Deserialize, Serialize, Serializer};
-use std::ops::Deref;
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct BranchUpdateRequest {

@@ -1,5 +1,6 @@
-use crate::InputDiffHunk;
 use anyhow::{Context, anyhow};
+
+use crate::InputDiffHunk;
 
 mod path;
 mod path_utilities;

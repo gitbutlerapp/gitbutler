@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use crate::rub::branch_name_to_stack_id;
 use anyhow::bail;
 use but_rules::Operation;
 use but_settings::AppSettings;
@@ -8,6 +7,8 @@ use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::Project;
+
+use crate::rub::branch_name_to_stack_id;
 pub(crate) fn handle(
     project: &Project,
     _json: bool,

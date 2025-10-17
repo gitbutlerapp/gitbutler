@@ -1,6 +1,5 @@
 use std::path::Path;
 
-use crate::author::Author;
 use anyhow::Result;
 use git2::BranchType;
 use gitbutler_branch::ReferenceExt;
@@ -12,6 +11,8 @@ use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::Serialize;
+
+use crate::author::Author;
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]

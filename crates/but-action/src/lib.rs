@@ -29,9 +29,7 @@ pub mod rename_branch;
 pub mod reword;
 mod simple;
 mod workflow;
-pub use action::ActionListing;
-pub use action::Source;
-pub use action::list_actions;
+pub use action::{ActionListing, Source, list_actions};
 use but_graph::VirtualBranchesTomlMetadata;
 pub use openai::{
     ChatMessage, ToolCallContent, ToolResponseContent, structured_output_blocking,
@@ -39,8 +37,7 @@ pub use openai::{
 };
 use strum::EnumString;
 use uuid::Uuid;
-pub use workflow::WorkflowList;
-pub use workflow::list_workflows;
+pub use workflow::{WorkflowList, list_workflows};
 
 pub fn freestyle(
     project_id: ProjectId,

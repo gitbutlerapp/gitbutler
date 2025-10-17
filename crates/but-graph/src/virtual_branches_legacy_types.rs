@@ -5,9 +5,10 @@
 //!
 //! The types here are the only ones to implement `serde`.
 #![allow(missing_docs)]
+use std::collections::HashMap;
+
 use but_core::ref_metadata::StackId;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// The state of virtual branches data, as persisted in a TOML file.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -23,13 +24,12 @@ pub struct VirtualBranches {
 }
 
 mod stack {
+    use std::{fmt, fmt::Display, path, str::FromStr};
+
     use anyhow::{Context, anyhow};
     use but_core::ref_metadata::StackId;
     use gitbutler_reference::{Refname, RemoteRefname};
     use serde::{Deserialize, Serialize, Serializer};
-    use std::fmt::Display;
-    use std::str::FromStr;
-    use std::{fmt, path};
 
     // this is the struct for the virtual branch data that is stored in our data
     // store. it is more or less equivalent to a git branch reference, but it is not
@@ -405,10 +405,10 @@ mod stack {
 pub use stack::*;
 
 mod target {
-    use gitbutler_reference::RemoteRefname;
-    use serde::ser::SerializeStruct;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use std::str::FromStr;
+
+    use gitbutler_reference::RemoteRefname;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeStruct};
 
     #[derive(Debug, PartialEq, Clone)]
     pub struct Target {

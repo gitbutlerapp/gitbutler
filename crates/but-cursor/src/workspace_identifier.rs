@@ -1,5 +1,6 @@
-use serde::Serialize;
 use std::path::Path;
+
+use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 struct Uri {

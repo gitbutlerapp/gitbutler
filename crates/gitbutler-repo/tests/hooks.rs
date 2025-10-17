@@ -1,8 +1,9 @@
-use gitbutler_repo::hooks::{pre_push, HookResult};
-use gitbutler_testsupport::TestProject;
 use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+
+use gitbutler_repo::hooks::{HookResult, pre_push};
+use gitbutler_testsupport::TestProject;
 
 #[test]
 fn pre_push_hook_not_configured() -> anyhow::Result<()> {

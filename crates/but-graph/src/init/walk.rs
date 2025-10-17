@@ -1,19 +1,21 @@
 //! Utilities for graph-walking specifically.
-use crate::init::overlay::{OverlayMetadata, OverlayRepo};
-use crate::init::types::{EdgeOwned, Instruction, Limit, Queue, QueueItem, TopoWalk};
-use crate::init::{Goals, PetGraph, remotes};
-use crate::{
-    Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
-    is_workspace_ref_name,
-};
+use std::{collections::BTreeSet, ops::Deref};
+
 use anyhow::{Context, bail};
 use but_core::{RefMetadata, ref_metadata};
-use gix::hashtable::hash_map::Entry;
-use gix::reference::Category;
-use gix::traverse::commit::Either;
+use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
 use petgraph::Direction;
-use std::collections::BTreeSet;
-use std::ops::Deref;
+
+use crate::{
+    Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
+    init::{
+        Goals, PetGraph,
+        overlay::{OverlayMetadata, OverlayRepo},
+        remotes,
+        types::{EdgeOwned, Instruction, Limit, Queue, QueueItem, TopoWalk},
+    },
+    is_workspace_ref_name,
+};
 
 pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
 

@@ -1,7 +1,9 @@
-use super::error::Error;
+use std::{fmt, str::FromStr};
+
 use gix::refs::FullNameRef;
 use serde::{Deserialize, Serialize};
-use std::{fmt, str::FromStr};
+
+use super::error::Error;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Refname {

@@ -1,20 +1,14 @@
-use anyhow::Context;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use gitbutler_command_context::CommandContext;
-use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_hunk_dependency::{
     HunkDependencyOptions, InputCommit, InputDiff, InputFile, InputStack,
-    calculate_hunk_dependencies,
+    calculate_hunk_dependencies, locks::HunkDependencyResult,
 };
-use gitbutler_oxidize::ObjectIdExt;
-use gitbutler_oxidize::RepoExt;
-use gitbutler_repo::logging::LogUntil;
-use gitbutler_repo::logging::RepositoryExt as _;
-use gitbutler_stack::Stack;
-use gitbutler_stack::StackId;
+use gitbutler_oxidize::{ObjectIdExt, RepoExt};
+use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
+use gitbutler_stack::{Stack, StackId};
 
-use crate::BranchStatus;
-use crate::file::list_virtual_commit_files;
+use crate::{BranchStatus, file::list_virtual_commit_files};
 
 pub fn compute_workspace_dependencies(
     ctx: &CommandContext,

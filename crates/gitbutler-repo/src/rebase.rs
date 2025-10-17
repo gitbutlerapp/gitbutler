@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 
-use crate::RepositoryExt as _;
 use anyhow::{Context, Result};
 use but_core::commit::ConflictEntries;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
 use gitbutler_command_context::gix_repo_for_merging;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oxidize::{GixRepositoryExt as _, ObjectIdExt as _, OidExt as _};
+
+use crate::RepositoryExt as _;
 
 fn extract_conflicted_files(
     merged_tree_id: gix::Id<'_>,
@@ -197,11 +198,7 @@ impl ToHeaders for ConflictEntries {
         CommitHeadersV2 {
             conflicted: Some({
                 let entries = self.total_entries();
-                if entries > 0 {
-                    entries as u64
-                } else {
-                    1
-                }
+                if entries > 0 { entries as u64 } else { 1 }
             }),
             ..Default::default()
         }

@@ -2,9 +2,9 @@
 use std::os::unix::prelude::PermissionsExt;
 use std::{borrow::Borrow, fs, path::PathBuf};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use bstr::{BString, ByteSlice, ByteVec};
-use diffy::{apply_bytes as diffy_apply, Line, Patch};
+use diffy::{Line, Patch, apply_bytes as diffy_apply};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use hex::ToHex;

@@ -1,20 +1,19 @@
 use std::str::FromStr;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
 use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_repo::{
+    RepositoryExt, credentials,
+    logging::{LogUntil, RepositoryExt as _},
+};
 use gitbutler_stack::{Stack, StackId};
 
 use crate::askpass;
-use gitbutler_repo::{
-    credentials,
-    logging::{LogUntil, RepositoryExt as _},
-    RepositoryExt,
-};
 pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()>;
     /// Returns the stderr output of the git executable if used.

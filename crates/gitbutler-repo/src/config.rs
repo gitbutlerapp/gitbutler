@@ -1,6 +1,7 @@
+use std::borrow::Cow;
+
 use anyhow::Result;
 use bstr::ByteVec;
-use std::borrow::Cow;
 
 pub struct Config<'a> {
     git_repo: &'a git2::Repository,

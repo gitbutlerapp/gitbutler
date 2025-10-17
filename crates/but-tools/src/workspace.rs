@@ -1,25 +1,30 @@
-use std::collections::{HashMap, HashSet};
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+    sync::Arc,
+};
 
 use anyhow::Context;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedDiff};
 use but_graph::VirtualBranchesTomlMetadata;
-use but_workspace::ui::StackEntryNoOpt;
-use but_workspace::{CommmitSplitOutcome, StackId};
+use but_workspace::{CommmitSplitOutcome, StackId, ui::StackEntryNoOpt};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;
-use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gitbutler_oplog::{OplogExt, SnapshotExt};
+use gitbutler_oplog::{
+    OplogExt, SnapshotExt,
+    entry::{OperationKind, SnapshotDetails},
+};
 use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id};
 use gitbutler_project::Project;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
 use schemars::{JsonSchema, schema_for};
 
-use crate::emit::{Emittable, Emitter, StackUpdate};
-use crate::tool::{Tool, ToolResult, Toolset, WorkspaceToolset, error_to_json, result_to_json};
+use crate::{
+    emit::{Emittable, Emitter, StackUpdate},
+    tool::{Tool, ToolResult, Toolset, WorkspaceToolset, error_to_json, result_to_json},
+};
 
 /// Creates a toolset for any kind of workspace operations.
 pub fn workspace_toolset(

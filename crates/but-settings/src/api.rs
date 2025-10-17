@@ -1,6 +1,7 @@
-use crate::AppSettingsWithDiskSync;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+
+use crate::AppSettingsWithDiskSync;
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

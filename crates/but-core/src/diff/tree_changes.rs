@@ -1,8 +1,6 @@
-use crate::commit::TreeKind;
-use crate::{ChangeState, Commit, TreeStatus};
-use crate::{ModeFlags, TreeChange};
-use gix::diff::tree_with_rewrites::Change;
-use gix::prelude::TreeDiffChangeExt;
+use gix::{diff::tree_with_rewrites::Change, prelude::TreeDiffChangeExt};
+
+use crate::{ChangeState, Commit, ModeFlags, TreeChange, TreeStatus, commit::TreeKind};
 
 // TODO: use `peel_to_tree()` once special conflict markers aren't needed anymore.
 fn id_to_tree(repo: &gix::Repository, id: gix::ObjectId) -> anyhow::Result<gix::Tree<'_>> {

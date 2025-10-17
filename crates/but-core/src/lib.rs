@@ -41,14 +41,18 @@
 //!     - A list of patches in unified diff format, with easily accessible line number information. It isn't baked into the patch string itself.
 //!
 
+use std::{
+    any::Any,
+    ops::{Deref, DerefMut},
+    path::PathBuf,
+};
+
 use bstr::BString;
-use gix::object::tree::EntryKind;
-use gix::refs::FullNameRef;
-use gix::status::plumbing::index_as_worktree::ConflictIndexEntry;
+use gix::{
+    object::tree::EntryKind, refs::FullNameRef,
+    status::plumbing::index_as_worktree::ConflictIndexEntry,
+};
 use serde::Serialize;
-use std::any::Any;
-use std::ops::{Deref, DerefMut};
-use std::path::PathBuf;
 
 /// Functions to obtain changes between various items.
 pub mod diff;

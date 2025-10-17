@@ -1,21 +1,23 @@
-use crate::error::Error;
+use std::borrow::Cow;
+
 use anyhow::{Context, anyhow};
 use but_api_macros::api_cmd;
 use but_settings::AppSettings;
-use gitbutler_branch_actions::internal::PushResult;
-use gitbutler_branch_actions::stack::CreateSeriesRequest;
+use gitbutler_branch_actions::{internal::PushResult, stack::CreateSeriesRequest};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
 use gitbutler_user::User;
 use gix::refs::Category;
-use std::borrow::Cow;
 use tracing::instrument;
 
+use crate::error::Error;
+
 pub mod create_reference {
-    use crate::hex_hash::HexHash;
     use serde::{Deserialize, Serialize};
+
+    use crate::hex_hash::HexHash;
 
     #[derive(Deserialize, Serialize, Debug)]
     #[serde(rename_all = "camelCase")]

@@ -1,4 +1,5 @@
-use crate::{Stack, VirtualBranchesHandle};
+use std::{fmt::Display, str::FromStr};
+
 use anyhow::{Ok, Result};
 use bstr::{BString, ByteSlice};
 use but_graph::virtual_branches_legacy_types;
@@ -8,12 +9,13 @@ use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
 use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gix::refs::{
-    transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
     Target,
+    transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
 };
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, str::FromStr};
+
+use crate::{Stack, VirtualBranchesHandle};
 
 /// A GitButler-specific reference type that points to a commit or a patch (change).
 /// The principal difference between a `PatchReference` and a regular git reference is that a `PatchReference` can point to a change (patch) that is mutable.
@@ -200,13 +202,12 @@ impl StackBranch {
         merge_base: git2::Oid,
     ) {
         #[expect(deprecated)]
-        if let CommitOrChangeId::ChangeId(_) = &self.head {
-            if let core::result::Result::Ok(commit) =
+        if let CommitOrChangeId::ChangeId(_) = &self.head
+            && let core::result::Result::Ok(commit) =
                 commit_by_oid_or_change_id(&self.head.clone(), repo, stack_head, merge_base)
-            {
-                self.head = CommitOrChangeId::CommitId(commit.id().to_string());
-            };
-        }
+        {
+            self.head = CommitOrChangeId::CommitId(commit.id().to_string());
+        };
     }
 
     /// This will update the commit that real git reference points to, so it points to `target`,
@@ -452,12 +453,11 @@ impl StackBranch {
             let upstream_head = reference.peel_to_commit()?;
             let mut revwalk = repo.revwalk()?;
             revwalk.push(upstream_head.id())?;
-            if let Some(pred) = stack.branch_predacessor(self) {
-                if let core::result::Result::Ok(head_ref) =
+            if let Some(pred) = stack.branch_predacessor(self)
+                && let core::result::Result::Ok(head_ref) =
                     repo.find_reference(pred.remote_reference(&remote).as_str())
-                {
-                    revwalk.hide(head_ref.peel_to_commit()?.id())?;
-                }
+            {
+                revwalk.hide(head_ref.peel_to_commit()?.id())?;
             }
             revwalk.hide(previous_head)?;
             let mut upstream_only = revwalk

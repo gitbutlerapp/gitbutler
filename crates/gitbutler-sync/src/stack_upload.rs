@@ -1,17 +1,16 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 // A happy little module for uploading stacks.
-
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::HasCommitHeaders as _;
-use gitbutler_oplog::reflog::{set_reference_to_oplog, ReflogCommits};
-use gitbutler_oxidize::{git2_signature_to_gix_signature, ObjectIdExt, OidExt as _};
+use gitbutler_oplog::reflog::{ReflogCommits, set_reference_to_oplog};
+use gitbutler_oxidize::{ObjectIdExt, OidExt as _, git2_signature_to_gix_signature};
 use gitbutler_repo::{commit_message::CommitMessage, signature};
 use gitbutler_stack::{Stack, StackId, VirtualBranchesHandle};
 use gitbutler_user::User;
 use gix::bstr::ByteSlice;
 use rand::Rng;
 
-use crate::cloud::{push_to_gitbutler_server, remote, RemoteKind};
+use crate::cloud::{RemoteKind, push_to_gitbutler_server, remote};
 
 /// Pushes all the branches in a stack, starting at the specified top_branch.
 pub fn push_stack_to_review(

@@ -2,10 +2,15 @@
 use but_graph::VirtualBranchesTomlMetadata;
 use but_testsupport::visualize_commit_graph_all;
 
-use crate::ref_info::utils::standard_options;
-use crate::ref_info::with_workspace_commit::journey::utils::standard_options_with_extra_target;
-use crate::ref_info::with_workspace_commit::utils::{
-    StackState, add_stack_with_segments, named_read_only_in_memory_scenario_with_description,
+use crate::ref_info::{
+    utils::standard_options,
+    with_workspace_commit::{
+        journey::utils::standard_options_with_extra_target,
+        utils::{
+            StackState, add_stack_with_segments,
+            named_read_only_in_memory_scenario_with_description,
+        },
+    },
 };
 
 #[test]

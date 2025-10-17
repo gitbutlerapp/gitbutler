@@ -4,10 +4,9 @@ use but_settings::AppSettingsWithDiskSync;
 use gitbutler_error::error::{self, Code};
 #[cfg(target_os = "macos")]
 use tauri::menu::AboutMetadata;
-use tauri::Emitter;
 use tauri::{
+    AppHandle, Emitter, Manager, Runtime, WebviewWindow,
     menu::{Menu, MenuEvent, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder},
-    AppHandle, Manager, Runtime, WebviewWindow,
 };
 use tracing::instrument;
 

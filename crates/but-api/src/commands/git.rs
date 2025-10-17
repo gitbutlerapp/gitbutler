@@ -1,6 +1,5 @@
 //! In place of commands.rs
-use anyhow::Context;
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use but_api_macros::api_cmd;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
@@ -10,8 +9,7 @@ use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt as _;
 use tracing::instrument;
 
-use crate::error::Error;
-use crate::error::ToError as _;
+use crate::error::{Error, ToError as _};
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

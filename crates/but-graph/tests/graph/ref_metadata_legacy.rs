@@ -1,14 +1,16 @@
-use but_core::RefMetadata;
-use but_core::ref_metadata::{StackId, ValueInfo, WorkspaceStack, WorkspaceStackBranch};
-use but_graph::VirtualBranchesTomlMetadata;
-use but_graph::virtual_branches_legacy_types::Target;
-use but_testsupport::gix_testtools::tempfile::{TempDir, tempdir};
+use std::{ops::Deref, path::PathBuf};
+
+use but_core::{
+    RefMetadata,
+    ref_metadata::{StackId, ValueInfo, WorkspaceStack, WorkspaceStackBranch},
+};
+use but_graph::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
 use but_testsupport::{
-    debug_str, sanitize_uuids_and_timestamps, sanitize_uuids_and_timestamps_with_mapping,
+    debug_str,
+    gix_testtools::tempfile::{TempDir, tempdir},
+    sanitize_uuids_and_timestamps, sanitize_uuids_and_timestamps_with_mapping,
 };
 use gitbutler_reference::RemoteRefname;
-use std::ops::Deref;
-use std::path::PathBuf;
 
 #[test]
 fn journey() -> anyhow::Result<()> {

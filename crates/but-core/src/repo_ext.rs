@@ -1,8 +1,8 @@
-use crate::GitConfigSettings;
-use crate::commit::TreeKind;
 use anyhow::Context;
 use gitbutler_error::error::Code;
 use gix::prelude::ObjectIdExt;
+
+use crate::{GitConfigSettings, commit::TreeKind};
 
 /// Easy access of settings relevant to GitButler for retrieval and storage in Git settings.
 pub trait RepositoryExt {

@@ -1,10 +1,12 @@
-use crate::init::walk::RefsById;
-use crate::init::{Entrypoint, Overlay};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+};
+
 use but_core::{RefMetadata, ref_metadata};
-use gix::prelude::ReferenceExt;
-use gix::refs::Target;
-use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet};
+use gix::{prelude::ReferenceExt, refs::Target};
+
+use crate::init::{Entrypoint, Overlay, walk::RefsById};
 
 impl Overlay {
     /// Serve the given `refs` from memory, as if they would exist.

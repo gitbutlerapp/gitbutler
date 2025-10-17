@@ -1,15 +1,21 @@
-use super::{Options, Outcome};
-use crate::branch::checkout::utils::merge_worktree_changes_into_destination_or_keep_snapshot;
+use std::collections::BTreeSet;
+
 use anyhow::Context;
 use bstr::ByteSlice;
 use gitbutler_oxidize::ObjectIdExt;
-use gix::diff::rewrites::tracker::ChangeKind;
-use gix::objs::TreeRefIter;
-use gix::prelude::ObjectIdExt as _;
-use gix::refs::Target;
-use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog};
-use std::collections::BTreeSet;
+use gix::{
+    diff::rewrites::tracker::ChangeKind,
+    objs::TreeRefIter,
+    prelude::ObjectIdExt as _,
+    refs::{
+        Target,
+        transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+    },
+};
 use tracing::instrument;
+
+use super::{Options, Outcome};
+use crate::branch::checkout::utils::merge_worktree_changes_into_destination_or_keep_snapshot;
 
 /// Like [`safe_checkout()`], but the current tree will always be fetched from
 pub fn safe_checkout_from_head(

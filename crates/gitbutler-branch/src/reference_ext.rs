@@ -1,10 +1,11 @@
-use crate::BranchIdentity;
+use std::{borrow::Cow, collections::BTreeSet};
+
 use anyhow::{Context, Result};
 use bstr::{BStr, ByteSlice};
 use gix::refs::Category;
 use itertools::Itertools;
-use std::borrow::Cow;
-use std::collections::BTreeSet;
+
+use crate::BranchIdentity;
 
 pub trait ReferenceExt {
     /// Fetches a branches name without the remote name attached

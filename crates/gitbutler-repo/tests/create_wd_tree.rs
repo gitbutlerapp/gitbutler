@@ -4,9 +4,10 @@ use std::{
 };
 
 use gitbutler_repo::RepositoryExt as _;
-use gitbutler_testsupport::gix_testtools::scripted_fixture_read_only;
-use gitbutler_testsupport::testing_repository::TestingRepository;
-use gitbutler_testsupport::visualize_git2_tree;
+use gitbutler_testsupport::{
+    gix_testtools::scripted_fixture_read_only, testing_repository::TestingRepository,
+    visualize_git2_tree,
+};
 
 const MAX_SIZE: u64 = 20;
 
@@ -26,8 +27,9 @@ const MAX_SIZE: u64 = 20;
 /// | modify             | modify            | upsert |
 #[cfg(test)]
 mod head_upsert_truthtable {
-    use super::*;
     use gitbutler_testsupport::visualize_git2_tree;
+
+    use super::*;
 
     // | add                | delete            | no-action |
     #[test]
@@ -457,10 +459,12 @@ fn non_files_are_ignored() -> anyhow::Result<()> {
     let test = TestingRepository::open_with_initial_commit(&[]);
 
     let fifo_path = test.tempdir.path().join("fifo");
-    assert!(std::process::Command::new("mkfifo")
-        .arg(&fifo_path)
-        .status()?
-        .success());
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&fifo_path)
+            .status()?
+            .success()
+    );
 
     let tree: git2::Tree = test.repository.create_wd_tree(MAX_SIZE)?;
     assert_eq!(
@@ -478,10 +482,12 @@ fn tracked_file_swapped_with_non_file() -> anyhow::Result<()> {
 
     let fifo_path = test.tempdir.path().join("soon-fifo");
     std::fs::remove_file(&fifo_path)?;
-    assert!(std::process::Command::new("mkfifo")
-        .arg(&fifo_path)
-        .status()?
-        .success());
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&fifo_path)
+            .status()?
+            .success()
+    );
 
     let tree: git2::Tree = test.repository.create_wd_tree(MAX_SIZE)?;
     assert_eq!(

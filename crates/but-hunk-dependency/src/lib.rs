@@ -130,8 +130,7 @@ mod input;
 use anyhow::Context;
 use but_core::{TreeChange, UnifiedDiff};
 use gitbutler_oxidize::ObjectIdExt;
-use gix::prelude::ObjectIdExt as _;
-use gix::trace;
+use gix::{prelude::ObjectIdExt as _, trace};
 pub use input::{InputCommit, InputDiffHunk, InputFile, InputStack};
 
 mod ranges;

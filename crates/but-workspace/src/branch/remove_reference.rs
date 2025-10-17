@@ -13,11 +13,12 @@ pub struct Options {
 }
 
 pub(crate) mod function {
-    use super::Options;
     use anyhow::{Context, bail};
     use but_core::RefMetadata;
     use but_graph::Graph;
     use gix::refs::transaction::PreviousValue;
+
+    use super::Options;
 
     /// Remove the workspace reference `ref_name` (if it still exists),
     /// possibly along with its `meta`-data.

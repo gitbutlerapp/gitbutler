@@ -1,11 +1,12 @@
+use but_testsupport::assure_stable_env;
+use but_workspace::{DiffSpec, HunkHeader, commit_engine::Destination};
+
 use crate::utils::{
     CONTEXT_LINES, cat_commit, commit_from_outcome,
     commit_whole_files_and_all_hunks_from_workspace, read_only_in_memory_scenario_env,
     visualize_commit, visualize_tree, writable_scenario, writable_scenario_with_ssh_key,
     write_local_config, write_sequence,
 };
-use but_testsupport::assure_stable_env;
-use but_workspace::{DiffSpec, HunkHeader, commit_engine::Destination};
 
 #[test]
 fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {

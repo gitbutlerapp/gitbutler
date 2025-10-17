@@ -1,9 +1,12 @@
-use super::{ChangeState, UnifiedDiff};
 use bstr::{BStr, BString, ByteSlice};
-use gix::diff::blob::ResourceKind;
-use gix::diff::blob::platform::prepare_diff::Operation;
-use gix::diff::blob::unified_diff::{ConsumeBinaryHunk, ContextSize, HunkHeader};
+use gix::diff::blob::{
+    ResourceKind,
+    platform::prepare_diff::Operation,
+    unified_diff::{ConsumeBinaryHunk, ContextSize, HunkHeader},
+};
 use serde::Serialize;
+
+use super::{ChangeState, UnifiedDiff};
 
 /// A hunk as used in a [UnifiedDiff], which also contains all added and removed lines.
 #[derive(Clone, Serialize)]

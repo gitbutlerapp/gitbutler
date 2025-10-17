@@ -1,6 +1,9 @@
+use std::{
+    collections::{BTreeSet, HashMap},
+    ptr,
+};
+
 use bstr::{BStr, BString, ByteVec};
-use std::collections::{BTreeSet, HashMap};
-use std::ptr;
 
 /// A lookup table as a tree, with trees represented by their path component.
 pub struct Lut {

@@ -1,31 +1,27 @@
-use crate::gravatar::gravatar_url_from_email;
-use crate::{RemoteBranchFile, VirtualBranchesExt};
+use core::fmt;
+use std::{
+    borrow::Cow,
+    cmp::max,
+    collections::{BTreeSet, HashMap, HashSet},
+    fmt::Debug,
+    vec,
+};
+
 use anyhow::{Context, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
-use core::fmt;
-use gitbutler_branch::BranchIdentity;
-use gitbutler_branch::ReferenceExtGix;
+use gitbutler_branch::{BranchIdentity, ReferenceExtGix};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_oxidize::{GixRepositoryExt, git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_project::access::WorktreeReadPermission;
-use gitbutler_reference::RemoteRefname;
-use gitbutler_reference::normalize_branch_name;
+use gitbutler_reference::{RemoteRefname, normalize_branch_name};
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Stack, StackId, Target};
-use gix::object::tree::diff::Action;
-use gix::prelude::TreeDiffChangeExt;
-use gix::reference::Category;
+use gix::{object::tree::diff::Action, prelude::TreeDiffChangeExt, reference::Category};
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
-use std::collections::BTreeSet;
-use std::{
-    cmp::max,
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    vec,
-};
 use tracing::instrument;
+
+use crate::{RemoteBranchFile, VirtualBranchesExt, gravatar::gravatar_url_from_email};
 
 #[instrument(level = tracing::Level::DEBUG, skip(ctx, _permission))]
 pub(crate) fn get_uncommited_files_raw(

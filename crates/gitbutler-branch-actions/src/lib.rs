@@ -18,9 +18,7 @@ pub use r#virtual::{BranchStatus, VirtualBranchHunksByPathMap};
 /// Avoid using these!
 /// This was previously `pub use r#virtual::*;`
 pub mod internal {
-    pub use super::branch_upstream_integration;
-    pub use super::remote::find_git_branches;
-    pub use super::r#virtual::*;
+    pub use super::{branch_upstream_integration, remote::find_git_branches, r#virtual::*};
 }
 
 mod branch_manager;
@@ -67,15 +65,12 @@ impl VirtualBranchesExt for gitbutler_project::Project {
 
 mod branch;
 mod hunk;
-pub use hunk::{VirtualBranchHunkRange, VirtualBranchHunkRangeMap};
-
 pub use branch::{
     Author, BranchListing, BranchListingDetails, BranchListingFilter, get_branch_listing_details,
     list_branches,
 };
-
+pub use hunk::{VirtualBranchHunkRange, VirtualBranchHunkRangeMap};
 pub use integration::GITBUTLER_WORKSPACE_COMMIT_TITLE;
-
 pub use move_branch::MoveBranchResult;
 pub use move_commits::MoveCommitIllegalAction;
 

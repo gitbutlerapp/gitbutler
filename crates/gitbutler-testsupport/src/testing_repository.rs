@@ -1,12 +1,13 @@
 use std::fs;
 
-use crate::init_opts;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oxidize::git2_to_gix_object_id;
 use gitbutler_repo::RepositoryExt;
 use gix_testtools::bstr::ByteSlice as _;
-use tempfile::{tempdir, TempDir};
+use tempfile::{TempDir, tempdir};
 use uuid::Uuid;
+
+use crate::init_opts;
 
 pub struct TestingRepository {
     pub repository: git2::Repository,

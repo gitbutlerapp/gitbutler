@@ -1,10 +1,12 @@
-use crate::{InputCommit, InputDiffHunk, InputStack};
+use std::collections::{HashMap, HashSet};
+
 use but_core::TreeStatusKind;
 use but_workspace::StackId;
 use gix::bstr::BString;
 use itertools::Itertools;
 use serde::Serialize;
-use std::collections::{HashMap, HashSet};
+
+use crate::{InputCommit, InputDiffHunk, InputStack};
 
 mod hunk;
 pub use hunk::HunkRange;

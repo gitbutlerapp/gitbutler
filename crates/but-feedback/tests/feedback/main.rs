@@ -1,6 +1,7 @@
 mod create_zip_file_from_dir {
-    use but_feedback::create_zip_file_from_dir;
     use std::{fs::File, io::Write};
+
+    use but_feedback::create_zip_file_from_dir;
     use tempfile::tempdir;
 
     #[test]

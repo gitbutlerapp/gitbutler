@@ -24,9 +24,11 @@ mod add {
     }
 
     mod error {
-        use super::*;
-        use gitbutler_project::AddProjectOutcome;
         use std::path::PathBuf;
+
+        use gitbutler_project::AddProjectOutcome;
+
+        use super::*;
 
         #[test]
         fn non_bare_without_worktree() {

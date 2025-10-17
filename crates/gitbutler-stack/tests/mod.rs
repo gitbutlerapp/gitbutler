@@ -7,8 +7,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::PatchReferenceUpdate;
-use gitbutler_stack::{CommitOrChangeId, StackBranch, VirtualBranchesHandle};
+use gitbutler_stack::{CommitOrChangeId, PatchReferenceUpdate, StackBranch, VirtualBranchesHandle};
 use itertools::Itertools;
 use tempfile::TempDir;
 

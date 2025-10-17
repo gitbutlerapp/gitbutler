@@ -1,7 +1,7 @@
 [package]
 name = "gitbutler-notify-debouncer"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 publish = false
 rust-version = "1.89"
 [lib]

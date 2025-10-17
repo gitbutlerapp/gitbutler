@@ -1,9 +1,9 @@
-use crate::commit_engine::UpdatedReference;
 use bstr::BString;
 use gitbutler_stack::VirtualBranchesState;
 use gix::refs::transaction::PreviousValue;
 
 use super::StackSegmentId;
+use crate::commit_engine::UpdatedReference;
 
 /// Rewrite all references as mapped by their target in `refs_by_commit_id` so that those
 /// pointing to `old` in `changed_commits` will then point to `new`.

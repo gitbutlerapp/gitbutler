@@ -1,11 +1,13 @@
-use crate::ref_info::{LocalCommit, LocalCommitRelation};
-use crate::ui;
-use crate::ui::UpstreamCommit;
 use anyhow::{Context, bail};
 use bstr::{BString, ByteSlice};
-use but_core::ref_metadata;
-use but_core::ref_metadata::StackId;
+use but_core::{ref_metadata, ref_metadata::StackId};
 use gix::refs::Category;
+
+use crate::{
+    ref_info::{LocalCommit, LocalCommitRelation},
+    ui,
+    ui::UpstreamCommit,
+};
 
 /// A reference in `refs/heads`.
 #[derive(serde::Serialize, Debug, Clone)]

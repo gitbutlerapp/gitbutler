@@ -1,8 +1,10 @@
-use crate::{App, error::Error};
+use std::path::PathBuf;
+
 use anyhow::Context;
 use gitbutler_error::{error, error::Code};
 use serde::Deserialize;
-use std::path::PathBuf;
+
+use crate::{App, error::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

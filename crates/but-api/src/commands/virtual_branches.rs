@@ -1,17 +1,19 @@
 use anyhow::{Context, Result, anyhow};
 use but_api_macros::api_cmd;
 use but_settings::AppSettings;
-use but_workspace::DiffSpec;
-use but_workspace::ui::{StackEntryNoOpt, StackHeadInfo};
-use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
-use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
-use gitbutler_branch_actions::upstream_integration::{
-    BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
-    StackStatuses,
+use but_workspace::{
+    DiffSpec,
+    ui::{StackEntryNoOpt, StackHeadInfo},
 };
+use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
     BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, MoveBranchResult,
     MoveCommitIllegalAction, RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder,
+    branch_upstream_integration::IntegrationStrategy,
+    upstream_integration::{
+        BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
+        StackStatuses,
+    },
 };
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
@@ -21,8 +23,7 @@ use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gix::reference::Category;
 use tracing::instrument;
 
-use crate::commands::workspace::canned_branch_name;
-use crate::error::Error;
+use crate::{commands::workspace::canned_branch_name, error::Error};
 // Parameter structs for all functions
 
 #[api_cmd]

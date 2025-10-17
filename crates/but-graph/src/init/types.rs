@@ -1,9 +1,11 @@
+use std::{
+    collections::{BTreeSet, VecDeque},
+    ops::Range,
+};
+
+use petgraph::{Direction, prelude::EdgeRef, stable_graph::EdgeReference};
+
 use crate::{CommitFlags, CommitIndex, Edge, SegmentIndex};
-use petgraph::Direction;
-use petgraph::prelude::EdgeRef;
-use petgraph::stable_graph::EdgeReference;
-use std::collections::{BTreeSet, VecDeque};
-use std::ops::Range;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Limit {

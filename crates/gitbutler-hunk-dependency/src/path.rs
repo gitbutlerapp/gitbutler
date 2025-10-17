@@ -3,10 +3,10 @@ use std::{
     vec,
 };
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use gitbutler_stack::StackId;
 
-use crate::{utils::PaniclessSubtraction, HunkRange, InputDiff};
+use crate::{HunkRange, InputDiff, utils::PaniclessSubtraction};
 
 /// Adds sequential diffs from sequential commits for a specific path, and shifts line numbers
 /// with additions and deletions. It is expected that diffs are added one commit at a time,
@@ -264,12 +264,10 @@ impl PathRanges {
 
     /// Look for the commit that created the file.
     fn find_file_creation_commit(&mut self) -> Option<git2::Oid> {
-        let file_creation_commit = self
-            .hunk_ranges
+        self.hunk_ranges
             .iter()
             .find(|h| h.change_type == gitbutler_diff::ChangeType::Added)
-            .map(|h| h.commit_id);
-        file_creation_commit
+            .map(|h| h.commit_id)
     }
 
     fn handle_add_all_hunks(

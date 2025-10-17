@@ -1,10 +1,11 @@
 //! Tests for visualizing the graph data structure.
 
+use std::str::FromStr;
+
 use but_core::ref_metadata;
 use but_graph::{Commit, CommitFlags, Graph, Segment, SegmentIndex, SegmentMetadata};
 use but_testsupport::graph_tree;
 use gix::ObjectId;
-use std::str::FromStr;
 
 /// Simulate a graph data structure after the first pass, i.e., right after the walk.
 /// There is no pruning of 'empty' branches, just a perfect representation of the graph as is,

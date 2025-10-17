@@ -1,13 +1,13 @@
 #![allow(deprecated)]
-use but_api::commands::settings;
-use but_settings::api::{
-    ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate,
+use but_api::{commands::settings, error::Error};
+use but_settings::{
+    AppSettingsWithDiskSync,
+    api::{
+        ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate,
+    },
 };
-use but_settings::AppSettingsWithDiskSync;
 use tauri::State;
 use tracing::instrument;
-
-use but_api::error::Error;
 
 #[tauri::command(async)]
 #[instrument(skip(app_settings_sync), err(Debug))]

@@ -1,7 +1,7 @@
-use crate::HunkRange;
-use crate::ranges::tests::id_from_hex_char;
 use but_core::TreeStatusKind;
 use but_workspace::StackId;
+
+use crate::{HunkRange, ranges::tests::id_from_hex_char};
 
 #[test]
 fn test_split_hunk_range() -> anyhow::Result<()> {

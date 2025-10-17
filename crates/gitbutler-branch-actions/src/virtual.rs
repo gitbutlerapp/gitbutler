@@ -1,9 +1,9 @@
-use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk, status::get_applied_status_cached};
+use std::{collections::HashMap, path::PathBuf, vec};
+
 use anyhow::{Context, Result, anyhow, bail};
 use but_rebase::RebaseStep;
 use but_workspace::stack_ext::StackExt;
-use gitbutler_branch::BranchUpdateRequest;
-use gitbutler_branch::dedup;
+use gitbutler_branch::{BranchUpdateRequest, dedup};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -24,7 +24,8 @@ use gitbutler_stack::{
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use itertools::Itertools;
 use serde::Serialize;
-use std::{collections::HashMap, path::PathBuf, vec};
+
+use crate::{VirtualBranchesExt, hunk::VirtualBranchHunk, status::get_applied_status_cached};
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

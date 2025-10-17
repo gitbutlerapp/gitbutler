@@ -207,14 +207,14 @@ pub(crate) mod state {
             ctx: &mut CommandContext,
         ) -> Result<ProjectAccessMode> {
             let mut state_by_label = self.state.lock();
-            if let Some(state) = state_by_label.get(window) {
-                if state.project_id == project.id {
-                    return Ok(state
-                        .exclusive_access
-                        .as_ref()
-                        .map(|_| ProjectAccessMode::First)
-                        .unwrap_or(ProjectAccessMode::Shared));
-                }
+            if let Some(state) = state_by_label.get(window)
+                && state.project_id == project.id
+            {
+                return Ok(state
+                    .exclusive_access
+                    .as_ref()
+                    .map(|_| ProjectAccessMode::First)
+                    .unwrap_or(ProjectAccessMode::Shared));
             }
             let exclusive_access = project.try_exclusive_access().ok();
             let handler = handler_from_app(&self.app_handle)?;
@@ -332,8 +332,7 @@ pub fn create(
     .build()?;
 
     if !use_native_title_bar {
-        use tauri::LogicalPosition;
-        use tauri::Manager;
+        use tauri::{LogicalPosition, Manager};
         use tauri_plugin_trafficlights_positioner::WindowExt;
         if let Some(window) = window.get_window(label) {
             // Note that these lights get reset when the Window label is changed!

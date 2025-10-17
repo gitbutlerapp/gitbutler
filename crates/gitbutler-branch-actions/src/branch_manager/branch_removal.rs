@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
 use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_oplog::SnapshotExt;
-use gitbutler_oxidize::ObjectIdExt;
-use gitbutler_oxidize::{GixRepositoryExt as _, OidExt};
+use gitbutler_oxidize::{GixRepositoryExt as _, ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
@@ -11,8 +10,7 @@ use gitbutler_workspace::workspace_base;
 use tracing::instrument;
 
 use super::{BranchManager, checkout_remerged_head};
-use crate::VirtualBranchesExt;
-use crate::r#virtual as vbranch;
+use crate::{VirtualBranchesExt, r#virtual as vbranch};
 
 impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]

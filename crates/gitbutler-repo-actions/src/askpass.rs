@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::Path, sync::Arc};
 use gitbutler_id::id::Id;
 use gitbutler_stack::StackId;
 use serde::Serialize;
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::{Mutex, oneshot};
 
 static mut GLOBAL_ASKPASS_BROKER: Option<AskpassBroker> = None;
 
@@ -16,7 +16,9 @@ static mut GLOBAL_ASKPASS_BROKER: Option<AskpassBroker> = None;
 /// This function is **NOT** thread safe.
 #[expect(static_mut_refs)]
 pub unsafe fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static) {
-    GLOBAL_ASKPASS_BROKER.replace(AskpassBroker::init(submit_prompt));
+    unsafe {
+        GLOBAL_ASKPASS_BROKER.replace(AskpassBroker::init(submit_prompt));
+    }
 }
 
 /// Get the global askpass broker.

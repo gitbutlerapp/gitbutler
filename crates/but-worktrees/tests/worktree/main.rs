@@ -37,12 +37,13 @@ mod util {
 }
 
 mod worktree_new {
-    use super::*;
     use anyhow::Context;
     use but_graph::VirtualBranchesTomlMetadata;
     use but_workspace::{StacksFilter, stacks_v3};
     use but_worktrees::new::worktree_new;
     use util::test_ctx;
+
+    use super::*;
 
     #[test]
     fn can_create_worktree_from_feature_a() -> anyhow::Result<()> {
@@ -190,9 +191,10 @@ mod worktree_new {
 }
 
 mod worktree_list {
-    use super::*;
     use but_worktrees::{list::worktree_list, new::worktree_new};
     use util::test_ctx;
+
+    use super::*;
 
     #[test]
     fn can_list_worktrees() -> anyhow::Result<()> {

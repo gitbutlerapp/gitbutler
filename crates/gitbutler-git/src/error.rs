@@ -28,6 +28,8 @@ pub enum Error<BE: std::error::Error + core::fmt::Debug + Send + Sync + 'static>
     #[error("remote already exists: {0}")]
     RemoteExists(String, #[source] BE),
     /// A force push was rejected due to force push protection.
-    #[error("the force push was blocked because the remote branch contains commits that would be overwritten")]
+    #[error(
+        "the force push was blocked because the remote branch contains commits that would be overwritten"
+    )]
     ForcePushProtection(BE),
 }

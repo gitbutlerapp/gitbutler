@@ -7,10 +7,9 @@ use std::{
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_repo::RepositoryExt;
-use tempfile::{tempdir, TempDir};
+use tempfile::{TempDir, tempdir};
 
-use crate::test_project::setup_config;
-use crate::{init_opts, init_opts_bare, VAR_NO_CLEANUP};
+use crate::{VAR_NO_CLEANUP, init_opts, init_opts_bare, test_project::setup_config};
 
 pub struct Suite {
     pub local_app_data: Option<TempDir>,
@@ -170,22 +169,21 @@ pub fn commit_all(repository: &git2::Repository) -> git2::Oid {
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
     let head = repository.head().expect("failed to get head");
     let repo: &git2::Repository = repository;
-    let commit_oid = repo
-        .commit_with_signature(
-            Some(&head.name().map(|name| name.parse().unwrap()).unwrap()),
-            &signature,
-            &signature,
-            "some commit",
-            &repository.find_tree(oid).expect("failed to find tree"),
-            &[&repository
-                .find_commit(
-                    repository
-                        .refname_to_id("HEAD")
-                        .expect("failed to get head"),
-                )
-                .expect("failed to find commit")],
-            None,
-        )
-        .expect("failed to commit");
-    commit_oid
+
+    repo.commit_with_signature(
+        Some(&head.name().map(|name| name.parse().unwrap()).unwrap()),
+        &signature,
+        &signature,
+        "some commit",
+        &repository.find_tree(oid).expect("failed to find tree"),
+        &[&repository
+            .find_commit(
+                repository
+                    .refname_to_id("HEAD")
+                    .expect("failed to get head"),
+            )
+            .expect("failed to find commit")],
+        None,
+    )
+    .expect("failed to commit")
 }

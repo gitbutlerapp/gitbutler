@@ -1,9 +1,10 @@
-use crate::commit::DateMode;
 use anyhow::{Result, anyhow, bail};
 use bstr::{BString, ByteSlice};
 use but_core::commit::TreeKind;
 use gitbutler_oxidize::GixRepositoryExt;
 use gix::prelude::ObjectIdExt;
+
+use crate::commit::DateMode;
 
 /// Perform a three-base merge for each of the parents in `target_merge_commit` which serves as template for the merge.
 /// This means that after merging, we will use it unchanged to create a new, possibly signed commit, after adjusting its

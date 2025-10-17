@@ -1,16 +1,18 @@
-use anyhow::{bail, Context};
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
+
+use anyhow::{Context, bail};
 use but_api::error::Error;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gix::bstr::ByteSlice;
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
 use tauri::{State, Window};
 use tracing::instrument;
 
-use crate::window::state::ProjectAccessMode;
-use crate::{window, WindowState};
+use crate::{WindowState, window, window::state::ProjectAccessMode};
 
 #[tauri::command(async)]
 #[instrument(skip(window_state), err(Debug))]
@@ -152,7 +154,10 @@ fn assure_database_valid(gb_dir: PathBuf) -> anyhow::Result<Option<String>> {
                 backup_path.display()
             )));
         }
-        bail!("Database file at '{db_path} has {max_attempts} corrupted copies - giving up, application probably won't work", db_path = db_path.display());
+        bail!(
+            "Database file at '{db_path} has {max_attempts} corrupted copies - giving up, application probably won't work",
+            db_path = db_path.display()
+        );
     }
     Ok(None)
 }

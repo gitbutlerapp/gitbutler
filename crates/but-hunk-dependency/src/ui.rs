@@ -1,10 +1,10 @@
-use but_core::UnifiedDiff;
-use but_core::unified_diff::DiffHunk;
+use std::path::Path;
+
+use but_core::{UnifiedDiff, unified_diff::DiffHunk};
 use gitbutler_command_context::{CommandContext, gix_repo_for_merging};
 use gitbutler_oxidize::OidExt;
 use gitbutler_stack::StackId;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 
 /// Compute the hunk dependencies of a set of tree changes.
 pub fn hunk_dependencies_for_changes(

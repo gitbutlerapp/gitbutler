@@ -23,16 +23,18 @@ pub enum EmptyCommit {
 }
 
 pub(crate) mod function {
-    use crate::cherry_pick::{EmptyCommit, PickMode};
-    use crate::commit::DateMode;
+    use std::{collections::HashSet, path::PathBuf};
+
     use anyhow::{Context, bail};
     use bstr::BString;
     use but_core::commit::{HEADERS_CONFLICTED_FIELD, HeadersV2, TreeKind};
-    use gix::object::tree::EntryKind;
-    use gix::prelude::ObjectIdExt;
+    use gix::{object::tree::EntryKind, prelude::ObjectIdExt};
     use serde::Serialize;
-    use std::collections::HashSet;
-    use std::path::PathBuf;
+
+    use crate::{
+        cherry_pick::{EmptyCommit, PickMode},
+        commit::DateMode,
+    };
 
     /// Place `commit_to_rebase` onto `base`.
     ///

@@ -1,10 +1,12 @@
-use crate::command::{UI_CONTEXT_LINES, debug_print, project_from_path, project_repo};
+use std::path::Path;
+
 use but_hunk_dependency::ui::HunkDependencies;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gix::bstr::BString;
 use itertools::Itertools;
-use std::path::Path;
+
+use crate::command::{UI_CONTEXT_LINES, debug_print, project_from_path, project_repo};
 
 pub fn commit_changes(
     current_dir: &Path,

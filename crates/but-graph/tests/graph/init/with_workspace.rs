@@ -1,14 +1,16 @@
-use crate::init::utils::{
-    add_workspace_without_target, remove_target, standard_options_with_extra_target,
+use but_core::{
+    RefMetadata,
+    ref_metadata::{StackId, WorkspaceStack, WorkspaceStackBranch},
 };
-use crate::init::{StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev};
-use crate::init::{read_only_in_memory_scenario, standard_options};
-use but_core::RefMetadata;
-use but_core::ref_metadata::{StackId, WorkspaceStack, WorkspaceStackBranch};
-use but_graph::Graph;
-use but_graph::init::Overlay;
+use but_graph::{Graph, init::Overlay};
 use but_testsupport::{
     InMemoryRefMetadata, graph_tree, graph_workspace, visualize_commit_graph_all,
+};
+
+use crate::init::{
+    StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev,
+    read_only_in_memory_scenario, standard_options,
+    utils::{add_workspace_without_target, remove_target, standard_options_with_extra_target},
 };
 
 #[test]
@@ -5323,9 +5325,10 @@ fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
 }
 
 mod edit_commit {
-    use crate::init::{add_workspace, id_at, read_only_in_memory_scenario, standard_options};
     use but_graph::Graph;
     use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
+
+    use crate::init::{add_workspace, id_at, read_only_in_memory_scenario, standard_options};
 
     #[test]
     fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {

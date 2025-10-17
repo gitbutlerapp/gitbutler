@@ -2,7 +2,7 @@ mod gitbutler_merge_commits {
     use gitbutler_commit::commit_ext::CommitExt as _;
     use gitbutler_repo::rebase::gitbutler_merge_commits;
     use gitbutler_testsupport::testing_repository::{
-        assert_commit_tree_matches, TestingRepository,
+        TestingRepository, assert_commit_tree_matches,
     };
 
     #[test]

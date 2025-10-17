@@ -108,8 +108,9 @@ pub mod object_id_opt {
 
 /// use like `#[serde(with = "gitbutler_serde::object_id")]` to serialize [`gix::ObjectId`].
 pub mod object_id {
-    use serde::{Deserialize, Deserializer, Serialize};
     use std::str::FromStr;
+
+    use serde::{Deserialize, Deserializer, Serialize};
 
     /// serialize an object ID as hex-string.
     pub fn serialize<S>(v: &gix::ObjectId, s: S) -> Result<S::Ok, S::Error>
@@ -130,8 +131,9 @@ pub mod object_id {
 }
 
 pub mod object_id_vec {
-    use serde::{Deserialize, Deserializer, Serialize};
     use std::str::FromStr;
+
+    use serde::{Deserialize, Deserializer, Serialize};
 
     /// serialize an object ID as hex-string.
     pub fn serialize<S>(v: &[gix::ObjectId], s: S) -> Result<S::Ok, S::Error>

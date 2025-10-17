@@ -1,22 +1,25 @@
+use std::{cmp::Ordering, io::Read, path::PathBuf};
+
+use anyhow::{Context, bail};
+use bstr::{BStr, BString, ByteSlice};
+use gix::{
+    dir::{entry, walk::EmissionMode},
+    filter::plumbing::pipeline::convert::ToGitOutcome,
+    object::tree::EntryKind,
+    status,
+    status::{
+        index_worktree,
+        index_worktree::RewriteSource,
+        plumbing::index_as_worktree::{self, EntryStatus},
+        tree_index::TrackRenames,
+    },
+};
+use tracing::instrument;
+
 use crate::{
     ChangeState, IgnoredWorktreeChange, IgnoredWorktreeTreeChangeStatus, ModeFlags, TreeChange,
     TreeStatus, UnifiedDiff, WorktreeChanges,
 };
-use anyhow::{Context, bail};
-use bstr::{BStr, BString, ByteSlice};
-use gix::dir::entry;
-use gix::dir::walk::EmissionMode;
-use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
-use gix::object::tree::EntryKind;
-use gix::status;
-use gix::status::index_worktree;
-use gix::status::index_worktree::RewriteSource;
-use gix::status::plumbing::index_as_worktree::{self, EntryStatus};
-use gix::status::tree_index::TrackRenames;
-use std::cmp::Ordering;
-use std::io::Read;
-use std::path::PathBuf;
-use tracing::instrument;
 
 /// Identify where a [`TreeChange`] is from.
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]

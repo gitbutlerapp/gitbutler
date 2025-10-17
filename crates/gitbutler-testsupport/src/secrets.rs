@@ -1,5 +1,6 @@
-use keyring::Result;
 use std::any::Any;
+
+use keyring::Result;
 
 /// Assure we have a mock secrets store so tests don't start writing secrets into the user's actual store,
 /// as this will affect their GitButler instance.

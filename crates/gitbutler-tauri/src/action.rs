@@ -72,12 +72,11 @@ pub fn auto_commit(
     });
 
     match openai {
-        Some(openai) => but_action::auto_commit(emitter, ctx, &openai, changes).map_err(|e| Error::from(anyhow::anyhow!(e))),
-        None => {
-            Err(Error::from(anyhow::anyhow!(
-                "No valid credentials found for AI provider. Please configure your GitButler account credentials."
-            )))
-        }
+        Some(openai) => but_action::auto_commit(emitter, ctx, &openai, changes)
+            .map_err(|e| Error::from(anyhow::anyhow!(e))),
+        None => Err(Error::from(anyhow::anyhow!(
+            "No valid credentials found for AI provider. Please configure your GitButler account credentials."
+        ))),
     }
 }
 
@@ -101,12 +100,11 @@ pub fn auto_branch_changes(
     });
 
     match openai {
-        Some(openai) => but_action::branch_changes(emitter, ctx, &openai, changes).map_err(|e| Error::from(anyhow::anyhow!(e))),
-        None => {
-            Err(Error::from(anyhow::anyhow!(
-                "No valid credentials found for AI provider. Please configure your GitButler account credentials."
-            )))
-        }
+        Some(openai) => but_action::branch_changes(emitter, ctx, &openai, changes)
+            .map_err(|e| Error::from(anyhow::anyhow!(e))),
+        None => Err(Error::from(anyhow::anyhow!(
+            "No valid credentials found for AI provider. Please configure your GitButler account credentials."
+        ))),
     }
 }
 
@@ -130,12 +128,11 @@ pub fn absorb(
     });
 
     match openai {
-        Some(openai) => but_action::absorb(emitter, ctx, &openai, changes).map_err(|e| Error::from(anyhow::anyhow!(e))),
-        None => {
-            Err(Error::from(anyhow::anyhow!(
-                "No valid credentials found for AI provider. Please configure your GitButler account credentials."
-            )))
-        }
+        Some(openai) => but_action::absorb(emitter, ctx, &openai, changes)
+            .map_err(|e| Error::from(anyhow::anyhow!(e))),
+        None => Err(Error::from(anyhow::anyhow!(
+            "No valid credentials found for AI provider. Please configure your GitButler account credentials."
+        ))),
     }
 }
 
@@ -159,11 +156,18 @@ pub fn freestyle(
 
     let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
     match openai {
-        Some(openai) => but_action::freestyle(project_id, message_id, emitter, ctx, &openai, chat_messages, model).map_err(|e| Error::from(anyhow::anyhow!(e))),
-        None => {
-            Err(Error::from(anyhow::anyhow!(
-                "No valid credentials found for AI provider. Please configure your GitButler account credentials."
-            )))
-        }
+        Some(openai) => but_action::freestyle(
+            project_id,
+            message_id,
+            emitter,
+            ctx,
+            &openai,
+            chat_messages,
+            model,
+        )
+        .map_err(|e| Error::from(anyhow::anyhow!(e))),
+        None => Err(Error::from(anyhow::anyhow!(
+            "No valid credentials found for AI provider. Please configure your GitButler account credentials."
+        ))),
     }
 }

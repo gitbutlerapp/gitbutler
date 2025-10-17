@@ -1,7 +1,7 @@
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
 use but_graph::VirtualBranchesTomlMetadata;
-use but_workspace::{ui::StackDetails, StackId, StacksFilter};
+use but_workspace::{StackId, StacksFilter, ui::StackDetails};
 use gitbutler_command_context::CommandContext;
 use gix::bstr::BStr;
 /// Direct access to lower-level utilities for cases where this is enough.
@@ -71,11 +71,12 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
 }
 
 pub mod writable {
-    use crate::{BUT_DRIVER, DRIVER};
     use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
     use tempfile::TempDir;
+
+    use crate::{BUT_DRIVER, DRIVER};
 
     pub fn fixture(
         script_name: &str,
@@ -251,14 +252,15 @@ pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
 }
 
 pub mod read_only {
-    use crate::DRIVER;
-    use but_settings::app_settings::FeatureFlags;
-    use but_settings::AppSettings;
+    use std::collections::BTreeSet;
+
+    use but_settings::{AppSettings, app_settings::FeatureFlags};
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
-    use std::collections::BTreeSet;
+
+    use crate::DRIVER;
 
     /// Execute the script at `script_name.sh` (assumed to be located in `tests/fixtures/<script_name>`)
     /// and make the command-line application available to it. That way the script can perform GitButler
@@ -321,11 +323,11 @@ pub mod read_only {
     }
 }
 
-use gitbutler_oxidize::git2_to_gix_object_id;
-use gix::bstr::ByteSlice;
-use gix::prelude::ObjectIdExt;
-use once_cell::sync::Lazy;
 use std::path::{Path, PathBuf};
+
+use gitbutler_oxidize::git2_to_gix_object_id;
+use gix::{bstr::ByteSlice, prelude::ObjectIdExt};
+use once_cell::sync::Lazy;
 
 pub(crate) static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
     let mut cargo = std::process::Command::new(env!("CARGO"));

@@ -1,14 +1,13 @@
 use but_api::{
-    commands::github::{self},
     NoParams,
+    commands::github::{self},
+    error::Error,
+    github::{AuthStatusResponseSensitive, AuthenticatedUserSensitive},
 };
 use but_github::{CheckAuthStatusParams, Verification};
 use but_settings::AppSettingsWithDiskSync;
 use tauri::State;
 use tracing::instrument;
-
-use but_api::error::Error;
-use but_api::github::{AuthStatusResponseSensitive, AuthenticatedUserSensitive};
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]

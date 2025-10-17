@@ -1,16 +1,22 @@
-use crate::id::CliId;
-use crate::status::assignment::FileAssignment;
+use std::{
+    collections::BTreeMap,
+    io::{self, Write},
+};
+
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
-use but_api::{commands::diff, commands::virtual_branches, commands::workspace, hex_hash::HexHash};
+use but_api::{
+    commands::{diff, virtual_branches, workspace},
+    hex_hash::HexHash,
+};
 use but_core::ui::TreeChange;
 use but_hunk_assignment::HunkAssignment;
 use but_settings::AppSettings;
 use but_workspace::DiffSpec;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
-use std::collections::BTreeMap;
-use std::io::{self, Write};
+
+use crate::{id::CliId, status::assignment::FileAssignment};
 
 pub(crate) fn insert_blank_commit(project: &Project, _json: bool, target: &str) -> Result<()> {
     let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;

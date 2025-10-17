@@ -57,8 +57,9 @@ use but_graph::VirtualBranchesTomlMetadata;
 use but_workspace::stack_details_v3;
 
 mod clean_to_both {
-    use super::*;
     use util::test_ctx;
+
+    use super::*;
 
     #[test]
     fn status_is_applicable_to_any_stack() -> anyhow::Result<()> {
@@ -176,8 +177,9 @@ mod clean_to_both {
 }
 
 mod conflicts_with_bar {
-    use super::*;
     use util::test_ctx;
+
+    use super::*;
 
     #[test]
     fn status_is_locked_to_bar() -> anyhow::Result<()> {
@@ -254,8 +256,9 @@ mod conflicts_with_bar {
 }
 
 mod conflicts_with_both {
-    use super::*;
     use util::test_ctx;
+
+    use super::*;
 
     #[test]
     fn status_is_causes_workspace_conflict() -> anyhow::Result<()> {
@@ -335,8 +338,9 @@ mod conflicts_with_both {
 }
 
 mod no_stacks {
-    use super::*;
     use util::test_ctx;
+
+    use super::*;
 
     #[test]
     fn status_is_no_stacks() -> anyhow::Result<()> {

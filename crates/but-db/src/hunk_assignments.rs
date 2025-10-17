@@ -1,9 +1,10 @@
-use diesel::RunQueryDsl;
+use diesel::{
+    RunQueryDsl,
+    prelude::{Insertable, Queryable, Selectable},
+};
+use serde::{Deserialize, Serialize};
 
 use crate::{DbHandle, schema::hunk_assignments::dsl::*};
-
-use diesel::prelude::{Insertable, Queryable, Selectable};
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::hunk_assignments)]
@@ -38,8 +39,9 @@ impl HunkAssignmentsHandle<'_> {
     pub fn set_all(&mut self, assignments: Vec<HunkAssignment>) -> anyhow::Result<()> {
         // Set the hunk_assignments table to the values in `assignments`.
         // Any existing entries that are not in `assignments` are deleted.
-        use crate::schema::hunk_assignments::dsl::hunk_assignments as all_assignments;
         use diesel::prelude::*;
+
+        use crate::schema::hunk_assignments::dsl::hunk_assignments as all_assignments;
         self.db.conn.transaction(|conn| {
             // Delete all existing assignments
             diesel::delete(all_assignments).execute(conn)?;

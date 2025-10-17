@@ -1,8 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use diesel::connection::SimpleConnection;
-use diesel::{Connection, SqliteConnection};
+use diesel::{Connection, SqliteConnection, connection::SimpleConnection};
 
 const FILE_NAME: &str = "but.sqlite";
 
@@ -22,9 +21,8 @@ pub use workspace_rules::WorkspaceRule;
 mod worktrees;
 pub use worktrees::Worktree;
 mod gerrit_metadata;
-pub use gerrit_metadata::GerritMeta;
-
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+pub use gerrit_metadata::GerritMeta;
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
 
 pub struct DbHandle {

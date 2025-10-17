@@ -9,7 +9,7 @@ use but_settings::AppSettingsWithDiskSync;
 use gitbutler_project::ProjectId;
 pub use handler::Handler;
 use tokio::{
-    sync::mpsc::{unbounded_channel, UnboundedSender},
+    sync::mpsc::{UnboundedSender, unbounded_channel},
     task,
 };
 use tokio_util::sync::CancellationToken;

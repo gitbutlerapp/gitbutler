@@ -1,9 +1,10 @@
-use crate::id::CliId;
 use anyhow::Result;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::Project;
+
+use crate::id::CliId;
 
 pub(crate) fn describe_target(project: &Project, _json: bool, target: &str) -> Result<()> {
     let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;

@@ -138,8 +138,7 @@ fn one_branch_in_workspace_multiple_remotes() -> Result<()> {
 
 mod util {
     use anyhow::Result;
-    use but_settings::AppSettings;
-    use but_settings::app_settings::FeatureFlags;
+    use but_settings::{AppSettings, app_settings::FeatureFlags};
     use gitbutler_branch::BranchIdentity;
     use gitbutler_branch_actions::{BranchListing, BranchListingFilter};
     use gitbutler_command_context::CommandContext;
@@ -243,5 +242,6 @@ mod util {
         Ok(branches)
     }
 }
-use crate::virtual_branches::list::util::project_ctx_without_ws3;
 pub use util::{ExpectedBranchListing, assert_equal, init_env, list_branches, project_ctx};
+
+use crate::virtual_branches::list::util::project_ctx_without_ws3;

@@ -1,10 +1,15 @@
-use crate::input::InputFile;
-use crate::ranges::WorkspaceRanges;
-use crate::ranges::tests::{id_from_hex_char, input_hunk_from_unified_diff};
-use crate::{InputCommit, InputDiffHunk, InputStack};
 use but_core::TreeStatusKind;
 use but_workspace::StackId;
 use gix::bstr::BString;
+
+use crate::{
+    InputCommit, InputDiffHunk, InputStack,
+    input::InputFile,
+    ranges::{
+        WorkspaceRanges,
+        tests::{id_from_hex_char, input_hunk_from_unified_diff},
+    },
+};
 
 #[test]
 fn workspace_simple() -> anyhow::Result<()> {

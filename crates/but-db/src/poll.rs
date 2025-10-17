@@ -1,7 +1,7 @@
-use crate::DbHandle;
 use bitflags::bitflags;
-use tokio::sync::oneshot;
-use tokio::task::JoinHandle;
+use tokio::{sync::oneshot, task::JoinHandle};
+
+use crate::DbHandle;
 
 bitflags! {
     /// What kind of data to listen to

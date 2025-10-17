@@ -1,7 +1,8 @@
-use crate::utils::{CONTEXT_LINES, visualize_index, writable_scenario, writable_scenario_slow};
 use but_testsupport::{CommandExt, git, git_status, visualize_disk_tree_skip_dot_git};
 use but_workspace::discard_workspace_changes;
 use util::{file_to_spec, renamed_file_to_spec, worktree_changes_to_discard_specs};
+
+use crate::utils::{CONTEXT_LINES, visualize_index, writable_scenario, writable_scenario_slow};
 
 #[test]
 fn all_file_types_from_unborn() -> anyhow::Result<()> {
@@ -1024,8 +1025,9 @@ D submodule
 }
 
 mod util {
-    use crate::utils::to_change_specs_whole_file;
     use but_workspace::DiffSpec;
+
+    use crate::utils::to_change_specs_whole_file;
 
     pub fn file_to_spec(name: &str) -> DiffSpec {
         DiffSpec {

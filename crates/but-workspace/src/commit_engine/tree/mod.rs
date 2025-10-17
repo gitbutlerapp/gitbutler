@@ -1,16 +1,17 @@
-use crate::commit_engine::{HunkRange, MoveSourceCommit, RejectionReason, apply_hunks};
-use crate::{DiffSpec, HunkHeader};
+use std::{borrow::Cow, collections::BTreeMap, io::Read, path::Path};
+
 use anyhow::bail;
 use bstr::{BStr, ByteSlice};
 use but_core::{RepositoryExt, UnifiedDiff};
-use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
-use gix::merge::tree::TreatAsUnresolved;
-use gix::object::tree::EntryKind;
-use gix::prelude::ObjectIdExt;
-use std::borrow::Cow;
-use std::collections::BTreeMap;
-use std::io::Read;
-use std::path::Path;
+use gix::{
+    filter::plumbing::pipeline::convert::ToGitOutcome, merge::tree::TreatAsUnresolved,
+    object::tree::EntryKind, prelude::ObjectIdExt,
+};
+
+use crate::{
+    DiffSpec, HunkHeader,
+    commit_engine::{HunkRange, MoveSourceCommit, RejectionReason, apply_hunks},
+};
 
 /// Additional information about the outcome of a [`create_tree()`] call.
 #[derive(Debug)]

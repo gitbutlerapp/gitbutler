@@ -1,12 +1,18 @@
 /// All tests have a workspace present.
 mod with_workspace {
-    use crate::utils::{read_only_in_memory_scenario, read_only_in_memory_scenario_named};
-    use but_core::RefMetadata;
-    use but_core::ref_metadata::{Branch, RefInfo, Review, Workspace};
+    use std::{
+        any::Any,
+        ops::{Deref, DerefMut},
+    };
+
+    use but_core::{
+        RefMetadata,
+        ref_metadata::{Branch, RefInfo, Review, Workspace},
+    };
     use but_testsupport::{visualize_commit_graph, visualize_commit_graph_all};
     use gix::refs::{FullName, FullNameRef};
-    use std::any::Any;
-    use std::ops::{Deref, DerefMut};
+
+    use crate::utils::{read_only_in_memory_scenario, read_only_in_memory_scenario_named};
 
     fn refname(short_name: &str) -> gix::refs::FullName {
         if short_name.contains("/") {

@@ -1,10 +1,14 @@
 pub mod commands {
     #![allow(clippy::used_underscore_binding)]
-    use but_api::commands::zip::{
-        self, GetAnonymousGraphPathParams, GetLogsArchivePathParams, GetProjectArchivePathParams,
-    };
-    use but_api::error::Error;
     use std::path::PathBuf;
+
+    use but_api::{
+        commands::zip::{
+            self, GetAnonymousGraphPathParams, GetLogsArchivePathParams,
+            GetProjectArchivePathParams,
+        },
+        error::Error,
+    };
     use tauri::State;
     use tracing::instrument;
 

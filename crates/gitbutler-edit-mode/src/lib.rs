@@ -1,29 +1,28 @@
 use std::collections::HashMap;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_core::TreeChange;
-use but_workspace::{stack_ext::StackExt, StackId};
+use but_workspace::{StackId, stack_ext::StackExt};
 use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
-use gitbutler_command_context::{gix_repo_for_merging, CommandContext};
+use gitbutler_command_context::{CommandContext, gix_repo_for_merging};
 use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
 use gitbutler_operating_modes::{
-    operating_mode, read_edit_mode_metadata, write_edit_mode_metadata, EditModeMetadata,
-    OperatingMode, EDIT_BRANCH_REF, WORKSPACE_BRANCH_REF,
+    EDIT_BRANCH_REF, EditModeMetadata, OperatingMode, WORKSPACE_BRANCH_REF, operating_mode,
+    read_edit_mode_metadata, write_edit_mode_metadata,
 };
 use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_to_git2_index, GixRepositoryExt, ObjectIdExt, OidExt, RepoExt,
+    GixRepositoryExt, ObjectIdExt, OidExt, RepoExt, git2_to_gix_object_id, gix_to_git2_index,
 };
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
-use gitbutler_repo::RepositoryExt;
-use gitbutler_repo::{signature, SignaturePurpose};
+use gitbutler_repo::{RepositoryExt, SignaturePurpose, signature};
 use gitbutler_stack::VirtualBranchesHandle;
-use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes_with_tree};
 use serde::Serialize;
 
 pub mod commands;
@@ -66,7 +65,9 @@ fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Res
             gix::merge::tree::TreatAsUnresolved::git(),
             gix::merge::tree::apply_index_entries::RemovalMode::Mark,
         ) {
-            tracing::warn!("There must be an issue with conflict-commit creation as re-merging the conflicting trees didn't yield a conflicting index.");
+            tracing::warn!(
+                "There must be an issue with conflict-commit creation as re-merging the conflicting trees didn't yield a conflicting index."
+            );
         }
         gix_to_git2_index(&index)
     } else {
@@ -260,10 +261,10 @@ pub(crate) fn save_and_return_to_workspace(
     let mut steps = stack.as_rebase_steps(ctx, &gix_repo)?;
     // swap out the old commit with the new, updated one
     steps.iter_mut().for_each(|step| {
-        if let but_rebase::RebaseStep::Pick { commit_id, .. } = step {
-            if commit.id() == commit_id.to_git2() {
-                *commit_id = new_commit_oid.to_gix();
-            }
+        if let but_rebase::RebaseStep::Pick { commit_id, .. } = step
+            && commit.id() == commit_id.to_git2()
+        {
+            *commit_id = new_commit_oid.to_gix();
         }
     });
     let merge_base = stack.merge_base(ctx)?;

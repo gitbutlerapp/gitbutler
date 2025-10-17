@@ -1,28 +1,31 @@
-use std::collections::{BTreeSet, HashSet, VecDeque};
-use std::str::FromStr;
+use std::{
+    collections::{BTreeSet, HashSet, VecDeque},
+    str::FromStr,
+};
 
-use crate::error::Error;
-use crate::hex_hash::HexHash;
 use anyhow::Context;
 use but_api_macros::api_cmd;
 use but_core::RepositoryExt;
-use but_graph::VirtualBranchesTomlMetadata;
-use but_graph::petgraph::Direction;
+use but_graph::{VirtualBranchesTomlMetadata, petgraph::Direction};
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
-use but_workspace::MoveChangesResult;
-use but_workspace::commit_engine::StackSegmentId;
-use but_workspace::{commit_engine, ui::StackEntry};
+use but_workspace::{
+    MoveChangesResult, commit_engine, commit_engine::StackSegmentId, ui::StackEntry,
+};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gitbutler_oplog::{OplogExt, SnapshotExt};
+use gitbutler_oplog::{
+    OplogExt, SnapshotExt,
+    entry::{OperationKind, SnapshotDetails},
+};
 use gitbutler_project::{Project, ProjectId};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use serde::Serialize;
 use tracing::instrument;
+
+use crate::{error::Error, hex_hash::HexHash};
 
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))

@@ -1,8 +1,9 @@
 //! A crate with various utilities to make the migration to `gitoxide` less cumbersome and repetitive.
 
+use std::borrow::Borrow;
+
 use anyhow::Context;
 use gix::bstr::ByteSlice;
-use std::borrow::Borrow;
 
 mod ext;
 pub use ext::GixRepositoryExt;

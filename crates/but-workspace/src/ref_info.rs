@@ -2,13 +2,15 @@
 // TODO: rename this module to `workspace`, make it private, and pub-use all content in the top-level, as we now literally
 //       get the workspace, while possibly processing it for use in the UI.
 
+use std::{
+    borrow::Cow,
+    ops::{Deref, DerefMut},
+};
+
 use bstr::BString;
 use but_core::ref_metadata;
-use but_graph::SegmentIndex;
-use but_graph::projection::StackCommitFlags;
+use but_graph::{SegmentIndex, projection::StackCommitFlags};
 use gix::Repository;
-use std::borrow::Cow;
-use std::ops::{Deref, DerefMut};
 
 /// A commit with must useful information extracted from the Git commit itself.
 ///
@@ -334,18 +336,21 @@ impl std::fmt::Debug for Segment {
 }
 
 pub(crate) mod function {
-    use crate::ref_info::{LocalCommit, LocalCommitRelation};
-    use crate::ui::PushStatus;
-    use crate::{AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch};
     use anyhow::bail;
     use but_core::ref_metadata::ValueInfo;
-    use but_graph::petgraph::Direction;
     use but_graph::{
         Graph, SegmentIndex, is_workspace_ref_name,
+        petgraph::Direction,
         projection::{StackCommit, WorkspaceKind},
     };
     use gix::prelude::ObjectIdExt;
     use tracing::instrument;
+
+    use crate::{
+        AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch,
+        ref_info::{LocalCommit, LocalCommitRelation},
+        ui::PushStatus,
+    };
 
     /// Gather information about the current `HEAD` and the workspace that might be associated with it,
     /// based on data in `repo` and `meta`. Use `options` to further configure the call.

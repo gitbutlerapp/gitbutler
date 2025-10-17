@@ -7,9 +7,12 @@ use command::parse_diff_spec;
 use gix::bstr::BString;
 
 mod args;
-use crate::args::Subcommands;
-use crate::command::{RepositoryOpenMode, repo_and_maybe_project};
 use args::Args;
+
+use crate::{
+    args::Subcommands,
+    command::{RepositoryOpenMode, repo_and_maybe_project},
+};
 
 mod command;
 
@@ -220,9 +223,7 @@ async fn main() -> Result<()> {
 
 mod trace {
     use tracing::metadata::LevelFilter;
-    use tracing_subscriber::Layer;
-    use tracing_subscriber::layer::SubscriberExt;
-    use tracing_subscriber::util::SubscriberInitExt;
+    use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
     pub fn init(level: u8) -> anyhow::Result<()> {
         tracing_subscriber::registry()

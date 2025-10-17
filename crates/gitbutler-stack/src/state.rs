@@ -3,11 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{
-    stack::{Stack, StackId},
-    target::Target,
-};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use but_graph::virtual_branches_legacy_types;
 use git2::Repository;
 use gitbutler_error::error::Code;
@@ -16,6 +12,11 @@ use gitbutler_oxidize::{ObjectIdExt, OidExt as _, RepoExt};
 use gitbutler_reference::Refname;
 use gitbutler_repo::commit_message::CommitMessage;
 use itertools::Itertools;
+
+use crate::{
+    stack::{Stack, StackId},
+    target::Target,
+};
 
 const LAST_PUSHED_BASE_VERSION_HEADER: &str = "base-commit-version";
 const LAST_PUSHED_BASE_VERSION: &str = "1";

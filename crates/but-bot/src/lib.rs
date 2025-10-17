@@ -6,8 +6,7 @@ use gitbutler_project::ProjectId;
 mod butbot;
 mod state;
 
-use crate::agent::AgentGraph;
-use crate::butbot::ButBot;
+use crate::{agent::AgentGraph, butbot::ButBot};
 
 pub mod agent;
 

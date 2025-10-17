@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 
 pub trait RepositoryExt {
     fn l(&self, from: git2::Oid, to: LogUntil, include_all_parents: bool)
-        -> Result<Vec<git2::Oid>>;
+    -> Result<Vec<git2::Oid>>;
     fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit<'_>>>;
     fn log(
         &self,

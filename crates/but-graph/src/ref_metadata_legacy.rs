@@ -1,22 +1,31 @@
-use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
+use std::{
+    any::Any,
+    cell::RefCell,
+    collections::HashSet,
+    ops::{Deref, DerefMut},
+    path::{Path, PathBuf},
+    time::Instant,
+};
+
 use anyhow::{Context, bail};
 use bstr::ByteSlice;
-use but_core::RefMetadata;
-use but_core::ref_metadata::StackKind::{Applied, AppliedAndUnapplied};
-use but_core::ref_metadata::{
-    Branch, RefInfo, StackId, ValueInfo, Workspace, WorkspaceStack, WorkspaceStackBranch,
+use but_core::{
+    RefMetadata,
+    ref_metadata::{
+        Branch, RefInfo, StackId,
+        StackKind::{Applied, AppliedAndUnapplied},
+        ValueInfo, Workspace, WorkspaceStack, WorkspaceStackBranch,
+    },
 };
 use gitbutler_reference::RemoteRefname;
-use gix::date::SecondsSinceUnixEpoch;
-use gix::reference::Category;
-use gix::refs::{FullName, FullNameRef};
+use gix::{
+    date::SecondsSinceUnixEpoch,
+    reference::Category,
+    refs::{FullName, FullNameRef},
+};
 use itertools::Itertools;
-use std::any::Any;
-use std::cell::RefCell;
-use std::collections::HashSet;
-use std::ops::{Deref, DerefMut};
-use std::path::{Path, PathBuf};
-use std::time::Instant;
+
+use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
 
 #[derive(Debug)]
 struct Snapshot {
@@ -720,12 +729,15 @@ fn branch_to_stack_branch(
 
 /// Copied from `gitbutler-fs` - shouldn't be needed anymore in future.
 mod fs {
+    use std::{
+        fs::File,
+        io::{Read, Write},
+        path::Path,
+    };
+
     use anyhow::Context;
     use gix::tempfile::{AutoRemove, ContainingDirectory};
     use serde::de::DeserializeOwned;
-    use std::fs::File;
-    use std::io::{Read, Write};
-    use std::path::Path;
 
     /// Write a single file so that the write either fully succeeds, or fully fails,
     /// assuming the containing directory already exists.

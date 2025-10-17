@@ -1,6 +1,8 @@
-use crate::init::overlay::OverlayRepo;
-use gix::reference::Category;
 use std::collections::BTreeSet;
+
+use gix::reference::Category;
+
+use crate::init::overlay::OverlayRepo;
 
 /// Returns the unique names of all remote tracking branches that are configured in the repository.
 /// Useful to avoid claiming them for deduction.

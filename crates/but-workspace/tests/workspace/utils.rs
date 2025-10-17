@@ -1,13 +1,13 @@
-use bstr::ByteSlice;
-use but_core::unified_diff::DiffHunk;
-use but_core::{TreeChange, TreeStatus, UnifiedDiff};
-use but_testsupport::gix_testtools;
-use but_testsupport::gix_testtools::{Creation, tempfile};
-use but_workspace::commit_engine::Destination;
-use but_workspace::{DiffSpec, HunkHeader};
-use gix::config::tree::Key;
-use gix::prelude::ObjectIdExt;
 use std::borrow::Cow;
+
+use bstr::ByteSlice;
+use but_core::{TreeChange, TreeStatus, UnifiedDiff, unified_diff::DiffHunk};
+use but_testsupport::{
+    gix_testtools,
+    gix_testtools::{Creation, tempfile},
+};
+use but_workspace::{DiffSpec, HunkHeader, commit_engine::Destination};
+use gix::{config::tree::Key, prelude::ObjectIdExt};
 
 pub const CONTEXT_LINES: u32 = 0;
 

@@ -1,21 +1,25 @@
-use crate::init::overlay::{OverlayMetadata, OverlayRepo};
-use crate::init::types::{EdgeOwned, TopoWalk};
-use crate::init::walk::{RefsById, disambiguate_refs_by_branch_metadata};
-use crate::init::{PetGraph, branch_segment_from_name_and_meta, remotes};
-use crate::projection::workspace;
-use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex, SegmentMetadata};
-use anyhow::{Context as _, bail};
-use but_core::ref_metadata::StackKind::{Applied, AppliedAndUnapplied};
-use but_core::{RefMetadata, ref_metadata};
-use gix::ObjectId;
-use gix::prelude::ObjectIdExt;
-use gix::reference::Category;
-use petgraph::Direction;
-use petgraph::graph::NodeIndex;
-use petgraph::prelude::EdgeRef;
-use petgraph::visit::NodeRef;
 use std::collections::{BTreeMap, BTreeSet};
+
+use anyhow::{Context as _, bail};
+use but_core::{
+    RefMetadata, ref_metadata,
+    ref_metadata::StackKind::{Applied, AppliedAndUnapplied},
+};
+use gix::{ObjectId, prelude::ObjectIdExt, reference::Category};
+use petgraph::{Direction, graph::NodeIndex, prelude::EdgeRef, visit::NodeRef};
 use tracing::instrument;
+
+use crate::{
+    Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex, SegmentMetadata,
+    init::{
+        PetGraph, branch_segment_from_name_and_meta,
+        overlay::{OverlayMetadata, OverlayRepo},
+        remotes,
+        types::{EdgeOwned, TopoWalk},
+        walk::{RefsById, disambiguate_refs_by_branch_metadata},
+    },
+    projection::workspace,
+};
 
 pub(super) struct Context<'a> {
     pub repo: &'a OverlayRepo<'a>,

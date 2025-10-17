@@ -1,5 +1,6 @@
-use anyhow::Context;
 use std::borrow::Cow;
+
+use anyhow::Context;
 
 /// For use in [`Anchor`].
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
@@ -106,13 +107,18 @@ impl<'a> Anchor<'a> {
 pub(super) mod function {
     #![expect(clippy::indexing_slicing)]
 
-    use crate::branch::create_reference::{Anchor, Position};
-    use anyhow::{Context, bail};
-    use but_core::ref_metadata::StackKind::AppliedAndUnapplied;
-    use but_core::ref_metadata::{StackId, WorkspaceStack, WorkspaceStackBranch};
-    use but_core::{RefMetadata, ref_metadata};
-    use gix::refs::transaction::PreviousValue;
     use std::borrow::{Borrow, Cow};
+
+    use anyhow::{Context, bail};
+    use but_core::{
+        RefMetadata, ref_metadata,
+        ref_metadata::{
+            StackId, StackKind::AppliedAndUnapplied, WorkspaceStack, WorkspaceStackBranch,
+        },
+    };
+    use gix::refs::transaction::PreviousValue;
+
+    use crate::branch::create_reference::{Anchor, Position};
 
     /// Create a new reference named `ref_name` to point at a commit relative to `anchor`.
     /// If `anchor` is `None` this means the branch should be placed above the lower bound of the workspace, effectively

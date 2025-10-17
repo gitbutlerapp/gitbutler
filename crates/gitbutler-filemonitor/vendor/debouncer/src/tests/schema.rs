@@ -36,11 +36,11 @@ use std::{
 use file_id::FileId;
 use mock_instant::thread_local::Instant;
 use notify::{
+    ErrorKind, EventKind,
     event::{
         AccessKind, AccessMode, CreateKind, DataChange, Flag, MetadataKind, ModifyKind, RemoveKind,
         RenameMode,
     },
-    ErrorKind, EventKind,
 };
 use serde::Deserialize;
 

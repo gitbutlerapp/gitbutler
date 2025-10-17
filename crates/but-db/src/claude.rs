@@ -1,12 +1,13 @@
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
-
-use crate::DbHandle;
-use crate::schema::claude_messages::dsl::claude_messages;
-use crate::schema::claude_sessions::dsl::claude_sessions;
-use diesel::prelude::*;
-
-use diesel::prelude::{Insertable, Queryable, Selectable};
+use diesel::{
+    ExpressionMethods, QueryDsl, RunQueryDsl,
+    prelude::{Insertable, Queryable, Selectable, *},
+};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    DbHandle,
+    schema::{claude_messages::dsl::claude_messages, claude_sessions::dsl::claude_sessions},
+};
 
 #[derive(
     Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable, Identifiable,

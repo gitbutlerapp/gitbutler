@@ -202,9 +202,8 @@ mod tests {
 
     use gitbutler_stack::StackId;
 
-    use crate::{input::InputFile, parse_diff_from_string, InputDiff};
-
     use super::*;
+    use crate::{InputDiff, input::InputFile, parse_diff_from_string};
 
     #[test]
     fn get_inverted_dependency_maps_test_single_stack() {

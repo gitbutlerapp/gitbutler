@@ -4,21 +4,22 @@ use std::{
     fmt::Formatter,
 };
 
-use crate::projection::workspace;
-use crate::{
-    CommitFlags, CommitIndex, Graph, Segment, SegmentIndex,
-    projection::{Stack, StackCommit, StackCommitFlags, StackSegment},
-    segment,
-};
 use anyhow::Context;
 use bstr::{BStr, ByteSlice};
-use but_core::ref_metadata;
-use but_core::ref_metadata::StackId;
-use but_core::ref_metadata::StackKind::Applied;
+use but_core::{
+    ref_metadata,
+    ref_metadata::{StackId, StackKind::Applied},
+};
 use gix::reference::Category;
 use itertools::Itertools;
 use petgraph::{Direction, prelude::EdgeRef, visit::NodeRef};
 use tracing::instrument;
+
+use crate::{
+    CommitFlags, CommitIndex, Graph, Segment, SegmentIndex,
+    projection::{Stack, StackCommit, StackCommitFlags, StackSegment, workspace},
+    segment,
+};
 
 /// A workspace is a list of [Stacks](Stack).
 #[derive(Clone)]

@@ -1,10 +1,10 @@
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
-
-use crate::DbHandle;
-use crate::schema::file_write_locks::dsl::file_write_locks;
-
-use diesel::prelude::{Insertable, Queryable, Selectable};
+use diesel::{
+    ExpressionMethods, QueryDsl, RunQueryDsl,
+    prelude::{Insertable, Queryable, Selectable},
+};
 use serde::{Deserialize, Serialize};
+
+use crate::{DbHandle, schema::file_write_locks::dsl::file_write_locks};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::file_write_locks)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]

@@ -19,7 +19,8 @@ pub fn available_review_templates(root_path: &path::Path, forge_name: &ForgeName
     let forge_root_path = forge_root_path.as_path();
 
     // let walked_paths = list_files(forge_root_path, &[forge_root_path]).unwrap_or_default();
-    let available_paths = supported_template_directories
+
+    supported_template_directories
         .iter()
         .flat_map(|dir| match dir {
             SupportedTemplateDirectory::ProjectRoot => {
@@ -43,9 +44,7 @@ pub fn available_review_templates(root_path: &path::Path, forge_name: &ForgeName
             }
             None
         })
-        .collect();
-
-    available_paths
+        .collect()
 }
 
 pub enum SupportedTemplateDirectory {

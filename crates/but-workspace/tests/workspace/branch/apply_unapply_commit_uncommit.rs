@@ -1,18 +1,23 @@
-use crate::ref_info::with_workspace_commit::utils::{
-    StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
-    named_writable_scenario_with_description_and_graph,
-};
-use crate::utils::r;
 use but_core::{RefMetadata, ref_metadata};
 use but_graph::init::{Options, Overlay};
 use but_testsupport::{
     InMemoryRefMetadata, git, graph_workspace, id_at, sanitize_uuids_and_timestamps,
     visualize_commit_graph_all,
 };
-use but_workspace::branch::OnWorkspaceMergeConflict;
-use but_workspace::branch::apply::{IntegrationMode, WorkspaceReferenceNaming};
-use but_workspace::branch::checkout::UncommitedWorktreeChanges;
+use but_workspace::branch::{
+    OnWorkspaceMergeConflict,
+    apply::{IntegrationMode, WorkspaceReferenceNaming},
+    checkout::UncommitedWorktreeChanges,
+};
 use gix::refs::Category;
+
+use crate::{
+    ref_info::with_workspace_commit::utils::{
+        StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
+        named_writable_scenario_with_description_and_graph,
+    },
+    utils::r,
+};
 
 #[test]
 fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {

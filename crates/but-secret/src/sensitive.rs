@@ -12,7 +12,9 @@ where
     where
         S: Serializer,
     {
-        unreachable!("BUG: Sensitive data cannot be serialized - it needs to be extracted and put into a struct for serialization explicitly")
+        unreachable!(
+            "BUG: Sensitive data cannot be serialized - it needs to be extracted and put into a struct for serialization explicitly"
+        )
     }
 }
 impl<'de, T> Deserialize<'de> for Sensitive<T>

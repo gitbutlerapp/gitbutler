@@ -1,13 +1,15 @@
-use crate::{remote::GitRemote, Config, RepositoryExt};
-use anyhow::{bail, Result};
+use std::path::Path;
+
+use anyhow::{Result, bail};
 use base64::engine::Engine as _;
 use git2::Oid;
 use gitbutler_project::Project;
 use infer::MatcherType;
 use itertools::Itertools;
 use serde::Serialize;
-use std::path::Path;
 use tracing::warn;
+
+use crate::{Config, RepositoryExt, remote::GitRemote};
 
 #[derive(Default, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

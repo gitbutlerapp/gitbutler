@@ -4,8 +4,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::GixRepositoryExt;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 
-use crate::{DiffSpec, stack_ext::StackExt};
-
 use super::{
     MoveChangesResult,
     utils::{
@@ -13,6 +11,7 @@ use super::{
         replace_pick_with_commit,
     },
 };
+use crate::{DiffSpec, stack_ext::StackExt};
 
 /// Move changes between to commits.
 ///

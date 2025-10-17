@@ -1,5 +1,6 @@
-use bstr::{BStr, ByteSlice};
 use std::path::Path;
+
+use bstr::{BStr, ByteSlice};
 
 /// Turn `rhs` into `lhs` by modifying `rhs`. This will leave `rhs` intact as much as possible.
 /// Note that conflicting entries will be replaced by an addition or edit automatically.
