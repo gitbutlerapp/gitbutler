@@ -228,14 +228,14 @@ mod worktree_list {
 mod worktree_destroy {
     use super::*;
     use but_worktrees::{
-        destroy::{worktree_destroy_by_path, worktree_destroy_by_reference},
+        destroy::{worktree_destroy_by_id, worktree_destroy_by_reference},
         list::worktree_list,
         new::worktree_new,
     };
     use util::test_ctx;
 
     #[test]
-    fn can_destroy_worktree_by_path() -> anyhow::Result<()> {
+    fn can_destroy_worktree_by_id() -> anyhow::Result<()> {
         let test_ctx = test_ctx("stacked-and-parallel")?;
         let mut ctx = test_ctx.ctx;
 
@@ -251,10 +251,10 @@ mod worktree_destroy {
 
         // Destroy it
         let destroy_outcome =
-            worktree_destroy_by_path(&mut ctx, guard.write_permission(), &outcome.created.path)?;
+            worktree_destroy_by_id(&mut ctx, guard.write_permission(), &outcome.created.id)?;
 
-        assert_eq!(destroy_outcome.destroyed_paths.len(), 1);
-        assert_eq!(destroy_outcome.destroyed_paths[0], outcome.created.path);
+        assert_eq!(destroy_outcome.destroyed_ids.len(), 1);
+        assert_eq!(destroy_outcome.destroyed_ids[0], outcome.created.id);
 
         // Verify it was destroyed
         let list_after = worktree_list(&mut ctx, guard.read_permission())?;
@@ -291,7 +291,7 @@ mod worktree_destroy {
             feature_a_name.as_ref(),
         )?;
 
-        assert_eq!(destroy_outcome.destroyed_paths.len(), 3);
+        assert_eq!(destroy_outcome.destroyed_ids.len(), 3);
 
         // Verify only feature-c worktrees remain
         let list_after = worktree_list(&mut ctx, guard.read_permission())?;
@@ -326,7 +326,7 @@ mod worktree_destroy {
             feature_b_name.as_ref(),
         )?;
 
-        assert_eq!(destroy_outcome.destroyed_paths.len(), 0);
+        assert_eq!(destroy_outcome.destroyed_ids.len(), 0);
 
         // Verify feature-a worktree is still there
         let list_after = worktree_list(&mut ctx, guard.read_permission())?;

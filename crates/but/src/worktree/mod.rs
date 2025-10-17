@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use but_api::worktree::IntegrationStatus;
+use but_worktrees::WorktreeId;
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -38,6 +39,26 @@ pub enum Subcommands {
         reference: bool,
     },
 }
+/// Parse a worktree identifier which can be either:
+/// - A full path to the worktree
+/// - Just the worktree name
+///
+/// Returns the WorktreeId.
+fn parse_worktree_identifier(
+    input: &str,
+    _project: &gitbutler_project::Project,
+) -> Result<WorktreeId> {
+    let input_path = PathBuf::from(input);
+
+    // If it's an absolute path or looks like a full path, extract the name from it
+    if input_path.is_absolute() || input_path.components().count() > 1 {
+        return WorktreeId::from_path(&input_path);
+    }
+
+    // Otherwise treat it as just the worktree name
+    Ok(WorktreeId::from_bstr(input))
+}
+
 pub fn handle(cmd: &Subcommands, project: &gitbutler_project::Project, json: bool) -> Result<()> {
     match handle_inner(cmd, project, json) {
         Ok(_) => Ok(()),
@@ -94,7 +115,7 @@ pub fn handle_inner(
             Ok(())
         }
         Subcommands::Integrate { path, target, dry } => {
-            let path = PathBuf::from(path);
+            let id = parse_worktree_identifier(path, project)?;
 
             // Determine the target reference
             let target_ref = if let Some(target_str) = target {
@@ -112,8 +133,8 @@ pub fn handle_inner(
                 let worktree_entry = worktree_list
                     .entries
                     .iter()
-                    .find(|e| e.path == path)
-                    .context("Worktree not found - path does not match any known worktree")?;
+                    .find(|e| e.id == id)
+                    .context("Worktree not found - ID does not match any known worktree")?;
 
                 worktree_entry.created_from_ref.clone().context(
                     "Worktree does not have a created_from_ref - please specify --target",
@@ -124,14 +145,14 @@ pub fn handle_inner(
                 // Dry run - check integration status
                 let status = but_api::worktree::worktree_integration_status(
                     project.id,
-                    path.clone(),
+                    id.clone(),
                     target_ref.clone(),
                 )?;
 
                 if json {
                     println!("{}", serde_json::to_string_pretty(&status)?);
                 } else {
-                    println!("Integration status for worktree at: {}", path.display());
+                    println!("Integration status for worktree: {}", id.as_str());
                     println!("Target: {}", target_ref);
                     match status {
                         IntegrationStatus::NoMergeBaseFound => {
@@ -169,16 +190,12 @@ pub fn handle_inner(
                 }
             } else {
                 // Actual integration
-                but_api::worktree::worktree_integrate(
-                    project.id,
-                    path.clone(),
-                    target_ref.clone(),
-                )?;
+                but_api::worktree::worktree_integrate(project.id, id.clone(), target_ref.clone())?;
 
                 if json {
                     println!("{{\"status\": \"success\"}}");
                 } else {
-                    println!("Successfully integrated worktree at: {}", path.display());
+                    println!("Successfully integrated worktree: {}", id.as_str());
                     println!("Target: {}", target_ref);
                 }
             }
@@ -202,27 +219,27 @@ pub fn handle_inner(
 
                 if json {
                     println!("{}", serde_json::to_string_pretty(&output)?);
-                } else if output.destroyed_paths.is_empty() {
+                } else if output.destroyed_ids.is_empty() {
                     println!("No worktrees found for reference: {}", reference);
                 } else {
                     println!(
                         "Destroyed {} worktree(s) for reference: {}",
-                        output.destroyed_paths.len(),
+                        output.destroyed_ids.len(),
                         reference
                     );
-                    for path in &output.destroyed_paths {
-                        println!("  - {}", path.display());
+                    for id in &output.destroyed_ids {
+                        println!("  - {}", id.as_str());
                     }
                 }
             } else {
-                // Treat target as a path
-                let path = PathBuf::from(target);
-                let output = but_api::worktree::worktree_destroy_by_path(project.id, path.clone())?;
+                // Treat target as a path or worktree name
+                let id = parse_worktree_identifier(target, project)?;
+                let output = but_api::worktree::worktree_destroy_by_id(project.id, id.clone())?;
 
                 if json {
                     println!("{}", serde_json::to_string_pretty(&output)?);
                 } else {
-                    println!("Destroyed worktree at: {}", path.display());
+                    println!("Destroyed worktree: {}", id.as_str());
                 }
             }
 

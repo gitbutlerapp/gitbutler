@@ -30,7 +30,7 @@ fn test_create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
         worktree_integration_status(
             &mut ctx,
             guard.read_permission(),
-            &a.created.path,
+            &a.created.id,
             feature_a_name.as_ref()
         )?,
         WorktreeIntegrationStatus::Integratable {
@@ -44,7 +44,7 @@ fn test_create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
         worktree_integration_status(
             &mut ctx,
             guard.read_permission(),
-            &a.created.path,
+            &a.created.id,
             feature_b_name.as_ref()
         )?,
         WorktreeIntegrationStatus::Integratable {
@@ -59,7 +59,7 @@ fn test_create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
         worktree_integrate(
             &mut ctx,
             guard.write_permission(),
-            &a.created.path,
+            &a.created.id,
             feature_a_name.as_ref()
         )
         .is_ok()
@@ -110,7 +110,7 @@ fn test_causes_conflicts_above() -> anyhow::Result<()> {
         worktree_integration_status(
             &mut ctx,
             guard.read_permission(),
-            &a.created.path,
+            &a.created.id,
             feature_a_name.as_ref()
         )?,
         WorktreeIntegrationStatus::Integratable {
@@ -124,7 +124,7 @@ fn test_causes_conflicts_above() -> anyhow::Result<()> {
         worktree_integration_status(
             &mut ctx,
             guard.read_permission(),
-            &a.created.path,
+            &a.created.id,
             feature_b_name.as_ref()
         )?,
         WorktreeIntegrationStatus::Integratable {
@@ -139,7 +139,7 @@ fn test_causes_conflicts_above() -> anyhow::Result<()> {
         worktree_integrate(
             &mut ctx,
             guard.write_permission(),
-            &a.created.path,
+            &a.created.id,
             feature_a_name.as_ref()
         )
         .is_ok()
@@ -194,7 +194,7 @@ fn test_causes_workdir_conflicts_simple() -> anyhow::Result<()> {
         worktree_integration_status(
             &mut ctx,
             guard.read_permission(),
-            &b.created.path,
+            &b.created.id,
             feature_b_name.as_ref()
         )?,
         WorktreeIntegrationStatus::Integratable {
@@ -209,7 +209,7 @@ fn test_causes_workdir_conflicts_simple() -> anyhow::Result<()> {
         worktree_integrate(
             &mut ctx,
             guard.write_permission(),
-            &b.created.path,
+            &b.created.id,
             feature_b_name.as_ref()
         )
         .is_ok()
@@ -251,7 +251,7 @@ fn test_causes_workdir_conflicts_complex() -> anyhow::Result<()> {
         worktree_integration_status(
             &mut ctx,
             guard.read_permission(),
-            &a.created.path,
+            &a.created.id,
             feature_a_name.as_ref()
         )?,
         WorktreeIntegrationStatus::Integratable {
@@ -265,7 +265,7 @@ fn test_causes_workdir_conflicts_complex() -> anyhow::Result<()> {
         worktree_integration_status(
             &mut ctx,
             guard.read_permission(),
-            &a.created.path,
+            &a.created.id,
             feature_b_name.as_ref()
         )?,
         WorktreeIntegrationStatus::Integratable {
@@ -280,7 +280,7 @@ fn test_causes_workdir_conflicts_complex() -> anyhow::Result<()> {
         worktree_integrate(
             &mut ctx,
             guard.write_permission(),
-            &a.created.path,
+            &a.created.id,
             feature_a_name.as_ref()
         )
         .is_ok()
@@ -321,7 +321,7 @@ fn test_causes_workspace_conflict() -> anyhow::Result<()> {
         worktree_integration_status(
             &mut ctx,
             guard.read_permission(),
-            &c.created.path,
+            &c.created.id,
             feature_c_name.as_ref()
         )?,
         WorktreeIntegrationStatus::CausesWorkspaceConflicts,
@@ -331,7 +331,7 @@ fn test_causes_workspace_conflict() -> anyhow::Result<()> {
         worktree_integration_status(
             &mut ctx,
             guard.read_permission(),
-            &c.created.path,
+            &c.created.id,
             feature_b_name.as_ref()
         )?,
         WorktreeIntegrationStatus::Integratable {
@@ -345,7 +345,7 @@ fn test_causes_workspace_conflict() -> anyhow::Result<()> {
         worktree_integration_status(
             &mut ctx,
             guard.read_permission(),
-            &c.created.path,
+            &c.created.id,
             feature_a_name.as_ref()
         )?,
         WorktreeIntegrationStatus::Integratable {
