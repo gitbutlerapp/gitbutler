@@ -1,6 +1,6 @@
 import { InjectionToken } from '@gitbutler/core/context';
 import { getStorageItem, setStorageItem } from '@gitbutler/shared/persisted';
-import { derived, writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 import type { IBackend } from '$lib/backend';
 
 export const SETTINGS_SERVICE = new InjectionToken<SettingsService>('SettingsService');
@@ -15,14 +15,6 @@ export class SettingsService {
 		return () => {
 			unsubscribe();
 		};
-	});
-
-	/**
-	 * This are the GitHub usernames that are known to the application.
-	 * They are known but not necessarily active.
-	 */
-	readonly knownGitHubUsernames = derived(this.appSettings, (appSettings) => {
-		return appSettings?.forgeIntegrations.github.knownUsernames ?? [];
 	});
 
 	readonly subscribe = this.appSettings.subscribe;
@@ -168,8 +160,6 @@ export type AppSettings = {
 	reviews: Reviews;
 	/** UI settings */
 	ui: UiSettings;
-	/** Settings related to the forge integrations. */
-	forgeIntegrations: ForgeIntegrations;
 };
 
 export type ForgeIntegrations = {
