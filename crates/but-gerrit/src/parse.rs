@@ -15,6 +15,7 @@ pub struct ChangeInfo {
     pub url: String,
     pub commit_title: String,
     pub is_new: bool,
+    pub is_wip: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -106,6 +107,7 @@ enum ChangeSection {
 fn parse_change_info(line: &str) -> Option<ChangeInfo> {
     // Parse lines like:
     // "http://15a45d4cba1a/c/gerrit-test/+/42 aaaaaaa [NEW]"
+    // "http://15a45d4cba1a/c/gerrit-test/+/47 hello [WIP] [NEW]"
     // or "http://15a45d4cba1a/c/gerrit-test/+/41 sup5"
 
     let parts: Vec<&str> = line.splitn(2, ' ').collect();
@@ -115,24 +117,32 @@ fn parse_change_info(line: &str) -> Option<ChangeInfo> {
             url: line.to_string(),
             commit_title: String::new(),
             is_new: false,
+            is_wip: false,
         });
     }
 
     let url = parts[0].to_string();
     let rest = parts[1];
 
-    // Check if it ends with [NEW]
-    let is_new = rest.ends_with("[NEW]");
-    let commit_title = if is_new {
-        rest.trim_end_matches(" [NEW]").trim().to_string()
-    } else {
-        rest.trim().to_string()
-    };
+    // Check for [WIP] and [NEW] tags
+    let is_wip = rest.contains("[WIP]");
+    let is_new = rest.contains("[NEW]");
+
+    // Remove tags to get clean commit title
+    let mut commit_title = rest.to_string();
+    if is_wip {
+        commit_title = commit_title.replace(" [WIP]", "");
+    }
+    if is_new {
+        commit_title = commit_title.replace(" [NEW]", "");
+    }
+    let commit_title = commit_title.trim().to_string();
 
     Some(ChangeInfo {
         url,
         commit_title,
         is_new,
+        is_wip,
     })
 }
 
@@ -338,6 +348,7 @@ remote:"#;
             url: "http://example.com/change/123".to_string(),
             commit_title: "my commit message".to_string(),
             is_new: false,
+            is_wip: false,
         };
         assert_eq!(result, Some(expected));
 
@@ -347,6 +358,7 @@ remote:"#;
             url: "http://gerrit.local/c/project/+/41".to_string(),
             commit_title: "fix bug".to_string(),
             is_new: true,
+            is_wip: false,
         };
         assert_eq!(result, Some(expected));
 
@@ -356,6 +368,7 @@ remote:"#;
             url: "http://example.com/change/123".to_string(),
             commit_title: String::new(),
             is_new: false,
+            is_wip: false,
         };
         assert_eq!(result, Some(expected));
 
@@ -366,13 +379,80 @@ remote:"#;
             url: "http://gerrit.local/c/project/+/41".to_string(),
             commit_title: "fix: update dependencies".to_string(),
             is_new: true,
+            is_wip: false,
         };
         assert_eq!(result, Some(expected));
     }
 
     #[test]
+    fn test_parse_wip_changes() {
+        // Test WIP tag only
+        let result = parse_change_info("http://gerrit.local/c/project/+/47 hello [WIP]");
+        let expected = ChangeInfo {
+            url: "http://gerrit.local/c/project/+/47".to_string(),
+            commit_title: "hello".to_string(),
+            is_new: false,
+            is_wip: true,
+        };
+        assert_eq!(result, Some(expected));
+
+        // Test both WIP and NEW tags
+        let result = parse_change_info("http://15a45d4cba1a/c/gerrit-test/+/47 hello [WIP] [NEW]");
+        let expected = ChangeInfo {
+            url: "http://15a45d4cba1a/c/gerrit-test/+/47".to_string(),
+            commit_title: "hello".to_string(),
+            is_new: true,
+            is_wip: true,
+        };
+        assert_eq!(result, Some(expected));
+
+        // Test NEW and WIP in different order
+        let result =
+            parse_change_info("http://gerrit.local/c/project/+/48 multi word title [NEW] [WIP]");
+        let expected = ChangeInfo {
+            url: "http://gerrit.local/c/project/+/48".to_string(),
+            commit_title: "multi word title".to_string(),
+            is_new: true,
+            is_wip: true,
+        };
+        assert_eq!(result, Some(expected));
+    }
+
+    #[test]
+    fn test_parse_wip_push_output() {
+        let output = r#"remote: 
+remote: Processing changes: refs: 1, new: 1        
+remote: Processing changes: refs: 1, new: 1        
+remote: Processing changes: refs: 1, new: 1        
+remote: Processing changes: refs: 1, new: 1, done            
+remote: 
+remote: SUCCESS        
+remote: 
+remote:   http://15a45d4cba1a/c/gerrit-test/+/47 hello [WIP] [NEW]        
+remote:"#;
+
+        let result = push_output(output).unwrap();
+
+        assert!(result.success);
+        assert_eq!(result.warnings.len(), 0);
+        assert_eq!(result.changes.len(), 1);
+
+        let change = &result.changes[0];
+        assert_eq!(change.url, "http://15a45d4cba1a/c/gerrit-test/+/47");
+        assert_eq!(change.commit_title, "hello");
+        assert!(change.is_new);
+        assert!(change.is_wip);
+
+        assert!(result.processing_info.is_some());
+        let processing = result.processing_info.unwrap();
+        assert_eq!(processing.refs_count, 1);
+        assert_eq!(processing.updated_count, None);
+        assert_eq!(processing.new_count, Some(1));
+    }
+
+    #[test]
     fn test_parse_new_changes_section() {
-        let output = r#"remote: Processing changes: new: 1, done
+        let output = r#"remote: Processing changes: refs: 1, new: 1, done
 remote:
 remote: New Changes:
 remote:   http://gerrithost/#/c/RecipeBook/+/702 Change to a proper, yeast based pizza dough.
@@ -401,7 +481,7 @@ remote:"#;
 
     #[test]
     fn test_parse_updated_changes_section() {
-        let output = r#"remote: Processing changes: updated: 1, done
+        let output = r#"remote: Processing changes: refs: 1, updated: 1, done
 remote:
 remote: Updated Changes:
 remote:   http://gerrithost/#/c/RecipeBook/+/702 Change to a proper, yeast based pizza dough.
