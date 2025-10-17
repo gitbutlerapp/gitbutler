@@ -16,7 +16,7 @@ async function getUsersWithAvatarsFromMails(userEmails: string[]) {
 		userEmails.map(async (user) => {
 			return {
 				srcUrl: await gravatarUrlFromEmail(user),
-				name: user
+				username: user
 			};
 		})
 	);
@@ -29,7 +29,7 @@ export async function getUsersWithAvatars(commenters: Commenter[]) {
 			const email = commenter.email ?? 'unknown';
 			return {
 				srcUrl: commenter.avatarUrl ?? (await gravatarUrlFromEmail(email)),
-				name
+				username: name
 			};
 		})
 	);

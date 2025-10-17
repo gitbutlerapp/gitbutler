@@ -58,7 +58,7 @@
 		<span>Author:</span>
 		<Avatar
 			size="medium"
-			tooltip={commit.author.name}
+			username={commit.author.name}
 			srcUrl={getGravatarUrl(commit.author.email, commit.author.gravatarUrl)}
 		/>
 		<span class="divider">•</span>

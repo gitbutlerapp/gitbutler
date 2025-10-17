@@ -81,7 +81,7 @@
 	{/snippet}
 	{#snippet details()}
 		{#if author && modifiedAt}
-			<Avatar srcUrl={author.gravatarUrl || ''} tooltip={author.name || unknownName} />
+			<Avatar srcUrl={author.gravatarUrl || ''} username={author.name || unknownName} />
 			<TimeAgo date={new Date(modifiedAt)} addSuffix /> by
 			{author.name || unknownName}
 		{/if}

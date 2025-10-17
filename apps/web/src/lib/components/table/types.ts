@@ -3,7 +3,7 @@ import type { Branch } from '@gitbutler/shared/branches/types';
 
 export type AvatarsType = {
 	srcUrl: string;
-	name: string;
+	username: string;
 };
 
 export type ChangesType = {
