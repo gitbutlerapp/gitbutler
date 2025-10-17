@@ -2,7 +2,7 @@
 use anyhow::Result;
 use but_github::{AuthStatusResponse, AuthenticatedUser, CheckAuthStatusParams, Verification};
 use but_settings::AppSettingsWithDiskSync;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{NoParams, error::Error};
 
@@ -91,8 +91,17 @@ impl From<AuthenticatedUser> for AuthenticatedUserSensitive {
     }
 }
 
-pub async fn get_gh_user(login: String) -> Result<Option<AuthenticatedUserSensitive>, Error> {
-    but_github::get_gh_user(&login)
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetGhUserParams {
+    pub username: String,
+}
+
+pub async fn get_gh_user(
+    params: GetGhUserParams,
+) -> Result<Option<AuthenticatedUserSensitive>, Error> {
+    let GetGhUserParams { username } = params;
+    but_github::get_gh_user(&username)
         .await
         .map(|res| res.map(Into::into))
         .map_err(Into::into)
