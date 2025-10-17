@@ -739,7 +739,7 @@ impl Graph {
             .collect();
         edges_pointing_to_named_segment.sort_by_key(|(_e, sidx, rn)| {
             let res = ws_data.stacks.iter().position(|s| {
-                s.in_workspace
+                s.is_in_workspace()
                     && s.branches
                         .first()
                         .is_some_and(|b| Some(&b.ref_name) == rn.as_ref())

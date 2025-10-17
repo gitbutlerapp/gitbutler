@@ -7,8 +7,10 @@ use std::{
     time::Instant,
 };
 
+use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
 use anyhow::{Context, bail};
 use bstr::ByteSlice;
+use but_core::ref_metadata::WorkspaceCommitRelation;
 use but_core::{
     RefMetadata,
     ref_metadata::{
@@ -24,8 +26,6 @@ use gix::{
     refs::{FullName, FullNameRef},
 };
 use itertools::Itertools;
-
-use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
 
 #[derive(Debug)]
 struct Snapshot {
@@ -368,7 +368,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     branch.archived,
                 ))
             }
-            vb_stack.in_workspace = stack.in_workspace;
+            vb_stack.in_workspace = stack.is_in_workspace();
             vb_stack.heads.sort_by_key(|head| {
                 stack.branches.iter().enumerate().find_map(|(idx, branch)| {
                     (branch.ref_name.shorten() == head.name.as_str()).then_some(idx)
@@ -483,7 +483,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 *review_id = value.review.review_id.clone();
                 if let Some((stack_idx, segment_idx)) = metadata_stack_indices {
                     let meta_stack = &ws.stacks[stack_idx];
-                    stack.in_workspace = meta_stack.in_workspace;
+                    stack.in_workspace = meta_stack.is_in_workspace();
                     *archived = meta_stack.branches[segment_idx].archived;
                 }
                 Ok(())
@@ -574,7 +574,11 @@ impl VirtualBranchesTomlMetadata {
                 .sorted_by_key(|s| s.order)
                 .map(|s| WorkspaceStack {
                     id: s.id,
-                    in_workspace: s.in_workspace,
+                    workspacecommit_relation: if s.in_workspace {
+                        WorkspaceCommitRelation::Merged
+                    } else {
+                        WorkspaceCommitRelation::Outside
+                    },
                     branches: s
                         .heads
                         .iter()

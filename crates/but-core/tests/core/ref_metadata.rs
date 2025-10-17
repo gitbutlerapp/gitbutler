@@ -1,4 +1,5 @@
 mod workspace {
+    use but_core::ref_metadata::WorkspaceCommitRelation::Merged;
     use but_core::ref_metadata::{StackKind::AppliedAndUnapplied, Workspace};
 
     #[test]
@@ -8,18 +9,18 @@ mod workspace {
 
         let a_ref = r("refs/heads/A");
         assert_eq!(
-            ws.add_or_insert_new_stack_if_not_present(a_ref, Some(100)),
+            ws.add_or_insert_new_stack_if_not_present(a_ref, Some(100), Merged),
             (0, 0)
         );
         assert_eq!(
-            ws.add_or_insert_new_stack_if_not_present(a_ref, Some(200)),
+            ws.add_or_insert_new_stack_if_not_present(a_ref, Some(200), Merged),
             (0, 0)
         );
         assert_eq!(ws.stacks.len(), 1);
 
         let b_ref = r("refs/heads/B");
         assert_eq!(
-            ws.add_or_insert_new_stack_if_not_present(b_ref, Some(0)),
+            ws.add_or_insert_new_stack_if_not_present(b_ref, Some(0), Merged),
             (0, 0)
         );
         assert_eq!(
@@ -29,7 +30,7 @@ mod workspace {
 
         let c_ref = r("refs/heads/C");
         assert_eq!(
-            ws.add_or_insert_new_stack_if_not_present(c_ref, None),
+            ws.add_or_insert_new_stack_if_not_present(c_ref, None, Merged),
             (2, 0)
         );
         assert_eq!(
@@ -67,7 +68,7 @@ mod workspace {
             "anchor doesn't exist"
         );
         assert_eq!(
-            ws.add_or_insert_new_stack_if_not_present(a_ref, None),
+            ws.add_or_insert_new_stack_if_not_present(a_ref, None, Merged),
             (0, 0)
         );
         assert_eq!(
@@ -88,7 +89,7 @@ mod workspace {
         );
 
         assert_eq!(
-            ws.add_or_insert_new_stack_if_not_present(a_ref, None),
+            ws.add_or_insert_new_stack_if_not_present(a_ref, None, Merged),
             (0, 2),
             "adding a new stack can 'fail' if the segment is already present, but not as stack tip"
         );
@@ -113,7 +114,7 @@ mod workspace {
                             archived: false,
                         },
                     ],
-                    in_workspace: true,
+                    workspacecommit_relation: Merged,
                 },
             ],
             target_ref: None,

@@ -1,5 +1,6 @@
 use std::{ops::Deref, path::PathBuf};
 
+use but_core::ref_metadata::WorkspaceCommitRelation::{Merged, Outside};
 use but_core::{
     RefMetadata,
     ref_metadata::{StackId, ValueInfo, WorkspaceStack, WorkspaceStackBranch},
@@ -56,7 +57,7 @@ fn read_only() -> anyhow::Result<()> {
                     archived: false,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
         WorkspaceStack {
             id: 2,
@@ -78,7 +79,7 @@ fn read_only() -> anyhow::Result<()> {
                     archived: true,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
         WorkspaceStack {
             id: 3,
@@ -108,7 +109,7 @@ fn read_only() -> anyhow::Result<()> {
                     archived: true,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
         WorkspaceStack {
             id: 4,
@@ -122,7 +123,7 @@ fn read_only() -> anyhow::Result<()> {
                     archived: false,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
         WorkspaceStack {
             id: 5,
@@ -132,7 +133,7 @@ fn read_only() -> anyhow::Result<()> {
                     archived: false,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
     ]
     "#);
@@ -382,7 +383,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
     let stack_id2 = StackId::from_number_for_testing(2);
     ws_md.stacks.push(WorkspaceStack {
         id: stack_id1,
-        in_workspace: true,
+        workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
             ref_name: branch1.clone(),
             archived: false,
@@ -390,7 +391,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
     });
     ws_md.stacks.push(WorkspaceStack {
         id: stack_id2,
-        in_workspace: false,
+        workspacecommit_relation: Outside,
         branches: vec![WorkspaceStackBranch {
             ref_name: branch2.clone(),
             archived: false,
@@ -411,7 +412,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
                         archived: false,
                     },
                 ],
-                in_workspace: true,
+                workspacecommit_relation: Merged,
             },
             WorkspaceStack {
                 id: 00000000-0000-0000-0000-000000000002,
@@ -421,7 +422,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
                         archived: false,
                     },
                 ],
-                in_workspace: false,
+                workspacecommit_relation: Outside,
             },
         ],
         target_ref: None,
@@ -446,7 +447,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
                         archived: false,
                     },
                 ],
-                in_workspace: true,
+                workspacecommit_relation: Merged,
             },
             WorkspaceStack {
                 id: 00000000-0000-0000-0000-000000000002,
@@ -456,7 +457,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
                         archived: false,
                     },
                 ],
-                in_workspace: false,
+                workspacecommit_relation: Outside,
             },
         ],
         target_ref: None,
@@ -464,8 +465,8 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
     }
     "#);
 
-    ws_md.stacks[0].in_workspace = false;
-    ws_md.stacks[1].in_workspace = true;
+    ws_md.stacks[0].workspacecommit_relation = Outside;
+    ws_md.stacks[1].workspacecommit_relation = Merged;
 
     // It's totally possible to change 'in_workspace' directly.
     store.set_workspace(&ws_md)?;
@@ -482,7 +483,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
                         archived: false,
                     },
                 ],
-                in_workspace: false,
+                workspacecommit_relation: Outside,
             },
             WorkspaceStack {
                 id: 00000000-0000-0000-0000-000000000002,
@@ -492,7 +493,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
                         archived: false,
                     },
                 ],
-                in_workspace: true,
+                workspacecommit_relation: Merged,
             },
         ],
         target_ref: None,
@@ -508,7 +509,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
     ] {
         ws_md.stacks.push(WorkspaceStack {
             id: StackId::from_number_for_testing(number),
-            in_workspace: true,
+            workspacecommit_relation: Merged,
             branches: vec![WorkspaceStackBranch {
                 ref_name: ref_name.try_into()?,
                 archived: false,
@@ -532,7 +533,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
                         archived: false,
                     },
                 ],
-                in_workspace: true,
+                workspacecommit_relation: Merged,
             },
             WorkspaceStack {
                 id: 00000000-0000-0000-0000-000000000004,
@@ -542,7 +543,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
                         archived: false,
                     },
                 ],
-                in_workspace: true,
+                workspacecommit_relation: Merged,
             },
         ],
         target_ref: None,
@@ -590,7 +591,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
                     archived: false,
                 },
             ],
-            in_workspace: false,
+            workspacecommit_relation: Outside,
         },
     ]
     "#);
@@ -598,7 +599,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     let ignored_id = StackId::from_number_for_testing(2);
     ws.stacks.push(WorkspaceStack {
         id: ignored_id,
-        in_workspace: true,
+        workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
             ref_name: branch_name.clone(),
             archived: false,
@@ -622,7 +623,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
                     archived: false,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
     ]
     "#);
@@ -665,7 +666,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
                     archived: false,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
     ]
     "#);
@@ -740,7 +741,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
                     archived: false,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
     ]
     "#);
@@ -779,7 +780,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
                     archived: false,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
     ]
     "#);
@@ -810,7 +811,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         .expect("can also set a valid id, it doesn't matter");
     ws.stacks.push(WorkspaceStack {
         id: second_id,
-        in_workspace: true,
+        workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
             ref_name: branch.as_ref().into(), /* always a matching name */
             archived: true,
@@ -838,7 +839,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
                     archived: false,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
         WorkspaceStack {
             id: 2,
@@ -848,7 +849,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
                     archived: true,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
     ]
     "#);
@@ -868,7 +869,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     // Add it again, then remove it by removing the branch.
     ws.stacks.push(WorkspaceStack {
         id: StackId::from_number_for_testing(2),
-        in_workspace: true,
+        workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
             ref_name: second_stack.clone(),
             archived: true,
@@ -1004,7 +1005,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     let mut ws = store.workspace(workspace_name)?;
     ws.stacks.push(WorkspaceStack {
         id: StackId::from_number_for_testing(1),
-        in_workspace: false,
+        workspacecommit_relation: Outside,
         branches: vec![
             WorkspaceStackBranch {
                 ref_name: "refs/heads/top".try_into()?,
@@ -1022,7 +1023,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     });
     ws.stacks.push(WorkspaceStack {
         id: StackId::from_number_for_testing(2),
-        in_workspace: true,
+        workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
             ref_name: "refs/heads/second-branch".try_into()?,
             archived: false,
@@ -1049,7 +1050,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
                     archived: true,
                 },
             ],
-            in_workspace: false,
+            workspacecommit_relation: Outside,
         },
         WorkspaceStack {
             id: 00000000-0000-0000-0000-000000000002,
@@ -1059,7 +1060,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
                     archived: false,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
     ]
     "#);
@@ -1085,7 +1086,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
                     archived: true,
                 },
             ],
-            in_workspace: false,
+            workspacecommit_relation: Outside,
         },
         WorkspaceStack {
             id: 00000000-0000-0000-0000-000000000002,
@@ -1095,7 +1096,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
                     archived: false,
                 },
             ],
-            in_workspace: true,
+            workspacecommit_relation: Merged,
         },
     ]
     "#);
@@ -1156,7 +1157,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
                         archived: false,
                     },
                 ],
-                in_workspace: false,
+                workspacecommit_relation: Outside,
             },
         ],
         target_ref: Some(
@@ -1197,7 +1198,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
                         archived: false,
                     },
                 ],
-                in_workspace: false,
+                workspacecommit_relation: Outside,
             },
         ],
         target_ref: Some(

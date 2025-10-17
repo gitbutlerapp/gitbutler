@@ -1,3 +1,11 @@
+use crate::{
+    ref_info::with_workspace_commit::utils::{
+        StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
+        named_writable_scenario_with_description_and_graph,
+    },
+    utils::r,
+};
+use but_core::ref_metadata::WorkspaceCommitRelation::Outside;
 use but_core::{RefMetadata, ref_metadata};
 use but_graph::init::{Options, Overlay};
 use but_testsupport::{
@@ -10,14 +18,6 @@ use but_workspace::branch::{
     checkout::UncommitedWorktreeChanges,
 };
 use gix::refs::Category;
-
-use crate::{
-    ref_info::with_workspace_commit::utils::{
-        StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
-        named_writable_scenario_with_description_and_graph,
-    },
-    utils::r,
-};
 
 #[test]
 fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
@@ -301,7 +301,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     // Reset the workspace to 'unapply', but keep the per-branch metadata.
     let mut ws_md = meta.workspace(ws.ref_name().expect("proper gb workspace"))?;
     for stack in &mut ws_md.stacks {
-        stack.in_workspace = false;
+        stack.workspacecommit_relation = Outside;
     }
     meta.set_workspace(&ws_md)?;
 
@@ -1047,7 +1047,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
                         archived: false,
                     },
                 ],
-                in_workspace: true,
+                workspacecommit_relation: Merged,
             },
             WorkspaceStack {
                 id: 2,
@@ -1057,7 +1057,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
                         archived: false,
                     },
                 ],
-                in_workspace: true,
+                workspacecommit_relation: Merged,
             },
             WorkspaceStack {
                 id: 3,
@@ -1067,7 +1067,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
                         archived: false,
                     },
                 ],
-                in_workspace: false,
+                workspacecommit_relation: Outside,
             },
             WorkspaceStack {
                 id: 4,
@@ -1077,7 +1077,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
                         archived: false,
                     },
                 ],
-                in_workspace: true,
+                workspacecommit_relation: Merged,
             },
             WorkspaceStack {
                 id: 5,
@@ -1087,7 +1087,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
                         archived: false,
                     },
                 ],
-                in_workspace: false,
+                workspacecommit_relation: Outside,
             },
             WorkspaceStack {
                 id: 6,
@@ -1097,7 +1097,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
                         archived: false,
                     },
                 ],
-                in_workspace: true,
+                workspacecommit_relation: Merged,
             },
             WorkspaceStack {
                 id: 7,
@@ -1107,7 +1107,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
                         archived: false,
                     },
                 ],
-                in_workspace: true,
+                workspacecommit_relation: Merged,
             },
         ],
         target_ref: Some(

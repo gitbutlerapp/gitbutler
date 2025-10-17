@@ -13,6 +13,7 @@ use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
 use gitbutler_stack::{Stack, StackBranch, StackId};
 use gix::date::parse::TimeBuf;
 use itertools::Itertools;
+use tracing::instrument;
 
 use crate::{
     RefInfo, StacksFilter, branch, head_info,
@@ -425,6 +426,7 @@ pub fn stack_details(
 // TODO: StackId shouldn't be used, instead use the ref-name or stack index as universal tip identifier.
 //       It's notable that there isn't always a ref-name available right now in case the ref advanced, but maybe this is something
 //       we can pull out of the metadata information.
+#[instrument(level = tracing::Level::DEBUG, skip(meta), err(Debug))]
 pub fn stack_details_v3(
     stack_id: Option<StackId>,
     repo: &gix::Repository,

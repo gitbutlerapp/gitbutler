@@ -1,3 +1,4 @@
+use but_core::ref_metadata::WorkspaceCommitRelation;
 use but_core::{
     RefMetadata,
     ref_metadata::{StackId, WorkspaceStack, WorkspaceStackBranch},
@@ -2312,7 +2313,7 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
                 ref_name: ref_name.try_into()?,
                 archived: false,
             }],
-            in_workspace: true,
+            workspacecommit_relation: WorkspaceCommitRelation::Merged,
         });
         meta.branches.push((
             ref_name.try_into()?,

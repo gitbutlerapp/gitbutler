@@ -90,7 +90,10 @@ pub struct Options {
 pub(crate) mod function {
     use std::borrow::Cow;
 
+    use super::{IntegrationMode, Options, Outcome, WorkspaceReferenceNaming};
+    use crate::{WorkspaceCommit, branch::checkout, ext::ObjectStorageExt, ref_info::WorkspaceExt};
     use anyhow::{Context, bail};
+    use but_core::ref_metadata::WorkspaceCommitRelation::{Merged, Outside};
     use but_core::{
         RefMetadata,
         ref_metadata::{StackId, StackKind::AppliedAndUnapplied, Workspace},
@@ -105,9 +108,6 @@ pub(crate) mod function {
         },
     };
     use tracing::instrument;
-
-    use super::{IntegrationMode, Options, Outcome, WorkspaceReferenceNaming};
-    use crate::{WorkspaceCommit, branch::checkout, ext::ObjectStorageExt, ref_info::WorkspaceExt};
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
     /// along with its `meta`-data if it doesn't exist yet.
@@ -385,7 +385,7 @@ pub(crate) mod function {
         // merge.
         let mut in_memory_repo = repo.clone().for_tree_diffing()?.with_object_memory();
         let mut merge_result = WorkspaceCommit::from_new_merge_with_metadata(
-            ws_md.stacks.iter().filter(|s| s.in_workspace),
+            ws_md.stacks.iter().filter(|s| s.is_in_workspace()),
             workspace.graph,
             &in_memory_repo,
             Some(branch),
@@ -492,7 +492,7 @@ pub(crate) mod function {
             // Redo the merge, with the different stack configuration.
             // Note that this is the exception, typically using stacks will be fine.
             merge_result = WorkspaceCommit::from_new_merge_with_metadata(
-                ws_md.stacks.iter().filter(|s| s.in_workspace),
+                ws_md.stacks.iter().filter(|s| s.is_in_workspace()),
                 workspace.graph,
                 &in_memory_repo,
                 Some(branch),
@@ -574,9 +574,10 @@ pub(crate) mod function {
         rn: &gix::refs::FullNameRef,
         order: Option<usize>,
     ) {
-        let (stack_idx, branch_idx) = ws_md.add_or_insert_new_stack_if_not_present(rn, order);
+        let (stack_idx, branch_idx) =
+            ws_md.add_or_insert_new_stack_if_not_present(rn, order, Merged);
         let stack = &mut ws_md.stacks[stack_idx];
-        if branch_idx != 0 && !stack.in_workspace {
+        if branch_idx != 0 && !stack.is_in_workspace() {
             // For now, just delete the branches that came before it so it's index 0/top most.
             // That way we bring in a new portion of the stack, but discard information like the `archived` flag
             // which probably leads to other issues down the line.
@@ -588,7 +589,7 @@ pub(crate) mod function {
             });
         }
         // Just be sure the new (or old) stack is in the workspace, and we will bring in the whole stack.
-        stack.in_workspace = true;
+        stack.workspacecommit_relation = Merged;
     }
 
     fn correlate_conflicting_stack_ids(
@@ -615,7 +616,8 @@ pub(crate) mod function {
                 .iter_mut()
                 .find(|s| s.id == *conflicting_id)
                 .expect("if it was found before it will be found as id");
-            stack.in_workspace = false;
+            // TODO: this might as well be 'Unmerged' to keep them in the workspace, but not let them be merged.
+            stack.workspacecommit_relation = Outside;
         }
         conflicting_stack_ids
     }

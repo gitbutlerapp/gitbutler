@@ -61,9 +61,11 @@ impl Workspace {
 
     /// Insert `branch` as new stack if it's not yet contained in the workspace and if `order` is not `None` or push
     /// it to the end of the stack list.
+    /// Use `relation` to indicate how the new stack should be seen.
     /// If a new stack is created, it's considered to be *in* the workspace. If there is an existing stack, it
     /// may also be marked as *outside the workspace*, we do not change this.
-    /// Note that `order` is only relevant at insertion time, not if the branch already exists.
+    /// Note that `order` is only relevant at insertion time, not if the branch already exists, and `relation`
+    /// is only used if the stack is newly created.
     /// Returns `(stack_id, segment_idx)` of the stack that was either newly created, or already present.
     /// Note that `segment_idx` may be non-0 if `branch` already existed as segment, and the caller has to
     /// deal with this.
@@ -71,6 +73,7 @@ impl Workspace {
         &mut self,
         branch: &FullNameRef,
         order: Option<usize>,
+        relation: WorkspaceCommitRelation,
     ) -> (usize, usize) {
         if let Some(owners) =
             self.find_owner_indexes_by_name(branch, StackKind::AppliedAndUnapplied)
@@ -80,7 +83,7 @@ impl Workspace {
 
         let stack = WorkspaceStack {
             id: StackId::generate(),
-            in_workspace: true,
+            workspacecommit_relation: relation,
             branches: vec![WorkspaceStackBranch {
                 ref_name: branch.to_owned(),
                 archived: false,
@@ -140,7 +143,7 @@ impl Workspace {
     pub fn stacks(&self, kind: StackKind) -> impl Iterator<Item = &WorkspaceStack> {
         self.stacks.iter().filter(move |s| {
             if matches!(kind, StackKind::Applied) {
-                s.in_workspace
+                s.workspacecommit_relation.is_in_workspace()
             } else {
                 true
             }
@@ -152,7 +155,7 @@ impl Workspace {
     pub fn stacks_mut(&mut self, kind: StackKind) -> impl Iterator<Item = &mut WorkspaceStack> {
         self.stacks.iter_mut().filter(move |s| {
             if matches!(kind, StackKind::Applied) {
-                s.in_workspace
+                s.workspacecommit_relation.is_in_workspace()
             } else {
                 true
             }
@@ -380,15 +383,39 @@ pub struct WorkspaceStack {
     ///
     /// Thus, branches are stored in traversal order, from the tip towards the base.
     pub branches: Vec<WorkspaceStackBranch>,
-    /// If `true`, the entire stack is expected to be visible in the workspace.
-    /// If `false`, it's considered unapplied, and is not supposed to be reachable from the workspace commit
-    /// nor is it usually shown.
+    /// How the stack acts in relation to the workspace commit.
+    pub workspacecommit_relation: WorkspaceCommitRelation,
+}
+
+/// The relationship that a [WorkspaceStack] *supposedly* has with a workspace commit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceCommitRelation {
+    /// The stack is considered to be merged into the workspace commit, with its tree being observable
+    /// in the worktree associated with the workspace reference.
+    Merged,
+    /// The stack is supposed to be in the workspace commit, but its tree isn't observable
+    /// in the worktree associated with the workspace reference.
+    ///
+    /// Stacks with this relationship can never conflict with any other `Merged` stat.
+    UnmergedTree,
+    /// The stack may have previously been merged into the workspace commit,
+    /// and is considered *outside* of the workspace.
     ///
     /// The reason we have to keep stacks that aren't in the workspace is to keep
     /// information about their constituent branches, as well as their stack-ids which should remain as stable as possible.
     /// It's notable that stack-ids will change, and it's not possible overall to have a stack identity as such as
     /// the contained branches can be reshuffled at will.
-    pub in_workspace: bool,
+    Outside,
+}
+
+impl WorkspaceCommitRelation {
+    /// Return `true` if this relation suggests that the owning stack is reachable from the workspace commit.
+    pub fn is_in_workspace(&self) -> bool {
+        match self {
+            WorkspaceCommitRelation::Merged | WorkspaceCommitRelation::UnmergedTree => true,
+            WorkspaceCommitRelation::Outside => false,
+        }
+    }
 }
 
 /// A branch within a [`WorkspaceStack`], holding per-branch metadata that is
@@ -425,6 +452,11 @@ impl WorkspaceStack {
     /// The same as [`ref_name()`](Self::ref_name()), but returns an actual `Ref`.
     pub fn name(&self) -> Option<&gix::refs::FullNameRef> {
         self.ref_name().map(|rn| rn.as_ref())
+    }
+
+    /// Return `true` if this relation suggests that the owning stack is reachable from the workspace commit.
+    pub fn is_in_workspace(&self) -> bool {
+        self.workspacecommit_relation.is_in_workspace()
     }
 }
 
