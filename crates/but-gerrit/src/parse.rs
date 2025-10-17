@@ -106,7 +106,8 @@ enum ChangeSection {
 fn parse_change_info(line: &str) -> Option<ChangeInfo> {
     // Parse lines like:
     // "http://15a45d4cba1a/c/gerrit-test/+/42 aaaaaaa [NEW]"
-    // or "http://15a45d4cba1a/c/gerrit-test/+/41 sup5"
+    // "http://15a45d4cba1a/c/gerrit-test/+/41 sup5"
+    // "http://192.168.178.83:8080/c/testing/+/36 tt [WIP]"
 
     let parts: Vec<&str> = line.splitn(2, ' ').collect();
     if parts.len() < 2 {
@@ -121,10 +122,15 @@ fn parse_change_info(line: &str) -> Option<ChangeInfo> {
     let url = parts[0].to_string();
     let rest = parts[1];
 
-    // Check if it ends with [NEW]
+    // Check if it ends with any status tag like [NEW], [WIP], etc.
     let is_new = rest.ends_with("[NEW]");
-    let commit_title = if is_new {
-        rest.trim_end_matches(" [NEW]").trim().to_string()
+    let commit_title = if let Some(bracket_pos) = rest.rfind(" [")
+        && rest[bracket_pos..].ends_with(']')
+        // Ensure it's actually a status tag at the end, not just any bracket
+        && rest.len() - bracket_pos < 20 // Status tags are short, < 20 chars like " [PRIVATE]"
+    {
+        // Remove the status tag (e.g., " [NEW]", " [WIP]", etc.)
+        rest[..bracket_pos].trim().to_string()
     } else {
         rest.trim().to_string()
     };
@@ -368,6 +374,33 @@ remote:"#;
             is_new: true,
         };
         assert_eq!(result, Some(expected));
+
+        // URL with WIP tag
+        let result = parse_change_info("http://gerrit.local/c/project/+/42 work in progress [WIP]");
+        let expected = ChangeInfo {
+            url: "http://gerrit.local/c/project/+/42".to_string(),
+            commit_title: "work in progress".to_string(),
+            is_new: false,
+        };
+        assert_eq!(result, Some(expected));
+
+        // URL with PRIVATE tag
+        let result = parse_change_info("http://gerrit.local/c/project/+/43 secret change [PRIVATE]");
+        let expected = ChangeInfo {
+            url: "http://gerrit.local/c/project/+/43".to_string(),
+            commit_title: "secret change".to_string(),
+            is_new: false,
+        };
+        assert_eq!(result, Some(expected));
+
+        // URL with multi-word title that contains brackets (should not be confused with status tags)
+        let result = parse_change_info("http://gerrit.local/c/project/+/44 fix [urgent] bug in parser");
+        let expected = ChangeInfo {
+            url: "http://gerrit.local/c/project/+/44".to_string(),
+            commit_title: "fix [urgent] bug in parser".to_string(),
+            is_new: false,
+        };
+        assert_eq!(result, Some(expected));
     }
 
     #[test]
@@ -482,5 +515,27 @@ remote:"#;
         assert_eq!(change.url, "http://gerrit.local/c/project/+/41");
         assert_eq!(change.commit_title, "fix bug");
         assert!(change.is_new); // Should be true from [NEW] tag
+    }
+
+    #[test]
+    fn test_parse_wip_change() {
+        // Test parsing WIP changes like the user's example
+        let output = r#"remote: Resolving deltas: 100% (1/1)
+remote: Processing changes: refs: 1, updated: 1, done
+remote:
+remote: SUCCESS
+remote:
+remote:   http://192.168.178.83:8080/c/testing/+/36 tt [WIP]
+remote:
+"#;
+
+        let result = push_output(output).unwrap();
+
+        assert!(result.success);
+        assert_eq!(result.changes.len(), 1);
+        let change = &result.changes[0];
+        assert_eq!(change.url, "http://192.168.178.83:8080/c/testing/+/36");
+        assert_eq!(change.commit_title, "tt");
+        assert!(!change.is_new); // WIP changes are typically updates, not new
     }
 }
