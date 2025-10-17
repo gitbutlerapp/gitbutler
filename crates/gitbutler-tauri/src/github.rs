@@ -2,7 +2,7 @@ use but_api::{
     NoParams,
     commands::github::{self},
     error::Error,
-    github::{AuthStatusResponseSensitive, AuthenticatedUserSensitive},
+    github::{AuthStatusResponseSensitive, AuthenticatedUserSensitive, GetGhUserParams},
 };
 use but_github::{CheckAuthStatusParams, Verification};
 use but_settings::AppSettingsWithDiskSync;
@@ -36,5 +36,5 @@ pub async fn forget_github_username(
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub async fn get_gh_user(username: String) -> Result<Option<AuthenticatedUserSensitive>, Error> {
-    github::get_gh_user(username).await
+    github::get_gh_user(GetGhUserParams { username }).await
 }
