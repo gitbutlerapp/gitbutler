@@ -19,7 +19,6 @@ serde_json = "1.0.145"
 anyhow = "1.0.100"
 chrono = "0.4.42"
 itertools = "0.14.0"
-secrecy = "0.10.3"
 uuid = { workspace = true }
 strum = { version = "0.27", features = ["derive"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
