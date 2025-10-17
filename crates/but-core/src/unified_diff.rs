@@ -193,7 +193,10 @@ impl UnifiedDiff {
                         Ok(())
                     }
                 }
-                let input = prep.interned_input();
+                let input = gix::diff::blob::intern::InternedInput::new(
+                    prep.old.intern_source(),
+                    prep.new.intern_source(),
+                );
                 let uni_diff = gix::diff::blob::UnifiedDiff::new(
                     &input,
                     ConsumeBinaryHunk::new(ProduceDiffHunk::default(), "\n"),
