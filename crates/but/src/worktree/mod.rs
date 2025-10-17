@@ -195,14 +195,21 @@ pub fn handle_inner(
                     gix::refs::FullName::try_from(format!("refs/heads/{}", target))?
                 };
 
-                let output = but_api::worktree::worktree_destroy_by_reference(project.id, reference.clone())?;
+                let output = but_api::worktree::worktree_destroy_by_reference(
+                    project.id,
+                    reference.clone(),
+                )?;
 
                 if json {
                     println!("{}", serde_json::to_string_pretty(&output)?);
                 } else if output.destroyed_paths.is_empty() {
                     println!("No worktrees found for reference: {}", reference);
                 } else {
-                    println!("Destroyed {} worktree(s) for reference: {}", output.destroyed_paths.len(), reference);
+                    println!(
+                        "Destroyed {} worktree(s) for reference: {}",
+                        output.destroyed_paths.len(),
+                        reference
+                    );
                     for path in &output.destroyed_paths {
                         println!("  - {}", path.display());
                     }

@@ -16,10 +16,7 @@ use gitbutler_workspace::branch_trees::{
 use gix::prelude::ObjectIdExt as _;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    db::{delete_worktree_meta, get_worktree_meta},
-    git::git_worktree_remove,
-};
+use crate::{db::get_worktree_meta, git::git_worktree_remove};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "data", rename_all = "camelCase")]
@@ -93,7 +90,6 @@ pub fn worktree_integrate(
     update_workspace_commit(&vb_state, ctx, false)?;
 
     git_worktree_remove(&ctx.project().path, &canonical_path, true)?;
-    delete_worktree_meta(ctx, &canonical_path)?;
 
     Ok(())
 }
