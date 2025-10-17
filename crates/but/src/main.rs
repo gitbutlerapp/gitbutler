@@ -46,6 +46,10 @@ async fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
     let app_settings = AppSettings::load_from_default_path_creating()?;
 
+    if args.trace > 0 {
+        trace::init(args.trace)?;
+    }
+
     let namespace = option_env!("IDENTIFIER").unwrap_or("com.gitbutler.app");
     but_secret::secret::set_application_namespace(namespace);
     let start = std::time::Instant::now();
@@ -361,4 +365,45 @@ fn print_grouped_help() {
     );
     println!("  -j, --json                Whether to use JSON output format");
     println!("  -h, --help                Print help");
+}
+
+mod trace {
+    use tracing::metadata::LevelFilter;
+    use tracing_subscriber::{
+        Layer, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
+    };
+
+    pub fn init(level: u8) -> anyhow::Result<()> {
+        let filter = match level {
+            1 => LevelFilter::INFO,
+            2 => LevelFilter::DEBUG,
+            _ => LevelFilter::TRACE,
+        };
+        if level >= 4 {
+            tracing_subscriber::registry()
+                .with(
+                    tracing_subscriber::fmt::layer()
+                        .compact()
+                        .with_span_events(FmtSpan::CLOSE)
+                        .with_writer(std::io::stderr),
+                )
+                .with(
+                    tracing_forest::ForestLayer::from(
+                        tracing_forest::printer::PrettyPrinter::new().writer(std::io::stderr),
+                    )
+                    .with_filter(filter),
+                )
+                .init()
+        } else {
+            tracing_subscriber::registry()
+                .with(
+                    tracing_forest::ForestLayer::from(
+                        tracing_forest::printer::PrettyPrinter::new().writer(std::io::stderr),
+                    )
+                    .with_filter(filter),
+                )
+                .init();
+        }
+        Ok(())
+    }
 }
