@@ -79,6 +79,7 @@ where
     Extra: Send + Clone,
 {
     let path = std::env::current_exe().map_err(Error::<E>::NoSelfExe)?;
+    let path = path.canonicalize().unwrap();
 
     // TODO(qix-): Get parent PID of connecting processes to make sure they're us.
     //let our_pid = std::process::id();
