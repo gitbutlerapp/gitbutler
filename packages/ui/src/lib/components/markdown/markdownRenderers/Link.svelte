@@ -6,6 +6,6 @@
 	const { href, children }: Props = $props();
 </script>
 
-<Link {href} target="_blank" rel="noopener noreferrer" bypassExternalLinkService>
+<Link {href} target="_blank" rel="noopener noreferrer">
 	{@render children()}
 </Link>

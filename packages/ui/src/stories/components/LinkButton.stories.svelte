@@ -3,7 +3,7 @@
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
-		title: 'Inputs / Link Button',
+		title: 'Navigation / Link Button',
 		component: LinkButton,
 		args: {
 			icon: 'copy-small',

@@ -103,7 +103,7 @@
 					</SelectItem>
 				{/snippet}
 			</Select>
-		{:else}{/if}
+		{/if}
 	</SectionCard>
 
 	{#if forge.current.name === 'gitlab'}
@@ -157,9 +157,7 @@
 			{/snippet}
 
 			{#snippet caption()}
-				Enable pull request creation.
-				<br />
-				Read more about the GitHub integration in the <Link
+				Enable pull request creation. Read more in the <Link
 					href="https://docs.gitbutler.com/features/forge-integration/github-integration">docs</Link
 				>.
 			{/snippet}
