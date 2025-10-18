@@ -210,11 +210,14 @@
 
 	<div class="chat-view">
 		{#if selectedBranch}
-			<CodegenMessages
-				{projectId}
-				stackId={selectedBranch.stackId}
-				branchName={selectedBranch.head}
-			/>
+			<!-- It's difficult to start at bottom unless we re-render `CodegenMessages` -->
+			{#key selectedBranch.head}
+				<CodegenMessages
+					{projectId}
+					stackId={selectedBranch.stackId}
+					branchName={selectedBranch.head}
+				/>
+			{/key}
 
 			{@render rightSidebar(events.response || [])}
 		{:else}
