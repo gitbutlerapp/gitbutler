@@ -22,6 +22,7 @@ mod oplog;
 mod push;
 mod rub;
 mod status;
+mod url_utils;
 mod worktree;
 
 #[tokio::main]

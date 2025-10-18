@@ -1,3 +1,4 @@
+use but_core::RepositoryExt;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
 use but_workspace::{
@@ -7,12 +8,23 @@ use but_workspace::{
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use gitbutler_repo::RepoCommands;
 
 use crate::id::CliId;
 
 pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> {
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
+
+    // Get remote information for URL generation
+    let remotes = project.remotes().unwrap_or_default();
+    let primary_remote = remotes.first();
+    let gerrit_mode = ctx
+        .gix_repo()?
+        .git_settings()?
+        .gitbutler_gerrit_mode
+        .unwrap_or(false);
+
     let stacks = stacks(ctx)?
         .iter()
         .filter_map(|s| s.id.map(|id| stack_details(ctx, id).map(|d| (id, d))))
@@ -63,6 +75,22 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
                 mark.clone().unwrap_or_default()
             );
             mark = None; // show this on the first branch in the stack
+
+            // Add URL for branch if remote is available
+            if let Some(remote) = primary_remote {
+                if let Some(remote_url) = &remote.url {
+                    if let Some(branch_url) = crate::url_utils::generate_branch_url(remote_url, &branch.name.to_string(), gerrit_mode) {
+                        let url_prefix = if gerrit_mode { "Changes:" } else { "Branch:" };
+                        println!(
+                            "{}{}  {} {}",
+                            "│ ".repeat(nesting),
+                            extra_space,
+                            url_prefix.dimmed(),
+                            branch_url.cyan().underline()
+                        );
+                    }
+                }
+            }
             for (j, commit) in branch.upstream_commits.iter().enumerate() {
                 let time_string = chrono::DateTime::from_timestamp_millis(commit.created_at as i64)
                     .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
@@ -86,6 +114,22 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
                     extra_space,
                     commit.message.to_string().lines().next().unwrap_or("")
                 );
+
+                // Add URL for commit if remote is available
+                if let Some(remote) = primary_remote {
+                    if let Some(remote_url) = &remote.url {
+                        if let Some(commit_url) = crate::url_utils::generate_commit_url(remote_url, &commit.id.to_string(), gerrit_mode) {
+                            let url_prefix = if gerrit_mode { "Change:" } else { "Commit:" };
+                            println!(
+                                "{}{}┊ {} {}",
+                                "│ ".repeat(nesting),
+                                extra_space,
+                                url_prefix.dimmed(),
+                                commit_url.cyan().underline()
+                            );
+                        }
+                    }
+                }
                 let bend = if stacked { "├" } else { "╭" };
                 if j == branch.upstream_commits.len() - 1 {
                     println!("{}{}─╯", "│ ".repeat(nesting), bend);
@@ -131,6 +175,21 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
                     "│ ".repeat(nesting),
                     commit.message.to_string().lines().next().unwrap_or("")
                 );
+
+                // Add URL for commit if remote is available
+                if let Some(remote) = primary_remote {
+                    if let Some(remote_url) = &remote.url {
+                        if let Some(commit_url) = crate::url_utils::generate_commit_url(remote_url, &commit.id.to_string(), gerrit_mode) {
+                            let url_prefix = if gerrit_mode { "Change:" } else { "Commit:" };
+                            println!(
+                                "{}│ {} {}",
+                                "│ ".repeat(nesting),
+                                url_prefix.dimmed(),
+                                commit_url.cyan().underline()
+                            );
+                        }
+                    }
+                }
                 if i == stacks.len() - 1 {
                     if nesting == 0 {
                         println!("│");
