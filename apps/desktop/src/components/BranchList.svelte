@@ -316,7 +316,7 @@
 							isFirstBranchInStack={firstBranch}
 							isLastBranchInStack={lastBranch}
 						/>
-						{#if first && codegenQuery?.response?.length === 0}
+						{#if $newCodegenEnabled && first && codegenQuery?.response?.length === 0}
 							<Button
 								icon="ai-small"
 								style="neutral"
