@@ -382,7 +382,9 @@ fn print_commit(
     };
 
     let mut message = message
-        .replace('\n', " ")
+        .lines()
+        .next()
+        .unwrap_or("")
         .chars()
         .take(50)
         .collect::<String>()
