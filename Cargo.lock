@@ -786,6 +786,7 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-oxidize",
  "gitbutler-project",
+ "gitbutler-repo",
  "gitbutler-serde",
  "gitbutler-stack",
  "gix",
@@ -796,6 +797,7 @@ dependencies = [
  "serde_json",
  "strum",
  "sysinfo",
+ "terminal_size",
  "tokio",
  "tracing",
  "tracing-forest",
@@ -1684,6 +1686,7 @@ dependencies = [
  "anstyle",
  "clap_lex",
  "strsim",
+ "terminal_size",
 ]
 
 [[package]]
@@ -10349,6 +10352,16 @@ dependencies = [
  "futf",
  "mac",
  "utf-8",
+]
+
+[[package]]
+name = "terminal_size"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60b8cb979cb11c32ce1603f8137b22262a9d131aaa5c37b5678025f22b8becd0"
+dependencies = [
+ "rustix 1.1.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]

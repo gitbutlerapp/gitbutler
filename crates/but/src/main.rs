@@ -302,20 +302,39 @@ where
 }
 
 fn print_grouped_help() {
-    use std::collections::HashSet;
-
     use clap::CommandFactory;
+    use std::collections::HashSet;
+    use terminal_size::{Width, terminal_size};
+
+    // Get terminal width, default to 80 if detection fails
+    let terminal_width = if let Some((Width(w), _)) = terminal_size() {
+        w as usize
+    } else {
+        80
+    };
+
+    // Helper function to truncate text to fit within available width
+    let truncate_text = |text: &str, available_width: usize| -> String {
+        if text.len() <= available_width {
+            text.to_string()
+        } else if available_width > 3 {
+            format!("{}...", &text[..available_width.saturating_sub(3)])
+        } else {
+            text.chars().take(available_width).collect()
+        }
+    };
 
     let cmd = Args::command();
     let subcommands: Vec<_> = cmd.get_subcommands().collect();
 
     // Define command groupings and their order (excluding MISC)
     let groups = [
-        ("Inspection".yellow(), vec!["log", "status"]),
+        ("Inspection".yellow(), vec!["status", "log"]),
         (
-            "Stack Operation".yellow(),
-            vec!["commit", "push", "rub", "new", "describe", "branch"],
+            "Branching and Committing".yellow(),
+            vec!["commit", "push", "new", "branch", "base", "mark", "unmark"],
         ),
+        ("Editing Commits".yellow(), vec!["rub", "describe"]),
         (
             "Operation History".yellow(),
             vec!["oplog", "undo", "restore", "snapshot"],
@@ -335,8 +354,11 @@ fn print_grouped_help() {
         println!("{group_name}:");
         for cmd_name in command_names {
             if let Some(subcmd) = subcommands.iter().find(|c| c.get_name() == *cmd_name) {
-                let about = subcmd.get_about().unwrap_or_default();
-                println!("  {:<10}{about}", cmd_name.green());
+                let about = subcmd.get_about().unwrap_or_default().to_string();
+                // Calculate available width: terminal_width - indent (2) - command column (10) - buffer (1)
+                let available_width = terminal_width.saturating_sub(13);
+                let truncated_about = truncate_text(&about, available_width);
+                println!("  {:<10}{}", cmd_name.green(), truncated_about);
                 printed_commands.insert(cmd_name.to_string());
             }
         }
@@ -353,18 +375,31 @@ fn print_grouped_help() {
     if !misc_commands.is_empty() {
         println!("{}:", "Other Commands".yellow());
         for subcmd in misc_commands {
-            let about = subcmd.get_about().unwrap_or_default();
-            println!("  {:<10}{}", subcmd.get_name().green(), about);
+            let about = subcmd.get_about().unwrap_or_default().to_string();
+            // Calculate available width: terminal_width - indent (2) - command column (10) - buffer (1)
+            let available_width = terminal_width.saturating_sub(13);
+            let truncated_about = truncate_text(&about, available_width);
+            println!("  {:<10}{}", subcmd.get_name().green(), truncated_about);
         }
         println!();
     }
 
     println!("{}:", "Options".yellow());
-    println!(
-        "  -C, --current-dir <PATH>  Run as if but was started in PATH instead of the current working directory [default: .]"
-    );
-    println!("  -j, --json                Whether to use JSON output format");
-    println!("  -h, --help                Print help");
+    // Truncate long option descriptions if needed
+    let option_descriptions = [
+        (
+            "  -C, --current-dir <PATH>",
+            "Run as if but was started in PATH instead of the current working directory [default: .]",
+        ),
+        ("  -j, --json", "Whether to use JSON output format"),
+        ("  -h, --help", "Print help"),
+    ];
+
+    for (flag, desc) in option_descriptions {
+        let available_width = terminal_width.saturating_sub(flag.len() + 2);
+        let truncated_desc = truncate_text(desc, available_width);
+        println!("{}  {}", flag, truncated_desc);
+    }
 }
 
 mod trace {
