@@ -47,7 +47,7 @@
 						type="number"
 						width={100}
 						textAlign="center"
-						value={project.snapshot_lines_threshold?.toString()}
+						value={project.snapshot_lines_threshold?.toString() ?? '20'}
 						minVal={5}
 						maxVal={1000}
 						showCountActions
