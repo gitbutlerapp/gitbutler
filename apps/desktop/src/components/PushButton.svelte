@@ -190,7 +190,7 @@
 			onclick={() => handleClick({ withForce, skipForcePushProtection: false })}
 			icon={multipleBranches && !isLastBranchInStack ? 'push-below' : 'push'}
 		>
-			{withForce ? 'Force push' : 'Push'}
+			{isGerritMode ? 'Push' : withForce ? 'Force push' : 'Push'}
 		</Button>
 
 		<Modal
