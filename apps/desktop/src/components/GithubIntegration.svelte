@@ -1,9 +1,9 @@
 <script lang="ts">
 	import GithubUserLoginState from '$components/GithubUserLoginState.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import githubLogoSvg from '$lib/assets/unsized-logos/github.svg?raw';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
@@ -21,8 +21,8 @@
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
-	const appSettings = inject(SETTINGS_SERVICE);
-	const usernames = appSettings.knownGitHubUsernames;
+
+	const usernames = githubUserService.usernames();
 
 	// step flags
 	let codeCopied = $state(false);
@@ -66,8 +66,8 @@
 		}
 	}
 
-	async function forgetGitHub() {
-		await githubUserService.forgetGitHubUsernames($usernames);
+	async function forgetGitHub(usernames: string[]) {
+		await githubUserService.forgetGitHubUsernames(usernames);
 	}
 </script>
 
@@ -75,47 +75,54 @@
 	<Button style="pop" onclick={gitHubStartOauth}>Authorize</Button>
 {:else}
 	<div class="stack-v gap-8">
-		<SectionCard orientation="row">
-			{#snippet iconSide()}
-				<div class="icon-wrapper">
-					{#if $usernames.length > 0}
-						<div class="icon-wrapper__tick">
-							<Icon name="success" color="success" size={18} />
+		<ReduxResult result={usernames.result}>
+			{#snippet children(usernames)}
+				<SectionCard orientation="row">
+					{#snippet iconSide()}
+						<div class="icon-wrapper">
+							{#if usernames.length > 0}
+								<div class="icon-wrapper__tick">
+									<Icon name="success" color="success" size={18} />
+								</div>
+							{/if}
+							<div class="icon-wrapper__logo">
+								{@html githubLogoSvg}
+							</div>
 						</div>
+					{/snippet}
+
+					{#snippet title()}
+						GitHub
+					{/snippet}
+
+					{#snippet caption()}
+						Allows you to view and create Pull Requests.
+					{/snippet}
+
+					{#if usernames.length > 1}
+						<Button
+							kind="outline"
+							icon="bin-small"
+							onclick={() => forgetGitHub(usernames)}
+							style="error">Forget all</Button
+						>
+					{:else if usernames.length === 0}
+						<Button style="pop" onclick={gitHubStartOauth}>Authorize</Button>
 					{/if}
-					<div class="icon-wrapper__logo">
-						{@html githubLogoSvg}
+				</SectionCard>
+				{#each usernames as username}
+					<GithubUserLoginState {username} />
+				{/each}
+
+				{#if usernames.length > 0}
+					<div class="centered-row">
+						<Button style="pop" disabled={showAuthFlow} onclick={gitHubStartOauth}
+							>Add another account</Button
+						>
 					</div>
-				</div>
+				{/if}
 			{/snippet}
-
-			{#snippet title()}
-				GitHub
-			{/snippet}
-
-			{#snippet caption()}
-				Allows you to view and create Pull Requests.
-			{/snippet}
-
-			{#if $usernames.length > 1}
-				<Button kind="outline" icon="bin-small" onclick={forgetGitHub} style="error"
-					>Forget all</Button
-				>
-			{:else if $usernames.length === 0}
-				<Button style="pop" onclick={gitHubStartOauth}>Authorize</Button>
-			{/if}
-		</SectionCard>
-		{#each $usernames as username}
-			<GithubUserLoginState {username} />
-		{/each}
-
-		{#if $usernames.length > 0}
-			<div class="centered-row">
-				<Button style="pop" disabled={showAuthFlow} onclick={gitHubStartOauth}
-					>Add another account</Button
-				>
-			</div>
-		{/if}
+		</ReduxResult>
 
 		{#if showAuthFlow}
 			<div in:fade={{ duration: 100 }}>

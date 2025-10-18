@@ -1,11 +1,12 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::collections::HashMap;
 
 use anyhow::{Context, Result};
-use but_secret::{Sensitive, secret};
+use but_secret::Sensitive;
 use but_settings::AppSettings;
 use serde::{Deserialize, Serialize};
 
 mod client;
+mod token;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Verification {
@@ -96,7 +97,7 @@ pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<AuthStat
         .await
         .context("Failed to get authenticated user")?;
 
-    persist_gh_access_token(&user.login, &access_token)
+    token::persist_gh_access_token(&user.login, &access_token)
         .context("Failed to persist access token")?;
 
     Ok(AuthStatusResponse {
@@ -107,18 +108,8 @@ pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<AuthStat
     })
 }
 
-fn persist_gh_access_token(login: &str, access_token: &Sensitive<String>) -> Result<()> {
-    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
-    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    let handle = format!("github-access-token-{}", login);
-    secret::persist(&handle, access_token, secret::Namespace::Global)
-}
-
 pub fn forget_gh_access_token(login: &str) -> Result<()> {
-    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
-    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    let handle = format!("github-access-token-{}", login);
-    secret::delete(&handle, secret::Namespace::Global)
+    token::delete_gh_access_token(login).context("Failed to delete access token")
 }
 
 #[derive(Debug, Clone)]
@@ -131,7 +122,7 @@ pub struct AuthenticatedUser {
 }
 
 pub async fn get_gh_user(login: &str) -> Result<Option<AuthenticatedUser>> {
-    if let Some(access_token) = get_gh_access_token(login)? {
+    if let Some(access_token) = token::get_gh_access_token(login)? {
         let gh =
             client::GitHubClient::new(&access_token).context("Failed to create GitHub client")?;
         let user = gh
@@ -150,10 +141,6 @@ pub async fn get_gh_user(login: &str) -> Result<Option<AuthenticatedUser>> {
     }
 }
 
-fn get_gh_access_token(login: &str) -> Result<Option<Sensitive<String>>> {
-    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
-    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    let handle = format!("github-access-token-{}", login);
-    let access_token = secret::retrieve(&handle, secret::Namespace::Global)?;
-    Ok(access_token)
+pub fn list_known_github_usernames() -> Result<Vec<String>> {
+    token::list_known_github_usernames().context("Failed to list known GitHub usernames")
 }
