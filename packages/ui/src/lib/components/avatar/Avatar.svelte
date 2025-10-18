@@ -3,7 +3,7 @@
 	import { stringToColor } from '$lib/utils/stringToColor';
 
 	interface Props {
-		srcUrl: string;
+		srcUrl?: string | null;
 		username: string;
 		tooltip?: string;
 		tooltipAlign?: TooltipAlign;
@@ -15,7 +15,7 @@
 
 	const {
 		srcUrl,
-		username,
+		username = '',
 		tooltip,
 		tooltipAlign,
 		tooltipPosition,
@@ -34,12 +34,15 @@
 </script>
 
 <Tooltip text={tooltip ?? username} align={tooltipAlign} position={tooltipPosition}>
-	<div class="image-wrapper {size}" style:background-color={stringToColor(username || srcUrl)}>
-		{#if srcUrl || srcUrl !== ''}
+	<div
+		class="image-wrapper {size}"
+		style:background-color={stringToColor(username || (srcUrl ?? undefined))}
+	>
+		{#if srcUrl && srcUrl !== ''}
 			<img
 				class="avatar"
 				alt={tooltip}
-				src={srcUrl}
+				src={srcUrl ?? ''}
 				loading="lazy"
 				onload={() => (isLoaded = true)}
 				class:show={isLoaded}

@@ -8,7 +8,7 @@
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Button, Icon, SectionCard, chipToasts as toasts } from '@gitbutler/ui';
+	import { Button, SectionCard, chipToasts as toasts } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
@@ -65,57 +65,48 @@
 			loading = false;
 		}
 	}
-
-	async function forgetGitHub() {
-		await githubUserService.forgetGitHubUsernames($usernames);
-	}
 </script>
 
 {#if minimal}
 	<Button style="pop" onclick={gitHubStartOauth}>Authorize</Button>
 {:else}
-	<div class="stack-v gap-8">
-		<SectionCard orientation="row">
-			{#snippet iconSide()}
-				<div class="icon-wrapper">
-					{#if $usernames.length > 0}
-						<div class="icon-wrapper__tick">
-							<Icon name="success" color="success" size={18} />
-						</div>
-					{/if}
+	<div class="stack-v gap-16">
+		<div class="stack-v">
+			{#each $usernames as username}
+				<GithubUserLoginState {username} isFirst={$usernames.indexOf(username) === 0} />
+			{/each}
+
+			<SectionCard
+				orientation="row"
+				background={$usernames.length > 0 ? 'disabled' : undefined}
+				roundedTop={$usernames.length === 0}
+			>
+				{#snippet iconSide()}
 					<div class="icon-wrapper__logo">
 						{@html githubLogoSvg}
 					</div>
-				</div>
-			{/snippet}
+				{/snippet}
 
-			{#snippet title()}
-				GitHub
-			{/snippet}
+				{#snippet title()}
+					GitHub
+				{/snippet}
 
-			{#snippet caption()}
-				Allows you to view and create Pull Requests.
-			{/snippet}
+				{#snippet caption()}
+					Allows you to create Pull Requests
+				{/snippet}
 
-			{#if $usernames.length > 1}
-				<Button kind="outline" icon="bin-small" onclick={forgetGitHub} style="error"
-					>Forget all</Button
-				>
-			{:else if $usernames.length === 0}
-				<Button style="pop" onclick={gitHubStartOauth}>Authorize</Button>
-			{/if}
-		</SectionCard>
-		{#each $usernames as username}
-			<GithubUserLoginState {username} />
-		{/each}
-
-		{#if $usernames.length > 0}
-			<div class="centered-row">
-				<Button style="pop" disabled={showAuthFlow} onclick={gitHubStartOauth}
-					>Add another account</Button
-				>
-			</div>
-		{/if}
+				{#if $usernames.length === 0}
+					<Button style="pop" onclick={gitHubStartOauth} icon="plus-small">Add account</Button>
+				{:else}
+					<Button
+						style="neutral"
+						disabled={showAuthFlow}
+						onclick={gitHubStartOauth}
+						icon="plus-small">Add another account</Button
+					>
+				{/if}
+			</SectionCard>
+		</div>
 
 		{#if showAuthFlow}
 			<div in:fade={{ duration: 100 }}>
@@ -202,7 +193,6 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		margin-bottom: 8px;
 	}
 
 	.icon-wrapper__logo {
@@ -280,23 +270,6 @@
 		}
 	}
 
-	.icon-wrapper {
-		position: relative;
-		align-self: flex-start;
-		height: fit-content;
-	}
-
-	.icon-wrapper__tick {
-		display: flex;
-		position: absolute;
-		right: -4px;
-		bottom: -4px;
-		align-items: center;
-		justify-content: center;
-		border-radius: 50px;
-		background-color: var(--clr-scale-ntrl-100);
-	}
-
 	.code-wrapper {
 		display: flex;
 		align-items: center;
@@ -307,10 +280,5 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		user-select: text;
-	}
-
-	.centered-row {
-		display: flex;
-		justify-content: center;
 	}
 </style>
