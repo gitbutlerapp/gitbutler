@@ -9,6 +9,12 @@ pub struct Outcome<'graph> {
     /// The newly created graph, if owned, useful to project a workspace and see how the workspace looks like with the branch applied.
     /// If borrowed, the graph already contains the desired branch and nothing had to be applied.
     pub graph: Cow<'graph, but_graph::Graph>,
+    /// The name of the branch(es) that were actually applied.
+    ///
+    /// If a remote tracking branch is given to apply, it will actually apply its local tracking branch, which is created on demand as well.
+    /// Further, if there is no target or if the current branch isn't the target branch, then the current branch and the given one
+    /// will be applied.
+    pub applied_branches: Vec<gix::refs::FullName>,
     /// `true` if we created the given workspace ref as it didn't exist yet.
     pub workspace_ref_created: bool,
     /// If not `None`, an actual merge was attempted, but depending on [the settings](OnWorkspaceMergeConflict),
@@ -33,10 +39,22 @@ impl std::fmt::Debug for Outcome<'_> {
             workspace_ref_created,
             workspace_merge: _,
             conflicting_stack_ids,
+            applied_branches,
         } = self;
         let mut f = f.debug_struct("Outcome");
         f.field("workspace_changed", &self.workspace_changed())
-            .field("workspace_ref_created", workspace_ref_created);
+            .field("workspace_ref_created", workspace_ref_created)
+            .field(
+                "applied_branches",
+                &format!(
+                    "[{}]",
+                    applied_branches
+                        .iter()
+                        .map(|rn| rn.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            );
         if !conflicting_stack_ids.is_empty() {
             f.field("conflicting_stack_ids", conflicting_stack_ids);
         }
@@ -95,11 +113,12 @@ pub(crate) mod function {
     use anyhow::{Context, bail};
     use but_core::ref_metadata::WorkspaceCommitRelation::{Merged, Outside};
     use but_core::{
-        RefMetadata,
+        RefMetadata, RepositoryExt, extract_remote_name,
         ref_metadata::{StackId, StackKind::AppliedAndUnapplied, Workspace},
     };
     use but_graph::{init::Overlay, projection::WorkspaceKind};
     use gitbutler_oxidize::GixRepositoryExt;
+    use gix::prelude::ObjectIdExt;
     use gix::{
         reference::Category,
         refs::{
@@ -143,16 +162,8 @@ pub(crate) mod function {
             order,
         }: Options,
     ) -> anyhow::Result<Outcome<'graph>> {
-        let branch_ref = repo.try_find_reference(branch)?;
-        if branch_ref
-            .as_ref()
-            .is_some_and(|r| matches!(r.target(), gix::refs::TargetRef::Symbolic(_)))
-        {
-            bail!(
-                "Refusing to apply symbolic ref '{}' due to potential ambiguity",
-                branch.shorten()
-            );
-        }
+        let branch_orig = branch;
+        let mut branch_ref = try_find_validated_ref(repo, branch)?;
         if workspace.is_branch_the_target_or_its_local_tracking_branch(branch) {
             bail!("Cannot add the target '{branch}' branch to its own workspace");
         }
@@ -173,6 +184,7 @@ pub(crate) mod function {
             branch_storage = upstream_branch_name;
             // Pretend the upstream branch is also the local tracking name.
             branch = branch_storage.as_ref();
+            branch_ref = try_find_validated_ref(repo, branch)?;
         }
         let conflicting_stack_ids = Vec::new();
         if workspace.is_reachable_from_entrypoint(branch) {
@@ -183,6 +195,7 @@ pub(crate) mod function {
                 workspace_ref_created,
                 workspace_merge: None,
                 conflicting_stack_ids,
+                applied_branches: vec![branch.to_owned()],
             });
         } else if workspace.refname_is_segment(branch) {
             // This means our workspace encloses the desired branch, but it's not checked out yet.
@@ -216,6 +229,7 @@ pub(crate) mod function {
                 workspace_ref_created: false,
                 workspace_merge: None,
                 conflicting_stack_ids,
+                applied_branches: vec![branch.to_owned()],
             });
         };
 
@@ -309,6 +323,17 @@ pub(crate) mod function {
                 add_branch_as_stack_forcefully(ws_mut, rn, order);
             }
         }
+
+        let incoming_branch_is_remote_tracking_without_local_tracking =
+            !std::ptr::eq(branch_orig, branch);
+        let (local_tracking_config_and_ref_info, commit_to_create_branch_at) =
+            if incoming_branch_is_remote_tracking_without_local_tracking {
+                setup_local_tracking_configuration(repo, branch, branch_orig, ws_ref_id)?
+                    .map(|(config, commit)| (Some(config), Some(commit)))
+                    .unwrap_or_default()
+            } else {
+                (None, None)
+            };
         let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
         let branch_mds = branches_to_apply
             .iter()
@@ -318,6 +343,13 @@ pub(crate) mod function {
 
         let overlay = Overlay::default()
             .with_entrypoint(ws_ref_id, Some(workspace_ref_name_to_update.clone()))
+            .with_references_if_new(commit_to_create_branch_at.map(|tracking_commit_id| {
+                gix::refs::Reference {
+                    name: branch.to_owned(),
+                    target: Target::Object(tracking_commit_id),
+                    peeled: Some(tracking_commit_id),
+                }
+            }))
             .with_branch_metadata_override(branch_mds)
             .with_workspace_metadata_override(ws_md_override);
         let graph = workspace
@@ -329,6 +361,13 @@ pub(crate) mod function {
             .iter()
             .all(|rn| workspace.refname_is_segment(rn));
         let needs_ws_ref_creation = !ws_ref_exists;
+        let local_tracking_config_and_ref_info = local_tracking_config_and_ref_info.zip(
+            commit_to_create_branch_at.map(|commit| (branch, branch_orig, commit.attach(repo))),
+        );
+        let applied_branches = branches_to_apply
+            .iter()
+            .map(|rn| (*rn).to_owned())
+            .collect();
         if all_applied_branches_are_already_visible {
             let head_id = repo.head_id().context("BUG: we assume HEAD is born here")?;
             if head_id != ws_ref_id {
@@ -336,7 +375,12 @@ pub(crate) mod function {
                     "Sanity check failed: we assume HEAD already points to where it must, but it really doesn't: {head_id} != {ws_ref_id}"
                 );
             }
-            persist_metadata(meta, &branches_to_apply, &ws_md)?;
+            persist_metadata_and_gitconfig(
+                meta,
+                &branches_to_apply,
+                &ws_md,
+                local_tracking_config_and_ref_info,
+            )?;
             let ws_commit_with_new_message = WorkspaceCommit::from_graph_workspace(
                 &workspace,
                 repo,
@@ -370,15 +414,17 @@ pub(crate) mod function {
                 workspace_ref_created: needs_ws_ref_creation,
                 workspace_merge: None,
                 conflicting_stack_ids,
+                applied_branches,
             });
         }
         // We will want to merge, but be sure the branch exists, can't apply non-existing.
-        if branch_ref.is_none() {
+        if branch_ref.is_none() && !incoming_branch_is_remote_tracking_without_local_tracking {
             bail!(
                 "Cannot apply non-existing branch '{branch}'",
                 branch = branch.shorten()
             );
         }
+
         // At this point, the workspace-metadata already knows the new branch(es), but the workspace itself
         // doesn't see one or more of to-be-applied branches (to become stacks).
         // These are, however, part of the graph by now, and we want to try to create a workspace
@@ -400,6 +446,7 @@ pub(crate) mod function {
                 workspace_ref_created: needs_ws_ref_creation,
                 workspace_merge: Some(merge_result),
                 conflicting_stack_ids,
+                applied_branches,
             });
         }
 
@@ -507,6 +554,7 @@ pub(crate) mod function {
                     workspace_ref_created: needs_ws_ref_creation,
                     workspace_merge: Some(merge_result),
                     conflicting_stack_ids,
+                    applied_branches,
                 });
             }
             new_head_id = merge_result.workspace_commit_id;
@@ -545,7 +593,12 @@ pub(crate) mod function {
             storage.persist(repo)?;
             drop(in_memory_repo);
         }
-        persist_metadata(meta, &branches_to_apply, &ws_md)?;
+        persist_metadata_and_gitconfig(
+            meta,
+            &branches_to_apply,
+            &ws_md,
+            local_tracking_config_and_ref_info,
+        )?;
         crate::branch::safe_checkout(
             prev_head_id,
             new_head_id,
@@ -566,12 +619,60 @@ pub(crate) mod function {
             workspace_ref_created: needs_ws_ref_creation,
             workspace_merge: Some(merge_result),
             conflicting_stack_ids,
+            applied_branches,
         })
+    }
+
+    /// Setup `local_tracking_ref` to track `remote_tracking_ref` using the typical pattern, and prepare the configuration file
+    /// so that it can replace `.git/config` of `repo` when written back, with everything the same but the branch configuration added.
+    /// We also return the commit at which `local_tracking_ref` should be placed, which is assumed to not exist, and `repo` will be used
+    /// for computing the merge-base with `ws_ref_name`, traditionally, without a graph, as forcing the graph here wouldn't buy us anything.
+    /// Merge-base computations can still be done with `repo` IF the graph isn't up to date.
+    fn setup_local_tracking_configuration(
+        repo: &gix::Repository,
+        local_tracking_ref: &FullNameRef,
+        remote_tracking_ref: &FullNameRef,
+        ws_ref_id: gix::ObjectId,
+    ) -> anyhow::Result<Option<(gix::config::File<'static>, gix::ObjectId)>> {
+        let remote_tracking_commit_id = repo
+            .find_reference(remote_tracking_ref)?
+            .peel_to_commit()?
+            .id();
+        let merge_base_commit_id = repo
+            .merge_base(remote_tracking_commit_id, ws_ref_id)
+            .unwrap_or_else(|_| {
+                tracing::warn!("Couldn't find merge-base between remote tip {remote_tracking_commit_id} and workspace tip {ws_ref_id} - placing local tracking ref on remote tip");
+                remote_tracking_commit_id
+            })
+            .detach();
+
+        // TODO(gix): Make config refreshes possible, and use the higher level API, and add a way
+        //       to only write back what changed and of course to add local sections more obviously.
+        //       Make it way easier to work with sections.
+        let mut config = repo.local_common_config_for_editing()?;
+        let mut section =
+            config.section_mut_or_create_new("branch", Some(local_tracking_ref.shorten()))?;
+        // Only edit the configuration if truly empty, let's not overwrite user data.
+        if section.num_values() == 0
+            && let Some(remote_name) =
+                extract_remote_name(remote_tracking_ref, &repo.remote_names())
+        {
+            section
+                .push(
+                    gix::config::tree::Branch::REMOTE.name.try_into()?,
+                    Some(remote_name.as_str().into()),
+                )
+                .push(
+                    gix::config::tree::Branch::MERGE.name.try_into()?,
+                    Some(local_tracking_ref.as_bstr()),
+                );
+        }
+        Ok(Some((config, merge_base_commit_id)))
     }
 
     fn add_branch_as_stack_forcefully(
         ws_md: &mut Workspace,
-        rn: &gix::refs::FullNameRef,
+        rn: &FullNameRef,
         order: Option<usize>,
     ) {
         let (stack_idx, branch_idx) =
@@ -605,6 +706,7 @@ pub(crate) mod function {
             .collect()
     }
 
+    /// Note that we chose to put it outside the workspace, instead of just leaving it unmerged.
     fn correlate_conflicting_stack_ids_and_remove_from_workspace(
         ws: &mut Workspace,
         conflicts: &[crate::commit::merge::ConflictingStack],
@@ -622,10 +724,11 @@ pub(crate) mod function {
         conflicting_stack_ids
     }
 
-    fn persist_metadata<T: RefMetadata>(
+    fn persist_metadata_and_gitconfig<T: RefMetadata>(
         meta: &mut T,
         branches_to_apply: &Vec<&FullNameRef>,
         ws_md: &T::Handle<Workspace>,
+        config_and_ref: Option<(gix::config::File, (&FullNameRef, &FullNameRef, gix::Id))>,
     ) -> anyhow::Result<()> {
         meta.set_workspace(ws_md)?;
         // Always re-obtain the branch information after it was set
@@ -635,6 +738,19 @@ pub(crate) mod function {
             let mut md = meta.branch(rn)?;
             md.update_times(false /* is new ref */);
             meta.set_branch(&md)?;
+        }
+
+        if let Some((config, (ref_to_create, remote_tracking_ref, ref_target_id))) = config_and_ref
+        {
+            let repo = ref_target_id.repo;
+            repo.write_local_common_config(&config)?;
+
+            repo.reference(
+                ref_to_create,
+                ref_target_id,
+                PreviousValue::MustNotExist,
+                format!("GitButler creates local tracking for {remote_tracking_ref}"),
+            )?;
         }
         Ok(())
     }
@@ -725,5 +841,22 @@ pub(crate) mod function {
                 merge.missing_stacks
             ))
         }
+    }
+
+    fn try_find_validated_ref<'repo>(
+        repo: &'repo gix::Repository,
+        branch: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Option<gix::Reference<'repo>>> {
+        let branch_ref = repo.try_find_reference(branch)?;
+        if branch_ref
+            .as_ref()
+            .is_some_and(|r| matches!(r.target(), gix::refs::TargetRef::Symbolic(_)))
+        {
+            bail!(
+                "Refusing to apply symbolic ref '{}' due to potential ambiguity",
+                branch.shorten()
+            );
+        }
+        Ok(branch_ref)
     }
 }

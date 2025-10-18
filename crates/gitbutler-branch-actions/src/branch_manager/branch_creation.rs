@@ -153,7 +153,7 @@ impl BranchManager<'_> {
             let ws = graph.to_workspace()?;
             let target = target.to_string();
             let branch_to_apply = target.as_str().try_into()?;
-            let out = but_workspace::branch::apply(
+            let mut out = but_workspace::branch::apply(
                 branch_to_apply,
                 &ws,
                 &repo,
@@ -169,7 +169,7 @@ impl BranchManager<'_> {
             )?;
             let ws = out.graph.to_workspace()?;
             let applied_branch_stack_id = ws
-                .find_segment_and_stack_by_refname(branch_to_apply)
+                .find_segment_and_stack_by_refname(out.applied_branches.pop().context("BUG: must mention the actually applied branch last")?.as_ref())
                 .with_context(||
                     format!("BUG: Can't find the branch to apply in workspace, but the 'apply' function should have failed instead \n{out:?}")
                 )?

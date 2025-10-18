@@ -37,14 +37,14 @@ impl std::fmt::Debug for Stack {
 
 /// Structures related to creating a merge-commit along with the respective tree.
 pub mod merge {
+    use super::Stack;
+    use crate::WorkspaceCommit;
     use anyhow::{Context, bail};
+    use but_core::ref_metadata::WorkspaceCommitRelation;
     use but_graph::SegmentIndex;
     use gitbutler_oxidize::GixRepositoryExt;
     use gix::prelude::ObjectIdExt;
     use tracing::instrument;
-
-    use super::Stack;
-    use crate::WorkspaceCommit;
 
     /// A minimal stack for to represent a stack that conflicted.
     #[derive(Debug, Clone)]
@@ -125,8 +125,17 @@ pub mod merge {
             let mut missing_stacks = Vec::new();
             let mut tips: Vec<_> = stacks
                 .into_iter()
-                .filter_map(|s| s.branches.first())
-                .filter_map(|top_segment| {
+                .filter_map(|s| s.branches.first().map(|b| (b, s.workspacecommit_relation)))
+                .filter_map(|(top_segment, relation)| {
+                    match relation {
+                        WorkspaceCommitRelation::Merged => {}
+                        WorkspaceCommitRelation::UnmergedTree => {
+                            // These need to be part of the parents list, but shouldn't be merged.
+                            // If the caller wants to retry them, they can be passed here as "Merged".
+                            todo!("this is a placeholder for where we will have to start handling this UnmergedTree")
+                        }
+                        WorkspaceCommitRelation::Outside => return None,
+                    }
                     let stack_tip_name = top_segment.ref_name.as_ref();
                     match graph.segment_and_commit_by_ref_name(stack_tip_name) {
                         None => {

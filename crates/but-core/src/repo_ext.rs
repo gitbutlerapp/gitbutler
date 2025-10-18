@@ -1,6 +1,7 @@
 use anyhow::Context;
 use gitbutler_error::error::Code;
 use gix::prelude::ObjectIdExt;
+use std::io::Write;
 
 use crate::{GitConfigSettings, commit::TreeKind};
 
@@ -14,6 +15,13 @@ pub trait RepositoryExt {
     fn commit_signatures(&self) -> anyhow::Result<(gix::actor::Signature, gix::actor::Signature)>;
     /// Return labels that would be written into the conflict markers when merging blobs.
     fn default_merge_labels(&self) -> gix::merge::blob::builtin_driver::text::Labels<'static>;
+
+    /// Return the configuration freshly loaded from `.git/config` so that it can be changed in memory,
+    /// and possibly written back with [Self::write_local_config()].
+    fn local_common_config_for_editing(&self) -> anyhow::Result<gix::config::File<'static>>;
+    /// Write the given `local_config` to `.git/config` of the common repository.
+    /// Note that we never write linked worktree-local configuration.
+    fn write_local_common_config(&self, local_config: &gix::config::File) -> anyhow::Result<()>;
     /// Cherry-pick the changes in the tree of `to_rebase_commit_id` onto `new_base_commit_id`.
     /// This method deals with the presence of conflicting commits to select the correct trees
     /// for the cheery-pick merge.
@@ -105,8 +113,39 @@ impl RepositoryExt for gix::Repository {
         let config = repo.config_snapshot();
         GitConfigSettings::try_from_snapshot(&config)
     }
+
     fn set_git_settings(&self, settings: &GitConfigSettings) -> anyhow::Result<()> {
         settings.persist_to_local_config(self)
+    }
+
+    fn local_common_config_for_editing(&self) -> anyhow::Result<gix::config::File<'static>> {
+        let local_config_path = self.common_dir().join("config");
+        let config = gix::config::File::from_path_no_includes(
+            local_config_path.clone(),
+            gix::config::Source::Local,
+        )?;
+        Ok(config)
+    }
+
+    fn write_local_common_config(&self, local_config: &gix::config::File) -> anyhow::Result<()> {
+        // Note: we don't use a lock file here to not risk changing the mode, and it's what Git does.
+        //       But we lock the file so there is no raciness.
+        let local_config_path = self.common_dir().join("config");
+        let _lock = gix::lock::Marker::acquire_to_hold_resource(
+            &local_config_path,
+            gix::lock::acquire::Fail::Immediately,
+            None,
+        )?;
+        let mut config_file = std::io::BufWriter::new(
+            std::fs::File::options()
+                .write(true)
+                .truncate(true)
+                .create(false)
+                .open(local_config_path)?,
+        );
+        local_config.write_to(&mut config_file)?;
+        config_file.flush()?;
+        Ok(())
     }
 }
 
