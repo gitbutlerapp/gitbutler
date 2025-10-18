@@ -108,14 +108,6 @@
 			</SectionCard>
 		</div>
 
-		<!-- {#if $usernames.length > 0}
-			<div class="centered-row">
-				<Button style="pop" disabled={showAuthFlow} onclick={gitHubStartOauth}
-					>Add another account</Button
-				>
-			</div>
-		{/if} -->
-
 		{#if showAuthFlow}
 			<div in:fade={{ duration: 100 }}>
 				<SectionCard orientation="row">
@@ -278,23 +270,6 @@
 		}
 	}
 
-	.icon-wrapper {
-		position: relative;
-		align-self: flex-start;
-		height: fit-content;
-	}
-
-	.icon-wrapper__tick {
-		display: flex;
-		position: absolute;
-		right: -4px;
-		bottom: -4px;
-		align-items: center;
-		justify-content: center;
-		border-radius: 50px;
-		background-color: var(--clr-scale-ntrl-100);
-	}
-
 	.code-wrapper {
 		display: flex;
 		align-items: center;
@@ -305,10 +280,5 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		user-select: text;
-	}
-
-	.centered-row {
-		display: flex;
-		justify-content: center;
 	}
 </style>

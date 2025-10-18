@@ -93,9 +93,4 @@
 		align-items: center;
 		justify-content: center;
 	}
-
-	.logo {
-		width: 28px;
-		height: 28px;
-	}
 </style>
