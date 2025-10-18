@@ -8,7 +8,7 @@
 	import { rejoinParagraphs, truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Avatar, Icon, TestId, TimeAgo, Tooltip } from '@gitbutler/ui';
+	import { Avatar, Icon, Markdown, TestId, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	type Props = {
@@ -83,19 +83,28 @@
 	</div>
 
 	{#if description && description.trim()}
-		<p
+		<div
 			class="description"
 			class:expanded
+			class:commit-markdown={rewrap}
 			style:--commit-message-font={$rewrapCommitMessage
 				? 'var(--fontfamily-default)'
 				: 'var(--fontfamily-mono)'}
 			bind:clientWidth={messageWidth}
 			data-testid={TestId.CommitDrawerDescription}
 		>
-			{#if expanded}
-				{description}
+			{#if rewrap}
+				{#if expanded}
+					<Markdown content={description} />
+				{:else}
+					<Markdown content={abbreviated} />
+				{/if}
 			{:else}
-				{abbreviated}
+				{#if expanded}
+					{description}
+				{:else}
+					{abbreviated}
+				{/if}
 			{/if}
 			{#if isAbbrev}
 				<button onclick={() => (expanded = !expanded)} type="button" class="readmore text-bold">
@@ -106,7 +115,7 @@
 					{/if}
 				</button>
 			{/if}
-		</p>
+		</div>
 	{/if}
 </div>
 
@@ -141,7 +150,21 @@
 		font-size: 13px;
 		line-height: var(--text-lineheight-body);
 		font-family: var(--commit-message-font);
-		white-space: pre-line;
+
+		/* Preserve original formatting when not in markdown mode */
+		&:not(.commit-markdown) {
+			white-space: pre-line;
+		}
+	}
+
+	/* Tone down markdown headers to not dominate the UI */
+	:global(.commit-markdown h1),
+	:global(.commit-markdown h2),
+	:global(.commit-markdown h3),
+	:global(.commit-markdown h4) {
+		font-size: 1.1em !important;
+		font-weight: 600;
+		margin-bottom: 0.4em;
 	}
 
 	.readmore {
