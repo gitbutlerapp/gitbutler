@@ -6,15 +6,23 @@
 
 	type Props = {
 		branchName: string;
-		branchIcon: Snippet;
+		isWorkspace?: boolean;
+		branchIcon?: Snippet;
 		workspaceActions: Snippet;
-		contextActions: Snippet;
+		contextActions?: Snippet;
 		messages: Snippet;
-		input: Snippet;
+		input?: Snippet;
 	};
 
-	const { branchName, branchIcon, workspaceActions, contextActions, messages, input }: Props =
-		$props();
+	const {
+		branchName,
+		isWorkspace,
+		branchIcon,
+		workspaceActions,
+		contextActions,
+		messages,
+		input
+	}: Props = $props();
 
 	let scrollDistanceFromBottom = $state(0);
 	let bottomAnchor = $state<HTMLDivElement>();
@@ -37,20 +45,24 @@
 <div class="chat" use:focusable={{ vertical: true }}>
 	<div class="chat-header" use:focusable>
 		<div class="flex gap-10 justify-between overflow-hidden">
-			{@render branchIcon()}
+			{#if !isWorkspace}
+				{@render branchIcon?.()}
 
-			<div class="chat-header__title">
-				<h3 class="text-15 text-bold truncate">{branchName}</h3>
+				<div class="chat-header__title">
+					<h3 class="text-15 text-bold truncate">{branchName}</h3>
 
-				<div class="chat-header__title-actions">
-					{@render workspaceActions()}
+					<div class="chat-header__title-actions">
+						{@render workspaceActions()}
+					</div>
 				</div>
-			</div>
+			{/if}
 		</div>
 
-		<div class="flex gap-8 overflow-hidden">
-			{@render contextActions()}
-		</div>
+		{#if contextActions}
+			<div class="flex gap-8 overflow-hidden">
+				{@render contextActions()}
+			</div>
+		{/if}
 	</div>
 
 	<div class="chat-container">
@@ -71,7 +83,7 @@
 		{/if}
 	</div>
 
-	{@render input()}
+	{@render input?.()}
 </div>
 
 <style lang="postcss">
@@ -113,14 +125,17 @@
 		display: flex;
 		position: relative;
 		flex: 1;
+		flex-direction: column;
 		overflow: hidden;
 	}
 
 	.chat-messages {
 		display: flex;
+		flex-grow: 1;
 		flex-direction: column-reverse;
 		width: 100%;
-		padding: 0 20px;
+		height: 100%;
+		min-height: 10rem;
 		overflow-x: hidden;
 		overflow-y: scroll;
 		scrollbar-width: none; /* Firefox */

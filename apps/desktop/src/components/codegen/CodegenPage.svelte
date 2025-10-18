@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
@@ -10,14 +9,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
-	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
-	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
-	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
-	import CodegenInput from '$components/codegen/CodegenInput.svelte';
-	import CodegenMcpConfigModal from '$components/codegen/CodegenMcpConfigModal.svelte';
-	import CodegenPromptConfigModal from '$components/codegen/CodegenPromptConfigModal.svelte';
-	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
-	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
+	import CodegenMessages from '$components/codegen/CodegenMessages.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
 	import CodegenTodo from '$components/codegen/CodegenTodo.svelte';
@@ -26,52 +18,25 @@
 	import codegenSvg from '$lib/assets/empty-state/codegen.svg?raw';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import filesAndChecksSvg from '$lib/assets/empty-state/files-and-checks.svg?raw';
-	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import vibecodingSvg from '$lib/assets/illustrations/vibecoding.svg?raw';
 	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { useSendMessage } from '$lib/codegen/messageQueue.svelte';
-	import {
-		currentStatus,
-		formatMessages,
-		getTodos,
-		lastInteractionTime,
-		thinkingOrCompactingStartedAt,
-		userFeedbackStatus,
-		usageStats,
-		reverseMessages
-	} from '$lib/codegen/messages';
+	import { currentStatus, getTodos, lastInteractionTime, usageStats } from '$lib/codegen/messages';
 
 	import { commitStatusLabel } from '$lib/commits/commit';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { vscodePath } from '$lib/project/project';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { isAiRule, type RuleFilter } from '$lib/rules/rule';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
-	import { SETTINGS } from '$lib/settings/userSettings';
 	import { pushStatusToColor, pushStatusToIcon } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { createBranchRef } from '$lib/utils/branch';
-	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
-	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import {
-		Badge,
-		Button,
-		chipToasts,
-		ContextMenu,
-		ContextMenuItem,
-		ContextMenuSection,
-		EmptyStatePlaceholder,
-		Modal
-	} from '@gitbutler/ui';
+	import { Badge, Button, chipToasts, EmptyStatePlaceholder } from '@gitbutler/ui';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 
-	import type { ClaudeMessage, ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
+	import type { ClaudeMessage, PermissionMode } from '$lib/codegen/types';
 
 	type Props = {
 		projectId: string;
@@ -87,16 +52,10 @@
 
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
-	const projectsService = inject(PROJECTS_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
 	const uiState = inject(UI_STATE);
-	const urlService = inject(URL_SERVICE);
-	const userSettings = inject(SETTINGS);
-	const settingsService = inject(SETTINGS_SERVICE);
-	const claudeSettings = $derived($settingsService?.claude);
 
 	const stacks = $derived(stackService.stacks(projectId));
-	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
 	const workspaceRules = $derived(rulesService.workspaceRules(projectId));
 	const hasExistingSessions = $derived.by(() => {
@@ -106,35 +65,8 @@
 			aiRules.some((rule) => rule.action.subject.subject.target.subject === stack.id)
 		);
 	});
-	const mcpConfig = $derived(claudeCodeService.mcpConfig({ projectId }));
 
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
-	let clearContextModal = $state<Modal>();
-	let modelContextMenu = $state<ContextMenu>();
-	let modelTrigger = $state<HTMLButtonElement>();
-	let thinkingModeContextMenu = $state<ContextMenu>();
-	let thinkingModeTrigger = $state<HTMLButtonElement>();
-	let permissionModeContextMenu = $state<ContextMenu>();
-	let permissionModeTrigger = $state<HTMLButtonElement>();
-	let templateContextMenu = $state<ContextMenu>();
-	let templateTrigger = $state<HTMLButtonElement>();
-	let mcpConfigModal = $state<CodegenMcpConfigModal>();
-	let promptConfigModal = $state<CodegenPromptConfigModal>();
-
-	const modelOptions: { label: string; value: ModelType }[] = [
-		{ label: 'Haiku', value: 'haiku' },
-		{ label: 'Sonnet', value: 'sonnet' },
-		{ label: 'Sonnet 1m', value: 'sonnet[1m]' },
-		{ label: 'Opus', value: 'opus' },
-		{ label: 'Opus Planning', value: 'opusplan' }
-	];
-
-	const thinkingLevels: { label: string; shortLabel: string; value: ThinkingLevel }[] = [
-		{ label: 'Normal', shortLabel: 'Normal', value: 'normal' },
-		{ label: 'Think', shortLabel: 'Think', value: 'think' },
-		{ label: 'Mega think', shortLabel: 'Mega', value: 'megaThink' },
-		{ label: 'Ultra think', shortLabel: 'Ultra', value: 'ultraThink' }
-	];
 
 	const permissionModeOptions: { label: string; value: PermissionMode }[] = [
 		{ label: 'Edit with permission', value: 'default' },
@@ -142,24 +74,8 @@
 		{ label: 'Accept edits', value: 'acceptEdits' }
 	];
 
-	const promptTemplates = $derived(claudeCodeService.promptTemplates(projectId));
-	const promptDirs = $derived(claudeCodeService.promptDirs(projectId));
-
-	async function openPromptConfigDir(path: string) {
-		await claudeCodeService.createPromptDir({ projectId, path });
-
-		const editorUri = getEditorUri({
-			schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-			path: [path]
-		});
-
-		urlService.openExternalUrl(editorUri);
-	}
-
 	const projectState = uiState.project(projectId);
 	const selectedBranch = $derived(projectState.selectedClaudeSession.current);
-	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
-	const selectedModel = $derived(projectState.selectedModel.current);
 	const selectedPermissionMode = $derived(
 		selectedBranch ? uiState.lane(selectedBranch.stackId).permissionMode.current : 'default'
 	);
@@ -211,33 +127,6 @@
 		}
 	}
 
-	async function onApproval(id: string) {
-		await claudeCodeService.updatePermissionRequest({ projectId, requestId: id, approval: true });
-	}
-	async function onRejection(id: string) {
-		await claudeCodeService.updatePermissionRequest({ projectId, requestId: id, approval: false });
-	}
-	async function onAbort() {
-		if (!selectedBranch) return;
-		await claudeCodeService.cancelSession({ projectId, stackId: selectedBranch?.stackId });
-	}
-
-	function selectModel(model: ModelType) {
-		projectState.selectedModel.set(model);
-		modelContextMenu?.close();
-	}
-
-	function selectThinkingLevel(level: ThinkingLevel) {
-		projectState.thinkingLevel.set(level);
-		thinkingModeContextMenu?.close();
-	}
-
-	function selectPermissionMode(mode: PermissionMode) {
-		if (!selectedBranch) return;
-		uiState.lane(selectedBranch.stackId).permissionMode.set(mode);
-		permissionModeContextMenu?.close();
-	}
-
 	function cyclePermissionMode() {
 		if (!selectedBranch) return;
 		const currentIndex = permissionModeOptions.findIndex(
@@ -250,142 +139,9 @@
 		}
 	}
 
-	function getPermissionModeIcon(
-		mode: PermissionMode
-	): 'edit-with-permissions' | 'checklist' | 'allow-all' {
-		switch (mode) {
-			case 'default':
-				return 'edit-with-permissions';
-			case 'plan':
-				return 'checklist';
-			case 'acceptEdits':
-				return 'allow-all';
-			default:
-				return 'edit-with-permissions';
-		}
-	}
-
-	function thinkingLevelToUiLabel(level: ThinkingLevel, short: boolean = false): string {
-		const thinkingLevel = thinkingLevels.find((t) => t.value === level);
-		if (!thinkingLevel) return 'Normal';
-		return short ? thinkingLevel.shortLabel : thinkingLevel.label;
-	}
-
-	const { prompt, setPrompt, sendMessage } = useSendMessage({
-		projectId: reactive(() => projectId),
-		selectedBranch: reactive(() => selectedBranch),
-		thinkingLevel: reactive(() => selectedThinkingLevel),
-		model: reactive(() => selectedModel),
-		permissionMode: reactive(() => selectedPermissionMode)
-	});
-
-	function insertTemplate(template: string) {
-		setPrompt(prompt + (prompt ? '\n\n' : '') + template);
-		templateContextMenu?.close();
-	}
-
-	function showInWorkspace() {
-		if (!selectedBranch) return;
-		goto(`${workspacePath(projectId)}?stackId=${selectedBranch.stackId}`);
-	}
-
-	async function openInEditor() {
-		const project = await projectsService.fetchProject(projectId);
-		if (!project) {
-			chipToasts.error('Project not found');
-			return;
-		}
-		urlService.openExternalUrl(
-			getEditorUri({
-				schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-				path: [vscodePath(project.path)],
-				searchParams: { windowId: '_blank' }
-			})
-		);
-	}
-
-	function getCurrentSessionId(events: ClaudeMessage[]): string | undefined {
-		// Get the most recent session ID from the messages
-		if (events.length === 0) return undefined;
-		const lastEvent = events[events.length - 1];
-		return lastEvent?.sessionId;
-	}
-
-	function clearContextAndRules() {
-		clearContextModal?.show();
-	}
-
-	let clearLoading = $state(false);
-	let compactLoading = $state(false);
-
-	async function compactContext() {
-		if (!selectedBranch) return;
-
-		compactLoading = true;
-		try {
-			await claudeCodeService.compactHistory({
-				projectId,
-				stackId: selectedBranch.stackId
-			});
-		} finally {
-			compactLoading = false;
-		}
-	}
-
-	async function performClearContextAndRules() {
-		if (!selectedBranch) return;
-
-		clearLoading = true;
-
-		try {
-			const events = await claudeCodeService.fetchMessages({
-				projectId,
-				stackId: selectedBranch.stackId
-			});
-			const sessionId = getCurrentSessionId(events);
-			if (!sessionId) return;
-
-			const rules = await rulesService.fetchListWorkspaceRules(projectId);
-
-			const toDelete = rules.filter((rule) =>
-				rule.filters.some(
-					(filter) => filter.type === 'claudeCodeSessionId' && filter.subject === sessionId
-				)
-			);
-
-			for (const rule of toDelete) {
-				await rulesService.deleteWorkspaceRuleMutate({
-					projectId,
-					id: rule.id
-				});
-			}
-		} finally {
-			clearLoading = false;
-		}
-	}
-
 	const events = $derived(
 		claudeCodeService.messages({ projectId, stackId: selectedBranch?.stackId || '' })
 	);
-	const isStackActiveQuery = $derived(
-		selectedBranch ? claudeCodeService.isStackActive(projectId, selectedBranch.stackId) : undefined
-	);
-	const isStackActive = $derived(isStackActiveQuery?.response || false);
-
-	// Check if there are rules to delete for the current session
-	const rules = $derived(rulesService.workspaceRules(projectId));
-	const hasRulesToClear = $derived(() => {
-		if (!events?.response || !rules.response) return false;
-
-		const sessionId = getCurrentSessionId(events.response);
-		if (!sessionId) return false;
-
-		return rules.response.some((rule) =>
-			rule.filters.some(
-				(filter) => filter.type === 'claudeCodeSessionId' && filter.subject === sessionId
-			)
-		);
-	});
 
 	let rightSidebarRef = $state<HTMLDivElement>();
 	let createBranchModal = $state<CreateBranchModal>();
@@ -405,27 +161,6 @@
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
-
-{#if selectedBranch?.stackId}
-	<ReduxResult result={mcpConfig.result} {projectId} stackId={selectedBranch.stackId}>
-		{#snippet children(mcpConfig, { projectId: _projectId, stackId: _stackId })}
-			{@const laneState = uiState.lane(selectedBranch.stackId)}
-			<CodegenMcpConfigModal
-				bind:this={mcpConfigModal}
-				{mcpConfig}
-				disabledServers={laneState.disabledMcpServers.current}
-				toggleServer={(server) => {
-					const disabledServers = laneState.disabledMcpServers.current;
-					if (disabledServers.includes(server)) {
-						laneState.disabledMcpServers.set(disabledServers.filter((s) => s !== server));
-					} else {
-						laneState.disabledMcpServers.set([...disabledServers, server]);
-					}
-				}}
-			/>
-		{/snippet}
-	</ReduxResult>
-{/if}
 
 <div class="page">
 	<ReduxResult result={claudeAvailable.result} {projectId}>
@@ -475,223 +210,13 @@
 
 	<div class="chat-view">
 		{#if selectedBranch}
-			{@const selectedBranchDetails = stackService.branchDetails(
-				projectId,
-				selectedBranch.stackId,
-				selectedBranch.head
-			)}
-			<ReduxResult
-				result={combineResults(
-					events?.result,
-					permissionRequests.result,
-					selectedBranchDetails.result
-				)}
+			<CodegenMessages
 				{projectId}
-			>
-				{#snippet children(
-					[events, permissionRequests, branchDetailsData],
-					{ projectId: _projectId }
-				)}
-					{@const formattedMessages = formatMessages(events, permissionRequests, isStackActive)}
-					{@const reversedFormatterdMessages = reverseMessages(formattedMessages)}
-					{@const iconName = pushStatusToIcon(branchDetailsData.pushStatus)}
-					{@const lineColor = getColorFromBranchType(
-						pushStatusToColor(branchDetailsData.pushStatus)
-					)}
-					{@const enabledMcpServers = mcpConfig.result.data
-						? Object.keys(mcpConfig.result.data.mcpServers).length -
-							uiState.lane(selectedBranch.stackId).disabledMcpServers.current.length
-						: 0}
+				stackId={selectedBranch.stackId}
+				branchName={selectedBranch.head}
+			/>
 
-					<CodegenChatLayout branchName={selectedBranch.head}>
-						{#snippet branchIcon()}
-							<BranchHeaderIcon {iconName} color={lineColor} large />
-						{/snippet}
-						{#snippet workspaceActions()}
-							<Button
-								icon="workbench-small"
-								kind="outline"
-								size="tag"
-								reversedDirection
-								onclick={showInWorkspace}>Show in workspace</Button
-							>
-							<Button
-								icon="open-editor-small"
-								kind="outline"
-								size="tag"
-								tooltip="Open in {$userSettings.defaultCodeEditor.displayName}"
-								onclick={openInEditor}
-								reversedDirection
-							/>
-						{/snippet}
-						{#snippet contextActions()}
-							{@const stats = usageStats(events)}
-
-							<Button
-								kind="outline"
-								icon="mcp"
-								reversedDirection
-								onclick={() => mcpConfigModal?.open()}
-								>MCP
-
-								{#snippet badge()}
-									<Badge kind="soft">{enabledMcpServers}</Badge>
-								{/snippet}
-							</Button>
-
-							<div class="flex gap-4 overflow-hidden">
-								<div
-									class="text-11 context-utilization-badge"
-									style="--context-utilization: {stats.contextUtilization}"
-								>
-									<span class="truncate">
-										{(stats.contextUtilization * 100).toFixed(0)}% context used
-									</span>
-								</div>
-
-								<div class="flex">
-									<Button
-										icon="clear"
-										kind="outline"
-										tooltip="Clear context and associated rules"
-										disabled={!hasRulesToClear ||
-											formattedMessages.length === 0 ||
-											['running', 'compacting'].includes(currentStatus(events, isStackActive))}
-										loading={clearLoading}
-										customStyle="border-top-right-radius: 0; border-bottom-right-radius: 0;"
-										onclick={() => clearContextAndRules()}
-									/>
-									<Button
-										icon="compact"
-										kind="outline"
-										tooltip="Compact context"
-										customStyle="border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: none;"
-										disabled={!hasRulesToClear ||
-											formattedMessages.length === 0 ||
-											['running', 'compacting'].includes(currentStatus(events, isStackActive))}
-										loading={compactLoading}
-										onclick={() => compactContext()}
-									/>
-								</div>
-							</div>
-						{/snippet}
-						{#snippet messages()}
-							{@const thinkingStatus = currentStatus(events, isStackActive)}
-							{@const startAt = thinkingOrCompactingStartedAt(events)}
-							{#if ['running', 'compacting'].includes(thinkingStatus) && startAt}
-								{@const status = userFeedbackStatus(formattedMessages)}
-								{#if status.waitingForFeedback}
-									<CodegenServiceMessageUseTool toolCall={status.toolCall} />
-								{:else}
-									<CodegenServiceMessageThinking
-										{startAt}
-										msSpentWaiting={status.msSpentWaiting}
-										overrideWord={thinkingStatus === 'compacting' ? 'compacting' : undefined}
-									/>
-								{/if}
-							{/if}
-
-							{#if formattedMessages.length === 0}
-								<div class="chat-view__placeholder">
-									<EmptyStatePlaceholder
-										image={laneNewSvg}
-										width={320}
-										topBottomPadding={0}
-										bottomMargin={0}
-									>
-										{#snippet title()}
-											Let's build something amazing
-										{/snippet}
-										{#snippet caption()}
-											Your branch is ready for AI-powered development. Describe what you'd like to
-											build, and I'll generate the code to get you started.
-										{/snippet}
-									</EmptyStatePlaceholder>
-								</div>
-							{:else}
-								{#each reversedFormatterdMessages as message}
-									<CodegenClaudeMessage {message} {onApproval} {onRejection} />
-								{/each}
-							{/if}
-						{/snippet}
-
-						{#snippet input()}
-							{#if claudeAvailable.response?.status === 'available'}
-								{@const status = currentStatus(events, isStackActive)}
-								<CodegenInput
-									value={prompt.current}
-									onChange={(prompt) => setPrompt(prompt)}
-									loading={['running', 'compacting'].includes(status)}
-									compacting={status === 'compacting'}
-									{projectId}
-									{selectedBranch}
-									onsubmit={sendMessage}
-									{onAbort}
-									sessionKey={selectedBranch
-										? `${selectedBranch.stackId}-${selectedBranch.head}`
-										: undefined}
-								>
-									{#snippet actionsOnLeft()}
-										{@const permissionModeLabel = permissionModeOptions.find(
-											(a) => a.value === selectedPermissionMode
-										)?.label}
-										<div class="flex m-right-4 gap-2">
-											<Button disabled kind="ghost" icon="attachment" reversedDirection />
-											<Button
-												bind:el={templateTrigger}
-												kind="ghost"
-												icon="script"
-												tooltip="Insert template"
-												onclick={(e) => templateContextMenu?.toggle(e)}
-											/>
-											<Button
-												bind:el={thinkingModeTrigger}
-												kind="ghost"
-												icon="thinking"
-												reversedDirection
-												onclick={() => thinkingModeContextMenu?.toggle()}
-												tooltip="Thinking mode"
-												children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
-											/>
-											<Button
-												bind:el={permissionModeTrigger}
-												kind="ghost"
-												icon={getPermissionModeIcon(selectedPermissionMode)}
-												shrinkable
-												onclick={() => permissionModeContextMenu?.toggle()}
-												tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
-													? 'Permission modes disable when all permissions are allowed'
-													: permissionModeLabel}
-												disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
-											/>
-										</div>
-									{/snippet}
-
-									{#snippet actionsOnRight()}
-										{#if !claudeSettings?.useConfiguredModel}
-											<Button
-												bind:el={modelTrigger}
-												kind="ghost"
-												icon="chevron-down"
-												shrinkable
-												onclick={() => modelContextMenu?.toggle()}
-											>
-												{modelOptions.find((a) => a.value === selectedModel)?.label}
-											</Button>
-										{/if}
-									{/snippet}
-								</CodegenInput>
-							{:else}
-								<CodegenChatClaudeNotAvaliableBanner
-									onSettingsBtnClick={() => settingsModal?.show()}
-								/>
-							{/if}
-						{/snippet}
-					</CodegenChatLayout>
-
-					{@render rightSidebar(events)}
-				{/snippet}
-			</ReduxResult>
+			{@render rightSidebar(events.response || [])}
 		{:else}
 			<div class="chat-view__no-branches-placeholder">
 				<EmptyStatePlaceholder image={codegenSvg} width={250} gap={24}>
@@ -1023,113 +548,9 @@
 	</div>
 {/snippet}
 
-{#snippet thinkingBtnText()}
-	{thinkingLevelToUiLabel(selectedThinkingLevel, true)}
-{/snippet}
-
 <ClaudeCodeSettingsModal bind:this={settingsModal} onClose={() => {}} />
 
 <CreateBranchModal bind:this={createBranchModal} {projectId} stackId={selectedBranch?.stackId} />
-
-<Modal
-	bind:this={clearContextModal}
-	width="small"
-	type="warning"
-	title="Clear context"
-	onSubmit={async (close) => {
-		await performClearContextAndRules();
-		close();
-	}}
->
-	Are you sure you want to clear the context and delete all rules associated with this Claude
-	session? This action cannot be undone.
-
-	{#snippet controls(close)}
-		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit">Clear context</Button>
-	{/snippet}
-</Modal>
-
-<ContextMenu bind:this={modelContextMenu} leftClickTrigger={modelTrigger} side="top" align="end">
-	<ContextMenuSection>
-		{#each modelOptions as option}
-			<ContextMenuItem
-				label={option.label}
-				selected={selectedModel === option.value}
-				onclick={() => selectModel(option.value)}
-			/>
-		{/each}
-	</ContextMenuSection>
-</ContextMenu>
-
-<ContextMenu
-	bind:this={thinkingModeContextMenu}
-	leftClickTrigger={thinkingModeTrigger}
-	align="start"
-	side="top"
->
-	<ContextMenuSection>
-		{#each thinkingLevels as level}
-			<ContextMenuItem
-				label={level.label}
-				selected={selectedThinkingLevel === level.value}
-				onclick={() => selectThinkingLevel(level.value)}
-			/>
-		{/each}
-	</ContextMenuSection>
-</ContextMenu>
-
-<ContextMenu
-	bind:this={permissionModeContextMenu}
-	leftClickTrigger={permissionModeTrigger}
-	align="start"
-	side="top"
->
-	<ContextMenuSection>
-		{#each permissionModeOptions as option}
-			<ContextMenuItem
-				label={option.label}
-				selected={selectedPermissionMode === option.value}
-				onclick={() => selectPermissionMode(option.value)}
-			/>
-		{/each}
-	</ContextMenuSection>
-</ContextMenu>
-
-<ContextMenu
-	bind:this={templateContextMenu}
-	leftClickTrigger={templateTrigger}
-	side="top"
-	align="start"
->
-	<ContextMenuSection>
-		<ReduxResult result={promptTemplates.result} {projectId}>
-			{#snippet children(promptTemplates, { projectId: _projectId })}
-				{#each promptTemplates as template}
-					<ContextMenuItem
-						label={template.label}
-						onclick={() => insertTemplate(template.template)}
-					/>
-				{/each}
-			{/snippet}
-		</ReduxResult>
-	</ContextMenuSection>
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Edit templates"
-			icon="open-editor"
-			onclick={() => promptConfigModal?.show()}
-		/>
-	</ContextMenuSection>
-</ContextMenu>
-
-{#if promptDirs.response}
-	<CodegenPromptConfigModal
-		bind:this={promptConfigModal}
-		promptDirs={promptDirs.response}
-		{openPromptConfigDir}
-	/>
-{/if}
 
 <style lang="postcss">
 	.page {
@@ -1151,7 +572,6 @@
 		background-color: var(--clr-bg-1);
 	}
 
-	.chat-view__placeholder,
 	.chat-view__no-branches-placeholder {
 		display: flex;
 		flex: 1;
@@ -1162,29 +582,6 @@
 
 	.chat-view__no-branches-placeholder {
 		background-color: var(--clr-bg-2);
-	}
-
-	.context-utilization-badge {
-		display: flex;
-		position: relative;
-		align-items: center;
-		justify-content: center;
-		height: var(--size-button);
-		padding: 0 8px;
-		overflow: hidden;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-ntrl-soft);
-		color: var(--clr-text-2);
-
-		&::after {
-			position: absolute;
-			bottom: 0;
-			left: 0;
-			width: calc(var(--context-utilization) * 100%);
-			height: 3px;
-			background: var(--clr-text-3);
-			content: '';
-		}
 	}
 
 	.right-sidebar {

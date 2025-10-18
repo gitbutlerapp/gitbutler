@@ -254,7 +254,9 @@
 
 	// Auto-fetch setup
 	async function fetchRemoteForProject() {
-		await baseBranchService.fetchFromRemotes(projectId, 'auto');
+		if (baseBranch?.lastFetchedMs && Date.now() - baseBranch.lastFetchedMs > 30 * 60 * 1000) {
+			await baseBranchService.fetchFromRemotes(projectId, 'auto');
+		}
 	}
 
 	function setupFetchInterval() {
@@ -262,7 +264,7 @@
 		if (autoFetchIntervalMinutes < 0) {
 			return;
 		}
-		fetchRemoteForProject();
+		// fetchRemoteForProject();
 		clearFetchInterval();
 		const intervalMs = autoFetchIntervalMinutes * 60 * 1000;
 		intervalId = setInterval(async () => {
