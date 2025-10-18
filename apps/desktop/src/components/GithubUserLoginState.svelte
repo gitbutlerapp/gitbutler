@@ -8,9 +8,10 @@
 	type Props = {
 		username: string;
 		disabled?: boolean;
+		isFirst: boolean;
 	};
 
-	const { username, disabled }: Props = $props();
+	const { username, disabled, isFirst }: Props = $props();
 
 	const githubUserService = inject(GITHUB_USER_SERVICE);
 
@@ -19,7 +20,7 @@
 </script>
 
 <ReduxResult result={ghUser.result}>
-	{#snippet error()}
+	<!-- {#snippet error()}
 		<SectionCard orientation="row">
 			{#snippet iconSide()}
 				<div class="icon-wrapper">
@@ -32,10 +33,10 @@
 				</div>
 			{/snippet}
 			{#snippet title()}
-				<p>{username}</p>
+				{username}
 			{/snippet}
 			{#snippet caption()}
-				<p>Error loading GitHub user</p>
+				Error loading GitHub user
 			{/snippet}
 
 			<Button
@@ -59,10 +60,10 @@
 				<p>{username}</p>
 			{/snippet}
 		</SectionCard>
-	{/snippet}
+	{/snippet} -->
 
 	{#snippet children(user)}
-		<SectionCard orientation="row">
+		<SectionCard orientation="row" roundedBottom={false} roundedTop={isFirst}>
 			{#snippet iconSide()}
 				<div class="icon-wrapper">
 					{#if !user}
@@ -80,11 +81,14 @@
 				</div>
 			{/snippet}
 			{#snippet title()}
-				<p>{username}</p>
+				{username}
 			{/snippet}
+
 			{#snippet caption()}
-				{#if !user}
-					<p>GitHub user not found</p>
+				{#if user?.email}
+					{user.email}
+				{:else}
+					<i>No public email</i>
 				{/if}
 			{/snippet}
 
