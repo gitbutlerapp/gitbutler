@@ -92,7 +92,7 @@
 			</div>
 		</div>
 		<VirtualList items={commits} batchSize={10} onloadmore={async () => await loadMore()}>
-			{#snippet group(commits)}
+			{#snippet chunkTemplate(commits)}
 				{#each commits as commit}
 					{@const selected = commit.id === branchesState?.current.commitId}
 					<CommitRow

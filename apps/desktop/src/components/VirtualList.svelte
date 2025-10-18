@@ -1,3 +1,14 @@
+<!--
+	VirtualList - A high-performance virtual scrolling component
+
+	This component renders large lists efficiently by only rendering items that are
+	currently visible in the viewport. It:
+	- Chunks items into batches for optimized rendering
+	- Dynamically measures row heights and caches them
+	- Uses padding to maintain scroll position for off-screen items
+	- Supports infinite scrolling with the onloadmore callback
+	- Automatically recalculates layout on resize and item changes
+-->
 <script lang="ts" module>
 	type T = unknown;
 </script>
@@ -5,170 +16,300 @@
 <script lang="ts" generics="T">
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { chunk } from '$lib/utils/array';
+	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/core/context';
 	import { ScrollableContainer } from '@gitbutler/ui';
 
-	import { tick, type Snippet } from 'svelte';
+	import { tick, untrack, type Snippet } from 'svelte';
 
 	type Props = {
 		items: Array<T>;
-		itemHeight?: number | undefined;
 		/** Template for group of items. */
-		group: Snippet<[T[]]>;
+		chunkTemplate: Snippet<[T[]]>;
 		/** Number of items grouped together. */
 		batchSize: number;
 		/** Handler for when scroll has reached with a margin of the bottom. */
 		onloadmore?: () => Promise<void>;
+		start?: number;
+		grow?: boolean;
+		/** Whether to initialize scroll position at top or bottom. */
+		initialPosition?: 'top' | 'bottom';
+		/** Auto-scroll to bottom when new items are added (useful for chat). */
+		stickToBottom?: boolean;
+		padding?: {
+			left?: number;
+			right?: number;
+		};
 	};
 
-	const { items, itemHeight, group, batchSize, onloadmore }: Props = $props();
-
-	let start = $state(0);
-	let end = $state(0);
-
-	// Note that `HTMLCollectionOf` is a live list.
-	let rows = $state<HTMLCollectionOf<Element>>();
-
-	let heightMap: Array<number> = $state([]);
-	let viewport = $state<HTMLDivElement>();
-	let viewportHeight = $state(0);
-	let resizeObserver: ResizeObserver | null = null;
-	let top = $state(0);
-	let bottom = $state(0);
-	let averageHeight: number = $state(null!);
+	const {
+		items,
+		chunkTemplate,
+		batchSize,
+		onloadmore,
+		grow,
+		padding,
+		start,
+		initialPosition = 'top',
+		stickToBottom = false
+	}: Props = $props();
 
 	const userSettings = inject(SETTINGS);
 
+	// Constants
+	const FALLBACK_HEIGHT = 40;
+	const LOAD_MORE_THRESHOLD = 150;
+
+	// Debounce load more callback
+	const debouncedLoad = $derived(debounce(() => onloadmore?.(), 100));
+
+	// DOM references
+	let viewport = $state<HTMLDivElement>();
+	let rows = $state<HTMLCollectionOf<Element>>(); // This is a live list
+	let resizeObserver: ResizeObserver | null = null;
+	let viewportHeight = $state(0);
+
+	// Virtual scrolling state
+	let startIndex = $state(start ?? (initialPosition === 'bottom' ? Infinity : 0));
+	let end = $state(start ?? (initialPosition === 'bottom' ? Infinity : 0));
+
+	// An array mapping items to element heights
+	let heightMap: Array<number | undefined> = $state([]);
+
+	// Padding that takes up out of viewport space
+	let topPadding = $state(0);
+	let bottomPadding = $state(0);
+
+	let totalHeight = $state(0);
+
+	// Chat-specific state
+	let isNearBottom = $state(true);
+	let hasInitialized = $state(false);
+	let previousItemsLength = $state(items.length);
+	let previousViewportHeight = $state(viewportHeight);
+	let wasAtBottomBeforeResize = $state(false);
+
 	const chunks = $derived(chunk(items, batchSize));
-	const visible: Array<{ id: number | string; data: T[] }> = $derived(
-		chunks.slice(start, end).map((data, i) => {
-			return { id: i + start, data };
-		})
+	const visible = $derived.by(() =>
+		chunks.slice(startIndex, end).map((data, i) => ({ id: i + startIndex, data }))
 	);
 
-	async function refresh() {
-		if (!viewport || !rows) return;
-		const { scrollTop } = viewport;
-		await tick(); // wait until the DOM is up to date
-		let contentHeight = top - scrollTop;
-
-		let i = start;
-		while (contentHeight < viewportHeight && i < chunks.length) {
-			let row = rows[i - start];
-			if (!row) {
-				end = i + 1;
-				await tick(); // render the newly visible row
-				row = rows[i - start];
-			}
-			const row_height = (heightMap[i] = itemHeight || (row as HTMLElement)?.offsetHeight) || 0;
-			contentHeight += row_height;
-			i += 1;
+	function sumHeights(startIndex: number, endIndex: number): number {
+		let sum = 0;
+		for (let i = startIndex; i < endIndex; i++) {
+			sum += heightMap[i] || FALLBACK_HEIGHT;
 		}
-		end = i;
-		const remaining = chunks.length - end;
-		averageHeight = (top + contentHeight) / end;
-		if (end === 0) {
-			averageHeight = 0;
-		}
-		bottom = remaining * averageHeight;
-		heightMap.length = chunks.length;
-		const totalHeight = heightMap.reduce((x, y) => x + y, 0);
-		if (scrollTop + viewportHeight > totalHeight) {
-			// If we scroll outside the viewbox scroll to the top.
-			viewport.scrollTo(0, totalHeight - viewportHeight);
-		}
-		if (totalHeight < viewportHeight) {
-			onloadmore?.();
-		}
-		for (const row of rows) {
-			resizeObserver?.observe(row);
-		}
+		return sum;
 	}
 
-	async function handleScroll() {
-		if (!viewport || !rows) return;
-		const { scrollTop } = viewport;
-		const oldStart = start;
-		for (let v = 0; v < rows.length; v += 1) {
-			heightMap[start + v] = itemHeight || (rows[v] as HTMLElement).offsetHeight;
+	function checkIfNearBottom() {
+		if (!viewport) return;
+		const threshold = 50;
+		const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+		isNearBottom = distanceFromBottom < threshold;
+	}
+
+	async function getRowHeight(i: number, rowOffset: number): Promise<number> {
+		if (i < startIndex) {
+			return heightMap[i] || FALLBACK_HEIGHT;
 		}
+
+		let rowElement = rows![rowOffset];
+		if (!rowElement) {
+			await tick(); // render the newly visible row
+			rowElement = rows![i < startIndex ? i : rowOffset];
+		}
+		const rowHeight = (rowElement as HTMLElement)?.offsetHeight || FALLBACK_HEIGHT;
+		heightMap[i] = rowHeight;
+		return rowHeight;
+	}
+
+	async function updateStartIndex(): Promise<number> {
+		let accumulatedHeight = 0;
+		let oldStart = startIndex;
 		let i = 0;
-		let y = 0;
-		while (i < chunks.length) {
-			const rowHeight = heightMap[i] || averageHeight;
-			if (y + rowHeight > scrollTop) {
-				start = i;
-				top = y;
-				break;
-			}
-			y += rowHeight;
-			i += 1;
-		}
-		while (i < chunks.length) {
-			y += heightMap[i] || averageHeight;
-			i += 1;
-			if (y > scrollTop + viewportHeight) break;
-		}
-		end = i;
-		const remaining = chunks.length - end;
-		averageHeight = y / end;
-		while (i < chunks.length) heightMap[i++] = averageHeight;
-		bottom = remaining * averageHeight;
 
-		if (start < oldStart) {
+		while (i < chunks.length) {
+			const rowHeight = await getRowHeight(i, i - oldStart);
+			accumulatedHeight += rowHeight;
+
+			if (accumulatedHeight > viewport!.scrollTop) {
+				return i;
+			}
+			i += 1;
+		}
+		return i;
+	}
+
+	async function updateEndIndex(): Promise<number> {
+		let accumulatedHeight = topPadding - viewport!.scrollTop;
+		let i = startIndex;
+
+		while (i < chunks.length) {
+			if (!rows![i - startIndex]) {
+				end = i + 1;
+				bottomPadding = sumHeights(end, heightMap.length);
+				await tick(); // render the newly visible row
+			}
+			const rowHeight = await getRowHeight(i, i - startIndex);
+
+			accumulatedHeight += rowHeight;
+			if (accumulatedHeight > viewport!.clientHeight) {
+				return i + 1;
+			}
+			i += 1;
+		}
+		return i;
+	}
+
+	async function updateStartIndexBackwards(): Promise<number> {
+		if (!viewport) return 0;
+
+		let accumulatedHeight = 0;
+		let i = end - 1;
+
+		while (i >= 0) {
+			// Set startIndex to render this chunk
+			startIndex = i;
+			await tick(); // Wait for the chunk to render
+
+			// Now measure the actual rendered height
+			const rowElement = rows![0]; // First row in the visible set
+			const rowHeight = (rowElement as HTMLElement)?.offsetHeight || FALLBACK_HEIGHT;
+			heightMap[i] = rowHeight;
+
+			accumulatedHeight += rowHeight;
+
+			if (accumulatedHeight > viewport.clientHeight) {
+				return i;
+			}
+			i -= 1;
+		}
+		return 0;
+	}
+
+	async function recalculate() {
+		if (!viewport || !rows) return;
+
+		heightMap.length = chunks.length;
+
+		// Handle bottom initialization
+		if (!hasInitialized && initialPosition === 'bottom') {
+			// Start from the last chunk and work backwards
+			end = chunks.length;
+			bottomPadding = 0;
 			await tick();
-			let expectedHeight = 0;
-			let actualHeight = 0;
-			for (let i = start; i < oldStart; i += 1) {
-				if (rows[i - start]) {
-					expectedHeight += heightMap[i]!;
-					actualHeight += itemHeight || (rows[i - start] as HTMLElement).offsetHeight;
-				}
-			}
-			const d = actualHeight - expectedHeight;
-			viewport.scrollTo(0, scrollTop + d);
+
+			startIndex = await updateStartIndexBackwards();
+			topPadding = sumHeights(0, startIndex);
+
+			totalHeight = sumHeights(0, heightMap.length);
+
+			// Scroll to bottom
+			viewport.scrollTop = viewport.scrollHeight;
+			hasInitialized = true;
+		} else {
+			// Normal top-down calculation
+			await tick();
+			startIndex = await updateStartIndex();
+			topPadding = sumHeights(0, startIndex);
+
+			// Calculate visible range end
+			await tick();
+			end = await updateEndIndex();
+			bottomPadding = sumHeights(end, heightMap.length);
+
+			totalHeight = sumHeights(0, heightMap.length);
 		}
 
-		const totalHeight = heightMap.reduce((x, y) => x + y, 0);
-		if (scrollTop + viewportHeight > totalHeight) {
-			viewport.scrollTo(0, totalHeight - viewportHeight);
+		// Trigger load more if needed
+		const shouldLoad =
+			totalHeight < viewportHeight ||
+			viewport.scrollTop + viewportHeight > totalHeight - LOAD_MORE_THRESHOLD;
+		if (shouldLoad) {
+			debouncedLoad?.();
 		}
 
-		if (scrollTop + viewportHeight > totalHeight - 50) {
-			onloadmore?.();
+		// Observe all visible rows for resize
+		for (const rowElement of rows) {
+			resizeObserver?.observe(rowElement);
 		}
 	}
 
+	// Setup resize observer when viewport is ready
 	$effect(() => {
 		if (viewport) {
-			rows = viewport?.getElementsByClassName('list-row');
-			resizeObserver = new ResizeObserver(() => {
-				refresh();
-			});
+			rows = viewport.getElementsByClassName('list-row');
+			resizeObserver = new ResizeObserver(() => untrack(() => recalculate()));
 			return () => {
 				resizeObserver?.disconnect();
 			};
 		}
 	});
 
+	// Recalculate when viewport height changes
 	$effect(() => {
-		if (items && viewportHeight) {
-			refresh();
+		if (viewportHeight && previousViewportHeight !== viewportHeight) {
+			// Track if we were at bottom before resize
+			if (stickToBottom && viewport) {
+				wasAtBottomBeforeResize = isNearBottom;
+			}
+
+			untrack(async () => {
+				await recalculate();
+				// Restore bottom position if we were at bottom and stickToBottom is enabled
+				if (stickToBottom && wasAtBottomBeforeResize && viewport) {
+					viewport.scrollTop = viewport.scrollHeight;
+				}
+				previousViewportHeight = viewportHeight;
+			});
 		}
+	});
+
+	// Recalculate when items change
+	$effect(() => {
+		if (items) {
+			untrack(() => recalculate());
+		}
+	});
+
+	// Note: Bottom initialization is now handled in recalculate()
+
+	// Auto-scroll to bottom when new items are added (if stickToBottom is enabled)
+	$effect(() => {
+		if (items.length > previousItemsLength && stickToBottom && isNearBottom) {
+			untrack(() => {
+				tick().then(() => {
+					if (viewport) {
+						viewport.scrollTop = viewport.scrollHeight;
+					}
+				});
+			});
+		}
+		previousItemsLength = items.length;
 	});
 </script>
 
 <ScrollableContainer
+	bind:viewportHeight
 	bind:viewport
 	whenToShow={$userSettings.scrollbarVisibilityState}
-	onscroll={handleScroll}
-	bind:viewportHeight
+	onscroll={() => {
+		recalculate();
+		checkIfNearBottom();
+	}}
+	wide={grow}
+	{padding}
 >
-	<div class="padded-contents" style:padding-top={top + 'px'} style:padding-bottom={bottom + 'px'}>
+	<div
+		class="padded-contents"
+		style:padding-top={topPadding + 'px'}
+		style:padding-bottom={bottomPadding + 'px'}
+	>
 		{#each visible as chunk}
-			<!-- Note: keying this #each would things much slower. -->
+			<!-- Note: keying this #each would make things much slower. -->
 			<div class="list-row">
-				{@render group?.(chunk.data)}
+				{@render chunkTemplate?.(chunk.data)}
 			</div>
 		{/each}
 	</div>
