@@ -186,7 +186,7 @@
 					{projectId}
 					laneId={stack.id || 'banana'}
 					stackId={stack.id}
-					topBranch={stack.heads.at(0)?.name}
+					topBranchName={stack.heads.at(0)?.name}
 					bind:clientWidth={laneWidths[i]}
 					bind:clientHeight={lineHights[i]}
 					onVisible={(visible) => {

@@ -124,7 +124,7 @@
 			<Icon name="draggable" />
 		</div>
 	{/if}
-	<ScrollableContainer horz whenToShow="always" padding={{ left: numberHeaderWidth }}>
+	<ScrollableContainer horz whenToShow="always">
 		<table class="table__section">
 			<thead class="table__title" class:draggable={!draggingDisabled}>
 				<tr>

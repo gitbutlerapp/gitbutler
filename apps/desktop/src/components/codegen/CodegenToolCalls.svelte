@@ -10,7 +10,7 @@
 	const { toolCalls }: Props = $props();
 
 	// If only one tool call, always expanded
-	let expanded = $state(toolCalls.length === 1);
+	let expanded = $derived(toolCalls.length === 1);
 	const toolDisplayLimit = 3;
 
 	const toolsToDisplay = $derived.by(() => {

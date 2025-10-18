@@ -5,6 +5,7 @@
 	import BranchCard from '$components/BranchCard.svelte';
 	import BranchCommitList from '$components/BranchCommitList.svelte';
 	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
+	import CodegenRow from '$components/CodegenRow.svelte';
 	import ConflictResolutionConfirmModal from '$components/ConflictResolutionConfirmModal.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import LineOverlay from '$components/LineOverlay.svelte';
@@ -13,6 +14,9 @@
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { MoveBranchDzHandler } from '$lib/branches/dropHandler';
+	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
+	import { currentStatus, usageStats } from '$lib/codegen/messages';
+	import { newCodegenEnabled } from '$lib/config/uiFeatureFlags';
 	import { REORDER_DROPZONE_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
@@ -48,6 +52,7 @@
 	const prService = $derived(forge.current.prService);
 	const urlService = inject(URL_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stackId);
@@ -188,7 +193,8 @@
 					upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
 				{@const selected =
 					selection?.current?.branchName === branchName &&
-					selection?.current.commitId === undefined}
+					selection?.current.commitId === undefined &&
+					!selection?.current.codegen}
 				{@const pushStatus = branchDetails.pushStatus}
 				{@const isConflicted = branchDetails.isConflicted}
 				{@const lastUpdatedAt = branchDetails.lastUpdatedAt}
@@ -198,6 +204,13 @@
 					.filter((b) => b.name !== branchName)
 					.map((b) => b.prNumber)
 					.filter((n): n is number => n !== undefined)}
+				{@const codegenSelected =
+					selection?.current?.branchName === branchName &&
+					selection?.current.commitId === undefined &&
+					!!selection?.current.codegen}
+				{@const codegenQuery = stackId
+					? claudeCodeService.messages({ projectId, stackId })
+					: undefined}
 				{@render branchInsertionDz(branchName)}
 				<BranchCard
 					type="stack-branch"
@@ -225,7 +238,11 @@
 					onclick={() => {
 						const currentSelection = uiState.lane(laneId).selection.current;
 						// Toggle: if this branch is already selected, clear the selection
-						if (currentSelection?.branchName === branchName && !currentSelection?.commitId) {
+						if (
+							currentSelection?.branchName === branchName &&
+							!currentSelection.codegen &&
+							!currentSelection?.commitId
+						) {
 							uiState.lane(laneId).selection.set(undefined);
 						} else {
 							uiState.lane(laneId).selection.set({ branchName, previewOpen: true });
@@ -299,6 +316,17 @@
 							isFirstBranchInStack={firstBranch}
 							isLastBranchInStack={lastBranch}
 						/>
+						{#if first && codegenQuery?.response?.length === 0}
+							<Button
+								icon="ai-small"
+								style="neutral"
+								size="tag"
+								onclick={async () => {
+									if (!stackId) return;
+									laneState?.selection.set({ branchName, codegen: true, previewOpen: true });
+								}}
+							/>
+						{/if}
 					{/snippet}
 
 					{#snippet menu({ rightClickTrigger })}
@@ -318,6 +346,25 @@
 					{/snippet}
 
 					{#snippet branchContent()}
+						{#if $newCodegenEnabled && firstBranch && stackId}
+							{#if codegenQuery?.response && codegenQuery.response.length > 0}
+								{@const usage = usageStats(codegenQuery.response)}
+								{@const stackActive = claudeCodeService.isStackActive(projectId, stackId)}
+								{@const status = currentStatus(
+									codegenQuery.response || [],
+									stackActive.response || false
+								)}
+								<CodegenRow
+									{projectId}
+									{branchName}
+									{stackId}
+									{status}
+									selected={codegenSelected}
+									tokens={usage.tokens}
+									cost={usage.cost}
+								/>
+							{/if}
+						{/if}
 						<BranchCommitList
 							{firstBranch}
 							{lastBranch}

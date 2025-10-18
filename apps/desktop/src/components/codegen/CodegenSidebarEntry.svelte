@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatNumber } from '$lib/utils/number';
 	import { Badge, Icon, TimeAgo, Tooltip, InfoButton } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { slide, fade } from 'svelte/transition';
@@ -36,16 +37,6 @@
 	}: Props = $props();
 
 	let isOpen = $state(false);
-
-	function formatNumber(n: number, fractionDigits = 0) {
-		const options: Intl.NumberFormatOptions = {
-			maximumFractionDigits: fractionDigits,
-			minimumFractionDigits: fractionDigits
-		};
-
-		// Use the user's locale (undefined) so thousands separator will match their locale.
-		return new Intl.NumberFormat(undefined, options).format(n);
-	}
 </script>
 
 <div class="codegen-entry-wrapper" use:focusable={{ focusable: true, onAction: () => onclick?.() }}>
