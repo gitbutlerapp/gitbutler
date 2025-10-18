@@ -135,7 +135,7 @@
 		display: flex;
 		flex: 1;
 		flex-direction: column;
-		gap: 4px;
+		gap: 6px;
 		user-select: text;
 	}
 
