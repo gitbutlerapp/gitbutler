@@ -3660,6 +3660,7 @@ dependencies = [
  "base64 0.22.1",
  "bstr",
  "but-core",
+ "but-gerrit",
  "but-rebase",
  "but-settings",
  "but-status",
