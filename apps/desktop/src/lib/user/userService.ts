@@ -3,6 +3,7 @@ import { showError } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import { InjectionToken } from '@gitbutler/core/context';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
+import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
 import { derived, get, readable, writable, type Readable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { IBackend } from '$lib/backend';
@@ -117,7 +118,7 @@ export class UserService {
 	async loginAndCopyLink(aborted: Readable<boolean> = readable(false)): Promise<User | undefined> {
 		return await this.loginCommon((url) => {
 			setTimeout(() => {
-				this.backend.writeTextToClipboard(url);
+				copyToClipboard(url);
 			}, 0);
 		}, aborted);
 	}
