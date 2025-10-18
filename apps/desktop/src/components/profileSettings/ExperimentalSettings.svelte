@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { ircEnabled, ircServer, codegenEnabled, fModeEnabled } from '$lib/config/uiFeatureFlags';
+	import {
+		ircEnabled,
+		ircServer,
+		codegenEnabled,
+		newCodegenEnabled,
+		fModeEnabled
+	} from '$lib/config/uiFeatureFlags';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/core/context';
 	import { SectionCard, Spacer, Textbox, Toggle } from '@gitbutler/ui';
@@ -80,6 +86,21 @@
 				id="codegen"
 				checked={$codegenEnabled}
 				onclick={() => ($codegenEnabled = !$codegenEnabled)}
+			/>
+		{/snippet}
+	</SectionCard>
+	<SectionCard labelFor="new-codegen" roundedTop={false} roundedBottom={false} orientation="row">
+		{#snippet title()}
+			Codegen (workspace)
+		{/snippet}
+		{#snippet caption()}
+			Use Claude Code from the workspace.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="new-codegen"
+				checked={$newCodegenEnabled}
+				onclick={() => ($newCodegenEnabled = !$newCodegenEnabled)}
 			/>
 		{/snippet}
 	</SectionCard>

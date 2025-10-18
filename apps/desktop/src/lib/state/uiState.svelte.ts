@@ -16,10 +16,11 @@ import type { StackDetails } from '$lib/stacks/stack';
 import type { RejectionReason } from '$lib/stacks/stackService.svelte';
 
 export type StackSelection = {
-	branchName: string;
+	branchName?: string;
 	commitId?: string;
 	upstream?: boolean;
 	previewOpen: boolean;
+	codegen?: boolean;
 };
 
 export type NewCommitMessage = {
@@ -382,7 +383,7 @@ function updateStackSelection(uiState: UiState, stackId: string, details: StackD
 	if (!selection) return;
 
 	// Clear selection if the selected branch is not in the list of branches
-	if (!branches.includes(selection.branchName)) {
+	if (selection.branchName && !branches.includes(selection.branchName)) {
 		laneState.selection.set(undefined);
 		return;
 	}

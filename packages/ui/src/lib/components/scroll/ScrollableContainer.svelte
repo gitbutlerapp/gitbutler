@@ -122,11 +122,12 @@
 		scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
-	export function scrollToBottom() {
+	export function scrollToBottom(immediate?: boolean) {
 		if (viewport) {
+			viewport.scrollTop = viewport.scrollHeight - viewport.offsetHeight;
 			scrollTo({
 				top: viewport.scrollHeight,
-				behavior: 'smooth'
+				behavior: immediate ? undefined : 'smooth'
 			});
 		}
 	}
@@ -136,13 +137,16 @@
 	<div
 		bind:this={viewport}
 		bind:offsetHeight={viewportHeight}
+		style:flex-grow={wide ? 1 : 0}
 		onscroll={handleScroll}
 		class="viewport hide-native-scrollbar"
-		style="padding-top: {top}px; padding-bottom: {bottom}px; --overflow-x: {horz
-			? 'auto'
-			: 'hidden'}; --overflow-y: {horz ? 'hidden' : 'auto'}; --flex-direction: {horz
-			? 'row'
-			: 'column'};"
+		style:padding-top={top + 'px'}
+		style:padding-bottom={bottom + 'px'}
+		style:padding-left={padding?.left ? padding.left + 'px' : undefined}
+		style:padding-right={padding?.right ? padding.right + 'px' : undefined}
+		style:--overflow-x={horz ? 'auto' : 'hidden'}
+		style:--overflow-y={horz ? 'hidden' : 'auto'}
+		style:--flex-direction={horz ? 'row' : 'column'}
 	>
 		<div style:min-height={childrenWrapHeight} style:display={childrenWrapDisplay}>
 			{@render children()}
