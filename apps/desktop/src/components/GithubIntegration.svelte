@@ -8,7 +8,7 @@
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Button, Icon, SectionCard, chipToasts as toasts } from '@gitbutler/ui';
+	import { Button, SectionCard, chipToasts as toasts } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
