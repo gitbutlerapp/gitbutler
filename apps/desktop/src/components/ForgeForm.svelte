@@ -107,19 +107,18 @@
 	</SectionCard>
 
 	{#if forge.current.name === 'gitlab'}
-		<SectionCard roundedTop={false} roundedBottom={false}>
+		<SectionCard roundedTop={false}>
 			{#snippet title()}
 				Configure GitLab integration
 			{/snippet}
 
 			{#snippet caption()}
-				Learn how find your GitLab Personal Token and Project ID in our <Link
+				Learn how to find your GitLab Personal Token and Project ID in our <Link
 					href="https://docs.gitbutler.com/features/forge-integration/gitlab-integration">docs</Link
 				>
 				<br />
-				The Fork Project ID is where your branches will be pushed, and the Upstream Project ID is where
-				you want merge requests to be created.
-				<br />
+				The Fork Project ID is where branches are pushed; the Upstream Project ID is where merge requests
+				are created.
 			{/snippet}
 
 			<Textbox label="Personal token" value={$token} oninput={(value) => ($token = value)} />
@@ -138,15 +137,15 @@
 				value={$instanceUrl}
 				oninput={(value) => ($instanceUrl = value)}
 			/>
-		</SectionCard>
 
-		<SectionCard roundedTop={false}>
-			{#snippet caption()}
-				If you use a custom GitLab instance (not gitlab.com), you will need to add it as a custom
-				CSP entry so that GitButler trusts connecting to that host. Read more in the <Link
+			<Spacer margin={5} />
+
+			<p class="text-12 text-body clr-text-2">
+				For custom GitLab instances (not gitlab.com), add them as a custom CSP entry so GitButler
+				can connect. Read more in the <Link
 					href="https://docs.gitbutler.com/troubleshooting/custom-csp">docs</Link
 				>
-			{/snippet}
+			</p>
 		</SectionCard>
 	{/if}
 

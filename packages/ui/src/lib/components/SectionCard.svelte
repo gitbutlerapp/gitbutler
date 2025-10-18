@@ -10,7 +10,7 @@
 		roundedBottom?: boolean;
 		topDivider?: boolean;
 		bottomBorder?: boolean;
-		background?: 'loading' | 'success' | 'error' | undefined;
+		background?: 'disabled' | 'success' | 'error' | undefined;
 		noBorder?: boolean;
 		labelFor?: string;
 		disabled?: boolean;
@@ -60,9 +60,9 @@
 	class:top-divider={topDivider}
 	class:bottom-border={bottomBorder}
 	class:no-border={noBorder}
-	class:loading={background === 'loading'}
-	class:success={background === 'success'}
-	class:error={background === 'error'}
+	class:disabled-bg={background === 'disabled'}
+	class:success-bg={background === 'success'}
+	class:error-bg={background === 'error'}
 	class:clickable={labelFor !== '' || clickable}
 	class:disabled
 	use:focusable
@@ -115,15 +115,16 @@
 			border-color var(--transition-fast);
 	}
 
-	.loading {
+	.disabled,
+	.disabled-bg {
 		background: var(--clr-bg-2);
 	}
 
-	.success {
+	.success-bg {
 		background: var(--clr-theme-pop-bg-muted);
 	}
 
-	.error {
+	.error-bg {
 		background: var(--clr-theme-warn-bg-muted);
 	}
 	.extra-padding {
@@ -139,7 +140,7 @@
 	}
 
 	.section-card__title {
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 	}
 
 	.section-card__text {
