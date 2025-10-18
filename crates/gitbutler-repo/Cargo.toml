@@ -30,6 +30,7 @@ gitbutler-diff.workspace = true
 but-rebase.workspace = true
 but-core.workspace = true
 but-status.workspace = true
+but-gerrit.workspace = true
 uuid.workspace = true
 itertools = "0.14"
 toml.workspace = true

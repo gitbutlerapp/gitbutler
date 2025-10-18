@@ -197,6 +197,10 @@ impl RepositoryExt for git2::Repository {
             }
         }
 
+        if repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false) {
+            but_gerrit::set_trailers(&mut commit);
+        }
+
         // TODO: extra-headers should be supported in `gix` directly.
         let oid = gix_to_git2_oid(repo.write_object(&commit)?);
 

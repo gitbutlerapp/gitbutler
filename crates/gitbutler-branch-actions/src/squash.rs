@@ -192,6 +192,9 @@ fn do_squash_commits(
     let source_commits_without_destination = source_commits
         .iter()
         .filter(|&commit| commit.id() != destination_commit.id());
+    let gerrit_mode = but_core::RepositoryExt::git_settings(&ctx.gix_repo()?)?
+        .gitbutler_gerrit_mode
+        .unwrap_or(false);
 
     // Squash commit messages string separating with newlines
     let new_message = Some(destination_commit)
@@ -199,6 +202,15 @@ fn do_squash_commits(
         .chain(source_commits_without_destination)
         .filter_map(|c| {
             let msg = c.message().unwrap_or_default();
+            let msg = if gerrit_mode {
+                // Remove lines containing Change-Id: <hash> only if gerrit mode is enabled
+                msg.lines()
+                    .filter(|line| !line.trim_start().starts_with("Change-Id: I"))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            } else {
+                msg.to_string()
+            };
             (!msg.trim().is_empty()).then_some(msg)
         })
         .collect::<Vec<_>>()
