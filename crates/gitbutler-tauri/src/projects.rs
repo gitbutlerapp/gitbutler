@@ -117,7 +117,7 @@ pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result
     Ok(())
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Serialize)]
 pub struct ProjectForFrontend {
     #[serde(flatten)]
     pub inner: gitbutler_project::api::Project,

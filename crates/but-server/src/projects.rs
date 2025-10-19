@@ -139,7 +139,7 @@ pub async fn set_project_active(
     }))
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Serialize)]
 pub struct ProjectForFrontend {
     #[serde(flatten)]
     pub inner: gitbutler_project::api::Project,
