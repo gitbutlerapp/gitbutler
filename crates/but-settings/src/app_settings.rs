@@ -98,15 +98,3 @@ pub struct UiSettings {
     /// Whether to use the native system title bar.
     pub use_native_title_bar: bool,
 }
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ForgeIntegrations {
-    pub github: GitHubIntegration,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct GitHubIntegration {
-    pub known_usernames: Vec<String>,
-}

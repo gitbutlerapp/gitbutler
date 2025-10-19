@@ -17,6 +17,7 @@ use but_api::{
         virtual_branches, workspace, zip,
     },
     error::ToError as _,
+    github::{forget_github_username_cmd, list_known_github_usernames_cmd},
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
@@ -355,22 +356,15 @@ async fn handle_command(
             let params = serde_json::from_value(request.params).to_error();
             match params {
                 Ok(params) => {
-                    let result = github::check_auth_status(&app_settings_sync, params).await;
+                    let result = github::check_auth_status(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
             }
         }
-        "forget_github_username" => {
-            let params = serde_json::from_value(request.params).to_error();
-            match params {
-                Ok(params) => {
-                    let result = github::forget_github_username(&app_settings_sync, params);
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
+        "forget_github_username" => forget_github_username_cmd(request.params),
+        "list_known_github_usernames" => list_known_github_usernames_cmd(request.params),
+
         "get_gh_user" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {

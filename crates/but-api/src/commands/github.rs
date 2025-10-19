@@ -1,8 +1,9 @@
 //! In place of commands.rs
 use anyhow::Result;
+use but_api_macros::api_cmd;
 use but_github::{AuthStatusResponse, AuthenticatedUser, CheckAuthStatusParams, Verification};
-use but_settings::AppSettingsWithDiskSync;
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{NoParams, error::Error};
 
@@ -38,27 +39,28 @@ impl From<AuthStatusResponse> for AuthStatusResponseSensitive {
 }
 
 pub async fn check_auth_status(
-    app_settings_sync: &AppSettingsWithDiskSync,
     params: CheckAuthStatusParams,
 ) -> Result<AuthStatusResponseSensitive, Error> {
     let status_result = but_github::check_auth_status(params).await;
     match status_result {
-        Ok(status) => {
-            app_settings_sync.add_known_github_username(&status.login)?;
-            Ok(status.into())
-        }
+        Ok(status) => Ok(status.into()),
         Err(e) => Err(e.into()),
     }
 }
 
-pub fn forget_github_username(
-    app_settings_sync: &AppSettingsWithDiskSync,
-    login: String,
-) -> Result<(), Error> {
-    but_github::forget_gh_access_token(&login).ok();
-    app_settings_sync
-        .remove_known_github_username(&login)
-        .map_err(Into::into)
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn forget_github_username(username: String) -> Result<(), Error> {
+    but_github::forget_gh_access_token(&username).ok();
+    Ok(())
+}
+
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn list_known_github_usernames() -> Result<Vec<String>, Error> {
+    but_github::list_known_github_usernames().map_err(Into::into)
 }
 
 #[derive(Debug, Serialize)]

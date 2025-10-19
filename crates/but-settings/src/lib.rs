@@ -24,8 +24,6 @@ pub struct AppSettings {
     pub reviews: app_settings::Reviews,
     /// UI settings.
     pub ui: app_settings::UiSettings,
-    /// Settings related to the forge integrations.
-    pub forge_integrations: app_settings::ForgeIntegrations,
 }
 
 impl Default for AppSettings {

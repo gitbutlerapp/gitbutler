@@ -43,11 +43,11 @@ export class GitHubUserService {
 	}
 
 	async initDeviceOauth() {
-		return await this.backend.invoke<Verification>('init_device_oauth');
+		return await this.backendApi.endpoints.initDeviceOauth.mutate();
 	}
 
 	async checkAuthStatus(params: { deviceCode: string }) {
-		return await this.backend.invoke<AuthStatusResponse>('check_auth_status', params);
+		return await this.backendApi.endpoints.checkAuthStatus.mutate(params);
 	}
 
 	get forgetGitHubUsername() {
@@ -56,6 +56,10 @@ export class GitHubUserService {
 
 	authenticatedUser(username: string) {
 		return this.backendApi.endpoints.getAccessToken.useQuery(username);
+	}
+
+	usernames() {
+		return this.backendApi.endpoints.listKnownGitHubUsernames.useQuery();
 	}
 }
 
@@ -85,7 +89,23 @@ function injectBackendEndpoints(api: BackendApi) {
 				},
 				query: (username) => ({
 					username
-				})
+				}),
+				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
+			}),
+			initDeviceOauth: build.mutation<Verification, void>({
+				extraOptions: {
+					command: 'init_device_oauth',
+					actionName: 'Init GitHub Device OAuth'
+				},
+				query: () => ({})
+			}),
+			checkAuthStatus: build.mutation<AuthStatusResponse, { deviceCode: string }>({
+				extraOptions: {
+					command: 'check_auth_status',
+					actionName: 'Check GitHub Auth Status'
+				},
+				query: (args) => args,
+				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
 			}),
 			getAccessToken: build.query<AuthenticatedUser | null, string>({
 				extraOptions: {
@@ -97,6 +117,13 @@ function injectBackendEndpoints(api: BackendApi) {
 				providesTags: (_result, _error, username) => [
 					...providesItem(ReduxTag.ForgeUser, `github:${username}`)
 				]
+			}),
+			listKnownGitHubUsernames: build.query<string[], void>({
+				extraOptions: {
+					command: 'list_known_github_usernames'
+				},
+				query: () => ({}),
+				providesTags: [providesList(ReduxTag.GitHubUserList)]
 			})
 		})
 	});

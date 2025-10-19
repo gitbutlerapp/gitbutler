@@ -69,13 +69,5 @@
 	"ui": {
 		// Whether to use the native system title bar.
 		"useNativeTitleBar": false
-	},
-	// Settings related to the forge integrations.
-	"forgeIntegrations": {
-		"github": {
-			// The list of known GitHub users. This tracks the users that have authenticated through the application.
-			// That does not mean that the user is currently "active" in the app, just that they have authenticated at some point.
-			"knownUsernames": []
-		}
 	}
 }
