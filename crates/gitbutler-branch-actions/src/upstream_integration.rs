@@ -279,7 +279,7 @@ fn get_stack_status(
     let details = stack_details(ctx, stack_id)?;
 
     let branches = details.branch_details;
-    for branch in &branches {
+    for branch in branches.into_iter().rev() {
         let local_commits = &branch.commits;
 
         let Some(branch_head) = local_commits.first() else {
