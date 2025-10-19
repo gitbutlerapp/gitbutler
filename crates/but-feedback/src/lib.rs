@@ -26,7 +26,7 @@ impl Archival {
         let output_file = self
             .cache_dir
             .join(format!("project-{date}.zip", date = filesafe_date_time()));
-        create_zip_file_from_dir(project.path, output_file)
+        create_zip_file_from_dir(project.worktree_dir(), output_file)
     }
 
     /// Create an archive commit graph behind `project_id` such that it doesn't reveal PII.

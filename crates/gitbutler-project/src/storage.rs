@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
 
@@ -12,7 +12,7 @@ pub(crate) struct Storage {
     inner: gitbutler_storage::Storage,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[derive(Debug, Deserialize, Default, Clone)]
 pub struct UpdateRequest {
     pub id: ProjectId,
     pub title: Option<String>,
@@ -97,7 +97,7 @@ impl Storage {
         }
 
         if let Some(path) = &update_request.path {
-            project.path = path.clone();
+            project.set_worktree_dir(path.clone());
         }
 
         if let Some(api) = &update_request.api {

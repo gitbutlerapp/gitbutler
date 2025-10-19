@@ -104,7 +104,8 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
     )?;
 
     let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(project.clone().path)?.changes;
+        but_core::diff::ui::worktree_changes_by_worktree_dir(project.clone().worktree_dir())?
+            .changes;
 
     // This is a naive way of handling this case.
     // If the user simply asks a question and there are no changes, we don't need to create a stack
@@ -328,7 +329,7 @@ pub fn handle_pre_tool_call() -> anyhow::Result<ClaudeHookOutput> {
             .ok_or(anyhow!("No worktree found for repo"))?,
     )?;
     let relative_file_path = std::path::PathBuf::from(&input.tool_input.file_path)
-        .strip_prefix(project.path.clone())?
+        .strip_prefix(project.worktree_dir())?
         .to_string_lossy()
         .to_string();
     input.tool_input.file_path = relative_file_path;
@@ -374,7 +375,7 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
     )?;
 
     let relative_file_path = std::path::PathBuf::from(&input.tool_response.file_path)
-        .strip_prefix(project.path.clone())?
+        .strip_prefix(project.worktree_dir())?
         .to_string_lossy()
         .to_string();
     input.tool_response.file_path = relative_file_path.clone();
@@ -404,7 +405,7 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
     let stack_id = get_or_create_session(defer.ctx, &session_id, stacks, vb_state)?;
 
     let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(project.path.clone())?.changes;
+        but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir())?.changes;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
         defer.ctx,
         true,

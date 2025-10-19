@@ -14,7 +14,7 @@ pub fn list() -> Result<()> {
             "{id} {name} {path}",
             id = project.id,
             name = project.title,
-            path = project.path.display()
+            path = project.worktree_dir().display()
         );
     }
     Ok(())

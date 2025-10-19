@@ -63,7 +63,7 @@ pub fn set_project_active(
             return Ok(None);
         }
     };
-    let repo = git2::Repository::open(&project.path)
+    let repo = git2::Repository::open(project.worktree_dir())
         // Only capture this information here to prevent spawning too many errors because of this
         // (the UI has many parallel calls in flight).
         .map_err(|err| {

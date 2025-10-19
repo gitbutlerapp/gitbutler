@@ -73,7 +73,7 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
 pub mod writable {
     use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
-    use gitbutler_project::{Project, ProjectId};
+    use gitbutler_project::Project;
     use tempfile::TempDir;
 
     use crate::{BUT_DRIVER, DRIVER};
@@ -107,12 +107,10 @@ pub mod writable {
         )
         .expect("script execution always succeeds");
 
-        let project = Project {
-            id: ProjectId::generate(),
-            title: project_directory.to_owned(),
-            path: root.path().join(project_directory),
-            ..Default::default()
-        };
+        let project = Project::new_for_gitbutler_testsupport(
+            project_directory.to_owned(),
+            root.path().join(project_directory),
+        );
         Ok((project, root))
     }
 
@@ -150,12 +148,10 @@ pub mod writable {
         )
         .expect("script execution always succeeds");
 
-        let project = Project {
-            id: ProjectId::generate(),
-            title: project_directory.to_owned(),
-            path: root.path().join(project_directory),
-            ..Default::default()
-        };
+        let project = Project::new_for_gitbutler_testsupport(
+            project_directory.to_owned(),
+            root.path().join(project_directory),
+        );
         Ok((project, root))
     }
 }
@@ -256,7 +252,7 @@ pub mod read_only {
 
     use but_settings::{AppSettings, app_settings::FeatureFlags};
     use gitbutler_command_context::CommandContext;
-    use gitbutler_project::{Project, ProjectId};
+    use gitbutler_project::Project;
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
 
@@ -312,12 +308,10 @@ pub mod read_only {
                 gitbutler_project::add_with_path(tmp.path(), project_worktree_dir.as_path())?;
             outcome.try_project()?
         } else {
-            Project {
-                id: ProjectId::generate(),
-                title: project_directory.to_owned(),
-                path: project_worktree_dir,
-                ..Default::default()
-            }
+            Project::new_for_gitbutler_testsupport(
+                project_directory.to_owned(),
+                project_worktree_dir,
+            )
         };
         Ok(project)
     }

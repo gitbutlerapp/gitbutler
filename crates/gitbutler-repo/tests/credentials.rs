@@ -27,11 +27,10 @@ impl TestCase<'_> {
 
         let (repo, _tmp) = test_repository();
         repo.remote("origin", self.remote_url).unwrap();
-        let project = projects::Project {
-            path: repo.workdir().unwrap().to_path_buf(),
-            preferred_key: self.preferred_key.clone(),
-            ..Default::default()
-        };
+        let project = projects::Project::new_for_gitbutler_repo(
+            repo.workdir().unwrap().to_path_buf(),
+            self.preferred_key.clone(),
+        );
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
 
         let flow = help(&ctx, "origin").unwrap();

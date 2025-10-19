@@ -66,7 +66,10 @@ impl Controller {
             .projects_storage
             .list()
             .context("failed to list projects from storage")?;
-        if let Some(existing_project) = all_projects.iter().find(|project| project.path == path) {
+        if let Some(existing_project) = all_projects
+            .iter()
+            .find(|project| project.worktree_dir() == path)
+        {
             return Ok(AddProjectOutcome::AlreadyExists(
                 existing_project.to_owned(),
             ));
@@ -123,7 +126,7 @@ impl Controller {
         let project = Project {
             id,
             title,
-            path: resolved_path,
+            worktree_dir: resolved_path,
             api: None,
             ..Default::default()
         };
@@ -199,8 +202,8 @@ impl Controller {
         #[cfg_attr(not(windows), allow(unused_mut))]
         let mut project = self.projects_storage.get(id)?;
         if validate {
-            let worktree_dir = &project.path;
-            if gix::open_opts(worktree_dir, gix::open::Options::isolated()).is_err() {
+            let worktree_dir = project.worktree_dir();
+            if gix::open_opts(&worktree_dir, gix::open::Options::isolated()).is_err() {
                 let suffix = if !worktree_dir.exists() {
                     " as it does not exist"
                 } else {
@@ -220,7 +223,7 @@ impl Controller {
             tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", project.gb_dir().display());
         }
         // Clean up old virtual_branches.toml that was never used
-        let old_virtual_branches_path = project.path.join(".git").join("virtual_branches.toml");
+        let old_virtual_branches_path = project.git_dir()?.join("virtual_branches.toml");
         if old_virtual_branches_path.exists()
             && let Err(error) = std::fs::remove_file(old_virtual_branches_path)
         {

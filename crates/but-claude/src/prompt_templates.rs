@@ -42,10 +42,10 @@ pub struct PromptDir {
 
 /// Fetch the directories where we look up the user provided templates.
 ///
-/// We want the precidence to be Global < Project < Project Local
+/// We want the precedence to be Global < Project < Project Local
 ///
-/// As such, items last in the array take precidence, and filters last in the
-/// filters list also take precidence over earlier ones.
+/// As such, items last in the array take precedence, and filters last in the
+/// filters list also take precedence over earlier ones.
 ///
 /// The point of labeling these dirs is so we can also display where to find
 /// these directories in the frontend.
@@ -58,7 +58,7 @@ pub fn prompt_dirs(project: &Project) -> Result<Vec<PromptDir>> {
         },
         PromptDir {
             label: "Project".into(),
-            path: project.path.join(".gitbutler/prompt-templates"),
+            path: project.gb_dir().join("prompt-templates"),
             filters: vec![".md".into(), ".local.md".into()],
         },
     ])
@@ -124,7 +124,7 @@ pub fn maybe_create_dir(project: &Project, path: &str) -> Result<()> {
     let path = if path.is_absolute() {
         path
     } else {
-        &project.path.join(path)
+        &project.worktree_dir().join(path)
     };
 
     if path.try_exists()? {

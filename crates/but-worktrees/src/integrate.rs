@@ -77,7 +77,7 @@ pub fn worktree_integrate(
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
-    git_worktree_remove(&ctx.project().path, id, true)?;
+    git_worktree_remove(&ctx.project().common_git_dir()?, id, true)?;
 
     Ok(())
 }

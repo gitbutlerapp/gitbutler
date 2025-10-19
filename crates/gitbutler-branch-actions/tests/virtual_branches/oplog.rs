@@ -291,7 +291,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     let _commit1_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None)?;
 
-    let repo = git2::Repository::open(&project.path)?;
+    let repo = git2::Repository::open(project.worktree_dir())?;
 
     // check the workspace commit
     let head = repo.head().expect("never unborn");

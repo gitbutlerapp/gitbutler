@@ -59,7 +59,7 @@ impl DerefMut for VirtualBranchesTomlMetadataMut {
 impl CommandContext {
     /// Open the repository identified by `project` and perform some checks.
     pub fn open(project: &Project, app_settings: AppSettings) -> Result<Self> {
-        let repo = git2::Repository::open(&project.path)?;
+        let repo = git2::Repository::open(project.worktree_dir())?;
         Self::open_from(project, app_settings, repo)
     }
 

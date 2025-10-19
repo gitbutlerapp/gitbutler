@@ -59,7 +59,10 @@ if echo "$STAGED_DIFF" | grep -qE "^\+.*forbidden"; then
 fi
 "#;
         git2_hooks::create_hook(ctx.repo(), git2_hooks::HOOK_PRE_COMMIT, hook.as_bytes());
-        std::fs::write(Path::new(&project.path).join("test.txt"), "forbidden\n")?;
+        std::fs::write(
+            Path::new(&project.worktree_dir()).join("test.txt"),
+            "forbidden\n",
+        )?;
 
         // While we have changed a file to include the forbidden word, the hook should not
         // fail if we pass no ownership claims. These claims are used to select what hunks

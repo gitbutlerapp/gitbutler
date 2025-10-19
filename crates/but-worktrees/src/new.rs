@@ -44,7 +44,7 @@ pub fn worktree_new(
         gix::refs::PartialName::try_from(format!("gitbutler/worktree/{}", id.as_str()))?;
 
     git_worktree_add(
-        &ctx.project().path,
+        &ctx.project().common_git_dir()?,
         &path,
         branch_name.as_ref(),
         to_checkout.detach(),

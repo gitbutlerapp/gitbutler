@@ -176,8 +176,8 @@ impl OplogExt for CommandContext {
         oplog_commit_id: Option<git2::Oid>,
         exclude_kind: Vec<OperationKind>,
     ) -> Result<Vec<Snapshot>> {
-        let worktree_dir = self.project().path.as_path();
-        let repo = gitbutler_command_context::gix_repo_for_merging(worktree_dir)?;
+        let worktree_dir = self.project().worktree_dir();
+        let repo = gitbutler_command_context::gix_repo_for_merging(&worktree_dir)?;
 
         let traversal_root_id = git2_to_gix_object_id(match oplog_commit_id {
             Some(id) => id,
@@ -261,7 +261,7 @@ impl OplogExt for CommandContext {
             return Ok(false);
         }
 
-        let repo = git2::Repository::open(&self.project().path)?;
+        let repo = git2::Repository::open(self.project().worktree_dir())?;
         if repo.workspace_ref_from_head().is_err() {
             return Ok(false);
         }
@@ -269,8 +269,8 @@ impl OplogExt for CommandContext {
     }
 
     fn snapshot_diff(&self, sha: git2::Oid) -> Result<Vec<TreeChange>> {
-        let worktree_dir = self.project().path.as_path();
-        let gix_repo = gitbutler_command_context::gix_repo_for_merging(worktree_dir)?;
+        let worktree_dir = self.project().worktree_dir();
+        let gix_repo = gitbutler_command_context::gix_repo_for_merging(&worktree_dir)?;
         let repo = git2::Repository::init(worktree_dir)?;
 
         let commit = repo.find_commit(sha)?;
@@ -355,8 +355,8 @@ fn prepare_snapshot(
     ctx: &CommandContext,
     _shared_access: &WorktreeReadPermission,
 ) -> Result<git2::Oid> {
-    let worktree_dir = ctx.project().path.as_path();
-    let repo = git2::Repository::open(worktree_dir)?;
+    let worktree_dir = ctx.project().worktree_dir();
+    let repo = git2::Repository::open(&worktree_dir)?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
 
@@ -370,7 +370,7 @@ fn prepare_snapshot(
     let vb_blob_id = repo.blob(&vb_content)?;
 
     // Create a tree out of the conflicts state if present
-    let conflicts_tree_id = write_conflicts_tree(worktree_dir, &repo)?;
+    let conflicts_tree_id = write_conflicts_tree(&worktree_dir, &repo)?;
 
     // write out the index as a tree to store
     let mut index = repo.index()?;
@@ -485,7 +485,7 @@ fn commit_snapshot(
     details: SnapshotDetails,
     _exclusive_access: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
-    let repo = git2::Repository::open(ctx.path.as_path())?;
+    let repo = git2::Repository::open(ctx.worktree_dir().as_path())?;
     let snapshot_tree = repo.find_tree(snapshot_tree_id)?;
 
     let oplog_state = OplogHandle::new(&ctx.gb_dir());
@@ -511,7 +511,7 @@ fn commit_snapshot(
 
     oplog_state.set_oplog_head(snapshot_commit_id)?;
 
-    set_reference_to_oplog(&ctx.path, ReflogCommits::new(ctx)?)?;
+    set_reference_to_oplog(&ctx.worktree_dir(), ReflogCommits::new(ctx)?)?;
 
     Ok(snapshot_commit_id)
 }
@@ -521,8 +521,8 @@ fn restore_snapshot(
     snapshot_commit_id: git2::Oid,
     exclusive_access: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
-    let worktree_dir = ctx.project().path.as_path();
-    let repo = git2::Repository::open(worktree_dir)?;
+    let worktree_dir = ctx.project().worktree_dir();
+    let repo = git2::Repository::open(&worktree_dir)?;
 
     let before_restore_snapshot_result = prepare_snapshot(ctx, exclusive_access.read_permission());
     let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
@@ -606,7 +606,7 @@ fn restore_snapshot(
         "We will not change a worktree which for some reason isn't on the workspace branch",
     )?;
 
-    let gix_repo = gitbutler_command_context::gix_repo_for_merging(worktree_dir)?;
+    let gix_repo = gitbutler_command_context::gix_repo_for_merging(&worktree_dir)?;
 
     let workdir_tree = repo.find_tree(
         get_workdir_tree(None, snapshot_commit_id.to_gix(), &gix_repo, ctx)?.to_git2(),

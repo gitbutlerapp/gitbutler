@@ -77,7 +77,7 @@ impl ActiveProjects {
 
         let watcher = gitbutler_watcher::watch_in_background(
             handler,
-            project.worktree_path(),
+            project.worktree_dir(),
             project.id,
             app_settings_sync,
         )?;

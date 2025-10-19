@@ -76,7 +76,7 @@ fn handle_normal_diff(worktree: but_core::WorktreeChanges, use_json: bool) -> an
 pub fn locks(current_dir: &Path, simple: bool, use_json: bool) -> anyhow::Result<()> {
     let project = project_from_path(current_dir)?;
     let ctx = CommandContext::open(&project, AppSettings::default())?;
-    let repo = but_core::open_repo(project.worktree_path())?;
+    let repo = but_core::open_repo(project.worktree_dir())?;
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
     let input_stacks = but_hunk_dependency::workspace_stacks_to_input_stacks(
         &repo,

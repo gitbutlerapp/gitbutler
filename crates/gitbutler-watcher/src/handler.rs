@@ -83,7 +83,7 @@ impl Handler {
 
         let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
             ctx,
-            &ctx.project().path,
+            &ctx.project().worktree_dir(),
             &ctx.project().gb_dir(),
             Some(wt_changes.changes.clone()),
         );

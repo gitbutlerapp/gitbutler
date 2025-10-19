@@ -257,7 +257,7 @@ pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<(), Err
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
         false,
-        Some(but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes),
+        Some(but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir())?.changes),
         None,
     )?;
     let assigned_diffspec = but_workspace::flatten_diff_specs(

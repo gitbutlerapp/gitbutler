@@ -16,7 +16,7 @@ mod add {
         let project = gitbutler_project::add_with_path(tmp.path(), path)
             .unwrap()
             .unwrap_project();
-        assert_eq!(project.path, path);
+        assert_eq!(project.worktree_dir(), path);
         assert_eq!(
             project.title,
             path.iter().next_back().unwrap().to_str().unwrap()

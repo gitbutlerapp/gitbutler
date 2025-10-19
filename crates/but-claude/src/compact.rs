@@ -234,7 +234,7 @@ pub async fn generate_summary(
     let app_settings = ctx.lock().await.app_settings().clone();
     let claude_executable = app_settings.claude.executable.clone();
     let session_id =
-        Transcript::current_valid_session_id(&ctx.lock().await.project().path, session)
+        Transcript::current_valid_session_id(&ctx.lock().await.project().worktree_dir(), session)
             .await?
             .context("Cant find current session id")?;
 
@@ -248,7 +248,7 @@ pub async fn generate_summary(
         command.creation_flags(CREATE_NO_WINDOW);
     }
 
-    command.current_dir(&ctx.lock().await.project().path);
+    command.current_dir(ctx.lock().await.project().worktree_dir());
     command.args(["--resume", &format!("{session_id}")]);
     command.arg("-p");
     command.arg(SUMMARY_PROMPT);

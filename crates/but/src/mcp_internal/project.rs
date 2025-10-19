@@ -10,7 +10,7 @@ pub fn project_from_path(path: &Path) -> anyhow::Result<Project> {
 pub fn project_repo(path: &Path) -> anyhow::Result<gix::Repository> {
     let project = project_from_path(path)?;
     configured_repo(
-        gix::open(project.worktree_path())?,
+        gix::open(project.worktree_dir())?,
         RepositoryOpenMode::General,
     )
 }
@@ -51,7 +51,7 @@ pub fn repo_and_maybe_project(
             repo,
             gitbutler_project::list()?
                 .into_iter()
-                .find(|p| p.path == work_dir),
+                .find(|p| p.worktree_dir() == work_dir),
         )
     } else {
         (repo, None)

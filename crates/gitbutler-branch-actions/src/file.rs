@@ -119,7 +119,7 @@ pub(crate) fn list_virtual_commit_files(
         .find_real_tree(&parent, Default::default())
         .context("failed to get parent tree")?;
     let diff = gitbutler_diff::trees(ctx.repo(), &parent_tree, &commit_tree, context_lines)?;
-    let hunks_by_filepath = virtual_hunks_by_file_diffs(&ctx.project().path, diff);
+    let hunks_by_filepath = virtual_hunks_by_file_diffs(&ctx.project().worktree_dir(), diff);
     Ok(virtual_hunks_into_virtual_files(hunks_by_filepath))
 }
 
