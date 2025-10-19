@@ -138,6 +138,7 @@ export type GlobalUiState = {
 	channel: string | undefined;
 	draftBranchName: string | undefined;
 	modal: GlobalModalState | undefined;
+	navButtonOrder: string[];
 };
 
 export const UI_STATE = new InjectionToken<UiState>('UiState');
@@ -194,7 +195,8 @@ export class UiState {
 		aiSuggestionsOnType: false,
 		channel: undefined,
 		draftBranchName: undefined,
-		modal: undefined
+		modal: undefined,
+		navButtonOrder: ['workspace', 'branches', 'history', 'codegen']
 	});
 
 	constructor(

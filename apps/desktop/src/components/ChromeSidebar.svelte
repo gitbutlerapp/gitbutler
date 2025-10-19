@@ -17,6 +17,7 @@
 	} from '$lib/routes/routes.svelte';
 	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { USER } from '$lib/user/user';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
@@ -36,6 +37,7 @@
 	const { projectId, disabled = false }: { projectId: string; disabled?: boolean } = $props();
 
 	const user = inject(USER);
+	const uiState = inject(UI_STATE);
 
 	let contextTriggerButton = $state<HTMLButtonElement | undefined>();
 	let contextMenuEl = $state<ContextMenu>();
@@ -45,208 +47,289 @@
 	const userService = inject(USER_SERVICE);
 	const userSettings = inject(SETTINGS);
 	const { openGeneralSettings, openProjectSettings } = useSettingsModal();
+
+	// Drag and drop state
+	let draggedIndex = $state<number | undefined>();
+	let dragOverIndex = $state<number | undefined>();
+
+	// Get the button order from UI state
+	const navButtonOrder = $derived(uiState.global.navButtonOrder.current);
+
+	// Define button configurations
+	type NavButton = {
+		id: string;
+		testId?: string;
+		isActive: () => boolean;
+		onClick: () => void;
+		tooltip: string;
+		icon: any;
+		enabled: boolean;
+	};
+
+	const buttonConfigs = $derived.by<NavButton[]>(() => {
+		const configs: NavButton[] = [];
+
+		// Always include workspace
+		configs.push({
+			id: 'workspace',
+			testId: TestId.NavigationWorkspaceButton,
+			isActive: isWorkspacePath,
+			onClick: () => goto(workspacePath(projectId)),
+			tooltip: 'Workspace',
+			icon: 'workspace',
+			enabled: true
+		});
+
+		// Always include branches
+		configs.push({
+			id: 'branches',
+			testId: TestId.NavigationBranchesButton,
+			isActive: isBranchesPath,
+			onClick: () => goto(branchesPath(projectId)),
+			tooltip: 'Branches',
+			icon: 'branches',
+			enabled: true
+		});
+
+		// Always include history
+		configs.push({
+			id: 'history',
+			testId: undefined,
+			isActive: isHistoryPath,
+			onClick: () => goto(historyPath(projectId)),
+			tooltip: 'Operations history',
+			icon: 'history',
+			enabled: true
+		});
+
+		// Conditionally include codegen
+		if ($codegenEnabled) {
+			configs.push({
+				id: 'codegen',
+				testId: TestId.NavigationCodegenButton,
+				isActive: isCodegenPath,
+				onClick: () => goto(codegenPath(projectId)),
+				tooltip: 'Codegen',
+				icon: 'codegen',
+				enabled: true
+			});
+		}
+
+		return configs;
+	});
+
+	// Sort buttons based on saved order
+	const orderedButtons = $derived.by(() => {
+		const configsMap = new Map(buttonConfigs.map((config) => [config.id, config]));
+		const ordered: NavButton[] = [];
+
+		// Add buttons in the saved order
+		for (const id of navButtonOrder) {
+			const config = configsMap.get(id);
+			if (config) {
+				ordered.push(config);
+				configsMap.delete(id);
+			}
+		}
+
+		// Add any remaining buttons that weren't in the saved order
+		for (const config of configsMap.values()) {
+			ordered.push(config);
+		}
+
+		return ordered;
+	});
+
+	function handleDragStart(index: number) {
+		draggedIndex = index;
+	}
+
+	function handleDragOver(event: DragEvent, index: number) {
+		event.preventDefault();
+		dragOverIndex = index;
+	}
+
+	function handleDragEnd() {
+		if (
+			draggedIndex !== undefined &&
+			dragOverIndex !== undefined &&
+			draggedIndex !== dragOverIndex
+		) {
+			const newOrder = [...navButtonOrder];
+			const [removed] = newOrder.splice(draggedIndex, 1);
+			newOrder.splice(dragOverIndex, 0, removed);
+			uiState.global.navButtonOrder.set(newOrder);
+		}
+		draggedIndex = undefined;
+		dragOverIndex = undefined;
+	}
+
+	function handleDrop(event: DragEvent) {
+		event.preventDefault();
+		handleDragEnd();
+	}
 </script>
 
 <div class="sidebar" use:focusable>
 	<div class="top">
-		<div>
-			{#if isWorkspacePath()}
-				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-			{/if}
-			<Button
-				testId={TestId.NavigationWorkspaceButton}
-				kind="outline"
-				onclick={() => goto(workspacePath(projectId))}
-				width={34}
-				hotkey="⌘1"
-				class={['btn-square', isWorkspacePath() && 'btn-active']}
-				tooltip="Workspace"
-				{disabled}
+		{#each orderedButtons as button, index (button.id)}
+			<div
+				draggable="true"
+				ondragstart={() => handleDragStart(index)}
+				ondragover={(e) => handleDragOver(e, index)}
+				ondragend={handleDragEnd}
+				ondrop={handleDrop}
+				class:dragging={draggedIndex === index}
+				class:drag-over={dragOverIndex === index && draggedIndex !== index}
 			>
-				{#snippet custom()}
-					<svg
-						width="1rem"
-						height="1rem"
-						viewBox="0 0 16 13"
-						fill="none"
-						stroke="currentColor"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path
-							d="M2 12L3.5 7.5M14 12L12.5 7.5M12.5 7.5L11 3H5L3.5 7.5M12.5 7.5H3.5"
-							stroke-width="1.5"
-							stroke="var(--clr-workspace-legs)"
-						/>
-						<path
-							d="M1.24142 3H14.7586C14.8477 3 14.8923 2.89229 14.8293 2.82929L13.0293 1.02929C13.0105 1.01054 12.9851 1 12.9586 1H3.04142C3.0149 1 2.98946 1.01054 2.97071 1.02929L1.17071 2.82929C1.10771 2.89229 1.15233 3 1.24142 3Z"
-							stroke-width="1.5"
-							stroke="var(--clr-workspace-top)"
-							fill="var(--clr-workspace-top)"
-						/>
-					</svg>
-				{/snippet}
-			</Button>
-		</div>
-		<div>
-			{#if isBranchesPath()}
-				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-			{/if}
-			<Button
-				testId={TestId.NavigationBranchesButton}
-				kind="outline"
-				onclick={() => goto(branchesPath(projectId))}
-				width={34}
-				class={['btn-square', isBranchesPath() && 'btn-active']}
-				hotkey="⌘2"
-				tooltip="Branches"
-				{disabled}
-			>
-				{#snippet custom()}
-					<svg
-						width="1rem"
-						height="1rem"
-						viewBox="0 0 16 14"
-						fill="none"
-						stroke="currentColor"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path d="M5 3L11 3" stroke-width="1.5" stroke="var(--clr-branches)" />
-						<path
-							d="M3 5L3 7.17157C3 7.70201 3.21071 8.21071 3.58579 8.58579L5.41421 10.4142C5.78929 10.7893 6.29799 11 6.82843 11L11.5 11"
-							stroke-width="1.5"
-							stroke="var(--clr-branches)"
-						/>
-						<rect
-							x="15"
-							y="1"
-							width="4"
-							height="4"
-							transform="rotate(90 15 1)"
-							stroke-width="1.5"
-							fill="var(--clr-branches)"
-							stroke="var(--clr-branches)"
-						/>
-						<rect
-							x="15"
-							y="9"
-							width="4"
-							height="4"
-							transform="rotate(90 15 9)"
-							stroke-width="1.5"
-							fill="var(--clr-branches)"
-							stroke="var(--clr-branches)"
-						/>
-						<rect
-							x="5"
-							y="1"
-							width="4"
-							height="4"
-							transform="rotate(90 5 1)"
-							stroke-width="1.5"
-							fill="var(--clr-branches)"
-							stroke="var(--clr-branches)"
-						/>
-					</svg>
-				{/snippet}
-			</Button>
-		</div>
-		<div>
-			{#if isHistoryPath()}
-				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-			{/if}
-			<Button
-				kind="outline"
-				onclick={() => goto(historyPath(projectId))}
-				width={34}
-				class={['btn-square', isHistoryPath() && 'btn-active']}
-				hotkey="⌘3"
-				tooltip="Operations history"
-				{disabled}
-			>
-				{#snippet custom()}
-					<svg
-						width="1.188rem"
-						height="1.125rem"
-						viewBox="0 0 19 18"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						{#if isHistoryPath()}
-							<circle cx="9.82397" cy="8.75" r="8" fill="#FBDB79" />
-						{/if}
-						<path
-							d="M9.10022 4.20642V9.29948H14.1933"
-							stroke="var(--clr-history-arrows)"
-							stroke-width="1.5"
-						/>
-						<path
-							d="M2.40555 5.75C3.59233 2.81817 6.46666 0.75 9.82403 0.75C14.2423 0.75 17.824 4.33172 17.824 8.75C17.824 13.1683 14.2423 16.75 9.82403 16.75C6.27881 16.75 3.2722 14.4439 2.22241 11.25"
-							stroke="var(--clr-history-outline)"
-							stroke-width="1.5"
-						/>
-						<path
-							d="M0.134062 2.98321C0.0845897 2.54051 0.595053 2.25899 0.943069 2.53705L5.68617 6.32661C6.03419 6.60466 5.8723 7.16468 5.42961 7.21415L1.16327 7.69092C0.888835 7.72159 0.641501 7.52398 0.610832 7.24954L0.134062 2.98321Z"
-							fill="var(--clr-history-outline)"
-						/>
-					</svg>
-				{/snippet}
-			</Button>
-		</div>
-		{#if $codegenEnabled}
-			<div>
-				{#if isCodegenPath()}
+				{#if button.isActive()}
 					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 				{/if}
 				<Button
-					testId={TestId.NavigationCodegenButton}
+					testId={button.testId}
 					kind="outline"
-					onclick={() => goto(codegenPath(projectId))}
+					onclick={button.onClick}
 					width={34}
-					class={['btn-square', isCodegenPath() && 'btn-active']}
-					hotkey="⌘4"
-					tooltip="Codegen"
-					tooltipAlign="start"
+					class={['btn-square', button.isActive() && 'btn-active']}
+					hotkey={`⌘${index + 1}`}
+					tooltip={button.tooltip}
+					tooltipAlign={button.id === 'codegen' ? 'start' : undefined}
 					{disabled}
 				>
 					{#snippet custom()}
-						<svg
-							width="1.375rem"
-							height="1.125rem"
-							viewBox="0 0 22 18"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-							stroke="currentColor"
-						>
-							<path
-								d="M14.2158 0.0342979C17.5167 -0.254423 20.5442 3.52525 20.9775 8.47668C21.4107 13.4283 19.0852 17.6771 15.7841 17.9659C13.981 18.1235 12.2615 17.0658 10.9999 15.2677C9.73835 17.0658 8.0189 18.1236 6.21576 17.9659C2.91466 17.6771 0.590161 13.4283 1.02337 8.47668C1.4567 3.5254 4.48324 -0.25422 7.78412 0.0342979C9.0257 0.142922 10.1294 0.811718 10.9999 1.86731C11.8705 0.81165 12.9741 0.142926 14.2158 0.0342979Z"
-								stroke-width="1.5"
-								fill="var(--clr-codegen-bg)"
-								stroke="var(--clr-codegen-bg)"
-							/>
-							<path
-								d="M10.691 5.2173C10.7951 4.92757 11.2049 4.92757 11.309 5.2173L11.8782 6.80198C12.0991 7.41684 12.5832 7.90087 13.198 8.12175L14.7827 8.69104C15.0724 8.79513 15.0724 9.20487 14.7827 9.30896L13.198 9.87825C12.5832 10.0991 12.0991 10.5832 11.8782 11.198L11.309 12.7827C11.2049 13.0724 10.7951 13.0724 10.691 12.7827L10.1218 11.198C9.90087 10.5832 9.41684 10.0991 8.80198 9.87825L7.2173 9.30896C6.92757 9.20487 6.92757 8.79513 7.2173 8.69104L8.80198 8.12175C9.41684 7.90087 9.90087 7.41684 10.1218 6.80198L10.691 5.2173Z"
-								fill="var(--clr-codegen-star)"
-								stroke="var(--clr-codegen-star)"
-							/>
-							<defs>
-								<linearGradient
-									id="ai-gradient"
-									x1="9.33382"
-									y1="1.85727"
-									x2="21.498"
-									y2="11.1329"
-									gradientUnits="userSpaceOnUse"
-								>
-									<stop stop-color="#9A84F2" />
-									<stop offset="0.528846" stop-color="#61B2E1" />
-									<stop offset="1" stop-color="#2EDBD2" />
-								</linearGradient>
-							</defs>
-						</svg>
+						{#if button.icon === 'workspace'}
+							<svg
+								width="1rem"
+								height="1rem"
+								viewBox="0 0 16 13"
+								fill="none"
+								stroke="currentColor"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path
+									d="M2 12L3.5 7.5M14 12L12.5 7.5M12.5 7.5L11 3H5L3.5 7.5M12.5 7.5H3.5"
+									stroke-width="1.5"
+									stroke="var(--clr-workspace-legs)"
+								/>
+								<path
+									d="M1.24142 3H14.7586C14.8477 3 14.8923 2.89229 14.8293 2.82929L13.0293 1.02929C13.0105 1.01054 12.9851 1 12.9586 1H3.04142C3.0149 1 2.98946 1.01054 2.97071 1.02929L1.17071 2.82929C1.10771 2.89229 1.15233 3 1.24142 3Z"
+									stroke-width="1.5"
+									stroke="var(--clr-workspace-top)"
+									fill="var(--clr-workspace-top)"
+								/>
+							</svg>
+						{:else if button.icon === 'branches'}
+							<svg
+								width="1rem"
+								height="1rem"
+								viewBox="0 0 16 14"
+								fill="none"
+								stroke="currentColor"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path d="M5 3L11 3" stroke-width="1.5" stroke="var(--clr-branches)" />
+								<path
+									d="M3 5L3 7.17157C3 7.70201 3.21071 8.21071 3.58579 8.58579L5.41421 10.4142C5.78929 10.7893 6.29799 11 6.82843 11L11.5 11"
+									stroke-width="1.5"
+									stroke="var(--clr-branches)"
+								/>
+								<rect
+									x="15"
+									y="1"
+									width="4"
+									height="4"
+									transform="rotate(90 15 1)"
+									stroke-width="1.5"
+									fill="var(--clr-branches)"
+									stroke="var(--clr-branches)"
+								/>
+								<rect
+									x="15"
+									y="9"
+									width="4"
+									height="4"
+									transform="rotate(90 15 9)"
+									stroke-width="1.5"
+									fill="var(--clr-branches)"
+									stroke="var(--clr-branches)"
+								/>
+								<rect
+									x="5"
+									y="1"
+									width="4"
+									height="4"
+									transform="rotate(90 5 1)"
+									stroke-width="1.5"
+									fill="var(--clr-branches)"
+									stroke="var(--clr-branches)"
+								/>
+							</svg>
+						{:else if button.icon === 'history'}
+							<svg
+								width="1.188rem"
+								height="1.125rem"
+								viewBox="0 0 19 18"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								{#if button.isActive()}
+									<circle cx="9.82397" cy="8.75" r="8" fill="#FBDB79" />
+								{/if}
+								<path
+									d="M9.10022 4.20642V9.29948H14.1933"
+									stroke="var(--clr-history-arrows)"
+									stroke-width="1.5"
+								/>
+								<path
+									d="M2.40555 5.75C3.59233 2.81817 6.46666 0.75 9.82403 0.75C14.2423 0.75 17.824 4.33172 17.824 8.75C17.824 13.1683 14.2423 16.75 9.82403 16.75C6.27881 16.75 3.2722 14.4439 2.22241 11.25"
+									stroke="var(--clr-history-outline)"
+									stroke-width="1.5"
+								/>
+								<path
+									d="M0.134062 2.98321C0.0845897 2.54051 0.595053 2.25899 0.943069 2.53705L5.68617 6.32661C6.03419 6.60466 5.8723 7.16468 5.42961 7.21415L1.16327 7.69092C0.888835 7.72159 0.641501 7.52398 0.610832 7.24954L0.134062 2.98321Z"
+									fill="var(--clr-history-outline)"
+								/>
+							</svg>
+						{:else if button.icon === 'codegen'}
+							<svg
+								width="1.375rem"
+								height="1.125rem"
+								viewBox="0 0 22 18"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+								stroke="currentColor"
+							>
+								<path
+									d="M14.2158 0.0342979C17.5167 -0.254423 20.5442 3.52525 20.9775 8.47668C21.4107 13.4283 19.0852 17.6771 15.7841 17.9659C13.981 18.1235 12.2615 17.0658 10.9999 15.2677C9.73835 17.0658 8.0189 18.1236 6.21576 17.9659C2.91466 17.6771 0.590161 13.4283 1.02337 8.47668C1.4567 3.5254 4.48324 -0.25422 7.78412 0.0342979C9.0257 0.142922 10.1294 0.811718 10.9999 1.86731C11.8705 0.81165 12.9741 0.142926 14.2158 0.0342979Z"
+									stroke-width="1.5"
+									fill="var(--clr-codegen-bg)"
+									stroke="var(--clr-codegen-bg)"
+								/>
+								<path
+									d="M10.691 5.2173C10.7951 4.92757 11.2049 4.92757 11.309 5.2173L11.8782 6.80198C12.0991 7.41684 12.5832 7.90087 13.198 8.12175L14.7827 8.69104C15.0724 8.79513 15.0724 9.20487 14.7827 9.30896L13.198 9.87825C12.5832 10.0991 12.0991 10.5832 11.8782 11.198L11.309 12.7827C11.2049 13.0724 10.7951 13.0724 10.691 12.7827L10.1218 11.198C9.90087 10.5832 9.41684 10.0991 8.80198 9.87825L7.2173 9.30896C6.92757 9.20487 6.92757 8.79513 7.2173 8.69104L8.80198 8.12175C9.41684 7.90087 9.90087 7.41684 10.1218 6.80198L10.691 5.2173Z"
+									fill="var(--clr-codegen-star)"
+									stroke="var(--clr-codegen-star)"
+								/>
+								<defs>
+									<linearGradient
+										id="ai-gradient"
+										x1="9.33382"
+										y1="1.85727"
+										x2="21.498"
+										y2="11.1329"
+										gradientUnits="userSpaceOnUse"
+									>
+										<stop stop-color="#9A84F2" />
+										<stop offset="0.528846" stop-color="#61B2E1" />
+										<stop offset="1" stop-color="#2EDBD2" />
+									</linearGradient>
+								</defs>
+							</svg>
+						{/if}
 					{/snippet}
 				</Button>
 			</div>
-		{/if}
+		{/each}
 
 		{#if $ircEnabled}
 			<div>
@@ -432,6 +515,24 @@
 	}
 	.top {
 		gap: 4px;
+	}
+	.top > div {
+		cursor: grab;
+		transition:
+			transform 0.2s,
+			opacity 0.2s;
+	}
+	.top > div:active {
+		cursor: grabbing;
+	}
+	.top > div.dragging {
+		transform: scale(0.95);
+		opacity: 0.5;
+	}
+	.top > div.drag-over {
+		transform: translateY(2px);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
 	}
 	.bottom {
 		gap: 16px;
