@@ -168,9 +168,9 @@
 			if (draggedIdIndex !== -1 && dropTargetIdIndex !== -1) {
 				// Remove the dragged item from its current position
 				newOrder.splice(draggedIdIndex, 1);
-				// Insert it at the new position
+				// Insert it at the new position (adjust index if needed due to removal)
 				const finalDropIndex =
-					draggedIdIndex < dropTargetIdIndex ? dropTargetIdIndex : dropTargetIdIndex;
+					draggedIdIndex < dropTargetIdIndex ? dropTargetIdIndex - 1 : dropTargetIdIndex;
 				newOrder.splice(finalDropIndex, 0, draggedButtonId);
 				uiState.global.navButtonOrder.set(newOrder);
 			}
