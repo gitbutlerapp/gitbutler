@@ -782,6 +782,7 @@
 	/* Needed for `focusCursor.svelte` to work correctly on `Drawer` components . */
 	.details-view__codegen,
 	.details-view__inner {
+		--message-max-width: 80%;
 		display: flex;
 		position: relative;
 		flex-direction: column;
