@@ -274,11 +274,11 @@ fn get_or_init_project(
 ) -> anyhow::Result<gitbutler_project::Project> {
     let repo = gix::discover(current_dir)?;
     if let Some(path) = repo.workdir() {
-        let project = match gitbutler_project::Project::find_by_path(path) {
+        let project = match gitbutler_project::Project::find_by_worktree_dir(path) {
             Ok(p) => Ok(p),
             Err(_e) => {
                 crate::init::repo(path, false, false)?;
-                gitbutler_project::Project::find_by_path(path)
+                gitbutler_project::Project::find_by_worktree_dir(path)
             }
         }?;
         Ok(project)

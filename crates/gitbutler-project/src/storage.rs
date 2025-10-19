@@ -97,7 +97,7 @@ impl Storage {
         }
 
         if let Some(path) = &update_request.path {
-            project.set_worktree_dir(path.clone());
+            project.set_worktree_dir(path.clone())?;
         }
 
         if let Some(api) = &update_request.api {

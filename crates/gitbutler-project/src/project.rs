@@ -1,5 +1,5 @@
 use std::{
-    path::{self, Path, PathBuf},
+    path::{Path, PathBuf},
     time,
 };
 
@@ -14,7 +14,7 @@ use crate::default_true::DefaultTrue;
 pub enum AuthKey {
     GitCredentialsHelper,
     Local {
-        private_key_path: path::PathBuf,
+        private_key_path: PathBuf,
     },
     // There used to be more auth option variants that we are deprecating and replacing with this
     #[serde(other)]
@@ -78,8 +78,20 @@ pub struct Project {
     pub title: String,
     pub description: Option<String>,
     /// The worktree directory of the project's repository.
+    // TODO: Make it optional for bare repo support!
+    // TODO: Do not actually store it, but obtain it on the fly by using a repository!
     #[serde(rename = "path")]
-    pub(crate) worktree_dir: path::PathBuf,
+    // TODO(1.0): enable the line below to clear the value from storage - we only want the git dir,
+    //       but need to remain compatible. The frontend shouldn't care, so we may need a specific type for that
+    //       which already exists, but… needs cleanup.
+    // #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) worktree_dir: PathBuf,
+    /// The storage location of the Git repository itself.
+    /// This is the only value we need to access everything related to the Git repository.
+    ///
+    // TODO(1.0): remove the `default` which is just needed while there is project files without it.
+    #[serde(default)]
+    pub(crate) git_dir: PathBuf,
     #[serde(default)]
     pub preferred_key: AuthKey,
     /// if ok_with_force_push is true, we'll not try to avoid force pushing
@@ -117,6 +129,8 @@ impl Project {
             worktree_dir,
             ..Default::default()
         }
+        .migrated()
+        .unwrap()
     }
 
     /// A special constructor needed as `worktree_dir` isn't accessible anymore.
@@ -126,6 +140,28 @@ impl Project {
             preferred_key,
             ..Default::default()
         }
+        .migrated()
+        .unwrap()
+    }
+}
+
+impl Project {
+    pub(crate) fn migrated(mut self) -> anyhow::Result<Self> {
+        self.migrate()?;
+        Ok(self)
+    }
+
+    pub(crate) fn migrate(&mut self) -> anyhow::Result<()> {
+        if !self.git_dir.as_os_str().is_empty() {
+            return Ok(());
+        }
+        let repo = gix::open_opts(&self.worktree_dir, gix::open::Options::isolated())
+            .context("BUG: worktree is supposed to be valid here for migration")?;
+        self.git_dir = repo.git_dir().to_owned();
+        // NOTE: we set the worktree so the frontend is happier until this usage can be reviewed,
+        // probably for supporting bare repositories.
+        self.worktree_dir = repo.workdir().context("BUG: we currently only support non-bare repos, yet this one didn't have a worktree dir")?.to_owned();
+        Ok(())
     }
 }
 
@@ -143,7 +179,8 @@ impl Project {
         })
     }
     /// Finds an existing project by its path. Errors out if not found.
-    pub fn find_by_path(path: &Path) -> anyhow::Result<Project> {
+    // TODO: find by git-dir instead!
+    pub fn find_by_worktree_dir(worktree_dir: &Path) -> anyhow::Result<Project> {
         let mut projects = crate::list()?;
         // Sort projects by longest pathname to shortest.
         // We need to do this because users might have one gitbutler project
@@ -157,10 +194,12 @@ impl Project {
                 // longest first
                 .reverse()
         });
-        let resolved_path = if path.is_relative() {
-            path.canonicalize().context("Failed to canonicalize path")?
+        let resolved_path = if worktree_dir.is_relative() {
+            worktree_dir
+                .canonicalize()
+                .context("Failed to canonicalize path")?
         } else {
-            path.to_path_buf()
+            worktree_dir.to_path_buf()
         };
         let project = projects
             .into_iter()
@@ -173,6 +212,20 @@ impl Project {
             })
             .context("No project found with the given path")?;
         Ok(project)
+    }
+}
+
+/// Repository helpers.
+impl Project {
+    /// Open an isolated repository, one that didn't read options beyond `.git/config` and
+    /// knows no environment variables.
+    ///
+    /// Use it for fastest-possible access, when incomplete configuration is acceptable.
+    pub fn open_isolated(&self) -> anyhow::Result<gix::Repository> {
+        Ok(gix::open_opts(
+            &self.git_dir,
+            gix::open::Options::isolated(),
+        )?)
     }
 }
 
@@ -207,34 +260,34 @@ impl Project {
     ///
     /// Normally this is `.git/gitbutler` in the project's repository.
     pub fn gb_dir(&self) -> PathBuf {
-        // TODO(ST): store the gitdir instead. This needs a migration to switch existing `worktree_dir` fields over.
-        self.worktree_dir.join(".git").join("gitbutler")
+        self.git_dir.join("gitbutler")
     }
 
     pub fn snapshot_lines_threshold(&self) -> usize {
         self.snapshot_lines_threshold.unwrap_or(20)
     }
 
-    // TODO(ST): for bare repo support, make this optional, but store the gitdir instead.
+    // TODO(ST): Actually remove this - people should use the `gix::Repository` for worktree handling (which makes it optional, too)
     pub fn worktree_dir(&self) -> PathBuf {
         self.worktree_dir.clone()
     }
 
     /// Set the worktree directory to `worktree_dir`.
-    pub fn set_worktree_dir(&mut self, worktree_dir: path::PathBuf) {
+    pub fn set_worktree_dir(&mut self, worktree_dir: PathBuf) -> anyhow::Result<()> {
+        let repo = gix::open_opts(&worktree_dir, gix::open::Options::isolated())?;
         self.worktree_dir = worktree_dir;
+        self.git_dir = repo.git_dir().to_owned();
+        Ok(())
     }
 
     /// Return the path to the directory that holds the repository data and that is associated with the current worktree.
-    // TODO(ST): store this directory in future, as everything else can be obtained from it: worktree_dir, common_dir.
-    pub fn git_dir(&self) -> anyhow::Result<path::PathBuf> {
-        let repo = gix::open_opts(&self.worktree_dir, gix::open::Options::isolated())?;
-        Ok(repo.git_dir().to_owned())
+    pub fn git_dir(&self) -> &Path {
+        &self.git_dir
     }
 
     /// Return the path to the Git directory of the 'prime' repository, the one that holds all worktrees.
-    pub fn common_git_dir(&self) -> anyhow::Result<path::PathBuf> {
-        let repo = gix::open_opts(&self.worktree_dir, gix::open::Options::isolated())?;
+    pub fn common_git_dir(&self) -> anyhow::Result<PathBuf> {
+        let repo = self.open_isolated()?;
         Ok(repo.common_dir().to_owned())
     }
 }

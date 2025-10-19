@@ -786,7 +786,6 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-oxidize",
  "gitbutler-project",
- "gitbutler-repo",
  "gitbutler-serde",
  "gitbutler-stack",
  "gix",
@@ -1404,7 +1403,6 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
- "but-db",
  "but-graph",
  "but-rebase",
  "but-status",
@@ -1421,7 +1419,6 @@ dependencies = [
  "gix-testtools",
  "insta",
  "serde",
- "serde_json",
  "tracing",
  "uuid",
 ]
@@ -3638,9 +3635,7 @@ dependencies = [
  "serde_json",
  "strum",
  "tempfile",
- "tokio",
  "tracing",
- "uuid",
 ]
 
 [[package]]

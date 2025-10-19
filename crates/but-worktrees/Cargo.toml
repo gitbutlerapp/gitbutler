@@ -10,7 +10,6 @@ doctest = false
 
 [dependencies]
 anyhow.workspace = true
-but-db.workspace = true
 but-workspace.workspace = true
 but-graph.workspace = true
 but-status.workspace = true
@@ -24,7 +23,6 @@ gitbutler-oxidize.workspace = true
 gitbutler-workspace.workspace = true
 gitbutler-branch-actions.workspace = true
 serde.workspace = true
-serde_json.workspace = true
 uuid.workspace = true
 bstr.workspace = true
 tracing.workspace = true
