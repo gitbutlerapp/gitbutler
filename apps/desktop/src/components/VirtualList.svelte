@@ -30,7 +30,6 @@
 		batchSize: number;
 		/** Handler for when scroll has reached with a margin of the bottom. */
 		onloadmore?: () => Promise<void>;
-		start?: number;
 		grow?: boolean;
 		/** Whether to initialize scroll position at top or bottom. */
 		initialPosition?: 'top' | 'bottom';
@@ -49,7 +48,6 @@
 		onloadmore,
 		grow,
 		padding,
-		start,
 		initialPosition = 'top',
 		stickToBottom = false
 	}: Props = $props();
@@ -70,8 +68,8 @@
 	let viewportHeight = $state(0);
 
 	// Virtual scrolling state
-	let startIndex = $state(start ?? (initialPosition === 'bottom' ? Infinity : 0));
-	let end = $state(start ?? (initialPosition === 'bottom' ? Infinity : 0));
+	let start = $state(initialPosition === 'bottom' ? Infinity : 0);
+	let end = $state(initialPosition === 'bottom' ? Infinity : 0);
 
 	// An array mapping items to element heights
 	let heightMap: Array<number | undefined> = $state([]);
@@ -85,13 +83,12 @@
 	// Chat-specific state
 	let isNearBottom = $state(true);
 	let hasInitialized = $state(false);
-	let previousItemsLength = $state(items.length);
 	let previousViewportHeight = $state(viewportHeight);
 	let wasAtBottomBeforeResize = $state(false);
 
 	const chunks = $derived(chunk(items, batchSize));
 	const visible = $derived.by(() =>
-		chunks.slice(startIndex, end).map((data, i) => ({ id: i + startIndex, data }))
+		chunks.slice(start, end).map((data, i) => ({ id: i + start, data }))
 	);
 
 	function sumHeights(startIndex: number, endIndex: number): number {
@@ -107,17 +104,19 @@
 		const threshold = 50;
 		const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
 		isNearBottom = distanceFromBottom < threshold;
+		return isNearBottom;
 	}
 
 	async function getRowHeight(i: number, rowOffset: number): Promise<number> {
-		if (i < startIndex) {
+		if (i < start) {
 			return heightMap[i] || FALLBACK_HEIGHT;
 		}
 
-		let rowElement = rows![rowOffset];
+		let rowElement = rows?.[rowOffset];
 		if (!rowElement) {
 			await tick(); // render the newly visible row
-			rowElement = rows![i < startIndex ? i : rowOffset];
+			rowElement = rows?.[rowOffset];
+			if (!rowElement) return FALLBACK_HEIGHT;
 		}
 		const rowHeight = (rowElement as HTMLElement)?.offsetHeight || FALLBACK_HEIGHT;
 		heightMap[i] = rowHeight;
@@ -126,11 +125,11 @@
 
 	async function updateStartIndex(): Promise<number> {
 		let accumulatedHeight = 0;
-		let oldStart = startIndex;
+		let oldStart = start;
 		let i = 0;
 
 		while (i < chunks.length) {
-			const rowHeight = await getRowHeight(i, i - oldStart);
+			const rowHeight = await getRowHeight(i, oldStart - i);
 			accumulatedHeight += rowHeight;
 
 			if (accumulatedHeight > viewport!.scrollTop) {
@@ -143,15 +142,15 @@
 
 	async function updateEndIndex(): Promise<number> {
 		let accumulatedHeight = topPadding - viewport!.scrollTop;
-		let i = startIndex;
+		let i = start;
 
 		while (i < chunks.length) {
-			if (!rows![i - startIndex]) {
+			if (!rows![i - start]) {
 				end = i + 1;
 				bottomPadding = sumHeights(end, heightMap.length);
 				await tick(); // render the newly visible row
 			}
-			const rowHeight = await getRowHeight(i, i - startIndex);
+			const rowHeight = await getRowHeight(i, i - start);
 
 			accumulatedHeight += rowHeight;
 			if (accumulatedHeight > viewport!.clientHeight) {
@@ -170,7 +169,7 @@
 
 		while (i >= 0) {
 			// Set startIndex to render this chunk
-			startIndex = i;
+			start = i;
 			await tick(); // Wait for the chunk to render
 
 			// Now measure the actual rendered height
@@ -188,7 +187,12 @@
 		return 0;
 	}
 
-	async function recalculate() {
+	function distanceFromBottom() {
+		if (!viewport) return 0;
+		return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+	}
+
+	async function recalculate(isScroll?: boolean) {
 		if (!viewport || !rows) return;
 
 		heightMap.length = chunks.length;
@@ -200,24 +204,59 @@
 			bottomPadding = 0;
 			await tick();
 
-			startIndex = await updateStartIndexBackwards();
-			topPadding = sumHeights(0, startIndex);
-
+			start = await updateStartIndexBackwards();
+			topPadding = sumHeights(0, start);
 			totalHeight = sumHeights(0, heightMap.length);
 
-			// Scroll to bottom
 			viewport.scrollTop = viewport.scrollHeight;
 			hasInitialized = true;
 		} else {
 			// Normal top-down calculation
-			await tick();
-			startIndex = await updateStartIndex();
-			topPadding = sumHeights(0, startIndex);
+			// There is some weird bug here that seems triggered when
+			// start has moved forward, as an element is tagen out from
+			// the top but equally compensated by new padding, the
+			// scrollTop suddenly jumps by a lot.
+			const scrollTop = viewport.scrollTop;
 
-			// Calculate visible range end
 			await tick();
+			const savedDistance = distanceFromBottom();
+			const oldStart = start;
+			const newStart = await updateStartIndex();
+			topPadding = sumHeights(0, newStart);
+			await tick();
+
+			start = newStart;
+
+			if (start < oldStart) {
+				await tick();
+				const cachedHeight = heightMap[start] || FALLBACK_HEIGHT;
+				const realHeight = (rows[0] as HTMLElement).offsetHeight;
+				const diff = realHeight - cachedHeight;
+				if (diff !== 0) {
+					viewport.scrollBy({ top: diff });
+				}
+			}
+			await tick();
+
+			// Resetting the scroll top here seems to give us the correct behavior.
+			if (viewport.scrollTop !== scrollTop) {
+				viewport.scrollTop = scrollTop;
+			}
+
 			end = await updateEndIndex();
 			bottomPadding = sumHeights(end, heightMap.length);
+
+			await tick();
+
+			if (
+				!isScroll &&
+				stickToBottom &&
+				savedDistance < 50 &&
+				distanceFromBottom() > savedDistance
+			) {
+				viewport.scrollTop = viewport.scrollHeight;
+				await tick();
+			}
 
 			totalHeight = sumHeights(0, heightMap.length);
 		}
@@ -260,16 +299,10 @@
 				// Restore bottom position if we were at bottom and stickToBottom is enabled
 				if (stickToBottom && wasAtBottomBeforeResize && viewport) {
 					viewport.scrollTop = viewport.scrollHeight;
+					await tick();
 				}
 				previousViewportHeight = viewportHeight;
 			});
-		}
-	});
-
-	// Recalculate when items change
-	$effect(() => {
-		if (items) {
-			untrack(() => recalculate());
 		}
 	});
 
@@ -277,16 +310,20 @@
 
 	// Auto-scroll to bottom when new items are added (if stickToBottom is enabled)
 	$effect(() => {
-		if (items.length > previousItemsLength && stickToBottom && isNearBottom) {
+		if (items && stickToBottom && isNearBottom) {
+			if (!viewport) return;
 			untrack(() => {
-				tick().then(() => {
-					if (viewport) {
+				const oldEnd = end;
+				recalculate().then(() => {
+					if (!viewport) return;
+					if (end > oldEnd) {
 						viewport.scrollTop = viewport.scrollHeight;
 					}
 				});
 			});
+		} else if (items) {
+			untrack(() => recalculate());
 		}
-		previousItemsLength = items.length;
 	});
 </script>
 
@@ -295,7 +332,7 @@
 	bind:viewport
 	whenToShow={$userSettings.scrollbarVisibilityState}
 	onscroll={() => {
-		recalculate();
+		recalculate(true);
 		checkIfNearBottom();
 	}}
 	wide={grow}

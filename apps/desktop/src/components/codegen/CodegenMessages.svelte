@@ -445,7 +445,6 @@
 						initialPosition="bottom"
 						items={formattedMessages}
 						batchSize={1}
-						start={0}
 						padding={{ left: 20, right: 20 }}
 					>
 						{#snippet chunkTemplate(messages)}
@@ -458,7 +457,9 @@
 			{/snippet}
 
 			{#snippet input()}
-				{#if claudeAvailable.response?.status === 'available'}
+				{#if claudeAvailable.response?.status === 'not_available'}
+					<CodegenChatClaudeNotAvaliableBanner onSettingsBtnClick={() => settingsModal?.show()} />
+				{:else}
 					{@const status = currentStatus(events, isStackActive)}
 					<CodegenInput
 						value={prompt.current}
@@ -521,8 +522,6 @@
 							{/if}
 						{/snippet}
 					</CodegenInput>
-				{:else}
-					<CodegenChatClaudeNotAvaliableBanner onSettingsBtnClick={() => settingsModal?.show()} />
 				{/if}
 			{/snippet}
 		</CodegenChatLayout>
