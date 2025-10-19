@@ -9,12 +9,12 @@ use gitbutler_reference::RemoteRefname;
 use crate::command::debug_print;
 
 pub fn list() -> Result<()> {
-    for project in gitbutler_project::list()? {
+    for project in gitbutler_project::dangerously_list_without_migration()? {
         println!(
             "{id} {name} {path}",
             id = project.id,
             name = project.title,
-            path = project.worktree_dir().display()
+            path = project.worktree_dir()?.display()
         );
     }
     Ok(())

@@ -124,7 +124,7 @@ pub fn maybe_create_dir(project: &Project, path: &str) -> Result<()> {
     let path = if path.is_absolute() {
         path
     } else {
-        &project.worktree_dir().join(path)
+        &project.worktree_dir()?.join(path)
     };
 
     if path.try_exists()? {

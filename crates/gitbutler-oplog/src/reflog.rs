@@ -56,9 +56,8 @@ impl ReflogCommits {
 /// ```
 ///
 /// The reflog entry is continuously updated to refer to the current target and oplog head commits.
-pub fn set_reference_to_oplog(worktree_dir: &Path, reflog_commits: ReflogCommits) -> Result<()> {
-    let reflog_file_path = worktree_dir
-        .join(".git")
+pub fn set_reference_to_oplog(git_dir: &Path, reflog_commits: ReflogCommits) -> Result<()> {
+    let reflog_file_path = git_dir
         .join("logs")
         .join("refs")
         .join("heads")
@@ -66,7 +65,7 @@ pub fn set_reference_to_oplog(worktree_dir: &Path, reflog_commits: ReflogCommits
         .join("target");
 
     let mut repo = gix::open_opts(
-        worktree_dir,
+        git_dir,
         // We may override the username as we only write a specific commit log, unrelated to the user.
         gix::open::Options::isolated().config_overrides({
             let sig = standard_signature();
@@ -182,14 +181,15 @@ mod set_target_ref {
     fn reflog_present_but_empty() -> anyhow::Result<()> {
         let (dir, commit_id) = setup_repo()?;
         let worktree_dir = dir.path();
+        let git_dir = worktree_dir.join(".git");
 
         let oplog = git2::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
-        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
         std::fs::write(&log_file_path, [])?;
 
-        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
         assert_eq!(reflog_lines(&contents).len(), 2);
@@ -203,14 +203,15 @@ mod set_target_ref {
     fn reflog_present_but_broken() -> anyhow::Result<()> {
         let (dir, commit_id) = setup_repo()?;
         let worktree_dir = dir.path();
+        let git_dir = worktree_dir.join(".git");
 
         let oplog = git2::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
-        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
         std::fs::write(&log_file_path, b"a gobbled mess that is no reflog")?;
 
-        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
         assert_eq!(reflog_lines(&contents).len(), 2);
@@ -221,14 +222,15 @@ mod set_target_ref {
     fn reflog_present_but_branch_is_missing() -> anyhow::Result<()> {
         let (dir, commit_id) = setup_repo()?;
         let worktree_dir = dir.path();
+        let git_dir = worktree_dir.join(".git");
 
         let oplog = git2::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
-        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let loose_ref_path = worktree_dir.join(".git/refs/heads/gitbutler/target");
         std::fs::remove_file(&loose_ref_path)?;
 
-        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
         assert!(
             loose_ref_path.is_file(),
             "the file was recreated, just in case there is only a reflog and no branch"
@@ -240,14 +242,15 @@ mod set_target_ref {
     fn branch_present_but_reflog_is_missing() -> anyhow::Result<()> {
         let (dir, commit_id) = setup_repo()?;
         let worktree_dir = dir.path();
+        let git_dir = worktree_dir.join(".git");
 
         let oplog = git2::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
-        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
         std::fs::remove_file(&log_file_path)?;
 
-        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog))
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog))
             .expect("missing reflog files are recreated");
         assert!(log_file_path.is_file(), "the file was recreated");
 
@@ -263,6 +266,7 @@ mod set_target_ref {
         let commit_id_hex = commit_id.to_string();
         let commit_id_hex: &gix::bstr::BStr = commit_id_hex.as_str().into();
         let worktree_dir = dir.path();
+        let git_dir = worktree_dir.join(".git");
 
         let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
         assert!(!log_file_path.exists());
@@ -270,7 +274,7 @@ mod set_target_ref {
         // Set ref for the first time
         let oplog_hex = "0123456789abcdef0123456789abcdef01234567";
         let oplog = git2::Oid::from_str(oplog_hex)?;
-        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
         assert!(log_file_path.exists());
         let contents = std::fs::read_to_string(&log_file_path)?;
         let lines = reflog_lines(&contents);
@@ -304,7 +308,7 @@ mod set_target_ref {
         // Update the oplog head only
         let another_oplog_hex = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
         let another_oplog = git2::Oid::from_str(another_oplog_hex)?;
-        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, another_oplog))
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, another_oplog))
             .expect("success");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
@@ -334,7 +338,7 @@ mod set_target_ref {
         // Update the target head only
         let new_target_hex = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         let new_target = git2::Oid::from_str(new_target_hex)?;
-        set_reference_to_oplog(worktree_dir, reflog_commits(new_target, another_oplog))
+        set_reference_to_oplog(&git_dir, reflog_commits(new_target, another_oplog))
             .expect("success");
 
         let contents = std::fs::read_to_string(&log_file_path)?;

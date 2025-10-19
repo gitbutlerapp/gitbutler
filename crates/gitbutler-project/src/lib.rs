@@ -77,7 +77,8 @@ pub fn add_with_path(
     controller.add(path)
 }
 
-pub fn list() -> anyhow::Result<Vec<Project>> {
+/// NOTE: call [`Project::migrated()`] if the instance should be used for actual functionality.
+pub fn dangerously_list_without_migration() -> anyhow::Result<Vec<Project>> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.list()
 }

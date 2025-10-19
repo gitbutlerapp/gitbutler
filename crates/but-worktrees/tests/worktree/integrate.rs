@@ -177,7 +177,7 @@ fn test_causes_conflicts_above() -> anyhow::Result<()> {
 fn test_causes_workdir_conflicts_simple() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
-    let path = ctx.project().worktree_dir();
+    let path = ctx.project().worktree_dir()?.to_owned();
 
     let mut guard = ctx.project().exclusive_worktree_access();
 
@@ -233,7 +233,7 @@ fn test_causes_workdir_conflicts_simple() -> anyhow::Result<()> {
 fn test_causes_workdir_conflicts_complex() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
-    let path = ctx.project().worktree_dir();
+    let path = ctx.project().worktree_dir()?.to_owned();
 
     let mut guard = ctx.project().exclusive_worktree_access();
 

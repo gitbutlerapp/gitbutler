@@ -77,7 +77,7 @@ impl ActiveProjects {
 
         let watcher = gitbutler_watcher::watch_in_background(
             handler,
-            project.worktree_dir(),
+            project.worktree_dir()?,
             project.id,
             app_settings_sync,
         )?;
@@ -101,14 +101,15 @@ pub struct ProjectInfo {
 pub async fn list_projects(extra: &Extra) -> Result<serde_json::Value, but_api::error::Error> {
     let active_projects = extra.active_projects.lock().await;
     // For server implementation, we don't have window state, so all projects are marked as not open
-    let projects_for_frontend =
-        gitbutler_project::assure_app_can_startup_or_fix_it(gitbutler_project::list())?
-            .into_iter()
-            .map(|project| ProjectForFrontend {
-                is_open: active_projects.projects.contains_key(&project.id),
-                inner: project.into(),
-            })
-            .collect::<Vec<_>>();
+    let projects_for_frontend = gitbutler_project::assure_app_can_startup_or_fix_it(
+        gitbutler_project::dangerously_list_without_migration(),
+    )?
+    .into_iter()
+    .map(|project| ProjectForFrontend {
+        is_open: active_projects.projects.contains_key(&project.id),
+        inner: project.into(),
+    })
+    .collect::<Vec<_>>();
 
     Ok(json!(projects_for_frontend))
 }

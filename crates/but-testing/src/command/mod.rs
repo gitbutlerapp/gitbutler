@@ -35,10 +35,7 @@ pub fn project_from_path(path: &Path) -> anyhow::Result<Project> {
 
 pub fn project_repo(path: &Path) -> anyhow::Result<gix::Repository> {
     let project = project_from_path(path)?;
-    configured_repo(
-        gix::open(project.worktree_dir())?,
-        RepositoryOpenMode::General,
-    )
+    configured_repo(project.open()?, RepositoryOpenMode::General)
 }
 
 pub enum RepositoryOpenMode {
@@ -77,9 +74,7 @@ pub fn repo_and_maybe_project(
         let work_dir = gix::path::realpath(work_dir)?;
         (
             repo,
-            gitbutler_project::list()?
-                .into_iter()
-                .find(|p| p.worktree_dir() == work_dir),
+            gitbutler_project::Project::find_by_worktree_dir(&work_dir).ok(),
         )
     } else {
         (repo, None)

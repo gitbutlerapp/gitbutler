@@ -309,7 +309,7 @@ mod util {
         )?;
 
         Ok(TestContext {
-            repo: gix::open_opts(ctx.project().worktree_dir(), gix::open::Options::isolated())?,
+            repo: ctx.project().open_isolated()?,
             gitbutler_dir: ctx.project().gb_dir(),
             stacks_entries: stacks,
         })

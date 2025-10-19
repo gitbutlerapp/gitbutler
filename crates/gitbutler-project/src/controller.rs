@@ -68,7 +68,7 @@ impl Controller {
             .context("failed to list projects from storage")?;
         if let Some(existing_project) = all_projects
             .iter()
-            .find(|project| project.worktree_dir() == worktree_dir)
+            .find(|project| project.worktree_dir_but_should_use_git_dir() == worktree_dir)
         {
             return Ok(AddProjectOutcome::AlreadyExists(
                 existing_project.to_owned(),
@@ -208,16 +208,16 @@ impl Controller {
         let mut project = self.projects_storage.get(id)?;
         // BACKWARD-COMPATIBLE MIGRATION
         if validate {
-            let worktree_dir = project.worktree_dir();
-            if gix::open_opts(&worktree_dir, gix::open::Options::isolated()).is_err() {
-                let suffix = if !worktree_dir.exists() {
+            let repo = project.open_isolated();
+            if repo.is_err() {
+                let suffix = if !project.worktree_dir.exists() {
                     " as it does not exist"
                 } else {
                     ""
                 };
                 return Err(anyhow!(
                     "Could not open repository at '{}'{suffix}",
-                    worktree_dir.display()
+                    project.worktree_dir.display()
                 )
                 .context(error::Code::ProjectMissing));
             }

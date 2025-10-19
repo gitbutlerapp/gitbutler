@@ -113,7 +113,7 @@ pub(crate) fn set_base_branch(
         let sig = repo
             .signature()
             .unwrap_or(git2::Signature::now("Author", "author@email.com")?);
-        let mut r = git2::Repository::open(ctx.project().worktree_dir())?;
+        let mut r = ctx.project().open_git2()?;
         r.stash_save2(&sig, None, Some(git2::StashFlags::INCLUDE_UNTRACKED))?;
     }
 

@@ -218,7 +218,7 @@ pub(crate) mod state {
             }
             let exclusive_access = project.try_exclusive_access().ok();
             let handler = handler_from_app(&self.app_handle)?;
-            let worktree_dir = project.worktree_dir();
+            let worktree_dir = project.worktree_dir()?;
             let project_id = project.id;
             let watcher = gitbutler_watcher::watch_in_background(
                 handler,

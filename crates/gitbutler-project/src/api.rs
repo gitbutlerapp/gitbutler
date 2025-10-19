@@ -14,11 +14,7 @@ pub struct Project {
 
 impl From<crate::Project> for Project {
     fn from(project: crate::Project) -> Self {
-        let isolate_as_config_value_must_be_local = gix::open::Options::isolated();
-        let gerrit_mode = match gix::open_opts(
-            project.worktree_dir(),
-            isolate_as_config_value_must_be_local,
-        ) {
+        let gerrit_mode = match project.open_isolated() {
             Ok(repo) => repo
                 .git_settings()
                 .ok()

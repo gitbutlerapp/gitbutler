@@ -12,7 +12,8 @@ use crate::error::Error;
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn get_gb_config(project_id: ProjectId) -> Result<GitConfigSettings, Error> {
-    but_core::open_repo(gitbutler_project::get(project_id)?.worktree_dir())?
+    gitbutler_project::get(project_id)?
+        .open()?
         .git_settings()
         .map(Into::into)
         .map_err(Into::into)
@@ -22,7 +23,8 @@ pub fn get_gb_config(project_id: ProjectId) -> Result<GitConfigSettings, Error> 
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn set_gb_config(project_id: ProjectId, config: GitConfigSettings) -> Result<(), Error> {
-    but_core::open_repo(gitbutler_project::get(project_id)?.worktree_dir())?
+    gitbutler_project::get(project_id)?
+        .open()?
         .set_git_settings(&config.into())
         .map_err(Into::into)
 }
@@ -35,7 +37,7 @@ pub fn store_author_globally_if_unset(
     name: String,
     email: String,
 ) -> Result<(), Error> {
-    let repo = but_core::open_repo(gitbutler_project::get(project_id)?.worktree_dir())?;
+    let repo = gitbutler_project::get(project_id)?.open()?;
     but_rebase::commit::save_author_if_unset_in_repo(
         &repo,
         gix::config::Source::User,
@@ -61,7 +63,7 @@ pub struct AuthorInfo {
 #[instrument(err(Debug))]
 /// Return the Git author information as the project repository would see it.
 pub fn get_author_info(project_id: ProjectId) -> Result<AuthorInfo, Error> {
-    let repo = but_core::open_repo(gitbutler_project::get(project_id)?.worktree_dir())?;
+    let repo = gitbutler_project::get(project_id)?.open()?;
     let (name, email) = repo
         .author()
         .transpose()

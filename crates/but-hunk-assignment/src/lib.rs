@@ -254,7 +254,7 @@ pub fn assign(
     } else {
         &hunk_dependencies_for_workspace_changes_by_worktree_dir(
             ctx,
-            &ctx.project().worktree_dir(),
+            ctx.project().worktree_dir()?,
             &ctx.project().gb_dir(),
             None,
         )?
@@ -344,7 +344,7 @@ pub fn assignments_with_fallback(
     } else {
         &hunk_dependencies_for_workspace_changes_by_worktree_dir(
             ctx,
-            &ctx.project().worktree_dir(),
+            ctx.project().worktree_dir()?,
             &ctx.project().gb_dir(),
             Some(worktree_changes.clone()),
         )?

@@ -84,6 +84,8 @@ pub struct Project {
     // TODO(1.0): enable the line below to clear the value from storage - we only want the git dir,
     //       but need to remain compatible. The frontend shouldn't care, so we may need a specific type for that
     //       which already exists, but… needs cleanup.
+    //       However, this field SHOULD STAY to present better errors when the path isn't there anymore.
+    //       But it must still be optional.
     // #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) worktree_dir: PathBuf,
     /// The storage location of the Git repository itself.
@@ -143,14 +145,15 @@ impl Project {
         .migrated()
         .unwrap()
     }
-}
 
-impl Project {
-    pub(crate) fn migrated(mut self) -> anyhow::Result<Self> {
+    /// Call this after each invocation of `list()` with manual filtering to get fields filled in.
+    pub fn migrated(mut self) -> anyhow::Result<Self> {
         self.migrate()?;
         Ok(self)
     }
+}
 
+impl Project {
     pub(crate) fn migrate(&mut self) -> anyhow::Result<()> {
         if !self.git_dir.as_os_str().is_empty() {
             return Ok(());
@@ -163,6 +166,10 @@ impl Project {
         self.worktree_dir = repo.workdir().context("BUG: we currently only support non-bare repos, yet this one didn't have a worktree dir")?.to_owned();
         Ok(())
     }
+
+    pub(crate) fn worktree_dir_but_should_use_git_dir(&self) -> &Path {
+        &self.worktree_dir
+    }
 }
 
 /// Instantiation
@@ -173,15 +180,16 @@ impl Project {
             .workdir()
             .context("Bare repositories aren't supported")?
             .to_owned();
-        Ok(Project {
+        Project {
             worktree_dir,
             ..Default::default()
-        })
+        }
+        .migrated()
     }
     /// Finds an existing project by its path. Errors out if not found.
     // TODO: find by git-dir instead!
     pub fn find_by_worktree_dir(worktree_dir: &Path) -> anyhow::Result<Project> {
-        let mut projects = crate::list()?;
+        let mut projects = crate::dangerously_list_without_migration()?;
         // Sort projects by longest pathname to shortest.
         // We need to do this because users might have one gitbutler project
         // nexted insided of another via a gitignored folder.
@@ -211,7 +219,7 @@ impl Project {
                 }
             })
             .context("No project found with the given path")?;
-        Ok(project)
+        project.migrated()
     }
 }
 
@@ -226,6 +234,27 @@ impl Project {
             &self.git_dir,
             gix::open::Options::isolated(),
         )?)
+    }
+
+    /// Open a standard Git repository at the project directory, just like a real user would.
+    ///
+    /// This repository is good for standard tasks, like checking refs and traversing the commit graph,
+    /// and for reading objects as well.
+    ///
+    /// Diffing and merging is better done with [`Self::open_for_merging()`].
+    pub fn open(&self) -> anyhow::Result<gix::Repository> {
+        Ok(gix::open(&self.git_dir)?)
+    }
+
+    /// Calls [`but_core::open_repo_for_merging()`]
+    pub fn open_for_merging(&self) -> anyhow::Result<gix::Repository> {
+        but_core::open_repo_for_merging(&self.git_dir)
+    }
+
+    /// Open a git2 repository.
+    /// Deprecated, but still in use.
+    pub fn open_git2(&self) -> anyhow::Result<git2::Repository> {
+        Ok(git2::Repository::open(&self.git_dir)?)
     }
 }
 
@@ -268,8 +297,10 @@ impl Project {
     }
 
     // TODO(ST): Actually remove this - people should use the `gix::Repository` for worktree handling (which makes it optional, too)
-    pub fn worktree_dir(&self) -> PathBuf {
-        self.worktree_dir.clone()
+    pub fn worktree_dir(&self) -> anyhow::Result<&Path> {
+        // TODO: open a repo and get the workdir.
+        // For now we don't have to open a repo as we only support repos with worktree.
+        Ok(&self.worktree_dir)
     }
 
     /// Set the worktree directory to `worktree_dir`.

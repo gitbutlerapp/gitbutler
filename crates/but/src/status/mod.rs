@@ -304,7 +304,8 @@ fn path_with_color(status: &TreeStatus, path: String) -> ColoredString {
 
 pub(crate) fn all_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
     let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir())?.changes;
+        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir()?.into())?
+            .changes;
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
     let out = assignments

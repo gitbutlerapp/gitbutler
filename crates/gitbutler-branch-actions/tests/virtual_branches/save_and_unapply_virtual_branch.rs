@@ -5,7 +5,7 @@ use gitbutler_testsupport::stack_details;
 use super::*;
 
 #[test]
-fn unapply_with_data() {
+fn unapply_with_data() -> anyhow::Result<()> {
     let Test { repo, ctx, .. } = &mut Test::default();
 
     gitbutler_branch_actions::set_base_branch(
@@ -27,10 +27,11 @@ fn unapply_with_data() {
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
 
-    let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir().clone())
-            .unwrap()
-            .changes;
+    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
+        ctx.project().worktree_dir()?.to_owned(),
+    )
+    .unwrap()
+    .changes;
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)
             .unwrap();
@@ -57,6 +58,8 @@ fn unapply_with_data() {
 
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 0);
+
+    Ok(())
 }
 
 #[test]

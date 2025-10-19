@@ -20,17 +20,19 @@ pub fn list_projects(
     window_state: State<'_, WindowState>,
 ) -> Result<Vec<ProjectForFrontend>, Error> {
     let open_projects = window_state.open_projects();
-    gitbutler_project::assure_app_can_startup_or_fix_it(gitbutler_project::list())
-        .map_err(Into::into)
-        .map(|projects| {
-            projects
-                .into_iter()
-                .map(|project| ProjectForFrontend {
-                    is_open: open_projects.contains(&project.id),
-                    inner: project.into(),
-                })
-                .collect()
-        })
+    gitbutler_project::assure_app_can_startup_or_fix_it(
+        gitbutler_project::dangerously_list_without_migration(),
+    )
+    .map_err(Into::into)
+    .map(|projects| {
+        projects
+            .into_iter()
+            .map(|project| ProjectForFrontend {
+                is_open: open_projects.contains(&project.id),
+                inner: project.into(),
+            })
+            .collect()
+    })
 }
 
 /// Additional information to help the user interface communicate what happened with the project.
@@ -63,7 +65,7 @@ pub fn set_project_active(
             return Ok(None);
         }
     };
-    let repo = git2::Repository::open(project.worktree_dir())
+    let repo = git2::Repository::open(project.git_dir())
         // Only capture this information here to prevent spawning too many errors because of this
         // (the UI has many parallel calls in flight).
         .map_err(|err| {

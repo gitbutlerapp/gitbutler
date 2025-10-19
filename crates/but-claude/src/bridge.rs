@@ -253,7 +253,7 @@ impl Claudes {
             writer,
             write_stderr,
             session,
-            project.worktree_dir(),
+            project.worktree_dir()?.to_owned(),
             ctx.clone(),
             user_params,
             summary_to_resume,

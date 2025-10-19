@@ -37,7 +37,8 @@ pub(crate) fn assign_all(
 
     // Get all assignment requests from the from_stack_id
     let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir())?.changes;
+        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir()?.into())?
+            .changes;
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
 
@@ -107,7 +108,8 @@ fn to_assignment_request(
     let stack_id = branch_name_to_stack_id(ctx, branch_name)?;
 
     let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir())?.changes;
+        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir()?.into())?
+            .changes;
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
     let mut reqs = Vec::new();
