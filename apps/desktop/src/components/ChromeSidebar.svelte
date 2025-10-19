@@ -62,8 +62,7 @@
 		isActive: () => boolean;
 		onClick: () => void;
 		tooltip: string;
-		icon: any;
-		enabled: boolean;
+		icon: 'workspace' | 'branches' | 'history' | 'codegen';
 	};
 
 	const buttonConfigs = $derived.by<NavButton[]>(() => {
@@ -76,8 +75,7 @@
 			isActive: isWorkspacePath,
 			onClick: () => goto(workspacePath(projectId)),
 			tooltip: 'Workspace',
-			icon: 'workspace',
-			enabled: true
+			icon: 'workspace'
 		});
 
 		// Always include branches
@@ -87,8 +85,7 @@
 			isActive: isBranchesPath,
 			onClick: () => goto(branchesPath(projectId)),
 			tooltip: 'Branches',
-			icon: 'branches',
-			enabled: true
+			icon: 'branches'
 		});
 
 		// Always include history
@@ -98,8 +95,7 @@
 			isActive: isHistoryPath,
 			onClick: () => goto(historyPath(projectId)),
 			tooltip: 'Operations history',
-			icon: 'history',
-			enabled: true
+			icon: 'history'
 		});
 
 		// Conditionally include codegen
@@ -110,8 +106,7 @@
 				isActive: isCodegenPath,
 				onClick: () => goto(codegenPath(projectId)),
 				tooltip: 'Codegen',
-				icon: 'codegen',
-				enabled: true
+				icon: 'codegen'
 			});
 		}
 
@@ -155,10 +150,30 @@
 			dragOverIndex !== undefined &&
 			draggedIndex !== dragOverIndex
 		) {
+			// Get the IDs of the buttons being reordered
+			const draggedButtonId = orderedButtons[draggedIndex]?.id;
+			const dropTargetButtonId = orderedButtons[dragOverIndex]?.id;
+
+			if (!draggedButtonId || !dropTargetButtonId) {
+				draggedIndex = undefined;
+				dragOverIndex = undefined;
+				return;
+			}
+
+			// Create new order by reordering the saved order
 			const newOrder = [...navButtonOrder];
-			const [removed] = newOrder.splice(draggedIndex, 1);
-			newOrder.splice(dragOverIndex, 0, removed);
-			uiState.global.navButtonOrder.set(newOrder);
+			const draggedIdIndex = newOrder.indexOf(draggedButtonId);
+			const dropTargetIdIndex = newOrder.indexOf(dropTargetButtonId);
+
+			if (draggedIdIndex !== -1 && dropTargetIdIndex !== -1) {
+				// Remove the dragged item from its current position
+				newOrder.splice(draggedIdIndex, 1);
+				// Insert it at the new position
+				const finalDropIndex =
+					draggedIdIndex < dropTargetIdIndex ? dropTargetIdIndex : dropTargetIdIndex;
+				newOrder.splice(finalDropIndex, 0, draggedButtonId);
+				uiState.global.navButtonOrder.set(newOrder);
+			}
 		}
 		draggedIndex = undefined;
 		dragOverIndex = undefined;
