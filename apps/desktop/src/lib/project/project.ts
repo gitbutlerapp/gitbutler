@@ -16,6 +16,7 @@ export type Project = {
 	title: string;
 	description?: string;
 	path: string;
+	git_dir?: string;
 	api?: CloudProject & {
 		sync: boolean;
 		sync_code: boolean | undefined;

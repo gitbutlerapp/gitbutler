@@ -44,7 +44,8 @@ fn undo_commit_simple() -> anyhow::Result<()> {
 
     // should be two uncommitted files now (file2.txt and file3.txt)
     let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().path.clone())?.changes;
+        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir()?.into())?
+            .changes;
     assert_eq!(changes.len(), 2);
     let (_, b) = stack_details(ctx)
         .into_iter()
@@ -122,7 +123,8 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
 
     // should be two uncommitted files now (file2.txt and file3.txt)
     let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().path.clone())?.changes;
+        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir()?.into())?
+            .changes;
     assert_eq!(changes.len(), 2);
 
     let (_, b) = stack_details(ctx)

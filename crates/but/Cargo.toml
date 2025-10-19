@@ -31,7 +31,6 @@ rmcp.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 sysinfo = "0.37.1"
 gitbutler-project.workspace = true
-gitbutler-repo.workspace = true
 gix.workspace = true
 but-core.workspace = true
 but-api.workspace = true

@@ -60,31 +60,37 @@ impl Controller {
         }
     }
 
-    pub(crate) fn add<P: AsRef<Path>>(&self, path: P) -> Result<AddProjectOutcome> {
-        let path = path.as_ref();
+    pub(crate) fn add(&self, worktree_dir: impl AsRef<Path>) -> Result<AddProjectOutcome> {
+        let worktree_dir = worktree_dir.as_ref();
         let all_projects = self
             .projects_storage
             .list()
             .context("failed to list projects from storage")?;
-        if let Some(existing_project) = all_projects.iter().find(|project| project.path == path) {
+        if let Some(existing_project) = all_projects
+            .iter()
+            .find(|project| project.worktree_dir_but_should_use_git_dir() == worktree_dir)
+        {
             return Ok(AddProjectOutcome::AlreadyExists(
                 existing_project.to_owned(),
             ));
         }
-        if !path.exists() {
+        if !worktree_dir.exists() {
             return Ok(AddProjectOutcome::PathNotFound);
         }
-        if !path.is_dir() {
+        if !worktree_dir.is_dir() {
             return Ok(AddProjectOutcome::NotADirectory);
         }
-        match gix::open_opts(path, gix::open::Options::isolated()) {
+        let resolved_path = gix::path::realpath(worktree_dir)?;
+        // Make sure the repo is opened from the resolved path - it must be absolute for persistence.
+        let repo = match gix::open_opts(&resolved_path, gix::open::Options::isolated()) {
             Ok(repo) if repo.is_bare() => {
                 return Ok(AddProjectOutcome::BareRepository);
             }
             Ok(repo) if repo.worktree().is_some_and(|wt| !wt.is_main()) => {
-                if path.join(".git").is_file() {
+                if worktree_dir.join(".git").is_file() {
                     return Ok(AddProjectOutcome::NonMainWorktree);
                 };
+                repo
             }
             Ok(repo) => match repo.workdir() {
                 None => {
@@ -94,25 +100,25 @@ impl Controller {
                     if !wd.join(".git").is_dir() {
                         return Ok(AddProjectOutcome::NoDotGitDirectory);
                     }
+                    repo
                 }
             },
             Err(err) => {
                 return Ok(AddProjectOutcome::NotAGitRepository(err.to_string()));
             }
-        }
+        };
 
         let id = ProjectId::generate();
 
         // Resolve the path first to get the actual directory name
-        let resolved_path = gix::path::realpath(path)?;
-        let title_is_not_normal_component = path
+        let title_is_not_normal_component = worktree_dir
             .components()
             .next_back()
             .is_none_or(|c| !matches!(c, Component::Normal(_)));
         let path_for_title = if title_is_not_normal_component {
             &resolved_path
         } else {
-            path
+            worktree_dir
         };
 
         let title = path_for_title.file_name().map_or_else(
@@ -123,8 +129,10 @@ impl Controller {
         let project = Project {
             id,
             title,
-            path: resolved_path,
+            // TODO(1.0): make this always `None`, until the field can be removed for good.
+            worktree_dir: resolved_path,
             api: None,
+            git_dir: repo.git_dir().to_owned(),
             ..Default::default()
         };
 
@@ -198,29 +206,31 @@ impl Controller {
     fn get_inner(&self, id: ProjectId, validate: bool) -> Result<Project> {
         #[cfg_attr(not(windows), allow(unused_mut))]
         let mut project = self.projects_storage.get(id)?;
+        // BACKWARD-COMPATIBLE MIGRATION
         if validate {
-            let worktree_dir = &project.path;
-            if gix::open_opts(worktree_dir, gix::open::Options::isolated()).is_err() {
-                let suffix = if !worktree_dir.exists() {
+            let repo = project.open_isolated();
+            if repo.is_err() {
+                let suffix = if !project.worktree_dir.exists() {
                     " as it does not exist"
                 } else {
                     ""
                 };
                 return Err(anyhow!(
                     "Could not open repository at '{}'{suffix}",
-                    worktree_dir.display()
+                    project.worktree_dir.display()
                 )
                 .context(error::Code::ProjectMissing));
             }
         }
 
+        project.migrate()?;
         if !project.gb_dir().exists()
             && let Err(error) = std::fs::create_dir_all(project.gb_dir())
         {
             tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", project.gb_dir().display());
         }
         // Clean up old virtual_branches.toml that was never used
-        let old_virtual_branches_path = project.path.join(".git").join("virtual_branches.toml");
+        let old_virtual_branches_path = project.git_dir().join("virtual_branches.toml");
         if old_virtual_branches_path.exists()
             && let Err(error) = std::fs::remove_file(old_virtual_branches_path)
         {

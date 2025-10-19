@@ -265,9 +265,9 @@ fn get_all_files_in_display_order(ctx: &mut CommandContext) -> anyhow::Result<Ve
     use bstr::BString;
     use but_hunk_assignment::HunkAssignment;
 
-    let project = gitbutler_project::Project::find_by_path(&ctx.project().path)?;
     let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(project.path.clone())?.changes;
+        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().worktree_dir()?.into())?
+            .changes;
     let (assignments, _) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
 

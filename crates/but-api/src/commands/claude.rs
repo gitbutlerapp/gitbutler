@@ -72,10 +72,11 @@ pub async fn claude_get_session_details(
     let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
     let session = but_claude::db::get_session_by_id(&mut ctx, session_id)?
         .context("Could not find session")?;
-    let current_id = Transcript::current_valid_session_id(&project.path, &session).await?;
+    let worktree_dir = project.worktree_dir()?;
+    let current_id = Transcript::current_valid_session_id(worktree_dir, &session).await?;
     if let Some(current_id) = current_id {
         let transcript_path =
-            but_claude::Transcript::get_transcript_path(&project.path, current_id)?;
+            but_claude::Transcript::get_transcript_path(worktree_dir, current_id)?;
         let transcript = but_claude::Transcript::from_file(&transcript_path)?;
         Ok(but_claude::ClaudeSessionDetails {
             summary: transcript.summary(),
@@ -204,8 +205,9 @@ pub fn claude_maybe_create_prompt_dir(project_id: ProjectId, path: String) -> Re
 #[instrument(err(Debug))]
 pub async fn claude_get_mcp_config(project_id: ProjectId) -> Result<McpConfig, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let settings = ClaudeSettings::open(&project.path).await;
-    let mcp_config = ClaudeMcpConfig::open(&settings, &project.path).await;
+    let worktree_dir = project.worktree_dir()?;
+    let settings = ClaudeSettings::open(worktree_dir).await;
+    let mcp_config = ClaudeMcpConfig::open(&settings, worktree_dir).await;
     Ok(mcp_config.mcp_servers())
 }
 
@@ -215,7 +217,8 @@ pub async fn claude_get_sub_agents(
     project_id: ProjectId,
 ) -> Result<Vec<but_claude::SubAgent>, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let sub_agents = but_claude::claude_sub_agents::read_claude_sub_agents(&project.path).await;
+    let sub_agents =
+        but_claude::claude_sub_agents::read_claude_sub_agents(project.worktree_dir()?).await;
     Ok(sub_agents)
 }
 
@@ -229,7 +232,7 @@ pub async fn claude_verify_path(project_id: ProjectId, path: String) -> Result<b
         std::path::PathBuf::from(&path)
     } else {
         // If relative, make it relative to project path
-        project.path.join(&path)
+        project.worktree_dir()?.join(&path)
     };
 
     // Check if the path exists and is a directory

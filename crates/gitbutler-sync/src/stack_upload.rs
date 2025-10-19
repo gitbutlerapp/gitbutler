@@ -34,7 +34,7 @@ pub fn push_stack_to_review(
     let Some(review_base_id) = vb_state.upsert_last_pushed_base(&repo)? else {
         bail!("This is impossible. If you got here, I'm sorry.");
     };
-    set_reference_to_oplog(&ctx.project().path, ReflogCommits::new(ctx.project())?)?;
+    set_reference_to_oplog(ctx.project().git_dir(), ReflogCommits::new(ctx.project())?)?;
 
     let target_commit_id = vb_state.get_default_target()?.sha.to_gix();
     let git2_repository = ctx.repo();

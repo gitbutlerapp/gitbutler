@@ -57,7 +57,7 @@ where
     for (rel_path, hunks) in files {
         let rel_path = rel_path.borrow();
         let hunks: Vec<GitHunk> = hunks.borrow().iter().map(|h| h.clone().into()).collect();
-        let full_path = ctx.project().worktree_path().join(rel_path);
+        let full_path = ctx.project().worktree_dir()?.join(rel_path);
 
         let is_submodule = full_path.is_dir()
             && hunks.len() == 1
@@ -118,7 +118,7 @@ where
 
                 // if the link target is inside the project repository, make it relative
                 let link_target = link_target
-                    .strip_prefix(ctx.project().worktree_path())
+                    .strip_prefix(ctx.project().worktree_dir()?)
                     .unwrap_or(&link_target);
 
                 let blob_oid = git_repository.blob(

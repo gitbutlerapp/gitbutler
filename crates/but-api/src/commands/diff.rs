@@ -32,7 +32,7 @@ pub fn tree_change_diffs(
     let change: but_core::TreeChange = change.into();
     let project = gitbutler_project::get(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
-    let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
+    let repo = project.open()?;
     Ok(change.unified_diff(&repo, app_settings.context_lines)?)
 }
 
@@ -53,11 +53,11 @@ pub fn commit_details(
     commit_id: HexHash,
 ) -> anyhow::Result<CommitDetails, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let repo = &gix::open(&project.path).context("Failed to open repo")?;
+    let repo = project.open()?;
     let commit = repo
         .find_commit(commit_id)
         .context("Failed for find commit")?;
-    let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, commit_id.into())?;
+    let changes = but_core::diff::ui::commit_changes_by_worktree_dir(&repo, commit_id.into())?;
     let conflict_entries = Commit::from_id(commit.id())?.conflict_entries()?;
     Ok(CommitDetails {
         commit: commit.try_into()?,
@@ -121,7 +121,7 @@ pub fn changes_in_worktree(project_id: ProjectId) -> anyhow::Result<WorktreeChan
 
     let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
         ctx,
-        &ctx.project().path,
+        ctx.project().worktree_dir()?,
         &ctx.project().gb_dir(),
         Some(changes.changes.clone()),
     );

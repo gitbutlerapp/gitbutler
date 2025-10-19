@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use base64::engine::Engine as _;
 use git2::Oid;
 use gitbutler_project::Project;
@@ -125,20 +125,19 @@ pub trait RepoCommands {
 
 impl RepoCommands for Project {
     fn get_local_config(&self, key: &str) -> Result<Option<String>> {
-        let repo = &git2::Repository::open(&self.path)?;
+        let repo = &self.open_git2()?;
         let config: Config = repo.into();
         config.get_local(key)
     }
 
     fn set_local_config(&self, key: &str, value: &str) -> Result<()> {
-        let repo = &git2::Repository::open(&self.path)?;
+        let repo = &self.open_git2()?;
         let config: Config = repo.into();
         config.set_local(key, value)
     }
 
     fn check_signing_settings(&self) -> Result<bool> {
-        let repo = &git2::Repository::open(&self.path)?;
-        let signed = repo.sign_buffer(b"test");
+        let signed = self.open_git2()?.sign_buffer(b"test");
         match signed {
             Ok(_) => Ok(true),
             Err(e) => Err(e),
@@ -146,7 +145,7 @@ impl RepoCommands for Project {
     }
 
     fn remotes(&self) -> anyhow::Result<Vec<GitRemote>> {
-        let repo = &git2::Repository::open(&self.path)?;
+        let repo = self.open_git2()?;
         let remotes = repo
             .remotes_as_string()?
             .iter()
@@ -159,7 +158,7 @@ impl RepoCommands for Project {
     }
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
-        let repo = &git2::Repository::open(&self.path)?;
+        let repo = self.open_git2()?;
 
         // Bail if remote with given name already exists.
         if repo.find_remote(name).is_ok() {
@@ -189,7 +188,7 @@ impl RepoCommands for Project {
             );
         }
 
-        let repo = &git2::Repository::open(&self.path)?;
+        let repo = self.open_git2()?;
         let tree = repo.find_commit(commit_id)?.tree()?;
 
         Ok(match tree.get_path(relative_path) {
@@ -203,19 +202,21 @@ impl RepoCommands for Project {
     }
 
     fn read_file_from_workspace(&self, probably_relative_path: &Path) -> Result<FileInfo> {
-        let repo = &git2::Repository::open(&self.path)?;
-
+        let repo = self.open_git2()?;
+        let workdir = repo.workdir().context(
+            "BUG: can't yet handle bare repos and we shouldn't run into this until we do",
+        )?;
         let (path_in_worktree, relative_path) = if probably_relative_path.is_relative() {
             (
-                gix::path::realpath(self.path.join(probably_relative_path))?,
+                gix::path::realpath(workdir.join(probably_relative_path))?,
                 probably_relative_path.to_owned(),
             )
         } else {
-            let Ok(relative_path) = probably_relative_path.strip_prefix(&self.path) else {
+            let Ok(relative_path) = probably_relative_path.strip_prefix(workdir) else {
                 bail!(
                     "Path to read from at '{}' isn't in the worktree directory '{}'",
                     probably_relative_path.display(),
-                    self.path.display()
+                    workdir.display()
                 );
             };
             (probably_relative_path.to_owned(), relative_path.to_owned())

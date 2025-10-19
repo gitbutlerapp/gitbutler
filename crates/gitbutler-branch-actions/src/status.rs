@@ -228,11 +228,11 @@ pub fn get_applied_status_cached(
             .context(format!("failed to write virtual branch {}", vbranch.name))?;
     }
 
+    let worktree_dir = ctx.project().worktree_dir()?;
     let hunks_by_branch: Vec<(Stack, HashMap<PathBuf, Vec<VirtualBranchHunk>>)> = hunks_by_branch
         .iter()
         .map(|(branch, hunks)| {
-            let hunks =
-                file_hunks_from_diffs(&ctx.project().path, hunks.clone(), Some(diff_dependencies));
+            let hunks = file_hunks_from_diffs(worktree_dir, hunks.clone(), Some(diff_dependencies));
             (branch.clone(), hunks)
         })
         .collect();

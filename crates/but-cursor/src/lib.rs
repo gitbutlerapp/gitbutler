@@ -136,7 +136,8 @@ pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
         but_claude::hooks::get_or_create_session(ctx, &input.conversation_id, stacks, vb_state)?;
 
     let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(project.path.clone())?.changes;
+        but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir()?.into())?
+            .changes;
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, true, Some(changes.clone()), None)?;
 
@@ -186,7 +187,8 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
     )?;
 
     let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(project.clone().path)?.changes;
+        but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir()?.into())?
+            .changes;
 
     if changes.is_empty() {
         return Ok(CursorHookOutput::default());

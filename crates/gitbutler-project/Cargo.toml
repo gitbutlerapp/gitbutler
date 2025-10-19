@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [dependencies]
 anyhow = "1.0.100"
 parking_lot = { workspace = true, features = ["arc_lock"] }
@@ -18,7 +19,6 @@ gitbutler-storage.workspace = true
 but-core.workspace = true
 git2.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
-uuid.workspace = true
 strum = { version = "0.27", features = ["derive"] }
 tracing.workspace = true
 resolve-path = "0.1.0"
@@ -29,4 +29,3 @@ fslock = "0.2.1"
 [dev-dependencies]
 gitbutler-testsupport.workspace = true
 tempfile.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "rt", "macros"] }

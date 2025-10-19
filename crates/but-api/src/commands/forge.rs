@@ -1,6 +1,4 @@
 //! In place of commands.rs
-use std::path::Path;
-
 use anyhow::Context;
 use but_api_macros::api_cmd;
 use gitbutler_forge::{
@@ -18,7 +16,7 @@ use crate::error::Error;
 #[instrument(err(Debug))]
 pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<String>, Error> {
     let project = gitbutler_project::get_validated(project_id)?;
-    Ok(available_review_templates(&project.path, &forge))
+    Ok(available_review_templates(project.worktree_dir()?, &forge))
 }
 
 #[api_cmd]
@@ -39,7 +37,7 @@ pub fn pr_template(
     if !is_valid_review_template_path(&relative_path) {
         return Err(anyhow::format_err!(
             "Invalid review template path: {:?}",
-            Path::join(&project.path, &relative_path)
+            project.worktree_dir()?.join(relative_path),
         )
         .into());
     }

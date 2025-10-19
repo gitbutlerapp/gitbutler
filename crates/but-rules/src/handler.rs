@@ -82,7 +82,7 @@ fn handle_amend(
     let changes: Vec<DiffSpec> = assignments.into_iter().map(|a| a.into()).collect();
     let project = ctx.project();
     let mut guard = project.exclusive_worktree_access();
-    let repo = but_core::open_repo_for_merging(project.worktree_path())?;
+    let repo = project.open_for_merging()?;
 
     let meta = VirtualBranchesTomlMetadata::from_path(
         ctx.project().gb_dir().join("virtual_branches.toml"),

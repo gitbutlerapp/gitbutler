@@ -898,7 +898,7 @@ mod util {
         let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
 
         Ok(TestContext {
-            repo: gix::open_opts(&ctx.project().path, gix::open::Options::isolated())?,
+            repo: ctx.project().open_isolated()?,
             stacks_entries: stacks,
             common_merge_base: handle.get_default_target()?.sha.to_gix(),
         })

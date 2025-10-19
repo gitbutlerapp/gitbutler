@@ -9,18 +9,19 @@ mod add {
     use super::*;
 
     #[test]
-    fn success() {
+    fn success() -> anyhow::Result<()> {
         let tmp = paths::data_dir();
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
         let project = gitbutler_project::add_with_path(tmp.path(), path)
             .unwrap()
             .unwrap_project();
-        assert_eq!(project.path, path);
+        assert_eq!(project.worktree_dir()?, path);
         assert_eq!(
             project.title,
             path.iter().next_back().unwrap().to_str().unwrap()
         );
+        Ok(())
     }
 
     mod error {

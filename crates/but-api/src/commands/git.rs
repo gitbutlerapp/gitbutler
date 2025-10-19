@@ -69,7 +69,9 @@ pub fn git_index_size(project_id: ProjectId) -> Result<usize, Error> {
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn delete_all_data() -> Result<(), Error> {
-    for project in gitbutler_project::list().context("failed to list projects")? {
+    for project in gitbutler_project::dangerously_list_without_migration()
+        .context("failed to list projects")?
+    {
         gitbutler_project::delete(project.id)
             .map_err(|err| err.context("failed to delete project"))?;
     }

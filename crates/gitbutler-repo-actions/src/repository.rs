@@ -186,7 +186,7 @@ impl RepoActionsExt for CommandContext {
         // NOTE(qix-): work around a time-sensitive change that was necessary
         // NOTE(qix-): without having to refactor a large portion of the codebase.
         if use_git_executable {
-            let path = self.project().worktree_path();
+            let path = self.project().git_dir().to_owned();
             let remote = branch.remote().to_string();
             std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
@@ -282,7 +282,7 @@ impl RepoActionsExt for CommandContext {
         // NOTE(qix-): work around a time-sensitive change that was necessary
         // NOTE(qix-): without having to refactor a large portion of the codebase.
         if self.project().preferred_key == AuthKey::SystemExecutable {
-            let path = self.project().worktree_path();
+            let path = self.project().git_dir().to_owned();
             let remote = remote_name.to_string();
             return std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
