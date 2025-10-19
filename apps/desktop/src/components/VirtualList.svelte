@@ -55,7 +55,8 @@
 	const userSettings = inject(SETTINGS);
 
 	// Constants
-	const FALLBACK_HEIGHT = 40;
+	const STICKY_DISTANCE = 100;
+	const FALLBACK_HEIGHT = 65;
 	const LOAD_MORE_THRESHOLD = 150;
 
 	// Debounce load more callback
@@ -101,9 +102,8 @@
 
 	function checkIfNearBottom() {
 		if (!viewport) return;
-		const threshold = 50;
 		const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-		isNearBottom = distanceFromBottom < threshold;
+		isNearBottom = distanceFromBottom < STICKY_DISTANCE;
 		return isNearBottom;
 	}
 
@@ -216,9 +216,10 @@
 			// start has moved forward, as an element is tagen out from
 			// the top but equally compensated by new padding, the
 			// scrollTop suddenly jumps by a lot.
-			const scrollTop = viewport.scrollTop;
+			let scrollTop = viewport.scrollTop;
 
 			await tick();
+
 			const savedDistance = distanceFromBottom();
 			const oldStart = start;
 			const newStart = await updateStartIndex();
@@ -234,13 +235,14 @@
 				const diff = realHeight - cachedHeight;
 				if (diff !== 0) {
 					viewport.scrollBy({ top: diff });
+					scrollTop += diff;
 				}
 			}
 			await tick();
-
 			// Resetting the scroll top here seems to give us the correct behavior.
 			if (viewport.scrollTop !== scrollTop) {
 				viewport.scrollTop = scrollTop;
+				await tick();
 			}
 
 			end = await updateEndIndex();
@@ -251,7 +253,7 @@
 			if (
 				!isScroll &&
 				stickToBottom &&
-				savedDistance < 50 &&
+				savedDistance < STICKY_DISTANCE &&
 				distanceFromBottom() > savedDistance
 			) {
 				viewport.scrollTop = viewport.scrollHeight;
@@ -306,20 +308,20 @@
 		}
 	});
 
-	// Note: Bottom initialization is now handled in recalculate()
-
 	// Auto-scroll to bottom when new items are added (if stickToBottom is enabled)
 	$effect(() => {
 		if (items && stickToBottom && isNearBottom) {
 			if (!viewport) return;
-			untrack(() => {
-				const oldEnd = end;
-				recalculate().then(() => {
+			untrack(async () => {
+				await recalculate();
+				// This `setTimeout` solves an issue where after submitting
+				// a codegen query, the chat view would be scrolled from the
+				// bottom up about half the height of the last message.
+				// TODO: Find a way of getting rid of this `setTimeout`
+				setTimeout(() => {
 					if (!viewport) return;
-					if (end > oldEnd) {
-						viewport.scrollTop = viewport.scrollHeight;
-					}
-				});
+					viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+				}, 0);
 			});
 		} else if (items) {
 			untrack(() => recalculate());
