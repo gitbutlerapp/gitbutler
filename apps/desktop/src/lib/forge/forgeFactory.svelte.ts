@@ -10,7 +10,7 @@ import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { ForgeProvider } from '$lib/baseBranch/baseBranch';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
-import type { GitHubApi, GitLabApi } from '$lib/state/clientState.svelte';
+import type { BackendApi, GitHubApi, GitLabApi } from '$lib/state/clientState.svelte';
 import type { ReduxTag } from '$lib/state/tags';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
@@ -45,6 +45,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 
 	constructor(
 		private params: {
+			backendApi: BackendApi;
 			gitHubClient: GitHubClient;
 			gitHubApi: GitHubApi;
 			gitLabClient: GitLabClient;
@@ -132,10 +133,11 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		};
 
 		if (forgeType === 'github') {
-			const { gitHubClient, gitHubApi, posthog } = this.params;
+			const { gitHubClient, gitHubApi, posthog, backendApi } = this.params;
 			return new GitHub({
 				...baseParams,
 				api: gitHubApi,
+				backendApi,
 				client: gitHubClient,
 				posthog: posthog,
 				authenticated: !!githubAuthenticated,

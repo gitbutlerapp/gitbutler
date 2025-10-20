@@ -176,6 +176,7 @@ export function initDependencies(args: {
 	const forgeFactory = new DefaultForgeFactory({
 		gitHubClient,
 		gitLabClient,
+		backendApi: clientState['backendApi'],
 		gitHubApi: clientState['githubApi'],
 		gitLabApi: clientState['gitlabApi'],
 		dispatch: clientState.dispatch,

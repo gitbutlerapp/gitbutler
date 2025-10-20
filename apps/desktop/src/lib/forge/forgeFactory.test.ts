@@ -3,7 +3,7 @@ import { PostHogWrapper } from '$lib/analytics/posthog';
 import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import { GitHub } from '$lib/forge/github/github';
 import { GitLab } from '$lib/forge/gitlab/gitlab';
-import { type GitHubApi } from '$lib/state/clientState.svelte';
+import { type BackendApi, type GitHubApi } from '$lib/state/clientState.svelte';
 import { mockCreateBackend } from '$lib/testing/mockBackend';
 import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { expect, test, describe, vi } from 'vitest';
@@ -27,6 +27,9 @@ describe.concurrent('DefaultforgeFactory', () => {
 		injectEndpoints: vi.fn(),
 		enhanceEndpoints: undefined as any
 	};
+	const MockBackendApi = vi.fn();
+	MockBackendApi.prototype.injectEndpoints = vi.fn();
+	const backendApi: BackendApi = new MockBackendApi();
 	const gitHubClient = { onReset: () => {} } as any as GitHubClient;
 	const gitLabClient = { onReset: () => {} } as any as GitLabClient;
 
@@ -40,6 +43,7 @@ describe.concurrent('DefaultforgeFactory', () => {
 		const factory = new DefaultForgeFactory({
 			gitHubClient,
 			gitHubApi,
+			backendApi,
 			gitLabClient,
 			gitLabApi,
 			posthog,
@@ -63,6 +67,7 @@ describe.concurrent('DefaultforgeFactory', () => {
 		const factory = new DefaultForgeFactory({
 			gitHubClient,
 			gitHubApi,
+			backendApi,
 			gitLabClient,
 			gitLabApi,
 			posthog,
@@ -86,6 +91,7 @@ describe.concurrent('DefaultforgeFactory', () => {
 		const factory = new DefaultForgeFactory({
 			gitHubClient,
 			gitHubApi,
+			backendApi,
 			gitLabClient,
 			gitLabApi,
 			posthog,
@@ -109,6 +115,7 @@ describe.concurrent('DefaultforgeFactory', () => {
 		const factory = new DefaultForgeFactory({
 			gitHubClient,
 			gitHubApi,
+			backendApi,
 			gitLabClient,
 			gitLabApi,
 			posthog,
@@ -132,6 +139,7 @@ describe.concurrent('DefaultforgeFactory', () => {
 			gitHubClient,
 			gitHubApi,
 			gitLabClient,
+			backendApi,
 			gitLabApi,
 			posthog,
 			dispatch

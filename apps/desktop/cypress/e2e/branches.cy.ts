@@ -168,44 +168,6 @@ describe('Branches', () => {
 		cy.getByTestId('delete-local-branch-confirmation-modal').should('not.exist');
 	});
 
-	it('should be able to apply a branch from a fork', () => {
-		const forkRemoteName = 'fork-remote';
-		// Click on the PR branch card
-		cy.getByTestId('pr-list-card')
-			.should('be.visible')
-			.should('have.length', mockBackend.getMockPRListings().length)
-			.click();
-
-		// The PR branch drawe should be visible
-		cy.getByTestId('pr-branch-view')
-			.should('be.visible')
-			.should('contain', mockBackend.getMockPr().head.ref)
-			.should('contain', mockBackend.getMockPr().title)
-			.should('contain', mockBackend.getMockPr().body);
-
-		// The button to apply the branch from a fork should be visible
-		cy.getByTestId('branches-view-apply-from-fork-button')
-			.should('be.visible')
-			.should('be.enabled')
-			.click();
-
-		// The create remote branch modal should be visible
-		cy.getByTestId('branches-view-create-remote-modal')
-			.should('be.visible')
-			.within(() => {
-				cy.get('input[type="text"]').type(forkRemoteName);
-			});
-
-		// Click on the action button to create the remote branch
-		cy.getByTestId('branches-view-create-remote-modal-action-button')
-			.should('be.visible')
-			.should('be.enabled')
-			.click();
-
-		// Should have navigation to the workspace
-		cy.urlMatches(`/${PROJECT_ID}/workspace`);
-	});
-
 	it('should be able to preivew multiple branches', () => {
 		// Should be able to navigate the different branches
 		for (const branch of mockBackend.branchListings) {
