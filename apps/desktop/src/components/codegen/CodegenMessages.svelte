@@ -225,9 +225,13 @@
 	});
 
 	async function sendMessage() {
-		await sendMessageBase(attachedFiles);
-		// Clear attached files after sending
+		// Store current attachments for sending
+		const attachmentsToSend = [...attachedFiles];
+
+		// Clear attached files immediately when starting to send
 		attachedFiles = [];
+
+		await sendMessageBase(attachmentsToSend);
 	}
 
 	function insertTemplate(template: string) {
