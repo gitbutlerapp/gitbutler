@@ -144,3 +144,7 @@ pub async fn get_gh_user(login: &str) -> Result<Option<AuthenticatedUser>> {
 pub fn list_known_github_usernames() -> Result<Vec<String>> {
     token::list_known_github_usernames().context("Failed to list known GitHub usernames")
 }
+
+pub fn clear_all_github_tokens() -> Result<()> {
+    token::clear_all_github_tokens().context("Failed to clear all GitHub tokens")
+}

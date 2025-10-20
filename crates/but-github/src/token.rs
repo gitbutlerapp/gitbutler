@@ -39,6 +39,10 @@ pub fn list_known_github_usernames() -> Result<Vec<String>> {
     Ok(map.into_iter().map(|entry| entry.username).collect())
 }
 
+pub fn clear_all_github_tokens() -> Result<()> {
+    persist_github_oauth_access_token_map(&[])
+}
+
 const GITHUB_OAUTH_ACCESS_TOKEN_MAP_KEY: &str = "github_oauth_access_token_map";
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

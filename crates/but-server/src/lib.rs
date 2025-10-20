@@ -17,7 +17,9 @@ use but_api::{
         virtual_branches, workspace, zip,
     },
     error::ToError as _,
-    github::{forget_github_username_cmd, list_known_github_usernames_cmd},
+    github::{
+        clear_all_github_tokens_cmd, forget_github_username_cmd, list_known_github_usernames_cmd,
+    },
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
@@ -364,7 +366,7 @@ async fn handle_command(
         }
         "forget_github_username" => forget_github_username_cmd(request.params),
         "list_known_github_usernames" => list_known_github_usernames_cmd(request.params),
-
+        "clear_all_github_tokens" => clear_all_github_tokens_cmd(request.params),
         "get_gh_user" => {
             let params = serde_json::from_value(request.params).to_error();
             match params {
