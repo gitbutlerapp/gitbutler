@@ -18,7 +18,7 @@
 </script>
 
 {#if message.type === 'user'}
-	<CodegenUserMessage content={message.message} />
+	<CodegenUserMessage content={message.message} attachments={message.attachments} />
 {:else if message.type === 'claude'}
 	{#if 'subtype' in message && message.subtype === 'compaction'}
 		<CodegenServiceMessage style="neutral" face="compacted" reverseElementsOrder>

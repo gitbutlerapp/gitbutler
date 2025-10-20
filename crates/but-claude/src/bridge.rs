@@ -21,12 +21,13 @@
 
 use std::{
     collections::HashMap,
-    io::{BufRead, BufReader, PipeReader, Read as _},
+    io::{BufRead, BufReader, PipeReader, Read as _, Write as _},
     process::ExitStatus,
     sync::Arc,
 };
 
 use anyhow::{Result, bail};
+use base64::prelude::*;
 use but_broadcaster::Broadcaster;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
@@ -41,8 +42,8 @@ use tokio::{
 };
 
 use crate::{
-    ClaudeMessage, ClaudeMessageContent, ClaudeUserParams, GitButlerMessage, PermissionMode,
-    ThinkingLevel, Transcript, UserInput,
+    ClaudeMessage, ClaudeMessageContent, ClaudeUserParams, FileAttachment, GitButlerMessage,
+    PermissionMode, ThinkingLevel, Transcript, UserInput,
     claude_config::fmt_claude_settings,
     claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
     claude_settings::ClaudeSettings,
@@ -224,15 +225,36 @@ impl Claudes {
                 None
             }
         };
+
+        // Get project directory early for file attachment processing
+        let project_dir = {
+            let ctx = ctx.lock().await;
+            ctx.project().worktree_dir()?.to_owned()
+        };
+
+        // Process file attachments and create enhanced message
+        let enhanced_message = if let Some(attachments) = &user_params.attachments {
+            process_attachments(&project_dir, &user_params.message, attachments).await?
+        } else {
+            user_params.message.clone()
+        };
+
+        // Create updated user params with enhanced message
+        let mut enhanced_user_params = user_params.clone();
+        enhanced_user_params.message = enhanced_message.clone();
+
         {
             let mut ctx = ctx.lock().await;
+            // Store the original message for UI display (without inlined file content)
+            // while Claude gets the enhanced message with file content inlined
             send_claude_message(
                 &mut ctx,
                 broadcaster.clone(),
                 session_id,
                 stack_id,
                 ClaudeMessageContent::UserInput(UserInput {
-                    message: user_params.message.clone(),
+                    message: user_params.message.clone(), // Original user message for display
+                    attachments: user_params.attachments.clone(),
                 }),
             )
             .await?;
@@ -255,7 +277,7 @@ impl Claudes {
             session,
             project.worktree_dir()?.to_owned(),
             ctx.clone(),
-            user_params,
+            enhanced_user_params,
             summary_to_resume,
         )
         .await?;
@@ -631,6 +653,98 @@ pub enum ClaudeCheckResult {
     Available { version: String },
     /// Claude Code is not available or failed to execute
     NotAvailable,
+}
+
+/// Process file attachments by writing them to temporary files in the project directory
+/// and enhancing the message to reference these files
+async fn process_attachments(
+    project_dir: &std::path::Path,
+    original_message: &str,
+    attachments: &[FileAttachment],
+) -> Result<String> {
+    if attachments.is_empty() {
+        return Ok(original_message.to_string());
+    }
+
+    // Create a temporary directory for attachments
+    let temp_dir = project_dir.join(".gitbutler_attachments");
+    fs::create_dir_all(&temp_dir).await?;
+
+    let mut file_references = Vec::new();
+    let mut file_paths = Vec::new();
+
+    for attachment in attachments {
+        // Decode base64 content
+        let content = base64::prelude::BASE64_STANDARD
+            .decode(&attachment.content)
+            .map_err(|e| anyhow::anyhow!("Failed to decode base64 content: {}", e))?;
+
+        // Create a unique filename to avoid conflicts
+        let filename = format!(
+            "{}_{}",
+            uuid::Uuid::new_v4().to_string().get(..8).unwrap_or("file"),
+            attachment.name
+        );
+        let file_path = temp_dir.join(&filename);
+
+        // Write the file
+        let mut file = std::fs::File::create(&file_path)?;
+        file.write_all(&content)?;
+
+        // Add reference to the file
+        let relative_path = file_path
+            .strip_prefix(project_dir)
+            .unwrap_or(&file_path)
+            .to_string_lossy();
+        file_references.push(format!("{} ({})", attachment.name, relative_path));
+        file_paths.push(relative_path.to_string());
+    }
+
+    // Create enhanced message with file references and content for small files
+    let mut enhanced_message = format!(
+        "{}\n\nI've attached the following files:\n",
+        original_message
+    );
+
+    for ((attachment, file_ref), file_path) in attachments
+        .iter()
+        .zip(file_references.iter())
+        .zip(file_paths.iter())
+    {
+        enhanced_message.push_str(&format!("- {}\n", file_ref));
+
+        // For small files, include content directly based on type
+        if attachment.size <= 50_000 {
+            let content = base64::prelude::BASE64_STANDARD
+                .decode(&attachment.content)
+                .map_err(|e| anyhow::anyhow!("Failed to decode base64 content: {}", e))?;
+
+            if attachment.mime_type.starts_with("text/")
+                || attachment.name.ends_with(".svg")
+                || attachment.name.ends_with(".xml")
+                || attachment.name.ends_with(".json")
+                || attachment.name.ends_with(".md")
+                || attachment.name.ends_with(".txt")
+            {
+                if let Ok(text_content) = String::from_utf8(content) {
+                    enhanced_message.push_str(&format!(
+                        "\nContent of {}:\n```\n{}\n```\n",
+                        attachment.name, text_content
+                    ));
+                }
+            } else {
+                // For binary files, just reference the path
+                enhanced_message.push_str(&format!(
+                    "\nBinary file {} is available at: {}\n",
+                    attachment.name, file_path
+                ));
+            }
+        }
+    }
+
+    enhanced_message.push_str("\n\nPlease analyze these files and help with my request. If you cannot see the file content above, please read the files from the file paths provided using your file reading tools.");
+
+    Ok(enhanced_message)
 }
 
 /// Check if Claude Code is available by running the version command.

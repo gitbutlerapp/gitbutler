@@ -13,6 +13,7 @@ serde_json_lenient.workspace = true
 strum = { version = "0.27", features = ["derive"] }
 chrono = { version = "0.4.42" }
 uuid.workspace = true
+base64 = "0.22.1"
 gix.workspace = true
 but-core.workspace = true
 but-action.workspace = true

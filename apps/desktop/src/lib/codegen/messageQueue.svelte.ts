@@ -11,7 +11,7 @@ import { UI_STATE, type GlobalStore, type StackState } from '$lib/state/uiState.
 import { inject } from '@gitbutler/core/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { chipToasts } from '@gitbutler/ui';
-import type { ModelType, PermissionMode, ThinkingLevel } from '$lib/codegen/types';
+import type { ModelType, PermissionMode, ThinkingLevel, FileAttachment } from '$lib/codegen/types';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 export function useMessageQueue() {
@@ -138,7 +138,7 @@ export function useSendMessage({
 	function setPrompt(prompt: string) {
 		laneState?.prompt.set(prompt);
 	}
-	async function sendMessage() {
+	async function sendMessage(attachmentsParam?: { id: string; file: File; preview?: string }[]) {
 		if (!selectedBranch.current) return;
 		if (!laneState) return;
 		if (!prompt) return;
@@ -169,7 +169,8 @@ export function useSendMessage({
 				permissionMode: permissionMode.current,
 				claudeCodeService,
 				codegenAnalytics,
-				sendClaudeMessage
+				sendClaudeMessage,
+				attachments: attachmentsParam
 			});
 
 			setPrompt('');
@@ -222,7 +223,8 @@ async function sendMessageInner({
 	permissionMode,
 	claudeCodeService,
 	codegenAnalytics,
-	sendClaudeMessage
+	sendClaudeMessage,
+	attachments
 }: {
 	prompt: string;
 	projectId: string;
@@ -234,6 +236,7 @@ async function sendMessageInner({
 	claudeCodeService: ClaudeCodeService;
 	codegenAnalytics: CodegenAnalytics;
 	sendClaudeMessage: ClaudeCodeService['sendMessage'][0];
+	attachments?: { id: string; file: File; preview?: string }[];
 }) {
 	if (prompt.startsWith('/compact')) {
 		await claudeCodeService.compactHistory({
@@ -263,6 +266,28 @@ async function sendMessageInner({
 		return;
 	}
 
+	// Convert attached files to backend format
+	let fileAttachments: FileAttachment[] | undefined = undefined;
+	if (attachments && attachments.length > 0) {
+		fileAttachments = await Promise.all(
+			attachments.map(async (attached: { id: string; file: File; preview?: string }) => {
+				// Convert file to base64
+				const buffer = await attached.file.arrayBuffer();
+				const bytes = new Uint8Array(buffer);
+				const binary = bytes.reduce((data, byte) => data + String.fromCharCode(byte), '');
+				const base64Content = btoa(binary);
+
+				return {
+					id: attached.id,
+					name: attached.file.name,
+					content: base64Content,
+					mimeType: attached.file.type,
+					size: attached.file.size
+				};
+			})
+		);
+	}
+
 	// Await analytics data before sending message
 	const analyticsProperties = await codegenAnalytics.getCodegenProperties({
 		projectId,
@@ -281,7 +306,8 @@ async function sendMessageInner({
 			model,
 			permissionMode,
 			disabledMcpServers: laneState?.disabledMcpServers.current ?? [],
-			addDirs: laneState?.addedDirs.current ?? []
+			addDirs: laneState?.addedDirs.current ?? [],
+			attachments: fileAttachments
 		},
 		{ properties: analyticsProperties }
 	);

@@ -51,6 +51,12 @@
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type { ClaudeMessage, ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
 
+	interface AttachedFile {
+		id: string;
+		file: File;
+		preview?: string;
+	}
+
 	type Props = {
 		projectId: string;
 		branchName: string;
@@ -127,6 +133,12 @@
 	const selectedModel = $derived(projectState.selectedModel.current);
 	const selectedPermissionMode = $derived(uiState.lane(stackId).permissionMode.current);
 
+	let attachedFiles: AttachedFile[] = $state([]);
+
+	function onFilesChanged(files: AttachedFile[]) {
+		attachedFiles = files;
+	}
+
 	$effect(() => {
 		if (stacks.response) {
 			// Make sure the current selection is valid
@@ -200,13 +212,23 @@
 		return short ? thinkingLevel.shortLabel : thinkingLevel.label;
 	}
 
-	const { prompt, setPrompt, sendMessage } = useSendMessage({
+	const {
+		prompt,
+		setPrompt,
+		sendMessage: sendMessageBase
+	} = useSendMessage({
 		projectId: reactive(() => projectId),
 		selectedBranch: reactive(() => ({ stackId, head: stableBranchName })),
 		thinkingLevel: reactive(() => selectedThinkingLevel),
 		model: reactive(() => selectedModel),
 		permissionMode: reactive(() => selectedPermissionMode)
 	});
+
+	async function sendMessage() {
+		await sendMessageBase(attachedFiles);
+		// Clear attached files after sending
+		attachedFiles = [];
+	}
 
 	function insertTemplate(template: string) {
 		setPrompt(prompt + (prompt ? '\n\n' : '') + template);
@@ -470,6 +492,8 @@
 						onsubmit={sendMessage}
 						{onAbort}
 						sessionKey={`${stackId}-${stableBranchName}`}
+						bind:attachedFiles
+						{onFilesChanged}
 					>
 						{#snippet actionsOnLeft({ triggerFileSelection })}
 							{@const permissionModeLabel = permissionModeOptions.find(

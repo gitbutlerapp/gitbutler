@@ -69,12 +69,30 @@ pub enum ClaudeMessageContent {
     GitButlerMessage(GitButlerMessage),
 }
 
+/// Represents a file attachment in user input.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FileAttachment {
+    /// The file identifier
+    pub id: String,
+    /// The original filename
+    pub name: String,
+    /// The file content as base64 encoded string
+    pub content: String,
+    /// The MIME type of the file
+    pub mime_type: String,
+    /// File size in bytes
+    pub size: usize,
+}
+
 /// Represents user input in a Claude session.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UserInput {
     /// The user message
     pub message: String,
+    /// Optional file attachments
+    pub attachments: Option<Vec<FileAttachment>>,
 }
 
 /// Metadata provided by GitButler.
@@ -182,6 +200,7 @@ pub struct ClaudeUserParams {
     pub permission_mode: PermissionMode,
     pub disabled_mcp_servers: Vec<String>,
     pub add_dirs: Vec<String>,
+    pub attachments: Option<Vec<FileAttachment>>,
 }
 
 pub async fn send_claude_message(
