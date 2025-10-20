@@ -38,7 +38,7 @@
 		max-width: calc(var(--message-max-width) - 6%);
 		padding: 10px 14px;
 		overflow: hidden;
-		gap: 14px;
+		gap: 10px;
 		border-radius: var(--radius-ml);
 		border-bottom-right-radius: 0;
 		background-color: var(--clr-bg-2);
@@ -53,7 +53,6 @@
 
 	.message-user__divider {
 		width: 100%;
-		margin-bottom: -4px;
 		border: none;
 		border-top: 1px dotted var(--clr-border-2);
 	}
