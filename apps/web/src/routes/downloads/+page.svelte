@@ -143,7 +143,7 @@
 		<div class="nightly-info">
 			<p class="text-14 text-body clr-text-2">
 				Experience GitButler’s newest features before anyone else. ⋆˚₊
-				<a href="/nightlies" class="download-link"> Get Nightly </a>
+				<a href="/nightly" class="download-link"> Get Nightly </a>
 				☽˚.⋆
 			</p>
 		</div>

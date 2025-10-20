@@ -57,12 +57,12 @@
 		(page.route.id === '/(app)' && recentProjects.current.length === 0) ||
 			page.route.id === '/(app)/home' ||
 			page.route.id === '/downloads' ||
-			page.route.id === '/nightlies'
+			page.route.id === '/nightly'
 	);
 
 	// Check if current page should render children directly
 	const shouldRenderChildren = $derived(
-		page.route.id === '/downloads' || page.route.id === '/nightlies'
+		page.route.id === '/downloads' || page.route.id === '/nightly'
 	);
 
 	$effect(() => {
