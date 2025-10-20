@@ -1,8 +1,15 @@
 <script lang="ts">
+	import CodegenDragndrop from '$components/codegen/CodegenDragndrop.svelte';
 	import CodegenInputQueued from '$components/codegen/CodegenInputQueued.svelte';
 	import { Tooltip, Textarea, AsyncButton } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
+
+	interface AttachedFile {
+		id: string;
+		file: File;
+		preview?: string;
+	}
 
 	interface Props {
 		value: string;
@@ -10,12 +17,15 @@
 		compacting: boolean;
 		onsubmit: () => Promise<void>;
 		onAbort?: () => Promise<void>;
-		actionsOnLeft: Snippet;
+		actionsOnLeft: Snippet<[{ triggerFileSelection: () => void }]>;
 		actionsOnRight: Snippet;
 		projectId: string;
 		selectedBranch: { stackId: string; head: string } | undefined;
 		onChange: (value: string) => void;
 		sessionKey?: string; // Used to trigger refocus when switching sessions
+		attachedFiles?: AttachedFile[];
+		onFilesChanged?: (files: AttachedFile[]) => void;
+		showFileAttachment?: boolean;
 	}
 	let {
 		value = $bindable(),
@@ -28,10 +38,101 @@
 		projectId,
 		selectedBranch,
 		onChange,
-		sessionKey
+		sessionKey,
+		attachedFiles = $bindable([]),
+		onFilesChanged,
+		showFileAttachment = true
 	}: Props = $props();
 
 	let textareaRef = $state<HTMLTextAreaElement>();
+	let fileInputRef = $state<HTMLInputElement>();
+	let isDraggingOverWindow = $state(false);
+	let dragEnterCounter = $state(0);
+
+	// Function to trigger file selection dialog
+	function triggerFileSelection() {
+		if (!loading && fileInputRef) {
+			fileInputRef.click();
+		}
+	}
+
+	// Handle file input change
+	async function handleFileInputChange() {
+		if (fileInputRef?.files && fileInputRef.files.length > 0) {
+			const newFiles: AttachedFile[] = [];
+
+			for (const file of Array.from(fileInputRef.files)) {
+				// Generate preview for image files
+				let preview: string | undefined = undefined;
+				if (file.type.startsWith('image/')) {
+					preview = await new Promise<string>((resolve) => {
+						const reader = new FileReader();
+						reader.onload = (e) => resolve(e.target?.result as string);
+						reader.onerror = () => resolve('');
+						reader.readAsDataURL(file);
+					});
+				}
+
+				// Check for duplicates
+				const isDuplicate = attachedFiles.some(
+					(existing) =>
+						existing.file.name === file.name &&
+						existing.file.size === file.size &&
+						existing.file.lastModified === file.lastModified
+				);
+
+				if (!isDuplicate) {
+					newFiles.push({
+						id: `${file.name}-${Date.now()}-${Math.random()}`,
+						file,
+						preview
+					});
+				}
+			}
+
+			if (newFiles.length > 0) {
+				attachedFiles = [...attachedFiles, ...newFiles];
+				onFilesChanged?.(attachedFiles);
+			}
+
+			// Reset input
+			fileInputRef.value = '';
+		}
+	}
+
+	// Window-level drag event handlers to show/hide drag area
+	$effect(() => {
+		function handleWindowDragEnter(e: DragEvent) {
+			// Only show for file drags, not internal element drags
+			if (e.dataTransfer?.types.includes('Files')) {
+				dragEnterCounter++;
+				isDraggingOverWindow = true;
+			}
+		}
+
+		function handleWindowDragLeave() {
+			dragEnterCounter--;
+			if (dragEnterCounter <= 0) {
+				dragEnterCounter = 0;
+				isDraggingOverWindow = false;
+			}
+		}
+
+		function handleWindowDrop() {
+			dragEnterCounter = 0;
+			isDraggingOverWindow = false;
+		}
+
+		window.addEventListener('dragenter', handleWindowDragEnter);
+		window.addEventListener('dragleave', handleWindowDragLeave);
+		window.addEventListener('drop', handleWindowDrop);
+
+		return () => {
+			window.removeEventListener('dragenter', handleWindowDragEnter);
+			window.removeEventListener('dragleave', handleWindowDragLeave);
+			window.removeEventListener('drop', handleWindowDrop);
+		};
+	});
 
 	// Focus when component mounts or when session changes
 	$effect(() => {
@@ -88,8 +189,24 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="dialog-wrapper">
+	<!-- Hidden file input for attachment button -->
+	<input
+		bind:this={fileInputRef}
+		type="file"
+		multiple
+		accept="image/*,text/*,.pdf,.doc,.docx,.md"
+		style="display: none"
+		onchange={handleFileInputChange}
+	/>
+
 	<div class="text-input dialog-input" onkeypress={handleKeypress} onclick={handleDialogClick}>
 		<CodegenInputQueued {projectId} {selectedBranch} />
+
+		{#if showFileAttachment && !compacting && (isDraggingOverWindow || attachedFiles.length > 0)}
+			<div class="file-attachment-section">
+				<CodegenDragndrop bind:attachedFiles {onFilesChanged} showDropArea={isDraggingOverWindow} />
+			</div>
+		{/if}
 
 		<Textarea
 			bind:textBoxEl={textareaRef}
@@ -109,7 +226,7 @@
 
 		<div class="actions">
 			<div class="actions-group">
-				{@render actionsOnLeft()}
+				{@render actionsOnLeft({ triggerFileSelection })}
 			</div>
 
 			<div class="actions-group">
@@ -202,6 +319,11 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		transition: border-color var(--transition-fast);
+	}
+
+	.file-attachment-section {
+		padding: 12px;
+		padding-bottom: 4px;
 	}
 
 	.actions {

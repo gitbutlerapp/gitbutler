@@ -471,12 +471,19 @@
 						{onAbort}
 						sessionKey={`${stackId}-${stableBranchName}`}
 					>
-						{#snippet actionsOnLeft()}
+						{#snippet actionsOnLeft({ triggerFileSelection })}
 							{@const permissionModeLabel = permissionModeOptions.find(
 								(a) => a.value === selectedPermissionMode
 							)?.label}
 							<div class="flex m-right-4 gap-2">
-								<Button disabled kind="ghost" icon="attachment" reversedDirection />
+								<Button
+									kind="ghost"
+									icon="attachment"
+									reversedDirection
+									onclick={triggerFileSelection}
+									tooltip="Attach files"
+									disabled={['running', 'compacting'].includes(status)}
+								/>
 								<Button
 									bind:el={templateTrigger}
 									kind="ghost"
