@@ -20,7 +20,6 @@
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { useGoToCodegenPage } from '$lib/codegen/redirect.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { codegenEnabled } from '$lib/config/uiFeatureFlags';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -272,7 +271,7 @@
 				{/if}
 			</ContextMenuSection>
 			<ContextMenuSection>
-				{#if stackId && first && $codegenEnabled}
+				{#if stackId && first}
 					{@const rule = rulesService.aiRuleForStack({ projectId, stackId })}
 					{#if !rule.response?.rule}
 						<ContextMenuItem

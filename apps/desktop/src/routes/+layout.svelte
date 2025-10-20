@@ -21,7 +21,7 @@
 	import { useMessageQueue } from '$lib/codegen/messageQueue.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { ircEnabled, ircServer, codegenEnabled, fModeEnabled } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, ircServer, fModeEnabled } from '$lib/config/uiFeatureFlags';
 	import { IRC_CLIENT } from '$lib/irc/ircClient.svelte';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -140,10 +140,6 @@
 			(window as any).tauriEnv = env;
 			// eslint-disable-next-line no-console
 			console.log('Also written to window.tauriEnv');
-		},
-		// Toggle codegen feature flag
-		'c o d e g e n': () => {
-			$codegenEnabled = !$codegenEnabled;
 		}
 	});
 

@@ -3,7 +3,6 @@
 	import {
 		ircEnabled,
 		ircServer,
-		codegenEnabled,
 		newCodegenEnabled,
 		fModeEnabled
 	} from '$lib/config/uiFeatureFlags';
@@ -71,21 +70,6 @@
 				checked={$settingsStore?.featureFlags.rules}
 				onclick={() =>
 					settingsService.updateFeatureFlags({ rules: !$settingsStore?.featureFlags.rules })}
-			/>
-		{/snippet}
-	</SectionCard>
-	<SectionCard labelFor="codegen" roundedTop={false} roundedBottom={false} orientation="row">
-		{#snippet title()}
-			Codegen (Claude Code)
-		{/snippet}
-		{#snippet caption()}
-			Enable AI-powered code generation and editing with Claude.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="codegen"
-				checked={$codegenEnabled}
-				onclick={() => ($codegenEnabled = !$codegenEnabled)}
 			/>
 		{/snippet}
 	</SectionCard>
