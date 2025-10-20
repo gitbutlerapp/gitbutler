@@ -66,7 +66,7 @@
 		"diff-match-patch": "^1.0.5",
 		"isomorphic-dompurify": "^2.26.0",
 		"marked": "catalog:",
-		"playwright": "1.54.1",
+		"playwright": "1.55.1",
 		"postcss": "catalog:postcss",
 		"postcss-cli": "catalog:postcss",
 		"postcss-nesting": "catalog:postcss",
