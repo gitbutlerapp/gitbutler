@@ -117,11 +117,13 @@ pub(crate) fn set_base_branch(
         r.stash_save2(&sig, None, Some(git2::StashFlags::INCLUDE_UNTRACKED))?;
     }
 
-    // if target exists, and it is the same as the requested branch, we should go back
-    if let Ok(target) = default_target(&ctx.project().gb_dir())
-        && target.branch.eq(target_branch_ref)
-    {
-        return go_back_to_integration(ctx, &target);
+    if !ctx.app_settings().feature_flags.single_branch {
+        // // if target exists, and it is the same as the requested branch, we should go back
+        if let Ok(target) = default_target(&ctx.project().gb_dir())
+            && target.branch.eq(target_branch_ref)
+        {
+            return go_back_to_integration(ctx, &target);
+        }
     }
 
     // lookup a branch by name
@@ -169,7 +171,27 @@ pub(crate) fn set_base_branch(
     let vb_state = ctx.project().virtual_branches();
     vb_state.set_default_target(target.clone())?;
 
-    // TODO: make sure this is a real branch
+    if !ctx.app_settings().feature_flags.single_branch {
+        maybe_checkout_target(ctx)?;
+    }
+
+    // This is a side effect that should not be here
+    set_exclude_decoration(ctx)?;
+    // We almost certainly don't need this here
+    update_workspace_commit(&vb_state, ctx, true)?;
+
+    let base = target_to_base_branch(ctx, &target)?;
+    Ok(base)
+}
+
+fn maybe_checkout_target(ctx: &CommandContext) -> Result<(), anyhow::Error> {
+    let repo = ctx.repo();
+    let vb_state = ctx.project().virtual_branches();
+    let target = vb_state.get_default_target()?;
+    let target_branch_ref = target.branch;
+    let current_head = repo.head()?;
+    let current_head_commit = current_head.peel_to_commit()?;
+
     let head_name: Refname = current_head
         .name()
         .map(|name| name.parse().expect("libgit2 provides valid refnames"))
@@ -205,7 +227,7 @@ pub(crate) fn set_base_branch(
             let (upstream, upstream_head, branch_matches_target) =
                 if let Refname::Local(head_name) = &head_name {
                     let upstream_name = target_branch_ref.with_branch(head_name.branch());
-                    if upstream_name.eq(target_branch_ref) {
+                    if upstream_name.eq(&target_branch_ref) {
                         (None, None, true)
                     } else {
                         match repo.find_reference(&Refname::from(&upstream_name).to_string()) {
@@ -253,14 +275,9 @@ pub(crate) fn set_base_branch(
 
             vb_state.set_stack(branch)?;
         }
-    }
+    };
 
-    set_exclude_decoration(ctx)?;
-
-    update_workspace_commit(&vb_state, ctx, true)?;
-
-    let base = target_to_base_branch(ctx, &target)?;
-    Ok(base)
+    Ok(())
 }
 
 pub(crate) fn set_target_push_remote(ctx: &CommandContext, push_remote_name: &str) -> Result<()> {
