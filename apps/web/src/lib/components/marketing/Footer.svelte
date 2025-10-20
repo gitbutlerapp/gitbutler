@@ -73,7 +73,7 @@
 
 				<div class="banner-nightly-text">
 					<span class="opacity-50">Experience GitButler's newest features before anyone else.</span>
-					<a href="/nightlies" class="nightly-link"> Get Nightly </a>
+					<a href="/nightly" class="nightly-link"> Get Nightly </a>
 				</div>
 			</div>
 		{:else}
