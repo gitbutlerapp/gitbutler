@@ -207,6 +207,7 @@ impl Controller {
         #[cfg_attr(not(windows), allow(unused_mut))]
         let mut project = self.projects_storage.get(id)?;
         // BACKWARD-COMPATIBLE MIGRATION
+        project.migrate()?;
         if validate {
             let repo = project.open_isolated();
             if repo.is_err() {
@@ -223,7 +224,6 @@ impl Controller {
             }
         }
 
-        project.migrate()?;
         if !project.gb_dir().exists()
             && let Err(error) = std::fs::create_dir_all(project.gb_dir())
         {
