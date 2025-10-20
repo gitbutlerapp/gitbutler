@@ -6,12 +6,11 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SelectionView from '$components/SelectionView.svelte';
 	import UnassignedView from '$components/UnassignedView.svelte';
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE, type ExclusiveAction } from '$lib/state/uiState.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { TestId } from '@gitbutler/ui';
 
@@ -27,7 +26,6 @@
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const settingsService = inject(SETTINGS_SERVICE);
-	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 
 	const selectionId = createWorktreeSelection({ stackId: undefined });
 	const worktreeSelection = $derived(idSelection.getById(selectionId));
@@ -36,57 +34,9 @@
 	const settingsStore = $derived(settingsService.appSettings);
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 	const showingActions = $derived(projectState.showActions.current && canUseActions);
-	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
-	const baseSha = $derived(baseBranchQuery.response?.baseSha);
 
 	const lastAdded = $derived(worktreeSelection.lastAdded);
 	const previewOpen = $derived(!!$lastAdded?.key);
-
-	// Ensures that the exclusive action is still valid.
-	$effect(() => {
-		if (exclusiveAction?.type === 'commit') {
-			ensureExclusiveCommitValid(exclusiveAction);
-		}
-	});
-
-	function ensureExclusiveCommitValid(action: ExclusiveAction & { type: 'commit' }) {
-		// We are committing to a stack that has not been created yet
-		if (!action.stackId) {
-			return;
-		}
-
-		const stacks = stackService.stacks(projectId);
-		const branch = stackService.branchDetails(projectId, action.stackId, action.branchName);
-
-		$effect(() => {
-			const stackFound = stacks.response?.find((s) => s.id === action.stackId);
-			if (!stackFound) {
-				uiState.project(projectId).exclusiveAction.set(undefined);
-			}
-
-			if (!action.branchName) {
-				return;
-			}
-
-			if (!branch?.response) {
-				uiState.project(projectId).exclusiveAction.set(undefined);
-				return;
-			}
-
-			// If the parentCommitId is not set, we are committing to the top of the stack.
-			if (!action.parentCommitId) {
-				return;
-			}
-
-			// When we're committing to the bottom of the stack we set the
-			// commit id to equal the workspace base.
-			const hasCommit = branch.response.commits.some((c) => c.id === action.parentCommitId);
-			if (!hasCommit && action.parentCommitId !== baseSha) {
-				uiState.project(projectId).exclusiveAction.set(undefined);
-			}
-		});
-	}
 
 	let selectionPreviewScrollContainer: HTMLDivElement | undefined = $state();
 </script>

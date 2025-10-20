@@ -448,7 +448,8 @@ export function updateStaleProjectState(
 	projectId: string,
 	stackIds: string[],
 	branches: string[],
-	commitIds: string[]
+	commitIds: string[],
+	baseCommitShas: string[]
 ) {
 	const projectState = uiState.project(projectId);
 
@@ -463,7 +464,8 @@ export function updateStaleProjectState(
 			projectState,
 			stackIds,
 			commitIds,
-			branches
+			branches,
+			baseCommitShas
 		);
 	}
 }
@@ -473,14 +475,19 @@ function updateExclusiveActionState(
 	projectState: GlobalStore<ProjectUiState>,
 	stackIds: string[],
 	commitIds: string[],
-	branches: string[]
+	branches: string[],
+	baseCommitShas: string[]
 ) {
 	switch (action.type) {
 		case 'commit':
 			if (action.stackId && !stackIds.includes(action.stackId)) {
 				projectState.exclusiveAction.set(undefined);
 			}
-			if (action.parentCommitId && !commitIds.includes(action.parentCommitId)) {
+			if (
+				action.parentCommitId &&
+				!commitIds.includes(action.parentCommitId) &&
+				!baseCommitShas.includes(action.parentCommitId)
+			) {
 				projectState.exclusiveAction.set(undefined);
 			}
 			if (action.branchName && !branches.includes(action.branchName)) {

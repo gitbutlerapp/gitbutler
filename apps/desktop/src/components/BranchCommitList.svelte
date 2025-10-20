@@ -45,7 +45,6 @@
 		stackId?: string;
 		laneId: string;
 		branchName: string;
-		firstBranch: boolean;
 		lastBranch: boolean;
 		branchDetails: BranchDetails;
 		stackingReorderDropzoneManager: ReorderCommitDzFactory;
@@ -62,7 +61,6 @@
 		laneId,
 		branchName,
 		branchDetails,
-		firstBranch,
 		lastBranch,
 		stackingReorderDropzoneManager,
 		active,
@@ -226,16 +224,13 @@
 	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits], { stackId })}
 		{@const hasRemoteCommits = upstreamOnlyCommits.length > 0}
 		{@const hasCommits = localAndRemoteCommits.length > 0}
-		{@const thisIsTheRightBranch = firstBranch && selectedCommitId === undefined}
 
-		{#if !hasCommits && isCommitting && thisIsTheRightBranch}
+		{#if !hasCommits && isCommitting}
 			<CommitGoesHere
 				commitId={baseSha}
 				last
 				draft
-				selected={branchName === commitAction?.branchName ||
-					!commitAction?.branchName ||
-					!commitAction.parentCommitId}
+				selected={branchName === commitAction?.branchName}
 				onclick={() => {
 					projectState.exclusiveAction.set({
 						type: 'commit',
@@ -438,17 +433,17 @@
 					)}
 					{#if isCommitting && last}
 						<CommitGoesHere
-							commitId={baseSha}
+							commitId={branchDetails.baseCommit}
 							{first}
 							{last}
 							selected={exclusiveAction?.type === 'commit' &&
-								exclusiveAction.parentCommitId === baseSha}
+								exclusiveAction.parentCommitId === branchDetails.baseCommit}
 							onclick={() => {
 								projectState.exclusiveAction.set({
 									type: 'commit',
 									stackId,
 									branchName,
-									parentCommitId: baseSha
+									parentCommitId: branchDetails.baseCommit
 								});
 							}}
 						/>

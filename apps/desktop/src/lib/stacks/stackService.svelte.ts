@@ -390,13 +390,15 @@ export class StackService {
 			this.api.endpoints.stackDetails.useQueries(args, {
 				transform: ({ commits, stackInfo }) => ({
 					commits: commitSelectors.selectAll(commits),
-					branches: stackInfo.branchDetails.map((b) => b.name)
+					branches: stackInfo.branchDetails.map((b) => b.name),
+					baseCommitShas: stackInfo.branchDetails.map((b) => b.baseCommit)
 				})
 			})
 		);
 		const detailsData = $derived(details.current);
 		const allCommits = $derived(detailsData.flatMap((d) => d.data?.commits ?? []));
 		const allBranches = $derived(detailsData.flatMap((d) => d.data?.branches ?? []));
+		const allBaseCommitShas = $derived(detailsData.flatMap((d) => d.data?.baseCommitShas ?? []));
 
 		$effect(() => {
 			updateStaleProjectState(
@@ -404,7 +406,8 @@ export class StackService {
 				projectId,
 				stackIdsData,
 				allBranches,
-				allCommits.map((c) => c.id)
+				allCommits.map((c) => c.id),
+				allBaseCommitShas
 			);
 		});
 
