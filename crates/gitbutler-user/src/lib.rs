@@ -22,6 +22,13 @@ pub fn set_user(user: &User) -> anyhow::Result<()> {
     controller.set_user(user)
 }
 
+/// Remove the GitHub login information from the stored user,
+/// returning the removed GitHub access token, if any.
+pub fn forget_github_login_for_user() -> anyhow::Result<Option<but_secret::Sensitive<String>>> {
+    let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.forget_github_login_for_user()
+}
+
 /// Testing purpose only.
 pub fn set_user_with_path<P: AsRef<std::path::Path>>(
     data_dir: P,
