@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use but_secret::secret;
+use but_secret::{Sensitive, secret};
 
 use super::{User, storage::Storage};
 
@@ -39,6 +39,25 @@ impl Controller {
             self.storage.set(user).context("failed to set user")
         } else {
             Ok(())
+        }
+    }
+
+    /// This will remove GitHub-related secrets from the stored user, if any.
+    /// Returns the access token that was removed, if any.
+    pub(crate) fn forget_github_login_for_user(&self) -> Result<Option<Sensitive<String>>> {
+        if let Some(mut user) = self.get_user()? {
+            let namespace = secret::Namespace::BuildKind;
+            let access_token = secret::retrieve(User::GITHUB_ACCESS_TOKEN_HANDLE, namespace)?;
+            // Take the token before passing to set_user, so it is not lost
+            user.github_access_token.borrow_mut().take();
+            user.github_username = None;
+            // Remove the secret from the secret store
+            secret::delete(User::GITHUB_ACCESS_TOKEN_HANDLE, namespace).ok();
+            // Persist the user without the token
+            self.set_user(&user)?;
+            Ok(access_token)
+        } else {
+            Ok(None)
         }
     }
 

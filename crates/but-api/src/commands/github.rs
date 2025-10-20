@@ -59,13 +59,6 @@ pub fn forget_github_username(username: String) -> Result<(), Error> {
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
-pub fn list_known_github_usernames() -> Result<Vec<String>, Error> {
-    but_github::list_known_github_usernames().map_err(Into::into)
-}
-
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
-#[instrument(err(Debug))]
 pub fn clear_all_github_tokens() -> Result<(), Error> {
     but_github::clear_all_github_tokens().map_err(Into::into)
 }
@@ -113,5 +106,11 @@ pub async fn get_gh_user(
     but_github::get_gh_user(&username)
         .await
         .map(|res| res.map(Into::into))
+        .map_err(Into::into)
+}
+
+pub async fn list_known_github_usernames() -> Result<Vec<String>, Error> {
+    but_github::list_known_github_usernames()
+        .await
         .map_err(Into::into)
 }

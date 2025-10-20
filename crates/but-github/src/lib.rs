@@ -93,14 +93,7 @@ pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<AuthStat
             .context("Failed to parse response body")?,
     );
 
-    let gh = client::GitHubClient::new(&access_token).context("Failed to create GitHub client")?;
-    let user = gh
-        .get_authenticated()
-        .await
-        .context("Failed to get authenticated user")?;
-
-    token::persist_gh_access_token(&user.login, &access_token)
-        .context("Failed to persist access token")?;
+    let user = fetch_and_persist_user_data(&access_token).await?;
 
     Ok(AuthStatusResponse {
         access_token,
@@ -108,6 +101,20 @@ pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<AuthStat
         name: user.name,
         email: user.email,
     })
+}
+
+/// Fetch the authenticated user data from GitHub and persist the access token.
+async fn fetch_and_persist_user_data(
+    access_token: &Sensitive<String>,
+) -> Result<client::AuthenticatedUser, anyhow::Error> {
+    let gh = client::GitHubClient::new(access_token).context("Failed to create GitHub client")?;
+    let user = gh
+        .get_authenticated()
+        .await
+        .context("Failed to get authenticated user")?;
+    token::persist_gh_access_token(&user.login, access_token)
+        .context("Failed to persist access token")?;
+    Ok(user)
 }
 
 pub fn forget_gh_access_token(login: &str) -> Result<()> {
@@ -143,7 +150,14 @@ pub async fn get_gh_user(login: &str) -> Result<Option<AuthenticatedUser>> {
     }
 }
 
-pub fn list_known_github_usernames() -> Result<Vec<String>> {
+pub async fn list_known_github_usernames() -> Result<Vec<String>> {
+    // Migrate the users from the previous storage method.
+    if let Some(stored_gh_access_token) = gitbutler_user::forget_github_login_for_user()? {
+        fetch_and_persist_user_data(&stored_gh_access_token)
+            .await
+            .ok();
+    }
+
     token::list_known_github_usernames().context("Failed to list known GitHub usernames")
 }
 

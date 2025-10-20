@@ -24,3 +24,9 @@ pub async fn check_auth_status(device_code: String) -> Result<AuthStatusResponse
 pub async fn get_gh_user(username: String) -> Result<Option<AuthenticatedUserSensitive>, Error> {
     github::get_gh_user(GetGhUserParams { username }).await
 }
+
+#[tauri::command(async)]
+#[instrument(err(Debug))]
+pub async fn list_known_github_usernames() -> Result<Vec<String>, Error> {
+    github::list_known_github_usernames().await
+}
