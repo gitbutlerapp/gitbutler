@@ -22,6 +22,7 @@
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
 
+	const [clearAll, clearingAllResult] = githubUserService.deleteAllGitHubAccounts();
 	const usernames = githubUserService.usernames();
 
 	// step flags
@@ -65,6 +66,11 @@
 			loading = false;
 		}
 	}
+
+	async function deleteAllGitHubAccounts() {
+		await clearAll();
+		gitHubStartOauth();
+	}
 </script>
 
 {#if minimal}
@@ -73,6 +79,18 @@
 	<div class="stack-v gap-16">
 		<div class="stack-v">
 			<ReduxResult result={usernames.result}>
+				{#snippet error()}
+					<SectionCard orientation="row">
+						{#snippet title()}
+							Failed to load GitHub accounts
+						{/snippet}
+						<Button
+							style="pop"
+							onclick={deleteAllGitHubAccounts}
+							loading={clearingAllResult.current.isLoading}>Try again</Button
+						>
+					</SectionCard>
+				{/snippet}
 				{#snippet children(usernames)}
 					{#each usernames as username}
 						<GithubUserLoginState {username} isFirst={usernames.indexOf(username) === 0} />
@@ -98,7 +116,12 @@
 						{/snippet}
 
 						{#if usernames.length === 0}
-							<Button style="pop" onclick={gitHubStartOauth} icon="plus-small">Add account</Button>
+							<Button
+								style="pop"
+								onclick={gitHubStartOauth}
+								disabled={showAuthFlow}
+								icon="plus-small">Add account</Button
+							>
 						{:else}
 							<Button
 								style="neutral"

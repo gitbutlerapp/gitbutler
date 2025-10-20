@@ -61,6 +61,9 @@ export class GitHubUserService {
 	usernames() {
 		return this.backendApi.endpoints.listKnownGitHubUsernames.useQuery();
 	}
+	deleteAllGitHubAccounts() {
+		return this.backendApi.endpoints.clearAllGitHubAccounts.useMutation();
+	}
 }
 
 function injectEndpoints(api: GitHubApi) {
@@ -124,6 +127,14 @@ function injectBackendEndpoints(api: BackendApi) {
 				},
 				query: () => ({}),
 				providesTags: [providesList(ReduxTag.GitHubUserList)]
+			}),
+			clearAllGitHubAccounts: build.mutation<void, void>({
+				extraOptions: {
+					command: 'clear_all_github_tokens',
+					actionName: 'Clear All GitHub Accounts'
+				},
+				query: () => ({}),
+				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
 			})
 		})
 	});
