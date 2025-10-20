@@ -278,6 +278,7 @@ fn main() {
                     github::check_auth_status,
                     but_api::github::forget_github_username,
                     but_api::github::list_known_github_usernames,
+                    but_api::github::clear_all_github_tokens,
                     github::get_gh_user,
                     askpass::submit_prompt_response,
                     remotes::list_remotes,

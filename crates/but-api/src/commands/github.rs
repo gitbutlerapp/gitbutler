@@ -63,6 +63,13 @@ pub fn list_known_github_usernames() -> Result<Vec<String>, Error> {
     but_github::list_known_github_usernames().map_err(Into::into)
 }
 
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn clear_all_github_tokens() -> Result<(), Error> {
+    but_github::clear_all_github_tokens().map_err(Into::into)
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthenticatedUserSensitive {
