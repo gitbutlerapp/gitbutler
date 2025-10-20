@@ -1,12 +1,8 @@
 <script lang="ts">
-	import { chipToasts, FileIcon, Icon } from '@gitbutler/ui';
-	import { fly } from 'svelte/transition';
-
-	interface AttachedFile {
-		id: string;
-		file: File;
-		preview?: string;
-	}
+	import AttachedFilesList, {
+		type AttachedFile
+	} from '$components/codegen/AttachedFilesList.svelte';
+	import { chipToasts } from '@gitbutler/ui';
 
 	interface Props {
 		attachedFiles?: AttachedFile[];
@@ -222,33 +218,7 @@
 
 	<!-- Attached Files -->
 	{#if attachedFiles.length > 0}
-		<div class="attached-files">
-			{#each attachedFiles as attachedFile (attachedFile.id)}
-				<div class="file-item" in:fly={{ y: 10, duration: 150 }}>
-					<div class="file-content">
-						{#if attachedFile.preview}
-							<img src={attachedFile.preview} alt={attachedFile.file.name} class="file-preview" />
-						{:else}
-							<FileIcon fileName={attachedFile.file.name} />
-						{/if}
-
-						<span class="text-12 text-semibold file-name" title={attachedFile.file.name}>
-							{attachedFile.file.name}
-						</span>
-					</div>
-
-					<button
-						type="button"
-						class="remove-button"
-						onclick={() => removeFile(attachedFile.id)}
-						aria-label="Remove {attachedFile.file.name}"
-						title="Remove file"
-					>
-						<Icon name="cross-small" />
-					</button>
-				</div>
-			{/each}
-		</div>
+		<AttachedFilesList {attachedFiles} onRemoveFile={removeFile} />
 	{/if}
 </div>
 
@@ -306,62 +276,6 @@
 
 		i {
 			opacity: 0.7;
-		}
-	}
-
-	/* ATTACHED FILES */
-	.attached-files {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px;
-	}
-
-	.file-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		height: var(--size-button);
-		padding-right: 2px;
-		padding-left: 6px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--size-button);
-	}
-
-	.file-content {
-		display: flex;
-		flex: 1;
-		align-items: center;
-		gap: 6px;
-	}
-
-	.file-preview {
-		width: 20px;
-		height: 20px;
-		margin-left: -2px;
-		object-fit: cover;
-		border-radius: 20px;
-		background-color: var(--clr-bg-3);
-	}
-
-	.file-name {
-		max-width: 400px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.remove-button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: var(--size-button);
-		height: var(--size-button);
-		color: var(--clr-text-3);
-		transition: all 0.2s ease;
-
-		&:hover {
-			background-color: var(--clr-bg-error);
-			color: var(--clr-text-error);
 		}
 	}
 
