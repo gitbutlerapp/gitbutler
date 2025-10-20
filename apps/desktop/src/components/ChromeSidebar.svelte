@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
-	import { ircEnabled, codegenEnabled } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import {
 		branchesPath,
 		ircPath,
@@ -192,61 +192,59 @@
 				{/snippet}
 			</Button>
 		</div>
-		{#if $codegenEnabled}
-			<div>
-				{#if isCodegenPath()}
-					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-				{/if}
-				<Button
-					testId={TestId.NavigationCodegenButton}
-					kind="outline"
-					onclick={() => goto(codegenPath(projectId))}
-					width={34}
-					class={['btn-square', isCodegenPath() && 'btn-active']}
-					hotkey="⌘4"
-					tooltip="Codegen"
-					tooltipAlign="start"
-					{disabled}
-				>
-					{#snippet custom()}
-						<svg
-							width="1.375rem"
-							height="1.125rem"
-							viewBox="0 0 22 18"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-							stroke="currentColor"
-						>
-							<path
-								d="M14.2158 0.0342979C17.5167 -0.254423 20.5442 3.52525 20.9775 8.47668C21.4107 13.4283 19.0852 17.6771 15.7841 17.9659C13.981 18.1235 12.2615 17.0658 10.9999 15.2677C9.73835 17.0658 8.0189 18.1236 6.21576 17.9659C2.91466 17.6771 0.590161 13.4283 1.02337 8.47668C1.4567 3.5254 4.48324 -0.25422 7.78412 0.0342979C9.0257 0.142922 10.1294 0.811718 10.9999 1.86731C11.8705 0.81165 12.9741 0.142926 14.2158 0.0342979Z"
-								stroke-width="1.5"
-								fill="var(--clr-codegen-bg)"
-								stroke="var(--clr-codegen-bg)"
-							/>
-							<path
-								d="M10.691 5.2173C10.7951 4.92757 11.2049 4.92757 11.309 5.2173L11.8782 6.80198C12.0991 7.41684 12.5832 7.90087 13.198 8.12175L14.7827 8.69104C15.0724 8.79513 15.0724 9.20487 14.7827 9.30896L13.198 9.87825C12.5832 10.0991 12.0991 10.5832 11.8782 11.198L11.309 12.7827C11.2049 13.0724 10.7951 13.0724 10.691 12.7827L10.1218 11.198C9.90087 10.5832 9.41684 10.0991 8.80198 9.87825L7.2173 9.30896C6.92757 9.20487 6.92757 8.79513 7.2173 8.69104L8.80198 8.12175C9.41684 7.90087 9.90087 7.41684 10.1218 6.80198L10.691 5.2173Z"
-								fill="var(--clr-codegen-star)"
-								stroke="var(--clr-codegen-star)"
-							/>
-							<defs>
-								<linearGradient
-									id="ai-gradient"
-									x1="9.33382"
-									y1="1.85727"
-									x2="21.498"
-									y2="11.1329"
-									gradientUnits="userSpaceOnUse"
-								>
-									<stop stop-color="#9A84F2" />
-									<stop offset="0.528846" stop-color="#61B2E1" />
-									<stop offset="1" stop-color="#2EDBD2" />
-								</linearGradient>
-							</defs>
-						</svg>
-					{/snippet}
-				</Button>
-			</div>
-		{/if}
+		<div>
+			{#if isCodegenPath()}
+				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+			{/if}
+			<Button
+				testId={TestId.NavigationCodegenButton}
+				kind="outline"
+				onclick={() => goto(codegenPath(projectId))}
+				width={34}
+				class={['btn-square', isCodegenPath() && 'btn-active']}
+				hotkey="⌘4"
+				tooltip="Codegen"
+				tooltipAlign="start"
+				{disabled}
+			>
+				{#snippet custom()}
+					<svg
+						width="1.375rem"
+						height="1.125rem"
+						viewBox="0 0 22 18"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+						stroke="currentColor"
+					>
+						<path
+							d="M14.2158 0.0342979C17.5167 -0.254423 20.5442 3.52525 20.9775 8.47668C21.4107 13.4283 19.0852 17.6771 15.7841 17.9659C13.981 18.1235 12.2615 17.0658 10.9999 15.2677C9.73835 17.0658 8.0189 18.1236 6.21576 17.9659C2.91466 17.6771 0.590161 13.4283 1.02337 8.47668C1.4567 3.5254 4.48324 -0.25422 7.78412 0.0342979C9.0257 0.142922 10.1294 0.811718 10.9999 1.86731C11.8705 0.81165 12.9741 0.142926 14.2158 0.0342979Z"
+							stroke-width="1.5"
+							fill="var(--clr-codegen-bg)"
+							stroke="var(--clr-codegen-bg)"
+						/>
+						<path
+							d="M10.691 5.2173C10.7951 4.92757 11.2049 4.92757 11.309 5.2173L11.8782 6.80198C12.0991 7.41684 12.5832 7.90087 13.198 8.12175L14.7827 8.69104C15.0724 8.79513 15.0724 9.20487 14.7827 9.30896L13.198 9.87825C12.5832 10.0991 12.0991 10.5832 11.8782 11.198L11.309 12.7827C11.2049 13.0724 10.7951 13.0724 10.691 12.7827L10.1218 11.198C9.90087 10.5832 9.41684 10.0991 8.80198 9.87825L7.2173 9.30896C6.92757 9.20487 6.92757 8.79513 7.2173 8.69104L8.80198 8.12175C9.41684 7.90087 9.90087 7.41684 10.1218 6.80198L10.691 5.2173Z"
+							fill="var(--clr-codegen-star)"
+							stroke="var(--clr-codegen-star)"
+						/>
+						<defs>
+							<linearGradient
+								id="ai-gradient"
+								x1="9.33382"
+								y1="1.85727"
+								x2="21.498"
+								y2="11.1329"
+								gradientUnits="userSpaceOnUse"
+							>
+								<stop stop-color="#9A84F2" />
+								<stop offset="0.528846" stop-color="#61B2E1" />
+								<stop offset="1" stop-color="#2EDBD2" />
+							</linearGradient>
+						</defs>
+					</svg>
+				{/snippet}
+			</Button>
+		</div>
 
 		{#if $ircEnabled}
 			<div>
