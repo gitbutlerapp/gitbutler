@@ -13,6 +13,36 @@ export type ForgeUser = {
 	name: string;
 };
 
+export type ForgeUserDetailed = {
+	id: number;
+	login: string;
+	name: string | null;
+	email: string | null;
+	avatarUrl: string | null;
+	isBot: boolean;
+};
+
+export type ForgeReview = {
+	htmlUrl: string;
+	number: number;
+	title: string;
+	body: string | null;
+	author: ForgeUserDetailed | null;
+	labels: Label[];
+	draft: boolean;
+	sourceBranch: string;
+	targetBranch: string;
+	sha: string;
+	createdAt: string | null;
+	modifiedAt: string | null;
+	mergedAt: string | null;
+	closedAt: string | null;
+	repositorySshUrl: string | null;
+	repositoryHttpsUrl: string | null;
+	repoOwner: string | null;
+	reviewers: ForgeUserDetailed[];
+};
+
 export interface PullRequest {
 	htmlUrl: string;
 	number: number;
@@ -32,6 +62,40 @@ export interface PullRequest {
 	repositoryHttpsUrl?: string;
 	repoOwner?: string;
 	reviewers: ForgeUser[];
+}
+
+export function mapForgeReviewToPullRequest(pr: ForgeReview): PullRequest {
+	return {
+		htmlUrl: pr.htmlUrl,
+		number: pr.number,
+		title: pr.title,
+		body: pr.body ?? undefined,
+		author: pr.author
+			? {
+					name: pr.author.name ?? pr.author.login,
+					email: pr.author.email ?? undefined,
+					gravatarUrl: pr.author.avatarUrl ?? undefined,
+					isBot: pr.author.isBot
+				}
+			: null,
+		labels: pr.labels,
+		draft: pr.draft,
+		sourceBranch: pr.sourceBranch,
+		targetBranch: pr.targetBranch,
+		sha: pr.sha,
+		createdAt: pr.createdAt ?? '',
+		modifiedAt: pr.modifiedAt ?? '',
+		mergedAt: pr.mergedAt ?? undefined,
+		closedAt: pr.closedAt ?? undefined,
+		repositorySshUrl: pr.repositorySshUrl ?? undefined,
+		repositoryHttpsUrl: pr.repositoryHttpsUrl ?? undefined,
+		repoOwner: pr.repoOwner ?? undefined,
+		reviewers: pr.reviewers.map((r) => ({
+			id: r.id,
+			srcUrl: r.avatarUrl ?? '',
+			name: r.name ?? r.login
+		}))
+	};
 }
 
 export interface PullRequestPermissions {

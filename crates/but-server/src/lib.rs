@@ -381,6 +381,16 @@ async fn handle_command(
         "pr_templates" => forge::pr_templates_cmd(request.params),
         "pr_template" => forge::pr_template_cmd(request.params),
         "determine_forge_from_url" => forge::determine_forge_from_url_cmd(request.params),
+        "list_reviews" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = forge::list_reviews_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         // // Menu commands (limited - no menu_item_set_enabled as it's Tauri-specific)
         // "get_editor_link_scheme" => menu::get_editor_link_scheme(&ctx, request.params),
         // CLI commands

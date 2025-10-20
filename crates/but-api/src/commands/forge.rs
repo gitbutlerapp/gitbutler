@@ -1,6 +1,8 @@
 //! In place of commands.rs
 use anyhow::Context;
 use but_api_macros::api_cmd;
+use but_settings::AppSettings;
+use gitbutler_command_context::CommandContext;
 use gitbutler_forge::{
     forge::ForgeName,
     review::{ReviewTemplateFunctions, available_review_templates, get_review_template_functions},
@@ -52,4 +54,29 @@ pub fn pr_template(
 #[instrument(err(Debug))]
 pub fn determine_forge_from_url(url: String) -> Result<Option<ForgeName>, Error> {
     Ok(gitbutler_forge::determine_forge_from_url(&url))
+}
+
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub async fn list_reviews(
+    project_id: ProjectId,
+) -> Result<Vec<gitbutler_forge::review::ForgeReview>, Error> {
+    list_reviews_cmd(project_id).await
+}
+
+pub async fn list_reviews_cmd(
+    project_id: ProjectId,
+) -> Result<Vec<gitbutler_forge::review::ForgeReview>, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let ctx = CommandContext::open(&project, app_settings)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    gitbutler_forge::review::list_forge_reviews(
+        &project.preferred_forge_user,
+        &base_branch
+            .forge_repo_info
+            .context("No forge could be determined for this repository branch")?,
+    )
+    .await
+    .map_err(Into::into)
 }

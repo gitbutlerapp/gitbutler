@@ -3,6 +3,7 @@ import { setupMockGitHubApi } from '$lib/testing/mockGitHubApi.svelte';
 import { type RestEndpointMethodTypes } from '@octokit/rest';
 import { expect, test, describe, vi, beforeEach } from 'vitest';
 import type { ForgePrService as GitHubPrService } from '$lib/forge/interface/forgePrService';
+import type { BackendApi } from '$lib/state/clientState.svelte';
 
 // TODO: Rewrite this proof-of-concept into something valuable.
 describe('GitHubPrService', () => {
@@ -12,6 +13,10 @@ describe('GitHubPrService', () => {
 	const { gitHubClient, gitHubApi, octokit } = setupMockGitHubApi();
 
 	beforeEach(() => {
+		const MockBackendApi = vi.fn();
+		MockBackendApi.prototype.injectEndpoints = vi.fn();
+		const backendApi: BackendApi = new MockBackendApi();
+
 		gh = new GitHub({
 			repo: {
 				domain: 'github.com',
@@ -19,6 +24,7 @@ describe('GitHubPrService', () => {
 				owner: 'test-owner'
 			},
 			baseBranch: 'main',
+			backendApi,
 			api: gitHubApi,
 			authenticated: true,
 			isLoading: false,

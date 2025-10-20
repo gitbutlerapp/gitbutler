@@ -1,10 +1,15 @@
 import { GitHub } from '$lib/forge/github/github';
 import { setupMockGitHubApi } from '$lib/testing/mockGitHubApi.svelte';
-import { expect, test, describe } from 'vitest';
+import { expect, test, describe, vi } from 'vitest';
+import type { BackendApi } from '$lib/state/clientState.svelte';
 
 // TODO: Rewrite this proof-of-concept into something valuable.
 describe('GitHubBranch', () => {
 	const { gitHubClient, gitHubApi } = setupMockGitHubApi();
+
+	const MockBackendApi = vi.fn();
+	MockBackendApi.prototype.injectEndpoints = vi.fn();
+	const backendApi: BackendApi = new MockBackendApi();
 
 	const name = 'some-branch';
 	const baseBranch = 'some-base';
@@ -18,6 +23,7 @@ describe('GitHubBranch', () => {
 		const gh = new GitHub({
 			api: gitHubApi,
 			client: gitHubClient,
+			backendApi,
 			repo,
 			baseBranch,
 			authenticated: true,
@@ -32,6 +38,7 @@ describe('GitHubBranch', () => {
 		const gh = new GitHub({
 			api: gitHubApi,
 			client: gitHubClient,
+			backendApi,
 			repo,
 			baseBranch,
 			forkStr,

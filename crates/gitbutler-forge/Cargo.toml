@@ -9,3 +9,5 @@ rust-version = "1.89"
 serde = { workspace = true, features = ["std"] }
 anyhow = "1.0.100"
 gitbutler-fs.workspace = true
+but-github.workspace = true
+git-url-parse = "0.6.0"
