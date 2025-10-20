@@ -366,7 +366,6 @@
 							{/if}
 						{/if}
 						<BranchCommitList
-							{firstBranch}
 							{lastBranch}
 							{projectId}
 							{stackId}
