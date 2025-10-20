@@ -186,6 +186,11 @@
 							day: 'numeric',
 							month: 'short',
 							year: 'numeric'
+						})},
+						{new Date(release.released_at).toLocaleTimeString('en-GB', {
+							hour: '2-digit',
+							minute: '2-digit',
+							hour12: false
 						})}
 					</span>
 				</button>
