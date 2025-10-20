@@ -143,7 +143,7 @@
 		<div class="nightly-info">
 			<p class="text-14 text-body clr-text-2">
 				Experience GitButler’s newest features before anyone else. ⋆˚₊
-				<a href="/nightlies" class="download-link"> Get Nightly </a>
+				<a href="/nightly" class="download-link"> Get Nightly </a>
 				☽˚.⋆
 			</p>
 		</div>
@@ -335,26 +335,26 @@
 
 	.latest-release-background__noisy {
 		position: absolute;
-		width: 500px;
-		height: 240px;
-		transform: scale(3) rotate(25deg);
+		width: 100%;
+		height: 1240px;
+		transform: rotate(-65deg);
 		border-radius: 50%;
 		background:
 			radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0)),
 			url("data:image/svg+xml,%3Csvg viewBox='0 0 600 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 		mix-blend-mode: multiply;
 		filter: contrast(145%) brightness(1100%);
-		opacity: 0.05;
+		opacity: 0.06;
 		pointer-events: none;
 
 		&.noisy-1 {
-			bottom: -10%;
-			left: -20%;
+			top: -30%;
+			right: -40%;
 		}
 
 		&.noisy-2 {
-			top: -10%;
-			right: -20%;
+			bottom: -34%;
+			left: -35%;
 		}
 	}
 
