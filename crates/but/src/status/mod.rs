@@ -33,15 +33,18 @@ struct WorktreeStatus {
     common_merge_base: CommonMergeBase,
 }
 
-pub(crate) fn worktree(
+pub(crate) async fn worktree(
     project: &Project,
     json: bool,
     show_files: bool,
     verbose: bool,
+    review: bool,
 ) -> anyhow::Result<()> {
     // let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
+
+    let review_map = get_branch_reviews_map(project.id, review).await?;
 
     let stacks = but_api::workspace::stacks(project.id, None)?;
     let worktree_changes = but_api::diff::changes_in_worktree(project.id)?;
@@ -120,6 +123,7 @@ pub(crate) fn worktree(
             ctx,
             i == stack_details_len - 1,
             i == 0,
+            &review_map,
         )?;
     }
     let dot = "●".purple();
@@ -188,6 +192,7 @@ pub fn print_group(
     ctx: &mut CommandContext,
     _last: bool,
     first: bool,
+    review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
 ) -> anyhow::Result<()> {
     if let Some(group) = &group {
         let mut first = true;
@@ -209,11 +214,14 @@ pub fn print_group(
             .dimmed()
             .italic();
 
+            let reviews = get_review_numbers(&branch.name.to_string(), review_map);
+
             println!(
-                "┊{}┄{} [{}] {} {}",
+                "┊{}┄{} [{}]{} {} {}",
                 notch,
                 id,
                 branch.name.to_string().green().bold(),
+                reviews,
                 no_commits,
                 stack_mark.clone().unwrap_or_default()
             );
@@ -442,4 +450,55 @@ fn print_commit(
         }
     }
     Ok(())
+}
+
+async fn get_branch_reviews_map(
+    project_id: gitbutler_project::ProjectId,
+    review: bool,
+) -> anyhow::Result<std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>> {
+    if !review {
+        return Ok(std::collections::HashMap::new());
+    }
+
+    let reviews = but_api::forge::list_reviews_cmd(project_id)
+        .await
+        .unwrap_or_default();
+
+    let branch_review_map = reviews
+        .iter()
+        .fold(std::collections::HashMap::new(), |mut acc, r| {
+            // TODO: Handle forks properly
+            let clean_branch_name = r
+                .source_branch
+                .split(':')
+                .next_back()
+                .unwrap_or(&r.source_branch)
+                .to_string();
+            acc.entry(clean_branch_name)
+                .or_insert_with(Vec::new)
+                .push(r.to_owned());
+            acc
+        });
+
+    Ok(branch_review_map)
+}
+
+fn get_review_numbers(
+    branch_name: &String,
+    branch_review_map: &std::collections::HashMap<
+        String,
+        Vec<gitbutler_forge::review::ForgeReview>,
+    >,
+) -> ColoredString {
+    if let Some(reviews) = branch_review_map.get(branch_name) {
+        let review_numbers = reviews
+            .iter()
+            .map(|r| r.number.to_string())
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        format!(" ({})", review_numbers).blue()
+    } else {
+        "".to_string().normal()
+    }
 }

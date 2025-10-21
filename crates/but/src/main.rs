@@ -166,15 +166,17 @@ async fn main() -> Result<()> {
         Subcommands::Status {
             show_files,
             verbose,
+            review,
         } => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result = status::worktree(&project, args.json, *show_files, *verbose);
+            let result =
+                status::worktree(&project, args.json, *show_files, *verbose, *review).await;
             metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
             Ok(())
         }
-        Subcommands::Stf { verbose } => {
+        Subcommands::Stf { verbose, review } => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result = status::worktree(&project, args.json, true, *verbose);
+            let result = status::worktree(&project, args.json, true, *verbose, *review).await;
             metrics_if_configured(app_settings, CommandName::Stf, props(start, &result)).ok();
             Ok(())
         }
