@@ -425,7 +425,7 @@
 			{stackId}
 		>
 			{#snippet children(
-				[branch, commits, branchDetailsData, events, isActive, ruleData],
+				[branch, commits, branchDetailsData, events, isActive, rule],
 				{ projectId: _projectId, stackId }
 			)}
 				{@const usage = usageStats(events)}
@@ -433,10 +433,9 @@
 				{@const lineColor = getColorFromBranchType(pushStatusToColor(branchDetailsData.pushStatus))}
 
 				<!-- Get session details if rule exists -->
-				{#if ruleData?.rule}
-					{@const sessionId = (
-						ruleData.rule.filters[0] as RuleFilter & { type: 'claudeCodeSessionId' }
-					)?.subject}
+				{#if rule}
+					{@const sessionId = (rule.filters[0] as RuleFilter & { type: 'claudeCodeSessionId' })
+						?.subject}
 					{#if sessionId}
 						{@const sessionDetails = claudeCodeService.sessionDetails(projectId, sessionId)}
 						<ReduxResult result={sessionDetails.result} {projectId}>
