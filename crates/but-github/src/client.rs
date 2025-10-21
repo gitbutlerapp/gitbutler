@@ -70,6 +70,43 @@ impl GitHubClient {
 
         Ok(pulls)
     }
+
+    pub async fn create_pull_request(
+        &self,
+        params: &CreatePullRequestParams<'_>,
+    ) -> Result<PullRequest> {
+        let pr = self
+            .github
+            .pulls()
+            .create(
+                params.owner,
+                params.repo,
+                &octorust::types::PullsCreateRequest {
+                    title: params.title.to_string(),
+                    body: params.body.to_string(),
+                    head: params.head.to_string(),
+                    base: params.base.to_string(),
+                    draft: Some(params.draft),
+                    issue: 0,
+                    maintainer_can_modify: None,
+                },
+            )
+            .await
+            .map(|response| response.body)
+            .map_err(anyhow::Error::from)?;
+
+        Ok(pr.into())
+    }
+}
+
+pub struct CreatePullRequestParams<'a> {
+    pub title: &'a str,
+    pub body: &'a str,
+    pub head: &'a str,
+    pub base: &'a str,
+    pub draft: bool,
+    pub owner: &'a str,
+    pub repo: &'a str,
 }
 
 #[derive(Debug, Serialize)]
@@ -176,6 +213,54 @@ impl From<octorust::types::PullRequestSimple> for PullRequest {
                 .as_ref()
                 .and_then(|r| (!r.clone_url.is_empty()).then(|| r.clone_url.to_owned())),
             repo_owner: pr.head.repo.and_then(|r| r.owner.map(|o| o.login)),
+            requested_reviewers,
+        }
+    }
+}
+
+impl From<octorust::types::PullRequestData> for PullRequest {
+    fn from(pr: octorust::types::PullRequestData) -> Self {
+        let author = pr.user.map(Into::into);
+
+        let labels = pr
+            .labels
+            .into_iter()
+            .map(|label| GitHubPrLabel {
+                id: label.id,
+                name: label.name,
+                description: (!label.description.is_empty()).then_some(label.description),
+                color: label.color,
+            })
+            .collect();
+
+        let requested_reviewers = pr.requested_reviewers.into_iter().map(Into::into).collect();
+
+        PullRequest {
+            html_url: pr.html_url,
+            number: pr.number,
+            title: pr.title,
+            body: (!pr.body.is_empty()).then_some(pr.body),
+            author,
+            labels,
+            draft: pr.draft,
+            source_branch: pr.head.label,
+            target_branch: pr.base.label,
+            sha: pr.head.sha,
+            created_at: pr.created_at.map(|d| d.to_string()),
+            modified_at: pr.updated_at.map(|d| d.to_string()),
+            merged_at: pr.merged_at.map(|d| d.to_string()),
+            closed_at: pr.closed_at.map(|d| d.to_string()),
+            repository_ssh_url: pr
+                .base
+                .repo
+                .as_ref()
+                .and_then(|r| (!r.ssh_url.is_empty()).then(|| r.ssh_url.to_owned())),
+            repository_https_url: pr
+                .head
+                .repo
+                .as_ref()
+                .and_then(|r| (!r.clone_url.is_empty()).then(|| r.clone_url.to_owned())),
+            repo_owner: pr.head.repo.map(|r| r.owner.login),
             requested_reviewers,
         }
     }

@@ -270,15 +270,40 @@ async fn main() -> Result<()> {
         }
         Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, *repo)
             .context("Failed to initialize GitButler project."),
-        Subcommands::Forge(forge::Platform { cmd }) => {
+        Subcommands::Forge(forge::integration::Platform { cmd }) => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result = forge::handle(cmd, &project, args.json).await;
+            let result = forge::integration::handle(cmd, &project, args.json).await;
             let metrics_cmd = match cmd {
-                forge::Subcommands::Auth => CommandName::ForgeAuth,
-                forge::Subcommands::ListUsers => CommandName::ForgeListUsers,
-                forge::Subcommands::Forget { .. } => CommandName::ForgeForget,
+                forge::integration::Subcommands::Auth => CommandName::ForgeAuth,
+                forge::integration::Subcommands::ListUsers => CommandName::ForgeListUsers,
+                forge::integration::Subcommands::Forget { .. } => CommandName::ForgeForget,
             };
             metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Publish {
+            branch,
+            skip_force_push_protection,
+            with_force,
+            run_hooks,
+        } => {
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = forge::review::publish_reviews(
+                &project,
+                branch,
+                *skip_force_push_protection,
+                *with_force,
+                *run_hooks,
+                args.json,
+            )
+            .await
+            .context("Failed to publish reviews for branches.");
+            metrics_if_configured(
+                app_settings,
+                CommandName::PublishReview,
+                props(start, &result),
+            )
+            .ok();
             result
         }
     }

@@ -80,3 +80,37 @@ pub async fn list_reviews_cmd(
     .await
     .map_err(Into::into)
 }
+
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub async fn publish_review(
+    project_id: ProjectId,
+    params: gitbutler_forge::review::CreateForgeReviewParams,
+) -> Result<gitbutler_forge::review::ForgeReview, Error> {
+    publish_review_cmd(PublishReviewParams { project_id, params }).await
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublishReviewParams {
+    pub project_id: ProjectId,
+    pub params: gitbutler_forge::review::CreateForgeReviewParams,
+}
+
+pub async fn publish_review_cmd(
+    PublishReviewParams { project_id, params }: PublishReviewParams,
+) -> Result<gitbutler_forge::review::ForgeReview, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let ctx = CommandContext::open(&project, app_settings)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    gitbutler_forge::review::create_forge_review(
+        &project.preferred_forge_user,
+        &base_branch
+            .forge_repo_info
+            .context("No forge could be determined for this repository branch")?,
+        &params,
+    )
+    .await
+    .map_err(Into::into)
+}

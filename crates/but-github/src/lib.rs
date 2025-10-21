@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 mod client;
 pub mod pr;
-pub use client::{GitHubPrLabel, GitHubUser, PullRequest};
+pub use client::{CreatePullRequestParams, GitHubPrLabel, GitHubUser, PullRequest};
 mod token;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
