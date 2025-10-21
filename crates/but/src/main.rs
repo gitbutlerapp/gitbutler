@@ -145,7 +145,7 @@ async fn main() -> Result<()> {
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result = branch::handle(cmd, &project, args.json);
+            let result = branch::handle(cmd, &project, args.json).await;
             metrics_if_configured(app_settings, CommandName::BranchNew, props(start, &result)).ok();
             Ok(())
         }
