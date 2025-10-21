@@ -14,7 +14,7 @@
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { NOTIFICATION_SETTINGS_SERVICE } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { getNotificationSettingsInterest } from '@gitbutler/shared/settings/notificationSetttingsPreview.svelte';
-	import { Button, Icon, SectionCard, Spacer } from '@gitbutler/ui';
+	import { Button, Icon, Modal, SectionCard, Spacer } from '@gitbutler/ui';
 	import { env } from '$env/dynamic/public';
 
 	const authService = inject(AUTH_SERVICE);
@@ -63,6 +63,17 @@
 		authService.clearToken();
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
 	}
+
+	let deleteAccountConfirmationModal = $state<Modal>();
+
+	function initiateDeleteAccount() {
+		deleteAccountConfirmationModal?.show();
+	}
+
+	async function deleteAccount() {
+		await userService.deleteAccount();
+		logout();
+	}
 </script>
 
 <svelte:head>
@@ -104,6 +115,23 @@
 					{/snippet}
 					{#snippet actions()}
 						<Button style="error" icon="signout" onclick={logout}>Log out</Button>
+					{/snippet}
+				</SectionCard>
+
+				<SectionCard orientation="row">
+					{#snippet title()}
+						Delete account
+					{/snippet}
+					{#snippet caption()}
+						What do you mean more than just a break?
+						<br />
+						Click here to permanently delete your account and all associated data. This action cannot
+						be undone.
+					{/snippet}
+					{#snippet actions()}
+						<Button style="error" icon="bin" onclick={initiateDeleteAccount}
+							>Delete my account</Button
+						>
 					{/snippet}
 				</SectionCard>
 			{/if}
@@ -190,6 +218,20 @@
 		</div>
 	</div>
 {/if}
+
+<Modal bind:this={deleteAccountConfirmationModal} title="Confirm account deletion" width="medium">
+	<p class="text-13 text-body">
+		Are you sure you want to delete your account?
+		<br />
+		This action is <b>irreversible</b> and will permanently remove all your data from our servers.
+	</p>
+	{#snippet controls(close)}
+		<div class="flex flex-row gap-8 justify-end">
+			<Button style="neutral" kind="outline" onclick={close}>Cancel</Button>
+			<Button style="error" icon="bin" onclick={deleteAccount}>Delete permanently</Button>
+		</div>
+	{/snippet}
+</Modal>
 
 <style lang="postcss">
 	.not-logged-in {
