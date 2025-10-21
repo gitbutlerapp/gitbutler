@@ -493,7 +493,7 @@ fn get_review_numbers(
     if let Some(reviews) = branch_review_map.get(branch_name) {
         let review_numbers = reviews
             .iter()
-            .map(|r| r.number.to_string())
+            .map(|r| format!("{}{}", r.unit_symbol, r.number))
             .collect::<Vec<String>>()
             .join(", ");
 

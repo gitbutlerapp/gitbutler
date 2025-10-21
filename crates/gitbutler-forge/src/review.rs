@@ -234,6 +234,7 @@ pub struct ForgeReview {
     pub repository_https_url: Option<String>,
     pub repo_owner: Option<String>,
     pub reviewers: Vec<ForgeUser>,
+    pub unit_symbol: String,
 }
 
 impl From<but_github::PullRequest> for ForgeReview {
@@ -261,6 +262,7 @@ impl From<but_github::PullRequest> for ForgeReview {
                 .into_iter()
                 .map(ForgeUser::from)
                 .collect(),
+            unit_symbol: "#".to_string(),
         }
     }
 }
