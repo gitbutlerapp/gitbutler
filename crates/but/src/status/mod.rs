@@ -44,7 +44,11 @@ pub(crate) async fn worktree(
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
-    let review_map = get_branch_reviews_map(project.id, review).await?;
+    let review_map = if review {
+        crate::forge::review::get_review_map(project).await?
+    } else {
+        std::collections::HashMap::new()
+    };
 
     let stacks = but_api::workspace::stacks(project.id, None)?;
     let worktree_changes = but_api::diff::changes_in_worktree(project.id)?;
@@ -214,7 +218,8 @@ pub fn print_group(
             .dimmed()
             .italic();
 
-            let reviews = get_review_numbers(&branch.name.to_string(), review_map);
+            let reviews =
+                crate::forge::review::get_review_numbers(&branch.name.to_string(), review_map);
 
             println!(
                 "┊{}┄{} [{}]{} {} {}",
@@ -450,55 +455,4 @@ fn print_commit(
         }
     }
     Ok(())
-}
-
-async fn get_branch_reviews_map(
-    project_id: gitbutler_project::ProjectId,
-    review: bool,
-) -> anyhow::Result<std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>> {
-    if !review {
-        return Ok(std::collections::HashMap::new());
-    }
-
-    let reviews = but_api::forge::list_reviews_cmd(project_id)
-        .await
-        .unwrap_or_default();
-
-    let branch_review_map = reviews
-        .iter()
-        .fold(std::collections::HashMap::new(), |mut acc, r| {
-            // TODO: Handle forks properly
-            let clean_branch_name = r
-                .source_branch
-                .split(':')
-                .next_back()
-                .unwrap_or(&r.source_branch)
-                .to_string();
-            acc.entry(clean_branch_name)
-                .or_insert_with(Vec::new)
-                .push(r.to_owned());
-            acc
-        });
-
-    Ok(branch_review_map)
-}
-
-fn get_review_numbers(
-    branch_name: &String,
-    branch_review_map: &std::collections::HashMap<
-        String,
-        Vec<gitbutler_forge::review::ForgeReview>,
-    >,
-) -> ColoredString {
-    if let Some(reviews) = branch_review_map.get(branch_name) {
-        let review_numbers = reviews
-            .iter()
-            .map(|r| format!("{}{}", r.unit_symbol, r.number))
-            .collect::<Vec<String>>()
-            .join(", ");
-
-        format!(" ({})", review_numbers).blue()
-    } else {
-        "".to_string().normal()
-    }
 }
