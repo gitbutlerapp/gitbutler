@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/web/src/routes/(app)/profile/+page.svelte"]
+ourEntries = ["apps/web/src/routes/(app)/profile/+page.svelte"]
+theirEntries = ["apps/web/src/routes/(app)/profile/+page.svelte"]
