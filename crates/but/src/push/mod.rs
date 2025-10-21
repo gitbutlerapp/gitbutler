@@ -1,9 +1,135 @@
 use but_core::RepositoryExt;
 use but_settings::AppSettings;
 use but_workspace::StackId;
-use gitbutler_branch_actions::internal::PushResult;
+use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use gitbutler_repo::RepoCommands;
+
+/// Display branch URL if available, or Gerrit review URLs for commits
+fn show_branch_or_review_urls(project: &Project, branch_name: &str, gerrit_mode: bool) -> anyhow::Result<()> {
+    if gerrit_mode {
+        // For Gerrit, show review URLs for commits that were just pushed
+        show_gerrit_review_urls(project, branch_name)
+    } else {
+        // For GitHub/GitLab, show branch URL
+        show_branch_url(project, branch_name)
+    }
+}
+
+/// Show Gerrit review URLs for commits on the branch
+fn show_gerrit_review_urls(project: &Project, branch_name: &str) -> anyhow::Result<()> {
+    // Get the branch details to find commits with review URLs
+    let stacks = but_api::workspace::stacks(project.id, None)?;
+
+    for stack in stacks {
+        let details = but_api::workspace::stack_details(project.id, stack.id)?;
+
+        // Look for the branch that was just pushed
+        for branch in details.branch_details {
+            if branch.name.to_string() == branch_name {
+                println!();
+                let mut found_any = false;
+
+                // Show review URLs for commits that have them
+                for commit in &branch.commits {
+                    if let Some(review_url) = &commit.gerrit_review_url {
+                        if !found_any {
+                            println!("Gerrit reviews:");
+                            found_any = true;
+                        }
+                        println!("  {}{}: {}",
+                            &commit.id.to_string()[..2].blue().underline(),
+                            &commit.id.to_string()[2..7].blue(),
+                            review_url
+                        );
+                    }
+                }
+
+                if !found_any {
+                    // Fallback to dashboard URL if no specific review URLs
+                    if let Ok(remotes) = project.remotes() {
+                        if let Some(remote) = remotes.first() {
+                            if let Some(remote_url) = &remote.url {
+                                if let Some(dashboard_url) = crate::url_utils::generate_branch_url(remote_url, branch_name, true) {
+                                    println!("View changes: {}", dashboard_url);
+                                }
+                            }
+                        }
+                    }
+                }
+                return Ok(());
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Show branch URL for non-Gerrit remotes
+fn show_branch_url(project: &Project, branch_name: &str) -> anyhow::Result<()> {
+    if let Ok(remotes) = project.remotes() {
+        if let Some(remote) = remotes.first() {
+            if let Some(remote_url) = &remote.url {
+                if let Some(branch_url) = crate::url_utils::generate_branch_url(remote_url, branch_name, false) {
+                    println!();
+                    println!("Branch URL: {}", branch_url);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Extract a user-friendly error message from push errors
+fn extract_push_error_message(error: &but_api::error::Error) -> String {
+    // Use Debug formatting to get string representation
+    let error_str = format!("{:?}", error);
+
+    // Look for common Gerrit error patterns
+    if error_str.contains("no new changes") {
+        return "No new changes to push (commit may already exist in Gerrit)".to_string();
+    }
+
+    if error_str.contains("remote rejected") {
+        // Try to extract the rejection reason
+        if let Some(start) = error_str.find("remote rejected") {
+            if let Some(paren_start) = error_str[start..].find('(') {
+                if let Some(paren_end) = error_str[start + paren_start..].find(')') {
+                    let reason = &error_str[start + paren_start + 1..start + paren_start + paren_end];
+                    return format!("Remote rejected push: {}", reason);
+                }
+            }
+        }
+        return "Remote rejected the push".to_string();
+    }
+
+    if error_str.contains("failed to push some refs") {
+        return "Failed to push some refs to remote".to_string();
+    }
+
+    if error_str.contains("Permission denied") {
+        return "Permission denied - check your authentication credentials".to_string();
+    }
+
+    if error_str.contains("Could not resolve hostname") {
+        return "Could not resolve hostname - check your network connection".to_string();
+    }
+
+    // For other errors, try to extract the first meaningful line
+    let lines: Vec<&str> = error_str.lines().collect();
+    for line in &lines {
+        let trimmed = line.trim();
+        if !trimmed.is_empty() && !trimmed.starts_with("Error:") && !trimmed.starts_with("Caused by:") {
+            // Skip very long lines (like full git commands)
+            if trimmed.len() < 150 {
+                return trimmed.to_string();
+            }
+        }
+    }
+
+    // Fallback to first line if nothing better found
+    lines.first().unwrap_or(&"Unknown push error").trim().to_string()
+}
 
 #[derive(Debug, clap::Parser)]
 pub struct Args {
@@ -108,8 +234,10 @@ pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()>
     // Convert CLI args to gerrit flag with validation
     let gerrit_flag = get_gerrit_flag(args, &branch_name, gerrit_mode)?;
 
-    // Call push_stack
-    let result: PushResult = but_api::stack::push_stack(
+    println!("Pushing branch '{}'...", branch_name);
+
+    // Call push_stack and handle both success and error cases
+    let push_result = but_api::stack::push_stack(
         project.id,
         stack_id,
         args.with_force,
@@ -117,13 +245,35 @@ pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()>
         branch_name.clone(),
         args.run_hooks,
         gerrit_flag,
-    )?;
+    );
 
-    println!("Push completed successfully");
-    println!("Pushed to remote: {}", result.remote);
-    if !gerrit_mode && !result.branch_to_remote.is_empty() {
-        for (branch, remote_ref) in &result.branch_to_remote {
-            println!("  {} -> {}", branch, remote_ref);
+    match push_result {
+        Ok(result) => {
+            println!("Push completed successfully");
+            println!("Pushed to remote: {}", result.remote);
+            if !gerrit_mode && !result.branch_to_remote.is_empty() {
+                for (branch, remote_ref) in &result.branch_to_remote {
+                    println!("  {} -> {}", branch, remote_ref);
+                }
+            }
+
+            // Show URL for successful push
+            if let Err(e) = show_branch_or_review_urls(project, &branch_name, gerrit_mode) {
+                eprintln!("Warning: Failed to show URLs: {}", e);
+            }
+        }
+        Err(e) => {
+            // Extract and display a more user-friendly error message
+            let error_msg = extract_push_error_message(&e);
+            println!("Push failed: {}", error_msg);
+
+            // Still show URL even when push fails
+            if let Err(e) = show_branch_or_review_urls(project, &branch_name, gerrit_mode) {
+                eprintln!("Warning: Failed to show URLs: {}", e);
+            }
+
+            // Exit with error code but don't propagate the full error to avoid duplicate output
+            std::process::exit(1);
         }
     }
 
