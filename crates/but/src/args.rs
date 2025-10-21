@@ -162,7 +162,7 @@ For examples see `but rub --help`."
         props: String,
     },
     /// Commands for interacting with forges like GitHub, GitLab (coming soon), etc.
-    Forge(forge::Platform),
+    Forge(forge::integration::Platform),
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
