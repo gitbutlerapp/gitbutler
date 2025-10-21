@@ -23,8 +23,8 @@
 
 {#if $user}
 	<Button
-		style="error"
 		{wide}
+		kind="outline"
 		icon="signout"
 		onclick={async () => {
 			await userService.logout();
