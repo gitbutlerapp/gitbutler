@@ -54,6 +54,7 @@ gitbutler-branch.workspace = true
 but-secret.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-oplog.workspace = true
+but-github.workspace = true
 colored = "3.0.0"
 serde_json = "1.0.145"
 terminal_size = "0.4.3"

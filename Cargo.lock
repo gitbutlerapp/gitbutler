@@ -767,6 +767,7 @@ dependencies = [
  "but-core",
  "but-cursor",
  "but-gerrit",
+ "but-github",
  "but-graph",
  "but-hunk-assignment",
  "but-rules",
