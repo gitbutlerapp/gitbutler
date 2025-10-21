@@ -27,7 +27,6 @@ export type Project = {
 	force_push_protection: boolean;
 	omit_certificate_check: boolean | undefined;
 	use_diff_context: boolean | undefined;
-	snapshot_lines_threshold: number | undefined;
 	// Produced just for the frontend to determine if the project is open in any window.
 	is_open: boolean;
 	forge_override: ForgeName | undefined;
