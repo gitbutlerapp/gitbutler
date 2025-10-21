@@ -32,6 +32,9 @@ pub enum Subcommands {
         /// Show verbose output with commit author and timestamp.
         #[clap(short = 'v', long = "verbose", default_value_t = false)]
         verbose: bool,
+        /// Show the forge review information
+        #[clap(short = 'r', long = "review", default_value_t = false)]
+        review: bool,
     },
     /// Overview of the uncommitted changes in the repository with files shown.
     /// Equivalent to `but status --files`.
@@ -40,6 +43,9 @@ pub enum Subcommands {
         /// Show verbose output with commit author and timestamp.
         #[clap(short = 'v', long = "verbose", default_value_t = false)]
         verbose: bool,
+        /// Show the forge review information
+        #[clap(short = 'r', long = "review", default_value_t = false)]
+        review: bool,
     },
 
     /// Combines two entities together to perform an operation.
