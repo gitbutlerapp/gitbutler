@@ -547,10 +547,9 @@ export function currentActivity(messages: ClaudeMessage[]): string | undefined {
 					const summary = contentBlockToString(content.at(-1));
 					if (summary) return summary;
 				}
-			} else if (output.type === 'system') {
-				const summary = output.tools.at(-1);
-				if (summary) return summary;
 			}
+		} else if (content.type === 'userInput') {
+			return content.subject.message;
 		}
 	}
 }
