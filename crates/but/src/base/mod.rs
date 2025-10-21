@@ -15,7 +15,7 @@ pub struct Platform {
 pub enum Subcommands {
     /// Fetches remotes from the remote and checks the mergeability of the branches in the workspace.
     Check,
-    /// Updates the worspace (with all applied branches) to include the latest changes from the base branch.
+    /// Updates the workspace (with all applied branches) to include the latest changes from the base branch.
     Update,
 }
 
