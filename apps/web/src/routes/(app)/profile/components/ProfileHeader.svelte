@@ -177,71 +177,11 @@
 		gap: 24px;
 	}
 
-	.contact-info {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		gap: 20px;
-	}
-
 	.contact-info__fields {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
 		gap: 12px;
-	}
-
-	.notification-option {
-		display: flex;
-		align-items: flex-start;
-	}
-
-	.checkbox-label {
-		display: flex;
-		gap: 12px;
-		cursor: pointer;
-		user-select: none;
-	}
-
-	.checkbox-content {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
-	.checkbox-title {
-		color: var(--clr-scale-ntrl-0);
-		font-weight: 500;
-		font-size: 14px;
-	}
-
-	.checkbox-caption {
-		color: var(--clr-scale-ntrl-30);
-		font-size: 13px;
-		line-height: 1.4;
-	}
-
-	.save-button {
-		align-self: flex-end;
-		margin-top: 16px;
-		padding: 8px 16px;
-		border: none;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-scale-pop-70);
-		color: var(--clr-core-ntrl-100);
-		font-weight: 500;
-		font-size: 14px;
-		cursor: pointer;
-		transition: background-color var(--transition-medium);
-
-		&:hover:not(:disabled) {
-			background-color: var(--clr-scale-pop-60);
-		}
-
-		&:disabled {
-			cursor: not-allowed;
-			opacity: 0.7;
-		}
 	}
 
 	.checkbox-section {
