@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::{Context, anyhow, bail};
 use but_core::UnifiedDiff;
+use but_core::ref_metadata::StackId;
 use but_db::poll::ItemKind;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
@@ -714,6 +715,7 @@ pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyh
             workspace_reference_naming: WorkspaceReferenceNaming::Default,
             uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
             order,
+            new_stack_id: None,
         },
     )?;
 
@@ -751,7 +753,14 @@ pub fn create_reference(
 
     let new_ref = Category::LocalBranch.to_full_name(short_name)?;
     let ws = graph.to_workspace()?;
-    _ = but_workspace::branch::create_reference(new_ref.as_ref(), anchor, &repo, &ws, &mut *meta)?;
+    _ = but_workspace::branch::create_reference(
+        new_ref.as_ref(),
+        anchor,
+        &repo,
+        &ws,
+        &mut *meta,
+        |_| StackId::generate(),
+    )?;
 
     if project.is_some() {
         // write metadata if there are projects - this is a special case while we use vb.toml.

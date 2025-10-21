@@ -83,43 +83,9 @@ pub fn set_project_active(
         repo,
     )?;
     // --> WARNING <-- Be sure this runs BEFORE the database on `ctx` is used.
-    
-    // Migration: Validate and fix workspace stack in_workspace status.
-    // This migration ensures that the in_workspace status in the persisted metadata
-    // matches the actual workspace state computed from the graph.
-    // Errors are silently ignored to allow the application to continue loading even if
-    // the migration fails - the workspace will still be functional, just potentially
-    // with stale metadata that will be corrected on the next successful load.
-    {
-        let mut guard = project.exclusive_worktree_access();
-        let perm = guard.write_permission();
-        if let Ok((_repo, mut meta, graph)) = ctx.graph_and_meta_mut_and_repo(perm) {
-            if let Ok(ws) = graph.to_workspace() {
-                // Get the metadata stacks to check their in_workspace status
-                if let Some(metadata) = &ws.metadata {
-                    // Check all stacks in metadata (both applied and unapplied)
-                    for meta_stack in metadata.stacks(but_core::ref_metadata::StackKind::AppliedAndUnapplied) {
-                        let expected_in_workspace = meta_stack.is_in_workspace();
-                        
-                        // Find the corresponding stack in the mutable data
-                        if let Some(vb_stack) = meta.data_mut().branches.get_mut(&meta_stack.id) {
-                            if vb_stack.in_workspace != expected_in_workspace {
-                                tracing::info!(
-                                    "Migration: Fixing in_workspace status for stack {}: {} -> {}",
-                                    meta_stack.id,
-                                    vb_stack.in_workspace,
-                                    expected_in_workspace
-                                );
-                                vb_stack.in_workspace = expected_in_workspace;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        // meta is dropped here and will write changes automatically if any were made
-    }
-    
+
+    reconcile_in_workspace_state_of_vb_toml(ctx);
+
     let db_error = assure_database_valid(project.gb_dir())?;
     let filter_error = warn_about_filters_and_git_lfs(ctx.gix_repo_local_only()?)?;
     for err in [&db_error, &filter_error] {
@@ -138,6 +104,61 @@ pub fn set_project_active(
         db_error,
         headsup: filter_error,
     }))
+}
+
+/// Validate and fix workspace stack `in_workspace` status of `virtual_branches.toml`
+/// so they match what's actually in the workspace.
+/// If there is a change, the data is written back.
+///
+/// Errors are silently ignored to allow the application to continue loading even if
+/// the migration fails - the workspace will still be functional, just potentially
+/// with stale metadata that can confuse 'old' code.
+///
+/// NOTE: This isn't needed for new code - it won't base any decisions on the metadata.
+fn reconcile_in_workspace_state_of_vb_toml(ctx: &mut CommandContext) -> Option<()> {
+    let mut guard = ctx.project().exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let (_repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(perm).ok()?;
+    let ws = graph.to_workspace().ok()?;
+
+    let mut seen = BTreeSet::new();
+    for in_workspace_stack_id in ws.stacks.iter().filter_map(|s| s.id) {
+        seen.insert(in_workspace_stack_id);
+        let Some(vb_stack) = meta.data_mut().branches.get_mut(&in_workspace_stack_id) else {
+            continue;
+        };
+
+        if !vb_stack.in_workspace {
+            tracing::warn!(
+                "Fixing stale metadata of stack {in_workspace_stack_id} to be considered inside the workspace",
+            );
+            vb_stack.in_workspace = true;
+            meta.set_changed_to_necessitate_write();
+        }
+    }
+
+    let stack_ids_to_put_in_workspace: Vec<_> = meta
+        .data()
+        .branches
+        .keys()
+        .filter(|stack_id| !seen.contains(stack_id))
+        .copied()
+        .collect();
+    for stack_id_not_in_workspace in stack_ids_to_put_in_workspace {
+        let vb_stack = meta
+            .data_mut()
+            .branches
+            .get_mut(&stack_id_not_in_workspace)
+            .expect("BUG: we just traversed this stack-id");
+        if vb_stack.in_workspace {
+            tracing::warn!(
+                "Fixing stale metadata of stack {stack_id_not_in_workspace} to be considered outside the workspace",
+            );
+            vb_stack.in_workspace = false;
+            meta.set_changed_to_necessitate_write();
+        }
+    }
+    None
 }
 
 /// Open the project with the given ID in a new Window, or focus an existing one.

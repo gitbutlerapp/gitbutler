@@ -1,9 +1,10 @@
-use std::borrow::Cow;
-
+use bstr::ByteSlice;
+use but_core::ref_metadata::StackId;
 use but_core::{RefMetadata, ref_metadata::ValueInfo};
 use but_graph::init::Options;
 use but_testsupport::{graph_workspace, id_at, id_by_rev, visualize_commit_graph_all};
 use but_workspace::branch::create_reference::{Anchor, Position::*};
+use std::borrow::Cow;
 
 use crate::{
     ref_info::with_workspace_commit::utils::{
@@ -20,6 +21,7 @@ mod with_workspace {
     use but_testsupport::{graph_workspace, id_at, id_by_rev, visualize_commit_graph_all};
     use but_workspace::branch::create_reference::{Anchor, Position::*};
 
+    use crate::branch::create_reference::stack_id_for_name;
     use crate::{
         ref_info::with_workspace_commit::utils::{
             StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
@@ -62,8 +64,12 @@ mod with_workspace {
 
         let new_name = rc("refs/heads/A");
         let err = but_workspace::branch::create_reference(
-            new_name, None, /* anchor */
-            &repo, &ws, &mut meta,
+            new_name,
+            None, /* anchor */
+            &repo,
+            &ws,
+            &mut meta,
+            stack_id_for_name,
         )
         .unwrap_err();
         assert_eq!(
@@ -90,16 +96,20 @@ mod with_workspace {
 
         let a_ref = r("refs/heads/A");
         let graph = but_workspace::branch::create_reference(
-            a_ref, None, /* anchor */
-            &repo, &ws, &mut meta,
+            a_ref,
+            None, /* anchor */
+            &repo,
+            &ws,
+            &mut meta,
+            stack_id_for_name,
         )
         .expect("it updates the workspace metadata legitimate the new ref at base");
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
-            📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-            └── ≡📙:3:A on 3183e43
-                └── 📙:3:A
-            ");
+        📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        └── ≡📙:3:A on 3183e43 {41}
+            └── 📙:3:A
+        ");
         let ws_base = ws.lower_bound.expect("target is set");
         assert_eq!(
             repo.find_reference(a_ref)?.id(),
@@ -109,31 +119,39 @@ mod with_workspace {
 
         let b_ref = r("refs/heads/B");
         let graph = but_workspace::branch::create_reference(
-            b_ref, None, /* anchor */
-            &repo, &ws, &mut meta,
+            b_ref,
+            None, /* anchor */
+            &repo,
+            &ws,
+            &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
-            📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-            ├── ≡📙:4:B on 3183e43
-            │   └── 📙:4:B
-            └── ≡📙:3:A on 3183e43
-                └── 📙:3:A
-            ");
+        📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        ├── ≡📙:4:B on 3183e43 {42}
+        │   └── 📙:4:B
+        └── ≡📙:3:A on 3183e43 {41}
+            └── 📙:3:A
+        ");
 
         // Idempotency
         let graph = but_workspace::branch::create_reference(
-            b_ref, None, /* anchor */
-            &repo, &ws, &mut meta,
+            b_ref,
+            None, /* anchor */
+            &repo,
+            &ws,
+            &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
-            📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-            ├── ≡📙:4:B on 3183e43
-            │   └── 📙:4:B
-            └── ≡📙:3:A on 3183e43
-                └── 📙:3:A
-            ");
+        📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        ├── ≡📙:4:B on 3183e43 {42}
+        │   └── 📙:4:B
+        └── ≡📙:3:A on 3183e43 {41}
+            └── 📙:3:A
+        ");
 
         let above_a = rc("refs/heads/above-A");
         let graph = but_workspace::branch::create_reference(
@@ -145,16 +163,17 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
-            📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-            ├── ≡📙:5:B on 3183e43
-            │   └── 📙:5:B
-            └── ≡📙:3:above-A on 3183e43
-                ├── 📙:3:above-A
-                └── 📙:4:A
-            ");
+        📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        ├── ≡📙:5:B on 3183e43 {42}
+        │   └── 📙:5:B
+        └── ≡📙:3:above-A on 3183e43 {41}
+            ├── 📙:3:above-A
+            └── 📙:4:A
+        ");
 
         let below_b = rc("refs/heads/below-B");
         let graph = but_workspace::branch::create_reference(
@@ -166,17 +185,18 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
-            📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-            ├── ≡📙:5:B on 3183e43
-            │   ├── 📙:5:B
-            │   └── 📙:6:below-B
-            └── ≡📙:3:above-A on 3183e43
-                ├── 📙:3:above-A
-                └── 📙:4:A
-            ");
+        📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        ├── ≡📙:5:B on 3183e43 {42}
+        │   ├── 📙:5:B
+        │   └── 📙:6:below-B
+        └── ≡📙:3:above-A on 3183e43 {41}
+            ├── 📙:3:above-A
+            └── 📙:4:A
+        ");
 
         // Finally, assure the data looks correct. Can't afford bugs in the translation.
         let path = meta.path().to_owned();
@@ -185,14 +205,14 @@ mod with_workspace {
         let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
-            📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-            ├── ≡📙:5:B on 3183e43
-            │   ├── 📙:5:B
-            │   └── 📙:6:below-B
-            └── ≡📙:3:above-A on 3183e43
-                ├── 📙:3:above-A
-                └── 📙:4:A
-            ");
+        📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        ├── ≡📙:5:B on 3183e43 {42}
+        │   ├── 📙:5:B
+        │   └── 📙:6:below-B
+        └── ≡📙:3:above-A on 3183e43 {41}
+            ├── 📙:3:above-A
+            └── 📙:4:A
+        ");
 
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 3183e43 (HEAD -> gitbutler/workspace, origin/main, main, below-B, above-A, B, A) M1");
 
@@ -232,18 +252,19 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         // It handles this special case, by creating the necessary workspace metadata
         // if for some reason (like manual building) it's not set.
         insta::assert_snapshot!(graph_workspace(&ws), @r"
-            📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
-            └── ≡:4:A on bce0c5e
-                ├── :4:A
-                │   └── ·43f9472 (🏘️)
-                └── 📙:3:above-bottom
-                    └── ·6fdab32 (🏘️)
-            ");
+        📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
+        └── ≡:4:A on bce0c5e {4cf}
+            ├── :4:A
+            │   └── ·43f9472 (🏘️)
+            └── 📙:3:above-bottom
+                └── ·6fdab32 (🏘️)
+        ");
 
         let bottom_ref = rc("refs/heads/bottom");
         let graph = but_workspace::branch::create_reference(
@@ -255,12 +276,13 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
 
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
-        └── ≡:4:A on bce0c5e
+        └── ≡:4:A on bce0c5e {4cf}
             ├── :4:A
             │   └── ·43f9472 (🏘️)
             ├── 📙:3:above-bottom
@@ -279,6 +301,7 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
 
         // Note how 'Above' *a commit* means directly above, not on top of everything.
@@ -287,7 +310,7 @@ mod with_workspace {
         // 'A' is moved to the background.
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
-        └── ≡📙:3:above-A-commit on bce0c5e
+        └── ≡📙:3:above-A-commit on bce0c5e {4cf}
             ├── 📙:3:above-A-commit
             │   └── ·43f9472 (🏘️) ►A
             ├── 📙:4:above-bottom
@@ -306,13 +329,14 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
 
         let ws = graph.to_workspace()?;
         // And 'A' is back, with the desired order correctly restored.
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
-        └── ≡📙:5:above-A-commit on bce0c5e
+        └── ≡📙:5:above-A-commit on bce0c5e {4cf}
             ├── 📙:5:above-A-commit
             ├── 📙:6:A
             │   └── ·43f9472 (🏘️)
@@ -332,13 +356,14 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
 
         // *Above a segment means what one would expect though.
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
-        └── ≡📙:5:above-A-commit on bce0c5e
+        └── ≡📙:5:above-A-commit on bce0c5e {4cf}
             ├── 📙:5:above-A-commit
             ├── 📙:6:above-A
             ├── 📙:7:A
@@ -358,12 +383,13 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
 
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
-        └── ≡📙:5:above-A-commit on bce0c5e
+        └── ≡📙:5:above-A-commit on bce0c5e {4cf}
             ├── 📙:5:above-A-commit
             ├── 📙:6:above-A
             ├── 📙:7:A
@@ -384,11 +410,12 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
-        └── ≡📙:5:above-A-commit on bce0c5e
+        └── ≡📙:5:above-A-commit on bce0c5e {4cf}
             ├── 📙:5:above-A-commit
             ├── 📙:6:above-A
             ├── 📙:7:A
@@ -402,13 +429,20 @@ mod with_workspace {
 
         // create a new stack for good measure.
         let b_ref = r("refs/heads/B");
-        let graph = but_workspace::branch::create_reference(b_ref, None, &repo, &ws, &mut meta)?;
+        let graph = but_workspace::branch::create_reference(
+            b_ref,
+            None,
+            &repo,
+            &ws,
+            &mut meta,
+            stack_id_for_name,
+        )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
-        ├── ≡📙:5:B on bce0c5e
+        ├── ≡📙:5:B on bce0c5e {42}
         │   └── 📙:5:B
-        └── ≡📙:6:above-A-commit on bce0c5e
+        └── ≡📙:6:above-A-commit on bce0c5e {4cf}
             ├── 📙:6:above-A-commit
             ├── 📙:7:above-A
             ├── 📙:8:A
@@ -431,14 +465,15 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
-        ├── ≡📙:5:above-B on bce0c5e
+        ├── ≡📙:5:above-B on bce0c5e {42}
         │   ├── 📙:5:above-B
         │   └── 📙:6:B
-        └── ≡📙:7:above-A-commit on bce0c5e
+        └── ≡📙:7:above-A-commit on bce0c5e {4cf}
             ├── 📙:7:above-A-commit
             ├── 📙:8:above-A
             ├── 📙:9:A
@@ -463,15 +498,16 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
-        ├── ≡📙:5:above-B on bce0c5e
+        ├── ≡📙:5:above-B on bce0c5e {42}
         │   ├── 📙:5:above-B
         │   ├── 📙:6:B
         │   └── 📙:7:below-B
-        └── ≡📙:8:above-A-commit on bce0c5e
+        └── ≡📙:8:above-A-commit on bce0c5e {4cf}
             ├── 📙:8:above-A-commit
             ├── 📙:9:above-A
             ├── 📙:10:A
@@ -491,11 +527,11 @@ mod with_workspace {
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
-        ├── ≡📙:5:above-B on bce0c5e
+        ├── ≡📙:5:above-B on bce0c5e {42}
         │   ├── 📙:5:above-B
         │   ├── 📙:6:B
         │   └── 📙:7:below-B
-        └── ≡📙:8:above-A-commit on bce0c5e
+        └── ≡📙:8:above-A-commit on bce0c5e {4cf}
             ├── 📙:8:above-A-commit
             ├── 📙:9:above-A
             ├── 📙:10:A
@@ -533,12 +569,12 @@ mod with_workspace {
         let ws = graph.to_workspace()?;
 
         insta::assert_snapshot!(graph_workspace(&ws), @r"
-            📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-            └── ≡📙:3:A on 3183e43
-                └── 📙:3:A
-                    ├── ·c2878fb (🏘️)
-                    └── ·49d4b34 (🏘️)
-            ");
+        📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        └── ≡📙:3:A on 3183e43 {0}
+            └── 📙:3:A
+                ├── ·c2878fb (🏘️)
+                └── ·49d4b34 (🏘️)
+        ");
 
         let above_bottom_ref = r("refs/heads/above-bottom");
         let bottom_id = id_by_rev(&repo, ":/A1");
@@ -551,16 +587,17 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
-            📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-            └── ≡📙:4:A on 3183e43
-                ├── 📙:4:A
-                │   └── ·c2878fb (🏘️)
-                └── 📙:3:above-bottom
-                    └── ·49d4b34 (🏘️)
-            ");
+        📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        └── ≡📙:4:A on 3183e43 {0}
+            ├── 📙:4:A
+            │   └── ·c2878fb (🏘️)
+            └── 📙:3:above-bottom
+                └── ·49d4b34 (🏘️)
+        ");
 
         let bottom_ref = rc("refs/heads/bottom");
         let graph = but_workspace::branch::create_reference(
@@ -572,6 +609,7 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
 
         let ws = graph.to_workspace()?;
@@ -579,7 +617,7 @@ mod with_workspace {
         // There are
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        └── ≡📙:4:A on 3183e43
+        └── ≡📙:4:A on 3183e43 {0}
             ├── 📙:4:A
             │   └── ·c2878fb (🏘️)
             ├── 📙:3:above-bottom
@@ -598,13 +636,14 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
 
         // Note how 'Above' *a commit* means directly above, not on top of everything.
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        └── ≡📙:5:A on 3183e43
+        └── ≡📙:5:A on 3183e43 {0}
             ├── 📙:5:A
             ├── 📙:6:above-A-commit
             │   └── ·c2878fb (🏘️)
@@ -624,13 +663,14 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
 
         // *Above a segment means what one would expect though.
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        └── ≡📙:5:above-A on 3183e43
+        └── ≡📙:5:above-A on 3183e43 {0}
             ├── 📙:5:above-A
             ├── 📙:6:A
             ├── 📙:7:above-A-commit
@@ -652,12 +692,13 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
 
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        └── ≡📙:5:above-A on 3183e43
+        └── ≡📙:5:above-A on 3183e43 {0}
             ├── 📙:5:above-A
             ├── 📙:6:A
             ├── 📙:7:above-A-commit
@@ -677,12 +718,13 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
 
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        └── ≡📙:5:above-A on 3183e43
+        └── ≡📙:5:above-A on 3183e43 {0}
             ├── 📙:5:above-A
             ├── 📙:6:A
             ├── 📙:7:above-A-commit
@@ -703,11 +745,12 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        └── ≡📙:5:above-A on 3183e43
+        └── ≡📙:5:above-A on 3183e43 {0}
             ├── 📙:5:above-A
             ├── 📙:6:A
             ├── 📙:7:above-A-commit
@@ -721,13 +764,20 @@ mod with_workspace {
 
         // create a new stack for good measure.
         let b_ref = r("refs/heads/B");
-        let graph = but_workspace::branch::create_reference(b_ref, None, &repo, &ws, &mut meta)?;
+        let graph = but_workspace::branch::create_reference(
+            b_ref,
+            None,
+            &repo,
+            &ws,
+            &mut meta,
+            stack_id_for_name,
+        )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        ├── ≡📙:5:B on 3183e43
+        ├── ≡📙:5:B on 3183e43 {42}
         │   └── 📙:5:B
-        └── ≡📙:6:above-A on 3183e43
+        └── ≡📙:6:above-A on 3183e43 {0}
             ├── 📙:6:above-A
             ├── 📙:7:A
             ├── 📙:8:above-A-commit
@@ -750,14 +800,15 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        ├── ≡📙:5:above-B on 3183e43
+        ├── ≡📙:5:above-B on 3183e43 {42}
         │   ├── 📙:5:above-B
         │   └── 📙:6:B
-        └── ≡📙:7:above-A on 3183e43
+        └── ≡📙:7:above-A on 3183e43 {0}
             ├── 📙:7:above-A
             ├── 📙:8:A
             ├── 📙:9:above-A-commit
@@ -782,15 +833,16 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        ├── ≡📙:5:above-B on 3183e43
+        ├── ≡📙:5:above-B on 3183e43 {42}
         │   ├── 📙:5:above-B
         │   ├── 📙:6:B
         │   └── 📙:7:below-B
-        └── ≡📙:8:above-A on 3183e43
+        └── ≡📙:8:above-A on 3183e43 {0}
             ├── 📙:8:above-A
             ├── 📙:9:A
             ├── 📙:10:above-A-commit
@@ -810,11 +862,11 @@ mod with_workspace {
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        ├── ≡📙:5:above-B on 3183e43
+        ├── ≡📙:5:above-B on 3183e43 {42}
         │   ├── 📙:5:above-B
         │   ├── 📙:6:B
         │   └── 📙:7:below-B
-        └── ≡📙:8:above-A on 3183e43
+        └── ≡📙:8:above-A on 3183e43 {0}
             ├── 📙:8:above-A
             ├── 📙:9:A
             ├── 📙:10:above-A-commit
@@ -850,12 +902,12 @@ mod with_workspace {
         let ws = graph.to_workspace()?;
 
         insta::assert_snapshot!(graph_workspace(&ws), @r"
-            📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-            └── ≡📙:3:A on 3183e43
-                └── 📙:3:A
-                    ├── ·c2878fb (🏘️)
-                    └── ·49d4b34 (🏘️)
-            ");
+        📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        └── ≡📙:3:A on 3183e43 {0}
+            └── 📙:3:A
+                ├── ·c2878fb (🏘️)
+                └── ·49d4b34 (🏘️)
+        ");
 
         let bottom_ref = rc("refs/heads/bottom");
         let bottom_id = id_by_rev(&repo, ":/A1");
@@ -868,12 +920,13 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
 
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        └── ≡📙:3:A on 3183e43
+        └── ≡📙:3:A on 3183e43 {0}
             ├── 📙:3:A
             │   ├── ·c2878fb (🏘️)
             │   └── ·49d4b34 (🏘️)
@@ -902,10 +955,10 @@ mod with_workspace {
 
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        ├── ≡📙:4:B on 3183e43
+        ├── ≡📙:4:B on 3183e43 {1}
         │   └── 📙:4:B
         │       └── ·f57c528 (🏘️)
-        └── ≡📙:3:A on 3183e43
+        └── ≡📙:3:A on 3183e43 {0}
             └── 📙:3:A
                 └── ·49d4b34 (🏘️)
         ");
@@ -921,14 +974,15 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        ├── ≡📙:4:B on 3183e43
+        ├── ≡📙:4:B on 3183e43 {1}
         │   └── 📙:4:B
         │       └── ·f57c528 (🏘️)
-        └── ≡📙:3:A on 3183e43
+        └── ≡📙:3:A on 3183e43 {0}
             ├── 📙:3:A
             │   └── ·49d4b34 (🏘️)
             └── 📙:5:a-bottom
@@ -945,16 +999,17 @@ mod with_workspace {
             &repo,
             &ws,
             &mut meta,
+            stack_id_for_name,
         )?;
 
         let ws = graph.to_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-        ├── ≡📙:4:B on 3183e43
+        ├── ≡📙:4:B on 3183e43 {1}
         │   ├── 📙:4:B
         │   │   └── ·f57c528 (🏘️)
         │   └── 📙:6:b-bottom
-        └── ≡📙:3:A on 3183e43
+        └── ≡📙:3:A on 3183e43 {0}
             ├── 📙:3:A
             │   └── ·49d4b34 (🏘️)
             └── 📙:5:a-bottom
@@ -990,6 +1045,7 @@ mod with_workspace {
                 &repo,
                 &ws,
                 &mut *meta,
+                stack_id_for_name,
             )
             .unwrap_err();
 
@@ -1035,12 +1091,12 @@ mod with_workspace {
         let ws = graph.to_workspace()?;
 
         insta::assert_snapshot!(graph_workspace(&ws), @r"
-            📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-            └── ≡📙:3:A on 3183e43
-                └── 📙:3:A
-                    ├── ·c2878fb (🏘️)
-                    └── ·49d4b34 (🏘️)
-            ");
+        📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+        └── ≡📙:3:A on 3183e43 {0}
+            └── 📙:3:A
+                ├── ·c2878fb (🏘️)
+                └── ·49d4b34 (🏘️)
+        ");
 
         let (ws_id, ws_ref_name) = id_at(&repo, "gitbutler/workspace");
         // Try to set gitbutler/workspace to a position in the workspace, but one below its current position
@@ -1055,6 +1111,7 @@ mod with_workspace {
                 &repo,
                 &ws,
                 &mut *meta,
+                stack_id_for_name,
             )
             .unwrap_err();
 
@@ -1086,6 +1143,7 @@ mod with_workspace {
                 &repo,
                 &ws,
                 &mut *meta,
+                stack_id_for_name,
             )
             .unwrap_err();
 
@@ -1113,6 +1171,7 @@ mod with_workspace {
             &repo,
             &ws,
             &mut *meta,
+            stack_id_for_name,
         )
         .unwrap_err();
         assert_eq!(
@@ -1140,6 +1199,7 @@ mod with_workspace {
             &repo,
             &ws,
             &mut *meta,
+            stack_id_for_name,
         )
         .unwrap_err();
 
@@ -1174,6 +1234,7 @@ fn errors() -> anyhow::Result<()> {
         &repo,
         &ws,
         &mut *meta,
+        stack_id_for_name,
     )
     .unwrap_err();
     assert_eq!(err.to_string(), "Cannot create reference on unborn branch");
@@ -1202,8 +1263,15 @@ fn errors() -> anyhow::Result<()> {
         Anchor::at_segment(ref_name.as_ref(), Below),
     ] {
         // Below first in history
-        let err = but_workspace::branch::create_reference(new_name, anchor, &repo, &ws, &mut *meta)
-            .unwrap_err();
+        let err = but_workspace::branch::create_reference(
+            new_name,
+            anchor,
+            &repo,
+            &ws,
+            &mut *meta,
+            stack_id_for_name,
+        )
+        .unwrap_err();
         assert_eq!(
             err.to_string(),
             "Commit c166d42d4ef2e5e742d33554d03805cfb0b24d11 is the first in history and no branch can point below it",
@@ -1222,8 +1290,15 @@ fn errors() -> anyhow::Result<()> {
     // Misaligned workspace - commit not included.
     let (id, ref_name) = id_at(&repo, "A");
     for anchor in [Anchor::at_id(id, Below), Anchor::at_id(id, Above)] {
-        let err = but_workspace::branch::create_reference(new_name, anchor, &repo, &ws, &mut *meta)
-            .unwrap_err();
+        let err = but_workspace::branch::create_reference(
+            new_name,
+            anchor,
+            &repo,
+            &ws,
+            &mut *meta,
+            stack_id_for_name,
+        )
+        .unwrap_err();
         assert_eq!(
             err.to_string(),
             "Commit 89cc2d303514654e9cab2d05b9af08b420a740c1 isn't part of the workspace",
@@ -1246,8 +1321,15 @@ fn errors() -> anyhow::Result<()> {
         (Anchor::at_segment(a_ref.as_ref(), Below)),
         (Anchor::at_segment(a_ref.as_ref(), Above)),
     ] {
-        let err = but_workspace::branch::create_reference(new_name, anchor, &repo, &ws, &mut *meta)
-            .unwrap_err();
+        let err = but_workspace::branch::create_reference(
+            new_name,
+            anchor,
+            &repo,
+            &ws,
+            &mut *meta,
+            stack_id_for_name,
+        )
+        .unwrap_err();
         assert_eq!(
             err.to_string(),
             "Could not find a segment named 'A' in workspace",
@@ -1282,8 +1364,15 @@ fn errors() -> anyhow::Result<()> {
         (Anchor::at_segment(main_ref.as_ref(), Above)),
         (Anchor::at_id(main_id, Above)),
     ] {
-        let err = but_workspace::branch::create_reference(a_ref, anchor, &repo, &ws, &mut *meta)
-            .unwrap_err();
+        let err = but_workspace::branch::create_reference(
+            a_ref,
+            anchor,
+            &repo,
+            &ws,
+            &mut *meta,
+            stack_id_for_name,
+        )
+        .unwrap_err();
         assert_eq!(
             err.to_string(),
             "The reference \"refs/heads/A\" should have content c166d42d4ef2e5e742d33554d03805cfb0b24d11, actual content was 89cc2d303514654e9cab2d05b9af08b420a740c1",
@@ -1321,8 +1410,15 @@ fn errors() -> anyhow::Result<()> {
         (Anchor::at_segment(a_ref, Below)),
         (Anchor::at_id(a_id, Below)),
     ] {
-        let err = but_workspace::branch::create_reference(new_name, anchor, &repo, &ws, &mut *meta)
-            .unwrap_err();
+        let err = but_workspace::branch::create_reference(
+            new_name,
+            anchor,
+            &repo,
+            &ws,
+            &mut *meta,
+            stack_id_for_name,
+        )
+        .unwrap_err();
         assert_eq!(
             err.to_string(),
             "Commit d79bba960b112dbd25d45921c47eeda22288022b isn't part of the workspace",
@@ -1368,6 +1464,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         &repo,
         &ws,
         &mut meta,
+        stack_id_for_name,
     )
     .expect("this works as the branch is unique");
 
@@ -1401,6 +1498,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         &repo,
         &ws,
         &mut meta,
+        stack_id_for_name,
     )?;
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -1420,6 +1518,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         &repo,
         &ws,
         &mut meta,
+        stack_id_for_name,
     )?;
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -1441,6 +1540,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         &repo,
         &ws,
         &mut meta,
+        stack_id_for_name,
     )
     .unwrap_err();
     assert_eq!(
@@ -1450,7 +1550,14 @@ fn journey_with_commits() -> anyhow::Result<()> {
 
     // branch already exists in the workspace, all good.
     let main_ref = r("refs/heads/main");
-    let graph = but_workspace::branch::create_reference(main_ref, None, &repo, &ws, &mut meta)?;
+    let graph = but_workspace::branch::create_reference(
+        main_ref,
+        None,
+        &repo,
+        &ws,
+        &mut meta,
+        stack_id_for_name,
+    )?;
 
     assert!(
         meta.branch(main_ref)?.is_default(),
@@ -1478,6 +1585,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         &repo,
         &ws,
         &mut meta,
+        stack_id_for_name,
     )?;
 
     assert!(
@@ -1531,6 +1639,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         &repo,
         &ws,
         &mut meta,
+        stack_id_for_name,
     )?;
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -1543,8 +1652,15 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         ");
 
     let new = r("refs/heads/new-independent");
-    let err =
-        but_workspace::branch::create_reference(new, None, &repo, &ws, &mut meta).unwrap_err();
+    let err = but_workspace::branch::create_reference(
+        new,
+        None,
+        &repo,
+        &ws,
+        &mut meta,
+        stack_id_for_name,
+    )
+    .unwrap_err();
 
     assert_eq!(
         err.to_string(),
@@ -1563,6 +1679,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         &repo,
         &ws,
         &mut meta,
+        stack_id_for_name,
     )?;
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
@@ -1574,8 +1691,15 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
                 └── ·3d57fc1 (✓)
         ");
 
-    let err =
-        but_workspace::branch::create_reference(new, None, &repo, &ws, &mut meta).unwrap_err();
+    let err = but_workspace::branch::create_reference(
+        new,
+        None,
+        &repo,
+        &ws,
+        &mut meta,
+        stack_id_for_name,
+    )
+    .unwrap_err();
 
     assert_eq!(
         err.to_string(),
@@ -1606,4 +1730,8 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         ");
 
     Ok(())
+}
+
+fn stack_id_for_name(rn: &gix::refs::FullNameRef) -> StackId {
+    StackId::from_number_for_testing(rn.shorten().chars().map(|c| c as u128).sum())
 }

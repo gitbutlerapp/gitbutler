@@ -15,7 +15,7 @@ use crate::init::{
 };
 
 #[test]
-fn single_stack_ambigous() -> anyhow::Result<()> {
+fn single_stack_ambiguous() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 20de6ee (HEAD -> gitbutler/workspace) GitButler Workspace Commit

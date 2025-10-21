@@ -1,6 +1,6 @@
 mod workspace {
     use but_core::ref_metadata::WorkspaceCommitRelation::Merged;
-    use but_core::ref_metadata::{StackKind::AppliedAndUnapplied, Workspace};
+    use but_core::ref_metadata::{StackId, StackKind::AppliedAndUnapplied, Workspace};
 
     #[test]
     fn add_new_stack_if_not_present_journey() {
@@ -9,18 +9,18 @@ mod workspace {
 
         let a_ref = r("refs/heads/A");
         assert_eq!(
-            ws.add_or_insert_new_stack_if_not_present(a_ref, Some(100), Merged),
+            ws.add_or_insert_new_stack_if_not_present(a_ref, Some(100), Merged, new_stack_id),
             (0, 0)
         );
         assert_eq!(
-            ws.add_or_insert_new_stack_if_not_present(a_ref, Some(200), Merged),
+            ws.add_or_insert_new_stack_if_not_present(a_ref, Some(200), Merged, new_stack_id),
             (0, 0)
         );
         assert_eq!(ws.stacks.len(), 1);
 
         let b_ref = r("refs/heads/B");
         assert_eq!(
-            ws.add_or_insert_new_stack_if_not_present(b_ref, Some(0), Merged),
+            ws.add_or_insert_new_stack_if_not_present(b_ref, Some(0), Merged, new_stack_id),
             (0, 0)
         );
         assert_eq!(
@@ -30,7 +30,7 @@ mod workspace {
 
         let c_ref = r("refs/heads/C");
         assert_eq!(
-            ws.add_or_insert_new_stack_if_not_present(c_ref, None, Merged),
+            ws.add_or_insert_new_stack_if_not_present(c_ref, None, Merged, new_stack_id),
             (2, 0)
         );
         assert_eq!(
@@ -68,7 +68,7 @@ mod workspace {
             "anchor doesn't exist"
         );
         assert_eq!(
-            ws.add_or_insert_new_stack_if_not_present(a_ref, None, Merged),
+            ws.add_or_insert_new_stack_if_not_present(a_ref, None, Merged, new_stack_id),
             (0, 0)
         );
         assert_eq!(
@@ -89,7 +89,7 @@ mod workspace {
         );
 
         assert_eq!(
-            ws.add_or_insert_new_stack_if_not_present(a_ref, None, Merged),
+            ws.add_or_insert_new_stack_if_not_present(a_ref, None, Merged, new_stack_id),
             (0, 2),
             "adding a new stack can 'fail' if the segment is already present, but not as stack tip"
         );
@@ -139,5 +139,8 @@ mod workspace {
 
     fn r(name: &str) -> &gix::refs::FullNameRef {
         name.try_into().expect("statically known ref")
+    }
+    fn new_stack_id(_: &gix::refs::FullNameRef) -> StackId {
+        StackId::generate()
     }
 }

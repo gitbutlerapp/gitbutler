@@ -5,6 +5,8 @@ use crate::{
     },
     utils::r,
 };
+use bstr::ByteSlice;
+use but_core::ref_metadata::StackId;
 use but_core::ref_metadata::WorkspaceCommitRelation::Outside;
 use but_core::{RefMetadata, RepositoryExt, ref_metadata};
 use but_graph::init::{Options, Overlay};
@@ -90,7 +92,7 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542
-    └── ≡📙:2:B on e5d0542
+    └── ≡📙:2:B on e5d0542 {1}
         └── 📙:2:B
     ");
 
@@ -99,9 +101,9 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
         but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
     insta::assert_snapshot!(graph_workspace(&out.graph.to_workspace()?), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542
-    ├── ≡📙:3:A on e5d0542
+    ├── ≡📙:3:A on e5d0542 {41}
     │   └── 📙:3:A
-    └── ≡📙:2:B on e5d0542
+    └── ≡📙:2:B on e5d0542 {1}
         └── 📙:2:B
     ");
 
@@ -175,9 +177,9 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
     // both branches, main and feature, are available in the newly created workspace ref.
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓! on 3183e43
-    ├── ≡📙:3:feature on 3183e43
+    ├── ≡📙:3:feature on 3183e43 {2ec}
     │   └── 📙:3:feature
-    └── ≡📙:2:main on 3183e43
+    └── ≡📙:2:main on 3183e43 {1a5}
         └── 📙:2:main
     ");
 
@@ -223,7 +225,7 @@ fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
     let graph = out.graph;
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542
-    └── ≡📙:2:A on e5d0542
+    └── ≡📙:2:A on e5d0542 {41}
         └── 📙:2:A
     ");
     // No commit was created, as it's not enabled by default.
@@ -242,9 +244,9 @@ fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
     // in theory we could also add B as dependent branch.
     insta::assert_snapshot!(graph_workspace(&out.graph.to_workspace()?), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542
-    ├── ≡📙:3:B on e5d0542
+    ├── ≡📙:3:B on e5d0542 {42}
     │   └── 📙:3:B
-    └── ≡📙:2:A on e5d0542
+    └── ≡📙:2:A on e5d0542 {41}
         └── 📙:2:A
     ");
 
@@ -304,9 +306,9 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     let graph = out.graph;
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542
-    ├── ≡📙:3:A on e5d0542
+    ├── ≡📙:3:A on e5d0542 {41}
     │   └── 📙:3:A
-    └── ≡📙:2:main on e5d0542
+    └── ≡📙:2:main on e5d0542 {1a5}
         └── 📙:2:main
     ");
 
@@ -335,11 +337,11 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542
-    ├── ≡📙:4:A on e5d0542
+    ├── ≡📙:4:A on e5d0542 {41}
     │   └── 📙:4:A
-    ├── ≡📙:3:B on e5d0542
+    ├── ≡📙:3:B on e5d0542 {42}
     │   └── 📙:3:B
-    └── ≡📙:2:main on e5d0542
+    └── ≡📙:2:main on e5d0542 {1a5}
         └── 📙:2:main
     ");
 
@@ -357,7 +359,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓!
-    └── ≡:1:anon:
+    └── ≡:1:anon: {41}
         └── :1:anon:
             └── ·e5d0542 (🏘️) ►A, ►B, ►main
     ");
@@ -381,7 +383,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     let ws = out.graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓!
-    └── ≡📙:2:A
+    └── ≡📙:2:A {41}
         └── 📙:2:A
             └── ·e5d0542 (🏘️) ►B, ►main
     ");
@@ -407,9 +409,9 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     let ws = out.graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓! on e5d0542
-    ├── ≡📙:3:A on e5d0542
+    ├── ≡📙:3:A on e5d0542 {41}
     │   └── 📙:3:A
-    └── ≡📙:2:B on e5d0542
+    └── ≡📙:2:B on e5d0542 {42}
         └── 📙:2:B
     ");
 
@@ -450,7 +452,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     let graph = out.graph;
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on e5d0542
-    └── ≡📙:3:A on e5d0542
+    └── ≡📙:3:A on e5d0542 {41}
         └── 📙:3:A
     ");
 
@@ -470,9 +472,9 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on e5d0542
-    ├── ≡📙:4:B on e5d0542
+    ├── ≡📙:4:B on e5d0542 {42}
     │   └── 📙:4:B
-    └── ≡📙:3:A on e5d0542
+    └── ≡📙:3:A on e5d0542 {41}
         └── 📙:3:A
     ");
 
@@ -533,9 +535,9 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
     // This apply brings both branches into the existing workspace, and it's where HEAD points to.
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542
-    ├── ≡📙:3:A on e5d0542
+    ├── ≡📙:3:A on e5d0542 {41}
     │   └── 📙:3:A
-    └── ≡📙:2:B on e5d0542
+    └── ≡📙:2:B on e5d0542 {42}
         └── 📙:2:B
     ");
 
@@ -585,7 +587,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓! on 3183e43
-    └── ≡📙:2:C on 3183e43
+    └── ≡📙:2:C on 3183e43 {43}
         └── 📙:2:C
             └── ·aaa195b (🏘️)
     ");
@@ -625,10 +627,10 @@ fn detached_head_journey() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓! on 3183e43
-    ├── ≡📙:3:B on 3183e43
+    ├── ≡📙:3:B on 3183e43 {42}
     │   └── 📙:3:B
     │       └── ·f57c528 (🏘️)
-    └── ≡📙:2:C on 3183e43
+    └── ≡📙:2:C on 3183e43 {43}
         └── 📙:2:C
             └── ·aaa195b (🏘️)
     ");
@@ -656,13 +658,13 @@ fn detached_head_journey() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓! on 3183e43
-    ├── ≡📙:4:B on 3183e43
+    ├── ≡📙:4:B on 3183e43 {42}
     │   └── 📙:4:B
     │       └── ·f57c528 (🏘️)
-    ├── ≡📙:3:C on 3183e43
+    ├── ≡📙:3:C on 3183e43 {43}
     │   └── 📙:3:C
     │       └── ·aaa195b (🏘️)
-    └── ≡📙:2:A on 3183e43
+    └── ≡📙:2:A on 3183e43 {41}
         └── 📙:2:A
             └── ·49d4b34 (🏘️)
     ");
@@ -719,7 +721,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
-    └── ≡📙:4:E on 85efbe4
+    └── ≡📙:4:E on 85efbe4 {1}
         └── 📙:4:E
             └── ·7076dee (🏘️) ►D
     ");
@@ -732,10 +734,10 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:5:C on 7076dee
+    ├── ≡📙:5:C on 7076dee {43}
     │   └── 📙:5:C
     │       └── ·f084d61 (🏘️) ►A, ►B
-    └── ≡📙:6:E on 85efbe4
+    └── ≡📙:6:E on 85efbe4 {1}
         └── 📙:6:E
             └── ·7076dee (🏘️) ►D
     ");
@@ -759,10 +761,10 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:6:B on 7076dee
+    ├── ≡📙:6:B on 7076dee {2}
     │   └── 📙:6:B
     │       └── ·f084d61 (🏘️) ►A, ►C
-    └── ≡📙:5:E on 85efbe4
+    └── ≡📙:5:E on 85efbe4 {1}
         └── 📙:5:E
             └── ·7076dee (🏘️) ►D
     ");
@@ -777,11 +779,11 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:5:C on 7076dee
+    ├── ≡📙:5:C on 7076dee {2}
     │   ├── 📙:5:C
     │   └── 📙:6:B
     │       └── ·f084d61 (🏘️) ►A
-    └── ≡📙:7:E on 85efbe4
+    └── ≡📙:7:E on 85efbe4 {1}
         └── 📙:7:E
             └── ·7076dee (🏘️) ►D
     ");
@@ -824,7 +826,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
-    └── ≡📙:3:A on 85efbe4
+    └── ≡📙:3:A on 85efbe4 {41}
         └── 📙:3:A
             ├── ·f084d61 (🏘️) ►B, ►C
             └── ·7076dee (🏘️) ►D, ►E
@@ -852,7 +854,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
-    └── ≡📙:4:B on 85efbe4
+    └── ≡📙:4:B on 85efbe4 {41}
         ├── 📙:4:B
         └── 📙:5:A
             ├── ·f084d61 (🏘️) ►C
@@ -926,22 +928,22 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓! on 85efbe4
-    ├── ≡📙:6:clean-C on 85efbe4
+    ├── ≡📙:6:clean-C on 85efbe4 {273}
     │   └── 📙:6:clean-C
     │       └── ·34c4591 (🏘️)
-    ├── ≡📙:5:conflict-F2 on 85efbe4
+    ├── ≡📙:5:conflict-F2 on 85efbe4 {3f7}
     │   └── 📙:5:conflict-F2
     │       └── ·f2ce66d (🏘️)
-    ├── ≡📙:4:clean-B on 85efbe4
+    ├── ≡📙:4:clean-B on 85efbe4 {272}
     │   └── 📙:4:clean-B
     │       └── ·115e41b (🏘️)
-    ├── ≡📙:3:conflict-F1 on 85efbe4
+    ├── ≡📙:3:conflict-F1 on 85efbe4 {3f6}
     │   └── 📙:3:conflict-F1
     │       └── ·bf09eae (🏘️)
-    ├── ≡📙:2:clean-A on 85efbe4
+    ├── ≡📙:2:clean-A on 85efbe4 {271}
     │   └── 📙:2:clean-A
     │       └── ·d3cce74 (🏘️)
-    └── ≡📙:7:main on 85efbe4
+    └── ≡📙:7:main on 85efbe4 {1a5}
         └── 📙:7:main
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -991,22 +993,22 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
     // By default, it fails and just reports the conflicting stacks, so it's the same as it was before.
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓! on 85efbe4
-    ├── ≡📙:6:clean-C on 85efbe4
+    ├── ≡📙:6:clean-C on 85efbe4 {273}
     │   └── 📙:6:clean-C
     │       └── ·34c4591 (🏘️)
-    ├── ≡📙:5:conflict-F2 on 85efbe4
+    ├── ≡📙:5:conflict-F2 on 85efbe4 {3f7}
     │   └── 📙:5:conflict-F2
     │       └── ·f2ce66d (🏘️)
-    ├── ≡📙:4:clean-B on 85efbe4
+    ├── ≡📙:4:clean-B on 85efbe4 {272}
     │   └── 📙:4:clean-B
     │       └── ·115e41b (🏘️)
-    ├── ≡📙:3:conflict-F1 on 85efbe4
+    ├── ≡📙:3:conflict-F1 on 85efbe4 {3f6}
     │   └── 📙:3:conflict-F1
     │       └── ·bf09eae (🏘️)
-    ├── ≡📙:2:clean-A on 85efbe4
+    ├── ≡📙:2:clean-A on 85efbe4 {271}
     │   └── 📙:2:clean-A
     │       └── ·d3cce74 (🏘️)
-    └── ≡📙:8:main on 85efbe4
+    └── ≡📙:8:main on 85efbe4 {1a5}
         └── 📙:8:main
     ");
     let conflicting_stacks = out
@@ -1050,20 +1052,20 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓! on 85efbe4
-    ├── ≡📙:5:conflict-hero on 85efbe4
+    ├── ≡📙:5:conflict-hero on 85efbe4 {52d}
     │   └── 📙:5:conflict-hero
     │       ├── ·4bbb93c (🏘️)
     │       └── ·98519e9 (🏘️)
-    ├── ≡📙:4:clean-C on 85efbe4
+    ├── ≡📙:4:clean-C on 85efbe4 {273}
     │   └── 📙:4:clean-C
     │       └── ·34c4591 (🏘️)
-    ├── ≡📙:3:clean-B on 85efbe4
+    ├── ≡📙:3:clean-B on 85efbe4 {272}
     │   └── 📙:3:clean-B
     │       └── ·115e41b (🏘️)
-    ├── ≡📙:2:clean-A on 85efbe4
+    ├── ≡📙:2:clean-A on 85efbe4 {271}
     │   └── 📙:2:clean-A
     │       └── ·d3cce74 (🏘️)
-    └── ≡📙:6:main on 85efbe4
+    └── ≡📙:6:main on 85efbe4 {1a5}
         └── 📙:6:main
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -1197,9 +1199,9 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542
-    ├── ≡📙:3:B on e5d0542
+    ├── ≡📙:3:B on e5d0542 {2}
     │   └── 📙:3:B
-    └── ≡📙:2:A on e5d0542
+    └── ≡📙:2:A on e5d0542 {1}
         └── 📙:2:A
     ");
 
@@ -1229,9 +1231,9 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️⚠️:1:gitbutler/workspace <> ✓! on e5d0542
-    ├── ≡👉📙:3:B on e5d0542
+    ├── ≡👉📙:3:B on e5d0542 {2}
     │   └── 👉📙:3:B
-    └── ≡📙:2:A on e5d0542
+    └── ≡📙:2:A on e5d0542 {1}
         └── 📙:2:A
     ");
     // Already applied (the HEAD points to it, it literally IS the workspace).
@@ -1260,9 +1262,9 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     let ws = out.graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542
-    ├── ≡📙:3:B on e5d0542
+    ├── ≡📙:3:B on e5d0542 {2}
     │   └── 📙:3:B
-    └── ≡📙:2:A on e5d0542
+    └── ≡📙:2:A on e5d0542 {1}
         └── 📙:2:A
     ");
     // Even though the real repo seemingly didn't change, after all, our entrypoint was just 'virtual'.
@@ -1282,7 +1284,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️⚠️:1:gitbutler/workspace <> ✓! on e5d0542
-    └── ≡👉📙:2:B on e5d0542
+    └── ≡👉📙:2:B on e5d0542 {2}
         ├── 👉📙:2:B
         └── 📙:3:A
     ");
@@ -1322,7 +1324,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     let graph = out.graph;
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓! on e5d0542
-    └── ≡📙:2:A on e5d0542
+    └── ≡📙:2:A on e5d0542 {41}
         └── 📙:2:A
     ");
 
@@ -1355,10 +1357,10 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:B on 85efbe4
+    ├── ≡📙:4:B on 85efbe4 {2}
     │   └── 📙:4:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4
+    └── ≡📙:3:A on 85efbe4 {1}
         └── 📙:3:A
             └── ·09d8e52 (🏘️)
     ");
@@ -1380,10 +1382,10 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡👉📙:0:B on 85efbe4
+    ├── ≡👉📙:0:B on 85efbe4 {2}
     │   └── 👉📙:0:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:4:A on 85efbe4
+    └── ≡📙:4:A on 85efbe4 {1}
         └── 📙:4:A
             └── ·09d8e52 (🏘️)
     ");
@@ -1422,10 +1424,10 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     let ws = out.graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:B on 85efbe4
+    ├── ≡📙:4:B on 85efbe4 {2}
     │   └── 📙:4:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4
+    └── ≡📙:3:A on 85efbe4 {1}
         └── 📙:3:A
             └── ·09d8e52 (🏘️)
     ");
@@ -1542,7 +1544,12 @@ fn default_options() -> but_workspace::branch::apply::Options {
         workspace_reference_naming: WorkspaceReferenceNaming::Default,
         uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
         order: None,
+        new_stack_id: Some(stack_id_for_name),
     }
+}
+
+fn stack_id_for_name(rn: &gix::refs::FullNameRef) -> StackId {
+    StackId::from_number_for_testing(rn.shorten().chars().map(|c| c as u128).sum())
 }
 
 mod utils {

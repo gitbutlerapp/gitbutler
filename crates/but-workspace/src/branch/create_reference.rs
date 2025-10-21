@@ -125,6 +125,7 @@ pub(super) mod function {
     /// creating an independent branch.
     /// The resulting reference will be created in `repo` and `meta` will be updated for `ref_name` so the workspace
     /// contains it, but only if it's a managed workspace, along with branch metadata.
+    /// Use `new_stack_id` just with `Stack::generate()`, it's mainly used to be able to control the stack-id when needed in testing.
     ///
     /// Fail if the reference already exists *and* points somewhere else.
     ///
@@ -138,6 +139,7 @@ pub(super) mod function {
         repo: &gix::Repository,
         workspace: &but_graph::projection::Workspace<'_>,
         meta: &mut T,
+        new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
     ) -> anyhow::Result<but_graph::Graph> {
         let anchor = anchor.into();
 
@@ -253,7 +255,8 @@ pub(super) mod function {
             .take()
             .zip(instruction)
             .map(|(mut existing, instruction)| {
-                update_workspace_metadata(&mut existing, ref_name, instruction).map(|()| existing)
+                update_workspace_metadata(&mut existing, ref_name, instruction, new_stack_id)
+                    .map(|()| existing)
             })
             .transpose()?;
         // Assure this commit is in the workspace as well.
@@ -354,6 +357,7 @@ pub(super) mod function {
         ws_meta: &mut ref_metadata::Workspace,
         new_ref: &gix::refs::FullNameRef,
         instruction: Instruction<'_>,
+        new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
     ) -> anyhow::Result<()> {
         if let Some((stack_idx, _)) =
             ws_meta.find_owner_indexes_by_name(new_ref, AppliedAndUnapplied)
@@ -384,7 +388,7 @@ pub(super) mod function {
             }
             // create new
             Instruction::Independent => ws_meta.stacks.push(WorkspaceStack {
-                id: StackId::generate(),
+                id: new_stack_id(new_ref),
                 workspacecommit_relation: Merged,
                 branches: vec![WorkspaceStackBranch {
                     ref_name: new_ref.to_owned(),

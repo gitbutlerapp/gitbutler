@@ -69,11 +69,13 @@ impl Workspace {
     /// Returns `(stack_id, segment_idx)` of the stack that was either newly created, or already present.
     /// Note that `segment_idx` may be non-0 if `branch` already existed as segment, and the caller has to
     /// deal with this.
+    /// Use `new_stack_id` can be used to control the stack id to be assigned, but it generally should be a plain `StackId::generate()`.
     pub fn add_or_insert_new_stack_if_not_present(
         &mut self,
         branch: &FullNameRef,
         order: Option<usize>,
         relation: WorkspaceCommitRelation,
+        new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
     ) -> (usize, usize) {
         if let Some(owners) =
             self.find_owner_indexes_by_name(branch, StackKind::AppliedAndUnapplied)
@@ -82,7 +84,7 @@ impl Workspace {
         };
 
         let stack = WorkspaceStack {
-            id: StackId::generate(),
+            id: new_stack_id(branch),
             workspacecommit_relation: relation,
             branches: vec![WorkspaceStackBranch {
                 ref_name: branch.to_owned(),
