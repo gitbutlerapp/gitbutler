@@ -1,5 +1,12 @@
 <script lang="ts">
-	import { ProfilePictureUpload, SectionCard, Button, Textbox, Toggle } from '@gitbutler/ui';
+	import {
+		ProfilePictureUpload,
+		SectionCard,
+		Button,
+		Textbox,
+		Toggle,
+		Spacer
+	} from '@gitbutler/ui';
 	import type { User, UserService } from '$lib/user/userService';
 
 	interface Props {
@@ -132,24 +139,22 @@
 				bind:value={locationValue}
 				readonly={updatingAdditionalInfo}
 			/>
-		</div>
-	</SectionCard>
 
-	<SectionCard orientation="row" roundedBottom={false} roundedTop={false} labelFor="email-share">
-		{#snippet title()}
-			Share my email
-		{/snippet}
-		{#snippet caption()}
-			Allow other users to see your email address.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="email-share"
-				checked={emailShareValue}
-				disabled={updatingAdditionalInfo}
-				onclick={() => (emailShareValue = !emailShareValue)}
-			/>
-		{/snippet}
+			<Spacer dotted />
+
+			<label class="checkbox-section" for="email-share">
+				<div class="checkbox-section__label">
+					<h3 class="text-15 text-bold">Share my email</h3>
+					<p class="text-12 text-body clr-text-2">Allow other users to see your email address.</p>
+				</div>
+				<Toggle
+					id="email-share"
+					checked={emailShareValue}
+					disabled={updatingAdditionalInfo}
+					onclick={() => (emailShareValue = !emailShareValue)}
+				/>
+			</label>
+		</div>
 	</SectionCard>
 
 	<SectionCard roundedTop={false}>
@@ -237,5 +242,16 @@
 			cursor: not-allowed;
 			opacity: 0.7;
 		}
+	}
+
+	.checkbox-section {
+		display: flex;
+	}
+
+	.checkbox-section__label {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		gap: 4px;
 	}
 </style>
