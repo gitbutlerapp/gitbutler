@@ -66,6 +66,14 @@ pub async fn handle_specific_branch_publish(
         anyhow::bail!("PUBLISHING MULTIPLE HEADS NOT SUPPORTED YET",);
     }
 
+    if !json {
+        println!(
+            "Publishing review for branch '{}' targeting base branch '{}'",
+            branch_name,
+            base_branch.short_name()
+        );
+    }
+
     // Call push_stack
     let result = but_api::stack::push_stack(
         project.id,
@@ -90,32 +98,51 @@ pub async fn handle_specific_branch_publish(
     }
 
     let published_review =
-        publish_review_for_branch(project, branch_name, &base_branch.branch_name, review_map)
+        publish_review_for_branch(project, branch_name, base_branch.short_name(), review_map)
             .await?;
 
     match published_review {
-        Some(review) if json => {
+        PublishReviewResult::Published(review) if json => {
             let review_json = serde_json::to_string_pretty(&vec![review])?;
             println!("{}", review_json);
         }
-        Some(review) => {
+        PublishReviewResult::Published(review) => {
             println!(
                 "Published review {}{} for branch '{}': {}",
                 review.unit_symbol, review.number, branch_name, review.html_url
             );
         }
-        None if json => {
-            println!("[]");
+        PublishReviewResult::AlreadyExists(reviews) if json => {
+            let review_json = serde_json::to_string_pretty(&reviews)?;
+            println!("{}", review_json);
         }
-        None => {
-            println!(
-                "A review already exists for branch '{}', skipping publishing a new review.",
-                branch_name
-            );
+        PublishReviewResult::AlreadyExists(reviews) => {
+            if reviews.len() > 1 {
+                println!(
+                    "Multiple reviews already exist for branch '{}':",
+                    branch_name
+                );
+                for review in reviews {
+                    println!(
+                        "- {}{}: {}",
+                        review.unit_symbol, review.number, review.html_url
+                    );
+                }
+            } else if let Some(review) = reviews.first() {
+                println!(
+                    "A review already exists for branch '{}': {}{}: {}",
+                    branch_name, review.unit_symbol, review.number, review.html_url
+                );
+            }
         }
     }
 
     Ok(())
+}
+
+enum PublishReviewResult {
+    Published(Box<gitbutler_forge::review::ForgeReview>),
+    AlreadyExists(Vec<gitbutler_forge::review::ForgeReview>),
 }
 
 async fn publish_review_for_branch(
@@ -123,12 +150,14 @@ async fn publish_review_for_branch(
     branch_name: &str,
     target_branch: &str,
     review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
-) -> anyhow::Result<Option<gitbutler_forge::review::ForgeReview>> {
+) -> anyhow::Result<PublishReviewResult> {
     // Check if a review already exists for the branch.
     // If it does, skip publishing a new review.
     let existing_reviews = review_map.get(branch_name);
-    if existing_reviews.is_some_and(|reviews| !reviews.is_empty()) {
-        return Ok(None);
+    if let Some(reviews) = existing_reviews
+        && !reviews.is_empty()
+    {
+        return Ok(PublishReviewResult::AlreadyExists(reviews.clone()));
     }
 
     // TODO: Determine title and body based on input/template/commits
@@ -146,7 +175,7 @@ async fn publish_review_for_branch(
     })
     .await
     .map_err(Into::into)
-    .map(Some)
+    .map(|review| PublishReviewResult::Published(Box::new(review)))
 }
 
 pub async fn get_review_map(

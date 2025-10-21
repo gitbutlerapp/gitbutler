@@ -52,6 +52,15 @@ pub struct BaseBranch {
     pub forge_repo_info: Option<ForgeRepoInfo>,
 }
 
+impl BaseBranch {
+    pub fn short_name(&self) -> &str {
+        let remote_prefix = format!("{}/", self.remote_name);
+        self.branch_name
+            .strip_prefix(&remote_prefix)
+            .unwrap_or(&self.branch_name)
+    }
+}
+
 #[instrument(skip(ctx), err(Debug))]
 pub fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
     let target = default_target(&ctx.project().gb_dir())?;
