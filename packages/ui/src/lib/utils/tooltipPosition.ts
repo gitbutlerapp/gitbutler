@@ -5,7 +5,7 @@ interface TooltipPosition {
 }
 
 interface PositionProps {
-	targetEl: HTMLElement;
+	targetEl?: HTMLElement;
 	position?: 'top' | 'bottom';
 	align?: 'start' | 'center' | 'end';
 	verticalOffset?: number;
@@ -154,6 +154,9 @@ export function calculateTooltipPosition(
 
 export function tooltip(tooltipNode: HTMLElement, props: PositionProps) {
 	function updatePosition() {
+		if (!props.targetEl) {
+			return;
+		}
 		const position = calculateTooltipPosition(props.targetEl, tooltipNode, props);
 
 		tooltipNode.style.top = `${position.top}px`;

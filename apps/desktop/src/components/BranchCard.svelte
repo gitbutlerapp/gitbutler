@@ -168,7 +168,7 @@
 			? rulesService.aiRuleForStack({ projectId, stackId: args.stackId })
 			: undefined}
 		{@const codegenRuleHandler = args.stackId
-			? new CodegenRuleDropHandler(projectId, args.stackId, rulesService, !!rule?.response?.rule)
+			? new CodegenRuleDropHandler(projectId, args.stackId, rulesService, !!rule?.response)
 			: undefined}
 
 		<Dropzone
@@ -363,44 +363,42 @@
 		: undefined}
 	{#if rule}
 		<ReduxResult result={rule?.result} {projectId} stackId={args.stackId}>
-			{#snippet children({ rule }, { projectId, stackId })}
-				{#if rule}
-					{@const sessionId = (rule.filters[0]! as RuleFilter & { type: 'claudeCodeSessionId' })
-						.subject}
-					{@const sessionDetails = claudeCodeService.sessionDetails(projectId, sessionId)}
-					<ReduxResult result={sessionDetails.result} {projectId} {stackId}>
-						{#snippet children(sessionDetails, { projectId, stackId: _stackId })}
-							<ClaudeSessionDescriptor {projectId} {sessionId}>
-								{#snippet loading()}
-									<CodegenBadge state="loading" />
-								{/snippet}
-								{#snippet error()}
-									<CodegenBadge state="error" />
-								{/snippet}
-								<div
-									class="branch-header__ai-pill"
-									use:draggableChips={{
-										label: !sessionDetails.inGui ? 'CLI' : undefined,
-										data: new CodegenRuleDropData(rule),
-										chipType: 'ai-session',
-										dropzoneRegistry,
-										dragStateService
-									}}
-								>
-									<CodegenBadge
-										state={sessionDetails.inGui ? 'ebabled' : 'cli'}
-										onclick={async () => {
-											if (!args.stackId) return;
-											if (!sessionDetails.inGui) return;
+			{#snippet children(rule, { projectId, stackId })}
+				{@const sessionId = (rule.filters[0]! as RuleFilter & { type: 'claudeCodeSessionId' })
+					.subject}
+				{@const sessionDetails = claudeCodeService.sessionDetails(projectId, sessionId)}
+				<ReduxResult result={sessionDetails.result} {projectId} {stackId}>
+					{#snippet children(sessionDetails, { projectId, stackId: _stackId })}
+						<ClaudeSessionDescriptor {projectId} {sessionId}>
+							{#snippet loading()}
+								<CodegenBadge state="loading" />
+							{/snippet}
+							{#snippet error()}
+								<CodegenBadge state="error" />
+							{/snippet}
+							<div
+								class="branch-header__ai-pill"
+								use:draggableChips={{
+									label: !sessionDetails.inGui ? 'CLI' : undefined,
+									data: new CodegenRuleDropData(rule),
+									chipType: 'ai-session',
+									dropzoneRegistry,
+									dragStateService
+								}}
+							>
+								<CodegenBadge
+									state={sessionDetails.inGui ? 'ebabled' : 'cli'}
+									onclick={async () => {
+										if (!args.stackId) return;
+										if (!sessionDetails.inGui) return;
 
-											goToCodegenPage(projectId, args.stackId, branchName);
-										}}
-									/>
-								</div>
-							</ClaudeSessionDescriptor>
-						{/snippet}
-					</ReduxResult>
-				{/if}
+										goToCodegenPage(projectId, args.stackId, branchName);
+									}}
+								/>
+							</div>
+						</ClaudeSessionDescriptor>
+					{/snippet}
+				</ReduxResult>
 			{/snippet}
 		</ReduxResult>
 	{/if}
