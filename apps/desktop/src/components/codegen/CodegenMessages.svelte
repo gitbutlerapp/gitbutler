@@ -402,25 +402,6 @@
 				</div>
 			{/snippet}
 			{#snippet messages()}
-				{@const thinkingStatus = currentStatus(events, isStackActive)}
-				{@const startAt = thinkingOrCompactingStartedAt(events)}
-				{#if ['running', 'compacting'].includes(thinkingStatus) && startAt}
-					{@const status = userFeedbackStatus(formattedMessages)}
-					{#if status.waitingForFeedback}
-						<div class="p-left-20 p-right-20">
-							<CodegenServiceMessageUseTool toolCall={status.toolCall} />
-						</div>
-					{:else}
-						<div class="p-left-20 p-right-20">
-							<CodegenServiceMessageThinking
-								{startAt}
-								msSpentWaiting={status.msSpentWaiting}
-								overrideWord={thinkingStatus === 'compacting' ? 'compacting' : undefined}
-							/>
-						</div>
-					{/if}
-				{/if}
-
 				{#if formattedMessages.length === 0}
 					<div class="chat-view__placeholder">
 						<EmptyStatePlaceholder
@@ -453,6 +434,24 @@
 							{/each}
 						{/snippet}
 					</VirtualList>
+				{/if}
+				{@const thinkingStatus = currentStatus(events, isStackActive)}
+				{@const startAt = thinkingOrCompactingStartedAt(events)}
+				{#if ['running', 'compacting'].includes(thinkingStatus) && startAt}
+					{@const status = userFeedbackStatus(formattedMessages)}
+					{#if status.waitingForFeedback}
+						<div class="p-left-20 p-right-20">
+							<CodegenServiceMessageUseTool toolCall={status.toolCall} />
+						</div>
+					{:else}
+						<div class="p-left-20 p-right-20">
+							<CodegenServiceMessageThinking
+								{startAt}
+								msSpentWaiting={status.msSpentWaiting}
+								overrideWord={thinkingStatus === 'compacting' ? 'compacting' : undefined}
+							/>
+						</div>
+					{/if}
 				{/if}
 			{/snippet}
 
