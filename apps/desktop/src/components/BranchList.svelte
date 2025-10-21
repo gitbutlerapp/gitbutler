@@ -360,7 +360,6 @@
 									{stackId}
 									{status}
 									selected={codegenSelected}
-									tokens={usage.tokens}
 									cost={usage.cost}
 								/>
 							{/if}
