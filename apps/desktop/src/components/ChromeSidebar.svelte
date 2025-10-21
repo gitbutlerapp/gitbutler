@@ -18,7 +18,6 @@
 	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { USER } from '$lib/user/user';
-	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import {
 		Button,
@@ -42,7 +41,6 @@
 	let shareIssueModal = $state<ShareIssueModal>();
 	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
 
-	const userService = inject(USER_SERVICE);
 	const userSettings = inject(SETTINGS);
 	const { openGeneralSettings, openProjectSettings } = useSettingsModal();
 </script>
@@ -398,16 +396,6 @@
 			}}
 		/>
 	</ContextMenuSection>
-	{#if $user}
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Log out"
-				onclick={async () => {
-					await userService.logout();
-				}}
-			/>
-		</ContextMenuSection>
-	{/if}
 </ContextMenu>
 
 <KeyboardShortcutsModal bind:this={keyboardShortcutsModal} />
