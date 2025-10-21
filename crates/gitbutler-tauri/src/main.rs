@@ -295,6 +295,7 @@ fn main() {
                     forge::pr_template,
                     forge::determine_forge_from_url,
                     forge::list_reviews,
+                    forge::publish_review,
                     but_api::settings::get_app_settings,
                     settings::update_onboarding_complete,
                     settings::update_telemetry,

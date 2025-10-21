@@ -391,6 +391,16 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "publish_review" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = forge::publish_review_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         // // Menu commands (limited - no menu_item_set_enabled as it's Tauri-specific)
         // "get_editor_link_scheme" => menu::get_editor_link_scheme(&ctx, request.params),
         // CLI commands

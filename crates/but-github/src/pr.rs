@@ -5,11 +5,45 @@ pub async fn list(
     owner: &str,
     repo: &str,
 ) -> Result<Vec<crate::client::PullRequest>> {
+    let username = resolve_username(preferred_username)?;
+
+    if let Some(access_token) = crate::token::get_gh_access_token(&username)? {
+        let gh = crate::client::GitHubClient::new(&access_token)
+            .context("Failed to create GitHub client")?;
+        let pulls = gh
+            .list_open_pulls(owner, repo)
+            .await
+            .context("Failed to list open pull requests")?;
+        Ok(pulls)
+    } else {
+        Ok(vec![])
+    }
+}
+
+pub async fn create(
+    preferred_username: &Option<String>,
+    params: crate::client::CreatePullRequestParams<'_>,
+) -> Result<crate::client::PullRequest> {
+    let username = resolve_username(preferred_username)?;
+
+    if let Some(access_token) = crate::token::get_gh_access_token(&username)? {
+        let gh = crate::client::GitHubClient::new(&access_token)
+            .context("Failed to create GitHub client")?;
+        let pr = gh
+            .create_pull_request(&params)
+            .await
+            .context("Failed to create pull request")?;
+        Ok(pr)
+    } else {
+        bail!("No GitHub access token found for user '{}'", username);
+    }
+}
+
+fn resolve_username(preferred_username: &Option<String>) -> Result<String, anyhow::Error> {
     let known_usernames = crate::token::list_known_github_usernames()?;
     let Some(default_username) = known_usernames.first() else {
         bail!("No authenticated GitHub users found. Please authenticate with GitHub first.");
     };
-
     let login = if let Some(username) = preferred_username {
         if known_usernames.contains(username) {
             username
@@ -23,15 +57,5 @@ pub async fn list(
         default_username
     };
 
-    if let Some(access_token) = crate::token::get_gh_access_token(login)? {
-        let gh = crate::client::GitHubClient::new(&access_token)
-            .context("Failed to create GitHub client")?;
-        let pulls = gh
-            .list_open_pulls(owner, repo)
-            .await
-            .context("Failed to list open pull requests")?;
-        Ok(pulls)
-    } else {
-        Ok(vec![])
-    }
+    Ok(login.to_owned())
 }

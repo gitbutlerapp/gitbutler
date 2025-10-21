@@ -287,6 +287,48 @@ pub async fn list_forge_reviews(
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateForgeReviewParams {
+    pub title: String,
+    pub body: String,
+    pub source_branch: String,
+    pub target_branch: String,
+    pub draft: bool,
+}
+
+/// Create a new review (e.g. pull request) for a given forge repository
+pub async fn create_forge_review(
+    preferred_forge_user: &Option<String>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    params: &CreateForgeReviewParams,
+) -> Result<ForgeReview> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            // TODO: handle forks better
+            let head = format!("{}:{}", owner, params.source_branch);
+            let pr_params = but_github::CreatePullRequestParams {
+                owner,
+                repo,
+                title: &params.title,
+                body: &params.body,
+                head: &head,
+                base: &params.target_branch,
+                draft: params.draft,
+            };
+            let pr = but_github::pr::create(preferred_forge_user, pr_params).await?;
+            Ok(ForgeReview::from(pr))
+        }
+        _ => Err(Error::msg(format!(
+            "Creating reviews for forge {:?} is not implemented yet.",
+            forge,
+        ))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;
