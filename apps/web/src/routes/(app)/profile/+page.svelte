@@ -191,6 +191,8 @@
 	</div>
 {/if}
 
+<!-- a comment -->
+
 <style lang="postcss">
 	.not-logged-in {
 		display: flex;
