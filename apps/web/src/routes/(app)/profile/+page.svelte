@@ -14,7 +14,7 @@
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { NOTIFICATION_SETTINGS_SERVICE } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { getNotificationSettingsInterest } from '@gitbutler/shared/settings/notificationSetttingsPreview.svelte';
-	import { Button, Icon, SectionCard, Spacer } from '@gitbutler/ui';
+	import { Button, Icon, Modal, SectionCard, Spacer } from '@gitbutler/ui';
 	import { env } from '$env/dynamic/public';
 
 	const authService = inject(AUTH_SERVICE);
@@ -31,6 +31,8 @@
 
 	const user = $derived(userService.user);
 	const token = $derived(authService.tokenReadable);
+
+	let showDeleteAccountSection = $state(false);
 
 	// Detect user's operating system
 	const detectedOS = $derived.by(() => {
@@ -62,6 +64,17 @@
 	function logout() {
 		authService.clearToken();
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
+	}
+
+	let deleteAccountConfirmationModal = $state<Modal>();
+
+	function initiateDeleteAccount() {
+		deleteAccountConfirmationModal?.show();
+	}
+
+	async function deleteAccount() {
+		await userService.deleteAccount();
+		logout();
 	}
 </script>
 
@@ -106,6 +119,38 @@
 						<Button style="error" icon="signout" onclick={logout}>Log out</Button>
 					{/snippet}
 				</SectionCard>
+
+				{#if !showDeleteAccountSection}
+					<div class="stack-v gap-8">
+						<Spacer dotted />
+						<p class="text-12 text-body text-italic clr-text-2">
+							Thinking of saying goodbye for good? <button
+								type="button"
+								class="show-delete-account-button"
+								onclick={() => (showDeleteAccountSection = true)}
+							>
+								Click here
+							</button> to delete your account.
+						</p>
+					</div>
+				{:else}
+					<SectionCard orientation="row">
+						{#snippet title()}
+							Delete account
+						{/snippet}
+						{#snippet caption()}
+							What do you mean more than just a break?
+							<br />
+							Click here to permanently delete your account and all associated data. This action cannot
+							be undone.
+						{/snippet}
+						{#snippet actions()}
+							<Button style="error" icon="bin" kind="outline" onclick={initiateDeleteAccount}
+								>Delete my account</Button
+							>
+						{/snippet}
+					</SectionCard>
+				{/if}
 			{/if}
 		</div>
 
@@ -190,6 +235,22 @@
 		</div>
 	</div>
 {/if}
+
+<Modal bind:this={deleteAccountConfirmationModal} title="Confirm account deletion" width="small">
+	<p class="text-13 text-body">
+		Are you sure you want to delete your account?
+		<br />
+		This action is <b>irreversible</b> and will permanently remove all your data from our servers.
+	</p>
+	{#snippet controls(close)}
+		<div class="flex flex-row gap-8 justify-end">
+			<Button style="pop" onclick={close}>Cancel</Button>
+			<Button style="error" icon="bin" kind="outline" onclick={deleteAccount}
+				>Delete permanently</Button
+			>
+		</div>
+	{/snippet}
+</Modal>
 
 <style lang="postcss">
 	.not-logged-in {
@@ -341,6 +402,12 @@
 			transparent 2px,
 			transparent 4px
 		);
+	}
+
+	.show-delete-account-button {
+		color: var(--clr-theme-err-on-soft);
+		font-style: italic;
+		text-decoration: underline dotted;
 	}
 
 	@media (--tablet-viewport) {

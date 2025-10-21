@@ -90,6 +90,15 @@ export class UserService {
 		this.user.set(undefined);
 	}
 
+	async deleteAccount(): Promise<void> {
+		try {
+			await this.httpClient.delete('/api/user');
+		} catch (error) {
+			this.error.set(error);
+			console.error('Failed to delete account:', error);
+		}
+	}
+
 	async updateUser(params: {
 		name?: string;
 		picture?: File;
