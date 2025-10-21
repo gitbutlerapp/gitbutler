@@ -6,11 +6,13 @@ use but_claude::hooks::OutputAsJson;
 use but_settings::AppSettings;
 use colored::Colorize;
 use metrics::{Event, Metrics, Props, metrics_if_configured};
+
 mod base;
 mod branch;
 mod command;
 mod commit;
 mod describe;
+mod forge;
 mod id;
 mod init;
 mod log;
@@ -266,6 +268,17 @@ async fn main() -> Result<()> {
         }
         Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, *repo)
             .context("Failed to initialize GitButler project."),
+        Subcommands::Forge(forge::Platform { cmd }) => {
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = forge::handle(cmd, &project, args.json).await;
+            let metrics_cmd = match cmd {
+                forge::Subcommands::Auth => CommandName::ForgeAuth,
+                forge::Subcommands::ListUsers => CommandName::ForgeListUsers,
+                forge::Subcommands::Forget { .. } => CommandName::ForgeForget,
+            };
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
+            result
+        }
     }
 }
 

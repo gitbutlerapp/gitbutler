@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use crate::forge;
+
 #[derive(Debug, clap::Parser)]
 #[clap(name = "but", about = "A GitButler CLI tool", version = option_env!("GIX_VERSION"))]
 pub struct Args {
@@ -153,6 +155,8 @@ For examples see `but rub --help`."
         #[clap(long)]
         props: String,
     },
+    /// Commands for interacting with forges like GitHub, GitLab (coming soon), etc.
+    Forge(forge::Platform),
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
@@ -220,6 +224,9 @@ pub enum CommandName {
     )]
     CursorStop,
     Worktree,
+    ForgeAuth,
+    ForgeListUsers,
+    ForgeForget,
     #[default]
     Unknown,
 }
