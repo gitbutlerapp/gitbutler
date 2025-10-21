@@ -9,6 +9,7 @@ import type {
 	ClaudeStatus,
 	ClaudeTodo
 } from '$lib/codegen/types';
+import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/index.mjs';
 
 export type Message =
 	/* This is strictly only things that the real fleshy human has said */
@@ -491,4 +492,65 @@ export function getTodos(events: ClaudeMessage[]): ClaudeTodo[] {
 		break;
 	}
 	return todos ?? [];
+}
+
+function contentBlockToString(lastBlock?: ContentBlockParam): string | undefined {
+	if (!lastBlock) return;
+
+	if (lastBlock.type === 'text') {
+		return lastBlock.text;
+	} else if (lastBlock.type === 'web_search_tool_result') {
+		const toolUse = lastBlock.content;
+		if (Array.isArray(toolUse)) {
+			const lastTool = toolUse.at(-1);
+			if (lastTool) {
+				return lastTool.url;
+			}
+		}
+	} else if (lastBlock.type === 'tool_use') {
+		return lastBlock.name;
+	} else if (lastBlock.type === 'thinking') {
+		return lastBlock.thinking;
+	} else if (lastBlock.type === 'server_tool_use') {
+		return lastBlock.name;
+	} else if (lastBlock.type === 'redacted_thinking') {
+		return lastBlock.data;
+	}
+}
+
+export function currentActivity(messages: ClaudeMessage[]): string | undefined {
+	if (messages.length === 0) {
+		return 'Empty codegen session';
+	}
+	for (let i = messages.length - 1; i >= 0; i--) {
+		const message = messages[i];
+		if (!message) continue;
+
+		const { content } = message;
+		if (content.type === 'claudeOutput') {
+			const output = content.subject;
+			if (output.type === 'assistant') {
+				const contentBlocks = output.message.content;
+				const summary = contentBlockToString(contentBlocks.at(-1));
+				if (summary) return summary;
+			} else if (output.type === 'result') {
+				if (output.subtype === 'success') {
+					return output.result;
+				} else {
+					return 'an error has occurred';
+				}
+			} else if (output.type === 'user') {
+				const content = output.message.content;
+				if (typeof content === 'string') {
+					return content;
+				} else {
+					const summary = contentBlockToString(content.at(-1));
+					if (summary) return summary;
+				}
+			} else if (output.type === 'system') {
+				const summary = output.tools.at(-1);
+				if (summary) return summary;
+			}
+		}
+	}
 }

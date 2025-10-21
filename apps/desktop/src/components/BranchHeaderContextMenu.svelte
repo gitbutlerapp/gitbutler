@@ -273,7 +273,7 @@
 			<ContextMenuSection>
 				{#if stackId && first}
 					{@const rule = rulesService.aiRuleForStack({ projectId, stackId })}
-					{#if !rule.response?.rule}
+					{#if !rule.response}
 						<ContextMenuItem
 							label="Start agent session"
 							icon="agents-tab"

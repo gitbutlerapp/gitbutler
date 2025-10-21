@@ -71,12 +71,12 @@ export default class RulesService {
 		return this.api.endpoints.listWorkspaceRules.useQuery(
 			{ projectId },
 			{
-				transform: (result): { rule: AiRule | undefined } => {
+				transform: (result): AiRule | undefined => {
 					const allRules = workspaceRulesSelectors.selectAll(result);
 					const rules = allRules.filter(
 						(r): r is AiRule => isAiRule(r) && r.action.subject.subject.target.subject === stackId
 					);
-					return { rule: rules[0] };
+					return rules[0];
 				}
 			}
 		);
