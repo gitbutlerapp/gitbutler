@@ -151,14 +151,17 @@ pub async fn get_gh_user(login: &str) -> Result<Option<AuthenticatedUser>> {
 }
 
 pub async fn list_known_github_usernames() -> Result<Vec<String>> {
+    let known_usernames =
+        token::list_known_github_usernames().context("Failed to list known GitHub usernames")?;
     // Migrate the users from the previous storage method.
-    if let Some(stored_gh_access_token) = gitbutler_user::forget_github_login_for_user()? {
+    if let Some(stored_gh_access_token) = gitbutler_user::forget_github_login_for_user()?
+        && known_usernames.is_empty()
+    {
         fetch_and_persist_user_data(&stored_gh_access_token)
             .await
             .ok();
     }
-
-    token::list_known_github_usernames().context("Failed to list known GitHub usernames")
+    Ok(known_usernames)
 }
 
 pub fn clear_all_github_tokens() -> Result<()> {
