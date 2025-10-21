@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { Button } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -23,23 +21,6 @@
 		messages,
 		input
 	}: Props = $props();
-
-	let scrollDistanceFromBottom = $state(0);
-	let bottomAnchor = $state<HTMLDivElement>();
-
-	// Export method to scroll to bottom
-	function scrollToBottom() {
-		bottomAnchor?.scrollIntoView({ behavior: 'smooth' });
-	}
-
-	// Calculate distance from bottom when scrolling
-	function handleScroll(event: Event) {
-		const { scrollTop } = event.target as HTMLElement;
-		scrollDistanceFromBottom = -scrollTop;
-	}
-
-	// Show button only when user has scrolled more than 1000px from bottom
-	const showScrollButton = $derived(scrollDistanceFromBottom > 600);
 </script>
 
 <div class="chat" use:focusable={{ vertical: true }}>
@@ -66,21 +47,7 @@
 	</div>
 
 	<div class="chat-container">
-		<div class="chat-messages" onscroll={handleScroll}>
-			<div bind:this={bottomAnchor} style="height: 1px;"></div>
-			{@render messages()}
-		</div>
-
-		{#if showScrollButton}
-			<div class="chat-scroll-to-bottom" transition:fade={{ duration: 150 }}>
-				<Button
-					kind="outline"
-					icon="arrow-down"
-					tooltip="Scroll to bottom"
-					onclick={scrollToBottom}
-				/>
-			</div>
-		{/if}
+		{@render messages()}
 	</div>
 
 	{@render input?.()}
@@ -125,30 +92,12 @@
 		display: flex;
 		position: relative;
 		flex: 1;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.chat-messages {
-		display: flex;
 		flex-grow: 1;
-		flex-direction: column-reverse;
+		flex-direction: column;
 		width: 100%;
 		height: 100%;
 		min-height: 10rem;
-		overflow-x: hidden;
-		overflow-y: scroll;
-		scrollbar-width: none; /* Firefox */
-		-ms-overflow-style: none; /* IE 10+ */
-
-		/* this hack is needed to add padding on top of the first message */
-		/* so it doesn't stick to the top edge */
-		:global(& > div:last-child) {
-			padding-top: 20px;
-		}
-		:global(& > div:first-child) {
-			padding-bottom: 8px;
-		}
+		overflow: hidden;
 	}
 
 	.chat-scroll-to-bottom {
