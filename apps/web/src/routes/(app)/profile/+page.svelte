@@ -32,8 +32,6 @@
 	const user = $derived(userService.user);
 	const token = $derived(authService.tokenReadable);
 
-	let showDeleteAccountSection = $state(false);
-
 	// Detect user's operating system
 	const detectedOS = $derived.by(() => {
 		if (typeof window === 'undefined') return 'macOS';
@@ -104,9 +102,10 @@
 				</Loading>
 
 				<ExperimentalSettings />
+
+				<Spacer />
 			{/if}
 
-			<Spacer />
 			{#if $user}
 				<SectionCard orientation="row">
 					{#snippet title()}
@@ -116,41 +115,29 @@
 						Ready to take a break? Click here to log out and unwind.
 					{/snippet}
 					{#snippet actions()}
-						<Button style="error" icon="signout" onclick={logout}>Log out</Button>
+						<Button kind="outline" icon="signout" onclick={logout}>Log out</Button>
 					{/snippet}
 				</SectionCard>
 
-				{#if !showDeleteAccountSection}
-					<div class="stack-v gap-8">
-						<Spacer dotted />
-						<p class="text-12 text-body text-italic clr-text-2">
-							Thinking of saying goodbye for good? <button
-								type="button"
-								class="show-delete-account-button"
-								onclick={() => (showDeleteAccountSection = true)}
-							>
-								Click here
-							</button> to delete your account.
-						</p>
-					</div>
-				{:else}
-					<SectionCard orientation="row">
+				<Spacer />
+
+				<div class="stack-v">
+					<SectionCard orientation="row" roundedBottom={false}>
 						{#snippet title()}
-							Delete account
-						{/snippet}
-						{#snippet caption()}
-							What do you mean more than just a break?
-							<br />
-							Click here to permanently delete your account and all associated data. This action cannot
-							be undone.
-						{/snippet}
-						{#snippet actions()}
-							<Button style="error" icon="bin" kind="outline" onclick={initiateDeleteAccount}
-								>Delete my account</Button
-							>
+							Danger zone
 						{/snippet}
 					</SectionCard>
-				{/if}
+					<SectionCard orientation="row" roundedTop={false}>
+						{#snippet caption()}
+							Permanently delete your account and all data.
+							<br />
+							This action cannot be undone.
+						{/snippet}
+						{#snippet actions()}
+							<Button style="error" onclick={initiateDeleteAccount}>Delete my account…</Button>
+						{/snippet}
+					</SectionCard>
+				</div>
 			{/if}
 		</div>
 
@@ -402,12 +389,6 @@
 			transparent 2px,
 			transparent 4px
 		);
-	}
-
-	.show-delete-account-button {
-		color: var(--clr-theme-err-on-soft);
-		font-style: italic;
-		text-decoration: underline dotted;
 	}
 
 	@media (--tablet-viewport) {

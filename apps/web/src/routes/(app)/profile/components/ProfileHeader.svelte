@@ -1,5 +1,12 @@
 <script lang="ts">
-	import { ProfilePictureUpload, SectionCard, Button, Textbox, Toggle } from '@gitbutler/ui';
+	import {
+		ProfilePictureUpload,
+		SectionCard,
+		Button,
+		Textbox,
+		Toggle,
+		Spacer
+	} from '@gitbutler/ui';
 	import type { User, UserService } from '$lib/user/userService';
 
 	interface Props {
@@ -132,24 +139,22 @@
 				bind:value={locationValue}
 				readonly={updatingAdditionalInfo}
 			/>
-		</div>
-	</SectionCard>
 
-	<SectionCard orientation="row" roundedBottom={false} roundedTop={false} labelFor="email-share">
-		{#snippet title()}
-			Share my email
-		{/snippet}
-		{#snippet caption()}
-			Allow other users to see your email address.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="email-share"
-				checked={emailShareValue}
-				disabled={updatingAdditionalInfo}
-				onclick={() => (emailShareValue = !emailShareValue)}
-			/>
-		{/snippet}
+			<Spacer dotted />
+
+			<label class="checkbox-section" for="email-share">
+				<div class="checkbox-section__label">
+					<h3 class="text-15 text-bold">Share my email</h3>
+					<p class="text-12 text-body clr-text-2">Allow other users to see your email address.</p>
+				</div>
+				<Toggle
+					id="email-share"
+					checked={emailShareValue}
+					disabled={updatingAdditionalInfo}
+					onclick={() => (emailShareValue = !emailShareValue)}
+				/>
+			</label>
+		</div>
 	</SectionCard>
 
 	<SectionCard roundedTop={false}>
@@ -172,13 +177,6 @@
 		gap: 24px;
 	}
 
-	.contact-info {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		gap: 20px;
-	}
-
 	.contact-info__fields {
 		display: flex;
 		flex-direction: column;
@@ -186,56 +184,14 @@
 		gap: 12px;
 	}
 
-	.notification-option {
+	.checkbox-section {
 		display: flex;
-		align-items: flex-start;
 	}
 
-	.checkbox-label {
+	.checkbox-section__label {
 		display: flex;
-		gap: 12px;
-		cursor: pointer;
-		user-select: none;
-	}
-
-	.checkbox-content {
-		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 4px;
-	}
-
-	.checkbox-title {
-		color: var(--clr-scale-ntrl-0);
-		font-weight: 500;
-		font-size: 14px;
-	}
-
-	.checkbox-caption {
-		color: var(--clr-scale-ntrl-30);
-		font-size: 13px;
-		line-height: 1.4;
-	}
-
-	.save-button {
-		align-self: flex-end;
-		margin-top: 16px;
-		padding: 8px 16px;
-		border: none;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-scale-pop-70);
-		color: var(--clr-core-ntrl-100);
-		font-weight: 500;
-		font-size: 14px;
-		cursor: pointer;
-		transition: background-color var(--transition-medium);
-
-		&:hover:not(:disabled) {
-			background-color: var(--clr-scale-pop-60);
-		}
-
-		&:disabled {
-			cursor: not-allowed;
-			opacity: 0.7;
-		}
 	}
 </style>

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import Login from '$components/Login.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import CliSymLink from '$components/profileSettings/CliSymLink.svelte';
 	import { CLI_MANAGER } from '$lib/cli/cli';
@@ -245,7 +244,13 @@
 			Ready to take a break? Click here to log out and unwind.
 		{/snippet}
 
-		<Login />
+		<Button
+			kind="outline"
+			icon="signout"
+			onclick={async () => {
+				await userService.logout();
+			}}>Log out</Button
+		>
 	</SectionCard>
 {/if}
 

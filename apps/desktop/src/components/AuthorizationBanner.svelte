@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Login from '$components/Login.svelte';
+	import LoginButtons from '$components/LoginButtons.svelte';
 	import { Icon, SectionCard } from '@gitbutler/ui';
 
 	interface Props {
@@ -24,6 +24,6 @@
 		{message}
 	{/snippet}
 	{#snippet actions()}
-		<Login />
+		<LoginButtons />
 	{/snippet}
 </SectionCard>
