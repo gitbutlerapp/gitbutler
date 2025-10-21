@@ -18,9 +18,10 @@
 	import { chunk } from '$lib/utils/array';
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/core/context';
-	import { ScrollableContainer } from '@gitbutler/ui';
+	import { Button, ScrollableContainer } from '@gitbutler/ui';
 
 	import { tick, untrack, type Snippet } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	type Props = {
 		items: Array<T>;
@@ -83,9 +84,12 @@
 
 	// Chat-specific state
 	let isNearBottom = $state(true);
+	let distanceFromBottom = $state(0);
 	let hasInitialized = $state(false);
 	let previousViewportHeight = $state(viewportHeight);
 	let wasAtBottomBeforeResize = $state(false);
+	let previousItemsLength = $state(items.length);
+	let newUnseenTail = $state(false);
 
 	const chunks = $derived(chunk(items, batchSize));
 	const visible = $derived.by(() =>
@@ -102,7 +106,7 @@
 
 	function checkIfNearBottom() {
 		if (!viewport) return;
-		const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+		distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
 		isNearBottom = distanceFromBottom < STICKY_DISTANCE;
 		return isNearBottom;
 	}
@@ -187,11 +191,6 @@
 		return 0;
 	}
 
-	function distanceFromBottom() {
-		if (!viewport) return 0;
-		return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-	}
-
 	async function recalculate(isScroll?: boolean) {
 		if (!viewport || !rows) return;
 
@@ -208,8 +207,12 @@
 			topPadding = sumHeights(0, start);
 			totalHeight = sumHeights(0, heightMap.length);
 
-			viewport.scrollTop = viewport.scrollHeight;
-			hasInitialized = true;
+			requestAnimationFrame(() => {
+				if (viewport) {
+					viewport.scrollTop = viewport.scrollHeight;
+					hasInitialized = true;
+				}
+			});
 		} else {
 			// Normal top-down calculation
 			// There is some weird bug here that seems triggered when
@@ -220,7 +223,7 @@
 
 			await tick();
 
-			const savedDistance = distanceFromBottom();
+			const savedDistance = distanceFromBottom;
 			const oldStart = start;
 			const newStart = await updateStartIndex();
 			topPadding = sumHeights(0, newStart);
@@ -254,7 +257,7 @@
 				!isScroll &&
 				stickToBottom &&
 				savedDistance < STICKY_DISTANCE &&
-				distanceFromBottom() > savedDistance
+				distanceFromBottom > savedDistance
 			) {
 				viewport.scrollTop = viewport.scrollHeight;
 				await tick();
@@ -308,24 +311,35 @@
 		}
 	});
 
+	function scrollToBottomAndDismiss() {
+		if (viewport) {
+			newUnseenTail = false;
+			viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
+		}
+	}
+
 	// Auto-scroll to bottom when new items are added (if stickToBottom is enabled)
 	$effect(() => {
 		if (items && stickToBottom && isNearBottom) {
 			if (!viewport) return;
 			untrack(async () => {
 				await recalculate();
-				// This `setTimeout` solves an issue where after submitting
-				// a codegen query, the chat view would be scrolled from the
-				// bottom up about half the height of the last message.
-				// TODO: Find a way of getting rid of this `setTimeout`
-				setTimeout(() => {
+				// It appears we need to wait for the next animation frame in order
+				// for the new element to have the correct dimensions. Without this
+				// delay it often happens we scroll past the text, but not to the
+				// bottom of the chat bubble.
+				requestAnimationFrame(() => {
 					if (!viewport) return;
 					viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
-				}, 0);
+				});
 			});
 		} else if (items) {
-			untrack(() => recalculate());
+			untrack(() => {
+				recalculate();
+				newUnseenTail = items.length > previousItemsLength && items.length > end;
+			});
 		}
+		previousItemsLength = items.length;
 	});
 </script>
 
@@ -354,14 +368,79 @@
 	</div>
 </ScrollableContainer>
 
+{#if newUnseenTail}
+	<div class="new-items-notification" transition:fade={{ duration: 150 }}>
+		<Button
+			kind="outline"
+			icon="arrow-down"
+			tooltip="Scroll to bottom"
+			onclick={scrollToBottomAndDismiss}
+		>
+			New unread
+		</Button>
+	</div>
+{/if}
+{#if !newUnseenTail && distanceFromBottom > 300}
+	<div class="chat-scroll-to-bottom" transition:fade={{ duration: 150 }}>
+		<Button
+			kind="outline"
+			icon="arrow-down"
+			tooltip="Scroll to bottom"
+			onclick={scrollToBottomAndDismiss}
+		/>
+	</div>
+{/if}
+
 <style>
 	.list-row {
 		display: block;
 		overflow: hidden;
 		background-color: var(--clr-bg-1);
 	}
+
 	.padded-contents {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.new-items-notification {
+		z-index: var(--z-floating);
+		position: absolute;
+		bottom: 14px;
+		left: 50%;
+		overflow: hidden;
+		transform: translateX(-50%);
+		border-radius: var(--radius-btn);
+		background-color: var(--clr-bg-1);
+		transition:
+			box-shadow var(--transition-fast),
+			transform var(--transition-medium);
+
+		&:hover {
+			transform: scale(1.05) translateY(-2px);
+			box-shadow: var(--fx-shadow-s);
+		}
+	}
+
+	.new-items-notification:hover {
+		transform: translateX(-50%) translateY(-2px);
+	}
+
+	.chat-scroll-to-bottom {
+		z-index: var(--z-floating);
+		position: absolute;
+		right: 16px;
+		bottom: 14px;
+		overflow: hidden;
+		border-radius: var(--radius-btn);
+		background-color: var(--clr-bg-1);
+		transition:
+			box-shadow var(--transition-fast),
+			transform var(--transition-medium);
+
+		&:hover {
+			transform: scale(1.05) translateY(-2px);
+			box-shadow: var(--fx-shadow-s);
+		}
 	}
 </style>
