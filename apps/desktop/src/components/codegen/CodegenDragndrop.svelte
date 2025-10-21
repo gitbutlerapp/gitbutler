@@ -1,133 +1,14 @@
 <script lang="ts">
-	import AttachedFilesList, {
-		type AttachedFile
-	} from '$components/codegen/AttachedFilesList.svelte';
-	import { chipToasts } from '@gitbutler/ui';
+	import type { AttachedFile } from '$lib/codegen/attachments.svelte';
 
-	interface Props {
-		attachedFiles?: AttachedFile[];
-		onFilesChanged?: (files: AttachedFile[]) => void;
-		maxFiles?: number;
-		maxFileSizeBytes?: number;
-		acceptedTypes?: string[];
-		showDropArea?: boolean;
-	}
+	type Props = {
+		attachedFiles: AttachedFile[];
+		processFiles: (files: FileList) => Promise<void>;
+	};
 
-	let {
-		attachedFiles = $bindable([]),
-		onFilesChanged,
-		maxFiles = 10,
-		maxFileSizeBytes = 10 * 1024 * 1024, // 10MB
-		acceptedTypes = [
-			'image/*',
-			'text/*',
-			'.pdf',
-			'.doc',
-			'.docx',
-			'.md',
-			'.tsx',
-			'.ts',
-			'.jsx',
-			'.js',
-			'.vue',
-			'.svelte'
-		],
-		showDropArea = false
-	}: Props = $props();
+	const { attachedFiles, processFiles }: Props = $props();
 
 	let dragover = $state(false);
-
-	// Generate preview for image files
-	async function generatePreview(file: File): Promise<string | undefined> {
-		if (file.type.startsWith('image/')) {
-			return new Promise((resolve) => {
-				const reader = new FileReader();
-				reader.onload = (e) => resolve(e.target?.result as string);
-				reader.onerror = () => resolve(undefined);
-				reader.readAsDataURL(file);
-			});
-		}
-		return undefined;
-	}
-
-	// Validate file
-	function validateFile(file: File): string | null {
-		if (file.size > maxFileSizeBytes) {
-			return `File "${file.name}" is too large. Maximum size is ${Math.round(maxFileSizeBytes / 1024 / 1024)}MB.`;
-		}
-
-		if (acceptedTypes.length > 0) {
-			const isAccepted = acceptedTypes.some((type) => {
-				if (type.startsWith('.')) {
-					return file.name.toLowerCase().endsWith(type.toLowerCase());
-				}
-				if (type.includes('*')) {
-					const baseType = type.split('/')[0];
-					return baseType ? file.type.startsWith(baseType) : false;
-				}
-				return file.type === type;
-			});
-
-			if (!isAccepted) {
-				return `File "${file.name}" is not an accepted file type.`;
-			}
-		}
-
-		return null;
-	}
-
-	// Process files
-	async function processFiles(files: FileList | File[]): Promise<void> {
-		const fileArray = Array.from(files);
-
-		// Check total file count
-		if (attachedFiles.length + fileArray.length > maxFiles) {
-			chipToasts.error(
-				`Cannot add ${fileArray.length} files. Maximum of ${maxFiles} files allowed.`
-			);
-			return;
-		}
-
-		// Validate and process each file
-		const newFiles: AttachedFile[] = [];
-		for (const file of fileArray) {
-			const error = validateFile(file);
-			if (error) {
-				chipToasts.error(error);
-				return;
-			}
-
-			// Check for duplicates
-			const isDuplicate = attachedFiles.some(
-				(existing) =>
-					existing.file.name === file.name &&
-					existing.file.size === file.size &&
-					existing.file.lastModified === file.lastModified
-			);
-
-			if (isDuplicate) {
-				chipToasts.error(`File "${file.name}" is already attached.`);
-				return;
-			}
-
-			const preview = await generatePreview(file);
-			newFiles.push({
-				id: `${file.name}-${Date.now()}-${Math.random()}`,
-				file,
-				preview
-			});
-		}
-
-		// Add new files
-		attachedFiles = [...attachedFiles, ...newFiles];
-		onFilesChanged?.(attachedFiles);
-	}
-
-	// Remove file
-	function removeFile(fileId: string): void {
-		attachedFiles = attachedFiles.filter((f) => f.id !== fileId);
-		onFilesChanged?.(attachedFiles);
-	}
 
 	// Drag handlers
 	function handleDragEnter(e: DragEvent): void {
@@ -162,74 +43,44 @@
 	}
 </script>
 
-<div class="dragndrop-container">
-	<!-- Drop Area -->
-	{#if showDropArea}
-		<div
-			class="drop-area"
-			class:dragover
-			class:has-files={attachedFiles.length > 0}
-			ondragenter={handleDragEnter}
-			ondragleave={handleDragLeave}
-			ondragover={handleDragOver}
-			ondrop={handleDrop}
-			role="region"
-			aria-label="Drag and drop files here"
-		>
-			<div class="drop-content">
-				<svg
-					width="20"
-					height="20"
-					viewBox="0 0 20 20"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<path
-						d="M1.97153 9.87418L8.41125 3.43446C10.7126 1.13315 14.4437 1.13315 16.745 3.43446C19.0463 5.73576 19.0463 9.46691 16.745 11.7682L10.6841 17.8291C9.08015 19.4331 6.47965 19.4331 4.87571 17.8291C3.27178 16.2252 3.27178 13.6247 4.87571 12.0208L10.5578 6.33864C11.3947 5.50181 12.7514 5.50181 13.5883 6.33864C14.4251 7.17548 14.4251 8.53226 13.5883 9.3691L7.52736 15.43"
-						stroke="currentColor"
-						stroke-width="1.5"
-						vector-effect="non-scaling-stroke"
-					/>
-				</svg>
+<div
+	class="drop-area"
+	class:dragover
+	class:has-files={attachedFiles.length > 0}
+	ondragenter={handleDragEnter}
+	ondragleave={handleDragLeave}
+	ondragover={handleDragOver}
+	ondrop={handleDrop}
+	role="region"
+	aria-label="Drag and drop files here"
+>
+	<div class="drop-content">
+		<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<path
+				d="M1.97153 9.87418L8.41125 3.43446C10.7126 1.13315 14.4437 1.13315 16.745 3.43446C19.0463 5.73576 19.0463 9.46691 16.745 11.7682L10.6841 17.8291C9.08015 19.4331 6.47965 19.4331 4.87571 17.8291C3.27178 16.2252 3.27178 13.6247 4.87571 12.0208L10.5578 6.33864C11.3947 5.50181 12.7514 5.50181 13.5883 6.33864C14.4251 7.17548 14.4251 8.53226 13.5883 9.3691L7.52736 15.43"
+				stroke="currentColor"
+				stroke-width="1.5"
+				vector-effect="non-scaling-stroke"
+			/>
+		</svg>
 
-				<h3 class="text-13 text-semibold">
-					{#if dragover}
-						Drop files here to attach
-					{:else}
-						Drop files to attach to your context
-					{/if}
-				</h3>
-				<i class="text-12">Files, images or PDFs</i>
-			</div>
+		<h3 class="text-13 text-semibold">
+			{#if dragover}
+				Drop files here to attach
+			{:else}
+				Drop files to attach to your context
+			{/if}
+		</h3>
+		<i class="text-12">Files, images or PDFs</i>
+	</div>
 
-			<!-- SVG rectangle to simulate a dashed outline with a precise dash offset. -->
-			<svg width="100%" height="100%" class="animated-rectangle">
-				<rect
-					width="100%"
-					height="100%"
-					rx="6"
-					ry="6"
-					vector-effect="non-scaling-stroke"
-					fill="none"
-				/>
-			</svg>
-		</div>
-	{/if}
-
-	<!-- Attached Files -->
-	{#if attachedFiles.length > 0}
-		<AttachedFilesList {attachedFiles} onRemoveFile={removeFile} />
-	{/if}
+	<!-- SVG rectangle to simulate a dashed outline with a precise dash offset. -->
+	<svg width="100%" height="100%" class="animated-rectangle">
+		<rect width="100%" height="100%" rx="6" ry="6" vector-effect="non-scaling-stroke" fill="none" />
+	</svg>
 </div>
 
 <style lang="postcss">
-	.dragndrop-container {
-		display: flex;
-		flex-direction: column;
-		width: 100%;
-		gap: 12px;
-	}
-
 	/* DROP AREA */
 	.drop-area {
 		display: flex;

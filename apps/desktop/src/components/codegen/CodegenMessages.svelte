@@ -4,16 +4,19 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import VirtualList from '$components/VirtualList.svelte';
 
+	import AttachedFilesList from '$components/codegen/AttachedFilesList.svelte';
 	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
 	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
+	import CodegenDragndrop from '$components/codegen/CodegenDragndrop.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
 	import CodegenMcpConfigModal from '$components/codegen/CodegenMcpConfigModal.svelte';
 	import CodegenPromptConfigModal from '$components/codegen/CodegenPromptConfigModal.svelte';
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
+	import { useAttachments, useFileDraggedIntoApp } from '$lib/codegen/attachments.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { useSendMessage } from '$lib/codegen/messageQueue.svelte';
 	import {
@@ -50,12 +53,6 @@
 
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type { ClaudeMessage, ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
-
-	interface AttachedFile {
-		id: string;
-		file: File;
-		preview?: string;
-	}
 
 	type Props = {
 		projectId: string;
@@ -132,12 +129,6 @@
 	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
 	const selectedModel = $derived(projectState.selectedModel.current);
 	const selectedPermissionMode = $derived(uiState.lane(stackId).permissionMode.current);
-
-	let attachedFiles: AttachedFile[] = $state([]);
-
-	function onFilesChanged(files: AttachedFile[]) {
-		attachedFiles = files;
-	}
 
 	$effect(() => {
 		if (stacks.response) {
@@ -224,13 +215,23 @@
 		permissionMode: reactive(() => selectedPermissionMode)
 	});
 
+	let attachmentInputRef = $state<HTMLInputElement>();
+	const { attachedFiles, setFiles, removeFile, processFiles } = useAttachments();
+	const { isDraggingFiles } = useFileDraggedIntoApp();
+
+	// Handle file input change
+	async function handleFileInputChange() {
+		if (attachmentInputRef?.files && attachmentInputRef.files.length > 0) {
+			await processFiles(attachmentInputRef.files);
+
+			// Reset input
+			attachmentInputRef.value = '';
+		}
+	}
+
 	async function sendMessage() {
-		// Store current attachments for sending
-		const attachmentsToSend = [...attachedFiles];
-
-		// Clear attached files immediately when starting to send
-		attachedFiles = [];
-
+		const attachmentsToSend = [...attachedFiles.current];
+		setFiles([]);
 		await sendMessageBase(attachmentsToSend);
 	}
 
@@ -482,6 +483,13 @@
 			{/snippet}
 
 			{#snippet input()}
+				{#snippet attachedFilesList()}
+					<AttachedFilesList attachedFiles={attachedFiles.current} onRemoveFile={removeFile} />
+				{/snippet}
+				{#snippet attachedFilesDropzone()}
+					<CodegenDragndrop attachedFiles={attachedFiles.current} {processFiles} />
+				{/snippet}
+
 				{#if claudeAvailable.response?.status === 'not_available'}
 					<CodegenChatClaudeNotAvaliableBanner onSettingsBtnClick={() => settingsModal?.show()} />
 				{:else}
@@ -496,19 +504,29 @@
 						onsubmit={sendMessage}
 						{onAbort}
 						sessionKey={`${stackId}-${stableBranchName}`}
-						bind:attachedFiles
-						{onFilesChanged}
+						attachedFilesList={attachedFiles.current.length > 0 ? attachedFilesList : undefined}
+						attachedFilesDropzone={isDraggingFiles.current ? attachedFilesDropzone : undefined}
 					>
-						{#snippet actionsOnLeft({ triggerFileSelection })}
+						{#snippet actionsOnLeft()}
 							{@const permissionModeLabel = permissionModeOptions.find(
 								(a) => a.value === selectedPermissionMode
 							)?.label}
+
+							<!-- Hidden file input for attachment button -->
+							<input
+								bind:this={attachmentInputRef}
+								type="file"
+								multiple
+								accept="image/*,text/*,.pdf,.doc,.docx,.md"
+								style="display: none"
+								onchange={handleFileInputChange}
+							/>
 							<div class="flex m-right-4 gap-2">
 								<Button
 									kind="ghost"
 									icon="attachment"
 									reversedDirection
-									onclick={triggerFileSelection}
+									onclick={() => attachmentInputRef?.click()}
 									tooltip="Attach files"
 									disabled={['running', 'compacting'].includes(status)}
 								/>

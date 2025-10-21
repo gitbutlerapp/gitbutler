@@ -1,24 +1,19 @@
 <script lang="ts">
 	import { FileIcon, Icon } from '@gitbutler/ui';
 	import { fly } from 'svelte/transition';
+	import type { AttachedFile } from '$lib/codegen/attachments.svelte';
 	import type { FileAttachment } from '$lib/codegen/types';
-
-	export interface AttachedFile {
-		id: string;
-		file: File;
-		preview?: string;
-	}
 
 	// Generic file type that works with both AttachedFile and FileAttachment
 	export type DisplayFile = AttachedFile | FileAttachment;
 
-	interface Props {
+	type Props = {
 		attachedFiles: DisplayFile[];
 		onRemoveFile?: (fileId: string) => void;
 		showRemoveButton?: boolean;
-	}
+	};
 
-	let { attachedFiles, onRemoveFile, showRemoveButton = true }: Props = $props();
+	const { attachedFiles, onRemoveFile, showRemoveButton = true }: Props = $props();
 
 	function handleRemove(fileId: string): void {
 		onRemoveFile?.(fileId);
