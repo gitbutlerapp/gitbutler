@@ -1,11 +1,8 @@
 import type { Message, MessageParam, Usage } from '@anthropic-ai/sdk/resources/index.mjs';
 
 export interface FileAttachment {
-	id: string;
 	name: string;
 	content: string;
-	mimeType: string;
-	size: number;
 }
 
 /**
@@ -120,7 +117,7 @@ export type ClaudeMessageContent =
 	/** Inserted via GitButler (what the user typed) */
 	| {
 			type: 'userInput';
-			subject: { message: string; attachments?: FileAttachment[] };
+			subject: { message: string; attachments?: string[] };
 	  }
 	| {
 			type: 'gitButlerMessage';

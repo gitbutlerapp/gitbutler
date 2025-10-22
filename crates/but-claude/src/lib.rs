@@ -73,16 +73,10 @@ pub enum ClaudeMessageContent {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FileAttachment {
-    /// The file identifier
-    pub id: String,
     /// The original filename
     pub name: String,
     /// The file content as base64 encoded string
     pub content: String,
-    /// The MIME type of the file
-    pub mime_type: String,
-    /// File size in bytes
-    pub size: usize,
 }
 
 /// Represents user input in a Claude session.
@@ -91,8 +85,8 @@ pub struct FileAttachment {
 pub struct UserInput {
     /// The user message
     pub message: String,
-    /// Optional file attachments
-    pub attachments: Option<Vec<FileAttachment>>,
+    /// Optional attached file names
+    pub attachments: Option<Vec<String>>,
 }
 
 /// Metadata provided by GitButler.

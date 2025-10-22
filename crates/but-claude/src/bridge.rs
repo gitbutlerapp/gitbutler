@@ -21,6 +21,7 @@
 
 use std::{
     collections::HashMap,
+    env::temp_dir,
     io::{BufRead, BufReader, PipeReader, Read as _, Write as _},
     process::ExitStatus,
     sync::Arc,
@@ -226,23 +227,6 @@ impl Claudes {
             }
         };
 
-        // Get project directory early for file attachment processing
-        let project_dir = {
-            let ctx = ctx.lock().await;
-            ctx.project().worktree_dir()?.to_owned()
-        };
-
-        // Process file attachments and create enhanced message
-        let enhanced_message = if let Some(attachments) = &user_params.attachments {
-            process_attachments(&project_dir, &user_params.message, attachments).await?
-        } else {
-            user_params.message.clone()
-        };
-
-        // Create updated user params with enhanced message
-        let mut enhanced_user_params = user_params.clone();
-        enhanced_user_params.message = enhanced_message.clone();
-
         {
             let mut ctx = ctx.lock().await;
             // Store the original message for UI display (without inlined file content)
@@ -254,7 +238,10 @@ impl Claudes {
                 stack_id,
                 ClaudeMessageContent::UserInput(UserInput {
                     message: user_params.message.clone(), // Original user message for display
-                    attachments: user_params.attachments.clone(),
+                    attachments: user_params
+                        .attachments
+                        .as_ref()
+                        .map(|v| v.iter().map(|a| a.name.clone()).collect()),
                 }),
             )
             .await?;
@@ -277,7 +264,7 @@ impl Claudes {
             session,
             project.worktree_dir()?.to_owned(),
             ctx.clone(),
-            enhanced_user_params,
+            user_params,
             summary_to_resume,
         )
         .await?;
@@ -486,19 +473,24 @@ async fn spawn_command(
 
     command.arg("-p");
 
-    if let Some(summary_to_resume) = summary_to_resume {
-        command.arg(format_message_with_summary(
-            &summary_to_resume,
-            &user_params.message,
-            user_params.thinking_level,
-        ));
-    } else if user_params.message.starts_with("/") {
+    if user_params.message.starts_with("/") {
         command.arg(&user_params.message);
     } else {
-        command.arg(format_message(
-            &user_params.message,
-            user_params.thinking_level,
-        ));
+        let message = if let Some(attachments) = &user_params.attachments {
+            format_message_with_attachments(&user_params.message, attachments).await?
+        } else {
+            user_params.message
+        };
+
+        if let Some(summary_to_resume) = summary_to_resume {
+            command.arg(format_message_with_summary(
+                &summary_to_resume,
+                &message,
+                user_params.thinking_level,
+            ));
+        } else {
+            command.arg(format_message(&message, user_params.thinking_level));
+        }
     }
     tracing::info!("spawn_command: {:?}", command);
     Ok(command.spawn()?)
@@ -657,8 +649,7 @@ pub enum ClaudeCheckResult {
 
 /// Process file attachments by writing them to temporary files in the project directory
 /// and enhancing the message to reference these files
-async fn process_attachments(
-    project_dir: &std::path::Path,
+async fn format_message_with_attachments(
     original_message: &str,
     attachments: &[FileAttachment],
 ) -> Result<String> {
@@ -667,11 +658,10 @@ async fn process_attachments(
     }
 
     // Create a temporary directory for attachments
-    let temp_dir = project_dir.join(".gitbutler_attachments");
+    let temp_dir = temp_dir().join("gitbutler_attachments");
     fs::create_dir_all(&temp_dir).await?;
 
-    let mut file_references = Vec::new();
-    let mut file_paths = Vec::new();
+    let mut written_attachments = Vec::new();
 
     for attachment in attachments {
         // Decode base64 content
@@ -680,69 +670,35 @@ async fn process_attachments(
             .map_err(|e| anyhow::anyhow!("Failed to decode base64 content: {}", e))?;
 
         // Create a unique filename to avoid conflicts
-        let filename = format!(
-            "{}_{}",
-            uuid::Uuid::new_v4().to_string().get(..8).unwrap_or("file"),
-            attachment.name
-        );
-        let file_path = temp_dir.join(&filename);
+        let folder = temp_dir.join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir(&folder).await?;
+
+        let file_path = folder.join(&attachment.name);
 
         // Write the file
         let mut file = std::fs::File::create(&file_path)?;
         file.write_all(&content)?;
 
-        // Add reference to the file
-        let relative_path = file_path
-            .strip_prefix(project_dir)
-            .unwrap_or(&file_path)
-            .to_string_lossy();
-        file_references.push(format!("{} ({})", attachment.name, relative_path));
-        file_paths.push(relative_path.to_string());
+        written_attachments.push(file_path);
     }
 
     // Create enhanced message with file references and content for small files
     let mut enhanced_message = format!(
-        "{}\n\nI've attached the following files:\n",
+        "{}
+
+<files-context>
+The following files have been added as context. You must keep them in mind when responding to this request.
+
+If the user has asked you to modify an attached file, you must not modify the listed paths. Instead you must find the origional file in their project with the matching name and contents.",
         original_message
     );
 
-    for ((attachment, file_ref), file_path) in attachments
-        .iter()
-        .zip(file_references.iter())
-        .zip(file_paths.iter())
-    {
-        enhanced_message.push_str(&format!("- {}\n", file_ref));
-
-        // For small files, include content directly based on type
-        if attachment.size <= 50_000 {
-            let content = base64::prelude::BASE64_STANDARD
-                .decode(&attachment.content)
-                .map_err(|e| anyhow::anyhow!("Failed to decode base64 content: {}", e))?;
-
-            if attachment.mime_type.starts_with("text/")
-                || attachment.name.ends_with(".svg")
-                || attachment.name.ends_with(".xml")
-                || attachment.name.ends_with(".json")
-                || attachment.name.ends_with(".md")
-                || attachment.name.ends_with(".txt")
-            {
-                if let Ok(text_content) = String::from_utf8(content) {
-                    enhanced_message.push_str(&format!(
-                        "\nContent of {}:\n```\n{}\n```\n",
-                        attachment.name, text_content
-                    ));
-                }
-            } else {
-                // For binary files, just reference the path
-                enhanced_message.push_str(&format!(
-                    "\nBinary file {} is available at: {}\n",
-                    attachment.name, file_path
-                ));
-            }
-        }
+    enhanced_message.push_str("<files>\n");
+    for path in written_attachments {
+        enhanced_message.push_str(&format!("- {}\n", path.display()));
     }
-
-    enhanced_message.push_str("\n\nPlease analyze these files and help with my request. If you cannot see the file content above, please read the files from the file paths provided using your file reading tools.");
+    enhanced_message.push_str("</files>\n");
+    enhanced_message.push_str("</files-context>\n");
 
     Ok(enhanced_message)
 }

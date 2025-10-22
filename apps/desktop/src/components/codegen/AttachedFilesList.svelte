@@ -1,57 +1,65 @@
 <script lang="ts">
 	import { FileIcon, Icon } from '@gitbutler/ui';
 	import { fly } from 'svelte/transition';
-	import type { AttachedFile } from '$lib/codegen/attachments.svelte';
-	import type { FileAttachment } from '$lib/codegen/types';
 
 	// Generic file type that works with both AttachedFile and FileAttachment
-	export type DisplayFile = AttachedFile | FileAttachment;
+	export type DisplayFile = File | string;
 
 	type Props = {
 		attachedFiles: DisplayFile[];
-		onRemoveFile?: (fileId: string) => void;
+		onRemoveFile?: (file: File) => void;
 		showRemoveButton?: boolean;
 	};
 
 	const { attachedFiles, onRemoveFile, showRemoveButton = true }: Props = $props();
 
-	function handleRemove(fileId: string): void {
-		onRemoveFile?.(fileId);
+	function handleRemove(file: File): void {
+		onRemoveFile?.(file);
 	}
 
 	function getFileName(file: DisplayFile): string {
-		return 'file' in file ? file.file.name : file.name;
+		return typeof file === 'string' ? file : file.name;
 	}
 
-	function getFilePreview(file: DisplayFile): string | undefined {
-		return 'preview' in file ? file.preview : undefined;
+	async function getFilePreview(file: DisplayFile): Promise<string | undefined> {
+		return typeof file === 'string' ? undefined : await generatePreview(file);
+	}
+
+	async function generatePreview(file: File): Promise<string | undefined> {
+		if (file.type.startsWith('image/')) {
+			return new Promise((resolve) => {
+				const reader = new FileReader();
+				reader.onload = (e) => resolve(e.target?.result as string);
+				reader.onerror = () => resolve(undefined);
+				reader.readAsDataURL(file);
+			});
+		}
+		return undefined;
 	}
 </script>
 
 <div class="attached-files">
-	{#each attachedFiles as attachedFile (attachedFile.id)}
+	{#each attachedFiles as attachedFile}
 		<div class="file-item" in:fly={{ y: 10, duration: 150 }}>
 			<div class="file-content">
-				{#if getFilePreview(attachedFile)}
-					<img
-						src={getFilePreview(attachedFile)}
-						alt={getFileName(attachedFile)}
-						class="file-preview"
-					/>
-				{:else}
-					<FileIcon fileName={getFileName(attachedFile)} />
-				{/if}
+				{#await getFilePreview(attachedFile) then preview}
+					{#if preview}
+						<img src={preview} alt={getFileName(attachedFile)} class="file-preview" />
+					{:else}
+						<FileIcon fileName={getFileName(attachedFile)} />
+					{/if}
+				{/await}
 
 				<span class="text-12 text-semibold file-name" title={getFileName(attachedFile)}>
 					{getFileName(attachedFile)}
 				</span>
 			</div>
 
-			{#if showRemoveButton}
+			{#if showRemoveButton && typeof attachedFile !== 'string'}
 				<button
 					type="button"
 					class="remove-button"
-					onclick={() => handleRemove(attachedFile.id)}
+					onclick={() => handleRemove(attachedFile)}
 					aria-label="Remove {getFileName(attachedFile)}"
 					title="Remove file"
 				>

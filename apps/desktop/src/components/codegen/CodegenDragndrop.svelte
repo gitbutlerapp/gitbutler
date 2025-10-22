@@ -1,8 +1,6 @@
 <script lang="ts">
-	import type { AttachedFile } from '$lib/codegen/attachments.svelte';
-
 	type Props = {
-		attachedFiles: AttachedFile[];
+		attachedFiles: File[];
 		processFiles: (files: FileList) => Promise<void>;
 	};
 

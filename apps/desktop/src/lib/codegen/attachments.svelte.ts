@@ -1,12 +1,6 @@
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { chipToasts } from '@gitbutler/ui';
 
-export type AttachedFile = {
-	id: string;
-	file: File;
-	preview?: string;
-};
-
 export function useFileDraggedIntoApp() {
 	let dragEnterCounter = $state(0);
 
@@ -67,14 +61,14 @@ const maxFiles = 10;
 const maxFileSizeBytes = 10 * 1024 * 1024; // 10MB
 
 export function useAttachments() {
-	let attachedFiles: AttachedFile[] = $state([]);
+	let attachedFiles: File[] = $state([]);
 
-	function setFiles(files: AttachedFile[]) {
+	function setFiles(files: File[]) {
 		attachedFiles = files;
 	}
 
-	function removeFile(fileId: string) {
-		attachedFiles = attachedFiles.filter((f) => f.id !== fileId);
+	function removeFile(file: File) {
+		attachedFiles = attachedFiles.filter((f) => f !== file);
 	}
 
 	async function processFiles(files: FileList): Promise<void> {
@@ -89,7 +83,7 @@ export function useAttachments() {
 		}
 
 		// Validate and process each file
-		const newFiles: AttachedFile[] = [];
+		const newFiles: File[] = [];
 		for (const file of fileArray) {
 			const error = validateFile(file);
 			if (error) {
@@ -100,9 +94,9 @@ export function useAttachments() {
 			// Check for duplicates
 			const isDuplicate = attachedFiles.some(
 				(existing) =>
-					existing.file.name === file.name &&
-					existing.file.size === file.size &&
-					existing.file.lastModified === file.lastModified
+					existing.name === file.name &&
+					existing.size === file.size &&
+					existing.lastModified === file.lastModified
 			);
 
 			if (isDuplicate) {
@@ -110,12 +104,7 @@ export function useAttachments() {
 				return;
 			}
 
-			const preview = await generatePreview(file);
-			newFiles.push({
-				id: `${file.name}-${Date.now()}-${Math.random()}`,
-				file,
-				preview
-			});
+			newFiles.push(file);
 		}
 
 		// Add new files
@@ -154,16 +143,4 @@ function validateFile(file: File): string | null {
 	}
 
 	return null;
-}
-
-async function generatePreview(file: File): Promise<string | undefined> {
-	if (file.type.startsWith('image/')) {
-		return new Promise((resolve) => {
-			const reader = new FileReader();
-			reader.onload = (e) => resolve(e.target?.result as string);
-			reader.onerror = () => resolve(undefined);
-			reader.readAsDataURL(file);
-		});
-	}
-	return undefined;
 }

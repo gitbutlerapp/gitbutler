@@ -138,7 +138,7 @@ export function useSendMessage({
 	function setPrompt(prompt: string) {
 		laneState?.prompt.set(prompt);
 	}
-	async function sendMessage(attachmentsParam?: { id: string; file: File; preview?: string }[]) {
+	async function sendMessage(attachments?: File[]) {
 		if (!selectedBranch.current) return;
 		if (!laneState) return;
 		if (!prompt) return;
@@ -170,7 +170,7 @@ export function useSendMessage({
 				claudeCodeService,
 				codegenAnalytics,
 				sendClaudeMessage,
-				attachments: attachmentsParam
+				attachments
 			});
 
 			setPrompt('');
@@ -236,7 +236,7 @@ async function sendMessageInner({
 	claudeCodeService: ClaudeCodeService;
 	codegenAnalytics: CodegenAnalytics;
 	sendClaudeMessage: ClaudeCodeService['sendMessage'][0];
-	attachments?: { id: string; file: File; preview?: string }[];
+	attachments?: File[];
 }) {
 	if (prompt.startsWith('/compact')) {
 		await claudeCodeService.compactHistory({
@@ -270,19 +270,16 @@ async function sendMessageInner({
 	let fileAttachments: FileAttachment[] | undefined = undefined;
 	if (attachments && attachments.length > 0) {
 		fileAttachments = await Promise.all(
-			attachments.map(async (attached: { id: string; file: File; preview?: string }) => {
+			attachments.map(async (file: File) => {
 				// Convert file to base64
-				const buffer = await attached.file.arrayBuffer();
+				const buffer = await file.arrayBuffer();
 				const bytes = new Uint8Array(buffer);
 				const binary = bytes.reduce((data, byte) => data + String.fromCharCode(byte), '');
 				const base64Content = btoa(binary);
 
 				return {
-					id: attached.id,
-					name: attached.file.name,
-					content: base64Content,
-					mimeType: attached.file.type,
-					size: attached.file.size
+					name: file.name,
+					content: base64Content
 				};
 			})
 		);
