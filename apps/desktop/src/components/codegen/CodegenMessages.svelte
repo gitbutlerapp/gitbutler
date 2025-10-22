@@ -45,7 +45,8 @@
 		ContextMenuItem,
 		ContextMenuSection,
 		EmptyStatePlaceholder,
-		Modal
+		Modal,
+		Tooltip
 	} from '@gitbutler/ui';
 
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
@@ -55,8 +56,10 @@
 		projectId: string;
 		branchName: string;
 		stackId: string;
+		isWorkspace?: boolean;
+		onclose?: () => void;
 	};
-	const { projectId, stackId, branchName }: Props = $props();
+	const { projectId, stackId, branchName, isWorkspace, onclose }: Props = $props();
 
 	const stableBranchName = $derived(branchName);
 
@@ -333,11 +336,65 @@
 			? Object.keys(mcpConfig.mcpServers).length -
 				uiState.lane(stackId).disabledMcpServers.current.length
 			: 0}
-		<CodegenChatLayout branchName={stableBranchName} isWorkspace>
+		<CodegenChatLayout branchName={stableBranchName} {isWorkspace} {onclose}>
 			{#snippet branchIcon()}
 				<BranchHeaderIcon {iconName} color={lineColor} large />
 			{/snippet}
-			{#snippet workspaceActions()}
+			{#snippet inWorkspaceInlineContextActions()}
+				{@const stats = usageStats(events)}
+				<div class="flex gap-8 items-center">
+					<Tooltip text="{(stats.contextUtilization * 100).toFixed(0)}% context used">
+						<div
+							class="context-utilization-piechart"
+							style="--context-utilization: {stats.contextUtilization}"
+						></div>
+					</Tooltip>
+
+					<div class="flex gap-4">
+						<Button
+							icon="clear"
+							kind="ghost"
+							size="tag"
+							tooltip="Clear context and associated rules"
+							disabled={!hasRulesToClear ||
+								formattedMessages.length === 0 ||
+								['running', 'compacting'].includes(currentStatus(events, isStackActive))}
+							loading={clearLoading}
+							onclick={() => clearContextAndRules()}
+						/>
+						<Button
+							icon="compact"
+							kind="ghost"
+							size="tag"
+							tooltip="Compact context"
+							disabled={!hasRulesToClear ||
+								formattedMessages.length === 0 ||
+								['running', 'compacting'].includes(currentStatus(events, isStackActive))}
+							loading={compactLoading}
+							onclick={() => compactContext()}
+						/>
+					</div>
+				</div>
+			{/snippet}
+			{#snippet inWorkspaceInlineActions()}
+				<div class="flex gap-4">
+					<Button
+						kind="ghost"
+						icon="mcp"
+						size="tag"
+						tooltip="MCP settings"
+						onclick={() => mcpConfigModal?.open()}
+					/>
+					<Button
+						kind="ghost"
+						icon="mixer"
+						size="tag"
+						tooltip="Agent settings"
+						onclick={() => console.warn('TODO: implement settings')}
+					/>
+				</div>
+			{/snippet}
+			{#snippet pageWorkspaceActions()}
 				<Button
 					icon="workbench-small"
 					kind="outline"
@@ -354,7 +411,7 @@
 					reversedDirection
 				/>
 			{/snippet}
-			{#snippet contextActions()}
+			{#snippet pageContextActions()}
 				{@const stats = usageStats(events)}
 
 				<Button kind="outline" icon="mcp" reversedDirection onclick={() => mcpConfigModal?.open()}
@@ -367,7 +424,7 @@
 
 				<div class="flex gap-4 overflow-hidden">
 					<div
-						class="text-11 context-utilization-badge"
+						class="text-11 context-utilization-badge-2"
 						style="--context-utilization: {stats.contextUtilization}"
 					>
 						<span class="truncate">
@@ -401,6 +458,7 @@
 					</div>
 				</div>
 			{/snippet}
+
 			{#snippet messages()}
 				{#if formattedMessages.length === 0}
 					<div class="chat-view__placeholder">
@@ -659,7 +717,18 @@
 		padding: 0 32px;
 	}
 
-	.context-utilization-badge {
+	.context-utilization-piechart {
+		position: relative;
+		width: 16px;
+		height: 16px;
+		border-radius: 50%;
+		background: conic-gradient(
+			var(--clr-text-2) calc(var(--context-utilization) * 360deg),
+			var(--clr-border-2) calc(var(--context-utilization) * 360deg)
+		);
+	}
+
+	.context-utilization-badge-2 {
 		display: flex;
 		position: relative;
 		align-items: center;
