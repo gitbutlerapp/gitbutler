@@ -167,7 +167,7 @@ pub fn push_stack(
     skip_force_push_protection: bool,
     branch_limit: String,
     run_hooks: bool,
-    gerrit_flag: Option<but_gerrit::PushFlag>,
+    push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<PushResult> {
     ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
     ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
@@ -253,16 +253,18 @@ pub fn push_stack(
 
         let refspec = if gerrit_mode {
             Some(format!(
-                "{}:refs/for/{}{}",
+                "{}:refs/for/{}",
                 push_details.head,
                 default_target.branch.branch(),
-                gerrit_flag
-                    .as_ref()
-                    .map(|flag| flag.to_string())
-                    .unwrap_or_default()
             ))
         } else {
             None
+        };
+
+        let push_opts = if gerrit_mode {
+            push_opts.iter().map(|o| o.to_string()).collect()
+        } else {
+            vec![]
         };
 
         let out = ctx.push(
@@ -272,6 +274,7 @@ pub fn push_stack(
             force_push_protection,
             refspec,
             Some(Some(stack.id)),
+            push_opts,
         )?;
 
         if gerrit_mode {

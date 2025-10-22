@@ -352,6 +352,7 @@ pub async fn push<P, F, Fut, E, Extra>(
     force_push_protection: bool,
     on_prompt: F,
     extra: Extra,
+    push_opts: Vec<String>,
 ) -> Result<String, crate::Error<Error<E>>>
 where
     P: AsRef<Path>,
@@ -374,6 +375,11 @@ where
         } else {
             args.push("--force");
         }
+    }
+
+    for opt in push_opts.iter() {
+        args.push("-o");
+        args.push(opt.as_str());
     }
 
     let (status, stdout, stderr) =

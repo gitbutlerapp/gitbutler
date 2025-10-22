@@ -14,6 +14,7 @@ use gitbutler_repo::{
 use gitbutler_stack::{Stack, StackId};
 
 use crate::askpass;
+#[allow(clippy::too_many_arguments)]
 pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()>;
     /// Returns the stderr output of the git executable if used.
@@ -25,6 +26,7 @@ pub trait RepoActionsExt {
         force_push_protection: bool,
         refspec: Option<String>,
         askpass_broker: Option<Option<StackId>>,
+        push_opts: Vec<String>,
     ) -> Result<String>;
     fn commit(
         &self,
@@ -66,13 +68,21 @@ impl RepoActionsExt for CommandContext {
         let refname =
             RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
 
-        match self.push(commit_id, &refname, false, false, None, askpass) {
+        match self.push(commit_id, &refname, false, false, None, askpass, vec![]) {
             Ok(_) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
 
         let empty_refspec = Some(format!(":refs/heads/{branch_name}"));
-        match self.push(commit_id, &refname, false, false, empty_refspec, askpass) {
+        match self.push(
+            commit_id,
+            &refname,
+            false,
+            false,
+            empty_refspec,
+            askpass,
+            vec![],
+        ) {
             Ok(_) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
@@ -163,6 +173,7 @@ impl RepoActionsExt for CommandContext {
         force_push_protection: bool,
         refspec: Option<String>,
         askpass_broker: Option<Option<StackId>>,
+        push_opts: Vec<String>,
     ) -> Result<String> {
         let use_git_executable = self.project().preferred_key == AuthKey::SystemExecutable;
         if !use_git_executable && force_push_protection {
@@ -200,6 +211,7 @@ impl RepoActionsExt for CommandContext {
                         force_push_protection,
                         handle_git_prompt_push,
                         askpass_broker,
+                        push_opts,
                     ))
             })
             .join()

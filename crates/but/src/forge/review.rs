@@ -188,7 +188,7 @@ async fn publish_reviews_for_branch_and_dependents(
         skip_force_push_protection,
         branch_name.to_string(),
         run_hooks,
-        None,
+        vec![],
     )?;
 
     if !json {

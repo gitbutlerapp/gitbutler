@@ -73,7 +73,11 @@
 	const upstreamCommits = $derived(upstreamCommitsQuery.response);
 	const runHooks = $derived(projectRunCommitHooks(projectId));
 
-	function handleClick(args: { withForce: boolean; skipForcePushProtection: boolean }) {
+	function handleClick(args: {
+		withForce: boolean;
+		skipForcePushProtection: boolean;
+		gerritFlags: GerritPushFlag[];
+	}) {
 		if (isGerritMode) {
 			gerritModal?.show();
 			return;
@@ -90,9 +94,9 @@
 	async function push(args: {
 		withForce: boolean;
 		skipForcePushProtection: boolean;
-		gerritFlag?: GerritPushFlag;
+		gerritFlags: GerritPushFlag[];
 	}) {
-		const { withForce, skipForcePushProtection, gerritFlag } = args;
+		const { withForce, skipForcePushProtection, gerritFlags } = args;
 		try {
 			const pushResult = await pushStack({
 				projectId,
@@ -101,7 +105,7 @@
 				skipForcePushProtection,
 				branch: branchName,
 				runHooks: $runHooks,
-				gerritFlag
+				pushOpts: gerritFlags
 			});
 
 			const upstreamBranchNames = pushResult.branchToRemote
@@ -187,7 +191,7 @@
 				withForce,
 				branchDetails.remoteTrackingBranch
 			)}
-			onclick={() => handleClick({ withForce, skipForcePushProtection: false })}
+			onclick={() => handleClick({ withForce, skipForcePushProtection: false, gerritFlags: [] })}
 			icon={multipleBranches && !isLastBranchInStack ? 'push-below' : 'push'}
 		>
 			{isGerritMode ? 'Push' : withForce ? 'Force push' : 'Push'}
@@ -199,7 +203,11 @@
 			bind:this={confirmationModal}
 			onSubmit={async (close) => {
 				close();
-				push({ withForce, skipForcePushProtection: false, gerritFlag: pendingGerritFlag });
+				push({
+					withForce,
+					skipForcePushProtection: false,
+					gerritFlags: pendingGerritFlag ? [pendingGerritFlag] : []
+				});
 				pendingGerritFlag = undefined;
 			}}
 		>
@@ -239,7 +247,11 @@
 			bind:this={forcePushProtectionModal}
 			onSubmit={async (close) => {
 				close();
-				push({ withForce, skipForcePushProtection: true, gerritFlag: pendingGerritFlag });
+				push({
+					withForce,
+					skipForcePushProtection: true,
+					gerritFlags: pendingGerritFlag ? [pendingGerritFlag] : []
+				});
 				pendingGerritFlag = undefined;
 			}}
 		>
@@ -286,13 +298,13 @@
 			{multipleBranches}
 			{isFirstBranchInStack}
 			{isLastBranchInStack}
-			onPush={(gerritFlag) => {
+			onPush={(gerritFlags) => {
 				if (multipleBranches && !isLastBranchInStack && !$doNotShowPushBelowWarning) {
 					// Store the gerrit flag for later use when confirmation modal completes
-					pendingGerritFlag = gerritFlag;
+					pendingGerritFlag = gerritFlags[0];
 					confirmationModal?.show();
 				} else {
-					push({ withForce, skipForcePushProtection: false, gerritFlag });
+					push({ withForce, skipForcePushProtection: false, gerritFlags });
 				}
 			}}
 		/>
