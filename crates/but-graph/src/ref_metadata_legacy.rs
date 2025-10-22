@@ -146,9 +146,17 @@ impl VirtualBranchesTomlMetadata {
 /// Mostly used in testing, and it's fine as it's intermediate, and we are very practical here.
 impl VirtualBranchesTomlMetadata {
     /// Return a mutable snapshot of the underlying data. Useful for testing mainly.
+    ///
+    /// Consider calling [Self::set_changed_to_necessitate_write()] to have the changes written back.
     pub fn data_mut(&mut self) -> &mut VirtualBranches {
         &mut self.snapshot.content
     }
+
+    /// The vb.toml snapshot held internally is marked as changed so it will be written back to disk on drop.
+    pub fn set_changed_to_necessitate_write(&mut self) {
+        self.snapshot.changed_at = Some(Instant::now());
+    }
+
     /// Return a snapshot of the underlying data. Useful for working around (intended) limitations of the RefMetadata trait.
     pub fn data(&self) -> &VirtualBranches {
         &self.snapshot.content

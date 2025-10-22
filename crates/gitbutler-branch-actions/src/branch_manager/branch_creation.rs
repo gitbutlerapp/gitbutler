@@ -165,6 +165,7 @@ impl BranchManager<'_> {
                     workspace_reference_naming: WorkspaceReferenceNaming::Default,
                     uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                     order: None,
+                    new_stack_id: None,
                 },
             )?;
             let ws = out.graph.to_workspace()?;

@@ -4,8 +4,14 @@ use std::{
     fmt::Formatter,
 };
 
+use crate::{
+    CommitFlags, CommitIndex, Graph, Segment, SegmentIndex,
+    projection::{Stack, StackCommit, StackCommitFlags, StackSegment, workspace},
+    segment,
+};
 use anyhow::Context;
 use bstr::{BStr, ByteSlice};
+use but_core::ref_metadata::StackKind::AppliedAndUnapplied;
 use but_core::{
     ref_metadata,
     ref_metadata::{StackId, StackKind::Applied},
@@ -14,12 +20,6 @@ use gix::reference::Category;
 use itertools::Itertools;
 use petgraph::{Direction, prelude::EdgeRef, visit::NodeRef};
 use tracing::instrument;
-
-use crate::{
-    CommitFlags, CommitIndex, Graph, Segment, SegmentIndex,
-    projection::{Stack, StackCommit, StackCommitFlags, StackSegment, workspace},
-    segment,
-};
 
 /// A workspace is a list of [Stacks](Stack).
 #[derive(Clone)]
@@ -612,7 +612,7 @@ impl Graph {
                         // If we find no stack ID, then the segment is not included in the workspace metadata,
                         // indicating it's ignored. Just to be even more certain, if it starts with a commit
                         // that is the workspace base, then we definitely don't want to show it - it's unapplied.
-                        if stack_id.is_none()
+                        if stack_id.is_none_or(|(_id, in_workspace)| !in_workspace)
                             && segments
                                 .first()
                                 .is_some_and(|s| s.commits.first().map(|c| c.id) == lowest_base)
@@ -622,7 +622,7 @@ impl Graph {
                             Some(Stack::from_base_and_segments(
                                 &self.inner,
                                 segments,
-                                stack_id,
+                                stack_id.map(|(id, _in_workspace)| id),
                             ))
                         }
                     }),
@@ -702,28 +702,57 @@ impl Graph {
 
 /// This works as named segments have been created in a prior step. Thus, we are able to find best matches by
 /// the amount of matching names, probably.
+/// Note that we find applied stack-ids first, then try again with unapplied ones, and indicate if it was applied or not.
 fn find_matching_stack_id(
     metadata: Option<&ref_metadata::Workspace>,
     segments: &[StackSegment],
-) -> Option<StackId> {
+) -> Option<(StackId, bool)> {
     let metadata = metadata?;
-    metadata
-        .stacks(Applied)
-        .filter_map(|s| {
-            let num_matching_refs = s
-                .branches
-                .iter()
-                .filter(|b| {
-                    segments
+
+    fn ref_names_with_weight(
+        s: &StackSegment,
+    ) -> impl Iterator<Item = (u64, &gix::refs::FullNameRef)> {
+        s.ref_name
+            .as_ref()
+            .map(|r| (100_000, r.as_ref()))
+            .into_iter()
+            .chain(
+                s.commits
+                    .iter()
+                    .flat_map(|c| c.refs.iter().map(|r| (1, r.as_ref()))),
+            )
+    }
+
+    segments
+        .iter()
+        .flat_map(|s| {
+            ref_names_with_weight(s).filter_map(|(weight, rn)| {
+                metadata.stacks(AppliedAndUnapplied).find_map(|meta_stack| {
+                    if let Some(bidx) = meta_stack
+                        .branches
                         .iter()
-                        .any(|s| s.ref_names().any(|rn| rn == b.ref_name.as_ref()))
+                        .enumerate()
+                        .find_map(|(bidx, b)| (rn == b.ref_name.as_ref()).then_some(bidx))
+                    {
+                        let priority = if bidx == 0 { 3 } else { 1 };
+                        Some((
+                            if meta_stack.is_in_workspace() {
+                                weight * 2
+                            } else {
+                                weight
+                            } * priority,
+                            meta_stack.id,
+                            meta_stack.is_in_workspace(),
+                        ))
+                    } else {
+                        None
+                    }
                 })
-                .count();
-            (num_matching_refs != 0).then_some((s.id, num_matching_refs))
+            })
         })
-        .sorted_by(|(_, lhs), (_, rhs)| lhs.cmp(rhs).reverse())
+        .sorted_by(|l, r| l.0.cmp(&r.0).reverse())
         .next()
-        .map(|(stack_id, _)| stack_id)
+        .map(|(_weight, stack_id, in_workspace)| (stack_id, in_workspace))
 }
 
 /// Traversals

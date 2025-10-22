@@ -107,6 +107,17 @@ impl Stack {
             dbg.push_str(&base.to_hex_with_len(7).to_string());
         }
         dbg.insert(0, '≡');
+        if let Some(id) = self.id {
+            let id_string = id.to_string().replace("0", "").replace("-", "");
+            dbg.push_str(&format!(
+                " {{{}}}",
+                if id_string.is_empty() {
+                    "0".into()
+                } else {
+                    id_string
+                }
+            ));
+        }
         dbg
     }
 }

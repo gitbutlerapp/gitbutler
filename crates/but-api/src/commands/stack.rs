@@ -88,6 +88,7 @@ pub fn create_reference(
         &repo,
         &graph.to_workspace()?,
         &mut *meta,
+        |_| StackId::generate(),
     )?;
     Ok(())
 }
@@ -148,6 +149,7 @@ pub fn create_branch(
                 &repo,
                 &ws,
                 &mut *meta,
+                |_| StackId::generate(),
             )?;
     } else {
         // NOTE: locking is built-in here.

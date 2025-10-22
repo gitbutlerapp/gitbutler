@@ -102,6 +102,8 @@ pub struct Options {
     /// This is useful if the tip of a branc (at a specific position) was unapplied, and a segment within that branch
     /// should now be re-applied, but of course, be placed at the same spot and not end up at the end of the workspace.
     pub order: Option<usize>,
+    /// Create new stack id, which by default is a function that generates a new StackId.
+    pub new_stack_id: Option<fn(&gix::refs::FullNameRef) -> StackId>,
 }
 
 #[allow(clippy::indexing_slicing)]
@@ -160,8 +162,10 @@ pub(crate) mod function {
             workspace_reference_naming,
             uncommitted_changes,
             order,
+            new_stack_id,
         }: Options,
     ) -> anyhow::Result<Outcome<'graph>> {
+        let new_stack_id = new_stack_id.unwrap_or(generate_new_stack_id);
         let branch_orig = branch;
         let mut branch_ref = try_find_validated_ref(repo, branch)?;
         if workspace.is_branch_the_target_or_its_local_tracking_branch(branch) {
@@ -320,7 +324,7 @@ pub(crate) mod function {
         {
             let ws_mut: &mut Workspace = &mut ws_md;
             for rn in &branches_to_apply {
-                add_branch_as_stack_forcefully(ws_mut, rn, order);
+                add_branch_as_stack_forcefully(ws_mut, rn, order, new_stack_id);
             }
         }
 
@@ -483,7 +487,7 @@ pub(crate) mod function {
                 .iter()
                 .filter(|rn| !unapplied_branches.contains(rn))
             {
-                add_branch_as_stack_forcefully(ws_mut, branch_to_add, order);
+                add_branch_as_stack_forcefully(ws_mut, branch_to_add, order, new_stack_id);
             }
             for rn in &unapplied_branches {
                 // Here we have to check if the new ref would be able to become its own stack,
@@ -674,9 +678,10 @@ pub(crate) mod function {
         ws_md: &mut Workspace,
         rn: &FullNameRef,
         order: Option<usize>,
+        new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
     ) {
         let (stack_idx, branch_idx) =
-            ws_md.add_or_insert_new_stack_if_not_present(rn, order, Merged);
+            ws_md.add_or_insert_new_stack_if_not_present(rn, order, Merged, new_stack_id);
         let stack = &mut ws_md.stacks[stack_idx];
         if branch_idx != 0 && !stack.is_in_workspace() {
             // For now, just delete the branches that came before it so it's index 0/top most.
@@ -858,5 +863,9 @@ pub(crate) mod function {
             );
         }
         Ok(branch_ref)
+    }
+
+    fn generate_new_stack_id(_: &gix::refs::FullNameRef) -> StackId {
+        StackId::generate()
     }
 }
