@@ -639,7 +639,7 @@
 											{@render assignedChangePreview(assignedStackId)}
 										</ConfigurableScrollableContainer>
 									{:else if selectedFile}
-										<Drawer>
+										<Drawer persistId="file-preview-drawer-{stableStackId}">
 											{#snippet header()}
 												<FileViewHeader
 													noPaddings

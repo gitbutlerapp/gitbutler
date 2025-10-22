@@ -21,7 +21,7 @@
 
 <ReduxResult result={prQuery?.result} {projectId} {onerror}>
 	{#snippet children(pr)}
-		<Drawer testId={TestId.PRBranchDrawer}>
+		<Drawer testId={TestId.PRBranchDrawer} persistId="pr-branch-drawer-{projectId}-{pr.number}">
 			{#snippet header()}
 				<h3 class="text-14 text-semibold">
 					<span class="clr-text-2">PR {unitSymbol}{pr.number}:</span>
