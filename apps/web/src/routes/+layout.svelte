@@ -31,6 +31,14 @@
 	const routesService = new WebRoutesService(location.protocol + '//' + location.host, true);
 	provide(WEB_ROUTES_SERVICE, routesService);
 
+	const TOKEN_STORAGE_KEY = 'AuthService--token';
+
+	/// Temporary cleanup through the migration
+	$effect(() => {
+		const item = localStorage.getItem(TOKEN_STORAGE_KEY);
+		if (item) localStorage.removeItem(TOKEN_STORAGE_KEY);
+	});
+
 	const httpClient = new HttpClient(
 		window.fetch,
 		env.PUBLIC_APP_HOST,
