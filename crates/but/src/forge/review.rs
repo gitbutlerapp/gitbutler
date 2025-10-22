@@ -1,4 +1,5 @@
 use anyhow::Context;
+use but_api::forge::ListReviewsParams;
 use but_settings::AppSettings;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
@@ -181,9 +182,11 @@ async fn publish_review_for_branch(
 pub async fn get_review_map(
     project: &Project,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>> {
-    let reviews = but_api::forge::list_reviews_cmd(project.id)
-        .await
-        .unwrap_or_default();
+    let reviews = but_api::forge::list_reviews_cmd(ListReviewsParams {
+        project_id: project.id,
+    })
+    .await
+    .unwrap_or_default();
 
     let branch_review_map =
         reviews

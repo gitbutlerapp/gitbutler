@@ -61,11 +61,17 @@ pub fn determine_forge_from_url(url: String) -> Result<Option<ForgeName>, Error>
 pub async fn list_reviews(
     project_id: ProjectId,
 ) -> Result<Vec<gitbutler_forge::review::ForgeReview>, Error> {
-    list_reviews_cmd(project_id).await
+    list_reviews_cmd(ListReviewsParams { project_id }).await
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListReviewsParams {
+    pub project_id: ProjectId,
 }
 
 pub async fn list_reviews_cmd(
-    project_id: ProjectId,
+    ListReviewsParams { project_id }: ListReviewsParams,
 ) -> Result<Vec<gitbutler_forge::review::ForgeReview>, Error> {
     let project = gitbutler_project::get(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
