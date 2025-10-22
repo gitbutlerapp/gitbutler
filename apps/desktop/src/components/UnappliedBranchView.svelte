@@ -43,7 +43,12 @@
 		{@const hasCommits = branch.commits.length > 0}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 		{@const preferredPrNumber = branch.prNumber || prNumber}
-		<Drawer testId={TestId.UnappliedBranchDrawer} {onclose} bottomBorder>
+		<Drawer
+			testId={TestId.UnappliedBranchDrawer}
+			persistId="unapplied-branch-drawer-{projectId}-{branch.name}"
+			{onclose}
+			bottomBorder
+		>
 			{#snippet header()}
 				<div class="branch__header">
 					{#if hasCommits}
@@ -63,7 +68,7 @@
 				</div>
 			{/snippet}
 
-			{#snippet kebabMenu(header)}
+			{#snippet actions(header)}
 				{@const data = {
 					branch,
 					prNumber: branch.prNumber || undefined,

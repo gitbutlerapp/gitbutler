@@ -147,6 +147,7 @@
 		<Drawer
 			bind:clientHeight
 			testId={TestId.CommitDrawer}
+			persistId="commit-view-drawer-{projectId}-{stackId}-{commitKey.commitId}"
 			{resizer}
 			{grow}
 			{ontoggle}
@@ -170,7 +171,7 @@
 				/>
 			{/snippet}
 
-			{#snippet extraActions()}
+			{#snippet actions(header)}
 				{#if canEdit()}
 					<Button
 						testId={TestId.CommitDrawerActionEditMessage}
@@ -182,9 +183,6 @@
 						disabled={isReadOnly}
 					/>
 				{/if}
-			{/snippet}
-
-			{#snippet kebabMenu(header)}
 				{@const data = isLocalAndRemoteCommit(commit)
 					? {
 							stackId,

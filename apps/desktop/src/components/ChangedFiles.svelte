@@ -68,7 +68,14 @@
 	});
 </script>
 
-<Drawer {grow} {ontoggle} {resizer} {noshrink} bottomBorder={changes.length > 0}>
+<Drawer
+	{grow}
+	{ontoggle}
+	{resizer}
+	{noshrink}
+	bottomBorder={changes.length > 0}
+	persistId={`changed-files-drawer-${projectId}-${stackId || 'default'}`}
+>
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">{title}</h4>
 		<div class="text-11 header-stats">
@@ -78,7 +85,7 @@
 			{/if}
 		</div>
 	{/snippet}
-	{#snippet extraActions()}
+	{#snippet actions()}
 		<FileListMode bind:mode={listMode} persist="committed" />
 	{/snippet}
 
