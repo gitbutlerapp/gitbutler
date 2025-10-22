@@ -13,7 +13,7 @@
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { NOTIFICATION_SETTINGS_SERVICE } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { getNotificationSettingsInterest } from '@gitbutler/shared/settings/notificationSetttingsPreview.svelte';
-	import { Button, Icon, Modal, SectionCard, Spacer } from '@gitbutler/ui';
+	import { Button, chipToasts, Icon, Modal, SectionCard, Spacer } from '@gitbutler/ui';
 	import { env } from '$env/dynamic/public';
 
 	const userService = inject(USER_SERVICE);
@@ -55,6 +55,11 @@
 				return linksJson.downloads.appleSilicon.url;
 		}
 	});
+
+	async function refreshAccessToken() {
+		await userService.refreshAccessToken();
+		chipToasts.success('Access token refreshed successfully');
+	}
 
 	function logout() {
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
@@ -112,6 +117,23 @@
 					{/snippet}
 					{#snippet actions()}
 						<Button kind="outline" icon="signout" onclick={logout}>Log out</Button>
+					{/snippet}
+				</SectionCard>
+
+				<SectionCard orientation="row">
+					{#snippet title()}
+						Refresh access token
+					{/snippet}
+					{#snippet caption()}
+						If you suspect any unusual activity, it's a good idea to refresh your access token to
+						keep your account secure.
+						<br />
+						This will log you out of all active sessions including on the desktop application.
+					{/snippet}
+					{#snippet actions()}
+						<Button kind="outline" icon="refresh-in-circle" onclick={refreshAccessToken}
+							>Refresh</Button
+						>
 					{/snippet}
 				</SectionCard>
 

@@ -213,4 +213,16 @@ export class UserService {
 			return [];
 		}
 	}
+
+	/**
+	 * Invalidates and refreshes the user's access token.
+	 * This is useful when you want to log out the user from other sessions.
+	 */
+	async refreshAccessToken(): Promise<void> {
+		try {
+			await this.httpClient.post('/api/user/refresh_access_token');
+		} catch (error) {
+			console.error('Failed to refresh access token:', error);
+		}
+	}
 }
