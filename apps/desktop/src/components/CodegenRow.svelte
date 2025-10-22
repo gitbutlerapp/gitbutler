@@ -1,9 +1,8 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { currentActivity } from '$lib/codegen/messages';
+	import { extractLastMessage } from '$lib/codegen/messages';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { formatNumber } from '$lib/utils/number';
 	import { truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/core/context';
 	import { Icon, Tooltip } from '@gitbutler/ui';
@@ -16,10 +15,9 @@
 		branchName: string;
 		selected: boolean;
 		status: ClaudeStatus;
-		cost: number;
 	};
 
-	const { projectId, stackId, branchName, selected, status, cost }: Props = $props();
+	const { projectId, stackId, branchName, selected, status }: Props = $props();
 
 	const uiState = inject(UI_STATE);
 	const laneState = uiState.lane(stackId);
@@ -41,24 +39,18 @@
 
 	<ReduxResult {projectId} result={messages.result}>
 		{#snippet children(messages)}
-			{@const lastMessage = currentActivity(messages)}
+			{@const lastMessage = extractLastMessage(messages)}
 			{@const lastSummary = lastMessage ? truncate(lastMessage, 360, 8) : undefined}
-			{@const truncatedLastSummary = lastSummary ? truncate(lastSummary, 80, 1) : undefined}
-			<Tooltip text={lastSummary !== truncatedLastSummary ? lastSummary : undefined}>
+			{@const truncatedLastMessage = lastSummary ? truncate(lastSummary, 80, 1) : undefined}
+			<Tooltip text={lastSummary !== truncatedLastMessage ? lastSummary : undefined}>
 				<div class="description">
-					{truncatedLastSummary}
+					{truncatedLastMessage}
 				</div>
 			</Tooltip>
 		{/snippet}
 	</ReduxResult>
 	{#if !selected && status === 'running'}
 		<Icon name="spinner" />
-	{/if}
-
-	{#if selected}
-		<span>
-			${formatNumber(cost, 2)}
-		</span>
 	{/if}
 </button>
 
