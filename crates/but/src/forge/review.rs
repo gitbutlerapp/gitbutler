@@ -1,9 +1,12 @@
 use anyhow::Context;
+use bstr::ByteSlice;
 use but_api::forge::ListReviewsParams;
 use but_settings::AppSettings;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 pub async fn publish_reviews(
     project: &Project,
@@ -31,10 +34,74 @@ pub async fn publish_reviews(
             .await
         }
         None => {
-            // TODO:
-            anyhow::bail!("PUBLISHING ALL ACTIVE BRANCHES NOT IMPLEMENTED YET");
+            handle_all_branches_in_workspace(
+                project,
+                &review_map,
+                &applied_stacks,
+                skip_force_push_protection,
+                with_force,
+                run_hooks,
+                json,
+            )
+            .await
         }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn handle_all_branches_in_workspace(
+    project: &Project,
+    review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
+    applied_stacks: &[but_workspace::ui::StackEntry],
+    skip_force_push_protection: bool,
+    with_force: bool,
+    run_hooks: bool,
+    json: bool,
+) -> anyhow::Result<()> {
+    let mut overall_outcome = PublishReviewsOutcome {
+        published: vec![],
+        already_existing: vec![],
+    };
+    for stack_entry in applied_stacks {
+        let Some(top_head) = stack_entry.heads.first() else {
+            // Should not happen, but just in case
+            println!(
+                "Stack entry '{}' has no heads, skipping",
+                stack_entry
+                    .id
+                    .map(|id| id.to_string())
+                    .unwrap_or("-no stack id-".to_string())
+            );
+            continue;
+        };
+
+        let outcome = publish_reviews_for_branch_and_dependents(
+            project,
+            top_head.name.to_str()?,
+            review_map,
+            stack_entry,
+            skip_force_push_protection,
+            with_force,
+            run_hooks,
+            json,
+        )
+        .await?;
+
+        overall_outcome.published.extend(outcome.published);
+        overall_outcome
+            .already_existing
+            .extend(outcome.already_existing);
+    }
+
+    if json {
+        let outcome_json = serde_json::to_string_pretty(&overall_outcome)?;
+        println!("{}", outcome_json);
+    } else {
+        println!();
+        display_review_publication_summary(overall_outcome);
+    }
+
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -58,24 +125,60 @@ pub async fn handle_specific_branch_publish(
         );
     };
 
+    let outcome = publish_reviews_for_branch_and_dependents(
+        project,
+        branch_name,
+        review_map,
+        stack_entry,
+        skip_force_push_protection,
+        with_force,
+        run_hooks,
+        json,
+    )
+    .await?;
+
+    if json {
+        let outcome_json = serde_json::to_string_pretty(&outcome)?;
+        println!("{}", outcome_json);
+    } else {
+        println!();
+        display_review_publication_summary(outcome);
+    }
+
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn publish_reviews_for_branch_and_dependents(
+    project: &Project,
+    branch_name: &str,
+    review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
+    stack_entry: &but_workspace::ui::StackEntry,
+    skip_force_push_protection: bool,
+    with_force: bool,
+    run_hooks: bool,
+    json: bool,
+) -> Result<PublishReviewsOutcome, anyhow::Error> {
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let ctx = CommandContext::open(project, app_settings)?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let all_branches_up_to_subject = stack_entry
+        .heads
+        .iter()
+        .rev()
+        .take_while(|h| h.name != branch_name)
+        .collect::<Vec<_>>();
 
-    if stack_entry.heads.len() > 1 {
-        // TODO:
-        anyhow::bail!("PUBLISHING MULTIPLE HEADS NOT SUPPORTED YET",);
-    }
-
-    if !json {
+    if !json && !all_branches_up_to_subject.is_empty() {
         println!(
-            "Publishing review for branch '{}' targeting base branch '{}'",
+            "Pushing branch '{}' with {} dependent branch(es) first",
             branch_name,
-            base_branch.short_name()
+            stack_entry.heads.len() - 1,
         );
+    } else if !json {
+        println!("Pushing branch '{}'", branch_name);
     }
 
-    // Call push_stack
     let result = but_api::stack::push_stack(
         project.id,
         stack_entry
@@ -96,49 +199,100 @@ pub async fn handle_specific_branch_publish(
                 println!("  {} -> {}", branch, remote_ref);
             }
         }
+        println!();
     }
 
-    let published_review =
-        publish_review_for_branch(project, branch_name, base_branch.short_name(), review_map)
-            .await?;
+    let mut newly_published = Vec::new();
+    let mut already_existing = Vec::new();
+    let mut current_target_branch = base_branch.short_name();
+    for head in stack_entry.heads.iter().rev() {
+        println!(
+            "Publishing review for branch '{}' targetting '{}",
+            head.name, current_target_branch
+        );
 
-    match published_review {
-        PublishReviewResult::Published(review) if json => {
-            let review_json = serde_json::to_string_pretty(&vec![review])?;
-            println!("{}", review_json);
-        }
-        PublishReviewResult::Published(review) => {
-            println!(
-                "Published review {}{} for branch '{}': {}",
-                review.unit_symbol, review.number, branch_name, review.html_url
-            );
-        }
-        PublishReviewResult::AlreadyExists(reviews) if json => {
-            let review_json = serde_json::to_string_pretty(&reviews)?;
-            println!("{}", review_json);
-        }
-        PublishReviewResult::AlreadyExists(reviews) => {
-            if reviews.len() > 1 {
-                println!(
-                    "Multiple reviews already exist for branch '{}':",
-                    branch_name
-                );
-                for review in reviews {
-                    println!(
-                        "- {}{}: {}",
-                        review.unit_symbol, review.number, review.html_url
-                    );
-                }
-            } else if let Some(review) = reviews.first() {
-                println!(
-                    "A review already exists for branch '{}': {}{}: {}",
-                    branch_name, review.unit_symbol, review.number, review.html_url
-                );
+        let published_review = publish_review_for_branch(
+            project,
+            head.name.to_str()?,
+            current_target_branch,
+            review_map,
+        )
+        .await?;
+        match published_review {
+            PublishReviewResult::Published(review) => {
+                newly_published.push(*review);
+            }
+            PublishReviewResult::AlreadyExists(reviews) => {
+                already_existing.extend(reviews);
             }
         }
+
+        current_target_branch = head.name.to_str()?;
+
+        if head.name == branch_name {
+            break;
+        }
     }
 
-    Ok(())
+    let outcome = PublishReviewsOutcome {
+        published: newly_published,
+        already_existing,
+    };
+
+    Ok(outcome)
+}
+
+/// Display a summary of published and already existing reviews
+fn display_review_publication_summary(outcome: PublishReviewsOutcome) {
+    // Group published reviews by branch name
+    let mut published_by_branch: BTreeMap<&str, Vec<&gitbutler_forge::review::ForgeReview>> =
+        BTreeMap::new();
+    for review in &outcome.published {
+        published_by_branch
+            .entry(review.source_branch.as_str())
+            .or_default()
+            .push(review);
+    }
+    for (branch, reviews) in published_by_branch {
+        println!("Published reviews for branch '{}':", branch);
+        for review in reviews {
+            print_review_information(review);
+        }
+    }
+
+    // Group already existing reviews by branch name
+    let mut existing_by_branch: BTreeMap<&str, Vec<&gitbutler_forge::review::ForgeReview>> =
+        BTreeMap::new();
+    for review in &outcome.already_existing {
+        existing_by_branch
+            .entry(review.source_branch.as_str())
+            .or_default()
+            .push(review);
+    }
+    for (branch, reviews) in existing_by_branch {
+        println!("Review(s) already exist for branch '{}':", branch);
+        for review in reviews {
+            print_review_information(review);
+        }
+    }
+}
+
+/// Print review information in a formatted way
+fn print_review_information(review: &gitbutler_forge::review::ForgeReview) {
+    println!(
+        "  '{}' ({}{}): {}",
+        review.title.bold(),
+        review.unit_symbol.blue(),
+        review.number.to_string().blue(),
+        review.html_url.underline()
+    );
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PublishReviewsOutcome {
+    published: Vec<gitbutler_forge::review::ForgeReview>,
+    already_existing: Vec<gitbutler_forge::review::ForgeReview>,
 }
 
 enum PublishReviewResult {
