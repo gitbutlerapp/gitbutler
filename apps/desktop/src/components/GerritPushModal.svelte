@@ -6,7 +6,7 @@
 		multipleBranches: boolean;
 		isLastBranchInStack?: boolean;
 		isFirstBranchInStack?: boolean;
-		onPush: (gerritFlag?: import('$lib/stacks/stack').GerritPushFlag) => void;
+		onPush: (gerritFlags: import('$lib/stacks/stack').GerritPushFlag[]) => void;
 	};
 
 	type PushMode = 'normal' | 'gerrit';
@@ -75,7 +75,7 @@
 
 	function handlePush() {
 		const gerritFlag = buildGerritFlag();
-		onPush(gerritFlag);
+		onPush(gerritFlag ? [gerritFlag] : []);
 		modal?.close();
 	}
 

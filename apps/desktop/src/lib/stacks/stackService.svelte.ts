@@ -1124,7 +1124,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					skipForcePushProtection: boolean;
 					branch: string;
 					runHooks: boolean;
-					gerritFlag: GerritPushFlag | undefined;
+					pushOpts: GerritPushFlag[];
 				}
 			>({
 				extraOptions: {

@@ -259,7 +259,7 @@ pub fn push_stack(
     skip_force_push_protection: bool,
     branch: String,
     run_hooks: bool,
-    gerrit_flag: Option<but_gerrit::PushFlag>,
+    push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<PushResult, Error> {
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -270,7 +270,7 @@ pub fn push_stack(
         skip_force_push_protection,
         branch,
         run_hooks,
-        gerrit_flag,
+        push_opts,
     )
     .map_err(|e| e.into())
 }

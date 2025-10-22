@@ -174,7 +174,7 @@
 				skipForcePushProtection: false, // override available for regular push
 				branch: branchName,
 				runHooks: $runHooks,
-				gerritFlag: undefined
+				pushOpts: []
 			});
 
 			if (firstPush) {

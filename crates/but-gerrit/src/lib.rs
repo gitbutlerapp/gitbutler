@@ -24,11 +24,11 @@ pub enum PushFlag {
 impl Display for PushFlag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PushFlag::Wip => write!(f, "%wip"),
-            PushFlag::Ready => write!(f, "%ready"),
-            PushFlag::Private => write!(f, "%private"),
-            PushFlag::Hashtag(tag) => write!(f, "%t={}", tag),
-            PushFlag::Topic(topic) => write!(f, "%topic={}", topic),
+            PushFlag::Wip => write!(f, "wip"),
+            PushFlag::Ready => write!(f, "ready"),
+            PushFlag::Private => write!(f, "private"),
+            PushFlag::Hashtag(tag) => write!(f, "t={}", tag),
+            PushFlag::Topic(topic) => write!(f, "topic={}", topic),
         }
     }
 }

@@ -62,7 +62,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         false,
         stack_entry.name().map(|s| s.to_string()).unwrap(),
         false, // run_hooks
-        None,
+        vec![],
     )
     .unwrap();
 

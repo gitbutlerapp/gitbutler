@@ -108,6 +108,9 @@ pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()>
     // Convert CLI args to gerrit flag with validation
     let gerrit_flag = get_gerrit_flag(args, &branch_name, gerrit_mode)?;
 
+    // Convert Option<PushFlag> to Vec<PushFlag>
+    let gerrit_flags = gerrit_flag.into_iter().collect::<Vec<_>>();
+
     // Call push_stack
     let result: PushResult = but_api::stack::push_stack(
         project.id,
@@ -116,7 +119,7 @@ pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()>
         args.skip_force_push_protection,
         branch_name.clone(),
         args.run_hooks,
-        gerrit_flag,
+        gerrit_flags,
     )?;
 
     println!("Push completed successfully");

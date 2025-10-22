@@ -485,6 +485,7 @@ fn update_name_after_push() -> Result<()> {
         false,
         None,
         Some(Some(test_ctx.stack.id)),
+        vec![],
     );
     assert!(result.is_ok());
     let result = test_ctx.stack.update_branch(

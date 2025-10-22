@@ -85,7 +85,7 @@ pub async fn handle_specific_branch_publish(
         skip_force_push_protection,
         branch_name.to_string(),
         run_hooks,
-        None,
+        vec![],
     )?;
 
     if !json {
