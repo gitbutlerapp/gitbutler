@@ -230,7 +230,7 @@
 		checkFilesForCommit();
 	}
 
-	function onclosePreviewOnly() {
+	function onclosePreview() {
 		// Clear file selections for the active branch or commit
 		if (activeSelectionId) {
 			idSelection.clear(activeSelectionId);
@@ -348,7 +348,7 @@
 		projectId={stableProjectId}
 		{branchName}
 		{onerror}
-		onclose={onclosePreviewOnly}
+		onclose={onclosePreview}
 	/>
 {/snippet}
 
@@ -365,7 +365,7 @@
 		}}
 		draggableFiles
 		{onerror}
-		onclose={onclosePreviewOnly}
+		onclose={onclosePreview}
 	/>
 {/snippet}
 
@@ -464,7 +464,7 @@
 	use:focusable={{
 		onKeydown: (event) => {
 			if (event.key === 'Escape' && isDetailsViewOpen) {
-				onclosePreviewOnly();
+				onclosePreview();
 				event.preventDefault();
 				event.stopPropagation();
 				return true;
@@ -602,9 +602,11 @@
 			{#if stableStackId && selection?.branchName && selection?.codegen}
 				<div class="details-view__codegen">
 					<CodegenMessages
+						isWorkspace
 						projectId={stableProjectId}
 						stackId={stableStackId}
 						branchName={selection.branchName}
+						onclose={onclosePreview}
 					/>
 				</div>
 			{:else}
