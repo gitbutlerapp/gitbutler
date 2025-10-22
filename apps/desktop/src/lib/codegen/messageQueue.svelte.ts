@@ -154,6 +154,28 @@ export function useSendMessage({
 
 		const status = currentStatus(events, isActive);
 
+		// Convert attached files to backend format
+		let fileAttachments: AttachmentInput[] | undefined = undefined;
+		if (attachments && attachments.length > 0) {
+			fileAttachments = await Promise.all(
+				attachments.map(async (file: File) => {
+					// Convert file to base64
+					const buffer = await file.arrayBuffer();
+					const bytes = new Uint8Array(buffer);
+					const binary = bytes.reduce((data, byte) => data + String.fromCharCode(byte), '');
+					const base64Content = btoa(binary);
+
+					return {
+						type: 'file' as const,
+						subject: {
+							name: file.name,
+							content: base64Content
+						}
+					};
+				})
+			);
+		}
+
 		if (
 			(status === 'disabled' || status === 'enabled') &&
 			!queue?.isProcessing &&
@@ -170,7 +192,7 @@ export function useSendMessage({
 				claudeCodeService,
 				codegenAnalytics,
 				sendClaudeMessage,
-				attachments
+				attachments: fileAttachments
 			});
 
 			setPrompt('');
@@ -181,7 +203,8 @@ export function useSendMessage({
 				prompt,
 				thinkingLevel: thinkingLevel.current,
 				model: model.current,
-				permissionMode: permissionMode.current
+				permissionMode: permissionMode.current,
+				attachments: fileAttachments
 			};
 			if (queue) {
 				clientState.dispatch(
@@ -236,7 +259,7 @@ async function sendMessageInner({
 	claudeCodeService: ClaudeCodeService;
 	codegenAnalytics: CodegenAnalytics;
 	sendClaudeMessage: ClaudeCodeService['sendMessage'][0];
-	attachments?: File[];
+	attachments?: AttachmentInput[];
 }) {
 	if (prompt.startsWith('/compact')) {
 		await claudeCodeService.compactHistory({
@@ -266,28 +289,6 @@ async function sendMessageInner({
 		return;
 	}
 
-	// Convert attached files to backend format
-	let fileAttachments: AttachmentInput[] | undefined = undefined;
-	if (attachments && attachments.length > 0) {
-		fileAttachments = await Promise.all(
-			attachments.map(async (file: File) => {
-				// Convert file to base64
-				const buffer = await file.arrayBuffer();
-				const bytes = new Uint8Array(buffer);
-				const binary = bytes.reduce((data, byte) => data + String.fromCharCode(byte), '');
-				const base64Content = btoa(binary);
-
-				return {
-					type: 'file' as const,
-					subject: {
-						name: file.name,
-						content: base64Content
-					}
-				};
-			})
-		);
-	}
-
 	// Await analytics data before sending message
 	const analyticsProperties = await codegenAnalytics.getCodegenProperties({
 		projectId,
@@ -307,7 +308,7 @@ async function sendMessageInner({
 			permissionMode,
 			disabledMcpServers: laneState?.disabledMcpServers.current ?? [],
 			addDirs: laneState?.addedDirs.current ?? [],
-			attachments: fileAttachments
+			attachments
 		},
 		{ properties: analyticsProperties }
 	);
