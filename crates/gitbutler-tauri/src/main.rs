@@ -265,6 +265,7 @@ fn main() {
                     stack::push_stack_to_review,
                     secret::secret_get_global,
                     secret::secret_set_global,
+                    secret::secret_delete_global,
                     oplog::list_snapshots,
                     oplog::create_snapshot,
                     oplog::restore_snapshot,

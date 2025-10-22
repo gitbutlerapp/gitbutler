@@ -105,8 +105,6 @@ export function initDependencies(args: {
 	// FOUNDATION LAYER - Core services that others depend on
 	// ============================================================================
 
-	const tokenMemoryService = new TokenMemoryService();
-	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
 	const userSettings = loadUserSettings();
 	const appState = new AppState();
 
@@ -119,6 +117,8 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const secretsService = new RustSecretService(backend);
+	const tokenMemoryService = new TokenMemoryService(secretsService);
+	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
 	const userService = new UserService(backend, httpClient, tokenMemoryService, posthog);
 
 	// ============================================================================

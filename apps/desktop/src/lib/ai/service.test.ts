@@ -97,11 +97,11 @@ class DummySecretsService implements SecretsService {
 	async set(handle: string, secret: string): Promise<void> {
 		this.config[handle] = secret;
 	}
-}
 
-const fetchMock = vi.fn();
-const tokenMemoryService = new TokenMemoryService();
-const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
+	async delete(handle: string): Promise<void> {
+		delete this.config[handle];
+	}
+}
 
 class DummyAIClient implements AIClient {
 	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;
@@ -149,25 +149,30 @@ const hunk2 = {
 
 const exampleDiffs: DiffInput[] = [hunk1, hunk2];
 
-function buildDefaultAIService() {
+function buildDefaultServices() {
 	const gitConfig = new DummyGitConfigService(structuredClone(defaultGitConfig));
 	const secretsService = new DummySecretsService(structuredClone(defaultSecretsConfig));
-	return new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
+	const tokenMemoryService = new TokenMemoryService(secretsService);
+	const fetchMock = vi.fn();
+	const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
+	return {
+		tokenMemoryService,
+		aiService: new AIService(gitConfig, secretsService, cloud, tokenMemoryService)
+	};
 }
 
 describe('AIService', () => {
 	describe('#buildModel', () => {
 		test('With default configuration, When a user token is provided. It returns ButlerAIClient', async () => {
+			const { aiService, tokenMemoryService } = buildDefaultServices();
 			tokenMemoryService.setToken('test-token');
-			const aiService = buildDefaultAIService();
 
 			expect(await aiService.buildClient()).toBeInstanceOf(ButlerAIClient);
 			tokenMemoryService.setToken(undefined);
 		});
 
 		test('With default configuration, When a user is undefined. It returns undefined', async () => {
-			tokenMemoryService.setToken(undefined);
-			const aiService = buildDefaultAIService();
+			const { aiService, tokenMemoryService } = buildDefaultServices();
 
 			await expect(aiService.buildClient.bind(aiService)).rejects.toThrowError(
 				new Error("When using GitButler's API to summarize code, you must be logged in")
@@ -181,6 +186,9 @@ describe('AIService', () => {
 				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn
 			});
 			const secretsService = new DummySecretsService({ [AISecretHandle.OpenAIKey]: 'sk-asdfasdf' });
+			const tokenMemoryService = new TokenMemoryService(secretsService);
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
 
 			expect(await aiService.buildClient()).toBeInstanceOf(OpenAIClient);
@@ -192,6 +200,9 @@ describe('AIService', () => {
 				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn
 			});
 			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService(secretsService);
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
 
 			await expect(aiService.buildClient.bind(aiService)).rejects.toThrowError(
@@ -210,6 +221,9 @@ describe('AIService', () => {
 			const secretsService = new DummySecretsService({
 				[AISecretHandle.AnthropicKey]: 'test-key'
 			});
+			const tokenMemoryService = new TokenMemoryService(secretsService);
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
 
 			expect(await aiService.buildClient()).toBeInstanceOf(AnthropicAIClient);
@@ -222,6 +236,9 @@ describe('AIService', () => {
 				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn
 			});
 			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService(secretsService);
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
 
 			await expect(aiService.buildClient.bind(aiService)).rejects.toThrowError(
@@ -234,7 +251,7 @@ describe('AIService', () => {
 
 	describe.concurrent('#summarizeCommit', async () => {
 		test('When buildModel returns undefined, it returns undefined', async () => {
-			const aiService = buildDefaultAIService();
+			const { aiService } = buildDefaultServices();
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(Promise.resolve(undefined));
 
@@ -242,7 +259,7 @@ describe('AIService', () => {
 		});
 
 		test('When the AI returns a single line commit message, it returns it unchanged', async () => {
-			const aiService = buildDefaultAIService();
+			const { aiService } = buildDefaultServices();
 
 			const clientResponse = 'single line commit';
 
@@ -256,7 +273,7 @@ describe('AIService', () => {
 		});
 
 		test('When the AI returns a title and body that is split by a single new line, it replaces it with two', async () => {
-			const aiService = buildDefaultAIService();
+			const { aiService } = buildDefaultServices();
 
 			const clientResponse = 'one\nnew line';
 
@@ -270,7 +287,7 @@ describe('AIService', () => {
 		});
 
 		test('When the commit is in brief mode, When the AI returns a title and body, it takes just the title', async () => {
-			const aiService = buildDefaultAIService();
+			const { aiService } = buildDefaultServices();
 
 			const clientResponse = 'one\nnew line';
 
@@ -286,7 +303,7 @@ describe('AIService', () => {
 
 	describe.concurrent('#summarizeBranch', async () => {
 		test('When buildModel returns undefined, it returns undefined', async () => {
-			const aiService = buildDefaultAIService();
+			const { aiService } = buildDefaultServices();
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(Promise.resolve(undefined));
 
@@ -296,7 +313,7 @@ describe('AIService', () => {
 		});
 
 		test('When the AI client returns a string with spaces, it replaces them with hypens', async () => {
-			const aiService = buildDefaultAIService();
+			const { aiService } = buildDefaultServices();
 
 			const clientResponse = 'with spaces included';
 
@@ -310,7 +327,7 @@ describe('AIService', () => {
 		});
 
 		test('When the AI client returns multiple lines, it replaces them with hypens', async () => {
-			const aiService = buildDefaultAIService();
+			const { aiService } = buildDefaultServices();
 
 			const clientResponse = 'with\nnew\nlines\nincluded';
 
@@ -324,7 +341,7 @@ describe('AIService', () => {
 		});
 
 		test('When the AI client returns multiple lines and spaces, it replaces them with hypens', async () => {
-			const aiService = buildDefaultAIService();
+			const { aiService } = buildDefaultServices();
 
 			const clientResponse = 'with\nnew lines\nincluded';
 
