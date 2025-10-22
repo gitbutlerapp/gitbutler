@@ -2,28 +2,20 @@
 	import { Button } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import type { Snippet } from 'svelte';
-	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		content: Snippet;
 		actions?: Snippet<[element: HTMLElement]>;
-		collapsed: Writable<boolean | undefined>;
 		headerHeight?: number;
 		onclose?: () => void;
 	}
 
-	let { content, actions, collapsed, headerHeight = $bindable(), onclose }: Props = $props();
+	let { content, actions, headerHeight = $bindable(), onclose }: Props = $props();
 
 	let headerDiv = $state<HTMLDivElement>();
 </script>
 
-<div
-	bind:this={headerDiv}
-	class="drawer-header"
-	class:bottom-border={!$collapsed}
-	bind:clientHeight={headerHeight}
-	use:focusable
->
+<div bind:this={headerDiv} class="drawer-header" bind:clientHeight={headerHeight} use:focusable>
 	<div class="drawer-header__title">
 		{@render content()}
 	</div>
@@ -56,11 +48,8 @@
 		padding: 0 12px 0 14px;
 		gap: 8px;
 		border-bottom: 1px solid transparent;
+		border-bottom-color: var(--clr-border-2);
 		background-color: var(--clr-bg-2);
-
-		&.bottom-border {
-			border-bottom-color: var(--clr-border-2);
-		}
 	}
 
 	.drawer-header__title {

@@ -68,7 +68,7 @@
 	class:grow
 	class:noshrink
 >
-	<PreviewHeader {actions} {collapsed} bind:headerHeight {onclose}>
+	<PreviewHeader {actions} bind:headerHeight {onclose}>
 		{#snippet content()}
 			<button
 				type="button"
@@ -147,6 +147,10 @@
 		}
 		&.grow {
 			flex-grow: 1;
+		}
+		&.collapsed {
+			max-height: none;
+			margin-bottom: -1px;
 		}
 	}
 
