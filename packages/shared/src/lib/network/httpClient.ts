@@ -28,7 +28,8 @@ export class HttpClient {
 	constructor(
 		public fetch = window.fetch,
 		publicApiBaseUrl: string,
-		private token: Readable<string | undefined>
+		private token: Readable<string | undefined>,
+		private credentials: RequestCredentials = 'same-origin'
 	) {
 		this.apiUrl = new URL('/api/', publicApiBaseUrl);
 
@@ -61,7 +62,8 @@ export class HttpClient {
 		const response = await this.fetch(this.getApiUrl(path), {
 			method: opts.method,
 			headers: butlerHeaders,
-			body: formatBody(opts.body)
+			body: formatBody(opts.body),
+			credentials: this.credentials
 		});
 
 		return response;
