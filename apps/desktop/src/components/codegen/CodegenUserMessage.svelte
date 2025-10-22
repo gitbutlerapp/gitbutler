@@ -1,10 +1,11 @@
 <script lang="ts">
 	import AttachedFilesList from '$components/codegen/AttachedFilesList.svelte';
 	import { Markdown } from '@gitbutler/ui';
+	import type { PersistedAttachment } from '$lib/codegen/types';
 
 	interface Props {
 		content?: string;
-		attachments?: string[];
+		attachments?: PersistedAttachment[];
 	}
 
 	let { content, attachments }: Props = $props();

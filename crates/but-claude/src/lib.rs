@@ -69,14 +69,33 @@ pub enum ClaudeMessageContent {
     GitButlerMessage(GitButlerMessage),
 }
 
-/// Represents a file attachment in user input.
+/// Represents a file attachment with full content (used in API input).
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum AttachmentInput {
+    File(AttachmentInputFile),
+}
+
+/// File attachment with full content.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct FileAttachment {
-    /// The original filename
+pub struct AttachmentInputFile {
     pub name: String,
-    /// The file content as base64 encoded string
     pub content: String,
+}
+
+/// Represents a persisted file attachment reference (stored in database).
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum PersistedAttachment {
+    File(PersistedAttachmentFile),
+}
+
+/// Persisted file attachment reference.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PersistedAttachmentFile {
+    pub name: String,
 }
 
 /// Represents user input in a Claude session.
@@ -85,8 +104,8 @@ pub struct FileAttachment {
 pub struct UserInput {
     /// The user message
     pub message: String,
-    /// Optional attached file names
-    pub attachments: Option<Vec<String>>,
+    /// Optional attached file references
+    pub attachments: Option<Vec<PersistedAttachment>>,
 }
 
 /// Metadata provided by GitButler.
@@ -194,7 +213,7 @@ pub struct ClaudeUserParams {
     pub permission_mode: PermissionMode,
     pub disabled_mcp_servers: Vec<String>,
     pub add_dirs: Vec<String>,
-    pub attachments: Option<Vec<FileAttachment>>,
+    pub attachments: Option<Vec<AttachmentInput>>,
 }
 
 pub async fn send_claude_message(

@@ -10,7 +10,7 @@ import {
 	type PromptDir,
 	type McpConfig,
 	type SubAgent,
-	type FileAttachment
+	type AttachmentInput
 } from '$lib/codegen/types';
 import { hasBackendExtra } from '$lib/state/backendQuery';
 import {
@@ -141,7 +141,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					permissionMode: PermissionMode;
 					disabledMcpServers: string[];
 					addDirs: string[];
-					attachments?: FileAttachment[];
+					attachments?: AttachmentInput[];
 				}
 			>({
 				extraOptions: {

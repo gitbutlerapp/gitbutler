@@ -43,8 +43,8 @@ use tokio::{
 };
 
 use crate::{
-    ClaudeMessage, ClaudeMessageContent, ClaudeUserParams, FileAttachment, GitButlerMessage,
-    PermissionMode, ThinkingLevel, Transcript, UserInput,
+    AttachmentInput, ClaudeMessage, ClaudeMessageContent, ClaudeUserParams, GitButlerMessage,
+    PermissionMode, PersistedAttachment, ThinkingLevel, Transcript, UserInput,
     claude_config::fmt_claude_settings,
     claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
     claude_settings::ClaudeSettings,
@@ -238,10 +238,17 @@ impl Claudes {
                 stack_id,
                 ClaudeMessageContent::UserInput(UserInput {
                     message: user_params.message.clone(), // Original user message for display
-                    attachments: user_params
-                        .attachments
-                        .as_ref()
-                        .map(|v| v.iter().map(|a| a.name.clone()).collect()),
+                    attachments: user_params.attachments.as_ref().map(|v| {
+                        v.iter()
+                            .map(|a| match a {
+                                AttachmentInput::File(file) => {
+                                    PersistedAttachment::File(crate::PersistedAttachmentFile {
+                                        name: file.name.clone(),
+                                    })
+                                }
+                            })
+                            .collect()
+                    }),
                 }),
             )
             .await?;
@@ -651,7 +658,7 @@ pub enum ClaudeCheckResult {
 /// and enhancing the message to reference these files
 async fn format_message_with_attachments(
     original_message: &str,
-    attachments: &[FileAttachment],
+    attachments: &[AttachmentInput],
 ) -> Result<String> {
     if attachments.is_empty() {
         return Ok(original_message.to_string());
@@ -664,22 +671,26 @@ async fn format_message_with_attachments(
     let mut written_attachments = Vec::new();
 
     for attachment in attachments {
-        // Decode base64 content
-        let content = base64::prelude::BASE64_STANDARD
-            .decode(&attachment.content)
-            .map_err(|e| anyhow::anyhow!("Failed to decode base64 content: {}", e))?;
+        match attachment {
+            AttachmentInput::File(file) => {
+                // Decode base64 content
+                let decoded_content = base64::prelude::BASE64_STANDARD
+                    .decode(&file.content)
+                    .map_err(|e| anyhow::anyhow!("Failed to decode base64 content: {}", e))?;
 
-        // Create a unique filename to avoid conflicts
-        let folder = temp_dir.join(uuid::Uuid::new_v4().to_string());
-        fs::create_dir(&folder).await?;
+                // Create a unique filename to avoid conflicts
+                let folder = temp_dir.join(uuid::Uuid::new_v4().to_string());
+                fs::create_dir(&folder).await?;
 
-        let file_path = folder.join(&attachment.name);
+                let file_path = folder.join(&file.name);
 
-        // Write the file
-        let mut file = std::fs::File::create(&file_path)?;
-        file.write_all(&content)?;
+                // Write the file
+                let mut file_handle = std::fs::File::create(&file_path)?;
+                file_handle.write_all(&decoded_content)?;
 
-        written_attachments.push(file_path);
+                written_attachments.push(file_path);
+            }
+        }
     }
 
     // Create enhanced message with file references and content for small files

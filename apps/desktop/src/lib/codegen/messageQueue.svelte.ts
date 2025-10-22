@@ -11,7 +11,7 @@ import { UI_STATE, type GlobalStore, type StackState } from '$lib/state/uiState.
 import { inject } from '@gitbutler/core/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { chipToasts } from '@gitbutler/ui';
-import type { ModelType, PermissionMode, ThinkingLevel, FileAttachment } from '$lib/codegen/types';
+import type { ModelType, PermissionMode, ThinkingLevel, AttachmentInput } from '$lib/codegen/types';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 export function useMessageQueue() {
@@ -267,7 +267,7 @@ async function sendMessageInner({
 	}
 
 	// Convert attached files to backend format
-	let fileAttachments: FileAttachment[] | undefined = undefined;
+	let fileAttachments: AttachmentInput[] | undefined = undefined;
 	if (attachments && attachments.length > 0) {
 		fileAttachments = await Promise.all(
 			attachments.map(async (file: File) => {
@@ -278,8 +278,11 @@ async function sendMessageInner({
 				const base64Content = btoa(binary);
 
 				return {
-					name: file.name,
-					content: base64Content
+					type: 'file' as const,
+					subject: {
+						name: file.name,
+						content: base64Content
+					}
 				};
 			})
 		);

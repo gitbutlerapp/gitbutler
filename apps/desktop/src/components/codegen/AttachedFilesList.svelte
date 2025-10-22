@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { FileIcon, Icon } from '@gitbutler/ui';
 	import { fly } from 'svelte/transition';
+	import type { PersistedAttachment } from '$lib/codegen/types';
 
-	// Generic file type that works with both AttachedFile and FileAttachment
-	export type DisplayFile = File | string;
+	// Generic file type that works with File objects and PersistedAttachment
+	export type DisplayFile = File | PersistedAttachment;
 
 	type Props = {
 		attachedFiles: DisplayFile[];
@@ -18,11 +19,20 @@
 	}
 
 	function getFileName(file: DisplayFile): string {
-		return typeof file === 'string' ? file : file.name;
+		if (file instanceof File) {
+			return file.name;
+		} else if (file.type === 'file') {
+			return file.subject.name;
+		}
+		return '';
 	}
 
 	async function getFilePreview(file: DisplayFile): Promise<string | undefined> {
-		return typeof file === 'string' ? undefined : await generatePreview(file);
+		// Only File objects can have previews, PersistedAttachment cannot
+		if (file instanceof File) {
+			return await generatePreview(file);
+		}
+		return undefined;
 	}
 
 	async function generatePreview(file: File): Promise<string | undefined> {
@@ -55,7 +65,7 @@
 				</span>
 			</div>
 
-			{#if showRemoveButton && typeof attachedFile !== 'string'}
+			{#if showRemoveButton && attachedFile instanceof File}
 				<button
 					type="button"
 					class="remove-button"

@@ -1,9 +1,25 @@
 import type { Message, MessageParam, Usage } from '@anthropic-ai/sdk/resources/index.mjs';
 
-export interface FileAttachment {
-	name: string;
-	content: string;
-}
+/**
+ * Represents a file attachment with full content (used in API input).
+ */
+export type AttachmentInput = {
+	type: 'file';
+	subject: {
+		name: string;
+		content: string;
+	};
+};
+
+/**
+ * Represents a persisted file attachment reference (stored in database).
+ */
+export type PersistedAttachment = {
+	type: 'file';
+	subject: {
+		name: string;
+	};
+};
 
 /**
  * Result of checking Claude Code availability
@@ -117,7 +133,7 @@ export type ClaudeMessageContent =
 	/** Inserted via GitButler (what the user typed) */
 	| {
 			type: 'userInput';
-			subject: { message: string; attachments?: string[] };
+			subject: { message: string; attachments?: PersistedAttachment[] };
 	  }
 	| {
 			type: 'gitButlerMessage';

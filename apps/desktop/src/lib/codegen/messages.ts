@@ -7,7 +7,8 @@ import type {
 	ClaudeMessage,
 	ClaudePermissionRequest,
 	ClaudeStatus,
-	ClaudeTodo
+	ClaudeTodo,
+	PersistedAttachment
 } from '$lib/codegen/types';
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/index.mjs';
 
@@ -16,7 +17,7 @@ export type Message =
 	| {
 			type: 'user';
 			message: string;
-			attachments?: string[];
+			attachments?: PersistedAttachment[];
 	  }
 	/* Output from claude. This is grouped as: A claude message with a bunch of tool calls. */
 	| {
