@@ -213,6 +213,7 @@
 			<!-- It's difficult to start at bottom unless we re-render `CodegenMessages` -->
 			{#key selectedBranch.head}
 				<CodegenMessages
+					isWorkspace={false}
 					{projectId}
 					stackId={selectedBranch.stackId}
 					branchName={selectedBranch.head}
