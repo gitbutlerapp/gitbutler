@@ -126,14 +126,11 @@
 					{/snippet}
 					{#snippet caption()}
 						If you suspect any unusual activity, it's a good idea to refresh your access token to
-						keep your account secure.
-						<br />
-						This will log you out of all active sessions including on the desktop application.
+						keep your account secure. This will log you out of all active sessions including on the
+						desktop application.
 					{/snippet}
 					{#snippet actions()}
-						<Button kind="outline" icon="refresh-in-circle" onclick={refreshAccessToken}
-							>Refresh</Button
-						>
+						<Button kind="outline" icon="update" onclick={refreshAccessToken}>Refresh</Button>
 					{/snippet}
 				</SectionCard>
 
