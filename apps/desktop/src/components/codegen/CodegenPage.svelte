@@ -259,8 +259,8 @@
 							bottomBorder={todos.length > 0 || addedDirs.length > 0}
 							grow
 							defaultCollapsed={todos.length > 0}
-							notFoldable
 							notScrollable={changes.length === 0}
+							persistId={`codegen-changed-files-drawer-${projectId}-${selectedBranch.stackId}`}
 						>
 							{#snippet header()}
 								<h4 class="text-14 text-semibold truncate">Changed files</h4>
@@ -294,7 +294,12 @@
 			{/if}
 
 			{#if todos.length > 0}
-				<Drawer defaultCollapsed={false} noshrink bottomBorder={addedDirs.length > 0}>
+				<Drawer
+					persistId="codegen-todos-drawer-{projectId}-{selectedBranch.stackId}"
+					defaultCollapsed={false}
+					noshrink
+					bottomBorder={addedDirs.length > 0}
+				>
 					{#snippet header()}
 						<h4 class="text-14 text-semibold truncate">Todos</h4>
 						<Badge>{todos.length}</Badge>
@@ -309,7 +314,11 @@
 			{/if}
 
 			{#if addedDirs.length > 0}
-				<Drawer defaultCollapsed={false} noshrink>
+				<Drawer
+					persistId="codegen-added-dirs-drawer-{projectId}-{selectedBranch.stackId}"
+					defaultCollapsed={false}
+					noshrink
+				>
 					{#snippet header()}
 						<h4 class="text-14 text-semibold truncate">Added Directories</h4>
 						<Badge>{addedDirs.length}</Badge>

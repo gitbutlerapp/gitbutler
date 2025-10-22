@@ -91,6 +91,7 @@
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 		<Drawer
 			bind:clientHeight
+			persistId="branch-view-drawer-{projectId}-{stackId}-{branch.name}"
 			testId={TestId.BranchView}
 			{resizer}
 			{grow}
@@ -118,7 +119,7 @@
 				</div>
 			{/snippet}
 
-			{#snippet kebabMenu(header)}
+			{#snippet actions(header)}
 				{@const data = {
 					branch,
 					prNumber: branch.prNumber || undefined,
