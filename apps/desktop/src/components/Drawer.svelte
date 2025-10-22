@@ -18,7 +18,6 @@
 		testId?: string;
 		persistId?: string;
 		bottomBorder?: boolean;
-		transparent?: boolean;
 		grow?: boolean;
 		noshrink?: boolean;
 		clientHeight?: number;
@@ -36,7 +35,6 @@
 		testId,
 		persistId,
 		bottomBorder,
-		transparent,
 		grow,
 		noshrink,
 		resizer,
@@ -67,7 +65,6 @@
 	bind:clientHeight
 	class:collapsed={$collapsed}
 	class:bottom-border={bottomBorder && !resizer}
-	class:transparent
 	class:grow
 	class:noshrink
 >
@@ -144,9 +141,6 @@
 
 		&.bottom-border {
 			border-bottom: 1px solid var(--clr-border-2);
-		}
-		&.transparent {
-			background-color: transparent;
 		}
 		&.noshrink {
 			flex-shrink: 0;
