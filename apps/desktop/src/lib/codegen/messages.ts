@@ -507,8 +507,24 @@ function contentBlockToString(lastBlock?: ContentBlockParam): string | undefined
 				return lastTool.url;
 			}
 		}
-	} else if (lastBlock.type === 'tool_use') {
-		return lastBlock.name;
+	} else if (lastBlock.type === 'tool_result') {
+		// Skipping tool calls until we figure out how to parse them safely.
+		const content = lastBlock.content;
+		if (typeof content === 'string') {
+			return content;
+		} else if (Array.isArray(content)) {
+			const lastBlock = content.at(-1);
+			if (lastBlock?.type === 'text') {
+				return lastBlock.text;
+			} else if (lastBlock?.type === 'image') {
+				const source = lastBlock.source;
+				if (source.type === 'url') {
+					return source.url;
+				} else {
+					return '<image>';
+				}
+			}
+		}
 	} else if (lastBlock.type === 'thinking') {
 		return lastBlock.thinking;
 	} else if (lastBlock.type === 'server_tool_use') {
@@ -518,9 +534,9 @@ function contentBlockToString(lastBlock?: ContentBlockParam): string | undefined
 	}
 }
 
-export function currentActivity(messages: ClaudeMessage[]): string | undefined {
+export function extractLastMessage(messages: ClaudeMessage[]): string | undefined {
 	if (messages.length === 0) {
-		return 'Empty codegen session';
+		return undefined;
 	}
 	for (let i = messages.length - 1; i >= 0; i--) {
 		const message = messages[i];
@@ -535,7 +551,7 @@ export function currentActivity(messages: ClaudeMessage[]): string | undefined {
 				if (summary) return summary;
 			} else if (output.type === 'result') {
 				if (output.subtype === 'success') {
-					return output.result;
+					if (output.result) return output.result;
 				} else {
 					return 'an error has occurred';
 				}
