@@ -3,7 +3,6 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import HomePage from '$home/HomePage.svelte';
-	import { AuthService, AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 	import { WebState } from '$lib/redux/store.svelte';
 	import { latestClientVersion } from '$lib/store';
@@ -17,6 +16,7 @@
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService, WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { type Snippet } from 'svelte';
+	import { readable } from 'svelte/store';
 	import { env } from '$env/dynamic/public';
 	import '../styles/global.css';
 	import '@gitbutler/design-core/tokens';
@@ -31,13 +31,16 @@
 	const routesService = new WebRoutesService(location.protocol + '//' + location.host, true);
 	provide(WEB_ROUTES_SERVICE, routesService);
 
-	const authService = new AuthService();
-	provide(AUTH_SERVICE, authService);
-
-	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.tokenReadable);
+	const httpClient = new HttpClient(
+		window.fetch,
+		env.PUBLIC_APP_HOST,
+		readable(undefined),
+		'include'
+	);
 	provide(HTTP_CLIENT, httpClient);
 
 	const userService = new UserService(httpClient);
+	const user = $derived(userService.user);
 	provide(USER_SERVICE, userService);
 
 	const webState = new WebState();
@@ -45,8 +48,6 @@
 
 	const projectService = new ProjectService(httpClient, webState.appDispatch);
 	provide(PROJECT_SERVICE, projectService);
-
-	const persistedToken = authService.token;
 
 	// Releases data for changelog
 	let releases: any[] = $state([]);
@@ -66,23 +67,11 @@
 	);
 
 	$effect(() => {
-		if (page.url.searchParams.has('gb_access_token')) {
-			const token = page.url.searchParams.get('gb_access_token');
-			if (token && token !== persistedToken.current) {
-				authService.setToken(token);
-			}
-
-			page.url.searchParams.delete('gb_access_token');
-			goto(`?${page.url.searchParams.toString()}`);
-		}
-	});
-
-	$effect(() => {
 		if (page.url.pathname === '/privacy') {
 			window.location.href = jsonLinks.legal.privacyPolicy.url;
 		}
 
-		if (!persistedToken.current && page.route.id === '/(app)/home') {
+		if (!$user && page.route.id === '/(app)/home') {
 			goto('/');
 		}
 	});

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import newProjectSvg from '$lib/assets/splash-illustrations/new-project.svg?raw';
-	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import UsernameTextbox from '$lib/components/auth/UsernameTextbox.svelte';
 	import FullscreenIllustrationCard from '$lib/components/service/FullscreenIllustrationCard.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
@@ -17,8 +16,6 @@
 	const isLoggedIn = $derived($user !== undefined);
 	const userEmail = $derived($user?.email);
 	const userLogin = $derived($user?.login);
-	const authService = inject(AUTH_SERVICE);
-	const token = authService.tokenReadable;
 
 	const isFinalized = $derived(isLoggedIn && userEmail && userLogin);
 
@@ -42,7 +39,7 @@
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
 
-		if (!$token) {
+		if (!$user) {
 			// should not happen
 			error = 'You must be logged in to finalize your account.';
 			return;
@@ -58,7 +55,7 @@
 			return;
 		}
 
-		const response = await loginService.finalizeAccount($token, effectiveEmail, effectiveUsername);
+		const response = await loginService.finalizeAccount(effectiveEmail, effectiveUsername);
 		if (response.type === 'error') {
 			error = response.errorMessage;
 			console.error('Finalize account failed:', response.raw ?? response.errorMessage);

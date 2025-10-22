@@ -3,14 +3,13 @@
 	import { page } from '$app/state';
 	import { ButlerAIClient, BUTLER_AI_CLIENT } from '$lib/ai/service';
 	import RedirectIfNotFinalized from '$lib/auth/RedirectIfNotFinalized.svelte';
-	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import CompactFooter from '$lib/components/CompactFooter.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import { OwnerService, OWNER_SERVICE } from '$lib/owner/ownerService';
 	import { WebState, WEB_STATE } from '$lib/redux/store.svelte';
 	import { SshKeyService, SSH_KEY_SERVICE } from '$lib/sshKeyService';
 	import { UserService, USER_SERVICE } from '$lib/user/userService';
-	import { inject, provide } from '@gitbutler/core/context';
+	import { provide } from '@gitbutler/core/context';
 	import { BranchService, BRANCH_SERVICE } from '@gitbutler/shared/branches/branchService';
 	import {
 		LatestBranchLookupService,
@@ -61,6 +60,7 @@
 		type ExternalLinkService
 	} from '@gitbutler/ui/utils/externalLinkService';
 	import { type Snippet } from 'svelte';
+	import { readable } from 'svelte/store';
 	import { env } from '$env/dynamic/public';
 
 	const CHAT_NOTFICATION_SOUND = '/sounds/pop.mp3';
@@ -71,9 +71,9 @@
 
 	const { children }: Props = $props();
 
-	const authService = inject(AUTH_SERVICE);
+	const mockToken = readable<string | undefined>(undefined);
 
-	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.tokenReadable);
+	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, mockToken, 'include');
 	provide(HTTP_CLIENT, httpClient);
 
 	const loginService = new LoginService(httpClient);
@@ -104,7 +104,7 @@
 		httpClient,
 		webState,
 		webState.appDispatch,
-		authService.tokenReadable,
+		mockToken,
 		patchService,
 		env.PUBLIC_APP_HOST
 	);
