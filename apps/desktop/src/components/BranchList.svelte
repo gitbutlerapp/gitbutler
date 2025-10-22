@@ -15,7 +15,7 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { MoveBranchDzHandler } from '$lib/branches/dropHandler';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { currentStatus, usageStats } from '$lib/codegen/messages';
+	import { currentStatus } from '$lib/codegen/messages';
 	import { newCodegenEnabled } from '$lib/config/uiFeatureFlags';
 	import { REORDER_DROPZONE_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { editPatch } from '$lib/editMode/editPatchUtils';
@@ -348,7 +348,6 @@
 					{#snippet branchContent()}
 						{#if $newCodegenEnabled && firstBranch && stackId}
 							{#if codegenQuery?.response && codegenQuery.response.length > 0}
-								{@const usage = usageStats(codegenQuery.response)}
 								{@const stackActive = claudeCodeService.isStackActive(projectId, stackId)}
 								{@const status = currentStatus(
 									codegenQuery.response || [],
@@ -360,7 +359,6 @@
 									{stackId}
 									{status}
 									selected={codegenSelected}
-									cost={usage.cost}
 								/>
 							{/if}
 						{/if}
