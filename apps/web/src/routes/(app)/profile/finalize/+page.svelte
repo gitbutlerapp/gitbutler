@@ -68,10 +68,12 @@
 	}
 
 	$effect(() => {
-		if (!isLoggedIn) {
-			goto(routesService.loginPath());
-		} else if (isFinalized) {
-			goto(routesService.profilePath());
+		if (isFinalized) {
+			const timeOut = setTimeout(() => {
+				goto(routesService.profilePath());
+			}, 3000);
+
+			return () => clearTimeout(timeOut);
 		}
 	});
 </script>
