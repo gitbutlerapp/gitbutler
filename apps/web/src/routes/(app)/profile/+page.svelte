@@ -4,7 +4,6 @@
 	import ProfileHeader from './components/ProfileHeader.svelte';
 	import SshKeysSection from './components/SshKeysSection.svelte';
 	import SupporterCard from './components/SupporterCard.svelte';
-	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import linksJson from '$lib/data/links.json';
 	import { SSH_KEY_SERVICE } from '$lib/sshKeyService';
 	import { USER_SERVICE } from '$lib/user/userService';
@@ -17,7 +16,6 @@
 	import { Button, Icon, Modal, SectionCard, Spacer } from '@gitbutler/ui';
 	import { env } from '$env/dynamic/public';
 
-	const authService = inject(AUTH_SERVICE);
 	const userService = inject(USER_SERVICE);
 	const appState = inject(APP_STATE);
 	const notificationSettingsService = inject(NOTIFICATION_SETTINGS_SERVICE);
@@ -30,7 +28,6 @@
 	);
 
 	const user = $derived(userService.user);
-	const token = $derived(authService.tokenReadable);
 
 	// Detect user's operating system
 	const detectedOS = $derived.by(() => {
@@ -60,7 +57,6 @@
 	});
 
 	function logout() {
-		authService.clearToken();
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
 	}
 
@@ -80,7 +76,7 @@
 	<title>GitButler | User</title>
 </svelte:head>
 
-{#if !$token || !$user?.id}
+{#if !$user?.id}
 	<div class="not-logged-in">
 		<h3 class="text-18 text-bold">It looks like you're not logged in</h3>
 		<p class="text-14 text-body clr-text-2">

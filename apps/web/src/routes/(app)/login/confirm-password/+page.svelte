@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
-	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import PasswordConfirmation from '$lib/components/auth/PasswordConfirmation.svelte';
 	import FullscreenUtilityCard from '$lib/components/service/FullscreenUtilityCard.svelte';
 	import { inject } from '@gitbutler/core/context';
@@ -11,7 +10,6 @@
 	import { env } from '$env/dynamic/public';
 
 	const loginService = inject(LOGIN_SERVICE);
-	const authService = inject(AUTH_SERVICE);
 	const routesService = inject(WEB_ROUTES_SERVICE);
 
 	let password = $state<string>();
@@ -49,7 +47,6 @@
 
 		error = undefined;
 		message = response.data.message;
-		authService.setToken(response.data.token);
 		const url = new URL('successful_login', env.PUBLIC_APP_HOST);
 		url.searchParams.set('access_token', encodeURIComponent(response.data.token));
 		const path = url.toString();

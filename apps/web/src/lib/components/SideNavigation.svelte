@@ -1,15 +1,14 @@
 <script lang="ts">
-	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { env } from '$env/dynamic/public';
 
-	const authService = inject(AUTH_SERVICE);
-	const token = $derived(authService.tokenReadable);
 	const routes = inject(WEB_ROUTES_SERVICE);
+	const userService = inject(USER_SERVICE);
+	const user = $derived(userService.user);
 
 	function logout() {
-		authService.clearToken();
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
 	}
 
@@ -31,7 +30,8 @@
 				<path d="M0 24V0L11.4819 10.5091L23 0V24L11.4819 13.5273L0 24Z" fill="black" />
 			</svg>
 		</a>
-		{#if $token}
+
+		{#if $user}
 			<a class="nav-link nav-button" href="/organizations" aria-label="organizations">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -91,14 +91,14 @@
 			type="button"
 			class="nav__bottom--button profile-link"
 			onclick={() => {
-				if ($token) {
+				if ($user) {
 					logout();
 				} else {
 					login();
 				}
 			}}
 		>
-			{#if $token}
+			{#if $user}
 				<a href="/user"> [u] </a>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

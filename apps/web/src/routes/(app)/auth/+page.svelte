@@ -1,13 +1,12 @@
 <script lang="ts">
-	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { env } from '$env/dynamic/public';
 
-	const authService = inject(AUTH_SERVICE);
-	const token = $derived(authService.tokenReadable);
+	const userService = inject(USER_SERVICE);
+	const user = $derived(userService.user);
 
-	if ($token) {
-		// goto('/');
+	if ($user) {
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`;
 	}
 </script>

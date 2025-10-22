@@ -66,14 +66,12 @@ export default class LoginService {
 	}
 
 	async finalizeAccount(
-		token: string,
 		email: string,
 		username: string
 	): Promise<LoginResponse<{ message: string }>> {
 		return await this.sendPostRequest(
 			'sessions/finalize',
 			{
-				token,
 				email,
 				login: username
 			},

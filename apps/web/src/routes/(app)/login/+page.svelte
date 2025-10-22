@@ -1,6 +1,5 @@
 <script lang="ts">
 	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
-	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import OAuthButtons from '$lib/components/auth/OAuthButtons.svelte';
 	import FullscreenIllustrationCard from '$lib/components/service/FullscreenIllustrationCard.svelte';
 	import { inject } from '@gitbutler/core/context';
@@ -45,7 +44,6 @@
 
 	const loginService = inject(LOGIN_SERVICE);
 	const routesService = inject(WEB_ROUTES_SERVICE);
-	const authService = inject(AUTH_SERVICE);
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
@@ -66,7 +64,6 @@
 			console.error('Login failed:', response.raw ?? response.errorMessage);
 		} else {
 			const token = response.data;
-			authService.setToken(token);
 			const url = new URL('successful_login', env.PUBLIC_APP_HOST);
 			url.searchParams.set('access_token', encodeURIComponent(token));
 			const path = url.toString();
