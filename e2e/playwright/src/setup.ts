@@ -6,11 +6,9 @@ import { Socket } from 'node:net';
 import path from 'node:path';
 
 export function getBaseURL() {
-	const parallelId = process.env.TEST_PARALLEL_INDEX ?? '0';
-	const id = parseInt(parallelId, 10);
 	const port = parseInt(DESKTOP_PORT, 10);
 
-	return `http://localhost:${port + id}`;
+	return `http://localhost:${port}`;
 }
 
 export function getButlerPort(): string {
@@ -22,7 +20,7 @@ export function getButlerPort(): string {
 export interface GitButler {
 	pathInWorkdir: (...filePathSegments: string[]) => string;
 	runScript(scriptName: string, args?: string[], env?: Record<string, string>): Promise<void>;
-	destroy(): void;
+	destroy(): Promise<void>;
 }
 
 class GitButlerManager implements GitButler {
@@ -80,7 +78,7 @@ class GitButlerManager implements GitButler {
 		}
 	}
 
-	destroy() {
+	async destroy() {
 		log('Stopping GitButler...');
 		this.butServerProcess.kill('SIGTERM');
 	}
@@ -100,6 +98,7 @@ class GitButlerManager implements GitButler {
 
 		const envVars = {
 			GITBUTLER_CLI_DATA_DIR: getButlerDataDir(this.configDir),
+			E2E_TEST_APP_DATA_DIR: this.configDir,
 			GIT_CONFIG_GLOBAL,
 			...this.env,
 			...env
@@ -226,6 +225,17 @@ async function setProjectPathCookie(context: BrowserContext, workdir: string): P
 	await setCookie('PROJECT_PATH', workdir, context);
 }
 
+/**
+ * Set the project path cookie in the browser context.
+ *
+ * This is needed in order for the Frontend to be able to know the absolute paths of the
+ * project files. The web file picker is not able to get absolute paths for security reasons.
+ */
+async function setButlerServerPort(context: BrowserContext): Promise<void> {
+	// Set the information about the workdir
+	await setCookie('butlerPort', getButlerPort().toString(), context);
+}
+
 async function runCommand(
 	command: string,
 	args: string[],
@@ -264,6 +274,7 @@ export async function startGitButler(
 ): Promise<GitButler> {
 	const manager = new GitButlerManager(workdir, configDir, env);
 	await manager.init();
-	setProjectPathCookie(context, workdir);
+	await setProjectPathCookie(context, workdir);
+	await setButlerServerPort(context);
 	return manager;
 }

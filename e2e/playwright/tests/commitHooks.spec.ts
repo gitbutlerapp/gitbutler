@@ -11,7 +11,7 @@ test.use({
 });
 
 test.afterEach(async () => {
-	gitbutler?.destroy();
+	await gitbutler?.destroy();
 });
 
 test('should show commit-msg hook rejection error', async ({ page, context }, testInfo) => {

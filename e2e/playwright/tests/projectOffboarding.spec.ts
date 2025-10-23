@@ -9,7 +9,7 @@ test.use({
 });
 
 test.afterEach(async () => {
-	gitbutler?.destroy();
+	await gitbutler?.destroy();
 });
 
 test('should be able to delete the last project gracefuly', async ({ page, context }, testInfo) => {
