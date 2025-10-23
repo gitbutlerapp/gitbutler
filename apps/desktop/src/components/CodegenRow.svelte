@@ -104,7 +104,6 @@
 		flex-direction: column;
 		width: 100%;
 		padding: 12px;
-		/* padding-left: 14px; */
 		gap: 8px;
 		border-top: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
