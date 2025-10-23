@@ -238,6 +238,7 @@ async fn handle_command(
         // Secret management
         "secret_get_global" => secret::secret_get_global_cmd(request.params),
         "secret_set_global" => secret::secret_set_global_cmd(request.params),
+        "secret_delete_global" => secret::secret_delete_global_cmd(request.params),
         // User management
         "get_user" => users::get_user_cmd(request.params),
         "set_user" => users::set_user_cmd(request.params),

@@ -26,3 +26,10 @@ pub fn secret_set_global(handle: String, secret: String) -> Result<(), Error> {
         secret::Namespace::Global,
     )?)
 }
+
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn secret_delete_global(handle: String) -> Result<(), Error> {
+    Ok(secret::delete(&handle, secret::Namespace::Global)?)
+}
