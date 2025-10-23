@@ -556,6 +556,7 @@ impl Graph {
         if ws.kind.has_managed_ref() {
             let (lowest_base, lowest_base_sidx) =
                 ws_lower_bound.map_or((None, None), |(base, sidx)| (Some(base), Some(sidx)));
+            let mut used_stack_ids = BTreeSet::default();
             for stack_top_sidx in self
                 .inner
                 .neighbors_directed(ws_tip_segment.id, Direction::Outgoing)
@@ -608,7 +609,11 @@ impl Graph {
                         |s| Some(s.id) == ws.lower_bound_segment_id && s.metadata.is_none(),
                     )?
                     .and_then(|segments| {
-                        let stack_id = find_matching_stack_id(ws.metadata.as_ref(), &segments);
+                        let stack_id = find_matching_stack_id(
+                            ws.metadata.as_ref(),
+                            &segments,
+                            &mut used_stack_ids,
+                        );
                         // If we find no stack ID, then the segment is not included in the workspace metadata,
                         // indicating it's ignored. Just to be even more certain, if it starts with a commit
                         // that is the workspace base, then we definitely don't want to show it - it's unapplied.
@@ -703,9 +708,11 @@ impl Graph {
 /// This works as named segments have been created in a prior step. Thus, we are able to find best matches by
 /// the amount of matching names, probably.
 /// Note that we find applied stack-ids first, then try again with unapplied ones, and indicate if it was applied or not.
+/// Update `seen` with the stack_id we find and avoid re-using seen stack ids.
 fn find_matching_stack_id(
     metadata: Option<&ref_metadata::Workspace>,
     segments: &[StackSegment],
+    seen: &mut BTreeSet<StackId>,
 ) -> Option<(StackId, bool)> {
     let metadata = metadata?;
 
@@ -751,8 +758,8 @@ fn find_matching_stack_id(
             })
         })
         .sorted_by(|l, r| l.0.cmp(&r.0).reverse())
-        .next()
         .map(|(_weight, stack_id, in_workspace)| (stack_id, in_workspace))
+        .find(|(stack_id, _)| seen.insert(*stack_id))
 }
 
 /// Traversals
