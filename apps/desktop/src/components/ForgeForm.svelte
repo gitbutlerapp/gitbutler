@@ -121,7 +121,12 @@
 				are created.
 			{/snippet}
 
-			<Textbox label="Personal token" value={$token} oninput={(value) => ($token = value)} />
+			<Textbox
+				label="Personal token"
+				type="password"
+				value={$token}
+				oninput={(value) => ($token = value)}
+			/>
 			<Textbox
 				label="Your fork's project ID"
 				value={$forkProjectId}

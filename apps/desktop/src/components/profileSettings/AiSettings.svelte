@@ -249,7 +249,13 @@
 			{/if}
 
 			{#if openAIKeyOption === KeyOption.BringYourOwn}
-				<Textbox label="API key" bind:value={openAIKey} required placeholder="sk-..." />
+				<Textbox
+					label="API key"
+					type="password"
+					bind:value={openAIKey}
+					required
+					placeholder="sk-..."
+				/>
 
 				<Select
 					value={openAIModelName}
@@ -319,6 +325,7 @@
 			{#if anthropicKeyOption === KeyOption.BringYourOwn}
 				<Textbox
 					label="API key"
+					type="password"
 					bind:value={anthropicKey}
 					required
 					placeholder="sk-ant-api03-..."
