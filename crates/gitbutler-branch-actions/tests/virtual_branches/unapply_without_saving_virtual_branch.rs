@@ -9,7 +9,6 @@ fn should_unapply_diff() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();

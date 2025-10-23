@@ -7,7 +7,6 @@ fn success() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -26,7 +25,6 @@ mod error {
             gitbutler_branch_actions::set_base_branch(
                 ctx,
                 &RemoteRefname::from_str("refs/remotes/origin/missing").unwrap(),
-                false,
                 ctx.project().exclusive_worktree_access().write_permission(),
             )
             .unwrap_err()
@@ -56,7 +54,6 @@ mod go_back_to_workspace {
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            false,
             ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
@@ -79,7 +76,6 @@ mod go_back_to_workspace {
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            false,
             ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
@@ -102,7 +98,6 @@ mod go_back_to_workspace {
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            false,
             ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
@@ -117,7 +112,6 @@ mod go_back_to_workspace {
             gitbutler_branch_actions::set_base_branch(
                 ctx,
                 &"refs/remotes/origin/master".parse().unwrap(),
-                false,
                 ctx.project().exclusive_worktree_access().write_permission(),
             )
             .unwrap_err()
@@ -139,7 +133,6 @@ mod go_back_to_workspace {
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            false,
             ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
@@ -154,7 +147,6 @@ mod go_back_to_workspace {
             gitbutler_branch_actions::set_base_branch(
                 ctx,
                 &"refs/remotes/origin/master".parse().unwrap(),
-                false,
                 ctx.project().exclusive_worktree_access().write_permission(),
             )
             .unwrap_err()
@@ -176,7 +168,6 @@ mod go_back_to_workspace {
         let base = gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            false,
             ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
@@ -191,7 +182,6 @@ mod go_back_to_workspace {
         let base_two = gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            false,
             ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
@@ -214,7 +204,6 @@ mod go_back_to_workspace {
         let base = gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            false,
             ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
@@ -227,7 +216,6 @@ mod go_back_to_workspace {
         let base_two = gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            false,
             ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();

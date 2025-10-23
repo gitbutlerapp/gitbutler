@@ -113,18 +113,8 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
 pub(crate) fn set_base_branch(
     ctx: &CommandContext,
     target_branch_ref: &RemoteRefname,
-    stash_uncommitted: bool,
 ) -> Result<BaseBranch> {
     let repo = ctx.repo();
-
-    // If requested, stash uncommitted changes
-    if stash_uncommitted {
-        let sig = repo
-            .signature()
-            .unwrap_or(git2::Signature::now("Author", "author@email.com")?);
-        let mut r = ctx.project().open_git2()?;
-        r.stash_save2(&sig, None, Some(git2::StashFlags::INCLUDE_UNTRACKED))?;
-    }
 
     // if target exists, and it is the same as the requested branch, we should go back
     if let Ok(target) = default_target(&ctx.project().gb_dir())
