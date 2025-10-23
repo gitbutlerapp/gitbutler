@@ -1,5 +1,8 @@
-use but_secret::{Sensitive, secret};
+use but_secret::secret;
 use tracing::{debug, info, warn};
+
+#[cfg(test)]
+use but_secret::Sensitive;
 
 /// Known secret handles that were previously stored in Global namespace
 /// and need to be migrated to BuildKind namespace
