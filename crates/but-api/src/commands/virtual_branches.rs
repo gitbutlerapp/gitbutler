@@ -205,7 +205,6 @@ pub fn set_base_branch(
     project_id: ProjectId,
     branch: String,
     push_remote: Option<String>,
-    stash_uncommitted: Option<bool>,
 ) -> Result<BaseBranch, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -215,7 +214,6 @@ pub fn set_base_branch(
     let base_branch = gitbutler_branch_actions::set_base_branch(
         &ctx,
         &branch_name,
-        stash_uncommitted.unwrap_or_default(),
         ctx.project().exclusive_worktree_access().write_permission(),
     )?;
 

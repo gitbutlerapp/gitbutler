@@ -21,7 +21,6 @@ pub fn add(data_dir: PathBuf, path: PathBuf, refname: Option<RemoteRefname>) -> 
         gitbutler_branch_actions::set_base_branch(
             &ctx,
             &refname,
-            false,
             ctx.project().exclusive_worktree_access().write_permission(),
         )?;
     };

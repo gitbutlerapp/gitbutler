@@ -65,12 +65,7 @@ pub(crate) fn repo(repo_path: &Path, _json: bool, init_repo: bool) -> anyhow::Re
 
         let name = head_ref.name().shorten().to_string();
 
-        but_api::virtual_branches::set_base_branch(
-            project.id,
-            name.clone(),
-            Some(remote_name),
-            None,
-        )?;
+        but_api::virtual_branches::set_base_branch(project.id, name.clone(), Some(remote_name))?;
         println!(
             "Initialized GitButler project from {}. The default target is {}",
             repo_path.display(),

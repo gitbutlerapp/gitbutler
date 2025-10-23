@@ -17,7 +17,6 @@ fn twice() {
         gitbutler_branch_actions::set_base_branch(
             &ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            false,
             ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
@@ -34,7 +33,6 @@ fn twice() {
         gitbutler_branch_actions::set_base_branch(
             &ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            false,
             ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
@@ -58,7 +56,6 @@ fn dirty_non_target() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -81,7 +78,6 @@ fn dirty_target() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -107,7 +103,6 @@ fn commit_on_non_target_local() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -129,7 +124,6 @@ fn commit_on_non_target_remote() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -155,7 +149,6 @@ fn commit_on_target() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -183,7 +176,6 @@ fn submodule() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();

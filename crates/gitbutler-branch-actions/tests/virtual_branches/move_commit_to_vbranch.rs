@@ -12,7 +12,6 @@ fn no_diffs() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -65,7 +64,6 @@ fn multiple_commits() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -155,7 +153,6 @@ fn multiple_commits_with_diffs() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -260,7 +257,6 @@ fn diffs_on_source_branch() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -312,7 +308,6 @@ fn diffs_on_target_branch() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -366,7 +361,6 @@ fn diffs_on_both_branches() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -446,7 +440,6 @@ fn target_commit_locked_to_ancestors() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -502,7 +495,6 @@ fn target_commit_locked_to_descendants() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -561,7 +553,6 @@ fn locked_hunks_on_source_branch() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -609,7 +600,6 @@ fn no_commit() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -656,7 +646,6 @@ fn no_branch() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();

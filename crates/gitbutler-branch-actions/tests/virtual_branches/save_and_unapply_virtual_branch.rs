@@ -11,7 +11,6 @@ fn unapply_with_data() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -69,7 +68,6 @@ fn delete_if_empty() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();

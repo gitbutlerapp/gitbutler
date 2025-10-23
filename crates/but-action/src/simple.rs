@@ -93,7 +93,7 @@ fn handle_changes_simple_inner(
         }
         OperatingMode::OutsideWorkspace(_) => {
             let default_target = vb_state.get_default_target()?;
-            gitbutler_branch_actions::set_base_branch(ctx, &default_target.branch, false, perm)?;
+            gitbutler_branch_actions::set_base_branch(ctx, &default_target.branch, perm)?;
         }
     }
 

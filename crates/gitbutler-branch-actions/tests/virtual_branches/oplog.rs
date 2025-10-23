@@ -20,7 +20,6 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -108,7 +107,6 @@ fn basic_oplog() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse()?,
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )?;
 
@@ -264,7 +262,6 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse()?,
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )?;
 
@@ -375,14 +372,12 @@ fn head_corrupt_is_recreated_automatically() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
@@ -405,7 +400,6 @@ fn head_corrupt_is_recreated_automatically() {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )
     .expect("the snapshot doesn't fail despite the corrupt head");
@@ -425,7 +419,6 @@ fn first_snapshot_diff_works() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse()?,
-        false,
         ctx.project().exclusive_worktree_access().write_permission(),
     )?;
 

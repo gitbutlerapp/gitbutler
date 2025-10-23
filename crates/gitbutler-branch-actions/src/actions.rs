@@ -135,11 +135,10 @@ pub fn list_commit_files(
 pub fn set_base_branch(
     ctx: &CommandContext,
     target_branch: &RemoteRefname,
-    stash_uncommitted: bool,
     perm: &mut WorktreeWritePermission,
 ) -> Result<BaseBranch> {
     let _ = ctx.create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch), perm);
-    base::set_base_branch(ctx, target_branch, stash_uncommitted)
+    base::set_base_branch(ctx, target_branch)
 }
 
 pub fn set_target_push_remote(ctx: &CommandContext, push_remote: &str) -> Result<()> {
