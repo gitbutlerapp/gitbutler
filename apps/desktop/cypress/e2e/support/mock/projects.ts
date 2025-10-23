@@ -13,7 +13,6 @@ export const MOCK_PROJECT_A: Project = {
 	force_push_protection: false,
 	omit_certificate_check: false,
 	use_diff_context: true,
-	snapshot_lines_threshold: 5,
 	is_open: false,
 	forge_override: undefined,
 	preferred_forge_user: null,
