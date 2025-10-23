@@ -2,6 +2,7 @@
 	import Footer from '$lib/components/marketing/Footer.svelte';
 	import Header from '$lib/components/marketing/Header.svelte';
 	import osIcons from '$lib/data/os-icons.json';
+	import { parseDate } from '$lib/utils/dateUtils';
 	import type { Build, Release } from '$lib/types/releases';
 
 	interface Props {
@@ -20,6 +21,36 @@
 
 	function toggleRelease(version: string) {
 		expandedRelease = expandedRelease === version ? null : version;
+	}
+
+	function formatReleaseDate(releasedAt: string): string {
+		const date = parseDate(releasedAt);
+		if (!date) return 'Unknown date';
+		return date.toLocaleDateString('en-GB', {
+			day: 'numeric',
+			month: 'long',
+			year: 'numeric'
+		});
+	}
+
+	function formatReleaseTime(releasedAt: string): string {
+		const date = parseDate(releasedAt);
+		if (!date) return '';
+		return date.toLocaleTimeString('en-GB', {
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: false
+		});
+	}
+
+	function formatShortDate(releasedAt: string): string {
+		const date = parseDate(releasedAt);
+		if (!date) return 'Unknown date';
+		return date.toLocaleDateString('en-GB', {
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric'
+		});
 	}
 </script>
 
@@ -40,15 +71,9 @@
 						<span>Latest release</span>
 						<span> • </span>
 						<span
-							>{new Date(latestNightly.released_at).toLocaleDateString('en-GB', {
-								day: 'numeric',
-								month: 'long',
-								year: 'numeric'
-							})} at {new Date(latestNightly.released_at).toLocaleTimeString('en-GB', {
-								hour: '2-digit',
-								minute: '2-digit',
-								hour12: false
-							})}
+							>{formatReleaseDate(latestNightly.released_at)} at {formatReleaseTime(
+								latestNightly.released_at
+							)}
 						</span>
 					</div>
 					<p class="nightly-hero__description">
@@ -182,16 +207,8 @@
 				>
 					<span class="release-row__version">{release.version}</span>
 					<span class="release-row__date">
-						{new Date(release.released_at).toLocaleDateString('en-GB', {
-							day: 'numeric',
-							month: 'short',
-							year: 'numeric'
-						})},
-						{new Date(release.released_at).toLocaleTimeString('en-GB', {
-							hour: '2-digit',
-							minute: '2-digit',
-							hour12: false
-						})}
+						{formatShortDate(release.released_at)},
+						{formatReleaseTime(release.released_at)}
 					</span>
 				</button>
 

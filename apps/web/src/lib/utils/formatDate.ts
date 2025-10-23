@@ -1,5 +1,9 @@
-export function formatDate(dateStr: string): string {
-	const date = new Date(dateStr);
+import { parseDate } from '$lib/utils/dateUtils';
+
+export function formatDate(dateStr: string | number): string {
+	const date = parseDate(dateStr);
+	if (!date) return 'Unknown';
+
 	const now = new Date();
 
 	const diff = now.getTime() - date.getTime();

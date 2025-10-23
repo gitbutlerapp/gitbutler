@@ -1,5 +1,6 @@
 <script lang="ts">
 	import osIcons from '$lib/data/os-icons.json';
+	import { parseDate } from '$lib/utils/dateUtils';
 	import { marked } from '@gitbutler/ui/utils/marked';
 	import type { Release } from '$lib/types/releases';
 
@@ -53,17 +54,23 @@
 		}
 		return build.platform;
 	}
+
+	function formatReleaseDate(releasedAt: string): string {
+		const date = parseDate(releasedAt);
+		if (!date) return 'Unknown date';
+		return date.toLocaleDateString('en-GB', {
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric'
+		});
+	}
 </script>
 
 <div class="release" class:no-separator={!showSeparator}>
 	<div class="release-header">
 		<h3 class="release-version">{release.version}</h3>
 		<span class="release-date">
-			{new Date(release.released_at).toLocaleDateString('en-GB', {
-				day: 'numeric',
-				month: 'short',
-				year: 'numeric'
-			})}
+			{formatReleaseDate(release.released_at)}
 		</span>
 	</div>
 

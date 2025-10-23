@@ -3,6 +3,7 @@
 	import Header from '$lib/components/marketing/Header.svelte';
 	import ReleaseCard from '$lib/components/marketing/ReleaseCard.svelte';
 	import osIcons from '$lib/data/os-icons.json';
+	import { parseDate } from '$lib/utils/dateUtils';
 	import { marked } from '@gitbutler/ui/utils/marked';
 	import type { Build, Release } from '$lib/types/releases';
 
@@ -18,6 +19,16 @@
 	const { data }: Props = $props();
 
 	const { latestRelease, latestReleaseBuilds } = data;
+
+	function formatReleaseDate(releasedAt: string): string {
+		const date = parseDate(releasedAt);
+		if (!date) return 'Unknown date';
+		return date.toLocaleDateString('en-GB', {
+			day: 'numeric',
+			month: 'long',
+			year: 'numeric'
+		});
+	}
 </script>
 
 <svelte:head>
@@ -38,13 +49,7 @@
 				<div class="latest-release__header-subtitle">
 					<span>Latest release</span>
 					<span> • </span>
-					<span
-						>{new Date(latestRelease.released_at).toLocaleDateString('en-GB', {
-							day: 'numeric',
-							month: 'long',
-							year: 'numeric'
-						})}</span
-					>
+					<span>{formatReleaseDate(latestRelease.released_at)}</span>
 				</div>
 			</div>
 		</div>

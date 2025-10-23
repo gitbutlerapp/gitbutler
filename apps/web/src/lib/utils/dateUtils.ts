@@ -1,11 +1,53 @@
 /**
+ * Safely parse a date from various formats (ISO string, Unix timestamp in seconds or milliseconds)
+ *
+ * @param dateValue - Date as string, number, or Date object
+ * @returns Valid Date object or null if parsing fails
+ */
+export function parseDate(dateValue: string | number | Date | null | undefined): Date | null {
+	if (!dateValue) return null;
+
+	// If already a Date object, return it
+	if (dateValue instanceof Date) {
+		return isNaN(dateValue.getTime()) ? null : dateValue;
+	}
+
+	// If it's a number (Unix timestamp)
+	if (typeof dateValue === 'number') {
+		// Unix timestamps in seconds (10 digits) vs milliseconds (13 digits)
+		const timestamp = dateValue < 10000000000 ? dateValue * 1000 : dateValue;
+		const date = new Date(timestamp);
+		return isNaN(date.getTime()) ? null : date;
+	}
+
+	// If it's a string
+	if (typeof dateValue === 'string') {
+		// Try parsing as Unix timestamp if it's a numeric string
+		const numericValue = Number(dateValue);
+		if (!isNaN(numericValue) && dateValue.match(/^\d+$/)) {
+			const timestamp = numericValue < 10000000000 ? numericValue * 1000 : numericValue;
+			const date = new Date(timestamp);
+			if (!isNaN(date.getTime())) return date;
+		}
+
+		// Try parsing as ISO string or other date format
+		const date = new Date(dateValue);
+		return isNaN(date.getTime()) ? null : date;
+	}
+
+	return null;
+}
+
+/**
  * Formats a date string into a relative time string (e.g., "5 minutes ago", "2 days ago").
  *
  * @param dateString - ISO date string to format
  * @returns Formatted relative time string
  */
 export function getRelativeTime(dateString: string): string {
-	const date = new Date(dateString);
+	const date = parseDate(dateString);
+	if (!date) return 'Unknown';
+
 	const utcDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
 	const now = new Date();
 	const diffInSeconds = Math.floor((now.getTime() - utcDate.getTime()) / 1000);
@@ -28,10 +70,12 @@ export function getRelativeTime(dateString: string): string {
 	return `${Math.floor(diffInSeconds / 31536000)} years ago`;
 }
 
-export function getTimeSince(timestamp: string | undefined) {
+export function getTimeSince(timestamp: string | number | undefined) {
 	if (!timestamp) return 'Unknown';
 
-	const date = new Date(timestamp);
+	const date = parseDate(timestamp);
+	if (!date) return 'Unknown';
+
 	const now = new Date();
 	const diffTime = Math.abs(now.getTime() - date.getTime());
 	const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
