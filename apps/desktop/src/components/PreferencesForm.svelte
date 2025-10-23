@@ -3,7 +3,7 @@
 	import Section from '$components/Section.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
-	import { SectionCard, Textbox, Toggle } from '@gitbutler/ui';
+	import { SectionCard, Toggle } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 	const projectsService = inject(PROJECTS_SERVICE);
@@ -28,33 +28,6 @@
 							await projectsService.updateProject({
 								...project,
 								omit_certificate_check: value
-							});
-						}}
-					/>
-				{/snippet}
-			</SectionCard>
-
-			<SectionCard orientation="row" centerAlign>
-				{#snippet title()}
-					Snapshot lines threshold
-				{/snippet}
-				{#snippet caption()}
-					The number of lines that trigger a snapshot when saving.
-				{/snippet}
-
-				{#snippet actions()}
-					<Textbox
-						type="number"
-						width={100}
-						textAlign="center"
-						value={project.snapshot_lines_threshold?.toString()}
-						minVal={5}
-						maxVal={1000}
-						showCountActions
-						onchange={async (value: string) => {
-							await projectsService.updateProject({
-								...project,
-								snapshot_lines_threshold: parseInt(value)
 							});
 						}}
 					/>
