@@ -1,4 +1,4 @@
-import { BUT_SERVER_PORT, DESKTOP_PORT } from './src/env.ts';
+import { DESKTOP_PORT } from './src/env.ts';
 import { defineConfig, devices } from '@playwright/test';
 import path from 'node:path';
 
@@ -10,7 +10,7 @@ import path from 'node:path';
 // import path from 'path';
 // dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-const AMOUNT_OF_WORKERS = 1;
+const AMOUNT_OF_WORKERS = process.env.CI ? 1 : 4;
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -18,13 +18,13 @@ const AMOUNT_OF_WORKERS = 1;
 export default defineConfig({
 	testDir: './tests',
 	/* Run tests in files in parallel */
-	fullyParallel: true,
+	fullyParallel: true, // FullyParallel has some issues - for now we just parallelize by file.
 	/* Fail the build on CI if you accidentally left test.only in the source code. */
 	forbidOnly: !!process.env.CI,
 	/* Retry on CI only */
 	retries: process.env.CI ? 2 : 0,
 	/* Opt out of parallel tests on CI. */
-	workers: process.env.CI ? AMOUNT_OF_WORKERS : undefined,
+	workers: AMOUNT_OF_WORKERS,
 	/* Reporter to use. See https://playwright.dev/docs/test-reporters */
 	reporter: process.env.CI ? 'github' : 'list',
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -33,8 +33,9 @@ export default defineConfig({
 		baseURL: `http://localhost:${DESKTOP_PORT}`,
 
 		/* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-		trace: 'on-first-retry',
-		video: 'on-first-retry'
+		// I have no idea why, but with this disabled, some tests just always fail. I have no idea why.
+		trace: 'on',
+		video: process.env.CI ? 'on-first-retry' : 'retain-on-failure'
 	},
 
 	/* Configure projects for major browsers */
@@ -49,14 +50,17 @@ function projects() {
 	if (process.env.CI) {
 		projects.push({
 			name: 'chromium',
-			use: { ...devices['Desktop Chrome'] }
+			use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } }
 		});
 		return projects;
 	}
 
 	projects.push({
-		name: 'Chrome',
-		use: { ...devices['Desktop Chrome'], channel: 'chrome', headless: false }
+		name: 'chromium',
+		use: {
+			...devices['Desktop Chrome'],
+			viewport: { width: 1920, height: 1080 }
+		}
 	});
 
 	return projects;
@@ -83,38 +87,19 @@ function feServerCommand(desktopPort?: number) {
  * Each worker will start the dev server on a different port, so that they can run in parallel.
  */
 function webServers() {
-	const baseConfig = {
+	const desktopPort = parseInt(DESKTOP_PORT, 10);
+	const config = {
 		cwd: path.resolve(import.meta.dirname, '../..'),
-		command: feServerCommand(),
-		url: `http://localhost:${DESKTOP_PORT}`,
+		command: feServerCommand(desktopPort),
+		url: `http://localhost:${desktopPort}`,
 		env: {
-			VITE_BUTLER_PORT: BUT_SERVER_PORT,
+			// VITE_BUTLER_PORT: BUT_SERVER_PORT,
 			VITE_BUTLER_HOST: 'localhost',
 			VITE_BUILD_TARGET: 'web'
 		},
-		reuseExistingServer: !process.env.CI,
+		reuseExistingServer: true,
 		stdout: 'pipe'
 	} as const;
 
-	if (!process.env.CI) {
-		return [baseConfig];
-	}
-
-	const feServerConfigs = [];
-	for (let i = 0; i < AMOUNT_OF_WORKERS; i++) {
-		const butServerPort = parseInt(BUT_SERVER_PORT, 10) + i;
-		const desktopPort = parseInt(DESKTOP_PORT, 10) + i;
-
-		feServerConfigs.push({
-			...baseConfig,
-			command: feServerCommand(desktopPort),
-			url: `http://localhost:${desktopPort}`,
-			env: {
-				...baseConfig.env,
-				VITE_BUTLER_PORT: `${butServerPort}`
-			}
-		} as const);
-	}
-
-	return feServerConfigs;
+	return [config];
 }

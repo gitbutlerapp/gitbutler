@@ -9,7 +9,7 @@ test.use({
 });
 
 test.afterEach(async () => {
-	gitbutler?.destroy();
+	await gitbutler?.destroy();
 });
 
 test('should handle gracefully adding an existing project', async ({ page, context }, testInfo) => {

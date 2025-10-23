@@ -9,7 +9,7 @@ test.use({
 });
 
 test.afterEach(async () => {
-	gitbutler?.destroy();
+	await gitbutler?.destroy();
 });
 
 test('should handle the update of workspace with one conflicting branch gracefully', async ({

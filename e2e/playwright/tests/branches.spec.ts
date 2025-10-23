@@ -17,7 +17,7 @@ test.use({
 });
 
 test.afterEach(async () => {
-	gitbutler?.destroy();
+	await gitbutler?.destroy();
 });
 
 test('should be able to apply a remote branch', async ({ page, context }, testInfo) => {

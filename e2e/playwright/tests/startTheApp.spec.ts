@@ -5,6 +5,7 @@ import {
 	clickByTestId,
 	fillByTestId,
 	getByTestId,
+	sleep,
 	textEditorFillByTestId,
 	waitForTestId
 } from '../src/util.ts';
@@ -17,7 +18,7 @@ test.use({
 });
 
 test.afterEach(async () => {
-	gitbutler?.destroy();
+	await gitbutler?.destroy();
 });
 
 test('should start the application and be able to commit', async ({ page, context }, testInfo) => {
@@ -123,6 +124,9 @@ test('no author setup - should start the application and be able to commit', asy
 
 	// Should see the author missing modal
 	await waitForTestId(page, 'global-modal-author-missing');
+	// Idk why, but someone this fills the input too quickly and... something...
+	// causes it to get unset
+	await sleep(30);
 	await fillByTestId(page, 'global-modal-author-missing-name-input', 'Test User');
 	await fillByTestId(page, 'global-modal-author-missing-email-input', 'test@example.com');
 	await clickByTestId(page, 'global-modal-author-missing-action-button', true);

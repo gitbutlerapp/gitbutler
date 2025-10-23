@@ -11,3 +11,5 @@
 	aiAnthropicKeyOption = bringYourOwn
 [init]
 	defaultBranch = main
+[commit]
+	gpgsign = false

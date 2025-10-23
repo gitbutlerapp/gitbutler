@@ -9,7 +9,7 @@ test.use({
 });
 
 test.afterEach(async () => {
-	gitbutler?.destroy();
+	await gitbutler?.destroy();
 });
 
 test('move branch to top of other stack and tear it off', async ({ page, context }, testInfo) => {

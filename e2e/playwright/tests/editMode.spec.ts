@@ -10,7 +10,7 @@ test.use({
 });
 
 test.afterEach(async () => {
-	gitbutler?.destroy();
+	await gitbutler?.destroy();
 });
 
 test('should be able to edit a commit through the edit mode', async ({
