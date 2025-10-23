@@ -10,12 +10,13 @@ use crate::error::Error;
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn secret_get_global(handle: String) -> Result<Option<String>, Error> {
-    Ok(secret::retrieve(&handle, secret::Namespace::Global)?.map(|s| s.0))
+    let sensitive = secret::retrieve(&handle, secret::Namespace::Global)?.map(|s| s.0);
+    Ok(sensitive)
 }
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
-#[instrument(err(Debug))]
+#[instrument(err(Debug), skip(secret), err(Debug), fields(secret = "<redacted>"))]
 pub fn secret_set_global(handle: String, secret: String) -> Result<(), Error> {
     static FAIR_QUEUE: Mutex<()> = Mutex::new(());
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
