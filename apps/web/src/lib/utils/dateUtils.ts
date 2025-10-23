@@ -32,7 +32,17 @@ export function parseDate(dateValue: string | number | Date | null | undefined):
 
 		// Try parsing as ISO string or other date format
 		const date = new Date(dateValue);
-		return isNaN(date.getTime()) ? null : date;
+		if (isNaN(date.getTime())) {
+			// Assume this format "2025-10-14 18:23:18 +0000"
+			const [datePart, timePart, _tzPart] = dateValue.split(' ');
+			const [year, month, day] = datePart.split('-').map(Number);
+			const [hour, minute, second] = timePart.split(':').map(Number);
+
+			const date2 = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+			return isNaN(date2.getTime()) ? null : date2;
+		} else {
+			return date;
+		}
 	}
 
 	return null;
