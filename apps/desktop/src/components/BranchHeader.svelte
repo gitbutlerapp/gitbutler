@@ -187,7 +187,7 @@
 		align-items: center;
 		justify-content: flex-start;
 		padding-right: 12px;
-		padding-left: 14px;
+		padding-left: 12px;
 		overflow: hidden;
 		background-color: var(--branch-selected-bg);
 
@@ -263,7 +263,7 @@
 		flex: 1;
 		flex-direction: column;
 		width: 100%;
-		margin-left: -2px;
+		/* margin-left: -2px; */
 		padding: 14px 0;
 		overflow: hidden;
 		gap: 8px;
