@@ -139,7 +139,7 @@ Cypress.on('window:before:load', (win) => {
 				return getBaseBranchData();
 			case 'git_remote_branches':
 				return getRemoteBranches();
-			case 'secret_get_global':
+			case 'secret_get':
 				if (!isGetSecretArgs(args)) {
 					return raiseInvalidArgumentsError(command, args);
 				}

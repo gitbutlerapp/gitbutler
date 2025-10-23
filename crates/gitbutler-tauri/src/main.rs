@@ -35,6 +35,9 @@ fn main() {
     let mut tauri_context = generate_context!();
     but_secret::secret::set_application_namespace(&tauri_context.config().identifier);
 
+    // Migrate global secrets to build-kind namespace
+    gitbutler_tauri::secret_migration::migrate_global_secrets_to_build_kind();
+
     let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
     let mut app_settings =
@@ -263,6 +266,9 @@ fn main() {
                     stack::update_branch_pr_number,
                     stack::push_stack,
                     stack::push_stack_to_review,
+                    secret::secret_get,
+                    secret::secret_set,
+                    secret::secret_delete,
                     secret::secret_get_global,
                     secret::secret_set_global,
                     secret::secret_delete_global,
