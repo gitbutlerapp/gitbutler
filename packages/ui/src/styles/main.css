@@ -3,12 +3,6 @@
 @import './core/general.css';
 @import './core/variables.css';
 
-/* UTILITY */
-@import './utility/general.css';
-@import './utility/text.css';
-@import './utility/helpers.css';
-@import './utility/layout.min.css';
-
 /* SHARABLE */
 @import './sharable/markdown.css';
 @import './sharable/syntax-highlighting.css';
