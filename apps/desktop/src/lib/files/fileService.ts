@@ -35,7 +35,10 @@ export class FileService {
 	}
 
 	findFiles(projectId: string, query: string, limit: number) {
-		return this.api.endpoints.findFiles.useQuery({ projectId, query, limit });
+		return this.api.endpoints.findFiles.useQuery(
+			{ projectId, query, limit },
+			{ forceRefetch: true }
+		);
 	}
 }
 
@@ -49,7 +52,9 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			findFiles: build.query<string[], { projectId: string; query: string; limit: number }>({
 				extraOptions: { command: 'find_files' },
 				query: (args) => args,
-				keepUnusedDataFor: 60
+				// Keep results for a week, but use forceRefetch when using
+				// the query to get eventually correct results.
+				keepUnusedDataFor: 604800
 			})
 		})
 	});
