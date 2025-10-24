@@ -858,6 +858,7 @@ dependencies = [
  "but-claude",
  "but-core",
  "but-feedback",
+ "but-forge-storage",
  "but-gerrit",
  "but-github",
  "but-graph",
@@ -1076,6 +1077,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-forge-storage"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-storage",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "but-gerrit"
 version = "0.0.0"
 dependencies = [
@@ -1097,6 +1108,7 @@ name = "but-github"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-forge-storage",
  "but-secret",
  "but-settings",
  "gitbutler-user",
@@ -3502,10 +3514,13 @@ name = "gitbutler-forge"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-forge-storage",
  "but-github",
  "git-url-parse",
  "gitbutler-fs",
+ "gitbutler-storage",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
