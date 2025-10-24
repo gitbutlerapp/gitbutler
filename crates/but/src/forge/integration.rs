@@ -17,11 +17,7 @@ pub enum Subcommands {
     },
 }
 
-pub async fn handle(
-    cmd: &Subcommands,
-    _: &gitbutler_project::Project,
-    _: bool,
-) -> anyhow::Result<()> {
+pub async fn handle(cmd: &Subcommands) -> anyhow::Result<()> {
     match cmd {
         Subcommands::Auth => auth_github().await,
         Subcommands::ListUsers => list_github_users().await,
