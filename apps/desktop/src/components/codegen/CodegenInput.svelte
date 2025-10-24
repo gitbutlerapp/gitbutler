@@ -80,11 +80,11 @@
 	let callback = $state<((result: string) => void) | undefined>();
 </script>
 
-<div class="dialog-wrapper" data-remove-from-panning>
+<div class="dialog-wrapper">
 	{#if query}
 		<FileSearch {projectId} {query} onselect={callback} limit={8} />
 	{/if}
-	<div class="text-input dialog-input">
+	<div class="text-input dialog-input" data-remove-from-panning>
 		<CodegenInputQueued {projectId} {selectedBranch} />
 		<RichTextEditor
 			bind:this={editorRef}
