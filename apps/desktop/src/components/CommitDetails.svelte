@@ -87,8 +87,8 @@
 			class="description"
 			class:expanded
 			style:--commit-message-font={$rewrapCommitMessage
-				? 'var(--fontfamily-default)'
-				: 'var(--fontfamily-mono)'}
+				? 'var(--font-default)'
+				: 'var(--font-mono)'}
 			bind:clientWidth={messageWidth}
 			data-testid={TestId.CommitDrawerDescription}
 		>

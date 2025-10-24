@@ -50,7 +50,7 @@
 	.logo-text {
 		color: var(--clr-text-1);
 		font-size: 40px;
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 	}
 
 	.logo-mark {

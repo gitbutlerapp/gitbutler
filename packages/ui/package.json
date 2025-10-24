@@ -75,7 +75,7 @@
 		"svelte-check": "catalog:svelte",
 		"vite": "catalog:",
 		"vitest": "catalog:",
-		"@gitbutler/design-core": "^1.2.3"
+		"@gitbutler/design-core": "^1.2.4"
 	},
 	"peerDependencies": {
 		"@sveltejs/kit": "catalog:svelte",

@@ -77,7 +77,7 @@
 	.arrow-button__text {
 		font-size: 40px;
 		line-height: 1;
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 		white-space: nowrap;
 	}
 

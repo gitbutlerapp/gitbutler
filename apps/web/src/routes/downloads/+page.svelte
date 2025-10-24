@@ -203,13 +203,13 @@
 			margin: 0;
 			font-size: 45px;
 			line-height: 1.2;
-			font-family: var(--fontfamily-accent);
+			font-family: var(--font-accent);
 		}
 
 		& span {
 			color: var(--clr-text-2);
 			font-size: 13px;
-			font-family: var(--fontfamily-mono);
+			font-family: var(--font-mono);
 		}
 	}
 
@@ -223,7 +223,7 @@
 	.release-notes-content {
 		padding-bottom: 40px;
 		font-size: 13px;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 	}
 
 	.download-links__wrapper {
@@ -262,7 +262,7 @@
 	.download-links__title {
 		font-size: 40px;
 		line-height: 1;
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 
 		& .arrow-down {
 			display: inline-block;
@@ -364,7 +364,7 @@
 		flex-direction: column;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-xl);
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 	}
 
 	@media (--mobile-viewport) {

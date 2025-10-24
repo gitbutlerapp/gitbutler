@@ -215,7 +215,7 @@
 	.textarea {
 		overflow-x: hidden;
 		overflow-y: auto; /* Enable scrolling when max height is reached */
-		font-family: var(--fontfamily-default);
+		font-family: var(--font-default);
 		cursor: text;
 		resize: none;
 

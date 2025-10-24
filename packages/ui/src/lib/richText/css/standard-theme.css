@@ -3,7 +3,7 @@
 }
 
 .lexical-container.plain-text {
-	--fontfamily-default: var(--code-block-font, var(--fontfamily-mono));
+	--font-default: var(--code-block-font, var(--font-mono));
 	font-variant-ligatures: var(--code-block-ligatures, normal);
 }
 
@@ -22,7 +22,7 @@
 	margin-bottom: 12px;
 	font-weight: var(--text-weight-bold);
 	line-height: var(--text-lineheight-heading);
-	font-family: var(--fontfamily-default);
+	font-family: var(--font-default);
 }
 
 .StandardTheme__h1 {
@@ -40,7 +40,7 @@
 	font-weight: var(--text-weight-regular);
 	font-size: var(--lexical-default-font-size);
 	line-height: var(--text-lineheight-body);
-	font-family: var(--fontfamily-default);
+	font-family: var(--font-default);
 	text-wrap: var(--lexical-input-client-text-wrap, normal);
 }
 
@@ -54,7 +54,7 @@
 	font-weight: var(--text-weight-regular);
 	font-size: var(--lexical-default-font-size);
 	line-height: var(--text-lineheight-body);
-	font-family: var(--fontfamily-default);
+	font-family: var(--font-default);
 
 	& > span {
 		opacity: 0.6;
@@ -111,7 +111,7 @@
 	border-radius: var(--radius-s);
 	background-color: var(--clr-theme-ntrl-soft);
 	font-size: 96%;
-	font-family: var(--code-block-font, var(--fontfamily-mono));
+	font-family: var(--code-block-font, var(--font-mono));
 	font-variant-ligatures: var(--code-block-ligatures, normal);
 }
 
@@ -164,7 +164,7 @@
 	background-color: var(--clr-bg-1);
 	font-size: var(--lexical-default-font-size);
 	line-height: 1.53;
-	font-family: var(--code-block-font, var(--fontfamily-mono));
+	font-family: var(--code-block-font, var(--font-mono));
 	font-variant-ligatures: var(--code-block-ligatures, normal);
 	tab-size: var(--code-block-tab-size, 2);
 }
@@ -248,7 +248,7 @@
 	margin-bottom: 16px;
 	font-size: var(--lexical-default-font-size);
 	line-height: var(--text-lineheight-body);
-	font-family: var(--fontfamily-default);
+	font-family: var(--font-default);
 }
 
 .StandardTheme__ul {

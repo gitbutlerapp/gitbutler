@@ -55,7 +55,7 @@
 		lineSelection,
 		tabSize,
 		wrapText,
-		diffFont = 'var(--fontfamily-mono)',
+		diffFont = 'var(--font-mono)',
 		clearLineSelection,
 		numberHeaderWidth,
 		onQuoteSelection,
