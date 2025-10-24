@@ -161,9 +161,9 @@ CONFIG_PATH=$(readlink -f "$PWD/../crates/gitbutler-tauri/tauri.conf.$CHANNEL.js
 jq '.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
 
 if [ "$OS" = "windows" ]; then
-	FEATURES="windows"
+	FEATURES="builtin-but,windows"
 else
-	FEATURES=""
+	FEATURES="builtin-but"
 fi
 
 # set the VERSION and CHANNEL as an environment variables so that they available in the but CLI
