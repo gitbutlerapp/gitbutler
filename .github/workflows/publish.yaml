@@ -232,7 +232,6 @@ jobs:
           rm -rf tauri-aux-artifacts
           mkdir -p tauri-aux-artifacts
           cp target/release/gitbutler-git-askpass.exe tauri-aux-artifacts/
-          cp target/release/but.exe tauri-aux-artifacts/
 
       - name: Upload Windows Aux Binary Artifacts
         uses: actions/upload-artifact@v4

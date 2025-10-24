@@ -161,8 +161,10 @@ CONFIG_PATH=$(readlink -f "$PWD/../crates/gitbutler-tauri/tauri.conf.$CHANNEL.js
 jq '.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
 
 if [ "$OS" = "windows" ]; then
-  # on Windows, `builtin-but` is neither supported nor needed
-	FEATURES="windows"
+  # WARNING: when removing `builtin-but` just must ensure that `but` is built
+  #          as part of the 'beforeBuildCommand' in tauri.conf AND it must be injected
+  #          via 'inject-git-binaries.sh'.
+	FEATURES="builtin-but,windows"
 else
 	FEATURES="builtin-but"
 fi

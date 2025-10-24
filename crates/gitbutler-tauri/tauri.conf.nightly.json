@@ -2,7 +2,7 @@
 	"productName": "GitButler Nightly",
 	"identifier": "com.gitbutler.app.nightly",
 	"build": {
-		"beforeBuildCommand": "[ \"$CI\" = \"true\" ] || pnpm build:desktop -- --mode nightly && cargo build --release -p gitbutler-git && cargo build --release -p but && bash ./crates/gitbutler-tauri/inject-git-binaries.sh"
+		"beforeBuildCommand": "[ \"$CI\" = \"true\" ] || pnpm build:desktop -- --mode nightly && cargo build --release -p gitbutler-git && bash ./crates/gitbutler-tauri/inject-git-binaries.sh"
 	},
 	"bundle": {
 		"active": true,
@@ -13,7 +13,7 @@
 			"icons/nightly/icon.icns",
 			"icons/nightly/icon.ico"
 		],
-		"externalBin": ["gitbutler-git-setsid", "gitbutler-git-askpass", "but"]
+		"externalBin": ["gitbutler-git-setsid", "gitbutler-git-askpass"]
 	},
 	"plugins": {
 		"updater": {
