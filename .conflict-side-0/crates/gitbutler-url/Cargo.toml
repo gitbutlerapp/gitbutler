@@ -1,0 +1,11 @@
+[package]
+name = "gitbutler-url"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+[dependencies]
+url = { version = "2.5.4", features = ["serde"] }
+thiserror.workspace = true
+bstr.workspace = true

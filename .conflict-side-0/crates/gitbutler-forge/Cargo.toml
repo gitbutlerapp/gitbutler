@@ -1,0 +1,13 @@
+[package]
+name = "gitbutler-forge"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+[dependencies]
+serde = { workspace = true, features = ["std"] }
+anyhow = "1.0.100"
+gitbutler-fs.workspace = true
+but-github.workspace = true
+git-url-parse = "0.6.0"
