@@ -219,9 +219,9 @@
 										>
 										.
 									</li>
-								{#if showSymlink}
-									<CliSymLink class="m-t-2 m-b-6" />
-								{/if}
+									{#if showSymlink}
+										<CliSymLink class="m-t-2 m-b-6" />
+									{/if}
 									<li>
 										Cursor / VSCode setup. <Link
 											class="clr-text-2"

@@ -126,18 +126,18 @@
 			<div class="text-12 password-reset">
 				<a href={routesService.resetPasswordPath()}>Forgot password?</a>
 			</div>
-	</div>
+		</div>
 
-	{#if confirmationSent}
-		<InfoMessage filled outlined={false} style="success" class="m-b-16">
-			{#snippet content()}
+		{#if confirmationSent}
+			<InfoMessage filled outlined={false} style="success" class="m-b-16">
+				{#snippet content()}
 					<p>Confirmation email sent! Please check your inbox.</p>
 				{/snippet}
-		</InfoMessage>
-	{:else if error}
-		<div class="wiggle-animation">
-			<InfoMessage filled outlined={false} style="error" class="m-b-16">
-				{#snippet content()}
+			</InfoMessage>
+		{:else if error}
+			<div class="wiggle-animation">
+				<InfoMessage filled outlined={false} style="error" class="m-b-16">
+					{#snippet content()}
 						{#if errorCode === 'email_not_verified'}
 							{#if !resendDisabled}
 								<p>

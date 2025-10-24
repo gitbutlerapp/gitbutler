@@ -38,11 +38,11 @@
 			<Icon name={getToolIcon(toolCall.name)} color="var(--clr-text-3)" />
 		{/if}
 
-	<p class="text-13 text-left full-width truncate">{toolCall.name}</p>
+		<p class="text-13 text-left full-width truncate">{toolCall.name}</p>
 
-	{#if requiresApproval}
-		<div class="flex gap-4 m-l-8">
-			<AsyncButton
+		{#if requiresApproval}
+			<div class="flex gap-4 m-l-8">
+				<AsyncButton
 					kind="outline"
 					size="tag"
 					action={async () => await requiresApproval.onRejection(toolCall.id)}>Reject</AsyncButton

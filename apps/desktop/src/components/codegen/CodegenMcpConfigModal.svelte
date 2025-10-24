@@ -44,11 +44,11 @@
 							>Claude Code documentation</Link
 						>
 					{/snippet}
-			</EmptyStatePlaceholder>
-		{:else}
-			<p class="text-12 text-body clr-text-2 m-b-10">
-				Select the MCP Servers for this session. For installing additional MCP servers, check the
-				<Link href="https://docs.anthropic.com/en/docs/claude-code/mcp#installing-mcp-servers"
+				</EmptyStatePlaceholder>
+			{:else}
+				<p class="text-12 text-body clr-text-2 m-b-10">
+					Select the MCP Servers for this session. For installing additional MCP servers, check the
+					<Link href="https://docs.anthropic.com/en/docs/claude-code/mcp#installing-mcp-servers"
 						>Claude Code documentation</Link
 					>
 				</p>
