@@ -600,15 +600,13 @@
 			use:focusable={{ vertical: true }}
 		>
 			{#if stableStackId && selection?.branchName && selection?.codegen}
-				<div class="details-view__codegen">
-					<CodegenMessages
-						isWorkspace
-						projectId={stableProjectId}
-						stackId={stableStackId}
-						branchName={selection.branchName}
-						onclose={onclosePreview}
-					/>
-				</div>
+				<CodegenMessages
+					isWorkspace
+					projectId={stableProjectId}
+					stackId={stableStackId}
+					branchName={selection.branchName}
+					onclose={onclosePreview}
+				/>
 			{:else}
 				<div class="details-view__inner">
 					<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
@@ -782,9 +780,7 @@
 	}
 
 	/* Needed for `focusCursor.svelte` to work correctly on `Drawer` components . */
-	.details-view__codegen,
 	.details-view__inner {
-		--message-max-width: 620px;
 		display: flex;
 		position: relative;
 		flex-direction: column;
