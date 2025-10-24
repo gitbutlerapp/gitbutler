@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use anyhow::{Context, anyhow, bail};
 
 pub fn get_cli_path() -> anyhow::Result<std::path::PathBuf> {
@@ -21,22 +19,18 @@ pub fn do_install_cli() -> anyhow::Result<()> {
         );
     }
 
-    let link_path = Path::new("/usr/local/bin/but");
+    let link_path = "/usr/local/bin/but";
     match std::fs::symlink_metadata(link_path) {
         Ok(md) => {
             if !md.is_symlink() {
-                bail!(
-                    "Refusing to install symlink onto existing non-symlink at '{}'",
-                    link_path.display()
-                );
+                bail!("Refusing to install symlink onto existing non-symlink at '{link_path}'");
             }
-            let current_link = std::fs::read_link(link_path).context(format!(
-                "error reading existing link: {}",
-                link_path.display()
-            ))?;
+            let current_link = std::fs::read_link(link_path)
+                .context(format!("error reading existing link: {link_path}"))?;
             if current_link == cli_path {
                 return Ok(());
             }
+            ensure_cli_path_exists_prior_to_link(&cli_path)?;
             #[cfg(not(windows))]
             if std::fs::remove_file(link_path)
                 .and_then(|_| std::os::unix::fs::symlink(&cli_path, link_path))
@@ -46,6 +40,7 @@ pub fn do_install_cli() -> anyhow::Result<()> {
             }
         }
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            ensure_cli_path_exists_prior_to_link(&cli_path)?;
             #[cfg(not(windows))]
             if std::os::unix::fs::symlink(&cli_path, link_path).is_ok() {
                 return Ok(());
@@ -61,10 +56,9 @@ pub fn do_install_cli() -> anyhow::Result<()> {
                 "-e",
                 &format!(
                     "do shell script \" \
-                    ln -sf \'{}\' \'{}\' \
+                    ln -sf \'{}\' \'{link_path}\' \
                 \" with administrator privileges",
-                    cli_path.display(),
-                    link_path.display(),
+                    cli_path.display()
                 ),
             ])
             .stdout(std::process::Stdio::inherit())
@@ -79,9 +73,15 @@ pub fn do_install_cli() -> anyhow::Result<()> {
         }
     } else {
         Err(anyhow!(
-            "Would probably need to run \"ln -sf '{}' '{}'\" with root permissions",
+            "Would probably need to run \"ln -sf '{}' '{link_path}'\" with root permissions",
             cli_path.display(),
-            link_path.display()
         ))
     }
+}
+
+fn ensure_cli_path_exists_prior_to_link(cli_path: &std::path::Path) -> anyhow::Result<()> {
+    if cli_path.exists() {
+        return Ok(());
+    }
+    bail!("Run `CARGO_TARGET_DIR=$PWD/target/tauri cargo build -p but` to build the `but` binary")
 }
