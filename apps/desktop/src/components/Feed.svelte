@@ -328,17 +328,23 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		min-height: 100%;
+		height: 100%;
 		padding: 40px;
+		overflow-x: hidden;
+		overflow-y: auto;
 		background-color: var(--clr-bg-2);
+		scrollbar-width: none; /* Firefox */
+		-ms-overflow-style: none; /* IE 10+ */
+	}
+	.feed__empty-state::-webkit-scrollbar {
+		display: none; /* Chrome, Safari, Opera */
 	}
 
 	.feed__empty-state__content {
 		display: flex;
 		flex-direction: column;
 		max-width: 440px;
-		margin-bottom: 40px;
+		margin: auto 0;
 	}
 
 	.feed__empty-state__benefits {
