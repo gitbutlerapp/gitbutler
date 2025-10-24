@@ -638,7 +638,7 @@
 		padding: 0.75rem;
 		border: 1px solid var(--border-color, #eaeaea);
 		border-radius: 4px;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 		resize: vertical;
 	}
 
@@ -695,7 +695,7 @@
 			overflow: hidden;
 			border-radius: 4px;
 			background: var(--background-alt, #f5f5f5);
-			font-family: var(--fontfamily-mono);
+			font-family: var(--font-mono);
 			text-overflow: ellipsis;
 		}
 	}

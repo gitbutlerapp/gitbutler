@@ -39,7 +39,7 @@
 		background-color: var(--clr-bg-1-muted);
 		color: var(--clr-text-1);
 		font-size: 12px;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 		word-break: break-all;
 	}
 

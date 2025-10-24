@@ -319,7 +319,7 @@
 		padding: 0.75rem;
 		border: 1px solid var(--border-color, #eaeaea);
 		border-radius: 4px;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 		resize: vertical;
 	}
 
@@ -363,7 +363,7 @@
 		border-radius: 3px;
 		background-color: #f1f5f9;
 		font-size: 0.9em;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 	}
 
 	.readme-content :global(pre) {

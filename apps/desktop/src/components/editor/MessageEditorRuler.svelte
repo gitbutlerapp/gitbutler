@@ -50,8 +50,9 @@
 		top: 0;
 		left: 0;
 		padding: var(--lexical-input-client-padding);
+		color: red;
 		font-size: var(--lexical-input-font-size);
-		font-family: var(--fontfamily-mono);
+		font-family: var(--code-block-font);
 		opacity: 0;
 	}
 </style>

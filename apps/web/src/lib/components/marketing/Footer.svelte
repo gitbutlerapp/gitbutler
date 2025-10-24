@@ -204,7 +204,7 @@
 		margin-bottom: 38px;
 		font-size: 60px;
 		line-height: 1.1;
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 	}
 
 	.download-links {

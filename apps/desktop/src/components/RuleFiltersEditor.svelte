@@ -352,7 +352,7 @@
 	.claude-command-copy__code {
 		font-size: 12px;
 		line-height: 1.5;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 		word-break: break-all;
 		opacity: 0.6;
 		transition: opacity var(--transition-fast);

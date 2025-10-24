@@ -120,6 +120,6 @@
 	.mcp-server__caption {
 		color: var(--clr-text-2);
 		font-size: 11px;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 	}
 </style>

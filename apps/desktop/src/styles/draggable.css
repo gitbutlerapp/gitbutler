@@ -92,7 +92,7 @@
 .dragchip-hunk-container {
 	display: flex;
 	font-size: 12px;
-	font-family: var(--fontfamily-mono);
+	font-family: var(--font-mono);
 }
 
 .dragchip-hunk-decorator {

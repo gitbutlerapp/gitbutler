@@ -183,7 +183,7 @@
 		display: block;
 		width: fit-content;
 		font-size: 48px;
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 		text-underline-offset: 4px;
 
 		&:hover {

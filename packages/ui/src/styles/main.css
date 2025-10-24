@@ -1,6 +1,4 @@
-/* BASE */
-@import './core/reset.css';
-@import './core/general.css';
+/* CORE */
 @import './core/variables.css';
 
 /* SHARABLE */

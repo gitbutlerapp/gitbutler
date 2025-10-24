@@ -16,7 +16,7 @@
 	color: var(--clr-text-3) !important;
 	font-size: var(--lexical-default-font-size) !important;
 	line-height: var(--text-lineheight-body);
-	font-family: var(--fontfamily-default) !important;
+	font-family: var(--font-default) !important;
 }
 
 /* STYLE CONTEXT */
@@ -264,7 +264,7 @@
 	border-radius: var(--radius-s);
 	background: var(--clr-theme-scale-pop-80);
 	color: var(--clr-theme-scale-pop-30);
-	font-family: var(--fontfamily-mono);
+	font-family: var(--font-mono);
 	cursor: pointer;
 }
 

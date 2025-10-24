@@ -43,7 +43,7 @@
 		max-width: 100%;
 		padding: 0;
 		border: none;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 	}
 
 	.line {

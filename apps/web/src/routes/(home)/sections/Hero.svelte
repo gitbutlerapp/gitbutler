@@ -100,7 +100,7 @@
 		margin-bottom: 32px;
 		font-size: 82px;
 		line-height: 1;
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 		text-wrap: balance;
 	}
 

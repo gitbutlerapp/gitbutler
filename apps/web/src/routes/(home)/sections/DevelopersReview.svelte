@@ -111,7 +111,7 @@
 		font-weight: 400;
 		font-size: 70px;
 		line-height: 90%;
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 
 		@media (max-width: 600px) {
 			// csslint ignore

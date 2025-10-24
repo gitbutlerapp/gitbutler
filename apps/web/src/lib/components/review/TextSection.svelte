@@ -62,7 +62,7 @@
 		width: 100%;
 		height: 100px;
 		font-size: large;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 	}
 
 	.editor {

@@ -156,7 +156,7 @@
 
 	.release-version {
 		font-size: 42px;
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 	}
 
 	.release-date {
@@ -167,14 +167,14 @@
 
 	.release-notes-content {
 		font-size: 13px;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 	}
 
 	.download-links-toggle {
 		width: fit-content;
 		color: var(--clr-text-2);
 		font-size: 13px;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 
 		text-underline-offset: 3px;
 		transition: color 0.1s ease;
@@ -219,7 +219,7 @@
 		width: fit-content;
 		background-color: var(--clr-bg-2);
 		font-size: 12px;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 		text-decoration: underline;
 		text-underline-offset: 2px;
 		transition: all 0.1s ease;

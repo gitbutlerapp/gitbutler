@@ -178,7 +178,7 @@
 		z-index: 2;
 		font-size: 42px;
 		line-height: 1;
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 	}
 
 	.download-btn-icon {
@@ -190,7 +190,7 @@
 		z-index: 2;
 		margin-top: 2px;
 		font-size: 14px;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 		text-transform: uppercase;
 		opacity: 0.6;
 		pointer-events: none;

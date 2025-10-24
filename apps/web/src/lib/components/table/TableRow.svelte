@@ -339,7 +339,7 @@
 	.dynclmn-number {
 		justify-content: flex-end;
 		font-size: 12px;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 		text-align: right;
 	}
 

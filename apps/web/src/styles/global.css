@@ -26,7 +26,6 @@ body {
 	min-height: 100dvh;
 	overflow-x: hidden;
 	background: var(--clr-bg-2);
-	font-family: var(--fontfamily-default);
 
 	&.menu-open {
 		position: fixed;

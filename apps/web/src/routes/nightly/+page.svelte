@@ -269,7 +269,7 @@
 	.nightly-hero__header-labels {
 		display: flex;
 		flex-direction: column;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 	}
 
 	.nightly-hero__header-labels h1 {
@@ -277,7 +277,7 @@
 		margin-bottom: 6px;
 		font-size: 48px;
 		line-height: 1;
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 	}
 
 	.nightly-hero__header-details {
@@ -332,7 +332,7 @@
 	.latest-nightly__header {
 		font-size: 40px;
 		line-height: 1;
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 
 		& .arrow-down {
 			display: inline-block;
@@ -382,7 +382,7 @@
 		color: var(--clr-theme-warn-soft);
 		font-size: 13px;
 		line-height: 1.5;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 
 		& a {
 			color: var(--clr-theme-warn);
@@ -403,12 +403,12 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-xl);
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 
 		& h3 {
 			padding: 16px 24px 12px;
 			font-size: 40px;
-			font-family: var(--fontfamily-accent);
+			font-family: var(--font-accent);
 		}
 	}
 

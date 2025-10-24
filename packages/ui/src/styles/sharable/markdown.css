@@ -69,7 +69,7 @@
 		border-radius: var(--radius-s);
 		background-color: var(--clr-scale-ntrl-80);
 		font-size: 92%;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 	}
 
 	.markdown pre {
