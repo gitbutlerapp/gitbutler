@@ -59,7 +59,9 @@
 				<div class="compaction-summary__arrow" class:expanded>
 					<Icon name="chevron-right" />
 				</div>
-				<p class="text-13 text-italic clr-text-2">Conversation compacted to preserve context</p>
+				<p class="text-13 text-italic clr-text-2 truncate">
+					Conversation compacted to preserve context
+				</p>
 			</button>
 			{#if expanded}
 				<div class="text-13 compaction-summary__content">
@@ -77,6 +79,7 @@
 
 	.compaction-summary {
 		width: fit-content;
+		max-width: 100%;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
