@@ -3,10 +3,10 @@ fn main() {
         match channel.as_str() {
             "nightly" => "com.gitbutler.app.nightly",
             "release" => "com.gitbutler.app",
-            _ => "com.gitbutler.app",
+            _ => "com.gitbutler.app.dev",
         }
     } else {
-        "com.gitbutler.app"
+        "com.gitbutler.app.dev"
     };
     println!("cargo:rustc-env=IDENTIFIER={identifier}");
 }
