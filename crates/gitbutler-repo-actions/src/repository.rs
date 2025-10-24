@@ -199,7 +199,7 @@ impl RepoActionsExt for CommandContext {
         if use_git_executable {
             let path = self.project().git_dir().to_owned();
             let remote = branch.remote().to_string();
-            std::thread::spawn(move || {
+            match std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
                     .unwrap()
                     .block_on(gitbutler_git::push(
@@ -215,16 +215,20 @@ impl RepoActionsExt for CommandContext {
                     ))
             })
             .join()
-            .unwrap()
-            .map_err(|err| {
-                match err {
+            .unwrap() {
+                Ok(result) => Ok(result),
+                Err(err) => match err {
                     gitbutler_git::Error::ForcePushProtection(_) => {
-                        anyhow!("The force push was blocked because the remote branch contains commits that would be overwritten")
-                            .context(Code::GitForcePushProtection)
+                        Err(anyhow!("The force push was blocked because the remote branch contains commits that would be overwritten")
+                            .context(Code::GitForcePushProtection))
                     },
-                    _ => err.into()
+                    gitbutler_git::Error::GerritNoNewChanges(_) => {
+                        // Treat "no new changes" as success for Gerrit
+                        Ok("".to_string())
+                    },
+                    _ => Err(err.into())
                 }
-            })
+            }
         } else {
             let auth_flows = credentials::help(self, branch.remote())?;
             for (mut remote, callbacks) in auth_flows {
