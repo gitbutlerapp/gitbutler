@@ -18,75 +18,93 @@ pub struct Args {
     /// Run pre-push hooks
     #[clap(long, short = 'r', default_value_t = true)]
     pub run_hooks: bool,
-    /// Mark change as work-in-progress (Gerrit)
-    #[clap(long, short = 'w', group = "gerrit", hide = true)]
+    /// Mark change as work-in-progress (Gerrit). Mutually exclusive with --ready.
+    #[clap(long, short = 'w', conflicts_with = "ready", hide = true)]
     pub wip: bool,
-    /// Mark change as ready for review (Gerrit)  
-    #[clap(long, short = 'y', group = "gerrit", hide = true)]
+    /// Mark change as ready for review (Gerrit). This is the default state.
+    #[clap(long, short = 'y', conflicts_with = "wip", hide = true)]
     pub ready: bool,
-    /// Add hashtag to change (Gerrit)
-    #[clap(long, short = 'a', group = "gerrit", value_name = "TAG", hide = true)]
-    pub hashtag: Option<String>,
-    /// Add custom topic to change (Gerrit)
-    #[clap(long, short = 't', group = "gerrit", value_name = "TOPIC", hide = true)]
+    /// Add hashtag(s) to change (Gerrit). Can be used multiple times.
+    #[clap(long, short = 'a', alias = "tag", value_name = "TAG", hide = true)]
+    pub hashtag: Vec<String>,
+    /// Add custom topic to change (Gerrit). At most one topic can be set.
+    #[clap(
+        long,
+        short = 't',
+        value_name = "TOPIC",
+        conflicts_with = "topic_from_branch",
+        hide = true
+    )]
     pub topic: Option<String>,
     /// Use branch name as topic (Gerrit)
     #[clap(
         long = "tb",
         alias = "topic-from-branch",
-        group = "gerrit",
+        conflicts_with = "topic",
         hide = true
     )]
     pub topic_from_branch: bool,
-    /// Use branch name as hashtag (Gerrit)
-    #[clap(
-        long = "ab",
-        alias = "hashtag-from-branch",
-        group = "gerrit",
-        hide = true
-    )]
-    pub hashtag_from_branch: bool,
+    /// Mark change as private (Gerrit)
+    #[clap(long, short = 'p', hide = true)]
+    pub private: bool,
 }
 
-fn get_gerrit_flag(
+fn get_gerrit_flags(
     args: &Args,
     branch_name: &str,
     gerrit_mode: bool,
-) -> anyhow::Result<Option<but_gerrit::PushFlag>> {
+) -> anyhow::Result<Vec<but_gerrit::PushFlag>> {
     let has_gerrit_flag = args.wip
         || args.ready
-        || args.hashtag.is_some()
+        || !args.hashtag.is_empty()
         || args.topic.is_some()
         || args.topic_from_branch
-        || args.hashtag_from_branch;
+        || args.private;
 
     if has_gerrit_flag && !gerrit_mode {
         return Err(anyhow::anyhow!(
-            "Gerrit push flags (--wip, --ready, --hashtag, --topic, --topic-from-branch, --hashtag-from-branch) can only be used when gerrit_mode is enabled for this repository"
+            "Gerrit push flags (--wip, --ready, --hashtag/--tag, --topic, --topic-from-branch, --private) can only be used when gerrit_mode is enabled for this repository"
         ));
     }
 
+    if !gerrit_mode {
+        return Ok(vec![]);
+    }
+
+    let mut flags = Vec::new();
+
+    // Handle Wip/Ready - Ready is default if neither is specified
     if args.wip {
-        Ok(Some(but_gerrit::PushFlag::Wip))
-    } else if args.ready {
-        Ok(Some(but_gerrit::PushFlag::Ready))
-    } else if let Some(hashtag) = &args.hashtag {
+        flags.push(but_gerrit::PushFlag::Wip);
+    } else {
+        // Default to Ready, or explicit Ready
+        flags.push(but_gerrit::PushFlag::Ready);
+    }
+
+    // Handle hashtags - can be multiple
+    for hashtag in &args.hashtag {
         if hashtag.trim().is_empty() {
             return Err(anyhow::anyhow!("Hashtag cannot be empty"));
         }
-        Ok(Some(but_gerrit::PushFlag::Hashtag(hashtag.clone())))
-    } else if let Some(topic) = &args.topic {
+        flags.push(but_gerrit::PushFlag::Hashtag(hashtag.clone()));
+    }
+
+    // Handle topic - at most one
+    if let Some(topic) = &args.topic {
         if topic.trim().is_empty() {
             return Err(anyhow::anyhow!("Topic cannot be empty"));
         }
-        Ok(Some(but_gerrit::PushFlag::Topic(topic.clone())))
+        flags.push(but_gerrit::PushFlag::Topic(topic.clone()));
     } else if args.topic_from_branch {
-        Ok(Some(but_gerrit::PushFlag::Topic(branch_name.to_string())))
-    } else if args.hashtag_from_branch {
-        Ok(Some(but_gerrit::PushFlag::Hashtag(branch_name.to_string())))
-    } else {
-        Ok(None)
+        flags.push(but_gerrit::PushFlag::Topic(branch_name.to_string()));
     }
+
+    // Handle private flag
+    if args.private {
+        flags.push(but_gerrit::PushFlag::Private);
+    }
+
+    Ok(flags)
 }
 
 pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()> {
@@ -105,11 +123,8 @@ pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()>
     // Find stack_id from branch name
     let stack_id = find_stack_id_by_branch_name(project, &branch_name)?;
 
-    // Convert CLI args to gerrit flag with validation
-    let gerrit_flag = get_gerrit_flag(args, &branch_name, gerrit_mode)?;
-
-    // Convert Option<PushFlag> to Vec<PushFlag>
-    let gerrit_flags = gerrit_flag.into_iter().collect::<Vec<_>>();
+    // Convert CLI args to gerrit flags with validation
+    let gerrit_flags = get_gerrit_flags(args, &branch_name, gerrit_mode)?;
 
     // Call push_stack
     let result: PushResult = but_api::stack::push_stack(
@@ -151,14 +166,26 @@ pub fn print_help() {
     if is_gerrit_enabled_for_help() {
         println!();
         println!("Gerrit Options:");
-        println!("  -w, --wip                         Mark change as work-in-progress (Gerrit)");
-        println!("  -y, --ready                       Mark change as ready for review (Gerrit)");
-        println!("  -a, --hashtag <TAG>               Add hashtag to change (Gerrit)");
-        println!("      --ab, --hashtag-from-branch   Use branch name as hashtag (Gerrit)");
-        println!("  -t, --topic <TOPIC>               Add custom topic to change (Gerrit)");
-        println!("      --tb, --topic-from-branch     Use branch name as topic (Gerrit)");
+        println!("  -w, --wip                         Mark change as work-in-progress");
+        println!("  -y, --ready                       Mark change as ready for review (default)");
+        println!(
+            "  -a, --hashtag, --tag <TAG>        Add hashtag to change (can be used multiple times)"
+        );
+        println!("  -t, --topic <TOPIC>               Add custom topic to change");
+        println!("      --tb, --topic-from-branch     Use branch name as topic");
+        println!("  -p, --private                     Mark change as private");
         println!();
-        println!("Note: Only one Gerrit option can be used at a time.");
+        println!("Notes:");
+        println!("  - --wip and --ready are mutually exclusive. Ready is the default state.");
+        println!(
+            "  - --topic and --topic-from-branch are mutually exclusive. At most one topic can be set."
+        );
+        println!(
+            "  - Multiple hashtags can be specified by using --hashtag (or --tag) multiple times."
+        );
+        println!(
+            "  - Multiple flags can be combined (e.g., --ready --private --tag tag1 --hashtag tag2)."
+        );
     }
 
     println!("  -h, --help                        Print help");
@@ -285,4 +312,313 @@ fn find_stack_id_by_branch_name(project: &Project, branch_name: &str) -> anyhow:
         branch_name,
         format_branch_suggestions(&available_branches)
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_gerrit_flags_non_gerrit_mode() {
+        let args = Args {
+            branch_id: "test".to_string(),
+            with_force: true,
+            skip_force_push_protection: false,
+            run_hooks: true,
+            wip: false,
+            ready: false,
+            hashtag: vec![],
+            topic: None,
+            topic_from_branch: false,
+            private: false,
+        };
+
+        let result = get_gerrit_flags(&args, "test-branch", false);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), vec![]);
+    }
+
+    #[test]
+    fn test_get_gerrit_flags_error_when_flags_without_gerrit_mode() {
+        let args = Args {
+            branch_id: "test".to_string(),
+            with_force: true,
+            skip_force_push_protection: false,
+            run_hooks: true,
+            wip: true,
+            ready: false,
+            hashtag: vec![],
+            topic: None,
+            topic_from_branch: false,
+            private: false,
+        };
+
+        let result = get_gerrit_flags(&args, "test-branch", false);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("can only be used when gerrit_mode is enabled")
+        );
+    }
+
+    #[test]
+    fn test_get_gerrit_flags_default_ready() {
+        let args = Args {
+            branch_id: "test".to_string(),
+            with_force: true,
+            skip_force_push_protection: false,
+            run_hooks: true,
+            wip: false,
+            ready: false,
+            hashtag: vec![],
+            topic: None,
+            topic_from_branch: false,
+            private: false,
+        };
+
+        let result = get_gerrit_flags(&args, "test-branch", true);
+        assert!(result.is_ok());
+        let flags = result.unwrap();
+        assert_eq!(flags.len(), 1);
+        assert!(matches!(flags[0], but_gerrit::PushFlag::Ready));
+    }
+
+    #[test]
+    fn test_get_gerrit_flags_wip() {
+        let args = Args {
+            branch_id: "test".to_string(),
+            with_force: true,
+            skip_force_push_protection: false,
+            run_hooks: true,
+            wip: true,
+            ready: false,
+            hashtag: vec![],
+            topic: None,
+            topic_from_branch: false,
+            private: false,
+        };
+
+        let result = get_gerrit_flags(&args, "test-branch", true);
+        assert!(result.is_ok());
+        let flags = result.unwrap();
+        assert_eq!(flags.len(), 1);
+        assert!(matches!(flags[0], but_gerrit::PushFlag::Wip));
+    }
+
+    #[test]
+    fn test_get_gerrit_flags_multiple_hashtags() {
+        let args = Args {
+            branch_id: "test".to_string(),
+            with_force: true,
+            skip_force_push_protection: false,
+            run_hooks: true,
+            wip: false,
+            ready: false,
+            hashtag: vec!["tag1".to_string(), "tag2".to_string(), "tag3".to_string()],
+            topic: None,
+            topic_from_branch: false,
+            private: false,
+        };
+
+        let result = get_gerrit_flags(&args, "test-branch", true);
+        assert!(result.is_ok());
+        let flags = result.unwrap();
+        assert_eq!(flags.len(), 4); // Ready + 3 hashtags
+
+        let ready_count = flags
+            .iter()
+            .filter(|f| matches!(f, but_gerrit::PushFlag::Ready))
+            .count();
+        assert_eq!(ready_count, 1);
+
+        let hashtag_count = flags
+            .iter()
+            .filter(|f| matches!(f, but_gerrit::PushFlag::Hashtag(_)))
+            .count();
+        assert_eq!(hashtag_count, 3);
+    }
+
+    #[test]
+    fn test_get_gerrit_flags_topic_from_custom() {
+        let args = Args {
+            branch_id: "test".to_string(),
+            with_force: true,
+            skip_force_push_protection: false,
+            run_hooks: true,
+            wip: false,
+            ready: false,
+            hashtag: vec![],
+            topic: Some("custom-topic".to_string()),
+            topic_from_branch: false,
+            private: false,
+        };
+
+        let result = get_gerrit_flags(&args, "test-branch", true);
+        assert!(result.is_ok());
+        let flags = result.unwrap();
+        assert_eq!(flags.len(), 2); // Ready + Topic
+
+        let topic_flags: Vec<_> = flags
+            .iter()
+            .filter_map(|f| match f {
+                but_gerrit::PushFlag::Topic(t) => Some(t.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(topic_flags, vec!["custom-topic"]);
+    }
+
+    #[test]
+    fn test_get_gerrit_flags_topic_from_branch() {
+        let args = Args {
+            branch_id: "test".to_string(),
+            with_force: true,
+            skip_force_push_protection: false,
+            run_hooks: true,
+            wip: false,
+            ready: false,
+            hashtag: vec![],
+            topic: None,
+            topic_from_branch: true,
+            private: false,
+        };
+
+        let result = get_gerrit_flags(&args, "my-branch-name", true);
+        assert!(result.is_ok());
+        let flags = result.unwrap();
+        assert_eq!(flags.len(), 2); // Ready + Topic
+
+        let topic_flags: Vec<_> = flags
+            .iter()
+            .filter_map(|f| match f {
+                but_gerrit::PushFlag::Topic(t) => Some(t.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(topic_flags, vec!["my-branch-name"]);
+    }
+
+    #[test]
+    fn test_get_gerrit_flags_private() {
+        let args = Args {
+            branch_id: "test".to_string(),
+            with_force: true,
+            skip_force_push_protection: false,
+            run_hooks: true,
+            wip: false,
+            ready: false,
+            hashtag: vec![],
+            topic: None,
+            topic_from_branch: false,
+            private: true,
+        };
+
+        let result = get_gerrit_flags(&args, "test-branch", true);
+        assert!(result.is_ok());
+        let flags = result.unwrap();
+        assert_eq!(flags.len(), 2); // Ready + Private
+
+        let private_count = flags
+            .iter()
+            .filter(|f| matches!(f, but_gerrit::PushFlag::Private))
+            .count();
+        assert_eq!(private_count, 1);
+    }
+
+    #[test]
+    fn test_get_gerrit_flags_all_combined() {
+        let args = Args {
+            branch_id: "test".to_string(),
+            with_force: true,
+            skip_force_push_protection: false,
+            run_hooks: true,
+            wip: true,
+            ready: false,
+            hashtag: vec!["tag1".to_string(), "tag2".to_string()],
+            topic: Some("custom-topic".to_string()),
+            topic_from_branch: false,
+            private: true,
+        };
+
+        let result = get_gerrit_flags(&args, "test-branch", true);
+        assert!(result.is_ok());
+        let flags = result.unwrap();
+        assert_eq!(flags.len(), 5); // Wip + 2 hashtags + Topic + Private
+
+        let wip_count = flags
+            .iter()
+            .filter(|f| matches!(f, but_gerrit::PushFlag::Wip))
+            .count();
+        assert_eq!(wip_count, 1);
+
+        let hashtag_count = flags
+            .iter()
+            .filter(|f| matches!(f, but_gerrit::PushFlag::Hashtag(_)))
+            .count();
+        assert_eq!(hashtag_count, 2);
+
+        let topic_count = flags
+            .iter()
+            .filter(|f| matches!(f, but_gerrit::PushFlag::Topic(_)))
+            .count();
+        assert_eq!(topic_count, 1);
+
+        let private_count = flags
+            .iter()
+            .filter(|f| matches!(f, but_gerrit::PushFlag::Private))
+            .count();
+        assert_eq!(private_count, 1);
+    }
+
+    #[test]
+    fn test_get_gerrit_flags_empty_hashtag_error() {
+        let args = Args {
+            branch_id: "test".to_string(),
+            with_force: true,
+            skip_force_push_protection: false,
+            run_hooks: true,
+            wip: false,
+            ready: false,
+            hashtag: vec!["  ".to_string()],
+            topic: None,
+            topic_from_branch: false,
+            private: false,
+        };
+
+        let result = get_gerrit_flags(&args, "test-branch", true);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Hashtag cannot be empty")
+        );
+    }
+
+    #[test]
+    fn test_get_gerrit_flags_empty_topic_error() {
+        let args = Args {
+            branch_id: "test".to_string(),
+            with_force: true,
+            skip_force_push_protection: false,
+            run_hooks: true,
+            wip: false,
+            ready: false,
+            hashtag: vec![],
+            topic: Some("  ".to_string()),
+            topic_from_branch: false,
+            private: false,
+        };
+
+        let result = get_gerrit_flags(&args, "test-branch", true);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Topic cannot be empty")
+        );
+    }
 }

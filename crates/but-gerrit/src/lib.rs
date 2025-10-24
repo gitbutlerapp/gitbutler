@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::parse::PushOutput;
 
 pub mod parse;
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum PushFlag {
     Wip,
