@@ -88,7 +88,7 @@ default = ["custom-protocol", "devtools"]
 ## A forwarding to all crates that have windows-specific adjustments for testing on non-Windows.
 windows = []
 ## If enabled, we will pretend to be `but` when the binary filename is `but`.
-builtin-but = ["dep:but"]
+builtin-but = ["dep:but", "but-action/builtin-but"]
 devtools = ["tauri/devtools"]
 
 # this feature is used for production builds where `devPath` points to the filesystem
