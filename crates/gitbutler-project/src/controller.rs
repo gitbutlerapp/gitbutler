@@ -147,7 +147,7 @@ impl Controller {
         }
 
         // Check if the remote is a Gerrit remote and set config accordingly
-        if let Ok(true) = check_gerrit_remote(&repo) {
+        if let Ok(true) = is_gerrit_remote(&repo) {
             let gerrit_config = GitConfigSettings {
                 gitbutler_gerrit_mode: Some(true),
                 ..Default::default()
@@ -326,25 +326,24 @@ fn delete_gitbutler_references(repo: &gix::Repository) -> Result<()> {
     Ok(())
 }
 
-fn check_gerrit_remote(repo: &gix::Repository) -> Result<bool> {
-    use std::process::Command;
-    let remote_names = repo.remote_names();
-    let mut found_remote = None;
-    for remote_name in remote_names {
-        if repo.find_remote(remote_name.as_ref()).is_ok() {
-            found_remote = Some(remote_name.to_string());
-            break;
-        }
-    }
-    let remote_name = found_remote.ok_or_else(|| anyhow!("No push remotes found"))?;
+pub fn is_gerrit_remote(repo: &gix::Repository) -> anyhow::Result<bool> {
+    use gix::bstr::ByteSlice;
+    use gix::remote::Direction;
 
-    let git_dir = repo.git_dir();
-    let output = Command::new("git")
-        .arg("ls-remote")
-        .arg(&remote_name)
-        .arg("refs/notes/review")
-        .current_dir(git_dir)
-        .output()?;
+    // Magic refspec that we use to determine if the remote is a Gerrit remote
+    let gerrit_notes_ref = "refs/notes/review";
 
-    Ok(output.status.success() && !output.stdout.is_empty())
+    let remote_name = repo
+        .remote_default_name(Direction::Fetch)
+        .ok_or_else(|| anyhow::anyhow!("No fetch remotes found"))?;
+
+    let mut remote = repo.find_remote(remote_name.as_bstr())?;
+    remote.replace_refspecs(vec![gerrit_notes_ref], Direction::Fetch)?;
+    remote = remote.with_fetch_tags(gix::remote::fetch::Tags::None);
+
+    let (map, _) = remote
+        .connect(Direction::Fetch)?
+        .ref_map(gix::progress::Discard, Default::default())?;
+
+    Ok(!map.remote_refs.is_empty())
 }
