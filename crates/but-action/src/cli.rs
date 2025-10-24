@@ -14,8 +14,13 @@ pub fn do_install_cli() -> anyhow::Result<()> {
     let cli_path = get_cli_path()?;
     if cfg!(windows) {
         bail!(
-            "CLI installation is not supported on Windows. Please install manually by placing '{}' in PATH.",
-            cli_path.display()
+            "CLI installation is not supported on Windows. Please install manually by placing '{}' in PATH{maybe_new_name}.",
+            cli_path.display(),
+            maybe_new_name = if cfg!(feature = "builtin-but") {
+                " and rename it to but.exe"
+            } else {
+                ""
+            }
         );
     }
 
