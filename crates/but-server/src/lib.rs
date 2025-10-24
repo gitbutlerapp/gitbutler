@@ -316,6 +316,7 @@ async fn handle_command(
         "get_uncommited_files" => repo::get_uncommited_files_cmd(request.params),
         "get_commit_file" => repo::get_commit_file_cmd(request.params),
         "get_workspace_file" => repo::get_workspace_file_cmd(request.params),
+        "find_files" => repo::find_files_cmd(request.params),
         "pre_commit_hook" => repo::pre_commit_hook_cmd(request.params),
         "pre_commit_hook_diffspecs" => repo::pre_commit_hook_diffspecs_cmd(request.params),
         "post_commit_hook" => repo::post_commit_hook_cmd(request.params),

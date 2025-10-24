@@ -208,6 +208,8 @@
 		permissionMode: reactive(() => selectedPermissionMode)
 	});
 
+	const initialPrompt = $state.snapshot(prompt.current);
+
 	function insertTemplate(template: string) {
 		setPrompt(prompt + (prompt ? '\n\n' : '') + template);
 		templateContextMenu?.close();
@@ -461,15 +463,16 @@
 				{:else}
 					{@const status = currentStatus(events, isStackActive)}
 					<CodegenInput
-						value={prompt.current}
-						onChange={(prompt) => setPrompt(prompt)}
+						value={initialPrompt}
+						onChange={(prompt) => {
+							setPrompt(prompt);
+						}}
 						loading={['running', 'compacting'].includes(status)}
 						compacting={status === 'compacting'}
 						{projectId}
 						selectedBranch={{ stackId, head: stableBranchName }}
 						onsubmit={sendMessage}
 						{onAbort}
-						sessionKey={`${stackId}-${stableBranchName}`}
 					>
 						{#snippet actionsOnLeft()}
 							{@const permissionModeLabel = permissionModeOptions.find(

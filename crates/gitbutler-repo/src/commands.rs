@@ -1,9 +1,12 @@
-use std::path::Path;
+use std::{path::Path, sync::Mutex};
 
 use anyhow::{Context, Result, bail};
 use base64::engine::Engine as _;
+use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::skim::SkimMatcherV2;
 use git2::Oid;
 use gitbutler_project::Project;
+use ignore::WalkBuilder;
 use infer::MatcherType;
 use itertools::Itertools;
 use serde::Serialize;
@@ -121,6 +124,13 @@ pub trait RepoCommands {
     ///
     /// Returns `FileInfo::default()` if file could not be found.
     fn read_file_from_workspace(&self, path: &Path) -> Result<FileInfo>;
+
+    /// Find files in the repository that match the given search query.
+    ///
+    /// Uses fuzzy matching similar to VSCode's file search.
+    /// Returns up to `limit` file paths relative to the repository root, sorted by match quality.
+    /// The search respects `.gitignore` rules and excludes the `.git` directory.
+    fn find_files(&self, query: &str, limit: usize) -> Result<Vec<String>>;
 }
 
 impl RepoCommands for Project {
@@ -255,5 +265,93 @@ impl RepoCommands for Project {
             }
             Err(err) => return Err(err.into()),
         })
+    }
+
+    fn find_files(&self, pattern: &str, limit: usize) -> Result<Vec<String>> {
+        static FAIR_QUEUE: Mutex<()> = Mutex::new(());
+        let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
+
+        let workdir = self.worktree_dir()?;
+        let matcher = SkimMatcherV2::default();
+
+        // Collect all files with their adjusted scores
+        let mut scored_files: Vec<(i64, String)> = Vec::new();
+
+        for result in WalkBuilder::new(workdir)
+            .git_ignore(true) // Respect .gitignore
+            .git_global(true) // Respect global gitignore
+            .git_exclude(true) // Respect .git/info/exclude
+            .build()
+        {
+            match result {
+                Ok(entry) => {
+                    // Only process files, not directories
+                    if !entry.file_type().map(|ft| ft.is_file()).unwrap_or(false) {
+                        continue;
+                    }
+
+                    // Get path relative to worktree root
+                    if let Ok(relative_path) = entry.path().strip_prefix(workdir) {
+                        let path_str = relative_path.to_string_lossy();
+
+                        // Skip if query is empty (return all files)
+                        if pattern.is_empty() {
+                            scored_files.push((0, path_str.to_string()));
+                        } else {
+                            // Get the filename without path
+                            let filename = relative_path
+                                .file_name()
+                                .and_then(|f| f.to_str())
+                                .unwrap_or("");
+
+                            // Fuzzy match against the full path
+                            if let Some(base_score) = matcher.fuzzy_match(&path_str, pattern) {
+                                // Boost score for better matches
+                                let mut adjusted_score = base_score;
+
+                                // Big boost for exact filename matches (case-insensitive)
+                                if filename.eq_ignore_ascii_case(pattern) {
+                                    adjusted_score += 10000;
+                                }
+                                // Medium boost for filename starting with query (case-insensitive)
+                                else if filename
+                                    .to_lowercase()
+                                    .starts_with(&pattern.to_lowercase())
+                                {
+                                    adjusted_score += 5000;
+                                }
+                                // Boost for matches in the filename vs directory path
+                                else if let Some(filename_score) =
+                                    matcher.fuzzy_match(filename, pattern)
+                                {
+                                    // If the filename matches well, boost it
+                                    adjusted_score += filename_score / 2;
+                                }
+
+                                // Boost files closer to root (penalize deep nesting)
+                                let depth = relative_path.components().count();
+                                let depth_penalty = (depth as i64) * 50;
+                                adjusted_score -= depth_penalty;
+
+                                if adjusted_score > 0 {
+                                    scored_files.push((adjusted_score, path_str.to_string()));
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(_) => continue,
+            }
+        }
+
+        // Sort by score (descending) - higher scores are better matches
+        scored_files.sort_by(|a, b| b.0.cmp(&a.0));
+
+        // Take top `limit` results and extract just the paths
+        Ok(scored_files
+            .into_iter()
+            .take(limit)
+            .map(|(_, path)| path)
+            .collect())
     }
 }

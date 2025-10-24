@@ -153,3 +153,16 @@ pub fn message_hook(project_id: ProjectId, message: String) -> Result<MessageHoo
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     Ok(gitbutler_repo::hooks::commit_msg(&ctx, message)?)
 }
+
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn find_files(
+    project_id: ProjectId,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<String>, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let limit = limit.unwrap_or(10);
+    Ok(project.find_files(&query, limit)?)
+}

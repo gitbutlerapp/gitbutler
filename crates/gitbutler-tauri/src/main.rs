@@ -218,6 +218,7 @@ fn main() {
                     repo::get_uncommited_files,
                     repo::get_commit_file,
                     repo::get_workspace_file,
+                    repo::find_files,
                     repo::pre_commit_hook,
                     repo::pre_commit_hook_diffspecs,
                     repo::post_commit_hook,

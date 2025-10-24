@@ -1,9 +1,9 @@
-export function debounce<Args extends unknown[], Return, Fn extends (...args: Args) => Return>(
-	fn: Fn,
+export function debounce<T extends (...args: any[]) => ReturnType<T>>(
+	fn: T,
 	delay: number
-): (...args: Args) => void {
+): (...args: Parameters<T>) => void {
 	let timeout: ReturnType<typeof setTimeout> | undefined;
-	return (...args: Args) => {
+	return (...args: Parameters<T>) => {
 		clearTimeout(timeout);
 		timeout = setTimeout(() => fn(...args), delay);
 	};

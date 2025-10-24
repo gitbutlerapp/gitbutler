@@ -260,6 +260,23 @@
 	color: var(--clr-theme-pop-on-soft);
 }
 
+.filepath {
+	border-radius: var(--radius-s);
+	background: var(--clr-theme-scale-pop-80);
+	color: var(--clr-theme-scale-pop-30);
+	font-family: var(--fontfamily-mono);
+	cursor: pointer;
+}
+
+.filepath:hover {
+	background: var(--clr-theme-scale-pop-70);
+}
+
+.filepath:focus {
+	outline: none;
+	box-shadow: rgb(180 213 255) 0px 0px 0px 2px;
+}
+
 @keyframes ghost-transition-fly {
 	0% {
 		transform: translateY(3px);

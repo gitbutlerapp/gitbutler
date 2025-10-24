@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CodegenInputQueued from '$components/codegen/CodegenInputQueued.svelte';
-	import { Tooltip, Textarea, AsyncButton } from '@gitbutler/ui';
+	import FileSearch from '$components/codegen/FileSearch.svelte';
+	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 
@@ -27,25 +28,10 @@
 		actionsOnRight,
 		projectId,
 		selectedBranch,
-		onChange,
-		sessionKey
+		onChange
 	}: Props = $props();
 
-	let textareaRef = $state<HTMLTextAreaElement>();
-
-	// Focus when component mounts or when session changes
-	$effect(() => {
-		if (textareaRef && sessionKey) {
-			// Additional focus with longer delay to handle parent component timing
-			setTimeout(() => {
-				textareaRef?.focus();
-			}, 0);
-		}
-	});
-
-	$effect(() => {
-		onChange(value);
-	});
+	let editorRef = $state<ReturnType<typeof RichTextEditor>>();
 
 	let showAbortButton = $state(false);
 
@@ -66,46 +52,62 @@
 	});
 
 	async function handleSubmit() {
+		const text = await editorRef?.getPlaintext();
+		if (!text || text.trim().length === 0) return;
 		await onsubmit();
 	}
 
-	async function handleKeypress(e: KeyboardEvent) {
-		if (e.key === 'Enter' && !e.shiftKey) {
-			e.preventDefault();
+	function handleEditorKeyDown(event: KeyboardEvent | null): boolean {
+		if (!event) return false;
 
-			if (value.trim().length === 0) return;
-
-			await handleSubmit();
+		// Handle Ctrl+C to abort
+		if (event.key === 'c' && event.ctrlKey && onAbort) {
+			event.preventDefault();
+			onAbort();
+			return true;
 		}
+
+		// Handle Enter to submit
+		if (event.key === 'Enter' && event.metaKey) {
+			event.preventDefault();
+			handleSubmit();
+			return true;
+		}
+		return false;
 	}
 
-	function handleDialogClick(e: MouseEvent) {
-		// Don't focus if clicking on buttons or other interactive elements
-		if (e.target !== e.currentTarget) return;
-		textareaRef?.focus();
-	}
+	let query = $state('');
+	let callback = $state<((result: string) => void) | undefined>();
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="dialog-wrapper">
-	<div class="text-input dialog-input" onkeypress={handleKeypress} onclick={handleDialogClick}>
+<div class="dialog-wrapper" data-remove-from-panning>
+	{#if query}
+		<FileSearch {projectId} {query} onselect={callback} limit={8} />
+	{/if}
+	<div class="text-input dialog-input">
 		<CodegenInputQueued {projectId} {selectedBranch} />
-
-		<Textarea
-			bind:textBoxEl={textareaRef}
+		<RichTextEditor
+			bind:this={editorRef}
 			bind:value
+			namespace="codegen-input"
+			markdown={false}
+			styleContext="chat-input"
 			placeholder="What would you like to make..."
-			borderless
-			maxRows={10}
-			minRows={2}
-			onkeydown={(e) => {
-				// Global gotakey on the button doesn't work inside textarea, so we handle it here
-				if (e.key === 'c' && e.ctrlKey && onAbort) {
-					e.preventDefault();
-					onAbort();
-				}
-			}}
-		/>
+			minHeight="4rem"
+			onError={(e: unknown) => console.warn('Editor error', e)}
+			initialText={value}
+			{onChange}
+			onKeyDown={handleEditorKeyDown}
+		>
+			{#snippet plugins()}
+				<FilePlugin
+					onQuery={(q: string, cb?: (result: string) => void) => {
+						callback = cb;
+						query = q;
+					}}
+				/>
+			{/snippet}
+		</RichTextEditor>
 
 		<div class="actions">
 			<div class="actions-group">
@@ -187,6 +189,7 @@
 
 <style lang="postcss">
 	.dialog-wrapper {
+		position: relative;
 		flex-shrink: 0;
 		width: 100%;
 		padding: 16px;
