@@ -180,7 +180,9 @@ pub fn print_help() {
         println!(
             "  - --topic and --topic-from-branch are mutually exclusive. At most one topic can be set."
         );
-        println!("  - Multiple hashtags can be specified by using --hashtag (or --tag) multiple times.");
+        println!(
+            "  - Multiple hashtags can be specified by using --hashtag (or --tag) multiple times."
+        );
         println!(
             "  - Multiple flags can be combined (e.g., --ready --private --tag tag1 --hashtag tag2)."
         );
@@ -209,6 +211,107 @@ fn is_gerrit_enabled_for_help() -> bool {
         return settings.gitbutler_gerrit_mode.unwrap_or(false);
     }
     false
+}
+
+fn resolve_branch_name(ctx: &mut CommandContext, branch_id: &str) -> anyhow::Result<String> {
+    // Try to resolve as CliId first
+    let cli_ids = crate::id::CliId::from_str(ctx, branch_id)?;
+
+    if cli_ids.is_empty() {
+        // If no CliId matches, treat as literal branch name but validate it exists
+        let available_branches = get_available_branch_names(ctx)?;
+        if !available_branches.contains(&branch_id.to_string()) {
+            return Err(anyhow::anyhow!(
+                "Branch '{}' not found. Available branches:\n{}",
+                branch_id,
+                format_branch_suggestions(&available_branches)
+            ));
+        }
+        return Ok(branch_id.to_string());
+    }
+
+    if cli_ids.len() > 1 {
+        let branch_names: Vec<String> = cli_ids
+            .iter()
+            .filter_map(|id| match id {
+                crate::id::CliId::Branch { name } => Some(name.clone()),
+                _ => None,
+            })
+            .collect();
+
+        if !branch_names.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Ambiguous branch identifier '{}'. Did you mean one of:\n{}",
+                branch_id,
+                format_branch_suggestions(&branch_names)
+            ));
+        } else {
+            return Err(anyhow::anyhow!(
+                "Identifier '{}' matches multiple non-branch items. Please use a branch name or branch CLI ID.",
+                branch_id
+            ));
+        }
+    }
+
+    match &cli_ids[0] {
+        crate::id::CliId::Branch { name } => Ok(name.clone()),
+        _ => Err(anyhow::anyhow!(
+            "Expected branch identifier, got {}. Please use a branch name or branch CLI ID.",
+            cli_ids[0].kind()
+        )),
+    }
+}
+
+fn get_available_branch_names(ctx: &CommandContext) -> anyhow::Result<Vec<String>> {
+    let stacks = crate::log::stacks(ctx)?;
+    let mut branch_names = Vec::new();
+
+    for stack in stacks {
+        for head in &stack.heads {
+            branch_names.push(head.name.to_string());
+        }
+    }
+
+    branch_names.sort();
+    branch_names.dedup();
+    Ok(branch_names)
+}
+
+fn format_branch_suggestions(branches: &[String]) -> String {
+    if branches.is_empty() {
+        return "  (no branches available)".to_string();
+    }
+
+    branches
+        .iter()
+        .map(|name| format!("  - {}", name))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn find_stack_id_by_branch_name(project: &Project, branch_name: &str) -> anyhow::Result<StackId> {
+    let stacks =
+        but_api::workspace::stacks(project.id, Some(but_workspace::StacksFilter::InWorkspace))?;
+
+    // Find which stack this branch belongs to
+    for stack_entry in &stacks {
+        if stack_entry.heads.iter().any(|b| b.name == branch_name) && stack_entry.id.is_some() {
+            return Ok(stack_entry.id.unwrap());
+        }
+    }
+
+    // This should rarely happen now since we validate branch existence earlier,
+    // but provide a helpful error just in case
+    let available_branches: Vec<String> = stacks
+        .iter()
+        .flat_map(|s| s.heads.iter().map(|h| h.name.to_string()))
+        .collect();
+
+    Err(anyhow::anyhow!(
+        "Branch '{}' not found in any stack. Available branches:\n{}",
+        branch_name,
+        format_branch_suggestions(&available_branches)
+    ))
 }
 
 #[cfg(test)]
@@ -518,105 +621,4 @@ mod tests {
                 .contains("Topic cannot be empty")
         );
     }
-}
-
-fn resolve_branch_name(ctx: &mut CommandContext, branch_id: &str) -> anyhow::Result<String> {
-    // Try to resolve as CliId first
-    let cli_ids = crate::id::CliId::from_str(ctx, branch_id)?;
-
-    if cli_ids.is_empty() {
-        // If no CliId matches, treat as literal branch name but validate it exists
-        let available_branches = get_available_branch_names(ctx)?;
-        if !available_branches.contains(&branch_id.to_string()) {
-            return Err(anyhow::anyhow!(
-                "Branch '{}' not found. Available branches:\n{}",
-                branch_id,
-                format_branch_suggestions(&available_branches)
-            ));
-        }
-        return Ok(branch_id.to_string());
-    }
-
-    if cli_ids.len() > 1 {
-        let branch_names: Vec<String> = cli_ids
-            .iter()
-            .filter_map(|id| match id {
-                crate::id::CliId::Branch { name } => Some(name.clone()),
-                _ => None,
-            })
-            .collect();
-
-        if !branch_names.is_empty() {
-            return Err(anyhow::anyhow!(
-                "Ambiguous branch identifier '{}'. Did you mean one of:\n{}",
-                branch_id,
-                format_branch_suggestions(&branch_names)
-            ));
-        } else {
-            return Err(anyhow::anyhow!(
-                "Identifier '{}' matches multiple non-branch items. Please use a branch name or branch CLI ID.",
-                branch_id
-            ));
-        }
-    }
-
-    match &cli_ids[0] {
-        crate::id::CliId::Branch { name } => Ok(name.clone()),
-        _ => Err(anyhow::anyhow!(
-            "Expected branch identifier, got {}. Please use a branch name or branch CLI ID.",
-            cli_ids[0].kind()
-        )),
-    }
-}
-
-fn get_available_branch_names(ctx: &CommandContext) -> anyhow::Result<Vec<String>> {
-    let stacks = crate::log::stacks(ctx)?;
-    let mut branch_names = Vec::new();
-
-    for stack in stacks {
-        for head in &stack.heads {
-            branch_names.push(head.name.to_string());
-        }
-    }
-
-    branch_names.sort();
-    branch_names.dedup();
-    Ok(branch_names)
-}
-
-fn format_branch_suggestions(branches: &[String]) -> String {
-    if branches.is_empty() {
-        return "  (no branches available)".to_string();
-    }
-
-    branches
-        .iter()
-        .map(|name| format!("  - {}", name))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn find_stack_id_by_branch_name(project: &Project, branch_name: &str) -> anyhow::Result<StackId> {
-    let stacks =
-        but_api::workspace::stacks(project.id, Some(but_workspace::StacksFilter::InWorkspace))?;
-
-    // Find which stack this branch belongs to
-    for stack_entry in &stacks {
-        if stack_entry.heads.iter().any(|b| b.name == branch_name) && stack_entry.id.is_some() {
-            return Ok(stack_entry.id.unwrap());
-        }
-    }
-
-    // This should rarely happen now since we validate branch existence earlier,
-    // but provide a helpful error just in case
-    let available_branches: Vec<String> = stacks
-        .iter()
-        .flat_map(|s| s.heads.iter().map(|h| h.name.to_string()))
-        .collect();
-
-    Err(anyhow::anyhow!(
-        "Branch '{}' not found in any stack. Available branches:\n{}",
-        branch_name,
-        format_branch_suggestions(&available_branches)
-    ))
 }
