@@ -207,10 +207,6 @@
 	{#snippet caption()}
 		Installs the GitButler CLI (but) in your PATH, allowing you to use it from the terminal. This
 		action will request admin privileges. Alternatively, you could create a symlink manually.
-
-		{#if showSymlink}
-			<CliSymLink class="m-top-14" />
-		{/if}
 	{/snippet}
 
 	<div class="flex flex-col gap-16">
@@ -232,6 +228,10 @@
 		</div>
 	</div>
 </SectionCard>
+
+{#if showSymlink}
+	<CliSymLink class="m-t-14" />
+{/if}
 
 <Spacer />
 

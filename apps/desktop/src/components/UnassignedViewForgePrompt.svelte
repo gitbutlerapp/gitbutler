@@ -53,7 +53,7 @@
 			{@html forgeName === 'github' ? githubLogoSvg : gitlabLogoSvg}
 		</div>
 		<h3 class="text-13 text-body text-bold">It looks like you have a {forgeLabel} remote!</h3>
-		<p class="text-12 text-body m-bottom-8 clr-text-2">
+		<p class="text-12 text-body m-b-8 clr-text-2">
 			GitButler can display, create and manage {forgeUnit} for you directly in the app.
 			<Link href={integrationDocs}>Read more</Link>
 		</p>

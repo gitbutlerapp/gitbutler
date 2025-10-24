@@ -129,14 +129,14 @@
 		</div>
 
 		{#if confirmationSent}
-			<InfoMessage filled outlined={false} style="success" class="m-bottom-16">
+			<InfoMessage filled outlined={false} style="success" class="m-b-16">
 				{#snippet content()}
 					<p>Confirmation email sent! Please check your inbox.</p>
 				{/snippet}
 			</InfoMessage>
 		{:else if error}
 			<div class="wiggle-animation">
-				<InfoMessage filled outlined={false} style="error" class="m-bottom-16">
+				<InfoMessage filled outlined={false} style="error" class="m-b-16">
 					{#snippet content()}
 						{#if errorCode === 'email_not_verified'}
 							{#if !resendDisabled}

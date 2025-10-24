@@ -279,10 +279,8 @@
 						kind="warning"
 					>
 						{#snippet action()}
-							<h3 class="text-13 text-semibold m-bottom-4">Upstream has new commits</h3>
-							<p class="text-12 text-body clr-text-2 m-bottom-14">
-								Update your branch to stay current.
-							</p>
+							<h3 class="text-13 text-semibold m-b-4">Upstream has new commits</h3>
+							<p class="text-12 text-body clr-text-2 m-b-14">Update your branch to stay current.</p>
 							{@render integrateUpstreamAction()}
 						{/snippet}
 					</CommitAction>

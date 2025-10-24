@@ -19,8 +19,8 @@
 	import { readable } from 'svelte/store';
 	import { env } from '$env/dynamic/public';
 	import '../styles/global.css';
-	import '@gitbutler/design-core/tokens';
-	import '@gitbutler/design-core/fonts';
+	import '@gitbutler/design-core/core';
+	import '@gitbutler/design-core/utility';
 
 	interface Props {
 		children: Snippet;
