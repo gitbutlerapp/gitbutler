@@ -57,7 +57,10 @@ pub struct AuthStatusResponse {
     pub email: Option<String>,
 }
 
-pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<AuthStatusResponse> {
+pub async fn check_auth_status(
+    params: CheckAuthStatusParams,
+    storage: &but_forge_storage::controller::Controller,
+) -> Result<AuthStatusResponse> {
     #[derive(Debug, Deserialize, Serialize, Clone, Default)]
     struct AccessTokenContainer {
         access_token: String,
@@ -93,7 +96,7 @@ pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<AuthStat
             .context("Failed to parse response body")?,
     );
 
-    let user = fetch_and_persist_user_data(&access_token).await?;
+    let user = fetch_and_persist_user_data(&access_token, storage).await?;
 
     Ok(AuthStatusResponse {
         access_token,
@@ -106,19 +109,28 @@ pub async fn check_auth_status(params: CheckAuthStatusParams) -> Result<AuthStat
 /// Fetch the authenticated user data from GitHub and persist the access token.
 async fn fetch_and_persist_user_data(
     access_token: &Sensitive<String>,
+    storage: &but_forge_storage::controller::Controller,
 ) -> Result<client::AuthenticatedUser, anyhow::Error> {
     let gh = client::GitHubClient::new(access_token).context("Failed to create GitHub client")?;
     let user = gh
         .get_authenticated()
         .await
         .context("Failed to get authenticated user")?;
-    token::persist_gh_access_token(&user.login, access_token)
-        .context("Failed to persist access token")?;
+    token::persist_gh_access_token(
+        &token::GithubAccountIdentifier::oauth(&user.login),
+        access_token,
+        storage,
+    )
+    .context("Failed to persist access token")?;
     Ok(user)
 }
 
-pub fn forget_gh_access_token(login: &str) -> Result<()> {
-    token::delete_gh_access_token(login).context("Failed to delete access token")
+pub fn forget_gh_access_token(
+    login: &str,
+    storage: &but_forge_storage::controller::Controller,
+) -> Result<()> {
+    token::delete_gh_access_token(&token::GithubAccountIdentifier::oauth(login), storage)
+        .context("Failed to delete access token")
 }
 
 #[derive(Debug, Clone)]
@@ -130,8 +142,13 @@ pub struct AuthenticatedUser {
     pub email: Option<String>,
 }
 
-pub async fn get_gh_user(login: &str) -> Result<Option<AuthenticatedUser>> {
-    if let Some(access_token) = token::get_gh_access_token(login)? {
+pub async fn get_gh_user(
+    login: &str,
+    storage: &but_forge_storage::controller::Controller,
+) -> Result<Option<AuthenticatedUser>> {
+    if let Some(access_token) =
+        token::get_gh_access_token(&token::GithubAccountIdentifier::oauth(login), storage)?
+    {
         let gh =
             client::GitHubClient::new(&access_token).context("Failed to create GitHub client")?;
         let user = gh
@@ -150,20 +167,22 @@ pub async fn get_gh_user(login: &str) -> Result<Option<AuthenticatedUser>> {
     }
 }
 
-pub async fn list_known_github_usernames() -> Result<Vec<String>> {
-    let known_usernames =
-        token::list_known_github_usernames().context("Failed to list known GitHub usernames")?;
+pub async fn list_known_github_usernames(
+    storage: &but_forge_storage::controller::Controller,
+) -> Result<Vec<String>> {
+    let known_usernames = token::list_known_github_usernames(storage)
+        .context("Failed to list known GitHub usernames")?;
     // Migrate the users from the previous storage method.
     if let Some(stored_gh_access_token) = gitbutler_user::forget_github_login_for_user()?
         && known_usernames.is_empty()
     {
-        fetch_and_persist_user_data(&stored_gh_access_token)
+        fetch_and_persist_user_data(&stored_gh_access_token, storage)
             .await
             .ok();
     }
     Ok(known_usernames)
 }
 
-pub fn clear_all_github_tokens() -> Result<()> {
-    token::clear_all_github_tokens().context("Failed to clear all GitHub tokens")
+pub fn clear_all_github_tokens(storage: &but_forge_storage::controller::Controller) -> Result<()> {
+    token::clear_all_github_accounts(storage).context("Failed to clear all GitHub tokens")
 }

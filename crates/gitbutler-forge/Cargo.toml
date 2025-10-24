@@ -13,3 +13,4 @@ gitbutler-fs.workspace = true
 gitbutler-storage.workspace = true
 but-github.workspace = true
 git-url-parse = "0.6.0"
+but-forge-storage.workspace = true

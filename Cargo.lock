@@ -864,6 +864,7 @@ dependencies = [
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
+ "but-path",
  "but-rebase",
  "but-rules",
  "but-secret",

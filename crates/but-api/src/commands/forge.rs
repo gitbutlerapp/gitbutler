@@ -77,11 +77,13 @@ pub async fn list_reviews_cmd(
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let ctx = CommandContext::open(&project, app_settings)?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
     gitbutler_forge::review::list_forge_reviews(
         &project.preferred_forge_user,
         &base_branch
             .forge_repo_info
             .context("No forge could be determined for this repository branch")?,
+        &storage,
     )
     .await
     .map_err(Into::into)
@@ -110,12 +112,14 @@ pub async fn publish_review_cmd(
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let ctx = CommandContext::open(&project, app_settings)?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
     gitbutler_forge::review::create_forge_review(
         &project.preferred_forge_user,
         &base_branch
             .forge_repo_info
             .context("No forge could be determined for this repository branch")?,
         &params,
+        &storage,
     )
     .await
     .map_err(Into::into)
