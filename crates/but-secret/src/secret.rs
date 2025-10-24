@@ -79,7 +79,17 @@ pub fn delete(handle: &str, namespace: Namespace) -> Result<()> {
 ///
 /// Note that the namespace will be `development` if `identifier` is empty (or wasn't set).
 pub fn set_application_namespace(identifier: impl Into<String>) {
-    *NAMESPACE.lock().unwrap() = identifier.into()
+    *NAMESPACE.lock().unwrap() = identifier.into();
+
+    // On MacOS, in dev mode with debug assertions, we encounter popups each time
+    // the binary is rebuilt. To counter that, use a git-credential based implementation.
+    // This isn't an issue for actual release build (i.e. nightly, production),
+    // hence the specific condition.
+    // HACK: we do this here because it's always called by client binaries, and we want it to work
+    //       equally there and automatically.
+    if cfg!(debug_assertions) && cfg!(target_os = "macos") {
+        git_credentials::setup().ok();
+    }
 }
 
 fn entry_for(handle: &str, namespace: Namespace) -> Result<keyring::Entry> {
