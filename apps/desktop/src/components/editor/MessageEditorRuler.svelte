@@ -2,6 +2,12 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 
+	interface Props {
+		monospaceFont?: string;
+	}
+
+	let { monospaceFont }: Props = $props();
+
 	const uiState = inject(UI_STATE);
 	const rulerCountValue = uiState.global.rulerCountValue;
 
@@ -11,6 +17,7 @@
 <div
 	class="message-ruler-container"
 	style:--ruler-position="calc({lineWidth}px - var(--lexical-input-client-padding))"
+	style:--ruler-font={monospaceFont || 'var(--font-default)'}
 >
 	<div class="message-ruler-dummy" bind:clientWidth={lineWidth}>
 		<!-- Create a dummy amount of text to measure the width -->
@@ -52,7 +59,7 @@
 		padding: var(--lexical-input-client-padding);
 		color: red;
 		font-size: var(--lexical-input-font-size);
-		font-family: var(--code-block-font);
+		font-family: var(--ruler-font);
 		opacity: 0;
 	}
 </style>
