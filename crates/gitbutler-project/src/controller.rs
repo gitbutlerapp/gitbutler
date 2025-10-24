@@ -1,6 +1,7 @@
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
+use but_core::{GitConfigSettings, RepositoryExt};
 use gitbutler_error::error;
 
 use super::{Project, ProjectId, storage, storage::UpdateRequest};
@@ -143,6 +144,15 @@ impl Controller {
         // Create a .git/gitbutler directory for app data
         if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
             tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project add", project.gb_dir());
+        }
+
+        // Check if the remote is a Gerrit remote and set config accordingly
+        if let Ok(true) = check_gerrit_remote(&repo) {
+            let gerrit_config = GitConfigSettings {
+                gitbutler_gerrit_mode: Some(true),
+                ..Default::default()
+            };
+            repo.set_git_settings(&gerrit_config).ok();
         }
 
         Ok(AddProjectOutcome::Added(project))
@@ -314,4 +324,27 @@ fn delete_gitbutler_references(repo: &gix::Repository) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn check_gerrit_remote(repo: &gix::Repository) -> Result<bool> {
+    use std::process::Command;
+    let remote_names = repo.remote_names();
+    let mut found_remote = None;
+    for remote_name in remote_names {
+        if repo.find_remote(remote_name.as_ref()).is_ok() {
+            found_remote = Some(remote_name.to_string());
+            break;
+        }
+    }
+    let remote_name = found_remote.ok_or_else(|| anyhow!("No push remotes found"))?;
+
+    let git_dir = repo.git_dir();
+    let output = Command::new("git")
+        .arg("ls-remote")
+        .arg(&remote_name)
+        .arg("refs/notes/review")
+        .current_dir(git_dir)
+        .output()?;
+
+    Ok(output.status.success() && !output.stdout.is_empty())
 }
