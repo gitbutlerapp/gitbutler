@@ -45,6 +45,7 @@
 		ContextMenuItem,
 		ContextMenuSection,
 		EmptyStatePlaceholder,
+		KebabButton,
 		Modal,
 		Tooltip
 	} from '@gitbutler/ui';
@@ -87,6 +88,9 @@
 	let permissionModeTrigger = $state<HTMLButtonElement>();
 	let templateContextMenu = $state<ContextMenu>();
 	let templateTrigger = $state<HTMLButtonElement>();
+	let workspaceContextActionsKebab = $state<HTMLElement>();
+	let pageContextActionsKebab = $state<HTMLElement>();
+	let contextActionsContextMenu = $state<ContextMenu>();
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
 	let promptConfigModal = $state<CodegenPromptConfigModal>();
 
@@ -246,48 +250,34 @@
 		clearContextModal?.show();
 	}
 
-	let clearLoading = $state(false);
-	let compactLoading = $state(false);
-
 	async function compactContext() {
-		compactLoading = true;
-		try {
-			await claudeCodeService.compactHistory({
-				projectId,
-				stackId
-			});
-		} finally {
-			compactLoading = false;
-		}
+		await claudeCodeService.compactHistory({
+			projectId,
+			stackId
+		});
 	}
 
 	async function performClearContextAndRules() {
-		clearLoading = true;
+		const events = await claudeCodeService.fetchMessages({
+			projectId,
+			stackId
+		});
+		const sessionId = getCurrentSessionId(events);
+		if (!sessionId) return;
 
-		try {
-			const events = await claudeCodeService.fetchMessages({
+		const rules = await rulesService.fetchListWorkspaceRules(projectId);
+
+		const toDelete = rules.filter((rule) =>
+			rule.filters.some(
+				(filter) => filter.type === 'claudeCodeSessionId' && filter.subject === sessionId
+			)
+		);
+
+		for (const rule of toDelete) {
+			await rulesService.deleteWorkspaceRuleMutate({
 				projectId,
-				stackId
+				id: rule.id
 			});
-			const sessionId = getCurrentSessionId(events);
-			if (!sessionId) return;
-
-			const rules = await rulesService.fetchListWorkspaceRules(projectId);
-
-			const toDelete = rules.filter((rule) =>
-				rule.filters.some(
-					(filter) => filter.type === 'claudeCodeSessionId' && filter.subject === sessionId
-				)
-			);
-
-			for (const rule of toDelete) {
-				await rulesService.deleteWorkspaceRuleMutate({
-					projectId,
-					id: rule.id
-				});
-			}
-		} finally {
-			clearLoading = false;
 		}
 	}
 
@@ -350,30 +340,10 @@
 						></div>
 					</Tooltip>
 
-					<div class="flex gap-4">
-						<Button
-							icon="clear"
-							kind="ghost"
-							size="tag"
-							tooltip="Clear context and associated rules"
-							disabled={!hasRulesToClear ||
-								formattedMessages.length === 0 ||
-								['running', 'compacting'].includes(currentStatus(events, isStackActive))}
-							loading={clearLoading}
-							onclick={() => clearContextAndRules()}
-						/>
-						<Button
-							icon="compact"
-							kind="ghost"
-							size="tag"
-							tooltip="Compact context"
-							disabled={!hasRulesToClear ||
-								formattedMessages.length === 0 ||
-								['running', 'compacting'].includes(currentStatus(events, isStackActive))}
-							loading={compactLoading}
-							onclick={() => compactContext()}
-						/>
-					</div>
+					<KebabButton
+						bind:el={workspaceContextActionsKebab}
+						onclick={() => contextActionsContextMenu?.toggle()}
+					/>
 				</div>
 			{/snippet}
 			{#snippet inWorkspaceInlineActions()}
@@ -437,10 +407,10 @@
 							icon="clear"
 							kind="outline"
 							tooltip="Clear context and associated rules"
-							disabled={!hasRulesToClear ||
-								formattedMessages.length === 0 ||
+							disabled={!hasRulesToClear() ||
+								!events ||
+								events.length === 0 ||
 								['running', 'compacting'].includes(currentStatus(events, isStackActive))}
-							loading={clearLoading}
 							customStyle="border-top-right-radius: 0; border-bottom-right-radius: 0;"
 							onclick={() => clearContextAndRules()}
 						/>
@@ -449,10 +419,10 @@
 							kind="outline"
 							tooltip="Compact context"
 							customStyle="border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: none;"
-							disabled={!hasRulesToClear ||
-								formattedMessages.length === 0 ||
+							disabled={!hasRulesToClear() ||
+								!events ||
+								events.length === 0 ||
 								['running', 'compacting'].includes(currentStatus(events, isStackActive))}
-							loading={compactLoading}
 							onclick={() => compactContext()}
 						/>
 					</div>
@@ -670,6 +640,38 @@
 				onclick={() => selectPermissionMode(option.value)}
 			/>
 		{/each}
+	</ContextMenuSection>
+</ContextMenu>
+
+<ContextMenu
+	bind:this={contextActionsContextMenu}
+	leftClickTrigger={workspaceContextActionsKebab || pageContextActionsKebab}
+	align="end"
+>
+	{@const isDisabled =
+		!hasRulesToClear() ||
+		!events.response ||
+		events.response.length === 0 ||
+		['running', 'compacting'].includes(currentStatus(events.response, isStackActive))}
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Clear context and rules"
+			icon="clear"
+			disabled={isDisabled}
+			onclick={() => {
+				clearContextAndRules();
+				contextActionsContextMenu?.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Compact context"
+			icon="compact"
+			disabled={isDisabled}
+			onclick={() => {
+				compactContext();
+				contextActionsContextMenu?.close();
+			}}
+		/>
 	</ContextMenuSection>
 </ContextMenu>
 
