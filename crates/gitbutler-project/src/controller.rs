@@ -287,17 +287,29 @@ impl Controller {
 fn delete_gitbutler_references(repo: &gix::Repository) -> Result<()> {
     let platform = repo.references()?;
 
+    let safe = but_core::branch::SafeDelete::new(repo)?;
     for reference in platform
         .prefixed(b"refs/heads/gitbutler/")?
         .chain(platform.prefixed(b"refs/gitbutler/")?)
         .filter_map(Result::ok)
     {
-        if let Err(err) = reference.delete() {
-            tracing::warn!(
-                ref_name = %reference.name().as_bstr(),
-                ?err,
-                "failed to delete gitbutler reference"
-            );
+        match safe.delete_reference(&reference) {
+            Ok(out) => {
+                if let Some(worktrees) = out.checked_out_in_worktree_dirs {
+                    tracing::warn!(
+                        ref_name = %reference.name().as_bstr(),
+                        checked_out_in = ?worktrees,
+                        "won't delete gitbutler reference as it is checked out"
+                    );
+                }
+            }
+            Err(err) => {
+                tracing::warn!(
+                    ref_name = %reference.name().as_bstr(),
+                    ?err,
+                    "failed to delete gitbutler reference"
+                );
+            }
         }
     }
 

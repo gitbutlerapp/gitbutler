@@ -60,6 +60,9 @@ pub mod diff;
 /// Commit related utility types.
 pub mod commit;
 
+/// Utilities related to branches
+pub mod branch;
+
 /// Types for use in the user interface.
 pub mod ui;
 
