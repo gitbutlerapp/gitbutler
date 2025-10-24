@@ -172,11 +172,10 @@
 				{@render children()}
 
 				{#if displayHotkey}
-					<span class="m-left-2 opacity-50">
+					<span class="btn-hotkey">
 						{displayHotkey}
 					</span>
 				{/if}
-
 				{#if badge}
 					<span class="btn-badge">
 						{@render badge()}
@@ -290,6 +289,11 @@
 			display: inline-flex;
 			margin-right: -2px;
 			margin-left: 2px;
+		}
+
+		.btn-hotkey {
+			margin-left: 2px;
+			opacity: 0.5;
 		}
 
 		/* Theme Variables - All themes use the same pattern */

@@ -17,7 +17,7 @@
 			{@html icon}
 		</div>
 	{/if}
-	<div class="m-bottom-8">
+	<div class="m-b-8">
 		<h3>{title}</h3>
 	</div>
 	<div>

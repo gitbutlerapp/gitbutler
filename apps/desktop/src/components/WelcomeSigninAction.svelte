@@ -20,12 +20,12 @@
 		<div class="stack-v gap-8">
 			<h3 class="text-18 text-bold">Log in or Sign up</h3>
 			<p class="text-12 text-body clr-text-2">
-				Log in to access smart automation features, including intelligent branch creation and commit
-				message generation.
-			</p>
+			Log in to access smart automation features, including intelligent branch creation and commit
+			message generation.
+		</p>
 
-			<div class="flex gap-8 m-top-8">
-				{#if !showCancel}
+		<div class="flex gap-8 m-t-8">
+			{#if !showCancel}
 					<Button
 						style="pop"
 						loading={$loading}

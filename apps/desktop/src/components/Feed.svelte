@@ -152,11 +152,11 @@
 							{@html laneNewSvg}
 						</div>
 
-						<h3 class="text-15 text-bold m-bottom-12">Welcome to GitButler Actions!</h3>
+						<h3 class="text-15 text-bold m-b-12">Welcome to GitButler Actions!</h3>
 						<ul class="feed__empty-state__benefits">
 							<li class="text-13 text-body">
-								<p class="m-bottom-4">
-									<span class="m-right-4">✦</span> Connect your Agentic workflow with GitButler. Editors
+								<p class="m-b-4">
+									<span class="m-r-4">✦</span> Connect your Agentic workflow with GitButler. Editors
 									with MCP support (like Cursor, VSCode, Zed) can have changes automatically version
 									controlled.
 								</p>
@@ -167,8 +167,8 @@
 								>
 							</li>
 							<li class="text-13 text-body">
-								<p class="m-bottom-6">
-									<span class="m-right-4">✷</span>
+								<p class="m-b-6">
+									<span class="m-r-4">✷</span>
 									Perform automated workflows directly from the app — semantic splitting, amending and
 									reorganizing of commits.
 								</p>
@@ -219,9 +219,9 @@
 										>
 										.
 									</li>
-									{#if showSymlink}
-										<CliSymLink class="m-top-2 m-bottom-6" />
-									{/if}
+								{#if showSymlink}
+									<CliSymLink class="m-t-2 m-b-6" />
+								{/if}
 									<li>
 										Cursor / VSCode setup. <Link
 											class="clr-text-2"

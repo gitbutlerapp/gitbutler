@@ -100,11 +100,11 @@
 					bind:password
 					bind:passwordConfirmation
 				/>
-			</div>
+		</div>
 
-			{#if error}
-				<InfoMessage filled outlined={false} style="error" class="m-bottom-16">
-					{#snippet content()}
+		{#if error}
+			<InfoMessage filled outlined={false} style="error" class="m-b-16">
+				{#snippet content()}
 						{error}
 					{/snippet}
 				</InfoMessage>

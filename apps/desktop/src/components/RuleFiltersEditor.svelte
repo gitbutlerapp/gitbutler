@@ -270,7 +270,7 @@
 	</div>
 {/snippet}
 
-<h3 class="text-13 text-semibold m-bottom-10">
+<h3 class="text-13 text-semibold m-b-10">
 	{ruleFilterTypes.includes('claudeCodeSessionId') ? 'Claude Code session' : 'Filters'}
 </h3>
 

@@ -466,13 +466,13 @@
 				{@const thinkingStatus = currentStatus(events, isStackActive)}
 				{@const startAt = thinkingOrCompactingStartedAt(events)}
 				{#if ['running', 'compacting'].includes(thinkingStatus) && startAt}
-					{@const status = userFeedbackStatus(formattedMessages)}
-					{#if status.waitingForFeedback}
-						<div class="p-left-20 p-right-20">
-							<CodegenServiceMessageUseTool toolCall={status.toolCall} />
+			{@const status = userFeedbackStatus(formattedMessages)}
+			{#if status.waitingForFeedback}
+				<div class="p-l-20 p-r-20">
+					<CodegenServiceMessageUseTool toolCall={status.toolCall} />
 						</div>
 					{:else}
-						<div class="p-left-20 p-right-20">
+						<div class="p-l-20 p-r-20">
 							<CodegenServiceMessageThinking
 								{startAt}
 								msSpentWaiting={status.msSpentWaiting}
@@ -500,11 +500,11 @@
 						sessionKey={`${stackId}-${stableBranchName}`}
 					>
 						{#snippet actionsOnLeft()}
-							{@const permissionModeLabel = permissionModeOptions.find(
-								(a) => a.value === selectedPermissionMode
-							)?.label}
-							<div class="flex m-right-4 gap-2">
-								<Button disabled kind="ghost" icon="attachment" reversedDirection />
+						{@const permissionModeLabel = permissionModeOptions.find(
+							(a) => a.value === selectedPermissionMode
+						)?.label}
+						<div class="flex m-r-4 gap-2">
+							<Button disabled kind="ghost" icon="attachment" reversedDirection />
 								<Button
 									bind:el={templateTrigger}
 									kind="ghost"
