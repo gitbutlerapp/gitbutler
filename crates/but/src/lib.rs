@@ -272,8 +272,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, *repo)
             .context("Failed to initialize GitButler project."),
         Subcommands::Forge(forge::integration::Platform { cmd }) => {
-            let project = get_or_init_project(&args.current_dir)?;
-            let result = forge::integration::handle(cmd, &project, args.json).await;
+            let result = forge::integration::handle(cmd).await;
             let metrics_cmd = match cmd {
                 forge::integration::Subcommands::Auth => CommandName::ForgeAuth,
                 forge::integration::Subcommands::ListUsers => CommandName::ForgeListUsers,

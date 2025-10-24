@@ -27,7 +27,17 @@ use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_log::{Target, TargetKind};
 use tokio::sync::Mutex;
 
-fn main() {
+fn main() -> anyhow::Result<()> {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+    #[cfg(feature = "builtin-but")]
+    {
+        let exe = std::env::current_exe()?;
+        if exe.file_stem().is_some_and(|stem| stem == "but") {
+            return runtime.block_on(but::handle_args(std::env::args_os()));
+        }
+    }
     let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
     let tauri_debug_logging = std::env::var_os("GITBUTLER_TAURI_DEBUG_LOG").is_some();
 
@@ -47,125 +57,120 @@ fn main() {
         tauri_context.config_mut().app.security.csp = updated_csp;
     };
     let app_settings_for_menu = app_settings.clone();
+    runtime.block_on(async {
+        tauri::async_runtime::set(tokio::runtime::Handle::current());
 
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(async {
-            tauri::async_runtime::set(tokio::runtime::Handle::current());
+        let log = tauri_plugin_log::Builder::default()
+            .target(Target::new(TargetKind::LogDir {
+                file_name: Some("ui-logs".to_string()),
+            }))
+            .level(if tauri_debug_logging {
+                log::LevelFilter::Debug
+            } else {
+                log::LevelFilter::Error
+            });
 
-            let log = tauri_plugin_log::Builder::default()
-                .target(Target::new(TargetKind::LogDir {
-                    file_name: Some("ui-logs".to_string()),
-                }))
-                .level(if tauri_debug_logging {
-                    log::LevelFilter::Debug
+        let builder = tauri::Builder::default()
+            .setup(move |tauri_app| {
+                let window = gitbutler_tauri::window::create(
+                    tauri_app.handle(),
+                    "main",
+                    "index.html".into(),
+                )
+                .expect("Failed to create window");
+
+                // TODO(mtsgrd): Is there a better way to disable devtools in E2E tests?
+                #[cfg(debug_assertions)]
+                if tauri_app.config().product_name != Some("GitButler Test".to_string()) {
+                    window.open_devtools();
+                }
+
+                let app_handle = tauri_app.handle();
+
+                logs::init(app_handle, performance_logging);
+
+                inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
+
+                tracing::info!(
+                    "system git executable for fetch/push: {git:?}",
+                    git = gix::path::env::exe_invocation(),
+                );
+                if cfg!(windows) {
+                    tracing::info!("system git bash: {bash:?}", bash = gix::path::env::shell());
                 } else {
-                    log::LevelFilter::Error
-                });
+                    tracing::info!("SHELL env: {var:?}", var = std::env::var_os("SHELL"));
+                }
 
-            let builder = tauri::Builder::default()
-                .setup(move |tauri_app| {
-                    let window = gitbutler_tauri::window::create(
-                        tauri_app.handle(),
-                        "main",
-                        "index.html".into(),
+                // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
+                // SAFETY(qix-): before any other threads would ever access it.
+                unsafe {
+                    gitbutler_repo_actions::askpass::init({
+                        let handle = app_handle.clone();
+                        move |event| {
+                            handle
+                                .emit("git_prompt", event)
+                                .expect("tauri event emission doesn't fail in practice")
+                        }
+                    });
+                }
+
+                let (app_data_dir, app_cache_dir, app_log_dir) = {
+                    let paths = app_handle.path();
+                    (
+                        paths.app_data_dir().expect("missing app data dir"),
+                        paths.app_cache_dir().expect("missing app cache dir"),
+                        paths.app_log_dir().expect("missing app log dir"),
                     )
-                    .expect("Failed to create window");
+                };
+                std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
+                std::fs::create_dir_all(&app_cache_dir).expect("failed to create cache dir");
 
-                    // TODO(mtsgrd): Is there a better way to disable devtools in E2E tests?
-                    #[cfg(debug_assertions)]
-                    if tauri_app.config().product_name != Some("GitButler Test".to_string()) {
-                        window.open_devtools();
-                    }
-
-                    let app_handle = tauri_app.handle();
-
-                    logs::init(app_handle, performance_logging);
-
-                    inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
-
-                    tracing::info!(
-                        "system git executable for fetch/push: {git:?}",
-                        git = gix::path::env::exe_invocation(),
-                    );
-                    if cfg!(windows) {
-                        tracing::info!("system git bash: {bash:?}", bash = gix::path::env::shell());
-                    } else {
-                        tracing::info!("SHELL env: {var:?}", var = std::env::var_os("SHELL"));
-                    }
-
-                    // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
-                    // SAFETY(qix-): before any other threads would ever access it.
-                    unsafe {
-                        gitbutler_repo_actions::askpass::init({
-                            let handle = app_handle.clone();
-                            move |event| {
-                                handle
-                                    .emit("git_prompt", event)
-                                    .expect("tauri event emission doesn't fail in practice")
-                            }
-                        });
-                    }
-
-                    let (app_data_dir, app_cache_dir, app_log_dir) = {
-                        let paths = app_handle.path();
-                        (
-                            paths.app_data_dir().expect("missing app data dir"),
-                            paths.app_cache_dir().expect("missing app cache dir"),
-                            paths.app_log_dir().expect("missing app log dir"),
-                        )
-                    };
-                    std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
-                    std::fs::create_dir_all(&app_cache_dir).expect("failed to create cache dir");
-
-                    tracing::info!(version = %app_handle.package_info().version,
+                tracing::info!(version = %app_handle.package_info().version,
                                    name = %app_handle.package_info().name, "starting app");
 
-                    app_handle.manage(WindowState::new(app_handle.clone()));
+                app_handle.manage(WindowState::new(app_handle.clone()));
 
-                    app_settings.watch_in_background({
-                        let app_handle = app_handle.clone();
-                        move |app_settings| {
-                            gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
-                        }
-                    })?;
+                app_settings.watch_in_background({
+                    let app_handle = app_handle.clone();
+                    move |app_settings| {
+                        gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
+                    }
+                })?;
 
-                    let broadcaster = Arc::new(Mutex::new(Broadcaster::new()));
+                let broadcaster = Arc::new(Mutex::new(Broadcaster::new()));
 
-                    let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
-                    let broadcaster2 = broadcaster.clone();
-                    tokio::spawn(async move {
-                        broadcaster2
-                            .lock()
-                            .await
-                            .register_sender(&uuid::Uuid::new_v4(), send)
-                    });
+                let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
+                let broadcaster2 = broadcaster.clone();
+                tokio::spawn(async move {
+                    broadcaster2
+                        .lock()
+                        .await
+                        .register_sender(&uuid::Uuid::new_v4(), send)
+                });
 
-                    let window2 = window.clone();
-                    std::thread::spawn(move || {
-                        while let Some(message) = recv.blocking_recv() {
-                            window2.emit(&message.name, message.payload).unwrap();
-                        }
-                    });
+                let window2 = window.clone();
+                std::thread::spawn(move || {
+                    while let Some(message) = recv.blocking_recv() {
+                        window2.emit(&message.name, message.payload).unwrap();
+                    }
+                });
 
-                    let archival = Arc::new(but_feedback::Archival {
-                        cache_dir: app_cache_dir.clone(),
-                        logs_dir: app_log_dir.clone(),
-                    });
-                    let app = App {
-                        broadcaster: broadcaster.clone(),
-                        archival: archival.clone(),
-                        claudes: Default::default(),
-                    };
+                let archival = Arc::new(but_feedback::Archival {
+                    cache_dir: app_cache_dir.clone(),
+                    logs_dir: app_log_dir.clone(),
+                });
+                let app = App {
+                    broadcaster: broadcaster.clone(),
+                    archival: archival.clone(),
+                    claudes: Default::default(),
+                };
 
-                    app_handle.manage(app_settings);
-                    app_handle.manage(app);
+                app_handle.manage(app_settings);
+                app_handle.manage(app);
 
-                    tauri_app.on_menu_event(move |handle, event| {
-                        menu::handle_event(handle, &window.clone(), &event)
-                    });
+                tauri_app.on_menu_event(move |handle, event| {
+                    menu::handle_event(handle, &window.clone(), &event)
+                });
 
                     Ok(())
                 })
@@ -379,16 +384,17 @@ fn main() {
                     _ => {}
                 });
 
-            #[cfg(not(target_os = "linux"))]
-            let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
+        #[cfg(not(target_os = "linux"))]
+        let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
 
-            builder
-                .build(tauri_context)
-                .expect("Failed to build tauri app")
-                .run(|app_handle, event| {
-                    let _ = (app_handle, event);
-                });
-        });
+        builder
+            .build(tauri_context)
+            .expect("Failed to build tauri app")
+            .run(|app_handle, event| {
+                let _ = (app_handle, event);
+            });
+    });
+    Ok(())
 }
 
 /// Launch a shell as interactive login shell, similar to what a login terminal would do if we are not already in a terminal.
