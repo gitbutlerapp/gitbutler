@@ -68,6 +68,7 @@
 	let rows = $state<HTMLCollectionOf<Element>>(); // This is a live list
 	let resizeObserver: ResizeObserver | null = null;
 	let viewportHeight = $state(0);
+	let previousViewportHeight = 0;
 
 	// Virtual scrolling state
 	let start = $state(initialPosition === 'bottom' ? Infinity : 0);
@@ -86,7 +87,6 @@
 	let isNearBottom = $state(true);
 	let distanceFromBottom = $state(0);
 	let hasInitialized = $state(false);
-	let previousViewportHeight = $state(viewportHeight);
 	let wasAtBottomBeforeResize = $state(false);
 	let previousItemsLength = $state(items.length);
 	let newUnseenTail = $state(false);
@@ -355,6 +355,7 @@
 	{padding}
 >
 	<div
+		data-remove-from-panning
 		class="padded-contents"
 		style:padding-top={topPadding + 'px'}
 		style:padding-bottom={bottomPadding + 'px'}
