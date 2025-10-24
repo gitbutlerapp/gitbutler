@@ -3658,6 +3658,7 @@ dependencies = [
  "gitbutler-storage",
  "gitbutler-testsupport",
  "gix",
+ "insta",
  "parking_lot 0.12.4",
  "resolve-path",
  "serde",

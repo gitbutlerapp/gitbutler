@@ -29,3 +29,4 @@ fslock = "0.2.1"
 [dev-dependencies]
 gitbutler-testsupport.workspace = true
 tempfile.workspace = true
+insta.workspace = true
