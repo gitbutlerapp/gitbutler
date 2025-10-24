@@ -4,7 +4,12 @@ use anyhow::{Context, anyhow, bail};
 
 pub fn get_cli_path() -> anyhow::Result<std::path::PathBuf> {
     let cli_path = std::env::current_exe()?;
-    Ok(cli_path.with_file_name(if cfg!(windows) { "but.exe" } else { "but" }))
+    Ok(if cfg!(feature = "builtin-but") {
+        // This is expected to be `tauri`, which also is expected to have `but` capabilities.
+        cli_path
+    } else {
+        cli_path.with_file_name(if cfg!(windows) { "but.exe" } else { "but" })
+    })
 }
 
 pub fn do_install_cli() -> anyhow::Result<()> {
