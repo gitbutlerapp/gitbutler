@@ -271,13 +271,14 @@ impl From<but_github::PullRequest> for ForgeReview {
 pub async fn list_forge_reviews(
     preferred_forge_user: &Option<String>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
+    storage: &but_forge_storage::controller::Controller,
 ) -> Result<Vec<ForgeReview>> {
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
-            let pulls = but_github::pr::list(preferred_forge_user, owner, repo).await?;
+            let pulls = but_github::pr::list(preferred_forge_user, owner, repo, storage).await?;
             Ok(pulls.into_iter().map(ForgeReview::from).collect())
         }
         _ => Err(Error::msg(format!(
@@ -302,6 +303,7 @@ pub async fn create_forge_review(
     preferred_forge_user: &Option<String>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     params: &CreateForgeReviewParams,
+    storage: &but_forge_storage::controller::Controller,
 ) -> Result<ForgeReview> {
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
@@ -319,7 +321,7 @@ pub async fn create_forge_review(
                 base: &params.target_branch,
                 draft: params.draft,
             };
-            let pr = but_github::pr::create(preferred_forge_user, pr_params).await?;
+            let pr = but_github::pr::create(preferred_forge_user, pr_params, storage).await?;
             Ok(ForgeReview::from(pr))
         }
         _ => Err(Error::msg(format!(

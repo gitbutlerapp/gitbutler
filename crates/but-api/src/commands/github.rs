@@ -41,7 +41,8 @@ impl From<AuthStatusResponse> for AuthStatusResponseSensitive {
 pub async fn check_auth_status(
     params: CheckAuthStatusParams,
 ) -> Result<AuthStatusResponseSensitive, Error> {
-    let status_result = but_github::check_auth_status(params).await;
+    let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
+    let status_result = but_github::check_auth_status(params, &storage).await;
     match status_result {
         Ok(status) => Ok(status.into()),
         Err(e) => Err(e.into()),
@@ -52,7 +53,8 @@ pub async fn check_auth_status(
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn forget_github_username(username: String) -> Result<(), Error> {
-    but_github::forget_gh_access_token(&username).ok();
+    let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
+    but_github::forget_gh_access_token(&username, &storage).ok();
     Ok(())
 }
 
@@ -60,7 +62,8 @@ pub fn forget_github_username(username: String) -> Result<(), Error> {
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn clear_all_github_tokens() -> Result<(), Error> {
-    but_github::clear_all_github_tokens().map_err(Into::into)
+    let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
+    but_github::clear_all_github_tokens(&storage).map_err(Into::into)
 }
 
 #[derive(Debug, Serialize)]
@@ -103,14 +106,16 @@ pub async fn get_gh_user(
     params: GetGhUserParams,
 ) -> Result<Option<AuthenticatedUserSensitive>, Error> {
     let GetGhUserParams { username } = params;
-    but_github::get_gh_user(&username)
+    let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
+    but_github::get_gh_user(&username, &storage)
         .await
         .map(|res| res.map(Into::into))
         .map_err(Into::into)
 }
 
 pub async fn list_known_github_usernames() -> Result<Vec<String>, Error> {
-    but_github::list_known_github_usernames()
+    let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
+    but_github::list_known_github_usernames(&storage)
         .await
         .map_err(Into::into)
 }

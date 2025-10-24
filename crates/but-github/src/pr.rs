@@ -4,10 +4,12 @@ pub async fn list(
     preferred_username: &Option<String>,
     owner: &str,
     repo: &str,
+    storage: &but_forge_storage::controller::Controller,
 ) -> Result<Vec<crate::client::PullRequest>> {
-    let username = resolve_username(preferred_username)?;
+    let username = resolve_username(preferred_username, storage)?;
+    let account_id = crate::token::GithubAccountIdentifier::oauth(&username);
 
-    if let Some(access_token) = crate::token::get_gh_access_token(&username)? {
+    if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
         let gh = crate::client::GitHubClient::new(&access_token)
             .context("Failed to create GitHub client")?;
         let pulls = gh
@@ -23,10 +25,12 @@ pub async fn list(
 pub async fn create(
     preferred_username: &Option<String>,
     params: crate::client::CreatePullRequestParams<'_>,
+    storage: &but_forge_storage::controller::Controller,
 ) -> Result<crate::client::PullRequest> {
-    let username = resolve_username(preferred_username)?;
+    let username = resolve_username(preferred_username, storage)?;
+    let account_id = crate::token::GithubAccountIdentifier::oauth(&username);
 
-    if let Some(access_token) = crate::token::get_gh_access_token(&username)? {
+    if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
         let gh = crate::client::GitHubClient::new(&access_token)
             .context("Failed to create GitHub client")?;
         let pr = gh
@@ -39,8 +43,11 @@ pub async fn create(
     }
 }
 
-fn resolve_username(preferred_username: &Option<String>) -> Result<String, anyhow::Error> {
-    let known_usernames = crate::token::list_known_github_usernames()?;
+fn resolve_username(
+    preferred_username: &Option<String>,
+    storage: &but_forge_storage::controller::Controller,
+) -> Result<String, anyhow::Error> {
+    let known_usernames = crate::token::list_known_github_usernames(storage)?;
     let Some(default_username) = known_usernames.first() else {
         bail!("No authenticated GitHub users found. Please authenticate with GitHub first.");
     };
