@@ -36,7 +36,7 @@ fn forget_github_username(username: &str) -> anyhow::Result<()> {
 }
 
 async fn list_github_users() -> anyhow::Result<()> {
-    let known_usernames = but_github::list_known_github_usernames().await?;
+    let known_usernames = but_api::github::list_known_github_usernames().await?;
     println!("Known GitHub usernames:");
     for username in known_usernames {
         println!("- {}", username);
