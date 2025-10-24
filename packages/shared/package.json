@@ -35,9 +35,6 @@
 		"!dist/**/*.test.*",
 		"!dist/**/*.spec.*"
 	],
-	"peerDependencies": {
-		"svelte": "^4.0.0 || ^5.0.0-0"
-	},
 	"devDependencies": {
 		"@codemirror/lang-cpp": "^6.0.3",
 		"@codemirror/lang-css": "^6.3.1",
@@ -79,10 +76,13 @@
 		"postcss-nesting": "catalog:postcss",
 		"postcss-pxtorem": "catalog:postcss",
 		"rimraf": "^6.0.1",
-		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"vite": "catalog:",
 		"vitest": "catalog:"
+	},
+	"peerDependencies": {
+		"@sveltejs/kit": "catalog:svelte",
+		"svelte": "catalog:svelte"
 	},
 	"type": "module",
 	"dependencies": {
