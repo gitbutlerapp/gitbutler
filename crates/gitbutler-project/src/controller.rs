@@ -1,6 +1,7 @@
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
+use gix::bstr::ByteSlice;
 use gitbutler_error::error;
 
 use super::{Project, ProjectId, storage, storage::UpdateRequest};
@@ -266,6 +267,41 @@ impl Controller {
             && let Err(error) = std::fs::remove_dir_all(project.gb_dir())
         {
             tracing::error!(project_id = %project.id, ?error, "failed to remove {:?} on project delete", project.gb_dir());
+        }
+
+        // Delete references in the gitbutler namespace
+        if let Ok(repo) = project.open_isolated()
+            && let Err(error) = Self::delete_gitbutler_references(&repo)
+        {
+            tracing::error!(project_id = %project.id, ?error, "failed to delete gitbutler references");
+        }
+
+        Ok(())
+    }
+
+    fn delete_gitbutler_references(repo: &gix::Repository) -> Result<()> {
+        let platform = repo.references()?;
+        let mut refs_to_delete = Vec::new();
+
+        // Collect all references that start with refs/heads/gitbutler/ or refs/gitbutler/
+        for reference in platform.all()?.filter_map(Result::ok) {
+            let ref_name = reference.name().as_bstr();
+            if ref_name.starts_with(b"refs/heads/gitbutler/")
+                || ref_name.starts_with(b"refs/gitbutler/")
+            {
+                refs_to_delete.push(reference);
+            }
+        }
+
+        // Delete collected references
+        for reference in refs_to_delete {
+            if let Err(error) = reference.delete() {
+                tracing::warn!(
+                    ref_name = %reference.name().as_bstr().to_str_lossy(),
+                    ?error,
+                    "failed to delete gitbutler reference"
+                );
+            }
         }
 
         Ok(())

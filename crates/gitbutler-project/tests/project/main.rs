@@ -158,4 +158,62 @@ mod delete {
         assert!(gitbutler_project::get_with_path(data_dir.path(), project.id).is_err());
         assert!(!project.gb_dir().exists());
     }
+
+    #[test]
+    fn deletes_gitbutler_references() {
+        let data_dir = paths::data_dir();
+        let repository = gitbutler_testsupport::TestProject::default();
+        let path = repository.path();
+        let project = gitbutler_project::add_with_path(data_dir.path(), path)
+            .unwrap()
+            .unwrap_project();
+
+        // Create some gitbutler references
+        let repo = project.open_isolated().unwrap();
+        let head_id = repo.head_id().unwrap();
+
+        // Create references in both namespaces
+        repo.reference(
+            "refs/heads/gitbutler/workspace",
+            head_id,
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "test workspace ref",
+        )
+        .unwrap();
+
+        repo.reference(
+            "refs/gitbutler/test-ref",
+            head_id,
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "test gitbutler ref",
+        )
+        .unwrap();
+
+        // Verify references exist
+        assert!(repo.try_find_reference("refs/heads/gitbutler/workspace").unwrap().is_some());
+        assert!(repo.try_find_reference("refs/gitbutler/test-ref").unwrap().is_some());
+
+        // Delete the project
+        assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok());
+
+        // Verify references are deleted
+        let repo = project.open_isolated().unwrap();
+        assert!(repo.try_find_reference("refs/heads/gitbutler/workspace").unwrap().is_none());
+        assert!(repo.try_find_reference("refs/gitbutler/test-ref").unwrap().is_none());
+    }
+
+    #[test]
+    fn deletes_project_without_gitbutler_references() {
+        // This test ensures that deletion works even when there are no gitbutler references
+        let data_dir = paths::data_dir();
+        let repository = gitbutler_testsupport::TestProject::default();
+        let path = repository.path();
+        let project = gitbutler_project::add_with_path(data_dir.path(), path)
+            .unwrap()
+            .unwrap_project();
+
+        // Delete without creating any gitbutler references
+        assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok());
+        assert!(!project.gb_dir().exists());
+    }
 }
