@@ -24,6 +24,8 @@
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		defaultCollapsed?: boolean;
 		notScrollable?: boolean;
+		childrenWrapHeight?: string;
+		childrenWrapDisplay?: 'block' | 'content' | 'flex';
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 	};
@@ -41,6 +43,8 @@
 		clientHeight = $bindable(),
 		defaultCollapsed = false,
 		notScrollable = false,
+		childrenWrapHeight,
+		childrenWrapDisplay,
 		ontoggle,
 		onclose
 	}: Props = $props();
@@ -98,7 +102,7 @@
 				{@render children()}
 			</div>
 		{:else}
-			<ConfigurableScrollableContainer>
+			<ConfigurableScrollableContainer {childrenWrapHeight} {childrenWrapDisplay}>
 				<div class="drawer__content" bind:clientHeight={contentHeight}>
 					{@render children()}
 				</div>

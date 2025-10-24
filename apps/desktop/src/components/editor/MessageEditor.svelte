@@ -291,14 +291,6 @@
 	data-remove-from-panning
 	role="presentation"
 	class="editor-wrapper hide-native-scrollbar"
-	style:--lexical-input-client-text-wrap={useRuler && !forceSansFont ? 'nowrap' : 'normal'}
-	style:--code-block-font={useRuler && !forceSansFont
-		? $userSettings.diffFont
-		: 'var(--font-default)'}
-	style:--code-block-tab-size={$userSettings.tabSize && !forceSansFont ? $userSettings.tabSize : 4}
-	style:--code-block-ligatures={$userSettings.diffLigatures && !forceSansFont
-		? 'common-ligatures'
-		: 'normal'}
 	onclick={stopPropagation}
 	ondblclick={stopPropagation}
 	onmousedown={stopPropagation}
@@ -323,7 +315,7 @@
 			}}
 		>
 			{#if useRuler && enableRuler}
-				<MessageEditorRuler />
+				<MessageEditorRuler monospaceFont={$userSettings.diffFont} />
 			{/if}
 
 			<div class="message-textarea__wrapper">
@@ -340,6 +332,10 @@
 					onKeyDown={handleKeyDown}
 					{disabled}
 					{wrapCountValue}
+					useMonospaceFont={useRuler && !forceSansFont}
+					monospaceFont={$userSettings.diffFont}
+					tabSize={$userSettings.tabSize}
+					enableLigatures={$userSettings.diffLigatures}
 				>
 					{#snippet plugins()}
 						<Formatter bind:this={formatter} />

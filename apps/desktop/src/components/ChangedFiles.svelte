@@ -75,6 +75,8 @@
 	{noshrink}
 	bottomBorder={changes.length > 0}
 	persistId={`changed-files-drawer-${projectId}-${stackId || 'default'}`}
+	childrenWrapHeight={changes.length > 0 ? 'auto' : '100%'}
+	childrenWrapDisplay={changes.length > 0 ? 'block' : 'flex'}
 >
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">{title}</h4>
@@ -123,6 +125,7 @@
 	.filelist-wrapper {
 		display: flex;
 		flex-direction: column;
+		height: 100%;
 		margin-bottom: 16px;
 		background-color: var(--clr-bg-1);
 
