@@ -158,4 +158,110 @@ mod delete {
         assert!(gitbutler_project::get_with_path(data_dir.path(), project.id).is_err());
         assert!(!project.gb_dir().exists());
     }
+
+    #[test]
+    fn deletes_gitbutler_references() -> anyhow::Result<()> {
+        let data_dir = paths::data_dir();
+        let repository = gitbutler_testsupport::TestProject::default();
+        let path = repository.path();
+        let project = gitbutler_project::add_with_path(data_dir.path(), path)?.unwrap_project();
+
+        let repo = project.open_isolated()?;
+        let head_id = repo.head_id()?;
+
+        // Create references in both namespaces
+        repo.reference(
+            "refs/heads/gitbutler/workspace",
+            head_id,
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "test workspace ref",
+        )?;
+
+        let head_id = repo.head_id()?;
+
+        repo.reference(
+            "refs/heads/unrelated",
+            head_id,
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "unrelated workspace ref",
+        )?;
+
+        repo.reference(
+            "refs/gitbutler/test-ref",
+            head_id,
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "hidden gitbutler ref",
+        )?;
+
+        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
+        [
+            "refs/gitbutler/test-ref",
+            "refs/heads/gitbutler/workspace",
+            "refs/heads/master",
+            "refs/heads/unrelated",
+            "refs/remotes/origin/master",
+        ]
+        "#);
+
+        gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
+
+        // Only only sees gitbutler references.
+        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
+        [
+            "refs/heads/master",
+            "refs/heads/unrelated",
+            "refs/remotes/origin/master",
+        ]
+        "#);
+        Ok(())
+    }
+
+    #[test]
+    fn deletes_project_without_gitbutler_references() -> anyhow::Result<()> {
+        // This test ensures that deletion works even when there are no gitbutler references
+        let data_dir = paths::data_dir();
+        let repository = gitbutler_testsupport::TestProject::default();
+        let path = repository.path();
+        let project = gitbutler_project::add_with_path(data_dir.path(), path)?.unwrap_project();
+
+        let repo = project.open_isolated()?;
+        let head_id = repo.head_id()?;
+
+        repo.reference(
+            "refs/heads/unrelated",
+            head_id,
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "unrelated workspace ref",
+        )?;
+        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
+        [
+            "refs/heads/master",
+            "refs/heads/unrelated",
+            "refs/remotes/origin/master",
+        ]
+        "#);
+
+        gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
+
+        assert!(!project.gb_dir().exists());
+
+        // Nothing changed - no reference was touched.
+        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
+        [
+            "refs/heads/master",
+            "refs/heads/unrelated",
+            "refs/remotes/origin/master",
+        ]
+        "#);
+
+        Ok(())
+    }
+
+    fn all_refs(repo: &gix::Repository) -> anyhow::Result<Vec<String>> {
+        Ok(repo
+            .references()?
+            .all()?
+            .map(|r| r.unwrap().name().as_bstr().to_string())
+            .collect())
+    }
 }

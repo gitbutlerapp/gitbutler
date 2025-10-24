@@ -235,18 +235,9 @@ impl StackBranch {
     }
 
     pub fn delete_reference(&self, repo: &gix::Repository) -> Result<()> {
-        let oid = self.head_oid(repo)?;
         let current_name: BString = qualified_reference_name(self.name()).into();
         if let Some(reference) = repo.try_find_reference(&current_name)? {
-            let delete = RefEdit {
-                change: Change::Delete {
-                    expected: PreviousValue::MustExistAndMatch(oid.into()),
-                    log: RefLog::AndReference,
-                },
-                name: reference.name().into(),
-                deref: false,
-            };
-            repo.edit_reference(delete)?;
+            but_core::branch::SafeDelete::new(repo)?.delete_reference(&reference)?;
         }
         Ok(())
     }

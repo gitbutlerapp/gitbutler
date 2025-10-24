@@ -507,7 +507,7 @@ pub(crate) fn integrate_upstream(
 
     {
         // We preform the updates in stages. If deleting or unapplying fails, we
-        // could enter a much worse state if we're simultaniously updating trees
+        // could enter a much worse state if we're simultaneously updating trees
 
         // Delete branches
         for (maybe_stack_id, integration_result) in &integration_results {

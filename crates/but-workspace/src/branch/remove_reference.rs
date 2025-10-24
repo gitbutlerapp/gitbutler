@@ -63,7 +63,11 @@ pub(crate) mod function {
         }
 
         let deleted_ref = if let Some(r) = repo.try_find_reference(ref_name)? {
-            r.delete()?;
+            let safe = but_core::branch::SafeDelete::new(repo)?;
+            let out = safe.delete_reference(&r)?;
+            if let Some(paths) = out.checked_out_in_worktree_dirs {
+                bail!("Refusing to delete a branch that is checked out. Worktrees are: {paths:?}");
+            }
             true
         } else {
             false
