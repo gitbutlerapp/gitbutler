@@ -188,7 +188,7 @@
 	.ssh-key-fingerprint {
 		color: var(--clr-scale-ntrl-30);
 		font-size: 13px;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 	}
 
 	.delete-button {
@@ -295,7 +295,7 @@
 		color: var(--clr-scale-ntrl-0);
 		font-size: 13px;
 		line-height: 1.4;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 		word-break: break-all;
 	}
 

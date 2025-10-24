@@ -463,7 +463,7 @@
 		font-style: normal;
 		font-size: 13px;
 		line-height: 180%;
-		font-family: var(--fontfamily-default);
+		font-family: var(--font-default);
 	}
 
 	.review-main-description__placeholder {

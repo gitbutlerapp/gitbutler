@@ -81,7 +81,7 @@
 	}
 	.message {
 		padding: 0 12px;
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 		white-space: pre-wrap;
 		user-select: text;
 	}

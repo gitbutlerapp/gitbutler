@@ -51,7 +51,7 @@
 		hunkStr,
 		tabSize = 4,
 		wrapText = true,
-		diffFont = 'var(--fontfamily-mono)',
+		diffFont = 'var(--font-mono)',
 		diffLigatures = true,
 		diffContrast = 'medium',
 		colorBlindFriendly = false,

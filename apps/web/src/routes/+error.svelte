@@ -24,7 +24,7 @@
 	.title {
 		margin-top: 30px;
 		font-size: min(10vw, 16cqw);
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 
 		@media (max-width: 700px) {
 			margin-bottom: 30px;

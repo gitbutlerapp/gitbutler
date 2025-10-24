@@ -69,7 +69,7 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-xl);
-		font-family: var(--fontfamily-mono);
+		font-family: var(--font-mono);
 	}
 
 	.loading {

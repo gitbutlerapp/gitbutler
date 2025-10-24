@@ -232,7 +232,7 @@
 		margin-bottom: 8px;
 		font-size: 40px;
 		line-height: 1.1;
-		font-family: var(--fontfamily-accent);
+		font-family: var(--font-accent);
 		text-wrap: balance;
 	}
 

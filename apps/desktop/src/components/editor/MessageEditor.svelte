@@ -294,7 +294,7 @@
 	style:--lexical-input-client-text-wrap={useRuler && !forceSansFont ? 'nowrap' : 'normal'}
 	style:--code-block-font={useRuler && !forceSansFont
 		? $userSettings.diffFont
-		: 'var(--fontfamily-default)'}
+		: 'var(--font-default)'}
 	style:--code-block-tab-size={$userSettings.tabSize && !forceSansFont ? $userSettings.tabSize : 4}
 	style:--code-block-ligatures={$userSettings.diffLigatures && !forceSansFont
 		? 'common-ligatures'
