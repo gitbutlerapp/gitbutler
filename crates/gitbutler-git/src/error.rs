@@ -23,6 +23,10 @@ pub enum Error<BE: std::error::Error + core::fmt::Debug + Send + Sync + 'static>
     /// the remote.
     #[error("no such remote: {0}")]
     NoSuchRemote(String, #[source] BE),
+    /// An operation interacting with a Gerrit remote found that there
+    /// were no new changes to process.
+    #[error("no new changes: {0}")]
+    GerritNoNewChanges(BE),
     /// An operation that expected a remote not to exist found that
     /// the remote already existed.
     #[error("remote already exists: {0}")]

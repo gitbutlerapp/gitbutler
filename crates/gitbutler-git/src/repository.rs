@@ -413,6 +413,10 @@ where
         return Err(crate::Error::AuthorizationFailed(base_error));
     }
 
+    if stderr.to_lowercase().contains("(no new changes)") {
+        return Err(crate::Error::GerritNoNewChanges(base_error));
+    }
+
     Err(base_error.into())
 }
 
