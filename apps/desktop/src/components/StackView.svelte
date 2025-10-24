@@ -390,19 +390,22 @@
 				draggableFiles
 				selectionId={createCommitSelection({ commitId, stackId: stackId })}
 				noshrink={!!previewKey}
+				grow={!previewKey}
 				changes={changes.changes.filter(
 					(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
 				)}
 				stats={changes.stats}
 				conflictEntries={changes.conflictEntries}
 				{ancestorMostConflictedCommitId}
-				resizer={{
-					persistId: `changed-files-${stackId}`,
-					direction: 'down',
-					minHeight: 8,
-					maxHeight: 32,
-					defaultValue: 16
-				}}
+				resizer={previewKey
+					? {
+							persistId: `changed-files-${stackId}`,
+							direction: 'down',
+							minHeight: 8,
+							maxHeight: 32,
+							defaultValue: 16
+						}
+					: undefined}
 				autoselect
 				allowUnselect={false}
 			/>
@@ -426,15 +429,18 @@
 				autoselect
 				selectionId={createBranchSelection({ stackId: stackId, branchName, remote: undefined })}
 				noshrink={!!previewKey}
+				grow={!previewKey}
 				changes={changes.changes}
 				stats={changes.stats}
-				resizer={{
-					persistId: `changed-files-${stackId}`,
-					direction: 'down',
-					minHeight: 8,
-					maxHeight: 32,
-					defaultValue: 16
-				}}
+				resizer={previewKey
+					? {
+							persistId: `changed-files-${stackId}`,
+							direction: 'down',
+							minHeight: 8,
+							maxHeight: 32,
+							defaultValue: 16
+						}
+					: undefined}
 				allowUnselect={false}
 			/>
 		{/snippet}
@@ -600,15 +606,13 @@
 			use:focusable={{ vertical: true }}
 		>
 			{#if stableStackId && selection?.branchName && selection?.codegen}
-				<div class="details-view__codegen">
-					<CodegenMessages
-						isWorkspace
-						projectId={stableProjectId}
-						stackId={stableStackId}
-						branchName={selection.branchName}
-						onclose={onclosePreview}
-					/>
-				</div>
+				<CodegenMessages
+					isWorkspace
+					projectId={stableProjectId}
+					stackId={stableStackId}
+					branchName={selection.branchName}
+					onclose={onclosePreview}
+				/>
 			{:else}
 				<div class="details-view__inner">
 					<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
@@ -619,11 +623,13 @@
 					{/if}
 
 					<!-- MIDDLE SECTION: Changed Files (with resizer) -->
-					{#if branchName && commitId}
-						{@render commitChangedFiles(commitId)}
-					{:else if branchName}
-						{@render branchChangedFiles(branchName)}
-					{/if}
+					<div class="changed-files-section" class:expand={!(assignedStackId || selectedFile)}>
+						{#if branchName && commitId}
+							{@render commitChangedFiles(commitId)}
+						{:else if branchName}
+							{@render branchChangedFiles(branchName)}
+						{/if}
+					</div>
 
 					<!-- BOTTOM SECTION: File Preview (no resizer) -->
 					{#if assignedStackId || selectedFile}
@@ -772,6 +778,7 @@
 		top: 12px;
 		flex-shrink: 0;
 		flex-direction: column;
+		height: 100%;
 		max-height: calc(100% - 24px);
 		margin-right: 2px;
 		overflow: hidden;
@@ -782,17 +789,27 @@
 	}
 
 	/* Needed for `focusCursor.svelte` to work correctly on `Drawer` components . */
-	.details-view__codegen,
 	.details-view__inner {
-		--message-max-width: 620px;
 		display: flex;
 		position: relative;
+		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
 	}
 
 	:global(.dark) .details-view {
 		box-shadow: 0 10px 50px 5px color(srgb 0 0 0 / 0.5);
+	}
+
+	.changed-files-section {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+
+		&.expand {
+			flex: 1;
+			min-height: 0; /* Allow shrinking */
+		}
 	}
 
 	.file-preview-section {

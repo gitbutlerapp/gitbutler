@@ -334,18 +334,21 @@
 			{/snippet}
 			{#snippet inWorkspaceInlineContextActions()}
 				{@const stats = usageStats(events)}
+				{@const contextUsage = Math.round(stats.contextUtilization * 100)}
 				<div class="flex gap-8 items-center">
-					<Tooltip text="{(stats.contextUtilization * 100).toFixed(0)}% context used">
+					<Tooltip text="{contextUsage}% context used">
 						<div
 							class="context-utilization-piechart"
-							style="--context-utilization: {stats.contextUtilization}"
+							style="--context-utilization: {contextUsage}%"
 						></div>
 					</Tooltip>
 
-					<KebabButton
-						bind:el={workspaceContextActionsKebab}
-						onclick={() => contextActionsContextMenu?.toggle()}
-					/>
+					{#if contextUsage > 0}
+						<KebabButton
+							bind:el={workspaceContextActionsKebab}
+							onclick={() => contextActionsContextMenu?.toggle()}
+						/>
+					{/if}
 				</div>
 			{/snippet}
 			{#snippet inWorkspaceInlineActions()}
@@ -400,7 +403,7 @@
 						style="--context-utilization: {stats.contextUtilization}"
 					>
 						<span class="truncate">
-							{(stats.contextUtilization * 100).toFixed(0)}% context used
+							{Math.round(stats.contextUtilization * 100)}% context used
 						</span>
 					</div>
 
@@ -656,6 +659,7 @@
 		!events.response ||
 		events.response.length === 0 ||
 		['running', 'compacting'].includes(currentStatus(events.response, isStackActive))}
+
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Clear context and rules"
@@ -728,8 +732,8 @@
 		height: 16px;
 		border-radius: 50%;
 		background: conic-gradient(
-			var(--clr-text-2) calc(var(--context-utilization) * 360deg),
-			var(--clr-border-2) calc(var(--context-utilization) * 360deg)
+			var(--clr-text-2) var(--context-utilization),
+			var(--clr-border-2) var(--context-utilization)
 		);
 	}
 

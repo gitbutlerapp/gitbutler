@@ -38,7 +38,7 @@
 		HistoryPlugin
 	} from 'svelte-lexical';
 
-	type Props = {
+	interface Props {
 		namespace: string;
 		markdown: boolean;
 		onError: (error: unknown) => void;
@@ -55,7 +55,11 @@
 		initialText?: string;
 		disabled?: boolean;
 		wrapCountValue?: number;
-	};
+		useMonospaceFont?: boolean;
+		monospaceFont?: string;
+		tabSize?: number;
+		enableLigatures?: boolean;
+	}
 
 	let {
 		disabled,
@@ -73,7 +77,11 @@
 		onInput,
 		onKeyDown,
 		initialText,
-		wrapCountValue
+		wrapCountValue,
+		useMonospaceFont,
+		monospaceFont,
+		tabSize,
+		enableLigatures
 	}: Props = $props();
 
 	/** Standard configuration for our commit message editor. */
@@ -246,6 +254,14 @@
 		class:plain-text={!markdown}
 		class:disabled={isDisabled}
 		style:min-height={minHeight}
+		style:--code-block-font={useMonospaceFont && monospaceFont
+			? monospaceFont
+			: 'var(--font-default)'}
+		style:--code-block-tab-size={useMonospaceFont && tabSize ? tabSize : 4}
+		style:--code-block-ligatures={useMonospaceFont && enableLigatures
+			? 'common-ligatures'
+			: 'normal'}
+		style:--lexical-input-client-text-wrap={useMonospaceFont ? 'nowrap' : 'normal'}
 	>
 		<div class="editor">
 			<ContentEditable />

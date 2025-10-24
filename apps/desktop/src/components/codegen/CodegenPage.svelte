@@ -570,8 +570,6 @@
 		width: 100%;
 		height: 100%;
 		gap: 8px;
-		/* SHARABLE */
-		--message-max-width: 620px;
 	}
 
 	.chat-view {
