@@ -212,7 +212,7 @@ export function initDependencies(args: {
 	// FILE & DIFF MANAGEMENT
 	// ============================================================================
 
-	const fileService = new FileService(backend);
+	const fileService = new FileService(backend, clientState);
 	const diffService = new DiffService(clientState);
 
 	// ============================================================================

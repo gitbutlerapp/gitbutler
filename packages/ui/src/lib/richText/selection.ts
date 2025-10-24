@@ -108,7 +108,7 @@ export function getCursorPosition() {
 	const domRect = nativeSelection?.getRangeAt(0).getBoundingClientRect();
 
 	if (domRect) {
-		return { left: domRect.left + domRect.width, top: domRect.top + domRect.height };
+		return { left: domRect.left + domRect.width, top: domRect.top };
 	}
 }
 
@@ -121,6 +121,46 @@ export function getSelectionPosition(windowScrollY?: number) {
 		const left = domRect.left - 10;
 		return { left, top };
 	}
+}
+
+/**
+ * Replace a section of text leading up to current caret
+ * position. Note that we do not perform any checks here,
+ * and assume the caller knows a valid selection, and
+ * offset are passed.
+ */
+export function insertFilePath(editor: LexicalEditor, path: string, count: number) {
+	editor.update(() => {
+		const selection = $getSelection();
+		if (!$isRangeSelection(selection)) {
+			return;
+		}
+
+		const pathNode = new TextNode(path);
+
+		const node = selection.getNodes().at(0);
+
+		if (!(node instanceof TextNode)) {
+			selection.insertNodes([pathNode]);
+			return;
+		}
+
+		const offset = selection.anchor.offset;
+		let target: TextNode | undefined;
+
+		if (offset === count) {
+			[target] = node.splitText(count);
+		} else {
+			[, target] = node.splitText(offset - count, offset);
+		}
+
+		if (!target) {
+			throw new Error('Expected target');
+		}
+
+		target.replace(pathNode, false);
+		pathNode.selectEnd();
+	});
 }
 
 /**
@@ -156,7 +196,7 @@ export function insertImageAtCaret(
 		} else {
 			[, target] = node.splitText(offset - count, offset);
 		}
-		target?.replace(new ImageNode(url, alt, 300), false);
+		target?.replace(imageNode, false);
 	});
 }
 

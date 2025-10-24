@@ -46,6 +46,7 @@
 		plugins?: Snippet;
 		placeholder?: string;
 		minHeight?: string;
+		value?: string;
 		onFocus?: () => void;
 		onBlur?: () => void;
 		onChange?: OnChangeCallback;
@@ -56,7 +57,7 @@
 		wrapCountValue?: number;
 	};
 
-	const {
+	let {
 		disabled,
 		namespace,
 		markdown,
@@ -65,6 +66,7 @@
 		styleContext,
 		plugins,
 		placeholder,
+		value = $bindable(),
 		onFocus,
 		onBlur,
 		onChange,
@@ -254,9 +256,14 @@
 
 		<EmojiPlugin bind:this={emojiPlugin} />
 
-		{#if onChange}
-			<OnChangePlugin {markdown} {onChange} maxLength={wrapCountValue} />
-		{/if}
+		<OnChangePlugin
+			{markdown}
+			onChange={(newValue, changeUpToAnchor, textAfterAnchor) => {
+				value = newValue;
+				onChange?.(newValue, changeUpToAnchor, textAfterAnchor);
+			}}
+			maxLength={wrapCountValue}
+		/>
 
 		{#if onInput}
 			<OnInput {markdown} {onInput} maxLength={wrapCountValue} />
