@@ -100,6 +100,54 @@ impl FileInfo {
     }
 }
 
+/// Computes a match score for a file path against a search pattern.
+///
+/// Returns `None` if the file doesn't match the pattern or if the pattern is empty.
+/// For empty patterns, returns a score of 0 to include all files.
+///
+/// The score is calculated based on:
+/// - Base fuzzy match score
+/// - Bonus for exact filename matches (case-insensitive)
+/// - Bonus for filename prefix matches (case-insensitive)
+/// - Bonus for matches in the filename itself
+/// - Penalty for deeply nested files
+fn compute_match_score(
+    matcher: &SkimMatcherV2,
+    path_str: &str,
+    relative_path: &Path,
+    pattern: &str,
+) -> Option<i64> {
+    if pattern.is_empty() {
+        return Some(0);
+    }
+
+    let base_score = matcher.fuzzy_match(path_str, pattern)?;
+    let filename = relative_path
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("");
+
+    let filename_bonus = calculate_filename_bonus(matcher, filename, pattern);
+    let depth_penalty = (relative_path.components().count() as i64) * 50;
+    let adjusted_score = base_score + filename_bonus - depth_penalty;
+
+    (adjusted_score > 0).then_some(adjusted_score)
+}
+
+/// Calculates a bonus score based on how well the pattern matches the filename.
+fn calculate_filename_bonus(matcher: &SkimMatcherV2, filename: &str, pattern: &str) -> i64 {
+    if filename.eq_ignore_ascii_case(pattern) {
+        10000 // Exact match
+    } else if filename.to_lowercase().starts_with(&pattern.to_lowercase()) {
+        5000 // Prefix match
+    } else {
+        matcher
+            .fuzzy_match(filename, pattern)
+            .map(|score| score / 2)
+            .unwrap_or(0)
+    }
+}
+
 pub trait RepoCommands {
     fn add_remote(&self, name: &str, url: &str) -> Result<()>;
     fn remotes(&self) -> Result<Vec<GitRemote>>;
@@ -267,91 +315,32 @@ impl RepoCommands for Project {
         })
     }
 
-    fn find_files(&self, pattern: &str, limit: usize) -> Result<Vec<String>> {
+    fn find_files(&self, query: &str, limit: usize) -> Result<Vec<String>> {
         static FAIR_QUEUE: Mutex<()> = Mutex::new(());
         let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
 
         let workdir = self.worktree_dir()?;
         let matcher = SkimMatcherV2::default();
 
-        // Collect all files with their adjusted scores
-        let mut scored_files: Vec<(i64, String)> = Vec::new();
-
-        for result in WalkBuilder::new(workdir)
-            .git_ignore(true) // Respect .gitignore
-            .git_global(true) // Respect global gitignore
+        let scored_files = WalkBuilder::new(workdir)
             .git_exclude(true) // Respect .git/info/exclude
+            .git_global(true) // Respect global gitignore
+            .git_ignore(true) // Respect .gitignore
             .build()
-        {
-            match result {
-                Ok(entry) => {
-                    // Only process files, not directories
-                    if !entry.file_type().map(|ft| ft.is_file()).unwrap_or(false) {
-                        continue;
-                    }
-
-                    // Get path relative to worktree root
-                    if let Ok(relative_path) = entry.path().strip_prefix(workdir) {
-                        let path_str = relative_path.to_string_lossy();
-
-                        // Skip if query is empty (return all files)
-                        if pattern.is_empty() {
-                            scored_files.push((0, path_str.to_string()));
-                        } else {
-                            // Get the filename without path
-                            let filename = relative_path
-                                .file_name()
-                                .and_then(|f| f.to_str())
-                                .unwrap_or("");
-
-                            // Fuzzy match against the full path
-                            if let Some(base_score) = matcher.fuzzy_match(&path_str, pattern) {
-                                // Boost score for better matches
-                                let mut adjusted_score = base_score;
-
-                                // Big boost for exact filename matches (case-insensitive)
-                                if filename.eq_ignore_ascii_case(pattern) {
-                                    adjusted_score += 10000;
-                                }
-                                // Medium boost for filename starting with query (case-insensitive)
-                                else if filename
-                                    .to_lowercase()
-                                    .starts_with(&pattern.to_lowercase())
-                                {
-                                    adjusted_score += 5000;
-                                }
-                                // Boost for matches in the filename vs directory path
-                                else if let Some(filename_score) =
-                                    matcher.fuzzy_match(filename, pattern)
-                                {
-                                    // If the filename matches well, boost it
-                                    adjusted_score += filename_score / 2;
-                                }
-
-                                // Boost files closer to root (penalize deep nesting)
-                                let depth = relative_path.components().count();
-                                let depth_penalty = (depth as i64) * 50;
-                                adjusted_score -= depth_penalty;
-
-                                if adjusted_score > 0 {
-                                    scored_files.push((adjusted_score, path_str.to_string()));
-                                }
-                            }
-                        }
-                    }
-                }
-                Err(_) => continue,
-            }
-        }
-
-        // Sort by score (descending) - higher scores are better matches
-        scored_files.sort_by(|a, b| b.0.cmp(&a.0));
-
-        // Take top `limit` results and extract just the paths
-        Ok(scored_files
-            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_type().is_some_and(|ft| ft.is_file()))
+            .filter_map(|entry| {
+                let relative_path = entry.path().strip_prefix(workdir).ok()?;
+                let path_str = relative_path.to_string_lossy();
+                let score = compute_match_score(&matcher, &path_str, relative_path, query)?;
+                Some((score, path_str.to_string()))
+            })
+            .filter(|entry| entry.0 > 0)
+            .sorted_by(|a, b| b.0.cmp(&a.0))
             .take(limit)
             .map(|(_, path)| path)
-            .collect())
+            .collect();
+
+        Ok(scored_files)
     }
 }
