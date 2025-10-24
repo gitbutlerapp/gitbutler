@@ -148,6 +148,69 @@ pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()>
     Ok(())
 }
 
+pub fn print_help() {
+    // Print basic push help
+    println!("Push a branch/stack to remote");
+    println!();
+    println!("Usage: but push [OPTIONS] <BRANCH_ID>");
+    println!();
+    println!("Arguments:");
+    println!("  <BRANCH_ID>  Branch name or CLI ID to push");
+    println!();
+    println!("Options:");
+    println!("  -f, --with-force                  Force push even if it's not fast-forward");
+    println!("  -s, --skip-force-push-protection  Skip force push protection checks");
+    println!("  -r, --run-hooks                   Run pre-push hooks");
+
+    // Check if gerrit mode is enabled and show gerrit options
+    if is_gerrit_enabled_for_help() {
+        println!();
+        println!("Gerrit Options:");
+        println!("  -w, --wip                         Mark change as work-in-progress");
+        println!("  -y, --ready                       Mark change as ready for review (default)");
+        println!(
+            "  -a, --hashtag, --tag <TAG>        Add hashtag to change (can be used multiple times)"
+        );
+        println!("  -t, --topic <TOPIC>               Add custom topic to change");
+        println!("      --tb, --topic-from-branch     Use branch name as topic");
+        println!("  -p, --private                     Mark change as private");
+        println!();
+        println!("Notes:");
+        println!("  - --wip and --ready are mutually exclusive. Ready is the default state.");
+        println!(
+            "  - --topic and --topic-from-branch are mutually exclusive. At most one topic can be set."
+        );
+        println!("  - Multiple hashtags can be specified by using --hashtag (or --tag) multiple times.");
+        println!(
+            "  - Multiple flags can be combined (e.g., --ready --private --tag tag1 --hashtag tag2)."
+        );
+    }
+
+    println!("  -h, --help                        Print help");
+}
+
+fn is_gerrit_enabled_for_help() -> bool {
+    // Parse the -C flag from command line arguments
+    let args: Vec<String> = std::env::args().collect();
+    let mut current_dir = std::path::Path::new(".");
+
+    // Look for -C flag
+    for (i, arg) in args.iter().enumerate() {
+        if arg == "-C" && i + 1 < args.len() {
+            current_dir = std::path::Path::new(&args[i + 1]);
+            break;
+        }
+    }
+
+    // Try to check if we're in a gerrit-enabled repository for help display
+    if let Ok(repo) = gix::discover(current_dir)
+        && let Ok(settings) = repo.git_settings()
+    {
+        return settings.gitbutler_gerrit_mode.unwrap_or(false);
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -455,71 +518,6 @@ mod tests {
                 .contains("Topic cannot be empty")
         );
     }
-}
-
-pub fn print_help() {
-    // Print basic push help
-    println!("Push a branch/stack to remote");
-    println!();
-    println!("Usage: but push [OPTIONS] <BRANCH_ID>");
-    println!();
-    println!("Arguments:");
-    println!("  <BRANCH_ID>  Branch name or CLI ID to push");
-    println!();
-    println!("Options:");
-    println!("  -f, --with-force                  Force push even if it's not fast-forward");
-    println!("  -s, --skip-force-push-protection  Skip force push protection checks");
-    println!("  -r, --run-hooks                   Run pre-push hooks");
-
-    // Check if gerrit mode is enabled and show gerrit options
-    if is_gerrit_enabled_for_help() {
-        println!();
-        println!("Gerrit Options:");
-        println!("  -w, --wip                         Mark change as work-in-progress");
-        println!("  -y, --ready                       Mark change as ready for review (default)");
-        println!(
-            "  -a, --hashtag, --tag <TAG>        Add hashtag to change (can be used multiple times)"
-        );
-        println!("  -t, --topic <TOPIC>               Add custom topic to change");
-        println!("      --tb, --topic-from-branch     Use branch name as topic");
-        println!("  -p, --private                     Mark change as private");
-        println!();
-        println!("Notes:");
-        println!("  - --wip and --ready are mutually exclusive. Ready is the default state.");
-        println!(
-            "  - --topic and --topic-from-branch are mutually exclusive. At most one topic can be set."
-        );
-        println!(
-            "  - Multiple hashtags can be specified by using --hashtag (or --tag) multiple times."
-        );
-        println!(
-            "  - Multiple flags can be combined (e.g., --ready --private --tag tag1 --hashtag tag2)."
-        );
-    }
-
-    println!("  -h, --help                        Print help");
-}
-
-fn is_gerrit_enabled_for_help() -> bool {
-    // Parse the -C flag from command line arguments
-    let args: Vec<String> = std::env::args().collect();
-    let mut current_dir = std::path::Path::new(".");
-
-    // Look for -C flag
-    for (i, arg) in args.iter().enumerate() {
-        if arg == "-C" && i + 1 < args.len() {
-            current_dir = std::path::Path::new(&args[i + 1]);
-            break;
-        }
-    }
-
-    // Try to check if we're in a gerrit-enabled repository for help display
-    if let Ok(repo) = gix::discover(current_dir)
-        && let Ok(settings) = repo.git_settings()
-    {
-        return settings.gitbutler_gerrit_mode.unwrap_or(false);
-    }
-    false
 }
 
 fn resolve_branch_name(ctx: &mut CommandContext, branch_id: &str) -> anyhow::Result<String> {
