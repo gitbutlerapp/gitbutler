@@ -24,7 +24,7 @@
 				message generation.
 			</p>
 
-			<div class="flex gap-8 m-top-8">
+			<div class="flex gap-8 m-t-8">
 				{#if !showCancel}
 					<Button
 						style="pop"

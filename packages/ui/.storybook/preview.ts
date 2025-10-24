@@ -1,6 +1,5 @@
 import type { Preview } from '@storybook/sveltekit';
-import '@gitbutler/design-core/tokens';
-import '@gitbutler/design-core/fonts';
+import '@gitbutler/design-core/core';
 import '../src/styles/main.css';
 import './stories-styles.css';
 

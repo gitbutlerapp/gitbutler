@@ -1,6 +1,6 @@
 <script lang="ts">
-	import '@gitbutler/design-core/tokens';
-	import '@gitbutler/design-core/fonts';
+	import '@gitbutler/design-core/utility';
+	import '@gitbutler/design-core/core';
 	import '../styles/styles.css';
 	import { browser, dev } from '$app/environment';
 	import { afterNavigate, beforeNavigate } from '$app/navigation';

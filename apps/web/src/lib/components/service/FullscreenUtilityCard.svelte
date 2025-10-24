@@ -16,7 +16,7 @@
 
 <div class="service-form__page">
 	<form class="service-form">
-		<h1 class="text-serif-42 m-bottom-20">{title}</h1>
+		<h1 class="text-serif-42 m-b-20">{title}</h1>
 
 		{@render children()}
 
