@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CodegenInputQueued from '$components/codegen/CodegenInputQueued.svelte';
 	import FileSearch from '$components/codegen/FileSearch.svelte';
+	import { showError } from '$lib/notifications/toasts';
 	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
@@ -9,7 +10,7 @@
 		value: string;
 		loading: boolean;
 		compacting: boolean;
-		onsubmit: () => Promise<void>;
+		onsubmit: (text: string) => Promise<void>;
 		onAbort?: () => Promise<void>;
 		actionsOnLeft: Snippet;
 		actionsOnRight: Snippet;
@@ -54,7 +55,14 @@
 	async function handleSubmit() {
 		const text = await editorRef?.getPlaintext();
 		if (!text || text.trim().length === 0) return;
-		await onsubmit();
+		// We can't rely on set prompt updating prompt text in `laneState`
+		// for clearing the input, so we do it here to keep them in sync.
+		// TODO: Make it so that updating laneState resets the editor.
+		editorRef?.clear();
+		onsubmit(text).catch((err) => {
+			editorRef?.setText(text);
+			showError('Send error', err);
+		});
 	}
 
 	function handleEditorKeyDown(event: KeyboardEvent | null): boolean {
