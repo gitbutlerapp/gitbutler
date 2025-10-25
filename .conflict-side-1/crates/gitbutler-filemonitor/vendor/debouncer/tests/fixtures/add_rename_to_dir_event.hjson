@@ -1,0 +1,24 @@
+{
+    state: {
+        file_system: {
+            /watch/parent: 1
+            /watch/parent/child: 2
+        }
+    }
+    events: [
+        { kind: "rename-to", paths: ["/watch/parent"] }
+    ]
+    expected: {
+        queues: {
+            /watch/parent: {
+                events: [
+                    { kind: "rename-to", paths: ["*"] }
+                ]
+            }
+        }
+        cache: {
+            /watch/parent: 1
+            /watch/parent/child: 2
+        }
+    }
+}

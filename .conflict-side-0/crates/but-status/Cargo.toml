@@ -1,0 +1,11 @@
+[package]
+name = "but-status"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+[dependencies]
+gix.workspace = true
+anyhow.workspace = true
+bstr.workspace = true
