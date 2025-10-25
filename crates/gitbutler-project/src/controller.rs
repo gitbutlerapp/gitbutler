@@ -1,6 +1,7 @@
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
+use but_core::{GitConfigSettings, RepositoryExt};
 use gitbutler_error::error;
 
 use super::{Project, ProjectId, storage, storage::UpdateRequest};
@@ -143,6 +144,15 @@ impl Controller {
         // Create a .git/gitbutler directory for app data
         if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
             tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project add", project.gb_dir());
+        }
+
+        // Check if the remote is a Gerrit remote and set config accordingly
+        if let Ok(true) = is_gerrit_remote(&repo) {
+            let gerrit_config = GitConfigSettings {
+                gitbutler_gerrit_mode: Some(true),
+                ..Default::default()
+            };
+            repo.set_git_settings(&gerrit_config).ok();
         }
 
         Ok(AddProjectOutcome::Added(project))
@@ -314,4 +324,26 @@ fn delete_gitbutler_references(repo: &gix::Repository) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn is_gerrit_remote(repo: &gix::Repository) -> anyhow::Result<bool> {
+    use gix::bstr::ByteSlice;
+    use gix::remote::Direction;
+
+    // Magic refspec that we use to determine if the remote is a Gerrit remote
+    let gerrit_notes_ref = "refs/notes/review";
+
+    let remote_name = repo
+        .remote_default_name(Direction::Fetch)
+        .ok_or_else(|| anyhow::anyhow!("No fetch remotes found"))?;
+
+    let mut remote = repo.find_remote(remote_name.as_bstr())?;
+    remote.replace_refspecs(vec![gerrit_notes_ref], Direction::Fetch)?;
+    remote = remote.with_fetch_tags(gix::remote::fetch::Tags::None);
+
+    let (map, _) = remote
+        .connect(Direction::Fetch)?
+        .ref_map(gix::progress::Discard, Default::default())?;
+
+    Ok(!map.remote_refs.is_empty())
 }

@@ -142,6 +142,12 @@ pub mod git {
                     if sign_commits { "true" } else { "false" },
                 )?;
             };
+            if let Some(gerrit_mode) = self.gitbutler_gerrit_mode {
+                config.set_raw_value(
+                    &GITBUTLER_GERRIT_MODE,
+                    if gerrit_mode { "true" } else { "false" },
+                )?;
+            };
             if let Some(signing_key) = &self.signing_key {
                 config.set_raw_value(&SIGNING_KEY, signing_key.as_bstr())?;
             };
