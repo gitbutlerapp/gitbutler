@@ -74,7 +74,7 @@
 	.file-plugin {
 		z-index: var(--z-lifted);
 		position: absolute;
-		bottom: calc(100% + 16px);
+		bottom: calc(100% + 9px);
 		max-width: 80%;
 		overflow-x: hidden;
 		overflow-y: auto;
