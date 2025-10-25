@@ -1,17 +1,24 @@
 <script lang="ts">
+	import AttachmentList from '$components/codegen/AttachmentList.svelte';
 	import { Markdown } from '@gitbutler/ui';
+	import type { PromptAttachment } from '$lib/codegen/types';
 
 	interface Props {
 		content?: string;
-		avatarUrl?: string;
+		attachments?: PromptAttachment[];
 	}
 
-	let { content }: Props = $props();
+	let { content, attachments }: Props = $props();
 </script>
 
 <div class="message-user">
 	<div class="text-13 text-body message-bubble">
 		<Markdown {content} />
+
+		{#if attachments && attachments.length > 0}
+			<hr class="message-user__divider" />
+			<AttachmentList {attachments} showRemoveButton={false} />
+		{/if}
 	</div>
 </div>
 
@@ -31,7 +38,7 @@
 		max-width: var(--message-max-width);
 		padding: 10px 14px;
 		overflow: hidden;
-		gap: 16px;
+		gap: 10px;
 		border-radius: var(--radius-ml);
 		border-bottom-right-radius: 0;
 		background-color: var(--clr-bg-2);
@@ -42,5 +49,11 @@
 		:global(.markdown pre) {
 			background-color: var(--clr-bg-1);
 		}
+	}
+
+	.message-user__divider {
+		width: 100%;
+		border: none;
+		border-top: 1px dotted var(--clr-border-2);
 	}
 </style>

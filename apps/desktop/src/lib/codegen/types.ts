@@ -1,6 +1,31 @@
 import type { Message, MessageParam, Usage } from '@anthropic-ai/sdk/resources/index.mjs';
 
 /**
+ * Represents a file attachment with full content (used in API input).
+ */
+export type PromptAttachment =
+	| {
+			type: 'file';
+			subject: {
+				path: string;
+			};
+	  }
+	| {
+			type: 'hunk';
+			subject: {
+				path: string;
+				start: number;
+				end: number;
+			};
+	  }
+	| {
+			type: 'commit';
+			subject: {
+				commitId: string;
+			};
+	  };
+
+/**
  * Result of checking Claude Code availability
  */
 export type ClaudeCheckResult =
@@ -112,7 +137,7 @@ export type ClaudeMessageContent =
 	/** Inserted via GitButler (what the user typed) */
 	| {
 			type: 'userInput';
-			subject: { message: string };
+			subject: { message: string; attachments?: PromptAttachment[] };
 	  }
 	| {
 			type: 'gitButlerMessage';

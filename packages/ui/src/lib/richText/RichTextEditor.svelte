@@ -15,7 +15,8 @@
 		$getRoot as getRoot,
 		KEY_DOWN_COMMAND,
 		FOCUS_COMMAND,
-		BLUR_COMMAND
+		BLUR_COMMAND,
+		type SerializedEditorState
 	} from 'lexical';
 	import { type Snippet } from 'svelte';
 	import {
@@ -243,6 +244,18 @@
 		if (!composer) return;
 		const editor = composer.getEditor();
 		setEditorText(editor, text);
+	}
+
+	export function save() {
+		return composer?.getEditor().getEditorState().toJSON();
+	}
+
+	export function load(state: SerializedEditorState) {
+		const editor = composer?.getEditor();
+		const editorState = editor?.parseEditorState(state);
+		if (editorState) {
+			editor?.setEditorState(editorState);
+		}
 	}
 </script>
 

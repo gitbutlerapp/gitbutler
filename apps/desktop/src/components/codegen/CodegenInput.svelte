@@ -1,35 +1,48 @@
 <script lang="ts">
+	import CardOverlay from '$components/CardOverlay.svelte';
+	import Dropzone from '$components/Dropzone.svelte';
+	import AttachmentList from '$components/codegen/AttachmentList.svelte';
 	import CodegenInputQueued from '$components/codegen/CodegenInputQueued.svelte';
 	import FileSearch from '$components/codegen/FileSearch.svelte';
+	import {
+		CodegenCommitDropHandler,
+		CodegenFileDropHandler,
+		CodegenHunkDropHandler
+	} from '$lib/codegen/dropzone';
 	import { showError } from '$lib/notifications/toasts';
 	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
+	import type { PromptAttachments } from '$lib/codegen/attachments.svelte';
 	import type { Snippet } from 'svelte';
 
-	interface Props {
+	type Props = {
+		projectId: string;
+		stackId: string;
 		value: string;
 		loading: boolean;
 		compacting: boolean;
+		selectedBranch: { stackId: string; head: string } | undefined;
 		onsubmit: (text: string) => Promise<void>;
 		onAbort?: () => Promise<void>;
 		actionsOnLeft: Snippet;
 		actionsOnRight: Snippet;
-		projectId: string;
-		selectedBranch: { stackId: string; head: string } | undefined;
 		onChange: (value: string) => void;
-		sessionKey?: string; // Used to trigger refocus when switching sessions
-	}
+		attachments: PromptAttachments;
+	};
+
 	let {
+		projectId,
+		stackId,
 		value = $bindable(),
 		loading,
 		compacting,
+		selectedBranch,
 		onsubmit,
 		onAbort,
 		actionsOnLeft,
 		actionsOnRight,
-		projectId,
-		selectedBranch,
-		onChange
+		onChange,
+		attachments
 	}: Props = $props();
 
 	let editorRef = $state<ReturnType<typeof RichTextEditor>>();
@@ -84,6 +97,12 @@
 		return false;
 	}
 
+	const handlers = [
+		new CodegenCommitDropHandler(projectId, stackId, attachments),
+		new CodegenFileDropHandler(projectId, stackId, attachments),
+		new CodegenHunkDropHandler(projectId, stackId, attachments)
+	];
+
 	let query = $state('');
 	let callback = $state<((result: string) => void) | undefined>();
 </script>
@@ -94,104 +113,120 @@
 	{/if}
 	<div class="text-input dialog-input" data-remove-from-panning>
 		<CodegenInputQueued {projectId} {selectedBranch} />
-		<RichTextEditor
-			bind:this={editorRef}
-			bind:value
-			namespace="codegen-input"
-			markdown={false}
-			styleContext="chat-input"
-			placeholder="What would you like to make..."
-			minHeight="4rem"
-			onError={(e: unknown) => console.warn('Editor error', e)}
-			initialText={value}
-			{onChange}
-			onKeyDown={handleEditorKeyDown}
-		>
-			{#snippet plugins()}
-				<FilePlugin
-					onQuery={(q: string, cb?: (result: string) => void) => {
-						callback = cb;
-						query = q;
-					}}
+		{#if attachments.attachments.length > 0}
+			<div class="attached-files-section">
+				<AttachmentList
+					attachments={attachments.attachments}
+					onRemove={(a) => attachments.remove(a)}
 				/>
+			</div>
+		{/if}
+		<Dropzone {handlers}>
+			{#snippet overlay({ hovered, activated })}
+				<CardOverlay {hovered} {activated} label="Reference" />
 			{/snippet}
-		</RichTextEditor>
+			<RichTextEditor
+				bind:this={editorRef}
+				bind:value
+				namespace="codegen-input"
+				markdown={false}
+				styleContext="chat-input"
+				placeholder="What would you like to make..."
+				minHeight="4rem"
+				onError={(e: unknown) => console.warn('Editor error', e)}
+				initialText={value}
+				{onChange}
+				onKeyDown={handleEditorKeyDown}
+			>
+				{#snippet plugins()}
+					<FilePlugin
+						onQuery={(q: string, cb?: (result: string) => void) => {
+							callback = cb;
+							query = q;
+						}}
+					/>
+				{/snippet}
+			</RichTextEditor>
 
-		<div class="actions">
-			<div class="actions-group">
-				{@render actionsOnLeft()}
-			</div>
+			<div class="actions">
+				<div class="actions-group">
+					{@render actionsOnLeft()}
+				</div>
 
-			<div class="actions-group">
-				{@render actionsOnRight()}
+				<div class="actions-group">
+					{@render actionsOnRight()}
 
-				<div class="actions-separator"></div>
+					<div class="actions-separator"></div>
 
-				{#if !compacting && showAbortButton && onAbort}
-					<div class="flex" in:fade={{ duration: 150 }} out:fade={{ duration: 100 }}>
-						<AsyncButton
-							kind="outline"
-							style="error"
-							action={onAbort}
-							icon="stop"
-							hotkey="⌃C"
-							reversedDirection
-						>
-							Stop
-						</AsyncButton>
-					</div>
-				{/if}
+					{#if !compacting && showAbortButton && onAbort}
+						<div class="flex" in:fade={{ duration: 150 }} out:fade={{ duration: 100 }}>
+							<AsyncButton
+								kind="outline"
+								style="error"
+								action={onAbort}
+								icon="stop"
+								hotkey="⌃C"
+								reversedDirection
+							>
+								Stop
+							</AsyncButton>
+						</div>
+					{/if}
 
-				<Tooltip
-					text={loading ? 'Processing...' : value.trim().length === 0 ? 'Type a message' : 'Send ↵'}
-				>
-					<button
-						class="send-button"
-						type="button"
-						disabled={value.trim().length === 0}
-						class:loading
-						style="pop"
-						onclick={handleSubmit}
-						aria-label="Send"
+					<Tooltip
+						text={loading
+							? 'Processing...'
+							: value.trim().length === 0
+								? 'Type a message'
+								: 'Send ⌘↵'}
 					>
-						<svg
-							class="circle-icon"
-							viewBox="0 0 18 18"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
+						<button
+							class="send-button"
+							type="button"
+							class:loading
+							style="pop"
+							onclick={handleSubmit}
+							aria-label="Send"
 						>
-							<circle
-								vector-effect="non-scaling-stroke"
-								cx="9"
-								cy="9"
-								r="8.25"
-								stroke="currentColor"
-							/>
-						</svg>
+							<svg
+								class="circle-icon"
+								viewBox="0 0 18 18"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<circle
+									vector-effect="non-scaling-stroke"
+									cx="9"
+									cy="9"
+									r="8.25"
+									stroke="currentColor"
+								/>
+							</svg>
 
-						<svg
-							class="arrow-icon"
-							viewBox="0 0 16 16"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<path
-								vector-effect="non-scaling-stroke"
-								d="M12.0195 8L8.72664 4.70711C8.33611 4.31658 7.70295 4.31658 7.31242 4.70711L4.01953 8"
-								stroke="currentColor"
-								stroke-width="1.5"
-							/>
-							<path
-								d="M8.01953 4L8.01953 12"
-								stroke="currentColor"
-								stroke-width="1.5"
-								vector-effect="non-scaling-stroke"
-							/>
-						</svg>
-					</button>
-				</Tooltip>
+							<svg
+								class="arrow-icon"
+								viewBox="0 0 16 16"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path
+									vector-effect="non-scaling-stroke"
+									d="M12.0195 8L8.72664 4.70711C8.33611 4.31658 7.70295 4.31658 7.31242 4.70711L4.01953 8"
+									stroke="currentColor"
+									stroke-width="1.5"
+								/>
+								<path
+									d="M8.01953 4L8.01953 12"
+									stroke="currentColor"
+									stroke-width="1.5"
+									vector-effect="non-scaling-stroke"
+								/>
+							</svg>
+						</button>
+					</Tooltip>
+				</div>
 			</div>
-		</div>
+		</Dropzone>
 	</div>
 </div>
 
@@ -210,9 +245,12 @@
 		flex-direction: column;
 		padding: 0;
 		overflow: hidden;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
 		transition: border-color var(--transition-fast);
+	}
+
+	.attached-files-section {
+		padding: 12px;
+		padding-bottom: 0px;
 	}
 
 	.actions {

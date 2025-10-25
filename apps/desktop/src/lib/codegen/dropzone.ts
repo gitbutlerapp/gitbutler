@@ -1,3 +1,6 @@
+import { CommitDropData } from '$lib/commits/dropHandler';
+import { ChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
+import type { PromptAttachments } from '$lib/codegen/attachments.svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { AiRule } from '$lib/rules/rule';
 import type RulesService from '$lib/rules/rulesService.svelte';
@@ -38,5 +41,69 @@ export class CodegenRuleDropHandler implements DropzoneHandler {
 				trigger: null
 			}
 		});
+	}
+}
+
+export class CodegenCommitDropHandler implements DropzoneHandler {
+	constructor(
+		private projectId: string,
+		private stackId: string,
+		private attachments: PromptAttachments
+	) {}
+
+	accepts(data: unknown): boolean {
+		// For now, accept all commits without restrictions
+		return data instanceof CommitDropData && data.stackId === this.stackId;
+	}
+
+	ondrop(data: CommitDropData): void {
+		this.attachments.add([{ type: 'commit', subject: { commitId: data.commit.id } }]);
+	}
+}
+
+export class CodegenFileDropHandler implements DropzoneHandler {
+	constructor(
+		private projectId: string,
+		private stackId: string,
+		private attachments: PromptAttachments
+	) {}
+
+	accepts(data: unknown): boolean {
+		return (
+			data instanceof ChangeDropData &&
+			(data.stackId === undefined || data.stackId === this.stackId)
+		);
+	}
+
+	ondrop(data: ChangeDropData): void {
+		this.attachments.add([{ type: 'file', subject: { path: data.change.path } }]);
+	}
+}
+
+export class CodegenHunkDropHandler implements DropzoneHandler {
+	constructor(
+		private projectId: string,
+		private stackId: string,
+		private attachments: PromptAttachments
+	) {}
+
+	accepts(data: unknown): boolean {
+		// For now, accept all hunks without restrictions
+		return (
+			data instanceof HunkDropDataV3 && (data.stackId === null || data.stackId === this.stackId)
+		);
+	}
+
+	ondrop(data: HunkDropDataV3): void {
+		this.attachments.add([
+			{
+				type: 'hunk',
+				subject: {
+					path: data.change.path,
+					start: data.hunk.newStart,
+					end: data.hunk.newStart + data.hunk.newLines - 1
+				}
+			}
+		]);
 	}
 }

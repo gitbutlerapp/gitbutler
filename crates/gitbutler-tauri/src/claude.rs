@@ -6,7 +6,9 @@ use but_api::{
     },
     error::Error,
 };
-use but_claude::{ClaudeMessage, ClaudeUserParams, ModelType, PermissionMode, ThinkingLevel};
+use but_claude::{
+    ClaudeMessage, ClaudeUserParams, ModelType, PermissionMode, PromptAttachment, ThinkingLevel,
+};
 use but_workspace::StackId;
 use gitbutler_project::ProjectId;
 use tauri::State;
@@ -25,6 +27,7 @@ pub async fn claude_send_message(
     permission_mode: PermissionMode,
     disabled_mcp_servers: Vec<String>,
     add_dirs: Vec<String>,
+    attachments: Option<Vec<PromptAttachment>>,
 ) -> Result<(), Error> {
     claude::claude_send_message(
         &app,
@@ -38,6 +41,7 @@ pub async fn claude_send_message(
                 permission_mode,
                 disabled_mcp_servers,
                 add_dirs,
+                attachments,
             },
         },
     )

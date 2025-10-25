@@ -1,6 +1,13 @@
 @import '@gitbutler/ui/main.css';
 @import './draggable.css';
 
+:root {
+	--dropzone-fill: oklch(from var(--clr-scale-pop-50) l c h / 0.1);
+	--dropzone-stroke: oklch(from var(--clr-scale-pop-50) l c h / 0.8);
+	--dropzone-fill-hover: oklch(from var(--clr-scale-pop-50) l c h / 0.16);
+	--dropzone-stroke-hover: oklch(from var(--clr-scale-pop-50) l c h / 1);
+}
+
 body {
 	width: 100vw;
 	height: 100vh;
@@ -25,6 +32,15 @@ body {
  */
 .drop-zone-hover * {
 	pointer-events: none;
+}
+
+@keyframes dropzone-dash {
+	from {
+		stroke-dashoffset: 30;
+	}
+	to {
+		stroke-dashoffset: 0;
+	}
 }
 
 /* CODE */

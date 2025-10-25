@@ -1,11 +1,17 @@
 import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
-import type { ModelType, PermissionMode, ThinkingLevel } from '$lib/codegen/types';
+import type {
+	ModelType,
+	PermissionMode,
+	PromptAttachment,
+	ThinkingLevel
+} from '$lib/codegen/types';
 
 type Message = {
 	thinkingLevel: ThinkingLevel;
 	model: ModelType;
 	permissionMode: PermissionMode;
 	prompt: string;
+	attachments?: PromptAttachment[];
 };
 
 export type MessageQueue = {

@@ -14,6 +14,7 @@
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
+	import { PromptAttachments } from '$lib/codegen/attachments.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { useSendMessage } from '$lib/codegen/messageQueue.svelte';
 	import {
@@ -58,9 +59,10 @@
 		branchName: string;
 		stackId: string;
 		isWorkspace?: boolean;
+		attachments: PromptAttachments;
 		onclose?: () => void;
 	};
-	const { projectId, stackId, branchName, isWorkspace, onclose }: Props = $props();
+	const { projectId, stackId, branchName, isWorkspace, attachments, onclose }: Props = $props();
 
 	const stableBranchName = $derived(branchName);
 
@@ -207,7 +209,11 @@
 		return short ? thinkingLevel.shortLabel : thinkingLevel.label;
 	}
 
-	const { prompt, setPrompt, sendMessage } = useSendMessage({
+	const {
+		prompt,
+		setPrompt,
+		sendMessage: sendMessageBase
+	} = useSendMessage({
 		projectId: reactive(() => projectId),
 		selectedBranch: reactive(() => ({ stackId, head: stableBranchName })),
 		thinkingLevel: reactive(() => selectedThinkingLevel),
@@ -216,6 +222,13 @@
 	});
 
 	const initialPrompt = $state.snapshot(prompt.current);
+	let attachmentInputRef = $state<HTMLInputElement>();
+
+	async function sendMessage(prompt: string) {
+		const attachmentsToSend = [...attachments.attachments];
+		attachments.setAttachments([]);
+		await sendMessageBase(prompt, attachmentsToSend);
+	}
 
 	function insertTemplate(template: string) {
 		setPrompt(prompt + (prompt ? '\n\n' : '') + template);
@@ -494,14 +507,14 @@
 				{:else}
 					{@const status = currentStatus(events, isStackActive)}
 					<CodegenInput
+						{projectId}
+						{stackId}
+						{attachments}
 						value={initialPrompt}
-						onChange={(prompt) => {
-							setPrompt(prompt);
-						}}
 						loading={['running', 'compacting'].includes(status)}
 						compacting={status === 'compacting'}
-						{projectId}
 						selectedBranch={{ stackId, head: stableBranchName }}
+						onChange={(prompt) => setPrompt(prompt)}
 						onsubmit={sendMessage}
 						{onAbort}
 					>
@@ -509,8 +522,16 @@
 							{@const permissionModeLabel = permissionModeOptions.find(
 								(a) => a.value === selectedPermissionMode
 							)?.label}
-							<div class="flex m-r-4 gap-2">
-								<Button disabled kind="ghost" icon="attachment" reversedDirection />
+
+							<div class="flex m-right-4 gap-2">
+								<Button
+									kind="ghost"
+									icon="attachment"
+									reversedDirection
+									onclick={() => attachmentInputRef?.click()}
+									tooltip="Attach files"
+									disabled={['running', 'compacting'].includes(status)}
+								/>
 								<Button
 									bind:el={templateTrigger}
 									kind="ghost"
