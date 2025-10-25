@@ -32,6 +32,7 @@
 	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import { tick } from 'svelte';
+	import type { PromptAttachments } from '$lib/codegen/attachments.svelte';
 	import type { CommitStatusType } from '$lib/commits/commit';
 	import type { BranchDetails } from '$lib/stacks/stack';
 
@@ -41,10 +42,11 @@
 		laneId: string;
 		branches: BranchDetails[];
 		active: boolean;
+		attachments: PromptAttachments;
 		onselect?: () => void;
 	};
 
-	const { projectId, branches, stackId, laneId, active, onselect }: Props = $props();
+	const { projectId, branches, stackId, laneId, active, attachments, onselect }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
@@ -356,6 +358,7 @@
 								<CodegenRow
 									{projectId}
 									{branchName}
+									{attachments}
 									{stackId}
 									{status}
 									selected={codegenSelected}

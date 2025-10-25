@@ -11,7 +11,12 @@ import { UI_STATE, type GlobalStore, type StackState } from '$lib/state/uiState.
 import { inject } from '@gitbutler/core/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { chipToasts } from '@gitbutler/ui';
-import type { ModelType, PermissionMode, ThinkingLevel } from '$lib/codegen/types';
+import type {
+	ModelType,
+	PermissionMode,
+	PromptAttachment,
+	ThinkingLevel
+} from '$lib/codegen/types';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 export function useMessageQueue() {
@@ -137,7 +142,7 @@ export function useSendMessage({
 	function setPrompt(prompt: string) {
 		laneState?.prompt.set(prompt);
 	}
-	async function sendMessage(prompt: string) {
+	async function sendMessage(prompt: string, attachments?: PromptAttachment[]) {
 		if (!selectedBranch.current) return;
 		if (!laneState) return;
 		if (!prompt) return;
@@ -168,7 +173,8 @@ export function useSendMessage({
 				permissionMode: permissionMode.current,
 				claudeCodeService,
 				codegenAnalytics,
-				sendClaudeMessage
+				sendClaudeMessage,
+				attachments
 			});
 
 			setPrompt('');
@@ -179,7 +185,8 @@ export function useSendMessage({
 				prompt,
 				thinkingLevel: thinkingLevel.current,
 				model: model.current,
-				permissionMode: permissionMode.current
+				permissionMode: permissionMode.current,
+				attachments
 			};
 			if (queue) {
 				clientState.dispatch(
@@ -222,7 +229,8 @@ async function sendMessageInner({
 	permissionMode,
 	claudeCodeService,
 	codegenAnalytics,
-	sendClaudeMessage
+	sendClaudeMessage,
+	attachments
 }: {
 	prompt: string;
 	projectId: string;
@@ -234,6 +242,7 @@ async function sendMessageInner({
 	claudeCodeService: ClaudeCodeService;
 	codegenAnalytics: CodegenAnalytics;
 	sendClaudeMessage: ClaudeCodeService['sendMessage'][0];
+	attachments?: PromptAttachment[];
 }) {
 	if (prompt.startsWith('/compact')) {
 		await claudeCodeService.compactHistory({
@@ -281,7 +290,8 @@ async function sendMessageInner({
 			model,
 			permissionMode,
 			disabledMcpServers: laneState?.disabledMcpServers.current ?? [],
-			addDirs: laneState?.addedDirs.current ?? []
+			addDirs: laneState?.addedDirs.current ?? [],
+			attachments
 		},
 		{ properties: analyticsProperties }
 	);

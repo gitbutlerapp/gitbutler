@@ -7,7 +7,8 @@ import type {
 	ClaudeMessage,
 	ClaudePermissionRequest,
 	ClaudeStatus,
-	ClaudeTodo
+	ClaudeTodo,
+	PromptAttachment
 } from '$lib/codegen/types';
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/index.mjs';
 
@@ -16,6 +17,7 @@ export type Message =
 	| {
 			type: 'user';
 			message: string;
+			attachments?: PromptAttachment[];
 	  }
 	/* Output from claude. This is grouped as: A claude message with a bunch of tool calls. */
 	| {
@@ -71,7 +73,8 @@ export function formatMessages(
 			wrapUpAgentSide();
 			out.push({
 				type: 'user',
-				message: event.content.subject.message
+				message: event.content.subject.message,
+				attachments: event.content.subject.attachments
 			});
 			lastAssistantMessage = undefined;
 		} else if (event.content.type === 'claudeOutput') {

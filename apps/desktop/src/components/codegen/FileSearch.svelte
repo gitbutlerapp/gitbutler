@@ -41,6 +41,8 @@
 			if (file && onselect) {
 				onselect(file);
 			}
+		} else if (key === 'Escape') {
+			dismissed = true;
 		}
 	}
 </script>

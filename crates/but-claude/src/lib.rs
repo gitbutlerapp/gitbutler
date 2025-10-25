@@ -69,12 +69,46 @@ pub enum ClaudeMessageContent {
     GitButlerMessage(GitButlerMessage),
 }
 
+/// File attachment with full content.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AttachedHunk {
+    pub path: String,
+    pub start: usize,
+    pub end: usize,
+}
+
+/// File attachment with full content.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AttachedFile {
+    pub path: String,
+}
+
+/// File attachment with full content.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AttachedCommit {
+    pub commit_id: String,
+}
+
+/// Represents a file attachment with full content (used in API input).
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum PromptAttachment {
+    Hunk(AttachedHunk),
+    File(AttachedFile),
+    Commit(AttachedCommit),
+}
+
 /// Represents user input in a Claude session.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UserInput {
     /// The user message
     pub message: String,
+    /// Optional attached file references
+    pub attachments: Option<Vec<PromptAttachment>>,
 }
 
 /// Metadata provided by GitButler.
@@ -182,6 +216,7 @@ pub struct ClaudeUserParams {
     pub permission_mode: PermissionMode,
     pub disabled_mcp_servers: Vec<String>,
     pub add_dirs: Vec<String>,
+    pub attachments: Option<Vec<PromptAttachment>>,
 }
 
 pub async fn send_claude_message(

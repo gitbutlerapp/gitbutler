@@ -1,6 +1,13 @@
 <script lang="ts">
+	import CardOverlay from '$components/CardOverlay.svelte';
+	import Dropzone from '$components/Dropzone.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
+	import {
+		CodegenCommitDropHandler,
+		CodegenFileDropHandler,
+		CodegenHunkDropHandler
+	} from '$lib/codegen/dropzone';
 	import { extractLastMessage, usageStats, lastInteractionTime } from '$lib/codegen/messages';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { formatNumber } from '$lib/utils/number';
@@ -9,6 +16,7 @@
 	import { Icon, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { slide, fade } from 'svelte/transition';
+	import type { PromptAttachments } from '$lib/codegen/attachments.svelte';
 	import type { ClaudeStatus } from '$lib/codegen/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
@@ -18,9 +26,10 @@
 		branchName: string;
 		selected: boolean;
 		status: ClaudeStatus;
+		attachments: PromptAttachments;
 	};
 
-	const { projectId, stackId, branchName, selected, status }: Props = $props();
+	const { projectId, stackId, branchName, selected, status, attachments }: Props = $props();
 
 	const uiState = inject(UI_STATE);
 	const laneState = uiState.lane(stackId);
@@ -36,66 +45,76 @@
 		}
 		return 'ai';
 	}
+	const handlers = [
+		new CodegenCommitDropHandler(projectId, stackId, attachments),
+		new CodegenFileDropHandler(projectId, stackId, attachments),
+		new CodegenHunkDropHandler(projectId, stackId, attachments)
+	];
 </script>
 
-<button
-	type="button"
-	class="codegen-row"
-	class:selected
-	class:active
-	onclick={() => {
-		laneState.selection.set({ branchName, codegen: true, previewOpen: true });
-	}}
-	use:focusable={{
-		onAction: () => {
+<Dropzone {handlers}>
+	{#snippet overlay({ hovered, activated })}
+		<CardOverlay {hovered} {activated} label="Reference" />
+	{/snippet}
+	<button
+		type="button"
+		class="codegen-row"
+		class:selected
+		class:active
+		onclick={() => {
 			laneState.selection.set({ branchName, codegen: true, previewOpen: true });
-		},
-		onActive: (value) => (active = value),
-		focusable: true
-	}}
->
-	{#if selected}
-		<div
-			class="indicator"
-			class:selected
-			class:active
-			in:slide={{ axis: 'x', duration: 150 }}
-		></div>
-	{/if}
+		}}
+		use:focusable={{
+			onAction: () => {
+				laneState.selection.set({ branchName, codegen: true, previewOpen: true });
+			},
+			onActive: (value) => (active = value),
+			focusable: true
+		}}
+	>
+		{#if selected}
+			<div
+				class="indicator"
+				class:selected
+				class:active
+				in:slide={{ axis: 'x', duration: 150 }}
+			></div>
+		{/if}
 
-	<ReduxResult {projectId} result={messages.result}>
-		{#snippet children(messages)}
-			{@const lastMessage = extractLastMessage(messages)}
-			{@const lastSummary = lastMessage ? truncate(lastMessage, 360, 8) : undefined}
-			{@const usage = usageStats(messages)}
-			{@const lastTime = lastInteractionTime(messages)}
+		<ReduxResult {projectId} result={messages.result}>
+			{#snippet children(messages)}
+				{@const lastMessage = extractLastMessage(messages)}
+				{@const lastSummary = lastMessage ? truncate(lastMessage, 360, 8) : undefined}
+				{@const usage = usageStats(messages)}
+				{@const lastTime = lastInteractionTime(messages)}
 
-			<div class="codegen-row__header">
-				<div class="codegen-row__header-icon">
-					<Icon name={getCurrentIconName()} size={14} />
+				<div class="codegen-row__header">
+					<div class="codegen-row__header-icon">
+						<Icon name={getCurrentIconName()} size={14} />
+					</div>
+					<h3 class="text-13 text-semibold truncate">{lastSummary}</h3>
 				</div>
-				<h3 class="text-13 text-semibold truncate">{lastSummary}</h3>
-			</div>
 
-			{#if usage.tokens || usage.cost}
-				<div class="codegen-row__metadata text-12" in:fade={{ duration: 150 }}>
-					<Tooltip text="Total tokens used and cost">
-						<p>{formatNumber(usage.tokens)}</p>
-						<div class="metadata-divider">|</div>
-						<p>${formatNumber(usage.cost, 2)}</p>
-					</Tooltip>
+				{#if usage.tokens || usage.cost}
+					<div class="codegen-row__metadata text-12" in:fade={{ duration: 150 }}>
+						<Tooltip text="Total tokens used and cost">
+							<p>{formatNumber(usage.tokens)}</p>
+							<div class="metadata-divider">|</div>
+							<p>${formatNumber(usage.cost, 2)}</p>
+						</Tooltip>
 
-					{#if lastTime}
-						<div class="metadata-divider">•</div>
-						<p class="last-interaction-time">
-							<TimeAgo date={lastTime} addSuffix />
-						</p>
-					{/if}
-				</div>
-			{/if}
-		{/snippet}
-	</ReduxResult>
-</button>
+						{#if lastTime}
+							<div class="metadata-divider">•</div>
+							<p class="last-interaction-time">
+								<TimeAgo date={lastTime} addSuffix />
+							</p>
+						{/if}
+					</div>
+				{/if}
+			{/snippet}
+		</ReduxResult>
+	</button>
+</Dropzone>
 
 <style lang="postcss">
 	.codegen-row {

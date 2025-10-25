@@ -21,6 +21,7 @@
 
 use std::{
     collections::HashMap,
+    env::temp_dir,
     io::{BufRead, BufReader, PipeReader, Read as _},
     process::ExitStatus,
     sync::Arc,
@@ -42,7 +43,7 @@ use tokio::{
 
 use crate::{
     ClaudeMessage, ClaudeMessageContent, ClaudeUserParams, GitButlerMessage, PermissionMode,
-    ThinkingLevel, Transcript, UserInput,
+    PromptAttachment, ThinkingLevel, Transcript, UserInput,
     claude_config::fmt_claude_settings,
     claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
     claude_settings::ClaudeSettings,
@@ -224,15 +225,19 @@ impl Claudes {
                 None
             }
         };
+
         {
             let mut ctx = ctx.lock().await;
+            // Store the original message for UI display (without inlined file content)
+            // while Claude gets the enhanced message with file content inlined
             send_claude_message(
                 &mut ctx,
                 broadcaster.clone(),
                 session_id,
                 stack_id,
                 ClaudeMessageContent::UserInput(UserInput {
-                    message: user_params.message.clone(),
+                    message: user_params.message.clone(), // Original user message for display
+                    attachments: user_params.attachments.clone(),
                 }),
             )
             .await?;
@@ -464,19 +469,24 @@ async fn spawn_command(
 
     command.arg("-p");
 
-    if let Some(summary_to_resume) = summary_to_resume {
-        command.arg(format_message_with_summary(
-            &summary_to_resume,
-            &user_params.message,
-            user_params.thinking_level,
-        ));
-    } else if user_params.message.starts_with("/") {
+    if user_params.message.starts_with("/") {
         command.arg(&user_params.message);
     } else {
-        command.arg(format_message(
-            &user_params.message,
-            user_params.thinking_level,
-        ));
+        let message = if let Some(attachments) = &user_params.attachments {
+            format_message_with_attachments(&user_params.message, attachments).await?
+        } else {
+            user_params.message
+        };
+
+        if let Some(summary_to_resume) = summary_to_resume {
+            command.arg(format_message_with_summary(
+                &summary_to_resume,
+                &message,
+                user_params.thinking_level,
+            ));
+        } else {
+            command.arg(format_message(&message, user_params.thinking_level));
+        }
     }
     tracing::info!("spawn_command: {:?}", command);
     Ok(command.spawn()?)
@@ -631,6 +641,59 @@ pub enum ClaudeCheckResult {
     Available { version: String },
     /// Claude Code is not available or failed to execute
     NotAvailable,
+}
+
+/// Process file attachments by writing them to temporary files in the project directory
+/// and enhancing the message to reference these files
+async fn format_message_with_attachments(
+    original_message: &str,
+    attachments: &[PromptAttachment],
+) -> Result<String> {
+    if attachments.is_empty() {
+        return Ok(original_message.to_string());
+    }
+
+    // Create a temporary directory for attachments
+    let temp_dir = temp_dir().join("gitbutler_attachments");
+    fs::create_dir_all(&temp_dir).await?;
+
+    let mut written_attachments = Vec::new();
+
+    for attachment in attachments {
+        match attachment {
+            PromptAttachment::File(file) => {
+                written_attachments.push(format!("- {}", file.path));
+            }
+            PromptAttachment::Hunk(hunk) => {
+                written_attachments.push(format!(
+                    "- {} (lines {}:{})",
+                    hunk.path, hunk.start, hunk.end
+                ));
+            }
+            PromptAttachment::Commit(commit) => {
+                written_attachments.push(format!("- commit: {}", commit.commit_id));
+            }
+        }
+    }
+
+    // Create enhanced message with file references and content for small files
+    let mut enhanced_message = format!(
+        "{}
+
+<context-attachments>
+The following files, line ranges, and commits have been added as context. You must keep them in mind when responding to this request.
+",
+        original_message
+    );
+
+    enhanced_message.push_str("<attachments>\n");
+    for path in written_attachments {
+        enhanced_message.push_str(&format!("- {}\n", path));
+    }
+    enhanced_message.push_str("</attachments>\n");
+    enhanced_message.push_str("</context-attachments>\n");
+
+    Ok(enhanced_message)
 }
 
 /// Check if Claude Code is available by running the version command.

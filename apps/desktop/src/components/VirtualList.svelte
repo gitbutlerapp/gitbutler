@@ -207,12 +207,12 @@
 			topPadding = sumHeights(0, start);
 			totalHeight = sumHeights(0, heightMap.length);
 
-			requestAnimationFrame(() => {
+			setTimeout(() => {
 				if (viewport) {
 					viewport.scrollTop = viewport.scrollHeight;
 					hasInitialized = true;
 				}
-			});
+			}, 0);
 		} else {
 			// Normal top-down calculation
 			// There is some weird bug here that seems triggered when

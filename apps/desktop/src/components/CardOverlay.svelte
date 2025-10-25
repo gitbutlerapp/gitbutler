@@ -64,9 +64,6 @@
 
 <style lang="postcss">
 	.dropzone-wrapper {
-		--dropzone-fill: oklch(from var(--clr-scale-pop-50) l c h / 0.1);
-		--dropzone-stroke: oklch(from var(--clr-scale-pop-50) l c h / 0.8);
-
 		display: none;
 		z-index: var(--z-floating);
 		position: absolute;
@@ -110,9 +107,9 @@
 			transform: scale(1.01);
 
 			.animated-rectangle rect {
-				fill: oklch(from var(--clr-scale-pop-50) l c h / 0.16);
-				stroke: oklch(from var(--clr-scale-pop-50) l c h / 1);
-				animation: dash 4s linear infinite;
+				fill: var(--dropzone-fill-hover);
+				stroke: var(--dropzone-stroke-hover);
+				animation: dropzone-dash 4s linear infinite;
 			}
 
 			.dropzone-label {
@@ -185,15 +182,6 @@
 			transition:
 				fill var(--transition-fast),
 				stroke var(--transition-fast);
-		}
-	}
-
-	@keyframes dash {
-		from {
-			stroke-dashoffset: 30;
-		}
-		to {
-			stroke-dashoffset: 0;
 		}
 	}
 </style>
