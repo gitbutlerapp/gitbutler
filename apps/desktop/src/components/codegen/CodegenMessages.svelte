@@ -16,7 +16,7 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import { PromptAttachments } from '$lib/codegen/attachments.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { useSendMessage } from '$lib/codegen/messageQueue.svelte';
+	import { MessageSender } from '$lib/codegen/messageQueue.svelte';
 	import {
 		currentStatus,
 		thinkingOrCompactingStartedAt,
@@ -209,11 +209,7 @@
 		return short ? thinkingLevel.shortLabel : thinkingLevel.label;
 	}
 
-	const {
-		prompt,
-		setPrompt,
-		sendMessage: sendMessageBase
-	} = useSendMessage({
+	const messageSender = new MessageSender({
 		projectId: reactive(() => projectId),
 		selectedBranch: reactive(() => ({ stackId, head: stableBranchName })),
 		thinkingLevel: reactive(() => selectedThinkingLevel),
@@ -221,17 +217,18 @@
 		permissionMode: reactive(() => selectedPermissionMode)
 	});
 
-	const initialPrompt = $state.snapshot(prompt.current);
+	const initialPrompt = $state.snapshot(messageSender.prompt);
 	let attachmentInputRef = $state<HTMLInputElement>();
 
 	async function sendMessage(prompt: string) {
 		const attachmentsToSend = [...attachments.attachments];
 		attachments.setAttachments([]);
-		await sendMessageBase(prompt, attachmentsToSend);
+		await messageSender.sendMessage(prompt, attachmentsToSend);
 	}
 
 	function insertTemplate(template: string) {
-		setPrompt(prompt + (prompt ? '\n\n' : '') + template);
+		const currentPrompt = messageSender.prompt;
+		messageSender.setPrompt(currentPrompt + (currentPrompt ? '\n\n' : '') + template);
 		templateContextMenu?.close();
 	}
 
@@ -514,7 +511,7 @@
 						loading={['running', 'compacting'].includes(status)}
 						compacting={status === 'compacting'}
 						selectedBranch={{ stackId, head: stableBranchName }}
-						onChange={(prompt) => setPrompt(prompt)}
+						onChange={(prompt) => messageSender.setPrompt(prompt)}
 						onsubmit={sendMessage}
 						{onAbort}
 					>

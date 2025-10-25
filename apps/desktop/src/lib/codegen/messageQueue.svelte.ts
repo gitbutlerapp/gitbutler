@@ -6,10 +6,14 @@ import {
 } from '$lib/codegen/messageQueueSlice';
 import { currentStatus, isCompletedWithStatus } from '$lib/codegen/messages';
 import { CODEGEN_ANALYTICS, CodegenAnalytics } from '$lib/soup/codegenAnalytics';
-import { CLIENT_STATE } from '$lib/state/clientState.svelte';
-import { UI_STATE, type GlobalStore, type StackState } from '$lib/state/uiState.svelte';
+import { CLIENT_STATE, type ClientState } from '$lib/state/clientState.svelte';
+import {
+	UI_STATE,
+	type GlobalStore,
+	type StackState,
+	type UiState
+} from '$lib/state/uiState.svelte';
 import { inject } from '@gitbutler/core/context';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { chipToasts } from '@gitbutler/ui';
 import type {
 	ModelType,
@@ -19,235 +23,37 @@ import type {
 } from '$lib/codegen/types';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
-export function useMessageQueue() {
-	const clientState = inject(CLIENT_STATE);
-	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
-	const codegenAnalytics = inject(CODEGEN_ANALYTICS);
-	const queueIds = $derived(messageQueueSelectors.selectIds(clientState.messageQueue));
-	const [sendClaudeMessage] = claudeCodeService.sendMessage;
-	const uiState = inject(UI_STATE);
-
-	// By looping over the IDs first rather than doing the full array, we avoid
-	// extra recomputations when one of the message queues changes.
-	$effect(() => {
-		for (const id of queueIds) {
-			const queue = $derived(messageQueueSelectors.selectById(clientState.messageQueue, id));
-			if (queue) {
-				$effect(() => {
-					handleQueue(queue);
-				});
-			}
-		}
-	});
-
-	function handleQueue(queue: MessageQueue) {
-		$effect(() => {
-			if (queue.messages.length === 0 && queue.isProcessing) {
-				clientState.dispatch(
-					messageQueueSlice.actions.upsert({
-						...queue,
-						isProcessing: false
-					})
-				);
-			}
-		});
-
-		const isActive = claudeCodeService.isStackActive(queue.projectId, queue.stackId);
-		const events = claudeCodeService.messages({
-			projectId: queue.projectId,
-			stackId: queue.stackId
-		});
-
-		$effect(() => {
-			if (
-				queue.messages.length > 0 &&
-				!queue.isProcessing &&
-				events.response &&
-				isActive.response !== undefined &&
-				!isActive.response
-			) {
-				const status = isCompletedWithStatus(events.response, isActive.response ?? false);
-				const laneState = uiState.lane(queue.stackId);
-
-				if (status.type === 'completed' && status.code === 0) {
-					const message = queue.messages[0]!;
-					clientState.dispatch(
-						messageQueueSlice.actions.upsert({
-							...queue,
-							messages: queue.messages.slice(1),
-							isProcessing: true
-						})
-					);
-
-					sendMessageInner({
-						...message,
-						projectId: queue.projectId,
-						selectedBranch: { head: queue.head, stackId: queue.stackId },
-						laneState,
-						claudeCodeService,
-						codegenAnalytics,
-						sendClaudeMessage
-					}).finally(() => {
-						const queue2 = messageQueueSelectors.selectById(
-							clientState.messageQueue,
-							queue.stackId
-						);
-						if (!queue2) return;
-						clientState.dispatch(
-							messageQueueSlice.actions.upsert({
-								...queue2,
-								isProcessing: false
-							})
-						);
-					});
-				}
-			}
-		});
-	}
-}
-
-export function useSendMessage({
-	projectId,
-	selectedBranch,
-	thinkingLevel,
-	model,
-	permissionMode
-}: {
-	projectId: Reactive<string>;
-	selectedBranch: Reactive<{ stackId: string; head: string } | undefined>;
-	thinkingLevel: Reactive<ThinkingLevel>;
-	model: Reactive<ModelType>;
-	permissionMode: Reactive<PermissionMode>;
-}) {
-	const uiState = inject(UI_STATE);
-	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
-	const codegenAnalytics = inject(CODEGEN_ANALYTICS);
-	const clientState = inject(CLIENT_STATE);
-	const queue = $derived(
-		messageQueueSelectors
-			.selectAll(clientState.messageQueue)
-			.find(
-				(q) =>
-					q.head === selectedBranch?.current?.head &&
-					q.stackId === selectedBranch?.current.stackId &&
-					q.projectId === projectId.current
-			)
-	);
-
-	const [sendClaudeMessage] = claudeCodeService.sendMessage;
-
-	const laneState = $derived(
-		selectedBranch.current?.stackId ? uiState.lane(selectedBranch.current.stackId) : undefined
-	);
-	function setPrompt(prompt: string) {
-		laneState?.prompt.set(prompt);
-	}
-	async function sendMessage(prompt: string, attachments?: PromptAttachment[]) {
-		if (!selectedBranch.current) return;
-		if (!laneState) return;
-		if (!prompt) return;
-
-		const isActive = await claudeCodeService.fetchIsStackActive({
-			projectId: projectId.current,
-			stackId: selectedBranch.current.stackId
-		});
-		const events = await claudeCodeService.fetchMessages({
-			projectId: projectId.current,
-			stackId: selectedBranch.current.stackId
-		});
-
-		const status = currentStatus(events, isActive);
-
-		if (
-			(status === 'disabled' || status === 'enabled') &&
-			!queue?.isProcessing &&
-			(queue?.messages.length || 0) === 0
-		) {
-			const promise = sendMessageInner({
-				prompt,
-				projectId: projectId.current,
-				laneState,
-				selectedBranch: selectedBranch.current,
-				thinkingLevel: thinkingLevel.current,
-				model: model.current,
-				permissionMode: permissionMode.current,
-				claudeCodeService,
-				codegenAnalytics,
-				sendClaudeMessage,
-				attachments
-			});
-
-			setPrompt('');
-
-			await promise;
-		} else {
-			const message = {
-				prompt,
-				thinkingLevel: thinkingLevel.current,
-				model: model.current,
-				permissionMode: permissionMode.current,
-				attachments
-			};
-			if (queue) {
-				clientState.dispatch(
-					messageQueueSlice.actions.upsert({
-						...queue,
-						messages: [...queue.messages, message]
-					})
-				);
-			} else {
-				clientState.dispatch(
-					messageQueueSlice.actions.upsert({
-						projectId: projectId.current,
-						stackId: selectedBranch.current.stackId,
-						head: selectedBranch.current.head,
-						isProcessing: false,
-						messages: [message]
-					})
-				);
-			}
-
-			setPrompt('');
-		}
-	}
-
-	const prompt = $derived(selectedBranch.current ? (laneState?.prompt.current ?? '') : '');
-	return {
-		prompt: reactive(() => prompt),
-		setPrompt,
-		sendMessage
-	};
-}
-
-async function sendMessageInner({
+/**
+ * Performs the actual message sending logic.
+ * Shared by both MessageSender instances and MessageQueueProcessor.
+ */
+async function performSend({
 	prompt,
 	projectId,
-	laneState,
-	selectedBranch,
+	stackId,
 	thinkingLevel,
 	model,
 	permissionMode,
+	laneState,
 	claudeCodeService,
 	codegenAnalytics,
-	sendClaudeMessage,
 	attachments
 }: {
 	prompt: string;
 	projectId: string;
-	selectedBranch: { stackId: string; head: string };
+	stackId: string;
 	thinkingLevel: ThinkingLevel;
 	model: ModelType;
 	permissionMode: PermissionMode;
-	laneState: GlobalStore<StackState>;
+	laneState: GlobalStore<StackState> | undefined;
 	claudeCodeService: ClaudeCodeService;
 	codegenAnalytics: CodegenAnalytics;
-	sendClaudeMessage: ClaudeCodeService['sendMessage'][0];
 	attachments?: PromptAttachment[];
 }) {
 	if (prompt.startsWith('/compact')) {
 		await claudeCodeService.compactHistory({
 			projectId,
-			stackId: selectedBranch.stackId
+			stackId
 		});
 		return;
 	}
@@ -275,16 +81,16 @@ async function sendMessageInner({
 	// Await analytics data before sending message
 	const analyticsProperties = await codegenAnalytics.getCodegenProperties({
 		projectId,
-		stackId: selectedBranch.stackId,
+		stackId,
 		message: prompt,
 		thinkingLevel,
 		model
 	});
 
-	await sendClaudeMessage(
+	claudeCodeService.sendMessage[0](
 		{
 			projectId,
-			stackId: selectedBranch.stackId,
+			stackId,
 			message: prompt,
 			thinkingLevel,
 			model,
@@ -295,4 +101,225 @@ async function sendMessageInner({
 		},
 		{ properties: analyticsProperties }
 	);
+}
+
+export class MessageQueueProcessor {
+	private clientState: ClientState;
+	private claudeCodeService: ClaudeCodeService;
+	private codegenAnalytics: CodegenAnalytics;
+	private uiState: UiState;
+
+	constructor() {
+		this.clientState = inject(CLIENT_STATE);
+		this.claudeCodeService = inject(CLAUDE_CODE_SERVICE);
+		this.codegenAnalytics = inject(CODEGEN_ANALYTICS);
+		this.uiState = inject(UI_STATE);
+
+		const queueIds = $derived(messageQueueSelectors.selectIds(this.clientState.messageQueue));
+
+		// By looping over the IDs first rather than doing the full array, we avoid
+		// extra recomputations when one of the message queues changes.
+		$effect(() => {
+			for (const id of queueIds) {
+				const queue = $derived(messageQueueSelectors.selectById(this.clientState.messageQueue, id));
+				if (queue) {
+					$effect(() => {
+						this.handleQueue(queue);
+					});
+				}
+			}
+		});
+	}
+
+	private handleQueue(queue: MessageQueue) {
+		$effect(() => {
+			if (queue.messages.length === 0 && queue.isProcessing) {
+				this.clientState.dispatch(
+					messageQueueSlice.actions.upsert({
+						...queue,
+						isProcessing: false
+					})
+				);
+			}
+		});
+
+		const isActive = this.claudeCodeService.isStackActive(queue.projectId, queue.stackId);
+		const events = this.claudeCodeService.messages({
+			projectId: queue.projectId,
+			stackId: queue.stackId
+		});
+
+		$effect(() => {
+			if (
+				queue.messages.length > 0 &&
+				!queue.isProcessing &&
+				events.response &&
+				isActive.response !== undefined &&
+				!isActive.response
+			) {
+				const status = isCompletedWithStatus(events.response, isActive.response ?? false);
+				const laneState = this.uiState.lane(queue.stackId);
+
+				if (status.type === 'completed' && status.code === 0) {
+					const message = queue.messages[0]!;
+					this.clientState.dispatch(
+						messageQueueSlice.actions.upsert({
+							...queue,
+							messages: queue.messages.slice(1),
+							isProcessing: true
+						})
+					);
+
+					performSend({
+						prompt: message.prompt,
+						projectId: queue.projectId,
+						stackId: queue.stackId,
+						thinkingLevel: message.thinkingLevel,
+						model: message.model,
+						permissionMode: message.permissionMode,
+						laneState,
+						claudeCodeService: this.claudeCodeService,
+						codegenAnalytics: this.codegenAnalytics,
+						attachments: message.attachments
+					}).finally(() => {
+						const queue2 = messageQueueSelectors.selectById(
+							this.clientState.messageQueue,
+							queue.stackId
+						);
+						if (!queue2) return;
+						this.clientState.dispatch(
+							messageQueueSlice.actions.upsert({
+								...queue2,
+								isProcessing: false
+							})
+						);
+					});
+				}
+			}
+		});
+	}
+}
+
+export class MessageSender {
+	private projectId: Reactive<string>;
+	private selectedBranch: Reactive<{ stackId: string; head: string } | undefined>;
+	private thinkingLevel: Reactive<ThinkingLevel>;
+	private model: Reactive<ModelType>;
+	private permissionMode: Reactive<PermissionMode>;
+	private uiState: UiState;
+	private claudeCodeService: ClaudeCodeService;
+	private codegenAnalytics: CodegenAnalytics;
+	private clientState: ClientState;
+
+	constructor({
+		projectId,
+		selectedBranch,
+		thinkingLevel,
+		model,
+		permissionMode
+	}: {
+		projectId: Reactive<string>;
+		selectedBranch: Reactive<{ stackId: string; head: string } | undefined>;
+		thinkingLevel: Reactive<ThinkingLevel>;
+		model: Reactive<ModelType>;
+		permissionMode: Reactive<PermissionMode>;
+	}) {
+		this.projectId = projectId;
+		this.selectedBranch = selectedBranch;
+		this.thinkingLevel = thinkingLevel;
+		this.model = model;
+		this.permissionMode = permissionMode;
+		this.uiState = inject(UI_STATE);
+		this.claudeCodeService = inject(CLAUDE_CODE_SERVICE);
+		this.codegenAnalytics = inject(CODEGEN_ANALYTICS);
+		this.clientState = inject(CLIENT_STATE);
+	}
+
+	private get queue() {
+		return messageQueueSelectors
+			.selectAll(this.clientState.messageQueue)
+			.find(
+				(q) =>
+					q.head === this.selectedBranch.current?.head &&
+					q.stackId === this.selectedBranch.current?.stackId &&
+					q.projectId === this.projectId.current
+			);
+	}
+
+	private get laneState() {
+		return this.selectedBranch.current?.stackId
+			? this.uiState.lane(this.selectedBranch.current.stackId)
+			: undefined;
+	}
+
+	get prompt() {
+		return this.selectedBranch.current ? (this.laneState?.prompt.current ?? '') : '';
+	}
+
+	setPrompt(prompt: string) {
+		this.laneState?.prompt.set(prompt);
+	}
+
+	async sendMessage(prompt: string, attachments?: PromptAttachment[]) {
+		if (!this.selectedBranch.current || !this.laneState || !prompt) return;
+
+		const isActive = await this.claudeCodeService.fetchIsStackActive({
+			projectId: this.projectId.current,
+			stackId: this.selectedBranch.current.stackId
+		});
+		const events = await this.claudeCodeService.fetchMessages({
+			projectId: this.projectId.current,
+			stackId: this.selectedBranch.current.stackId
+		});
+
+		const status = currentStatus(events, isActive);
+		const canSendImmediately =
+			(status === 'disabled' || status === 'enabled') &&
+			!this.queue?.isProcessing &&
+			(this.queue?.messages.length || 0) === 0;
+
+		if (canSendImmediately) {
+			await performSend({
+				prompt,
+				projectId: this.projectId.current,
+				stackId: this.selectedBranch.current.stackId,
+				thinkingLevel: this.thinkingLevel.current,
+				model: this.model.current,
+				permissionMode: this.permissionMode.current,
+				laneState: this.laneState,
+				claudeCodeService: this.claudeCodeService,
+				codegenAnalytics: this.codegenAnalytics,
+				attachments
+			});
+		} else {
+			const message = {
+				prompt,
+				thinkingLevel: this.thinkingLevel.current,
+				model: this.model.current,
+				permissionMode: this.permissionMode.current,
+				attachments
+			};
+
+			if (this.queue) {
+				this.clientState.dispatch(
+					messageQueueSlice.actions.upsert({
+						...this.queue,
+						messages: [...this.queue.messages, message]
+					})
+				);
+			} else {
+				this.clientState.dispatch(
+					messageQueueSlice.actions.upsert({
+						projectId: this.projectId.current,
+						stackId: this.selectedBranch.current.stackId,
+						head: this.selectedBranch.current.head,
+						isProcessing: false,
+						messages: [message]
+					})
+				);
+			}
+		}
+
+		this.setPrompt('');
+	}
 }
