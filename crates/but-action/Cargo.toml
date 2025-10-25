@@ -9,6 +9,10 @@ rust-version = "1.89"
 doctest = false
 test = false
 
+[features]
+## If enabled, we will let the current executable (gitbutler-tauri) be the source for the `but` link.
+builtin-but = []
+
 [dependencies]
 serde = { workspace = true, features = ["std"] }
 serde-error = "0.1.3"

@@ -14,22 +14,16 @@ CRATE_ROOT="$ROOT/crates/gitbutler-tauri"
 # BINARIES
 ASKPASS="gitbutler-git-askpass"
 SETSID="gitbutler-git-setsid"
-CLI="but-testing"
-BUT="but"
 
 
-if [ -f "$TARGET_ROOT/$ASKPASS" ] && [ -f "$TARGET_ROOT/$SETSID" ] && [ -f "$TARGET_ROOT/$CLI" ]; then
+if [ -f "$TARGET_ROOT/$ASKPASS" ] && [ -f "$TARGET_ROOT/$SETSID" ]; then
     log injecting gitbutler-git binaries into crates/gitbutler-tauri "(TRIPLE=${TRIPLE})"
     cp -v "$TARGET_ROOT/$ASKPASS" "$CRATE_ROOT/$ASKPASS-${TRIPLE}"
     cp -v "$TARGET_ROOT/$SETSID" "$CRATE_ROOT/$SETSID-${TRIPLE}"
-    cp -v "$TARGET_ROOT/$CLI" "$CRATE_ROOT/$CLI-${TRIPLE}"
-    cp -v "$TARGET_ROOT/$BUT" "$CRATE_ROOT/$BUT-${TRIPLE}"
-elif [ -f "$TARGET_ROOT/$ASKPASS.exe" ] && [ -f "$TARGET_ROOT/$SETSID.exe" ] && [ -f "$TARGET_ROOT/$CLI.exe" ]; then
+elif [ -f "$TARGET_ROOT/$ASKPASS.exe" ] && [ -f "$TARGET_ROOT/$SETSID.exe" ]; then
     log injecting gitbutler-git binaries into crates/gitbutler-tauri "(TRIPLE=${TRIPLE})"
     cp -v "$TARGET_ROOT/$ASKPASS.exe" "$CRATE_ROOT/$ASKPASS-${TRIPLE}.exe"
     cp -v "$TARGET_ROOT/$SETSID.exe" "$CRATE_ROOT/$SETSID-${TRIPLE}.exe"
-    cp -v "$TARGET_ROOT/$CLI.exe" "$CRATE_ROOT/$CLI-${TRIPLE}.exe"
-    cp -v "$TARGET_ROOT/$BUT.exe" "$CRATE_ROOT/$BUT-${TRIPLE}.exe"
 else
     log gitbutler-git binaries are not built
     exit 1

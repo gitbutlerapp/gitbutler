@@ -73,6 +73,7 @@ open = "5"
 url = "2.5.4"
 but-path.workspace = true
 uuid.workspace = true
+but = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-trafficlights-positioner = { git = "https://github.com/gitbutlerapp/tauri-plugin-trafficlights-positioner", branch = "v2" }
@@ -86,6 +87,8 @@ correctness = "deny"
 default = ["custom-protocol", "devtools"]
 ## A forwarding to all crates that have windows-specific adjustments for testing on non-Windows.
 windows = []
+## If enabled, we will pretend to be `but` when the binary filename is `but`.
+builtin-but = ["dep:but", "but-action/builtin-but"]
 devtools = ["tauri/devtools"]
 
 # this feature is used for production builds where `devPath` points to the filesystem
