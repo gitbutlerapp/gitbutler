@@ -68,14 +68,19 @@
 	async function handleSubmit() {
 		const text = await editorRef?.getPlaintext();
 		if (!text || text.trim().length === 0) return;
-		// We can't rely on set prompt updating prompt text in `laneState`
-		// for clearing the input, so we do it here to keep them in sync.
-		// TODO: Make it so that updating laneState resets the editor.
-		editorRef?.clear();
-		onsubmit(text).catch((err) => {
-			editorRef?.setText(text);
+		const state = editorRef?.save();
+		try {
+			// We can't rely on set prompt updating prompt text in `laneState`
+			// for clearing the input, so we do it here to keep them in sync.
+			// TODO: Make it so that updating laneState resets the editor.
+			editorRef?.clear();
+			await onsubmit(text);
+		} catch (err) {
+			if (state) {
+				editorRef?.load(state);
+			}
 			showError('Send error', err);
-		});
+		}
 	}
 
 	function handleEditorKeyDown(event: KeyboardEvent | null): boolean {
