@@ -45,6 +45,7 @@ fn main() -> anyhow::Result<()> {
     let mut tauri_context = generate_context!();
     but_secret::secret::set_application_namespace(&tauri_context.config().identifier);
 
+
     let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
     let mut app_settings =
@@ -89,6 +90,7 @@ fn main() -> anyhow::Result<()> {
 
                 logs::init(app_handle, performance_logging);
 
+                but_action::cli::auto_fix_broken_but_cli_symlink();
                 inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
 
                 tracing::info!(
