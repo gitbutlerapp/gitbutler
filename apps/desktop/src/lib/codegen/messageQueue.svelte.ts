@@ -134,11 +134,10 @@ export function useSendMessage({
 	const laneState = $derived(
 		selectedBranch.current?.stackId ? uiState.lane(selectedBranch.current.stackId) : undefined
 	);
-	const prompt = $derived(selectedBranch.current ? (laneState?.prompt.current ?? '') : '');
 	function setPrompt(prompt: string) {
 		laneState?.prompt.set(prompt);
 	}
-	async function sendMessage() {
+	async function sendMessage(prompt: string) {
 		if (!selectedBranch.current) return;
 		if (!laneState) return;
 		if (!prompt) return;
@@ -205,6 +204,7 @@ export function useSendMessage({
 		}
 	}
 
+	const prompt = $derived(selectedBranch.current ? (laneState?.prompt.current ?? '') : '');
 	return {
 		prompt: reactive(() => prompt),
 		setPrompt,
