@@ -22,7 +22,7 @@ gix = { workspace = true, features = [
     "dirwalk",
     "credentials",
     "parallel",
-    "blocking-network-client",
+    "blocking-http-transport-curl",
 ] }
 strum = { version = "0.27", features = ["derive"] }
 tracing.workspace = true
