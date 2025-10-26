@@ -13,6 +13,7 @@ mod base;
 mod branch;
 mod command;
 mod commit;
+mod completions;
 mod describe;
 mod forge;
 mod id;
@@ -307,6 +308,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             .ok();
             result
         }
+        Subcommands::Completions { shell } => completions::generate_completions(*shell),
     }
 }
 

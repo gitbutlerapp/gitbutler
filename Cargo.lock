@@ -776,6 +776,7 @@ dependencies = [
  "but-worktrees",
  "chrono",
  "clap",
+ "clap_complete",
  "colored",
  "command-group",
  "gitbutler-branch",
@@ -1673,6 +1674,15 @@ dependencies = [
  "clap_lex",
  "strsim",
  "terminal_size",
+]
+
+[[package]]
+name = "clap_complete"
+version = "4.5.59"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2348487adcd4631696ced64ccdb40d38ac4d31cae7f2eec8817fcea1b9d1c43c"
+dependencies = [
+ "clap",
 ]
 
 [[package]]
