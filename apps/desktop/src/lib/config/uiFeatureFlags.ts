@@ -14,3 +14,4 @@ export const newCodegenEnabled = persisted(false, 'feature-new-codegen');
 export type StagingBehavior = 'all' | 'selection' | 'none';
 export const stagingBehaviorFeature = persisted<StagingBehavior>('all', 'feature-staging-behavior');
 export const fModeEnabled = persisted(true, 'f-mode');
+export const newlineOnEnter = persisted(false, 'feature-newline-on-enter');
