@@ -14,7 +14,7 @@
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
-	import { PromptAttachments } from '$lib/codegen/attachments.svelte';
+	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { MessageSender } from '$lib/codegen/messageQueue.svelte';
 	import {
@@ -59,13 +59,13 @@
 		branchName: string;
 		stackId: string;
 		isWorkspace?: boolean;
-		attachments: PromptAttachments;
 		onclose?: () => void;
 	};
-	const { projectId, stackId, branchName, isWorkspace, attachments, onclose }: Props = $props();
+	const { projectId, stackId, branchName, isWorkspace, onclose }: Props = $props();
 
 	const stableBranchName = $derived(branchName);
 
+	const attachmentService = inject(ATTACHMENT_SERVICE);
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const projectsService = inject(PROJECTS_SERVICE);
@@ -79,6 +79,7 @@
 	const stacks = $derived(stackService.stacks(projectId));
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
 	const mcpConfigQuery = $derived(claudeCodeService.mcpConfig({ projectId }));
+	const attachments = $derived(attachmentService.getByBranch(branchName));
 
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
 	let clearContextModal = $state<Modal>();
@@ -221,9 +222,8 @@
 	let attachmentInputRef = $state<HTMLInputElement>();
 
 	async function sendMessage(prompt: string) {
-		const attachmentsToSend = [...attachments.attachments];
-		attachments.setAttachments([]);
-		await messageSender.sendMessage(prompt, attachmentsToSend);
+		await messageSender.sendMessage(prompt, attachments);
+		attachmentService.clearByBranch(branchName);
 	}
 
 	function insertTemplate(template: string) {
@@ -506,11 +506,10 @@
 					<CodegenInput
 						{projectId}
 						{stackId}
-						{attachments}
+						branchName={stableBranchName}
 						value={initialPrompt}
 						loading={['running', 'compacting'].includes(status)}
 						compacting={status === 'compacting'}
-						selectedBranch={{ stackId, head: stableBranchName }}
 						onChange={(prompt) => messageSender.setPrompt(prompt)}
 						onsubmit={sendMessage}
 						{onAbort}

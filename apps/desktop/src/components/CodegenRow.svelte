@@ -2,6 +2,7 @@
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import {
 		CodegenCommitDropHandler,
@@ -16,8 +17,7 @@
 	import { Icon, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { slide, fade } from 'svelte/transition';
-	import type { PromptAttachments } from '$lib/codegen/attachments.svelte';
-	import type { ClaudeStatus } from '$lib/codegen/types';
+	import type { ClaudeStatus, PromptAttachment } from '$lib/codegen/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	type Props = {
@@ -26,10 +26,9 @@
 		branchName: string;
 		selected: boolean;
 		status: ClaudeStatus;
-		attachments: PromptAttachments;
 	};
 
-	const { projectId, stackId, branchName, selected, status, attachments }: Props = $props();
+	const { projectId, stackId, branchName, selected, status }: Props = $props();
 
 	const uiState = inject(UI_STATE);
 	const laneState = uiState.lane(stackId);
@@ -45,11 +44,18 @@
 		}
 		return 'ai';
 	}
-	const handlers = [
-		new CodegenCommitDropHandler(projectId, stackId, attachments),
-		new CodegenFileDropHandler(projectId, stackId, attachments),
-		new CodegenHunkDropHandler(projectId, stackId, attachments)
-	];
+
+	const attachmentService = inject(ATTACHMENT_SERVICE);
+
+	function addAttachment(items: PromptAttachment[]) {
+		return attachmentService.add(branchName, items);
+	}
+
+	const handlers = $derived([
+		new CodegenCommitDropHandler(stackId, branchName, addAttachment),
+		new CodegenFileDropHandler(stackId, branchName, addAttachment),
+		new CodegenHunkDropHandler(stackId, branchName, addAttachment)
+	]);
 </script>
 
 <Dropzone {handlers}>

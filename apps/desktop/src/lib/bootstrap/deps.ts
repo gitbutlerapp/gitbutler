@@ -13,6 +13,7 @@ import BaseBranchService, { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBran
 import { BranchService, BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 import { CherryApplyService, CHERRY_APPLY_SERVICE } from '$lib/cherryApply/cherryApplyService';
 import CLIManager, { CLI_MANAGER } from '$lib/cli/cli';
+import { ATTACHMENT_SERVICE, AttachmentService } from '$lib/codegen/attachmentService.svelte';
 import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/codegen/claude';
 import { AppSettings, APP_SETTINGS } from '$lib/config/appSettings';
 import { SETTINGS_SERVICE, SettingsService } from '$lib/config/appSettingsV2';
@@ -153,6 +154,7 @@ export function initDependencies(args: {
 		clientState.dispatch
 	);
 	const ircService = new IrcService(clientState, clientState.dispatch, ircClient);
+	const attachmentService = new AttachmentService(clientState);
 
 	// ============================================================================
 	// CONFIGURATION & SETTINGS
@@ -359,6 +361,7 @@ export function initDependencies(args: {
 		[POSTHOG_WRAPPER, posthog],
 		[PROJECTS_SERVICE, projectsService],
 		[PROMPT_SERVICE, promptService],
+		[ATTACHMENT_SERVICE, attachmentService],
 		[REMOTES_SERVICE, remotesService],
 		[RESIZE_SYNC, resizeSync],
 		[RULES_SERVICE, rulesService],

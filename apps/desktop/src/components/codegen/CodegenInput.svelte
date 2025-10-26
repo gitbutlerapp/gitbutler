@@ -4,46 +4,49 @@
 	import AttachmentList from '$components/codegen/AttachmentList.svelte';
 	import CodegenInputQueued from '$components/codegen/CodegenInputQueued.svelte';
 	import FileSearch from '$components/codegen/FileSearch.svelte';
+	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import {
 		CodegenCommitDropHandler,
 		CodegenFileDropHandler,
 		CodegenHunkDropHandler
 	} from '$lib/codegen/dropzone';
 	import { showError } from '$lib/notifications/toasts';
+	import { inject } from '@gitbutler/core/context';
 	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
-	import type { PromptAttachments } from '$lib/codegen/attachments.svelte';
+	import type { PromptAttachment } from '$lib/codegen/types';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
 		projectId: string;
+		branchName: string;
 		stackId: string;
 		value: string;
 		loading: boolean;
 		compacting: boolean;
-		selectedBranch: { stackId: string; head: string } | undefined;
 		onsubmit: (text: string) => Promise<void>;
 		onAbort?: () => Promise<void>;
 		actionsOnLeft: Snippet;
 		actionsOnRight: Snippet;
 		onChange: (value: string) => void;
-		attachments: PromptAttachments;
 	};
 
 	let {
 		projectId,
 		stackId,
+		branchName,
 		value = $bindable(),
 		loading,
 		compacting,
-		selectedBranch,
 		onsubmit,
 		onAbort,
 		actionsOnLeft,
 		actionsOnRight,
-		onChange,
-		attachments
+		onChange
 	}: Props = $props();
+
+	const attachmentService = inject(ATTACHMENT_SERVICE);
+	const attachments = $derived(attachmentService.getByBranch(branchName));
 
 	let editorRef = $state<ReturnType<typeof RichTextEditor>>();
 
@@ -94,7 +97,7 @@
 		}
 
 		// Handle Enter to submit
-		if (event.key === 'Enter' && event.metaKey) {
+		if (event.key === 'Enter') {
 			event.preventDefault();
 			handleSubmit();
 			return true;
@@ -102,11 +105,15 @@
 		return false;
 	}
 
-	const handlers = [
-		new CodegenCommitDropHandler(projectId, stackId, attachments),
-		new CodegenFileDropHandler(projectId, stackId, attachments),
-		new CodegenHunkDropHandler(projectId, stackId, attachments)
-	];
+	function addAttachment(items: PromptAttachment[]) {
+		return attachmentService.add(branchName, items);
+	}
+
+	const handlers = $derived([
+		new CodegenCommitDropHandler(stackId, branchName, addAttachment),
+		new CodegenFileDropHandler(stackId, branchName, addAttachment),
+		new CodegenHunkDropHandler(stackId, branchName, addAttachment)
+	]);
 
 	let query = $state('');
 	let callback = $state<((result: string) => void) | undefined>();
@@ -117,12 +124,12 @@
 		<FileSearch {projectId} {query} onselect={callback} limit={8} />
 	{/if}
 	<div class="text-input dialog-input" data-remove-from-panning>
-		<CodegenInputQueued {projectId} {selectedBranch} />
-		{#if attachments.attachments.length > 0}
+		<CodegenInputQueued {projectId} {stackId} {branchName} />
+		{#if attachments.length > 0}
 			<div class="attached-files-section">
 				<AttachmentList
-					attachments={attachments.attachments}
-					onRemove={(a) => attachments.remove(a)}
+					{attachments}
+					onRemove={(a) => attachmentService.removeByBranch(branchName, a)}
 				/>
 			</div>
 		{/if}
