@@ -11,6 +11,7 @@
 		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
 		"dev:web": "turbo watch --filter @gitbutler/web dev",
 		"dev:desktop": "cross-env CARGO_TARGET_DIR=$PNPM_SCRIPT_SRC_DIR/target/tauri pnpm dev:desktop-with-env",
+		"dev:desktop-http": "cross-env VITE_BUTLER_PORT=6978 VITE_BUTLER_HOST=localhost VITE_BUILD_TARGET=web turbo watch dev --filter=...@gitbutler/desktop",
 		"dev:desktop-with-env": "cargo build -p but && cargo build -p gitbutler-git && pnpm tauri dev",
 		"dev:internal-tauri": "turbo watch --filter @gitbutler/desktop dev",
 		"package": "turbo run package",
