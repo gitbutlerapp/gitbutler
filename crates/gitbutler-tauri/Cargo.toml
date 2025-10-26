@@ -21,11 +21,7 @@ tauri-build = { version = "2.3.1", features = [] }
 anyhow = "1.0.100"
 backtrace = { version = "0.3.76", optional = true }
 console-subscriber = "0.4.1"
-gix = { workspace = true, features = [
-    "max-performance",
-    "blocking-http-transport-curl",
-    "worktree-mutation",
-] }
+gix = { workspace = true, features = ["max-performance", "worktree-mutation" ] }
 serde.workspace = true
 serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
 tauri = { version = "^2.7.0", features = ["unstable"] }

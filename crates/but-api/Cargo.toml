@@ -56,10 +56,7 @@ but-hunk-dependency.workspace = true
 but-path.workspace = true
 but-forge-storage.workspace = true
 serde-error = "0.1.3"
-gix = { workspace = true, features = [
-    "worktree-mutation",
-    "blocking-http-transport-curl",
-] }
+gix = { workspace = true, features = ["worktree-mutation" ] }
 git2.workspace = true
 but-feedback.workspace = true
 gitbutler-error.workspace = true
