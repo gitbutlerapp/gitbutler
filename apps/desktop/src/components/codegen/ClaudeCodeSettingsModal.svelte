@@ -3,6 +3,7 @@
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { newlineOnEnter } from '$lib/config/uiFeatureFlags';
 	import { inject } from '@gitbutler/core/context';
 	import { Modal, SectionCard, Toggle, Spacer } from '@gitbutler/ui';
 	import type { Modal as ModalType } from '@gitbutler/ui';
@@ -118,6 +119,22 @@
 						id="useConfiguredModel"
 						checked={useConfiguredModel}
 						onchange={updateUseConfiguredModel}
+					/>
+				{/snippet}
+			</SectionCard>
+
+			<SectionCard orientation="row" labelFor="newlineOnEnter">
+				{#snippet title()}
+					Newline on enter
+				{/snippet}
+				{#snippet caption()}
+					By default enter submits the prompt.
+				{/snippet}
+				{#snippet actions()}
+					<Toggle
+						id="newlineOnEnter"
+						checked={$newlineOnEnter}
+						onchange={() => newlineOnEnter.set(!$newlineOnEnter)}
 					/>
 				{/snippet}
 			</SectionCard>
