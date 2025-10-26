@@ -2255,9 +2255,9 @@ dependencies = [
 
 [[package]]
 name = "deser-hjson"
-version = "1.2.0"
+version = "2.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30e1ab99fef4d11b2de312a0650bbf312fb48aa11a00084f35b27bf8c57d4cad"
+checksum = "7d94aac4095c08ded7e4b9ba7fc2b2929f11b94bb96897ca188b0f64e01688e1"
 dependencies = [
  "serde",
 ]
@@ -3575,7 +3575,6 @@ dependencies = [
 name = "gitbutler-notify-debouncer"
 version = "0.0.0"
 dependencies = [
- "crossbeam-channel",
  "deser-hjson",
  "file-id 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "gitbutler-notify-debouncer",
@@ -6672,9 +6671,9 @@ dependencies = [
 
 [[package]]
 name = "mock_instant"
-version = "0.5.3"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e1d4c44418358edcac6e1d9ce59cea7fb38052429c7704033f1196f0c179e6a"
+checksum = "dce6dd36094cac388f119d2e9dc82dc730ef91c32a6222170d630e5414b956e6"
 
 [[package]]
 name = "moxcms"
@@ -8737,21 +8736,20 @@ dependencies = [
 
 [[package]]
 name = "rstest"
-version = "0.23.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a2c585be59b6b5dd66a9d2084aa1d8bd52fbdb806eafdeffb52791147862035"
+checksum = "f5a3193c063baaa2a95a33f03035c8a72b83d97a54916055ba22d35ed3839d49"
 dependencies = [
- "futures",
  "futures-timer",
+ "futures-util",
  "rstest_macros",
- "rustc_version",
 ]
 
 [[package]]
 name = "rstest_macros"
-version = "0.23.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "825ea780781b15345a146be27eaefb05085e337e869bff01b4306a4fd4a9ad5a"
+checksum = "9c845311f0ff7951c5506121a9ad75aec44d083c31583b2ea5a30bcb0b0abba0"
 dependencies = [
  "cfg-if",
  "glob",
