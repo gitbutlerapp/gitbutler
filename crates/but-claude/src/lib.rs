@@ -73,7 +73,7 @@ pub enum ClaudeMessageContent {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum PromptAttachment {
-    Hunk {
+    Lines {
         path: String,
         start: usize,
         end: usize,

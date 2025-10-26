@@ -97,7 +97,7 @@ export class CodegenHunkDropHandler implements DropzoneHandler {
 	ondrop(data: HunkDropDataV3): void {
 		this.add([
 			{
-				type: 'hunk',
+				type: 'lines',
 				branchName: this.branchName,
 				path: data.change.path,
 				start: data.hunk.newStart,

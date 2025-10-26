@@ -21,7 +21,6 @@
 
 use std::{
     collections::HashMap,
-    env::temp_dir,
     io::{BufRead, BufReader, PipeReader, Read as _},
     process::ExitStatus,
     sync::Arc,
@@ -646,7 +645,7 @@ pub enum ClaudeCheckResult {
 /// Validates and sanitizes attachment data to prevent prompt injection
 fn validate_attachment(attachment: &PromptAttachment) -> Result<()> {
     match attachment {
-        PromptAttachment::File { path } | PromptAttachment::Hunk { path, .. } => {
+        PromptAttachment::File { path } | PromptAttachment::Lines { path, .. } => {
             validate_path(path)?;
         }
         PromptAttachment::Commit { commit_id } => {
@@ -724,24 +723,28 @@ async fn format_message_with_attachments(
         validate_attachment(attachment)?;
     }
 
-    // Create a temporary directory for attachments
-    let temp_dir = temp_dir().join("gitbutler_attachments");
-    fs::create_dir_all(&temp_dir).await?;
+    for attachment in attachments {
+        validate_attachment(attachment)?;
+    }
 
-    // Create enhanced message with file references and content for small files
-    let mut enhanced_message = format!(
+    let attachments_json = serde_json::to_string_pretty(&attachments)?;
+
+    let message = format!(
         "{}
 
 <context-attachments>
-The following files, line ranges, and commits have been added as context. You must keep them in mind when responding to this request.
+The following JSON of files, line ranges, and commits have been added as
+context. Please consider them if a question or reference to files, lines,
+or commits, is unspecified.
+<attachments>
+{}
+</attachments>
+</context-attachments>
 ",
-        original_message
+        original_message, attachments_json
     );
 
-    enhanced_message.push_str(&serde_json::to_string_pretty(&attachments)?);
-    enhanced_message.push_str("</context-attachments>\n");
-
-    Ok(enhanced_message)
+    Ok(message)
 }
 
 /// Check if Claude Code is available by running the version command.
