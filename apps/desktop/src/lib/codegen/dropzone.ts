@@ -1,6 +1,6 @@
 import { CommitDropData } from '$lib/commits/dropHandler';
 import { ChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
-import type { PromptAttachments } from '$lib/codegen/attachments.svelte';
+import type { PromptAttachment } from '$lib/codegen/types';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { AiRule } from '$lib/rules/rule';
 import type RulesService from '$lib/rules/rulesService.svelte';
@@ -46,9 +46,9 @@ export class CodegenRuleDropHandler implements DropzoneHandler {
 
 export class CodegenCommitDropHandler implements DropzoneHandler {
 	constructor(
-		private projectId: string,
 		private stackId: string,
-		private attachments: PromptAttachments
+		private branchName: string,
+		private add: (items: PromptAttachment[]) => void
 	) {}
 
 	accepts(data: unknown): boolean {
@@ -57,15 +57,15 @@ export class CodegenCommitDropHandler implements DropzoneHandler {
 	}
 
 	ondrop(data: CommitDropData): void {
-		this.attachments.add([{ type: 'commit', commitId: data.commit.id }]);
+		this.add([{ type: 'commit', branchName: this.branchName, commitId: data.commit.id }]);
 	}
 }
 
 export class CodegenFileDropHandler implements DropzoneHandler {
 	constructor(
-		private projectId: string,
 		private stackId: string,
-		private attachments: PromptAttachments
+		private branchName: string,
+		private add: (items: PromptAttachment[]) => void
 	) {}
 
 	accepts(data: unknown): boolean {
@@ -76,15 +76,15 @@ export class CodegenFileDropHandler implements DropzoneHandler {
 	}
 
 	ondrop(data: ChangeDropData): void {
-		this.attachments.add([{ type: 'file', path: data.change.path }]);
+		this.add([{ type: 'file', branchName: this.branchName, path: data.change.path }]);
 	}
 }
 
 export class CodegenHunkDropHandler implements DropzoneHandler {
 	constructor(
-		private projectId: string,
 		private stackId: string,
-		private attachments: PromptAttachments
+		private branchName: string,
+		private add: (items: PromptAttachment[]) => void
 	) {}
 
 	accepts(data: unknown): boolean {
@@ -95,9 +95,10 @@ export class CodegenHunkDropHandler implements DropzoneHandler {
 	}
 
 	ondrop(data: HunkDropDataV3): void {
-		this.attachments.add([
+		this.add([
 			{
 				type: 'hunk',
+				branchName: this.branchName,
 				path: data.change.path,
 				start: data.hunk.newStart,
 				end: data.hunk.newStart + data.hunk.newLines - 1
