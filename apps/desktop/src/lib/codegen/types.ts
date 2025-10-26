@@ -6,23 +6,17 @@ import type { Message, MessageParam, Usage } from '@anthropic-ai/sdk/resources/i
 export type PromptAttachment =
 	| {
 			type: 'file';
-			subject: {
-				path: string;
-			};
+			path: string;
 	  }
 	| {
 			type: 'hunk';
-			subject: {
-				path: string;
-				start: number;
-				end: number;
-			};
+			path: string;
+			start: number;
+			end: number;
 	  }
 	| {
 			type: 'commit';
-			subject: {
-				commitId: string;
-			};
+			commitId: string;
 	  };
 
 /**

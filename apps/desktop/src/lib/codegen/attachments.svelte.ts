@@ -12,9 +12,7 @@ export class PromptAttachments {
 	}
 
 	remove(attachment: PromptAttachment) {
-		this.attachments = this.attachments.filter(
-			(f) => f.type !== attachment.type || !shallowCompare(f.subject, attachment.subject)
-		);
+		this.attachments = this.attachments.filter((f) => !shallowCompare(attachment, f));
 	}
 
 	add(items: PromptAttachment[]): void {
@@ -31,15 +29,11 @@ export class PromptAttachments {
 			const isDuplicate = this.attachments.find((a) => {
 				switch (a.type) {
 					case 'commit':
-						return a.type === item.type && a.subject.commitId === item.subject.commitId;
+						return a.type === item.type && a.commitId === item.commitId;
 					case 'file':
-						return a.type === item.type && a.subject.path === item.subject.path;
+						return a.type === item.type && a.path === item.path;
 					case 'hunk':
-						return (
-							a.type === item.type &&
-							a.subject.path === item.subject.path &&
-							a.subject.start === item.subject.start
-						);
+						return a.type === item.type && a.path === item.path && a.start === item.start;
 				}
 			});
 

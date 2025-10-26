@@ -22,22 +22,22 @@
 		<div class="attachment" in:fly={{ y: 10, duration: 150 }}>
 			<div class="attachment-content text-12 text-semibold">
 				{#if attachment.type === 'commit'}
-					<span class="path" title={attachment.subject.commitId}>
-						#{attachment.subject.commitId.slice(0, 6)}
+					<span class="path" title={attachment.commitId}>
+						#{attachment.commitId.slice(0, 6)}
 					</span>
 				{/if}
 				{#if attachment.type === 'file'}
-					<FileIcon fileName={attachment.subject.path} />
+					<FileIcon fileName={attachment.path} />
 
-					<span class="path" title={attachment.subject.path}>
-						{abbreviatePath(attachment.subject.path)}
+					<span class="path" title={attachment.path}>
+						{abbreviatePath(attachment.path)}
 					</span>
 				{/if}
 				{#if attachment.type === 'hunk'}
-					{@const { path, start, end } = attachment.subject}
-					<FileIcon fileName={attachment.subject.path} />
+					{@const { path, start, end } = attachment}
+					<FileIcon fileName={attachment.path} />
 
-					<span class="path" title={attachment.subject.path}>
+					<span class="path" title={attachment.path}>
 						{abbreviatePath(path)}
 					</span>
 					<span>
