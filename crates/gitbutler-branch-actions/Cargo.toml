@@ -8,7 +8,7 @@ rust-version = "1.89"
 
 [dependencies]
 tracing.workspace = true
-anyhow = "1.0.100"
+anyhow.workspace = true
 git2.workspace = true
 gix = { workspace = true, features = ["blob-diff", "revision", "merge"] }
 uuid = { workspace = true }
@@ -36,12 +36,12 @@ but-workspace.workspace = true
 but-rebase.workspace = true
 but-core.workspace = true
 but-graph.workspace = true
-serde = { workspace = true, features = ["std"] }
+serde.workspace = true
 bstr.workspace = true
 git2-hooks.workspace = true
 url = { version = "2.5.4", features = ["serde"] }
-md5 = "0.8.0"
-itertools = "0.14"
+md5.workspace = true
+itertools.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 
@@ -54,6 +54,7 @@ gix = { workspace = true, features = [] }
 glob = "0.3.3"
 tempfile.workspace = true
 but-hunk-assignment.workspace = true
+# Needed to make tests work with stable change ids
 gitbutler-git = { workspace = true, features = [
     "test-askpass-path",
-] } # Runtime test dependency
+] }

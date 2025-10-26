@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [lib]
 doctest = false
 crate-type = ["lib", "staticlib", "cdylib"]
@@ -18,16 +19,12 @@ test = false
 tauri-build = { version = "2.3.1", features = [] }
 
 [dependencies]
-anyhow = "1.0.100"
+anyhow.workspace = true
 backtrace = { version = "0.3.76", optional = true }
 console-subscriber = "0.4.1"
-gix = { workspace = true, features = [
-    "max-performance",
-    "blocking-http-transport-curl",
-    "worktree-mutation",
-] }
+gix = { workspace = true, features = ["max-performance", "worktree-mutation" ] }
 serde.workspace = true
-serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
 tauri = { version = "^2.7.0", features = ["unstable"] }
 tauri-plugin-dialog = "2.3.2"
 tauri-plugin-fs = "2.4.2"

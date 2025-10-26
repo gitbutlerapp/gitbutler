@@ -1,9 +1,12 @@
 use std::{ops::Deref, path::PathBuf};
 
-use but_core::ref_metadata::WorkspaceCommitRelation::{Merged, Outside};
 use but_core::{
     RefMetadata,
-    ref_metadata::{StackId, ValueInfo, WorkspaceStack, WorkspaceStackBranch},
+    ref_metadata::{
+        StackId, ValueInfo,
+        WorkspaceCommitRelation::{Merged, Outside},
+        WorkspaceStack, WorkspaceStackBranch,
+    },
 };
 use but_graph::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
 use but_testsupport::{

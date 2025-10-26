@@ -11,9 +11,9 @@ autotests = false
 but-secret.workspace = true
 gitbutler-storage.workspace = true
 but-path.workspace = true
-anyhow = "1.0.100"
-serde = { workspace = true, features = ["std"] }
-serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
+anyhow.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
 
 [[test]]
 name = "user"

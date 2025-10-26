@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [[bin]]
 name = "gitbutler-cli"
 path = "src/main.rs"
@@ -14,25 +15,21 @@ path = "src/main.rs"
 testing = ["dep:gitbutler-commit"]
 
 [dependencies]
-gitbutler-oplog.workspace = true
 gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-branch.workspace = true
-gitbutler-diff.workspace = true
 but-settings.workspace = true
 gitbutler-stack.workspace = true
 but-graph.workspace = true
 but-workspace.workspace = true
-but-hunk-assignment.workspace = true
 but-core = { workspace = true, features = ["testing"] }
 gitbutler-oxidize.workspace = true
 gix = { workspace = true, features = ["max-performance", "tracing"] }
 dirs-next = "2.0.0"
 clap = { version = "4.5.48", features = ["derive", "env"] }
-anyhow = "1.0.100"
-chrono = "0.4.42"
+anyhow.workspace = true
 tracing-forest = { version = "0.2.0" }
 tracing-subscriber.workspace = true
 tracing.workspace = true

@@ -4,9 +4,10 @@
 //! - `gitbutler-created-from`: The git reference this worktree was created from
 //! - `gitbutler-base`: The base commit OID for cherry-picking
 
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
-use std::path::PathBuf;
 
 use crate::{WorktreeId, WorktreeMeta};
 

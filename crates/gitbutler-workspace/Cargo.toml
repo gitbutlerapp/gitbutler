@@ -9,7 +9,6 @@ autotests = false
 
 [dependencies]
 anyhow.workspace = true
-tracing.workspace = true
 gix.workspace = true
 git2.workspace = true
 gitbutler-stack.workspace = true

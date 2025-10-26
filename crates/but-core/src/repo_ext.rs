@@ -1,7 +1,8 @@
+use std::io::Write;
+
 use anyhow::Context;
 use gitbutler_error::error::Code;
 use gix::prelude::ObjectIdExt;
-use std::io::Write;
 
 use crate::{GitConfigSettings, commit::TreeKind};
 

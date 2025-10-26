@@ -5,10 +5,11 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [dependencies]
-serde = { workspace = true, features = ["std"] }
+serde.workspace = true
 bstr.workspace = true
-anyhow = "1.0.100"
+anyhow.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 walkdir = "2.5.0"
 toml.workspace = true

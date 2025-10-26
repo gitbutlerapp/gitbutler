@@ -143,7 +143,7 @@ fn normalize_stack_segment_ref(
     gix::refs::FullName::try_from(full_name)
 }
 
-#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DiffSpec {
     /// The previous location of the entry, the source of a rename if there was one.

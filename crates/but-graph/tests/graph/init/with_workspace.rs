@@ -1,7 +1,6 @@
-use but_core::ref_metadata::WorkspaceCommitRelation;
 use but_core::{
     RefMetadata,
-    ref_metadata::{StackId, WorkspaceStack, WorkspaceStackBranch},
+    ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
 };
 use but_graph::{Graph, init::Overlay};
 use but_testsupport::{

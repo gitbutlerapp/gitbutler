@@ -1,10 +1,13 @@
+use std::borrow::Cow;
+
 use bstr::ByteSlice;
-use but_core::ref_metadata::StackId;
-use but_core::{RefMetadata, ref_metadata::ValueInfo};
+use but_core::{
+    RefMetadata,
+    ref_metadata::{StackId, ValueInfo},
+};
 use but_graph::init::Options;
 use but_testsupport::{graph_workspace, id_at, id_by_rev, visualize_commit_graph_all};
 use but_workspace::branch::create_reference::{Anchor, Position::*};
-use std::borrow::Cow;
 
 use crate::{
     ref_info::with_workspace_commit::utils::{
@@ -21,8 +24,8 @@ mod with_workspace {
     use but_testsupport::{graph_workspace, id_at, id_by_rev, visualize_commit_graph_all};
     use but_workspace::branch::create_reference::{Anchor, Position::*};
 
-    use crate::branch::create_reference::stack_id_for_name;
     use crate::{
+        branch::create_reference::stack_id_for_name,
         ref_info::with_workspace_commit::utils::{
             StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
             named_writable_scenario, named_writable_scenario_with_description,

@@ -5,8 +5,9 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [dependencies]
-anyhow = "1.0.100"
+anyhow.workspace = true
 git2.workspace = true
 gix.workspace = true
 tracing.workspace = true
@@ -14,5 +15,4 @@ gitbutler-project.workspace = true
 but-db.workspace = true
 but-settings.workspace = true
 but-graph.workspace = true
-#but-graph.workspace = true
 bstr = "1.11.1"

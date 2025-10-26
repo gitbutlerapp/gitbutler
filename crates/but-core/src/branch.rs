@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 
 type WorktreePathByRef = BTreeMap<gix::refs::FullName, Vec<PathBuf>>;
 
@@ -54,8 +53,9 @@ impl SafeDelete {
 /// Everyone needs it for safe-deletion.
 // TODO(gix): expose this in gix (but find this code, it already exists there)
 mod gix_copies {
-    use crate::branch::WorktreePathByRef;
     use std::collections::BTreeMap;
+
+    use crate::branch::WorktreePathByRef;
 
     fn insert_head(head: Option<gix::Head<'_>>, out: &mut WorktreePathByRef) -> anyhow::Result<()> {
         if let Some((head, wd)) = head.and_then(|head| head.repo.workdir().map(|wd| (head, wd))) {

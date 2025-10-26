@@ -10,9 +10,9 @@ autotests = false
 [dependencies]
 git2.workspace = true
 gix = { workspace = true, features = [] }
-itertools = "0.14"
-anyhow = "1.0.100"
-serde = { workspace = true, features = ["std"] }
+itertools.workspace = true
+anyhow.workspace = true
+serde.workspace = true
 toml.workspace = true
 gitbutler-reference.workspace = true
 but-core.workspace = true
@@ -33,9 +33,6 @@ name = "stack"
 path = "tests/mod.rs"
 
 [dev-dependencies]
-gitbutler-git = { workspace = true, features = [
-    "test-askpass-path",
-] } # Runtime test dependency
 gitbutler-testsupport.workspace = true
 gitbutler-repo-actions.workspace = true
 tempfile.workspace = true

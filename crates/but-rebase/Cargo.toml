@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [lib]
 doctest = false
 
@@ -17,7 +18,7 @@ gitbutler-oxidize.workspace = true
 gitbutler-error.workspace = true
 bstr.workspace = true
 tempfile.workspace = true
-serde = { version = "1.0.228", features = ["derive"] }
+serde.workspace = true
 toml.workspace = true
 but-gerrit.workspace = true
 

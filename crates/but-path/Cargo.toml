@@ -10,5 +10,5 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
-anyhow = "1.0.100"
+anyhow.workspace = true
 dirs = "6.0.0"

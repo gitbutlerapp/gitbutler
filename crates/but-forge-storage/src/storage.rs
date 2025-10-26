@@ -1,8 +1,9 @@
 use std::{path::PathBuf, sync::Mutex};
 
-use crate::settings::{ForgeSettings, GitHubAccount};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+
+use crate::settings::{ForgeSettings, GitHubAccount};
 
 const FORGE_SETTINGS_FILE: &str = "forge_settings.json";
 

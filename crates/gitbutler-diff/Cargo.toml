@@ -10,15 +10,15 @@ autotests = false
 [dependencies]
 git2.workspace = true
 bstr.workspace = true
-md5 = "0.8.0"
-anyhow = "1.0.100"
+md5.workspace = true
+anyhow.workspace = true
 hex = "0.4.3"
 tracing.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-cherry-pick.workspace = true
 diffy = "0.4.0"
-serde = { workspace = true, features = ["std"] }
+serde.workspace = true
 
 [[test]]
 name = "diff"

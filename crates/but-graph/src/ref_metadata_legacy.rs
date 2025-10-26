@@ -7,16 +7,14 @@ use std::{
     time::Instant,
 };
 
-use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
 use anyhow::{Context, bail};
 use bstr::ByteSlice;
-use but_core::ref_metadata::WorkspaceCommitRelation;
 use but_core::{
     RefMetadata,
     ref_metadata::{
         Branch, RefInfo, StackId,
         StackKind::{Applied, AppliedAndUnapplied},
-        ValueInfo, Workspace, WorkspaceStack, WorkspaceStackBranch,
+        ValueInfo, Workspace, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
     },
 };
 use gitbutler_reference::RemoteRefname;
@@ -26,6 +24,8 @@ use gix::{
     refs::{FullName, FullNameRef},
 };
 use itertools::Itertools;
+
+use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
 
 #[derive(Debug)]
 struct Snapshot {

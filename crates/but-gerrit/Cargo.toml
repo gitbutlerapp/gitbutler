@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [lib]
 doctest = false
 test = false
@@ -18,6 +19,6 @@ but-core.workspace = true
 but-db.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-command-context.workspace = true
-chrono = "0.4.42"
-serde = { workspace = true, features = ["std"] }
+chrono.workspace = true
+serde.workspace = true
 gix = { workspace = true }

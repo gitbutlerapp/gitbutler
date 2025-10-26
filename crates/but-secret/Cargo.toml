@@ -8,9 +8,9 @@ rust-version = "1.89"
 autotests = false
 
 [dependencies]
-anyhow = "1.0.100"
+anyhow.workspace = true
 tracing.workspace = true
-serde = { workspace = true, features = ["std"]}
+serde.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 gitbutler-error.workspace = true
 keyring.workspace = true
