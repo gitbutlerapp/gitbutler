@@ -69,21 +69,33 @@ pub enum ClaudeMessageContent {
     GitButlerMessage(GitButlerMessage),
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FileAttachment {
+    path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LinesAttachment {
+    path: String,
+    start: usize,
+    end: usize,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitAttachment {
+    commit_id: String,
+}
+
 /// Represents a file attachment with full content (used in API input).
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum PromptAttachment {
-    Lines {
-        path: String,
-        start: usize,
-        end: usize,
-    },
-    File {
-        path: String,
-    },
-    Commit {
-        commit_id: String,
-    },
+    Lines(LinesAttachment),
+    File(FileAttachment),
+    Commit(CommitAttachment),
 }
 
 /// Represents user input in a Claude session.
