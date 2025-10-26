@@ -1,5 +1,6 @@
-use anyhow::{Context, Result};
 use std::ffi::OsString;
+
+use anyhow::{Context, Result};
 
 mod args;
 use args::{Args, CommandName, Subcommands, actions, claude, cursor};
@@ -342,8 +343,9 @@ where
 }
 
 fn print_grouped_help() {
-    use clap::CommandFactory;
     use std::collections::HashSet;
+
+    use clap::CommandFactory;
     use terminal_size::{Width, terminal_size};
 
     // Get terminal width, default to 80 if detection fails

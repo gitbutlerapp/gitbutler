@@ -327,8 +327,7 @@ fn delete_gitbutler_references(repo: &gix::Repository) -> Result<()> {
 }
 
 pub fn is_gerrit_remote(repo: &gix::Repository) -> anyhow::Result<bool> {
-    use gix::bstr::ByteSlice;
-    use gix::remote::Direction;
+    use gix::{bstr::ByteSlice, remote::Direction};
 
     // Magic refspec that we use to determine if the remote is a Gerrit remote
     let gerrit_notes_ref = "refs/notes/review";

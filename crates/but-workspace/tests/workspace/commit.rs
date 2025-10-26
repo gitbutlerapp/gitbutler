@@ -422,11 +422,13 @@ mod from_new_merge_with_metadata {
     }
 
     mod utils {
-        use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack_with_segments};
-        use but_core::ref_metadata::WorkspaceCommitRelation::Merged;
-        use but_core::ref_metadata::{StackId, WorkspaceStack, WorkspaceStackBranch};
+        use but_core::ref_metadata::{
+            StackId, WorkspaceCommitRelation::Merged, WorkspaceStack, WorkspaceStackBranch,
+        };
         use but_graph::VirtualBranchesTomlMetadata;
         use gix::refs::Category;
+
+        use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack_with_segments};
 
         pub fn add_stacks(
             meta: &mut VirtualBranchesTomlMetadata,

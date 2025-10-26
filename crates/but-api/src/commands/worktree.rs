@@ -1,18 +1,16 @@
 use but_api_macros::api_cmd;
 use but_settings::AppSettings;
-use but_worktrees::WorktreeId;
-use but_worktrees::destroy::DestroyWorktreeOutcome;
-use but_worktrees::integrate::WorktreeIntegrationStatus;
-use but_worktrees::list::ListWorktreeOutcome;
-use but_worktrees::new::NewWorktreeOutcome;
+// Re-export for use in other crates
+pub use but_worktrees::integrate::WorktreeIntegrationStatus as IntegrationStatus;
+use but_worktrees::{
+    WorktreeId, destroy::DestroyWorktreeOutcome, integrate::WorktreeIntegrationStatus,
+    list::ListWorktreeOutcome, new::NewWorktreeOutcome,
+};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use tracing::instrument;
 
 use crate::error::Error;
-
-// Re-export for use in other crates
-pub use but_worktrees::integrate::WorktreeIntegrationStatus as IntegrationStatus;
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]

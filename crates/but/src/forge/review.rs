@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use anyhow::Context;
 use bstr::ByteSlice;
 use but_api::forge::ListReviewsParams;
@@ -6,7 +8,6 @@ use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 pub async fn publish_reviews(
     project: &Project,

@@ -5,21 +5,21 @@ use std::{
 };
 
 mod event;
-use crate::metrics::{Event, EventKind, Metrics};
 use anyhow::Result;
 use but_action::{ActionHandler, Outcome, Source, reword::CommitEvent};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
-use rmcp::handler::server::tool::ToolRouter;
-use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{
     ServerHandler, ServiceExt,
+    handler::server::{tool::ToolRouter, wrapper::Parameters},
     model::{
         CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
     },
     schemars, tool, tool_router,
 };
+
+use crate::metrics::{Event, EventKind, Metrics};
 
 pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
     // Use `-t` to enable logging

@@ -110,18 +110,20 @@ pub struct Options {
 pub(crate) mod function {
     use std::borrow::Cow;
 
-    use super::{IntegrationMode, Options, Outcome, WorkspaceReferenceNaming};
-    use crate::{WorkspaceCommit, branch::checkout, ext::ObjectStorageExt, ref_info::WorkspaceExt};
     use anyhow::{Context, bail};
-    use but_core::ref_metadata::WorkspaceCommitRelation::{Merged, Outside};
     use but_core::{
         RefMetadata, RepositoryExt, extract_remote_name,
-        ref_metadata::{StackId, StackKind::AppliedAndUnapplied, Workspace},
+        ref_metadata::{
+            StackId,
+            StackKind::AppliedAndUnapplied,
+            Workspace,
+            WorkspaceCommitRelation::{Merged, Outside},
+        },
     };
     use but_graph::{init::Overlay, projection::WorkspaceKind};
     use gitbutler_oxidize::GixRepositoryExt;
-    use gix::prelude::ObjectIdExt;
     use gix::{
+        prelude::ObjectIdExt,
         reference::Category,
         refs::{
             FullNameRef, Target,
@@ -129,6 +131,9 @@ pub(crate) mod function {
         },
     };
     use tracing::instrument;
+
+    use super::{IntegrationMode, Options, Outcome, WorkspaceReferenceNaming};
+    use crate::{WorkspaceCommit, branch::checkout, ext::ObjectStorageExt, ref_info::WorkspaceExt};
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
     /// along with its `meta`-data if it doesn't exist yet.

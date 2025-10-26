@@ -106,8 +106,9 @@ pub mod git {
             pub gpg_ssh_program: Option<OsString>,
         }
     }
-    use crate::RepositoryExt;
     use types::GitConfigSettings;
+
+    use crate::RepositoryExt;
 
     impl GitConfigSettings {
         /// Read all settings from the given snapshot.

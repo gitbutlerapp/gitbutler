@@ -226,13 +226,14 @@ mod worktree_list {
 }
 
 mod worktree_destroy {
-    use super::*;
     use but_worktrees::{
         destroy::{worktree_destroy_by_id, worktree_destroy_by_reference},
         list::worktree_list,
         new::worktree_new,
     };
     use util::test_ctx;
+
+    use super::*;
 
     #[test]
     fn can_destroy_worktree_by_id() -> anyhow::Result<()> {

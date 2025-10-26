@@ -6,8 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, anyhow, bail};
-use but_core::UnifiedDiff;
-use but_core::ref_metadata::StackId;
+use but_core::{UnifiedDiff, ref_metadata::StackId};
 use but_db::poll::ItemKind;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;

@@ -1,6 +1,7 @@
 mod workspace {
-    use but_core::ref_metadata::WorkspaceCommitRelation::Merged;
-    use but_core::ref_metadata::{StackId, StackKind::AppliedAndUnapplied, Workspace};
+    use but_core::ref_metadata::{
+        StackId, StackKind::AppliedAndUnapplied, Workspace, WorkspaceCommitRelation::Merged,
+    };
 
     #[test]
     fn add_new_stack_if_not_present_journey() {

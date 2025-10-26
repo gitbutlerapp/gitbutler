@@ -2,8 +2,7 @@ use std::{path::Path, sync::Mutex};
 
 use anyhow::{Context, Result, bail};
 use base64::engine::Engine as _;
-use fuzzy_matcher::FuzzyMatcher;
-use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use git2::Oid;
 use gitbutler_project::Project;
 use ignore::WalkBuilder;

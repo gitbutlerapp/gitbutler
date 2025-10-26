@@ -3,10 +3,9 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use but_core::ref_metadata::WorkspaceCommitRelation;
 use but_core::{
     ref_metadata,
-    ref_metadata::{Branch, StackId, Workspace, WorkspaceStackBranch},
+    ref_metadata::{Branch, StackId, Workspace, WorkspaceCommitRelation, WorkspaceStackBranch},
 };
 use gix::refs::{Category, FullName, PartialName};
 

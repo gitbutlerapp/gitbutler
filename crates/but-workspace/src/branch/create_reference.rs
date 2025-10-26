@@ -109,16 +109,17 @@ pub(super) mod function {
 
     use std::borrow::{Borrow, Cow};
 
-    use crate::branch::create_reference::{Anchor, Position};
     use anyhow::{Context, bail};
-    use but_core::ref_metadata::WorkspaceCommitRelation::Merged;
     use but_core::{
         RefMetadata, ref_metadata,
         ref_metadata::{
-            StackId, StackKind::AppliedAndUnapplied, WorkspaceStack, WorkspaceStackBranch,
+            StackId, StackKind::AppliedAndUnapplied, WorkspaceCommitRelation::Merged,
+            WorkspaceStack, WorkspaceStackBranch,
         },
     };
     use gix::refs::transaction::PreviousValue;
+
+    use crate::branch::create_reference::{Anchor, Position};
 
     /// Create a new reference named `ref_name` to point at a commit relative to `anchor`.
     /// If `anchor` is `None` this means the branch should be placed above the lower bound of the workspace, effectively

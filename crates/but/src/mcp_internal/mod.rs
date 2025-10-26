@@ -1,22 +1,21 @@
 use std::sync::{Arc, Mutex};
 
-use crate::metrics::{Event, EventKind, Metrics};
 use anyhow::Result;
 use but_settings::AppSettings;
-use rmcp::handler::server::tool::ToolRouter;
-use rmcp::handler::server::wrapper::Parameters;
-use rmcp::model::PaginatedRequestParam;
 use rmcp::{
     RoleServer, ServerHandler, ServiceExt,
+    handler::server::{tool::ToolRouter, wrapper::Parameters},
     model::{
         CallToolResult, GetPromptRequestParam, GetPromptResult, Implementation, ListPromptsResult,
-        Prompt, PromptMessage, PromptMessageContent, PromptMessageRole, ProtocolVersion,
-        ServerCapabilities, ServerInfo,
+        PaginatedRequestParam, Prompt, PromptMessage, PromptMessageContent, PromptMessageRole,
+        ProtocolVersion, ServerCapabilities, ServerInfo,
     },
     schemars,
     service::RequestContext,
     tool, tool_router,
 };
+
+use crate::metrics::{Event, EventKind, Metrics};
 
 pub mod commit;
 pub mod project;
