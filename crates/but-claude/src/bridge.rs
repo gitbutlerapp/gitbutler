@@ -643,6 +643,72 @@ pub enum ClaudeCheckResult {
     NotAvailable,
 }
 
+/// Validates and sanitizes attachment data to prevent prompt injection
+fn validate_attachment(attachment: &PromptAttachment) -> Result<()> {
+    match attachment {
+        PromptAttachment::File { path } | PromptAttachment::Hunk { path, .. } => {
+            validate_path(path)?;
+        }
+        PromptAttachment::Commit { commit_id } => {
+            validate_commit_id(commit_id)?;
+        }
+    }
+    Ok(())
+}
+
+/// Validates a file path to ensure it's safe and parseable
+fn validate_path(path: &str) -> Result<()> {
+    // Check for empty path
+    if path.trim().is_empty() {
+        bail!("Path cannot be empty");
+    }
+
+    // Check for suspicious characters that could indicate injection attempts
+    // Allow: alphanumeric, /, \, ., -, _, space, and common path separators
+    let suspicious_chars = ['<', '>', '"', '\'', '\n', '\r', '\0'];
+    if path.chars().any(|c| suspicious_chars.contains(&c)) {
+        bail!("Path contains invalid characters: {}", path);
+    }
+
+    // Try to parse as a Path to ensure it's valid
+    let path_buf = std::path::Path::new(path);
+
+    // Check for null bytes which can cause issues
+    if path.contains('\0') {
+        bail!("Path contains null bytes");
+    }
+
+    // Ensure the path can be converted back to a string
+    if path_buf.to_str().is_none() {
+        bail!("Path contains invalid UTF-8");
+    }
+
+    Ok(())
+}
+
+/// Validates a commit ID to ensure it's a valid git commit hash
+fn validate_commit_id(commit_id: &str) -> Result<()> {
+    // Check for empty commit_id
+    if commit_id.trim().is_empty() {
+        bail!("Commit ID cannot be empty");
+    }
+
+    // Git commit IDs are 7-40 character hex strings (short or full SHA)
+    if commit_id.len() < 7 || commit_id.len() > 40 {
+        bail!("Commit ID has invalid length: {}", commit_id.len());
+    }
+
+    // Check that it only contains valid hex characters
+    if !commit_id.chars().all(|c| c.is_ascii_hexdigit()) {
+        bail!(
+            "Commit ID contains non-hexadecimal characters: {}",
+            commit_id
+        );
+    }
+
+    Ok(())
+}
+
 /// Process file attachments by writing them to temporary files in the project directory
 /// and enhancing the message to reference these files
 async fn format_message_with_attachments(
@@ -651,6 +717,11 @@ async fn format_message_with_attachments(
 ) -> Result<String> {
     if attachments.is_empty() {
         return Ok(original_message.to_string());
+    }
+
+    // Validate all attachments before processing
+    for attachment in attachments {
+        validate_attachment(attachment)?;
     }
 
     // Create a temporary directory for attachments
