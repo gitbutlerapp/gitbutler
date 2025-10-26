@@ -70,6 +70,7 @@ but-forge-storage = {path = "crates/but-forge-storage" }
 but-settings = { path = "crates/but-settings" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 schemars = { version = "1.0.4", default-features = false, features = ["std", "derive"] }
+async-openai = { version = "0.30.1", default-features = false, features = ["rustls"] }
 but = { path = "crates/but" }
 but-testsupport = { path = "crates/but-testsupport" }
 but-rebase = { path = "crates/but-rebase" }
