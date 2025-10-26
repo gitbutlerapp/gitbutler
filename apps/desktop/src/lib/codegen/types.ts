@@ -3,7 +3,7 @@ import type { Message, MessageParam, Usage } from '@anthropic-ai/sdk/resources/i
 /**
  * Represents a file attachment with full content (used in API input).
  */
-export type PromptAttachment =
+export type PromptAttachment = { branchName: string } & (
 	| {
 			type: 'file';
 			path: string;
@@ -17,7 +17,8 @@ export type PromptAttachment =
 	| {
 			type: 'commit';
 			commitId: string;
-	  };
+	  }
+);
 
 /**
  * Result of checking Claude Code availability

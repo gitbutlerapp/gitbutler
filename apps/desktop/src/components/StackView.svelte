@@ -11,7 +11,6 @@
 	import SelectionView from '$components/SelectionView.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import CodegenMessages from '$components/codegen/CodegenMessages.svelte';
-	import { PromptAttachments } from '$lib/codegen/attachments.svelte';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
@@ -68,8 +67,6 @@
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
-
-	const attachments = new PromptAttachments();
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stableStackId);
@@ -567,7 +564,6 @@
 							{laneId}
 							stackId={stableStackId}
 							{active}
-							{attachments}
 							onselect={() => {
 								// Clear one selection when you modify the other.
 								idSelection.clear({ type: 'worktree', stackId: stableStackId });
@@ -616,7 +612,6 @@
 					stackId={stableStackId}
 					branchName={selection.branchName}
 					onclose={onclosePreview}
-					{attachments}
 				/>
 			{:else}
 				<div class="details-view__inner">

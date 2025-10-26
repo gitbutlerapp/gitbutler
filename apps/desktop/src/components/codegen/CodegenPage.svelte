@@ -19,7 +19,6 @@
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import filesAndChecksSvg from '$lib/assets/empty-state/files-and-checks.svg?raw';
 	import vibecodingSvg from '$lib/assets/illustrations/vibecoding.svg?raw';
-	import { PromptAttachments } from '$lib/codegen/attachments.svelte';
 	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { currentStatus, getTodos, lastInteractionTime, usageStats } from '$lib/codegen/messages';
@@ -66,8 +65,6 @@
 			aiRules.some((rule) => rule.action.subject.subject.target.subject === stack.id)
 		);
 	});
-
-	const attachments = new PromptAttachments();
 
 	let settingsModal: ClaudeCodeSettingsModal | undefined;
 
@@ -217,7 +214,6 @@
 			{#key selectedBranch.head}
 				<CodegenMessages
 					{projectId}
-					{attachments}
 					isWorkspace={false}
 					stackId={selectedBranch.stackId}
 					branchName={selectedBranch.head}

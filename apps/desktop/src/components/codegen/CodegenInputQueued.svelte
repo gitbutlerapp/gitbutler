@@ -14,26 +14,22 @@
 
 	interface Props {
 		projectId: string;
-		selectedBranch: { stackId: string; head: string } | undefined;
+		stackId: string;
+		branchName: string;
 	}
 
-	const { projectId, selectedBranch }: Props = $props();
+	const { projectId, stackId, branchName }: Props = $props();
 
 	const clientState = inject(CLIENT_STATE);
 
 	const queue = $derived(
 		messageQueueSelectors
 			.selectAll(clientState.messageQueue)
-			.find(
-				(q) =>
-					q.head === selectedBranch?.head &&
-					q.stackId === selectedBranch?.stackId &&
-					q.projectId === projectId
-			)
+			.find((q) => q.head === branchName && q.stackId === stackId && q.projectId === projectId)
 	);
 
 	function deleteMessage(message: any) {
-		if (selectedBranch && queue) {
+		if (queue) {
 			clientState.dispatch(
 				messageQueueSlice.actions.upsert({
 					...queue,
@@ -44,7 +40,7 @@
 	}
 
 	function deleteAllMessages() {
-		if (selectedBranch && queue) {
+		if (queue) {
 			clientState.dispatch(
 				messageQueueSlice.actions.upsert({
 					...queue,
