@@ -69,6 +69,7 @@ gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
 but-forge-storage = {path = "crates/but-forge-storage" }
 but-settings = { path = "crates/but-settings" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
+schemars = { version = "1.0.4", default-features = false, features = ["std", "derive"] }
 but = { path = "crates/but" }
 but-testsupport = { path = "crates/but-testsupport" }
 but-rebase = { path = "crates/but-rebase" }
