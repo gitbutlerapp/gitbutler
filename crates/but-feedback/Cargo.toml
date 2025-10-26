@@ -11,7 +11,8 @@ doctest = false
 
 [dependencies]
 anyhow = "1.0.100"
-zip = "2.2.0"
+# Version must match the one in `tauri plugin updater` to avoid duplication.
+zip = { version = "4", default-features = false, features = ["bzip2"] }
 walkdir = "2.5.0"
 chrono = { version = "0.4.42" }
 gitbutler-command-context.workspace = true
