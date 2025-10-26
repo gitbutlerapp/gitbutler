@@ -96,7 +96,8 @@ but-github = { path = "crates/but-github" }
 git2-hooks = { version = "0.5.0" }
 itertools = "0.14.0"
 dirs = "6.0.0"
-rmcp = { version = "0.8" }
+# TODO: needs update, but breaks from v0.2
+rmcp = { version = "0.1.5" }
 serde_json_lenient = "0.2.3"
 
 [profile.release]
