@@ -657,22 +657,6 @@ async fn format_message_with_attachments(
     let temp_dir = temp_dir().join("gitbutler_attachments");
     fs::create_dir_all(&temp_dir).await?;
 
-    let mut written_attachments = Vec::new();
-
-    for attachment in attachments {
-        match attachment {
-            PromptAttachment::File { path } => {
-                written_attachments.push(format!("- {}", path));
-            }
-            PromptAttachment::Hunk { path, start, end } => {
-                written_attachments.push(format!("- {} (lines {}:{})", path, start, end));
-            }
-            PromptAttachment::Commit { commit_id } => {
-                written_attachments.push(format!("- commit: {}", commit_id));
-            }
-        }
-    }
-
     // Create enhanced message with file references and content for small files
     let mut enhanced_message = format!(
         "{}
@@ -683,11 +667,7 @@ The following files, line ranges, and commits have been added as context. You mu
         original_message
     );
 
-    enhanced_message.push_str("<attachments>\n");
-    for path in written_attachments {
-        enhanced_message.push_str(&format!("- {}\n", path));
-    }
-    enhanced_message.push_str("</attachments>\n");
+    enhanced_message.push_str(&serde_json::to_string_pretty(&attachments)?);
     enhanced_message.push_str("</context-attachments>\n");
 
     Ok(enhanced_message)
