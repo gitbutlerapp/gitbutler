@@ -645,11 +645,14 @@ pub enum ClaudeCheckResult {
 /// Validates and sanitizes attachment data to prevent prompt injection
 fn validate_attachment(attachment: &PromptAttachment) -> Result<()> {
     match attachment {
-        PromptAttachment::File { path } | PromptAttachment::Lines { path, .. } => {
-            validate_path(path)?;
+        PromptAttachment::File(file) => {
+            validate_path(&file.path)?;
         }
-        PromptAttachment::Commit { commit_id } => {
-            validate_commit_id(commit_id)?;
+        PromptAttachment::Lines(lines) => {
+            validate_path(&lines.path)?;
+        }
+        PromptAttachment::Commit(commit) => {
+            validate_commit_id(&commit.commit_id)?;
         }
     }
     Ok(())
