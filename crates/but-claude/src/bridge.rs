@@ -661,17 +661,14 @@ async fn format_message_with_attachments(
 
     for attachment in attachments {
         match attachment {
-            PromptAttachment::File(file) => {
-                written_attachments.push(format!("- {}", file.path));
+            PromptAttachment::File { path } => {
+                written_attachments.push(format!("- {}", path));
             }
-            PromptAttachment::Hunk(hunk) => {
-                written_attachments.push(format!(
-                    "- {} (lines {}:{})",
-                    hunk.path, hunk.start, hunk.end
-                ));
+            PromptAttachment::Hunk { path, start, end } => {
+                written_attachments.push(format!("- {} (lines {}:{})", path, start, end));
             }
-            PromptAttachment::Commit(commit) => {
-                written_attachments.push(format!("- commit: {}", commit.commit_id));
+            PromptAttachment::Commit { commit_id } => {
+                written_attachments.push(format!("- commit: {}", commit_id));
             }
         }
     }
