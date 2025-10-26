@@ -9,7 +9,7 @@ export type PromptAttachment = { branchName: string } & (
 			path: string;
 	  }
 	| {
-			type: 'hunk';
+			type: 'lines';
 			path: string;
 			start: number;
 			end: number;

@@ -33,7 +33,7 @@
 						{abbreviatePath(attachment.path)}
 					</span>
 				{/if}
-				{#if attachment.type === 'hunk'}
+				{#if attachment.type === 'lines'}
 					{@const { path, start, end } = attachment}
 					<FileIcon fileName={attachment.path} />
 
