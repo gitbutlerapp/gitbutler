@@ -4,14 +4,18 @@ use anyhow::Result;
 use but_settings::AppSettings;
 use rmcp::{
     RoleServer, ServerHandler, ServiceExt,
+    handler::server::{
+        router::{prompt::PromptRouter, tool::ToolRouter},
+        wrapper::Parameters,
+    },
     model::{
         CallToolResult, GetPromptRequestParam, GetPromptResult, Implementation, ListPromptsResult,
-        Prompt, PromptMessage, PromptMessageContent, PromptMessageRole, ProtocolVersion,
-        ServerCapabilities, ServerInfo,
+        PaginatedRequestParam, PromptMessage, PromptMessageContent,
+        PromptMessageRole, ProtocolVersion, ServerCapabilities, ServerInfo,
     },
-    schemars,
+    prompt, prompt_handler, prompt_router, schemars,
     service::RequestContext,
-    tool,
+    tool, tool_handler, tool_router,
 };
 use tracing_subscriber::{self, EnvFilter};
 
@@ -37,9 +41,10 @@ pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
     let service = Mcp::new(app_settings, client_info.clone())
         .serve(transport)
         .await?;
-    let info = service.peer_info();
-    if let Ok(mut guard) = client_info.lock() {
-        guard.replace(info.client_info.clone());
+    if let Some(info) = service.peer_info() {
+        if let Ok(mut guard) = client_info.lock() {
+            guard.replace(info.client_info.clone());
+        }
     }
     service.waiting().await?;
     Ok(())
@@ -49,34 +54,40 @@ pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
 pub struct Mcp {
     metrics: Metrics,
     client_info: Arc<Mutex<Option<Implementation>>>,
+    tool_router: ToolRouter<Self>,
+    prompt_router: PromptRouter<Self>,
 }
 
-#[tool(tool_box)]
 impl Mcp {
     pub fn new(app_settings: AppSettings, client_info: Arc<Mutex<Option<Implementation>>>) -> Self {
         let metrics = Metrics::new_with_background_handling(&app_settings);
         Self {
             metrics,
             client_info,
+            tool_router: Self::tool_router(),
+            prompt_router: Self::prompt_router(),
         }
     }
+}
 
+#[tool_router]
+impl Mcp {
     #[tool(description = "Get the status of a project.
         This contains information about the branches applied, uncommitted file changes and any uncommitted changes assigned to the branches .")]
     pub fn project_status(
         &self,
-        #[tool(aggr)] params: ProjectStatusParams,
-    ) -> Result<CallToolResult, rmcp::Error> {
+        Parameters(params): Parameters<ProjectStatusParams>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
         let client_info = self
             .client_info
             .lock()
-            .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?
+            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?
             .clone();
 
         let start_time = std::time::Instant::now();
         let project_path = std::path::PathBuf::from(&params.current_working_directory);
         let status = crate::mcp_internal::status::project_status(&project_path)
-            .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
 
         let event = &mut Event::new(EventKind::McpInternal);
         event.insert_prop("endpoint", "project_status");
@@ -94,12 +105,12 @@ impl Mcp {
         Applies the given diff spec and creates a commit with the provided message.")]
     pub fn commit(
         &self,
-        #[tool(aggr)] params: CommitParams,
-    ) -> Result<CallToolResult, rmcp::Error> {
+        Parameters(params): Parameters<CommitParams>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
         let client_info = self
             .client_info
             .lock()
-            .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?
+            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?
             .clone();
 
         let start_time = std::time::Instant::now();
@@ -111,7 +122,7 @@ impl Mcp {
             params.parent_id,
             params.branch_name,
         )
-        .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+        .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
 
         let event = &mut Event::new(EventKind::McpInternal);
         event.insert_prop("endpoint", "commit");
@@ -127,11 +138,11 @@ impl Mcp {
 
     #[tool(description = "Amend an existing commit in the repository.
         Updates the commit message and file changes for the specified commit.")]
-    pub fn amend(&self, #[tool(aggr)] params: AmendParams) -> Result<CallToolResult, rmcp::Error> {
+    pub fn amend(&self, Parameters(params): Parameters<AmendParams>) -> Result<CallToolResult, rmcp::ErrorData> {
         let client_info = self
             .client_info
             .lock()
-            .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?
+            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?
             .clone();
 
         let start_time = std::time::Instant::now();
@@ -143,7 +154,7 @@ impl Mcp {
             params.commit_id,
             params.branch_name,
         )
-        .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+        .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
 
         let event = &mut Event::new(EventKind::McpInternal);
         event.insert_prop("endpoint", "amend");
@@ -160,19 +171,19 @@ impl Mcp {
     #[tool(description = "Get details for a specific branch in the repository.")]
     pub fn branch_details(
         &self,
-        #[tool(aggr)] params: BranchDetailsParams,
-    ) -> Result<CallToolResult, rmcp::Error> {
+        Parameters(params): Parameters<BranchDetailsParams>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
         let client_info = self
             .client_info
             .lock()
-            .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?
+            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?
             .clone();
 
         let start_time = std::time::Instant::now();
         let project_path = std::path::PathBuf::from(&params.current_working_directory);
         let details =
             crate::mcp_internal::stack::branch_details(&params.branch_name, &project_path)
-                .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+                .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
 
         let event = &mut Event::new(EventKind::McpInternal);
         event.insert_prop("endpoint", "branch_details");
@@ -190,12 +201,12 @@ impl Mcp {
         This will create a new stack containing only a branch with the given name and description.")]
     pub fn create_branch(
         &self,
-        #[tool(aggr)] params: CreateBranchParams,
-    ) -> Result<CallToolResult, rmcp::Error> {
+        Parameters(params): Parameters<CreateBranchParams>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
         let client_info = self
             .client_info
             .lock()
-            .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?
+            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?
             .clone();
 
         let start_time = std::time::Instant::now();
@@ -205,7 +216,7 @@ impl Mcp {
             &params.description,
             &project_path,
         )
-        .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+        .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
 
         let event = &mut Event::new(EventKind::McpInternal);
         event.insert_prop("endpoint", "create_branch");
@@ -300,54 +311,14 @@ pub struct CreateBranchParams {
     pub description: String,
 }
 
-#[tool(tool_box)]
-impl ServerHandler for Mcp {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            instructions: Some("This is the GitButler MCP server.
-            This provides tools and other context resources that allow you to interact with your project's version control.
-            If enabled, these are the tools that should be used for any Git operations".into()),
-            capabilities: ServerCapabilities::builder().enable_tools().enable_prompts().build(),
-            server_info: Implementation {
-                name: "GitButler MCP Server".into(),
-                version: "1.0.0".into(),
-            },
-            protocol_version: ProtocolVersion::LATEST,
-        }
-    }
-
-    async fn list_prompts(
-        &self,
-        _request: Option<rmcp::model::PaginatedRequestParamInner>,
-        _: RequestContext<RoleServer>,
-    ) -> Result<ListPromptsResult, rmcp::Error> {
-        Ok(ListPromptsResult {
-            next_cursor: None,
-            prompts: vec![
-                Prompt::new(
-                    "handle_changes",
-                    Some(
-                        "Contains the recommended steps to handle file changes in the project in order to commit them",
-                    ),
-                    None,
-                ),
-                Prompt::new(
-                    "handle_changes_interactively",
-                    Some("Interactively handle file changes in the project to commit them"),
-                    None,
-                ),
-            ],
-        })
-    }
-
-    async fn get_prompt(
-        &self,
-        GetPromptRequestParam { name, .. }: GetPromptRequestParam,
-        _: RequestContext<RoleServer>,
-    ) -> Result<GetPromptResult, rmcp::Error> {
-        match name.as_str() {
-            "handle_changes" => {
-                let prompt  = "Handle the file changes following the steps below:
+#[prompt_router]
+impl Mcp {
+    #[prompt(
+        name = "handle_changes",
+        description = "Contains the recommended steps to handle file changes in the project in order to commit them"
+    )]
+    async fn handle_changes_prompt(&self) -> Result<GetPromptResult, rmcp::ErrorData> {
+        let prompt = "Handle the file changes following the steps below:
 1. Take a look at the **project status**. Understand the branches applied (if any), the uncommitted file changes and the files assigned to them.
 2. Determine which file changes should be committed together. Try to be granular and commit only the changes that are related to each other.
 3. Determine which file changes belong to which branch. Do this by looking at the file changes and the branch names and descriptions. If no branch matches the changes create a new branch with a descriptive name and a detailed description.
@@ -356,16 +327,21 @@ impl ServerHandler for Mcp {
 5. If you are not sure about the changes, ask for clarification. Otherwise, proceed with committing the changes.
                 ";
 
-                Ok(GetPromptResult {
-                    description: None,
-                    messages: vec![PromptMessage {
-                        role: PromptMessageRole::User,
-                        content: PromptMessageContent::text(prompt),
-                    }],
-                })
-            }
-            "handle_changes_interactively" => {
-                let prompt  = "Handle the file changes following the steps below:
+        Ok(GetPromptResult {
+            description: None,
+            messages: vec![PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(prompt),
+            }],
+        })
+    }
+
+    #[prompt(
+        name = "handle_changes_interactively",
+        description = "Interactively handle file changes in the project to commit them"
+    )]
+    async fn handle_changes_interactively_prompt(&self) -> Result<GetPromptResult, rmcp::ErrorData> {
+        let prompt = "Handle the file changes following the steps below:
 1. Take a look at the **project status**. Understand the branches applied (if any), the uncommitted file changes and the files assigned to them.
 2. If there are no branches applied, ask me about the intent of the changes and create a new branch with a descriptive name and a detailed description.
 3. Ask me questions about the file changes. Focus on understanding the intent of the changes, and match that alongside the changes to the branches applied (if any).
@@ -376,15 +352,33 @@ impl ServerHandler for Mcp {
 8. Go back to step 1 and continue until all uncommitted changes have been handled.
                 ";
 
-                Ok(GetPromptResult {
-                    description: None,
-                    messages: vec![PromptMessage {
-                        role: PromptMessageRole::User,
-                        content: PromptMessageContent::text(prompt),
-                    }],
-                })
-            }
-            _ => Err(rmcp::Error::invalid_params("prompt not found", None)),
+        Ok(GetPromptResult {
+            description: None,
+            messages: vec![PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(prompt),
+            }],
+        })
+    }
+}
+
+#[tool_handler]
+#[prompt_handler]
+impl ServerHandler for Mcp {
+    fn get_info(&self) -> ServerInfo {
+        ServerInfo {
+            instructions: Some("This is the GitButler MCP server.
+            This provides tools and other context resources that allow you to interact with your project's version control.
+            If enabled, these are the tools that should be used for any Git operations".into()),
+            capabilities: ServerCapabilities::builder().enable_tools().enable_prompts().build(),
+            server_info: Implementation {
+                name: "GitButler MCP Server".into(),
+                version: "1.0.0".into(),
+                title: None,
+                icons: None,
+                website_url: None,
+            },
+            protocol_version: ProtocolVersion::LATEST,
         }
     }
 }

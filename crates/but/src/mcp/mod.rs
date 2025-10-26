@@ -11,11 +11,10 @@ use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use rmcp::{
-    Error as McpError, ServerHandler, ServiceExt,
-    model::{
-        CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
-    },
-    schemars, tool,
+    ErrorData as McpError, ServerHandler, ServiceExt,
+    handler::server::{router::tool::ToolRouter, wrapper::Parameters},
+    model::{CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo},
+    schemars, tool, tool_handler, tool_router,
 };
 use tracing_subscriber::{self, EnvFilter};
 
@@ -36,9 +35,10 @@ pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
     let service = Mcp::new(app_settings, client_info.clone())
         .serve(transport)
         .await?;
-    let info = service.peer_info();
-    if let Ok(mut guard) = client_info.lock() {
-        guard.replace(info.client_info.clone());
+    if let Some(info) = service.peer_info() {
+        if let Ok(mut guard) = client_info.lock() {
+            guard.replace(info.client_info.clone());
+        }
     }
     service.waiting().await?;
     Ok(())
@@ -50,27 +50,31 @@ pub struct Mcp {
     metrics: Metrics,
     client_info: Arc<Mutex<Option<Implementation>>>,
     event_handler: event::Handler,
+    tool_router: ToolRouter<Self>,
 }
 
-#[tool(tool_box)]
 impl Mcp {
     pub fn new(app_settings: AppSettings, client_info: Arc<Mutex<Option<Implementation>>>) -> Self {
         let metrics = Metrics::new_with_background_handling(&app_settings);
         let event_handler = event::Handler::new_with_background_handling();
         Self {
-            app_settings,
+            app_settings: app_settings.clone(),
             metrics,
             client_info,
             event_handler,
+            tool_router: Self::tool_router(),
         }
     }
+}
 
+#[tool_router]
+impl Mcp {
     #[tool(
         description = "Update commits on the current branch based on the prompt used to modify the codebase and a summary of the changes made."
     )]
     pub fn gitbutler_update_branches(
         &self,
-        #[tool(aggr)] request: GitButlerUpdateBranchesRequest,
+        Parameters(request): Parameters<GitButlerUpdateBranchesRequest>,
     ) -> Result<CallToolResult, McpError> {
         let client_info = self
             .client_info
@@ -182,7 +186,7 @@ pub struct GitButlerUpdateBranchesRequest {
     pub current_working_directory: String,
 }
 
-#[tool(tool_box)]
+#[tool_handler]
 impl ServerHandler for Mcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
@@ -191,6 +195,9 @@ impl ServerHandler for Mcp {
             server_info: Implementation {
                 name: "GitButler MCP Server".into(),
                 version: "1.0.0".into(),
+                title: None,
+                icons: None,
+                website_url: None,
             },
             protocol_version: ProtocolVersion::LATEST,
         }

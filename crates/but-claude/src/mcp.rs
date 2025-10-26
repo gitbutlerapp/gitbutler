@@ -9,38 +9,48 @@ use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use rmcp::{
-    Error as McpError, ServerHandler, ServiceExt,
-    model::{
-        CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
-    },
-    schemars, tool,
+    ErrorData as McpError, ServerHandler, ServiceExt,
+    handler::server::{router::tool::ToolRouter, wrapper::Parameters},
+    model::{CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo},
+    schemars, tool, tool_handler, tool_router,
 };
 
 pub async fn start(repo_path: &Path) -> Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let client_info = Arc::new(Mutex::new(None));
     let transport = (tokio::io::stdin(), tokio::io::stdout());
-    let server = Mcp { project };
+    let server = Mcp::new(project);
     let service = server.serve(transport).await?;
-    let info = service.peer_info();
-    if let Ok(mut guard) = client_info.lock() {
-        guard.replace(info.client_info.clone());
+    if let Some(info) = service.peer_info() {
+        if let Ok(mut guard) = client_info.lock() {
+            guard.replace(info.client_info.clone());
+        }
     }
     service.waiting().await?;
     Ok(())
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Mcp {
     project: Project,
+    tool_router: ToolRouter<Self>,
 }
 
-#[tool(tool_box)]
+impl Mcp {
+    pub fn new(project: Project) -> Self {
+        Self {
+            project,
+            tool_router: Self::tool_router(),
+        }
+    }
+}
+
+#[tool_router]
 impl Mcp {
     #[tool(description = "Permission check for tool calls")]
     pub fn approval_prompt(
         &self,
-        #[tool(aggr)] request: McpPermissionRequest,
+        Parameters(request): Parameters<McpPermissionRequest>,
     ) -> Result<CallToolResult, McpError> {
         let approved = self
             .approval_inner(
@@ -162,7 +172,7 @@ pub struct McpPermissionResponse {
     message: Option<String>,
 }
 
-#[tool(tool_box)]
+#[tool_handler]
 impl ServerHandler for Mcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
@@ -171,6 +181,9 @@ impl ServerHandler for Mcp {
             server_info: Implementation {
                 name: "GitButler MCP Server".into(),
                 version: "1.0.0".into(),
+                title: None,
+                icons: None,
+                website_url: None,
             },
             protocol_version: ProtocolVersion::LATEST,
         }
