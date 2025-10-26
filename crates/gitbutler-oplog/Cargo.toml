@@ -8,11 +8,11 @@ rust-version = "1.89"
 autotests = false
 
 [dependencies]
-anyhow = "1.0.100"
+anyhow.workspace = true
 git2.workspace = true
 gitbutler-repo.workspace = true
-serde = { workspace = true, features = ["std"] }
-itertools = "0.14"
+serde.workspace = true
+itertools.workspace = true
 strum = { version = "0.27", features = ["derive"] }
 tracing.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }

@@ -4,25 +4,19 @@ version = "0.0.0"
 edition = "2024"
 publish = false
 rust-version = "1.89"
+
 [lib]
 test = false
 doctest = false
 
 [dependencies]
-gitbutler-sync.workspace = true
-gitbutler-oplog.workspace = true
-anyhow = "1.0.100"
+anyhow.workspace = true
 tokio = { workspace = true, features = ["macros", "sync"] }
 tokio-util = "0.7.16"
 tracing.workspace = true
-gix = { workspace = true, features = ["excludes"] }
 gitbutler-command-context.workspace = true
-gitbutler-diff.workspace = true
-gitbutler-user.workspace = true
-gitbutler-error.workspace = true
 gitbutler-filemonitor.workspace = true
 gitbutler-operating-modes.workspace = true
-gitbutler-branch-actions.workspace = true
 gitbutler-project.workspace = true
 but-core.workspace = true
 but-rules.workspace = true

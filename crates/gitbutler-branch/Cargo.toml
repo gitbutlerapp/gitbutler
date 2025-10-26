@@ -8,15 +8,15 @@ rust-version = "1.89"
 autotests = false
 
 [dependencies]
-anyhow = "1.0.100"
+anyhow.workspace = true
 git2.workspace = true
 gix = { workspace = true, features = [] }
 gitbutler-reference.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-stack.workspace = true
 but-graph.workspace = true
-itertools = "0.14"
-serde = { workspace = true, features = ["std"] }
+itertools.workspace = true
+serde.workspace = true
 bstr.workspace = true
 lazy_static = "1.4.0"
 

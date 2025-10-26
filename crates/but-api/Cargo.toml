@@ -17,7 +17,7 @@ tauri = ["dep:tauri"]
 serde.workspace = true
 tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
-serde_json = "1.0.145"
+serde_json.workspace = true
 tracing.workspace = true
 tauri = { version = "^2.7.0", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
 
@@ -61,12 +61,8 @@ git2.workspace = true
 but-feedback.workspace = true
 gitbutler-error.workspace = true
 but-rules.workspace = true
-reqwest = { version = "0.12", features = ["json"] }
 gitbutler-forge.workspace = true
 open = "5.3"
 url = "2.5"
 gitbutler-id.workspace = true
 uuid.workspace = true
-
-[dev-dependencies]
-insta = { version = "1.43.2", features = ["json"] }

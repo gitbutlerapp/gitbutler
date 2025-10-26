@@ -5,24 +5,19 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [dependencies]
-serde = { workspace = true, features = ["std"] }
+serde.workspace = true
 tracing.workspace = true
 git2.workspace = true
 anyhow.workspace = true
 toml.workspace = true
 gitbutler-command-context.workspace = true
-gix = { workspace = true, features = ["blob-diff", "revision", "merge"] }
 gitbutler-serde.workspace = true
 gitbutler-fs.workspace = true
 bstr.workspace = true
-gitbutler-oxidize.workspace = true
 but-workspace.workspace = true
-gitbutler-reference.workspace = true
-gitbutler-repo.workspace = true
 gitbutler-stack.workspace = true
-but-settings.workspace = true
-gitbutler-project.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]

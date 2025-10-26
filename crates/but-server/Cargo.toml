@@ -9,6 +9,7 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 readme = "../../README.md"
 publish = false
 rust-version = "1.89"
+
 [[bin]]
 name = "but-server"
 path = "src/main.rs"
@@ -27,7 +28,7 @@ tower = "0.5.2"
 tower-http = { version = "0.6.6", features = ["cors"] }
 tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
-serde_json = "1.0.145"
+serde_json.workspace = true
 uuid.workspace = true
 
 but-api.workspace = true

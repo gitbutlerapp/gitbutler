@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [lib]
 doctest = false
 
@@ -24,11 +25,11 @@ gitbutler-cherry-pick.workspace = true
 gitbutler-project.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-repo.workspace = true
-serde = { workspace = true, features = ["std"] }
+serde.workspace = true
 gitbutler-serde.workspace = true
-itertools = "0.14"
+itertools.workspace = true
 url = { version = "2.5.4", features = ["serde"] }
-md5 = "0.8.0"
+md5.workspace = true
 tracing.workspace = true
 # For SPMC channel
 flume = "0.11.1"

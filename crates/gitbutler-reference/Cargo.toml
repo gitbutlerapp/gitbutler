@@ -5,14 +5,14 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [lib]
 doctest = false
-
 
 [dependencies]
 anyhow.workspace = true
 git2.workspace = true
 gix.workspace = true
 gitbutler-tagged-string.workspace = true
-serde = { workspace = true, features = ["std"]}
+serde .workspace = true
 thiserror.workspace = true

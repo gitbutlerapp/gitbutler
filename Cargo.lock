@@ -890,9 +890,7 @@ dependencies = [
  "gitbutler-sync",
  "gitbutler-user",
  "gix",
- "insta",
  "open",
- "reqwest 0.12.24",
  "serde",
  "serde-error",
  "serde_json",
@@ -908,7 +906,6 @@ name = "but-api-macros"
 version = "0.0.0"
 dependencies = [
  "convert_case 0.8.0",
- "proc-macro2",
  "quote",
  "syn 2.0.108",
 ]
@@ -956,9 +953,7 @@ dependencies = [
  "gitbutler-workspace",
  "gix",
  "gix-testtools",
- "insta",
  "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -990,11 +985,9 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_json_lenient",
- "serde_yaml",
  "strum",
  "tokio",
  "tracing",
- "tracing-subscriber",
  "uuid",
 ]
 
@@ -1035,7 +1028,6 @@ dependencies = [
  "gitbutler-stack",
  "gix",
  "md5",
- "rand 0.9.2",
  "serde",
  "serde_json",
 ]
@@ -1137,7 +1129,6 @@ dependencies = [
  "md5",
  "petgraph 0.8.3",
  "serde",
- "termtree",
  "toml 0.9.8",
  "tracing",
 ]
@@ -1153,14 +1144,11 @@ dependencies = [
  "but-hunk-dependency",
  "but-workspace",
  "gitbutler-command-context",
- "gitbutler-fs",
  "gitbutler-stack",
- "gix",
  "itertools",
  "serde",
  "serde-error",
  "serde_json",
- "toml 0.9.8",
  "tracing",
  "uuid",
 ]
@@ -1229,7 +1217,6 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
- "gitbutler-project",
  "gitbutler-stack",
  "gix",
  "itertools",
@@ -1284,7 +1271,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-path",
- "dirs 6.0.0",
  "gitbutler-fs",
  "notify",
  "serde",
@@ -1328,7 +1314,6 @@ dependencies = [
  "gitbutler-stack",
  "gix",
  "itertools",
- "serde",
  "serde_json",
  "tokio",
  "tracing",
@@ -1734,7 +1719,7 @@ dependencies = [
  "cocoa-foundation",
  "core-foundation 0.10.1",
  "core-graphics",
- "foreign-types 0.5.0",
+ "foreign-types",
  "libc",
  "objc",
 ]
@@ -1928,7 +1913,7 @@ dependencies = [
  "bitflags 2.10.0",
  "core-foundation 0.10.1",
  "core-graphics-types",
- "foreign-types 0.5.0",
+ "foreign-types",
  "libc",
 ]
 
@@ -2837,21 +2822,12 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "foreign-types"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6f339eb8adc052cd2ca78910fda869aefa38d22d5cb648e6485e4d3fc06f3b1"
-dependencies = [
- "foreign-types-shared 0.1.1",
-]
-
-[[package]]
-name = "foreign-types"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d737d9aa519fb7b749cbc3b962edcf310a8dd1f4b67c91c4f83975dbdd17d965"
 dependencies = [
  "foreign-types-macros",
- "foreign-types-shared 0.3.1",
+ "foreign-types-shared",
 ]
 
 [[package]]
@@ -2864,12 +2840,6 @@ dependencies = [
  "quote",
  "syn 2.0.108",
 ]
-
-[[package]]
-name = "foreign-types-shared"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
 name = "foreign-types-shared"
@@ -3384,18 +3354,14 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-graph",
- "but-hunk-assignment",
  "but-settings",
  "but-workspace",
- "chrono",
  "clap",
  "dirs-next",
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-commit",
- "gitbutler-diff",
- "gitbutler-oplog",
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
@@ -3458,17 +3424,14 @@ dependencies = [
  "but-rebase",
  "but-workspace",
  "git2",
- "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-cherry-pick",
  "gitbutler-command-context",
  "gitbutler-commit",
- "gitbutler-diff",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-oxidize",
  "gitbutler-project",
- "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-stack",
  "gitbutler-testsupport",
@@ -3477,7 +3440,6 @@ dependencies = [
  "serde",
  "tempfile",
  "tracing",
- "uuid",
 ]
 
 [[package]]
@@ -3511,9 +3473,7 @@ dependencies = [
  "but-github",
  "git-url-parse",
  "gitbutler-fs",
- "gitbutler-storage",
  "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -3536,7 +3496,6 @@ dependencies = [
  "assert_cmd",
  "file-id 0.2.3 (git+https://github.com/notify-rs/notify?rev=978fe719b066a8ce76b9a9d346546b1569eecfb6)",
  "futures",
- "gitbutler-error",
  "gix",
  "nix 0.30.1",
  "rand 0.9.2",
@@ -3556,7 +3515,6 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-diff",
- "gitbutler-id",
  "gitbutler-serde",
  "gitbutler-stack",
  "itertools",
@@ -3594,19 +3552,13 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
- "but-settings",
  "but-workspace",
  "git2",
  "gitbutler-command-context",
  "gitbutler-fs",
- "gitbutler-oxidize",
- "gitbutler-project",
- "gitbutler-reference",
- "gitbutler-repo",
  "gitbutler-serde",
  "gitbutler-stack",
  "gitbutler-testsupport",
- "gix",
  "serde",
  "toml 0.9.8",
  "tracing",
@@ -3778,7 +3730,6 @@ dependencies = [
  "gitbutler-diff",
  "gitbutler-error",
  "gitbutler-fs",
- "gitbutler-git",
  "gitbutler-oxidize",
  "gitbutler-reference",
  "gitbutler-repo",
@@ -3805,7 +3756,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
- "gitbutler-branch",
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-error",
@@ -3822,7 +3772,6 @@ dependencies = [
  "itertools",
  "rand 0.9.2",
  "tracing",
- "uuid",
 ]
 
 [[package]]
@@ -3959,17 +3908,10 @@ dependencies = [
  "but-hunk-dependency",
  "but-rules",
  "but-settings",
- "gitbutler-branch-actions",
  "gitbutler-command-context",
- "gitbutler-diff",
- "gitbutler-error",
  "gitbutler-filemonitor",
  "gitbutler-operating-modes",
- "gitbutler-oplog",
  "gitbutler-project",
- "gitbutler-sync",
- "gitbutler-user",
- "gix",
  "serde-error",
  "tokio",
  "tokio-util",
@@ -3992,7 +3934,6 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-stack",
  "gix",
- "tracing",
 ]
 
 [[package]]
@@ -5679,22 +5620,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hyper-tls"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
-dependencies = [
- "bytes",
- "http-body-util",
- "hyper 1.7.0",
- "hyper-util",
- "native-tls",
- "tokio",
- "tokio-native-tls",
- "tower-service",
-]
-
-[[package]]
 name = "hyper-util"
 version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6716,23 +6641,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "native-tls"
-version = "0.2.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87de3442987e9dbec73158d5c715e7ad9072fda936bb03d19d7fa10e00520f0e"
-dependencies = [
- "libc",
- "log",
- "openssl",
- "openssl-probe",
- "openssl-sys",
- "schannel",
- "security-framework 2.11.1",
- "security-framework-sys",
- "tempfile",
-]
-
-[[package]]
 name = "ndk"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7355,32 +7263,6 @@ dependencies = [
  "is-wsl",
  "libc",
  "pathdiff",
-]
-
-[[package]]
-name = "openssl"
-version = "0.10.74"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24ad14dd45412269e1a30f52ad8f0664f0f4f4a89ee8fe28c3b3527021ebb654"
-dependencies = [
- "bitflags 2.10.0",
- "cfg-if",
- "foreign-types 0.3.2",
- "libc",
- "once_cell",
- "openssl-macros",
- "openssl-sys",
-]
-
-[[package]]
-name = "openssl-macros"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a948666b637a0f465e8564c73e89d4dde00d72d4d473cc972f390fc3dcee7d9c"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.108",
 ]
 
 [[package]]
@@ -8503,13 +8385,11 @@ dependencies = [
  "http-body-util",
  "hyper 1.7.0",
  "hyper-rustls 0.27.7",
- "hyper-tls",
  "hyper-util",
  "js-sys",
  "log",
  "mime",
  "mime_guess",
- "native-tls",
  "percent-encoding",
  "pin-project-lite",
  "quinn",
@@ -8521,7 +8401,6 @@ dependencies = [
  "serde_urlencoded",
  "sync_wrapper 1.0.2",
  "tokio",
- "tokio-native-tls",
  "tokio-rustls 0.26.4",
  "tokio-util",
  "tower 0.5.2",
@@ -9320,19 +9199,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_yaml"
-version = "0.9.34+deprecated"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
-dependencies = [
- "indexmap 2.12.0",
- "itoa",
- "ryu",
- "serde",
- "unsafe-libyaml",
-]
-
-[[package]]
 name = "serial_test"
 version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9589,7 +9455,7 @@ dependencies = [
  "bytemuck",
  "cfg_aliases",
  "core-graphics",
- "foreign-types 0.5.0",
+ "foreign-types",
  "js-sys",
  "log",
  "objc2 0.5.2",
@@ -10606,16 +10472,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-native-tls"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbae76ab933c85776efabc971569dd6119c580d8f5d448769dec1764bf796ef2"
-dependencies = [
- "native-tls",
- "tokio",
-]
-
-[[package]]
 name = "tokio-rustls"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11111,12 +10967,6 @@ name = "unicode-segmentation"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
-
-[[package]]
-name = "unsafe-libyaml"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "untrusted"

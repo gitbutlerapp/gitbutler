@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [lib]
 doctest = false
 test = false
@@ -17,11 +18,11 @@ diesel = { version = "2.2.12", features = [
 ] }
 # Bundled libsqlite3 for Windows, and exactly this version to match the one of `diesel`!
 libsqlite3-sys = { version = "0.29", features = ["bundled"] }
-bitflags = "2.9.4"
-serde = { workspace = true, features = ["std"] }
-anyhow = "1.0.100"
+bitflags.workspace = true
+serde.workspace = true
+anyhow.workspace = true
 diesel_migrations = { version = "2.3.0", features = ["sqlite"] }
-chrono = { version = "0.4.42", features = ["serde"] }
+chrono.workspace = true
 # other things
 tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot", "time", "sync", "macros"] }
 tracing.workspace = true

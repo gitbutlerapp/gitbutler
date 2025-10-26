@@ -5,15 +5,16 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [lib]
 doctest = false
 test = false
 
 [dependencies]
 schemars.workspace = true
-serde = { workspace = true, features = ["std"] }
-serde_json = "1.0.145"
-anyhow = "1.0.100"
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
 uuid.workspace = true
 gix.workspace = true
 but-tools.workspace = true

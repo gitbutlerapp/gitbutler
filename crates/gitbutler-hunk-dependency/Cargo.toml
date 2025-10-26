@@ -8,14 +8,13 @@ rust-version = "1.89"
 autotests = false
 
 [dependencies]
-anyhow = "1.0.100"
+anyhow.workspace = true
 git2.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-stack.workspace = true
-gitbutler-id.workspace = true
-itertools = "0.14"
-serde = { workspace = true, features = ["std"] }
+itertools.workspace = true
+serde.workspace = true
 
 [[test]]
 name = "hunk-dependency"

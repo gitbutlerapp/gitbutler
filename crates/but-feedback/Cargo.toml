@@ -5,16 +5,17 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+
 [lib]
 test = false
 doctest = false
 
 [dependencies]
-anyhow = "1.0.100"
+anyhow.workspace = true
 # Version must match the one in `tauri plugin updater` to avoid duplication.
 zip = { version = "4", default-features = false, features = ["bzip2"] }
 walkdir = "2.5.0"
-chrono = { version = "0.4.42" }
+chrono.workspace = true
 gitbutler-command-context.workspace = true
 but-graph.workspace = true
 but-settings.workspace = true
