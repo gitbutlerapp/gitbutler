@@ -10,6 +10,7 @@
 		CodegenFileDropHandler,
 		CodegenHunkDropHandler
 	} from '$lib/codegen/dropzone';
+	import { newlineOnEnter } from '$lib/config/uiFeatureFlags';
 	import { showError } from '$lib/notifications/toasts';
 	import { inject } from '@gitbutler/core/context';
 	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin } from '@gitbutler/ui';
@@ -97,7 +98,7 @@
 		}
 
 		// Handle Enter to submit
-		if (event.key === 'Enter') {
+		if (event.key === 'Enter' && (event.metaKey || !$newlineOnEnter)) {
 			event.preventDefault();
 			handleSubmit();
 			return true;

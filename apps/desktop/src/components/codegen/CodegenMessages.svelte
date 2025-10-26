@@ -375,7 +375,7 @@
 						icon="mixer"
 						size="tag"
 						tooltip="Agent settings"
-						onclick={() => console.warn('TODO: implement settings')}
+						onclick={() => settingsModal?.show()}
 					/>
 				</div>
 			{/snippet}
@@ -733,6 +733,8 @@
 		{openPromptConfigDir}
 	/>
 {/if}
+
+<ClaudeCodeSettingsModal bind:this={settingsModal} onClose={() => {}} />
 
 <style lang="postcss">
 	.chat-view__placeholder {
