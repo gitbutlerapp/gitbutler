@@ -5,30 +5,24 @@ use std::{
 };
 
 mod event;
+use crate::metrics::{Event, EventKind, Metrics};
 use anyhow::Result;
 use but_action::{ActionHandler, Outcome, Source, reword::CommitEvent};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use rmcp::handler::server::tool::ToolRouter;
+use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{
-    Error as McpError, ServerHandler, ServiceExt,
+    ServerHandler, ServiceExt,
     model::{
         CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
     },
-    schemars, tool,
+    schemars, tool, tool_router,
 };
-use tracing_subscriber::{self, EnvFilter};
-
-use crate::metrics::{Event, EventKind, Metrics};
 
 pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
-    // Initialize the tracing subscriber with file and stdout logging
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
-        .with_writer(std::io::stderr)
-        .with_ansi(false)
-        .init();
-
+    // Use `-t` to enable logging
     tracing::info!("Starting MCP server");
 
     let client_info = Arc::new(Mutex::new(None));
@@ -38,7 +32,7 @@ pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
         .await?;
     let info = service.peer_info();
     if let Ok(mut guard) = client_info.lock() {
-        guard.replace(info.client_info.clone());
+        *guard = info.map(|i| i.client_info.clone());
     }
     service.waiting().await?;
     Ok(())
@@ -50,9 +44,10 @@ pub struct Mcp {
     metrics: Metrics,
     client_info: Arc<Mutex<Option<Implementation>>>,
     event_handler: event::Handler,
+    _tool_router: ToolRouter<Self>,
 }
 
-#[tool(tool_box)]
+#[tool_router]
 impl Mcp {
     pub fn new(app_settings: AppSettings, client_info: Arc<Mutex<Option<Implementation>>>) -> Self {
         let metrics = Metrics::new_with_background_handling(&app_settings);
@@ -62,6 +57,7 @@ impl Mcp {
             metrics,
             client_info,
             event_handler,
+            _tool_router: Self::tool_router(),
         }
     }
 
@@ -70,15 +66,15 @@ impl Mcp {
     )]
     pub fn gitbutler_update_branches(
         &self,
-        #[tool(aggr)] request: GitButlerUpdateBranchesRequest,
-    ) -> Result<CallToolResult, McpError> {
+        request: Parameters<GitButlerUpdateBranchesRequest>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
         let client_info = self
             .client_info
             .lock()
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?
+            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?
             .clone();
         let start_time = std::time::Instant::now();
-        let result = self.gitbutler_update_branches_inner(request, &client_info);
+        let result = self.gitbutler_update_branches_inner(request.0.clone(), &client_info);
         let error = result.as_ref().err().map(|e| e.to_string());
         let updated_branches_count = result
             .as_ref()
@@ -110,21 +106,21 @@ impl Mcp {
         &self,
         request: GitButlerUpdateBranchesRequest,
         client_info: &Option<Implementation>,
-    ) -> Result<Outcome, McpError> {
+    ) -> Result<Outcome, rmcp::ErrorData> {
         if request.changes_summary.is_empty() {
-            return Err(McpError::invalid_request(
+            return Err(rmcp::ErrorData::invalid_request(
                 "ChangesSummary cannot be empty".to_string(),
                 None,
             ));
         }
         if request.full_prompt.is_empty() {
-            return Err(McpError::invalid_request(
+            return Err(rmcp::ErrorData::invalid_request(
                 "FullPrompt cannot be empty".to_string(),
                 None,
             ));
         }
         if request.current_working_directory.is_empty() {
-            return Err(McpError::invalid_request(
+            return Err(rmcp::ErrorData::invalid_request(
                 "CurrentWorkingDirectory cannot be empty".to_string(),
                 None,
             ));
@@ -133,9 +129,9 @@ impl Mcp {
         let repo_path = PathBuf::from(request.current_working_directory.clone());
         let project = Project::from_path(&repo_path).expect("Failed to create project from path");
         let settings = AppSettings::load_from_default_path_creating()
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
         let ctx = &mut CommandContext::open(&project, settings)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
 
         let (id, outcome) = but_action::handle_changes(
             ctx,
@@ -145,7 +141,7 @@ impl Mcp {
             Source::Mcp(client_info.clone().map(Into::into)),
             None,
         )
-        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
         // Trigger commit message generation for newly created commits
         for branch in &outcome.updated_branches {
             for commit in &branch.new_commits {
@@ -167,7 +163,7 @@ impl Mcp {
     }
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GitButlerUpdateBranchesRequest {
     #[schemars(description = "The exact prompt that the user gave to generate these changes")]
@@ -182,7 +178,6 @@ pub struct GitButlerUpdateBranchesRequest {
     pub current_working_directory: String,
 }
 
-#[tool(tool_box)]
 impl ServerHandler for Mcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
@@ -190,7 +185,10 @@ impl ServerHandler for Mcp {
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             server_info: Implementation {
                 name: "GitButler MCP Server".into(),
+                title: None,
                 version: "1.0.0".into(),
+                icons: None,
+                website_url: Some("https://gitbutler.com".into()),
             },
             protocol_version: ProtocolVersion::LATEST,
         }

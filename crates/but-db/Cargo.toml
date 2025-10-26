@@ -15,7 +15,7 @@ diesel = { version = "2.2.12", features = [
     "returning_clauses_for_sqlite_3_35",
     "chrono",
 ] }
-# Bundled libsqlite3 for Windows
+# Bundled libsqlite3 for Windows, and exactly this version to match the one of `diesel`!
 libsqlite3-sys = { version = "0.29", features = ["bundled"] }
 bitflags = "2.9.4"
 serde = { workspace = true, features = ["std"] }
