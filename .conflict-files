@@ -1,3 +1,0 @@
-ancestorEntries = ["Cargo.lock"]
-ourEntries = ["Cargo.lock"]
-theirEntries = ["Cargo.lock"]
