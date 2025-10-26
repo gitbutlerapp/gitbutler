@@ -307,6 +307,7 @@ export const symbolFileExtensionsToIcons: { [key: string]: string } = {
 	ttc: 'font',
 	ttf: 'font',
 	twig: 'twig',
+	typ: 'typst',
 	txt: 'document',
 	uvue: 'vue-green',
 	uts: 'ts-green',
