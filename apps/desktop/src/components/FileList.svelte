@@ -339,6 +339,7 @@
 				{stackId}
 				{node}
 				{showCheckboxes}
+				{draggableFiles}
 				{changes}
 				{fileTemplate}
 			/>

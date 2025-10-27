@@ -3,7 +3,7 @@
 	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { draggableChips } from '$lib/dragging/draggable';
-	import { ChangeDropData } from '$lib/dragging/draggables';
+	import { FileChangeDropData } from '$lib/dragging/draggables';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import { getFilename } from '$lib/files/utils';
 	import { type TreeChange } from '$lib/hunks/change';
@@ -132,9 +132,8 @@
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
-		data: new ChangeDropData(projectId, change, idSelection, selectionId, stackId || undefined),
+		data: new FileChangeDropData(projectId, change, idSelection, selectionId, stackId || undefined),
 		viewportId: 'board-viewport',
-		selector: '.selected-draggable',
 		disabled: draggableDisabled,
 		chipType: 'file',
 		dropzoneRegistry,

@@ -11,6 +11,7 @@
 		isExpanded?: boolean;
 		depth?: number;
 		transparent?: boolean;
+		draggable?: boolean;
 		oncheck?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
@@ -31,6 +32,7 @@
 		isExpanded = true,
 		depth,
 		transparent,
+		draggable = false,
 		oncheck,
 		ontoggle,
 		onclick,
@@ -48,6 +50,7 @@
 	role="presentation"
 	tabindex="-1"
 	class:transparent
+	class:draggable
 	onclick={(e) => {
 		e.stopPropagation();
 		onclick?.(e);
@@ -61,6 +64,12 @@
 		}
 	}}
 >
+	{#if draggable && !showCheckbox}
+		<div class="draggable-handle">
+			<Icon name="draggable-narrow" />
+		</div>
+	{/if}
+
 	<div class="folder-list-item__indicators">
 		<FileIndent {depth} />
 
@@ -114,6 +123,26 @@
 		}
 		&.transparent {
 			background-color: transparent;
+		}
+
+		.draggable-handle {
+			display: flex;
+			position: absolute;
+			left: 0;
+			align-items: center;
+			justify-content: center;
+			height: 24px;
+			color: var(--clr-text-3);
+			opacity: 0;
+			transition: opacity var(--transition-fast);
+		}
+
+		&.draggable {
+			&:hover {
+				& .draggable-handle {
+					opacity: 1;
+				}
+			}
 		}
 	}
 

@@ -3,7 +3,12 @@ import {
 	type MoveCommitIllegalAction
 } from '$lib/commits/commit';
 import { changesToDiffSpec } from '$lib/commits/utils';
-import { ChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
+import {
+	FileChangeDropData,
+	FolderChangeDropData,
+	HunkDropDataV3,
+	type ChangeDropData
+} from '$lib/dragging/draggables';
 import { type HooksService } from '$lib/hooks/hooksService';
 import { showToast } from '$lib/notifications/toasts';
 import { untrack } from 'svelte';
@@ -90,7 +95,7 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 		private readonly uiState: UiState
 	) {}
 	accepts(data: unknown): boolean {
-		if (!(data instanceof ChangeDropData)) return false;
+		if (!(data instanceof FileChangeDropData || data instanceof FolderChangeDropData)) return false;
 		if (this.commit.hasConflicts) return false;
 		if (data.selectionId.type === 'branch') return false;
 		if (data.selectionId.type === 'commit' && data.selectionId.commitId === this.commit.id)
@@ -159,7 +164,7 @@ export class UncommitDzHandler implements DropzoneHandler {
 	) {}
 
 	accepts(data: unknown): boolean {
-		if (data instanceof ChangeDropData) {
+		if (data instanceof FileChangeDropData || data instanceof FolderChangeDropData) {
 			if (data.selectionId.type !== 'commit') return false;
 			if (!data.selectionId.commitId) return false;
 			if (!data.stackId) return false;
@@ -175,7 +180,7 @@ export class UncommitDzHandler implements DropzoneHandler {
 	}
 
 	async ondrop(data: ChangeDropData | HunkDropDataV3) {
-		if (data instanceof ChangeDropData) {
+		if (data instanceof FileChangeDropData || data instanceof FolderChangeDropData) {
 			switch (data.selectionId.type) {
 				case 'commit': {
 					const stackId = data.stackId;

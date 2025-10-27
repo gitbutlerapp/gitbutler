@@ -14,6 +14,7 @@
 		node: TreeNode;
 		isRoot?: boolean;
 		showCheckboxes?: boolean;
+		draggableFiles?: boolean;
 		changes: TreeChange[];
 		depth?: number;
 		initiallyExpanded?: boolean;
@@ -27,6 +28,7 @@
 		node,
 		isRoot = false,
 		showCheckboxes,
+		draggableFiles,
 		changes,
 		depth = 0,
 		fileTemplate
@@ -51,6 +53,7 @@
 			{depth}
 			node={childNode}
 			{showCheckboxes}
+			{draggableFiles}
 			{changes}
 			{fileTemplate}
 		/>
@@ -66,6 +69,7 @@
 		{depth}
 		{isExpanded}
 		showCheckbox={showCheckboxes}
+		draggable={draggableFiles}
 		{node}
 		ontoggle={handleToggle}
 	/>
@@ -79,6 +83,7 @@
 				depth={depth + 1}
 				node={childNode}
 				{showCheckboxes}
+				{draggableFiles}
 				{changes}
 				{fileTemplate}
 			/>

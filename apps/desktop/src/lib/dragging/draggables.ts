@@ -17,7 +17,7 @@ export class HunkDropDataV3 {
 	) {}
 }
 
-export class ChangeDropData {
+export class FileChangeDropData {
 	constructor(
 		private projectId: string,
 		readonly change: TreeChange,
@@ -65,6 +65,29 @@ export class ChangeDropData {
 		return this.selectionId.type === 'commit' || this.selectionId.type === 'branch';
 	}
 }
+
+export class FolderChangeDropData {
+	constructor(
+		readonly folderPath: string,
+		private getTreeChanges: () => TreeChange[],
+		readonly selectionId: SelectionId,
+		readonly stackId?: string
+	) {}
+
+	async treeChanges(): Promise<TreeChange[]> {
+		return this.getTreeChanges();
+	}
+
+	assignments(): undefined {
+		return undefined;
+	}
+
+	get isCommitted(): boolean {
+		return this.selectionId.type === 'commit' || this.selectionId.type === 'branch';
+	}
+}
+
+export type ChangeDropData = FileChangeDropData | FolderChangeDropData;
 
 export type DropData =
 	| CommitDropData
