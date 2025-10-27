@@ -9,6 +9,7 @@ rust-version = "1.89"
 [[bin]]
 name = "gitbutler-cli"
 path = "src/main.rs"
+doctest = false
 
 [features]
 # To help produce stable commits in test-cases.

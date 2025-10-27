@@ -8,6 +8,7 @@ rust-version = "1.89"
 
 [lib]
 proc-macro = true
+doctest = false
 
 [dependencies]
 syn = "2"

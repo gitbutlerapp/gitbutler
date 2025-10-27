@@ -7,6 +7,9 @@ publish = false
 rust-version = "1.89"
 autotests = false
 
+[lib]
+doctest = false
+
 [dependencies]
 anyhow.workspace = true
 tracing.workspace = true

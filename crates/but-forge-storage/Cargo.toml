@@ -10,6 +10,9 @@ readme = "../../README.md"
 publish = false
 rust-version = "1.89"
 
+[lib]
+doctest = false
+
 [dependencies]
 serde.workspace = true
 anyhow.workspace = true

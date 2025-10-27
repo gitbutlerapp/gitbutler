@@ -6,6 +6,9 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
 
+[lib]
+doctest = false
+
 [dependencies]
 anyhow.workspace = true
 parking_lot = { workspace = true, features = ["arc_lock"] }
