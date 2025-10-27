@@ -49,7 +49,7 @@ jobs:
   prettier:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'false' &&  needs.changes.outputs.docs == 'true'}}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
@@ -60,7 +60,7 @@ jobs:
   lint-node:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-4
     steps:
       - uses: actions/checkout@v5
         with:
@@ -71,7 +71,7 @@ jobs:
   check-node:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-4
     steps:
       - uses: actions/checkout@v5
         with:
@@ -82,7 +82,7 @@ jobs:
   unittest-node:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
@@ -93,12 +93,14 @@ jobs:
   rust-lint:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-8
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -107,20 +109,22 @@ jobs:
         with:
           shared-key: lint
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - run: cargo fmt --check --all
-      - run: cargo check --workspace --all-targets
+      - run: depot cargo fmt --check --all
+      - run: depot cargo check --workspace --all-targets
       - name: cargo clippy
         run: |
           rustup component add clippy
-          cargo clippy --workspace --all-targets -- -D warnings
+          depot cargo clippy --workspace --all-targets -- -D warnings
 
   rust-but-binary-no-tauri:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-8
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -132,17 +136,19 @@ jobs:
       - run: |
           sudo apt update
           sudo apt install -y libdbus-1-dev pkg-config
-      - run: cargo build -p but
+      - run: depot cargo build -p but
 
   rust-docs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -151,7 +157,7 @@ jobs:
         with:
           shared-key: docs
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
+      - run: depot cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
         env:
           RUSTDOCFLAGS: -Dwarnings
 
@@ -170,7 +176,7 @@ jobs:
   rust-test:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-8
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image:latest
     env:
@@ -179,6 +185,8 @@ jobs:
       run:
         shell: bash
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -188,25 +196,27 @@ jobs:
           shared-key: cargo-test
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - run: |
-          cargo test --workspace
+          depot cargo test --workspace
         env:
           GITBUTLER_TESTS_NO_CLEANUP: '1'
         name: cargo test
       - run: |
           set -e
-          cargo check -p gitbutler-tauri --no-default-features
+          depot cargo check -p gitbutler-tauri --no-default-features
           for feature in devtools custom-protocol error-context; do
-            cargo check -p gitbutler-tauri --no-default-features --features "$feature"
+            depot cargo check -p gitbutler-tauri --no-default-features --features "$feature"
           done
         name: Check Tauri App
 
   check-rust-windows:
     needs: changes
-    runs-on: windows-latest
+    runs-on: depot-windows-latest-8
     if: ${{ needs.changes.outputs.rust == 'true' }}
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -216,7 +226,7 @@ jobs:
           shared-key: cargo-test
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: 'cargo check'
-        run: cargo check --workspace --all-targets --features windows
+        run: depot cargo check --workspace --all-targets --features windows
 
   check-rust:
     if: always()
@@ -226,10 +236,12 @@ jobs:
       - rust-test
       - rust-lint
       - rust-but-binary-no-tauri
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-8
     env:
       CARGO_TERM_COLOR: always
     steps:
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: depot/setup-action@v1
       - name: Decide whether the needed jobs succeeded or failed
         uses: re-actors/alls-green@release/v1
         with:
