@@ -21,8 +21,11 @@
 	let selected = $state(0);
 	let dismissed = $state(false);
 
+	// Reset dismissed state and selection when query changes
 	$effect(() => {
-		if (files) dismissed = false;
+		void query; // Track query changes
+		dismissed = false;
+		selected = 0;
 	});
 
 	function onkeydown(e: KeyboardEvent) {
