@@ -335,8 +335,11 @@
 			});
 		} else if (items) {
 			untrack(() => {
+				const hadNewItems = items.length > previousItemsLength && items.length > end;
 				recalculate();
-				newUnseenTail = items.length > previousItemsLength && items.length > end;
+				if (hadNewItems) {
+					newUnseenTail = true;
+				}
 			});
 		}
 		previousItemsLength = items.length;
@@ -369,26 +372,26 @@
 	</div>
 </ScrollableContainer>
 
-{#if newUnseenTail}
-	<div class="new-items-notification" transition:fade={{ duration: 150 }}>
-		<Button
-			kind="outline"
-			icon="arrow-down"
-			tooltip="Scroll to bottom"
-			onclick={scrollToBottomAndDismiss}
-		>
-			New unread
-		</Button>
-	</div>
-{/if}
-{#if !newUnseenTail && distanceFromBottom > 300}
-	<div class="chat-scroll-to-bottom" transition:fade={{ duration: 150 }}>
-		<Button
-			kind="outline"
-			icon="arrow-down"
-			tooltip="Scroll to bottom"
-			onclick={scrollToBottomAndDismiss}
-		/>
+{#if distanceFromBottom > 300}
+	<div class="feed-actions">
+		{#if newUnseenTail}
+			<button
+				type="button"
+				class="text-12 feed-actions__new-messages"
+				transition:fade={{ duration: 150 }}
+				onclick={scrollToBottomAndDismiss}
+			>
+				New unread
+			</button>
+		{/if}
+		<div class="feed-actions__scroll-to-bottom" transition:fade={{ duration: 150 }}>
+			<Button
+				kind="outline"
+				icon="arrow-down"
+				tooltip="Scroll to bottom"
+				onclick={scrollToBottomAndDismiss}
+			/>
+		</div>
 	</div>
 {/if}
 
@@ -404,34 +407,28 @@
 		flex-direction: column;
 	}
 
-	.new-items-notification {
-		z-index: var(--z-floating);
-		position: absolute;
-		bottom: 14px;
-		left: 50%;
-		overflow: hidden;
-		transform: translateX(-50%);
-		border-radius: var(--radius-btn);
-		background-color: var(--clr-bg-1);
-		transition:
-			box-shadow var(--transition-fast),
-			transform var(--transition-medium);
-
-		&:hover {
-			transform: scale(1.05) translateY(-2px);
-			box-shadow: var(--fx-shadow-s);
-		}
-	}
-
-	.new-items-notification:hover {
-		transform: translateX(-50%) translateY(-2px);
-	}
-
-	.chat-scroll-to-bottom {
+	.feed-actions {
+		display: flex;
 		z-index: var(--z-floating);
 		position: absolute;
 		right: 16px;
 		bottom: 14px;
+		gap: 4px;
+	}
+
+	.feed-actions__new-messages {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0 8px;
+		border: 1px solid var(--clr-border-3);
+		border-radius: var(--radius-btn);
+		background-color: var(--clr-bg-2);
+		color: var(--clr-text-1);
+	}
+
+	.feed-actions__scroll-to-bottom {
+		z-index: var(--z-floating);
 		overflow: hidden;
 		border-radius: var(--radius-btn);
 		background-color: var(--clr-bg-1);
