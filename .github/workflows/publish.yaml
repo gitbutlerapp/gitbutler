@@ -186,7 +186,7 @@ jobs:
             gir1.2-javascriptcoregtk-4.1=2.44.0-2 \
             gir1.2-webkit2-4.1=2.44.0-2;
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         name: Download SvelteKit build output
         with:
           name: sveltekit-build
@@ -253,7 +253,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download unsigned artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release
@@ -283,7 +283,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download ev-signed artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release
@@ -339,7 +339,7 @@ jobs:
         with:
           token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
       - name: Download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release
