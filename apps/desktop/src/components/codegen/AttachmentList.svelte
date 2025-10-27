@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { FileIcon, Icon, Tooltip, FileName } from '@gitbutler/ui';
-	import { abbreviatePath, splitFilePath } from '@gitbutler/ui/utils/filePath';
+	import { FileIcon, Icon, Tooltip } from '@gitbutler/ui';
+	import { splitFilePath } from '@gitbutler/ui/utils/filePath';
 	import { fly } from 'svelte/transition';
 	import type { PromptAttachment } from '$lib/codegen/types';
 
@@ -35,22 +35,29 @@
 				<div class="attachment-content text-12 text-semibold">
 					<!-- COMMIT -->
 					{#if attachment.type === 'commit'}
+						<Icon name="commit" color="var(--clr-text-2)" />
 						<span class="path">
 							#{attachment.commitId.slice(0, 6)}
 						</span>
 					{/if}
 					<!-- FILE -->
 					{#if attachment.type === 'file'}
-						<FileName filePath={attachment.path} />
-					{/if}
-					<!-- LINES -->
-					{#if attachment.type === 'lines'}
-						{@const { path, start, end } = attachment}
 						<FileIcon fileName={attachment.path} />
 
 						<span class="path">
-							{abbreviatePath(path)}
+							{splitFilePath(attachment.path).filename}
 						</span>
+					{/if}
+					<!-- LINES -->
+					{#if attachment.type === 'lines'}
+						{@const { start, end } = attachment}
+						<FileIcon fileName={attachment.path} />
+
+						<span class="path">
+							{splitFilePath(attachment.path).filename}
+						</span>
+
+						<Icon name="text" color="var(--clr-text-3)" />
 						<span>
 							{start}:{end}
 						</span>
