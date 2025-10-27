@@ -201,20 +201,6 @@ jobs:
       - name: 'cargo check'
         run: cargo check --workspace --all-targets --features windows
 
-  # TODO: remove this one from the required jobs in the repository configuration.
-  #       This is just a dummy now.
-  rust-docs:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    env:
-      CARGO_TERM_COLOR: always
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - run: 'true'
-
   check-rust:
     if: always()
     needs:
