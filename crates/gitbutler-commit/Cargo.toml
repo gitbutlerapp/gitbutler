@@ -6,6 +6,9 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
 
+[lib]
+doctest = false
+
 [features]
 # Set when building in test-mode to enable features that help with generating repeatable tests.
 testing = []

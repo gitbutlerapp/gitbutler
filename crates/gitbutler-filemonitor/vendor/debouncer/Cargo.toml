@@ -4,6 +4,7 @@ version = "0.0.0"
 edition = "2024"
 publish = false
 rust-version = "1.89"
+
 [lib]
 doctest = false
 
@@ -13,7 +14,7 @@ mock_instant = ["dep:mock_instant"]
 [dependencies]
 tracing.workspace = true
 
-notify = { version = "8.0.0" }
+notify.workspace = true
 parking_lot.workspace = true
 file-id = "0.2.2"
 walkdir = "2.2.2"

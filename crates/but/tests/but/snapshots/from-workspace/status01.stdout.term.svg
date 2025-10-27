@@ -1,0 +1,50 @@
+<svg width="740px" height="236px" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .fg { fill: #AAAAAA }
+    .bg { fill: #000000 }
+    .fg-green { fill: #00AA00 }
+    .fg-magenta { fill: #AA00AA }
+    .container {
+      padding: 0 10px;
+      line-height: 18px;
+    }
+    .bold { font-weight: bold; }
+    .underline { text-decoration-line: underline; }
+    .dimmed { opacity: 0.7; }
+    tspan {
+      font: 14px SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      white-space: pre;
+      line-height: 18px;
+    }
+  </style>
+
+  <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
+
+  <text xml:space="preserve" class="container fg">
+    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="underline">00</tspan><tspan> [</tspan><tspan class="fg-green bold">Unassigned Changes</tspan><tspan>] </tspan>
+</tspan>
+    <tspan x="10px" y="46px"><tspan>┊</tspan>
+</tspan>
+    <tspan x="10px" y="64px"><tspan>┊╭┄</tspan><tspan class="underline">l3</tspan><tspan> [</tspan><tspan class="fg-green bold">A</tspan><tspan>] </tspan><tspan> </tspan>
+</tspan>
+    <tspan x="10px" y="82px"><tspan>┊●   </tspan><tspan class="underline">94</tspan><tspan class="dimmed">77ae7</tspan><tspan> add A     </tspan>
+</tspan>
+    <tspan x="10px" y="100px"><tspan>├╯</tspan>
+</tspan>
+    <tspan x="10px" y="118px"><tspan>┊</tspan>
+</tspan>
+    <tspan x="10px" y="136px"><tspan>┊╭┄</tspan><tspan class="underline">m3</tspan><tspan> [</tspan><tspan class="fg-green bold">B</tspan><tspan>] </tspan><tspan> </tspan>
+</tspan>
+    <tspan x="10px" y="154px"><tspan>┊●   </tspan><tspan class="underline">d3</tspan><tspan class="dimmed">e2ba3</tspan><tspan> add B     </tspan>
+</tspan>
+    <tspan x="10px" y="172px"><tspan>├╯</tspan>
+</tspan>
+    <tspan x="10px" y="190px"><tspan>┊</tspan>
+</tspan>
+    <tspan x="10px" y="208px"><tspan class="fg-magenta">●</tspan><tspan> </tspan><tspan class="dimmed">0dc3733</tspan><tspan> (common base) [</tspan><tspan class="fg-green bold">origin/main</tspan><tspan>] add M </tspan>
+</tspan>
+    <tspan x="10px" y="226px">
+</tspan>
+  </text>
+
+</svg>
