@@ -2,7 +2,7 @@
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import AttachmentList from '$components/codegen/AttachmentList.svelte';
-	import CodegenInputQueued from '$components/codegen/CodegenInputQueued.svelte';
+	import CodegenQueued from '$components/codegen/CodegenQueued.svelte';
 	import FileSearch from '$components/codegen/FileSearch.svelte';
 	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import {
@@ -125,7 +125,7 @@
 		<FileSearch {projectId} {query} onselect={callback} limit={8} />
 	{/if}
 	<div class="text-input dialog-input" data-remove-from-panning>
-		<CodegenInputQueued {projectId} {stackId} {branchName} />
+		<CodegenQueued {projectId} {stackId} {branchName} />
 
 		<Dropzone {handlers}>
 			{#snippet overlay({ hovered, activated })}
