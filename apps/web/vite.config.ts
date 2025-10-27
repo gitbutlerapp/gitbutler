@@ -34,7 +34,7 @@ export default defineConfig({
 		setupFiles: ['./vitest-setup.js']
 	},
 	build: {
-		sourcemap: 'inline'
+		sourcemap: true
 	},
 	resolve: {
 		alias: {

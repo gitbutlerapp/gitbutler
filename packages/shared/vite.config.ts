@@ -8,6 +8,6 @@ export default defineConfig({
 		environment: 'jsdom'
 	},
 	build: {
-		sourcemap: 'inline'
+		sourcemap: true
 	}
 });
