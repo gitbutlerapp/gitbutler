@@ -16,7 +16,6 @@
 		<Markdown {content} />
 
 		{#if attachments && attachments.length > 0}
-			<hr class="message-user__divider" />
 			<AttachmentList {attachments} showRemoveButton={false} />
 		{/if}
 	</div>
@@ -49,11 +48,5 @@
 		:global(.markdown pre) {
 			background-color: var(--clr-bg-1);
 		}
-	}
-
-	.message-user__divider {
-		width: 100%;
-		border: none;
-		border-top: 1px dotted var(--clr-border-2);
 	}
 </style>
