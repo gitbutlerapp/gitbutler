@@ -77,10 +77,12 @@ export class CodegenFileDropHandler implements DropzoneHandler {
 
 	async ondrop(data: ChangeDropData): Promise<void> {
 		const changes = await data.treeChanges();
+		const commitId = data.selectionId.type === 'commit' ? data.selectionId.commitId : undefined;
 		const attachments: PromptAttachment[] = changes.map((change) => ({
 			type: 'file',
 			branchName: this.branchName,
-			path: change.path
+			path: change.path,
+			commitId
 		}));
 		this.add(attachments);
 	}
@@ -107,7 +109,8 @@ export class CodegenHunkDropHandler implements DropzoneHandler {
 				branchName: this.branchName,
 				path: data.change.path,
 				start: data.hunk.newStart,
-				end: data.hunk.newStart + data.hunk.newLines - 1
+				end: data.hunk.newStart + data.hunk.newLines - 1,
+				commitId: data.commitId
 			}
 		]);
 	}
