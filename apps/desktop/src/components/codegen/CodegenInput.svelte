@@ -126,18 +126,20 @@
 	{/if}
 	<div class="text-input dialog-input" data-remove-from-panning>
 		<CodegenInputQueued {projectId} {stackId} {branchName} />
-		{#if attachments.length > 0}
-			<div class="attached-files-section">
-				<AttachmentList
-					{attachments}
-					onRemove={(a) => attachmentService.removeByBranch(branchName, a)}
-				/>
-			</div>
-		{/if}
+
 		<Dropzone {handlers}>
 			{#snippet overlay({ hovered, activated })}
 				<CardOverlay {hovered} {activated} label="Reference" />
 			{/snippet}
+			{#if attachments.length > 0}
+				<div class="attached-files-section">
+					<AttachmentList
+						{attachments}
+						onRemove={(a) => attachmentService.removeByBranch(branchName, a)}
+					/>
+				</div>
+			{/if}
+
 			<RichTextEditor
 				bind:this={editorRef}
 				bind:value
