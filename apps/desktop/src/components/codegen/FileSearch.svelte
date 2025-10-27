@@ -4,6 +4,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { FileListItem, Icon } from '@gitbutler/ui';
 	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
+	import { fly } from 'svelte/transition';
 
 	type Props = {
 		projectId: string;
@@ -20,8 +21,11 @@
 	let selected = $state(0);
 	let dismissed = $state(false);
 
+	// Reset dismissed state and selection when query changes
 	$effect(() => {
-		if (files) dismissed = false;
+		void query; // Track query changes
+		dismissed = false;
+		selected = 0;
 	});
 
 	function onkeydown(e: KeyboardEvent) {
@@ -49,8 +53,12 @@
 
 <svelte:body onkeydowncapture={onkeydown} />
 
-{#if !dismissed}
-	<div class="file-plugin" use:clickOutside={{ handler: () => (dismissed = true) }}>
+{#if !dismissed && files.response && files.response.length > 0}
+	<div
+		class="file-plugin"
+		use:clickOutside={{ handler: () => (dismissed = true) }}
+		in:fly={{ y: 8, duration: 200 }}
+	>
 		<ReduxResult {projectId} result={files.result}>
 			{#snippet loading()}
 				<div class="p-12">
@@ -74,14 +82,20 @@
 
 <style lang="postcss">
 	.file-plugin {
-		z-index: var(--z-lifted);
+		z-index: var(--z-floating);
 		position: absolute;
-		bottom: calc(100% + 9px);
-		max-width: 80%;
+		right: 12px;
+		bottom: calc(100% + 6px);
+		left: 12px;
 		overflow-x: hidden;
 		overflow-y: auto;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
+		box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
+	}
+
+	:global(.dark) .file-plugin {
+		box-shadow: 0 10px 50px 5px color(srgb 0 0 0 / 0.5);
 	}
 </style>
