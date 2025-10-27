@@ -35,6 +35,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
+	import { formatCompactNumber } from '$lib/utils/number';
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
@@ -345,7 +346,16 @@
 			{#snippet inWorkspaceInlineContextActions()}
 				{@const stats = usageStats(events)}
 				{@const contextUsage = Math.round(stats.contextUtilization * 100)}
-				<div class="flex gap-8 items-center">
+
+				<div class="flex gap-10 items-center">
+					{#if stats.tokens > 0}
+						<Tooltip text="Tokens: {stats.tokens.toLocaleString()} / ${stats.cost.toFixed(2)} ">
+							<span class="text-12 clr-text-2">
+								{formatCompactNumber(stats.tokens)}
+							</span>
+						</Tooltip>
+					{/if}
+
 					<Tooltip text="{contextUsage}% context used">
 						<div
 							class="context-utilization-piechart"
@@ -353,29 +363,9 @@
 						></div>
 					</Tooltip>
 
-					{#if contextUsage > 0}
-						<KebabButton
-							bind:el={workspaceContextActionsKebab}
-							onclick={() => contextActionsContextMenu?.toggle()}
-						/>
-					{/if}
-				</div>
-			{/snippet}
-			{#snippet inWorkspaceInlineActions()}
-				<div class="flex gap-4">
-					<Button
-						kind="ghost"
-						icon="mcp"
-						size="tag"
-						tooltip="MCP settings"
-						onclick={() => mcpConfigModal?.open()}
-					/>
-					<Button
-						kind="ghost"
-						icon="mixer"
-						size="tag"
-						tooltip="Agent settings"
-						onclick={() => settingsModal?.show()}
+					<KebabButton
+						bind:el={workspaceContextActionsKebab}
+						onclick={() => contextActionsContextMenu?.toggle()}
 					/>
 				</div>
 			{/snippet}
@@ -396,6 +386,7 @@
 					reversedDirection
 				/>
 			{/snippet}
+
 			{#snippet pageContextActions()}
 				{@const stats = usageStats(events)}
 
@@ -679,6 +670,24 @@
 
 	<ContextMenuSection>
 		<ContextMenuItem
+			label="MCP settings"
+			icon="mcp"
+			onclick={() => {
+				mcpConfigModal?.open();
+				contextActionsContextMenu?.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Agent settings"
+			icon="mixer"
+			onclick={() => {
+				settingsModal?.show();
+				contextActionsContextMenu?.close();
+			}}
+		/>
+	</ContextMenuSection>
+	<ContextMenuSection>
+		<ContextMenuItem
 			label="Clear context and rules"
 			icon="clear"
 			disabled={isDisabled}
@@ -747,13 +756,24 @@
 
 	.context-utilization-piechart {
 		position: relative;
-		width: 16px;
-		height: 16px;
+		width: 17px;
+		height: 17px;
+		border: 0.094rem solid var(--clr-text-2);
 		border-radius: 50%;
-		background: conic-gradient(
-			var(--clr-text-2) var(--context-utilization),
-			var(--clr-border-2) var(--context-utilization)
-		);
+
+		&::after {
+			position: absolute;
+			top: 2px;
+			left: 2px;
+			width: calc(100% - 4px);
+			height: calc(100% - 4px);
+			border-radius: 50%;
+			background: conic-gradient(
+				var(--clr-text-2) var(--context-utilization),
+				transparent var(--context-utilization)
+			);
+			content: '';
+		}
 	}
 
 	.context-utilization-badge-2 {
