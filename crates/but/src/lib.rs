@@ -359,10 +359,11 @@ fn print_grouped_help() {
 
     // Helper function to truncate text to fit within available width
     let truncate_text = |text: &str, available_width: usize| -> String {
+        const ELLIPSIS_LEN: usize = 1;
         if text.len() <= available_width {
             text.to_string()
-        } else if available_width > 3 {
-            format!("{}...", &text[..available_width.saturating_sub(3)])
+        } else if available_width > ELLIPSIS_LEN {
+            format!("{}…", &text[..available_width.saturating_sub(ELLIPSIS_LEN)])
         } else {
             text.chars().take(available_width).collect()
         }
