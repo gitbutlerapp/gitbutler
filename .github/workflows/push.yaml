@@ -114,26 +114,6 @@ jobs:
           rustup component add clippy
           cargo clippy --workspace --all-targets -- -D warnings
 
-  rust-but-binary-no-tauri:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    env:
-      CARGO_TERM_COLOR: always
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.8.1
-        with:
-          shared-key: but-binary
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      - run: |
-          sudo apt update
-          sudo apt install -y libdbus-1-dev pkg-config
-      - run: cargo build -p but
-
   cargo-deny:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
@@ -147,6 +127,34 @@ jobs:
           command: check bans licenses sources
 
   rust-test:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.1
+        with:
+          shared-key: cargo-test-no-tauri
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Dependencies for 'keyring'
+        run: |
+          sudo apt update
+          sudo apt install -y libdbus-1-dev pkg-config
+      - run: |
+          cargo test --workspace --exclude gitbutler-tauri
+        env:
+          GITBUTLER_TESTS_NO_CLEANUP: '1'
+        name: cargo test
+
+  rust-test-tauri:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
@@ -164,20 +172,16 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: cargo-test
+          shared-key: cargo-test-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - run: |
-          cargo test --workspace
-        env:
-          GITBUTLER_TESTS_NO_CLEANUP: '1'
-        name: cargo test
-      - run: |
           set -e
+          cargo test -p gitbutler-tauri
           cargo check -p gitbutler-tauri --no-default-features
           for feature in devtools custom-protocol error-context; do
             cargo check -p gitbutler-tauri --no-default-features --features "$feature"
           done
-        name: Check Tauri App
+        name: Test Tauri and Check Tauri App Features
 
   check-rust-windows:
     needs: changes
@@ -203,8 +207,8 @@ jobs:
       - changes
       - check-rust-windows
       - rust-test
+      - rust-test-tauri
       - rust-lint
-      - rust-but-binary-no-tauri
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
