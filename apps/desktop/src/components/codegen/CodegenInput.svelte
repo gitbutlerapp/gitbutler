@@ -2,7 +2,7 @@
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import AttachmentList from '$components/codegen/AttachmentList.svelte';
-	import CodegenInputQueued from '$components/codegen/CodegenInputQueued.svelte';
+	import CodegenQueued from '$components/codegen/CodegenQueued.svelte';
 	import FileSearch from '$components/codegen/FileSearch.svelte';
 	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import {
@@ -50,7 +50,6 @@
 	const attachments = $derived(attachmentService.getByBranch(branchName));
 
 	let editorRef = $state<ReturnType<typeof RichTextEditor>>();
-
 	let showAbortButton = $state(false);
 
 	$effect(() => {
@@ -118,14 +117,21 @@
 
 	let query = $state('');
 	let callback = $state<((result: string) => void) | undefined>();
+
+	const placeholderVariants = [
+		'What to build?',
+		'Describe your changes.',
+		'What to create?',
+		'Describe what to build.',
+		'What to code?'
+	];
 </script>
 
 <div class="dialog-wrapper">
-	{#if query}
-		<FileSearch {projectId} {query} onselect={callback} limit={8} />
-	{/if}
+	<FileSearch {projectId} {query} onselect={callback} limit={8} />
+
 	<div class="text-input dialog-input" data-remove-from-panning>
-		<CodegenInputQueued {projectId} {stackId} {branchName} />
+		<CodegenQueued {projectId} {stackId} {branchName} />
 
 		<Dropzone {handlers}>
 			{#snippet overlay({ hovered, activated })}
@@ -140,13 +146,15 @@
 				</div>
 			{/if}
 
+			{@const randomPlaceholder =
+				placeholderVariants[Math.floor(Math.random() * placeholderVariants.length)]}
 			<RichTextEditor
 				bind:this={editorRef}
 				bind:value
 				namespace="codegen-input"
 				markdown={false}
 				styleContext="chat-input"
-				placeholder="What would you like to make..."
+				placeholder="{randomPlaceholder} Use @ to reference files…"
 				minHeight="4rem"
 				onError={(e: unknown) => console.warn('Editor error', e)}
 				initialText={value}

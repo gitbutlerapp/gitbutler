@@ -1,15 +1,18 @@
 <script lang="ts">
+	import AttachmentList from '$components/codegen/AttachmentList.svelte';
 	import { messageQueueSelectors, messageQueueSlice } from '$lib/codegen/messageQueueSlice';
 	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Icon, Button } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
+	import type { PromptAttachment } from '$lib/codegen/types';
 
 	type Message = {
 		thinkingLevel: any;
 		model: any;
 		permissionMode: any;
 		prompt: string;
+		attachments?: PromptAttachment[];
 	};
 
 	interface Props {
@@ -52,7 +55,13 @@
 </script>
 
 {#snippet messageContent(message: Message)}
-	<p class="text-13 text-body message-text">{message.prompt}</p>
+	<div class="message-content">
+		<p class="text-13 text-body message-text">{message.prompt}</p>
+
+		{#if message.attachments && message.attachments.length > 0}
+			<AttachmentList attachments={message.attachments} showRemoveButton={false} />
+		{/if}
+	</div>
 
 	<div class="message-actions">
 		<Button
@@ -143,6 +152,13 @@
 			transform: scale(1);
 			opacity: 1;
 		}
+	}
+
+	.message-content {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		gap: 10px;
 	}
 
 	.message-text {

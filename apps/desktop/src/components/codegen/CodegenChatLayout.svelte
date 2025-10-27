@@ -9,7 +9,6 @@
 		branchIcon?: Snippet;
 		pageWorkspaceActions: Snippet;
 		pageContextActions?: Snippet;
-		inWorkspaceInlineActions?: Snippet;
 		inWorkspaceInlineContextActions?: Snippet;
 		messages: Snippet;
 		input?: Snippet;
@@ -22,7 +21,6 @@
 		branchIcon,
 		pageWorkspaceActions,
 		pageContextActions,
-		inWorkspaceInlineActions,
 		inWorkspaceInlineContextActions,
 		messages,
 		input,
@@ -60,8 +58,6 @@
 
 			{#snippet actions()}
 				{@render inWorkspaceInlineContextActions?.()}
-				<div class="divider"></div>
-				{@render inWorkspaceInlineActions?.()}
 			{/snippet}
 		</PreviewHeader>
 	{/if}
