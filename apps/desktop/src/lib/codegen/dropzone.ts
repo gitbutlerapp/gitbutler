@@ -75,8 +75,14 @@ export class CodegenFileDropHandler implements DropzoneHandler {
 		);
 	}
 
-	ondrop(data: ChangeDropData): void {
-		this.add([{ type: 'file', branchName: this.branchName, path: data.change.path }]);
+	async ondrop(data: ChangeDropData): Promise<void> {
+		const changes = await data.treeChanges();
+		const attachments: PromptAttachment[] = changes.map((change) => ({
+			type: 'file',
+			branchName: this.branchName,
+			path: change.path
+		}));
+		this.add(attachments);
 	}
 }
 
