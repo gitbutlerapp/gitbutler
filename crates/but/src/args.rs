@@ -320,3 +320,14 @@ pub mod cursor {
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clap() {
+        use clap::CommandFactory;
+        Args::command().debug_assert();
+    }
+}
