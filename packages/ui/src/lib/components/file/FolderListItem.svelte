@@ -19,6 +19,7 @@
 		ontoggle?: (expanded: boolean) => void;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
+		oncontextmenu?: (e: MouseEvent) => void;
 		testId?: string;
 	}
 
@@ -34,6 +35,7 @@
 		ontoggle,
 		onclick,
 		onkeydown,
+		oncontextmenu,
 		testId
 	}: Props = $props();
 
@@ -51,6 +53,13 @@
 		onclick?.(e);
 	}}
 	{onkeydown}
+	oncontextmenu={(e) => {
+		if (oncontextmenu) {
+			e.preventDefault();
+			e.stopPropagation();
+			oncontextmenu(e);
+		}
+	}}
 >
 	<div class="folder-list-item__indicators">
 		<FileIndent {depth} />
