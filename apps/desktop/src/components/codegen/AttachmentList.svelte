@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { FileIcon, Icon } from '@gitbutler/ui';
-	import { abbreviatePath } from '@gitbutler/ui/utils/filePath';
+	import { FileIcon, Icon, Tooltip, FileName } from '@gitbutler/ui';
+	import { abbreviatePath, splitFilePath } from '@gitbutler/ui/utils/filePath';
 	import { fly } from 'svelte/transition';
 	import type { PromptAttachment } from '$lib/codegen/types';
 
@@ -15,36 +15,48 @@
 	function handleRemove(attachment: PromptAttachment): void {
 		onRemoveFile?.(attachment);
 	}
+
+	function getTooltipText(attachment: PromptAttachment): string {
+		if (attachment.type === 'commit') {
+			return `${attachment.commitId}`;
+		} else if (attachment.type === 'file') {
+			return `${attachment.path}`;
+		} else if (attachment.type === 'lines') {
+			return `Lines ${attachment.start}-${attachment.end} of ${attachment.path}`;
+		}
+		return '';
+	}
 </script>
 
 <div class="attachments">
 	{#each attachments as attachment}
 		<div class="attachment" in:fly={{ y: 10, duration: 150 }}>
-			<div class="attachment-content text-12 text-semibold">
-				{#if attachment.type === 'commit'}
-					<span class="path" title={attachment.commitId}>
-						#{attachment.commitId.slice(0, 6)}
-					</span>
-				{/if}
-				{#if attachment.type === 'file'}
-					<FileIcon fileName={attachment.path} />
+			<Tooltip text={getTooltipText(attachment)}>
+				<div class="attachment-content text-12 text-semibold">
+					<!-- COMMIT -->
+					{#if attachment.type === 'commit'}
+						<span class="path">
+							#{attachment.commitId.slice(0, 6)}
+						</span>
+					{/if}
+					<!-- FILE -->
+					{#if attachment.type === 'file'}
+						<FileName filePath={attachment.path} />
+					{/if}
+					<!-- LINES -->
+					{#if attachment.type === 'lines'}
+						{@const { path, start, end } = attachment}
+						<FileIcon fileName={attachment.path} />
 
-					<span class="path" title={attachment.path}>
-						{abbreviatePath(attachment.path)}
-					</span>
-				{/if}
-				{#if attachment.type === 'lines'}
-					{@const { path, start, end } = attachment}
-					<FileIcon fileName={attachment.path} />
-
-					<span class="path" title={attachment.path}>
-						{abbreviatePath(path)}
-					</span>
-					<span>
-						{start}:{end}
-					</span>
-				{/if}
-			</div>
+						<span class="path">
+							{abbreviatePath(path)}
+						</span>
+						<span>
+							{start}:{end}
+						</span>
+					{/if}
+				</div>
+			</Tooltip>
 
 			{#if showRemoveButton}
 				<button
