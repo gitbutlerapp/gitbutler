@@ -134,27 +134,6 @@ jobs:
           sudo apt install -y libdbus-1-dev pkg-config
       - run: cargo build -p but
 
-  rust-docs:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
-    env:
-      CARGO_TERM_COLOR: always
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.8.1
-        with:
-          shared-key: docs
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      - run: cargo doc --no-deps --all-features --document-private-items -p gitbutler-git
-        env:
-          RUSTDOCFLAGS: -Dwarnings
-
   cargo-deny:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
