@@ -20,6 +20,25 @@ pub async fn check_auth_status(device_code: String) -> Result<AuthStatusResponse
 }
 
 #[tauri::command(async)]
+#[instrument(err(Debug), skip(access_token), fields(access_token = "<redacted>"))]
+pub async fn store_github_pat(access_token: String) -> Result<AuthStatusResponseSensitive, Error> {
+    github::strore_github_pat(github::StoreGitHubPatParams { access_token }).await
+}
+
+#[tauri::command(async)]
+#[instrument(err(Debug), skip(access_token), fields(access_token = "<redacted>"))]
+pub async fn store_github_enterprise_pat(
+    access_token: String,
+    host: String,
+) -> Result<AuthStatusResponseSensitive, Error> {
+    github::store_github_enterprise_pat(github::StoreGitHubEnterprisePatParams {
+        access_token,
+        host,
+    })
+    .await
+}
+
+#[tauri::command(async)]
 #[instrument(err(Debug))]
 pub async fn get_gh_user(username: String) -> Result<Option<AuthenticatedUserSensitive>, Error> {
     github::get_gh_user(GetGhUserParams { username }).await

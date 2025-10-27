@@ -54,18 +54,29 @@ pub fn clear_all_github_accounts(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "username")]
+#[serde(tag = "type", content = "info")]
 pub enum GithubAccountIdentifier {
-    OAuthUsername(String),
-    PatUsername(String),
+    OAuthUsername { username: String },
+    PatUsername { username: String },
+    Enterprise { username: String, host: String },
 }
 
 impl GithubAccountIdentifier {
     pub fn oauth(username: &str) -> Self {
-        GithubAccountIdentifier::OAuthUsername(username.to_string())
+        GithubAccountIdentifier::OAuthUsername {
+            username: username.to_string(),
+        }
     }
     pub fn pat(username: &str) -> Self {
-        GithubAccountIdentifier::PatUsername(username.to_string())
+        GithubAccountIdentifier::PatUsername {
+            username: username.to_string(),
+        }
+    }
+    pub fn enterprise(username: &str, host: &str) -> Self {
+        GithubAccountIdentifier::Enterprise {
+            username: username.to_string(),
+            host: host.to_string(),
+        }
     }
 }
 
@@ -77,6 +88,12 @@ pub enum GitHubAccount {
     #[allow(dead_code)]
     Pat {
         username: String,
+        access_token: Sensitive<String>,
+    },
+    #[allow(dead_code)]
+    Enterprise {
+        username: String,
+        host: String,
         access_token: Sensitive<String>,
     },
 }
@@ -97,6 +114,13 @@ impl From<&GitHubAccount> for but_forge_storage::settings::GitHubAccount {
                     access_token_key,
                 }
             }
+            GitHubAccount::Enterprise { host, username, .. } => {
+                but_forge_storage::settings::GitHubAccount::Enterprise {
+                    username: username.to_owned(),
+                    host: host.to_owned(),
+                    access_token_key,
+                }
+            }
         }
     }
 }
@@ -104,12 +128,17 @@ impl From<&GitHubAccount> for but_forge_storage::settings::GitHubAccount {
 impl GitHubAccount {
     pub fn new(account_id: &GithubAccountIdentifier, access_token: Sensitive<String>) -> Self {
         match account_id {
-            GithubAccountIdentifier::OAuthUsername(username) => GitHubAccount::OAuth {
-                username: username.to_string(),
+            GithubAccountIdentifier::OAuthUsername { username } => GitHubAccount::OAuth {
+                username: username.to_owned(),
                 access_token,
             },
-            GithubAccountIdentifier::PatUsername(username) => GitHubAccount::Pat {
-                username: username.to_string(),
+            GithubAccountIdentifier::PatUsername { username } => GitHubAccount::Pat {
+                username: username.to_owned(),
+                access_token,
+            },
+            GithubAccountIdentifier::Enterprise { username, host } => GitHubAccount::Enterprise {
+                username: username.to_owned(),
+                host: host.to_owned(),
                 access_token,
             },
         }
@@ -119,6 +148,7 @@ impl GitHubAccount {
         match self {
             GitHubAccount::OAuth { username, .. } => format!("github_oauth_{}", username),
             GitHubAccount::Pat { username, .. } => format!("github_pat_{}", username),
+            GitHubAccount::Enterprise { host, .. } => format!("github_enterprise_{}", host),
         }
     }
 
@@ -130,6 +160,7 @@ impl GitHubAccount {
         match self {
             GitHubAccount::OAuth { access_token, .. } => access_token.clone(),
             GitHubAccount::Pat { access_token, .. } => access_token.clone(),
+            GitHubAccount::Enterprise { access_token, .. } => access_token.clone(),
         }
     }
 }
@@ -184,22 +215,25 @@ fn find_github_account(
 ) -> Result<Option<GitHubAccount>> {
     let accounts = storage.github_accounts()?;
     let result = match account_id {
-        GithubAccountIdentifier::OAuthUsername(username) => accounts.iter().find_map(|account| {
-            if let but_forge_storage::settings::GitHubAccount::OAuth {
-                username: acct_username,
-                access_token_key,
-            } = account
-                && acct_username == username
-                && let Some(access_token) = retrieve_github_secret(access_token_key).ok().flatten()
-            {
-                return Some(GitHubAccount::OAuth {
-                    username: acct_username.clone(),
-                    access_token,
-                });
-            }
-            None
-        }),
-        GithubAccountIdentifier::PatUsername(username) => accounts.iter().find_map(|account| {
+        GithubAccountIdentifier::OAuthUsername { username } => {
+            accounts.iter().find_map(|account| {
+                if let but_forge_storage::settings::GitHubAccount::OAuth {
+                    username: acct_username,
+                    access_token_key,
+                } = account
+                    && acct_username == username
+                    && let Some(access_token) =
+                        retrieve_github_secret(access_token_key).ok().flatten()
+                {
+                    return Some(GitHubAccount::OAuth {
+                        username: acct_username.clone(),
+                        access_token,
+                    });
+                }
+                None
+            })
+        }
+        GithubAccountIdentifier::PatUsername { username } => accounts.iter().find_map(|account| {
             if let but_forge_storage::settings::GitHubAccount::Pat {
                 username: acct_username,
                 access_token_key,
@@ -214,6 +248,27 @@ fn find_github_account(
             }
             None
         }),
+        GithubAccountIdentifier::Enterprise { username, host } => {
+            accounts.iter().find_map(|account| {
+                if let but_forge_storage::settings::GitHubAccount::Enterprise {
+                    username: acct_username,
+                    host: acct_host,
+                    access_token_key,
+                } = account
+                    && acct_host == host
+                    && acct_username == username
+                    && let Some(access_token) =
+                        retrieve_github_secret(access_token_key).ok().flatten()
+                {
+                    return Some(GitHubAccount::Enterprise {
+                        username: acct_username.clone(),
+                        host: acct_host.clone(),
+                        access_token,
+                    });
+                }
+                None
+            })
+        }
     };
     Ok(result)
 }

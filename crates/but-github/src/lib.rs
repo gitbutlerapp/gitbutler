@@ -51,10 +51,14 @@ pub struct CheckAuthStatusParams {
 
 #[derive(Debug, Clone)]
 pub struct AuthStatusResponse {
+    /// The access token.
+    /// This is only shared with the FrontEnd temporarily as we undergo the migration to having all API calls
+    /// made to the forges from the Rustend.
     pub access_token: Sensitive<String>,
     pub login: String,
     pub name: Option<String>,
     pub email: Option<String>,
+    pub host: Option<String>,
 }
 
 pub async fn check_auth_status(
@@ -96,18 +100,19 @@ pub async fn check_auth_status(
             .context("Failed to parse response body")?,
     );
 
-    let user = fetch_and_persist_user_data(&access_token, storage).await?;
+    let user = fetch_and_persist_oauth_user_data(&access_token, storage).await?;
 
     Ok(AuthStatusResponse {
         access_token,
         login: user.login,
         name: user.name,
         email: user.email,
+        host: None,
     })
 }
 
-/// Fetch the authenticated user data from GitHub and persist the access token.
-async fn fetch_and_persist_user_data(
+/// Fetch the authenticated user data from GitHub and persist the access token. (OAuth)
+async fn fetch_and_persist_oauth_user_data(
     access_token: &Sensitive<String>,
     storage: &but_forge_storage::controller::Controller,
 ) -> Result<client::AuthenticatedUser, anyhow::Error> {
@@ -118,6 +123,77 @@ async fn fetch_and_persist_user_data(
         .context("Failed to get authenticated user")?;
     token::persist_gh_access_token(
         &token::GithubAccountIdentifier::oauth(&user.login),
+        access_token,
+        storage,
+    )
+    .context("Failed to persist access token")?;
+    Ok(user)
+}
+
+/// Store a PAT access token and fetch the associated user data.
+pub async fn store_pat(
+    access_token: &Sensitive<String>,
+    storage: &but_forge_storage::controller::Controller,
+) -> Result<AuthStatusResponse> {
+    let user = fetch_and_persist_pat_user_data(access_token, storage).await?;
+    Ok(AuthStatusResponse {
+        access_token: access_token.clone(),
+        login: user.login,
+        name: user.name,
+        email: user.email,
+        host: None,
+    })
+}
+
+/// Fetch the authenticated user data from GitHub and persist the access token. (PAT)
+async fn fetch_and_persist_pat_user_data(
+    access_token: &Sensitive<String>,
+    storage: &but_forge_storage::controller::Controller,
+) -> Result<client::AuthenticatedUser, anyhow::Error> {
+    let gh = client::GitHubClient::new(access_token).context("Failed to create GitHub client")?;
+    let user = gh
+        .get_authenticated()
+        .await
+        .context("Failed to get authenticated user")?;
+    token::persist_gh_access_token(
+        &token::GithubAccountIdentifier::pat(&user.login),
+        access_token,
+        storage,
+    )
+    .context("Failed to persist access token")?;
+    Ok(user)
+}
+
+/// Store an Enterprise access token and fetch the associated user data.
+pub async fn store_enterprise_pat(
+    host: &str,
+    access_token: &Sensitive<String>,
+    storage: &but_forge_storage::controller::Controller,
+) -> Result<AuthStatusResponse> {
+    let user = fetch_and_persist_enterprise_user_data(host, access_token, storage).await?;
+    Ok(AuthStatusResponse {
+        access_token: access_token.clone(),
+        login: user.login,
+        name: user.name,
+        email: user.email,
+        host: Some(host.to_owned()),
+    })
+}
+
+/// Fetch the authenticated user data from GitHub and persist the access token. (Enterprise)
+async fn fetch_and_persist_enterprise_user_data(
+    host: &str,
+    access_token: &Sensitive<String>,
+    storage: &but_forge_storage::controller::Controller,
+) -> Result<client::AuthenticatedUser, anyhow::Error> {
+    let gh = client::GitHubClient::new_with_host_override(access_token, host)
+        .context("Failed to create GitHub client")?;
+    let user = gh
+        .get_authenticated()
+        .await
+        .context("Failed to get authenticated user")?;
+    token::persist_gh_access_token(
+        &token::GithubAccountIdentifier::enterprise(&user.login, host),
         access_token,
         storage,
     )
@@ -176,7 +252,7 @@ pub async fn list_known_github_usernames(
     if let Some(stored_gh_access_token) = gitbutler_user::forget_github_login_for_user()?
         && known_usernames.is_empty()
     {
-        fetch_and_persist_user_data(&stored_gh_access_token, storage)
+        fetch_and_persist_oauth_user_data(&stored_gh_access_token, storage)
             .await
             .ok();
     }

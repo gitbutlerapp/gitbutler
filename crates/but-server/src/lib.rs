@@ -364,6 +364,26 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "store_github_pat" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = github::strore_github_pat(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "store_github_enterprise_pat" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = github::store_github_enterprise_pat(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         "forget_github_username" => forget_github_username_cmd(request.params),
         "list_known_github_usernames" => github::list_known_github_usernames()
             .await

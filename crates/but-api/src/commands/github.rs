@@ -18,6 +18,8 @@ pub struct AuthStatusResponseSensitive {
     pub login: String,
     pub name: Option<String>,
     pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
 }
 
 impl From<AuthStatusResponse> for AuthStatusResponseSensitive {
@@ -27,6 +29,7 @@ impl From<AuthStatusResponse> for AuthStatusResponseSensitive {
             login,
             name,
             email,
+            host,
         }: AuthStatusResponse,
     ) -> Self {
         AuthStatusResponseSensitive {
@@ -34,6 +37,7 @@ impl From<AuthStatusResponse> for AuthStatusResponseSensitive {
             login,
             name,
             email,
+            host,
         }
     }
 }
@@ -43,6 +47,45 @@ pub async fn check_auth_status(
 ) -> Result<AuthStatusResponseSensitive, Error> {
     let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
     let status_result = but_github::check_auth_status(params, &storage).await;
+    match status_result {
+        Ok(status) => Ok(status.into()),
+        Err(e) => Err(e.into()),
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoreGitHubPatParams {
+    pub access_token: String,
+}
+
+pub async fn strore_github_pat(
+    params: StoreGitHubPatParams,
+) -> Result<AuthStatusResponseSensitive, Error> {
+    let StoreGitHubPatParams { access_token } = params;
+    let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
+    let status_result = but_github::store_pat(&but_secret::Sensitive(access_token), &storage).await;
+    match status_result {
+        Ok(status) => Ok(status.into()),
+        Err(e) => Err(e.into()),
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoreGitHubEnterprisePatParams {
+    pub access_token: String,
+    pub host: String,
+}
+
+pub async fn store_github_enterprise_pat(
+    params: StoreGitHubEnterprisePatParams,
+) -> Result<AuthStatusResponseSensitive, Error> {
+    let StoreGitHubEnterprisePatParams { access_token, host } = params;
+    let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
+    let status_result =
+        but_github::store_enterprise_pat(&host, &but_secret::Sensitive(access_token), &storage)
+            .await;
     match status_result {
         Ok(status) => Ok(status.into()),
         Err(e) => Err(e.into()),

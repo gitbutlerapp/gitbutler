@@ -276,6 +276,8 @@ fn main() -> anyhow::Result<()> {
                 menu::menu_item_set_enabled,
                 github::init_device_oauth,
                 github::check_auth_status,
+                github::store_github_pat,
+                github::store_github_enterprise_pat,
                 but_api::github::forget_github_username,
                 github::list_known_github_usernames,
                 but_api::github::clear_all_github_tokens,

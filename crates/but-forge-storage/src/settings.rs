@@ -29,6 +29,14 @@ pub enum GitHubAccount {
         // Key to retrieve the access token from secure storage.
         access_token_key: String,
     },
+    Enterprise {
+        // Hostname of the GitHub Enterprise instance.
+        host: String,
+        // Username associated with the PAT account.
+        username: String,
+        // Key to retrieve the access token from secure storage.
+        access_token_key: String,
+    },
 }
 
 impl GitHubAccount {
@@ -40,6 +48,9 @@ impl GitHubAccount {
             GitHubAccount::Pat {
                 access_token_key, ..
             } => access_token_key,
+            GitHubAccount::Enterprise {
+                access_token_key, ..
+            } => access_token_key,
         }
     }
 
@@ -47,6 +58,7 @@ impl GitHubAccount {
         match self {
             GitHubAccount::OAuth { username, .. } => username,
             GitHubAccount::Pat { username, .. } => username,
+            GitHubAccount::Enterprise { host, .. } => host,
         }
     }
 }
@@ -74,8 +86,24 @@ impl PartialEq for GitHubAccount {
                     access_token_key: k2,
                 },
             ) => u1 == u2 && k1 == k2,
+            (
+                GitHubAccount::Enterprise {
+                    host: h1,
+                    username: u1,
+                    access_token_key: k1,
+                },
+                GitHubAccount::Enterprise {
+                    host: h2,
+                    username: u2,
+                    access_token_key: k2,
+                },
+            ) => h1 == h2 && u1 == u2 && k1 == k2,
             (GitHubAccount::OAuth { .. }, GitHubAccount::Pat { .. }) => false,
             (GitHubAccount::Pat { .. }, GitHubAccount::OAuth { .. }) => false,
+            (GitHubAccount::Enterprise { .. }, GitHubAccount::OAuth { .. }) => false,
+            (GitHubAccount::OAuth { .. }, GitHubAccount::Enterprise { .. }) => false,
+            (GitHubAccount::Pat { .. }, GitHubAccount::Enterprise { .. }) => false,
+            (GitHubAccount::Enterprise { .. }, GitHubAccount::Pat { .. }) => false,
         }
     }
 }
