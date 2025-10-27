@@ -179,6 +179,12 @@ For examples see `but rub --help`."
         #[clap(long, short = 'r', default_value_t = true)]
         run_hooks: bool,
     },
+    /// Generate shell completion scripts for the specified or inferred shell.
+    Completions {
+        /// The shell to generate completions for, or the one extracted from the `SHELL` environment variable.
+        #[clap(value_enum)]
+        shell: Option<clap_complete::Shell>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
@@ -250,6 +256,7 @@ pub enum CommandName {
     ForgeListUsers,
     ForgeForget,
     PublishReview,
+    Completions,
     #[default]
     Unknown,
 }
