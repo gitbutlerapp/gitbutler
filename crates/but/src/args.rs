@@ -179,11 +179,11 @@ For examples see `but rub --help`."
         #[clap(long, short = 'r', default_value_t = true)]
         run_hooks: bool,
     },
-    /// Generate shell completion scripts for the specified shell.
+    /// Generate shell completion scripts for the specified or inferred shell.
     Completions {
-        /// The shell to generate completions for
+        /// The shell to generate completions for, or the one extracted from the `SHELL` environment variable.
         #[clap(value_enum)]
-        shell: clap_complete::Shell,
+        shell: Option<clap_complete::Shell>,
     },
 }
 

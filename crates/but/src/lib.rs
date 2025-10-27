@@ -392,6 +392,8 @@ fn print_grouped_help() {
 
     // Keep track of which commands we've already printed
     let mut printed_commands = HashSet::new();
+    const LONGEST_COMMAND_LEN: usize = 13;
+    const LONGEST_COMMAND_LEN_AND_ELLIPSIS: usize = LONGEST_COMMAND_LEN + 3;
 
     // Print grouped commands
     for (group_name, command_names) in &groups {
@@ -400,9 +402,14 @@ fn print_grouped_help() {
             if let Some(subcmd) = subcommands.iter().find(|c| c.get_name() == *cmd_name) {
                 let about = subcmd.get_about().unwrap_or_default().to_string();
                 // Calculate available width: terminal_width - indent (2) - command column (10) - buffer (1)
-                let available_width = terminal_width.saturating_sub(13);
+                let available_width =
+                    terminal_width.saturating_sub(LONGEST_COMMAND_LEN_AND_ELLIPSIS);
                 let truncated_about = truncate_text(&about, available_width);
-                println!("  {:<10}{}", cmd_name.green(), truncated_about);
+                println!(
+                    "  {:<LONGEST_COMMAND_LEN$}{}",
+                    cmd_name.green(),
+                    truncated_about,
+                );
                 printed_commands.insert(cmd_name.to_string());
             }
         }
@@ -421,9 +428,13 @@ fn print_grouped_help() {
         for subcmd in misc_commands {
             let about = subcmd.get_about().unwrap_or_default().to_string();
             // Calculate available width: terminal_width - indent (2) - command column (10) - buffer (1)
-            let available_width = terminal_width.saturating_sub(13);
+            let available_width = terminal_width.saturating_sub(LONGEST_COMMAND_LEN_AND_ELLIPSIS);
             let truncated_about = truncate_text(&about, available_width);
-            println!("  {:<10}{}", subcmd.get_name().green(), truncated_about);
+            println!(
+                "  {:<LONGEST_COMMAND_LEN$}{}",
+                subcmd.get_name().green(),
+                truncated_about
+            );
         }
         println!();
     }
