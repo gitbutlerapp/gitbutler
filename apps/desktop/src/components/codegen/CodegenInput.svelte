@@ -50,7 +50,6 @@
 	const attachments = $derived(attachmentService.getByBranch(branchName));
 
 	let editorRef = $state<ReturnType<typeof RichTextEditor>>();
-
 	let showAbortButton = $state(false);
 
 	$effect(() => {
@@ -118,12 +117,19 @@
 
 	let query = $state('');
 	let callback = $state<((result: string) => void) | undefined>();
+
+	const placeholderVariants = [
+		'What to build?',
+		'Describe your changes.',
+		'What to create?',
+		'Describe what to build.',
+		'What to code?'
+	];
 </script>
 
 <div class="dialog-wrapper">
-	{#if query}
-		<FileSearch {projectId} {query} onselect={callback} limit={8} />
-	{/if}
+	<FileSearch {projectId} {query} onselect={callback} limit={8} />
+
 	<div class="text-input dialog-input" data-remove-from-panning>
 		<CodegenQueued {projectId} {stackId} {branchName} />
 
@@ -140,13 +146,15 @@
 				</div>
 			{/if}
 
+			{@const randomPlaceholder =
+				placeholderVariants[Math.floor(Math.random() * placeholderVariants.length)]}
 			<RichTextEditor
 				bind:this={editorRef}
 				bind:value
 				namespace="codegen-input"
 				markdown={false}
 				styleContext="chat-input"
-				placeholder="What would you like to make..."
+				placeholder="{randomPlaceholder} Use @ to reference files…"
 				minHeight="4rem"
 				onError={(e: unknown) => console.warn('Editor error', e)}
 				initialText={value}
