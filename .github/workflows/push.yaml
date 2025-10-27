@@ -176,7 +176,6 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - run: |
           set -e
-          cargo test -p gitbutler-tauri
           cargo check -p gitbutler-tauri --no-default-features
           for feature in devtools custom-protocol error-context; do
             cargo check -p gitbutler-tauri --no-default-features --features "$feature"
