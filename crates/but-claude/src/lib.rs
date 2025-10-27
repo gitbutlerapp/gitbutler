@@ -73,6 +73,8 @@ pub enum ClaudeMessageContent {
 #[serde(rename_all = "camelCase")]
 pub struct FileAttachment {
     path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    commit_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -81,6 +83,8 @@ pub struct LinesAttachment {
     path: String,
     start: usize,
     end: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    commit_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

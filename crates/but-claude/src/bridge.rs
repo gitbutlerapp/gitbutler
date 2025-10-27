@@ -647,9 +647,15 @@ fn validate_attachment(attachment: &PromptAttachment) -> Result<()> {
     match attachment {
         PromptAttachment::File(file) => {
             validate_path(&file.path)?;
+            if let Some(commit_id) = &file.commit_id {
+                validate_commit_id(commit_id)?;
+            }
         }
         PromptAttachment::Lines(lines) => {
             validate_path(&lines.path)?;
+            if let Some(commit_id) = &lines.commit_id {
+                validate_commit_id(commit_id)?;
+            }
         }
         PromptAttachment::Commit(commit) => {
             validate_commit_id(&commit.commit_id)?;

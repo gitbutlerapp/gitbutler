@@ -20,9 +20,11 @@
 		if (attachment.type === 'commit') {
 			return `${attachment.commitId}`;
 		} else if (attachment.type === 'file') {
-			return `${attachment.path}`;
+			const commitInfo = attachment.commitId ? ` (from commit ${attachment.commitId})` : '';
+			return `${attachment.path}${commitInfo}`;
 		} else if (attachment.type === 'lines') {
-			return `Lines ${attachment.start}-${attachment.end} of ${attachment.path}`;
+			const commitInfo = attachment.commitId ? ` (from commit ${attachment.commitId})` : '';
+			return `Lines ${attachment.start}-${attachment.end}${attachment.path}${commitInfo}`;
 		}
 		return '';
 	}
@@ -47,6 +49,15 @@
 						<span class="path">
 							{splitFilePath(attachment.path).filename}
 						</span>
+
+						{#if attachment.commitId}
+							<Icon name="commit" color="var(--clr-text-3)" />
+							<Tooltip text={attachment.commitId}>
+								<span class="commit-badge">
+									#{attachment.commitId.slice(0, 6)}
+								</span>
+							</Tooltip>
+						{/if}
 					{/if}
 					<!-- LINES -->
 					{#if attachment.type === 'lines'}
@@ -61,6 +72,15 @@
 						<span>
 							{start}:{end}
 						</span>
+
+						{#if attachment.commitId}
+							<Icon name="commit" color="var(--clr-text-3)" />
+							<Tooltip text={attachment.commitId}>
+								<span class="commit-badge">
+									#{attachment.commitId.slice(0, 6)}
+								</span>
+							</Tooltip>
+						{/if}
 					{/if}
 				</div>
 			</Tooltip>
@@ -112,6 +132,11 @@
 		max-width: 400px;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.commit-badge {
+		color: var(--clr-text-3);
 		white-space: nowrap;
 	}
 

@@ -7,12 +7,14 @@ export type PromptAttachment = { branchName: string } & (
 	| {
 			type: 'file';
 			path: string;
+			commitId?: string;
 	  }
 	| {
 			type: 'lines';
 			path: string;
 			start: number;
 			end: number;
+			commitId?: string;
 	  }
 	| {
 			type: 'commit';
