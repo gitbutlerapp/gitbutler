@@ -152,18 +152,19 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             let project = get_or_init_project(&args.current_dir)?;
             let result = branch::handle(cmd, &project, args.json).await;
             metrics_if_configured(app_settings, CommandName::BranchNew, props(start, &result)).ok();
-            Ok(())
+            result
         }
         Subcommands::Worktree(worktree::Platform { cmd }) => {
             let project = get_or_init_project(&args.current_dir)?;
             let result = worktree::handle(cmd, &project, args.json);
             metrics_if_configured(app_settings, CommandName::Worktree, props(start, &result)).ok();
-            Ok(())
+            result
         }
         Subcommands::Log => {
             let project = get_or_init_project(&args.current_dir)?;
             let result = log::commit_graph(&project, args.json);
             metrics_if_configured(app_settings, CommandName::Log, props(start, &result)).ok();
+            result?;
             Ok(())
         }
         Subcommands::Status {
@@ -175,13 +176,13 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             let result =
                 status::worktree(&project, args.json, *show_files, *verbose, *review).await;
             metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
-            Ok(())
+            result
         }
         Subcommands::Stf { verbose, review } => {
             let project = get_or_init_project(&args.current_dir)?;
             let result = status::worktree(&project, args.json, true, *verbose, *review).await;
             metrics_if_configured(app_settings, CommandName::Stf, props(start, &result)).ok();
-            Ok(())
+            result
         }
         Subcommands::Rub { source, target } => {
             let project = get_or_init_project(&args.current_dir)?;
@@ -191,7 +192,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 eprintln!("{} {}", e, e.root_cause());
             }
             metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
-            Ok(())
+            result
         }
         Subcommands::Mark { target, delete } => {
             let project = get_or_init_project(&args.current_dir)?;
@@ -201,7 +202,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 eprintln!("{} {}", e, e.root_cause());
             }
             metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
-            Ok(())
+            result
         }
         Subcommands::Unmark => {
             let project = get_or_init_project(&args.current_dir)?;
@@ -211,7 +212,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 eprintln!("{} {}", e, e.root_cause());
             }
             metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
-            Ok(())
+            result
         }
         Subcommands::Commit {
             message,

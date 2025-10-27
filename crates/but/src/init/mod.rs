@@ -47,12 +47,13 @@ pub(crate) fn repo(repo_path: &Path, _json: bool, init_repo: bool) -> anyhow::Re
         )),
     }?;
     let target = but_api::virtual_branches::get_base_branch_data(project.id)?;
-    // If new or already exists but target is not set, set the target to be the the remote's HEAD
-    if matches!(outcome, gitbutler_project::AddProjectOutcome::Added(_))
+    // If new or already exists but target is not set, set the target to be the remote's HEAD
+    if (matches!(outcome, gitbutler_project::AddProjectOutcome::Added(_))
         || matches!(
             outcome,
             gitbutler_project::AddProjectOutcome::AlreadyExists(_)
-        ) && target.is_none()
+        ))
+        && target.is_none()
     {
         let remote_name = repo
             .remote_default_name(gix::remote::Direction::Push)
