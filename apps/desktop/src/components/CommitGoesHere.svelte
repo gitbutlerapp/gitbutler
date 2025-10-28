@@ -37,6 +37,7 @@
 		data-testid={TestId.CommitHereButton}
 		data-testid-commit-id={commitId}
 		class="commit-here"
+		class:commit-here_first={first}
 		class:commit-here_last={last}
 		type="button"
 		{onclick}
@@ -66,6 +67,11 @@
 		&.last {
 			border-top: 1px solid var(--clr-border-2);
 			border-bottom: none;
+		}
+
+		&.draft {
+			border: 1px solid var(--clr-border-2);
+			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		}
 	}
 	.pin {
@@ -118,6 +124,11 @@
 			& .commit-here__label {
 				transform: translateY(-50%) translateX(0) scale(1);
 				opacity: 1;
+			}
+
+			&.commit-here_first {
+				height: 30px;
+				margin-top: 0;
 			}
 
 			&.commit-here_last {
