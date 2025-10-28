@@ -1,11 +1,13 @@
 mod from_new_merge_with_metadata {
+    use crate::ref_info::with_workspace_commit::utils::{
+        named_read_only_in_memory_scenario, named_writable_scenario_with_description_and_graph,
+    };
     use bstr::ByteSlice;
-    use but_graph::init::Options;
+    use but_graph::init::{Options, Overlay};
     use but_testsupport::{visualize_commit_graph_all, visualize_tree};
     use but_workspace::WorkspaceCommit;
     use gix::prelude::ObjectIdExt;
-
-    use crate::ref_info::with_workspace_commit::utils::named_read_only_in_memory_scenario;
+    use gix::refs::Target;
 
     #[test]
     fn without_conflict_journey() -> anyhow::Result<()> {
@@ -240,9 +242,69 @@ mod from_new_merge_with_metadata {
 
     #[test]
     fn with_conflict_commits() -> anyhow::Result<()> {
-        let (repo, mut meta) = named_read_only_in_memory_scenario("with-conflict", "")?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"");
-        // but_testsupport::git(&repo)
+        let (_tmp, mut graph, repo, mut meta, _description) =
+            named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        * 8450331 (HEAD -> main, tag: conflicted) GitButler WIP Commit
+        * a047f81 (tag: normal) init
+        ");
+        but_testsupport::invoke_bash(
+            r#"
+            git branch tip-conflicted
+            git reset --hard @~1
+            git checkout -b unrelated
+                touch unrelated-file && git add unrelated-file && git commit -m "unrelated"
+            "#,
+            &repo,
+        );
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        * 8450331 (tag: conflicted, tip-conflicted) GitButler WIP Commit
+        | * 8ab1c4d (HEAD -> unrelated) unrelated
+        |/  
+        * a047f81 (tag: normal, main) init
+        ");
+
+        let stacks = ["tip-conflicted", "unrelated"];
+        add_stacks(&mut meta, stacks);
+
+        graph = graph.redo_traversal_with_overlay(
+            &repo,
+            &meta,
+            Overlay::default().with_references_if_new([
+                repo.find_reference("unrelated")?.inner,
+                // The workspace ref is needed so the workspace and its stacks are iterated as well.
+                // Algorithms which work with simulation also have to be mindful about this.
+                gix::refs::Reference {
+                    name: "refs/heads/gitbutler/workspace".try_into()?,
+                    target: Target::Object(repo.rev_parse_single("main")?.detach()),
+                    peeled: None,
+                },
+            ]),
+        )?;
+
+        let out =
+            WorkspaceCommit::from_new_merge_with_metadata(&to_stacks(stacks), &graph, &repo, None)?;
+        insta::assert_debug_snapshot!(out, @r#"
+        Outcome {
+            workspace_commit_id: Sha1(ed5a3012c6a4798404f5b8586588d0ede0664683),
+            stacks: [
+                Stack { tip: 8450331, name: "tip-conflicted" },
+                Stack { tip: 8ab1c4d, name: "unrelated" },
+            ],
+            missing_stacks: [],
+            conflicting_stacks: [],
+        }
+        "#);
+
+        // There it auto-resolves the commit to not merge the actual tree structure.
+        insta::assert_snapshot!(visualize_tree(
+            out.workspace_commit_id.attach(&repo).object()?.into_commit().tree_id()?
+        ), @r#"
+        8882acc
+        ├── file:100644:e69de29 ""
+        └── unrelated-file:100644:e69de29 ""
+        "#);
+
         Ok(())
     }
 

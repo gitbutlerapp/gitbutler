@@ -1,14 +1,14 @@
 //! Utilities for testing.
 #![deny(missing_docs)]
 
-use std::{collections::HashMap, path::Path};
-
 use gix::{
     Repository,
     bstr::{BStr, ByteSlice},
     config::tree::Key,
 };
 pub use gix_testtools;
+use std::io::Write;
+use std::{collections::HashMap, path::Path};
 
 mod in_memory_meta;
 pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
@@ -31,12 +31,39 @@ pub fn hunk_header(old: &str, new: &str) -> ((u32, u32), (u32, u32)) {
     (parse_header(old), parse_header(new))
 }
 
-/// While `gix` can't (or can't conveniently) do everything, let's make using `git` easier.
+/// While `gix` can't (or can't conveniently) do everything, let's make using `git` easier,
+/// by producing a command that is anchored to the `gix` repository.
+/// Call [`run()`](CommandExt::run) when done configuring its arguments.
 pub fn git(repo: &gix::Repository) -> std::process::Command {
     let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
     cmd.current_dir(repo.workdir().expect("non-bare"));
     isolate_env_std_cmd(&mut cmd);
     cmd
+}
+
+/// Run the given `script` in bash, with the `cwd` set to the `repo` worktree.
+/// Panic if the script fails.
+pub fn invoke_bash(script: &str, repo: &gix::Repository) {
+    let mut cmd = std::process::Command::new("bash");
+    cmd.current_dir(repo.workdir().expect("non-bare"));
+    isolate_env_std_cmd(&mut cmd);
+    cmd.stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    let mut child = cmd.spawn().expect("bash can be spawned");
+    child
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(script.as_bytes())
+        .expect("failed to write to stdin");
+    let out = child.wait_with_output().expect("can wait for output");
+    assert!(
+        out.status.success(),
+        "{cmd:?} failed: {}\n\n{}",
+        out.stdout.as_bstr(),
+        out.stderr.as_bstr()
+    );
 }
 
 /// Open a repository at `path` suitable for testing which means that:
