@@ -9,6 +9,7 @@ PWD="$(dirname "$(readlink -f -- "$0")")"
 CHANNEL=""
 DO_SIGN="false"
 VERSION=""
+TARGET="${CARGO_BUILD_TARGET:-}"
 
 function help() {
 	local to
@@ -56,6 +57,22 @@ function os() {
 
 function arch() {
 	local arch
+
+	# If TARGET is specified, extract architecture from it
+	if [ -n "${TARGET:-}" ]; then
+		case "$TARGET" in
+		*aarch64* | *arm64*)
+			echo "aarch64"
+			return
+			;;
+		*x86_64* | *amd64*)
+			echo "x86_64"
+			return
+			;;
+		esac
+	fi
+
+	# Otherwise, detect from system
 	arch="$(uname -m)"
 	case "$arch" in
 	arm64 | aarch64)
@@ -109,6 +126,9 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+# Recalculate ARCH after TARGET is set
+ARCH="$(arch)"
+
 [ -z "${VERSION-}" ] && error "--version is not set"
 
 [ -z "${TAURI_SIGNING_PRIVATE_KEY-}" ] && error "$TAURI_SIGNING_PRIVATE_KEY is not set"
@@ -151,6 +171,7 @@ info "	os: $OS"
 info "	arch: $ARCH"
 info "	dist: $DIST"
 info "	sign: $DO_SIGN"
+info "	target: ${TARGET:-default}"
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' exit
@@ -173,13 +194,31 @@ fi
 export VERSION
 export CHANNEL
 
-# build the app with release config
-tauri build \
-	--verbose \
-	--features "$FEATURES" \
-	--config "$TMP_DIR/tauri.conf.json"
+# Build the app with release config
+if [ -n "$TARGET" ]; then
+	# Export TARGET for cargo to use
+	export CARGO_BUILD_TARGET="$TARGET"
 
-BUNDLE_DIR=$(readlink -f "$PWD/../target/release/bundle")
+	# Build with specified target
+	# Note: passing --target is necessary to let tauri find the binaries,
+	# it ignores CARGO_BUILD_TARGET and is more of a hack.
+	tauri build \
+		--verbose \
+		--features "$FEATURES" \
+		--config "$TMP_DIR/tauri.conf.json" \
+		--target "$TARGET"
+
+  BUNDLE_DIR=$(readlink -f "$PWD/../target/$TARGET/release/bundle")
+else
+	# Build with default target
+	tauri build \
+		--verbose \
+		--features "$FEATURES" \
+		--config "$TMP_DIR/tauri.conf.json"
+
+	BUNDLE_DIR=$(readlink -f "$PWD/../target/release/bundle")
+fi
+
 RELEASE_DIR="$DIST/$OS/$ARCH"
 mkdir -p "$RELEASE_DIR"
 

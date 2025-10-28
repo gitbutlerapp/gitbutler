@@ -91,11 +91,15 @@ jobs:
       fail-fast: false
       matrix:
         # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-private-repositories
-        platform:
-          - macos-13 # [macOs, x64]
-          - macos-15 # [macOs, ARM64]
-          - ubuntu-24.04 # [linux, x64]
-          - windows-latest # [windows, x64]
+        include:
+          - platform: macos-15 # [macOs, ARM64] - default target
+            target: ''
+          - platform: macos-15 # [macOs, x64] - cross-compile
+            target: x86_64-apple-darwin
+          - platform: ubuntu-24.04 # [linux, x64]
+            target: ''
+          - platform: windows-latest # [windows, x64]
+            target: ''
 
     runs-on: ${{ matrix.platform }}
 
@@ -134,10 +138,17 @@ jobs:
       - uses: actions/checkout@v5
         with:
           token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
-      - name: Rust Cache
+      - name: Set Cargo build target to ${{ matrix.target }}
+        shell: bash
+        if: matrix.target != ''
+        run: |
+          echo "CARGO_BUILD_TARGET=${{ matrix.target }}" >> $GITHUB_ENV
+          rustup target add ${{ matrix.target }}
+      # The cache doesn't pick up the environment variable set above, so we have to set it ourselves.
+      - name: Rust Cache ${{ matrix.target }}
         uses: Swatinem/rust-cache@v2.8.1
         with:
-          shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}
+          shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
 
@@ -218,10 +229,19 @@ jobs:
           APPIMAGE_KEY_PASSPHRASE: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
 
+      - name: Set artifact name suffix
+        shell: bash
+        run: |
+          # Only add suffix for macOS x86_64 to distinguish from ARM64
+          if [ "${{ matrix.target }}" = "x86_64-apple-darwin" ]; then
+            echo "artifact_suffix=-x86_64" >> $GITHUB_ENV
+          else
+            echo "artifact_suffix=" >> $GITHUB_ENV
+          fi
       - name: Upload Artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: '${{ env.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          name: '${{ env.channel }}-${{ matrix.platform }}${{ env.artifact_suffix }}-${{ github.run_number }}'
           path: release/
           if-no-files-found: error
 
@@ -329,19 +349,32 @@ jobs:
       fail-fast: false
       matrix:
         # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-private-repositories
-        platform:
-          - macos-13 # [macOs, x64]
-          - macos-15 # [macOs, ARM64]
-          - ubuntu-24.04 # [linux, x64]
-          - windows-latest # [windows, x64]
+        include:
+          - platform: macos-15 # [macOs, ARM64] - default target
+            target: ''
+          - platform: macos-15 # [macOs, x64] - cross-compile
+            target: x86_64-apple-darwin
+          - platform: ubuntu-24.04 # [linux, x64]
+            target: ''
+          - platform: windows-latest # [windows, x64]
+            target: ''
     steps:
       - uses: actions/checkout@v5
         with:
           token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
+      - name: Set artifact name suffix
+        shell: bash
+        run: |
+          # Only add suffix for macOS x86_64 to distinguish from ARM64
+          if [ "${{ matrix.target }}" = "x86_64-apple-darwin" ]; then
+            echo "artifact_suffix=-x86_64" >> $GITHUB_ENV
+          else
+            echo "artifact_suffix=" >> $GITHUB_ENV
+          fi
       - name: Download artifacts
         uses: actions/download-artifact@v6
         with:
-          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}${{ env.artifact_suffix }}-${{ github.run_number }}'
           path: release
       - name: Extract version
         shell: bash
