@@ -48,6 +48,7 @@
 		lastBranch: boolean;
 		branchDetails: BranchDetails;
 		stackingReorderDropzoneManager: ReorderCommitDzFactory;
+		roundedTop?: boolean;
 		active?: boolean;
 
 		handleUncommit: (commitId: string, branchName: string) => Promise<void>;
@@ -63,6 +64,7 @@
 		branchDetails,
 		lastBranch,
 		stackingReorderDropzoneManager,
+		roundedTop,
 		active,
 		handleUncommit,
 		startEditingCommitMessage,
@@ -245,7 +247,11 @@
 		{@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))}
 
 		{#if hasCommits || hasRemoteCommits}
-			<div class="commit-list hide-when-empty" use:focusable={{ vertical: true }}>
+			<div
+				class="commit-list hide-when-empty"
+				class:rounded={roundedTop}
+				use:focusable={{ vertical: true }}
+			>
 				{#if hasRemoteCommits}
 					{#each upstreamOnlyCommits as commit, i (commit.id)}
 						{@const first = i === 0}
@@ -457,7 +463,13 @@
 		display: flex;
 		position: relative;
 		flex-direction: column;
-		border-top: 1px solid var(--clr-border-2);
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+
+		&.rounded {
+			border-radius: var(--radius-ml);
+		}
 	}
 
 	.uppstream-integration-actions {

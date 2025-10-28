@@ -199,6 +199,7 @@
 		width: 100%;
 		overflow: hidden;
 		outline: none;
+		background-color: var(--clr-bg-1);
 		transition: background-color var(--transition-fast);
 
 		&:hover,

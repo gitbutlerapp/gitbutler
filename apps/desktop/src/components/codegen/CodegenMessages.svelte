@@ -13,6 +13,7 @@
 	import CodegenPromptConfigModal from '$components/codegen/CodegenPromptConfigModal.svelte';
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
+	import CodegenTodoAccordion from '$components/codegen/CodegenTodoAccordion.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
@@ -22,7 +23,8 @@
 		thinkingOrCompactingStartedAt,
 		userFeedbackStatus,
 		usageStats,
-		formatMessages
+		formatMessages,
+		getTodos
 	} from '$lib/codegen/messages';
 
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
@@ -220,7 +222,6 @@
 	});
 
 	const initialPrompt = $state.snapshot(messageSender.prompt);
-	let attachmentInputRef = $state<HTMLInputElement>();
 
 	async function sendMessage(prompt: string) {
 		await messageSender.sendMessage(prompt, attachments);
@@ -357,10 +358,12 @@
 					{/if}
 
 					<Tooltip text="{contextUsage}% context used">
-						<div
-							class="context-utilization-piechart"
-							style="--context-utilization: {contextUsage}%"
-						></div>
+						<div class="context-utilization-scale" style="--context-utilization: {contextUsage}">
+							<svg viewBox="0 0 17 17">
+								<circle class="bg-circle" cx="8.5" cy="8.5" r="6.5" />
+								<circle class="progress-circle" cx="8.5" cy="8.5" r="6.5" />
+							</svg>
+						</div>
 					</Tooltip>
 
 					<KebabButton
@@ -436,6 +439,11 @@
 			{/snippet}
 
 			{#snippet messages()}
+				{@const todos = getTodos(events)}
+				{#if todos.length > 0}
+					<CodegenTodoAccordion {todos} />
+				{/if}
+
 				{#if formattedMessages.length === 0}
 					<div class="chat-view__placeholder">
 						<EmptyStatePlaceholder
@@ -511,14 +519,6 @@
 							)?.label}
 
 							<div class="flex m-right-4 gap-2">
-								<Button
-									kind="ghost"
-									icon="attachment"
-									reversedDirection
-									onclick={() => attachmentInputRef?.click()}
-									tooltip="Attach files"
-									disabled={['running', 'compacting'].includes(status)}
-								/>
 								<Button
 									bind:el={templateTrigger}
 									kind="ghost"
@@ -754,25 +754,32 @@
 		padding: 0 32px;
 	}
 
-	.context-utilization-piechart {
+	.context-utilization-scale {
 		position: relative;
 		width: 17px;
 		height: 17px;
-		border: 0.094rem solid var(--clr-text-2);
-		border-radius: 50%;
+		transform: rotate(-90deg);
 
-		&::after {
-			position: absolute;
-			top: 2px;
-			left: 2px;
-			width: calc(100% - 4px);
-			height: calc(100% - 4px);
-			border-radius: 50%;
-			background: conic-gradient(
-				var(--clr-text-2) var(--context-utilization),
-				transparent var(--context-utilization)
-			);
-			content: '';
+		& svg {
+			width: 100%;
+			height: 100%;
+		}
+
+		& circle {
+			fill: none;
+			stroke-width: 2;
+			stroke-linecap: round;
+		}
+
+		& .bg-circle {
+			stroke: color-mix(in srgb, var(--clr-text-2), transparent 85%);
+		}
+
+		& .progress-circle {
+			stroke: var(--clr-text-2);
+			stroke-dasharray: calc(3.14159 * 13);
+			stroke-dashoffset: calc(3.14159 * 13 * (1 - var(--context-utilization) / 100));
+			transition: stroke-dashoffset 0.3s ease;
 		}
 	}
 

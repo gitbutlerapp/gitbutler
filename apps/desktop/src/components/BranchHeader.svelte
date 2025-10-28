@@ -35,6 +35,7 @@
 		lineColor: string;
 		conflicts?: boolean;
 		iconName: keyof typeof iconsJson;
+		roundedBottom?: boolean;
 		onclick?: () => void;
 		updateBranchName: (name: string) => void;
 		isUpdatingName: boolean;
@@ -59,6 +60,7 @@
 		lineColor,
 		conflicts,
 		iconName,
+		roundedBottom,
 		onclick,
 		updateBranchName,
 		emptyState,
@@ -109,6 +111,7 @@
 		class:selected
 		class:active
 		class:draft
+		class:rounded={!actionsVisible && roundedBottom}
 		class:commiting={isCommitting}
 		{onclick}
 		onkeypress={onclick}
@@ -158,7 +161,13 @@
 	</div>
 
 	{#if actionsVisible}
-		<div class="branch-hedaer__actions-row" class:draft class:new-branch={isEmpty} data-no-drag>
+		<div
+			class="branch-hedaer__actions-row"
+			class:draft
+			class:new-branch={isEmpty}
+			data-no-drag
+			class:rounded={roundedBottom}
+		>
 			{#if buttons}
 				<div class="text-12 branch-header__actions">
 					{@render buttons()}
@@ -174,9 +183,6 @@
 </div>
 
 <style lang="postcss">
-	.header-wrapper {
-	}
-
 	.branch-header {
 		--branch-selected-bg: var(--clr-bg-1);
 		--branch-selected-element-bg: var(--clr-selected-not-in-focus-element);
@@ -189,6 +195,9 @@
 		padding-right: 12px;
 		padding-left: 12px;
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-bottom: none;
+		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 		background-color: var(--branch-selected-bg);
 
 		/* Selected but NOT in focus */
@@ -205,6 +214,11 @@
 		&.active.selected {
 			--branch-selected-bg: var(--clr-selected-in-focus-bg);
 			--branch-selected-element-bg: var(--clr-selected-in-focus-element);
+		}
+
+		&.rounded {
+			border-bottom: 1px solid var(--clr-border-2);
+			border-radius: var(--radius-ml);
 		}
 	}
 
@@ -280,12 +294,18 @@
 		padding: 10px;
 		gap: 10px;
 		border-top: 1px solid var(--clr-border-2);
-		/* border-bottom: 1px solid var(--clr-border-2); */
+		border-right: 1px solid var(--clr-border-2);
+		border-left: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
 
 		/* MODIFIERS */
 		&.new-branch {
 			border-bottom: none;
+		}
+
+		&.rounded {
+			border-bottom: 1px solid var(--clr-border-2);
+			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		}
 	}
 

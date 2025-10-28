@@ -9,14 +9,13 @@
 		CodegenFileDropHandler,
 		CodegenHunkDropHandler
 	} from '$lib/codegen/dropzone';
-	import { extractLastMessage, usageStats, lastInteractionTime } from '$lib/codegen/messages';
+	import { extractLastMessage, getTodos } from '$lib/codegen/messages';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { formatNumber } from '$lib/utils/number';
 	import { truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/core/context';
-	import { Icon, TimeAgo, Tooltip } from '@gitbutler/ui';
+	import { Icon } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { slide, fade } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 	import type { ClaudeStatus, PromptAttachment } from '$lib/codegen/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
@@ -39,7 +38,7 @@
 	let active = $state(false);
 
 	function getCurrentIconName(): keyof typeof iconsJson {
-		if (status === 'running') {
+		if (status === 'running' || status === 'compacting') {
 			return 'spinner';
 		}
 		return 'ai';
@@ -91,31 +90,19 @@
 			{#snippet children(messages)}
 				{@const lastMessage = extractLastMessage(messages)}
 				{@const lastSummary = lastMessage ? truncate(lastMessage, 360, 8) : undefined}
-				{@const usage = usageStats(messages)}
-				{@const lastTime = lastInteractionTime(messages)}
+				{@const todos = getTodos(messages)}
+				{@const completedCount = todos.filter((t) => t.status === 'completed').length}
+				{@const totalCount = todos.length}
 
-				<div class="codegen-row__header">
-					<div class="codegen-row__header-icon">
-						<Icon name={getCurrentIconName()} size={14} />
-					</div>
-					<h3 class="text-13 text-semibold truncate">{lastSummary}</h3>
-				</div>
+				<Icon name={getCurrentIconName()} color="var(--clr-theme-purp-element)" />
+				<h3 class="text-13 text-semibold truncate codegen-row__title">{lastSummary}</h3>
 
-				{#if usage.tokens || usage.cost}
-					<div class="codegen-row__metadata text-12" in:fade={{ duration: 150 }}>
-						<Tooltip text="Total tokens used and cost">
-							<p>{formatNumber(usage.tokens)}</p>
-							<div class="metadata-divider">|</div>
-							<p>${formatNumber(usage.cost, 2)}</p>
-						</Tooltip>
+				{#if totalCount > 1}
+					<span class="text-12 codegen-row__todos">Todos ({completedCount}/{totalCount})</span>
 
-						{#if lastTime}
-							<div class="metadata-divider">•</div>
-							<p class="last-interaction-time">
-								<TimeAgo date={lastTime} addSuffix />
-							</p>
-						{/if}
-					</div>
+					{#if completedCount === totalCount}
+						<Icon name="success-outline" color="success" />
+					{/if}
 				{/if}
 			{/snippet}
 		</ReduxResult>
@@ -126,56 +113,35 @@
 	.codegen-row {
 		display: flex;
 		position: relative;
-		flex-direction: column;
 		width: 100%;
 		padding: 12px;
+		padding-left: 14px;
 		gap: 8px;
-		border-top: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-theme-purp-bg);
+		text-align: left;
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-1-muted);
-		}
-
-		/* Selected but NOT in focus */
-		&:focus-within,
-		&:not(:focus-within).selected {
-			background-color: var(--clr-selected-not-in-focus-bg);
+			background-color: var(--clr-theme-purp-bg-muted);
 		}
 
 		/* Selected in focus */
 		&.active.selected {
-			background-color: var(--clr-selected-in-focus-bg);
+			background-color: var(--clr-theme-purp-bg-muted);
 		}
 	}
 
-	.codegen-row__header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
+	.codegen-row__title {
+		flex: 1;
+		color: var(--clr-theme-purp-on-soft);
 	}
 
-	.codegen-row__header-icon {
-		display: flex;
+	.codegen-row__todos {
 		flex-shrink: 0;
-		align-items: center;
-		justify-content: center;
-		width: 20px;
-		height: 20px;
-		border-radius: 20px;
-		background: linear-gradient(180deg, #314579 0%, #b069ce 77.5%);
-		color: #fff;
-	}
-
-	.codegen-row__metadata {
-		display: flex;
-		gap: 6px;
-		color: var(--clr-text-2);
-	}
-
-	.metadata-divider {
-		color: var(--clr-text-3);
+		color: var(--clr-theme-purp-on-soft);
+		opacity: 0.7;
 	}
 
 	.indicator {
@@ -183,14 +149,14 @@
 		top: 50%;
 		left: 0;
 		width: 4px;
-		height: calc(100% - 28px);
+		height: 45%;
 		transform: translateY(-50%);
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-		background-color: var(--clr-selected-not-in-focus-element);
+		background-color: var(--clr-theme-purp-element);
 		transition: transform var(--transition-fast);
 
 		&.active {
-			background-color: var(--clr-selected-in-focus-element);
+			background-color: var(--clr-theme-purp-element);
 		}
 	}
 </style>

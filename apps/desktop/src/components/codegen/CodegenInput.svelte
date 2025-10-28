@@ -228,6 +228,7 @@
 				styleContext="chat-input"
 				placeholder="{randomPlaceholder} Use @ to reference files…"
 				minHeight="4rem"
+				maxHeight="20rem"
 				onError={(e: unknown) => console.warn('Editor error', e)}
 				initialText={value}
 				{onChange}
