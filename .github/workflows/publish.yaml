@@ -69,13 +69,13 @@ jobs:
         run: pnpm build:desktop -- --mode ${{ env.vitemode }}
         env:
           SENTRY_RELEASE: ${{ env.version }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         name: Upload pnpm-store contents
         with:
           name: pnpm-store
           path: /home/runner/setup-pnpm/node_modules/.bin/store/v3
           retention-days: 7
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         name: Upload SvelteKit build output
         with:
           name: sveltekit-build
@@ -219,7 +219,7 @@ jobs:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: '${{ env.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release/
@@ -234,7 +234,7 @@ jobs:
           cp target/release/gitbutler-git-askpass.exe tauri-aux-artifacts/
 
       - name: Upload Windows Aux Binary Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: runner.os == 'Windows'
         with:
           name: '${{ env.channel }}-windows-aux-${{ github.run_number }}'
@@ -264,7 +264,7 @@ jobs:
         env:
           EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
       - name: Upload signed artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release/
@@ -313,7 +313,7 @@ jobs:
         run: |
           Compress-Archive -Force -Path "release/${{ steps.set-path.outputs.msi_file }}" -DestinationPath "release/${{ steps.set-path.outputs.msi_file }}.zip"
       - name: Upload re-signed artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release/
