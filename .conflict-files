@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/components/codegen/FileSearch.svelte"]
+ourEntries = ["apps/desktop/src/components/codegen/FileSearch.svelte"]
+theirEntries = ["apps/desktop/src/components/codegen/FileSearch.svelte"]

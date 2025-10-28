@@ -1,0 +1,25 @@
+[package]
+name = "but-secret"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+autotests = false
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+tracing.workspace = true
+serde.workspace = true
+gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
+gitbutler-error.workspace = true
+keyring.workspace = true
+
+[[test]]
+name="secret"
+path = "tests/mod.rs"
+
+[dev-dependencies]
