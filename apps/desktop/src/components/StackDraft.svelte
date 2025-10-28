@@ -56,7 +56,7 @@
 							lineColor="var(--clr-commit-local)"
 						>
 							{#snippet branchContent()}
-								<CommitGoesHere commitId={undefined} selected last />
+								<CommitGoesHere commitId={undefined} selected draft />
 							{/snippet}
 						</BranchCard>
 					{/snippet}
