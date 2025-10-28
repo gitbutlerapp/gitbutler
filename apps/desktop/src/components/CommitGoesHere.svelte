@@ -159,7 +159,7 @@
 		top: 50%;
 		left: 38px;
 		padding: 3px 6px;
-		transform: translateY(-50%) translateX(-10%) scale(0.95);
+		transform: translateY(-50%) translateX(10%) scale(0.95);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-theme-pop-element);
 		color: var(--clr-core-ntrl-100);
