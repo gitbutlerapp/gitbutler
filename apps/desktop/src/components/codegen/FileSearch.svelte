@@ -38,8 +38,7 @@
 				active={i === indexOfSelectedFile}
 			/>
 		{:else}
-			<!-- EMPTY STATE, SHOULD BE DESIGN VETTED -->
-			<div class="p-12 text-12">No files found</div>
+			<div class="p-12 p-l-16 text-12 clr-text-3">No files found ¯\_(ツ)_/¯</div>
 		{/each}
 	</div>
 {/if}
