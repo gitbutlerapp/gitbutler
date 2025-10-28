@@ -220,7 +220,6 @@
 	});
 
 	const initialPrompt = $state.snapshot(messageSender.prompt);
-	let attachmentInputRef = $state<HTMLInputElement>();
 
 	async function sendMessage(prompt: string) {
 		await messageSender.sendMessage(prompt, attachments);
@@ -511,14 +510,6 @@
 							)?.label}
 
 							<div class="flex m-right-4 gap-2">
-								<Button
-									kind="ghost"
-									icon="attachment"
-									reversedDirection
-									onclick={() => attachmentInputRef?.click()}
-									tooltip="Attach files"
-									disabled={['running', 'compacting'].includes(status)}
-								/>
 								<Button
 									bind:el={templateTrigger}
 									kind="ghost"
