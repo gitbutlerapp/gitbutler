@@ -8,21 +8,10 @@
 		isFirstBranchInStack?: boolean;
 		onPush: (gerritFlags: import('$lib/stacks/stack').GerritPushFlag[]) => void;
 	};
-
-	type PushMode = 'normal' | 'gerrit';
-	type GerritFlagType = 'topic' | 'hashtag' | 'wip' | 'ready';
 </script>
 
 <script lang="ts">
-	import {
-		Button,
-		Modal,
-		RadioButton,
-		SectionCard,
-		Select,
-		SelectItem,
-		Textbox
-	} from '@gitbutler/ui';
+	import { Button, Modal, SectionCard, Select, SelectItem, Textbox, Toggle } from '@gitbutler/ui';
 	import type { GerritPushFlag } from '$lib/stacks/stack';
 
 	const {
@@ -36,61 +25,100 @@
 	}: GerritPushModalProps = $props();
 
 	let modal = $state<Modal>();
-	let pushMode = $state<PushMode>('normal');
-	let selectedGerritFlag = $state<GerritFlagType>('topic');
-	let customValue = $state(branchName);
 
-	const gerritFlagOptions = [
-		{ label: 'Topic', value: 'topic' as GerritFlagType },
-		{ label: 'Hashtag', value: 'hashtag' as GerritFlagType },
-		{ label: 'Work in Progress', value: 'wip' as GerritFlagType },
-		{ label: 'Ready for Review', value: 'ready' as GerritFlagType }
-	];
+	// Status section - WIP or Ready (default Ready)
+	let status = $state<'wip' | 'ready'>('ready');
 
-	// Validate input to allow only alphanumeric characters and dashes
-	function validateInput(value: string): string {
-		return value.replace(/[^a-zA-Z0-9-]/g, '');
+	// Topic section
+	let topicValue = $state(branchName);
+
+	// Tags section
+	let committedTags = $state<string[]>([]);
+	let currentTagInput = $state('');
+
+	// Private section
+	let isPrivate = $state(false);
+
+	// Commit current input as a tag
+	function commitCurrentTag() {
+		const trimmed = validateTagInput(currentTagInput.trim());
+		if (trimmed && !committedTags.includes(trimmed)) {
+			committedTags = [...committedTags, trimmed];
+			currentTagInput = '';
+		}
 	}
 
-	function handleCustomValueInput(value: string) {
-		customValue = validateInput(value);
+	// Handle keyboard input for tags
+	function handleTagKeydown(event: KeyboardEvent) {
+		if (event.key === ' ' || event.key === 'Enter' || event.key === ',') {
+			event.preventDefault();
+			commitCurrentTag();
+		} else if (event.key === 'Backspace' && currentTagInput === '' && committedTags.length > 0) {
+			// Remove last tag if backspace pressed on empty input
+			committedTags = committedTags.slice(0, -1);
+		}
 	}
 
-	function buildGerritFlag(): GerritPushFlag | undefined {
-		if (pushMode === 'normal') {
-			return undefined;
+	// Validate topic input to allow only alphanumeric characters, dashes, and underscores
+	function validateTopicInput(value: string): string {
+		return value.replace(/[^a-zA-Z0-9-_]/g, '');
+	}
+
+	// Validate tag input to allow alphanumeric characters, dashes, and underscores
+	function validateTagInput(value: string): string {
+		return value.replace(/[^a-zA-Z0-9-_]/g, '');
+	}
+
+	function handleTopicInput(value: string) {
+		topicValue = validateTopicInput(value);
+	}
+
+	function handleTagInput(event: Event) {
+		const target = event.target as HTMLInputElement;
+		currentTagInput = target.value;
+	}
+
+	function buildGerritFlags(): GerritPushFlag[] {
+		const flags: GerritPushFlag[] = [];
+
+		// Always include status (wip or ready)
+		flags.push({ type: status });
+
+		// Include topic if has value
+		if (topicValue.trim()) {
+			flags.push({ type: 'topic', subject: topicValue.trim() });
 		}
 
-		switch (selectedGerritFlag) {
-			case 'wip':
-				return { type: 'wip' };
-			case 'ready':
-				return { type: 'ready' };
-			case 'hashtag':
-				return customValue.trim() ? { type: 'hashtag', subject: customValue.trim() } : undefined;
-			case 'topic':
-				return customValue.trim() ? { type: 'topic', subject: customValue.trim() } : undefined;
+		// Include hashtags if has values
+		committedTags.forEach((tag) => {
+			flags.push({ type: 'hashtag', subject: tag });
+		});
+
+		// Include private if enabled
+		if (isPrivate) {
+			flags.push({ type: 'private' });
 		}
+
+		return flags;
 	}
 
 	function handlePush() {
-		const gerritFlag = buildGerritFlag();
-		onPush(gerritFlag ? [gerritFlag] : []);
+		// Commit any remaining input as a tag before building flags
+		commitCurrentTag();
+		const flags = buildGerritFlags();
+		onPush(flags);
 		modal?.close();
 	}
 
-	const needsCustomValue = $derived(
-		selectedGerritFlag === 'topic' || selectedGerritFlag === 'hashtag'
-	);
-	const canPush = $derived(
-		pushMode === 'normal' || !needsCustomValue || customValue.trim().length > 0
-	);
+	const canPush = $derived(true);
 
 	export function show() {
 		// Reset form state
-		pushMode = 'normal';
-		selectedGerritFlag = 'topic';
-		customValue = branchName;
+		status = 'ready';
+		topicValue = branchName;
+		committedTags = [];
+		currentTagInput = '';
+		isPrivate = false;
 		modal?.show();
 	}
 
@@ -101,96 +129,101 @@
 
 <Modal bind:this={modal} title="Gerrit Push Options" width="medium" onSubmit={() => handlePush()}>
 	<div class="gerrit-push-modal">
-		<p class="description text-12 text-body">Choose wether to include additional push options.</p>
-
 		<div class="push-options">
-			<!-- Normal Push Section -->
-			<SectionCard
-				clickable
-				orientation="row"
-				labelFor="push-mode-normal"
-				onclick={() => (pushMode = 'normal')}
-				roundedBottom={false}
-			>
+			<!-- Status Section -->
+			<SectionCard orientation="row" centerAlign>
 				{#snippet title()}
-					No extra push options
-				{/snippet}
-				{#snippet caption()}
-					GitButler will push without adding any additional options.
+					Status
 				{/snippet}
 				{#snippet actions()}
-					<RadioButton
-						name="pushMode"
-						value="normal"
-						id="push-mode-normal"
-						checked={pushMode === 'normal'}
-					/>
+					<Select
+						value={status}
+						options={[
+							{ label: 'Ready for review', value: 'ready' },
+							{ label: 'Work in progress', value: 'wip' }
+						]}
+						onselect={(value) => {
+							status = value as 'ready' | 'wip';
+						}}
+					>
+						{#snippet itemSnippet({ item, highlighted })}
+							<SelectItem selected={item.value === status} {highlighted}>
+								{item.label}
+							</SelectItem>
+						{/snippet}
+					</Select>
 				{/snippet}
 			</SectionCard>
 
-			<!-- Gerrit Flags Section -->
-			<SectionCard
-				clickable
-				orientation="column"
-				labelFor="push-mode-gerrit"
-				onclick={() => (pushMode = 'gerrit')}
-				roundedTop={false}
-			>
+			<!-- Topic Section -->
+			<SectionCard orientation="row" centerAlign>
 				{#snippet title()}
-					<div class="gerrit-section-header">
-						<span class="gerrit-title">Include Push options</span>
-						<RadioButton
-							name="pushMode"
-							value="gerrit"
-							id="push-mode-gerrit"
-							checked={pushMode === 'gerrit'}
+					Topic
+				{/snippet}
+				{#snippet actions()}
+					<div class="topic-input-container">
+						<Textbox
+							bind:value={topicValue}
+							oninput={handleTopicInput}
+							placeholder="Enter topic name"
+							wide
 						/>
 					</div>
 				{/snippet}
-				{#snippet caption()}
-					Include additional push options (e.g. the equivalent of <code>%wip</code>,
-					<code>%topic=foo</code> etc.).
-				{/snippet}
-				<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
-				{#snippet actions()}
-					{#if pushMode === 'gerrit'}
-						<div class="gerrit-options">
-							<div class="gerrit-options-row">
-								<div class="gerrit-flag-select">
-									<Select
-										value={selectedGerritFlag}
-										options={gerritFlagOptions}
-										wide
-										label="Push option"
-										onselect={(value) => {
-											selectedGerritFlag = value as GerritFlagType;
-											// Reset custom value when changing flag type
-											customValue = branchName;
-										}}
-									>
-										{#snippet itemSnippet({ item, highlighted })}
-											<SelectItem selected={item.value === selectedGerritFlag} {highlighted}>
-												{item.label}
-											</SelectItem>
-										{/snippet}
-									</Select>
-								</div>
+			</SectionCard>
 
-								{#if needsCustomValue}
-									<div class="gerrit-input-field">
-										<Textbox
-											label="Value"
-											bind:value={customValue}
-											oninput={handleCustomValueInput}
-											placeholder={`Enter ${selectedGerritFlag}`}
-											autofocus
-											wide
-										/>
-									</div>
-								{/if}
-							</div>
+			<!-- Tags Section -->
+			<SectionCard orientation="row" centerAlign>
+				{#snippet title()}
+					Tags
+				{/snippet}
+				{#snippet actions()}
+					<div class="tags-input-container">
+						<div
+							class="tags-input-field"
+							role="textbox"
+							tabindex="0"
+							onclick={(e) => {
+								const input = e.currentTarget.querySelector('.tags-input') as HTMLInputElement;
+								if (input) input.focus();
+							}}
+							onkeydown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									const input = e.currentTarget.querySelector('.tags-input') as HTMLInputElement;
+									if (input) input.focus();
+								}
+							}}
+						>
+							{#each committedTags as tag}
+								<span class="tag-pill-inline">{tag}</span>
+							{/each}
+							<input
+								class="tags-input"
+								type="text"
+								bind:value={currentTagInput}
+								oninput={handleTagInput}
+								onkeydown={handleTagKeydown}
+								onblur={commitCurrentTag}
+								placeholder={committedTags.length === 0 && currentTagInput === ''
+									? 'Enter tags (space or comma to separate)'
+									: ''}
+							/>
 						</div>
-					{/if}
+					</div>
+				{/snippet}
+			</SectionCard>
+
+			<!-- Private Section -->
+			<SectionCard labelFor="private-toggle" orientation="row">
+				{#snippet title()}
+					Mark as private
+				{/snippet}
+				{#snippet actions()}
+					<Toggle
+						id="private-toggle"
+						checked={isPrivate}
+						onclick={() => (isPrivate = !isPrivate)}
+					/>
 				{/snippet}
 			</SectionCard>
 		</div>
@@ -206,6 +239,7 @@
 	.gerrit-push-modal {
 		display: flex;
 		flex-direction: column;
+		margin-top: 8px;
 		gap: 16px;
 	}
 
@@ -217,37 +251,71 @@
 	.push-options {
 		display: flex;
 		flex-direction: column;
-		gap: 0;
+		gap: 12px;
 	}
 
-	.gerrit-section-header {
+	.topic-input-container {
+		flex-shrink: 0;
+		width: 320px;
+	}
+
+	.tags-input-container {
+		flex-shrink: 0;
+		width: 320px;
+	}
+
+	.tags-input-field {
 		display: flex;
+		flex-wrap: nowrap;
 		align-items: center;
-		justify-content: space-between;
-		width: 100%;
+		height: 32px;
+		min-height: 32px;
+		padding: 5px 8px;
+		overflow-x: auto;
+		overflow-y: hidden;
+		gap: 3px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: 6px;
+		background: var(--clr-bg-1);
+		cursor: text;
 	}
 
-	.gerrit-title {
-		color: var(--clr-text-1);
-		font-weight: 600;
-		font-size: 15px;
+	.tags-input-field:hover {
+		border-color: var(--clr-border-3);
 	}
 
-	.gerrit-options {
+	.tags-input-field:focus-within {
+		border-color: var(--clr-border-2);
+		box-shadow: var(--focus-box-shadow);
+	}
+
+	.tag-pill-inline {
 		display: flex;
-		flex-direction: column;
-		margin-top: 12px;
-		gap: 12px;
+		flex-shrink: 0;
+		align-items: center;
+		height: 18px;
+		padding: 1px 4px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: 10px;
+		background: var(--clr-bg-2);
+		color: var(--clr-text-2);
+		font-size: 11px;
+		line-height: 1.2;
+		white-space: nowrap;
 	}
 
-	.gerrit-options-row {
-		display: flex;
-		align-items: end;
-		gap: 12px;
-	}
-
-	.gerrit-flag-select,
-	.gerrit-input-field {
+	.tags-input {
 		flex: 1;
+		flex-shrink: 0;
+		min-width: 120px;
+		border: none;
+		outline: none;
+		background: transparent;
+		color: var(--clr-text-1);
+		font-size: 13px;
+	}
+
+	.tags-input::placeholder {
+		color: var(--clr-text-3);
 	}
 </style>
