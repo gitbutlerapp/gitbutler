@@ -9,14 +9,13 @@
 		CodegenFileDropHandler,
 		CodegenHunkDropHandler
 	} from '$lib/codegen/dropzone';
-	import { extractLastMessage, usageStats, lastInteractionTime } from '$lib/codegen/messages';
+	import { extractLastMessage, getTodos } from '$lib/codegen/messages';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { formatNumber } from '$lib/utils/number';
 	import { truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/core/context';
-	import { Icon, TimeAgo, Tooltip } from '@gitbutler/ui';
+	import { Icon } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { slide, fade } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 	import type { ClaudeStatus, PromptAttachment } from '$lib/codegen/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
@@ -91,9 +90,20 @@
 			{#snippet children(messages)}
 				{@const lastMessage = extractLastMessage(messages)}
 				{@const lastSummary = lastMessage ? truncate(lastMessage, 360, 8) : undefined}
+				{@const todos = getTodos(messages)}
+				{@const completedCount = todos.filter((t) => t.status === 'completed').length}
+				{@const totalCount = todos.length}
 
 				<Icon name={getCurrentIconName()} color="var(--clr-theme-purp-element)" />
 				<h3 class="text-13 text-semibold truncate codegen-row__title">{lastSummary}</h3>
+
+				{#if totalCount > 1}
+					<span class="text-12 codegen-row__todos">Todos ({completedCount}/{totalCount})</span>
+
+					{#if completedCount === totalCount}
+						<Icon name="success-outline" color="success" />
+					{/if}
+				{/if}
 			{/snippet}
 		</ReduxResult>
 	</button>
@@ -110,6 +120,7 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-theme-purp-bg);
+		text-align: left;
 		transition: background-color var(--transition-fast);
 
 		&:hover {
@@ -123,7 +134,14 @@
 	}
 
 	.codegen-row__title {
+		flex: 1;
 		color: var(--clr-theme-purp-on-soft);
+	}
+
+	.codegen-row__todos {
+		flex-shrink: 0;
+		color: var(--clr-theme-purp-on-soft);
+		opacity: 0.7;
 	}
 
 	.indicator {

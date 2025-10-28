@@ -13,6 +13,7 @@
 	import CodegenPromptConfigModal from '$components/codegen/CodegenPromptConfigModal.svelte';
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
+	import CodegenTodoAccordion from '$components/codegen/CodegenTodoAccordion.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
@@ -22,7 +23,8 @@
 		thinkingOrCompactingStartedAt,
 		userFeedbackStatus,
 		usageStats,
-		formatMessages
+		formatMessages,
+		getTodos
 	} from '$lib/codegen/messages';
 
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
@@ -435,6 +437,11 @@
 			{/snippet}
 
 			{#snippet messages()}
+				{@const todos = getTodos(events)}
+				{#if todos.length > 0}
+					<CodegenTodoAccordion {todos} />
+				{/if}
+
 				{#if formattedMessages.length === 0}
 					<div class="chat-view__placeholder">
 						<EmptyStatePlaceholder
