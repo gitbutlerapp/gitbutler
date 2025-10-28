@@ -9,7 +9,7 @@ PWD="$(dirname "$(readlink -f -- "$0")")"
 CHANNEL=""
 DO_SIGN="false"
 VERSION=""
-TARGET=""
+TARGET="${CARGO_BUILD_TARGET:-}"
 
 function help() {
 	local to
@@ -22,7 +22,6 @@ function help() {
 	echo "	--dist												path to store artifacts in." 1>&"$to"
 	echo "	--sign												if set, will sign the app." 1>&"$to"
 	echo "	--channel											the channel to use for the release (release | nightly)." 1>&"$to"
-	echo "	--target											the rust target triple (e.g., aarch64-apple-darwin, x86_64-apple-darwin)." 1>&"$to"
 	echo "	--help												display this message." 1>&"$to"
 }
 
@@ -121,11 +120,6 @@ while [[ $# -gt 0 ]]; do
 		shift
 		shift
 		;;
-	--target)
-		TARGET="$2"
-		shift
-		shift
-		;;
 	*)
 		error "unknown flag $1"
 		;;
@@ -206,13 +200,15 @@ if [ -n "$TARGET" ]; then
 	export CARGO_BUILD_TARGET="$TARGET"
 
 	# Build with specified target
+	# Note: passing --target is necessary to let tauri find the binaries,
+	# it ignores CARGO_BUILD_TARGET and is more of a hack.
 	tauri build \
 		--verbose \
 		--features "$FEATURES" \
 		--config "$TMP_DIR/tauri.conf.json" \
 		--target "$TARGET"
 
-	BUNDLE_DIR=$(readlink -f "$PWD/../target/$TARGET/release/bundle")
+  BUNDLE_DIR=$(readlink -f "$PWD/../target/$TARGET/release/bundle")
 else
 	# Build with default target
 	tauri build \
@@ -222,6 +218,7 @@ else
 
 	BUNDLE_DIR=$(readlink -f "$PWD/../target/release/bundle")
 fi
+
 RELEASE_DIR="$DIST/$OS/$ARCH"
 mkdir -p "$RELEASE_DIR"
 
