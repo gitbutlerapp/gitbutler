@@ -38,9 +38,6 @@
 		display: flex;
 		position: relative;
 		flex-shrink: 0;
-		width: 16px;
-		height: 16px;
-		transform: translateY(0.156rem);
 		--icon-frame-color: color-mix(in srgb, var(--clr-text-1) 30%, transparent);
 		--icon-inner-color: color-mix(in srgb, var(--clr-text-1) 80%, transparent);
 
