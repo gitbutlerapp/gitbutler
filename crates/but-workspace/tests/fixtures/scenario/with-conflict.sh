@@ -3,7 +3,8 @@
 set -eu -o pipefail
 
 git init
-# A repository with a normal and an artificial conflicting commit
+echo "A repository with a normal and an artificial conflicting commit" >.git/description
+
 echo content >file && git add . && git commit -m "init"
 git tag normal
 

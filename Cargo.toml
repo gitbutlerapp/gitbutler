@@ -105,6 +105,7 @@ chrono = { version = "0.4.42", default-features = false, features = ["std"] }
 md5 = "0.8.0"
 bitflags = "2.9.4"
 notify = "8.2.0"
+snapbox = "0.6.22"
 
 [profile.release]
 # There are no overrides here as we optimise for fast release builds,

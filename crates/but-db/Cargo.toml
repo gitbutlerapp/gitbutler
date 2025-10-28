@@ -22,7 +22,7 @@ bitflags.workspace = true
 serde.workspace = true
 anyhow.workspace = true
 diesel_migrations = { version = "2.3.0", features = ["sqlite"] }
-chrono.workspace = true
+chrono = { workspace = true, features = ["serde"] }
 # other things
 tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot", "time", "sync", "macros"] }
 tracing.workspace = true

@@ -595,11 +595,10 @@ pub fn find(
 }
 
 /// Returns `([(workspace_tip, workspace_ref_name, workspace_info)], target_refs, desired_refs)` for all available workspace,
-/// or exactly one workspace if `maybe_ref_name`.
-/// already points to a workspace. That way we can discover the workspace containing any starting point, but only if needed.
+/// or exactly one workspace if `maybe_ref_name` has workspace metadata (and only then).
 ///
+/// That way we can discover the workspace containing any starting point, but only if needed.
 /// This means we process all workspaces if we aren't currently and clearly looking at a workspace.
-///
 /// Also prune all non-standard workspaces early, or those that don't have a tip.
 #[expect(clippy::type_complexity)]
 pub fn obtain_workspace_infos<T: RefMetadata>(
