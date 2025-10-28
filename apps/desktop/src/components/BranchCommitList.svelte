@@ -461,6 +461,7 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		background-color: var(--clr-bg-1);
 
 		&.rounded {
 			border-radius: var(--radius-ml);
