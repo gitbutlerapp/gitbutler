@@ -47,6 +47,7 @@
 		plugins?: Snippet;
 		placeholder?: string;
 		minHeight?: string;
+		maxHeight?: string;
 		value?: string;
 		onFocus?: () => void;
 		onBlur?: () => void;
@@ -68,6 +69,7 @@
 		markdown,
 		onError,
 		minHeight,
+		maxHeight,
 		styleContext,
 		plugins,
 		placeholder,
@@ -267,6 +269,7 @@
 		class:plain-text={!markdown}
 		class:disabled={isDisabled}
 		style:min-height={minHeight}
+		style:max-height={maxHeight}
 		style:--code-block-font={useMonospaceFont && monospaceFont
 			? monospaceFont
 			: 'var(--font-default)'}
