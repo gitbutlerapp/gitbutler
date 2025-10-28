@@ -202,7 +202,18 @@
 		files={fileSuggestions}
 	/>
 
-	<div class="text-input dialog-input" data-remove-from-panning>
+	<div
+		class="text-input dialog-input"
+		data-remove-from-panning
+		role="button"
+		tabindex="-1"
+		onclick={() => editorRef?.focus()}
+		onkeydown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				editorRef?.focus();
+			}
+		}}
+	>
 		<CodegenQueued {projectId} {stackId} {branchName} />
 
 		<Dropzone {handlers}>
@@ -246,7 +257,7 @@
 				{/snippet}
 			</RichTextEditor>
 
-			<div class="actions">
+			<div role="presentation" class="actions" onclick={(e) => e.stopPropagation()}>
 				<div class="actions-group">
 					{@render actionsOnLeft()}
 				</div>
@@ -343,6 +354,7 @@
 		flex-direction: column;
 		padding: 0;
 		overflow: hidden;
+		cursor: text;
 		transition: border-color var(--transition-fast);
 	}
 
