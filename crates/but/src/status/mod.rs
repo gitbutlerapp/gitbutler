@@ -400,12 +400,23 @@ fn print_commit(
         "".normal()
     };
 
-    let mut message = message
-        .replace('\n', " ")
-        .chars()
-        .take(50)
-        .collect::<String>()
-        .normal();
+    let mut message = if verbose {
+        message
+            .replace('\n', " ")
+            .chars()
+            .take(50)
+            .collect::<String>()
+    } else {
+        // For non-verbose mode, only use the first line (title)
+        message
+            .lines()
+            .next()
+            .unwrap_or("")
+            .chars()
+            .take(50)
+            .collect::<String>()
+    }
+    .normal();
     if message.is_empty() {
         message = "(no commit message)".to_string().dimmed().italic();
     }
