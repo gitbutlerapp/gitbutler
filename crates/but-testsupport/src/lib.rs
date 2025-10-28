@@ -35,6 +35,7 @@ pub fn hunk_header(old: &str, new: &str) -> ((u32, u32), (u32, u32)) {
 pub fn git(repo: &gix::Repository) -> std::process::Command {
     let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
     cmd.current_dir(repo.workdir().expect("non-bare"));
+    isolate_env_std_cmd(&mut cmd);
     cmd
 }
 
@@ -75,7 +76,7 @@ pub fn hex_to_id(hex: &str) -> gix::ObjectId {
 
 /// Sets and environment that assures commits are reproducible.
 /// This needs the `testing` feature enabled in `but-core` as well to work.
-/// This changes the process environment, be aware.
+/// **This changes the process environment, be aware.**
 pub fn assure_stable_env() {
     let env = gix_testtools::Env::new()
         // TODO(gix): once everything is ported, all these can be configured on `gix::Repository`.
@@ -319,3 +320,9 @@ pub fn debug_str(input: &dyn std::fmt::Debug) -> String {
 mod graph;
 
 pub use graph::{graph_tree, graph_workspace};
+
+mod prepare_cmd_env;
+pub use prepare_cmd_env::isolate_env_std_cmd;
+
+#[cfg(feature = "snapbox")]
+pub use prepare_cmd_env::isolate_snapbox_cmd;

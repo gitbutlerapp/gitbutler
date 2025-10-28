@@ -239,6 +239,14 @@ mod from_new_merge_with_metadata {
     }
 
     #[test]
+    fn with_conflict_commits() -> anyhow::Result<()> {
+        let (repo, mut meta) = named_read_only_in_memory_scenario("with-conflict", "")?;
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"");
+        // but_testsupport::git(&repo)
+        Ok(())
+    }
+
+    #[test]
     fn with_conflict_journey() -> anyhow::Result<()> {
         let (repo, mut meta) =
             named_read_only_in_memory_scenario("various-heads-for-merge-conflict", "")?;

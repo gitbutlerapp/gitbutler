@@ -9,6 +9,9 @@ rust-version = "1.89"
 [lib]
 doctest = false
 
+[features]
+snapbox = ["dep:snapbox"]
+
 [dependencies]
 gix.workspace = true
 anyhow.workspace = true
@@ -17,5 +20,6 @@ gix-testtools.workspace = true
 but-graph.workspace = true
 but-core.workspace = true
 regex = "1.11.3"
+snapbox = { workspace = true, optional = true }
 
 [dev-dependencies]

@@ -227,44 +227,7 @@ impl Sandbox {
     }
 
     fn with_updated_env(&self, cmd: snapbox::cmd::Command) -> snapbox::cmd::Command {
-        // Copied from gix-testtools/lib.rs, in an attempt to isolate everything as good as possible,
-        #[cfg(windows)]
-        const NULL_DEVICE: &str = "NUL";
-        #[cfg(not(windows))]
-        const NULL_DEVICE: &str = "/dev/null";
-
-        // particularly mutation.
-        let mut msys_for_git_bash_on_windows = env::var_os("MSYS").unwrap_or_default();
-        msys_for_git_bash_on_windows.push(" winsymlinks:nativestrict");
-        cmd.env_remove("GIT_DIR")
-            .env_remove("GIT_INDEX_FILE")
-            .env_remove("GIT_OBJECT_DIRECTORY")
-            .env_remove("GIT_ALTERNATE_OBJECT_DIRECTORIES")
-            .env_remove("GIT_WORK_TREE")
-            .env_remove("GIT_COMMON_DIR")
-            .env_remove("GIT_ASKPASS")
-            .env_remove("SSH_ASKPASS")
-            .env("MSYS", msys_for_git_bash_on_windows)
-            .env("GIT_CONFIG_NOSYSTEM", "1")
-            .env("GIT_CONFIG_GLOBAL", NULL_DEVICE)
-            .env("GIT_TERMINAL_PROMPT", "false")
-            .env("GIT_AUTHOR_DATE", "2000-01-01 00:00:00 +0000")
-            .env("GIT_AUTHOR_EMAIL", "author@example.com")
-            .env("GIT_AUTHOR_NAME", "author")
-            .env("GIT_COMMITTER_DATE", "2000-01-02 00:00:00 +0000")
-            .env("GIT_COMMITTER_EMAIL", "committer@example.com")
-            .env("GIT_COMMITTER_NAME", "committer")
-            .env("GIT_CONFIG_COUNT", "4")
-            .env("GIT_CONFIG_KEY_0", "commit.gpgsign")
-            .env("GIT_CONFIG_VALUE_0", "false")
-            .env("GIT_CONFIG_KEY_1", "tag.gpgsign")
-            .env("GIT_CONFIG_VALUE_1", "false")
-            .env("GIT_CONFIG_KEY_2", "init.defaultBranch")
-            .env("GIT_CONFIG_VALUE_2", "main")
-            .env("GIT_CONFIG_KEY_3", "protocol.file.allow")
-            .env("GIT_CONFIG_VALUE_3", "always")
-            .env("CLICOLOR_FORCE", "1")
-            .env("RUST_BACKTRACE", "0")
+        but_testsupport::isolate_snapbox_cmd(cmd)
             .env("E2E_TEST_APP_DATA_DIR", self.app_root())
             .current_dir(self.projects_root())
     }
