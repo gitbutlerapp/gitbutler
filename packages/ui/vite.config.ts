@@ -13,6 +13,6 @@ export default defineConfig({
 		include: ['src/**/*.(test|spec).?(m)[jt]s?(x)']
 	},
 	build: {
-		sourcemap: 'inline'
+		sourcemap: true
 	}
 });
