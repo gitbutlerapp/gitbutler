@@ -230,7 +230,8 @@ export function initDependencies(args: {
 		uiState,
 		worktreeService,
 		rulesService,
-		fModeManager
+		fModeManager,
+		projectsService
 	);
 	const codegenAnalytics = new CodegenAnalytics(claudeCodeService, settingsService);
 
