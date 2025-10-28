@@ -123,6 +123,7 @@ pub(crate) async fn worktree(
             &worktree_changes.worktree_changes.changes,
             show_files,
             verbose,
+            review,
             &mut stack_mark,
             ctx,
             i == stack_details_len - 1,
@@ -192,6 +193,7 @@ pub fn print_group(
     changes: &[TreeChange],
     show_files: bool,
     verbose: bool,
+    show_url: bool,
     stack_mark: &mut Option<ColoredString>,
     ctx: &mut CommandContext,
     _last: bool,
@@ -248,6 +250,7 @@ pub fn print_group(
                     show_files,
                     verbose,
                     false,
+                    show_url,
                     None,
                 )?;
             }
@@ -276,6 +279,7 @@ pub fn print_group(
                     show_files,
                     verbose,
                     commit.has_conflicts,
+                    show_url,
                     commit.gerrit_review_url.clone(),
                 )?;
             }
@@ -382,6 +386,7 @@ fn print_commit(
     show_files: bool,
     verbose: bool,
     has_conflicts: bool,
+    show_url: bool,
     review_url: Option<String>,
 ) -> anyhow::Result<()> {
     let mark = if marked {
@@ -426,12 +431,20 @@ fn print_commit(
             formatted_time.to_string().dimmed(),
             no_changes,
             conflicted_str,
-            review_url.unwrap_or_default(),
+            review_url
+                .map(|r| format!("◖{}◗", r.underline().blue()))
+                .unwrap_or_default(),
             mark.unwrap_or_default()
         );
         println!("┊│     {message}");
     } else {
         // Original format: everything on one line
+        let review_url = if show_url {
+            review_url.map(|r| format!("◖{}◗", r.underline().blue()))
+        } else {
+            review_url.map(|_| format!("◖{}◗", "r".normal()))
+        }
+        .unwrap_or_default();
         println!(
             "┊{dot}   {}{} {} {} {} {} {}",
             &commit_id.to_string()[..2].blue().underline(),
@@ -439,7 +452,7 @@ fn print_commit(
             message,
             no_changes,
             conflicted_str,
-            review_url.unwrap_or_default(),
+            review_url,
             mark.unwrap_or_default()
         );
     }
