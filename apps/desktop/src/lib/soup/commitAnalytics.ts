@@ -7,6 +7,7 @@ import { InjectionToken } from '@gitbutler/core/context';
 import { get } from 'svelte/store';
 import type { Commit } from '$lib/branches/v3';
 import type { HunkAssignment } from '$lib/hunks/hunk';
+import type { ProjectsService } from '$lib/project/projectsService';
 import type RulesService from '$lib/rules/rulesService.svelte';
 import type { Stack, BranchDetails } from '$lib/stacks/stack';
 import type { EventProperties } from '$lib/state/customHooks.svelte';
@@ -20,7 +21,8 @@ export class CommitAnalytics {
 		private uiState: UiState,
 		private worktreeService: WorktreeService,
 		private rulesService: RulesService,
-		private fModeManager: FModeManager
+		private fModeManager: FModeManager,
+		private projectsService: ProjectsService
 	) {}
 
 	async getCommitProperties(args: {
@@ -61,6 +63,7 @@ export class CommitAnalytics {
 			const assignments = worktreeData.hunkAssignments;
 
 			const rules = await this.rulesService.fetchListWorkspaceRules(args.projectId);
+			const project = await this.projectsService.fetchProject(args.projectId);
 
 			return {
 				floatingCommitBox: this.uiState.global.useFloatingBox.current,
@@ -90,6 +93,8 @@ export class CommitAnalytics {
 				totalUnassignedFiles: this.getUnassignedFiles(assignments).length,
 				// Number of times F key shortcuts have been "clicked"
 				fKeyActivations: this.fModeManager.activations,
+				// Whether gerrit mode is enabled for this project
+				gerritMode: project.gerrit_mode,
 				// Rule metrics
 				...this.getRuleMetrics(rules),
 				// Behavior metrics
