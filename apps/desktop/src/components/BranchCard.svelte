@@ -60,6 +60,7 @@
 		isNewBranch?: boolean;
 		onclick: () => void;
 		branchContent: Snippet;
+		codegenRow?: Snippet;
 	}
 
 	interface StackBranchProps extends BranchCardProps {
@@ -79,11 +80,14 @@
 		contextMenu?: typeof BranchHeaderContextMenu;
 		dropzones: DropzoneHandler[];
 		numberOfCommits: number;
+		numberOfUpstreamCommits: number;
 		numberOfBranchesInStack: number;
+		hasCodegenRow?: boolean;
 		onclick: () => void;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
 		branchContent: Snippet;
+		codegenRow?: Snippet;
 	}
 
 	interface PrBranchProps extends BranchCardProps {
@@ -197,6 +201,7 @@
 				{updateBranchName}
 				isUpdatingName={nameUpdate.current.isLoading}
 				failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
+				roundedBottom={args.hasCodegenRow || args.numberOfCommits === 0}
 				{readonly}
 				{isPushed}
 				onclick={args.onclick}
@@ -352,6 +357,14 @@
 		</BranchHeader>
 	{/if}
 
+	{#if args.type === 'stack-branch' && args.hasCodegenRow && args.codegenRow}
+		<BranchDividerLine {lineColor} height="0.375rem" />
+		{@render args.codegenRow()}
+		{#if args.numberOfCommits > 0 || args.numberOfUpstreamCommits > 0}
+			<BranchDividerLine {lineColor} height="0.375rem" />
+		{/if}
+	{/if}
+
 	{#if args.type === 'stack-branch' || args.type === 'normal-branch' || args.type === 'draft-branch'}
 		{@render args.branchContent()}
 	{/if}
@@ -413,9 +426,6 @@
 		flex-direction: column;
 		width: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
-		background: var(--clr-bg-1);
 	}
 
 	.branch-header__item {

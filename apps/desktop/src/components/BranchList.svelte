@@ -178,8 +178,7 @@
 				commitQuery.result
 			)}
 		>
-			{#snippet children([localAndRemoteCommits, _upstreamOnlyCommits, branchDetails, commit])}
-				{@const upstreamOnlyCommits = []}
+			{#snippet children([localAndRemoteCommits, upstreamOnlyCommits, branchDetails, commit])}
 				{@const firstBranch = i === 0}
 				{@const lastBranch = i === branches.length - 1}
 				{@const iconName = getIconFromCommitState(commit?.id, commit?.state)}
@@ -226,11 +225,17 @@
 					{isNewBranch}
 					{pushStatus}
 					{isConflicted}
+					hasCodegenRow={$newCodegenEnabled &&
+						firstBranch &&
+						stackId !== undefined &&
+						codegenQuery?.response &&
+						codegenQuery.response.length > 0}
 					{lastUpdatedAt}
 					{reviewId}
 					{prNumber}
 					{allOtherPrNumbersInStack}
 					numberOfCommits={localAndRemoteCommits.length}
+					numberOfUpstreamCommits={upstreamOnlyCommits.length}
 					numberOfBranchesInStack={branches.length}
 					dropzones={[stackingReorderDropzoneManager.top(branchName)]}
 					trackingBranch={branch.remoteTrackingBranch ?? undefined}
@@ -345,7 +350,7 @@
 						/>
 					{/snippet}
 
-					{#snippet branchContent()}
+					{#snippet codegenRow()}
 						{#if $newCodegenEnabled && firstBranch && stackId}
 							{#if codegenQuery?.response && codegenQuery.response.length > 0}
 								{@const stackActive = claudeCodeService.isStackActive(projectId, stackId)}
@@ -362,6 +367,9 @@
 								/>
 							{/if}
 						{/if}
+					{/snippet}
+
+					{#snippet branchContent()}
 						<BranchCommitList
 							{lastBranch}
 							{projectId}
@@ -370,6 +378,11 @@
 							{branchName}
 							{branchDetails}
 							{stackingReorderDropzoneManager}
+							roundedTop={$newCodegenEnabled &&
+								firstBranch &&
+								stackId !== undefined &&
+								codegenQuery?.response &&
+								codegenQuery.response.length > 0}
 							{active}
 							{handleUncommit}
 							{startEditingCommitMessage}
