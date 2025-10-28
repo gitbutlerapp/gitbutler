@@ -168,7 +168,7 @@
 	let confirmationModal = $state<ReturnType<typeof Modal>>();
 	let forcePushProtectionModal = $state<ReturnType<typeof Modal>>();
 	let gerritModal = $state<GerritPushModal>();
-	let pendingGerritFlag = $state<GerritPushFlag | undefined>();
+	let pendingGerritFlags = $state<GerritPushFlag[]>([]);
 </script>
 
 <ReduxResult {projectId} result={combineResults(branchDetails.result, branchesQuery.result)}>
@@ -206,9 +206,9 @@
 				push({
 					withForce,
 					skipForcePushProtection: false,
-					gerritFlags: pendingGerritFlag ? [pendingGerritFlag] : []
+					gerritFlags: pendingGerritFlags
 				});
-				pendingGerritFlag = undefined;
+				pendingGerritFlags = [];
 			}}
 		>
 			<p>
@@ -250,9 +250,9 @@
 				push({
 					withForce,
 					skipForcePushProtection: true,
-					gerritFlags: pendingGerritFlag ? [pendingGerritFlag] : []
+					gerritFlags: pendingGerritFlags
 				});
-				pendingGerritFlag = undefined;
+				pendingGerritFlags = [];
 			}}
 		>
 			<p class="description">
@@ -300,8 +300,8 @@
 			{isLastBranchInStack}
 			onPush={(gerritFlags) => {
 				if (multipleBranches && !isLastBranchInStack && !$doNotShowPushBelowWarning) {
-					// Store the gerrit flag for later use when confirmation modal completes
-					pendingGerritFlag = gerritFlags[0];
+					// Store all gerrit flags for later use when confirmation modal completes
+					pendingGerritFlags = gerritFlags;
 					confirmationModal?.show();
 				} else {
 					push({ withForce, skipForcePushProtection: false, gerritFlags });
