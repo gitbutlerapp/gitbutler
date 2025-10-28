@@ -141,10 +141,11 @@ jobs:
       - name: Install Rust targets for macOS
         if: runner.os == 'macOS' && matrix.target != ''
         run: rustup target add ${{ matrix.target }}
-      - name: Rust Cache
+      - name: Rust Cache ${{ matrix.target }}
         uses: Swatinem/rust-cache@v2.8.1
+        if: runner.os == 'macOS' && matrix.target != ''
         with:
-          shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}
+          shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
 
