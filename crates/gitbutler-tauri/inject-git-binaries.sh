@@ -7,8 +7,15 @@ function log {
 }
 
 ROOT="$(dirname "$THIS")/../.."
-TRIPLE=${TRIPLE_OVERRIDE:-$(rustc -vV | sed -n 's|host: ||p')}
-TARGET_ROOT="${CARGO_TARGET_DIR:-$ROOT/target}/${TRIPLE_OVERRIDE:-}/release"
+
+# Use CARGO_BUILD_TARGET if set, otherwise use rustc default triple
+if [ -n "${CARGO_BUILD_TARGET:-}" ]; then
+    TRIPLE="$CARGO_BUILD_TARGET"
+else
+    TRIPLE=${TRIPLE_OVERRIDE:-$(rustc -vV | sed -n 's|host: ||p')}
+fi
+
+TARGET_ROOT="${CARGO_TARGET_DIR:-$ROOT/target}/${TRIPLE_OVERRIDE:-${CARGO_BUILD_TARGET:+$CARGO_BUILD_TARGET/}}release"
 CRATE_ROOT="$ROOT/crates/gitbutler-tauri"
 
 # BINARIES
