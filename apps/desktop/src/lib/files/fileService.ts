@@ -40,6 +40,14 @@ export class FileService {
 			{ forceRefetch: true }
 		);
 	}
+
+	async fetchFiles(projectId: string, query: string, limit: number) {
+		return await this.api.endpoints.findFiles.fetch({
+			projectId,
+			query,
+			limit
+		});
+	}
 }
 
 function isLarge(size: number | undefined) {

@@ -1,82 +1,46 @@
 <script lang="ts">
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { FILE_SERVICE } from '$lib/files/fileService';
-	import { inject } from '@gitbutler/core/context';
 	import { FileListItem, Icon } from '@gitbutler/ui';
 	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
 	import { fly } from 'svelte/transition';
 
 	type Props = {
-		projectId: string;
-		query: string;
-		limit: number;
-		onselect?: (filename: string) => void;
+		files: string[] | undefined;
+		indexOfSelectedFile: number | undefined;
+		loading: boolean;
+		onselect: (filename: string) => void;
+		onexit: () => void;
 	};
 
-	const { projectId, query, limit, onselect }: Props = $props();
-
-	const fileService = inject(FILE_SERVICE);
-	const files = $derived(fileService.findFiles(projectId, query, limit));
-
-	let selected = $state(0);
-	let dismissed = $state(false);
-
-	// Reset dismissed state and selection when query changes
-	$effect(() => {
-		void query; // Track query changes
-		dismissed = false;
-		selected = 0;
-	});
-
-	function onkeydown(e: KeyboardEvent) {
-		if (!files.response || dismissed) return;
-		const { key } = e;
-
-		if (key === 'ArrowUp') {
-			e.stopPropagation();
-			selected = Math.max(selected - 1, 0);
-		} else if (key === 'ArrowDown') {
-			e.stopPropagation();
-			selected = files ? Math.min(selected + 1, files.response.length - 1) : 0;
-		} else if (key === 'Enter') {
-			e.stopPropagation();
-			e.preventDefault(); // Prevents newline in editor.
-			const file = files.response[selected];
-			if (file && onselect) {
-				onselect(file);
-			}
-		} else if (key === 'Escape') {
-			dismissed = true;
-		}
-	}
+	const { onselect, files, loading, onexit, indexOfSelectedFile }: Props = $props();
 </script>
 
-<svelte:body onkeydowncapture={onkeydown} />
-
-{#if !dismissed && files.response && files.response.length > 0}
+{#if loading}
 	<div
 		class="file-plugin"
-		use:clickOutside={{ handler: () => (dismissed = true) }}
+		use:clickOutside={{ handler: () => onexit() }}
 		in:fly={{ y: 8, duration: 200 }}
 	>
-		<ReduxResult {projectId} result={files.result}>
-			{#snippet loading()}
-				<div class="p-12">
-					<Icon name="spinner" />
-				</div>
-			{/snippet}
-
-			{#snippet children(files)}
-				{#each files as file, i}
-					<FileListItem
-						filePath={file}
-						onclick={() => onselect?.(file)}
-						selected={i === selected}
-						active={i === selected}
-					/>
-				{/each}
-			{/snippet}
-		</ReduxResult>
+		<div class="p-12">
+			<Icon name="spinner" />
+		</div>
+	</div>
+{:else if files}
+	<div
+		class="file-plugin"
+		use:clickOutside={{ handler: () => onexit() }}
+		in:fly={{ y: 8, duration: 200 }}
+	>
+		{#each files as file, i}
+			<FileListItem
+				filePath={file}
+				onclick={() => onselect(file)}
+				selected={i === indexOfSelectedFile}
+				active={i === indexOfSelectedFile}
+			/>
+		{:else}
+			<!-- EMPTY STATE, SHOULD BE DESIGN VETTED -->
+			<div class="p-12 text-12">No files found</div>
+		{/each}
 	</div>
 {/if}
 

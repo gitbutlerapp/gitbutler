@@ -1,87 +1,101 @@
+<script lang="ts" module>
+	export type FileSuggestionUpdate =
+		| {
+				loading: false;
+				items: string[];
+		  }
+		| {
+				loading: true;
+		  };
+</script>
+
 <script lang="ts">
-	import { debounce } from '$lib/utils/debounce';
-	import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
+	import TypeAhead from '$lib/richText/plugins/TypeAhead.svelte';
 	import {
 		$isRangeSelection as isRangeSelection,
 		$getSelection as getSelection,
 		TextNode,
-		SELECTION_CHANGE_COMMAND,
-		COMMAND_PRIORITY_NORMAL,
 		$isTextNode as isTextNode
 	} from 'lexical';
-	import { onMount } from 'svelte';
 	import { getEditor } from 'svelte-lexical';
 
 	type Props = {
-		onQuery: (query: string, callback?: (result: string) => void) => void;
+		getFileItems: (q: string) => Promise<string[]>;
+		onUpdateSuggestion: (p: FileSuggestionUpdate) => void;
+		onExitSuggestion: () => void;
 	};
 
-	const { onQuery }: Props = $props();
+	const { onExitSuggestion, getFileItems, onUpdateSuggestion }: Props = $props();
+
+	type FileMatch = {
+		matchText: string;
+		captureText: string;
+		start: number;
+		end: number;
+	};
 
 	const editor = getEditor();
 	const FILEPATH_REGEX = /@([^ ]+)$/i;
 
-	let nodeKey = '';
+	function getFileMatch(text: string): FileMatch | null {
+		const match = FILEPATH_REGEX.exec(text);
+		if (match !== null) {
+			return {
+				matchText: match[0],
+				captureText: match[1],
+				start: match.index + 1,
+				end: match.index + match[0].length
+			};
+		}
+		return null;
+	}
 
-	onMount(() => {
-		return mergeUnlisten(
-			editor.registerMutationListener(TextNode, () => {
-				editor.read(() => {
-					const selection = getSelection();
-					if (!isRangeSelection(selection)) return;
-					if (!selection.isCollapsed()) return;
+	let fileMatch = $state<string | null>(null);
 
-					const anchor = selection.anchor;
-					const anchorNode = anchor.getNode();
-					if (!isTextNode(anchorNode)) return;
+	function exit() {
+		fileMatch = null;
+		onExitSuggestion();
+	}
 
-					const offset = anchor.offset;
-					const text = anchorNode.getTextContent().slice(0, offset);
-					const match = text.match(FILEPATH_REGEX);
-
-					if (match) {
-						const query = match[1];
-						nodeKey = selection.anchor.getNode().getKey();
-						debouncedOnQuery(query, (result) => handleCallback(query, result));
-					} else {
-						onQuery('');
-					}
-				});
-			}),
-			editor.registerCommand(
-				SELECTION_CHANGE_COMMAND,
-				() => {
-					const selection = getSelection();
-					if (isRangeSelection(selection)) {
-						const anchorKey = selection.anchor.getNode().getKey();
-						if (nodeKey !== anchorKey) {
-							onQuery('');
-						}
-					}
-					return false;
-				},
-				COMMAND_PRIORITY_NORMAL
-			)
-		);
-	});
-
-	const debouncedOnQuery = debounce(onQuery, 100);
-
-	function handleCallback(query: string, path: string) {
-		editor.update(() => {
-			const selection = getSelection();
-			if (isRangeSelection(selection)) {
-				const node = selection.anchor.getNode();
-				const text = node.getTextContent();
-				const match = '@' + query;
-				if (text.includes(match)) {
-					const newText = text.replace(match, '`' + path + '`');
-					const newNode = new TextNode(newText);
-					node.replace(newNode);
-					newNode.selectEnd();
-				}
-				onQuery('');
-			}
+	function onMatch(match: FileMatch) {
+		fileMatch = match.captureText;
+		onUpdateSuggestion({ loading: true });
+		getFileItems(fileMatch).then((items) => {
+			onUpdateSuggestion({ items, loading: false });
 		});
 	}
+
+	export function selectFileSuggestion(path: string) {
+		if (fileMatch === null) return;
+
+		const fileStart = fileMatch;
+
+		// Replace the search text with the selected file path
+		editor.update(() => {
+			const selection = getSelection();
+			if (!isRangeSelection(selection)) return;
+
+			const anchor = selection.anchor;
+			const anchorNode = anchor.getNode();
+			if (!isTextNode(anchorNode)) return;
+
+			const offset = anchor.offset;
+			const text = anchorNode.getTextContent().slice(0, offset);
+			const match = '@' + fileStart;
+			if (text.includes(match)) {
+				const newText = text.replace(match, '`' + path + '`');
+				const newNode = new TextNode(newText);
+				anchorNode.replace(newNode);
+				newNode.selectEnd();
+			}
+		});
+
+		exit();
+	}
+
+	export function exitFileSuggestions() {
+		exit();
+	}
 </script>
+
+<TypeAhead onExit={exit} testMatch={getFileMatch} {onMatch} />

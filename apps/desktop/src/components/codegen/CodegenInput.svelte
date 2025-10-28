@@ -11,11 +11,13 @@
 		CodegenHunkDropHandler
 	} from '$lib/codegen/dropzone';
 	import { newlineOnEnter } from '$lib/config/uiFeatureFlags';
+	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { showError } from '$lib/notifications/toasts';
 	import { inject } from '@gitbutler/core/context';
 	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 	import type { PromptAttachment } from '$lib/codegen/types';
+	import type { FileSuggestionUpdate } from '@gitbutler/ui/richText/plugins/FilePlugin.svelte';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -51,6 +53,70 @@
 
 	let editorRef = $state<ReturnType<typeof RichTextEditor>>();
 	let showAbortButton = $state(false);
+
+	const fileService = inject(FILE_SERVICE);
+	let indexOfSelectedFile = $state<number>();
+	let fileSuggestionsPlugin = $state<FilePlugin>();
+	let loadingFileSuggestions = $state(false);
+	let fileSuggestions = $state<string[] | undefined>(undefined);
+
+	function selectFileSuggestion(filename: string) {
+		fileSuggestionsPlugin?.selectFileSuggestion(filename);
+	}
+
+	function exitFileSuggestions() {
+		fileSuggestionsPlugin?.exitFileSuggestions();
+	}
+
+	function onFileSuggestionUpdate(update: FileSuggestionUpdate) {
+		if (update.loading) {
+			loadingFileSuggestions = true;
+			indexOfSelectedFile = undefined;
+			return;
+		}
+		loadingFileSuggestions = false;
+		fileSuggestions = update.items;
+		if (update.items.length === 0) {
+			indexOfSelectedFile = undefined;
+		} else {
+			indexOfSelectedFile = 0;
+		}
+	}
+
+	function handleFileSuggestionsKeyDown(event: KeyboardEvent, fileSuggestions: string[]): boolean {
+		const { key } = event;
+		const i = indexOfSelectedFile ?? 0;
+
+		switch (key) {
+			case 'ArrowUp':
+				if (fileSuggestions.length === 0) return false;
+				event.stopPropagation();
+				event.preventDefault();
+				indexOfSelectedFile = i === 0 ? fileSuggestions.length - 1 : i - 1;
+				return true;
+			case 'ArrowDown':
+				if (fileSuggestions.length === 0) return false;
+				event.stopPropagation();
+				event.preventDefault();
+				indexOfSelectedFile = (i + 1) % fileSuggestions.length;
+				return true;
+			case 'Enter': {
+				if (fileSuggestions.length === 0) return false;
+				event.stopPropagation();
+				event.preventDefault(); // Prevents newline in editor.
+				const file = fileSuggestions[indexOfSelectedFile ?? 0];
+				if (file) {
+					selectFileSuggestion(file);
+				}
+				return true;
+			}
+			case 'Escape':
+				exitFileSuggestions();
+				return true;
+			default:
+				return false;
+		}
+	}
 
 	$effect(() => {
 		// Show abort button if loading for more than 1 second
@@ -88,6 +154,9 @@
 
 	function handleEditorKeyDown(event: KeyboardEvent | null): boolean {
 		if (!event) return false;
+		if (fileSuggestions) {
+			return handleFileSuggestionsKeyDown(event, fileSuggestions);
+		}
 
 		// Handle Ctrl+C to abort
 		if (event.key === 'c' && event.ctrlKey && onAbort) {
@@ -115,9 +184,6 @@
 		new CodegenHunkDropHandler(stackId, branchName, addAttachment)
 	]);
 
-	let query = $state('');
-	let callback = $state<((result: string) => void) | undefined>();
-
 	const placeholderVariants = [
 		'What to build?',
 		'Describe your changes.',
@@ -128,7 +194,13 @@
 </script>
 
 <div class="dialog-wrapper">
-	<FileSearch {projectId} {query} onselect={callback} limit={8} />
+	<FileSearch
+		{indexOfSelectedFile}
+		loading={loadingFileSuggestions}
+		onselect={selectFileSuggestion}
+		onexit={exitFileSuggestions}
+		files={fileSuggestions}
+	/>
 
 	<div class="text-input dialog-input" data-remove-from-panning>
 		<CodegenQueued {projectId} {stackId} {branchName} />
@@ -163,9 +235,11 @@
 			>
 				{#snippet plugins()}
 					<FilePlugin
-						onQuery={(q: string, cb?: (result: string) => void) => {
-							callback = cb;
-							query = q;
+						bind:this={fileSuggestionsPlugin}
+						getFileItems={(q: string) => fileService.fetchFiles(projectId, q, 8)}
+						onUpdateSuggestion={onFileSuggestionUpdate}
+						onExitSuggestion={() => {
+							fileSuggestions = undefined;
 						}}
 					/>
 				{/snippet}
