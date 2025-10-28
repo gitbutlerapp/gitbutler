@@ -1,25 +1,16 @@
 <script lang="ts">
-	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { type Snippet } from 'svelte';
-	import type { CellType } from '@gitbutler/ui/components/commitLines/types';
 
 	interface Props {
 		testId?: string;
-		type: CellType;
 		isLast?: boolean;
 		action: Snippet;
-		kind?: 'default' | 'warning';
 	}
 
-	const { type, isLast, action, kind = 'default', testId }: Props = $props();
+	const { isLast, action, testId }: Props = $props();
 </script>
 
-<div
-	data-testid={testId}
-	class="action-row {kind}"
-	class:is-last={isLast}
-	style:--commit-color={getColorFromBranchType(type)}
->
+<div data-testid={testId} class="action-row" class:is-last={isLast}>
 	<div class="commit-line-wrapper">
 		<div class="commit-line" class:dashed={isLast}></div>
 	</div>
@@ -35,13 +26,11 @@
 		position: relative;
 		overflow: hidden;
 		border-top: 1px solid var(--clr-border-3);
-		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-theme-warn-bg);
+		--commit-color: var(--clr-commit-upstream);
 
-		&.default {
-			background-color: var(--clr-bg-1);
-		}
-		&.warning {
-			background-color: var(--clr-theme-warn-bg);
+		&:not(.is-last) {
+			border-bottom: 1px solid var(--clr-border-2);
 		}
 	}
 

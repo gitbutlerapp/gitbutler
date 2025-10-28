@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchIntegrationModal from '$components/BranchIntegrationModal.svelte';
 	import CardOverlay from '$components/CardOverlay.svelte';
-	import CommitAction from '$components/CommitAction.svelte';
 	import CommitContextMenu from '$components/CommitContextMenu.svelte';
 	import CommitGoesHere from '$components/CommitGoesHere.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
@@ -9,6 +8,7 @@
 
 	import LineOverlay from '$components/LineOverlay.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import UpstreamCommitsAction from '$components/UpstreamCommitsAction.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { commitStatusLabel } from '$lib/commits/commit';
@@ -278,18 +278,13 @@
 						{/if}
 					{/each}
 
-					<CommitAction
-						testId={TestId.UpstreamCommitsCommitAction}
-						type="Remote"
-						isLast={!hasCommits}
-						kind="warning"
-					>
+					<UpstreamCommitsAction testId={TestId.UpstreamCommitsCommitAction} isLast={!hasCommits}>
 						{#snippet action()}
 							<h3 class="text-13 text-semibold m-b-4">Upstream has new commits</h3>
 							<p class="text-12 text-body clr-text-2 m-b-14">Update your branch to stay current.</p>
 							{@render integrateUpstreamAction()}
 						{/snippet}
-					</CommitAction>
+					</UpstreamCommitsAction>
 				{/if}
 
 				{#each localAndRemoteCommits as commit, i (commit.id)}
