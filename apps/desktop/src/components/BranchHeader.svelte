@@ -77,6 +77,7 @@
 	let active = $state(false);
 
 	const actionsVisible = $derived(!draft && !isCommitting && (buttons || menu));
+	const isCommittingEmpty = $derived(isCommitting && isEmpty);
 
 	const draggableBranchConfig = $derived.by<DraggableConfig>(() => {
 		if (!dragArgs) {
@@ -111,7 +112,7 @@
 		class:selected
 		class:active
 		class:draft
-		class:rounded={!actionsVisible && roundedBottom}
+		class:rounded={!actionsVisible && roundedBottom && !isCommittingEmpty}
 		class:commiting={isCommitting}
 		{onclick}
 		onkeypress={onclick}
