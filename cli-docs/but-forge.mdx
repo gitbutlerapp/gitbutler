@@ -1,0 +1,64 @@
+---
+title: 'but forge'
+description: 'Commands for interacting with forges like GitHub, GitLab, etc.'
+---
+
+## Usage
+
+```
+but forge <SUBCOMMAND>
+```
+
+## Subcommands
+
+### auth
+
+Authenticate with your forge provider (at the moment, only GitHub is supported).
+
+```
+but forge auth
+```
+
+Initiates a device OAuth flow to authenticate with GitHub. You'll be provided with a code and URL to complete the authentication process.
+
+### list-users
+
+List authenticated forge accounts known to GitButler.
+
+```
+but forge list-users
+```
+
+Displays a list of all GitHub usernames that have been authenticated with GitButler.
+
+### forget
+
+Forget a previously authenticated forge account.
+
+```
+but forge forget <USERNAME>
+```
+
+#### Arguments
+
+- `<USERNAME>` - The username of the forge account to forget (required)
+
+## Examples
+
+Authenticate with GitHub:
+
+```
+but forge auth
+```
+
+List authenticated users:
+
+```
+but forge list-users
+```
+
+Forget a GitHub account:
+
+```
+but forge forget octocat
+```

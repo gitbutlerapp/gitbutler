@@ -1,0 +1,53 @@
+---
+title: 'but commit'
+description: 'Commit changes to a stack'
+---
+
+## Usage
+
+```
+but commit [OPTIONS]
+```
+
+## Options
+
+### `-m, --message <MESSAGE>`
+
+Commit message.
+
+- **Type:** String
+- **Required:** Optional
+
+### `--branch <BRANCH>`
+
+Branch CLI ID or name to derive the stack to commit to.
+
+- **Type:** String
+- **Required:** Optional
+
+### `-o, --only`
+
+Only commit assigned files, not unassigned files.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+## Examples
+
+Commit with a message:
+
+```
+but commit -m "Add new feature"
+```
+
+Commit to a specific branch:
+
+```
+but commit -m "Fix bug" --branch my-feature-branch
+```
+
+Commit only assigned files:
+
+```
+but commit -m "Update docs" --only
+```

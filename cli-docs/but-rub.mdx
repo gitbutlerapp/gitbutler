@@ -1,0 +1,67 @@
+---
+title: 'but rub'
+description: 'Combine two entities together to perform an operation'
+---
+
+## Usage
+
+```
+but rub <SOURCE> <TARGET>
+```
+
+## Description
+
+The `rub` command is a versatile operation that combines two entities together to perform various operations depending on the types of entities provided.
+
+### Supported Operations
+
+| Source | Target | Operation |
+| ------ | ------ | --------- |
+| File   | Commit | Amend     |
+| Branch | Commit | Amend     |
+| Commit | Commit | Squash    |
+| File   | Branch | Assign    |
+| Branch | Branch | Assign    |
+| Commit | Branch | Move      |
+
+## Arguments
+
+### `<SOURCE>`
+
+The source entity to combine.
+
+- **Type:** String
+- **Required:** Yes
+
+### `<TARGET>`
+
+The target entity to combine with the source.
+
+- **Type:** String
+- **Required:** Yes
+
+## Examples
+
+Amend a file to a commit:
+
+```
+but rub path/to/file.txt abc123
+```
+
+Squash two commits:
+
+```
+but rub abc123 def456
+```
+
+Assign a file to a branch:
+
+```
+but rub path/to/file.txt my-feature-branch
+```
+
+Move a commit to a different branch:
+
+```
+but rub abc123 my-other-branch
+```
