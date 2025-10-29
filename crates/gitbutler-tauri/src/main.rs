@@ -34,7 +34,7 @@ fn main() -> anyhow::Result<()> {
     #[cfg(feature = "builtin-but")]
     {
         let exe = std::env::current_exe()?;
-        if exe.file_stem().is_some_and(|stem| stem == "but") {
+        if exe.file_stem().is_some_and(|stem| stem == "but") || std::env::args_os().count() > 1 {
             return runtime.block_on(but::handle_args(std::env::args_os()));
         }
     }
