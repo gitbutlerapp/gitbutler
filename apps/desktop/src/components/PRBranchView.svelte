@@ -21,9 +21,13 @@
 
 <ReduxResult result={prQuery?.result} {projectId} {onerror}>
 	{#snippet children(pr)}
-		<Drawer testId={TestId.PRBranchDrawer} persistId="pr-branch-drawer-{projectId}-{pr.number}">
+		<Drawer
+			testId={TestId.PRBranchDrawer}
+			persistId="pr-branch-drawer-{projectId}-{pr.number}"
+			bottomBorder
+		>
 			{#snippet header()}
-				<h3 class="text-14 text-semibold">
+				<h3 class="text-14 text-semibold truncate">
 					<span class="clr-text-2">PR {unitSymbol}{pr.number}:</span>
 					<span> {pr.title}</span>
 				</h3>
@@ -65,7 +69,7 @@
 				</div>
 
 				{#if pr.body}
-					<div class="pr-body text-13">
+					<div class="pr-body text-13 text-body">
 						<Markdown content={pr.body} />
 					</div>
 				{/if}
@@ -78,13 +82,13 @@
 	.pr-content {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
 	}
 
 	.pr-request-data {
 		display: flex;
 		flex-direction: row;
 		width: 100%;
+		padding: 16px;
 		gap: 10px;
 	}
 
@@ -117,7 +121,7 @@
 	}
 
 	.pr-body {
-		padding-top: 16px;
+		padding: 16px;
 		border-top: 1px solid var(--clr-border-2);
 	}
 </style>

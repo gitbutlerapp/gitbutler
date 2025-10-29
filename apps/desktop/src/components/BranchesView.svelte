@@ -364,7 +364,7 @@
 						{/if}
 
 						{#if isNonLocalPr && current.prNumber}
-							<div class="commits" use:focusable={{ vertical: true }}>
+							<div class="commits with-padding" use:focusable={{ vertical: true }}>
 								<BranchesViewPr
 									bind:this={prBranch}
 									{projectId}
