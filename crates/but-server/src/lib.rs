@@ -17,7 +17,7 @@ use but_api::{
         virtual_branches, workspace, zip,
     },
     error::ToError as _,
-    github::{clear_all_github_tokens_cmd, forget_github_username_cmd},
+    github::{clear_all_github_tokens_cmd, forget_github_account_cmd},
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
@@ -384,7 +384,7 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
-        "forget_github_username" => forget_github_username_cmd(request.params),
+        "forget_github_account" => forget_github_account_cmd(request.params),
         "list_known_github_accounts" => {
             github::list_known_github_accounts().await.map(|r| json!(r))
         }

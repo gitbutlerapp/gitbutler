@@ -78,6 +78,14 @@ impl GithubAccountIdentifier {
             host: host.to_string(),
         }
     }
+
+    pub fn username(&self) -> &str {
+        match self {
+            GithubAccountIdentifier::OAuthUsername { username } => username,
+            GithubAccountIdentifier::PatUsername { username } => username,
+            GithubAccountIdentifier::Enterprise { username, .. } => username,
+        }
+    }
 }
 
 impl std::fmt::Display for GithubAccountIdentifier {

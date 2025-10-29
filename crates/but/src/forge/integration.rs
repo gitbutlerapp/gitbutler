@@ -21,14 +21,24 @@ pub async fn handle(cmd: &Subcommands) -> anyhow::Result<()> {
     match cmd {
         Subcommands::Auth => auth_github().await,
         Subcommands::ListUsers => list_github_users().await,
-        Subcommands::Forget { username } => forget_github_username(username),
+        Subcommands::Forget { username } => forget_github_username(username).await,
     }
 }
 
-fn forget_github_username(username: &str) -> anyhow::Result<()> {
-    but_api::github::forget_github_username(username.to_string())?;
-    println!("Forgot GitHub username '{}'", username);
-    Ok(())
+async fn forget_github_username(username: &String) -> anyhow::Result<()> {
+    let known_accounts = but_api::github::list_known_github_accounts().await?;
+    if let Some(account_to_delete) = known_accounts
+        .into_iter()
+        .find(|account| account.username() == username)
+    {
+        let message = format!("Forgot GitHub account '{}'", &account_to_delete);
+        but_api::github::forget_github_account(account_to_delete)?;
+        println!("{}", message);
+        Ok(())
+    } else {
+        println!("No known GitHub account with username '{}'", username);
+        Ok(())
+    }
 }
 
 async fn list_github_users() -> anyhow::Result<()> {

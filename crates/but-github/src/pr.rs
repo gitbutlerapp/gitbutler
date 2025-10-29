@@ -1,14 +1,12 @@
 use anyhow::{Context, Result, bail};
 
 pub async fn list(
-    preferred_username: &Option<String>,
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
     owner: &str,
     repo: &str,
     storage: &but_forge_storage::controller::Controller,
 ) -> Result<Vec<crate::client::PullRequest>> {
-    let username = resolve_username(preferred_username, storage)?;
-    let account_id = crate::token::GithubAccountIdentifier::oauth(&username);
-
+    let account_id = resolve_account(preferred_account, storage)?;
     if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
         let gh = crate::client::GitHubClient::new(&access_token)
             .context("Failed to create GitHub client")?;
@@ -23,13 +21,11 @@ pub async fn list(
 }
 
 pub async fn create(
-    preferred_username: &Option<String>,
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
     params: crate::client::CreatePullRequestParams<'_>,
     storage: &but_forge_storage::controller::Controller,
 ) -> Result<crate::client::PullRequest> {
-    let username = resolve_username(preferred_username, storage)?;
-    let account_id = crate::token::GithubAccountIdentifier::oauth(&username);
-
+    let account_id = resolve_account(preferred_account, storage)?;
     if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
         let gh = crate::client::GitHubClient::new(&access_token)
             .context("Failed to create GitHub client")?;
@@ -39,30 +35,30 @@ pub async fn create(
             .context("Failed to create pull request")?;
         Ok(pr)
     } else {
-        bail!("No GitHub access token found for user '{}'", username);
+        bail!("No GitHub access token found for account '{}'", account_id);
     }
 }
 
-fn resolve_username(
-    preferred_username: &Option<String>,
+fn resolve_account(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
     storage: &but_forge_storage::controller::Controller,
-) -> Result<String, anyhow::Error> {
-    let known_usernames = crate::token::list_known_github_accounts(storage)?;
-    let Some(default_username) = known_usernames.first() else {
+) -> Result<crate::GithubAccountIdentifier, anyhow::Error> {
+    let known_accounts = crate::token::list_known_github_accounts(storage)?;
+    let Some(default_account) = known_accounts.first() else {
         bail!("No authenticated GitHub users found. Please authenticate with GitHub first.");
     };
-    let login = if let Some(username) = preferred_username {
-        if known_usernames.contains(username) {
-            username
+    let account = if let Some(account) = preferred_account {
+        if known_accounts.contains(account) {
+            account
         } else {
             bail!(
-                "Preferred GitHub username '{}' has not authenticated yet. Please choose another username or authenticate with the desired account first.",
-                username
+                "Preferred GitHub account '{}' has not authenticated yet. Please choose another account or authenticate with the desired account first.",
+                account
             );
         }
     } else {
-        default_username
+        default_account
     };
 
-    Ok(login.to_owned())
+    Ok(account.to_owned())
 }
