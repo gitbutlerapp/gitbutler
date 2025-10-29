@@ -175,7 +175,7 @@ async fn match_subcommand(
                             let output = serde_json::json!({
                                 "timestamp": msg.created_at().format("%Y-%m-%d %H:%M:%S").to_string(),
                                 "message": match msg.content() {
-                                    but_claude::ClaudeMessageContent::UserInput(input) => &input.message,
+                                    but_claude::MessagePayload::User(input) => &input.message,
                                     _ => "",
                                 }
                             });
@@ -191,7 +191,7 @@ async fn match_subcommand(
                                     .cyan()
                             );
                             match msg.content() {
-                                but_claude::ClaudeMessageContent::UserInput(input) => {
+                                but_claude::MessagePayload::User(input) => {
                                     println!("{}", input.message);
                                 }
                                 _ => {

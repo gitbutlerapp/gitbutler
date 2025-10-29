@@ -20,6 +20,7 @@ pub(crate) mod claude_transcript;
 pub use claude_transcript::Transcript;
 pub mod db;
 pub mod hooks;
+pub(crate) mod legacy;
 pub mod mcp;
 pub mod notifications;
 pub mod permissions;
@@ -79,14 +80,14 @@ impl ClaudeMessage {
         self.created_at
     }
 
-    pub fn content(&self) -> &ClaudeMessageContent {
-        &self.content
+    pub fn content(&self) -> &MessagePayload {
+        &self.payload
     }
 }
 
 /// The actual message payload from different sources.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", tag = "source")]
 pub enum MessagePayload {
     /// Output from Claude Code CLI stdout stream
     Claude(ClaudeOutput),
@@ -120,7 +121,7 @@ pub struct CommitAttachment {
 
 /// Represents a file attachment with full content (used in API input).
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", tag = "type")]
 pub enum PromptAttachment {
     Lines(LinesAttachment),
     File(FileAttachment),

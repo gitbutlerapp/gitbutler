@@ -274,15 +274,31 @@ impl TryFrom<but_db::ClaudeMessage> for crate::ClaudeMessage {
     fn try_from(value: but_db::ClaudeMessage) -> Result<Self, Self::Error> {
         let payload_type: MessagePayloadDbType = value.content_type.parse()?;
         let payload = match payload_type {
-            MessagePayloadDbType::Claude | MessagePayloadDbType::ClaudeOutput => {
+            MessagePayloadDbType::Claude => {
                 let data: serde_json::Value = serde_json::from_str(&value.content)?;
                 crate::MessagePayload::Claude(crate::ClaudeOutput { data })
             }
-            MessagePayloadDbType::User | MessagePayloadDbType::UserInput => {
+            MessagePayloadDbType::ClaudeOutput => {
+                crate::legacy::ClaudeMessageContent::ClaudeOutput(serde_json::from_str(
+                    &value.content,
+                )?)
+                .into()
+            }
+            MessagePayloadDbType::User => {
                 crate::MessagePayload::User(serde_json::from_str(&value.content)?)
             }
-            MessagePayloadDbType::System | MessagePayloadDbType::GitButlerMessage => {
+            MessagePayloadDbType::UserInput => crate::legacy::ClaudeMessageContent::UserInput(
+                serde_json::from_str(&value.content)?,
+            )
+            .into(),
+            MessagePayloadDbType::System => {
                 crate::MessagePayload::System(serde_json::from_str(&value.content)?)
+            }
+            MessagePayloadDbType::GitButlerMessage => {
+                crate::legacy::ClaudeMessageContent::GitButlerMessage(serde_json::from_str(
+                    &value.content,
+                )?)
+                .into()
             }
         };
         Ok(crate::ClaudeMessage {
@@ -356,5 +372,363 @@ impl TryFrom<crate::ClaudePermissionRequest> for but_db::ClaudePermissionRequest
             input: serde_json::to_string(&value.input)?,
             decision,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_gitbutler_message_claude_exit() {
+        let db_message = but_db::ClaudeMessage {
+            id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
+            session_id: "650e8400-e29b-41d4-a716-446655440000".to_string(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
+                .unwrap()
+                .naive_utc(),
+            content_type: "GitButlerMessage".to_string(),
+            content: r#"{
+                "subject": {
+                    "code": 0,
+                    "message": ""
+                },
+                "type": "claudeExit"
+            }"#
+            .to_string(),
+        };
+
+        let result: Result<crate::ClaudeMessage, _> = db_message.try_into();
+        assert!(result.is_ok());
+
+        let message = result.unwrap();
+        assert_eq!(
+            message.id,
+            Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap()
+        );
+        assert_eq!(
+            message.session_id,
+            Uuid::parse_str("650e8400-e29b-41d4-a716-446655440000").unwrap()
+        );
+
+        match message.payload {
+            crate::MessagePayload::System(crate::SystemMessage::ClaudeExit { code, message }) => {
+                assert_eq!(code, 0);
+                assert_eq!(message, "");
+            }
+            _ => panic!("Expected SystemMessage::ClaudeExit"),
+        }
+    }
+
+    #[test]
+    fn test_gitbutler_message_user_abort() {
+        let db_message = but_db::ClaudeMessage {
+            id: "550e8400-e29b-41d4-a716-446655440001".to_string(),
+            session_id: "650e8400-e29b-41d4-a716-446655440001".to_string(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
+                .unwrap()
+                .naive_utc(),
+            content_type: "GitButlerMessage".to_string(),
+            content: r#"{
+                "type": "userAbort"
+            }"#
+            .to_string(),
+        };
+
+        let result: Result<crate::ClaudeMessage, _> = db_message.try_into();
+        assert!(result.is_ok());
+
+        let message = result.unwrap();
+        match message.payload {
+            crate::MessagePayload::System(crate::SystemMessage::UserAbort) => {}
+            _ => panic!("Expected SystemMessage::UserAbort"),
+        }
+    }
+
+    #[test]
+    fn test_user_input_without_attachments() {
+        let db_message = but_db::ClaudeMessage {
+            id: "550e8400-e29b-41d4-a716-446655440002".to_string(),
+            session_id: "650e8400-e29b-41d4-a716-446655440002".to_string(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
+                .unwrap()
+                .naive_utc(),
+            content_type: "UserInput".to_string(),
+            content: r#"{
+                "message": "Okay but i need a test where `attachments` is not set at all"
+            }"#
+            .to_string(),
+        };
+
+        let result: Result<crate::ClaudeMessage, _> = db_message.try_into();
+        assert!(result.is_ok());
+
+        let message = result.unwrap();
+        match message.payload {
+            crate::MessagePayload::User(user_input) => {
+                assert_eq!(
+                    user_input.message,
+                    "Okay but i need a test where `attachments` is not set at all"
+                );
+                assert!(user_input.attachments.is_none());
+            }
+            _ => panic!("Expected MessagePayload::User"),
+        }
+    }
+
+    #[test]
+    fn test_user_input_with_empty_attachments_array() {
+        let db_message = but_db::ClaudeMessage {
+            id: "550e8400-e29b-41d4-a716-446655440003".to_string(),
+            session_id: "650e8400-e29b-41d4-a716-446655440003".to_string(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
+                .unwrap()
+                .naive_utc(),
+            content_type: "UserInput".to_string(),
+            content: r#"{
+                "attachments": [],
+                "message": "Message with empty attachments"
+            }"#
+            .to_string(),
+        };
+
+        let result: Result<crate::ClaudeMessage, _> = db_message.try_into();
+        assert!(result.is_ok());
+
+        let message = result.unwrap();
+        match message.payload {
+            crate::MessagePayload::User(user_input) => {
+                assert_eq!(user_input.message, "Message with empty attachments");
+                assert!(user_input.attachments.is_some());
+                assert_eq!(user_input.attachments.unwrap().len(), 0);
+            }
+            _ => panic!("Expected MessagePayload::User"),
+        }
+    }
+
+    #[test]
+    fn test_user_input_with_file_attachment() {
+        let db_message = but_db::ClaudeMessage {
+            id: "550e8400-e29b-41d4-a716-446655440004".to_string(),
+            session_id: "650e8400-e29b-41d4-a716-446655440004".to_string(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
+                .unwrap()
+                .naive_utc(),
+            content_type: "UserInput".to_string(),
+            content: r#"{
+                "attachments": [
+                    {
+                        "path": "ASSETS_LICENSE",
+                        "type": "file"
+                    }
+                ],
+                "message": "Check this file out"
+            }"#
+            .to_string(),
+        };
+
+        let result: Result<crate::ClaudeMessage, _> = db_message.try_into();
+        assert!(result.is_ok());
+
+        let message = result.unwrap();
+        match message.payload {
+            crate::MessagePayload::User(user_input) => {
+                assert_eq!(user_input.message, "Check this file out");
+                assert!(user_input.attachments.is_some());
+                let attachments = user_input.attachments.unwrap();
+                assert_eq!(attachments.len(), 1);
+                match &attachments[0] {
+                    crate::PromptAttachment::File(file_att) => {
+                        assert_eq!(file_att.path, "ASSETS_LICENSE");
+                        assert!(file_att.commit_id.is_none());
+                    }
+                    _ => panic!("Expected File attachment"),
+                }
+            }
+            _ => panic!("Expected MessagePayload::User"),
+        }
+    }
+
+    #[test]
+    fn test_claude_output() {
+        let db_message = but_db::ClaudeMessage {
+            id: "550e8400-e29b-41d4-a716-446655440005".to_string(),
+            session_id: "650e8400-e29b-41d4-a716-446655440005".to_string(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
+                .unwrap()
+                .naive_utc(),
+            content_type: "ClaudeOutput".to_string(),
+            content: r#"{
+                "message": {
+                    "content": [
+                        {
+                            "text": "Perfect! Now let's run the tests to verify they all pass:",
+                            "type": "text"
+                        }
+                    ],
+                    "id": "msg_01Eu1HSLVLWD64FDD1j8KGgQ",
+                    "model": "claude-sonnet-4-5-20250929",
+                    "role": "assistant",
+                    "stop_reason": null,
+                    "stop_sequence": null,
+                    "type": "message",
+                    "usage": {
+                        "cache_creation": {
+                            "ephemeral_1h_input_tokens": 0,
+                            "ephemeral_5m_input_tokens": 1327
+                        },
+                        "cache_creation_input_tokens": 1327,
+                        "cache_read_input_tokens": 28563,
+                        "input_tokens": 4,
+                        "output_tokens": 1,
+                        "service_tier": "standard"
+                    }
+                },
+                "parent_tool_use_id": null,
+                "session_id": "a9a3c83b-fdf4-4eee-964e-1043c7b8ac0b",
+                "type": "assistant",
+                "uuid": "aab0b9a3-be9f-4ca0-adac-3cdaeebf889d"
+            }"#
+            .to_string(),
+        };
+
+        let result: Result<crate::ClaudeMessage, _> = db_message.try_into();
+        assert!(result.is_ok());
+
+        let message = result.unwrap();
+        match message.payload {
+            crate::MessagePayload::Claude(claude_output) => {
+                // Verify it's valid JSON and contains expected fields
+                assert!(claude_output.data.is_object());
+                assert!(claude_output.data.get("message").is_some());
+                assert!(claude_output.data.get("type").is_some());
+                assert_eq!(
+                    claude_output.data.get("type").unwrap().as_str().unwrap(),
+                    "assistant"
+                );
+            }
+            _ => panic!("Expected MessagePayload::Claude"),
+        }
+    }
+
+    #[test]
+    fn test_new_claude_type() {
+        let db_message = but_db::ClaudeMessage {
+            id: "550e8400-e29b-41d4-a716-446655440006".to_string(),
+            session_id: "650e8400-e29b-41d4-a716-446655440006".to_string(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
+                .unwrap()
+                .naive_utc(),
+            content_type: "Claude".to_string(),
+            content: r#"{
+                "content": [
+                    {
+                        "text": "Some claude response",
+                        "type": "text"
+                    }
+                ],
+                "id": "msg_123",
+                "role": "assistant"
+            }"#
+            .to_string(),
+        };
+
+        let result: Result<crate::ClaudeMessage, _> = db_message.try_into();
+        assert!(result.is_ok());
+
+        let message = result.unwrap();
+        match message.payload {
+            crate::MessagePayload::Claude(claude_output) => {
+                assert!(claude_output.data.is_object());
+                assert!(claude_output.data.get("content").is_some());
+            }
+            _ => panic!("Expected MessagePayload::Claude"),
+        }
+    }
+
+    #[test]
+    fn test_new_user_type() {
+        let db_message = but_db::ClaudeMessage {
+            id: "550e8400-e29b-41d4-a716-446655440007".to_string(),
+            session_id: "650e8400-e29b-41d4-a716-446655440007".to_string(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
+                .unwrap()
+                .naive_utc(),
+            content_type: "User".to_string(),
+            content: r#"{
+                "message": "Test user message",
+                "attachments": null
+            }"#
+            .to_string(),
+        };
+
+        let result: Result<crate::ClaudeMessage, _> = db_message.try_into();
+        assert!(result.is_ok());
+
+        let message = result.unwrap();
+        match message.payload {
+            crate::MessagePayload::User(user_input) => {
+                assert_eq!(user_input.message, "Test user message");
+                assert!(user_input.attachments.is_none());
+            }
+            _ => panic!("Expected MessagePayload::User"),
+        }
+    }
+
+    #[test]
+    fn test_new_system_type() {
+        let db_message = but_db::ClaudeMessage {
+            id: "550e8400-e29b-41d4-a716-446655440008".to_string(),
+            session_id: "650e8400-e29b-41d4-a716-446655440008".to_string(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
+                .unwrap()
+                .naive_utc(),
+            content_type: "System".to_string(),
+            content: r#"{
+                "type": "userAbort"
+            }"#
+            .to_string(),
+        };
+
+        let result: Result<crate::ClaudeMessage, _> = db_message.try_into();
+        assert!(result.is_ok());
+
+        let message = result.unwrap();
+        match message.payload {
+            crate::MessagePayload::System(crate::SystemMessage::UserAbort) => {}
+            _ => panic!("Expected MessagePayload::System(UserAbort)"),
+        }
+    }
+
+    #[test]
+    fn test_invalid_content_type() {
+        let db_message = but_db::ClaudeMessage {
+            id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
+            session_id: "650e8400-e29b-41d4-a716-446655440000".to_string(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
+                .unwrap()
+                .naive_utc(),
+            content_type: "InvalidType".to_string(),
+            content: r#"{"message": "test"}"#.to_string(),
+        };
+
+        let result: Result<crate::ClaudeMessage, _> = db_message.try_into();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_json_content() {
+        let db_message = but_db::ClaudeMessage {
+            id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
+            session_id: "650e8400-e29b-41d4-a716-446655440000".to_string(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
+                .unwrap()
+                .naive_utc(),
+            content_type: "User".to_string(),
+            content: "not valid json".to_string(),
+        };
+
+        let result: Result<crate::ClaudeMessage, _> = db_message.try_into();
+        assert!(result.is_err());
     }
 }
