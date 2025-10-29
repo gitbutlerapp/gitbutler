@@ -115,21 +115,14 @@
 							Allows you to create Pull Requests
 						{/snippet}
 
-						{#if accounts.length === 0}
-							<Button
-								style="pop"
-								onclick={gitHubStartOauth}
-								disabled={showAuthFlow}
-								icon="plus-small">Add account</Button
-							>
-						{:else}
-							<Button
-								style="neutral"
-								disabled={showAuthFlow}
-								onclick={gitHubStartOauth}
-								icon="plus-small">Add another account</Button
-							>
-						{/if}
+						{@const buttonStyle = accounts.length === 0 ? 'pop' : 'neutral'}
+						{@const buttonText = accounts.length === 0 ? 'Add account' : 'Add another account'}
+						<Button
+							style={buttonStyle}
+							onclick={gitHubStartOauth}
+							disabled={showAuthFlow}
+							icon="plus-small">{buttonText}</Button
+						>
 					</SectionCard>
 				{/snippet}
 			</ReduxResult>
