@@ -30,7 +30,10 @@ fn writable_scenario_inner(
 
 fn freeze_time(opts: gix::open::Options) -> gix::open::Options {
     use gix::config::tree::{User, gitoxide};
-    let time = "968492580 +0000".into();
+    // Note: this should equal what's used other free-time functions that
+    // are environment based, as env-vars override this.
+    // TODO: don't allow the test-suite to change the current environment (which was needed to help old code)
+    let time = "946771200 +0000".into();
     opts.config_overrides(
         [
             User::NAME.validated_assignment("user".into()),

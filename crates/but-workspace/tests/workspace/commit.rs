@@ -34,8 +34,8 @@ mod from_new_merge_with_metadata {
         insta::assert_snapshot!(commit.data.as_bstr(), @r"
         tree f53c91092dbda83f3565e78c285f3e2ab0cfd968
         parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
-        author GitButler <gitbutler@gitbutler.com> 968492580 +0000
-        committer GitButler <gitbutler@gitbutler.com> 968492580 +0000
+        author GitButler <gitbutler@gitbutler.com> 946771200 +0000
+        committer GitButler <gitbutler@gitbutler.com> 946771200 +0000
         encoding UTF-8
 
         GitButler Workspace Commit
@@ -56,7 +56,7 @@ mod from_new_merge_with_metadata {
         ");
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(655bf328c5ea95493005bb2eeb9e0724b982430f),
+            workspace_commit_id: Sha1(31f3d99d4b12a57c1c21053ab3ae5da160247044),
             stacks: [
                 Stack { tip: d3cce74, name: "add-A" },
             ],
@@ -81,7 +81,7 @@ mod from_new_merge_with_metadata {
         // It retains order.
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(c4576e5fea31f865a3ce2b69db6ea4d69fbfb107),
+            workspace_commit_id: Sha1(391a453230c141ac5f81d7203ac90c7e66ea9acf),
             stacks: [
                 Stack { tip: 27ab782, name: "add-D" },
                 Stack { tip: d3cce74, name: "add-A" },
@@ -100,8 +100,8 @@ mod from_new_merge_with_metadata {
         parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
         parent 34c4591eac5ade7cdf094c4fc48dea798ab73bbb
         parent 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
-        author GitButler <gitbutler@gitbutler.com> 968492580 +0000
-        committer GitButler <gitbutler@gitbutler.com> 968492580 +0000
+        author GitButler <gitbutler@gitbutler.com> 946771200 +0000
+        committer GitButler <gitbutler@gitbutler.com> 946771200 +0000
         encoding UTF-8
 
         GitButler Workspace Commit
@@ -177,7 +177,7 @@ mod from_new_merge_with_metadata {
         )?;
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(2da68ddfc57b6853126b1cc2b45ee627266b85b5),
+            workspace_commit_id: Sha1(b8ba7bd37ac1a1f9a0e7f29ddf83acc249d7b866),
             stacks: [
                 Stack { tip: d3cce74, name: "clean-A" },
                 Stack { tip: 115e41b, name: "clean-B" },
@@ -217,7 +217,7 @@ mod from_new_merge_with_metadata {
             WorkspaceCommit::from_new_merge_with_metadata(&to_stacks(stacks), &graph, &repo, None)?;
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(63eb0a124467632279d5367b81d5b5627c929ca3),
+            workspace_commit_id: Sha1(e444bfa38570217271f5df56c3fe26ed57a7e023),
             stacks: [
                 Stack { tip: d3cce74, name: "clean-A" },
                 Stack { tip: bf09eae, name: "conflict-F1" },
@@ -286,7 +286,7 @@ mod from_new_merge_with_metadata {
             WorkspaceCommit::from_new_merge_with_metadata(&to_stacks(stacks), &graph, &repo, None)?;
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(ed5a3012c6a4798404f5b8586588d0ede0664683),
+            workspace_commit_id: Sha1(e25b36b3a4192701e5e91a00d1c2fe07b9888338),
             stacks: [
                 Stack { tip: 8450331, name: "tip-conflicted" },
                 Stack { tip: 8ab1c4d, name: "unrelated" },
@@ -332,7 +332,7 @@ mod from_new_merge_with_metadata {
             WorkspaceCommit::from_new_merge_with_metadata(&to_stacks(stacks), &graph, &repo, None)?;
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(02e643fe54118699dfc71edcee135ad7a825ccbf),
+            workspace_commit_id: Sha1(4aede0de89327f3afde3db1ed9f83f368f67d501),
             stacks: [
                 Stack { tip: d3cce74, name: "clean-A" },
                 Stack { tip: 6777bd8, name: "conflict-C1" },
@@ -356,8 +356,8 @@ mod from_new_merge_with_metadata {
         parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
         parent 6777bd8aff28a87a07739e2f309d3699d93685f9
         parent 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
-        author GitButler <gitbutler@gitbutler.com> 968492580 +0000
-        committer GitButler <gitbutler@gitbutler.com> 968492580 +0000
+        author GitButler <gitbutler@gitbutler.com> 946771200 +0000
+        committer GitButler <gitbutler@gitbutler.com> 946771200 +0000
         encoding UTF-8
 
         GitButler Workspace Commit
@@ -396,7 +396,7 @@ mod from_new_merge_with_metadata {
         // TODO: make clean-B show up!
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(ef4cd3a7261c7fdba387069af08f4844bf25e657),
+            workspace_commit_id: Sha1(fd9723d257cd09656a2f8bb24d3dd2138f88b343),
             stacks: [
                 Stack { tip: d3cce74, name: "clean-A" },
                 Stack { tip: 115e41b, name: "clean-B" },
@@ -419,8 +419,8 @@ mod from_new_merge_with_metadata {
         parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
         parent 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
         parent f8392d239500de94b23f42c8ab5508dae1b3b657
-        author GitButler <gitbutler@gitbutler.com> 968492580 +0000
-        committer GitButler <gitbutler@gitbutler.com> 968492580 +0000
+        author GitButler <gitbutler@gitbutler.com> 946771200 +0000
+        committer GitButler <gitbutler@gitbutler.com> 946771200 +0000
         encoding UTF-8
 
         GitButler Workspace Commit
@@ -458,7 +458,7 @@ mod from_new_merge_with_metadata {
         )?;
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(6be4e1cdd58cd6b0564a518e9d55a59408352255),
+            workspace_commit_id: Sha1(e297aee321879eb991bb5360859cbddb5891a316),
             stacks: [
                 Stack { tip: 6777bd8, name: "conflict-C1" },
                 Stack { tip: d3cce74, name: "clean-A" },
