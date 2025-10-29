@@ -27,7 +27,7 @@
 			bottomBorder
 		>
 			{#snippet header()}
-				<h3 class="text-14 text-semibold">
+				<h3 class="text-14 text-semibold truncate">
 					<span class="clr-text-2">PR {unitSymbol}{pr.number}:</span>
 					<span> {pr.title}</span>
 				</h3>
