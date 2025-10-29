@@ -1,3 +1,10 @@
+use crate::{
+    ref_info::with_workspace_commit::utils::{
+        StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
+        named_writable_scenario_with_description_and_graph,
+    },
+    utils::r,
+};
 use bstr::ByteSlice;
 use but_core::{
     RefMetadata, ref_metadata,
@@ -14,14 +21,6 @@ use but_workspace::branch::{
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
 };
 use gix::refs::Category;
-
-use crate::{
-    ref_info::with_workspace_commit::utils::{
-        StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
-        named_writable_scenario_with_description_and_graph,
-    },
-    utils::r,
-};
 
 #[test]
 fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
@@ -44,16 +43,16 @@ fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
             └── ·4979833 (🏘️)
     ");
 
+    let branch_b = r("refs/heads/B");
     let err =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())
-            .unwrap_err();
+        but_workspace::branch::apply(branch_b, &ws, &repo, &mut meta, apply_options()).unwrap_err();
     assert_eq!(
         err.to_string(),
         "Refusing to work on workspace whose workspace commit isn't at the top",
         "cannot apply on a workspace that isn't proper"
     );
 
-    let err = but_workspace::branch::apply(r("HEAD"), &ws, &repo, &mut meta, default_options())
+    let err = but_workspace::branch::apply(r("HEAD"), &ws, &repo, &mut meta, apply_options())
         .unwrap_err();
     assert_eq!(
         err.to_string(),
@@ -82,7 +81,7 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
 
     // Put "B" into the workspace, even though it's the dependent branch of A.
     let out =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -99,8 +98,8 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
 
     // Applying A is always a new stack then.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
-    insta::assert_snapshot!(graph_workspace(&out.workspace), @"
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
+    insta::assert_snapshot!(graph_workspace(&out.workspace), @r"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     ├── ≡📙:2:B on e5d0542 {1}
     │   └── 📙:2:B
@@ -147,7 +146,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -163,7 +162,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -244,7 +243,7 @@ fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -283,7 +282,7 @@ fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
 
     // Put "A" into the workspace, yielding a single branch.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -301,7 +300,7 @@ fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A");
 
     let out =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -363,7 +362,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     // Put "A" into the workspace, creating the workspace ref, but never put a branch related to the target in as well,
     // which is currently checked out with `main`.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -391,7 +390,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
         but_workspace::branch::apply::Options {
             // Make it appear in place of A, in the center.
             order: Some(1),
-            ..default_options()
+            ..apply_options()
         },
     )?;
     insta::assert_debug_snapshot!(out, @r#"
@@ -440,7 +439,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
         &mut meta,
         but_workspace::branch::apply::Options {
             workspace_merge: WorkspaceMerge::AlwaysMerge,
-            ..default_options()
+            ..apply_options()
         },
     )?;
     // A workspace commit was created, even though it does nothing.
@@ -464,7 +463,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
         &mut meta,
         but_workspace::branch::apply::Options {
             workspace_merge: WorkspaceMerge::AlwaysMerge,
-            ..default_options()
+            ..apply_options()
         },
     )?;
 
@@ -509,7 +508,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     // Put "A" into the workspace, creating the workspace ref, but never put a branch related to the target in as well,
     // which is currently checked out with `main`.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -529,7 +528,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> gitbutler/workspace, origin/main, main, B, A) A");
 
     let out =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -551,7 +550,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
 
     // Cannot put local tracking branch of target into workspace that has it configured.
     for branch in ["refs/heads/main", "refs/remotes/origin/main"] {
-        let err = but_workspace::branch::apply(r(branch), &ws, &repo, &mut meta, default_options())
+        let err = but_workspace::branch::apply(r(branch), &ws, &repo, &mut meta, apply_options())
             .unwrap_err();
         assert_eq!(
             err.to_string(),
@@ -590,7 +589,7 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
 
     // Put "A" into the workspace, hence we want "A" and "B" in it.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -643,7 +642,7 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
     ");
 
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -679,7 +678,7 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -739,7 +738,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
     ");
 
     assert_eq!(
-        default_options().workspace_merge,
+        apply_options().workspace_merge,
         WorkspaceMerge::MergeIfNeeded
     );
 
@@ -749,7 +748,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -771,7 +770,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
     let ws = out.workspace.into_owned();
 
     let out =
-        but_workspace::branch::apply(r("refs/heads/A1"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A1"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -799,7 +798,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
         but_workspace::branch::apply::Options {
             // TODO: remove this, use default options.
             on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
-            ..default_options()
+            ..apply_options()
         },
     )?;
     insta::assert_debug_snapshot!(out, @r#"
@@ -893,7 +892,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     ");
 
     let out =
-        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, apply_options())?;
 
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -922,7 +921,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     ");
 
     let out =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())?;
 
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -962,7 +961,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
         but_workspace::branch::apply::Options {
             // Make 'A' appear at the front.
             order: Some(0),
-            ..default_options()
+            ..apply_options()
         },
     )?;
 
@@ -1025,7 +1024,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
 
     // Apply the dependent branch, to bring in only the dependent branch
     let out =
-        but_workspace::branch::apply(r("refs/heads/E"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/E"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -1045,7 +1044,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     // Apply the former tip of the stack, to create a new stack. Note how it won't double-list the
     // other stack.
     let out =
-        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, apply_options())?;
     let ws = out.workspace.into_owned();
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
@@ -1071,7 +1070,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     // Accepting this behaviour for now as it's quite rare to have such ambiguity, even though I'd love if one day
     // for this to just work as people might intuitively want, even if that means the same commit is used multiple times.
     let out =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())?;
     let ws = out.workspace.into_owned();
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
@@ -1087,7 +1086,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     // This is what happens because we notice that C can't be applied as independent stack due to the graph algorithm,
     // and then it tries it a dependent stack, which should always work.
     let out =
-        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, default_options())
+        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, apply_options())
             .unwrap();
     let ws = out.workspace.into_owned();
     insta::assert_snapshot!(graph_workspace(&ws), @"
@@ -1126,7 +1125,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
 
     // Apply `A` first.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -1151,7 +1150,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
 
     // Apply `B` - the only sane way is to make it its own stack, but allow it to diverge.
     let out =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())
             .expect("apply actually works");
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -1240,7 +1239,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
             &ws,
             &repo,
             &mut meta,
-            default_options(),
+            apply_options(),
         )
         .unwrap_or_else(|err| panic!("{branch_to_apply}: {err}"));
         ws = out.workspace.into_owned();
@@ -1293,7 +1292,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{out:#?}")), @r#"
     Outcome {
@@ -1348,7 +1347,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         &mut meta,
         but_workspace::branch::apply::Options {
             on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
-            ..default_options()
+            ..apply_options()
         },
     )?;
     // It does still report conflicts.
@@ -1523,7 +1522,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -1549,8 +1548,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
         └── 👉📙:3:B
     ");
     // Already applied (the HEAD points to it, it literally IS the workspace).
-    let out =
-        but_workspace::branch::apply(b_ref.as_ref(), &ws, &repo, &mut meta, default_options())?;
+    let out = but_workspace::branch::apply(b_ref.as_ref(), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1561,7 +1559,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
 
     // To apply A, we just checkout the surrounding workspace, as it's contained there.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -1604,7 +1602,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
 
     // Nothing changed, the desired branch was already applied.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1626,7 +1624,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
 
     // Apply the first branch, it must be independent.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -1680,7 +1678,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
 
     // Apply the workspace ref itself, it's a no-op
     let ws_ref = r("refs/heads/gitbutler/workspace");
-    let out = but_workspace::branch::apply(ws_ref, &ws, &repo, &mut meta, default_options())?;
+    let out = but_workspace::branch::apply(ws_ref, &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1704,8 +1702,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     ");
 
     // Already applied (the HEAD points to it, it literally IS the workspace).
-    let out =
-        but_workspace::branch::apply(b_ref.as_ref(), &ws, &repo, &mut meta, default_options())?;
+    let out = but_workspace::branch::apply(b_ref.as_ref(), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1715,7 +1712,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     "#);
 
     let err =
-        but_workspace::branch::apply(ws_ref, &ws, &repo, &mut meta, default_options()).unwrap_err();
+        but_workspace::branch::apply(ws_ref, &ws, &repo, &mut meta, apply_options()).unwrap_err();
     assert_eq!(
         err.to_string(),
         "Refusing to apply a reference that already is a workspace: 'gitbutler/workspace'",
@@ -1725,7 +1722,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
 
     // To apply, we just checkout the surrounding workspace.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -1772,7 +1769,7 @@ fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut *meta,
-        default_options(),
+        apply_options(),
     )
     .unwrap_err();
     assert_eq!(
@@ -1813,7 +1810,7 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut *meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -1830,7 +1827,7 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut *meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -1855,7 +1852,7 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn default_options() -> but_workspace::branch::apply::Options {
+fn apply_options() -> but_workspace::branch::apply::Options {
     but_workspace::branch::apply::Options {
         workspace_merge: WorkspaceMerge::MergeIfNeeded,
         on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
