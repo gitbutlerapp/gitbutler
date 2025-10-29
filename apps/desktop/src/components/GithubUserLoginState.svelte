@@ -1,4 +1,5 @@
 <script lang="ts">
+	import GitHubAccountTypePill from '$components/GitHubAccountTypePill.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import {
 		GITHUB_USER_SERVICE,
@@ -54,10 +55,15 @@
 			</div>
 		{/snippet}
 		{#snippet title()}
-			{account.info.username}
+			{account.info.username} <GitHubAccountTypePill type={account.type} />
 		{/snippet}
 
 		{#snippet caption()}
+			{#if account.type === 'enterprise'}
+				{account.info.host}
+				<br />
+			{/if}
+
 			{#if user?.email}
 				{user.email}
 			{:else if isError}

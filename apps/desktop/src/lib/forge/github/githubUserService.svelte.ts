@@ -69,7 +69,7 @@ export function isSameGitHubAccountIdentifier(
 	}
 }
 
-type GitHubAccountIdentifierType = GitHubAccountIdentifier['type'];
+export type GitHubAccountIdentifierType = GitHubAccountIdentifier['type'];
 
 function isGitHubAccountIdentifierType(text: unknown): text is GitHubAccountIdentifierType {
 	if (typeof text !== 'string') {
