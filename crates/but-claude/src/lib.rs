@@ -20,6 +20,7 @@ pub(crate) mod claude_transcript;
 pub use claude_transcript::Transcript;
 pub mod db;
 pub mod hooks;
+pub(crate) mod legacy;
 pub mod mcp;
 pub mod notifications;
 pub mod prompt_templates;
