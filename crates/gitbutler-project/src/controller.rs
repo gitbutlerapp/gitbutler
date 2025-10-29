@@ -330,7 +330,7 @@ pub fn is_gerrit_remote(repo: &gix::Repository) -> anyhow::Result<bool> {
     use gix::{bstr::ByteSlice, remote::Direction};
 
     // Magic refspec that we use to determine if the remote is a Gerrit remote
-    let gerrit_notes_ref = "refs/notes/review";
+    let gerrit_notes_ref = "refs/meta/config";
 
     let remote_name = repo
         .remote_default_name(Direction::Fetch)
