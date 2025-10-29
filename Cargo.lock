@@ -3511,6 +3511,7 @@ dependencies = [
  "git-url-parse",
  "gitbutler-fs",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3649,6 +3650,7 @@ dependencies = [
  "fslock",
  "git2",
  "gitbutler-error",
+ "gitbutler-forge",
  "gitbutler-id",
  "gitbutler-serde",
  "gitbutler-storage",

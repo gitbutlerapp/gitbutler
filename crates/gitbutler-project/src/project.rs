@@ -116,8 +116,11 @@ pub struct Project {
     pub snapshot_lines_threshold: Option<usize>,
     #[serde(default)]
     pub forge_override: Option<String>,
-    #[serde(default)]
-    pub preferred_forge_user: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "gitbutler_forge::deserialize_preferred_forge_user_opt"
+    )]
+    pub preferred_forge_user: Option<gitbutler_forge::ForgeUser>,
 }
 
 /// Testing
