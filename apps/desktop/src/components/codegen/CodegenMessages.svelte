@@ -444,7 +444,7 @@
 					<CodegenTodoAccordion {todos} />
 				{/if}
 
-				{#if formattedMessages.length === 0}
+				{#if !isStackActive && formattedMessages.length === 0}
 					<div class="chat-view__placeholder">
 						<EmptyStatePlaceholder
 							image={laneNewSvg}
@@ -475,25 +475,25 @@
 								<CodegenClaudeMessage {message} {onApproval} {onRejection} />
 							{/each}
 						{/snippet}
+						{@const thinkingStatus = currentStatus(events, isStackActive)}
+						{@const startAt = thinkingOrCompactingStartedAt(events)}
+						{#if ['running', 'compacting'].includes(thinkingStatus) && startAt}
+							{@const status = userFeedbackStatus(formattedMessages)}
+							{#if status.waitingForFeedback}
+								<div class="p-l-20 p-r-20">
+									<CodegenServiceMessageUseTool toolCall={status.toolCall} />
+								</div>
+							{:else}
+								<div class="p-l-20 p-r-20">
+									<CodegenServiceMessageThinking
+										{startAt}
+										msSpentWaiting={status.msSpentWaiting}
+										overrideWord={thinkingStatus === 'compacting' ? 'compacting' : undefined}
+									/>
+								</div>
+							{/if}
+						{/if}
 					</VirtualList>
-				{/if}
-				{@const thinkingStatus = currentStatus(events, isStackActive)}
-				{@const startAt = thinkingOrCompactingStartedAt(events)}
-				{#if ['running', 'compacting'].includes(thinkingStatus) && startAt}
-					{@const status = userFeedbackStatus(formattedMessages)}
-					{#if status.waitingForFeedback}
-						<div class="p-l-20 p-r-20">
-							<CodegenServiceMessageUseTool toolCall={status.toolCall} />
-						</div>
-					{:else}
-						<div class="p-l-20 p-r-20">
-							<CodegenServiceMessageThinking
-								{startAt}
-								msSpentWaiting={status.msSpentWaiting}
-								overrideWord={thinkingStatus === 'compacting' ? 'compacting' : undefined}
-							/>
-						</div>
-					{/if}
 				{/if}
 			{/snippet}
 
