@@ -29,6 +29,27 @@ export type AuthenticatedUser = {
 	avatarUrl: string | null;
 };
 
+export type GitHubAccountIdentifier =
+	| {
+			type: 'oAuthUsername';
+			info: {
+				username: string;
+			};
+	  }
+	| {
+			type: 'patUsername';
+			info: {
+				username: string;
+			};
+	  }
+	| {
+			type: 'enterprise';
+			info: {
+				host: string;
+				username: string;
+			};
+	  };
+
 export class GitHubUserService {
 	private api: ReturnType<typeof injectEndpoints>;
 	private backendApi: ReturnType<typeof injectBackendEndpoints>;
@@ -51,15 +72,15 @@ export class GitHubUserService {
 	}
 
 	get forgetGitHubUsername() {
-		return this.backendApi.endpoints.forgetGitHubUsername.useMutation();
+		return this.backendApi.endpoints.forgetGitHubAccount.useMutation();
 	}
 
-	authenticatedUser(username: string) {
-		return this.backendApi.endpoints.getAccessToken.useQuery(username);
+	authenticatedUser(account: GitHubAccountIdentifier) {
+		return this.backendApi.endpoints.getAccessToken.useQuery({ account });
 	}
 
-	usernames() {
-		return this.backendApi.endpoints.listKnownGitHubUsernames.useQuery();
+	accounts() {
+		return this.backendApi.endpoints.listKnownGitHubAccounts.useQuery();
 	}
 	deleteAllGitHubAccounts() {
 		return this.backendApi.endpoints.clearAllGitHubAccounts.useMutation();
@@ -85,13 +106,13 @@ function injectEndpoints(api: GitHubApi) {
 function injectBackendEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			forgetGitHubUsername: build.mutation<void, string>({
+			forgetGitHubAccount: build.mutation<void, GitHubAccountIdentifier>({
 				extraOptions: {
-					command: 'forget_github_username',
+					command: 'forget_github_account',
 					actionName: 'Forget GitHub Username'
 				},
-				query: (username) => ({
-					username
+				query: (account) => ({
+					account
 				}),
 				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
 			}),
@@ -110,20 +131,18 @@ function injectBackendEndpoints(api: BackendApi) {
 				query: (args) => args,
 				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
 			}),
-			getAccessToken: build.query<AuthenticatedUser | null, string>({
+			getAccessToken: build.query<AuthenticatedUser | null, { account: GitHubAccountIdentifier }>({
 				extraOptions: {
 					command: 'get_gh_user'
 				},
-				query: (username) => ({
-					username
-				}),
+				query: (args) => args,
 				providesTags: (_result, _error, username) => [
 					...providesItem(ReduxTag.ForgeUser, `github:${username}`)
 				]
 			}),
-			listKnownGitHubUsernames: build.query<string[], void>({
+			listKnownGitHubAccounts: build.query<GitHubAccountIdentifier[], void>({
 				extraOptions: {
-					command: 'list_known_github_usernames'
+					command: 'list_known_github_accounts'
 				},
 				query: () => ({}),
 				providesTags: [providesList(ReduxTag.GitHubUserList)]

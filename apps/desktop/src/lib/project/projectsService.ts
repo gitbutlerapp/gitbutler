@@ -7,6 +7,7 @@ import { persisted } from '@gitbutler/shared/persisted';
 import { chipToasts } from '@gitbutler/ui';
 import { get } from 'svelte/store';
 import type { IBackend } from '$lib/backend';
+import type { GitHubAccountIdentifier } from '$lib/forge/github/githubUserService.svelte';
 import type { ClientState } from '$lib/state/clientState.svelte';
 
 export type ProjectInfo = {
@@ -49,9 +50,15 @@ export class ProjectsService {
 		await this.api.endpoints.updateProject.mutate({ project });
 	}
 
-	async updatePreferredForgeUser(projectId: string, preferred_forge_user: string | null) {
+	async updatePreferredForgeUser(
+		projectId: string,
+		preferredAccount: GitHubAccountIdentifier | null
+	) {
 		const project = await this.fetchProject(projectId, true);
-		await this.updateProject({ ...project, preferred_forge_user });
+		await this.updateProject({
+			...project,
+			preferred_forge_user: preferredAccount?.info.username ?? null
+		}); // TODO: Support account identifiers
 	}
 
 	async deleteProject(projectId: string) {

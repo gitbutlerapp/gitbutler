@@ -14,7 +14,7 @@
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const gitLabState = inject(GITLAB_STATE);
-	const { preferredGitHubUsername, githubUsernames } = usePreferredGitHubUsername(
+	const { preferredGitHubAccount, githubAccounts } = usePreferredGitHubUsername(
 		reactive(() => projectId)
 	);
 
@@ -166,22 +166,30 @@
 				>.
 			{/snippet}
 
-			{#if githubUsernames.current.length === 0}
+			{#if githubAccounts.current.length === 0 || !preferredGitHubAccount.current}
 				<!-- TODO: Link to the general settings -->
 				<p>Make sure that you've logged in correctly from the General Settings</p>
 			{:else}
+				{@const account = preferredGitHubAccount.current}
 				<Select
 					label="GitHub account for this project"
-					value={preferredGitHubUsername.current}
-					options={githubUsernames.current.map((u) => ({ label: u, value: u }))}
-					onselect={(value) => {
-						projectsService.updatePreferredForgeUser(projectId, value);
+					value={githubAccountIdentifierToString(account)}
+					options={githubAccounts.current.map((account) => ({
+						label: account.info.username,
+						value: account.info.username // TODO: Support account identifiers
+					}))}
+					onselect={() => {
+						// TODO: Support account identifiers
+						// projectsService.updatePreferredForgeUser(projectId, value);
 					}}
-					disabled={githubUsernames.current.length <= 1}
+					disabled={githubAccounts.current.length <= 1}
 					wide
 				>
 					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === preferredGitHubUsername.current} {highlighted}>
+						<SelectItem
+							selected={item.value === githubAccountIdentifierToString(account)}
+							{highlighted}
+						>
 							{item.label}
 						</SelectItem>
 					{/snippet}
