@@ -70,10 +70,10 @@
 		background-color: var(--clr-bg-2);
 		color: var(--clr-text-2);
 		cursor: pointer;
-		transition: background-color 0.2s ease-in-out;
+		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-1);
+			background-color: var(--clr-bg-1-muted);
 		}
 	}
 

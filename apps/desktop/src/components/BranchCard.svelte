@@ -46,7 +46,7 @@
 
 	interface DraftBranchProps extends BranchCardProps {
 		type: 'draft-branch';
-		branchContent: Snippet;
+		branchContent?: Snippet;
 		buttons?: Snippet;
 	}
 
@@ -118,6 +118,7 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
+
 	const showPrCreation = $derived(
 		exclusiveAction?.type === 'create-pr' &&
 			exclusiveAction.stackId === (args.type === 'stack-branch' ? args.stackId : undefined) &&
@@ -207,6 +208,7 @@
 				onclick={args.onclick}
 				menu={args.menu}
 				conflicts={args.isConflicted}
+				{showPrCreation}
 				dragArgs={{
 					disabled: args.isConflicted,
 					label: branchName,
@@ -272,20 +274,21 @@
 						</div>
 					{/if}
 				{/snippet}
+
+				{#snippet prCreation()}
+					<div class="review-wrapper" class:no-padding={uiState.global.useFloatingBox.current}>
+						<CreateReviewBox
+							{projectId}
+							{branchName}
+							stackId={args.stackId}
+							oncancel={() => {
+								projectState.exclusiveAction.set(undefined);
+							}}
+						/>
+					</div>
+				{/snippet}
 			</BranchHeader>
 		</Dropzone>
-		{#if showPrCreation}
-			<div class="review-wrapper" class:no-padding={uiState.global.useFloatingBox.current}>
-				<CreateReviewBox
-					{projectId}
-					{branchName}
-					stackId={args.stackId}
-					oncancel={() => {
-						projectState.exclusiveAction.set(undefined);
-					}}
-				/>
-			</div>
-		{/if}
 	{:else if args.type === 'normal-branch'}
 		<BranchHeader
 			{branchName}
@@ -366,7 +369,9 @@
 	{/if}
 
 	{#if args.type === 'stack-branch' || args.type === 'normal-branch' || args.type === 'draft-branch'}
-		{@render args.branchContent()}
+		{#if args.branchContent}
+			{@render args.branchContent()}
+		{/if}
 	{/if}
 </div>
 
@@ -450,6 +455,7 @@
 
 	.review-wrapper {
 		border-top: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
 
 		&:not(.no-padding) {
 			padding: 12px;

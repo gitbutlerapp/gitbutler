@@ -11,9 +11,11 @@
 <script lang="ts">
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import BranchLabel from '$components/BranchLabel.svelte';
+	import CommitGoesHere from '$components/CommitGoesHere.svelte';
 	import { BranchDropData } from '$lib/branches/dropHandler';
 	import { draggableBranch, type DraggableConfig } from '$lib/dragging/draggable';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
+
 	import { inject } from '@gitbutler/core/context';
 	import { Badge } from '@gitbutler/ui';
 	import { TestId } from '@gitbutler/ui';
@@ -44,6 +46,8 @@
 		content?: Snippet;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
+		prCreation?: Snippet;
+		showPrCreation?: boolean;
 		dragArgs?: DragableBranchData;
 	};
 
@@ -67,6 +71,8 @@
 		content,
 		menu,
 		buttons,
+		prCreation,
+		showPrCreation,
 		dragArgs
 	}: Props = $props();
 
@@ -77,7 +83,6 @@
 	let active = $state(false);
 
 	const actionsVisible = $derived(!draft && !isCommitting && (buttons || menu));
-	const isCommittingEmpty = $derived(isCommitting && isEmpty);
 
 	const draggableBranchConfig = $derived.by<DraggableConfig>(() => {
 		if (!dragArgs) {
@@ -97,6 +102,7 @@
 
 <div
 	class="header-wrapper"
+	class:rounded={(actionsVisible && roundedBottom) || draft}
 	use:focusable={{
 		onAction: () => onclick?.(),
 		onActive: (value) => (active = value),
@@ -112,7 +118,6 @@
 		class:selected
 		class:active
 		class:draft
-		class:rounded={!actionsVisible && roundedBottom && !isCommittingEmpty}
 		class:commiting={isCommitting}
 		{onclick}
 		onkeypress={onclick}
@@ -161,19 +166,18 @@
 		</div>
 	</div>
 
-	{#if actionsVisible}
-		<div
-			class="branch-hedaer__actions-row"
-			class:draft
-			class:new-branch={isEmpty}
-			data-no-drag
-			class:rounded={roundedBottom}
-		>
+	{#if draft}
+		<CommitGoesHere commitId={undefined} selected draft />
+	{/if}
+
+	{#if actionsVisible && !showPrCreation}
+		<div class="branch-hedaer__actions-row" class:draft class:new-branch={isEmpty} data-no-drag>
 			{#if buttons}
 				<div class="text-12 branch-header__actions">
 					{@render buttons()}
 				</div>
 			{/if}
+
 			{#if menu}
 				<div class="branch-header__menu">
 					{@render menu({ rightClickTrigger })}
@@ -181,9 +185,28 @@
 			{/if}
 		</div>
 	{/if}
+
+	{#if prCreation && showPrCreation}
+		{@render prCreation()}
+	{/if}
 </div>
 
 <style lang="postcss">
+	.header-wrapper {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-bottom: none;
+		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
+
+		&.rounded {
+			border-bottom: 1px solid var(--clr-border-2);
+			border-radius: var(--radius-ml);
+		}
+	}
+
 	.branch-header {
 		--branch-selected-bg: var(--clr-bg-1);
 		--branch-selected-element-bg: var(--clr-selected-not-in-focus-element);
@@ -196,9 +219,7 @@
 		padding-right: 12px;
 		padding-left: 12px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
 		border-bottom: none;
-		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 		background-color: var(--branch-selected-bg);
 
 		/* Selected but NOT in focus */
@@ -215,11 +236,6 @@
 		&.active.selected {
 			--branch-selected-bg: var(--clr-selected-in-focus-bg);
 			--branch-selected-element-bg: var(--clr-selected-in-focus-element);
-		}
-
-		&.rounded {
-			border-bottom: 1px solid var(--clr-border-2);
-			border-radius: var(--radius-ml);
 		}
 	}
 
@@ -256,7 +272,6 @@
 		align-items: center;
 		justify-content: space-between;
 		min-width: 0;
-		/* overflow: hidden; */
 		gap: 4px;
 	}
 
@@ -278,7 +293,6 @@
 		flex: 1;
 		flex-direction: column;
 		width: 100%;
-		/* margin-left: -2px; */
 		padding: 14px 0;
 		overflow: hidden;
 		gap: 8px;
@@ -295,18 +309,11 @@
 		padding: 10px;
 		gap: 10px;
 		border-top: 1px solid var(--clr-border-2);
-		border-right: 1px solid var(--clr-border-2);
-		border-left: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
 
 		/* MODIFIERS */
 		&.new-branch {
 			border-bottom: none;
-		}
-
-		&.rounded {
-			border-bottom: 1px solid var(--clr-border-2);
-			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		}
 	}
 
