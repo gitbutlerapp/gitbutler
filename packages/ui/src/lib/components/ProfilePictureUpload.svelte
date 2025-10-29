@@ -89,16 +89,11 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-scale-pop-70);
 		cursor: pointer;
-		transition: opacity var(--transition-medium);
 
 		&:hover,
 		&:focus-within {
 			& .profile-pic__edit-label {
 				opacity: 1;
-			}
-
-			& .profile-pic {
-				opacity: 0.8;
 			}
 		}
 	}
@@ -117,7 +112,6 @@
 		height: 100%;
 		object-fit: cover;
 		background-color: var(--clr-core-pop-70);
-		transition: opacity var(--transition-medium);
 	}
 
 	.profile-pic__edit-label {
@@ -130,6 +124,6 @@
 		background-color: var(--clr-core-ntrl-20);
 		color: var(--clr-core-ntrl-100);
 		opacity: 0;
-		transition: opacity var(--transition-medium);
+		transition: opacity var(--transition-fast);
 	}
 </style>

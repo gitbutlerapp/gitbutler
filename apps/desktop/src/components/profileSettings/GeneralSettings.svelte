@@ -149,9 +149,27 @@
 			</div>
 		</form>
 	</SectionCard>
+
+	<SectionCard orientation="row">
+		{#snippet title()}
+			Signing out
+		{/snippet}
+		{#snippet caption()}
+			Ready to take a break? Click here to log out and unwind.
+		{/snippet}
+
+		<Button
+			kind="outline"
+			icon="signout"
+			onclick={async () => {
+				await userService.logout();
+			}}>Log out</Button
+		>
+	</SectionCard>
 {:else}
 	<WelcomeSigninAction />
 {/if}
+
 <Spacer />
 
 <SectionCard orientation="row" centerAlign>
@@ -234,25 +252,6 @@
 {/if}
 
 <Spacer />
-
-{#if $user}
-	<SectionCard orientation="row">
-		{#snippet title()}
-			Signing out
-		{/snippet}
-		{#snippet caption()}
-			Ready to take a break? Click here to log out and unwind.
-		{/snippet}
-
-		<Button
-			kind="outline"
-			icon="signout"
-			onclick={async () => {
-				await userService.logout();
-			}}>Log out</Button
-		>
-	</SectionCard>
-{/if}
 
 <SectionCard orientation="row">
 	{#snippet title()}
