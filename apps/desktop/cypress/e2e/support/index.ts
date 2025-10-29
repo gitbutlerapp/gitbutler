@@ -159,8 +159,15 @@ Cypress.on('window:before:load', (win) => {
 				return null;
 			case 'get_user':
 				return MOCK_USER;
-			case 'list_known_github_usernames':
-				return ['but'];
+			case 'list_known_github_accounts':
+				return [
+					{
+						type: 'oAuthUsername',
+						info: {
+							username: 'but'
+						}
+					}
+				];
 			case 'plugin:window|theme':
 				return 'light';
 			case 'plugin:window|set_title':

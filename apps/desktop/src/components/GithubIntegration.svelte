@@ -23,7 +23,7 @@
 	const posthog = inject(POSTHOG_WRAPPER);
 
 	const [clearAll, clearingAllResult] = githubUserService.deleteAllGitHubAccounts();
-	const usernames = githubUserService.usernames();
+	const accounts = githubUserService.accounts();
 
 	// step flags
 	let codeCopied = $state(false);
@@ -78,7 +78,7 @@
 {:else}
 	<div class="stack-v gap-16">
 		<div class="stack-v">
-			<ReduxResult result={usernames.result}>
+			<ReduxResult result={accounts.result}>
 				{#snippet error()}
 					<SectionCard orientation="row">
 						{#snippet title()}
@@ -91,15 +91,15 @@
 						>
 					</SectionCard>
 				{/snippet}
-				{#snippet children(usernames)}
-					{#each usernames as username}
-						<GithubUserLoginState {username} isFirst={usernames.indexOf(username) === 0} />
+				{#snippet children(accounts)}
+					{#each accounts as account, index}
+						<GithubUserLoginState {account} isFirst={index === 0} />
 					{/each}
 
 					<SectionCard
 						orientation="row"
-						background={usernames.length > 0 ? 'disabled' : undefined}
-						roundedTop={usernames.length === 0}
+						background={accounts.length > 0 ? 'disabled' : undefined}
+						roundedTop={accounts.length === 0}
 					>
 						{#snippet iconSide()}
 							<div class="icon-wrapper__logo">
@@ -115,7 +115,7 @@
 							Allows you to create Pull Requests
 						{/snippet}
 
-						{#if usernames.length === 0}
+						{#if accounts.length === 0}
 							<Button
 								style="pop"
 								onclick={gitHubStartOauth}

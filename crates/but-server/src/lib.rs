@@ -17,7 +17,7 @@ use but_api::{
         virtual_branches, workspace, zip,
     },
     error::ToError as _,
-    github::{clear_all_github_tokens_cmd, forget_github_username_cmd},
+    github::{clear_all_github_tokens_cmd, forget_github_account_cmd},
 };
 use but_broadcaster::Broadcaster;
 use but_settings::AppSettingsWithDiskSync;
@@ -364,10 +364,30 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
-        "forget_github_username" => forget_github_username_cmd(request.params),
-        "list_known_github_usernames" => github::list_known_github_usernames()
-            .await
-            .map(|r| json!(r)),
+        "store_github_pat" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = github::strore_github_pat(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "store_github_enterprise_pat" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = github::store_github_enterprise_pat(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "forget_github_account" => forget_github_account_cmd(request.params),
+        "list_known_github_accounts" => {
+            github::list_known_github_accounts().await.map(|r| json!(r))
+        }
         "clear_all_github_tokens" => clear_all_github_tokens_cmd(request.params),
         "get_gh_user" => {
             let params = serde_json::from_value(request.params).to_error();

@@ -17,6 +17,17 @@ impl GitHubClient {
         Ok(Self { github })
     }
 
+    pub fn new_with_host_override(access_token: &Sensitive<String>, host: &str) -> Result<Self> {
+        let github = Client::new(
+            String::from("gb-github-integration"),
+            Credentials::Token(access_token.to_string()),
+        )?
+        .with_host_override(host)
+        .to_owned();
+
+        Ok(Self { github })
+    }
+
     pub async fn get_authenticated(&self) -> Result<AuthenticatedUser> {
         self.github
             .users()

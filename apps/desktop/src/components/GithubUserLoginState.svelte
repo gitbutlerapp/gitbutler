@@ -2,24 +2,25 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import {
 		GITHUB_USER_SERVICE,
-		type AuthenticatedUser
+		type AuthenticatedUser,
+		type GitHubAccountIdentifier
 	} from '$lib/forge/github/githubUserService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Avatar, Button, SectionCard } from '@gitbutler/ui';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 
 	type Props = {
-		username: string;
+		account: GitHubAccountIdentifier;
 		disabled?: boolean;
 		isFirst: boolean;
 	};
 
-	const { username, disabled, isFirst }: Props = $props();
+	const { account, disabled, isFirst }: Props = $props();
 
 	const githubUserService = inject(GITHUB_USER_SERVICE);
 
 	const [forget, forgetting] = githubUserService.forgetGitHubUsername;
-	const ghUser = $derived(githubUserService.authenticatedUser(username));
+	const ghUser = $derived(githubUserService.authenticatedUser(account));
 
 	const isError = $derived(ghUser.result?.status === QueryStatus.rejected);
 	const isLoading = $derived(ghUser.result?.status === QueryStatus.pending);
@@ -49,11 +50,11 @@
 					</svg>
 				{/if}
 
-				<Avatar size="large" {username} srcUrl={user?.avatarUrl} />
+				<Avatar size="large" username={account.info.username} srcUrl={user?.avatarUrl} />
 			</div>
 		{/snippet}
 		{#snippet title()}
-			{username}
+			{account.info.username}
 		{/snippet}
 
 		{#snippet caption()}
@@ -72,7 +73,7 @@
 			kind="outline"
 			icon="bin-small"
 			{disabled}
-			onclick={() => forget(username)}
+			onclick={() => forget(account)}
 			loading={forgetting.current.isLoading}>Forget</Button
 		>
 	</SectionCard>

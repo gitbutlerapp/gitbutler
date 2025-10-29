@@ -1,12 +1,16 @@
-import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
+import {
+	GITHUB_USER_SERVICE,
+	isSameGitHubAccountIdentifier,
+	type GitHubAccountIdentifier
+} from '$lib/forge/github/githubUserService.svelte';
 import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 import { inject } from '@gitbutler/core/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 type GitHubPreferences = {
-	preferredGitHubUsername: Reactive<string | undefined>;
-	githubUsernames: Reactive<string[]>;
+	preferredGitHubAccount: Reactive<GitHubAccountIdentifier | undefined>;
+	githubAccounts: Reactive<GitHubAccountIdentifier[]>;
 };
 
 /**
@@ -16,23 +20,35 @@ type GitHubPreferences = {
 export function usePreferredGitHubUsername(projectId: Reactive<string>): GitHubPreferences {
 	const githubUserService = inject(GITHUB_USER_SERVICE);
 	const projectsService = inject(PROJECTS_SERVICE);
-	const githubUsernamesResponse = githubUserService.usernames();
-	const githubUsernames = $derived(githubUsernamesResponse?.response ?? []);
+	const githubUsernamesResponse = githubUserService.accounts();
+	const githubAccounts = $derived(githubUsernamesResponse?.response ?? []);
 
 	const projectQuery = $derived(projectsService.getProject(projectId.current));
 	const project = $derived(projectQuery.response);
 	const preferredUser = $derived.by(() => {
-		if (githubUsernames.length === 0) {
+		if (githubAccounts.length === 0) {
 			return undefined;
 		}
+		if (
+			project === undefined ||
+			project.preferred_forge_user === null ||
+			project.preferred_forge_user.provider !== 'github'
+		) {
+			return githubAccounts.at(0);
+		}
+
+		const preferredForgeUser = project.preferred_forge_user.details;
+
 		return (
-			githubUsernames.find((u) => u === project?.preferred_forge_user) ?? githubUsernames.at(0)
+			githubAccounts.find((account) =>
+				isSameGitHubAccountIdentifier(account, preferredForgeUser)
+			) ?? githubAccounts.at(0)
 		);
 	});
 
 	return {
-		preferredGitHubUsername: reactive(() => preferredUser),
-		githubUsernames: reactive(() => githubUsernames)
+		preferredGitHubAccount: reactive(() => preferredUser),
+		githubAccounts: reactive(() => githubAccounts)
 	};
 }
 
@@ -46,10 +62,10 @@ type GitHubAccess = {
  */
 export function useGitHubAccessToken(projectId: Reactive<string>): GitHubAccess {
 	const githubUserService = inject(GITHUB_USER_SERVICE);
-	const { preferredGitHubUsername } = usePreferredGitHubUsername(projectId);
+	const { preferredGitHubAccount } = usePreferredGitHubUsername(projectId);
 	const ghUserResponse = $derived.by(() => {
-		if (preferredGitHubUsername.current === undefined) return undefined;
-		return githubUserService.authenticatedUser(preferredGitHubUsername.current);
+		if (preferredGitHubAccount.current === undefined) return undefined;
+		return githubUserService.authenticatedUser(preferredGitHubAccount.current);
 	});
 	const aceessToken = $derived(ghUserResponse?.response?.accessToken);
 	return {

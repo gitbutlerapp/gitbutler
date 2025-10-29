@@ -11,6 +11,7 @@ doctest = false
 
 [dependencies]
 serde.workspace = true
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
 anyhow.workspace = true
 gitbutler-fs.workspace = true
 but-github.workspace = true

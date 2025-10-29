@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import {
+		githubAccountIdentifierToString,
+		stringToGitHubAccountIdentifier
+	} from '$lib/forge/github/githubUserService.svelte';
 	import { usePreferredGitHubUsername } from '$lib/forge/github/hooks.svelte';
 	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -14,7 +18,7 @@
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const gitLabState = inject(GITLAB_STATE);
-	const { preferredGitHubUsername, githubUsernames } = usePreferredGitHubUsername(
+	const { preferredGitHubAccount, githubAccounts } = usePreferredGitHubUsername(
 		reactive(() => projectId)
 	);
 
@@ -166,22 +170,31 @@
 				>.
 			{/snippet}
 
-			{#if githubUsernames.current.length === 0}
+			{#if githubAccounts.current.length === 0 || !preferredGitHubAccount.current}
 				<!-- TODO: Link to the general settings -->
 				<p>Make sure that you've logged in correctly from the General Settings</p>
 			{:else}
+				{@const account = preferredGitHubAccount.current}
 				<Select
 					label="GitHub account for this project"
-					value={preferredGitHubUsername.current}
-					options={githubUsernames.current.map((u) => ({ label: u, value: u }))}
+					value={githubAccountIdentifierToString(account)}
+					options={githubAccounts.current.map((account) => ({
+						label: account.info.username,
+						value: githubAccountIdentifierToString(account)
+					}))}
 					onselect={(value) => {
-						projectsService.updatePreferredForgeUser(projectId, value);
+						const account = stringToGitHubAccountIdentifier(value);
+						if (!account) return;
+						projectsService.updatePreferredForgeUser(projectId, account);
 					}}
-					disabled={githubUsernames.current.length <= 1}
+					disabled={githubAccounts.current.length <= 1}
 					wide
 				>
 					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === preferredGitHubUsername.current} {highlighted}>
+						<SelectItem
+							selected={item.value === githubAccountIdentifierToString(account)}
+							{highlighted}
+						>
 							{item.label}
 						</SelectItem>
 					{/snippet}
