@@ -109,6 +109,7 @@ pub struct UserInput {
     /// The user message
     pub message: String,
     /// Optional attached file references
+    #[serde(default)]
     pub attachments: Option<Vec<PromptAttachment>>,
 }
 
@@ -235,4 +236,46 @@ pub async fn send_claude_message(
         payload: json!(message),
     });
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_user_input_backwards_compatibility_without_attachments() {
+        let json_without_attachments = r#"{
+            "message": "foo"
+        }"#;
+
+        let user_input: UserInput = serde_json::from_str(json_without_attachments)
+            .expect("Failed to deserialize UserInput without attachments field");
+
+        assert_eq!(user_input.message, "foo");
+        assert!(
+            user_input.attachments.is_none(),
+            "Attachments should default to None for backwards compatibility"
+        );
+    }
+
+    #[test]
+    fn test_user_input_with_attachments() {
+        let json_with_attachments = r#"{
+            "message": "bar",
+            "attachments": [
+                {
+                    "type": "file",
+                    "path": "src/main.rs"
+                }
+            ]
+        }"#;
+
+        let user_input: UserInput = serde_json::from_str(json_with_attachments)
+            .expect("Failed to deserialize UserInput with attachments field");
+
+        assert_eq!(user_input.message, "bar");
+        assert!(user_input.attachments.is_some());
+        let attachments = user_input.attachments.unwrap();
+        assert_eq!(attachments.len(), 1);
+    }
 }
