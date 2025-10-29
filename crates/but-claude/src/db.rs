@@ -158,23 +158,10 @@ pub fn list_messages_by_session(
         .db()?
         .claude_messages()
         .list_by_session(&session_id.to_string())?;
-    Ok(messages
+    messages
         .into_iter()
-        .filter_map(|m| {
-            let message_id = m.id.clone();
-            match m.try_into() {
-                Ok(msg) => Some(msg),
-                Err(e) => {
-                    tracing::warn!(
-                        message_id = %message_id,
-                        error = %e,
-                        "Failed to deserialize claude message, skipping"
-                    );
-                    None
-                }
-            }
-        })
-        .collect())
+        .map(|m| m.try_into())
+        .collect::<Result<_, _>>()
 }
 
 /// Gets the most recent user input message
