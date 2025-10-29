@@ -52,13 +52,18 @@ export class ProjectsService {
 
 	async updatePreferredForgeUser(
 		projectId: string,
-		preferredAccount: GitHubAccountIdentifier | null
+		preferredGitHubAccount: GitHubAccountIdentifier | null
 	) {
 		const project = await this.fetchProject(projectId, true);
 		await this.updateProject({
 			...project,
-			preferred_forge_user: preferredAccount?.info.username ?? null
-		}); // TODO: Support account identifiers
+			preferred_forge_user: preferredGitHubAccount
+				? {
+						provider: 'github',
+						details: preferredGitHubAccount
+					}
+				: null
+		});
 	}
 
 	async deleteProject(projectId: string) {

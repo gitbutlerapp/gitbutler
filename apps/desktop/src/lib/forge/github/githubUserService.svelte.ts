@@ -50,6 +50,90 @@ export type GitHubAccountIdentifier =
 			};
 	  };
 
+export function isSameGitHubAccountIdentifier(
+	a: GitHubAccountIdentifier,
+	b: GitHubAccountIdentifier
+): boolean {
+	if (a.type !== b.type) {
+		return false;
+	}
+	switch (a.type) {
+		case 'oAuthUsername':
+		case 'patUsername':
+			return a.info.username === (b as typeof a).info.username;
+		case 'enterprise':
+			return (
+				a.info.host === (b as typeof a).info.host &&
+				a.info.username === (b as typeof a).info.username
+			);
+	}
+}
+
+type GitHubAccountIdentifierType = GitHubAccountIdentifier['type'];
+
+function isGitHubAccountIdentifierType(text: unknown): text is GitHubAccountIdentifierType {
+	if (typeof text !== 'string') {
+		return false;
+	}
+	return text === 'oAuthUsername' || text === 'patUsername' || text === 'enterprise';
+}
+
+// ASCII Unit Separator, used to separate data units within a record or field.
+const UNIT_SEP = '\u001F';
+
+export function githubAccountIdentifierToString(account: GitHubAccountIdentifier): string {
+	switch (account.type) {
+		case 'oAuthUsername':
+			return `${account.type}${UNIT_SEP}${account.info.username}`;
+		case 'patUsername':
+			return `${account.type}${UNIT_SEP}${account.info.username}`;
+		case 'enterprise':
+			return `${account.type}${UNIT_SEP}${account.info.host}${UNIT_SEP}${account.info.username}`;
+	}
+}
+
+export function stringToGitHubAccountIdentifier(str: string): GitHubAccountIdentifier | null {
+	const parts = str.split(UNIT_SEP);
+	if (parts.length < 2) {
+		return null;
+	}
+	const [type, ...infoParts] = parts;
+
+	if (!isGitHubAccountIdentifierType(type)) {
+		return null;
+	}
+
+	switch (type) {
+		case 'oAuthUsername':
+			if (infoParts.length < 1) return null;
+			return {
+				type: 'oAuthUsername',
+				info: {
+					username: infoParts[0]!
+				}
+			};
+		case 'patUsername':
+			if (infoParts.length < 1) return null;
+
+			return {
+				type: 'patUsername',
+				info: {
+					username: infoParts[0]!
+				}
+			};
+		case 'enterprise':
+			if (infoParts.length < 2) return null;
+
+			return {
+				type: 'enterprise',
+				info: {
+					host: infoParts[0]!,
+					username: infoParts[1]!
+				}
+			};
+	}
+}
+
 export class GitHubUserService {
 	private api: ReturnType<typeof injectEndpoints>;
 	private backendApi: ReturnType<typeof injectBackendEndpoints>;

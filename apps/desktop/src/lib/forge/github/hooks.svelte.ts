@@ -1,5 +1,6 @@
 import {
 	GITHUB_USER_SERVICE,
+	isSameGitHubAccountIdentifier,
 	type GitHubAccountIdentifier
 } from '$lib/forge/github/githubUserService.svelte';
 import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -28,9 +29,20 @@ export function usePreferredGitHubUsername(projectId: Reactive<string>): GitHubP
 		if (githubAccounts.length === 0) {
 			return undefined;
 		}
+		if (
+			project === undefined ||
+			project.preferred_forge_user === null ||
+			project.preferred_forge_user.provider !== 'github'
+		) {
+			return githubAccounts.at(0);
+		}
+
+		const preferredForgeUser = project.preferred_forge_user.details;
+
 		return (
-			githubAccounts.find((account) => account.info.username === project?.preferred_forge_user) ??
-			githubAccounts.at(0)
+			githubAccounts.find((account) =>
+				isSameGitHubAccountIdentifier(account, preferredForgeUser)
+			) ?? githubAccounts.at(0)
 		);
 	});
 

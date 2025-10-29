@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import {
+		githubAccountIdentifierToString,
+		stringToGitHubAccountIdentifier
+	} from '$lib/forge/github/githubUserService.svelte';
 	import { usePreferredGitHubUsername } from '$lib/forge/github/hooks.svelte';
 	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -176,11 +180,12 @@
 					value={githubAccountIdentifierToString(account)}
 					options={githubAccounts.current.map((account) => ({
 						label: account.info.username,
-						value: account.info.username // TODO: Support account identifiers
+						value: githubAccountIdentifierToString(account)
 					}))}
-					onselect={() => {
-						// TODO: Support account identifiers
-						// projectsService.updatePreferredForgeUser(projectId, value);
+					onselect={(value) => {
+						const account = stringToGitHubAccountIdentifier(value);
+						if (!account) return;
+						projectsService.updatePreferredForgeUser(projectId, account);
 					}}
 					disabled={githubAccounts.current.length <= 1}
 					wide
