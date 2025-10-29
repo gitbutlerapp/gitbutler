@@ -166,7 +166,7 @@
 		}
 
 		// Handle Enter to submit
-		if (event.key === 'Enter' && (event.metaKey || !$newlineOnEnter)) {
+		if (event.key === 'Enter' && !event.shiftKey && (event.metaKey || !$newlineOnEnter)) {
 			event.preventDefault();
 			handleSubmit();
 			return true;
