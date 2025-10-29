@@ -4,5 +4,6 @@ export const MOCK_AUTH_USER: AuthenticatedUser = {
 	login: 'mockuser',
 	name: 'Mock User',
 	email: 'bla@user.com',
-	avatarUrl: 'https://avatars.githubusercontent.com/u/35891811?v=4'
+	avatarUrl: 'https://avatars.githubusercontent.com/u/35891811?v=4',
+	host: null
 };

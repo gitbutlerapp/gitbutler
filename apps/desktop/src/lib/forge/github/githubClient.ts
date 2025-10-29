@@ -8,6 +8,7 @@ export const GITHUB_CLIENT = new InjectionToken<GitHubClient>('GitHubClient');
 export class GitHubClient implements ApiClient {
 	private _client: Octokit | undefined;
 	private _token: string | undefined;
+	private _host: string | undefined;
 	private _owner: string | undefined;
 	private _repo: string | undefined;
 	private subscriptions: (() => void)[] = [];
@@ -23,7 +24,21 @@ export class GitHubClient implements ApiClient {
 	}
 
 	setToken(token: string | undefined) {
+		if (token === this._token) {
+			return;
+		}
 		this._token = token;
+		if (this._client) {
+			this._client = undefined;
+		}
+		this.subscriptions.every((cb) => cb());
+	}
+
+	setHost(host: string | undefined) {
+		if (host === this._host) {
+			return;
+		}
+		this._host = host;
 		if (this._client) {
 			this._client = undefined;
 		}
@@ -56,11 +71,11 @@ export class GitHubClient implements ApiClient {
 	}
 }
 
-function newClient(token?: string) {
+function newClient(token: string | undefined, host?: string): Octokit {
 	return new Octokit({
 		auth: token,
 		userAgent: 'GitButler Client',
-		baseUrl: 'https://api.github.com',
+		baseUrl: host ?? 'https://api.github.com',
 		request: {
 			// Global rate-limiter to mitigate accidental reactivity bugs that
 			// could trigger runaway requests.

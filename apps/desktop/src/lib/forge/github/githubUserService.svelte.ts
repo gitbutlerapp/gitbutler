@@ -27,6 +27,7 @@ export type AuthenticatedUser = {
 	name: string | null;
 	email: string | null;
 	avatarUrl: string | null;
+	host: string | null;
 };
 
 export type GitHubAccountIdentifier =

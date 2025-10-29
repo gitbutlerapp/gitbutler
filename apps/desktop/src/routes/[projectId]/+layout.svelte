@@ -106,6 +106,7 @@
 
 	// GitHub setup
 	$effect.pre(() => gitHubClient.setToken(githubAccessToken.accessToken.current));
+	$effect.pre(() => gitHubClient.setHost(githubAccessToken.host.current));
 	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
 
 	// GitLab setup
