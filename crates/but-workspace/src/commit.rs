@@ -386,7 +386,7 @@ impl<'repo> WorkspaceCommit<'repo> {
     /// A way to create a commit from `workspace` stacks, with the `tree` being used as the tree of the workspace commit.
     /// It's supposed to be the legitimate merge of the stacks contained in `workspace`.
     /// Note that it will be written to `repo` immediately for persistence, with its object id returned.
-    pub fn from_graph_workspace(
+    pub fn from_graph_workspace_and_tree(
         workspace: &but_graph::projection::Workspace,
         repo: &'repo gix::Repository,
         tree: gix::ObjectId,
