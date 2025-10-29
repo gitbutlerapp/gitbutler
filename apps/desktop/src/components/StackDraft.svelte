@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BranchCard from '$components/BranchCard.svelte';
-	import CommitGoesHere from '$components/CommitGoesHere.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import NewCommitView from '$components/NewCommitView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -54,11 +53,7 @@
 							{branchName}
 							readonly={false}
 							lineColor="var(--clr-commit-local)"
-						>
-							{#snippet branchContent()}
-								<CommitGoesHere commitId={undefined} selected draft />
-							{/snippet}
-						</BranchCard>
+						/>
 					{/snippet}
 				</ReduxResult>
 				<Resizer
