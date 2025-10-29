@@ -10,7 +10,7 @@ use but_testsupport::{
 };
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
-    apply::{IntegrationMode, WorkspaceReferenceNaming},
+    apply::{WorkspaceMerge, WorkspaceReferenceNaming},
     checkout::UncommitedWorktreeChanges,
 };
 use gix::refs::Category;
@@ -372,7 +372,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
         &repo,
         &mut meta,
         but_workspace::branch::apply::Options {
-            integration_mode: IntegrationMode::AlwaysMerge,
+            workspace_merge: WorkspaceMerge::AlwaysMerge,
             ..default_options()
         },
     )?;
@@ -396,7 +396,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
         &repo,
         &mut meta,
         but_workspace::branch::apply::Options {
-            integration_mode: IntegrationMode::AlwaysMerge,
+            workspace_merge: WorkspaceMerge::AlwaysMerge,
             ..default_options()
         },
     )?;
@@ -1540,7 +1540,7 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
 
 fn default_options() -> but_workspace::branch::apply::Options {
     but_workspace::branch::apply::Options {
-        integration_mode: IntegrationMode::MergeIfNeeded,
+        workspace_merge: WorkspaceMerge::MergeIfNeeded,
         on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
         workspace_reference_naming: WorkspaceReferenceNaming::Default,
         uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,

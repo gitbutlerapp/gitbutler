@@ -2,7 +2,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use but_workspace::{
     branch::{
         OnWorkspaceMergeConflict,
-        apply::{IntegrationMode, WorkspaceReferenceNaming},
+        apply::{WorkspaceMerge, WorkspaceReferenceNaming},
         checkout::UncommitedWorktreeChanges,
     },
     stack_ext::StackExt,
@@ -159,7 +159,7 @@ impl BranchManager<'_> {
                 &repo,
                 &mut *meta,
                 but_workspace::branch::apply::Options {
-                    integration_mode: IntegrationMode::AlwaysMerge,
+                    workspace_merge: WorkspaceMerge::AlwaysMerge,
                     on_workspace_conflict:
                         OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
                     workspace_reference_naming: WorkspaceReferenceNaming::Default,

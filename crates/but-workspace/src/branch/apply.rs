@@ -62,12 +62,12 @@ impl std::fmt::Debug for Outcome<'_> {
     }
 }
 
-/// How the newly applied branch should be integrated into the workspace.
+/// How the newly applied branch should be merged into the workspace commit.
 #[derive(Default, Debug, Copy, Clone)]
-pub enum IntegrationMode {
+pub enum WorkspaceMerge {
     /// Do nothing but to merge it into the workspace commit, *even* if it's not needed as the workspace reference
     /// can connect directly with the *one* workspace base.
-    /// This also ensures that there is a workspace merge commit.
+    /// This also ensures that there is a workspace merge commit, even if it is none-sensical.
     #[default]
     AlwaysMerge,
     /// Only create a merge commit if a new commit is effectively merged in. This avoids *unnecessary* merge commits,
@@ -89,8 +89,8 @@ pub enum WorkspaceReferenceNaming {
 /// Options for [function::apply()].
 #[derive(Default, Debug, Clone)]
 pub struct Options {
-    /// how the branch should be brought into the workspace.
-    pub integration_mode: IntegrationMode,
+    /// How the branch should be brought into the workspace.
+    pub workspace_merge: WorkspaceMerge,
     /// Decide how to deal with conflicts when creating the workspace merge commit to bring in each stack.
     pub on_workspace_conflict: OnWorkspaceMergeConflict,
     /// How the workspace reference should be named should it be created.
@@ -132,7 +132,7 @@ pub(crate) mod function {
     };
     use tracing::instrument;
 
-    use super::{IntegrationMode, Options, Outcome, WorkspaceReferenceNaming};
+    use super::{Options, Outcome, WorkspaceMerge, WorkspaceReferenceNaming};
     use crate::{WorkspaceCommit, branch::checkout, ext::ObjectStorageExt, ref_info::WorkspaceExt};
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
@@ -162,7 +162,7 @@ pub(crate) mod function {
         repo: &gix::Repository,
         meta: &mut impl RefMetadata,
         Options {
-            integration_mode,
+            workspace_merge: integration_mode,
             on_workspace_conflict,
             workspace_reference_naming,
             uncommitted_changes,
@@ -390,7 +390,7 @@ pub(crate) mod function {
                 &ws_md,
                 local_tracking_config_and_ref_info,
             )?;
-            let ws_commit_with_new_message = WorkspaceCommit::from_graph_workspace(
+            let ws_commit_with_new_message = WorkspaceCommit::from_graph_workspace_and_tree(
                 &workspace,
                 repo,
                 head_id.object()?.peel_to_tree()?.id,
@@ -635,7 +635,7 @@ pub(crate) mod function {
     /// Setup `local_tracking_ref` to track `remote_tracking_ref` using the typical pattern, and prepare the configuration file
     /// so that it can replace `.git/config` of `repo` when written back, with everything the same but the branch configuration added.
     /// We also return the commit at which `local_tracking_ref` should be placed, which is assumed to not exist, and `repo` will be used
-    /// for computing the merge-base with `ws_ref_name`, traditionally, without a graph, as forcing the graph here wouldn't buy us anything.
+    /// for computing the merge-base with `ws_ref_id`, traditionally, without a graph, as forcing the graph here wouldn't buy us anything.
     /// Merge-base computations can still be done with `repo` IF the graph isn't up to date.
     fn setup_local_tracking_configuration(
         repo: &gix::Repository,
@@ -827,10 +827,10 @@ pub(crate) mod function {
 
     fn needs_workspace_commit_without_remerge(
         ws: &but_graph::projection::Workspace<'_>,
-        integration_mode: IntegrationMode,
+        integration_mode: WorkspaceMerge,
     ) -> bool {
         match integration_mode {
-            IntegrationMode::AlwaysMerge => match ws.kind {
+            WorkspaceMerge::AlwaysMerge => match ws.kind {
                 WorkspaceKind::Managed { .. } => false,
                 WorkspaceKind::AdHoc => {
                     // If it's still ad-hoc, there must be a reason, and we don't try to create a managed commit
@@ -838,7 +838,7 @@ pub(crate) mod function {
                 }
                 WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => true,
             },
-            IntegrationMode::MergeIfNeeded => false,
+            WorkspaceMerge::MergeIfNeeded => false,
         }
     }
 

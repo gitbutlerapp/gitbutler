@@ -14,7 +14,7 @@ use but_workspace::{
     DiffSpec, HunkHeader,
     branch::{
         OnWorkspaceMergeConflict,
-        apply::{IntegrationMode, WorkspaceReferenceNaming},
+        apply::{WorkspaceMerge, WorkspaceReferenceNaming},
         checkout::UncommitedWorktreeChanges,
         create_reference::{Anchor, Position},
     },
@@ -709,7 +709,7 @@ pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyh
         &repo,
         &mut *meta,
         but_workspace::branch::apply::Options {
-            integration_mode: IntegrationMode::AlwaysMerge,
+            workspace_merge: WorkspaceMerge::AlwaysMerge,
             on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
             workspace_reference_naming: WorkspaceReferenceNaming::Default,
             uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
