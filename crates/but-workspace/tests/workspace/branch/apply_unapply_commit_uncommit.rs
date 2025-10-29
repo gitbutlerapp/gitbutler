@@ -204,6 +204,71 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
 }
 
 #[test]
+fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "advanced-stack-and-unnamed-stack-in-workspace",
+            |meta| {
+                add_stack_with_segments(meta, 1, "outside", StackState::InWorkspace, &[]);
+            },
+        )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * d03b217 (feature) F1
+    | *   dd3b979 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | |\  
+    | * | d6bdeab missing-name
+    |/ /  
+    | | * 5121eb9 (outside) advanced-outside
+    | |/  
+    | * 67c6397 advanced-inside
+    |/  
+    * 3183e43 (origin/main, main) M1
+    ");
+
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:5:outside →:3: on 3183e43 {1}
+    │   └── 📙:5:outside →:3:
+    │       ├── ·5121eb9*
+    │       └── ·67c6397 (🏘️)
+    └── ≡:4:anon: on 3183e43
+        └── :4:anon:
+            └── ·d6bdeab (🏘️)
+    ");
+
+    let out = but_workspace::branch::apply(
+        r("refs/heads/feature"),
+        &ws,
+        &repo,
+        &mut meta,
+        default_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+        applied_branches: "[refs/heads/feature]",
+    }
+    "#);
+
+    insta::assert_snapshot!(graph_workspace(&out.graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:4:feature on 3183e43 {2ec}
+    │   └── 📙:4:feature
+    │       └── ·d03b217 (🏘️)
+    ├── ≡:5:anon: on 3183e43
+    │   └── :5:anon:
+    │       └── ·d6bdeab (🏘️)
+    └── ≡📙:3:outside on 3183e43 {1}
+        └── 📙:3:outside
+            ├── ·5121eb9 (🏘️)
+            └── ·67c6397 (🏘️)
+    ");
+    Ok(())
+}
+
+#[test]
 fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
@@ -546,6 +611,119 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
     // HEAD must now point to the workspace (that already existed)
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A");
 
+    Ok(())
+}
+
+#[test]
+fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "single-stack-two-segments",
+            |_meta| {},
+        )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * f1889e7 (A2) add A2
+    * 7de99e1 (A1) add A1
+    | * 53ad0c2 (unrelated) add U1
+    |/  
+    * 3183e43 (HEAD -> main, origin/main) M1
+    ");
+
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    ⌂:0:main <> ✓!
+    └── ≡:0:main
+        └── :0:main
+            └── ·3183e43
+    ");
+
+    assert_eq!(
+        default_options().workspace_merge,
+        WorkspaceMerge::MergeIfNeeded
+    );
+
+    // Add another stack to be sure we correctly handle the removal of existing stacks later (i.e. don't get the index wrong)
+    let out = but_workspace::branch::apply(
+        r("refs/heads/unrelated"),
+        &ws,
+        &repo,
+        &mut meta,
+        default_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: true,
+        applied_branches: "[refs/heads/unrelated]",
+    }
+    "#);
+    // TODO: should this not avoid creating a workspace commit?
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * f1889e7 (A2) add A2
+    * 7de99e1 (A1) add A1
+    | * 6848743 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * 53ad0c2 (unrelated) add U1
+    |/  
+    * 3183e43 (origin/main, main) M1
+    ");
+
+    let graph = out.graph;
+    let ws = graph.to_workspace()?;
+
+    let out =
+        but_workspace::branch::apply(r("refs/heads/A1"), &ws, &repo, &mut meta, default_options())?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+        applied_branches: "[refs/heads/A1]",
+    }
+    "#);
+
+    let graph = out.graph;
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:4:A1 on 3183e43 {72}
+    │   └── 📙:4:A1
+    │       └── ·7de99e1 (🏘️)
+    └── ≡📙:3:unrelated on 3183e43 {3c4}
+        └── 📙:3:unrelated
+            └── ·53ad0c2 (🏘️)
+    ");
+
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A2"),
+        &ws,
+        &repo,
+        &mut meta,
+        but_workspace::branch::apply::Options {
+            // TODO: remove this, use default options.
+            on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
+            ..default_options()
+        },
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+        applied_branches: "[refs/heads/A2]",
+    }
+    "#);
+
+    let graph = out.graph;
+    let ws = graph.to_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:5:A2 on 3183e43 {73}
+    │   ├── 📙:5:A2
+    │   │   └── ·f1889e7 (🏘️)
+    │   └── 📙:4:A1
+    │       └── ·7de99e1 (🏘️)
+    └── ≡📙:3:unrelated on 3183e43 {3c4}
+        └── 📙:3:unrelated
+            └── ·53ad0c2 (🏘️)
+    ");
     Ok(())
 }
 

@@ -104,7 +104,7 @@ pub mod merge {
         /// like [`Self::from_new_merge_with_metadata`], but supports tips, which makes it possible to re-merge anything
         /// even if the tip is unnamed.
         /// Note that [`missing_stacks`](Outcome::missing_stacks) is never set.
-        pub fn from_new_merge_with_tips<'a>(
+        pub fn from_new_merge_with_tips(
             tips: impl IntoIterator<Item = Tip>,
             graph: &but_graph::Graph,
             repo: &gix::Repository,
@@ -338,6 +338,10 @@ pub mod merge {
         /// create a new workspace commit with their tips extracted from `graph`. Note that stacks that don't exist in `graph` aren't fatal.
         /// Also, this will create a workspace commit as it's desired, but not as it is, and the caller should assure that all branches are present.
         ///
+        /// Use `anon_stacks` with `(parent_index, tip)` to fill-in anonymous commits that aren't listed in metadata,
+        /// as they have *no known name*. We will make sure that no commit in `anon_stacks` is a duplicate with a `stack`, and
+        /// we will insert them at `parent_index` into the resulting list so they don't change their position.
+        ///
         /// Use `hero_stack` to highlight a stack that you definitely want merged in, and would rather not merge other stacks for it.
         /// This can lead to a situation where only the hero stack is applied.
         /// If there is only one stack, it just uses the tree of that stack. It's an error if `stacks` is empty.
@@ -353,15 +357,16 @@ pub mod merge {
         /// In order to find out exactly which branches conflicts, we repeat the whole operations with different configuration.
         /// One could be better and only repeat what didn't change, to avoid repeating unnecessarily.
         /// But that shouldn't usually matter unless in the biggest repositories with tree-merge times past a 500ms or so.
-        #[instrument(name = "re-merge workspace commit", level = tracing::Level::DEBUG, skip(stacks, graph, repo), err(Debug))]
+        #[instrument(name = "re-merge workspace commit", level = tracing::Level::DEBUG, skip(stacks, anon_stacks, graph, repo), err(Debug))]
         pub fn from_new_merge_with_metadata<'a>(
             stacks: impl IntoIterator<Item = &'a but_core::ref_metadata::WorkspaceStack>,
+            anon_stacks: impl IntoIterator<Item = (usize, Tip)>,
             graph: &but_graph::Graph,
             repo: &gix::Repository,
             hero_stack: Option<&gix::refs::FullNameRef>,
         ) -> anyhow::Result<Outcome> {
             let mut missing_stacks = Vec::new();
-            let tips = stacks
+            let mut tips: Vec<_> = stacks
                 .into_iter()
                 .filter_map(|s| s.branches.first().map(|b| (b, s.workspacecommit_relation)))
                 .filter_map(|(top_segment, relation)| {
@@ -384,7 +389,16 @@ pub mod merge {
                             Some(Tip {name: Some(stack_tip_name.to_owned()), commit_id: commit.id, segment_idx: segment.id})
                         }
                     }
-                });
+                }).collect();
+            for (idx, anon_tip) in anon_stacks {
+                if tips.iter().any(|t| {
+                    t.commit_id == anon_tip.commit_id || t.segment_idx == anon_tip.segment_idx
+                }) {
+                    // prevent duplication of tips, make calling this easier as well.
+                    continue;
+                }
+                tips.insert(idx, anon_tip)
+            }
             let mut out = Self::from_new_merge_with_tips(tips, graph, repo, hero_stack)?;
             out.missing_stacks = missing_stacks;
             Ok(out)
