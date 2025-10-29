@@ -111,17 +111,17 @@ pub fn delete_session_and_messages_by_id(
     Ok(())
 }
 
-/// Creates a new ClaudeMessage with the provided session_id and content, and saves it to the database.
+/// Creates a new ClaudeMessage with the provided session_id and payload, and saves it to the database.
 pub fn save_new_message(
     ctx: &mut CommandContext,
     session_id: Uuid,
-    content: crate::ClaudeMessageContent,
+    payload: crate::MessagePayload,
 ) -> anyhow::Result<crate::ClaudeMessage> {
     let message = crate::ClaudeMessage {
         id: Uuid::new_v4(),
         session_id,
         created_at: chrono::Utc::now().naive_utc(),
-        content,
+        payload,
     };
     ctx.db()?
         .claude_messages()
@@ -130,6 +130,7 @@ pub fn save_new_message(
 }
 
 /// Lists all messages associated with a given session ID from the database.
+/// Messages that fail to deserialize are skipped and logged as warnings.
 pub fn list_messages_by_session(
     ctx: &mut CommandContext,
     session_id: Uuid,
@@ -138,10 +139,23 @@ pub fn list_messages_by_session(
         .db()?
         .claude_messages()
         .list_by_session(&session_id.to_string())?;
-    messages
+    Ok(messages
         .into_iter()
-        .map(|m| m.try_into())
-        .collect::<Result<_, _>>()
+        .filter_map(|m| {
+            let message_id = m.id.clone();
+            match m.try_into() {
+                Ok(msg) => Some(msg),
+                Err(e) => {
+                    tracing::warn!(
+                        message_id = %message_id,
+                        error = %e,
+                        "Failed to deserialize claude message, skipping"
+                    );
+                    None
+                }
+            }
+        })
+        .collect())
 }
 
 /// Lists all Permission Requests
@@ -198,7 +212,11 @@ impl TryFrom<crate::ClaudeSession> for but_db::ClaudeSession {
 }
 
 #[derive(Debug, Clone, Copy, strum::EnumString, strum::Display)]
-enum ClaudeMessageDbContentType {
+enum MessagePayloadDbType {
+    Claude,
+    User,
+    System,
+    // Legacy names for backward compatibility
     ClaudeOutput,
     UserInput,
     GitButlerMessage,
@@ -207,23 +225,24 @@ enum ClaudeMessageDbContentType {
 impl TryFrom<but_db::ClaudeMessage> for crate::ClaudeMessage {
     type Error = anyhow::Error;
     fn try_from(value: but_db::ClaudeMessage) -> Result<Self, Self::Error> {
-        let content_type: ClaudeMessageDbContentType = value.content_type.parse()?;
-        let content = match content_type {
-            ClaudeMessageDbContentType::ClaudeOutput => {
-                crate::ClaudeMessageContent::ClaudeOutput(serde_json::from_str(&value.content)?)
+        let payload_type: MessagePayloadDbType = value.content_type.parse()?;
+        let payload = match payload_type {
+            MessagePayloadDbType::Claude | MessagePayloadDbType::ClaudeOutput => {
+                let data: serde_json::Value = serde_json::from_str(&value.content)?;
+                crate::MessagePayload::Claude(crate::ClaudeOutput { data })
             }
-            ClaudeMessageDbContentType::UserInput => {
-                crate::ClaudeMessageContent::UserInput(serde_json::from_str(&value.content)?)
+            MessagePayloadDbType::User | MessagePayloadDbType::UserInput => {
+                crate::MessagePayload::User(serde_json::from_str(&value.content)?)
             }
-            ClaudeMessageDbContentType::GitButlerMessage => {
-                crate::ClaudeMessageContent::GitButlerMessage(serde_json::from_str(&value.content)?)
+            MessagePayloadDbType::System | MessagePayloadDbType::GitButlerMessage => {
+                crate::MessagePayload::System(serde_json::from_str(&value.content)?)
             }
         };
         Ok(crate::ClaudeMessage {
             id: Uuid::parse_str(&value.id)?,
             session_id: Uuid::parse_str(&value.session_id)?,
             created_at: value.created_at,
-            content,
+            payload,
         })
     }
 }
@@ -231,18 +250,18 @@ impl TryFrom<but_db::ClaudeMessage> for crate::ClaudeMessage {
 impl TryFrom<crate::ClaudeMessage> for but_db::ClaudeMessage {
     type Error = anyhow::Error;
     fn try_from(value: crate::ClaudeMessage) -> Result<Self, Self::Error> {
-        let (content_type, content) = match value.content {
-            crate::ClaudeMessageContent::ClaudeOutput(value) => {
-                let value = serde_json::to_string(&value)?;
-                (ClaudeMessageDbContentType::ClaudeOutput, value)
+        let (payload_type, content) = match value.payload {
+            crate::MessagePayload::Claude(output) => {
+                let content = serde_json::to_string(&output.data)?;
+                (MessagePayloadDbType::Claude, content)
             }
-            crate::ClaudeMessageContent::UserInput(value) => {
-                let value = serde_json::to_string(&value)?;
-                (ClaudeMessageDbContentType::UserInput, value)
+            crate::MessagePayload::User(input) => {
+                let content = serde_json::to_string(&input)?;
+                (MessagePayloadDbType::User, content)
             }
-            crate::ClaudeMessageContent::GitButlerMessage(value) => {
-                let value = serde_json::to_string(&value)?;
-                (ClaudeMessageDbContentType::GitButlerMessage, value)
+            crate::MessagePayload::System(msg) => {
+                let content = serde_json::to_string(&msg)?;
+                (MessagePayloadDbType::System, content)
             }
         };
 
@@ -250,7 +269,7 @@ impl TryFrom<crate::ClaudeMessage> for but_db::ClaudeMessage {
             id: value.id.to_string(),
             session_id: value.session_id.to_string(),
             created_at: value.created_at,
-            content_type: content_type.to_string(),
+            content_type: payload_type.to_string(),
             content,
         })
     }
