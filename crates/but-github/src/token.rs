@@ -36,14 +36,14 @@ pub fn get_gh_access_token(
     Ok(account.map(|acct| acct.access_token()))
 }
 
-pub fn list_known_github_usernames(
+pub fn list_known_github_accounts(
     storage: &but_forge_storage::controller::Controller,
-) -> Result<Vec<String>> {
+) -> Result<Vec<GithubAccountIdentifier>> {
     Ok(storage
         .github_accounts()?
         .iter()
-        .map(|account| account.username().to_string())
-        .collect::<Vec<String>>())
+        .map(|account| account.into())
+        .collect::<Vec<_>>())
 }
 
 pub fn clear_all_github_accounts(
@@ -54,7 +54,7 @@ pub fn clear_all_github_accounts(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "info")]
+#[serde(rename_all = "camelCase", tag = "type", content = "info")]
 pub enum GithubAccountIdentifier {
     OAuthUsername { username: String },
     PatUsername { username: String },
@@ -76,6 +76,18 @@ impl GithubAccountIdentifier {
         GithubAccountIdentifier::Enterprise {
             username: username.to_string(),
             host: host.to_string(),
+        }
+    }
+}
+
+impl std::fmt::Display for GithubAccountIdentifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GithubAccountIdentifier::OAuthUsername { username } => write!(f, "OAuth: {}", username),
+            GithubAccountIdentifier::PatUsername { username } => write!(f, "PAT: {}", username),
+            GithubAccountIdentifier::Enterprise { username, host } => {
+                write!(f, "Enterprise {}@{}", username, host)
+            }
         }
     }
 }
@@ -119,6 +131,29 @@ impl From<&GitHubAccount> for but_forge_storage::settings::GitHubAccount {
                     username: username.to_owned(),
                     host: host.to_owned(),
                     access_token_key,
+                }
+            }
+        }
+    }
+}
+
+impl From<&but_forge_storage::settings::GitHubAccount> for GithubAccountIdentifier {
+    fn from(account: &but_forge_storage::settings::GitHubAccount) -> Self {
+        match account {
+            but_forge_storage::settings::GitHubAccount::OAuth { username, .. } => {
+                GithubAccountIdentifier::OAuthUsername {
+                    username: username.to_owned(),
+                }
+            }
+            but_forge_storage::settings::GitHubAccount::Pat { username, .. } => {
+                GithubAccountIdentifier::PatUsername {
+                    username: username.to_owned(),
+                }
+            }
+            but_forge_storage::settings::GitHubAccount::Enterprise { host, username, .. } => {
+                GithubAccountIdentifier::Enterprise {
+                    username: username.to_owned(),
+                    host: host.to_owned(),
                 }
             }
         }

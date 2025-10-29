@@ -47,7 +47,7 @@ fn resolve_username(
     preferred_username: &Option<String>,
     storage: &but_forge_storage::controller::Controller,
 ) -> Result<String, anyhow::Error> {
-    let known_usernames = crate::token::list_known_github_usernames(storage)?;
+    let known_usernames = crate::token::list_known_github_accounts(storage)?;
     let Some(default_username) = known_usernames.first() else {
         bail!("No authenticated GitHub users found. Please authenticate with GitHub first.");
     };

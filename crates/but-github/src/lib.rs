@@ -9,6 +9,7 @@ mod client;
 pub mod pr;
 pub use client::{CreatePullRequestParams, GitHubPrLabel, GitHubUser, PullRequest};
 mod token;
+pub use token::GithubAccountIdentifier;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Verification {
@@ -202,11 +203,10 @@ async fn fetch_and_persist_enterprise_user_data(
 }
 
 pub fn forget_gh_access_token(
-    login: &str,
+    account: &GithubAccountIdentifier,
     storage: &but_forge_storage::controller::Controller,
 ) -> Result<()> {
-    token::delete_gh_access_token(&token::GithubAccountIdentifier::oauth(login), storage)
-        .context("Failed to delete access token")
+    token::delete_gh_access_token(account, storage).context("Failed to delete access token")
 }
 
 #[derive(Debug, Clone)]
@@ -219,12 +219,10 @@ pub struct AuthenticatedUser {
 }
 
 pub async fn get_gh_user(
-    login: &str,
+    account: &GithubAccountIdentifier,
     storage: &but_forge_storage::controller::Controller,
 ) -> Result<Option<AuthenticatedUser>> {
-    if let Some(access_token) =
-        token::get_gh_access_token(&token::GithubAccountIdentifier::oauth(login), storage)?
-    {
+    if let Some(access_token) = token::get_gh_access_token(account, storage)? {
         let gh =
             client::GitHubClient::new(&access_token).context("Failed to create GitHub client")?;
         let user = gh
@@ -243,20 +241,24 @@ pub async fn get_gh_user(
     }
 }
 
-pub async fn list_known_github_usernames(
+pub async fn list_known_github_accounts(
     storage: &but_forge_storage::controller::Controller,
-) -> Result<Vec<String>> {
-    let known_usernames = token::list_known_github_usernames(storage)
+) -> Result<Vec<token::GithubAccountIdentifier>> {
+    let known_accounts = token::list_known_github_accounts(storage)
         .context("Failed to list known GitHub usernames")?;
     // Migrate the users from the previous storage method.
     if let Some(stored_gh_access_token) = gitbutler_user::forget_github_login_for_user()?
-        && known_usernames.is_empty()
+        && known_accounts.is_empty()
     {
         fetch_and_persist_oauth_user_data(&stored_gh_access_token, storage)
             .await
             .ok();
+
+        let known_accounts = token::list_known_github_accounts(storage)
+            .context("Failed to list known GitHub usernames")?;
+        return Ok(known_accounts);
     }
-    Ok(known_usernames)
+    Ok(known_accounts)
 }
 
 pub fn clear_all_github_tokens(storage: &but_forge_storage::controller::Controller) -> Result<()> {

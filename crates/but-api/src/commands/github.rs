@@ -95,9 +95,9 @@ pub async fn store_github_enterprise_pat(
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
-pub fn forget_github_username(username: String) -> Result<(), Error> {
+pub fn forget_github_account(account: but_github::GithubAccountIdentifier) -> Result<(), Error> {
     let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
-    but_github::forget_gh_access_token(&username, &storage).ok();
+    but_github::forget_gh_access_token(&account, &storage).ok();
     Ok(())
 }
 
@@ -142,23 +142,24 @@ impl From<AuthenticatedUser> for AuthenticatedUserSensitive {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetGhUserParams {
-    pub username: String,
+    pub account: but_github::GithubAccountIdentifier,
 }
 
 pub async fn get_gh_user(
     params: GetGhUserParams,
 ) -> Result<Option<AuthenticatedUserSensitive>, Error> {
-    let GetGhUserParams { username } = params;
+    let GetGhUserParams { account } = params;
     let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
-    but_github::get_gh_user(&username, &storage)
+    but_github::get_gh_user(&account, &storage)
         .await
         .map(|res| res.map(Into::into))
         .map_err(Into::into)
 }
 
-pub async fn list_known_github_usernames() -> Result<Vec<String>, Error> {
+pub async fn list_known_github_accounts() -> Result<Vec<but_github::GithubAccountIdentifier>, Error>
+{
     let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
-    but_github::list_known_github_usernames(&storage)
+    but_github::list_known_github_accounts(&storage)
         .await
         .map_err(Into::into)
 }

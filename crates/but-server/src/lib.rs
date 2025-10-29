@@ -385,9 +385,9 @@ async fn handle_command(
             }
         }
         "forget_github_username" => forget_github_username_cmd(request.params),
-        "list_known_github_usernames" => github::list_known_github_usernames()
-            .await
-            .map(|r| json!(r)),
+        "list_known_github_accounts" => {
+            github::list_known_github_accounts().await.map(|r| json!(r))
+        }
         "clear_all_github_tokens" => clear_all_github_tokens_cmd(request.params),
         "get_gh_user" => {
             let params = serde_json::from_value(request.params).to_error();
