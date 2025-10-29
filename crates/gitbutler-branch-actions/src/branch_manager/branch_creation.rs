@@ -146,6 +146,12 @@ impl BranchManager<'_> {
         pr_number: Option<usize>,
         perm: &mut WorktreeWritePermission,
     ) -> Result<(StackId, Vec<StackId>)> {
+        let branch_name = target
+            .branch()
+            .expect("always a branch reference")
+            .to_string();
+        let _ = self.ctx.snapshot_branch_creation(branch_name.clone(), perm);
+
         // Assume that this is always about 'apply' and hijack the entire method.
         // That way we'd learn what's missing.
         if self.ctx.app_settings().feature_flags.apply3 {
@@ -197,13 +203,6 @@ impl BranchManager<'_> {
                 }
             }
         };
-
-        let branch_name = target
-            .branch()
-            .expect("always a branch reference")
-            .to_string();
-
-        let _ = self.ctx.snapshot_branch_creation(branch_name.clone(), perm);
 
         let vb_state = self.ctx.project().virtual_branches();
 
