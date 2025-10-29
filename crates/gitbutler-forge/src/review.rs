@@ -269,7 +269,7 @@ impl From<but_github::PullRequest> for ForgeReview {
 
 /// List the open reviews (e.g. pull requests) for a given forge repository
 pub async fn list_forge_reviews(
-    preferred_forge_user: &Option<String>,
+    preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     storage: &but_forge_storage::controller::Controller,
 ) -> Result<Vec<ForgeReview>> {
@@ -278,7 +278,8 @@ pub async fn list_forge_reviews(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
-            let pulls = but_github::pr::list(preferred_forge_user, owner, repo, storage).await?;
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let pulls = but_github::pr::list(preferred_account, owner, repo, storage).await?;
             Ok(pulls.into_iter().map(ForgeReview::from).collect())
         }
         _ => Err(Error::msg(format!(
@@ -300,7 +301,7 @@ pub struct CreateForgeReviewParams {
 
 /// Create a new review (e.g. pull request) for a given forge repository
 pub async fn create_forge_review(
-    preferred_forge_user: &Option<String>,
+    preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     params: &CreateForgeReviewParams,
     storage: &but_forge_storage::controller::Controller,
@@ -321,7 +322,8 @@ pub async fn create_forge_review(
                 base: &params.target_branch,
                 draft: params.draft,
             };
-            let pr = but_github::pr::create(preferred_forge_user, pr_params, storage).await?;
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let pr = but_github::pr::create(preferred_account, pr_params, storage).await?;
             Ok(ForgeReview::from(pr))
         }
         _ => Err(Error::msg(format!(

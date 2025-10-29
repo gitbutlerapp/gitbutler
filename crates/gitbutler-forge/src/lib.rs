@@ -1,6 +1,7 @@
 use git_url_parse::{GitUrl, types::provider::GenericProvider};
 
 use crate::forge::{ForgeName, ForgeRepoInfo};
+pub use crate::forge::{ForgeUser, deserialize_preferred_forge_user_opt};
 
 pub mod forge;
 pub mod review;
