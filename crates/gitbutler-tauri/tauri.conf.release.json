@@ -2,7 +2,7 @@
 	"productName": "GitButler",
 	"identifier": "com.gitbutler.app",
 	"build": {
-		"beforeBuildCommand": "[ \"$CI\" = \"true\" ] || pnpm build:desktop -- --mode production && cargo build --release -p gitbutler-git && bash ./crates/gitbutler-tauri/inject-git-binaries.sh"
+		"beforeBuildCommand": "bash ./crates/gitbutler-tauri/tauri-before-build-command.sh production"
 	},
 	"bundle": {
 		"active": true,
