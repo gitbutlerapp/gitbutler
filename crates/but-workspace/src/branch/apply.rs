@@ -6,8 +6,10 @@ use crate::branch::OnWorkspaceMergeConflict;
 
 /// Returned by [function::apply()].
 pub struct Outcome<'workspace> {
-    /// The newly created workspace, if owned, useful to project a workspace and see how the workspace looks like with the branch applied.
-    /// If borrowed, the graph already contains the desired branch and nothing had to be applied.
+    /// The newly created workspace, if owned, or the one that was passed in if borrowed, to show how the workspace looks like now.
+    ///
+    /// If borrowed, the graph already contained the desired branch and nothing had to be applied. Note that metadata changes
+    /// might not be included in this case, as they aren't the source of truth.
     pub workspace: Cow<'workspace, but_graph::projection::Workspace>,
     /// The name of the branch(es) that were actually applied.
     ///
@@ -117,7 +119,8 @@ pub struct Options {
     /// How the workspace reference should be named should it be created.
     /// The creation is always needed if there are more than one branch applied.
     pub workspace_reference_naming: WorkspaceReferenceNaming,
-    /// How the worktree checkout should behave int eh light of uncommitted changes in the worktree.
+    /// How the worktree checkout should behave when uncommitted changes are present in the worktree that it would
+    /// want to modify to accommodate the new workspace commit, with the applied stack added.
     pub uncommitted_changes: UncommitedWorktreeChanges,
     /// If not `None`, the applied branch should be merged into the workspace commit at the N'th parent position.
     /// This is useful if the tip of a branch (at a specific position) was unapplied, and a segment within that branch
