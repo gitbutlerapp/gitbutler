@@ -18,6 +18,7 @@ pub struct TelemetryUpdate {
 pub struct FeatureFlagsUpdate {
     pub cv3: Option<bool>,
     pub ws3: Option<bool>,
+    pub apply3: Option<bool>,
     pub actions: Option<bool>,
     pub butbot: Option<bool>,
     pub rules: Option<bool>,
@@ -90,6 +91,7 @@ impl AppSettingsWithDiskSync {
         FeatureFlagsUpdate {
             cv3,
             ws3,
+            apply3,
             actions,
             butbot,
             rules,
@@ -102,6 +104,9 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(ws3) = ws3 {
             settings.feature_flags.ws3 = ws3;
+        }
+        if let Some(apply3) = apply3 {
+            settings.feature_flags.apply3 = apply3;
         }
         if let Some(actions) = actions {
             settings.feature_flags.actions = actions;

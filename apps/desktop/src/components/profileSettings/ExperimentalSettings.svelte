@@ -56,6 +56,22 @@
 			/>
 		{/snippet}
 	</SectionCard>
+	<SectionCard labelFor="apply3" roundedTop={false} roundedBottom={false} orientation="row">
+		{#snippet title()}
+			New apply to workspace
+		{/snippet}
+		{#snippet caption()}
+			Use the V3 version of apply and unapply operations for workspace changes.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="apply3"
+				checked={$settingsStore?.featureFlags.apply3}
+				onclick={() =>
+					settingsService.updateFeatureFlags({ apply3: !$settingsStore?.featureFlags.apply3 })}
+			/>
+		{/snippet}
+	</SectionCard>
 	<SectionCard labelFor="rules" roundedTop={false} roundedBottom={false} orientation="row">
 		{#snippet title()}
 			Workspace Rules
