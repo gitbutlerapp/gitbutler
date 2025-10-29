@@ -190,6 +190,8 @@ export type FeatureFlags = {
 	cv3: boolean;
 	/** Enable the usage of the V3 workspace API */
 	ws3: boolean;
+	/** Use the V3 version of apply and unapply. */
+	apply3: boolean;
 	/** Enable the usage of GitButler Acitions. */
 	actions: boolean;
 	/** Enable the usage of butbot chat */
