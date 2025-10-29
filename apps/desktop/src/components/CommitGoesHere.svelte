@@ -70,10 +70,11 @@
 		}
 
 		&.draft {
-			border: 1px solid var(--clr-border-2);
-			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+			border-top: 1px solid var(--clr-border-2);
+			border-bottom: none;
 		}
 	}
+
 	.pin {
 		display: flex;
 		position: relative;
