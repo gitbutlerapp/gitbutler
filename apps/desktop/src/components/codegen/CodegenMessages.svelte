@@ -2,7 +2,6 @@
 	import { goto } from '$app/navigation';
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import VirtualList from '$components/VirtualList.svelte';
 
 	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
 	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
@@ -54,6 +53,7 @@
 		Tooltip
 	} from '@gitbutler/ui';
 
+	import VirtualList from '@gitbutler/ui/components/VirtualList.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type { ClaudeMessage, ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
 
@@ -468,6 +468,7 @@
 						initialPosition="bottom"
 						items={formattedMessages}
 						batchSize={1}
+						visibility={$userSettings.scrollbarVisibilityState}
 						padding={{ left: 20, right: 20 }}
 					>
 						{#snippet chunkTemplate(messages)}

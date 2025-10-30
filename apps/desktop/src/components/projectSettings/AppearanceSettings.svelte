@@ -5,7 +5,7 @@
 		stagingBehaviorFeature,
 		type StagingBehavior
 	} from '$lib/config/uiFeatureFlags';
-	import { SETTINGS, type ScrollbarVisilitySettings } from '$lib/settings/userSettings';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/core/context';
 	import {
 		HunkDiff,
@@ -16,6 +16,7 @@
 		Textbox,
 		Toggle
 	} from '@gitbutler/ui';
+	import type { ScrollbarVisilitySettings } from '@gitbutler/ui/components/scroll/Scrollbar.svelte';
 
 	const userSettings = inject(SETTINGS);
 	const diff = `@@ -56,10 +56,10 @@

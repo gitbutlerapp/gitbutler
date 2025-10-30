@@ -14,17 +14,19 @@
 </script>
 
 <script lang="ts" generics="T">
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { chunk } from '$lib/utils/array';
+	import Button from '$components/Button.svelte';
+	import ScrollableContainer from '$components/scroll/ScrollableContainer.svelte';
+
 	import { debounce } from '$lib/utils/debounce';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, ScrollableContainer } from '@gitbutler/ui';
 
 	import { tick, untrack, type Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
+	import type { ScrollbarVisilitySettings } from '$components/scroll/Scrollbar.svelte';
 
 	type Props = {
 		items: Array<T>;
+		/** Items that are always included. */
+		children?: Snippet<[]>;
 		/** Template for group of items. */
 		chunkTemplate: Snippet<[T[]]>;
 		/** Number of items grouped together. */
@@ -36,6 +38,7 @@
 		initialPosition?: 'top' | 'bottom';
 		/** Auto-scroll to bottom when new items are added (useful for chat). */
 		stickToBottom?: boolean;
+		visibility: ScrollbarVisilitySettings;
 		padding?: {
 			left?: number;
 			right?: number;
@@ -44,16 +47,16 @@
 
 	const {
 		items,
+		children,
 		chunkTemplate,
 		batchSize,
 		onloadmore,
 		grow,
 		padding,
+		visibility,
 		initialPosition = 'top',
 		stickToBottom = false
 	}: Props = $props();
-
-	const userSettings = inject(SETTINGS);
 
 	// Constants
 	const STICKY_DISTANCE = 100;
@@ -95,6 +98,12 @@
 	const visible = $derived.by(() =>
 		chunks.slice(start, end).map((data, i) => ({ id: i + start, data }))
 	);
+
+	function chunk<T>(arr: T[], size: number) {
+		return Array.from({ length: Math.ceil(arr.length / size) }, (_v, i) =>
+			arr.slice(i * size, i * size + size)
+		);
+	}
 
 	function sumHeights(startIndex: number, endIndex: number): number {
 		let sum = 0;
@@ -349,12 +358,12 @@
 <ScrollableContainer
 	bind:viewportHeight
 	bind:viewport
-	whenToShow={$userSettings.scrollbarVisibilityState}
 	onscroll={() => {
 		recalculate(true);
 		checkIfNearBottom();
 	}}
 	wide={grow}
+	whenToShow={visibility}
 	{padding}
 >
 	<div
@@ -369,6 +378,7 @@
 				{@render chunkTemplate?.(chunk.data)}
 			</div>
 		{/each}
+		{@render children?.()}
 	</div>
 </ScrollableContainer>
 
