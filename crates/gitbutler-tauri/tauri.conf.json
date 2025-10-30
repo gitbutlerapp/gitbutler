@@ -25,7 +25,11 @@
 		},
 		"linux": {
 			"rpm": {
-				"depends": ["webkit2gtk4.1"]
+				"depends": ["webkit2gtk4.1"],
+				"compression": {
+					"type": "zstd",
+					"level": 3
+				}
 			},
 			"deb": {
 				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
