@@ -106,7 +106,7 @@ pub struct StopEvent {
 }
 
 pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
-    let input: FileEditEvent = serde_json::from_str(&stdin()?)
+    let mut input: FileEditEvent = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
     let hook_headers = input
         .edits
@@ -120,6 +120,14 @@ pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
         .first()
         .ok_or_else(|| anyhow::anyhow!("No workspace roots provided"))
         .map(std::path::Path::new)?;
+
+    // Convert file_path from absolute to relative
+    let absolute_path = std::path::Path::new(&input.file_path);
+    input.file_path = absolute_path
+        .strip_prefix(dir)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or(input.file_path);
+
     let repo = gix::discover(dir)?;
     let project = Project::from_path(
         repo.workdir()
