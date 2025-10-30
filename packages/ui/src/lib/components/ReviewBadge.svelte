@@ -16,7 +16,7 @@
 	const reviewSymbol = $derived(reviewUnit === 'MR' ? '!' : '#');
 	const id = $derived(`${reviewSymbol}${number}`);
 
-	function getBadgeDetails() {
+	const badgeDetails = $derived.by(() => {
 		if (title) {
 			return {
 				text: title,
@@ -51,10 +51,10 @@
 					color: undefined
 				};
 		}
-	}
+	});
 </script>
 
-<Tooltip text={getBadgeDetails().text}>
+<Tooltip text={badgeDetails.text}>
 	<div class="review-badge" class:pr-type={status}>
 		<div class="review-badge__icon">
 			{#if type === 'MR'}
@@ -72,8 +72,8 @@
 			{/if}
 		</span>
 
-		{#if getBadgeDetails().color}
-			<div class="pr-status" style:--pr-color={getBadgeDetails().color}></div>
+		{#if badgeDetails.color}
+			<div class="pr-status" style:--pr-color={badgeDetails.color}></div>
 		{/if}
 	</div>
 </Tooltip>

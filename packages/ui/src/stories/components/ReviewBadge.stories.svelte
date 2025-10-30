@@ -8,8 +8,7 @@
 		args: {
 			type: 'PR',
 			status: 'open',
-			number: 1,
-			title: 'Sample Pull Request'
+			number: 1
 		}
 	});
 </script>
