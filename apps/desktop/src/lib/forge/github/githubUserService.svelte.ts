@@ -155,6 +155,14 @@ export class GitHubUserService {
 		return await this.backendApi.endpoints.checkAuthStatus.mutate(params);
 	}
 
+	get storeGitHubPat() {
+		return this.backendApi.endpoints.storeGitHubPat.useMutation();
+	}
+
+	get storeGithuibEnterprisePat() {
+		return this.backendApi.endpoints.storeGithuibEnterprisePat.useMutation();
+	}
+
 	get forgetGitHubUsername() {
 		return this.backendApi.endpoints.forgetGitHubAccount.useMutation();
 	}
@@ -237,6 +245,25 @@ function injectBackendEndpoints(api: BackendApi) {
 					actionName: 'Clear All GitHub Accounts'
 				},
 				query: () => ({}),
+				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
+			}),
+			storeGitHubPat: build.mutation<AuthenticatedUser, { accessToken: string }>({
+				extraOptions: {
+					command: 'store_github_pat',
+					actionName: 'Store GitHub PAT'
+				},
+				query: (args) => args,
+				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
+			}),
+			storeGithuibEnterprisePat: build.mutation<
+				AuthenticatedUser,
+				{ host: string; accessToken: string }
+			>({
+				extraOptions: {
+					command: 'store_github_enterprise_pat',
+					actionName: 'Store GitHub Enterprise PAT'
+				},
+				query: (args) => args,
 				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
 			})
 		})
