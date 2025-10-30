@@ -1,0 +1,33 @@
+---
+title: 'but init'
+description: 'Initialize a GitButler project from a git repository'
+---
+
+## Usage
+
+```
+but init [OPTIONS]
+```
+
+## Options
+
+### `-r, --repo`
+
+Also initializes a git repository in the current directory if one does not exist.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+## Examples
+
+Initialize GitButler in an existing git repository:
+
+```
+but init
+```
+
+Initialize both git and GitButler:
+
+```
+but init --repo
+```

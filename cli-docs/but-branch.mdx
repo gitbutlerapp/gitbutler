@@ -1,0 +1,124 @@
+---
+title: 'but branch'
+description: 'Commands for managing branches'
+---
+
+## Usage
+
+```
+but branch <SUBCOMMAND>
+```
+
+## Subcommands
+
+### new
+
+Creates a new branch in the workspace.
+
+```
+but branch new [OPTIONS] [BRANCH_NAME]
+```
+
+#### Arguments
+
+- `[BRANCH_NAME]` - Name of the new branch (optional, auto-generated if not provided)
+
+#### Options
+
+- `-a, --anchor <ANCHOR>` - Anchor point - either a commit ID or branch name to create the new branch from
+
+### delete
+
+Deletes a branch from the workspace.
+
+```
+but branch delete [OPTIONS] <BRANCH_NAME>
+```
+
+Alias: `-d`
+
+#### Arguments
+
+- `<BRANCH_NAME>` - Name of the branch to delete (required)
+
+#### Options
+
+- `-f, --force` - Force deletion without confirmation
+
+### list
+
+List the branches in the repository.
+
+```
+but branch list [OPTIONS]
+```
+
+#### Options
+
+- `-l, --local` - Show only local branches
+
+### unapply
+
+Unapply a branch from the workspace.
+
+```
+but branch unapply [OPTIONS] <BRANCH_NAME>
+```
+
+#### Arguments
+
+- `<BRANCH_NAME>` - Name of the branch to unapply (required)
+
+#### Options
+
+- `-f, --force` - Force unapply without confirmation
+
+## Examples
+
+Create a new branch with auto-generated name:
+
+```
+but branch new
+```
+
+Create a new branch with a specific name:
+
+```
+but branch new my-feature
+```
+
+Create a new branch from a specific commit:
+
+```
+but branch new my-feature --anchor abc123
+```
+
+Delete a branch with confirmation:
+
+```
+but branch delete my-feature
+```
+
+Force delete a branch without confirmation:
+
+```
+but branch delete my-feature --force
+```
+
+List all branches:
+
+```
+but branch list
+```
+
+List only local branches:
+
+```
+but branch list --local
+```
+
+Unapply a branch from the workspace:
+
+```
+but branch unapply my-feature
+```

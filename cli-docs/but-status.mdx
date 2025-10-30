@@ -1,0 +1,61 @@
+---
+title: 'but status'
+description: 'Overview of the uncommitted changes in the repository'
+---
+
+## Usage
+
+```
+but status [OPTIONS]
+```
+
+## Alias
+
+This command can also be invoked using the shorter alias `st`:
+
+```
+but st [OPTIONS]
+```
+
+## Options
+
+### `-f, --files`
+
+Determines whether the committed files should be shown as well.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+### `-v, --verbose`
+
+Show verbose output with commit author and timestamp.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+### `-r, --review`
+
+Show the forge review information.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+## Examples
+
+Show basic status:
+
+```
+but status
+```
+
+Show status with files:
+
+```
+but status --files
+```
+
+Show verbose status with review information:
+
+```
+but status -v -r
+```
