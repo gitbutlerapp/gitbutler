@@ -16,6 +16,7 @@ pub struct ChangeInfo {
     pub commit_title: String,
     pub is_new: bool,
     pub is_wip: bool,
+    pub is_private: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -108,6 +109,7 @@ fn parse_change_info(line: &str) -> Option<ChangeInfo> {
     // Parse lines like:
     // "http://15a45d4cba1a/c/gerrit-test/+/42 aaaaaaa [NEW]"
     // "http://15a45d4cba1a/c/gerrit-test/+/47 hello [WIP] [NEW]"
+    // "https://codereview.qt-project.org/c/qt/qtbase/+/687666 Test manual push [PRIVATE] [NEW]"
     // or "http://15a45d4cba1a/c/gerrit-test/+/41 sup5"
 
     let parts: Vec<&str> = line.splitn(2, ' ').collect();
@@ -118,15 +120,17 @@ fn parse_change_info(line: &str) -> Option<ChangeInfo> {
             commit_title: String::new(),
             is_new: false,
             is_wip: false,
+            is_private: false,
         });
     }
 
     let url = parts[0].to_string();
     let rest = parts[1];
 
-    // Check for [WIP] and [NEW] tags
+    // Check for [WIP], [NEW], and [PRIVATE] tags
     let is_wip = rest.contains("[WIP]");
     let is_new = rest.contains("[NEW]");
+    let is_private = rest.contains("[PRIVATE]");
 
     // Remove tags to get clean commit title
     let mut commit_title = rest.to_string();
@@ -136,6 +140,9 @@ fn parse_change_info(line: &str) -> Option<ChangeInfo> {
     if is_new {
         commit_title = commit_title.replace(" [NEW]", "");
     }
+    if is_private {
+        commit_title = commit_title.replace(" [PRIVATE]", "");
+    }
     let commit_title = commit_title.trim().to_string();
 
     Some(ChangeInfo {
@@ -143,6 +150,7 @@ fn parse_change_info(line: &str) -> Option<ChangeInfo> {
         commit_title,
         is_new,
         is_wip,
+        is_private,
     })
 }
 
@@ -349,6 +357,7 @@ remote:"#;
             commit_title: "my commit message".to_string(),
             is_new: false,
             is_wip: false,
+            is_private: false,
         };
         assert_eq!(result, Some(expected));
 
@@ -359,6 +368,7 @@ remote:"#;
             commit_title: "fix bug".to_string(),
             is_new: true,
             is_wip: false,
+            is_private: false,
         };
         assert_eq!(result, Some(expected));
 
@@ -369,6 +379,7 @@ remote:"#;
             commit_title: String::new(),
             is_new: false,
             is_wip: false,
+            is_private: false,
         };
         assert_eq!(result, Some(expected));
 
@@ -380,6 +391,7 @@ remote:"#;
             commit_title: "fix: update dependencies".to_string(),
             is_new: true,
             is_wip: false,
+            is_private: false,
         };
         assert_eq!(result, Some(expected));
     }
@@ -393,6 +405,7 @@ remote:"#;
             commit_title: "hello".to_string(),
             is_new: false,
             is_wip: true,
+            is_private: false,
         };
         assert_eq!(result, Some(expected));
 
@@ -403,6 +416,7 @@ remote:"#;
             commit_title: "hello".to_string(),
             is_new: true,
             is_wip: true,
+            is_private: false,
         };
         assert_eq!(result, Some(expected));
 
@@ -414,6 +428,7 @@ remote:"#;
             commit_title: "multi word title".to_string(),
             is_new: true,
             is_wip: true,
+            is_private: false,
         };
         assert_eq!(result, Some(expected));
     }
@@ -562,5 +577,68 @@ remote:"#;
         assert_eq!(change.url, "http://gerrit.local/c/project/+/41");
         assert_eq!(change.commit_title, "fix bug");
         assert!(change.is_new); // Should be true from [NEW] tag
+    }
+
+    #[test]
+    fn test_parse_private_push_output() {
+        let output = r#"remote: Resolving deltas: 100% (2/2)
+remote: Processing changes: refs: 1, new: 1, done
+remote:
+remote: SUCCESS
+remote:
+remote:   https://codereview.qt-project.org/c/qt/qtbase/+/687666 Test manual push [PRIVATE] [NEW]
+remote:"#;
+
+        let result = push_output(output).unwrap();
+
+        assert!(result.success);
+        assert_eq!(result.warnings.len(), 0);
+        assert_eq!(result.changes.len(), 1);
+
+        let change = &result.changes[0];
+        assert_eq!(
+            change.url,
+            "https://codereview.qt-project.org/c/qt/qtbase/+/687666"
+        );
+        assert_eq!(change.commit_title, "Test manual push");
+        assert!(change.is_new);
+        assert!(change.is_private);
+        assert!(!change.is_wip);
+
+        assert!(result.processing_info.is_some());
+        let processing = result.processing_info.unwrap();
+        assert_eq!(processing.refs_count, 1);
+        assert_eq!(processing.updated_count, None);
+        assert_eq!(processing.new_count, Some(1));
+    }
+
+    #[test]
+    fn test_parse_private_tag_only() {
+        // Test PRIVATE tag without NEW
+        let result =
+            parse_change_info("http://gerrit.local/c/project/+/50 private change [PRIVATE]");
+        let expected = ChangeInfo {
+            url: "http://gerrit.local/c/project/+/50".to_string(),
+            commit_title: "private change".to_string(),
+            is_new: false,
+            is_wip: false,
+            is_private: true,
+        };
+        assert_eq!(result, Some(expected));
+    }
+
+    #[test]
+    fn test_parse_all_tags_combined() {
+        // Test all three tags together
+        let result =
+            parse_change_info("http://gerrit.local/c/project/+/51 all tags [WIP] [PRIVATE] [NEW]");
+        let expected = ChangeInfo {
+            url: "http://gerrit.local/c/project/+/51".to_string(),
+            commit_title: "all tags".to_string(),
+            is_new: true,
+            is_wip: true,
+            is_private: true,
+        };
+        assert_eq!(result, Some(expected));
     }
 }
