@@ -388,7 +388,7 @@
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Authorize GitHub Account"
-				icon="open-link"
+				icon="connect-github"
 				onclick={() => {
 					gitHubStartOauth();
 					addAccountContextMenu?.close();
@@ -396,7 +396,7 @@
 			/>
 			<ContextMenuItem
 				label="Add Personal Access Token"
-				icon="locked"
+				icon="token-lock"
 				onclick={() => {
 					startPatFlow();
 					addAccountContextMenu?.close();
@@ -404,7 +404,7 @@
 			/>
 			<ContextMenuItem
 				label="Add GitHub Enterprise Account"
-				icon="home"
+				icon="enterprise"
 				onclick={() => {
 					startGitHubEnterpriseFlow();
 					addAccountContextMenu?.close();
