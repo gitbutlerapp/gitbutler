@@ -116,7 +116,7 @@ impl ClaudeMcpConfig {
 
     pub fn mcp_servers_with_security(&self) -> McpConfig {
         let cli_path = get_cli_path()
-            .map(|p| p.to_string_lossy().replace(' ', "\\ "))
+            .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or("but".into());
         let mut out = self.mcp_servers();
         out.mcp_servers.insert(
