@@ -112,12 +112,6 @@ jobs:
       - name: perl -V (before re-install)
         if: runner.os == 'Windows'
         run: which perl && perl -V
-      - name: Setup perl
-        if: runner.os == 'Windows'
-        uses: shogo82148/actions-setup-perl@v1
-        with:
-          perl-version: '5.38'
-          distribution: strawberry
       - name: Set git to use LF
         if: runner.os == 'Windows'
         run: |
@@ -126,9 +120,6 @@ jobs:
       - name: perl -V
         if: runner.os == 'Windows'
         run: which perl && perl -V
-      - name: Ensure we have a working Perl toolchain
-        if: runner.os == 'Windows'
-        run: cpanm ExtUtils::Manifest App::cpanminus Locale::Maketext::Simple
       - name: Set Perl environment variables
         if: runner.os == 'Windows'
         run: |
