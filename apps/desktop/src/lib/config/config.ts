@@ -11,6 +11,11 @@ export function projectCommitGenerationExtraConcise(projectId: string): Persiste
 	return persisted(false, key + projectId);
 }
 
+export function projectCommitGenerationHaiku(projectId: string): Persisted<boolean> {
+	const key = 'projectCommitGenerationHaiku_';
+	return persisted(false, key + projectId);
+}
+
 export function projectCommitGenerationUseEmojis(projectId: string): Persisted<boolean> {
 	const key = 'projectCommitGenerationUseEmojis_';
 	return persisted(false, key + projectId);

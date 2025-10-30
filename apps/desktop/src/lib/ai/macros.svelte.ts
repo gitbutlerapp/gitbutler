@@ -7,6 +7,7 @@ type GenerateCommitMessageParams = {
 	branchName?: string;
 	diffInput?: DiffInput[];
 	onToken?: (token: string) => void;
+	useHaiku?: boolean;
 	useEmojiStyle?: boolean;
 	useBriefStyle?: boolean;
 };
@@ -48,6 +49,7 @@ export default class AIMacros {
 
 		const output = await this.aiService.summarizeCommit({
 			diffInput,
+			useHaiku: params.useHaiku ?? false,
 			useEmojiStyle: params.useEmojiStyle ?? false,
 			useBriefStyle: params.useBriefStyle ?? false,
 			commitTemplate: prompt,

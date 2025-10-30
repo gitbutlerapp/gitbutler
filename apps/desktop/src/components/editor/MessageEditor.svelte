@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	export type AiButtonClickParams = {
+		useHaiku?: boolean;
 		useEmojiStyle?: boolean;
 		useBriefStyle?: boolean;
 	};
@@ -10,6 +11,7 @@
 	import CommitSuggestions from '$components/editor/commitSuggestions.svelte';
 	import {
 		projectCommitGenerationExtraConcise,
+		projectCommitGenerationHaiku,
 		projectCommitGenerationUseEmojis
 	} from '$lib/config/config';
 	import { showError } from '$lib/notifications/toasts';
@@ -90,6 +92,7 @@
 	const userSettings = inject(SETTINGS);
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
 	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
+	const commitGenerationHaiku = projectCommitGenerationHaiku(projectId);
 
 	const useFloatingBox = uiState.global.useFloatingBox;
 
@@ -216,6 +219,7 @@
 		if (aiIsLoading) return;
 
 		onAiButtonClick({
+			useHaiku: $commitGenerationHaiku,
 			useEmojiStyle: $commitGenerationUseEmojis,
 			useBriefStyle: $commitGenerationExtraConcise
 		});
@@ -436,6 +440,15 @@
 						>
 							{#snippet control()}
 								<Checkbox small bind:checked={$commitGenerationExtraConcise} />
+							{/snippet}
+						</ContextMenuItem>
+
+						<ContextMenuItem
+							label="Haiku"
+							onclick={() => ($commitGenerationHaiku = !$commitGenerationHaiku)}
+						>
+							{#snippet control()}
+								<Checkbox small bind:checked={$commitGenerationHaiku} />
 							{/snippet}
 						</ContextMenuItem>
 
