@@ -48,7 +48,7 @@ pub mod create_reference {
 pub fn create_reference(
     project_id: ProjectId,
     request: create_reference::Request,
-) -> Result<(), Error> {
+) -> Result<(Option<StackId>, gix::refs::FullName), Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let create_reference::Request { new_name, anchor } = request;
@@ -82,15 +82,21 @@ pub fn create_reference(
 
     let mut guard = ctx.project().exclusive_worktree_access();
     let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
-    _ = but_workspace::branch::create_reference(
-        new_ref,
+    let graph = but_workspace::branch::create_reference(
+        new_ref.clone(),
         anchor,
         &repo,
         &graph.to_workspace()?,
         &mut *meta,
         |_| StackId::generate(),
     )?;
-    Ok(())
+
+    let workspace = graph.to_workspace()?;
+    let stack_id = workspace
+        .find_segment_and_stack_by_refname(new_ref.as_ref())
+        .and_then(|(stack, _)| stack.id);
+
+    Ok((stack_id, new_ref))
 }
 
 #[api_cmd]

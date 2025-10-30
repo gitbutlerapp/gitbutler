@@ -99,6 +99,11 @@ For examples see `but rub --help`."
         message: Option<String>,
         /// Branch CLI ID or name to derive the stack to commit to
         branch: Option<String>,
+        /// Whether to create a new branch for this commit.
+        /// If the branch name given matches an existing branch, that branch will be used instead.
+        /// If no branch name is given, a new branch with a generated name will be created.
+        #[clap(short = 'c', long = "create")]
+        create: bool,
         /// Only commit assigned files, not unassigned files
         #[clap(short = 'o', long = "only")]
         only: bool,
@@ -217,6 +222,9 @@ pub enum CommandName {
     BaseCheck,
     BaseUpdate,
     BranchNew,
+    BranchDelete,
+    BranchList,
+    BranchUnapply,
     #[clap(
         alias = "claude-pre-tool",
         alias = "claudepretool",

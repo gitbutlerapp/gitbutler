@@ -144,6 +144,7 @@ pub(crate) fn commit(
     message: Option<&str>,
     branch_hint: Option<&str>,
     only: bool,
+    create_branch: bool,
 ) -> anyhow::Result<()> {
     let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
@@ -161,16 +162,8 @@ pub(crate) fn commit(
         })
         .collect();
 
-    // Determine which stack to commit to
-    let target_stack_id = if stacks.is_empty() {
-        anyhow::bail!("No stacks found. Create a stack first with 'but branch new <name>'.");
-    } else if stacks.len() == 1 {
-        // Only one stack, use it
-        stacks[0].0
-    } else {
-        // Multiple stacks - need to select one
-        select_stack(&mut ctx, &stacks, branch_hint)?
-    };
+    let (target_stack_id, target_stack) =
+        select_stack(&mut ctx, project, &stacks, branch_hint, create_branch)?;
 
     // Get changes and assignments using but-api
     let worktree_changes = diff::changes_in_worktree(project_id)?;
@@ -226,13 +219,6 @@ pub(crate) fn commit(
     if commit_message.trim().is_empty() {
         anyhow::bail!("Aborting commit due to empty commit message.");
     }
-
-    // Find the target stack and determine the target branch
-    let target_stack = &stacks
-        .iter()
-        .find(|(id, _)| *id == target_stack_id)
-        .unwrap()
-        .1;
 
     // If a branch hint was provided, find that specific branch; otherwise use first branch
     let target_branch = if let Some(hint) = branch_hint {
@@ -308,47 +294,106 @@ pub(crate) fn commit(
     Ok(())
 }
 
+fn create_independent_branch(
+    branch_name: &str,
+    project: &Project,
+) -> anyhow::Result<(but_workspace::StackId, but_workspace::ui::StackDetails)> {
+    // Create a new independent stack with the given branch name
+    let (new_stack_id_opt, _new_ref) = but_api::commands::stack::create_reference(
+        project.id,
+        but_api::commands::stack::create_reference::Request {
+            new_name: branch_name.to_string(),
+            anchor: None,
+        },
+    )?;
+
+    if let Some(new_stack_id) = new_stack_id_opt {
+        println!("Created new independent branch '{}'", branch_name);
+        Ok((
+            new_stack_id,
+            workspace::stack_details(project.id, Some(new_stack_id))?,
+        ))
+    } else {
+        anyhow::bail!("Failed to create new branch '{}'", branch_name);
+    }
+}
+
 fn select_stack(
     ctx: &mut CommandContext,
+    project: &Project,
     stacks: &[(but_workspace::StackId, but_workspace::ui::StackDetails)],
     branch_hint: Option<&str>,
-) -> anyhow::Result<but_workspace::StackId> {
-    // If a branch hint is provided, try to find it
-    if let Some(hint) = branch_hint {
-        // First, try to find by exact branch name match
-        for (stack_id, stack_details) in stacks {
-            for branch in &stack_details.branch_details {
-                if branch.name == hint {
-                    return Ok(*stack_id);
-                }
-            }
-        }
-
-        // If no exact match, try to parse as CLI ID
-        match crate::id::CliId::from_str(ctx, hint) {
-            Ok(cli_ids) => {
-                // Filter for branch CLI IDs and find corresponding stack
-                for cli_id in cli_ids {
-                    if let crate::id::CliId::Branch { name } = cli_id {
-                        for (stack_id, stack_details) in stacks {
-                            for branch in &stack_details.branch_details {
-                                if branch.name == name {
-                                    return Ok(*stack_id);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            Err(_) => {
-                // Ignore CLI ID parsing errors and continue with other methods
-            }
-        }
-
-        anyhow::bail!("Branch '{}' not found", hint);
+    create_branch: bool,
+) -> anyhow::Result<(but_workspace::StackId, but_workspace::ui::StackDetails)> {
+    // Handle empty stacks case
+    if stacks.is_empty() {
+        anyhow::ensure!(
+            create_branch,
+            "No stacks found. Create a stack for this commit using 'but commit -c <branch-name>' or 'but branch new <name>' and then commit"
+        );
+        let branch_name = match branch_hint {
+            Some(hint) => String::from(hint),
+            None => but_api::workspace::canned_branch_name(project.id)?,
+        };
+        return create_independent_branch(&branch_name, project);
     }
 
-    // No hint provided, show options and prompt
+    match branch_hint {
+        Some(hint) => {
+            // Try to find stack by branch hint
+            if let Some(stack) = find_stack_by_hint(ctx, stacks, hint) {
+                return Ok(stack);
+            }
+
+            // Branch not found - create if flag is set, otherwise error
+            if create_branch {
+                create_independent_branch(hint, project)
+            } else {
+                anyhow::bail!("Branch '{}' not found", hint)
+            }
+        }
+        None if create_branch => {
+            // Create with canned name
+            let branch_name = but_api::workspace::canned_branch_name(project.id)?;
+            create_independent_branch(&branch_name, project)
+        }
+        None => {
+            // Prompt user to select
+            prompt_for_stack_selection(stacks)
+        }
+    }
+}
+
+fn find_stack_by_hint(
+    ctx: &mut CommandContext,
+    stacks: &[(but_workspace::StackId, but_workspace::ui::StackDetails)],
+    hint: &str,
+) -> Option<(but_workspace::StackId, but_workspace::ui::StackDetails)> {
+    // Try exact branch name match
+    for (stack_id, stack_details) in stacks {
+        if stack_details.branch_details.iter().any(|b| b.name == hint) {
+            return Some((*stack_id, stack_details.clone()));
+        }
+    }
+
+    // Try CLI ID parsing
+    let cli_ids = crate::id::CliId::from_str(ctx, hint).ok()?;
+    for cli_id in cli_ids {
+        if let crate::id::CliId::Branch { name } = cli_id {
+            for (stack_id, stack_details) in stacks {
+                if stack_details.branch_details.iter().any(|b| b.name == name) {
+                    return Some((*stack_id, stack_details.clone()));
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn prompt_for_stack_selection(
+    stacks: &[(but_workspace::StackId, but_workspace::ui::StackDetails)],
+) -> anyhow::Result<(but_workspace::StackId, but_workspace::ui::StackDetails)> {
     println!("Multiple stacks found. Choose one to commit to:");
     for (i, (stack_id, stack_details)) in stacks.iter().enumerate() {
         let branch_names: Vec<String> = stack_details
@@ -370,11 +415,12 @@ fn select_stack(
         .parse()
         .map_err(|_| anyhow::anyhow!("Invalid selection"))?;
 
-    if selection < 1 || selection > stacks.len() {
-        anyhow::bail!("Selection out of range");
-    }
+    anyhow::ensure!(
+        (1..=stacks.len()).contains(&selection),
+        "Selection out of range"
+    );
 
-    Ok(stacks[selection - 1].0)
+    Ok(stacks[selection - 1].clone())
 }
 
 fn get_commit_message_from_editor(

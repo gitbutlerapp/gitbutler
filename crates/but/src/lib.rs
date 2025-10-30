@@ -151,7 +151,13 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         Subcommands::Branch(branch::Platform { cmd }) => {
             let project = get_or_init_project(&args.current_dir)?;
             let result = branch::handle(cmd, &project, args.json).await;
-            metrics_if_configured(app_settings, CommandName::BranchNew, props(start, &result)).ok();
+            let metrics_command = match cmd {
+                branch::Subcommands::New { .. } => CommandName::BranchNew,
+                branch::Subcommands::Delete { .. } => CommandName::BranchDelete,
+                branch::Subcommands::List { .. } => CommandName::BranchList,
+                branch::Subcommands::Unapply { .. } => CommandName::BranchUnapply,
+            };
+            metrics_if_configured(app_settings, metrics_command, props(start, &result)).ok();
             result
         }
         Subcommands::Worktree(worktree::Platform { cmd }) => {
@@ -217,6 +223,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         Subcommands::Commit {
             message,
             branch,
+            create,
             only,
         } => {
             let project = get_or_init_project(&args.current_dir)?;
@@ -226,6 +233,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 message.as_deref(),
                 branch.as_deref(),
                 *only,
+                *create,
             );
             metrics_if_configured(app_settings, CommandName::Commit, props(start, &result)).ok();
             result
