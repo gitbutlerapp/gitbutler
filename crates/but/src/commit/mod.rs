@@ -16,7 +16,9 @@ use but_workspace::DiffSpec;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
-use crate::{id::CliId, status::assignment::FileAssignment};
+use crate::{
+    editor::get_text_from_editor_no_comments, id::CliId, status::assignment::FileAssignment,
+};
 
 pub(crate) fn insert_blank_commit(project: &Project, _json: bool, target: &str) -> Result<()> {
     let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
@@ -431,13 +433,6 @@ fn get_commit_message_from_editor(
     files_to_commit: &[FileAssignment],
     changes: &[TreeChange],
 ) -> anyhow::Result<String> {
-    // Get editor command
-    let editor = get_editor_command()?;
-
-    // Create temporary file with template
-    let temp_dir = std::env::temp_dir();
-    let temp_file = temp_dir.join(format!("but_commit_msg_{}", std::process::id()));
-
     // Generate commit message template
     let mut template = String::new();
     template.push_str("\n# Please enter the commit message for your changes. Lines starting\n");
@@ -451,56 +446,9 @@ fn get_commit_message_from_editor(
     }
     template.push_str("#\n");
 
-    std::fs::write(&temp_file, template)?;
-
-    // Launch editor
-    let status = std::process::Command::new(&editor)
-        .arg(&temp_file)
-        .status()?;
-
-    if !status.success() {
-        anyhow::bail!("Editor exited with non-zero status");
-    }
-
-    // Read the result and strip comments
-    let content = std::fs::read_to_string(&temp_file)?;
-    std::fs::remove_file(&temp_file).ok(); // Best effort cleanup
-
-    let message = content
-        .lines()
-        .filter(|line| !line.starts_with('#'))
-        .collect::<Vec<_>>()
-        .join("\n")
-        .trim()
-        .to_string();
-
+    // Read the result from the editor and strip comments
+    let message = get_text_from_editor_no_comments("but_commit_msg", &template)?;
     Ok(message)
-}
-
-fn get_editor_command() -> anyhow::Result<String> {
-    // Try $EDITOR first
-    if let Ok(editor) = std::env::var("EDITOR") {
-        return Ok(editor);
-    }
-
-    // Try git config core.editor
-    if let Ok(output) = std::process::Command::new("git")
-        .args(["config", "--get", "core.editor"])
-        .output()
-        && output.status.success()
-    {
-        let editor = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !editor.is_empty() {
-            return Ok(editor);
-        }
-    }
-
-    // Fallback to platform defaults
-    #[cfg(windows)]
-    return Ok("notepad".to_string());
-
-    #[cfg(not(windows))]
-    return Ok("vi".to_string());
 }
 
 fn get_status_char(path: &BString, changes: &[TreeChange]) -> &'static str {

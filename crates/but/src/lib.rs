@@ -15,6 +15,7 @@ mod command;
 mod commit;
 mod completions;
 mod describe;
+mod editor;
 mod forge;
 mod id;
 mod init;
