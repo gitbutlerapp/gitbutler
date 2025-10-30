@@ -64,6 +64,14 @@ export interface PullRequest {
 	reviewers: ForgeUser[];
 }
 
+function getCleanBranchName(sourceBranch: string): string {
+	if (sourceBranch.includes(':')) {
+		const parts = sourceBranch.split(':');
+		return parts[parts.length - 1] ?? '';
+	}
+	return sourceBranch;
+}
+
 export function mapForgeReviewToPullRequest(pr: ForgeReview): PullRequest {
 	return {
 		htmlUrl: pr.htmlUrl,
@@ -80,7 +88,7 @@ export function mapForgeReviewToPullRequest(pr: ForgeReview): PullRequest {
 			: null,
 		labels: pr.labels,
 		draft: pr.draft,
-		sourceBranch: pr.sourceBranch,
+		sourceBranch: getCleanBranchName(pr.sourceBranch),
 		targetBranch: pr.targetBranch,
 		sha: pr.sha,
 		createdAt: pr.createdAt ?? '',
