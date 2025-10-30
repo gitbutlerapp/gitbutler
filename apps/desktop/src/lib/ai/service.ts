@@ -70,6 +70,7 @@ interface BaseAIServiceOpts {
 
 interface SummarizeCommitOpts extends BaseAIServiceOpts {
 	diffInput: DiffInput[];
+	useHaiku?: boolean;
 	useEmojiStyle?: boolean;
 	useBriefStyle?: boolean;
 	commitTemplate?: Prompt;
@@ -338,6 +339,7 @@ export class AIService {
 
 	async summarizeCommit({
 		diffInput,
+		useHaiku = false,
 		useEmojiStyle = false,
 		useBriefStyle = false,
 		commitTemplate,
@@ -361,9 +363,11 @@ export class AIService {
 				buildDiff(diffInput, diffLengthLimit)
 			);
 
-			const briefPart = useBriefStyle
-				? 'The commit message must be only one sentence and as short as possible.'
-				: '';
+			const briefPart = useHaiku
+				? 'Compose the commit message in the form of a haiku. A haiku is a three-line poem with a 5-7-5 syllable structure.'
+				: useBriefStyle
+					? 'The commit message must be only one sentence and as short as possible.'
+					: '';
 			content = content.replaceAll('%{brief_style}', briefPart);
 
 			const emojiPart = useEmojiStyle
