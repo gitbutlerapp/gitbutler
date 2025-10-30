@@ -49,10 +49,13 @@
 
 	// PAT flow state
 	let patInput = $state<string>();
+	let patError = $state<string>();
 
 	// GitHub Enterprise flow state
 	let ghePatInput = $state<string>();
 	let gheHostInput = $state<string>();
+	let ghePatError = $state<string>();
+	let gheHostError = $state<string>();
 
 	// Add account button and context menu
 	let addAccountButtonRef = $state<HTMLElement>();
@@ -68,12 +71,15 @@
 	function cleanupPatFlow() {
 		showingFlow = undefined;
 		patInput = undefined;
+		patError = undefined;
 	}
 
 	function cleanupGheFlow() {
 		showingFlow = undefined;
 		ghePatInput = undefined;
 		gheHostInput = undefined;
+		ghePatError = undefined;
+		gheHostError = undefined;
 	}
 
 	function gitHubStartOauth() {
@@ -115,13 +121,15 @@
 	}
 	async function storePersonalAccessToken() {
 		if (!patInput) return;
+		patError = undefined;
 		try {
 			await storePat({ accessToken: patInput });
 			posthog.captureOnboarding(OnboardingEvent.GitHubStorePat);
-		} catch {
-			posthog.captureOnboarding(OnboardingEvent.GitHubStorePatFailed);
-		} finally {
 			cleanupPatFlow();
+		} catch (err: any) {
+			console.error('Failed to store GitHub PAT:', err);
+			patError = 'Invalid token or network error';
+			posthog.captureOnboarding(OnboardingEvent.GitHubStorePatFailed);
 		}
 	}
 
@@ -131,13 +139,16 @@
 
 	async function storeGitHubEnterpriseToken() {
 		if (!ghePatInput || !gheHostInput) return;
+		ghePatError = undefined;
+		gheHostError = undefined;
 		try {
 			await storeGhePat({ accessToken: ghePatInput, host: gheHostInput });
 			posthog.captureOnboarding(OnboardingEvent.GitHubStoreGHEPat);
-		} catch {
-			posthog.captureOnboarding(OnboardingEvent.GitHubStoreGHEPatFailed);
-		} finally {
 			cleanupGheFlow();
+		} catch (err: any) {
+			console.error('Failed to store GitHub Enterprise PAT:', err);
+			ghePatError = 'Invalid token or host';
+			posthog.captureOnboarding(OnboardingEvent.GitHubStoreGHEPatFailed);
 		}
 	}
 </script>
@@ -148,6 +159,7 @@
 	<div class="stack-v gap-16">
 		<div class="stack-v">
 			<ReduxResult result={accounts.result}>
+				<!-- IF ERRROR -->
 				{#snippet error()}
 					<SectionCard orientation="row">
 						{#snippet title()}
@@ -160,6 +172,8 @@
 						>
 					</SectionCard>
 				{/snippet}
+
+				<!-- ADD ACCOUNT(S) LIST -->
 				{#snippet children(accounts)}
 					{@const noAccounts = accounts.length === 0}
 					{#each accounts as account, index}
@@ -191,6 +205,7 @@
 			</ReduxResult>
 		</div>
 
+		<!-- AUTH FLOW -->
 		{#if showingFlow === 'oauthFlow'}
 			<div in:fade={{ duration: 100 }}>
 				<SectionCard orientation="row">
@@ -264,105 +279,85 @@
 								</div>
 							</div>
 						{/if}
-
-						<div class="step-section">
-							<div class="step-section__content">
-								<Button style="neutral" kind="outline" onclick={cleanupAuthFlow}>Cancel</Button>
-							</div>
-						</div>
 					</div>
 				</SectionCard>
 			</div>
+
+			<!-- PAT FLOW -->
 		{:else if showingFlow === 'pat'}
-			<div in:fade={{ duration: 100 }}>
-				<SectionCard orientation="row">
-					<div class="wrapper">
-						<div class="step-section">
-							<div class="step-section__content">
-								<p class="text-13 text-body">Please enter your Personal Access Token</p>
+			<div class="stack-v" in:fade={{ duration: 100 }}>
+				<SectionCard roundedBottom={false}>
+					{#snippet title()}
+						Add Personal Access Token
+					{/snippet}
 
-								<Textbox
-									label="Personal Access Token"
-									size="large"
-									type="password"
-									value={patInput}
-									oninput={(value) => (patInput = value)}
-								/>
-
-								<Button
-									style="pop"
-									disabled={!patInput}
-									loading={storePatResult.current.isLoading}
-									onclick={storePersonalAccessToken}
-								>
-									Add account
-								</Button>
-							</div>
-						</div>
-						<div class="step-section">
-							<div class="step-section__content">
-								<Button style="neutral" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
-							</div>
-						</div>
+					<Textbox
+						size="large"
+						type="password"
+						value={patInput}
+						placeholder="ghp_************************"
+						oninput={(value) => (patInput = value)}
+						error={patError}
+					/>
+				</SectionCard>
+				<SectionCard roundedTop={false}>
+					<div class="flex justify-end gap-6">
+						<Button style="neutral" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
+						<Button
+							style="pop"
+							disabled={!patInput}
+							loading={storePatResult.current.isLoading}
+							onclick={storePersonalAccessToken}
+						>
+							Add account
+						</Button>
 					</div>
 				</SectionCard>
 			</div>
 		{:else if showingFlow === 'ghe'}
 			<div in:fade={{ duration: 100 }}>
-				<SectionCard orientation="row">
-					<div class="wrapper">
-						<div class="step-section">
-							<div class="step-section__content">
-								<p class="text-13 text-body">
-									Please enter the GitHub Enterprise Host and an authorized Personal Access Token
-								</p>
-								<p>
-									To connect to your GitHub Enterprise API, <b
-										>allow-list it in the app’s CSP settings</b
-									>.
-									<br />
-									See the <Link href="https://docs.gitbutler.com/troubleshooting/custom-csp"
-										>docs for details</Link
-									>
-								</p>
+				<SectionCard roundedBottom={false}>
+					{#snippet title()}
+						Add GitHub Enterprise Account
+					{/snippet}
 
-								<Textbox
-									label="API Base URL"
-									size="large"
-									value={gheHostInput}
-									oninput={(value) => (gheHostInput = value)}
-								/>
+					{#snippet caption()}
+						To connect to your GitHub Enterprise API, allow-list it in the app’s CSP settings.
+						<br />
+						See <Link href="https://docs.gitbutler.com/troubleshooting/custom-csp"
+							>docs for details</Link
+						>
+					{/snippet}
 
-								<p class="text-13 text-body">
-									This should be the root URL of the API. For example, if your GitHub Enterprise
-									Server's hostname is <i>github.acme-inc.com</i>, then set the base URL to
-									<i> https://github.acme-inc.com/api/v3 </i>
-								</p>
-
-								<Textbox
-									label="Personal Access Token"
-									size="large"
-									type="password"
-									value={ghePatInput}
-									oninput={(value) => (ghePatInput = value)}
-								/>
-
-								<Button
-									style="pop"
-									disabled={!gheHostInput || !ghePatInput}
-									loading={storeGhePatResult.current.isLoading}
-									onclick={storeGitHubEnterpriseToken}
-								>
-									Add account
-								</Button>
-							</div>
-						</div>
-
-						<div class="step-section">
-							<div class="step-section__content">
-								<Button style="neutral" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
-							</div>
-						</div>
+					<Textbox
+						label="API Base URL"
+						size="large"
+						value={gheHostInput}
+						oninput={(value) => (gheHostInput = value)}
+						helperText="This should be the root URL of the API. For example, if your GitHub Enterprise Server's hostname is github.acme-inc.com, then set the base URL to github.acme-inc.com/api/v3"
+						error={gheHostError}
+					/>
+					<Textbox
+						label="Personal Access Token"
+						placeholder="ghp_************************"
+						size="large"
+						type="password"
+						value={ghePatInput}
+						oninput={(value) => (ghePatInput = value)}
+						error={ghePatError}
+					/>
+				</SectionCard>
+				<SectionCard roundedTop={false}>
+					<div class="flex justify-end gap-6">
+						<Button style="neutral" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
+						<Button
+							style="pop"
+							disabled={!gheHostInput || !ghePatInput}
+							loading={storeGhePatResult.current.isLoading}
+							onclick={storeGitHubEnterpriseToken}
+						>
+							Add account
+						</Button>
 					</div>
 				</SectionCard>
 			</div>
