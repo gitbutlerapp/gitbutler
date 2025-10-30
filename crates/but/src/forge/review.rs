@@ -34,6 +34,9 @@ pub enum Subcommands {
         /// Run pre-push hooks (defaults to true).
         #[clap(long, short = 'r', default_value_t = true)]
         run_hooks: bool,
+        /// Whether to use just the branch name as the review title, without opening an editor.
+        #[clap(long, short = 't', default_value_t = false)]
+        default: bool,
     },
 }
 
@@ -43,6 +46,7 @@ pub async fn publish_reviews(
     skip_force_push_protection: bool,
     with_force: bool,
     run_hooks: bool,
+    default: bool,
     json: bool,
 ) -> anyhow::Result<()> {
     let review_map = get_review_map(project).await?;
@@ -58,6 +62,7 @@ pub async fn publish_reviews(
                 skip_force_push_protection,
                 with_force,
                 run_hooks,
+                default,
                 json,
             )
             .await
@@ -70,6 +75,7 @@ pub async fn publish_reviews(
                 skip_force_push_protection,
                 with_force,
                 run_hooks,
+                default,
                 json,
             )
             .await
@@ -85,6 +91,7 @@ pub async fn handle_all_branches_in_workspace(
     skip_force_push_protection: bool,
     with_force: bool,
     run_hooks: bool,
+    default_message: bool,
     json: bool,
 ) -> anyhow::Result<()> {
     let mut overall_outcome = PublishReviewsOutcome {
@@ -112,6 +119,7 @@ pub async fn handle_all_branches_in_workspace(
             skip_force_push_protection,
             with_force,
             run_hooks,
+            default_message,
             json,
         )
         .await?;
@@ -142,6 +150,7 @@ pub async fn handle_specific_branch_publish(
     skip_force_push_protection: bool,
     with_force: bool,
     run_hooks: bool,
+    default_message: bool,
     json: bool,
 ) -> anyhow::Result<()> {
     let Some(stack_entry) = applied_stacks
@@ -162,6 +171,7 @@ pub async fn handle_specific_branch_publish(
         skip_force_push_protection,
         with_force,
         run_hooks,
+        default_message,
         json,
     )
     .await?;
@@ -186,6 +196,7 @@ async fn publish_reviews_for_branch_and_dependents(
     skip_force_push_protection: bool,
     with_force: bool,
     run_hooks: bool,
+    default_message: bool,
     json: bool,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
     let app_settings = AppSettings::load_from_default_path_creating()?;
@@ -246,6 +257,7 @@ async fn publish_reviews_for_branch_and_dependents(
             head.name.to_str()?,
             current_target_branch,
             review_map,
+            default_message,
         )
         .await?;
         match published_review {
@@ -336,6 +348,7 @@ async fn publish_review_for_branch(
     branch_name: &str,
     target_branch: &str,
     review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
+    default_message: bool,
 ) -> anyhow::Result<PublishReviewResult> {
     // Check if a review already exists for the branch.
     // If it does, skip publishing a new review.
@@ -346,8 +359,13 @@ async fn publish_review_for_branch(
         return Ok(PublishReviewResult::AlreadyExists(reviews.clone()));
     }
 
-    let title = get_review_title_from_editor(branch_name)?;
-    let body = get_review_body_from_editor(branch_name)?;
+    let (title, body) = if default_message {
+        (branch_name.to_string(), String::new())
+    } else {
+        let title = get_review_title_from_editor(branch_name)?;
+        let body = get_review_body_from_editor(&title)?;
+        (title, body)
+    };
 
     // Publish a new review for the branch
     but_api::forge::publish_review_cmd(but_api::forge::PublishReviewParams {
@@ -377,11 +395,11 @@ async fn publish_review_for_branch(
     })
 }
 
-fn get_review_body_from_editor(branch_name: &str) -> anyhow::Result<String> {
+fn get_review_body_from_editor(title: &str) -> anyhow::Result<String> {
     let mut template = String::new();
-    template.push_str("\n# This is the review description for: \n");
+    template.push_str("\n# This is the review description for:");
     template.push_str("\n# '");
-    template.push_str(branch_name);
+    template.push_str(title);
     template.push_str("' \n");
     template.push_str("\n# Optionally, enter the review body above. Lines starting\n");
     template.push_str("# with '#' will be ignored, and an empty body is allowed.\n");
