@@ -9,6 +9,31 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, clap::Parser)]
+pub struct Platform {
+    #[clap(subcommand)]
+    pub cmd: Subcommands,
+}
+#[derive(Debug, clap::Subcommand)]
+pub enum Subcommands {
+    /// Publish review requests for active branches in your workspace.
+    /// By default, publishes reviews for all active branches.
+    Publish {
+        /// Publish reviews only for the specified branch.
+        #[clap(long, short = 'b')]
+        branch: Option<String>,
+        /// Force push even if it's not fast-forward (defaults to true).
+        #[clap(long, short = 'f', default_value_t = true)]
+        with_force: bool,
+        /// Skip force push protection checks
+        #[clap(long, short = 's')]
+        skip_force_push_protection: bool,
+        /// Run pre-push hooks (defaults to true).
+        #[clap(long, short = 'r', default_value_t = true)]
+        run_hooks: bool,
+    },
+}
+
 pub async fn publish_reviews(
     project: &Project,
     branch: &Option<String>,

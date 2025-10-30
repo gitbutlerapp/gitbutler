@@ -168,23 +168,8 @@ For examples see `but rub --help`."
     },
     /// Commands for interacting with forges like GitHub, GitLab (coming soon), etc.
     Forge(forge::integration::Platform),
-    /// Publish review requests for active branches in your workspace.
-    /// By default, publishes reviews for all active branches.
-    #[clap(hide = true)]
-    Publish {
-        /// Publish reviews only for the specified branch.
-        #[clap(long, short = 'b')]
-        branch: Option<String>,
-        /// Force push even if it's not fast-forward (defaults to true).
-        #[clap(long, short = 'f', default_value_t = true)]
-        with_force: bool,
-        /// Skip force push protection checks
-        #[clap(long, short = 's')]
-        skip_force_push_protection: bool,
-        /// Run pre-push hooks (defaults to true).
-        #[clap(long, short = 'r', default_value_t = true)]
-        run_hooks: bool,
-    },
+    /// Command for creating and publishing code reviews to a forge.
+    Review(forge::review::Platform),
     /// Generate shell completion scripts for the specified or inferred shell.
     Completions {
         /// The shell to generate completions for, or the one extracted from the `SHELL` environment variable.
