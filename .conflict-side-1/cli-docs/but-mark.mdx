@@ -1,0 +1,46 @@
+---
+title: 'but mark'
+description: 'Create or remove a rule for auto-assigning or auto-committing'
+---
+
+## Usage
+
+```
+but mark [OPTIONS] <TARGET>
+```
+
+## Arguments
+
+### `<TARGET>`
+
+The target entity that will be marked.
+
+- **Type:** String
+- **Required:** Yes
+
+## Options
+
+### `-d, --delete`
+
+Deletes a mark.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+## Examples
+
+Create a mark:
+
+```
+but mark my-feature-branch
+```
+
+Delete a mark:
+
+```
+but mark my-feature-branch --delete
+```
+
+## Related Commands
+
+- [`but unmark`](but-unmark) - Removes all marks from the workspace
