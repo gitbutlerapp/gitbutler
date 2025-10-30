@@ -1,13 +1,15 @@
-use but_testsupport::{git_status, visualize_commit_graph_all, visualize_disk_tree_skip_dot_git};
-use but_workspace::branch::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout};
-use gix::object::tree::EntryKind;
-
 use crate::{
     branch::checkout::utils::build_commit,
     utils::{
         read_only_in_memory_scenario, visualize_index, writable_scenario, writable_scenario_slow,
     },
 };
+use but_testsupport::{
+    git_status, visualize_commit_graph_all, visualize_disk_tree_skip_dot_git, visualize_tree,
+};
+use but_workspace::branch::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout};
+use gix::object::tree::EntryKind;
+use gix::prelude::ObjectIdExt;
 
 #[test]
 fn update_unborn_head() -> anyhow::Result<()> {
@@ -739,7 +741,7 @@ fn forced_changes_with_snapshot_and_directory_to_file() -> anyhow::Result<()> {
         &repo,
         overwrite_options(),
     )?;
-    // We are able to check out to an empty tree if needed, keeping all changes everything else in a stash
+    // We are able to check out to an empty tree if needed, keeping all changes and everything else in a stash
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         snapshot_tree: Some(
@@ -750,6 +752,39 @@ fn forced_changes_with_snapshot_and_directory_to_file() -> anyhow::Result<()> {
         head_update: "None",
     }
     "#);
+    let tree = out
+        .snapshot_tree
+        .expect("snapshot was created to keep state")
+        .attach(&repo);
+
+    // Only the locally changed file that will be removed is stored in the stash.
+    insta::assert_snapshot!(visualize_tree(tree), @r#"
+    e2cf369
+    ├── HEAD:027734e 
+    │   ├── dir-to-be-file:100644:e69de29 ""
+    │   ├── executable:100755:01e79c3 "1\n2\n3\n"
+    │   ├── file:100644:3aac70f "5\n6\n7\n8\n"
+    │   ├── file-to-be-dir:08b870b 
+    │   │   └── b:496d642 
+    │   │       └── a:100644:e69de29 ""
+    │   ├── link:120000:c4c364c "nonexisting-target"
+    │   ├── other-file:100644:dcefb7d "9\n10\n11\n12\n13\n"
+    │   └── to-be-overwritten:100644:e69de29 ""
+    └── worktree:20b2429 
+        ├── dir-to-be-file:100644:e69de29 ""
+        ├── executable:100755:01e79c3 "1\n2\n3\n"
+        ├── file:100644:3aac70f "5\n6\n7\n8\n"
+        ├── file-to-be-dir:08b870b 
+        │   └── b:496d642 
+        │       └── a:100644:e69de29 ""
+        ├── link:120000:c4c364c "nonexisting-target"
+        ├── other-file:100644:dcefb7d "9\n10\n11\n12\n13\n"
+        └── to-be-overwritten:100644:fc21a6f "9\n10\n11\n12\n13\n14\n"
+    "#);
+
+    // 'file-to-be-dir/file' is locally present, *and* added to the index.
+    // Both the file on disk and in the index remain.
+    // link-renamed was untracked, and is also still present.
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @r"
     .
     ├── .git:40755
@@ -757,15 +792,7 @@ fn forced_changes_with_snapshot_and_directory_to_file() -> anyhow::Result<()> {
     │   └── file:100644
     └── link-renamed:120755
     ");
-    insta::assert_snapshot!(visualize_index(&*repo.index()?), @r"
-    100755:01e79c3 executable
-    100644:3aac70f file
-    100644:e69de29 file-to-be-dir/b/a
-    100644:66f816c file-to-be-dir/file
-    120000:c4c364c link
-    100644:dcefb7d other-file
-    100644:e69de29 to-be-overwritten
-    ");
+    insta::assert_snapshot!(visualize_index(&*repo.index()?), @"100644:66f816c file-to-be-dir/file");
     Ok(())
 }
 
