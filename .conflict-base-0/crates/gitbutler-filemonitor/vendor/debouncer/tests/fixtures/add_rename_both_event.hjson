@@ -1,7 +1,0 @@
-{
-    state: {}
-    events: [
-        { kind: "rename-both", paths: ["/watch/source", "/watch/target"] }
-    ]
-    expected: {}
-}

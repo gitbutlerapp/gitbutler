@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/components/ForgeForm.svelte", "apps/desktop/src/components/GithubUserLoginState.svelte"]
-ourEntries = ["apps/desktop/src/components/ForgeForm.svelte", "apps/desktop/src/components/GithubUserLoginState.svelte"]
-theirEntries = ["apps/desktop/src/components/ForgeForm.svelte", "apps/desktop/src/components/GithubUserLoginState.svelte"]
