@@ -165,6 +165,7 @@ For examples see `but rub --help`."
     Forge(forge::integration::Platform),
     /// Publish review requests for active branches in your workspace.
     /// By default, publishes reviews for all active branches.
+    #[clap(hide = true)]
     Publish {
         /// Publish reviews only for the specified branch.
         #[clap(long, short = 'b')]
