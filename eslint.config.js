@@ -23,7 +23,7 @@ export default ts.config(
 				projectService: {
 					// This prevents lint error when running eslint from
 					// subdirectories, ignoring the root tsconfig.json
-					allowDefaultProject: ['svelte.config.js']
+					allowDefaultProject: ['svelte.config.js', 'packages/ui/.storybook/*.ts']
 				}
 			}
 		},
@@ -145,7 +145,7 @@ export default ts.config(
 			'.vscode',
 			'**/.pnpm-store',
 			'**/vite.config.ts.timestamp-*',
-			'!.storybook',
+			'!**/.storybook',
 			'target/',
 			'crates/',
 			'packages/ui/storybook-static',
