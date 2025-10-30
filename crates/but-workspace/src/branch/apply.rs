@@ -709,8 +709,9 @@ pub(crate) mod function {
     ) -> Vec<StackId> {
         conflicts
             .iter()
-            .filter_map(|cs| {
-                ws.find_stack_with_branch(cs.ref_name.as_ref(), AppliedAndUnapplied)
+            .filter_map(|cs| cs.ref_name.as_ref())
+            .filter_map(|ref_name| {
+                ws.find_stack_with_branch(ref_name.as_ref(), AppliedAndUnapplied)
                     .map(|stack| stack.id)
             })
             .collect()
