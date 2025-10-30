@@ -10,6 +10,7 @@
 		style?: ComponentColorType;
 		kind?: 'solid' | 'soft';
 		size?: 'icon' | 'tag';
+		class?: string;
 		icon?: keyof typeof iconsJson | undefined;
 		reversedDirection?: boolean;
 		tooltip?: string;
@@ -22,6 +23,7 @@
 		style = 'neutral',
 		kind = 'solid',
 		size = 'icon',
+		class: className = '',
 		icon,
 		reversedDirection,
 		tooltip,
@@ -36,7 +38,7 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div
 		data-testid={testId}
-		class="badge {style} {kind} {size}-size"
+		class="badge {style} {kind} {size}-size {className}"
 		class:reversedDirection
 		{onclick}
 	>
