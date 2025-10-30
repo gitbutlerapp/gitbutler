@@ -25,6 +25,15 @@ Branch CLI ID or name to derive the stack to commit to.
 - **Type:** String
 - **Required:** Optional
 
+### `-c, --create`
+
+Whether to create a new branch for this commit.
+If the branch name given matches an existing branch, that branch will be used instead.
+If no branch name is given, a new branch with a generated name will be created.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
 ### `-o, --only`
 
 Only commit assigned files, not unassigned files.
