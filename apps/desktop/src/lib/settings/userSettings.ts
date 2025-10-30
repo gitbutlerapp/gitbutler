@@ -1,10 +1,10 @@
 import { InjectionToken } from '@gitbutler/core/context';
+import { type ScrollbarVisilitySettings } from '@gitbutler/ui';
 import { get, writable, type Writable } from 'svelte/store';
 
 const SETTINGS_KEY = 'settings-json';
 export const SETTINGS = new InjectionToken<Writable<Settings>>('Settings');
 
-export type ScrollbarVisilitySettings = 'scroll' | 'hover' | 'always';
 export type CodeEditorSettings = {
 	schemeIdentifer: string;
 	displayName: string;

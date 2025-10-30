@@ -2,13 +2,14 @@
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import VirtualList from '$components/VirtualList.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 
 	import { TestId, TimeAgo } from '@gitbutler/ui';
+	import VirtualList from '@gitbutler/ui/components/VirtualList.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { onMount } from 'svelte';
 	import type { Commit } from '$lib/branches/v3';
@@ -22,6 +23,7 @@
 	const uiState = inject(UI_STATE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const stackService = inject(STACK_SERVICE);
+	const userSettings = inject(SETTINGS);
 
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);
@@ -91,7 +93,12 @@
 				</div>
 			</div>
 		</div>
-		<VirtualList items={commits} batchSize={10} onloadmore={async () => await loadMore()}>
+		<VirtualList
+			items={commits}
+			batchSize={10}
+			visibility={$userSettings.scrollbarVisibilityState}
+			onloadmore={async () => await loadMore()}
+		>
 			{#snippet chunkTemplate(commits)}
 				{#each commits as commit}
 					{@const selected = commit.id === branchesState?.current.commitId}
