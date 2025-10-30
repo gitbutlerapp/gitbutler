@@ -21,7 +21,7 @@
 
 	type Props = {
 		getFileItems: (q: string) => Promise<string[]>;
-		onUpdateSuggestion: (p: FileSuggestionUpdate) => void;
+		onUpdateSuggestion: (p: FileSuggestionUpdate, query: string) => void;
 		onExitSuggestion: () => void;
 	};
 
@@ -35,7 +35,7 @@
 	};
 
 	const editor = getEditor();
-	const FILEPATH_REGEX = /@([^ ]+)$/i;
+	const FILEPATH_REGEX = /@([^ ]*)$/i;
 
 	function getFileMatch(text: string): FileMatch | null {
 		const match = FILEPATH_REGEX.exec(text);
@@ -59,9 +59,9 @@
 
 	function onMatch(match: FileMatch) {
 		fileMatch = match.captureText;
-		onUpdateSuggestion({ loading: true });
+		onUpdateSuggestion({ loading: true }, fileMatch ?? '');
 		getFileItems(fileMatch).then((items) => {
-			onUpdateSuggestion({ items, loading: false });
+			onUpdateSuggestion({ items, loading: false }, fileMatch ?? '');
 		});
 	}
 
