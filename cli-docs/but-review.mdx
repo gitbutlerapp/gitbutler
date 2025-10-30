@@ -1,0 +1,72 @@
+---
+title: 'but review'
+description: 'Command for creating and publishing code reviews to a forge.'
+---
+
+## Usage
+
+```
+but review <SUBCOMMAND>
+```
+
+## Subcommands
+
+### publish
+
+Publish review requests for active branches in your workspace.
+By default, publishes reviews for all active branches.
+New reviews are only created for branches that do not already have an open review associated.
+
+```
+but review publish [OPTIONS]
+```
+
+#### Options
+
+- `-b, --branch <BRANCH>`
+
+Publish reviews only for the specified branch and any other dependent branches.
+
+- **Type:** String
+- **Required:** Optional
+
+### `-f, --with-force`
+
+Force push even if it's not fast-forward.
+
+- **Type:** Flag (boolean)
+- **Default:** `true`
+
+### `-s, --skip-force-push-protection`
+
+Skip force push protection checks.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+### `-r, --run-hooks`
+
+Run pre-push hooks.
+
+- **Type:** Flag (boolean)
+- **Default:** `true`
+
+## Examples
+
+Publish all active branches:
+
+```
+but review publish
+```
+
+Publish a specific branch:
+
+```
+but review publish --branch my-feature
+```
+
+Publish without running hooks:
+
+```
+but review publish --run-hooks=false
+```
