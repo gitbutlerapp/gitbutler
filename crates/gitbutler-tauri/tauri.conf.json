@@ -28,7 +28,7 @@
 				"depends": ["webkit2gtk4.1"],
 				"compression": {
 					"type": "zstd",
-					"level": "3"
+					"level": 3
 				}
 			},
 			"deb": {
