@@ -8,7 +8,16 @@
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Button, SectionCard, chipToasts as toasts } from '@gitbutler/ui';
+	import {
+		Button,
+		ContextMenu,
+		ContextMenuItem,
+		ContextMenuSection,
+		Link,
+		SectionCard,
+		Textbox,
+		chipToasts as toasts
+	} from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
@@ -23,24 +32,62 @@
 	const posthog = inject(POSTHOG_WRAPPER);
 
 	const [clearAll, clearingAllResult] = githubUserService.deleteAllGitHubAccounts();
+	const [storePat, storePatResult] = githubUserService.storeGitHubPat;
+	const [storeGhePat, storeGhePatResult] = githubUserService.storeGithuibEnterprisePat;
 	const accounts = githubUserService.accounts();
 
-	// step flags
+	let showingFlow = $state<'oauthFlow' | 'pat' | 'ghe'>();
+
+	// OAuth step flags
 	let codeCopied = $state(false);
 	let GhActivationLinkPressed = $state(false);
 	let GhActivationPageOpened = $state(false);
-	let showAuthFlow = $state(false);
 
 	let loading = $state(false);
 	let userCode = $state('');
 	let deviceCode = $state('');
+
+	// PAT flow state
+	let patInput = $state<string>();
+	let patError = $state<string>();
+
+	// GitHub Enterprise flow state
+	let ghePatInput = $state<string>();
+	let gheHostInput = $state<string>();
+	let ghePatError = $state<string>();
+	let gheHostError = $state<string>();
+
+	// Add account button and context menu
+	let addAccountButtonRef = $state<HTMLElement>();
+	let addAccountContextMenu = $state<ContextMenu>();
+
+	function cleanupAuthFlow() {
+		showingFlow = undefined;
+		codeCopied = false;
+		GhActivationLinkPressed = false;
+		GhActivationPageOpened = false;
+	}
+
+	function cleanupPatFlow() {
+		showingFlow = undefined;
+		patInput = undefined;
+		patError = undefined;
+	}
+
+	function cleanupGheFlow() {
+		showingFlow = undefined;
+		ghePatInput = undefined;
+		gheHostInput = undefined;
+		ghePatError = undefined;
+		gheHostError = undefined;
+	}
 
 	function gitHubStartOauth() {
 		posthog.captureOnboarding(OnboardingEvent.GitHubInitiateOAuth);
 		githubUserService.initDeviceOauth().then((verification) => {
 			userCode = verification.user_code;
 			deviceCode = verification.device_code;
-			showAuthFlow = true;
+			showingFlow = 'oauthFlow';
 			// Reset all step flags for a fresh auth flow
 			codeCopied = false;
 			GhActivationLinkPressed = false;
@@ -59,10 +106,7 @@
 			posthog.captureOnboarding(OnboardingEvent.GitHubOAuthFailed);
 		} finally {
 			// Reset the auth flow on completion
-			showAuthFlow = false;
-			codeCopied = false;
-			GhActivationLinkPressed = false;
-			GhActivationPageOpened = false;
+			cleanupAuthFlow();
 			loading = false;
 		}
 	}
@@ -70,6 +114,42 @@
 	async function deleteAllGitHubAccounts() {
 		await clearAll();
 		gitHubStartOauth();
+	}
+
+	function startPatFlow() {
+		showingFlow = 'pat';
+	}
+	async function storePersonalAccessToken() {
+		if (!patInput) return;
+		patError = undefined;
+		try {
+			await storePat({ accessToken: patInput });
+			posthog.captureOnboarding(OnboardingEvent.GitHubStorePat);
+			cleanupPatFlow();
+		} catch (err: any) {
+			console.error('Failed to store GitHub PAT:', err);
+			patError = 'Invalid token or network error';
+			posthog.captureOnboarding(OnboardingEvent.GitHubStorePatFailed);
+		}
+	}
+
+	function startGitHubEnterpriseFlow() {
+		showingFlow = 'ghe';
+	}
+
+	async function storeGitHubEnterpriseToken() {
+		if (!ghePatInput || !gheHostInput) return;
+		ghePatError = undefined;
+		gheHostError = undefined;
+		try {
+			await storeGhePat({ accessToken: ghePatInput, host: gheHostInput });
+			posthog.captureOnboarding(OnboardingEvent.GitHubStoreGHEPat);
+			cleanupGheFlow();
+		} catch (err: any) {
+			console.error('Failed to store GitHub Enterprise PAT:', err);
+			ghePatError = 'Invalid token or host';
+			posthog.captureOnboarding(OnboardingEvent.GitHubStoreGHEPatFailed);
+		}
 	}
 </script>
 
@@ -79,6 +159,7 @@
 	<div class="stack-v gap-16">
 		<div class="stack-v">
 			<ReduxResult result={accounts.result}>
+				<!-- IF ERRROR -->
 				{#snippet error()}
 					<SectionCard orientation="row">
 						{#snippet title()}
@@ -91,7 +172,10 @@
 						>
 					</SectionCard>
 				{/snippet}
+
+				<!-- ADD ACCOUNT(S) LIST -->
 				{#snippet children(accounts)}
+					{@const noAccounts = accounts.length === 0}
 					{#each accounts as account, index}
 						<GithubUserLoginState {account} isFirst={index === 0} />
 					{/each}
@@ -115,27 +199,14 @@
 							Allows you to create Pull Requests
 						{/snippet}
 
-						{#if accounts.length === 0}
-							<Button
-								style="pop"
-								onclick={gitHubStartOauth}
-								disabled={showAuthFlow}
-								icon="plus-small">Add account</Button
-							>
-						{:else}
-							<Button
-								style="neutral"
-								disabled={showAuthFlow}
-								onclick={gitHubStartOauth}
-								icon="plus-small">Add another account</Button
-							>
-						{/if}
+						{@render addAccountButton(noAccounts)}
 					</SectionCard>
 				{/snippet}
 			</ReduxResult>
 		</div>
 
-		{#if showAuthFlow}
+		<!-- AUTH FLOW -->
+		{#if showingFlow === 'oauthFlow'}
 			<div in:fade={{ duration: 100 }}>
 				<SectionCard orientation="row">
 					<div class="wrapper">
@@ -211,9 +282,132 @@
 					</div>
 				</SectionCard>
 			</div>
+
+			<!-- PAT FLOW -->
+		{:else if showingFlow === 'pat'}
+			<div class="stack-v" in:fade={{ duration: 100 }}>
+				<SectionCard roundedBottom={false}>
+					{#snippet title()}
+						Add Personal Access Token
+					{/snippet}
+
+					<Textbox
+						size="large"
+						type="password"
+						value={patInput}
+						placeholder="ghp_************************"
+						oninput={(value) => (patInput = value)}
+						error={patError}
+					/>
+				</SectionCard>
+				<SectionCard roundedTop={false}>
+					<div class="flex justify-end gap-6">
+						<Button style="neutral" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
+						<Button
+							style="pop"
+							disabled={!patInput}
+							loading={storePatResult.current.isLoading}
+							onclick={storePersonalAccessToken}
+						>
+							Add account
+						</Button>
+					</div>
+				</SectionCard>
+			</div>
+		{:else if showingFlow === 'ghe'}
+			<div in:fade={{ duration: 100 }}>
+				<SectionCard roundedBottom={false}>
+					{#snippet title()}
+						Add GitHub Enterprise Account
+					{/snippet}
+
+					{#snippet caption()}
+						To connect to your GitHub Enterprise API, allow-list it in the app’s CSP settings.
+						<br />
+						See <Link href="https://docs.gitbutler.com/troubleshooting/custom-csp"
+							>docs for details</Link
+						>
+					{/snippet}
+
+					<Textbox
+						label="API Base URL"
+						size="large"
+						value={gheHostInput}
+						oninput={(value) => (gheHostInput = value)}
+						helperText="This should be the root URL of the API. For example, if your GitHub Enterprise Server's hostname is github.acme-inc.com, then set the base URL to github.acme-inc.com/api/v3"
+						error={gheHostError}
+					/>
+					<Textbox
+						label="Personal Access Token"
+						placeholder="ghp_************************"
+						size="large"
+						type="password"
+						value={ghePatInput}
+						oninput={(value) => (ghePatInput = value)}
+						error={ghePatError}
+					/>
+				</SectionCard>
+				<SectionCard roundedTop={false}>
+					<div class="flex justify-end gap-6">
+						<Button style="neutral" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
+						<Button
+							style="pop"
+							disabled={!gheHostInput || !ghePatInput}
+							loading={storeGhePatResult.current.isLoading}
+							onclick={storeGitHubEnterpriseToken}
+						>
+							Add account
+						</Button>
+					</div>
+				</SectionCard>
+			</div>
 		{/if}
 	</div>
 {/if}
+
+{#snippet addAccountButton(noAccounts: boolean)}
+	{@const buttonStyle = noAccounts ? 'pop' : 'neutral'}
+	{@const buttonText = noAccounts ? 'Add account' : 'Add another account'}
+	<Button
+		bind:el={addAccountButtonRef}
+		style={buttonStyle}
+		onclick={() => addAccountContextMenu?.toggle()}
+		disabled={showingFlow !== undefined}
+		loading={storePatResult.current.isLoading || storeGhePatResult.current.isLoading}
+		icon="plus-small"
+	>
+		{buttonText}
+	</Button>
+
+	<ContextMenu bind:this={addAccountContextMenu} leftClickTrigger={addAccountButtonRef}>
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Authorize GitHub Account"
+				icon="connect-github"
+				onclick={() => {
+					gitHubStartOauth();
+					addAccountContextMenu?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Add Personal Access Token"
+				icon="token-lock"
+				onclick={() => {
+					startPatFlow();
+					addAccountContextMenu?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Add GitHub Enterprise Account"
+				icon="enterprise"
+				onclick={() => {
+					startGitHubEnterpriseFlow();
+					addAccountContextMenu?.close();
+				}}
+			/>
+		</ContextMenuSection>
+	</ContextMenu>
+{/snippet}
 
 <style lang="postcss">
 	.wrapper {

@@ -29,6 +29,7 @@ export function usePreferredGitHubUsername(projectId: Reactive<string>): GitHubP
 		if (githubAccounts.length === 0) {
 			return undefined;
 		}
+
 		if (
 			project === undefined ||
 			project.preferred_forge_user === null ||
@@ -53,6 +54,7 @@ export function usePreferredGitHubUsername(projectId: Reactive<string>): GitHubP
 }
 
 type GitHubAccess = {
+	host: Reactive<string | undefined>;
 	accessToken: Reactive<string | undefined>;
 	isLoading: Reactive<boolean>;
 };
@@ -68,7 +70,14 @@ export function useGitHubAccessToken(projectId: Reactive<string>): GitHubAccess 
 		return githubUserService.authenticatedUser(preferredGitHubAccount.current);
 	});
 	const aceessToken = $derived(ghUserResponse?.response?.accessToken);
+	const host = $derived.by(() => {
+		if (preferredGitHubAccount.current?.type === 'enterprise') {
+			return preferredGitHubAccount.current.info.host;
+		}
+		return undefined;
+	});
 	return {
+		host: reactive(() => host),
 		accessToken: reactive(() => aceessToken),
 		isLoading: reactive(() => ghUserResponse?.result.isLoading ?? false)
 	};

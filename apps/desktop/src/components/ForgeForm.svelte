@@ -1,4 +1,5 @@
 <script lang="ts">
+	import GitHubAccountTypePill from '$components/GitHubAccountTypePill.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import {
 		githubAccountIdentifierToString,
@@ -191,11 +192,18 @@
 					wide
 				>
 					{#snippet itemSnippet({ item, highlighted })}
+						{@const itemAccount = item.value && stringToGitHubAccountIdentifier(item.value)}
 						<SelectItem
 							selected={item.value === githubAccountIdentifierToString(account)}
 							{highlighted}
 						>
 							{item.label}
+							{#if itemAccount}
+								<GitHubAccountTypePill type={itemAccount.type} />
+								{#if itemAccount.type === 'enterprise'}
+									{`(${itemAccount.info.host})`}
+								{/if}
+							{/if}
 						</SelectItem>
 					{/snippet}
 				</Select>
