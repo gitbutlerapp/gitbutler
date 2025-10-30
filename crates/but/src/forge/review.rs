@@ -4,6 +4,7 @@ use anyhow::Context;
 use bstr::ByteSlice;
 use but_api::forge::ListReviewsParams;
 use but_settings::AppSettings;
+use but_workspace::StackId;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -241,6 +242,7 @@ async fn publish_reviews_for_branch_and_dependents(
 
         let published_review = publish_review_for_branch(
             project,
+            stack_entry.id,
             head.name.to_str()?,
             current_target_branch,
             review_map,
@@ -330,6 +332,7 @@ enum PublishReviewResult {
 
 async fn publish_review_for_branch(
     project: &Project,
+    stack_id: Option<StackId>,
     branch_name: &str,
     target_branch: &str,
     review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
@@ -359,7 +362,19 @@ async fn publish_review_for_branch(
     })
     .await
     .map_err(Into::into)
-    .map(|review| PublishReviewResult::Published(Box::new(review)))
+    .map(|review| {
+        if let Some(stack_id) = stack_id {
+            let review_number = review.number.try_into().ok();
+            but_api::stack::update_branch_pr_number(
+                project.id,
+                stack_id,
+                branch_name.to_string(),
+                review_number,
+            )
+            .ok();
+        }
+        PublishReviewResult::Published(Box::new(review))
+    })
 }
 
 fn get_review_body_from_editor(branch_name: &str) -> anyhow::Result<String> {
