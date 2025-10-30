@@ -374,15 +374,14 @@
 	{@const buttonStyle = noAccounts ? 'pop' : 'neutral'}
 	{@const buttonText = noAccounts ? 'Add account' : 'Add another account'}
 	<Button
+		bind:el={addAccountButtonRef}
 		style={buttonStyle}
 		onclick={() => addAccountContextMenu?.toggle()}
 		disabled={showingFlow !== undefined}
 		loading={storePatResult.current.isLoading || storeGhePatResult.current.isLoading}
 		icon="plus-small"
 	>
-		<span bind:this={addAccountButtonRef}>
-			{buttonText}
-		</span>
+		{buttonText}
 	</Button>
 
 	<ContextMenu bind:this={addAccountContextMenu} leftClickTrigger={addAccountButtonRef}>
