@@ -4,10 +4,38 @@ use anyhow::Context;
 use bstr::ByteSlice;
 use but_api::forge::ListReviewsParams;
 use but_settings::AppSettings;
+use but_workspace::StackId;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use serde::{Deserialize, Serialize};
+
+use crate::editor::get_text_from_editor_no_comments;
+
+#[derive(Debug, clap::Parser)]
+pub struct Platform {
+    #[clap(subcommand)]
+    pub cmd: Subcommands,
+}
+#[derive(Debug, clap::Subcommand)]
+pub enum Subcommands {
+    /// Publish review requests for active branches in your workspace.
+    /// By default, publishes reviews for all active branches.
+    Publish {
+        /// Publish reviews only for the specified branch.
+        #[clap(long, short = 'b')]
+        branch: Option<String>,
+        /// Force push even if it's not fast-forward (defaults to true).
+        #[clap(long, short = 'f', default_value_t = true)]
+        with_force: bool,
+        /// Skip force push protection checks
+        #[clap(long, short = 's')]
+        skip_force_push_protection: bool,
+        /// Run pre-push hooks (defaults to true).
+        #[clap(long, short = 'r', default_value_t = true)]
+        run_hooks: bool,
+    },
+}
 
 pub async fn publish_reviews(
     project: &Project,
@@ -214,6 +242,7 @@ async fn publish_reviews_for_branch_and_dependents(
 
         let published_review = publish_review_for_branch(
             project,
+            stack_entry.id,
             head.name.to_str()?,
             current_target_branch,
             review_map,
@@ -303,6 +332,7 @@ enum PublishReviewResult {
 
 async fn publish_review_for_branch(
     project: &Project,
+    stack_id: Option<StackId>,
     branch_name: &str,
     target_branch: &str,
     review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
@@ -316,14 +346,15 @@ async fn publish_review_for_branch(
         return Ok(PublishReviewResult::AlreadyExists(reviews.clone()));
     }
 
-    // TODO: Determine title and body based on input/template/commits
+    let title = get_review_title_from_editor(branch_name)?;
+    let body = get_review_body_from_editor(branch_name)?;
 
     // Publish a new review for the branch
     but_api::forge::publish_review_cmd(but_api::forge::PublishReviewParams {
         project_id: project.id,
         params: gitbutler_forge::review::CreateForgeReviewParams {
-            title: branch_name.to_string(),
-            body: "".to_string(),
+            title,
+            body,
             source_branch: branch_name.to_string(),
             target_branch: target_branch.to_string(),
             draft: false,
@@ -331,9 +362,50 @@ async fn publish_review_for_branch(
     })
     .await
     .map_err(Into::into)
-    .map(|review| PublishReviewResult::Published(Box::new(review)))
+    .map(|review| {
+        if let Some(stack_id) = stack_id {
+            let review_number = review.number.try_into().ok();
+            but_api::stack::update_branch_pr_number(
+                project.id,
+                stack_id,
+                branch_name.to_string(),
+                review_number,
+            )
+            .ok();
+        }
+        PublishReviewResult::Published(Box::new(review))
+    })
 }
 
+fn get_review_body_from_editor(branch_name: &str) -> anyhow::Result<String> {
+    let mut template = String::new();
+    template.push_str("\n# This is the review description for: \n");
+    template.push_str("\n# '");
+    template.push_str(branch_name);
+    template.push_str("' \n");
+    template.push_str("\n# Optionally, enter the review body above. Lines starting\n");
+    template.push_str("# with '#' will be ignored, and an empty body is allowed.\n");
+    template.push_str("#\n");
+
+    let body = get_text_from_editor_no_comments("but_review_body", &template)?;
+    Ok(body)
+}
+
+fn get_review_title_from_editor(branch_name: &str) -> anyhow::Result<String> {
+    let mut template = String::new();
+    template.push_str(branch_name);
+    template.push_str("\n# Please enter the review title above. Lines starting\n");
+    template.push_str("# with '#' will be ignored, and an empty title aborts the operation.\n");
+    template.push_str("#\n");
+
+    let title = get_text_from_editor_no_comments("but_review_title", &template)?;
+
+    if title.is_empty() {
+        anyhow::bail!("Aborting due to empty review title");
+    }
+
+    Ok(title)
+}
 pub async fn get_review_map(
     project: &Project,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>> {

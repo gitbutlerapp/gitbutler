@@ -15,6 +15,7 @@ mod command;
 mod commit;
 mod completions;
 mod describe;
+mod editor;
 mod forge;
 mod id;
 mod init;
@@ -292,31 +293,33 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
-        Subcommands::Publish {
-            branch,
-            skip_force_push_protection,
-            with_force,
-            run_hooks,
-        } => {
-            let project = get_or_init_project(&args.current_dir)?;
-            let result = forge::review::publish_reviews(
-                &project,
+        Subcommands::Review(forge::review::Platform { cmd }) => match cmd {
+            forge::review::Subcommands::Publish {
                 branch,
-                *skip_force_push_protection,
-                *with_force,
-                *run_hooks,
-                args.json,
-            )
-            .await
-            .context("Failed to publish reviews for branches.");
-            metrics_if_configured(
-                app_settings,
-                CommandName::PublishReview,
-                props(start, &result),
-            )
-            .ok();
-            result
-        }
+                skip_force_push_protection,
+                with_force,
+                run_hooks,
+            } => {
+                let project = get_or_init_project(&args.current_dir)?;
+                let result = forge::review::publish_reviews(
+                    &project,
+                    branch,
+                    *skip_force_push_protection,
+                    *with_force,
+                    *run_hooks,
+                    args.json,
+                )
+                .await
+                .context("Failed to publish reviews for branches.");
+                metrics_if_configured(
+                    app_settings,
+                    CommandName::PublishReview,
+                    props(start, &result),
+                )
+                .ok();
+                result
+            }
+        },
         Subcommands::Completions { shell } => completions::generate_completions(*shell),
     }
 }
