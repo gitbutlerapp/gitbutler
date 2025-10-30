@@ -5,6 +5,8 @@
 		bottom?: number;
 		left?: number;
 	};
+
+	export type ScrollbarVisilitySettings = 'scroll' | 'hover' | 'always';
 </script>
 
 <script lang="ts">
@@ -18,7 +20,7 @@
 		shift?: string;
 		horz?: boolean;
 		zIndex?: string;
-		whenToShow: 'hover' | 'always' | 'scroll';
+		whenToShow: ScrollbarVisilitySettings;
 		onthumbdrag?: (dragging: boolean) => void;
 		onscroll?: (e: Event) => void;
 		onscrollexists?: (hasScroll: boolean) => void;
