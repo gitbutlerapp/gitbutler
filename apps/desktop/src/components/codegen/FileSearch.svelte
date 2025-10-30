@@ -7,58 +7,94 @@
 		files: string[] | undefined;
 		indexOfSelectedFile: number | undefined;
 		loading: boolean;
+		query: string;
 		onselect: (filename: string) => void;
 		onexit: () => void;
 	};
 
-	const { onselect, files, loading, onexit, indexOfSelectedFile }: Props = $props();
+	const { onselect, files, loading, onexit, indexOfSelectedFile, query }: Props = $props();
+
+	const shouldShow = $derived(files !== undefined);
 </script>
 
-{#if loading}
+{#if shouldShow}
 	<div
-		class="file-plugin"
+		class="dialog-popup"
 		use:clickOutside={{ handler: () => onexit() }}
 		in:fly={{ y: 8, duration: 200 }}
 	>
-		<div class="p-12">
-			<Icon name="spinner" />
+		<div class="dialog-popup__header">
+			<Icon name="search-small" color="var(--clr-text-3)" />
+			<h3 class="text-12 text-bold flex-1">Search for files</h3>
+			<p class="text-11 clr-text-3">
+				<span class="text-italic text-bold"> Esc </span>
+				to close
+			</p>
 		</div>
-	</div>
-{:else if files}
-	<div
-		class="file-plugin"
-		use:clickOutside={{ handler: () => onexit() }}
-		in:fly={{ y: 8, duration: 200 }}
-	>
-		{#each files as file, i}
-			<FileListItem
-				filePath={file}
-				onclick={() => onselect(file)}
-				selected={i === indexOfSelectedFile}
-				active={i === indexOfSelectedFile}
-			/>
-		{:else}
-			<div class="p-12 p-l-16 text-12 clr-text-3">No files found ¯\_(ツ)_/¯</div>
-		{/each}
+
+		{#if loading}
+			<div class="text-12 text-italic dialog-popup__placeholder-content">Loading...</div>
+		{:else if files && files.length === 0 && query.length === 0}
+			<div class="text-12 text-italic dialog-popup__placeholder-content">
+				Type something to start searching…
+			</div>
+		{:else if files && files.length === 0}
+			<div class="text-12 dialog-popup__placeholder-content">No files found ¯\_(ツ)_/¯</div>
+		{:else if files}
+			<div class="dialog-popup__content">
+				{#each files as file, i}
+					<FileListItem
+						filePath={file}
+						onclick={() => onselect(file)}
+						selected={i === indexOfSelectedFile}
+						active={i === indexOfSelectedFile}
+					/>
+				{/each}
+			</div>
+		{/if}
 	</div>
 {/if}
 
 <style lang="postcss">
-	.file-plugin {
+	.dialog-popup {
+		display: flex;
 		z-index: var(--z-floating);
 		position: absolute;
 		right: 12px;
 		bottom: calc(100% + 6px);
 		left: 12px;
-		overflow-x: hidden;
-		overflow-y: auto;
+		flex-direction: column;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
 		box-shadow: 0 10px 30px 0 color(srgb 0 0 0 / 0.16);
 	}
 
-	:global(.dark) .file-plugin {
+	:global(.dark) .dialog-popup {
 		box-shadow: 0 10px 50px 5px color(srgb 0 0 0 / 0.5);
+	}
+
+	.dialog-popup__header {
+		display: flex;
+		align-items: center;
+		width: 100%;
+		padding: 10px 10px;
+		gap: 6px;
+		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
+	}
+
+	.dialog-popup__content {
+		max-height: 300px;
+		overflow-x: hidden;
+		overflow-y: auto;
+	}
+
+	.dialog-popup__placeholder-content {
+		padding: 14px 14px;
+		background-color: var(--clr-bg-2);
+		color: var(--clr-text-3);
+		text-align: center;
 	}
 </style>

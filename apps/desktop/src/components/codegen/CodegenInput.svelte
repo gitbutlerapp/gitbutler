@@ -59,6 +59,7 @@
 	let fileSuggestionsPlugin = $state<FilePlugin>();
 	let loadingFileSuggestions = $state(false);
 	let fileSuggestions = $state<string[] | undefined>(undefined);
+	let fileSuggestionsQuery = $state<string>('');
 
 	function selectFileSuggestion(filename: string) {
 		fileSuggestionsPlugin?.selectFileSuggestion(filename);
@@ -68,9 +69,11 @@
 		fileSuggestionsPlugin?.exitFileSuggestions();
 	}
 
-	function onFileSuggestionUpdate(update: FileSuggestionUpdate) {
+	function onFileSuggestionUpdate(update: FileSuggestionUpdate, query: string) {
+		fileSuggestionsQuery = query;
 		if (update.loading) {
 			loadingFileSuggestions = true;
+			fileSuggestions = [];
 			indexOfSelectedFile = undefined;
 			return;
 		}
@@ -200,6 +203,7 @@
 		onselect={selectFileSuggestion}
 		onexit={exitFileSuggestions}
 		files={fileSuggestions}
+		query={fileSuggestionsQuery}
 	/>
 
 	<div
