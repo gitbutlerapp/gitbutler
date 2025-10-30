@@ -1,3 +1,5 @@
+use but_core::RefMetadata;
+use but_core::ref_metadata::WorkspaceCommitRelation;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
 use but_settings::app_settings::{
@@ -5,8 +7,10 @@ use but_settings::app_settings::{
     UiSettings,
 };
 use but_testsupport::gix_testtools::tempfile;
+use but_workspace::StackId;
 use std::env;
 use std::io::Write;
+use std::ops::DerefMut;
 use std::path::Path;
 
 /// A sandbox that assumes read-write testing, so all data is editable and is cleaned up afterward.
@@ -235,4 +239,21 @@ impl Sandbox {
 
 pub fn r(name: &str) -> &gix::refs::FullNameRef {
     name.try_into().expect("statically known valid ref-name")
+}
+
+pub fn setup_metadata(env: &Sandbox, branch_names: &[&str]) -> anyhow::Result<()> {
+    let mut meta = env.meta()?;
+    let mut ws = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
+    let ws_data: &mut but_core::ref_metadata::Workspace = ws.deref_mut();
+    for (stable_id, branch_name) in (0_u128..).zip(branch_names.iter()) {
+        ws_data.add_or_insert_new_stack_if_not_present(
+            r(&format!("refs/heads/{branch_name}")),
+            None,
+            WorkspaceCommitRelation::Merged,
+            |_| StackId::from_number_for_testing(stable_id),
+        );
+    }
+    meta.set_workspace(&ws)?;
+
+    Ok(())
 }
