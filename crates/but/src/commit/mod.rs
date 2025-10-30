@@ -357,6 +357,10 @@ fn select_stack(
             let branch_name = but_api::workspace::canned_branch_name(project.id)?;
             create_independent_branch(&branch_name, project)
         }
+        None if stacks.len() == 1 => {
+            // Only one stack - use it
+            Ok(stacks[0].clone())
+        }
         None => {
             // Prompt user to select
             prompt_for_stack_selection(stacks)

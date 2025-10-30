@@ -1,9 +1,6 @@
-use crate::utils::{Sandbox, r};
-use but_core::RefMetadata;
-use but_core::ref_metadata;
-use but_core::ref_metadata::{StackId, WorkspaceCommitRelation};
+use crate::utils::Sandbox;
+use crate::utils::setup_metadata;
 use snapbox::{file, str};
-use std::ops::DerefMut;
 
 #[test]
 fn from_scratch_needs_work() -> anyhow::Result<()> {
@@ -110,24 +107,7 @@ fn from_workspace() -> anyhow::Result<()> {
     insta::assert_snapshot!(env.git_status()?, @r"");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    {
-        let mut meta = env.meta()?;
-        let mut ws = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
-        let ws_data: &mut ref_metadata::Workspace = ws.deref_mut();
-        ws_data.add_or_insert_new_stack_if_not_present(
-            r("refs/heads/A"),
-            None,
-            WorkspaceCommitRelation::Merged,
-            |_| StackId::from_number_for_testing(1),
-        );
-        ws_data.add_or_insert_new_stack_if_not_present(
-            r("refs/heads/B"),
-            None,
-            WorkspaceCommitRelation::Merged,
-            |_| StackId::from_number_for_testing(2),
-        );
-        meta.set_workspace(&ws)?;
-    }
+    setup_metadata(&env, &["A", "B"])?;
 
     env.but("status")
         .assert()
