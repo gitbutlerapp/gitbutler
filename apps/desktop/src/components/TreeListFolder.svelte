@@ -1,5 +1,5 @@
 <script lang="ts">
-	import FolderContextMenu from '$components/FolderContextMenu.svelte';
+	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
 	import { getAllChanges, nodePath, type TreeNode } from '$lib/files/filetreeV3';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { inject } from '@gitbutler/core/context';
@@ -35,7 +35,7 @@
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const selectionStatus = $derived(uncommittedService.folderCheckStatus(stackId, nodePath(node)));
 
-	let contextMenu: ReturnType<typeof FolderContextMenu>;
+	let contextMenu: ReturnType<typeof ChangedFilesContextMenu>;
 	let draggableEl: HTMLDivElement | undefined = $state();
 
 	function handleCheck(checked: boolean) {
@@ -56,7 +56,7 @@
 </script>
 
 <div bind:this={draggableEl}>
-	<FolderContextMenu
+	<ChangedFilesContextMenu
 		bind:this={contextMenu}
 		{projectId}
 		{stackId}

@@ -1,6 +1,6 @@
 <!-- This is a V3 replacement for `FileListItemWrapper.svelte` -->
 <script lang="ts">
-	import FileContextMenu from '$components/FileContextMenu.svelte';
+	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
@@ -76,7 +76,7 @@
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 
-	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
+	let contextMenu = $state<ReturnType<typeof ChangedFilesContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
 	let isStuck = $state(false);
 
@@ -148,7 +148,7 @@
 		}
 	}}
 >
-	<FileContextMenu
+	<ChangedFilesContextMenu
 		bind:this={contextMenu}
 		{projectId}
 		{stackId}
