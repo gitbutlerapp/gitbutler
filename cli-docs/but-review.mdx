@@ -51,6 +51,13 @@ Run pre-push hooks.
 - **Type:** Flag (boolean)
 - **Default:** `true`
 
+### `-t, --default`
+
+Use just the branch name as the review title, without opening an editor.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
 ## Examples
 
 Publish all active branches:
@@ -69,4 +76,8 @@ Publish without running hooks:
 
 ```
 but review publish --run-hooks=false
+```
+
+```
+but review publish --default
 ```

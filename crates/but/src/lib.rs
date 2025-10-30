@@ -299,6 +299,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 skip_force_push_protection,
                 with_force,
                 run_hooks,
+                default,
             } => {
                 let project = get_or_init_project(&args.current_dir)?;
                 let result = forge::review::publish_reviews(
@@ -307,6 +308,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                     *skip_force_push_protection,
                     *with_force,
                     *run_hooks,
+                    *default,
                     args.json,
                 )
                 .await
