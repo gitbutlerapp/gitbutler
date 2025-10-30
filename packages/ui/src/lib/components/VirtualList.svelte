@@ -150,7 +150,7 @@
 			}
 			i += 1;
 		}
-		return i;
+		return chunks.length - 1;
 	}
 
 	async function updateEndIndex(): Promise<number> {
