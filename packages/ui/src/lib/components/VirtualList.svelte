@@ -164,7 +164,7 @@
 		let i = start;
 
 		while (i < chunks.length) {
-			if (rows?.[i - start]) {
+			if (!rows![i - start]) {
 				end = i + 1;
 				bottomPadding = sumHeights(end, heightMap.length);
 				await tick(); // render the newly visible row
@@ -181,7 +181,7 @@
 	}
 
 	async function updateStartIndexBackwards(): Promise<number> {
-		if (!viewport || !rows) return 0;
+		if (!viewport) return 0;
 
 		let accumulatedHeight = 0;
 		let i = end - 1;
@@ -192,7 +192,7 @@
 			await tick(); // Wait for the chunk to render
 
 			// Now measure the actual rendered height
-			const rowElement = rows[0]; // First row in the visible set
+			const rowElement = rows![0]; // First row in the visible set
 			const rowHeight = (rowElement as HTMLElement)?.offsetHeight || FALLBACK_HEIGHT;
 			heightMap[i] = rowHeight;
 
@@ -249,7 +249,7 @@
 			if (start < oldStart) {
 				await tick();
 				const cachedHeight = heightMap[start] || FALLBACK_HEIGHT;
-				const realHeight = (rows[0] as HTMLElement | undefined)?.offsetHeight ?? 0;
+				const realHeight = (rows[0] as HTMLElement).offsetHeight;
 				const diff = realHeight - cachedHeight;
 				if (diff !== 0) {
 					viewport.scrollBy({ top: diff });
