@@ -87,8 +87,7 @@
 	let totalHeight = $state(0);
 
 	// Chat-specific state
-	let isNearBottom = $state(true);
-	let distanceFromBottom = $state(0);
+	let lastDistanceFromBottom = $state(0);
 	let hasInitialized = $state(false);
 	let wasAtBottomBeforeResize = $state(false);
 	let previousItemsLength = $state(items.length);
@@ -113,11 +112,18 @@
 		return sum;
 	}
 
-	function checkIfNearBottom() {
+	function saveLastDistance() {
 		if (!viewport) return;
-		distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-		isNearBottom = distanceFromBottom < STICKY_DISTANCE;
-		return isNearBottom;
+		lastDistanceFromBottom = bottomDistance();
+	}
+
+	function isNearBottom() {
+		return bottomDistance() < STICKY_DISTANCE;
+	}
+
+	function bottomDistance() {
+		if (!viewport) return 0;
+		return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
 	}
 
 	async function getRowHeight(i: number, rowOffset: number): Promise<number> {
@@ -232,7 +238,7 @@
 
 			await tick();
 
-			const savedDistance = distanceFromBottom;
+			const savedDistance = lastDistanceFromBottom;
 			const oldStart = start;
 			const newStart = await updateStartIndex();
 			topPadding = sumHeights(0, newStart);
@@ -266,7 +272,7 @@
 				!isScroll &&
 				stickToBottom &&
 				savedDistance < STICKY_DISTANCE &&
-				distanceFromBottom > savedDistance
+				bottomDistance() > savedDistance
 			) {
 				viewport.scrollTop = viewport.scrollHeight;
 				await tick();
@@ -275,10 +281,10 @@
 			totalHeight = sumHeights(0, heightMap.length);
 		}
 
+		saveLastDistance();
+
 		// Trigger load more if needed
-		const shouldLoad =
-			totalHeight < viewportHeight ||
-			viewport.scrollTop + viewportHeight > totalHeight - LOAD_MORE_THRESHOLD;
+		const shouldLoad = totalHeight < viewportHeight || bottomDistance() < LOAD_MORE_THRESHOLD;
 		if (shouldLoad) {
 			debouncedLoad?.();
 		}
@@ -305,7 +311,7 @@
 		if (viewportHeight && previousViewportHeight !== viewportHeight) {
 			// Track if we were at bottom before resize
 			if (stickToBottom && viewport) {
-				wasAtBottomBeforeResize = isNearBottom;
+				wasAtBottomBeforeResize = isNearBottom();
 			}
 
 			untrack(async () => {
@@ -329,7 +335,7 @@
 
 	// Auto-scroll to bottom when new items are added (if stickToBottom is enabled)
 	$effect(() => {
-		if (items && stickToBottom && isNearBottom) {
+		if (items && stickToBottom && isNearBottom()) {
 			if (!viewport) return;
 			untrack(async () => {
 				await recalculate();
@@ -360,7 +366,6 @@
 	bind:viewport
 	onscroll={() => {
 		recalculate(true);
-		checkIfNearBottom();
 	}}
 	wide={grow}
 	whenToShow={visibility}
@@ -382,7 +387,7 @@
 	</div>
 </ScrollableContainer>
 
-{#if distanceFromBottom > 300}
+{#if lastDistanceFromBottom > 300}
 	<div class="feed-actions">
 		{#if newUnseenTail}
 			<button
