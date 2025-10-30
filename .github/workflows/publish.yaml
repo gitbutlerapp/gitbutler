@@ -108,21 +108,15 @@ jobs:
       channel: ${{ env.channel }}
 
     steps:
-      # Because GitHub broke perl installations sometime in 2022 on Windows.
-      - name: perl -V (before re-install)
-        if: runner.os == 'Windows'
-        run: which perl && perl -V
       - name: Set git to use LF
         if: runner.os == 'Windows'
         run: |
           git config --global core.autocrlf false
           git config --global core.eol lf
-      - name: perl -V
-        if: runner.os == 'Windows'
-        run: which perl && perl -V
       - name: Set Perl environment variables
         if: runner.os == 'Windows'
         run: |
+          which perl && perl -V
           echo "PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           echo "OPENSSL_SRC_PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -140,8 +134,6 @@ jobs:
         uses: Swatinem/rust-cache@v2.8.1
         with:
           shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}
-      - name: Init Node Environment
-        uses: ./.github/actions/init-env-node
 
       - name: Consume input variables
         shell: bash
