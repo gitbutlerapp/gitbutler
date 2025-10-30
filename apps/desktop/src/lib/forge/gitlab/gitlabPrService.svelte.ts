@@ -131,7 +131,7 @@ function injectEndpoints(api: GitLabApi) {
 						const upstreamProject = await api.Projects.show(upstreamProjectId);
 
 						// GitLab uses title prefix to mark drafts: "Draft:", "[Draft]", or "(Draft)"
-						const finalTitle = draft ? `[Draft]: ${title}` : title;
+						const finalTitle = draft ? `[Draft] ${title}` : title;
 
 						const mr = await api.MergeRequests.create(forkProjectId, head, base, finalTitle, {
 							description: body,
