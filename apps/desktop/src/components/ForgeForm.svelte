@@ -1,5 +1,5 @@
 <script lang="ts">
-	import GitHubAccountTypePill from '$components/GitHubAccountTypePill.svelte';
+	import GitHubAccountBadge from '$components/GitHubAccountBadge.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import {
 		githubAccountIdentifierToString,
@@ -10,7 +10,15 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { Link, SectionCard, Select, SelectItem, Spacer, Textbox } from '@gitbutler/ui';
+	import {
+		Link,
+		SectionCard,
+		Select,
+		SelectItem,
+		Spacer,
+		Textbox,
+		InfoMessage
+	} from '@gitbutler/ui';
 
 	import type { ForgeName } from '$lib/forge/interface/forge';
 	import type { Project } from '$lib/project/project';
@@ -70,7 +78,7 @@
 	}
 </script>
 
-<div>
+<div class="stack-v">
 	<SectionCard roundedBottom={!['github', 'gitlab'].includes(forge.current.name)}>
 		{#snippet title()}
 			Forge override
@@ -168,12 +176,19 @@
 			{#snippet caption()}
 				Enable pull request creation. Read more in the <Link
 					href="https://docs.gitbutler.com/features/forge-integration/github-integration">docs</Link
-				>.
+				>
 			{/snippet}
 
 			{#if githubAccounts.current.length === 0 || !preferredGitHubAccount.current}
 				<!-- TODO: Link to the general settings -->
-				<p>Make sure that you've logged in correctly from the General Settings</p>
+				<InfoMessage style="warning" filled outlined={false}>
+					{#snippet title()}
+						No GitHub accounts found
+					{/snippet}
+					{#snippet content()}
+						Add a GitHub account in General Settings to enable GitHub integration
+					{/snippet}
+				</InfoMessage>
 			{:else}
 				{@const account = preferredGitHubAccount.current}
 				<Select
@@ -198,11 +213,9 @@
 							{highlighted}
 						>
 							{item.label}
+
 							{#if itemAccount}
-								<GitHubAccountTypePill type={itemAccount.type} />
-								{#if itemAccount.type === 'enterprise'}
-									{`(${itemAccount.info.host})`}
-								{/if}
+								<GitHubAccountBadge account={itemAccount} class="m-l-4" />
 							{/if}
 						</SelectItem>
 					{/snippet}
@@ -211,4 +224,5 @@
 		</SectionCard>
 	{/if}
 </div>
+
 <Spacer />

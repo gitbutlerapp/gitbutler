@@ -1,5 +1,5 @@
 <script lang="ts">
-	import GitHubAccountTypePill from '$components/GitHubAccountTypePill.svelte';
+	import GitHubAccountBadge from '$components/GitHubAccountBadge.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import {
 		GITHUB_USER_SERVICE,
@@ -54,16 +54,15 @@
 				<Avatar size="large" username={account.info.username} srcUrl={user?.avatarUrl} />
 			</div>
 		{/snippet}
+
 		{#snippet title()}
-			{account.info.username} <GitHubAccountTypePill type={account.type} />
-		{/snippet}
+			{account.info.username}
 
-		{#snippet caption()}
 			{#if account.type === 'enterprise'}
-				{account.info.host}
-				<br />
+				<GitHubAccountBadge {account} class="m-l-4" />
 			{/if}
-
+		{/snippet}
+		{#snippet caption()}
 			{#if user?.email}
 				{user.email}
 			{:else if isError}
