@@ -337,10 +337,11 @@ pub fn is_gerrit_remote(repo: &gix::Repository) -> anyhow::Result<bool> {
         .ok_or_else(|| anyhow::anyhow!("No push remotes found"))?;
 
     let mut remote = repo.find_remote(remote_name.as_bstr())?;
-    remote.replace_refspecs(vec![gerrit_notes_ref], Direction::Push)?;
-    remote = remote.with_fetch_tags(gix::remote::fetch::Tags::None);
+    // Need to set fetch specs as ref-map requests always use fetch specs (it's not used when pushing)
+    remote.replace_refspecs(vec![gerrit_notes_ref], Direction::Fetch)?;
 
     let (map, _) = remote
+        .with_fetch_tags(gix::remote::fetch::Tags::None)
         .connect(Direction::Push)?
         .ref_map(gix::progress::Discard, Default::default())?;
 
