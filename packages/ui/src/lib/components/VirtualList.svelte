@@ -61,10 +61,10 @@
 	// Constants
 	const STICKY_DISTANCE = 100;
 	const FALLBACK_HEIGHT = 65;
-	const LOAD_MORE_THRESHOLD = 150;
+	const LOAD_MORE_THRESHOLD = 300;
 
 	// Debounce load more callback
-	const debouncedLoad = $derived(debounce(() => onloadmore?.(), 100));
+	const debouncedLoad = $derived(debounce(() => onloadmore?.(), 50));
 
 	// DOM references
 	let viewport = $state<HTMLDivElement>();
@@ -74,8 +74,10 @@
 	let previousViewportHeight = 0;
 
 	// Virtual scrolling state
-	let start = $state(initialPosition === 'bottom' ? Infinity : 0);
-	let end = $state(initialPosition === 'bottom' ? Infinity : 0);
+	let range = $state({
+		start: initialPosition === 'bottom' ? Infinity : 0,
+		end: initialPosition === 'bottom' ? Infinity : 0
+	});
 
 	// An array mapping items to element heights
 	let heightMap: Array<number | undefined> = $state([]);
@@ -95,7 +97,7 @@
 
 	const chunks = $derived(chunk(items, batchSize));
 	const visible = $derived.by(() =>
-		chunks.slice(start, end).map((data, i) => ({ id: i + start, data }))
+		chunks.slice(range.start, range.end).map((data, i) => ({ id: i + range.start, data }))
 	);
 
 	function chunk<T>(arr: T[], size: number) {
@@ -131,7 +133,7 @@
 	}
 
 	async function getRowHeight(i: number, rowOffset: number): Promise<number> {
-		if (i < start) {
+		if (i < range.start) {
 			return heightMap[i] || FALLBACK_HEIGHT;
 		}
 
@@ -147,11 +149,15 @@
 	}
 
 	async function updateStartIndex(): Promise<number> {
+		if (chunks.length === 0) {
+			return 0;
+		}
+
 		let accumulatedHeight = 0;
 		let i = 0;
 
 		while (i < chunks.length) {
-			const rowHeight = await getRowHeight(i, start - i);
+			const rowHeight = await getRowHeight(i, range.start - i);
 			accumulatedHeight += rowHeight;
 
 			if (accumulatedHeight > viewport!.scrollTop) {
@@ -164,15 +170,15 @@
 
 	async function updateEndIndex(): Promise<number> {
 		let accumulatedHeight = topPadding - viewport!.scrollTop;
-		let i = start;
+		let i = range.start;
 
 		while (i < chunks.length) {
-			if (!rows?.[i - start]) {
-				end = i + 1;
-				bottomPadding = sumHeights(end, heightMap.length);
+			if (!rows![i - range.start]) {
+				range.end = i + 1;
+				bottomPadding = sumHeights(range.end, heightMap.length);
 				await tick(); // render the newly visible row
 			}
-			const rowHeight = await getRowHeight(i, i - start);
+			const rowHeight = await getRowHeight(i, i - range.start);
 
 			accumulatedHeight += rowHeight;
 			if (accumulatedHeight > viewport!.clientHeight) {
@@ -180,18 +186,18 @@
 			}
 			i += 1;
 		}
-		return i;
+		return chunks.length;
 	}
 
 	async function updateStartIndexBackwards(): Promise<number> {
 		if (!viewport) return 0;
 
 		let accumulatedHeight = 0;
-		let i = end - 1;
+		let i = range.end - 1;
 
 		while (i >= 0) {
 			// Set startIndex to render this chunk
-			start = i;
+			range.start = i;
 			await tick(); // Wait for the chunk to render
 
 			// Now measure the actual rendered height
@@ -221,12 +227,12 @@
 		// Handle bottom initialization
 		if (!hasInitialized && initialPosition === 'bottom') {
 			// Start from the last chunk and work backwards
-			end = chunks.length;
+			range.end = chunks.length;
 			bottomPadding = 0;
 			await tick();
 
-			start = await updateStartIndexBackwards();
-			topPadding = sumHeights(0, start);
+			range.start = await updateStartIndexBackwards();
+			topPadding = sumHeights(0, range.start);
 			totalHeight = sumHeights(0, heightMap.length);
 
 			setTimeout(() => {
@@ -236,47 +242,23 @@
 				}
 			}, 20);
 		} else {
-			// Normal top-down calculation
-			// There is some weird bug here that seems triggered when
-			// start has moved forward, as an element is tagen out from
-			// the top but equally compensated by new padding, the
-			// scrollTop suddenly jumps by a lot.
-			let scrollTop = viewport.scrollTop;
-
 			await tick();
-
 			const savedDistance = lastDistanceFromBottom;
-			const oldStart = start;
-			const newStart = await updateStartIndex();
-			topPadding = sumHeights(0, newStart);
-			start = newStart;
+			const oldStart = range.start;
 
-			// Assumes end shifts by as much as start, until recalculated.
-			// Otherwise `visible` will momentarily evaluate to `[]` when
-			// scrolling fast.
-			end = Math.min(end + newStart - oldStart, chunks.length);
+			range = { start: await updateStartIndex(), end: await updateEndIndex() };
+			bottomPadding = sumHeights(range.end, heightMap.length);
+			topPadding = sumHeights(0, range.start);
 
-			if (start < oldStart) {
+			if (range.start < oldStart) {
 				await tick();
-				const cachedHeight = heightMap[start] || FALLBACK_HEIGHT;
-				const realHeight = (rows?.[0] as HTMLElement | undefined)?.offsetHeight ?? FALLBACK_HEIGHT;
+				const cachedHeight = heightMap[range.start] || FALLBACK_HEIGHT;
+				const realHeight = (rows[0] as HTMLElement)?.offsetHeight;
 				const diff = realHeight - cachedHeight;
 				if (diff !== 0) {
 					viewport.scrollBy({ top: diff });
-					scrollTop += diff;
 				}
 			}
-			await tick();
-
-			// Resetting the scroll top here seems to give us the correct behavior.
-			if (viewport.scrollTop !== scrollTop) {
-				viewport.scrollTop = scrollTop;
-				await tick();
-			}
-
-			end = await updateEndIndex();
-			bottomPadding = sumHeights(end, heightMap.length);
-
 			await tick();
 
 			if (
@@ -359,9 +341,9 @@
 			});
 		} else if (items) {
 			untrack(() => {
-				const hadNewItems = items.length > previousItemsLength && items.length > end;
+				const hadNewItems = items.length > previousItemsLength && items.length > range.end;
 				recalculate();
-				if (hadNewItems) {
+				if (initialPosition === 'bottom' && hadNewItems) {
 					newUnseenTail = true;
 				}
 			});
@@ -386,7 +368,7 @@
 		style:padding-top={topPadding + 'px'}
 		style:padding-bottom={bottomPadding + 'px'}
 	>
-		{#each visible as chunk}
+		{#each visible as chunk (chunk.id)}
 			<!-- Note: keying this #each would make things much slower. -->
 			<div class="list-row">
 				{@render chunkTemplate?.(chunk.data)}
@@ -395,7 +377,7 @@
 		{@render children?.()}
 	</div>
 </ScrollableContainer>
-{#if lastDistanceFromBottom > 300}
+{#if lastDistanceFromBottom > 600}
 	<div class="feed-actions">
 		{#if newUnseenTail}
 			<button
