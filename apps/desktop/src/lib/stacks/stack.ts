@@ -14,7 +14,7 @@ export function handleCreateBranchFromBranchOutcome(outcome: CreateBranchFromBra
 		showToast({
 			testId: TestId.StacksUnappliedToast,
 			title: 'Heads up: We had to unapply some stacks to apply this one',
-			message: `It seems that the branch created couldn't be applied cleanly alongside your other ${outcome.unappliedStacks.length} ${outcome.unappliedStacks.length === 1 ? 'stack' : 'stacks'}.
+			message: `There were some conflicts detected when applying this branch into your workspace, so we automatically unapplied ${outcome.unappliedStacks.length} ${outcome.unappliedStacks.length === 1 ? 'stack' : 'stacks'}.
 You can always re-apply them later from the branches page.`
 		});
 	}
