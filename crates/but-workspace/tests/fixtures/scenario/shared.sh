@@ -113,6 +113,12 @@ function commit() {
   git commit -m "$message" --allow-empty
 }
 
+function commit-file() {
+  local name="${1:?First argument is the filename}"
+  local content=${2:-$1}
+  echo $content >$name && git add $name && git commit -m "add $content"
+}
+
 function add_change_id_to_given_commit() {
   local a="00000000-0000-0000-0000-000000000000"
   local b="${1:?first argument is the single-digit number of the change-id}"

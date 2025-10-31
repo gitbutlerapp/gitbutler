@@ -38,7 +38,7 @@ impl std::fmt::Debug for Stack {
 /// Structures related to creating a merge-commit along with the respective tree.
 pub mod merge {
     use anyhow::{Context, bail};
-    use but_core::ref_metadata::WorkspaceCommitRelation;
+    use but_core::ref_metadata::{MaybeDebug, WorkspaceCommitRelation};
     use but_graph::SegmentIndex;
     use gitbutler_oxidize::GixRepositoryExt;
     use gix::prelude::ObjectIdExt;
@@ -47,13 +47,35 @@ pub mod merge {
     use super::Stack;
     use crate::WorkspaceCommit;
 
-    /// A minimal stack for to represent a stack that conflicted.
+    /// A optionally named tip that can be merged.
     #[derive(Debug, Clone)]
+    pub struct Tip {
+        /// The name of the reference that points to `commit_id`, or `None` if there is no such reference.
+        /// The name is for use in the generated workspace commit message.
+        pub name: Option<gix::refs::FullName>,
+        /// The commit that should be merged into the workspace commit.
+        pub commit_id: gix::ObjectId,
+        /// The index to the top-most segment of the stack in the graph for use in merge-base computation.
+        pub segment_idx: SegmentIndex,
+    }
+
+    /// A minimal stack for to represent a stack that conflicted.
+    #[derive(Clone)]
     pub struct ConflictingStack {
         /// The tip that could not be merged in.
         pub tip: gix::ObjectId,
         /// The name of the references to be merged, it pointed to `tip`.
-        pub ref_name: gix::refs::FullName,
+        pub ref_name: Option<gix::refs::FullName>,
+    }
+
+    impl std::fmt::Debug for ConflictingStack {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let ConflictingStack { ref_name, tip } = self;
+            f.debug_struct("ConflictingStack")
+                .field("tip", tip)
+                .field("ref_name", &MaybeDebug(ref_name))
+                .finish()
+        }
     }
 
     /// The outcome of a workspace-merge operation via [WorkspaceCommit::from_new_merge_with_metadata()].
@@ -79,27 +101,11 @@ pub mod merge {
 
     /// Merging - create a merge-commit along with its tree.
     impl WorkspaceCommit<'_> {
-        /// Using the names of the `stacks` stored in [workspace metadata](but_core::ref_metadata::Workspace),
-        /// create a new workspace commit with their tips extracted from `graph`. Note that stacks that don't exist in `graph` aren't fatal.
-        ///
-        /// Use `hero_stack` to highlight a stack that you definitely want merged in, and would rather not merge other stacks for it.
-        /// This can lead to a situation where only the hero stack is applied.
-        /// If there is only one stack, it just uses the tree of that stack. It's an error if `stacks` is empty.
-        /// `repo` is expected to be configured to be suitable for merges, and it *should* be configured to write objects into memory
-        /// unless the caller knows that any result of the merge is acceptable.
-        ///
-        /// IMPORTANT: This inherently needs the tips to be represented by named branches, so this can't be used to
-        ///            re-merge a workspace with lost or renamed branches. It is, however, good to 'fix' workspaces
-        ///            whose tips were advanced and now are outside the workspace.
-        ///
-        /// ### Shortcoming: inefficient conflict behaviour
-        ///
-        /// In order to find out exactly which branches conflicts, we repeat the whole operations with different configuration.
-        /// One could be better and only repeat what didn't change, to avoid repeating unnecessarily.
-        /// But that shouldn't usually matter unless in the biggest repositories with tree-merge times past a 500ms or so.
-        #[instrument(name = "re-merge workspace commit", level = tracing::Level::DEBUG, skip(stacks, graph, repo), err(Debug))]
-        pub fn from_new_merge_with_metadata<'a>(
-            stacks: impl IntoIterator<Item = &'a but_core::ref_metadata::WorkspaceStack>,
+        /// like [`Self::from_new_merge_with_metadata`], but supports tips, which makes it possible to re-merge anything
+        /// even if the tip is unnamed.
+        /// Note that [`missing_stacks`](Outcome::missing_stacks) is never set.
+        pub fn from_new_merge_with_tips(
+            tips: impl IntoIterator<Item = Tip>,
             graph: &but_graph::Graph,
             repo: &gix::Repository,
             hero_stack: Option<&gix::refs::FullNameRef>,
@@ -123,32 +129,8 @@ pub mod merge {
                     }
                 }
             }
-            let mut missing_stacks = Vec::new();
-            let mut tips: Vec<_> = stacks
-                .into_iter()
-                .filter_map(|s| s.branches.first().map(|b| (b, s.workspacecommit_relation)))
-                .filter_map(|(top_segment, relation)| {
-                    match relation {
-                        WorkspaceCommitRelation::Merged => {}
-                        WorkspaceCommitRelation::UnmergedTree => {
-                            // These need to be part of the parents list, but shouldn't be merged.
-                            // If the caller wants to retry them, they can be passed here as "Merged".
-                            todo!("this is a placeholder for where we will have to start handling this UnmergedTree")
-                        }
-                        WorkspaceCommitRelation::Outside => return None,
-                    }
-                    let stack_tip_name = top_segment.ref_name.as_ref();
-                    match graph.segment_and_commit_by_ref_name(stack_tip_name) {
-                        None => {
-                            missing_stacks.push(top_segment.ref_name.to_owned());
-                            None
-                        }
-                        Some((segment, commit)) => {
-                            Some((I::Merge, stack_tip_name, commit.id, segment.id))
-                        }
-                    }
-                })
-                .collect();
+            let mut tips: Vec<(Instruction, Tip)> =
+                tips.into_iter().map(|t| (I::Merge, t)).collect();
 
             let mut ran_merge_trials_loop_safety = false;
             #[allow(clippy::indexing_slicing)]
@@ -159,7 +141,14 @@ pub mod merge {
                 let (merge_options, conflict_kind) = repo.merge_options_fail_fast()?;
                 let labels_uninteresting_as_no_conflict_allowed = repo.default_merge_labels();
                 'tips_loop: for tip_idx in 0..tips.len() {
-                    let (mode, ref_name, commit_id, sidx) = &mut tips[tip_idx];
+                    let (
+                        mode,
+                        Tip {
+                            name: ref_name,
+                            commit_id,
+                            segment_idx: sidx,
+                        },
+                    ) = &mut tips[tip_idx];
                     let sidx = *sidx;
                     if mode.should_skip() {
                         continue;
@@ -182,18 +171,20 @@ pub mod merge {
                             labels_uninteresting_as_no_conflict_allowed,
                             merge_options.clone(),
                         )?;
-                        let is_hero = hero_stack.is_some_and(|hero| hero == *ref_name);
+                        let is_hero = hero_stack.is_some_and(|hero| {
+                            Some(hero) == ref_name.as_ref().map(|rn| rn.as_ref())
+                        });
                         if merge.has_unresolved_conflicts(conflict_kind) {
                             if matches!(mode, I::MergeTrial { .. }) {
                                 bail!(
-                                    "BUG: Found {ref_name} in merge-trial, even though these shouldn't fail without the hero merged in"
+                                    "BUG: Found {ref_name:?} in merge-trial, even though these shouldn't fail without the hero merged in"
                                 );
                             }
                             if is_hero {
                                 // We definitely want this one, so must restart the whole operation
                                 // while disallowing the most recent allowed tip.
                                 let err_msg = format!(
-                                    "BUG: if there was no allowed stack in front of {ref_name}, then we aren't here as no merge can be done with just one branch"
+                                    "BUG: if there was no allowed stack in front of {ref_name:?}, then we aren't here as no merge can be done with just one branch"
                                 );
                                 let presumed_conflicting_tip = tips[..tip_idx]
                                     .iter_mut()
@@ -222,7 +213,7 @@ pub mod merge {
                             // First, mark the first X as conflict as we know it for sure.
                             let mut saw_first_certain_conflict = false;
                             let mut has_merge_trials = false;
-                            for (mode, _, _, _) in &mut tips[..tip_idx] {
+                            for (mode, _) in &mut tips[..tip_idx] {
                                 match mode {
                                     I::Merge => continue,
                                     I::MergeTrial { .. } => bail!(
@@ -290,16 +281,24 @@ pub mod merge {
 
                 let (stacks, conflicting_stacks) = tips.iter().fold(
                     (Vec::new(), Vec::new()),
-                    |(mut stacks, mut conflicting_stacks), (mode, ref_name, commit_id, _sidx)| {
+                    |(mut stacks, mut conflicting_stacks),
+                     (
+                        mode,
+                        Tip {
+                            name: ref_name,
+                            commit_id,
+                            ..
+                        },
+                    )| {
                         if mode.should_skip() {
                             conflicting_stacks.push(ConflictingStack {
                                 tip: *commit_id,
-                                ref_name: (*ref_name).to_owned(),
+                                ref_name: ref_name.clone(),
                             });
                         } else {
                             stacks.push(Stack {
                                 tip: *commit_id,
-                                name: Some(ref_name.shorten().to_owned()),
+                                name: ref_name.as_ref().map(|rn| rn.shorten().to_owned()),
                             });
                         }
                         (stacks, conflicting_stacks)
@@ -308,7 +307,7 @@ pub mod merge {
 
                 if stacks.is_empty() {
                     bail!(
-                        "BUG: Cannot merge nothing, no tips ended up in the graph: `missing_stacks` = {missing_stacks:?}, `conflicting_stacks` = {conflicting_stacks:?}, `tips` = : {tips:?}"
+                        "BUG: Cannot merge nothing, no tips ended up in the graph: `conflicting_stacks` = {conflicting_stacks:?}, `tips` = : {tips:?}"
                     )
                 }
 
@@ -329,10 +328,80 @@ pub mod merge {
                 return Ok(Outcome {
                     workspace_commit_id,
                     stacks,
-                    missing_stacks,
+                    missing_stacks: vec![], /* this is never set here as all tips are already resolved */
                     conflicting_stacks,
                 });
             }
+        }
+
+        /// Using the names of the `stacks` stored in [workspace metadata](but_core::ref_metadata::Workspace),
+        /// create a new workspace commit with their tips extracted from `graph`. Note that stacks that don't exist in `graph` aren't fatal.
+        /// Also, this will create a workspace commit as it's desired, but not as it is, and the caller should assure that all branches are present.
+        ///
+        /// Use `anon_stacks` with `(parent_index, tip)` to fill-in anonymous commits that aren't listed in metadata,
+        /// as they have *no known name*. We will make sure that no commit in `anon_stacks` is a duplicate with a `stack`, and
+        /// we will insert them at `parent_index` into the resulting list so they don't change their position.
+        ///
+        /// Use `hero_stack` to highlight a stack that you definitely want merged in, and would rather not merge other stacks for it.
+        /// This can lead to a situation where only the hero stack is applied.
+        /// If there is only one stack, it just uses the tree of that stack. It's an error if `stacks` is empty.
+        /// `repo` is expected to be configured to be suitable for merges, and it *should* be configured to write objects into memory
+        /// unless the caller knows that any result of the merge is acceptable.
+        ///
+        /// IMPORTANT: This inherently needs the tips to be represented by named branches, so this can't be used to
+        ///            re-merge a workspace with lost or renamed branches. It is, however, good to 'fix' workspaces
+        ///            whose tips were advanced and now are outside the workspace, provide the ref that advanced still exists.
+        ///
+        /// ### Shortcoming: inefficient conflict behaviour
+        ///
+        /// In order to find out exactly which branches conflicts, we repeat the whole operations with different configuration.
+        /// One could be better and only repeat what didn't change, to avoid repeating unnecessarily.
+        /// But that shouldn't usually matter unless in the biggest repositories with tree-merge times past a 500ms or so.
+        #[instrument(name = "re-merge workspace commit", level = tracing::Level::DEBUG, skip(stacks, anon_stacks, graph, repo), err(Debug))]
+        pub fn from_new_merge_with_metadata<'a>(
+            stacks: impl IntoIterator<Item = &'a but_core::ref_metadata::WorkspaceStack>,
+            anon_stacks: impl IntoIterator<Item = (usize, Tip)>,
+            graph: &but_graph::Graph,
+            repo: &gix::Repository,
+            hero_stack: Option<&gix::refs::FullNameRef>,
+        ) -> anyhow::Result<Outcome> {
+            let mut missing_stacks = Vec::new();
+            let mut tips: Vec<_> = stacks
+                .into_iter()
+                .filter_map(|s| s.branches.first().map(|b| (b, s.workspacecommit_relation)))
+                .filter_map(|(top_segment, relation)| {
+                    match relation {
+                        WorkspaceCommitRelation::Merged => {}
+                        WorkspaceCommitRelation::UnmergedTree => {
+                            // These need to be part of the parents list, but shouldn't be merged.
+                            // If the caller wants to retry them, they can be passed here as "Merged".
+                            todo!("this is a placeholder for where we will have to start handling this UnmergedTree")
+                        }
+                        WorkspaceCommitRelation::Outside => return None,
+                    }
+                    let stack_tip_name = top_segment.ref_name.as_ref();
+                    match graph.segment_and_commit_by_ref_name(stack_tip_name) {
+                        None => {
+                            missing_stacks.push(top_segment.ref_name.to_owned());
+                            None
+                        }
+                        Some((segment, commit)) => {
+                            Some(Tip {name: Some(stack_tip_name.to_owned()), commit_id: commit.id, segment_idx: segment.id})
+                        }
+                    }
+                }).collect();
+            for (idx, anon_tip) in anon_stacks {
+                if tips.iter().any(|t| {
+                    t.commit_id == anon_tip.commit_id || t.segment_idx == anon_tip.segment_idx
+                }) {
+                    // prevent duplication of tips, make calling this easier as well.
+                    continue;
+                }
+                tips.insert(idx, anon_tip)
+            }
+            let mut out = Self::from_new_merge_with_tips(tips, graph, repo, hero_stack)?;
+            out.missing_stacks = missing_stacks;
+            Ok(out)
         }
     }
 

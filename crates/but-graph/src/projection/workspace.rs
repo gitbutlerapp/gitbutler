@@ -33,7 +33,7 @@ pub struct Workspace<'graph> {
     pub id: SegmentIndex,
     /// Specify what kind of workspace this is.
     pub kind: WorkspaceKind,
-    /// One or more stacks that live in the workspace.
+    /// One or more stacks that live in the workspace, in order of parents of the workspace commit if there are more than one.
     pub stacks: Vec<Stack>,
     /// The bound can be imagined as the commit from which all other commits in the workspace originate.
     /// It can also be imagined to be the delimiter at the bottom beyond which nothing belongs to the workspace,

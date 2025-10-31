@@ -63,7 +63,7 @@ impl std::fmt::Debug for Outcome<'_> {
 }
 
 /// How the newly applied branch should be merged into the workspace commit.
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum WorkspaceMerge {
     /// Do nothing but to merge it into the workspace commit, *even* if it's not needed as the workspace reference
     /// can connect directly with the *one* workspace base.
@@ -110,9 +110,12 @@ pub struct Options {
 pub(crate) mod function {
     use std::borrow::Cow;
 
+    use super::{Options, Outcome, WorkspaceMerge, WorkspaceReferenceNaming};
+    use crate::commit::merge::Tip;
+    use crate::{WorkspaceCommit, branch::checkout, ext::ObjectStorageExt, ref_info::WorkspaceExt};
     use anyhow::{Context, bail};
     use but_core::{
-        RefMetadata, RepositoryExt, extract_remote_name,
+        RefMetadata, RepositoryExt, extract_remote_name, ref_metadata,
         ref_metadata::{
             StackId,
             StackKind::AppliedAndUnapplied,
@@ -120,7 +123,8 @@ pub(crate) mod function {
             WorkspaceCommitRelation::{Merged, Outside},
         },
     };
-    use but_graph::{init::Overlay, projection::WorkspaceKind};
+    use but_graph::petgraph::Direction;
+    use but_graph::{SegmentIndex, init::Overlay, projection::WorkspaceKind};
     use gitbutler_oxidize::GixRepositoryExt;
     use gix::{
         prelude::ObjectIdExt,
@@ -131,9 +135,6 @@ pub(crate) mod function {
         },
     };
     use tracing::instrument;
-
-    use super::{Options, Outcome, WorkspaceMerge, WorkspaceReferenceNaming};
-    use crate::{WorkspaceCommit, branch::checkout, ext::ObjectStorageExt, ref_info::WorkspaceExt};
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
     /// along with its `meta`-data if it doesn't exist yet.
@@ -434,18 +435,27 @@ pub(crate) mod function {
             );
         }
 
+        let existing_stacks_superseded_by_branch = find_superseded_stacks(branch, &workspace);
         // At this point, the workspace-metadata already knows the new branch(es), but the workspace itself
         // doesn't see one or more of to-be-applied branches (to become stacks).
         // These are, however, part of the graph by now, and we want to try to create a workspace
         // merge.
         let mut in_memory_repo = repo.clone().for_tree_diffing()?.with_object_memory();
         let mut merge_result = WorkspaceCommit::from_new_merge_with_metadata(
-            ws_md.stacks.iter().filter(|s| s.is_in_workspace()),
-            workspace.graph,
+            filter_superseded_metadata_stacks(
+                ws_md.stacks.iter().filter(|s| s.is_in_workspace()),
+                &existing_stacks_superseded_by_branch,
+            ),
+            filter_superseded_anon_stacks(
+                anon_stacks(&workspace.stacks),
+                &existing_stacks_superseded_by_branch,
+            ),
+            &graph,
             &in_memory_repo,
             Some(branch),
         )?;
         ensure_no_missing_stacks(&merge_result)?;
+        drop(existing_stacks_superseded_by_branch);
 
         if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
             let conflicting_stack_ids =
@@ -547,9 +557,17 @@ pub(crate) mod function {
 
             // Redo the merge, with the different stack configuration.
             // Note that this is the exception, typically using stacks will be fine.
+            let existing_stacks_superseded_by_branch = find_superseded_stacks(branch, &workspace);
             merge_result = WorkspaceCommit::from_new_merge_with_metadata(
-                ws_md.stacks.iter().filter(|s| s.is_in_workspace()),
-                workspace.graph,
+                filter_superseded_metadata_stacks(
+                    ws_md.stacks.iter().filter(|s| s.is_in_workspace()),
+                    &existing_stacks_superseded_by_branch,
+                ),
+                filter_superseded_anon_stacks(
+                    anon_stacks(&workspace.stacks),
+                    &existing_stacks_superseded_by_branch,
+                ),
+                &graph,
                 &in_memory_repo,
                 Some(branch),
             )?;
@@ -632,6 +650,117 @@ pub(crate) mod function {
         })
     }
 
+    fn anon_stacks(stacks: &[but_graph::projection::Stack]) -> impl Iterator<Item = (usize, Tip)> {
+        stacks.iter().enumerate().filter_map(|(idx, s)| {
+            if s.ref_name().is_none() {
+                s.tip_skip_empty().and_then(|cid| {
+                    s.segments.first().map(|s| {
+                        (
+                            idx,
+                            Tip {
+                                name: None,
+                                commit_id: cid,
+                                segment_idx: s.id,
+                            },
+                        )
+                    })
+                })
+            } else {
+                None
+            }
+        })
+    }
+
+    fn filter_superseded_metadata_stacks<'a>(
+        stack_iter: impl Iterator<Item = &'a ref_metadata::WorkspaceStack>,
+        existing_stacks_superseded_by_branch: &[(
+            SegmentIndex,
+            Option<gix::refs::FullName>,
+            Option<gix::ObjectId>,
+        )],
+    ) -> impl Iterator<Item = &'a ref_metadata::WorkspaceStack> {
+        stack_iter.into_iter().filter(|ws_stack| {
+            !existing_stacks_superseded_by_branch
+                .iter()
+                .any(|(_sidx, ref_name, _cid)| ws_stack.ref_name() == ref_name.as_ref())
+        })
+    }
+
+    fn filter_superseded_anon_stacks(
+        tips_iter: impl Iterator<Item = (usize, Tip)>,
+        existing_stacks_superseded_by_branch: &[(
+            SegmentIndex,
+            Option<gix::refs::FullName>,
+            Option<gix::ObjectId>,
+        )],
+    ) -> impl Iterator<Item = (usize, Tip)> {
+        tips_iter.filter(|(_parent_idx, anon_tip)| {
+            !existing_stacks_superseded_by_branch
+                .iter()
+                .any(|(sidx, _ref_name, cid)| {
+                    anon_tip.segment_idx == *sidx
+                        || cid.is_some_and(|cid| cid == anon_tip.commit_id)
+                })
+        })
+    }
+
+    /// If the branch to be applied already flows into the workspace, find the stacks it *whose tips* it flows
+    /// into, and remove these.
+    /// Note that we don't do that if it doesn't include the entire segment.
+    /// This check is lenient, and we allow the branch to be applied to not be in the graph yet for any known (or unknown) reason.
+    /// We keep enough information to identify these superseded stacks and recognise them by
+    ///
+    /// `branch` is the branch to find in `workspace` and start the traversal from, whereas the existing `workspace` stacks
+    /// will be used as candidates for being superseded by it.
+    fn find_superseded_stacks(
+        branch: &FullNameRef,
+        workspace: &but_graph::projection::Workspace,
+    ) -> Vec<(
+        SegmentIndex,
+        Option<gix::refs::FullName>,
+        Option<gix::ObjectId>,
+    )> {
+        let graph = workspace.graph;
+        if let Some(branch_segment) = graph.named_segment_by_ref_name(branch) {
+            // At this stage we know first segment isn't in the workspace, so exclude it.
+            let _tip_commit_ids_and_sidx: Vec<_> = workspace
+                .stacks
+                .iter()
+                .filter_map(|stack| {
+                    stack
+                        .segments
+                        .first()
+                        .and_then(|s| s.commits.first().map(|c| (c.id, s.id)))
+                })
+                .collect();
+            let mut superseded = Vec::new();
+            graph.visit_all_segments_excluding_start_until(
+                branch_segment.id,
+                Direction::Outgoing,
+                |segment| {
+                    let prune = _tip_commit_ids_and_sidx.iter().any(|(cid, sidx)| {
+                        segment.id == *sidx || segment.commits.first().is_some_and(|c| c.id == *cid)
+                    });
+                    if prune {
+                        superseded.push((
+                            segment.id,
+                            segment.ref_name.clone(),
+                            segment.commits.first().map(|c| c.id),
+                        ));
+                    }
+                    prune
+                },
+            );
+            superseded
+        } else {
+            tracing::warn!(
+                ?branch,
+                "Didn't find branch in graph to do the 'reaches into workspace' check"
+            );
+            Vec::new()
+        }
+    }
+
     /// Setup `local_tracking_ref` to track `remote_tracking_ref` using the typical pattern, and prepare the configuration file
     /// so that it can replace `.git/config` of `repo` when written back, with everything the same but the branch configuration added.
     /// We also return the commit at which `local_tracking_ref` should be placed, which is assumed to not exist, and `repo` will be used
@@ -709,8 +838,9 @@ pub(crate) mod function {
     ) -> Vec<StackId> {
         conflicts
             .iter()
-            .filter_map(|cs| {
-                ws.find_stack_with_branch(cs.ref_name.as_ref(), AppliedAndUnapplied)
+            .filter_map(|cs| cs.ref_name.as_ref())
+            .filter_map(|ref_name| {
+                ws.find_stack_with_branch(ref_name.as_ref(), AppliedAndUnapplied)
                     .map(|stack| stack.id)
             })
             .collect()
