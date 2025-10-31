@@ -481,17 +481,13 @@
 						{#if ['running', 'compacting'].includes(thinkingStatus) && startAt}
 							{@const status = userFeedbackStatus(formattedMessages)}
 							{#if status.waitingForFeedback}
-								<div class="p-l-20 p-r-20">
-									<CodegenServiceMessageUseTool toolCall={status.toolCall} />
-								</div>
+								<CodegenServiceMessageUseTool toolCall={status.toolCall} />
 							{:else}
-								<div class="p-l-20 p-r-20">
-									<CodegenServiceMessageThinking
-										{startAt}
-										msSpentWaiting={status.msSpentWaiting}
-										overrideWord={thinkingStatus === 'compacting' ? 'compacting' : undefined}
-									/>
-								</div>
+								<CodegenServiceMessageThinking
+									{startAt}
+									msSpentWaiting={status.msSpentWaiting}
+									overrideWord={thinkingStatus === 'compacting' ? 'compacting' : undefined}
+								/>
 							{/if}
 						{/if}
 					</VirtualList>
