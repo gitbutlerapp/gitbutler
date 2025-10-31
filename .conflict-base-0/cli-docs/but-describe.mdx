@@ -1,0 +1,41 @@
+---
+title: 'but describe'
+description: 'Edit the commit message of a specified commit'
+---
+
+## Usage
+
+```
+but describe <TARGET>
+```
+
+## Alias
+
+This command can also be invoked using the shorter alias `desc`:
+
+```
+but desc <TARGET>
+```
+
+## Arguments
+
+### `<TARGET>`
+
+Commit ID to edit the message for, or branch ID to rename.
+
+- **Type:** String
+- **Required:** Yes
+
+## Examples
+
+Edit a commit message:
+
+```
+but describe abc123
+```
+
+Rename a branch:
+
+```
+but describe my-feature-branch
+```

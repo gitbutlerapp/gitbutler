@@ -1,0 +1,3 @@
+ancestorEntries = ["packages/ui/src/lib/components/VirtualList.svelte"]
+ourEntries = ["packages/ui/src/lib/components/VirtualList.svelte"]
+theirEntries = ["packages/ui/src/lib/components/VirtualList.svelte"]

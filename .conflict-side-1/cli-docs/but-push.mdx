@@ -1,0 +1,115 @@
+---
+title: 'but push'
+description: 'Push a branch/stack to remote'
+---
+
+## Usage
+
+```
+but push [OPTIONS] <BRANCH_ID>
+```
+
+## Arguments
+
+### `<BRANCH_ID>`
+
+Branch name or CLI ID to push.
+
+- **Type:** String
+- **Required:** Yes
+
+## Options
+
+### `-f, --with-force`
+
+Force push even if it's not fast-forward.
+
+- **Type:** Flag (boolean)
+- **Default:** `true`
+
+### `-s, --skip-force-push-protection`
+
+Skip force push protection checks.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+### `-r, --run-hooks`
+
+Run pre-push hooks.
+
+- **Type:** Flag (boolean)
+- **Default:** `true`
+
+## Gerrit Options
+
+The following options are only available when Gerrit mode is enabled for your repository:
+
+### `-w, --wip`
+
+Mark change as work-in-progress (Gerrit). Mutually exclusive with `--ready`.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+### `-y, --ready`
+
+Mark change as ready for review (Gerrit). This is the default state. Mutually exclusive with `--wip`.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+### `-a, --hashtag, --tag <TAG>`
+
+Add hashtag(s) to change (Gerrit). Can be used multiple times.
+
+- **Type:** String (repeatable)
+- **Required:** Optional
+
+### `-t, --topic <TOPIC>`
+
+Add custom topic to change (Gerrit). At most one topic can be set. Mutually exclusive with `--topic-from-branch`.
+
+- **Type:** String
+- **Required:** Optional
+
+### `--tb, --topic-from-branch`
+
+Use branch name as topic (Gerrit). Mutually exclusive with `--topic`.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+### `-p, --private`
+
+Mark change as private (Gerrit).
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+## Examples
+
+Push a branch:
+
+```
+but push my-feature-branch
+```
+
+Force push without running hooks:
+
+```
+but push my-feature-branch --with-force --run-hooks=false
+```
+
+Push with Gerrit flags (when Gerrit mode is enabled):
+
+```
+but push my-feature-branch --ready --hashtag bug-fix --hashtag security
+```
+
+## Notes
+
+- Gerrit push flags (`--wip`, `--ready`, `--hashtag/--tag`, `--topic`, `--topic-from-branch`, `--private`) can only be used when gerrit_mode is enabled for the repository
+- `--wip` and `--ready` are mutually exclusive. Ready is the default state.
+- `--topic` and `--topic-from-branch` are mutually exclusive. At most one topic can be set.
+- Multiple hashtags can be specified by using `--hashtag` (or `--tag`) multiple times.

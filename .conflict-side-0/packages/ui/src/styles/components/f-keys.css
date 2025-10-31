@@ -1,0 +1,12 @@
+.f-key {
+	z-index: var(--z-blocker);
+	position: absolute;
+	padding: 2px 4px;
+	border: 1px solid var(--clr-border-1);
+	border-radius: var(--radius-s);
+	background-color: var(--clr-bg-1);
+	color: var(--clr-text-1);
+	font-weight: var(--text-weight-bold);
+	pointer-events: none;
+	user-select: none;
+}
