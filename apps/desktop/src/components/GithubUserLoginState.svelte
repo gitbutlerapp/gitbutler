@@ -57,10 +57,7 @@
 
 		{#snippet title()}
 			{account.info.username}
-
-			{#if account.type === 'enterprise'}
-				<GitHubAccountBadge {account} class="m-l-4" />
-			{/if}
+			<GitHubAccountBadge {account} class="m-l-4" />
 		{/snippet}
 		{#snippet caption()}
 			{#if user?.email}
