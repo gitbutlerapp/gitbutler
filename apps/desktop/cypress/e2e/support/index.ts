@@ -170,6 +170,8 @@ Cypress.on('window:before:load', (win) => {
 				];
 			case 'plugin:window|theme':
 				return 'light';
+			case 'secret_set_global':
+				return await Promise.resolve();
 			case 'plugin:window|set_title':
 				return await Promise.resolve();
 			case 'update_feature_flags':
