@@ -191,12 +191,22 @@ impl From<but_github::GitHubPrLabel> for ForgeReviewLabel {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+/// Represents a user from a forge platform (e.g., GitHub, GitLab).
+///
+/// This structure contains information about a user account on a forge platform,
+/// including their identification details and profile information.
 pub struct ForgeUser {
+    /// The unique numeric identifier for the user on the forge platform
     pub id: i64,
+    /// The user's login username
     pub login: String,
+    /// The user's display name, if available
     pub name: Option<String>,
+    /// The user's email address, if publicly available
     pub email: Option<String>,
+    /// URL to the user's profile avatar image, if available
     pub avatar_url: Option<String>,
+    /// Indicates whether this account is a bot account
     pub is_bot: bool,
 }
 
@@ -215,25 +225,52 @@ impl From<but_github::GitHubUser> for ForgeUser {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+/// Represents a review (pull request/merge request) from a forge platform (GitHub, GitLab, etc.).
+///
+/// Contains metadata and state information about a code review, including its location,
+/// participants, labels, and timestamps for various lifecycle events.
 pub struct ForgeReview {
+    /// The URL to view this review in a web browser
     pub html_url: String,
+    /// The unique identifier number for this review within its repository.
+    /// This can be a PR or MR number.
     pub number: i64,
+    /// The title/summary of the review
     pub title: String,
+    /// The detailed description or body text of the review, if provided.
     pub body: Option<String>,
+    /// The user who created this review.
     pub author: Option<ForgeUser>,
+    /// Labels or tags applied to categorize this review.
     pub labels: Vec<ForgeReviewLabel>,
+    /// Whether this review is in draft state (not ready for final review).
     pub draft: bool,
+    /// The name of the branch containing the proposed changes.
+    /// This is the short name of the branch (e.g., "feature-branch")
     pub source_branch: String,
+    /// The name of the branch that will receive the changes when merged.
+    /// This is the short name of the branch (e.g., "main" or "develop")
     pub target_branch: String,
+    /// The git commit SHA that this review is based on.
     pub sha: String,
+    /// ISO 8601 timestamp of when the review was created.
     pub created_at: Option<String>,
+    /// ISO 8601 timestamp of when the review was last modified.
     pub modified_at: Option<String>,
+    /// ISO 8601 timestamp of when the review was merged, if applicable.
     pub merged_at: Option<String>,
+    /// ISO 8601 timestamp of when the review was closed, if applicable.
     pub closed_at: Option<String>,
+    /// SSH URL for cloning the repository containing this review.
     pub repository_ssh_url: Option<String>,
+    /// HTTPS URL for cloning the repository containing this review.
     pub repository_https_url: Option<String>,
+    /// The owner (user or organization) of the repository from which the branch originates.
+    /// In the case of a fork, this will be the fork owner's username.
     pub repo_owner: Option<String>,
+    /// Users who have been requested to review or have reviewed this code.
     pub reviewers: Vec<ForgeUser>,
+    /// The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs).
     pub unit_symbol: String,
 }
 
