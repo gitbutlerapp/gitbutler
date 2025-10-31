@@ -121,6 +121,10 @@
 		return bottomDistance() < STICKY_DISTANCE;
 	}
 
+	function shouldLoadMore() {
+		return totalHeight < viewportHeight || bottomDistance() < LOAD_MORE_THRESHOLD;
+	}
+
 	function bottomDistance() {
 		if (!viewport) return 0;
 		return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
@@ -144,11 +148,10 @@
 
 	async function updateStartIndex(): Promise<number> {
 		let accumulatedHeight = 0;
-		let oldStart = start;
 		let i = 0;
 
 		while (i < chunks.length) {
-			const rowHeight = await getRowHeight(i, oldStart - i);
+			const rowHeight = await getRowHeight(i, start - i);
 			accumulatedHeight += rowHeight;
 
 			if (accumulatedHeight > viewport!.scrollTop) {
@@ -206,9 +209,13 @@
 		return 0;
 	}
 
+	let busy = false;
+
 	async function recalculate(isScroll?: boolean) {
 		if (!viewport || !rows) return;
+		if (busy) return; // One at a time.
 
+		busy = true;
 		heightMap.length = chunks.length;
 
 		// Handle bottom initialization
@@ -242,9 +249,12 @@
 			const oldStart = start;
 			const newStart = await updateStartIndex();
 			topPadding = sumHeights(0, newStart);
-			await tick();
-
 			start = newStart;
+
+			// Assumes end shifts by as much as start, until recalculated.
+			// Otherwise `visible` will momentarily evaluate to `[]` when
+			// scrolling fast.
+			end = Math.min(end + newStart - oldStart, chunks.length);
 
 			if (start < oldStart) {
 				await tick();
@@ -257,6 +267,7 @@
 				}
 			}
 			await tick();
+
 			// Resetting the scroll top here seems to give us the correct behavior.
 			if (viewport.scrollTop !== scrollTop) {
 				viewport.scrollTop = scrollTop;
@@ -281,18 +292,16 @@
 			totalHeight = sumHeights(0, heightMap.length);
 		}
 
-		saveLastDistance();
-
-		// Trigger load more if needed
-		const shouldLoad = totalHeight < viewportHeight || bottomDistance() < LOAD_MORE_THRESHOLD;
-		if (shouldLoad) {
+		if (shouldLoadMore()) {
 			debouncedLoad?.();
 		}
 
-		// Observe all visible rows for resize
 		for (const rowElement of rows) {
 			resizeObserver?.observe(rowElement);
 		}
+
+		saveLastDistance();
+		busy = false;
 	}
 
 	// Setup resize observer when viewport is ready
@@ -386,7 +395,6 @@
 		{@render children?.()}
 	</div>
 </ScrollableContainer>
-
 {#if lastDistanceFromBottom > 300}
 	<div class="feed-actions">
 		{#if newUnseenTail}
