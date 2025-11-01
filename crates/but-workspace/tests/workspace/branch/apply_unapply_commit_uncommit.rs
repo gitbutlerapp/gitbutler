@@ -715,15 +715,58 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
     let ws = graph.to_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-    ├── ≡📙:5:A2 on 3183e43 {73}
-    │   ├── 📙:5:A2
+    ├── ≡📙:4:A2 on 3183e43 {73}
+    │   ├── 📙:4:A2
     │   │   └── ·f1889e7 (🏘️)
-    │   └── 📙:4:A1
+    │   └── 📙:5:A1
     │       └── ·7de99e1 (🏘️)
     └── ≡📙:3:unrelated on 3183e43 {3c4}
         └── 📙:3:unrelated
             └── ·53ad0c2 (🏘️)
     ");
+
+    // The metadata is in sync, and A1 is outside the workspace.
+    insta::assert_debug_snapshot!(ws.metadata, @r#"
+    Some(
+        Workspace {
+            ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+            stacks: [
+                WorkspaceStack {
+                    id: 00000000-0000-0000-0000-0000000003c4,
+                    branches: [
+                        WorkspaceStackBranch {
+                            ref_name: "refs/heads/unrelated",
+                            archived: false,
+                        },
+                    ],
+                    workspacecommit_relation: Merged,
+                },
+                WorkspaceStack {
+                    id: 00000000-0000-0000-0000-000000000072,
+                    branches: [
+                        WorkspaceStackBranch {
+                            ref_name: "refs/heads/A1",
+                            archived: false,
+                        },
+                    ],
+                    workspacecommit_relation: Outside,
+                },
+                WorkspaceStack {
+                    id: 00000000-0000-0000-0000-000000000073,
+                    branches: [
+                        WorkspaceStackBranch {
+                            ref_name: "refs/heads/A2",
+                            archived: false,
+                        },
+                    ],
+                    workspacecommit_relation: Merged,
+                },
+            ],
+            target_ref: "refs/remotes/origin/main",
+            push_remote: None,
+        },
+    )
+    "#);
     Ok(())
 }
 
@@ -1350,11 +1393,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
                 workspacecommit_relation: Merged,
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
-        ),
+        target_ref: "refs/remotes/origin/main",
         push_remote: None,
     }
     "#);
