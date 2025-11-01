@@ -2,11 +2,11 @@
 	import { goto } from '$app/navigation';
 	import ChangeStatus from '$lib/patches/ChangeStatus.svelte';
 	import { WEB_ROUTES_SERVICE } from '$lib/routing/webRoutes.svelte';
+	import { inject } from '@gitbutler/core/context';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { isFound, map } from '@gitbutler/shared/network/loadable';
 	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { inject } from '@gitbutler/core/context';
 	import { CommitStatusBadge } from '@gitbutler/ui';
 	import {
 		EXTERNAL_LINK_SERVICE,

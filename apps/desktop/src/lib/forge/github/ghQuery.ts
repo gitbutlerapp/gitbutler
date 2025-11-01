@@ -86,7 +86,26 @@ export async function ghQuery<
 			: 'GitHub API error';
 
 		const message = isErrorlike(err) ? err.message : String(err);
-		const code = message.startsWith('Not Found -') ? Code.GitHubTokenExpired : undefined;
+
+		// Check for stacked PR across forks error (base field invalid)
+		let code: string | undefined;
+		if (isGitHubError(err)) {
+			const errors = err.response.data.errors;
+			if (errors instanceof Array) {
+				const hasInvalidBaseError = errors.some(
+					(error) =>
+						error.resource === 'PullRequest' && error.field === 'base' && error.code === 'invalid'
+				);
+				if (hasInvalidBaseError) {
+					code = Code.GitHubStackedPrFork;
+				}
+			}
+		}
+
+		// Check for expired token
+		if (!code && message.startsWith('Not Found -')) {
+			code = Code.GitHubTokenExpired;
+		}
 
 		return { error: { name: title, message, code } };
 	}
@@ -135,6 +154,35 @@ function extractDomainAndAction<
 		return { domain: args.domain, action: String(args.action) };
 	}
 	return undefined;
+}
+
+/**
+ * Type for GitHub API error response structure.
+ */
+interface GitHubErrorResponse {
+	response: {
+		data: {
+			errors?: Array<{
+				resource?: string;
+				field?: string;
+				code?: string;
+			}>;
+		};
+	};
+}
+
+/**
+ * Typeguard for checking if an error has the GitHub error response structure.
+ */
+function isGitHubError(err: unknown): err is GitHubErrorResponse {
+	return (
+		isErrorlike(err) &&
+		'response' in err &&
+		typeof (err as any).response === 'object' &&
+		(err as any).response !== null &&
+		'data' in (err as any).response &&
+		typeof (err as any).response.data === 'object'
+	);
 }
 
 /**
