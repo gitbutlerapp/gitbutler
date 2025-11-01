@@ -1,6 +1,6 @@
 <script lang="ts">
+	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import FileContextMenu from '$components/FileContextMenu.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import {
 		conflictEntryHint,
@@ -63,7 +63,7 @@
 	let commitQuery = $derived(stackService.commitDetails(projectId, editModeMetadata.commitOid));
 
 	let filesList = $state<HTMLDivElement | undefined>(undefined);
-	let contextMenu = $state<ReturnType<typeof FileContextMenu> | undefined>(undefined);
+	let contextMenu = $state<ReturnType<typeof ChangedFilesContextMenu> | undefined>(undefined);
 	let confirmSaveModal = $state<ReturnType<typeof Modal> | undefined>(undefined);
 
 	interface FileEntry {
@@ -319,7 +319,7 @@
 				</div>
 			</div>
 
-			<FileContextMenu
+			<ChangedFilesContextMenu
 				bind:this={contextMenu}
 				{projectId}
 				trigger={filesList}

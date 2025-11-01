@@ -4,13 +4,17 @@
 	import { TestId } from '@gitbutler/ui';
 	import type { TreeNode } from '$lib/files/filetreeV3';
 	import type { TreeChange } from '$lib/hunks/change';
+	import type { SelectionId } from '$lib/selection/key';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
+		projectId: string;
 		stackId?: string;
+		selectionId: SelectionId;
 		node: TreeNode;
 		isRoot?: boolean;
 		showCheckboxes?: boolean;
+		draggableFiles?: boolean;
 		changes: TreeChange[];
 		depth?: number;
 		initiallyExpanded?: boolean;
@@ -18,10 +22,13 @@
 	};
 
 	let {
+		projectId,
 		stackId,
+		selectionId,
 		node,
 		isRoot = false,
 		showCheckboxes,
+		draggableFiles,
 		changes,
 		depth = 0,
 		fileTemplate
@@ -39,17 +46,30 @@
 {#if isRoot}
 	<!-- Node is a root and should only render children! -->
 	{#each node.children as childNode (childNode.name)}
-		<Self {stackId} {depth} node={childNode} {showCheckboxes} {changes} {fileTemplate} />
+		<Self
+			{projectId}
+			{stackId}
+			{selectionId}
+			{depth}
+			node={childNode}
+			{showCheckboxes}
+			{draggableFiles}
+			{changes}
+			{fileTemplate}
+		/>
 	{/each}
 {:else if node.kind === 'file'}
 	{@render fileTemplate(node.change, node.index, depth)}
 {:else}
 	<TreeListFolder
+		{projectId}
 		{stackId}
+		{selectionId}
 		testId={TestId.FileListTreeFolder}
 		{depth}
 		{isExpanded}
 		showCheckbox={showCheckboxes}
+		draggable={draggableFiles}
 		{node}
 		ontoggle={handleToggle}
 	/>
@@ -57,10 +77,13 @@
 	{#if isExpanded}
 		{#each node.children as childNode (childNode.name)}
 			<Self
+				{projectId}
 				{stackId}
+				{selectionId}
 				depth={depth + 1}
 				node={childNode}
 				{showCheckboxes}
+				{draggableFiles}
 				{changes}
 				{fileTemplate}
 			/>

@@ -1,5 +1,5 @@
 import { CommitDropData } from '$lib/commits/dropHandler';
-import { ChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
+import { FileChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
 import type { PromptAttachment } from '$lib/codegen/types';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { AiRule } from '$lib/rules/rule';
@@ -70,12 +70,12 @@ export class CodegenFileDropHandler implements DropzoneHandler {
 
 	accepts(data: unknown): boolean {
 		return (
-			data instanceof ChangeDropData &&
+			data instanceof FileChangeDropData &&
 			(data.stackId === undefined || data.stackId === this.stackId)
 		);
 	}
 
-	async ondrop(data: ChangeDropData): Promise<void> {
+	async ondrop(data: FileChangeDropData): Promise<void> {
 		const changes = await data.treeChanges();
 		const commitId = data.selectionId.type === 'commit' ? data.selectionId.commitId : undefined;
 		const attachments: PromptAttachment[] = changes.map((change) => ({
