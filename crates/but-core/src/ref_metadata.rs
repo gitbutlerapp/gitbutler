@@ -15,7 +15,7 @@ use crate::Id;
 /// We would have to detect this case by validating parents, and the refs pointing to it, before
 /// using the metadata, or at least have a way to communicate possible states when trying to use
 /// this information.
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Clone, PartialEq, Eq)]
 pub struct Workspace {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
@@ -36,6 +36,26 @@ pub struct Workspace {
     ///
     /// This is useful when there are no push permissions for the remote behind `target_ref`.
     pub push_remote: Option<String>,
+}
+
+impl std::fmt::Debug for Workspace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Workspace {
+            ref_info,
+            stacks,
+            target_ref,
+            push_remote,
+        } = self;
+        f.debug_struct("Workspace")
+            .field("ref_info", ref_info)
+            .field("stacks", stacks)
+            .field(
+                "target_ref",
+                &MaybeDebug(&target_ref.as_ref().map(|rn| rn.as_bstr())),
+            )
+            .field("push_remote", &MaybeDebug(push_remote))
+            .finish()
+    }
 }
 
 /// Mutations
