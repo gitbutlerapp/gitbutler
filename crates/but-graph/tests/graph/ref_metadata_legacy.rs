@@ -1163,11 +1163,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
                 workspacecommit_relation: Outside,
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/sub-name/main",
-            ),
-        ),
+        target_ref: "refs/remotes/origin/sub-name/main",
         push_remote: None,
     }
     "#);
@@ -1204,11 +1200,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
                 workspacecommit_relation: Outside,
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/sub-name/main",
-            ),
-        ),
+        target_ref: "refs/remotes/origin/sub-name/main",
         push_remote: None,
     }
     "#);
