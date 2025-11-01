@@ -2,6 +2,7 @@ pub mod access;
 pub mod api;
 mod controller;
 mod default_true;
+pub mod gerrit;
 mod project;
 mod storage;
 
