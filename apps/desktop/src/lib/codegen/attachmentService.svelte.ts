@@ -77,10 +77,9 @@ export class AttachmentService {
 	}
 }
 
-export const promptAttachmentAdapter = createEntityAdapter<
-	{ branchName: string; attachments: PromptAttachment[] },
-	string
->({
+export type PromptAttachmentRecord = { branchName: string; attachments: PromptAttachment[] };
+
+export const promptAttachmentAdapter = createEntityAdapter<PromptAttachmentRecord, string>({
 	selectId: (a) => a.branchName
 });
 
