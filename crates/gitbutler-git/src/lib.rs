@@ -18,7 +18,8 @@ compile_error!(
 );
 
 mod error;
-pub(crate) mod executor;
+/// utilities to execute a command
+pub mod executor;
 mod refspec;
 mod repository;
 

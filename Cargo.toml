@@ -3,7 +3,7 @@ members = ["crates/gitbutler-*", "crates/but-*", "crates/but"]
 resolver = "2"
 
 [workspace.dependencies]
-bstr = "1.11.1"
+bstr = "1.12.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 gix = { version = "0.74.0", default-features = false, features = [] }
 gix-testtools = "0.16.1"
@@ -105,7 +105,7 @@ chrono = { version = "0.4.42", default-features = false, features = ["std"] }
 md5 = "0.8.0"
 bitflags = "2.9.4"
 notify = "8.2.0"
-snapbox = "0.6.22"
+snapbox = "0.6.23"
 
 [profile.release]
 # There are no overrides here as we optimise for fast release builds,

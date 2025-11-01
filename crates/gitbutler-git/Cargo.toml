@@ -65,7 +65,7 @@ tokio = { workspace = true, optional = true, features = ["sync", "rt"] }
 file-id = { git = "https://github.com/notify-rs/notify", rev = "978fe719b066a8ce76b9a9d346546b1569eecfb6", version = "0.2.3" }
 
 [dev-dependencies]
-assert_cmd = "2.0.17"
+snapbox.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [lints.clippy]

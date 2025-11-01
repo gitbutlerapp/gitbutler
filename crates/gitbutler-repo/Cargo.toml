@@ -41,7 +41,7 @@ base64 = "0.22.1"
 infer = "0.19.0"
 scopeguard = "1.2.0"
 fuzzy-matcher = "0.3.7"
-ignore = "0.4.24"
+ignore = "0.4.25"
 
 [[test]]
 name = "repo"
