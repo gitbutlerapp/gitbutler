@@ -3,7 +3,12 @@
 		maxHeight?: string;
 		initiallyVisible?: boolean;
 		wide?: boolean;
-		padding?: ScrollbarPaddingType;
+		padding?: {
+			left?: number;
+			right?: number;
+			top?: number;
+			bottom?: number;
+		};
 		shift?: string;
 		thickness?: string;
 		horz?: boolean;
@@ -20,14 +25,11 @@
 		viewportHeight?: number;
 		childrenWrapHeight?: string;
 		childrenWrapDisplay?: 'block' | 'content' | 'flex'; // 'content' is used for virtual lists to avoid unnecessary height calculations
-		/** used only with virtual list. */
-		top?: number;
-		bottom?: number;
 	}
 </script>
 
 <script lang="ts">
-	import Scrollbar, { type ScrollbarPaddingType } from '$components/scroll/Scrollbar.svelte';
+	import Scrollbar from '$components/scroll/Scrollbar.svelte';
 	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 
@@ -47,8 +49,6 @@
 		onscrollEnd,
 		onscrollexists,
 		zIndex,
-		top,
-		bottom,
 		viewport = $bindable(),
 		viewportHeight = $bindable(),
 		childrenWrapHeight,
@@ -140,15 +140,18 @@
 		style:flex-grow={wide ? 1 : 0}
 		onscroll={handleScroll}
 		class="viewport hide-native-scrollbar"
-		style:padding-top={top + 'px'}
-		style:padding-bottom={bottom + 'px'}
 		style:padding-left={padding?.left ? padding.left + 'px' : undefined}
 		style:padding-right={padding?.right ? padding.right + 'px' : undefined}
 		style:--overflow-x={horz ? 'auto' : 'hidden'}
 		style:--overflow-y={horz ? 'hidden' : 'auto'}
 		style:--flex-direction={horz ? 'row' : 'column'}
 	>
-		<div style:min-height={childrenWrapHeight} style:display={childrenWrapDisplay}>
+		<div
+			style:min-height={childrenWrapHeight}
+			style:display={childrenWrapDisplay}
+			style:padding-top={padding?.top + 'px'}
+			style:padding-bottom={padding?.bottom + 'px'}
+		>
 			{@render children()}
 		</div>
 	</div>
@@ -156,7 +159,6 @@
 		{whenToShow}
 		{viewport}
 		{initiallyVisible}
-		{padding}
 		{shift}
 		{thickness}
 		{zIndex}
