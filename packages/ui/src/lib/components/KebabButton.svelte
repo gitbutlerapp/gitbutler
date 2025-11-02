@@ -10,6 +10,7 @@
 		activated?: boolean;
 		contextElement?: HTMLElement;
 		testId?: string;
+		contextMenuTestId?: string;
 		el?: HTMLElement;
 		contextMenu: Snippet<[{ close: () => void }]>;
 		menuSide?: 'top' | 'bottom' | 'left' | 'right';
@@ -25,6 +26,7 @@
 		activated = false,
 		contextElement,
 		testId,
+		contextMenuTestId,
 		el = $bindable(),
 		contextMenu: contextMenuSnippet,
 		menuSide = 'bottom',
@@ -130,7 +132,7 @@
 	rightClickTrigger={contextElement}
 	side={menuSide}
 	align={menuAlign}
-	{testId}
+	testId={contextMenuTestId}
 	onclose={() => {
 		onMenuClose?.();
 	}}

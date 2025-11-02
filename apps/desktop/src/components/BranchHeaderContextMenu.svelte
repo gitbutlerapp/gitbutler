@@ -151,7 +151,11 @@
 </script>
 
 {#if rightClickTrigger}
-	<KebabButton contextElement={rightClickTrigger} testId={TestId.KebabMenuButton}>
+	<KebabButton
+		contextElement={rightClickTrigger}
+		testId={TestId.KebabMenuButton}
+		contextMenuTestId={TestId.BranchHeaderContextMenu}
+	>
 		{#snippet contextMenu({ close })}
 			{@const { branch, prNumber, first, stackLength } = contextData}
 			{@const branchName = branch.name}

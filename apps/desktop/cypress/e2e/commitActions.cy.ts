@@ -50,7 +50,7 @@ describe('Commit Actions', () => {
 
 		// Click on the kebab menu to access edit message
 		cy.getByTestId('commit-drawer').within(() => {
-			cy.getByTestId('kebab-menu-btn').click();
+			cy.getByTestId('kebab-menu-btn').click({ force: true });
 		});
 
 		// Click on the edit message button in the context menu
@@ -114,7 +114,7 @@ describe('Commit Actions', () => {
 
 		// Click on the kebab menu to access edit message
 		cy.getByTestId('commit-drawer').within(() => {
-			cy.getByTestId('kebab-menu-btn').click();
+			cy.getByTestId('kebab-menu-btn').click({ force: true });
 		});
 
 		// Click on the edit message button in the context menu
@@ -176,7 +176,7 @@ describe('Commit Actions', () => {
 
 		// Click on the kebab menu to access edit message
 		cy.getByTestId('commit-drawer').within(() => {
-			cy.getByTestId('kebab-menu-btn').click();
+			cy.getByTestId('kebab-menu-btn').click({ force: true });
 		});
 
 		// Click on the edit message button in the context menu
@@ -234,7 +234,7 @@ describe('Commit Actions', () => {
 
 		// Click on the kebab menu to access edit message
 		cy.getByTestId('commit-drawer').within(() => {
-			cy.getByTestId('kebab-menu-btn').click();
+			cy.getByTestId('kebab-menu-btn').click({ force: true });
 		});
 
 		// Click on the edit message button in the context menu
@@ -352,7 +352,7 @@ describe('Commit Actions', () => {
 
 		// Click on the kebab menu to access edit message
 		cy.getByTestId('commit-drawer').within(() => {
-			cy.getByTestId('kebab-menu-btn').click();
+			cy.getByTestId('kebab-menu-btn').click({ force: true });
 		});
 
 		// Click on the edit message button in the context menu
@@ -383,7 +383,7 @@ describe('Commit Actions', () => {
 
 		// Click on the kebab menu to access edit message again
 		cy.getByTestId('commit-drawer').within(() => {
-			cy.getByTestId('kebab-menu-btn').click();
+			cy.getByTestId('kebab-menu-btn').click({ force: true });
 		});
 
 		// Click on the edit message button in the context menu
@@ -556,7 +556,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-row')
 			.click()
 			.within(() => {
-				cy.getByTestId('kebab-menu-btn').click();
+				cy.getByTestId('kebab-menu-btn').click({ force: true });
 			});
 
 		// Click on the uncommit option
@@ -578,7 +578,7 @@ describe('Commit Actions', () => {
 
 		// Click on the kebab menu to access uncommit
 		cy.getByTestId('commit-drawer').within(() => {
-			cy.getByTestId('kebab-menu-btn').click();
+			cy.getByTestId('kebab-menu-btn').click({ force: true });
 		});
 
 		// Click on the uncommit button
@@ -802,7 +802,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 
 			// Click on the kebab menu to access edit message
 			cy.getByTestId('commit-drawer').within(() => {
-				cy.getByTestId('kebab-menu-btn').click();
+				cy.getByTestId('kebab-menu-btn').click({ force: true });
 			});
 
 			// Click on the edit message button in the context menu
@@ -914,7 +914,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 
 			// Click on the kebab menu to access edit message
 			cy.getByTestId('commit-drawer').within(() => {
-				cy.getByTestId('kebab-menu-btn').click();
+				cy.getByTestId('kebab-menu-btn').click({ force: true });
 			});
 
 			// Click on the edit message button in the context menu
@@ -1037,7 +1037,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 
 			// Click on the kebab menu to access edit message
 			cy.getByTestId('commit-drawer').within(() => {
-				cy.getByTestId('kebab-menu-btn').click();
+				cy.getByTestId('kebab-menu-btn').click({ force: true });
 			});
 
 			// Click on the edit message button in the context menu

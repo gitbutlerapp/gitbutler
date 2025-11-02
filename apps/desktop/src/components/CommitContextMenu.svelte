@@ -131,7 +131,12 @@
 </script>
 
 {#if rightClickTrigger && contextData}
-	<KebabButton {showOnHover} contextElement={rightClickTrigger} testId={TestId.KebabMenuButton}>
+	<KebabButton
+		{showOnHover}
+		contextElement={rightClickTrigger}
+		testId={TestId.KebabMenuButton}
+		contextMenuTestId={TestId.CommitRowContextMenu}
+	>
 		{#snippet contextMenu({ close })}
 			{@const { commitId, commitUrl, commitMessage } = contextData}
 			{#if contextData.commitStatus === 'LocalAndRemote' || contextData.commitStatus === 'LocalOnly'}
