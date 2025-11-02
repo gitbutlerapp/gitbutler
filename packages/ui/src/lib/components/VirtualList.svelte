@@ -34,8 +34,8 @@
 		/** Handler for when scroll has reached with a margin of the bottom. */
 		onloadmore?: () => Promise<void>;
 		grow?: boolean;
-		/** Whether to initialize scroll position at top or bottom. */
-		initialPosition?: 'top' | 'bottom';
+		/** Whether to initialize scroll position at top or bottom (tail). */
+		tail?: boolean;
 		/** Auto-scroll to bottom when new items are added (useful for chat). */
 		stickToBottom?: boolean;
 		visibility: ScrollbarVisilitySettings;
@@ -59,7 +59,7 @@
 		padding,
 		visibility,
 		defaultHeight,
-		initialPosition = 'top',
+		tail,
 		stickToBottom = false
 	}: Props = $props();
 
@@ -79,8 +79,8 @@
 
 	// Virtual scrolling state
 	let visibleRange = $state({
-		start: initialPosition === 'bottom' ? Infinity : 0,
-		end: initialPosition === 'bottom' ? Infinity : 0
+		start: tail ? Infinity : 0,
+		end: tail ? Infinity : 0
 	});
 
 	// An array mapping items to element heights
@@ -223,7 +223,7 @@
 
 	let isRecalculating = false;
 
-	async function recalculateVisibleRange(isScroll?: boolean) {
+	async function recalculateVisibleRange() {
 		if (!viewport || !visibleRowElements) return;
 		if (isRecalculating) return; // One at a time.
 
@@ -231,7 +231,7 @@
 		heightMap.length = itemChunks.length;
 
 		// Handle bottom initialization
-		if (!hasInitialized && initialPosition === 'bottom') {
+		if (!hasInitialized && tail) {
 			// Start from the last chunk and work backwards
 			visibleRange.end = itemChunks.length;
 			offset.bottom = 0;
@@ -249,15 +249,16 @@
 			}, 20);
 		} else {
 			await tick();
-			const previousDistanceFromBottom = lastDistanceFromBottom;
 			const previousStartIndex = visibleRange.start;
 
 			visibleRange = {
 				start: await calculateVisibleStartIndex(),
 				end: await calculateVisibleEndIndex()
 			};
-			offset.bottom = calculateHeightSum(visibleRange.end, heightMap.length);
-			offset.top = calculateHeightSum(0, visibleRange.start);
+			offset = {
+				bottom: calculateHeightSum(visibleRange.end, heightMap.length),
+				top: calculateHeightSum(0, visibleRange.start)
+			};
 
 			if (visibleRange.start < previousStartIndex) {
 				await tick();
@@ -269,20 +270,6 @@
 				}
 			}
 			await tick();
-
-			if (
-				!isScroll &&
-				stickToBottom &&
-				previousDistanceFromBottom < STICKY_DISTANCE &&
-				getDistanceFromBottom() > previousDistanceFromBottom
-			) {
-				setTimeout(() => {
-					if (!viewport) return;
-					viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
-				}, 0);
-				await tick();
-			}
-
 			totalHeight = calculateHeightSum(0, heightMap.length);
 		}
 
@@ -302,7 +289,20 @@
 	$effect(() => {
 		if (viewport) {
 			visibleRowElements = viewport.getElementsByClassName('list-row');
-			resizeObserver = new ResizeObserver(() => untrack(() => recalculateVisibleRange()));
+			resizeObserver = new ResizeObserver(() =>
+				untrack(() => {
+					// recalculateVisibleRange();
+					const hasGrown = getDistanceFromBottom() > lastDistanceFromBottom;
+					if (hasGrown && stickToBottom && lastDistanceFromBottom < STICKY_DISTANCE) {
+						if (viewport) {
+							viewport.scrollTo({
+								top: viewport.scrollHeight,
+								behavior: hasInitialized ? 'smooth' : 'instant'
+							});
+						}
+					}
+				})
+			);
 			return () => {
 				resizeObserver?.disconnect();
 			};
@@ -333,8 +333,7 @@
 		if (!viewport) return;
 		hasNewUnreadItems = false;
 		visibleRange = { end: itemChunks.length, start: itemChunks.length - 1 };
-		offset.bottom = 0;
-		offset.top = calculateHeightSum(0, visibleRange.start);
+		offset = { bottom: 0, top: calculateHeightSum(0, visibleRange.start) };
 		lastDistanceFromBottom = 0;
 		await tick();
 		viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
@@ -352,14 +351,17 @@
 				// bottom of the chat bubble.
 				setTimeout(() => {
 					if (!viewport) return;
-					viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
-				}, 1000);
+					viewport.scrollTo({
+						top: viewport.scrollHeight,
+						behavior: hasInitialized ? 'smooth' : 'instant'
+					});
+				}, 0);
 			});
 		} else if (items) {
 			untrack(() => {
 				const hadNewItems = items.length > previousItemsLength && items.length > visibleRange.end;
 				recalculateVisibleRange();
-				if (initialPosition === 'bottom' && hadNewItems) {
+				if (tail && hadNewItems) {
 					hasNewUnreadItems = true;
 				}
 			});
@@ -371,7 +373,7 @@
 <ScrollableContainer
 	bind:viewportHeight
 	bind:viewport
-	onscroll={() => recalculateVisibleRange(true)}
+	onscroll={() => recalculateVisibleRange()}
 	wide={grow}
 	whenToShow={visibility}
 	{padding}

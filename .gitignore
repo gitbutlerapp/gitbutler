@@ -53,6 +53,7 @@ storybook-static
 
 # Cypress
 **/cypress/screenshots
+packages/ui/tests/.cache
 
 # Vercel
 .vercel

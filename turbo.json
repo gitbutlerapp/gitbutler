@@ -33,6 +33,10 @@
 			"env": ["PLAYWRIGHT_BROWSERS_PATH"],
 			"dependsOn": ["package"]
 		},
+		"test:ct": {
+			"env": ["PLAYWRIGHT_BROWSERS_PATH"],
+			"dependsOn": ["package"]
+		},
 		"//#globallint": {
 			"dependsOn": [
 				"@gitbutler/ui#package",

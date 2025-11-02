@@ -1,34 +1,57 @@
-<script context="module" lang="ts">
+<script module lang="ts">
+	import Button from '$components/Button.svelte';
 	import VirtualList from '$lib/components/VirtualList.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
-	const items = Array.from({ length: 20 }, (_, i) => `item-${i + 1}`);
+	let items = $state(Array.from({ length: 10 }, (_, i) => `item-${i + 1}`));
+	const defaultHeight = 150;
 
 	const { Story } = defineMeta({
 		title: 'VirtualList',
-		component: VirtualList<string>,
+		component: VirtualList,
 		args: {
-			items,
-			batchSize: 1
+			items
 		}
 	});
+
+	let container = $state<HTMLDivElement>();
 </script>
 
 <script lang="ts">
 </script>
 
-<Story name="VirtualList">
+<Story name="Initial bottom">
 	{#snippet template(args)}
-		<div class="container">
-			<VirtualList {...args} initialPosition="bottom" stickToBottom>
+		<div class="container" bind:this={container}>
+			<VirtualList {...args}>
 				{#snippet chunkTemplate(chunk)}
 					{#each chunk as item}
-						<div class="item">
-							{item}
+						<div class="item" style:height={defaultHeight + 'px'}>
+							{item || 'empty'}
 						</div>
 					{/each}
 				{/snippet}
 			</VirtualList>
+		</div>
+		<div class="actions">
+			<Button
+				onclick={() => {
+					items.push('new item ' + (items.length + 1));
+				}}
+			>
+				Add item
+			</Button>
+			<Button
+				onclick={() => {
+					const items = Array.from(container?.querySelectorAll('.item') || []);
+					const lastElement = items.at(-1);
+					if (lastElement && lastElement instanceof HTMLDivElement) {
+						lastElement.style.height = 2 * defaultHeight + 'px';
+					}
+				}}
+			>
+				Expand last
+			</Button>
 		</div>
 	{/snippet}
 </Story>
@@ -36,7 +59,13 @@
 <style>
 	.container {
 		display: flex;
-		height: 320px;
+		height: 280px;
+	}
+
+	.actions {
+		display: flex;
+		padding: 6px 0;
+		gap: 12px;
 	}
 
 	.item {
