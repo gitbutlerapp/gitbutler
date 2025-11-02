@@ -96,6 +96,7 @@
 		<VirtualList
 			items={commits}
 			batchSize={10}
+			defaultHeight={45}
 			visibility={$userSettings.scrollbarVisibilityState}
 			onloadmore={async () => await loadMore()}
 		>

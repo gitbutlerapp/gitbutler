@@ -469,7 +469,8 @@
 						items={formattedMessages}
 						batchSize={1}
 						visibility={$userSettings.scrollbarVisibilityState}
-						padding={{ left: 20, right: 20 }}
+						padding={{ left: 20, right: 20, top: 12, bottom: 12 }}
+						defaultHeight={150}
 					>
 						{#snippet chunkTemplate(messages)}
 							{#each messages as message}

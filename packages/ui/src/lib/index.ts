@@ -99,7 +99,6 @@ export {
 } from '$components/scroll/ScrollableContainer.svelte';
 export {
 	default as Scrollbar,
-	type ScrollbarPaddingType,
 	type ScrollbarVisilitySettings
 } from '$components/scroll/Scrollbar.svelte';
 
