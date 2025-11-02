@@ -106,20 +106,6 @@
 		}
 	});
 
-	// Function to fold a stack
-	function foldStack(stackId: string) {
-		const currentFolded = $foldedStacks;
-		if (!currentFolded.includes(stackId)) {
-			foldedStacks.set([...currentFolded, stackId]);
-		}
-	}
-
-	// Function to unfold a stack
-	function unfoldStack(stackId: string) {
-		const currentFolded = $foldedStacks;
-		foldedStacks.set(currentFolded.filter((id) => id !== stackId));
-	}
-
 	// Scroll to stack when scrollToStackId is set
 	$effect(() => {
 		if (scrollToStackId && stacks.length > 0 && lanesScrollableEl) {
@@ -188,9 +174,15 @@
 				onmousedown={onReorderMouseDown}
 				ondragstart={(e) => {
 					if (!stack.id) return;
-					onReorderStart(e, stack.id, () => {
-						draggingStack = true;
-					});
+					const isCollapsedLane = $foldedStacks.includes(stack.id);
+					onReorderStart(
+						e,
+						stack.id,
+						() => {
+							draggingStack = true;
+						},
+						isCollapsedLane
+					);
 				}}
 				ondragover={(e) => {
 					if (!stack.id) return;
@@ -205,7 +197,7 @@
 					<CollapsedLane
 						stackId={stack.id}
 						branchNames={stack.heads.map((head) => head.name)}
-						onUnfold={() => unfoldStack(stack.id!)}
+						{projectId}
 					/>
 				{:else}
 					<StackView
@@ -215,7 +207,6 @@
 						topBranchName={stack.heads.at(0)?.name}
 						bind:clientWidth={laneWidths[i]}
 						bind:clientHeight={lineHights[i]}
-						onFold={foldStack}
 						onVisible={(visible) => {
 							if (visible) {
 								visibleIndexes = [...visibleIndexes, i];

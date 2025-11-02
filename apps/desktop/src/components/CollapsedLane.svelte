@@ -5,15 +5,16 @@
 	type Props = {
 		stackId?: string;
 		branchNames?: string[];
-		onUnfold: () => void;
+		projectId: string;
 	};
 
-	const { stackId: _stackId, branchNames, onUnfold }: Props = $props();
+	const { stackId, branchNames, projectId }: Props = $props();
 </script>
 
-<div class="folded-lane">
-	<div class="folded-lane-head">
-		<CollapseStackButton isFolded onclick={onUnfold} />
+<div class="folded-lane" data-remove-from-panning data-drag-handle draggable="true">
+	<CollapseStackButton {stackId} {projectId} isFolded />
+
+	<div class="drag-handle-icon">
 		<Icon name="draggable-wide" />
 	</div>
 
@@ -36,9 +37,11 @@
 	.folded-lane {
 		display: flex;
 		flex-direction: column;
+		align-items: center;
 		justify-content: space-between;
 		height: 100%;
 		padding: 6px 8px 18px;
+		gap: 6px;
 		border-right: 1px solid var(--clr-border-2);
 		background: linear-gradient(
 			90deg,
@@ -47,22 +50,23 @@
 			var(--clr-bg-3) 100%
 		);
 		color: var(--clr-text-3);
+		cursor: grab;
 	}
 
-	.folded-lane-head {
+	.drag-handle-icon {
 		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 6px;
+		pointer-events: none;
 	}
 
 	.stack-names {
 		display: flex;
+		flex: 1;
 		align-items: center;
 		overflow: hidden;
 		gap: 10px;
 		transform: rotate(180deg);
 		text-orientation: mixed;
+		pointer-events: none;
 		writing-mode: vertical-lr;
 	}
 

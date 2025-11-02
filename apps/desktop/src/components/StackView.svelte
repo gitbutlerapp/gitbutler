@@ -2,7 +2,6 @@
 	import BranchList from '$components/BranchList.svelte';
 	import BranchView from '$components/BranchView.svelte';
 	import ChangedFiles from '$components/ChangedFiles.svelte';
-	import CollapseStackButton from '$components/CollapseStackButton.svelte';
 	import CommitView from '$components/CommitView.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Drawer from '$components/Drawer.svelte';
@@ -10,6 +9,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import SelectionView from '$components/SelectionView.svelte';
+	import StackDragHandle from '$components/StackDragHandle.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import CodegenMessages from '$components/codegen/CodegenMessages.svelte';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
@@ -33,7 +33,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 
-	import { Button, FileViewHeader, Icon, TestId } from '@gitbutler/ui';
+	import { Button, FileViewHeader, TestId } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import { fly } from 'svelte/transition';
@@ -45,7 +45,6 @@
 		laneId: string;
 		topBranchName?: string;
 		onVisible: (visible: boolean) => void;
-		onFold?: (stackId: string) => void;
 		clientWidth?: number;
 		clientHeight?: number;
 	};
@@ -57,8 +56,7 @@
 		topBranchName,
 		clientHeight = $bindable(),
 		clientWidth = $bindable(),
-		onVisible,
-		onFold
+		onVisible
 	}: Props = $props();
 
 	const stableStackId = $derived(stackId);
@@ -250,11 +248,6 @@
 			selection?.set(undefined);
 			console.warn('Workspace selection cleared');
 		}
-	}
-
-	function foldStack() {
-		if (!stableStackId || isCommitting || !onFold) return; // Prevent folding during commit
-		onFold(stableStackId);
 	}
 
 	function getAncestorMostConflicted(commits: Commit[]): Commit | undefined {
@@ -498,17 +491,8 @@
 				{#snippet children(branches)}
 					<div class="stack-v">
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
-						<div class="drag-handle-row" data-remove-from-panning data-drag-handle draggable="true">
-							<CollapseStackButton onclick={foldStack} disabled={isCommitting} />
+						<StackDragHandle stackId={stableStackId} {projectId} disabled={isCommitting} />
 
-							<div class="drag-handle-icon">
-								<Icon name="draggable-wide" />
-							</div>
-
-							<button type="button" class="stack-options-button">
-								<Icon name="kebab" />
-							</button>
-						</div>
 						<div
 							class="assignments-wrap"
 							class:assignments__empty={changes.current.length === 0 && !isCommitting}
@@ -845,48 +829,5 @@
 		gap: 12px;
 		background-color: var(--clr-bg-2);
 		transition: background-color var(--transition-fast);
-	}
-
-	.drag-handle-row {
-		display: flex;
-		/* justify-content: flex-end; */
-		align-items: center;
-		justify-content: space-between;
-		height: 16px;
-		height: 24px;
-		/* background-color: tomato; */
-		margin: 0 -3px;
-		color: var(--clr-text-3);
-		cursor: grab;
-		transition:
-			height var(--transition-medium),
-			color var(--transition-fast);
-	}
-
-	.drag-handle-icon {
-		display: flex;
-		flex-shrink: 0;
-		align-items: center;
-		justify-content: center;
-		width: 18px;
-		height: 10px;
-		padding: 2px;
-		border-radius: 3px;
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
-		cursor: grab;
-	}
-
-	.stack-options-button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		transition: color var(--transition-fast);
-
-		&:hover {
-			color: var(--clr-text-2);
-		}
 	}
 </style>

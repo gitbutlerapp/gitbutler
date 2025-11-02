@@ -1,11 +1,32 @@
 <script lang="ts">
+	import { persisted } from '@gitbutler/shared/persisted';
+
 	interface Props {
-		onclick: () => void;
+		stackId?: string;
+		projectId: string;
 		disabled?: boolean;
 		isFolded?: boolean;
 	}
 
-	const { onclick, disabled, isFolded }: Props = $props();
+	const { stackId, projectId, disabled, isFolded }: Props = $props();
+
+	// Persisted folded stacks state per project (without expiration)
+	const foldedStacks = persisted<string[]>([], `folded-stacks-${projectId}`);
+
+	function toggleFold() {
+		if (!stackId || disabled) return;
+
+		const currentFolded = $foldedStacks;
+		if (isFolded) {
+			// Unfold: remove from folded list
+			foldedStacks.set(currentFolded.filter((id) => id !== stackId));
+		} else {
+			// Fold: add to folded list
+			if (!currentFolded.includes(stackId)) {
+				foldedStacks.set([...currentFolded, stackId]);
+			}
+		}
+	}
 </script>
 
 <button
@@ -13,7 +34,7 @@
 	class:isFolded
 	type="button"
 	aria-label="Collapse stack"
-	{onclick}
+	onclick={toggleFold}
 	{disabled}
 >
 	<svg class="collapse-icon" viewBox="0 0 15 10" fill="none" xmlns="http://www.w3.org/2000/svg">
