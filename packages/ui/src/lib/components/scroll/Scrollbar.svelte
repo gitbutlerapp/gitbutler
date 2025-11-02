@@ -1,22 +1,12 @@
 <script lang="ts" module>
-	export type ScrollbarPaddingType = {
-		top?: number;
-		right?: number;
-		bottom?: number;
-		left?: number;
-	};
-
 	export type ScrollbarVisilitySettings = 'scroll' | 'hover' | 'always';
 </script>
 
 <script lang="ts">
-	import { pxToRem } from '$lib/utils/pxToRem';
-
 	interface Props {
 		viewport: HTMLElement;
 		initiallyVisible?: boolean;
 		thickness?: string;
-		padding?: ScrollbarPaddingType;
 		shift?: string;
 		horz?: boolean;
 		zIndex?: string;
@@ -30,7 +20,6 @@
 		viewport,
 		initiallyVisible = false,
 		thickness = '.5rem',
-		padding = {},
 		shift = '0',
 		horz = false,
 		zIndex = 'var(--z-ground)',
@@ -76,11 +65,6 @@
 	let isDragging = $state(false);
 
 	const vert = $derived(!horz);
-
-	const paddingTop = $derived(`${pxToRem(padding.top)}rem`);
-	const paddingBottom = $derived(`${pxToRem(padding.bottom)}rem`);
-	const paddingRight = $derived(`${pxToRem(padding.right)}rem`);
-	const paddingLeft = $derived(`${pxToRem(padding.left)}rem`);
 
 	let wholeHeight = $state(viewport?.scrollHeight ?? 0);
 	let wholeWidth = $state(viewport?.scrollWidth ?? 0);
@@ -173,8 +157,8 @@
 	export function updateTrack() {
 		wholeHeight = viewport?.scrollHeight ?? 0;
 		wholeWidth = viewport?.scrollWidth ?? 0;
-		trackHeight = viewport?.clientHeight ?? 0;
-		trackWidth = viewport?.clientWidth ?? 0;
+		trackHeight = viewport?.offsetHeight ?? 0;
+		trackWidth = viewport?.offsetWidth ?? 0;
 	}
 
 	function onTrackEnter() {
@@ -312,14 +296,10 @@
 		bind:this={thumb}
 		class="scrollbar-thumb"
 		style="
-          --thumb-width: {vert
-			? '100%'
-			: `calc(${thumbWidth.toFixed(0)}px - (${paddingRight} + ${paddingLeft}))`};
-          --thumb-height: {vert
-			? `calc(${thumbHeight.toFixed(0)}px - (${paddingBottom} + ${paddingTop}))`
-			: '100%'};
-          --thumb-top: {vert ? `calc(${thumbTop.toFixed(0)}px + ${paddingTop})` : 'auto'};
-          --thumb-left: {vert ? 'auto' : `calc(${thumbLeft.toFixed(0)}px + ${paddingLeft})`};
+          --thumb-width: {vert ? '100%' : `calc(${thumbWidth.toFixed(0)}px)`};
+          --thumb-height: {vert ? `calc(${thumbHeight.toFixed(0)}px)` : '100%'};
+          --thumb-top: {vert ? `${thumbTop.toFixed(0)}px` : 'auto'};
+          --thumb-left: {vert ? 'auto' : `${thumbLeft.toFixed(0)}px`};
         "
 	></div>
 </div>
@@ -372,7 +352,9 @@
 			opacity: 0.15;
 			transition:
 				opacity 0.2s,
-				transform 0.15s;
+				transform 0.15s,
+				height 0.15s,
+				top 0.1s;
 		}
 	}
 

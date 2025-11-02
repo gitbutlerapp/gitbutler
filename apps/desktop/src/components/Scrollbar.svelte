@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/core/context';
-	import { Scrollbar, type ScrollbarPaddingType } from '@gitbutler/ui';
+	import { Scrollbar } from '@gitbutler/ui';
 
 	interface Props {
 		viewport: HTMLDivElement;
 		initiallyVisible?: boolean;
 		thickness?: string;
-		padding?: ScrollbarPaddingType;
 		shift?: string;
 		horz?: boolean;
 		zIndex?: string;
@@ -20,7 +19,6 @@
 		viewport,
 		initiallyVisible = false,
 		thickness = '0.563rem',
-		padding = {},
 		shift = '0',
 		horz = false,
 		zIndex = 'var(--z-lifted)',
@@ -41,7 +39,6 @@
 	{viewport}
 	{initiallyVisible}
 	{thickness}
-	{padding}
 	{shift}
 	{horz}
 	{zIndex}
