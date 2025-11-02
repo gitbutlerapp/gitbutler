@@ -506,8 +506,8 @@
 				{:else}
 					<VirtualList
 						grow
+						tail
 						stickToBottom
-						initialPosition="bottom"
 						items={formattedMessages}
 						batchSize={1}
 						visibility={$userSettings.scrollbarVisibilityState}

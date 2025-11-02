@@ -19,6 +19,7 @@ jobs:
     outputs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
+      ui: ${{ steps.filter.outputs.ui }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -38,6 +39,8 @@ jobs:
               - 'packages/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
+            ui:
+              - 'packages/ui/**'
             common-rust: &rust
               - *workflows
               - 'Cargo.lock'
@@ -246,3 +249,38 @@ jobs:
           ' -- $(cat workflows.list) >query-output.txt
           cat query-output.txt
           test -z "$(<query-output.txt)"  # Report failure if we found anything
+  test-ui:
+    needs: changes
+    if: ${{ needs.changes.outputs.ui == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/init-env-node
+      - id: get_playwright_version
+        uses: eviden-actions/get-playwright-version@v1
+      - name: cache playwright binaries
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: |
+            ~/.cache/ct-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
+      - run: cd packages/ui && pnpm exec playwright install --with-deps
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+      - name: run playwright tests
+        run: pnpm exec turbo run test:ct
+        if: ${{ github.ref != 'refs/heads/master' }}
+      - uses: actions/upload-artifact@v5
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: |
+            ./packages/ui/playwright-report/
+            ./packages/ui/test-results/
+          retention-days: 30

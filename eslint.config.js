@@ -23,7 +23,11 @@ export default ts.config(
 				projectService: {
 					// This prevents lint error when running eslint from
 					// subdirectories, ignoring the root tsconfig.json
-					allowDefaultProject: ['svelte.config.js', 'packages/ui/.storybook/*.ts']
+					allowDefaultProject: [
+						'svelte.config.js',
+						'packages/ui/.storybook/*.ts',
+						'packages/ui/playwright-ct.config.ts'
+					]
 				}
 			}
 		},
