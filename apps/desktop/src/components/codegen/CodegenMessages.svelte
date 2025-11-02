@@ -94,9 +94,7 @@
 	let permissionModeTrigger = $state<HTMLButtonElement>();
 	let templateContextMenu = $state<ContextMenu>();
 	let templateTrigger = $state<HTMLButtonElement>();
-	let workspaceContextActionsKebab = $state<HTMLElement>();
-	let pageContextActionsKebab = $state<HTMLElement>();
-	let contextActionsContextMenu = $state<ContextMenu>();
+
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
 	let promptConfigModal = $state<CodegenPromptConfigModal>();
 
@@ -366,10 +364,54 @@
 						</div>
 					</Tooltip>
 
-					<KebabButton
-						bind:el={workspaceContextActionsKebab}
-						onclick={() => contextActionsContextMenu?.toggle()}
-					/>
+					<KebabButton>
+						{#snippet contextMenu({ close })}
+							{@const isDisabled =
+								!hasRulesToClear() ||
+								!events ||
+								events.length === 0 ||
+								['running', 'compacting'].includes(currentStatus(events, isStackActive))}
+
+							<ContextMenuSection>
+								<ContextMenuItem
+									label="MCP settings"
+									icon="mcp"
+									onclick={() => {
+										mcpConfigModal?.open();
+										close();
+									}}
+								/>
+								<ContextMenuItem
+									label="Agent settings"
+									icon="mixer"
+									onclick={() => {
+										settingsModal?.show();
+										close();
+									}}
+								/>
+							</ContextMenuSection>
+							<ContextMenuSection>
+								<ContextMenuItem
+									label="Clear context and rules"
+									icon="clear"
+									disabled={isDisabled}
+									onclick={() => {
+										clearContextAndRules();
+										close();
+									}}
+								/>
+								<ContextMenuItem
+									label="Compact context"
+									icon="compact"
+									disabled={isDisabled}
+									onclick={() => {
+										compactContext();
+										close();
+									}}
+								/>
+							</ContextMenuSection>
+						{/snippet}
+					</KebabButton>
 				</div>
 			{/snippet}
 			{#snippet pageWorkspaceActions()}
@@ -652,57 +694,6 @@
 				onclick={() => selectPermissionMode(option.value)}
 			/>
 		{/each}
-	</ContextMenuSection>
-</ContextMenu>
-
-<ContextMenu
-	bind:this={contextActionsContextMenu}
-	leftClickTrigger={workspaceContextActionsKebab || pageContextActionsKebab}
-	align="end"
->
-	{@const isDisabled =
-		!hasRulesToClear() ||
-		!events.response ||
-		events.response.length === 0 ||
-		['running', 'compacting'].includes(currentStatus(events.response, isStackActive))}
-
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="MCP settings"
-			icon="mcp"
-			onclick={() => {
-				mcpConfigModal?.open();
-				contextActionsContextMenu?.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Agent settings"
-			icon="mixer"
-			onclick={() => {
-				settingsModal?.show();
-				contextActionsContextMenu?.close();
-			}}
-		/>
-	</ContextMenuSection>
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Clear context and rules"
-			icon="clear"
-			disabled={isDisabled}
-			onclick={() => {
-				clearContextAndRules();
-				contextActionsContextMenu?.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Compact context"
-			icon="compact"
-			disabled={isDisabled}
-			onclick={() => {
-				compactContext();
-				contextActionsContextMenu?.close();
-			}}
-		/>
 	</ContextMenuSection>
 </ContextMenu>
 

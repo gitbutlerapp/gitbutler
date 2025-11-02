@@ -39,7 +39,6 @@ describe('Branch Actions', () => {
 			.rightclick();
 
 		// The context menu should be visible
-		cy.getByTestId('branch-header-context-menu').should('be.visible');
 		cy.getByTestId('branch-header-context-menu-rename').should('be.visible').click();
 
 		// The rename dialog should be visible

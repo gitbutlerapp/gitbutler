@@ -422,7 +422,12 @@
 										onUncommitClick: () => handleUncommit(commit.id, branchName),
 										onEditMessageClick: () => startEditingCommitMessage(branchName, commit.id)
 									}}
-									<CommitContextMenu flat {projectId} {rightClickTrigger} contextData={data} />
+									<CommitContextMenu
+										showOnHover
+										{projectId}
+										{rightClickTrigger}
+										contextData={data}
+									/>
 								{/snippet}
 							</CommitRow>
 						</div>

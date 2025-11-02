@@ -1,32 +1,44 @@
 <script lang="ts">
 	import Button from '$components/Button.svelte';
+	import ContextMenu from '$components/ContextMenu.svelte';
 	import Icon from '$components/Icon.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
-		flat?: boolean;
+		showOnHover?: boolean;
+		minimal?: boolean;
 		activated?: boolean;
 		contextElement?: HTMLElement;
-		contextElementSelected?: boolean;
 		testId?: string;
-		oncontext?: (event: MouseEvent) => boolean | void;
-		onclick?: (element: HTMLElement) => void;
+		contextMenuTestId?: string;
 		el?: HTMLElement;
+		contextMenu: Snippet<[{ close: () => void }]>;
+		menuSide?: 'top' | 'bottom' | 'left' | 'right';
+		menuAlign?: 'start' | 'center' | 'end';
+		onMenuClose?: () => void;
+		onMenuOpen?: () => void;
+		onMenuToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
 
 	let {
-		flat = false,
+		showOnHover = false,
+		minimal = false,
 		activated = false,
 		contextElement,
 		testId,
-		onclick,
-		oncontext,
-		el = $bindable()
+		contextMenuTestId,
+		el = $bindable(),
+		contextMenu: contextMenuSnippet,
+		menuSide = 'bottom',
+		menuAlign = 'end',
+		onMenuClose,
+		onMenuOpen,
+		onMenuToggle
 	}: Props = $props();
 
 	let visible = $state(false);
 	let buttonElement = $state<HTMLElement>();
-	let isContextMenuOpen = $state(false);
-	let openedViaClick = $state(false);
+	let internalContextMenu = $state<ReturnType<typeof ContextMenu>>();
 
 	// Keep el in sync with buttonElement
 	$effect(() => {
@@ -34,38 +46,38 @@
 	});
 
 	function onMouseEnter() {
-		if (!flat) return;
+		if (!showOnHover) return;
 		visible = true;
 	}
 
 	function onMouseLeave() {
-		if (!flat) return;
+		if (!showOnHover) return;
 		visible = false;
 	}
 
 	function onFocus() {
-		if (!flat) return;
+		if (!showOnHover) return;
 		visible = true;
 	}
 
 	function onBlur() {
-		if (!flat) return;
+		if (!showOnHover) return;
 		visible = false;
 	}
 
 	function onContextMenu(e: MouseEvent) {
 		e.preventDefault(); // Prevent default to avoid browser context menu
-		isContextMenuOpen = true;
-		openedViaClick = false; // Context menu opened via right-click
-		oncontext?.(e);
+		internalContextMenu?.open(e);
 	}
 
 	function onClick(e: MouseEvent) {
 		e.stopPropagation();
 		e.preventDefault();
-		isContextMenuOpen = !isContextMenuOpen;
-		openedViaClick = isContextMenuOpen; // Track if opened via click
-		onclick?.(e.currentTarget as HTMLElement);
+		internalContextMenu?.toggle();
+	}
+
+	function closeMenu() {
+		internalContextMenu?.close();
 	}
 
 	$effect(() => {
@@ -84,32 +96,19 @@
 			};
 		}
 	});
-
-	// Close context menu when clicking outside
-	$effect(() => {
-		if (isContextMenuOpen) {
-			function handleClickOutside(e: MouseEvent) {
-				if (buttonElement && !buttonElement.contains(e.target as Node)) {
-					isContextMenuOpen = false;
-					openedViaClick = false; // Reset when closing
-				}
-			}
-			document.addEventListener('click', handleClickOutside);
-			return () => {
-				document.removeEventListener('click', handleClickOutside);
-			};
-		}
-	});
 </script>
 
-{#if flat}
+{#if showOnHover || minimal}
 	<button
 		bind:this={buttonElement}
 		type="button"
 		class="kebab-btn"
-		class:visible={visible || isContextMenuOpen}
-		class:activated={activated || (isContextMenuOpen && openedViaClick)}
+		class:visible
+		class:activated
+		class:show-on-hover={showOnHover}
+		class:minimal
 		onclick={onClick}
+		oncontextmenu={onContextMenu}
 		data-testid={testId}
 	>
 		<Icon name="kebab" />
@@ -121,28 +120,62 @@
 		size="tag"
 		icon="kebab"
 		kind="ghost"
-		activated={activated || (isContextMenuOpen && openedViaClick)}
+		{activated}
 		onclick={onClick}
+		oncontextmenu={onContextMenu}
 	/>
 {/if}
+
+<ContextMenu
+	bind:this={internalContextMenu}
+	leftClickTrigger={buttonElement}
+	rightClickTrigger={contextElement}
+	side={menuSide}
+	align={menuAlign}
+	testId={contextMenuTestId}
+	onclose={() => {
+		onMenuClose?.();
+	}}
+	onopen={() => {
+		onMenuOpen?.();
+	}}
+	ontoggle={(isOpen, isLeftClick) => {
+		onMenuToggle?.(isOpen, isLeftClick);
+	}}
+>
+	{@render contextMenuSnippet({ close: closeMenu })}
+</ContextMenu>
 
 <style lang="postcss">
 	.kebab-btn {
 		display: flex;
-		display: none;
 		padding: 0 3px;
 		color: var(--clr-text-1);
 
-		&.visible {
-			display: flex;
-			opacity: 0.5;
+		&.show-on-hover {
+			display: none;
+
+			&.visible {
+				display: flex;
+				opacity: 0.5;
+			}
+
+			&.activated,
+			&:hover,
+			&:focus-within {
+				display: flex;
+				opacity: 1;
+			}
 		}
 
-		&.activated,
-		&:hover,
-		&:focus-within {
-			display: flex;
-			opacity: 1;
+		&.minimal {
+			opacity: 0.7;
+
+			&.activated,
+			&:hover,
+			&:focus-within {
+				opacity: 1;
+			}
 		}
 	}
 </style>
