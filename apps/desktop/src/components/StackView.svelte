@@ -478,12 +478,6 @@
 		}
 	}}
 >
-	{#if !isCommitting}
-		<div class="drag-handle" data-remove-from-panning data-drag-handle draggable="true">
-			<Icon name="draggable-narrow" rotate={90} noEvents />
-		</div>
-	{/if}
-
 	<ConfigurableScrollableContainer childrenWrapHeight="100%">
 		<div
 			class="stack-view"
@@ -496,6 +490,52 @@
 				{#snippet children(branches)}
 					<div class="stack-v">
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
+						<div class="drag-handle-row" data-remove-from-panning data-drag-handle draggable="true">
+							<button class="collapse-button" type="button" aria-label="Collapse stack">
+								<svg
+									class="collapse-icon"
+									viewBox="0 0 15 10"
+									fill="none"
+									xmlns="http://www.w3.org/2000/svg"
+								>
+									<path
+										d="M2.75 0.75H11.75C12.8546 0.75 13.75 1.64543 13.75 2.75V6.75C13.75 7.85457 12.8546 8.75 11.75 8.75H2.75"
+										stroke="currentColor"
+										stroke-width="1.5"
+									/>
+									<rect
+										class="collapse-icon__lane"
+										x="0.75"
+										y="0.75"
+										width="5"
+										height="8"
+										rx="2"
+										stroke="currentColor"
+										stroke-width="1.5"
+									/>
+								</svg>
+							</button>
+
+							<svg
+								class="drag-handle"
+								viewBox="0 0 14 6"
+								fill="currentColor"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<circle cx="1" cy="1" r="1" />
+								<circle cx="5" cy="1" r="1" />
+								<circle cx="9" cy="1" r="1" />
+								<circle cx="13" cy="1" r="1" />
+								<circle cx="1" cy="5" r="1" />
+								<circle cx="5" cy="5" r="1" />
+								<circle cx="9" cy="5" r="1" />
+								<circle cx="13" cy="5" r="1" />
+							</svg>
+
+							<button type="button" class="stack-options-button">
+								<Icon name="kebab" />
+							</button>
+						</div>
 						<div
 							class="assignments-wrap"
 							class:assignments__empty={changes.current.length === 0 && !isCommitting}
@@ -716,7 +756,6 @@
 		flex-direction: column;
 		min-height: 100%;
 		padding: 0 12px;
-
 		/* Use CSS custom properties for details view width to avoid ResizeObserver errors */
 		--details-view-width: 0rem;
 	}
@@ -742,7 +781,6 @@
 		display: flex;
 		flex-shrink: 0;
 		flex-direction: column;
-		margin-top: 12px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
@@ -836,19 +874,61 @@
 		transition: background-color var(--transition-fast);
 	}
 
-	.drag-handle {
+	.drag-handle-row {
 		display: flex;
-		z-index: var(--z-floating);
-		position: absolute;
-		justify-content: flex-end;
-		width: 100%;
-		padding: 0 1px;
+		/* justify-content: flex-end; */
+		align-items: center;
+		justify-content: space-between;
+		height: 16px;
+		height: 24px;
+		/* background-color: tomato; */
+		margin: 0 -3px;
+		color: var(--clr-text-3);
+		cursor: grab;
+		transition:
+			height var(--transition-medium),
+			color var(--transition-fast);
+	}
+
+	.drag-handle {
+		flex-shrink: 0;
+		width: 18px;
+		height: 10px;
+		padding: 2px;
+		border-radius: 3px;
+		background-color: var(--clr-bg-2);
 		color: var(--clr-text-2);
 		cursor: grab;
+	}
+
+	.collapse-icon {
+		position: relative;
+		width: 15px;
+		height: 10px;
+		--line-width: 0.094rem;
+		--border-radius: 3px;
+		cursor: pointer;
+	}
+
+	.stack-options-button,
+	.collapse-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
 		transition: color var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-1);
+			color: var(--clr-text-2);
+		}
+	}
+
+	.collapse-button {
+		&:hover {
+			.collapse-icon__lane {
+				fill: currentColor;
+			}
 		}
 	}
 </style>
