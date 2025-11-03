@@ -101,14 +101,14 @@
 			contextMenu?.toggle();
 		}}
 	>
-		<Icon name="kebab" />
+		<Icon name="kebab" zIndex="var(--z-ground)" />
 	</button>
 
 	<ContextMenu bind:this={contextMenu} leftClickTrigger={kebabButton}>
 		{#snippet menu({ close })}
 			<ContextMenuSection>
 				<ContextMenuItem
-					label="Send to left"
+					label="Move to leftmost"
 					icon="leftmost-lane"
 					disabled={!canMoveLeft}
 					onclick={() => {
@@ -117,7 +117,7 @@
 					}}
 				/>
 				<ContextMenuItem
-					label="Send to right"
+					label="Move to rightmost"
 					icon="rightmost-lane"
 					disabled={!canMoveRight}
 					onclick={() => {
@@ -165,21 +165,37 @@
 		padding: 2px;
 		border-radius: 3px;
 		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
+		color: var(--clr-text-3);
 		pointer-events: none;
 	}
 
 	.kebab-btn {
 		display: flex;
+		position: relative;
 		align-items: center;
 		justify-content: center;
 		width: 24px;
 		height: 24px;
-		color: var(--clr-text-3);
-		transition: color var(--transition-fast);
+		color: var(--clr-text-1);
+		opacity: 0.5;
+		transition: opacity var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-2);
+			opacity: 0.9;
+		}
+
+		&:after {
+			z-index: 0;
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			width: 20px;
+			height: 8px;
+			transform: translate(-50%, -50%);
+			border-radius: var(--radius-m);
+			background-color: var(--clr-bg-2);
+			/* background-color: rgb(255, 165, 165); */
+			content: '';
 		}
 	}
 </style>
