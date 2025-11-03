@@ -15,15 +15,26 @@
 		Toggle
 	} from '@gitbutler/ui';
 
+	import { onMount } from 'svelte';
+
 	const { projectId }: { projectId: string } = $props();
 
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
 	const gitService = inject(GIT_SERVICE);
 
+	let signCommits = $state(false);
+
 	async function setSignCommits(targetState: boolean) {
 		signCommits = targetState;
 		await gitConfig.setGbConfig(projectId, { signCommits: targetState });
 	}
+
+	// gpg.format
+	let signingFormat = $state('openpgp');
+	// user.signingkey
+	let signingKey = $state('');
+	// gpg.ssh.program / gpg.program
+	let signingProgram = $state('');
 
 	const signingFormatOptions = [
 		{
@@ -78,17 +89,17 @@
 		await gitConfig.setGbConfig(projectId, signUpdate);
 	}
 
-	const gbConfig = $derived(gitConfig.gbConfig(projectId));
-	let signCommits = $derived(gbConfig.response?.signCommits ?? false);
-	let signingFormat = $derived(gbConfig.response?.signingFormat ?? 'openpgp');
-	let signingKey = $derived(gbConfig.response?.signingKey ?? '');
-	let signingProgram = $derived(
-		gbConfig.response
-			? signingFormat === 'openpgp'
-				? (gbConfig.response.gpgProgram ?? '')
-				: (gbConfig.response.gpgSshProgram ?? '')
-			: ''
-	);
+	onMount(async () => {
+		let gitConfigSettings = await gitConfig.getGbConfig(projectId);
+		signCommits = gitConfigSettings.signCommits || false;
+		signingFormat = gitConfigSettings.signingFormat || 'openpgp';
+		signingKey = gitConfigSettings.signingKey || '';
+		if (signingFormat === 'openpgp') {
+			signingProgram = gitConfigSettings.gpgProgram || '';
+		} else {
+			signingProgram = gitConfigSettings.gpgSshProgram || '';
+		}
+	});
 
 	async function handleSignCommitsClick(event: MouseEvent) {
 		await setSignCommits((event.target as HTMLInputElement)?.checked);

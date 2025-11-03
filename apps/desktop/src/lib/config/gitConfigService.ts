@@ -37,20 +37,12 @@ export class GitConfigService {
 		);
 	}
 
-	gbConfig(projectId: string) {
-		return this.api.endpoints.gbConfig.useQuery({ projectId });
-	}
-
 	async getGbConfig(projectId: string): Promise<GbConfig> {
-		return await this.api.endpoints.gbConfig.fetch({ projectId });
+		return await this.backend.invoke<GbConfig>('get_gb_config', { projectId });
 	}
 
 	async setGbConfig(projectId: string, config: GbConfig) {
-		return await this.api.endpoints.setGbConfig.mutate({ projectId, config });
-	}
-
-	async setGerritMode(projectId: string, gerritMode: boolean) {
-		return await this.setGbConfig(projectId, { gitbutlerGerritMode: gerritMode });
+		return await this.backend.invoke('set_gb_config', { projectId, config });
 	}
 
 	async checkGitFetch(projectId: string, remoteName: string | null | undefined) {
@@ -87,7 +79,6 @@ export class GitConfigService {
 // This way we can keep track on both frontend and rust-end what is being used and for what purpose.
 export class GbConfig {
 	signCommits?: boolean | undefined;
-	gitbutlerGerritMode?: boolean | undefined;
 	signingKey?: string | undefined;
 	signingFormat?: string | undefined;
 	gpgProgram?: string | undefined;
@@ -118,20 +109,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.GitConfigProperty, args.key)
-				]
-			}),
-			gbConfig: build.query<GbConfig, { projectId: string }>({
-				extraOptions: { command: 'get_gb_config' },
-				query: (args) => args,
-				providesTags: (_result, _error, args) =>
-					providesItem(ReduxTag.GitButlerConfig, args.projectId)
-			}),
-			setGbConfig: build.mutation<void, { projectId: string; config: GbConfig }>({
-				extraOptions: { command: 'set_gb_config' },
-				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.GitButlerConfig, args.projectId),
-					invalidatesItem(ReduxTag.Project, args.projectId)
 				]
 			})
 		})
