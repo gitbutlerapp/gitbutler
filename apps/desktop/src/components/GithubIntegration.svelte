@@ -20,12 +20,6 @@
 	} from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 
-	interface Props {
-		minimal?: boolean;
-	}
-
-	const { minimal = false }: Props = $props();
-
 	const githubUserService = inject(GITHUB_USER_SERVICE);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
@@ -153,217 +147,217 @@
 	}
 </script>
 
-{#if minimal}
-	<Button style="pop" onclick={gitHubStartOauth}>Authorize</Button>
-{:else}
-	<div class="stack-v gap-16">
-		<div class="stack-v">
-			<ReduxResult result={accounts.result}>
-				<!-- IF ERRROR -->
-				{#snippet error()}
-					<SectionCard orientation="row">
-						{#snippet title()}
-							Failed to load GitHub accounts
-						{/snippet}
-						<Button
-							style="pop"
-							onclick={deleteAllGitHubAccounts}
-							loading={clearingAllResult.current.isLoading}>Try again</Button
-						>
-					</SectionCard>
-				{/snippet}
-
-				<!-- ADD ACCOUNT(S) LIST -->
-				{#snippet children(accounts)}
-					{@const noAccounts = accounts.length === 0}
-					{#each accounts as account, index}
-						<GithubUserLoginState {account} isFirst={index === 0} />
-					{/each}
-
-					<SectionCard
-						orientation="row"
-						background={accounts.length > 0 ? 'disabled' : undefined}
-						roundedTop={accounts.length === 0}
-					>
-						{#snippet iconSide()}
-							<div class="icon-wrapper__logo">
-								{@html githubLogoSvg}
-							</div>
-						{/snippet}
-
-						{#snippet title()}
-							GitHub
-						{/snippet}
-
-						{#snippet caption()}
-							Allows you to create Pull Requests
-						{/snippet}
-
-						{@render addAccountButton(noAccounts)}
-					</SectionCard>
-				{/snippet}
-			</ReduxResult>
-		</div>
-
-		<!-- AUTH FLOW -->
-		{#if showingFlow === 'oauthFlow'}
-			<div in:fade={{ duration: 100 }}>
+<div class="stack-v gap-16">
+	<div class="stack-v">
+		<ReduxResult result={accounts.result}>
+			<!-- IF ERRROR -->
+			{#snippet error()}
 				<SectionCard orientation="row">
-					<div class="wrapper">
-						<div class="step-section">
-							<div class="step-line"></div>
-							<div class="step-section__content">
-								<p class="text-13 text-body">Copy the following verification code:</p>
-
-								<div class="code-wrapper">
-									<span class="text-head-20">
-										{userCode}
-									</span>
-									<Button
-										style="neutral"
-										kind="outline"
-										icon="copy"
-										disabled={codeCopied}
-										onclick={() => {
-											clipboardService.write(userCode, { message: 'User code copied' });
-											codeCopied = true;
-										}}
-									>
-										Copy to Clipboard
-									</Button>
-								</div>
-							</div>
-						</div>
-
-						{#if codeCopied}
-							<div class="step-section" in:fade={{ duration: 100 }}>
-								<div class="step-line step-line-default"></div>
-								<div class="step-section__content">
-									<p class="text-13 text-body">
-										Navigate to the GitHub activation page and paste the code you copied.
-									</p>
-									<Button
-										style="pop"
-										disabled={GhActivationLinkPressed}
-										icon="open-link"
-										onclick={() => {
-											urlService.openExternalUrl('https://github.com/login/device');
-											GhActivationLinkPressed = true;
-
-											// add timeout to prevent show the check button before the page is opened
-											setTimeout(() => {
-												GhActivationPageOpened = true;
-											}, 500);
-										}}
-									>
-										Open GitHub activation page
-									</Button>
-								</div>
-							</div>
-						{/if}
-
-						{#if GhActivationPageOpened}
-							<div class="step-section" in:fade={{ duration: 100 }}>
-								<div class="step-line step-line-last"></div>
-								<div class="step-section__content">
-									<Button
-										style="pop"
-										{loading}
-										disabled={loading}
-										onclick={async () => {
-											await gitHubOauthCheckStatus(deviceCode);
-										}}
-									>
-										Check the status
-									</Button>
-								</div>
-							</div>
-						{/if}
-					</div>
-				</SectionCard>
-			</div>
-
-			<!-- PAT FLOW -->
-		{:else if showingFlow === 'pat'}
-			<div class="stack-v" in:fade={{ duration: 100 }}>
-				<SectionCard roundedBottom={false}>
 					{#snippet title()}
-						Add Personal Access Token
+						Failed to load GitHub accounts
+					{/snippet}
+					<Button
+						style="pop"
+						onclick={deleteAllGitHubAccounts}
+						loading={clearingAllResult.current.isLoading}>Try again</Button
+					>
+				</SectionCard>
+			{/snippet}
+
+			<!-- ADD ACCOUNT(S) LIST -->
+			{#snippet children(accounts)}
+				{@const noAccounts = accounts.length === 0}
+				{#each accounts as account, index}
+					<GithubUserLoginState {account} isFirst={index === 0} />
+				{/each}
+
+				<SectionCard
+					orientation="row"
+					background={accounts.length > 0 ? 'disabled' : undefined}
+					roundedTop={accounts.length === 0}
+				>
+					{#snippet iconSide()}
+						<div class="icon-wrapper__logo">
+							{@html githubLogoSvg}
+						</div>
 					{/snippet}
 
-					<Textbox
-						size="large"
-						type="password"
-						value={patInput}
-						placeholder="ghp_************************"
-						oninput={(value) => (patInput = value)}
-						error={patError}
-					/>
-				</SectionCard>
-				<SectionCard roundedTop={false}>
-					<div class="flex justify-end gap-6">
-						<Button style="neutral" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
-						<Button
-							style="pop"
-							disabled={!patInput}
-							loading={storePatResult.current.isLoading}
-							onclick={storePersonalAccessToken}
-						>
-							Add account
-						</Button>
-					</div>
-				</SectionCard>
-			</div>
-		{:else if showingFlow === 'ghe'}
-			<div in:fade={{ duration: 100 }}>
-				<SectionCard roundedBottom={false}>
 					{#snippet title()}
-						Add GitHub Enterprise Account
+						GitHub
 					{/snippet}
 
 					{#snippet caption()}
-						To connect to your GitHub Enterprise API, allow-list it in the app’s CSP settings.
-						<br />
-						See <Link href="https://docs.gitbutler.com/troubleshooting/custom-csp"
-							>docs for details</Link
-						>
+						Allows you to create Pull Requests
 					{/snippet}
 
-					<Textbox
-						label="API Base URL"
-						size="large"
-						value={gheHostInput}
-						oninput={(value) => (gheHostInput = value)}
-						helperText="This should be the root URL of the API. For example, if your GitHub Enterprise Server's hostname is github.acme-inc.com, then set the base URL to github.acme-inc.com/api/v3"
-						error={gheHostError}
-					/>
-					<Textbox
-						label="Personal Access Token"
-						placeholder="ghp_************************"
-						size="large"
-						type="password"
-						value={ghePatInput}
-						oninput={(value) => (ghePatInput = value)}
-						error={ghePatError}
-					/>
+					{@render addAccountButton(noAccounts)}
 				</SectionCard>
-				<SectionCard roundedTop={false}>
-					<div class="flex justify-end gap-6">
-						<Button style="neutral" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
-						<Button
-							style="pop"
-							disabled={!gheHostInput || !ghePatInput}
-							loading={storeGhePatResult.current.isLoading}
-							onclick={storeGitHubEnterpriseToken}
-						>
-							Add account
-						</Button>
-					</div>
-				</SectionCard>
-			</div>
-		{/if}
+			{/snippet}
+		</ReduxResult>
 	</div>
-{/if}
+
+	<!-- AUTH FLOW -->
+	{#if showingFlow === 'oauthFlow'}
+		<div in:fade={{ duration: 100 }}>
+			<SectionCard orientation="row">
+				<div class="wrapper">
+					<div class="step-section">
+						<div class="step-line"></div>
+						<div class="step-section__content">
+							<p class="text-13 text-body">Copy the following verification code:</p>
+
+							<div class="code-wrapper">
+								<span class="text-head-20">
+									{userCode}
+								</span>
+								<Button
+									style="neutral"
+									kind="outline"
+									icon="copy"
+									disabled={codeCopied}
+									onclick={() => {
+										clipboardService.write(userCode, { message: 'User code copied' });
+										codeCopied = true;
+									}}
+								>
+									Copy to Clipboard
+								</Button>
+							</div>
+						</div>
+					</div>
+
+					{#if codeCopied}
+						<div class="step-section" in:fade={{ duration: 100 }}>
+							<div class="step-line step-line-default"></div>
+							<div class="step-section__content">
+								<p class="text-13 text-body">
+									Navigate to the GitHub activation page and paste the code you copied.
+								</p>
+								<Button
+									style="pop"
+									disabled={GhActivationLinkPressed}
+									icon="open-link"
+									onclick={() => {
+										urlService.openExternalUrl('https://github.com/login/device');
+										GhActivationLinkPressed = true;
+
+										// add timeout to prevent show the check button before the page is opened
+										setTimeout(() => {
+											GhActivationPageOpened = true;
+										}, 500);
+									}}
+								>
+									Open GitHub activation page
+								</Button>
+							</div>
+						</div>
+					{/if}
+
+					{#if GhActivationPageOpened}
+						<div class="step-section" in:fade={{ duration: 100 }}>
+							<div class="step-line step-line-last"></div>
+							<div class="step-section__content">
+								<Button
+									style="pop"
+									{loading}
+									disabled={loading}
+									onclick={async () => {
+										await gitHubOauthCheckStatus(deviceCode);
+									}}
+								>
+									Check the status
+								</Button>
+							</div>
+						</div>
+					{/if}
+				</div>
+			</SectionCard>
+		</div>
+
+		<!-- PAT FLOW -->
+	{:else if showingFlow === 'pat'}
+		<div class="stack-v" in:fade={{ duration: 100 }}>
+			<SectionCard roundedBottom={false}>
+				{#snippet title()}
+					Add Personal Access Token
+				{/snippet}
+
+				<Textbox
+					size="large"
+					type="password"
+					value={patInput}
+					placeholder="ghp_************************"
+					oninput={(value) => (patInput = value)}
+					error={patError}
+				/>
+			</SectionCard>
+			<SectionCard roundedTop={false}>
+				<div class="flex justify-end gap-6">
+					<Button style="neutral" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
+					<Button
+						style="pop"
+						disabled={!patInput}
+						loading={storePatResult.current.isLoading}
+						onclick={storePersonalAccessToken}
+					>
+						Add account
+					</Button>
+				</div>
+			</SectionCard>
+		</div>
+	{:else if showingFlow === 'ghe'}
+		<div in:fade={{ duration: 100 }}>
+			<SectionCard roundedBottom={false}>
+				{#snippet title()}
+					Add GitHub Enterprise Account
+				{/snippet}
+
+				{#snippet caption()}
+					To connect to your GitHub Enterprise API, allow-list it in the app’s CSP settings.
+					<br />
+					See <Link href="https://docs.gitbutler.com/troubleshooting/custom-csp"
+						>docs for details</Link
+					>
+				{/snippet}
+
+				<Textbox
+					label="API Base URL"
+					size="large"
+					value={gheHostInput}
+					oninput={(value) => (gheHostInput = value)}
+					helperText="This should be the root URL of the API. For example, if your GitHub Enterprise Server's hostname is github.acme-inc.com, then set the base URL to github.acme-inc.com/api/v3"
+					error={gheHostError}
+				/>
+				<Textbox
+					label="Personal Access Token"
+					placeholder="ghp_************************"
+					size="large"
+					type="password"
+					value={ghePatInput}
+					oninput={(value) => (ghePatInput = value)}
+					error={ghePatError}
+				/>
+			</SectionCard>
+			<SectionCard roundedTop={false}>
+				<div class="flex justify-end gap-6">
+					<Button style="neutral" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
+					<Button
+						style="pop"
+						disabled={!gheHostInput || !ghePatInput}
+						loading={storeGhePatResult.current.isLoading}
+						onclick={storeGitHubEnterpriseToken}
+					>
+						Add account
+					</Button>
+				</div>
+			</SectionCard>
+		</div>
+	{/if}
+</div>
+
+<p class="text-12 text-body github-integration-settings__text">
+	🔒 Credentials are persisted locally in your OS Keychain / Credential Manager.
+</p>
 
 {#snippet addAccountButton(noAccounts: boolean)}
 	{@const buttonStyle = noAccounts ? 'pop' : 'neutral'}
@@ -501,5 +495,9 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		user-select: text;
+	}
+
+	.github-integration-settings__text {
+		color: var(--clr-text-2);
 	}
 </style>

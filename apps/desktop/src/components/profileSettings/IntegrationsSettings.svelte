@@ -14,10 +14,6 @@
 	}
 </script>
 
-<p class="text-12 text-body header-settings__text">
-	Credentails are persisted locally in your OS Keychain / Credential Manager.
-</p>
-
 <GithubIntegration />
 
 <Spacer />
@@ -38,10 +34,3 @@
 		/>
 	{/snippet}
 </SectionCard>
-
-<style>
-	.header-settings__text {
-		margin-bottom: 10px;
-		color: var(--clr-text-2);
-	}
-</style>
