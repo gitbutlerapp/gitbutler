@@ -12,7 +12,6 @@
 	import CodegenMessages from '$components/codegen/CodegenMessages.svelte';
 	import CodegenSidebar from '$components/codegen/CodegenSidebar.svelte';
 	import CodegenSidebarEntry from '$components/codegen/CodegenSidebarEntry.svelte';
-	import CodegenTodo from '$components/codegen/CodegenTodo.svelte';
 	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
 	import appClickSvg from '$lib/assets/empty-state/app-click.svg?raw';
 	import codegenSvg from '$lib/assets/empty-state/codegen.svg?raw';
@@ -21,7 +20,7 @@
 	import vibecodingSvg from '$lib/assets/illustrations/vibecoding.svg?raw';
 	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { currentStatus, getTodos, lastInteractionTime, usageStats } from '$lib/codegen/messages';
+	import { currentStatus, lastInteractionTime, usageStats } from '$lib/codegen/messages';
 
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import { isAiRule, type RuleFilter } from '$lib/rules/rule';
@@ -36,7 +35,7 @@
 	import { Badge, Button, chipToasts, EmptyStatePlaceholder } from '@gitbutler/ui';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 
-	import type { ClaudeMessage, PermissionMode } from '$lib/codegen/types';
+	import type { PermissionMode } from '$lib/codegen/types';
 
 	type Props = {
 		projectId: string;
@@ -139,10 +138,6 @@
 		}
 	}
 
-	const events = $derived(
-		claudeCodeService.messages({ projectId, stackId: selectedBranch?.stackId || '' })
-	);
-
 	let rightSidebarRef = $state<HTMLDivElement>();
 	let createBranchModal = $state<CreateBranchModal>();
 
@@ -220,7 +215,7 @@
 				/>
 			{/key}
 
-			{@render rightSidebar(events.response || [])}
+			{@render rightSidebar()}
 		{:else}
 			<div class="chat-view__no-branches-placeholder">
 				<EmptyStatePlaceholder image={codegenSvg} width={250} gap={24}>
@@ -235,10 +230,10 @@
 	</div>
 {/snippet}
 
-{#snippet rightSidebar(events: ClaudeMessage[])}
+{#snippet rightSidebar()}
 	{@const addedDirs = laneState?.addedDirs.current || []}
 	<div class="right-sidebar" bind:this={rightSidebarRef}>
-		{#if !branchChanges || !selectedBranch || (branchChanges.response && branchChanges.response.changes.length === 0 && getTodos(events).length === 0 && addedDirs.length === 0)}
+		{#if !branchChanges || !selectedBranch || (branchChanges.response && branchChanges.response.changes.length === 0 && addedDirs.length === 0)}
 			<div class="right-sidebar__placeholder">
 				<EmptyStatePlaceholder
 					image={filesAndChecksSvg}
@@ -252,14 +247,12 @@
 				</EmptyStatePlaceholder>
 			</div>
 		{:else}
-			{@const todos = getTodos(events)}
 			{#if branchChanges && selectedBranch}
 				<ReduxResult result={branchChanges.result} {projectId}>
 					{#snippet children({ changes }, { projectId })}
 						<Drawer
-							bottomBorder={todos.length > 0 || addedDirs.length > 0}
+							bottomBorder={addedDirs.length > 0}
 							grow
-							defaultCollapsed={todos.length > 0}
 							notScrollable={changes.length === 0}
 							persistId={`codegen-changed-files-drawer-${projectId}-${selectedBranch.stackId}`}
 						>
@@ -292,26 +285,6 @@
 						</Drawer>
 					{/snippet}
 				</ReduxResult>
-			{/if}
-
-			{#if todos.length > 0}
-				<Drawer
-					persistId="codegen-todos-drawer-{projectId}-{selectedBranch.stackId}"
-					defaultCollapsed={false}
-					noshrink
-					bottomBorder={addedDirs.length > 0}
-				>
-					{#snippet header()}
-						<h4 class="text-14 text-semibold truncate">Todos</h4>
-						<Badge>{todos.length}</Badge>
-					{/snippet}
-
-					<div class="right-sidebar-list">
-						{#each todos as todo}
-							<CodegenTodo {todo} />
-						{/each}
-					</div>
-				</Drawer>
 			{/if}
 
 			{#if addedDirs.length > 0}
