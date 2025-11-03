@@ -223,8 +223,9 @@ pub async fn get_gh_user(
     storage: &but_forge_storage::controller::Controller,
 ) -> Result<Option<AuthenticatedUser>> {
     if let Some(access_token) = token::get_gh_access_token(account, storage)? {
-        let gh =
-            client::GitHubClient::new(&access_token).context("Failed to create GitHub client")?;
+        let gh = account
+            .client(&access_token)
+            .context("Failed to create GitHub client")?;
         let user = gh
             .get_authenticated()
             .await

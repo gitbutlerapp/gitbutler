@@ -8,7 +8,8 @@ pub async fn list(
 ) -> Result<Vec<crate::client::PullRequest>> {
     let account_id = resolve_account(preferred_account, storage)?;
     if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
-        let gh = crate::client::GitHubClient::new(&access_token)
+        let gh = account_id
+            .client(&access_token)
             .context("Failed to create GitHub client")?;
         let pulls = gh
             .list_open_pulls(owner, repo)
@@ -27,7 +28,8 @@ pub async fn create(
 ) -> Result<crate::client::PullRequest> {
     let account_id = resolve_account(preferred_account, storage)?;
     if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
-        let gh = crate::client::GitHubClient::new(&access_token)
+        let gh = account_id
+            .client(&access_token)
             .context("Failed to create GitHub client")?;
         let pr = gh
             .create_pull_request(&params)
