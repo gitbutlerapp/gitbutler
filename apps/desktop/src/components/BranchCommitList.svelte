@@ -418,7 +418,8 @@
 							{first}
 							{last}
 							selected={exclusiveAction?.type === 'commit' &&
-								exclusiveAction.parentCommitId === branchDetails.baseCommit}
+								exclusiveAction.parentCommitId === branchDetails.baseCommit &&
+								commitAction?.branchName === branchName}
 							onclick={() => {
 								projectState.exclusiveAction.set({
 									type: 'commit',

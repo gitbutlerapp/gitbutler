@@ -83,6 +83,7 @@
 		numberOfUpstreamCommits: number;
 		numberOfBranchesInStack: number;
 		hasCodegenRow?: boolean;
+		baseCommit?: string;
 		onclick: () => void;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
@@ -129,6 +130,11 @@
 	const selection = $derived(laneState ? laneState.selection.current : undefined);
 	const selected = $derived(selection?.branchName === branchName);
 	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
+	const isCommitTarget = $derived(
+		exclusiveAction?.type === 'commit' &&
+			(exclusiveAction.branchName === branchName ||
+				(exclusiveAction.branchName === undefined && args.type === 'draft-branch'))
+	);
 
 	// Consolidated rounded bottom logic from both BranchCard and BranchHeader
 	const isRoundedBottom = $derived.by(() => {
@@ -226,6 +232,17 @@
 				draft={false}
 				{lineColor}
 				isCommitting={args.isCommitting}
+				{isCommitTarget}
+				commitId={args.baseCommit}
+				onCommitGoesHereClick={() => {
+					if (!args.stackId) return;
+					projectState.exclusiveAction.set({
+						type: 'commit',
+						stackId: args.stackId,
+						branchName,
+						parentCommitId: args.baseCommit
+					});
+				}}
 				iconName={args.iconName}
 				{updateBranchName}
 				isUpdatingName={nameUpdate.current.isLoading}
@@ -373,6 +390,8 @@
 			selected
 			draft
 			{lineColor}
+			isCommitting={args.isCommitting}
+			{isCommitTarget}
 			iconName="branch-local"
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
