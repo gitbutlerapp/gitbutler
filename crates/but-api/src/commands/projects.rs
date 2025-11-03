@@ -42,3 +42,12 @@ pub fn get_project(
 pub fn delete_project(project_id: ProjectId) -> Result<(), Error> {
     gitbutler_project::delete(project_id).map_err(Into::into)
 }
+
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn is_gerrit(project_id: ProjectId) -> Result<bool, Error> {
+    let project = gitbutler_project::get_raw(project_id)?;
+    let repo = project.open()?;
+    gitbutler_project::gerrit::is_used_by_default_remote(&repo).map_err(Into::into)
+}
