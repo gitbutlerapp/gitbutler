@@ -55,6 +55,12 @@
 		new CodegenFileDropHandler(stackId, branchName, addAttachment),
 		new CodegenHunkDropHandler(stackId, branchName, addAttachment)
 	]);
+
+	function toggleSelection() {
+		laneState.selection.set(
+			selected ? undefined : { branchName, codegen: true, previewOpen: true }
+		);
+	}
 </script>
 
 <Dropzone {handlers}>
@@ -66,13 +72,9 @@
 		class="codegen-row"
 		class:selected
 		class:active
-		onclick={() => {
-			laneState.selection.set({ branchName, codegen: true, previewOpen: true });
-		}}
+		onclick={toggleSelection}
 		use:focusable={{
-			onAction: () => {
-				laneState.selection.set({ branchName, codegen: true, previewOpen: true });
-			},
+			onAction: toggleSelection,
 			onActive: (value) => (active = value),
 			focusable: true
 		}}
