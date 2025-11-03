@@ -141,6 +141,9 @@ pub trait OplogExt {
     /// This is useful to show what has changed in this particular snapshot
     fn snapshot_diff(&self, sha: git2::Oid) -> Result<Vec<TreeChange>>;
 
+    /// Gets a specific snapshot by its commit sha.
+    fn get_snapshot(&self, sha: git2::Oid) -> Result<Snapshot>;
+
     /// Gets the sha of the last snapshot commit if present.
     fn oplog_head(&self) -> Result<Option<git2::Oid>>;
 }
@@ -167,6 +170,26 @@ impl OplogExt for CommandContext {
     ) -> Result<git2::Oid> {
         let tree_id = prepare_snapshot(self, perm.read_permission())?;
         commit_snapshot(self.project(), tree_id, details, perm)
+    }
+
+    #[instrument(skip(self), err(Debug))]
+    fn get_snapshot(&self, sha: git2::Oid) -> Result<Snapshot> {
+        let repo = self.project().open_for_merging()?;
+        let commit = repo.find_commit(sha.to_gix())?;
+        let commit_time = gix_time_to_git2(commit.time()?);
+        let details = commit
+            .message_raw()?
+            .to_str()
+            .ok()
+            .and_then(|msg| SnapshotDetails::from_str(msg).ok())
+            .ok_or(anyhow!("Commit is not a snapshot"))?;
+
+        let snapshot = Snapshot {
+            commit_id: sha,
+            created_at: commit_time,
+            details: Some(details),
+        };
+        Ok(snapshot)
     }
 
     #[instrument(skip(self), err(Debug))]
