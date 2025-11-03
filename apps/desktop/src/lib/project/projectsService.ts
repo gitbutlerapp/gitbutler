@@ -70,6 +70,22 @@ export class ProjectsService {
 		return await this.api.endpoints.deleteProject.mutate({ projectId });
 	}
 
+	/**
+	 * Whether this project is configured to use Gerrit as per its Git config.
+	 *
+	 * This is different from checking for signals of Gerrit usage. This tells us whether the
+	 * user has explicitly set the Gerrit mode for this project.
+	 * Default value is false.
+	 *
+	 * @see {areYouGerritKiddingMe} for checking for signals of Gerrit usage.
+	 */
+	isGerritProject(projectId: string) {
+		return this.api.endpoints.project.useQuery(
+			{ projectId, noValidation: true },
+			{ transform: (data) => data.gerrit_mode }
+		);
+	}
+
 	async promptForDirectory(): Promise<string | undefined> {
 		const cookiePath = getCookie('test-projectPath');
 		if (cookiePath) {
@@ -154,6 +170,18 @@ export class ProjectsService {
 	unsetLastOpenedProject() {
 		this.persistedId.set(undefined);
 	}
+
+	/**
+	 * Check if the project's repository is potentially using Gerrit.
+	 *
+	 * This is different from querying the repository config value, as it only
+	 * checks for signals of a Gerrit setup.
+	 *
+	 * @see {isGerritProject} for checking the actual config value.
+	 */
+	areYouGerritKiddingMe(projectId: string) {
+		return this.api.endpoints.areYouGerritKiddingMe.useQuery({ projectId });
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -194,6 +222,12 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			openProjectInWindow: build.mutation<void, { id: string }>({
 				extraOptions: { command: 'open_project_in_window' },
 				query: (args) => args
+			}),
+			areYouGerritKiddingMe: build.query<boolean, { projectId: string }>({
+				extraOptions: { command: 'is_gerrit' },
+				query: (args) => args,
+				providesTags: (_result, _error, args) =>
+					providesItem(ReduxTag.ProjectGerrit, args.projectId)
 			})
 		})
 	});
