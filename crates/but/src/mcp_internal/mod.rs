@@ -12,7 +12,7 @@ use rmcp::{
     },
     schemars,
     service::RequestContext,
-    tool, tool_router,
+    tool, tool_handler, tool_router,
 };
 
 use crate::metrics::{Event, EventKind, Metrics};
@@ -43,17 +43,17 @@ pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
 pub struct Mcp {
     metrics: Metrics,
     client_info: Arc<Mutex<Option<Implementation>>>,
-    _tool_router: ToolRouter<Self>,
+    tool_router: ToolRouter<Self>,
 }
 
-#[tool_router]
+#[tool_router(vis = "pub")]
 impl Mcp {
     pub fn new(app_settings: AppSettings, client_info: Arc<Mutex<Option<Implementation>>>) -> Self {
         let metrics = Metrics::new_with_background_handling(&app_settings);
         Self {
             metrics,
             client_info,
-            _tool_router: Self::tool_router(),
+            tool_router: Self::tool_router(),
         }
     }
 
@@ -303,6 +303,7 @@ pub struct CreateBranchParams {
     pub description: String,
 }
 
+#[tool_handler]
 impl ServerHandler for Mcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
