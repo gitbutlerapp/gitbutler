@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CollapsedLane from '$components/CollapsedLane.svelte';
 	import MultiStackOfflaneDropzone from '$components/MultiStackOfflaneDropzone.svelte';
 	import MultiStackPagination, { scrollToLane } from '$components/MultiStackPagination.svelte';
 	import Scrollbar from '$components/Scrollbar.svelte';
@@ -18,6 +19,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { throttle } from '$lib/utils/misc';
 	import { inject } from '@gitbutler/core/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { flip } from 'svelte/animate';
@@ -36,6 +38,9 @@
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
+
+	// Persisted folded stacks state per project (without expiration)
+	const foldedStacks = persisted<string[]>([], `folded-stacks-${projectId}`);
 
 	let lanesScrollableEl = $state<HTMLDivElement>();
 	let lanesScrollableWidth = $state<number>(0);
@@ -169,9 +174,15 @@
 				onmousedown={onReorderMouseDown}
 				ondragstart={(e) => {
 					if (!stack.id) return;
-					onReorderStart(e, stack.id, () => {
-						draggingStack = true;
-					});
+					const isCollapsedLane = $foldedStacks.includes(stack.id);
+					onReorderStart(
+						e,
+						stack.id,
+						() => {
+							draggingStack = true;
+						},
+						isCollapsedLane
+					);
 				}}
 				ondragover={(e) => {
 					if (!stack.id) return;
@@ -182,21 +193,29 @@
 					onReorderEnd();
 				}}
 			>
-				<StackView
-					{projectId}
-					laneId={stack.id || 'banana'}
-					stackId={stack.id}
-					topBranchName={stack.heads.at(0)?.name}
-					bind:clientWidth={laneWidths[i]}
-					bind:clientHeight={lineHights[i]}
-					onVisible={(visible) => {
-						if (visible) {
-							visibleIndexes = [...visibleIndexes, i];
-						} else {
-							visibleIndexes = visibleIndexes.filter((index) => index !== i);
-						}
-					}}
-				/>
+				{#if stack.id && $foldedStacks.includes(stack.id)}
+					<CollapsedLane
+						stackId={stack.id}
+						branchNames={stack.heads.map((head) => head.name)}
+						{projectId}
+					/>
+				{:else}
+					<StackView
+						{projectId}
+						laneId={stack.id || 'banana'}
+						stackId={stack.id}
+						topBranchName={stack.heads.at(0)?.name}
+						bind:clientWidth={laneWidths[i]}
+						bind:clientHeight={lineHights[i]}
+						onVisible={(visible) => {
+							if (visible) {
+								visibleIndexes = [...visibleIndexes, i];
+							} else {
+								visibleIndexes = visibleIndexes.filter((index) => index !== i);
+							}
+						}}
+					/>
+				{/if}
 			</div>
 		{/each}
 

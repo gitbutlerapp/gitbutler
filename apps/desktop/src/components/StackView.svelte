@@ -9,6 +9,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import SelectionView from '$components/SelectionView.svelte';
+	import StackDragHandle from '$components/StackDragHandle.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import CodegenMessages from '$components/codegen/CodegenMessages.svelte';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
@@ -32,7 +33,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 
-	import { Button, FileViewHeader, Icon, TestId } from '@gitbutler/ui';
+	import { Button, FileViewHeader, TestId } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import { fly } from 'svelte/transition';
@@ -478,12 +479,6 @@
 		}
 	}}
 >
-	{#if !isCommitting}
-		<div class="drag-handle" data-remove-from-panning data-drag-handle draggable="true">
-			<Icon name="draggable-narrow" rotate={90} noEvents />
-		</div>
-	{/if}
-
 	<ConfigurableScrollableContainer childrenWrapHeight="100%">
 		<div
 			class="stack-view"
@@ -496,6 +491,8 @@
 				{#snippet children(branches)}
 					<div class="stack-v">
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
+						<StackDragHandle stackId={stableStackId} {projectId} disabled={isCommitting} />
+
 						<div
 							class="assignments-wrap"
 							class:assignments__empty={changes.current.length === 0 && !isCommitting}
@@ -716,7 +713,6 @@
 		flex-direction: column;
 		min-height: 100%;
 		padding: 0 12px;
-
 		/* Use CSS custom properties for details view width to avoid ResizeObserver errors */
 		--details-view-width: 0rem;
 	}
@@ -742,7 +738,6 @@
 		display: flex;
 		flex-shrink: 0;
 		flex-direction: column;
-		margin-top: 12px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
@@ -834,21 +829,5 @@
 		gap: 12px;
 		background-color: var(--clr-bg-2);
 		transition: background-color var(--transition-fast);
-	}
-
-	.drag-handle {
-		display: flex;
-		z-index: var(--z-floating);
-		position: absolute;
-		justify-content: flex-end;
-		width: 100%;
-		padding: 0 1px;
-		color: var(--clr-text-2);
-		cursor: grab;
-		transition: color var(--transition-fast);
-
-		&:hover {
-			color: var(--clr-text-1);
-		}
 	}
 </style>
