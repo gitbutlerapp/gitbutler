@@ -4,6 +4,8 @@ use anyhow::Result;
 use but_secret::{Sensitive, secret};
 use serde::{Deserialize, Serialize};
 
+use crate::client::GitHubClient;
+
 /// Persist GitHub account access tokens securely.
 pub fn persist_gh_access_token(
     account_id: &GithubAccountIdentifier,
@@ -84,6 +86,16 @@ impl GithubAccountIdentifier {
             GithubAccountIdentifier::OAuthUsername { username } => username,
             GithubAccountIdentifier::PatUsername { username } => username,
             GithubAccountIdentifier::Enterprise { username, .. } => username,
+        }
+    }
+
+    pub fn client(&self, access_token: &Sensitive<String>) -> Result<GitHubClient> {
+        match self {
+            GithubAccountIdentifier::OAuthUsername { .. }
+            | GithubAccountIdentifier::PatUsername { .. } => GitHubClient::new(access_token),
+            GithubAccountIdentifier::Enterprise { host, .. } => {
+                GitHubClient::new_with_host_override(access_token, host)
+            }
         }
     }
 }
