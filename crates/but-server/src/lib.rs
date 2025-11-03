@@ -248,6 +248,7 @@ async fn handle_command(
         "add_project" => iprojects::add_project_cmd(request.params),
         "get_project" => iprojects::get_project_cmd(request.params),
         "delete_project" => iprojects::delete_project_cmd(request.params),
+        "is_gerrit" => iprojects::is_gerrit_cmd(request.params),
         "list_projects" => projects::list_projects(&extra).await,
         "set_project_active" => {
             projects::set_project_active(&app, &extra, app_settings_sync, request.params).await
