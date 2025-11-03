@@ -25,9 +25,10 @@
 		branchName: string;
 		selected: boolean;
 		status: ClaudeStatus;
+		onselect?: () => void;
 	};
 
-	const { projectId, stackId, branchName, selected, status }: Props = $props();
+	const { projectId, stackId, branchName, selected, status, onselect }: Props = $props();
 
 	const uiState = inject(UI_STATE);
 	const laneState = uiState.lane(stackId);
@@ -60,6 +61,7 @@
 		laneState.selection.set(
 			selected ? undefined : { branchName, codegen: true, previewOpen: true }
 		);
+		onselect?.();
 	}
 </script>
 
