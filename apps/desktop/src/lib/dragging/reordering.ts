@@ -36,7 +36,8 @@ export function onReorderMouseDown(e: MouseEvent) {
 export function onReorderStart(
 	e: DragEvent & { currentTarget: HTMLDivElement },
 	stackId: string,
-	callback?: () => void
+	callback?: () => void,
+	preserveOriginalSize?: boolean
 ) {
 	if (dragHandle?.dataset.dragHandle === undefined) {
 		// Only elements with`data-drag-handle` attribute can initiate drag.
@@ -61,7 +62,17 @@ export function onReorderStart(
 	// additional styles to the clone to make background and border visible
 	clone.style.position = 'absolute';
 	clone.style.maxHeight = `${window.innerHeight - 100}px`;
-	clone.style.height = 'auto';
+
+	if (preserveOriginalSize) {
+		// Preserve original dimensions (e.g., for collapsed lanes)
+		const originalHeight = e.currentTarget.offsetHeight;
+		const originalWidth = e.currentTarget.offsetWidth;
+		clone.style.height = `${originalHeight}px`;
+		clone.style.width = `${originalWidth}px`;
+	} else {
+		// For regular stacks, use auto height (existing behavior)
+		clone.style.height = 'auto';
+	}
 	clone.style.zIndex = '-1';
 	clone.style.top = '-10000px'; // Move it out of the way
 	clone.style.left = '-10000px';

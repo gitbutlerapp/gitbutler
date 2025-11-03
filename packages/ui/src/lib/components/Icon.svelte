@@ -18,6 +18,7 @@
 		rotate?: number;
 		verticalAlign?: string;
 		noEvents?: boolean;
+		zIndex?: string;
 	}
 
 	const {
@@ -28,7 +29,8 @@
 		size = 16,
 		rotate,
 		verticalAlign,
-		noEvents
+		noEvents,
+		zIndex
 	}: Props = $props();
 
 	// Check if color is a predefined type or custom color
@@ -52,8 +54,9 @@
 	style:height="{pxToRem(size)}rem"
 	style:transform={rotate ? `rotate(${rotate}deg)` : undefined}
 	style:vertical-align={verticalAlign}
-	style="--spinner-radius: {spinnerRadius}; --custom-color: {customColor || 'currentColor'}"
+	style:z-index={zIndex}
 	style:pointer-events={noEvents ? 'none' : undefined}
+	style="--spinner-radius: {spinnerRadius}; --custom-color: {customColor || 'currentColor'}"
 >
 	{#if name === 'spinner'}
 		<g class:spinner={name === 'spinner'}>
