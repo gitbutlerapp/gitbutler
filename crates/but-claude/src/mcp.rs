@@ -14,7 +14,7 @@ use rmcp::{
     model::{
         CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
     },
-    schemars, tool, tool_router,
+    schemars, tool, tool_handler, tool_router,
 };
 
 pub async fn start(repo_path: &Path) -> Result<()> {
@@ -23,7 +23,7 @@ pub async fn start(repo_path: &Path) -> Result<()> {
     let transport = (tokio::io::stdin(), tokio::io::stdout());
     let server = Mcp {
         project,
-        _tool_router: Mcp::tool_router(),
+        tool_router: Mcp::tool_router(),
     };
     let service = server.serve(transport).await?;
     let info = service.peer_info();
@@ -31,19 +31,23 @@ pub async fn start(repo_path: &Path) -> Result<()> {
         *guard = info.map(|i| i.client_info.clone());
     }
     service.waiting().await?;
+    // serve_server(server, transport).await?;
     Ok(())
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct Mcp {
     project: Project,
-    _tool_router: ToolRouter<Self>,
+    tool_router: ToolRouter<Self>,
 }
 
-#[tool_router]
+#[tool_router(vis = "pub")]
 impl Mcp {
-    #[tool(description = "Permission check for tool calls")]
-    pub fn approval_prompt(
+    #[tool(
+        name = "approval_prompt",
+        description = "Permission check for tool calls"
+    )]
+    pub async fn approval_prompt(
         &self,
         request: Parameters<McpPermissionRequest>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
@@ -167,14 +171,15 @@ pub struct McpPermissionResponse {
     message: Option<String>,
 }
 
+#[tool_handler]
 impl ServerHandler for Mcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            instructions: Some("GitButler MCP server".into()),
+            instructions: Some("GitButler CC Security MCP server".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             server_info: Implementation {
                 title: None,
-                name: "GitButler MCP Server".into(),
+                name: "GitButler CC Security MCP server".into(),
                 version: "1.0.0".into(),
                 icons: None,
                 website_url: Some("https://gitbutler.com".into()),

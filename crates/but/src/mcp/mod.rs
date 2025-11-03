@@ -16,7 +16,7 @@ use rmcp::{
     model::{
         CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
     },
-    schemars, tool, tool_router,
+    schemars, tool, tool_handler, tool_router,
 };
 
 use crate::metrics::{Event, EventKind, Metrics};
@@ -44,10 +44,10 @@ pub struct Mcp {
     metrics: Metrics,
     client_info: Arc<Mutex<Option<Implementation>>>,
     event_handler: event::Handler,
-    _tool_router: ToolRouter<Self>,
+    tool_router: ToolRouter<Self>,
 }
 
-#[tool_router]
+#[tool_router(vis = "pub")]
 impl Mcp {
     pub fn new(app_settings: AppSettings, client_info: Arc<Mutex<Option<Implementation>>>) -> Self {
         let metrics = Metrics::new_with_background_handling(&app_settings);
@@ -57,7 +57,7 @@ impl Mcp {
             metrics,
             client_info,
             event_handler,
-            _tool_router: Self::tool_router(),
+            tool_router: Self::tool_router(),
         }
     }
 
@@ -178,6 +178,7 @@ pub struct GitButlerUpdateBranchesRequest {
     pub current_working_directory: String,
 }
 
+#[tool_handler]
 impl ServerHandler for Mcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
