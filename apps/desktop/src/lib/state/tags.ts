@@ -25,7 +25,6 @@ export enum ReduxTag {
 	SnapshotDiff = 'SnapshotDiff',
 	WorkspaceRules = 'WorkspaceRules',
 	Project = 'Project',
-	ProjectGerrit = 'ProjectGerrit',
 	ClaudeCodeTranscript = 'ClaudeCodeTranscript',
 	ClaudePermissionRequests = 'ClaudePermissionPrompts',
 	ClaudeSessionDetails = 'ClaudeSessionDetails',
@@ -34,8 +33,7 @@ export enum ReduxTag {
 	EditChangesSinceInitial = 'EditChangesSinceInitial',
 	AuthorInfo = 'AuthorInfo',
 	IntegrationSteps = 'IntegrationSteps',
-	GitConfigProperty = 'GitConfigProperty',
-	GitButlerConfig = 'GitButlerConfig'
+	GitConfigProperty = 'GitConfigProperty'
 }
 
 type Tag<T extends string | number> = {

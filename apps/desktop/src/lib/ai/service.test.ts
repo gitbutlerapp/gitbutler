@@ -55,7 +55,7 @@ class DummyGitConfigService extends GitConfigService {
 	async getGbConfig(_projectId: string): Promise<GbConfig> {
 		throw new Error('Method not implemented.');
 	}
-	async setGbConfig(_projectId: string, _config: GbConfig): Promise<void> {
+	async setGbConfig(_projectId: string, _config: GbConfig): Promise<unknown> {
 		throw new Error('Method not implemented.');
 	}
 	async get<T extends string>(key: string): Promise<T | undefined> {
