@@ -116,7 +116,7 @@ pub(crate) fn show_oplog(project: &Project, json: bool, since: Option<&str>) -> 
 }
 
 fn snapshot_time_string(snapshot: &Snapshot) -> String {
-    snapshot.created_at.to_gix().format(ISO8601_NO_TZ)
+    snapshot.created_at.to_gix().format_or_raw(ISO8601_NO_TZ)
 }
 
 pub(crate) fn restore_to_oplog(

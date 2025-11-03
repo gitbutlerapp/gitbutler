@@ -437,13 +437,13 @@ fn print_commit(
 
     if verbose {
         // Verbose format: author and timestamp on first line, message on second line
-        let formatted_time = created_at.format(gix::date::time::format::ISO8601);
+        let formatted_time = created_at.format_or_raw(gix::date::time::format::ISO8601);
         println!(
             "┊{dot}   {}{} {} {} {} {} {} {}",
             &commit_id.to_string()[..2].blue().underline(),
             &commit_id.to_string()[2..7].dimmed(),
             author_name,
-            formatted_time.to_string().dimmed(),
+            formatted_time.dimmed(),
             no_changes,
             conflicted_str,
             review_url
