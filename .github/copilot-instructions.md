@@ -9,7 +9,7 @@ They are:
 
 The backend of the Tauri application is found in the `crates` directory.
 It contains different rust packages, with `gitbutler-tauri` for the tauri application,
-and `but-api` for implementing various command-line utilities like `but-testing` 
+and `but-api` for implementing various command-line utilities like `but-testing`
 and `but`.
 
 The `packages` directory contains different self-contained npm packages.
@@ -138,6 +138,7 @@ pnpm begood
 ```
 
 **Important ESLint Rules**:
+
 - No relative imports (use `@gitbutler/` package references)
 - Import order: alphabetically sorted with specific group ordering
 - No console.log (use console.warn or console.error)
@@ -145,6 +146,7 @@ pnpm begood
 - Svelte-specific rules for button types, unused props, etc.
 
 **Prettier Config**:
+
 - Tabs for indentation
 - Single quotes
 - No trailing commas
@@ -168,6 +170,7 @@ cargo clippy --all-targets
 ```
 
 **Rust Formatting**:
+
 - Group imports: Std, External, Crate
 - Imports granularity: Crate level
 
@@ -189,6 +192,7 @@ pnpm add <package> --filter @gitbutler/ui
 ### Adding Rust Dependencies
 
 Edit the appropriate `Cargo.toml` file:
+
 - Workspace-level dependencies go in `/Cargo.toml` under `[workspace.dependencies]`
 - Individual crate dependencies reference workspace versions when possible, and when it's used more than once.
 
@@ -199,11 +203,13 @@ Edit the appropriate `Cargo.toml` file:
 ### Workspace Navigation
 
 The repository uses:
+
 - **Turborepo** for JavaScript/TypeScript build orchestration
 - **Cargo workspace** for Rust crate management
 - **pnpm workspace** for npm package management
 
 When making changes:
+
 1. Identify which package/crate is affected
 2. Run builds/tests in that package first
 3. Then verify dependent packages still work
@@ -211,11 +217,13 @@ When making changes:
 ### Crate Organization
 
 The `crates/` directory contains ~65 Rust crates organized by functionality:
+
 - `gitbutler-*` prefix: Core GitButler functionality. These are old, and we want to port them to `but-*`.
 - `but-*` prefix: Backend utilities and services
 - Many crates have specific purposes (see DEVELOPMENT.md "Code Hitlist" for technical debt items)
 
 **Note**: Some crates are marked for refactoring (see DEVELOPMENT.md). Be cautious when modifying:
+
 - gitbutler-reference
 - gitbutler-storage
 - gitbutler-branch-actions
@@ -227,6 +235,7 @@ The `crates/` directory contains ~65 Rust crates organized by functionality:
 ### Workflows
 
 Located in `.github/workflows/`:
+
 - `push.yaml`: Main CI for linting, building, and testing on push
 - `publish.yaml`: Release builds for different platforms
 - `test-e2e-playwright.yml`: E2E tests with Playwright
@@ -236,6 +245,7 @@ Located in `.github/workflows/`:
 ### Pre-commit Checks
 
 Before committing, ensure:
+
 1. Code is formatted: `pnpm format && pnpm rustfmt`
 2. Linting passes: `pnpm lint && cargo clippy --all-targets`
 3. Tests pass: `pnpm test && cargo test`
@@ -256,11 +266,13 @@ Auto-fix with `pnpm begood && cargo clippy --fix --all-targets`
 ### Naming Conventions
 
 **JavaScript/TypeScript**:
+
 - Components: PascalCase (e.g., `BranchCard.svelte`)
 - Files: kebab-case (e.g., `branch-service.ts`)
 - Variables/functions: camelCase
 
 **Rust**:
+
 - Follow standard Rust naming conventions
 
 ### Error Handling
