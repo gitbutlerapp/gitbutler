@@ -30,6 +30,16 @@ pub fn gix_to_git2_oid(id: impl Into<gix::ObjectId>) -> git2::Oid {
     git2::Oid::from_bytes(id.into().as_bytes()).expect("always valid")
 }
 
+pub trait TimeExt {
+    fn to_gix(self) -> gix::date::Time;
+}
+
+impl TimeExt for git2::Time {
+    fn to_gix(self) -> gix::date::Time {
+        gix::date::Time::new(self.seconds(), self.offset_minutes())
+    }
+}
+
 pub trait ObjectIdExt {
     fn to_git2(self) -> git2::Oid;
 }

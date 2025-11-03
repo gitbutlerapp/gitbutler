@@ -8,6 +8,7 @@ use but_settings::app_settings::{
 };
 use but_testsupport::gix_testtools::tempfile;
 use but_workspace::StackId;
+use snapbox::{Assert, Redactions};
 use std::env;
 use std::io::Write;
 use std::ops::DerefMut;
@@ -84,6 +85,25 @@ pushRemoteName = "origin"
 
 /// Utilities
 impl Sandbox {
+    /// Create an assert with custom redactions. Adapt as needed.
+    pub fn assert_with_oplog_redactions(&self) -> Assert {
+        let mut redactions = Redactions::new();
+        redactions
+            .insert(
+                "[SHORTHASH]",
+                regex::Regex::new(r#"[a-f0-9]{7}\b"#).unwrap(),
+            )
+            .unwrap();
+        redactions
+            .insert(
+                "[MICROHASH]",
+                regex::Regex::new(r#"\b[a-f0-9]{5}\b"#).unwrap(),
+            )
+            .unwrap();
+        Assert::new()
+            .action_env("SNAPSHOTS")
+            .redact_with(redactions)
+    }
     /// Print the paths to our directories, and keep them.
     pub fn debug(mut self) -> ! {
         eprintln!(
@@ -91,7 +111,7 @@ impl Sandbox {
             self.projects_root.take().unwrap().keep()
         );
         eprintln!("app_root: {:?}", self.app_root.take().unwrap().keep());
-        todo!("Check the direcotires manually")
+        todo!("Check the directories manually")
     }
 
     /// Open a repository on the projects-directory.
@@ -162,7 +182,7 @@ impl Sandbox {
             cmd = cmd
                 .args(shell_words::split(args).expect("statically known args must split correctly"))
         }
-        self.with_updated_env(cmd)
+        self.with_updated_env(cmd).env("CHANGE_ID", "42")
     }
 
     /// Invoke an isolated `git` with the given `args`, which will be split automatically.

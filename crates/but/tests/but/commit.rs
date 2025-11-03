@@ -109,11 +109,20 @@ fn commit_with_create_flag_creates_new_branch() -> anyhow::Result<()> {
     env.but("commit -m 'New feature' -c feature-x")
         .assert()
         .success()
+        .stderr_eq(str![])
         .stdout_eq(str![[r#"
 Created new independent branch 'feature-x'
 Created commit [..] on branch feature-x
 
 "#]]);
 
+    env.but("oplog")
+        .with_assert(env.assert_with_oplog_redactions())
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/from-workspace/commit-oplog.stdout.term.svg"
+        ]);
     Ok(())
 }
