@@ -83,7 +83,6 @@
 		width: 42px;
 		height: 8px;
 	}
-
 	.pin__circle {
 		position: relative;
 		width: 8px;
@@ -117,7 +116,7 @@
 		margin-top: -10px;
 		margin-bottom: -10px;
 		opacity: 0;
-		transition: height var(--transition-fast);
+		transition: height var(--transition-medium);
 
 		&:hover {
 			opacity: 1;
