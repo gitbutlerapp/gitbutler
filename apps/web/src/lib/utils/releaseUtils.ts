@@ -18,7 +18,7 @@ export function processBuilds(builds: Build[]): Build[] {
 export function findBuild(
 	builds: Build[],
 	os: string,
-	arch?: string,
+	arch?: 'x86_64' | 'aarch64',
 	fileIncludes?: string
 ): Build | undefined {
 	return builds.find(
@@ -42,16 +42,29 @@ export function deduplicateReleases(releases: Release[]): Release[] {
 /**
  * Create standardized build mapping for the latest release with common platform configurations
  */
-export function createLatestReleaseBuilds(latestRelease: Release): {
-	[key: string]: Build | undefined;
-} {
+export interface LatestReleaseBuilds {
+	darwin_x86_64: Build | undefined;
+	darwin_aarch64: Build | undefined;
+	windows_x86_64: Build | undefined;
+	linux_appimage_x86_64: Build | undefined;
+	linux_deb_x86_64: Build | undefined;
+	linux_rpm_x86_64: Build | undefined;
+	linux_appimage_aarch64: Build | undefined;
+	linux_deb_aarch64: Build | undefined;
+	linux_rpm_aarch64: Build | undefined;
+}
+
+export function createLatestReleaseBuilds(latestRelease: Release): LatestReleaseBuilds {
 	return {
 		darwin_x86_64: findBuild(latestRelease.builds, 'darwin', 'x86_64'),
 		darwin_aarch64: findBuild(latestRelease.builds, 'darwin', 'aarch64'),
 		windows_x86_64: findBuild(latestRelease.builds, 'windows', 'x86_64'),
-		linux_appimage: findBuild(latestRelease.builds, 'linux', undefined, 'AppImage'),
-		linux_deb: findBuild(latestRelease.builds, 'linux', undefined, 'deb'),
-		linux_rpm: findBuild(latestRelease.builds, 'linux', undefined, 'rpm')
+		linux_appimage_x86_64: findBuild(latestRelease.builds, 'linux', 'x86_64', 'AppImage'),
+		linux_deb_x86_64: findBuild(latestRelease.builds, 'linux', 'x86_64', 'deb'),
+		linux_rpm_x86_64: findBuild(latestRelease.builds, 'linux', 'x86_64', 'rpm'),
+		linux_appimage_aarch64: findBuild(latestRelease.builds, 'linux', 'aarch64', 'AppImage'),
+		linux_deb_aarch64: findBuild(latestRelease.builds, 'linux', 'aarch64', 'deb'),
+		linux_rpm_aarch64: findBuild(latestRelease.builds, 'linux', 'aarch64', 'rpm')
 	};
 }
 

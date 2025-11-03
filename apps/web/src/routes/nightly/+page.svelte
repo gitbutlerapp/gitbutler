@@ -2,13 +2,14 @@
 	import Footer from '$lib/components/marketing/Footer.svelte';
 	import Header from '$lib/components/marketing/Header.svelte';
 	import osIcons from '$lib/data/os-icons.json';
-	import type { Build, Release } from '$lib/types/releases';
+	import type { Release } from '$lib/types/releases';
+	import type { LatestReleaseBuilds } from '$lib/utils/releaseUtils';
 
 	interface Props {
 		data: {
 			nightlies: Release[];
 			latestNightly: Release | null;
-			latestNightlyBuilds: { [key: string]: Build };
+			latestNightlyBuilds: LatestReleaseBuilds;
 		};
 	}
 
@@ -89,12 +90,12 @@
 						</svg>
 						<div class="download-options">
 							{#if latestNightlyBuilds.darwin_x86_64}
-								<a href={(latestNightlyBuilds.darwin_x86_64 as Build).url} class="download-link">
+								<a href={latestNightlyBuilds.darwin_x86_64.url} class="download-link">
 									macOS Intel
 								</a>
 							{/if}
 							{#if latestNightlyBuilds.darwin_aarch64}
-								<a href={(latestNightlyBuilds.darwin_aarch64 as Build).url} class="download-link">
+								<a href={latestNightlyBuilds.darwin_aarch64.url} class="download-link">
 									macOS Apple Silicon
 								</a>
 							{/if}
@@ -112,7 +113,7 @@
 						</svg>
 						<div class="download-options">
 							{#if latestNightlyBuilds.windows_x86_64}
-								<a href={(latestNightlyBuilds.windows_x86_64 as Build).url} class="download-link">
+								<a href={latestNightlyBuilds.windows_x86_64.url} class="download-link">
 									Windows (MSI)
 								</a>
 							{/if}
@@ -129,19 +130,34 @@
 							<path d={osIcons.linux} fill="currentColor" />
 						</svg>
 						<div class="download-options">
-							{#if latestNightlyBuilds.linux_appimage}
-								<a href={(latestNightlyBuilds.linux_appimage as Build).url} class="download-link"
+							{#if latestNightlyBuilds.linux_appimage_x86_64}
+								<a href={latestNightlyBuilds.linux_appimage_x86_64.url} class="download-link"
 									>Linux Intel (AppImage)</a
 								>
 							{/if}
-							{#if latestNightlyBuilds.linux_deb}
-								<a href={(latestNightlyBuilds.linux_deb as Build).url} class="download-link">
+							{#if latestNightlyBuilds.linux_deb_x86_64}
+								<a href={latestNightlyBuilds.linux_deb_x86_64.url} class="download-link">
 									Linux Intel (Deb)
 								</a>
 							{/if}
-							{#if latestNightlyBuilds.linux_rpm}
-								<a href={(latestNightlyBuilds.linux_rpm as Build).url} class="download-link">
+							{#if latestNightlyBuilds.linux_rpm_x86_64}
+								<a href={latestNightlyBuilds.linux_rpm_x86_64.url} class="download-link">
 									Linux Intel (RPM)
+								</a>
+							{/if}
+							{#if latestNightlyBuilds.linux_appimage_aarch64}
+								<a href={latestNightlyBuilds.linux_appimage_aarch64.url} class="download-link"
+									>Linux ARM64 (AppImage)</a
+								>
+							{/if}
+							{#if latestNightlyBuilds.linux_deb_aarch64}
+								<a href={latestNightlyBuilds.linux_deb_aarch64.url} class="download-link">
+									Linux ARM64 (Deb)
+								</a>
+							{/if}
+							{#if latestNightlyBuilds.linux_rpm_aarch64}
+								<a href={latestNightlyBuilds.linux_rpm_aarch64.url} class="download-link">
+									Linux ARM64 (RPM)
 								</a>
 							{/if}
 						</div>
@@ -211,14 +227,26 @@
 									{:else if build.os === 'windows'}
 										MSI
 									{:else if build.os === 'linux'}
-										{#if build.platform.includes('appimage')}
-											Linux Intel (AppImage)
-										{:else if build.platform.includes('deb')}
-											Linux Intel (Deb)
-										{:else if build.platform.includes('rpm')}
-											Linux Intel (RPM)
-										{:else}
-											Linux {build.platform}
+										{#if build.arch === 'x86_64'}
+											{#if build.file.includes('AppImage')}
+												Linux Intel (AppImage)
+											{:else if build.file.includes('deb')}
+												Linux Intel (Deb)
+											{:else if build.file.includes('rpm')}
+												Linux Intel (RPM)
+											{:else}
+												Linux {build.platform}
+											{/if}
+										{:else if build.arch === 'aarch64'}
+											{#if build.file.includes('AppImage')}
+												Linux ARM64 (AppImage)
+											{:else if build.file.includes('deb')}
+												Linux ARM64 (Deb)
+											{:else if build.file.includes('rpm')}
+												Linux ARM64 (RPM)
+											{:else}
+												Linux {build.platform}
+											{/if}
 										{/if}
 									{:else}
 										{build.os} {build.platform}
