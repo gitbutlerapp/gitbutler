@@ -36,7 +36,8 @@ impl Default for CommitHeadersV2 {
     fn default() -> Self {
         CommitHeadersV2 {
             // Change ID using base16 encoding
-            change_id: std::env::var("CHANGE_ID").unwrap_or_else(|_| Uuid::new_v4().to_string()),
+            change_id: std::env::var("GITBUTLER_CHANGE_ID")
+                .unwrap_or_else(|_| Uuid::new_v4().to_string()),
             conflicted: None,
         }
     }

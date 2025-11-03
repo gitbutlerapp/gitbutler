@@ -96,9 +96,7 @@ impl Default for HeadersV2 {
         HeadersV2 {
             // Change ID using base16 encoding
             change_id: if cfg!(feature = "testing") {
-                // TODO: remove the CHANGE_ID dependency, but old tests still need it.
-                //       In future, the 'testing' feature alone should be enough.
-                if std::env::var("CHANGE_ID").is_ok() {
+                if std::env::var("GITBUTLER_CHANGE_ID").is_ok() {
                     ChangeId::from_number_for_testing(1)
                 } else {
                     ChangeId::generate()

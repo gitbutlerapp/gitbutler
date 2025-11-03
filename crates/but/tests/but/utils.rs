@@ -182,7 +182,7 @@ impl Sandbox {
             cmd = cmd
                 .args(shell_words::split(args).expect("statically known args must split correctly"))
         }
-        self.with_updated_env(cmd).env("CHANGE_ID", "42")
+        self.with_updated_env(cmd).env("GITBUTLER_CHANGE_ID", "42")
     }
 
     /// Invoke an isolated `git` with the given `args`, which will be split automatically.

@@ -29,7 +29,7 @@ function tick () {
 git clone remote stacked-and-parallel
 (cd stacked-and-parallel
   tick
-  export CHANGE_ID=851ad981-c986-4bb4-8be9-deadbeefeba2
+  export GITBUTLER_CHANGE_ID=851ad981-c986-4bb4-8be9-deadbeefeba2
 
   git config user.name "Author"
   git config user.email "author@example.com"
@@ -63,7 +63,7 @@ git clone remote stacked-and-parallel
 git clone remote stacked-branches
 (cd stacked-branches
   tick
-  export CHANGE_ID=851ad981-c986-4bb4-8be9-deadbeefeba2
+  export GITBUTLER_CHANGE_ID=851ad981-c986-4bb4-8be9-deadbeefeba2
 
   git config user.name "Author"
   git config user.email "author@example.com"

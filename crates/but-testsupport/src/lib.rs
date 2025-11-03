@@ -115,7 +115,7 @@ pub fn assure_stable_env() {
         .set("GIT_COMMITTER_DATE", "2000-01-02 00:00:00 +0000")
         .set("GIT_COMMITTER_EMAIL", "committer@example.com")
         .set("GIT_COMMITTER_NAME", "committer (From Env)")
-        .set("CHANGE_ID", "change-id");
+        .set("GITBUTLER_CHANGE_ID", "change-id");
     // assure it doesn't get racy.
     std::mem::forget(env);
 }
