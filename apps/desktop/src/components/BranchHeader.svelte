@@ -83,6 +83,7 @@
 	let active = $state(false);
 
 	const actionsVisible = $derived(!draft && !isCommitting && (buttons || menu));
+	const showCommitGoesHere = $derived(draft || (isEmpty && isCommitting));
 
 	const draggableBranchConfig = $derived.by<DraggableConfig>(() => {
 		if (!dragArgs) {
@@ -102,7 +103,7 @@
 
 <div
 	class="header-wrapper"
-	class:rounded={(actionsVisible && roundedBottom) || draft}
+	class:rounded={roundedBottom}
 	use:focusable={{
 		onAction: () => onclick?.(),
 		onActive: (value) => (active = value),
@@ -117,7 +118,6 @@
 		class="branch-header"
 		class:selected
 		class:active
-		class:draft
 		class:commiting={isCommitting}
 		{onclick}
 		onkeypress={onclick}
@@ -166,7 +166,7 @@
 		</div>
 	</div>
 
-	{#if draft}
+	{#if showCommitGoesHere}
 		<CommitGoesHere commitId={undefined} selected draft />
 	{/if}
 

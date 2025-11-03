@@ -130,6 +130,35 @@
 	const selected = $derived(selection?.branchName === branchName);
 	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
 
+	// Consolidated rounded bottom logic from both BranchCard and BranchHeader
+	const isRoundedBottom = $derived.by(() => {
+		const isDraft = args.type === 'draft-branch';
+
+		// Draft branches should be rounded
+		if (isDraft) return true;
+
+		// Empty branches being committed should be rounded
+		if (args.isCommitting) {
+			const isEmpty =
+				(args.type === 'stack-branch' || args.type === 'normal-branch') && args.isNewBranch;
+			if (isEmpty) return true;
+
+			// Stack branches with codegen row or no commits should be rounded when committing
+			if (args.type === 'stack-branch') {
+				return args.hasCodegenRow || args.numberOfCommits === 0;
+			}
+		}
+
+		// For stack branches not committing, check if actions are visible and structural conditions
+		if (args.type === 'stack-branch' && !args.isCommitting) {
+			const hasActions = args.buttons !== undefined || args.menu !== undefined;
+			const structurallyRounded = args.hasCodegenRow || args.numberOfCommits === 0;
+			return hasActions && structurallyRounded;
+		}
+
+		return false;
+	});
+
 	async function updateBranchName(title: string) {
 		if (args.type === 'draft-branch') {
 			uiState.global.draftBranchName.set(title);
@@ -157,7 +186,6 @@
 <div
 	class="branch-card"
 	class:selected
-	class:draft={args.type === 'draft-branch'}
 	data-series-name={branchName}
 	data-testid={TestId.BranchCard}
 >
@@ -202,7 +230,7 @@
 				{updateBranchName}
 				isUpdatingName={nameUpdate.current.isLoading}
 				failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-				roundedBottom={args.hasCodegenRow || args.numberOfCommits === 0}
+				roundedBottom={isRoundedBottom}
 				{readonly}
 				{isPushed}
 				onclick={args.onclick}
@@ -349,6 +377,7 @@
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
+			roundedBottom={isRoundedBottom}
 			readonly={false}
 			isPushed={false}
 		>
