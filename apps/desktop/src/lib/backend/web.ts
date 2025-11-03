@@ -1,5 +1,6 @@
 import { isReduxError } from '$lib/state/reduxError';
 import { getCookie } from '$lib/utils/cookies';
+import ReconnectingWebSocket from 'reconnecting-websocket';
 import { readable } from 'svelte/store';
 import type {
 	AppInfo,
@@ -235,7 +236,7 @@ async function webOpenExternalUrl(href: string): Promise<void> {
 }
 
 class WebListener {
-	private socket: WebSocket | undefined;
+	private socket: ReconnectingWebSocket | undefined;
 	private count = 0;
 	private handlers: { name: EventName; handle: EventCallback<any> }[] = [];
 	private static instance: WebListener | undefined;
@@ -253,7 +254,7 @@ class WebListener {
 		this.handlers.push(handler);
 		this.count++;
 		if (!this.socket) {
-			this.socket = new WebSocket(`ws://${getWebUrl()}/ws`);
+			this.socket = new ReconnectingWebSocket(`ws://${getWebUrl()}/ws`);
 			this.socket.addEventListener('message', (event) => {
 				const data: { name: string; payload: any } = JSON.parse(event.data);
 				for (const handler of this.handlers) {
