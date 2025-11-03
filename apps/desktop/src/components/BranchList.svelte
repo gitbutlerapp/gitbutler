@@ -237,6 +237,7 @@
 					numberOfCommits={localAndRemoteCommits.length}
 					numberOfUpstreamCommits={upstreamOnlyCommits.length}
 					numberOfBranchesInStack={branches.length}
+					baseCommit={branchDetails.baseCommit}
 					dropzones={[stackingReorderDropzoneManager.top(branchName)]}
 					trackingBranch={branch.remoteTrackingBranch ?? undefined}
 					readonly={!!branch.remoteTrackingBranch}

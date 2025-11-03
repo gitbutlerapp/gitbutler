@@ -33,6 +33,9 @@
 		readonly: boolean;
 		draft: boolean;
 		isCommitting?: boolean;
+		isCommitTarget?: boolean;
+		commitId?: string;
+		onCommitGoesHereClick?: () => void;
 		isPushed: boolean;
 		lineColor: string;
 		conflicts?: boolean;
@@ -57,6 +60,9 @@
 		selected,
 		draft,
 		isCommitting,
+		isCommitTarget = false,
+		commitId,
+		onCommitGoesHereClick,
 		isUpdatingName,
 		failedMisserablyToUpdateBranchName,
 		readonly,
@@ -83,6 +89,13 @@
 	let active = $state(false);
 
 	const actionsVisible = $derived(!draft && !isCommitting && (buttons || menu));
+	// Show CommitGoesHere in header for:
+	// 1. Draft branches (always when committing)
+	// 2. Empty branches with click handler (so you can select them)
+	// Branches with commits show it between commits in BranchCommitList instead
+	const showCommitGoesHere = $derived(
+		isCommitting && (draft || (isEmpty && onCommitGoesHereClick))
+	);
 
 	const draggableBranchConfig = $derived.by<DraggableConfig>(() => {
 		if (!dragArgs) {
@@ -102,7 +115,7 @@
 
 <div
 	class="header-wrapper"
-	class:rounded={(actionsVisible && roundedBottom) || draft}
+	class:rounded={roundedBottom}
 	use:focusable={{
 		onAction: () => onclick?.(),
 		onActive: (value) => (active = value),
@@ -117,7 +130,6 @@
 		class="branch-header"
 		class:selected
 		class:active
-		class:draft
 		class:commiting={isCommitting}
 		{onclick}
 		onkeypress={onclick}
@@ -166,8 +178,14 @@
 		</div>
 	</div>
 
-	{#if draft}
-		<CommitGoesHere commitId={undefined} selected draft />
+	{#if showCommitGoesHere}
+		<CommitGoesHere
+			{commitId}
+			selected={isCommitTarget}
+			draft={draft || isEmpty}
+			last={isEmpty && !draft}
+			onclick={onCommitGoesHereClick}
+		/>
 	{/if}
 
 	{#if actionsVisible && !showPrCreation}

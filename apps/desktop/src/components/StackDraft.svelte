@@ -51,6 +51,7 @@
 							type="draft-branch"
 							{projectId}
 							{branchName}
+							isCommitting
 							readonly={false}
 							lineColor="var(--clr-commit-local)"
 						/>
