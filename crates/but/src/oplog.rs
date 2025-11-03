@@ -128,27 +128,11 @@ pub(crate) fn restore_to_oplog(
     oplog_sha: &str,
     force: bool,
 ) -> anyhow::Result<()> {
-    let snapshots = but_api::oplog::list_snapshots(project.id, 1000, None, None)?;
+    let repo = project.open()?;
+    let commit_id = repo.rev_parse_single(oplog_sha)?.detach();
+    let target_snapshot = &but_api::oplog::get_snapshot(project.id, commit_id.to_string())?;
 
-    // Parse the oplog SHA (support partial SHAs)
-    let commit_sha_string = if oplog_sha.len() >= 7 {
-        // Try to find a snapshot that starts with this SHA
-
-        let matching_snapshot = snapshots
-            .iter()
-            .find(|snapshot| snapshot.commit_id.to_string().starts_with(oplog_sha))
-            .ok_or_else(|| anyhow::anyhow!("No oplog snapshot found matching '{}'", oplog_sha))?;
-
-        matching_snapshot.commit_id.to_string()
-    } else {
-        anyhow::bail!("Oplog SHA must be at least 7 characters long");
-    };
-
-    // Get information about the target snapshot
-    let target_snapshot = snapshots
-        .iter()
-        .find(|snapshot| snapshot.commit_id.to_string() == commit_sha_string)
-        .ok_or_else(|| anyhow::anyhow!("Snapshot {} not found in oplog", commit_sha_string))?;
+    let commit_sha_string = commit_id.to_string();
 
     let target_operation = target_snapshot
         .details

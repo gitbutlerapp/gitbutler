@@ -61,6 +61,25 @@ pub fn list_snapshots(
     Ok(snapshots)
 }
 
+/// Gets a specific snapshot by its commit SHA.
+///
+/// - `project_id`: The ID of the project to get the snapshot for.
+/// - `sha`: The SHA of the snapshot to retrieve.
+///
+/// Returns the `Snapshot` corresponding to the provided SHA.
+///
+/// # Errors
+/// Returns an error if the project cannot be found, if the snapshot SHA is invalid, or if the underlying commit is not a valid snapshot commit
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
+pub fn get_snapshot(project_id: ProjectId, sha: String) -> Result<Snapshot, Error> {
+    let project = gitbutler_project::get(project_id).context("failed to get project")?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let snapshot = ctx.get_snapshot(sha.parse().map_err(anyhow::Error::from)?)?;
+    Ok(snapshot)
+}
+
 /// Creates a new, on-demand snapshot in the oplog.
 ///
 /// - `project_id`: The ID of the project to create a snapshot for.
