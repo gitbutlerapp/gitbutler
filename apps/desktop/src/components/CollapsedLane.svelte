@@ -11,7 +11,13 @@
 	const { stackId, branchNames, projectId }: Props = $props();
 </script>
 
-<div class="folded-lane" data-remove-from-panning data-drag-handle draggable="true">
+<div
+	role="presentation"
+	class="folded-lane"
+	data-remove-from-panning
+	data-drag-handle
+	draggable="true"
+>
 	<CollapseStackButton {stackId} {projectId} isFolded />
 
 	<div class="drag-handle-icon">
@@ -40,7 +46,7 @@
 		align-items: center;
 		justify-content: space-between;
 		height: 100%;
-		padding: 6px 8px 18px;
+		padding: 2px 9px 18px;
 		gap: 6px;
 		border-right: 1px solid var(--clr-border-2);
 		background: linear-gradient(

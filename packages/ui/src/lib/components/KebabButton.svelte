@@ -7,11 +7,9 @@
 	interface Props {
 		showOnHover?: boolean;
 		minimal?: boolean;
-		activated?: boolean;
 		contextElement?: HTMLElement;
 		testId?: string;
 		contextMenuTestId?: string;
-		el?: HTMLElement;
 		contextMenu: Snippet<[{ close: () => void }]>;
 		menuSide?: 'top' | 'bottom' | 'left' | 'right';
 		menuAlign?: 'start' | 'center' | 'end';
@@ -23,11 +21,9 @@
 	let {
 		showOnHover = false,
 		minimal = false,
-		activated = false,
 		contextElement,
 		testId,
 		contextMenuTestId,
-		el = $bindable(),
 		contextMenu: contextMenuSnippet,
 		menuSide = 'bottom',
 		menuAlign = 'end',
@@ -39,11 +35,7 @@
 	let visible = $state(false);
 	let buttonElement = $state<HTMLElement>();
 	let internalContextMenu = $state<ReturnType<typeof ContextMenu>>();
-
-	// Keep el in sync with buttonElement
-	$effect(() => {
-		el = buttonElement;
-	});
+	let isMenuOpen = $state(false);
 
 	function onMouseEnter() {
 		if (!showOnHover) return;
@@ -104,9 +96,9 @@
 		type="button"
 		class="kebab-btn"
 		class:visible
-		class:activated
 		class:show-on-hover={showOnHover}
 		class:minimal
+		class:menu-open={isMenuOpen}
 		onclick={onClick}
 		oncontextmenu={onContextMenu}
 		data-testid={testId}
@@ -120,7 +112,7 @@
 		size="tag"
 		icon="kebab"
 		kind="ghost"
-		{activated}
+		activated={isMenuOpen}
 		onclick={onClick}
 		oncontextmenu={onContextMenu}
 	/>
@@ -134,12 +126,15 @@
 	align={menuAlign}
 	testId={contextMenuTestId}
 	onclose={() => {
+		isMenuOpen = false;
 		onMenuClose?.();
 	}}
 	onopen={() => {
+		isMenuOpen = true;
 		onMenuOpen?.();
 	}}
 	ontoggle={(isOpen, isLeftClick) => {
+		isMenuOpen = isOpen;
 		onMenuToggle?.(isOpen, isLeftClick);
 	}}
 >
@@ -160,9 +155,9 @@
 				opacity: 0.5;
 			}
 
-			&.activated,
 			&:hover,
-			&:focus-within {
+			&:focus-within,
+			&.menu-open {
 				display: flex;
 				opacity: 1;
 			}
@@ -171,9 +166,9 @@
 		&.minimal {
 			opacity: 0.5;
 
-			&.activated,
 			&:hover,
-			&:focus-within {
+			&:focus-within,
+			&.menu-open {
 				opacity: 1;
 			}
 		}

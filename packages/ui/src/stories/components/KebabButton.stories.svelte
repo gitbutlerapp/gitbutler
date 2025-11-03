@@ -19,7 +19,7 @@
 		<div class="demo-container">
 			<div class="demo-item" bind:this={contextElement}>
 				<span>Click the kebab button or right-click anywhere to open the menu</span>
-				<KebabButton {contextElement} {...args}>
+				<KebabButton {...args}>
 					{#snippet contextMenu({ close })}
 						<ContextMenuSection>
 							<ContextMenuItem
