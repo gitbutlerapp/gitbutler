@@ -13,12 +13,12 @@ git init remote
   git add . && git commit -m "init"
 )
 
-CHANGE_ID=0
+GITBUTLER_CHANGE_ID=0
 function commit_stack() {
   local stack="${1:?}"
   local message="${2:?}"
-  ((CHANGE_ID += 1))
-  CHANGE_ID=$CHANGE_ID $CLI branch commit "$stack" -m "$message"
+  ((GITBUTLER_CHANGE_ID += 1))
+  GITBUTLER_CHANGE_ID=$GITBUTLER_CHANGE_ID $CLI branch commit "$stack" -m "$message"
 }
 
 export GITBUTLER_CLI_DATA_DIR=../user/gitbutler/app-data
