@@ -114,6 +114,10 @@ fn from_workspace() -> anyhow::Result<()> {
         .success()
         .stdout_eq(file!["snapshots/from-workspace/status01.stdout.term.svg"]);
 
+    env.but("status -v").assert().success().stdout_eq(file![
+        "snapshots/from-workspace/status01-verbose.stdout.term.svg"
+    ]);
+
     // TODO: more operations on the repository!
     Ok(())
 }

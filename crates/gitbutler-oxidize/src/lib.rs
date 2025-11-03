@@ -36,7 +36,7 @@ pub trait TimeExt {
 
 impl TimeExt for git2::Time {
     fn to_gix(self) -> gix::date::Time {
-        gix::date::Time::new(self.seconds(), self.offset_minutes())
+        gix::date::Time::new(self.seconds(), self.offset_minutes() * 60)
     }
 }
 
