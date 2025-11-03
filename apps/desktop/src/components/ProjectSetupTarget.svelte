@@ -1,8 +1,11 @@
 <script lang="ts">
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { BACKEND } from '$lib/backend';
+	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { combineResults } from '$lib/state/helpers';
 	import { unique } from '$lib/utils/array';
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/core/context';
@@ -21,6 +24,7 @@
 
 	const backend = inject(BACKEND);
 	const posthog = inject(POSTHOG_WRAPPER);
+	const gbConfig = inject(GIT_CONFIG_SERVICE);
 
 	let loading = $state<boolean>(false);
 	let showMoreInfo = $state<boolean>(false);
@@ -53,6 +57,9 @@
 	async function deleteProjectAndGoBack() {
 		await projectsService.deleteProject(projectId);
 	}
+
+	const itSmellsLikeGerrit = $derived(projectsService.areYouGerritKiddingMe(projectId));
+	const projectIsGerrit = $derived(projectsService.isGerritProject(projectId));
 </script>
 
 <div class="project-setup">
@@ -110,6 +117,40 @@
 				</p>
 			</div>
 		{/if}
+
+		<ReduxResult
+			{projectId}
+			result={combineResults(itSmellsLikeGerrit.result, projectIsGerrit.result)}
+		>
+			{#snippet error()}
+				<!-- Fail silently when prompting for gerritness -->
+				<div></div>
+			{/snippet}
+			{#snippet children([isGerrit, isActuallyGerrit])}
+				{#if isGerrit && !isActuallyGerrit}
+					<p class="text-12">
+						Is this project a gerrit project? If so, please confirm that in order to enable <i
+							>Gerrit Mode to the Xtreme™</i
+						>.
+						<br />
+						Otherwise, ignore this message.
+					</p>
+					<div>
+						<Button
+							onclick={() => {
+								gbConfig.setGerritMode(projectId, true);
+							}}
+						>
+							Yup, it's a Gerrit project
+						</Button>
+					</div>
+				{:else if isActuallyGerrit}
+					<p class="text-12">
+						Cool, this is a Gerrit project! GitButler will adjust its behavior accordingly.
+					</p>
+				{/if}
+			{/snippet}
+		</ReduxResult>
 	</div>
 
 	<div
