@@ -6,11 +6,10 @@ use but_core::ui::{TreeChange, TreeStatus};
 use but_hunk_assignment::HunkAssignment;
 use but_settings::AppSettings;
 use but_workspace::ui::StackDetails;
-use chrono::{DateTime, TimeZone, Utc};
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_oxidize::OidExt;
+use gitbutler_oxidize::{ObjectIdExt, OidExt, TimeExt};
 use gitbutler_project::Project;
 use serde::Serialize;
 pub(crate) mod assignment;
@@ -40,7 +39,6 @@ pub(crate) async fn worktree(
     verbose: bool,
     review: bool,
 ) -> anyhow::Result<()> {
-    // let project = Project::find_by_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
@@ -241,7 +239,7 @@ pub fn print_group(
                 let dot = "●".yellow();
                 print_commit(
                     commit.id,
-                    commit.created_at as i64,
+                    created_at_of_commit(ctx, commit.id)?,
                     commit.message.to_string(),
                     commit.author.name.clone(),
                     dot,
@@ -270,7 +268,7 @@ pub fn print_group(
                 };
                 print_commit(
                     commit.id,
-                    commit.created_at as i64,
+                    created_at_of_commit(ctx, commit.id)?,
                     commit.message.to_string(),
                     commit.author.name.clone(),
                     dot,
@@ -299,6 +297,15 @@ pub fn print_group(
     }
     println!("┊");
     Ok(())
+}
+
+// TODO: we have the commit information, but the caller uses a degenerated structure that loses TZ information.
+//       Use the original data (which would also fix frontend display).
+fn created_at_of_commit(
+    ctx: &CommandContext,
+    commit_id: gix::ObjectId,
+) -> anyhow::Result<gix::date::Time> {
+    Ok(ctx.repo().find_commit(commit_id.to_git2())?.time().to_gix())
 }
 
 fn status_letter(status: &TreeStatus) -> char {
@@ -377,7 +384,7 @@ pub(crate) fn all_committed_files(ctx: &mut CommandContext) -> anyhow::Result<Ve
 #[expect(clippy::too_many_arguments)]
 fn print_commit(
     commit_id: gix::ObjectId,
-    created_at: i64,
+    created_at: gix::date::Time,
     message: String,
     author_name: String,
     dot: ColoredString,
@@ -430,10 +437,7 @@ fn print_commit(
 
     if verbose {
         // Verbose format: author and timestamp on first line, message on second line
-        let datetime = DateTime::from_timestamp_millis(created_at)
-            .unwrap_or_else(|| Utc.timestamp_millis_opt(0).unwrap());
-        let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S");
-
+        let formatted_time = created_at.format(gix::date::time::format::ISO8601);
         println!(
             "┊{dot}   {}{} {} {} {} {} {} {}",
             &commit_id.to_string()[..2].blue().underline(),
