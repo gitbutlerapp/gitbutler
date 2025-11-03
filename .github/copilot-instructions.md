@@ -8,7 +8,9 @@ They are:
 - `web` containing the web application's frontend code
 
 The backend of the Tauri application is found in the `crates` directory.
-It contains different rust packages, all used for the Tauri application.
+It contains different rust packages, with `gitbutler-tauri` for the tauri application,
+and `but-api` for implementing various command-line utilities like `but-testing` 
+and `but`.
 
 The `packages` directory contains different self-contained npm packages.
 These are shared between the `desktop` and `web` applications.
@@ -50,7 +52,12 @@ corepack enable
 pnpm install
 
 # Build Rust binaries (required before running the app)
+# look at https://github.com/gitbutlerapp/gitbutler/blob/fd9a58de5579074c0526193143d531c21907a26b/scripts/install-tauri-debian-dependencies.sh
+# for Linux prerequisites for tauri.
 cargo build
+
+# or use this to build the `but` CLI, without the need for tauri dependencies.
+cargo build -p but
 ```
 
 ## Building and Running
@@ -153,11 +160,11 @@ cargo fmt
 
 # Format with nightly settings
 pnpm rustfmt
-# or
+# or (but don't do this unless you are asked to)
 cargo +nightly fmt -- --config-path rustfmt-nightly.toml
 
 # Run clippy for linting
-cargo clippy
+cargo clippy --all-targets
 ```
 
 **Rust Formatting**:
@@ -183,7 +190,7 @@ pnpm add <package> --filter @gitbutler/ui
 
 Edit the appropriate `Cargo.toml` file:
 - Workspace-level dependencies go in `/Cargo.toml` under `[workspace.dependencies]`
-- Individual crate dependencies reference workspace versions when possible
+- Individual crate dependencies reference workspace versions when possible, and when it's used more than once.
 
 **Always check for vulnerabilities before adding Rust dependencies** (ecosystem: rust).
 
@@ -204,7 +211,7 @@ When making changes:
 ### Crate Organization
 
 The `crates/` directory contains ~65 Rust crates organized by functionality:
-- `gitbutler-*` prefix: Core GitButler functionality
+- `gitbutler-*` prefix: Core GitButler functionality. These are old, and we want to port them to `but-*`.
 - `but-*` prefix: Backend utilities and services
 - Many crates have specific purposes (see DEVELOPMENT.md "Code Hitlist" for technical debt items)
 
@@ -230,15 +237,16 @@ Located in `.github/workflows/`:
 
 Before committing, ensure:
 1. Code is formatted: `pnpm format && pnpm rustfmt`
-2. Linting passes: `pnpm lint && cargo clippy`
+2. Linting passes: `pnpm lint && cargo clippy --all-targets`
 3. Tests pass: `pnpm test && cargo test`
 4. Build succeeds: `pnpm build`
 
-Or use the shortcut: `pnpm isgood`
+Or use the shortcut: `pnpm isgood`.
+Auto-fix with `pnpm begood && cargo clippy --fix --all-targets`
 
 ## Common Patterns and Conventions
 
-### File Organization
+### Frontend File Organization
 
 - Use absolute imports via package references (e.g., `@gitbutler/ui`) instead of relative imports
 - Components should be in logical directories by feature
@@ -253,16 +261,13 @@ Or use the shortcut: `pnpm isgood`
 - Variables/functions: camelCase
 
 **Rust**:
-- Modules: snake_case
-- Types: PascalCase
-- Functions/variables: snake_case
 - Follow standard Rust naming conventions
 
 ### Error Handling
 
 **JavaScript/TypeScript**: Throw errors and handle with try/catch at appropriate boundaries
 
-**Rust**: Use `Result<T, E>` and `anyhow` for error handling. Most functions should return `Result`.
+**Rust**: Use `Result<T, E>` and `anyhow` for error handling. Most functions should return `anyhow::Result`.
 
 ## Troubleshooting
 
@@ -303,7 +308,6 @@ corepack prepare pnpm@10.17.0 --activate
 
 ### Development Builds
 
-- Rust dependencies (gix family) are optimized even in debug mode for faster development
 - Set `GITBUTLER_PERFORMANCE_LOG=1` for performance logging
 - Use `--release` flag for more realistic performance testing
 
@@ -317,7 +321,6 @@ corepack prepare pnpm@10.17.0 --activate
 
 - **Development Guide**: See DEVELOPMENT.md for detailed setup instructions
 - **Contributing Guide**: See CONTRIBUTING.md for contribution guidelines
-- **Architecture Deep Dive**: https://deepwiki.com/gitbutlerapp/gitbutler
 - **Discord**: https://discord.gg/MmFkmaJ42D for questions and discussions
 
 ## Important Notes for AI Coding Agents
