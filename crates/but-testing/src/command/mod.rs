@@ -703,7 +703,7 @@ pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyh
         repo_and_maybe_project_and_graph(args, RepositoryOpenMode::Merge)?;
     let branch = repo.find_reference(short_name)?;
     let ws = graph.to_workspace()?;
-    _ = but_workspace::branch::apply(
+    let apply_outcome = but_workspace::branch::apply(
         branch.name(),
         &ws,
         &repo,
@@ -722,7 +722,7 @@ pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyh
         // write metadata if there are projects - this is a special case while we use vb.toml.
         ManuallyDrop::into_inner(meta);
     }
-    Ok(())
+    debug_print(apply_outcome)
 }
 
 pub fn create_reference(

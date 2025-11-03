@@ -114,6 +114,7 @@ pub(crate) mod function {
     use crate::commit::merge::Tip;
     use crate::{WorkspaceCommit, branch::checkout, ext::ObjectStorageExt, ref_info::WorkspaceExt};
     use anyhow::{Context, bail};
+    use but_core::ref_metadata::StackKind;
     use but_core::{
         RefMetadata, RepositoryExt, extract_remote_name, ref_metadata,
         ref_metadata::{
@@ -435,7 +436,8 @@ pub(crate) mod function {
             );
         }
 
-        let existing_stacks_superseded_by_branch = find_superseded_stacks(branch, &workspace);
+        let existing_stacks_superseded_by_branch =
+            find_superseded_stacks(branch, &workspace, &mut ws_md);
         // At this point, the workspace-metadata already knows the new branch(es), but the workspace itself
         // doesn't see one or more of to-be-applied branches (to become stacks).
         // These are, however, part of the graph by now, and we want to try to create a workspace
@@ -557,7 +559,8 @@ pub(crate) mod function {
 
             // Redo the merge, with the different stack configuration.
             // Note that this is the exception, typically using stacks will be fine.
-            let existing_stacks_superseded_by_branch = find_superseded_stacks(branch, &workspace);
+            let existing_stacks_superseded_by_branch =
+                find_superseded_stacks(branch, &workspace, &mut ws_md);
             merge_result = WorkspaceCommit::from_new_merge_with_metadata(
                 filter_superseded_metadata_stacks(
                     ws_md.stacks.iter().filter(|s| s.is_in_workspace()),
@@ -712,16 +715,19 @@ pub(crate) mod function {
     ///
     /// `branch` is the branch to find in `workspace` and start the traversal from, whereas the existing `workspace` stacks
     /// will be used as candidates for being superseded by it.
+    ///
+    /// `ws_meta` will be adjusted to indicate that the superseded branches are outside the workspace.
     fn find_superseded_stacks(
         branch: &FullNameRef,
         workspace: &but_graph::projection::Workspace,
+        ws_meta: &mut ref_metadata::Workspace,
     ) -> Vec<(
         SegmentIndex,
         Option<gix::refs::FullName>,
         Option<gix::ObjectId>,
     )> {
         let graph = workspace.graph;
-        if let Some(branch_segment) = graph.named_segment_by_ref_name(branch) {
+        let superseded = if let Some(branch_segment) = graph.named_segment_by_ref_name(branch) {
             // At this stage we know first segment isn't in the workspace, so exclude it.
             let _tip_commit_ids_and_sidx: Vec<_> = workspace
                 .stacks
@@ -758,7 +764,22 @@ pub(crate) mod function {
                 "Didn't find branch in graph to do the 'reaches into workspace' check"
             );
             Vec::new()
+        };
+
+        let metadata_stacks_to_remove = superseded
+            .iter()
+            .filter_map(|t| t.1.as_ref().map(|rn| rn.as_ref()))
+            .filter_map(|superseded_tip_name| {
+                ws_meta
+                    .find_owner_indexes_by_name(superseded_tip_name, StackKind::Applied)
+                    .map(|t| t.0)
+            })
+            .collect::<Vec<_>>();
+        for superseded_stack_idx in metadata_stacks_to_remove {
+            ws_meta.stacks[superseded_stack_idx].workspacecommit_relation = Outside;
         }
+
+        superseded
     }
 
     /// Setup `local_tracking_ref` to track `remote_tracking_ref` using the typical pattern, and prepare the configuration file
