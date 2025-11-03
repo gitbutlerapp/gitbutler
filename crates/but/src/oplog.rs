@@ -1,6 +1,11 @@
 use colored::Colorize;
+use gix::date::time::CustomFormat;
+
 use gitbutler_oplog::entry::OperationKind;
+use gitbutler_oxidize::TimeExt;
 use gitbutler_project::Project;
+
+pub const ISO8601_NO_TZ: CustomFormat = CustomFormat::new("%Y-%m-%d %H:%M:%S");
 
 pub(crate) fn show_oplog(project: &Project, json: bool, since: Option<&str>) -> anyhow::Result<()> {
     let snapshots = if let Some(since_sha) = since {
@@ -52,10 +57,7 @@ pub(crate) fn show_oplog(project: &Project, json: bool, since: Option<&str>) -> 
         println!("{}", "─".repeat(50).dimmed());
 
         for snapshot in snapshots {
-            let time_string = chrono::DateTime::from_timestamp(snapshot.created_at.seconds(), 0)
-                .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
-                .format("%Y-%m-%d %H:%M:%S")
-                .to_string();
+            let time_string = snapshot.created_at.to_gix().format(ISO8601_NO_TZ);
 
             let commit_id = format!(
                 "{}{}",
@@ -147,10 +149,7 @@ pub(crate) fn restore_to_oplog(
         .map(|d| d.title.as_str())
         .unwrap_or("Unknown operation");
 
-    let target_time = chrono::DateTime::from_timestamp(target_snapshot.created_at.seconds(), 0)
-        .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
-        .format("%Y-%m-%d %H:%M:%S")
-        .to_string();
+    let target_time = target_snapshot.created_at.to_gix().format(ISO8601_NO_TZ);
 
     println!("{}", "Restoring to oplog snapshot...".blue().bold());
     println!(
@@ -212,10 +211,7 @@ pub(crate) fn undo_last_operation(project: &Project, _json: bool) -> anyhow::Res
         .map(|d| d.title.as_str())
         .unwrap_or("Unknown operation");
 
-    let target_time = chrono::DateTime::from_timestamp(target_snapshot.created_at.seconds(), 0)
-        .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
-        .format("%Y-%m-%d %H:%M:%S")
-        .to_string();
+    let target_time = target_snapshot.created_at.to_gix().format(ISO8601_NO_TZ);
 
     println!("{}", "Undoing operation...".blue().bold());
     println!(

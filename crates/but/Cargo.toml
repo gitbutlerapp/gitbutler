@@ -70,6 +70,7 @@ tracing-subscriber = { version = "0.3", features = [
 tracing-forest = { version = "0.2.0" }
 
 [dev-dependencies]
+but-core = { workspace = true, features = ["testing"] }
 but-testsupport = { workspace = true, features = ["snapbox"] }
 snapbox = { workspace = true, features = ["term-svg", "regex"] }
 shell-words = "1.1.0"
