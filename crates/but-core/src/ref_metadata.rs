@@ -353,8 +353,8 @@ impl std::fmt::Debug for RefInfo {
         write!(
             f,
             "RefInfo {{ created_at: {:?}, updated_at: {:?} }}",
-            MaybeDebug(&self.created_at.map(|date| date.format_or_raw(format))),
-            MaybeDebug(&self.updated_at.map(|date| date.format_or_raw(format))),
+            MaybeDebug(&self.created_at.map(|date| date.format_or_unix(format))),
+            MaybeDebug(&self.updated_at.map(|date| date.format_or_unix(format))),
         )
     }
 }
