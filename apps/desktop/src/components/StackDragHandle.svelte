@@ -2,7 +2,7 @@
 	import CollapseStackButton from '$components/CollapseStackButton.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { ContextMenu, ContextMenuItem, ContextMenuSection, Icon } from '@gitbutler/ui';
+	import { ContextMenuItem, ContextMenuSection, Icon, KebabButton } from '@gitbutler/ui';
 	import type { Stack } from '$lib/stacks/stack';
 
 	type Props = {
@@ -19,9 +19,6 @@
 	// Get all stacks to determine if we can move left/right
 	const stacksQuery = stackService.stacks(projectId);
 	const stacks = $derived(stacksQuery.response ?? []);
-
-	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let kebabButton = $state<HTMLButtonElement>();
 
 	const currentStackIndex = $derived(
 		stackId ? stacks.findIndex((stack: Stack) => stack.id === stackId) : -1
@@ -91,21 +88,8 @@
 		<Icon name="draggable-wide" />
 	</div>
 
-	<button
-		type="button"
-		class="kebab-btn"
-		{disabled}
-		bind:this={kebabButton}
-		onclick={(e) => {
-			e.stopPropagation();
-			contextMenu?.toggle();
-		}}
-	>
-		<Icon name="kebab" zIndex="var(--z-ground)" />
-	</button>
-
-	<ContextMenu bind:this={contextMenu} leftClickTrigger={kebabButton}>
-		{#snippet menu({ close })}
+	<KebabButton minimal>
+		{#snippet contextMenu({ close })}
 			<ContextMenuSection>
 				<ContextMenuItem
 					label="Move to leftmost"
@@ -137,7 +121,7 @@
 				/>
 			</ContextMenuSection>
 		{/snippet}
-	</ContextMenu>
+	</KebabButton>
 </div>
 
 <style lang="postcss">
@@ -145,8 +129,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		height: 16px;
-		height: 24px;
+		height: 28px;
 		margin: 0 -3px;
 		color: var(--clr-text-3);
 		cursor: grab;
@@ -167,35 +150,5 @@
 		background-color: var(--clr-bg-2);
 		color: var(--clr-text-3);
 		pointer-events: none;
-	}
-
-	.kebab-btn {
-		display: flex;
-		position: relative;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		color: var(--clr-text-1);
-		opacity: 0.5;
-		transition: opacity var(--transition-fast);
-
-		&:hover {
-			opacity: 0.9;
-		}
-
-		&:after {
-			z-index: 0;
-			position: absolute;
-			top: 50%;
-			left: 50%;
-			width: 20px;
-			height: 8px;
-			transform: translate(-50%, -50%);
-			border-radius: var(--radius-m);
-			background-color: var(--clr-bg-2);
-			/* background-color: rgb(255, 165, 165); */
-			content: '';
-		}
 	}
 </style>
