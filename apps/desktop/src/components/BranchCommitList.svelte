@@ -10,7 +10,6 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UpstreamCommitsAction from '$components/UpstreamCommitsAction.svelte';
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import {
 		AmendCommitWithChangeDzHandler,
@@ -74,7 +73,6 @@
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const hooksService = inject(HOOKS_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
@@ -98,10 +96,6 @@
 	const upstreamOnlyCommits = $derived(
 		stackService.upstreamCommits(projectId, stackId, branchName)
 	);
-
-	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
-	const base = $derived(baseBranchQuery.response);
-	const baseSha = $derived(base?.baseSha);
 
 	let integrationModal = $state<Modal>();
 
@@ -226,23 +220,6 @@
 	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits], { stackId })}
 		{@const hasRemoteCommits = upstreamOnlyCommits.length > 0}
 		{@const hasCommits = localAndRemoteCommits.length > 0}
-
-		{#if !hasCommits && isCommitting}
-			<CommitGoesHere
-				commitId={baseSha}
-				last
-				draft
-				selected={branchName === commitAction?.branchName}
-				onclick={() => {
-					projectState.exclusiveAction.set({
-						type: 'commit',
-						stackId,
-						branchName,
-						parentCommitId: branchDetails.baseCommit
-					});
-				}}
-			/>
-		{/if}
 
 		{@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))}
 
@@ -441,7 +418,8 @@
 							{first}
 							{last}
 							selected={exclusiveAction?.type === 'commit' &&
-								exclusiveAction.parentCommitId === branchDetails.baseCommit}
+								exclusiveAction.parentCommitId === branchDetails.baseCommit &&
+								commitAction?.branchName === branchName}
 							onclick={() => {
 								projectState.exclusiveAction.set({
 									type: 'commit',

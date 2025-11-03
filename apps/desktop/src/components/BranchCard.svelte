@@ -83,6 +83,7 @@
 		numberOfUpstreamCommits: number;
 		numberOfBranchesInStack: number;
 		hasCodegenRow?: boolean;
+		baseCommit?: string;
 		onclick: () => void;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
@@ -129,6 +130,40 @@
 	const selection = $derived(laneState ? laneState.selection.current : undefined);
 	const selected = $derived(selection?.branchName === branchName);
 	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
+	const isCommitTarget = $derived(
+		exclusiveAction?.type === 'commit' &&
+			(exclusiveAction.branchName === branchName ||
+				(exclusiveAction.branchName === undefined && args.type === 'draft-branch'))
+	);
+
+	// Consolidated rounded bottom logic from both BranchCard and BranchHeader
+	const isRoundedBottom = $derived.by(() => {
+		const isDraft = args.type === 'draft-branch';
+
+		// Draft branches should be rounded
+		if (isDraft) return true;
+
+		// Empty branches being committed should be rounded
+		if (args.isCommitting) {
+			const isEmpty =
+				(args.type === 'stack-branch' || args.type === 'normal-branch') && args.isNewBranch;
+			if (isEmpty) return true;
+
+			// Stack branches with codegen row or no commits should be rounded when committing
+			if (args.type === 'stack-branch') {
+				return args.hasCodegenRow || args.numberOfCommits === 0;
+			}
+		}
+
+		// For stack branches not committing, check if actions are visible and structural conditions
+		if (args.type === 'stack-branch' && !args.isCommitting) {
+			const hasActions = args.buttons !== undefined || args.menu !== undefined;
+			const structurallyRounded = args.hasCodegenRow || args.numberOfCommits === 0;
+			return hasActions && structurallyRounded;
+		}
+
+		return false;
+	});
 
 	async function updateBranchName(title: string) {
 		if (args.type === 'draft-branch') {
@@ -157,7 +192,6 @@
 <div
 	class="branch-card"
 	class:selected
-	class:draft={args.type === 'draft-branch'}
 	data-series-name={branchName}
 	data-testid={TestId.BranchCard}
 >
@@ -198,11 +232,22 @@
 				draft={false}
 				{lineColor}
 				isCommitting={args.isCommitting}
+				{isCommitTarget}
+				commitId={args.baseCommit}
+				onCommitGoesHereClick={() => {
+					if (!args.stackId) return;
+					projectState.exclusiveAction.set({
+						type: 'commit',
+						stackId: args.stackId,
+						branchName,
+						parentCommitId: args.baseCommit
+					});
+				}}
 				iconName={args.iconName}
 				{updateBranchName}
 				isUpdatingName={nameUpdate.current.isLoading}
 				failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
-				roundedBottom={args.hasCodegenRow || args.numberOfCommits === 0}
+				roundedBottom={isRoundedBottom}
 				{readonly}
 				{isPushed}
 				onclick={args.onclick}
@@ -345,10 +390,13 @@
 			selected
 			draft
 			{lineColor}
+			isCommitting={args.isCommitting}
+			{isCommitTarget}
 			iconName="branch-local"
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
+			roundedBottom={isRoundedBottom}
 			readonly={false}
 			isPushed={false}
 		>
