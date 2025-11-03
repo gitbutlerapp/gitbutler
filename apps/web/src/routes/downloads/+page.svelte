@@ -4,14 +4,15 @@
 	import ReleaseCard from '$lib/components/marketing/ReleaseCard.svelte';
 	import osIcons from '$lib/data/os-icons.json';
 	import { marked } from '@gitbutler/ui/utils/marked';
-	import type { Build, Release } from '$lib/types/releases';
+	import type { Release } from '$lib/types/releases';
+	import type { LatestReleaseBuilds } from '$lib/utils/releaseUtils';
 
 	interface Props {
 		data: {
 			releases: Release[];
 			nightlies: Release[];
 			latestRelease: Release;
-			latestReleaseBuilds: { [key: string]: Build };
+			latestReleaseBuilds: LatestReleaseBuilds;
 		};
 	}
 
@@ -74,12 +75,10 @@
 					</svg>
 					<div class="download-options">
 						{#if latestReleaseBuilds.darwin_x86_64}
-							<a href={(latestReleaseBuilds.darwin_x86_64 as Build).url} class="download-link">
-								Intel Mac
-							</a>
+							<a href={latestReleaseBuilds.darwin_x86_64.url} class="download-link"> Intel Mac </a>
 						{/if}
 						{#if latestReleaseBuilds.darwin_aarch64}
-							<a href={(latestReleaseBuilds.darwin_aarch64 as Build).url} class="download-link">
+							<a href={latestReleaseBuilds.darwin_aarch64.url} class="download-link">
 								Apple Silicon
 							</a>
 						{/if}
@@ -97,7 +96,7 @@
 					</svg>
 					<div class="download-options">
 						{#if latestReleaseBuilds.windows_x86_64}
-							<a href={(latestReleaseBuilds.windows_x86_64 as Build).url} class="download-link">
+							<a href={latestReleaseBuilds.windows_x86_64.url} class="download-link">
 								Windows (MSI)
 							</a>
 						{/if}
@@ -114,19 +113,34 @@
 						<path d={osIcons.linux} fill="currentColor" />
 					</svg>
 					<div class="download-options">
-						{#if latestReleaseBuilds.linux_appimage}
-							<a href={(latestReleaseBuilds.linux_appimage as Build).url} class="download-link"
+						{#if latestReleaseBuilds.linux_appimage_x86_64}
+							<a href={latestReleaseBuilds.linux_appimage_x86_64.url} class="download-link"
 								>Linux Intel (AppImage)</a
 							>
 						{/if}
-						{#if latestReleaseBuilds.linux_deb}
-							<a href={(latestReleaseBuilds.linux_deb as Build).url} class="download-link">
+						{#if latestReleaseBuilds.linux_deb_x86_64}
+							<a href={latestReleaseBuilds.linux_deb_x86_64.url} class="download-link">
 								Linux Intel (Deb)
 							</a>
 						{/if}
-						{#if latestReleaseBuilds.linux_rpm}
-							<a href={(latestReleaseBuilds.linux_rpm as Build).url} class="download-link">
+						{#if latestReleaseBuilds.linux_rpm_x86_64}
+							<a href={latestReleaseBuilds.linux_rpm_x86_64.url} class="download-link">
 								Linux Intel (RPM)
+							</a>
+						{/if}
+						{#if latestReleaseBuilds.linux_appimage_aarch64}
+							<a href={latestReleaseBuilds.linux_appimage_aarch64.url} class="download-link"
+								>Linux ARM64 (AppImage)</a
+							>
+						{/if}
+						{#if latestReleaseBuilds.linux_deb_aarch64}
+							<a href={latestReleaseBuilds.linux_deb_aarch64.url} class="download-link">
+								Linux ARM64 (Deb)
+							</a>
+						{/if}
+						{#if latestReleaseBuilds.linux_rpm_aarch64}
+							<a href={latestReleaseBuilds.linux_rpm_aarch64.url} class="download-link">
+								Linux ARM64 (RPM)
 							</a>
 						{/if}
 					</div>
