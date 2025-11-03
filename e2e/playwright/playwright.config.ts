@@ -56,10 +56,11 @@ function projects() {
 	}
 
 	projects.push({
-		name: 'chromium',
+		name: 'Chrome',
 		use: {
 			...devices['Desktop Chrome'],
-			viewport: { width: 1920, height: 1080 }
+			headless: false,
+			channel: 'chrome'
 		}
 	});
 

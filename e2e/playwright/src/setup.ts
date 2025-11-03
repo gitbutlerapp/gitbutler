@@ -226,10 +226,9 @@ async function setProjectPathCookie(context: BrowserContext, workdir: string): P
 }
 
 /**
- * Set the project path cookie in the browser context.
+ * Set the butler server port cookie in the browser context.
  *
- * This is needed in order for the Frontend to be able to know the absolute paths of the
- * project files. The web file picker is not able to get absolute paths for security reasons.
+ * This is needed in order for the Frontend to know which port to use to connect to the butler server.
  */
 async function setButlerServerPort(context: BrowserContext): Promise<void> {
 	// Set the information about the workdir
