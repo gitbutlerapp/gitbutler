@@ -365,6 +365,7 @@
 									{stackId}
 									{status}
 									selected={codegenSelected}
+									{onselect}
 								/>
 							{/if}
 						{/if}
