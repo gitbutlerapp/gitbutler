@@ -31,7 +31,6 @@
 	import { STACK_SERVICE, type BranchPushResult } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
-	import { USER_SERVICE } from '$lib/user/userService';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { sleep } from '$lib/utils/sleep';
@@ -59,14 +58,12 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
 	const stackService = inject(STACK_SERVICE);
-	const userService = inject(USER_SERVICE);
 	const aiService = inject(AI_SERVICE);
 	const remotesService = inject(REMOTES_SERVICE);
 	const uiState = inject(UI_STATE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = settingsService.appSettings;
 
-	const user = userService.user;
 	const gitLabState = inject(GITLAB_STATE);
 	const gitLabConfigured = $derived(gitLabState.configured);
 
@@ -197,10 +194,7 @@
 	export async function createReview() {
 		if (isExecuting) return;
 
-		if (forge.determinedForgeType === 'github' && !$user) {
-			chipToasts.error('You must be signed in to GitHub to create a Pull Request.');
-			return;
-		} else if (forge.determinedForgeType === 'gitlab' && !gitLabConfigured) {
+		if (forge.determinedForgeType === 'gitlab' && !gitLabConfigured) {
 			chipToasts.error(
 				'You must configure the GitLab integration before creating a Merge Request.'
 			);
