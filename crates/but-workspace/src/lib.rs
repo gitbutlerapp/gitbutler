@@ -82,7 +82,7 @@ pub use stacks::{
 };
 
 mod branch_details;
-pub use branch_details::{branch_details, branch_details_v3};
+pub use branch_details::{branch_details, branch_details_v3, local_commits_for_branch};
 use but_graph::SegmentIndex;
 
 /// A change that should be used to create a new commit or alter an existing one, along with enough information to know where to find it.

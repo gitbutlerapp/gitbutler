@@ -68,6 +68,8 @@ tracing-subscriber = { version = "0.3", features = [
     "fmt",
 ] }
 tracing-forest = { version = "0.2.0" }
+ratatui = "0.29.0"
+crossterm = "0.29.0"
 
 [dev-dependencies]
 but-core = { workspace = true, features = ["testing"] }
