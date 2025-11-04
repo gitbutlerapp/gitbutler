@@ -57,6 +57,8 @@ pub use head::{
 /// Ignore the name of this module; it's just a place to put code by now.
 pub mod branch;
 
+///
+pub mod editor;
 pub mod snapshot;
 
 mod changeset;
