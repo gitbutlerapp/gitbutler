@@ -5,11 +5,14 @@
 		href: string;
 		children: Snippet;
 		class?: string;
-		target?: '_blank' | '_self' | '_parent' | '_top' | undefined;
-		rel?: string | undefined;
+		/**
+		 * Open link inside the current window.
+		 * Most times this is not what you  want. For that use `goto()` instead.
+		 */
+		insideWindow?: boolean;
 	}
 
-	const { href, target = undefined, class: classes, rel = undefined, children }: Props = $props();
+	const { href, class: classes, children, insideWindow = false }: Props = $props();
 
 	let element = $state<HTMLAnchorElement>();
 
@@ -20,6 +23,8 @@
 	});
 
 	const isExternal = $derived(href?.startsWith('http'));
+	const target = $derived(isExternal && !insideWindow ? '_blank' : '_self');
+	const rel = $derived(isExternal && !insideWindow ? 'noopener noreferrer' : undefined);
 </script>
 
 <a {href} {target} {rel} class="link {classes}" bind:this={element}>

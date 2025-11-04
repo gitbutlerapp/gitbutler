@@ -162,7 +162,6 @@
 								</p>
 								<Link
 									href="https://docs.gitbutler.com/features/ai-integration/ai-overview"
-									target="_blank"
 									class="clr-text-2">Learn more</Link
 								>
 							</li>
