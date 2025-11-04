@@ -86,6 +86,7 @@
 .dragchip-file-icon {
 	width: 16px;
 	height: 16px;
+	color: var(--clr-text-2);
 }
 
 /* HUNK DRAG */
