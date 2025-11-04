@@ -44,10 +44,8 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: space-between;
 		height: 100%;
 		padding: 2px 9px 18px;
-		gap: 6px;
 		border-right: 1px solid var(--clr-border-2);
 		background: linear-gradient(
 			90deg,
@@ -61,16 +59,16 @@
 
 	.drag-handle-icon {
 		display: flex;
+		margin-top: 4px;
 		pointer-events: none;
 	}
 
 	.stack-names {
 		display: flex;
-		flex: 1;
 		align-items: center;
+		margin-top: 10px;
 		overflow: hidden;
 		gap: 10px;
-		transform: rotate(180deg);
 		text-orientation: mixed;
 		pointer-events: none;
 		writing-mode: vertical-lr;
