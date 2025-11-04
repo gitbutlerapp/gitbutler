@@ -124,7 +124,7 @@ pub fn build<R: Runtime>(
         &MenuItemBuilder::with_id("view/switch-theme", "Switch Theme")
             .accelerator("CmdOrCtrl+T")
             .build(handle)?,
-        &MenuItemBuilder::with_id("view/toggle-sidebar", "Toggle Sidebar")
+        &MenuItemBuilder::with_id("view/toggle-sidebar", "Toggle Unassigned")
             .accelerator("CmdOrCtrl+\\")
             .build(handle)?,
         &PredefinedMenuItem::separator(handle)?,
@@ -192,19 +192,11 @@ pub fn build<R: Runtime>(
         ])
         .build()?;
 
-    let mut help_menu = SubmenuBuilder::new(handle, "Help")
+    let help_menu = SubmenuBuilder::new(handle, "Help")
         .text("help/documentation", "Documentation")
         .text("help/github", "Source Code")
         .text("help/release-notes", "Release Notes")
-        .separator();
-    help_menu = help_menu
-        .item(
-            &MenuItemBuilder::with_id("help/keyboard-shortcuts", "Keyboard Shortcuts")
-                .accelerator("CmdOrCtrl+/")
-                .build(handle)?,
-        )
-        .separator();
-    let help_menu = help_menu
+        .separator()
         .text("help/share-debug-info", "Share Debug Info…")
         .text("help/report-issue", "Report an Issue…")
         .separator()
@@ -338,11 +330,6 @@ pub fn handle_event<R: Runtime>(
 
     if event.id() == "global/update" {
         emit(webview, SHORTCUT_EVENT, "update");
-        return;
-    }
-
-    if event.id() == "help/keyboard-shortcuts" {
-        emit(webview, SHORTCUT_EVENT, "keyboard-shortcuts");
         return;
     }
 
