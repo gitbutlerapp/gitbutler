@@ -353,6 +353,20 @@
 					{#snippet error()}{/snippet}
 				</ReduxResult>
 			{/if}
+
+			{#if stackId && first}
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="Unapply Stack"
+						icon="eject"
+						disabled={isReadOnly}
+						onclick={async () => {
+							await stackService.unapply({ projectId, stackId });
+							close();
+						}}
+					/>
+				</ContextMenuSection>
+			{/if}
 		{/snippet}
 	</KebabButton>
 {/if}
