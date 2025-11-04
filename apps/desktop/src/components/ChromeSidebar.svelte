@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import {
@@ -39,7 +38,6 @@
 	let contextTriggerButton = $state<HTMLButtonElement | undefined>();
 	let contextMenuEl = $state<ContextMenu>();
 	let shareIssueModal = $state<ShareIssueModal>();
-	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
 
 	const userSettings = inject(SETTINGS);
 	const { openGeneralSettings, openProjectSettings } = useSettingsModal();
@@ -398,7 +396,6 @@
 	</ContextMenuSection>
 </ContextMenu>
 
-<KeyboardShortcutsModal bind:this={keyboardShortcutsModal} />
 <ShareIssueModal bind:this={shareIssueModal} />
 
 <style lang="postcss">
