@@ -7,10 +7,14 @@ use but_settings::AppSettings;
 use but_workspace::StackId;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
+use gitbutler_oxidize::OidExt;
 use gitbutler_project::Project;
 use serde::{Deserialize, Serialize};
 
-use crate::editor::get_text_from_editor_no_comments;
+use crate::{
+    editor::get_text_from_editor_no_comments,
+    ui::{SimpleBranch, SimpleStack},
+};
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -98,22 +102,32 @@ pub async fn handle_all_branches_in_workspace(
         published: vec![],
         already_existing: vec![],
     };
+
+    let simple_stacks = generate_simple_stacks(project, review_map, applied_stacks)?;
+
+    // Run the branches selector UI to let the user choose which branches to publish reviews for.
+    let selected_branches = crate::ui::run_branch_selector_ui(simple_stacks)?;
+
+    if selected_branches.is_empty() {
+        if !json {
+            println!("No branches selected for review publication. Aborting.");
+        }
+
+        return Ok(());
+    }
+
     for stack_entry in applied_stacks {
-        let Some(top_head) = stack_entry.heads.first() else {
-            // Should not happen, but just in case
-            println!(
-                "Stack entry '{}' has no heads, skipping",
-                stack_entry
-                    .id
-                    .map(|id| id.to_string())
-                    .unwrap_or("-no stack id-".to_string())
-            );
+        let Some(top_most_selected_head) = stack_entry
+            .heads
+            .iter()
+            .find(|h| selected_branches.contains(&h.name.to_string()))
+        else {
             continue;
         };
 
         let outcome = publish_reviews_for_branch_and_dependents(
             project,
-            top_head.name.to_str()?,
+            top_most_selected_head.name.to_str()?,
             review_map,
             stack_entry,
             skip_force_push_protection,
@@ -139,6 +153,42 @@ pub async fn handle_all_branches_in_workspace(
     }
 
     Ok(())
+}
+
+fn generate_simple_stacks(
+    project: &Project,
+    review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
+    applied_stacks: &[but_workspace::ui::StackEntry],
+) -> Result<Vec<SimpleStack>, anyhow::Error> {
+    let mut simple_stacks = vec![];
+    let (base_branch, repo) = get_base_branch_and_repo(project)?;
+    let base_branch_id = base_branch.current_sha.to_gix();
+    for stack_entry in applied_stacks {
+        let mut simple_stack = SimpleStack { branches: vec![] };
+        for head in &stack_entry.heads {
+            let mut branch_ref = repo.find_reference(head.name.as_bstr())?;
+            let branch_id = branch_ref.peel_to_id()?;
+            let commits = but_workspace::local_commits_for_branch(branch_id, base_branch_id)?;
+            let reviews = review_map
+                .get(&head.name.to_string())
+                .map(|reviews| {
+                    reviews
+                        .iter()
+                        .map(|r| format!("{}{}", r.unit_symbol, r.number))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            let simple_branch = SimpleBranch {
+                name: head.name.to_string(),
+                commits: commits.into_iter().map(Into::into).collect(),
+                reviews,
+            };
+            simple_stack.branches.push(simple_branch);
+        }
+        simple_stacks.push(simple_stack);
+    }
+    Ok(simple_stacks)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -199,9 +249,7 @@ async fn publish_reviews_for_branch_and_dependents(
     default_message: bool,
     json: bool,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = CommandContext::open(project, app_settings)?;
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let (base_branch, _) = get_base_branch_and_repo(project)?;
     let all_branches_up_to_subject = stack_entry
         .heads
         .iter()
@@ -213,7 +261,7 @@ async fn publish_reviews_for_branch_and_dependents(
         println!(
             "Pushing branch '{}' with {} dependent branch(es) first",
             branch_name,
-            stack_entry.heads.len() - 1,
+            all_branches_up_to_subject.len()
         );
     } else if !json {
         println!("Pushing branch '{}'", branch_name);
@@ -282,6 +330,16 @@ async fn publish_reviews_for_branch_and_dependents(
     };
 
     Ok(outcome)
+}
+
+fn get_base_branch_and_repo(
+    project: &Project,
+) -> Result<(gitbutler_branch_actions::BaseBranch, gix::Repository), anyhow::Error> {
+    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let ctx = CommandContext::open(project, app_settings)?;
+    let repo = ctx.gix_repo()?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    Ok((base_branch, repo))
 }
 
 /// Display a summary of published and already existing reviews

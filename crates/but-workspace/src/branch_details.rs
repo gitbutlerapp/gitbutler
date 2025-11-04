@@ -397,3 +397,12 @@ fn local_commits_gix(
     }
     Ok(out)
 }
+
+/// Returns all local commits for the branch identified by `branch_id` that are not in `integration_branch_id`.
+pub fn local_commits_for_branch(
+    branch_id: gix::Id<'_>,
+    integration_branch_id: gix::ObjectId,
+) -> anyhow::Result<Vec<ui::Commit>> {
+    let mut authors = HashSet::new();
+    local_commits_gix(branch_id, integration_branch_id, &mut authors)
+}

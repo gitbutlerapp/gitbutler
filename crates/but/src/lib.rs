@@ -28,6 +28,7 @@ mod oplog;
 mod push;
 mod rub;
 mod status;
+mod ui;
 mod worktree;
 
 /// Handle `args` which must be what's passed by `std::env::args_os()`.
