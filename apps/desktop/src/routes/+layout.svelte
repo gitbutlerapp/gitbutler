@@ -15,6 +15,7 @@
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
+	import ToggleSidebarMenuAction from '$components/ToggleSidebarMenuAction.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { initDependencies } from '$lib/bootstrap/deps';
@@ -180,6 +181,7 @@
 <GlobalSettingsMenuAction />
 <ReloadMenuAction />
 <SwitchThemeMenuAction />
+<ToggleSidebarMenuAction />
 <GlobalModal />
 <FocusCursor />
 

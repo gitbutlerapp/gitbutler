@@ -104,7 +104,7 @@
 {/snippet}
 
 {#if !unassignedSidebaFolded.current}
-	<div class="unassigned" use:focusable={{ vertical: true }}>
+	<div class="unassigned" role="presentation" use:focusable={{ vertical: true }}>
 		{#if $settingsStore?.featureFlags.rules}
 			<RulesList {foldButton} {projectId} />
 		{/if}
