@@ -317,7 +317,11 @@ function createFileChip(label?: string, filePath?: string): HTMLDivElement {
 		el.appendChild(createElement('img', ['dragchip-file-icon'], undefined, icon));
 	}
 	el.appendChild(
-		createElement('span', ['text-12', 'text-semibold', 'dragchip-file-name'], label || 'Empty file')
+		createElement(
+			'span',
+			['text-12', 'text-semibold', 'truncate', 'dragchip-file-name'],
+			label || 'Empty file'
+		)
 	);
 	return el;
 }
@@ -329,7 +333,7 @@ function createFolderChip(label?: string): HTMLDivElement {
 	el.appendChild(
 		createElement(
 			'span',
-			['text-12', 'text-semibold', 'dragchip-file-name'],
+			['text-12', 'text-semibold', 'truncate', 'dragchip-file-name'],
 			label || 'Empty folder'
 		)
 	);
