@@ -1,43 +1,39 @@
 <div align="center">
    <img align="center" width="128px" src="crates/gitbutler-tauri/icons/release/128x128@2x.png" />
-	<h1 align="center"><b>GitButler</b></h1>
-	<p align="center">
-		Git branch management tool, built from the ground up for modern workflows
-    <br />
-    <a href="https://gitbutler.com"><strong>gitbutler.com »</strong></a>
+ <h1 align="center"><b>GitButler</b></h1>
+ <p align="center">
+  Version Control tool built from the ground up for modern, AI-powered workflows.
     <br />
     <br />
-    <b>Download for </b>
-    macOS (<a href="https://app.gitbutler.com/downloads/release/darwin/aarch64/dmg">Apple Silicon</a> |
-      <a href="https://app.gitbutler.com/downloads/release/darwin/x86_64/dmg">Intel</a>) ·
-		Linux (<a href="https://app.gitbutler.com/downloads/release/linux/x86_64/gz">AppImage</a> |
-       <a href="https://app.gitbutler.com/downloads/release/linux/x86_64/deb">deb</a>)
-      ·
-		Windows (<a href="https://app.gitbutler.com/downloads/release/windows/x86_64/msi">msi</a>)
-    <br />
-    <br />
-    (Unstable Nightly releases can be found <a href="https://app.gitbutler.com/downloads">here</a>)
+    <a href="https://gitbutler.com">Website</a>
+    <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+    <a href="https://blog.gitbutler.com/">Blog</a>
+    <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+    <a href="https://docs.gitbutler.com/">Docs</a>
+    <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+    <a href="https://gitbutler.com/downloads">Downloads</a>
   </p>
+
+[![TWEET][s1]][l1] [![DISCORD][s2]][l2]
+
+[l1]: https://twitter.com/intent/follow?screen_name=gitbutler
+[l2]: https://discord.gg/MmFkmaJ42D
 </div>
 
 <br/>
 
 ![gitbutler_client](https://github.com/user-attachments/assets/bf9bdb33-a979-47a0-b2b2-8fff5ea53afb)
 
-[![CI][s0]][l0] [![BADGE][s6]][l6] [![TWEET][s1]][l1] [![DISCORD][s2]][l2] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5] [![DEEPWIKI][s7]][l7]
+[![CI][s0]][l0] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5] [![DEEPWIKI][s7]][l7]
 
 [s0]: https://github.com/gitbutlerapp/gitbutler/actions/workflows/push.yaml/badge.svg
 [l0]: https://github.com/gitbutlerapp/gitbutler/actions/workflows/push.yaml
 [s1]: https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white
-[l1]: https://twitter.com/intent/follow?screen_name=gitbutler
 [s2]: https://img.shields.io/discord/1060193121130000425?label=Discord&color=5865F2
-[l2]: https://discord.gg/MmFkmaJ42D
 [s3]: https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white
 [l3]: https://www.instagram.com/gitbutler/
 [s5]: https://img.shields.io/youtube/channel/subscribers/UCEwkZIHGqsTGYvX8wgD0LoQ
 [l5]: https://www.youtube.com/@gitbutlerapp
-[s6]: https://img.shields.io/badge/GitButler-%23B9F4F2?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMzkiIGhlaWdodD0iMjgiIHZpZXdCb3g9IjAgMCAzOSAyOCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTI1LjIxNDUgMTIuMTk5N0wyLjg3MTA3IDEuMzg5MTJDMS41NDI5NSAwLjc0NjUzMiAwIDEuNzE0MDYgMCAzLjE4OTQ3VjI0LjgxMDVDMCAyNi4yODU5IDEuNTQyOTUgMjcuMjUzNSAyLjg3MTA3IDI2LjYxMDlMMjUuMjE0NSAxNS44MDAzQzI2LjcxOTcgMTUuMDcyMSAyNi43MTk3IDEyLjkyNzkgMjUuMjE0NSAxMi4xOTk3WiIgZmlsbD0iYmxhY2siLz4KPHBhdGggZD0iTTEzLjc4NTUgMTIuMTk5N0wzNi4xMjg5IDEuMzg5MTJDMzcuNDU3MSAwLjc0NjUzMiAzOSAxLjcxNDA2IDM5IDMuMTg5NDdWMjQuODEwNUMzOSAyNi4yODU5IDM3LjQ1NzEgMjcuMjUzNSAzNi4xMjg5IDI2LjYxMDlMMTMuNzg1NSAxNS44MDAzQzEyLjI4MDMgMTUuMDcyMSAxMi4yODAzIDEyLjkyNzkgMTMuNzg1NSAxMi4xOTk3WiIgZmlsbD0idXJsKCNwYWludDBfcmFkaWFsXzMxMF8xMjkpIi8%2BCjxkZWZzPgo8cmFkaWFsR3JhZGllbnQgaWQ9InBhaW50MF9yYWRpYWxfMzEwXzEyOSIgY3g9IjAiIGN5PSIwIiByPSIxIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgxNi41NzAxIDE0KSBzY2FsZSgxOS44NjQxIDE5LjgzODMpIj4KPHN0b3Agb2Zmc2V0PSIwLjMwMTA1NiIgc3RvcC1vcGFjaXR5PSIwIi8%2BCjxzdG9wIG9mZnNldD0iMSIvPgo8L3JhZGlhbEdyYWRpZW50Pgo8L2RlZnM%2BCjwvc3ZnPgo%3D
-[l6]: https://gitbutler.com/
 [s7]: https://deepwiki.com/badge.svg
 [l7]: https://deepwiki.com/gitbutlerapp/gitbutler
 
@@ -109,7 +105,7 @@ _With GitButler_ you can apply and unapply (add / remove) any remote branch dire
 
 ## Documentation
 
-You can find our end user documentation at: https://docs.gitbutler.com
+You can find our end user documentation at: <https://docs.gitbutler.com>
 
 ## Bugs and Feature Requests
 
@@ -132,10 +128,8 @@ document.
 If you want to skip right to getting the code to actually compile, take a look
 at the [DEVELOPMENT.md](DEVELOPMENT.md) file.
 
-Want to show your support? Add a GitButler badge to your project's README:
+### Contributors
 
-```md
-[![GitButler](https://img.shields.io/badge/GitButler-%23B9F4F2?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMzkiIGhlaWdodD0iMjgiIHZpZXdCb3g9IjAgMCAzOSAyOCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTI1LjIxNDUgMTIuMTk5N0wyLjg3MTA3IDEuMzg5MTJDMS41NDI5NSAwLjc0NjUzMiAwIDEuNzE0MDYgMCAzLjE4OTQ3VjI0LjgxMDVDMCAyNi4yODU5IDEuNTQyOTUgMjcuMjUzNSAyLjg3MTA3IDI2LjYxMDlMMjUuMjE0NSAxNS44MDAzQzI2LjcxOTcgMTUuMDcyMSAyNi43MTk3IDEyLjkyNzkgMjUuMjE0NSAxMi4xOTk3WiIgZmlsbD0iYmxhY2siLz4KPHBhdGggZD0iTTEzLjc4NTUgMTIuMTk5N0wzNi4xMjg5IDEuMzg5MTJDMzcuNDU3MSAwLjc0NjUzMiAzOSAxLjcxNDA2IDM5IDMuMTg5NDdWMjQuODEwNUMzOSAyNi4yODU5IDM3LjQ1NzEgMjcuMjUzNSAzNi4xMjg5IDI2LjYxMDlMMTMuNzg1NSAxNS44MDAzQzEyLjI4MDMgMTUuMDcyMSAxMi4yODAzIDEyLjkyNzkgMTMuNzg1NSAxMi4xOTk3WiIgZmlsbD0idXJsKCNwYWludDBfcmFkaWFsXzMxMF8xMjkpIi8%2BCjxkZWZzPgo8cmFkaWFsR3JhZGllbnQgaWQ9InBhaW50MF9yYWRpYWxfMzEwXzEyOSIgY3g9IjAiIGN5PSIwIiByPSIxIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgxNi41NzAxIDE0KSBzY2FsZSgxOS44NjQxIDE5LjgzODMpIj4KPHN0b3Agb2Zmc2V0PSIwLjMwMTA1NiIgc3RvcC1vcGFjaXR5PSIwIi8%2BCjxzdG9wIG9mZnNldD0iMSIvPgo8L3JhZGlhbEdyYWRpZW50Pgo8L2RlZnM%2BCjwvc3ZnPgo%3D)](https://gitbutler.com/)
-```
-
-[![BADGE][s6]][l6]
+<a href="https://github.com/gitbutlerapp/gitbutler/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=gitbutlerapp/gitbutler" />
+</a>
