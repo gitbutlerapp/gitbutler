@@ -124,7 +124,7 @@ pub fn build<R: Runtime>(
         &MenuItemBuilder::with_id("view/switch-theme", "Switch Theme")
             .accelerator("CmdOrCtrl+T")
             .build(handle)?,
-        &MenuItemBuilder::with_id("view/toggle-sidebar", "Toggle Sidebar")
+        &MenuItemBuilder::with_id("view/toggle-sidebar", "Toggle Unassigned")
             .accelerator("CmdOrCtrl+\\")
             .build(handle)?,
         &PredefinedMenuItem::separator(handle)?,

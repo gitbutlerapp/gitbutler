@@ -24,7 +24,7 @@ export const shortcuts = {
 			description: null
 		},
 		toggle_sidebar: {
-			title: 'Toggle sidebar',
+			title: 'Toggle Unassigned',
 			keys: '$mod+\\',
 			description: null
 		},
