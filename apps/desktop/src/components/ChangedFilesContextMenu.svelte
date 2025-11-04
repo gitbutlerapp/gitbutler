@@ -32,7 +32,6 @@
 		chipToasts
 	} from '@gitbutler/ui';
 	import { slugify } from '@gitbutler/ui/utils/string';
-	import type { DiffSpec } from '$lib/hunks/hunk';
 	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
@@ -43,11 +42,11 @@
 		editMode?: boolean;
 	};
 
-	type FileItem = {
+	type ChangedFilesItem = {
 		changes: TreeChange[];
 	};
 
-	function isFileItem(item: unknown): item is FileItem {
+	function isChangedFilesItem(item: unknown): item is ChangedFilesItem {
 		return (
 			typeof item === 'object' &&
 			item !== null &&
@@ -55,6 +54,14 @@
 			Array.isArray(item.changes) &&
 			item.changes.every(isTreeChange)
 		);
+	}
+
+	type ChangedFolderItem = ChangedFilesItem & {
+		path: string;
+	};
+
+	function isChangedFolderItem(item: ChangedFilesItem): item is ChangedFolderItem {
+		return 'path' in item && typeof item.path === 'string';
 	}
 
 	const { trigger, selectionId, stackId, projectId, editMode = false }: Props = $props();
@@ -106,23 +113,29 @@
 		$aiGenEnabled && aiConfigurationValid && $experimentalFeaturesEnabled
 	);
 
-	function isDeleted(item: FileItem): boolean {
+	function isDeleted(item: ChangedFilesItem): boolean {
+		if (isChangedFolderItem(item)) {
+			return false;
+		}
 		return item.changes.some((change) => {
 			return change.status.type === 'Deletion';
 		});
 	}
 
-	async function confirmDiscard(item: FileItem) {
-		const worktreeChanges: DiffSpec[] = item.changes.map((change) => ({
-			previousPathBytes:
-				change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null,
-			pathBytes: change.pathBytes,
-			hunkHeaders: []
-		}));
+	function getItemPath(item: ChangedFilesItem): string | null {
+		if (isChangedFolderItem(item)) {
+			return item.path;
+		}
+		if (item.changes.length === 1) {
+			return item.changes[0]!.path;
+		}
+		return null;
+	}
 
+	async function confirmDiscard(item: ChangedFilesItem) {
 		await stackService.discardChanges({
 			projectId,
-			worktreeChanges
+			worktreeChanges: changesToDiffSpec(item.changes)
 		});
 
 		const selectedFiles = item.changes.map((change) => ({ ...selectionId, path: change.path }));
@@ -135,27 +148,22 @@
 
 	let stashBranchName = $state<string>();
 	const slugifiedRefName = $derived(stashBranchName && slugify(stashBranchName));
-	async function confirmStashIntoBranch(item: FileItem, branchName: string | undefined) {
+
+	async function confirmStashIntoBranch(item: ChangedFilesItem, branchName: string | undefined) {
 		if (!branchName) {
 			return;
 		}
-		const worktreeChanges: DiffSpec[] = item.changes.map((change) => ({
-			previousPathBytes:
-				change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null,
-			pathBytes: change.pathBytes,
-			hunkHeaders: []
-		}));
 
 		await stackService.stashIntoBranch({
 			projectId,
 			branchName,
-			worktreeChanges
+			worktreeChanges: changesToDiffSpec(item.changes)
 		});
 
 		stashConfirmationModal?.close();
 	}
 
-	export function open(e: MouseEvent, item: FileItem) {
+	export function open(e: MouseEvent, item: ChangedFilesItem) {
 		contextMenu.open(e, item);
 		aiService.validateGitButlerAPIConfiguration().then((value) => {
 			aiConfigurationValid = value;
@@ -191,17 +199,11 @@
 		}
 
 		try {
-			await chipToasts.promise(
-				autoCommit({
-					projectId,
-					changes
-				}),
-				{
-					loading: 'Started auto commit',
-					success: 'Auto commit succeded',
-					error: 'Auto commit failed'
-				}
-			);
+			await chipToasts.promise(autoCommit({ projectId, changes }), {
+				loading: 'Started auto commit',
+				success: 'Auto commit succeeded',
+				error: 'Auto commit failed'
+			});
 		} catch (error) {
 			console.error('Auto commit failed:', error);
 		}
@@ -216,7 +218,7 @@
 		try {
 			await chipToasts.promise(branchChanges({ projectId, changes }), {
 				loading: 'Creating a branch and committing changes',
-				success: 'Branching changes succeded',
+				success: 'Branching changes succeeded',
 				error: 'Branching changes failed'
 			});
 		} catch (error) {
@@ -233,7 +235,7 @@
 		try {
 			await chipToasts.promise(absorbChanges({ projectId, changes }), {
 				loading: 'Looking for the best place to absorb the changes',
-				success: 'Absorbing changes succeded',
+				success: 'Absorbing changes succeeded',
 				error: 'Absorbing changes failed'
 			});
 		} catch (error) {
@@ -296,7 +298,6 @@
 		}
 
 		const branchName = selectionId.branchName;
-
 		const fileNames = changes.map((change) => change.path);
 
 		try {
@@ -330,8 +331,9 @@
 
 <ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
 	{#snippet children(item: unknown)}
-		{#if isFileItem(item)}
+		{#if isChangedFilesItem(item)}
 			{@const deletion = isDeleted(item)}
+			{@const itemPath = getItemPath(item)}
 			{#if item.changes.length > 0 && !editMode}
 				<ContextMenuSection>
 					{@const changes = item.changes}
@@ -399,7 +401,7 @@
 				</ContextMenuSection>
 			{/if}
 
-			{#if item.changes.length === 1}
+			{#if itemPath}
 				<ContextMenuSection>
 					<ContextMenuItemSubmenu label="Copy path" icon="copy">
 						{#snippet submenu({ close: closeSubmenu })}
@@ -410,7 +412,7 @@
 										const project = await projectService.fetchProject(projectId);
 										const projectPath = project?.path;
 										if (projectPath) {
-											const absPath = await backend.joinPath(projectPath, item.changes[0]!.path);
+											const absPath = await backend.joinPath(projectPath, itemPath);
 
 											await clipboardService.write(absPath, {
 												message: 'Absolute path copied',
@@ -424,7 +426,7 @@
 								<ContextMenuItem
 									label="Copy relative path"
 									onclick={async () => {
-										await clipboardService.write(item.changes[0]!.path, {
+										await clipboardService.write(itemPath, {
 											message: 'Relative path copied',
 											errorMessage: 'Failed to copy relative path'
 										});
@@ -439,31 +441,33 @@
 			{/if}
 
 			<ContextMenuSection>
-				<ContextMenuItem
-					label="Open in {$userSettings.defaultCodeEditor.displayName}"
-					icon="open-editor"
-					disabled={deletion}
-					onclick={async () => {
-						try {
-							const project = await projectService.fetchProject(projectId);
-							const projectPath = project?.path;
-							if (projectPath) {
-								for (let change of item.changes) {
-									const path = getEditorUri({
-										schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-										path: [vscodePath(projectPath), change.path]
-									});
-									urlService.openExternalUrl(path);
+				{#if !isChangedFolderItem(item)}
+					<ContextMenuItem
+						label="Open in {$userSettings.defaultCodeEditor.displayName}"
+						icon="open-editor"
+						disabled={deletion}
+						onclick={async () => {
+							try {
+								const project = await projectService.fetchProject(projectId);
+								const projectPath = project?.path;
+								if (projectPath) {
+									for (let change of item.changes) {
+										const path = getEditorUri({
+											schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+											path: [vscodePath(projectPath), change.path]
+										});
+										urlService.openExternalUrl(path);
+									}
 								}
+								contextMenu.close();
+							} catch {
+								chipToasts.error('Failed to open in editor');
+								console.error('Failed to open in editor');
 							}
-							contextMenu.close();
-						} catch {
-							chipToasts.error('Failed to open in editor');
-							console.error('Failed to open in editor');
-						}
-					}}
-				/>
-				{#if item.changes.length === 1}
+						}}
+					/>
+				{/if}
+				{#if itemPath}
 					<ContextMenuItem
 						label={showInFolderLabel}
 						icon="open-folder"
@@ -471,7 +475,7 @@
 							const project = await projectService.fetchProject(projectId);
 							const projectPath = project?.path;
 							if (projectPath) {
-								const absPath = await backend.joinPath(projectPath, item.changes[0]!.path);
+								const absPath = await backend.joinPath(projectPath, itemPath);
 								await fileService.showFileInFolder(absPath);
 							}
 							contextMenu.close();
@@ -533,32 +537,39 @@
 	type="warning"
 	title="Discard changes"
 	bind:this={confirmationModal}
-	onSubmit={(_, item) => isFileItem(item) && confirmDiscard(item)}
+	onSubmit={(_, item) => isChangedFilesItem(item) && confirmDiscard(item)}
 >
 	{#snippet children(item)}
-		{#if isFileItem(item)}
-			{@const changes = item.changes}
-			{#if changes.length < 10}
+		{#if isChangedFilesItem(item)}
+			{#if isChangedFolderItem(item)}
 				<p class="discard-caption">
-					Are you sure you want to discard the changes<br />to the following files:
+					Are you sure you want to discard all changes in
+					<span class="text-bold">{item.path}</span>?
 				</p>
-				<ul class="file-list">
-					{#each changes as change, i}
-						<FileListItem
-							filePath={change.path}
-							fileStatus={computeChangeStatus(change)}
-							clickable={false}
-							listMode="list"
-							hideBorder={i === changes.length - 1}
-						/>
-					{/each}
-				</ul>
 			{:else}
-				<p>
-					Discard the changes to all <span class="text-bold">
-						{changes.length} files
-					</span>?
-				</p>
+				{@const changes = item.changes}
+				{#if changes.length < 10}
+					<p class="discard-caption">
+						Are you sure you want to discard the changes<br />to the following files:
+					</p>
+					<ul class="file-list">
+						{#each changes as change, i}
+							<FileListItem
+								filePath={change.path}
+								fileStatus={computeChangeStatus(change)}
+								clickable={false}
+								listMode="list"
+								hideBorder={i === changes.length - 1}
+							/>
+						{/each}
+					</ul>
+				{:else}
+					<p>
+						Discard the changes to all <span class="text-bold">
+							{changes.length} files
+						</span>?
+					</p>
+				{/if}
 			{/if}
 		{:else}
 			<p class="text-13">Woops! Malformed data :(</p>
@@ -577,34 +588,40 @@
 	type="info"
 	title="Stash changes into a new branch"
 	bind:this={stashConfirmationModal}
-	onSubmit={(_, item) => isFileItem(item) && confirmStashIntoBranch(item, stashBranchName)}
+	onSubmit={(_, item) => isChangedFilesItem(item) && confirmStashIntoBranch(item, stashBranchName)}
 >
-	<div class="content-wrap">
-		<Textbox
-			id="stashBranchName"
-			placeholder="Enter your branch name..."
-			bind:value={stashBranchName}
-			autofocus
-			helperText={slugifiedRefName && slugifiedRefName !== stashBranchName
-				? `Will be created as '${slugifiedRefName}'`
-				: undefined}
-		/>
+	{#snippet children(item)}
+		<div class="content-wrap">
+			<Textbox
+				id="stashBranchName"
+				placeholder="Enter your branch name..."
+				bind:value={stashBranchName}
+				autofocus
+				helperText={slugifiedRefName && slugifiedRefName !== stashBranchName
+					? `Will be created as '${slugifiedRefName}'`
+					: undefined}
+			/>
 
-		<div class="explanation">
-			<p class="primary-text">
-				Your selected changes will be moved to a new branch and removed from your current workspace.
-				To get these changes back later, switch to the new branch and uncommit the stash.
-			</p>
+			<div class="explanation">
+				<p class="primary-text">
+					{#if isChangedFolderItem(item)}
+						All changes in this folder
+					{:else}
+						Your selected changes
+					{/if}
+					will be moved to a new branch and removed from your current workspace. To get these changes
+					back later, switch to the new branch and uncommit the stash.
+				</p>
+			</div>
+
+			<div class="technical-note">
+				<p class="text-12 text-body clr-text-2">
+					💡 This creates a new branch, commits your changes, then unapplies the branch. Future
+					versions will have simpler stash management.
+				</p>
+			</div>
 		</div>
-
-		<div class="technical-note">
-			<p class="text-12 text-body clr-text-2">
-				💡 This creates a new branch, commits your changes, then unapplies the branch. Future
-				versions will have simpler stash management.
-			</p>
-		</div>
-	</div>
-
+	{/snippet}
 	{#snippet controls(close, item)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
 		<AsyncButton
