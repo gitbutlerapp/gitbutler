@@ -1,4 +1,9 @@
-import { ChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
+import {
+	FileChangeDropData,
+	FolderChangeDropData,
+	HunkDropDataV3,
+	type ChangeDropData
+} from '$lib/dragging/draggables';
 import { type DiffService } from '$lib/hunks/diffService.svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { FileSelectionManager } from '$lib/selection/fileSelectionManager.svelte';
@@ -14,7 +19,7 @@ export class AssignmentDropHandler implements DropzoneHandler {
 	) {}
 
 	accepts(data: unknown) {
-		if (data instanceof ChangeDropData) {
+		if (data instanceof FileChangeDropData || data instanceof FolderChangeDropData) {
 			if (data.isCommitted) return false;
 			if (data.stackId === this.stackId) return false;
 			return true;
@@ -30,7 +35,7 @@ export class AssignmentDropHandler implements DropzoneHandler {
 
 	async ondrop(data: ChangeDropData | HunkDropDataV3) {
 		if (data.stackId === this.stackId) return;
-		if (data instanceof ChangeDropData) {
+		if (data instanceof FileChangeDropData) {
 			// A whole file.
 			const changes = await data.treeChanges();
 			const assignments = changes
@@ -43,6 +48,20 @@ export class AssignmentDropHandler implements DropzoneHandler {
 
 			// If files are coming from the uncommitted changes
 			this.idSelection.remove(data.change.path, data.selectionId);
+		} else if (data instanceof FolderChangeDropData) {
+			// A whole folder.
+			const changes = await data.treeChanges();
+			const assignments = changes
+				.flatMap((c) => this.uncommittedService.getAssignmentsByPath(data.stackId || null, c.path))
+				.map((h) => ({ ...h, stackId: this.stackId || null }));
+			await this.diffService.assignHunk({
+				projectId: this.projectId,
+				assignments
+			});
+
+			for (const change of changes) {
+				this.idSelection.remove(change.path, data.selectionId);
+			}
 		} else {
 			const assignment = this.uncommittedService.getAssignmentByHeader(
 				data.stackId,

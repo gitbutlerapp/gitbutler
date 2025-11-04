@@ -1,6 +1,6 @@
 import { getColorFromCommitState } from '$components/lib';
 import { type CommitStatusType } from '$lib/commits/commit';
-import { ChangeDropData, type DropData } from '$lib/dragging/draggables';
+import { FileChangeDropData, type DropData } from '$lib/dragging/draggables';
 import { getFileIcon } from '@gitbutler/ui/components/file/getFileIcon';
 import iconsJson from '@gitbutler/ui/data/icons.json';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
@@ -11,10 +11,9 @@ import type { DragStateService } from '@gitbutler/ui/drag/dragStateService.svelt
 // Added to element being dragged (not the clone that follows the cursor).
 const DRAGGING_CLASS = 'dragging';
 
-type chipType = 'file' | 'hunk' | 'ai-session' | 'branch';
+type chipType = 'file' | 'folder' | 'hunk' | 'ai-session' | 'branch';
 
 export type DraggableConfig = {
-	readonly selector?: string;
 	readonly disabled?: boolean;
 	readonly label?: string;
 	readonly filePath?: string;
@@ -86,7 +85,7 @@ function setupDragHandlers(
 			endDragging = opts.dragStateService.startDragging();
 		}
 
-		if (opts.data instanceof ChangeDropData) {
+		if (opts.data instanceof FileChangeDropData) {
 			selectedElements = [];
 			for (const path of opts.data.changedPaths(opts.data.selectionId)) {
 				// Path is sufficient as a key since we query the parent container.
@@ -318,7 +317,25 @@ function createFileChip(label?: string, filePath?: string): HTMLDivElement {
 		el.appendChild(createElement('img', ['dragchip-file-icon'], undefined, icon));
 	}
 	el.appendChild(
-		createElement('span', ['text-12', 'text-semibold', 'dragchip-file-name'], label || 'Empty file')
+		createElement(
+			'span',
+			['text-12', 'text-semibold', 'truncate', 'dragchip-file-name'],
+			label || 'Empty file'
+		)
+	);
+	return el;
+}
+
+function createFolderChip(label?: string): HTMLDivElement {
+	const el = createElement('div', ['dragchip-file-container']);
+	const icon = createSVGIcon(iconsJson['folder'], ['dragchip-file-icon']);
+	el.appendChild(icon);
+	el.appendChild(
+		createElement(
+			'span',
+			['text-12', 'text-semibold', 'truncate', 'dragchip-file-name'],
+			label || 'Empty folder'
+		)
 	);
 	return el;
 }
@@ -384,6 +401,8 @@ export function createChipsElement({
 
 		if (chipType === 'file') {
 			chip.appendChild(createFileChip(label, filePath));
+		} else if (chipType === 'folder') {
+			chip.appendChild(createFolderChip(label));
 		} else if (chipType === 'hunk') {
 			chip.appendChild(createHunkChip(label));
 		}

@@ -76,6 +76,7 @@
 	position: relative;
 	align-items: center;
 	padding: 8px;
+	overflow: hidden;
 	gap: 6px;
 }
 
@@ -84,8 +85,10 @@
 }
 
 .dragchip-file-icon {
+	flex-shrink: 0;
 	width: 16px;
 	height: 16px;
+	color: var(--clr-text-2);
 }
 
 /* HUNK DRAG */

@@ -225,6 +225,18 @@
 			border-bottom: 1px solid var(--clr-border-3);
 		}
 
+		.draggable-handle {
+			display: flex;
+			position: absolute;
+			left: 0;
+			align-items: center;
+			justify-content: center;
+			height: 24px;
+			color: var(--clr-text-3);
+			opacity: 0;
+			transition: opacity var(--transition-fast);
+		}
+
 		&.draggable {
 			&:hover {
 				& .draggable-handle {
@@ -243,18 +255,6 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-	}
-
-	.draggable-handle {
-		display: flex;
-		position: absolute;
-		left: 0;
-		align-items: center;
-		justify-content: center;
-		height: 24px;
-		color: var(--clr-text-3);
-		opacity: 0;
-		transition: opacity var(--transition-fast);
 	}
 
 	.file-list-item__details {

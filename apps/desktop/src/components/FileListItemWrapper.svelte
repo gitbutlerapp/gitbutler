@@ -1,9 +1,9 @@
 <!-- This is a V3 replacement for `FileListItemWrapper.svelte` -->
 <script lang="ts">
-	import FileContextMenu from '$components/FileContextMenu.svelte';
+	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { draggableChips } from '$lib/dragging/draggable';
-	import { ChangeDropData } from '$lib/dragging/draggables';
+	import { FileChangeDropData } from '$lib/dragging/draggables';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import { getFilename } from '$lib/files/utils';
 	import { type TreeChange } from '$lib/hunks/change';
@@ -76,7 +76,7 @@
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 
-	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
+	let contextMenu = $state<ReturnType<typeof ChangedFilesContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
 	let isStuck = $state(false);
 
@@ -132,9 +132,8 @@
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
-		data: new ChangeDropData(projectId, change, idSelection, selectionId, stackId || undefined),
+		data: new FileChangeDropData(projectId, change, idSelection, selectionId, stackId || undefined),
 		viewportId: 'board-viewport',
-		selector: '.selected-draggable',
 		disabled: draggableDisabled,
 		chipType: 'file',
 		dropzoneRegistry,
@@ -148,7 +147,7 @@
 		}
 	}}
 >
-	<FileContextMenu
+	<ChangedFilesContextMenu
 		bind:this={contextMenu}
 		{projectId}
 		{stackId}

@@ -1,6 +1,10 @@
 import { BranchDropData } from '$lib/branches/dropHandler';
 import { changesToDiffSpec } from '$lib/commits/utils';
-import { ChangeDropData } from '$lib/dragging/draggables';
+import {
+	FileChangeDropData,
+	FolderChangeDropData,
+	type ChangeDropData
+} from '$lib/dragging/draggables';
 import { unstackPRs, updateStackPrs } from '$lib/forge/shared/prFooter';
 import StackMacros from '$lib/stacks/macros';
 import { handleMoveBranchResult } from '$lib/stacks/stack';
@@ -30,7 +34,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 	}
 
 	private acceptsChangeDropData(data: unknown): data is ChangeDropData {
-		if (!(data instanceof ChangeDropData)) return false;
+		if (!(data instanceof FileChangeDropData || data instanceof FolderChangeDropData)) return false;
 		if (data.selectionId.type === 'commit' && data.stackId === undefined) return false;
 		return true;
 	}
