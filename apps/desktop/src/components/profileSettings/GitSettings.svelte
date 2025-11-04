@@ -56,8 +56,6 @@
 		By default, everything in the GitButler client is free to use. You can opt in to crediting us as
 		the committer in your virtual branch commits to help spread the word.
 		<Link
-			target="_blank"
-			rel="noreferrer"
 			href="https://github.com/gitbutlerapp/gitbutler-docs/blob/d81a23779302c55f8b20c75bf7842082815b4702/content/docs/features/virtual-branches/committer-mark.mdx"
 		>
 			Learn more

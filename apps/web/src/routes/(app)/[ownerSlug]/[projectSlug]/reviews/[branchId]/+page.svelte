@@ -262,8 +262,7 @@
 						</Factoid>
 						{#if branch.forgeUrl}
 							<Factoid label="PR"
-								><Link href={branch.forgeUrl} target="_blank"
-									>{branch.forgeDescription || '#unknown'}</Link
+								><Link href={branch.forgeUrl}>{branch.forgeDescription || '#unknown'}</Link
 								></Factoid
 							>
 						{/if}

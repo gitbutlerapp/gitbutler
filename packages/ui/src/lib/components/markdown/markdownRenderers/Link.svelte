@@ -6,6 +6,6 @@
 	const { href, children }: Props = $props();
 </script>
 
-<Link {href} target="_blank" rel="noopener noreferrer">
+<Link {href}>
 	{@render children()}
 </Link>

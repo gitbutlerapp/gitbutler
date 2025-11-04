@@ -90,13 +90,10 @@
 	<Icon name="docs" color="info" />
 	<p class="text-13 text-body">
 		{#if recheckedAvailability === 'recheck-failed'}
-			If you haven't installed Claude Code, check our <Link target="_blank" href={DOCS_URL}
-				>installation guide</Link
+			If you haven't installed Claude Code, check our <Link href={DOCS_URL}>installation guide</Link
 			>
 		{:else}
-			Get the full guide to Agents in GitButler in <Link target="_blank" href={DOCS_URL}
-				>our documentation</Link
-			>
+			Get the full guide to Agents in GitButler in <Link href={DOCS_URL}>our documentation</Link>
 		{/if}
 	</p>
 </div>

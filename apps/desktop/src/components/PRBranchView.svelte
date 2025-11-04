@@ -61,9 +61,7 @@
 							<span>No remote</span>
 
 							<span class="pr-request-data__divider">•</span>
-							<Link target="_blank" rel="noopener noreferrer" href={pr.htmlUrl}>
-								Open in browser
-							</Link>
+							<Link href={pr.htmlUrl}>Open in browser</Link>
 						</div>
 					</div>
 				</div>

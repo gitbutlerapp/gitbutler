@@ -181,13 +181,7 @@
 						{#snippet caption()}
 							{#if selectedType === 'gitCredentialsHelper'}
 								GitButler will use the system's git credentials helper.
-								<Link
-									target="_blank"
-									rel="noreferrer"
-									href="https://git-scm.com/doc/credential-helpers"
-								>
-									Learn more
-								</Link>
+								<Link href="https://git-scm.com/doc/credential-helpers">Learn more</Link>
 							{/if}
 						{/snippet}
 
