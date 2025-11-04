@@ -433,7 +433,9 @@ async fn spawn_command(
         ]);
         // Set permission mode based on interaction mode
         match user_params.permission_mode {
-            PermissionMode::Default => {}
+            PermissionMode::Default => {
+                command.args(["--permission-mode", "default"]);
+            }
             PermissionMode::Plan => {
                 command.args(["--permission-mode", "plan"]);
             }
