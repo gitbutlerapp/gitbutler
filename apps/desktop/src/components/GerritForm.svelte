@@ -20,7 +20,7 @@
 <div class="stack-v">
 	<ReduxResult {projectId} result={isGerritProject.result}>
 		{#snippet children(itIsAGerritProject)}
-			<SectionCard>
+			<SectionCard orientation="row" labelFor="gerritModeToggle">
 				{#snippet title()}
 					Gerrit Configuration
 				{/snippet}
@@ -31,7 +31,7 @@
 
 				{#snippet actions()}
 					<Toggle
-						id="gerritMode"
+						id="gerritModeToggle"
 						checked={itIsAGerritProject}
 						onclick={() => gbConfig.setGerritMode(projectId, !itIsAGerritProject)}
 					/>
