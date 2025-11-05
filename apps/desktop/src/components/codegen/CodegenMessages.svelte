@@ -23,7 +23,8 @@
 		userFeedbackStatus,
 		usageStats,
 		formatMessages,
-		getTodos
+		getTodos,
+		type Message
 	} from '$lib/codegen/messages';
 
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
@@ -97,7 +98,7 @@
 
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
 	let promptConfigModal = $state<CodegenPromptConfigModal>();
-	let virtualList = $state<VirtualList>();
+	let virtualList = $state<VirtualList<Message>>();
 
 	const modelOptions: { label: string; value: ModelType }[] = [
 		{ label: 'Haiku', value: 'haiku' },
@@ -511,7 +512,6 @@
 					<VirtualList
 						bind:this={virtualList}
 						grow
-						tail
 						stickToBottom
 						items={formattedMessages}
 						batchSize={1}

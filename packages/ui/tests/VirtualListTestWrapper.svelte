@@ -5,10 +5,9 @@
 		batchSize: number;
 		itemCount?: number;
 		stickToBottom?: boolean;
-		tail?: boolean;
 	};
 
-	const { itemCount = 10, stickToBottom = false, tail, batchSize }: Props = $props();
+	const { itemCount = 10, stickToBottom = false, batchSize }: Props = $props();
 
 	let items = $state(Array.from({ length: itemCount }, (_, i) => `Item ${i + 1}`));
 	let container = $state<HTMLDivElement>();
@@ -30,7 +29,7 @@
 </script>
 
 <div bind:this={container} class="test-container">
-	<VirtualList {items} {stickToBottom} {tail} {batchSize} defaultHeight={50} visibility="hover">
+	<VirtualList {items} {stickToBottom} {batchSize} defaultHeight={50} visibility="hover">
 		{#snippet chunkTemplate(chunk)}
 			{#each chunk as item}
 				<div class="test-item">

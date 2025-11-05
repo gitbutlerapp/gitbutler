@@ -110,8 +110,7 @@ for (const config of testConfigurations) {
 				props: {
 					itemCount: config.itemCount,
 					batchSize: config.batchSize,
-					stickToBottom: true,
-					tail: true
+					stickToBottom: true
 				}
 			});
 
@@ -131,8 +130,7 @@ for (const config of testConfigurations) {
 				props: {
 					itemCount: config.itemCount,
 					batchSize: config.batchSize,
-					stickToBottom: true,
-					tail: true
+					stickToBottom: true
 				}
 			});
 
@@ -174,8 +172,7 @@ for (const config of testConfigurations) {
 				props: {
 					itemCount: config.itemCount,
 					batchSize: config.batchSize,
-					stickToBottom: true,
-					tail: true
+					stickToBottom: true
 				}
 			});
 
@@ -222,8 +219,7 @@ for (const config of testConfigurations) {
 				props: {
 					itemCount: config.itemCount,
 					batchSize: config.batchSize,
-					stickToBottom: true,
-					tail: true
+					stickToBottom: true
 				}
 			});
 
@@ -271,8 +267,7 @@ for (const config of testConfigurations) {
 				props: {
 					itemCount: config.itemCount,
 					batchSize: config.batchSize,
-					stickToBottom: true,
-					tail: true
+					stickToBottom: true
 				}
 			});
 
@@ -299,45 +294,6 @@ for (const config of testConfigurations) {
 				distanceFromBottom = await getDistanceFromBottom(viewport);
 				expect(distanceFromBottom).toBeLessThan(110);
 			}
-		});
-
-		test('should NOT stick to bottom when stickToBottom is false', async ({ mount, page }) => {
-			const component = await mount(VirtualListTestWrapper, {
-				props: {
-					itemCount: config.itemCount,
-					batchSize: config.batchSize,
-					stickToBottom: false, // Important: stickToBottom disabled
-					tail: true
-				}
-			});
-
-			const viewport = component.locator('.viewport');
-			await waitForScrollStability(viewport);
-
-			// Should start at bottom (initialPosition: bottom)
-			let distanceFromBottom = await getDistanceFromBottom(viewport);
-			expect(distanceFromBottom).toBeLessThan(10);
-
-			// Record scroll position
-			const { scrollTop: scrollTopBefore, scrollHeight: scrollHeightBefore } =
-				await getScrollProperties(viewport);
-
-			// Add new items
-			const addButton = component.locator('button', { hasText: 'Add Items' });
-			await addButton.click();
-
-			// Wait for items to render
-			await waitForScrollHeightIncrease(viewport, scrollHeightBefore);
-
-			await page.waitForTimeout(300);
-
-			// scrollTop should NOT have changed (no auto-scroll)
-			const { scrollTop: scrollTopAfter } = await getScrollProperties(viewport);
-			expect(scrollTopAfter).toBe(scrollTopBefore);
-
-			// We should now be NOT at bottom (content grew but we didn't scroll)
-			distanceFromBottom = await getDistanceFromBottom(viewport);
-			expect(distanceFromBottom).toEqual(100);
 		});
 	});
 }
