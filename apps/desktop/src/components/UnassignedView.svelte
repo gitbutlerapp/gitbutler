@@ -255,8 +255,7 @@
 	.unassigned-folded__text {
 		display: flex;
 		align-items: center;
-		margin-right: 2px;
-		transform: rotate(-90deg);
+		writing-mode: vertical-lr;
 	}
 
 	.unassigned__files {
