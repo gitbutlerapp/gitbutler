@@ -30,7 +30,7 @@
 </script>
 
 <div bind:this={container} class="test-container">
-	<VirtualList {items} {stickToBottom} {tail} {batchSize} defaultHeight={150} visibility="hover">
+	<VirtualList {items} {stickToBottom} {tail} {batchSize} defaultHeight={50} visibility="hover">
 		{#snippet chunkTemplate(chunk)}
 			{#each chunk as item}
 				<div class="test-item">

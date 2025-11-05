@@ -354,7 +354,7 @@
 				opacity 0.2s,
 				transform 0.15s,
 				height 0.15s,
-				top 0.1s;
+				top 0.05s;
 		}
 	}
 

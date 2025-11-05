@@ -97,6 +97,7 @@
 
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
 	let promptConfigModal = $state<CodegenPromptConfigModal>();
+	let virtualList = $state<VirtualList>();
 
 	const modelOptions: { label: string; value: ModelType }[] = [
 		{ label: 'Haiku', value: 'haiku' },
@@ -224,6 +225,9 @@
 	async function sendMessage(prompt: string) {
 		await messageSender.sendMessage(prompt, attachments);
 		attachmentService.clearByBranch(branchName);
+		setTimeout(() => {
+			virtualList?.scrollToBottom();
+		}, 100);
 	}
 
 	function insertTemplate(template: string) {
@@ -505,6 +509,7 @@
 					</div>
 				{:else}
 					<VirtualList
+						bind:this={virtualList}
 						grow
 						tail
 						stickToBottom
@@ -512,7 +517,7 @@
 						batchSize={1}
 						visibility={$userSettings.scrollbarVisibilityState}
 						padding={{ left: 20, right: 20, top: 12, bottom: 12 }}
-						defaultHeight={150}
+						defaultHeight={65}
 					>
 						{#snippet chunkTemplate(messages)}
 							{#each messages as message}

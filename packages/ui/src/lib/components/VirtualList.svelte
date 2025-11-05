@@ -13,12 +13,13 @@
 	type T = unknown;
 </script>
 
-<script lang="ts" generics="T">
+<script lang="ts" generics="T = any">
 	import Button from '$components/Button.svelte';
 	import ScrollableContainer from '$components/scroll/ScrollableContainer.svelte';
 
 	import { debounce } from '$lib/utils/debounce';
 
+	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { tick, untrack, type Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import type { ScrollbarVisilitySettings } from '$components/scroll/Scrollbar.svelte';
@@ -64,16 +65,18 @@
 	}: Props = $props();
 
 	// Constants
-	const STICKY_DISTANCE = 200;
-	const LOAD_MORE_THRESHOLD = 300;
+	const SCROLL_DOWN_THRESHOLD = 600;
+	const STICKY_DISTANCE = 40;
+	const LOAD_MORE_THRESHOLD = 200;
+	const DEBOUNCE_DELAY = 50;
 
 	// Debounce load more callback
-	const debouncedLoadMore = $derived(debounce(() => onloadmore?.(), 50));
+	const debouncedLoadMore = $derived(debounce(() => onloadmore?.(), DEBOUNCE_DELAY));
 
 	// DOM references
 	let viewport = $state<HTMLDivElement>();
-	let visibleRowElements = $state<HTMLCollectionOf<Element>>(); // This is a live list
-	let resizeObserver: ResizeObserver | null = null;
+	let visibleRowElements = $state<HTMLCollectionOf<Element>>();
+	let itemObserver: ResizeObserver | null = null;
 	let viewportHeight = $state(0);
 	let previousViewportHeight = 0;
 
@@ -82,22 +85,16 @@
 		start: tail ? Infinity : 0,
 		end: tail ? Infinity : 0
 	});
-
-	// An array mapping items to element heights
-	let heightMap: Array<number | undefined> = $state([]);
-
-	// Padding that takes up out of viewport space
+	let heightMap: number[] = $state([]);
 	let offset = $state({ top: 0, bottom: 0 });
-
 	let totalHeight = $state(0);
+	let previousDistance = $state(0);
+	let isInitialized = $state(false);
+	let previousCount = $state(items.length);
+	let hasNewItemsAtBottom = $state(false);
+	let isRecalculating = false;
 
-	// Chat-specific state
-	let lastDistanceFromBottom = $state(0);
-	let hasInitialized = $state(false);
-	let wasAtBottomBeforeResize = $state(false);
-	let previousItemsLength = $state(items.length);
-	let hasNewUnreadItems = $state(false);
-
+	// Derived state
 	const itemChunks = $derived(divideIntoChunks(items, batchSize));
 	const visibleChunks = $derived.by(() =>
 		itemChunks
@@ -105,7 +102,8 @@
 			.map((data, i) => ({ id: i + visibleRange.start, data }))
 	);
 
-	function divideIntoChunks<T>(array: T[], size: number) {
+	// Helper functions
+	function divideIntoChunks<T>(array: T[], size: number): T[][] {
 		return Array.from({ length: Math.ceil(array.length / size) }, (_v, i) =>
 			array.slice(i * size, i * size + size)
 		);
@@ -119,166 +117,117 @@
 		return sum;
 	}
 
-	function saveDistanceFromBottom() {
-		if (viewport) {
-			lastDistanceFromBottom = getDistanceFromBottom();
-		}
-	}
-
-	function isScrollNearBottom() {
-		return getDistanceFromBottom() < STICKY_DISTANCE;
-	}
-
-	function shouldTriggerLoadMore() {
-		return totalHeight < viewportHeight || getDistanceFromBottom() < LOAD_MORE_THRESHOLD;
-	}
-
-	function getDistanceFromBottom() {
+	function getDistanceFromBottom(): number {
 		if (!viewport) return 0;
 		return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
 	}
 
-	async function measureRowHeight(i: number): Promise<number> {
-		if (i < visibleRange.start) {
-			return heightMap[i] || defaultHeight;
+	function saveDistanceFromBottom(): void {
+		if (viewport) {
+			previousDistance = getDistanceFromBottom();
 		}
-
-		let rowElement = visibleRowElements?.[i - visibleRange.start];
-		if (!rowElement) {
-			await tick(); // render the newly visible row
-			rowElement = visibleRowElements?.[i - visibleRange.start];
-			if (!rowElement) return defaultHeight;
-		}
-		const rowHeight = (rowElement as HTMLElement)?.offsetHeight || defaultHeight;
-		heightMap[i] = rowHeight;
-		return rowHeight;
 	}
 
-	async function calculateVisibleStartIndex(): Promise<number> {
-		if (itemChunks.length === 0) {
-			return 0;
-		}
+	function shouldTriggerLoadMore(): boolean {
+		return totalHeight < viewportHeight || getDistanceFromBottom() < LOAD_MORE_THRESHOLD;
+	}
+
+	function isNearBottom(): boolean {
+		return previousDistance < STICKY_DISTANCE;
+	}
+
+	function calculateVisibleStartIndex(): number {
+		if (itemChunks.length === 0 || !viewport) return 0;
 
 		let accumulatedHeight = 0;
-		let i = 0;
-
-		while (i < itemChunks.length) {
-			const rowHeight = await measureRowHeight(i);
-			accumulatedHeight += rowHeight;
-
-			if (accumulatedHeight > viewport!.scrollTop) {
+		for (let i = 0; i < itemChunks.length; i++) {
+			const rowHeight = visibleRowElements?.[i - visibleRange.start]?.clientHeight;
+			accumulatedHeight += rowHeight || heightMap[i] || defaultHeight;
+			if (accumulatedHeight > viewport.scrollTop) {
 				return i;
 			}
-			i++;
 		}
 		return itemChunks.length - 1;
 	}
 
-	async function calculateVisibleEndIndex(): Promise<number> {
-		let accumulatedHeight = offset.top - viewport!.scrollTop;
-		let i = visibleRange.start;
+	function calculateVisibleEndIndex(): number {
+		if (!viewport) return itemChunks.length;
 
-		while (i < itemChunks.length) {
-			if (!visibleRowElements![i - visibleRange.start]) {
-				visibleRange.end = i + 1;
-				offset.bottom = calculateHeightSum(visibleRange.end, heightMap.length);
-				await tick(); // render the newly visible row
-			}
-			const rowHeight = await measureRowHeight(i);
-
-			accumulatedHeight += rowHeight;
-			if (accumulatedHeight > viewport!.clientHeight) {
+		let accumulatedHeight = offset.top - viewport.scrollTop;
+		for (let i = visibleRange.start; i < itemChunks.length; i++) {
+			accumulatedHeight += heightMap[i] || defaultHeight;
+			if (accumulatedHeight > viewport.clientHeight) {
 				return i + 1;
 			}
-			i++;
 		}
 		return itemChunks.length;
 	}
 
-	async function calculateStartIndexFromBottom(): Promise<number> {
+	function calculateStartIndexFromBottom(): number {
 		if (!viewport) return 0;
 
-		let accumulatedHeight = 0;
-		let i = visibleRange.end - 1;
-
-		while (i >= 0) {
-			// Set startIndex to render this chunk
-			visibleRange.start = i;
-			await tick(); // Wait for the chunk to render
-
-			// Now measure the actual rendered height
-			const rowElement = visibleRowElements?.[0]; // First row in the visible set -- this is not safe
-			const rowHeight = (rowElement as HTMLElement)?.offsetHeight || defaultHeight;
-			heightMap[i] = rowHeight;
-
-			accumulatedHeight += rowHeight;
-
-			if (accumulatedHeight > viewport.clientHeight) {
+		let accumulated = 0;
+		for (let i = visibleRange.end - 1; i >= 0; i--) {
+			accumulated += heightMap[i] || defaultHeight;
+			if (accumulated > viewport.clientHeight) {
 				return i;
 			}
-			i--;
 		}
 		return 0;
 	}
 
-	let isRecalculating = false;
+	function initializeRange(): void {
+		visibleRange.end = itemChunks.length;
+		offset.bottom = 0;
 
-	async function recalculateVisibleRange() {
+		visibleRange.start = calculateStartIndexFromBottom();
+		offset.top = calculateHeightSum(0, visibleRange.start);
+		totalHeight = calculateHeightSum(0, heightMap.length);
+
+		// Delay scroll to ensure DOM is ready
+		setTimeout(() => {
+			scrollToBottom();
+			isInitialized = true;
+		}, 0);
+	}
+
+	function updateRange(): void {
 		if (!viewport || !visibleRowElements) return;
-		if (isRecalculating) return; // One at a time.
+		visibleRange = {
+			start: calculateVisibleStartIndex(),
+			end: calculateVisibleEndIndex()
+		};
+		offset = {
+			bottom: calculateHeightSum(visibleRange.end, heightMap.length),
+			top: calculateHeightSum(0, visibleRange.start)
+		};
+	}
+
+	async function recalculateVisibleRange(): Promise<void> {
+		if (!viewport || !visibleRowElements || isRecalculating) return;
 
 		isRecalculating = true;
 		heightMap.length = itemChunks.length;
 
-		// Handle bottom initialization
-		if (!hasInitialized && tail) {
-			// Start from the last chunk and work backwards
-			visibleRange.end = itemChunks.length;
-			offset.bottom = 0;
-			await tick();
+		const scrollTop = viewport.scrollTop;
 
-			visibleRange.start = await calculateStartIndexFromBottom();
-			offset.top = calculateHeightSum(0, visibleRange.start);
-			totalHeight = calculateHeightSum(0, heightMap.length);
-
-			setTimeout(() => {
-				if (viewport) {
-					viewport.scrollTop = viewport.scrollHeight;
-					hasInitialized = true;
-				}
-			}, 20);
+		if (!isInitialized && tail) {
+			initializeRange();
 		} else {
-			await tick();
-			const previousStartIndex = visibleRange.start;
-
-			visibleRange = {
-				start: await calculateVisibleStartIndex(),
-				end: await calculateVisibleEndIndex()
-			};
-			offset = {
-				bottom: calculateHeightSum(visibleRange.end, heightMap.length),
-				top: calculateHeightSum(0, visibleRange.start)
-			};
-
-			if (visibleRange.start < previousStartIndex) {
-				await tick();
-				const cachedHeight = heightMap[visibleRange.start] || defaultHeight;
-				const realHeight = (visibleRowElements[0] as HTMLElement)?.offsetHeight;
-				const heightDifference = realHeight - cachedHeight;
-				if (heightDifference !== 0) {
-					viewport.scrollBy({ top: heightDifference });
-				}
-			}
-			await tick();
-			totalHeight = calculateHeightSum(0, heightMap.length);
+			updateRange();
 		}
+
+		await tick();
+		totalHeight = calculateHeightSum(0, heightMap.length);
+		viewport.scrollTop = scrollTop;
 
 		if (shouldTriggerLoadMore()) {
 			debouncedLoadMore?.();
 		}
 
+		// Observe all visible row elements for size changes
 		for (const rowElement of visibleRowElements) {
-			resizeObserver?.observe(rowElement);
+			itemObserver?.observe(rowElement);
 		}
 
 		saveDistanceFromBottom();
@@ -287,93 +236,97 @@
 
 	// Setup resize observer when viewport is ready
 	$effect(() => {
-		if (viewport) {
-			visibleRowElements = viewport.getElementsByClassName('list-row');
-			resizeObserver = new ResizeObserver(() =>
-				untrack(() => {
-					// recalculateVisibleRange();
-					const hasGrown = getDistanceFromBottom() > lastDistanceFromBottom;
-					if (hasGrown && stickToBottom && lastDistanceFromBottom < STICKY_DISTANCE) {
-						if (viewport) {
-							viewport.scrollTo({
-								top: viewport.scrollHeight,
-								behavior: hasInitialized ? 'smooth' : 'instant'
-							});
+		if (!viewport) return;
+
+		visibleRowElements = viewport.getElementsByClassName('list-row');
+		itemObserver = new ResizeObserver((entries) =>
+			untrack(() => {
+				for (const entry of entries) {
+					const { target } = entry;
+					if (!target.isConnected) continue;
+
+					const indexStr = target.getAttribute('data-index');
+					const index = indexStr ? parseInt(indexStr, 10) : undefined;
+					if (index !== undefined && !(index in heightMap)) {
+						heightMap[index] = target.clientHeight;
+						if (tail && index === visibleRange.start) {
+							const heightDiff = target.clientHeight - defaultHeight;
+							if (heightDiff !== 0) {
+								viewport?.scrollBy({ top: heightDiff });
+							}
+						}
+						// Even if not sticky, if we are starting at the end we need
+						// to scroll to bottom when it resizes.
+						if ((stickToBottom || (!isInitialized && tail)) && index === visibleRange.end - 1) {
+							scrollToBottom();
 						}
 					}
-				})
-			);
-			return () => {
-				resizeObserver?.disconnect();
-			};
-		}
+				}
+
+				// Auto-scroll if we're near the bottom and content grew
+				if (viewport && stickToBottom && isNearBottom()) {
+					const hasGrown = getDistanceFromBottom() > previousDistance;
+					if (hasGrown) {
+						scrollToBottom();
+					}
+				}
+			})
+		);
+
+		return () => itemObserver?.disconnect();
 	});
 
 	// Recalculate when viewport height changes
 	$effect(() => {
 		if (viewportHeight && previousViewportHeight !== viewportHeight) {
-			// Track if we were at bottom before resize
-			if (stickToBottom && viewport) {
-				wasAtBottomBeforeResize = isScrollNearBottom();
-			}
-
 			untrack(async () => {
 				await recalculateVisibleRange();
-				// Restore bottom position if we were at bottom and stickToBottom is enabled
-				if (stickToBottom && wasAtBottomBeforeResize && viewport) {
-					viewport.scrollTop = viewport.scrollHeight;
-					await tick();
+				if (stickToBottom && isNearBottom()) {
+					scrollToBottom();
 				}
 				previousViewportHeight = viewportHeight;
 			});
 		}
 	});
 
-	async function scrollToBottomAndDismissNotification() {
+	export function scrollToBottom(): void {
 		if (!viewport) return;
-		hasNewUnreadItems = false;
-		visibleRange = { end: itemChunks.length, start: itemChunks.length - 1 };
-		offset = { bottom: 0, top: calculateHeightSum(0, visibleRange.start) };
-		lastDistanceFromBottom = 0;
-		await tick();
-		viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
+		viewport.scrollTop = viewport.scrollHeight - viewport.clientHeight;
 	}
 
-	// Auto-scroll to bottom when new items are added (if stickToBottom is enabled)
+	// Handle new items being added
 	$effect(() => {
-		if (items && stickToBottom && isScrollNearBottom()) {
-			if (!viewport) return;
+		if (items) {
 			untrack(async () => {
-				await recalculateVisibleRange();
-				// It appears we need to wait for the next animation frame in order
-				// for the new element to have the correct dimensions. Without this
-				// delay it often happens we scroll past the text, but not to the
-				// bottom of the chat bubble.
-				setTimeout(() => {
-					if (!viewport) return;
-					viewport.scrollTo({
-						top: viewport.scrollHeight,
-						behavior: hasInitialized ? 'smooth' : 'instant'
-					});
-				}, 0);
-			});
-		} else if (items) {
-			untrack(() => {
-				const hadNewItems = items.length > previousItemsLength && items.length > visibleRange.end;
-				recalculateVisibleRange();
-				if (tail && hadNewItems) {
-					hasNewUnreadItems = true;
+				if (stickToBottom && isNearBottom()) {
+					// User is at the bottom, auto-scroll
+					await recalculateVisibleRange();
+					scrollToBottom();
+				} else {
+					// Check if there are new items at the bottom
+					if (tail) {
+						const count = items.length;
+						hasNewItemsAtBottom = count > previousCount && count > visibleRange.end;
+					}
+					recalculateVisibleRange();
 				}
 			});
 		}
-		previousItemsLength = items.length;
+		previousCount = items.length;
+	});
+
+	// Clear "new items" indicator when user scrolls to bottom
+	$effect(() => {
+		if (hasNewItemsAtBottom && visibleRange.end === itemChunks.length) {
+			hasNewItemsAtBottom = false;
+		}
 	});
 </script>
 
 <ScrollableContainer
 	bind:viewportHeight
 	bind:viewport
-	onscroll={() => recalculateVisibleRange()}
+	onscroll={recalculateVisibleRange}
 	wide={grow}
 	whenToShow={visibility}
 	{padding}
@@ -384,35 +337,45 @@
 		style:padding-top={offset.top + 'px'}
 		style:padding-bottom={offset.bottom + 'px'}
 	>
-		{#each visibleChunks as chunk (chunk.id)}
-			<!-- Note: keying this #each would make things much slower. -->
-			<div class="list-row">
+		{#each visibleChunks as chunk, i (chunk.id)}
+			<div class="list-row" data-index={i + visibleRange.start}>
 				{@render chunkTemplate?.(chunk.data)}
 			</div>
 		{/each}
-		{@render children?.()}
+		<div
+			class="children"
+			use:resizeObserver={() => {
+				if (isNearBottom()) {
+					scrollToBottom();
+				}
+			}}
+		>
+			{@render children?.()}
+		</div>
 	</div>
 </ScrollableContainer>
-{#if lastDistanceFromBottom > 600}
+{#if previousDistance > SCROLL_DOWN_THRESHOLD || hasNewItemsAtBottom}
 	<div class="feed-actions">
-		{#if hasNewUnreadItems}
+		{#if hasNewItemsAtBottom}
 			<button
 				type="button"
 				class="text-12 feed-actions__new-messages"
 				transition:fade={{ duration: 150 }}
-				onclick={scrollToBottomAndDismissNotification}
+				onclick={scrollToBottom}
 			>
 				New unread
 			</button>
 		{/if}
-		<div class="feed-actions__scroll-to-bottom" transition:fade={{ duration: 150 }}>
-			<Button
-				kind="outline"
-				icon="arrow-down"
-				tooltip="Scroll to bottom"
-				onclick={scrollToBottomAndDismissNotification}
-			/>
-		</div>
+		{#if previousDistance > SCROLL_DOWN_THRESHOLD}
+			<div class="feed-actions__scroll-to-bottom" transition:fade={{ duration: 150 }}>
+				<Button
+					kind="outline"
+					icon="arrow-down"
+					tooltip="Scroll to bottom"
+					onclick={scrollToBottom}
+				/>
+			</div>
+		{/if}
 	</div>
 {/if}
 
@@ -441,7 +404,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 0 8px;
+		padding: 4px 8px;
 		border: 1px solid var(--clr-border-3);
 		border-radius: var(--radius-btn);
 		background-color: var(--clr-bg-2);
