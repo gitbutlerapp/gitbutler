@@ -17,20 +17,11 @@
 
 <button
 	type="button"
-	class="btn"
+	class="profile-btn"
 	class:pop
 	onclick={async () => openGeneralSettings()}
 	class:collapsed={isNavCollapsed}
 >
-	{#if !isNavCollapsed}
-		<span class="name text-13 text-semibold">
-			{#if $user}
-				{$user.name || $user.email}
-			{:else}
-				Account
-			{/if}
-		</span>
-	{/if}
 	{#if $user?.picture}
 		<img class="profile-picture" src={$user.picture} alt="Avatar" referrerpolicy="no-referrer" />
 	{:else}
@@ -41,18 +32,17 @@
 </button>
 
 <style lang="postcss">
-	.btn {
+	.profile-btn {
 		display: flex;
 		align-items: center;
 
-		height: var(--size-cta);
-		padding: 6px 8px;
+		width: 28px;
+		height: 28px;
 		overflow-x: hidden;
+		overflow: hidden;
 		gap: 8px;
 		border-radius: var(--radius-m);
-
 		color: var(--clr-scale-ntrl-50);
-
 		cursor: pointer;
 		transition:
 			background-color var(--transition-fast),
@@ -74,17 +64,6 @@
 			color: var(--clr-scale-ntrl-40);
 		}
 	}
-	.name {
-		overflow-x: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.anon-icon,
-	.profile-picture {
-		width: 20px;
-		height: 20px;
-		border-radius: var(--radius-m);
-	}
 	.anon-icon {
 		display: flex;
 		align-items: center;
@@ -95,15 +74,15 @@
 	}
 
 	/* MODIFIERS */
-	.btn.collapsed {
+	.profile-btn.collapsed {
 		height: auto;
 		padding: 8px;
 		overflow-x: initial;
+	}
 
-		& .anon-icon,
-		.profile-picture {
-			width: 24px;
-			height: 24px;
-		}
+	.profile-btn.collapsed .anon-icon,
+	.profile-btn.collapsed .profile-picture {
+		width: 24px;
+		height: 24px;
 	}
 </style>

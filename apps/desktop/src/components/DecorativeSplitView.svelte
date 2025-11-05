@@ -1,10 +1,7 @@
 <script lang="ts">
 	import AccountLink from '$components/AccountLink.svelte';
-	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
 	import { USER } from '$lib/user/user';
-	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
-	import { Icon } from '@gitbutler/ui';
 	import { type Snippet } from 'svelte';
 
 	interface Props {
@@ -17,7 +14,6 @@
 	const { hideDetails, img, children, testId }: Props = $props();
 
 	const user = inject(USER);
-	const urlService = inject(URL_SERVICE);
 </script>
 
 <div class="decorative-split-view" data-testid={testId}>
@@ -32,47 +28,14 @@
 	<div class="right-side" data-tauri-drag-region>
 		<div class="right-side-wrapper">
 			{#if user && !hideDetails}
-				<div class="right-side__header">
-					<div class="account-button">
-						<AccountLink pop />
-					</div>
+				<div class="account-button">
+					<AccountLink pop />
 				</div>
 			{/if}
 
 			{#if img}
 				<div class="img-wrapper">
 					{@html img}
-				</div>
-			{/if}
-
-			{#if !hideDetails}
-				<div class="right-side__bottom">
-					<div class="right-side__meta">
-						<div class="right-side__links">
-							<button
-								type="button"
-								class="right-side__link"
-								onclick={async () =>
-									await urlService.openExternalUrl('https://docs.gitbutler.com/')}
-							>
-								<Icon name="docs" opacity={0.6} />
-								<span class="text-14 text-semibold">GitButler docs</span>
-							</button>
-							<button
-								type="button"
-								class="right-side__link"
-								onclick={async () =>
-									await urlService.openExternalUrl('https://discord.com/invite/MmFkmaJ42D')}
-							>
-								<Icon name="discord" opacity={0.6} />
-								<span class="text-14 text-semibold">Join community</span>
-							</button>
-						</div>
-
-						<div class="wordmark">
-							{@html gbLogoSvg}
-						</div>
-					</div>
 				</div>
 			{/if}
 		</div>
@@ -133,14 +96,6 @@
 		background-color: var(--clr-illustration-bg);
 	}
 
-	.right-side__header {
-		display: flex;
-		align-items: center;
-		justify-content: flex-end;
-		width: 100%;
-		padding: 20px;
-	}
-
 	/* MIDDLE */
 
 	.img-wrapper {
@@ -151,50 +106,9 @@
 		overflow: hidden;
 	}
 
-	.right-side__bottom {
-		display: flex;
-		flex-direction: column;
-		width: 100%;
-		padding: 32px;
-	}
-
-	.right-side__meta {
-		display: flex;
-		flex: 1;
-		align-items: flex-end;
-		justify-content: space-between;
-	}
-
-	.wordmark {
-		right: 32px;
-		bottom: 32px;
-		color: var(--clr-scale-pop-30);
-	}
-
 	.account-button {
+		position: absolute;
 		top: 32px;
 		right: 32px;
-	}
-
-	/* BOTTOM */
-	.right-side__links {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 2px;
-		color: var(--clr-scale-pop-20);
-	}
-
-	.right-side__link {
-		display: flex;
-		align-items: center;
-		padding: 6px;
-		gap: 10px;
-		border-radius: var(--radius-m);
-		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: oklch(from var(--clr-scale-pop-60) l c h / 0.3);
-		}
 	}
 </style>
