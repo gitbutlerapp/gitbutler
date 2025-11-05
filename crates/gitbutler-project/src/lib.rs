@@ -50,7 +50,7 @@ pub fn get_raw(id: ProjectId) -> anyhow::Result<Project> {
     controller.get_raw(id)
 }
 
-pub fn update(project: &UpdateRequest) -> anyhow::Result<Project> {
+pub fn update(project: UpdateRequest) -> anyhow::Result<Project> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.update(project)
 }
@@ -58,7 +58,7 @@ pub fn update(project: &UpdateRequest) -> anyhow::Result<Project> {
 /// Testing purpose only.
 pub fn update_with_path<P: AsRef<Path>>(
     data_dir: P,
-    project: &UpdateRequest,
+    project: UpdateRequest,
 ) -> anyhow::Result<Project> {
     let controller = Controller::from_path(data_dir.as_ref());
     controller.update(project)

@@ -17,6 +17,7 @@ pub struct UpdateRequest {
     pub id: ProjectId,
     pub title: Option<String>,
     pub description: Option<String>,
+    pub git_dir: Option<PathBuf>,
     pub path: Option<PathBuf>,
     pub api: Option<ApiProject>,
     #[serde(default = "default_false")]
@@ -34,6 +35,51 @@ pub struct UpdateRequest {
     #[serde(default = "default_false")]
     pub unset_forge_override: bool,
     pub preferred_forge_user: Option<gitbutler_forge::ForgeUser>,
+}
+
+impl From<Project> for UpdateRequest {
+    fn from(
+        Project {
+            id,
+            title,
+            description,
+            worktree_dir,
+            git_dir,
+            preferred_key,
+            ok_with_force_push,
+            force_push_protection,
+            api,
+            gitbutler_data_last_fetch,
+            gitbutler_code_push_state,
+            project_data_last_fetch,
+            omit_certificate_check,
+            snapshot_lines_threshold,
+            forge_override,
+            preferred_forge_user,
+        }: Project,
+    ) -> Self {
+        UpdateRequest {
+            id,
+            title: Some(title),
+            description,
+            path: Some(worktree_dir),
+            git_dir: Some(git_dir),
+            api,
+            unset_api: false,
+            gitbutler_data_last_fetched: gitbutler_data_last_fetch,
+            preferred_key: Some(preferred_key),
+            ok_with_force_push: Some(ok_with_force_push.into()),
+            force_push_protection: Some(force_push_protection),
+            gitbutler_code_push_state,
+            project_data_last_fetched: project_data_last_fetch,
+            omit_certificate_check,
+            use_diff_context: None,
+            snapshot_lines_threshold,
+            forge_override,
+            unset_forge_override: false,
+            preferred_forge_user,
+        }
+    }
 }
 
 fn default_false() -> bool {
@@ -81,87 +127,108 @@ impl Storage {
         Ok(projects.into_iter().find(|p| p.id == id))
     }
 
-    pub fn update(&self, update_request: &UpdateRequest) -> Result<Project> {
+    pub fn update(
+        &self,
+        UpdateRequest {
+            id,
+            title,
+            description,
+            git_dir,
+            path,
+            api,
+            unset_api,
+            gitbutler_data_last_fetched,
+            preferred_key,
+            ok_with_force_push,
+            force_push_protection,
+            gitbutler_code_push_state,
+            project_data_last_fetched,
+            omit_certificate_check,
+            use_diff_context: _, /* seemingly not used for a while */
+            snapshot_lines_threshold,
+            forge_override,
+            unset_forge_override,
+            preferred_forge_user,
+        }: UpdateRequest,
+    ) -> Result<Project> {
         let mut projects = self.list()?;
         let project = projects
             .iter_mut()
-            .find(|p| p.id == update_request.id)
+            .find(|p| p.id == id)
             .with_context(|| "project {id} not found for update")?;
 
-        if let Some(title) = &update_request.title {
-            project.title.clone_from(title);
+        if let Some(title) = title {
+            project.title = title;
         }
 
-        if let Some(description) = &update_request.description {
+        if let Some(description) = description {
             project.description = Some(description.clone());
         }
 
-        if let Some(path) = &update_request.path {
+        if let Some(path) = git_dir {
+            project.git_dir = path;
+        }
+
+        if let Some(path) = path {
             project.set_worktree_dir(path.clone())?;
         }
 
-        if let Some(api) = &update_request.api {
+        if let Some(api) = api {
             project.api = Some(api.clone());
         }
 
-        if update_request.unset_api {
+        if unset_api {
             project.api = None;
         }
 
-        if let Some(forge_override) = &update_request.forge_override {
+        if let Some(forge_override) = forge_override {
             project.forge_override = Some(forge_override.clone());
         }
 
-        if let Some(preferred_forge_user) = &update_request.preferred_forge_user {
+        if let Some(preferred_forge_user) = preferred_forge_user {
             project.preferred_forge_user = Some(preferred_forge_user.clone());
         }
 
-        if update_request.unset_forge_override {
+        if unset_forge_override {
             project.forge_override = None;
         }
 
-        if let Some(preferred_key) = &update_request.preferred_key {
+        if let Some(preferred_key) = preferred_key {
             project.preferred_key = preferred_key.clone();
         }
 
-        if let Some(gitbutler_data_last_fetched) =
-            update_request.gitbutler_data_last_fetched.as_ref()
-        {
+        if let Some(gitbutler_data_last_fetched) = gitbutler_data_last_fetched.as_ref() {
             project.gitbutler_data_last_fetch = Some(gitbutler_data_last_fetched.clone());
         }
 
-        if let Some(project_data_last_fetched) = update_request.project_data_last_fetched.as_ref() {
+        if let Some(project_data_last_fetched) = project_data_last_fetched.as_ref() {
             project.project_data_last_fetch = Some(project_data_last_fetched.clone());
         }
 
-        if let Some(state) = update_request.gitbutler_code_push_state {
+        if let Some(state) = gitbutler_code_push_state {
             project.gitbutler_code_push_state = Some(state);
         }
 
-        if let Some(ok_with_force_push) = update_request.ok_with_force_push {
+        if let Some(ok_with_force_push) = ok_with_force_push {
             *project.ok_with_force_push = ok_with_force_push;
         }
 
-        if let Some(force_push_protection) = update_request.force_push_protection {
+        if let Some(force_push_protection) = force_push_protection {
             project.force_push_protection = force_push_protection;
         }
 
-        if let Some(omit_certificate_check) = update_request.omit_certificate_check {
+        if let Some(omit_certificate_check) = omit_certificate_check {
             project.omit_certificate_check = Some(omit_certificate_check);
         }
 
-        if let Some(snapshot_lines_threshold) = update_request.snapshot_lines_threshold {
+        if let Some(snapshot_lines_threshold) = snapshot_lines_threshold {
             project.snapshot_lines_threshold = Some(snapshot_lines_threshold);
         }
 
         self.inner
             .write(PROJECTS_FILE, &serde_json::to_string_pretty(&projects)?)?;
 
-        Ok(projects
-            .iter()
-            .find(|p| p.id == update_request.id)
-            .unwrap()
-            .clone())
+        Ok(projects.iter().find(|p| p.id == id).unwrap().clone())
     }
 
     pub fn purge(&self, id: ProjectId) -> Result<()> {

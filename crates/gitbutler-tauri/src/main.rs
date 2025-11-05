@@ -91,6 +91,7 @@ fn main() -> anyhow::Result<()> {
 
                 but_action::cli::auto_fix_broken_but_cli_symlink();
                 inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
+                migrate_projects().ok();
 
                 tracing::info!(
                     "system git executable for fetch/push: {git:?}",
@@ -398,6 +399,25 @@ fn main() -> anyhow::Result<()> {
                 let _ = (app_handle, event);
             });
     });
+    Ok(())
+}
+
+/// read all objects, migrate them, and write them back if there was a migration.
+fn migrate_projects() -> anyhow::Result<()> {
+    for mut project in gitbutler_project::dangerously_list_without_migration()? {
+        if let Ok(true) = project.migrate() {
+            let (title, worktree_dir) = (project.title.clone(), project.worktree_dir()?.to_owned());
+            if let Err(err) = gitbutler_project::update(project.into()) {
+                tracing::warn!(
+                    "Failed to store migrated project {} at {}: {err}",
+                    title,
+                    worktree_dir.display()
+                );
+            } else {
+                tracing::info!("Migrated project {} at {}", title, worktree_dir.display());
+            }
+        }
+    }
     Ok(())
 }
 

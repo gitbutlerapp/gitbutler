@@ -157,9 +157,10 @@ impl Project {
 }
 
 impl Project {
-    pub(crate) fn migrate(&mut self) -> anyhow::Result<()> {
+    /// Return `true` if the project was migrated, and thus is changed, or `false` otherwise.
+    pub fn migrate(&mut self) -> anyhow::Result<bool> {
         if !self.git_dir.as_os_str().is_empty() {
-            return Ok(());
+            return Ok(false);
         }
         let repo = gix::open_opts(&self.worktree_dir, gix::open::Options::isolated())
             .context("BUG: worktree is supposed to be valid here for migration")?;
@@ -167,7 +168,7 @@ impl Project {
         // NOTE: we set the worktree so the frontend is happier until this usage can be reviewed,
         // probably for supporting bare repositories.
         self.worktree_dir = repo.workdir().context("BUG: we currently only support non-bare repos, yet this one didn't have a worktree dir")?.to_owned();
-        Ok(())
+        Ok(true)
     }
 
     pub(crate) fn worktree_dir_but_should_use_git_dir(&self) -> &Path {

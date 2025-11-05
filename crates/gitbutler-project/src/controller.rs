@@ -148,7 +148,8 @@ impl Controller {
         Ok(AddProjectOutcome::Added(project))
     }
 
-    pub(crate) fn update(&self, project: &UpdateRequest) -> Result<Project> {
+    #[cfg_attr(not(windows), allow(unused_mut))]
+    pub(crate) fn update(&self, mut project: UpdateRequest) -> Result<Project> {
         #[cfg(not(windows))]
         if let Some(AuthKey::Local {
             private_key_path, ..
@@ -173,14 +174,9 @@ impl Controller {
         }
 
         #[cfg(windows)]
-        let project_owned = {
-            let mut project = project.clone();
+        {
             project.preferred_key = Some(AuthKey::SystemExecutable);
-            project
-        };
-
-        #[cfg(windows)]
-        let project = &project_owned;
+        }
 
         self.projects_storage.update(project)
     }

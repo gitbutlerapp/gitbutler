@@ -10,7 +10,7 @@ use crate::error::Error;
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn update_project(project: projects::UpdateRequest) -> Result<projects::api::Project, Error> {
-    Ok(gitbutler_project::update(&project)?.into())
+    Ok(gitbutler_project::update(project)?.into())
 }
 
 /// Adds an existing git repository as a GitButler project.
