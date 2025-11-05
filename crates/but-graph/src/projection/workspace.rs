@@ -569,7 +569,6 @@ impl Graph {
                 ws.stacks.extend(
                     self.collect_stack_segments(
                         stack_top_sidx,
-                        lowest_base_sidx,
                         entrypoint_sidx,
                         |s| {
                             let stop = true;
@@ -643,7 +642,6 @@ impl Graph {
                 // TODO: This probably depends on more factors, could have relationship with remote tracking branch.
                 self.collect_stack_segments(
                     start.id,
-                    None,
                     None,
                     |s| {
                         let stop = true;
@@ -853,7 +851,6 @@ impl Graph {
     fn collect_stack_segments(
         &self,
         from: SegmentIndex,
-        mut lowest_base_sidx: Option<SegmentIndex>,
         mut entrypoint_sidx: Option<SegmentIndex>,
         mut is_one_past_end_of_stack_segment: impl FnMut(&Segment) -> bool,
         mut starts_next_stack_segment: impl FnMut(&Segment) -> bool,
@@ -863,27 +860,18 @@ impl Graph {
         let mut out = Vec::new();
         let mut next = Some(from);
         while let Some(from) = next.take() {
-            if lowest_base_sidx.take().is_some_and(|base| base == from) {
-                let mut segment = StackSegment::from_graph_segments(&vec![&self[from]], self)?;
-                segment.base = segment.commits.first().map(|c| c.id);
-                segment.commits.clear();
-                out.push(segment);
-            } else {
-                let start = &self[from];
-                let (segments, stopped_at) = self.collect_first_parent_segments_until(
-                    start,
-                    &mut is_one_past_end_of_stack_segment,
-                );
-                let mut segment = StackSegment::from_graph_segments(&segments, self)?;
-                if entrypoint_sidx.is_some_and(|id| segment.id == id) {
-                    segment.is_entrypoint = true;
-                    entrypoint_sidx = None;
-                }
-                out.push(segment);
-                next = stopped_at
-                    .filter(|s| starts_next_stack_segment(s))
-                    .map(|s| s.id);
+            let start = &self[from];
+            let (segments, stopped_at) = self
+                .collect_first_parent_segments_until(start, &mut is_one_past_end_of_stack_segment);
+            let mut segment = StackSegment::from_graph_segments(&segments, self)?;
+            if entrypoint_sidx.is_some_and(|id| segment.id == id) {
+                segment.is_entrypoint = true;
+                entrypoint_sidx = None;
             }
+            out.push(segment);
+            next = stopped_at
+                .filter(|s| starts_next_stack_segment(s))
+                .map(|s| s.id);
         }
 
         fn is_entrypoint_or_local(s: &StackSegment) -> bool {

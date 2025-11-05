@@ -128,6 +128,12 @@ impl Options {
         self.commits_limit_recharge_location.extend(commits);
         self
     }
+
+    /// Set the extra-target which should be included in the workspace.
+    pub fn with_extra_target_commit_id(mut self, id: impl Into<gix::ObjectId>) -> Self {
+        self.extra_target_commit_id = Some(id.into());
+        self
+    }
 }
 
 /// Lifecycle
