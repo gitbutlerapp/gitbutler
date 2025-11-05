@@ -432,7 +432,9 @@ fn to_additive_hunks(
     }
 
     let res = if !in_order(&hunks_to_commit) {
-        tracing::info!("Using alternative hunk algorithm for {hunks_to_commit:?}");
+        tracing::info!(
+            "Using alternative hunk algorithm for {hunks_to_commit:?}, wth: {worktree_hunks:?}, wth0: {worktree_hunks_no_context:?}"
+        );
         let hunks: Vec<_> = hunks_to_commit
             .into_iter()
             .map(
