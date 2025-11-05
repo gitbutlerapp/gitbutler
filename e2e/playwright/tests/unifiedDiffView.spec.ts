@@ -1,13 +1,7 @@
-import { readFileSync, writeFileSync } from 'fs';
 import { getBaseURL, startGitButler, type GitButler } from '../src/setup.ts';
-import {
-	clickByTestId,
-	getByTestId,
-	sleep,
-	waitForTestId,
-	waitForTestIdToNotExist
-} from '../src/util.ts';
-import { expect, test } from '@playwright/test';
+import { waitForTestId } from '../src/util.ts';
+import { test } from '@playwright/test';
+import { readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 
 let gitbutler: GitButler;
