@@ -3,7 +3,6 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import gerritLogoSvg from '$lib/assets/gerrit-logo.svg?raw';
-	import { BACKEND } from '$lib/backend';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { combineResults } from '$lib/state/helpers';
@@ -32,12 +31,11 @@
 
 	const { projectId, projectName, remoteBranches, onBranchSelected }: Props = $props();
 
-	const backend = inject(BACKEND);
 	const posthog = inject(POSTHOG_WRAPPER);
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
 
 	const gbConfig = $derived(gitConfig.gbConfig(projectId));
-	let gerritMode = $derived(gbConfig.response?.gitbutlerGerritMode ?? false);
+	const gerritMode = $derived(gbConfig.response?.gitbutlerGerritMode ?? false);
 
 	let loading = $state<boolean>(false);
 	let showMoreInfo = $state<boolean>(false);
@@ -136,6 +134,10 @@
 			{projectId}
 			result={combineResults(itSmellsLikeGerrit.result, projectIsGerrit.result)}
 		>
+			{#snippet error()}
+				<!-- Fail silently to detect the gerritness of a project -->
+				<div></div>
+			{/snippet}
 			{#snippet children([isGerrit])}
 				{#if isGerrit}
 					<SectionCard labelFor="gerritToggle" orientation="row">
@@ -143,10 +145,12 @@
 							{@html gerritLogoSvg}
 						{/snippet}
 						{#snippet title()}
-							Gerrit project
+							Enable Gerrit project
 						{/snippet}
 						{#snippet caption()}
-							It looks like this project uses Gerrit.
+							It looks like this project might be a Gerrit project.
+							<br />
+							Do you want to enable Gerrit mode?
 							<br />
 							You can adjust this later in the project settings if needed.
 						{/snippet}
@@ -225,11 +229,7 @@
 			testId={TestId.ProjectSetupPageTargetContinueButton}
 			id="set-base-branch"
 		>
-			{#if backend.platformName === 'windows'}
-				Let's go
-			{:else}
-				Continue
-			{/if}
+			Let's go
 		</Button>
 	</div>
 </div>
