@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use anyhow::Context;
 use bstr::ByteSlice;
 use gitbutler_oxidize::ObjectIdExt;
+use gix::index::entry::Stage;
 use gix::{
     diff::rewrites::tracker::ChangeKind,
     objs::TreeRefIter,
@@ -89,6 +90,10 @@ pub fn safe_checkout(
         snapshot_id
     });
 
+    let num_deleted_files = changed_files
+        .iter()
+        .filter(|(kind, _)| matches!(kind, ChangeKind::Deletion))
+        .count();
     // Finally, perform the actual checkout
     // TODO(gix): use unconditional `gix` checkout implementation as pre-cursor to the real deal (not needed here).
     //            All it has to do is to be able to apply the target changes to any working tree, while using filters,
@@ -140,8 +145,22 @@ pub fn safe_checkout(
 
         git2_repo.checkout_tree(
             &destination_tree,
-            Some(opts.force().disable_pathspec_match(true)),
+            Some(opts.update_index(true).force().disable_pathspec_match(true)),
         )?;
+
+        if num_deleted_files > 0
+            && let Ok(mut index) = repo.open_index()
+        {
+            for (kind, path_to_alter) in &changed_files {
+                if matches!(kind, ChangeKind::Deletion)
+                    && let Some(entry) = index
+                        .entry_mut_by_path_and_stage(path_to_alter.as_bstr(), Stage::Unconflicted)
+                {
+                    entry.flags |= gix::index::entry::Flags::REMOVE;
+                }
+            }
+            index.write(Default::default())?;
+        }
     }
 
     let mut head_update = None;
@@ -174,10 +193,6 @@ pub fn safe_checkout(
         }
     }
 
-    let num_deleted_files = changed_files
-        .iter()
-        .filter(|(kind, _)| matches!(kind, ChangeKind::Deletion))
-        .count();
     Ok(Outcome {
         snapshot_tree,
         head_update,
