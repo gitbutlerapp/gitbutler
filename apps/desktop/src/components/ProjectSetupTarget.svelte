@@ -87,9 +87,10 @@
 				{/snippet}
 			</Select>
 
-			<p class="text-12 text-body clr-text-2">
+			<p class="text-12 text-body project-setup__field-caption">
 				Your main "production" branch, typically <code class="code-string">origin/master</code> or
 				<code class="code-string">upstream/main</code>.
+				<br />
 				<Link href="https://docs.gitbutler.com/overview#target-branch">Learn more</Link>
 			</p>
 		</div>
@@ -238,6 +239,11 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
+	}
+
+	.project-setup__field-caption {
+		width: 90%;
+		color: var(--clr-text-2);
 	}
 
 	.action-buttons {
