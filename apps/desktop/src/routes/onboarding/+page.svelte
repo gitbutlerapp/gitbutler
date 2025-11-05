@@ -3,8 +3,8 @@
 	import AnalyticsConfirmation from '$components/AnalyticsConfirmation.svelte';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import Welcome from '$components/Welcome.svelte';
-	import analyticsSvg from '$lib/assets/illustrations/analytics.svg?raw';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
+	import newZenSvg from '$lib/assets/illustrations/new-zen.svg?raw';
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { sleep } from '$lib/utils/sleep';
@@ -31,7 +31,7 @@
 </script>
 
 <DecorativeSplitView
-	img={$analyticsConfirmed ? newProjectSvg : analyticsSvg}
+	img={$analyticsConfirmed ? newZenSvg : newProjectSvg}
 	testId={TestId.OnboardingPage}
 >
 	{#if $analyticsConfirmed}

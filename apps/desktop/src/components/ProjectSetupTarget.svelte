@@ -2,14 +2,23 @@
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import { BACKEND } from '$lib/backend';
+	import gerritLogoSvg from '$lib/assets/gerrit-logo.svg?raw';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { combineResults } from '$lib/state/helpers';
 	import { unique } from '$lib/utils/array';
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, Select, SelectItem, TestId, Link, Icon } from '@gitbutler/ui';
+	import {
+		Button,
+		Select,
+		SelectItem,
+		TestId,
+		Link,
+		Icon,
+		SectionCard,
+		Toggle
+	} from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 
@@ -22,9 +31,11 @@
 
 	const { projectId, projectName, remoteBranches, onBranchSelected }: Props = $props();
 
-	const backend = inject(BACKEND);
 	const posthog = inject(POSTHOG_WRAPPER);
-	const gbConfig = inject(GIT_CONFIG_SERVICE);
+	const gitConfig = inject(GIT_CONFIG_SERVICE);
+
+	const gbConfig = $derived(gitConfig.gbConfig(projectId));
+	const gerritMode = $derived(gbConfig.response?.gitbutlerGerritMode ?? false);
 
 	let loading = $state<boolean>(false);
 	let showMoreInfo = $state<boolean>(false);
@@ -87,9 +98,10 @@
 				{/snippet}
 			</Select>
 
-			<p class="text-12 text-body clr-text-2">
+			<p class="text-12 text-body project-setup__field-caption">
 				Your main "production" branch, typically <code class="code-string">origin/master</code> or
 				<code class="code-string">upstream/main</code>.
+				<br />
 				<Link href="https://docs.gitbutler.com/overview#target-branch">Learn more</Link>
 			</p>
 		</div>
@@ -123,29 +135,35 @@
 			result={combineResults(itSmellsLikeGerrit.result, projectIsGerrit.result)}
 		>
 			{#snippet error()}
-				<!-- Fail silently when prompting for gerritness -->
+				<!-- Fail silently to detect the gerritness of a project -->
 				<div></div>
 			{/snippet}
-			{#snippet children([isGerrit, isActuallyGerrit])}
-				{#if isGerrit && !isActuallyGerrit}
-					<p class="text-12">
-						It looks like this is a Gerrit project - if that is the case, enable Gerrit mode
-					</p>
-					<div>
-						<Button
-							style="pop"
-							onclick={() => {
-								gbConfig.setGerritMode(projectId, true);
-							}}
-						>
-							Enable Gerrit mode
-						</Button>
-					</div>
-				{:else if isActuallyGerrit}
-					<p class="text-12">
-						Gerrit mode is enabled for this project. You can change this in the project settings if
-						needed.
-					</p>
+			{#snippet children([isGerrit])}
+				{#if isGerrit}
+					<SectionCard labelFor="gerritToggle" orientation="row">
+						{#snippet iconSide()}
+							{@html gerritLogoSvg}
+						{/snippet}
+						{#snippet title()}
+							Enable Gerrit project
+						{/snippet}
+						{#snippet caption()}
+							It looks like this project might be a Gerrit project.
+							<br />
+							Do you want to enable Gerrit mode?
+							<br />
+							You can adjust this later in the project settings if needed.
+						{/snippet}
+						{#snippet actions()}
+							<Toggle
+								id="gerritToggle"
+								checked={gerritMode}
+								onclick={() => {
+									gitConfig.setGerritMode(projectId, !gerritMode);
+								}}
+							/>
+						{/snippet}
+					</SectionCard>
 				{/if}
 			{/snippet}
 		</ReduxResult>
@@ -211,11 +229,7 @@
 			testId={TestId.ProjectSetupPageTargetContinueButton}
 			id="set-base-branch"
 		>
-			{#if backend.platformName === 'windows'}
-				Let's go
-			{:else}
-				Continue
-			{/if}
+			Let's go
 		</Button>
 	</div>
 </div>
@@ -230,7 +244,6 @@
 	.project-setup__fields {
 		display: flex;
 		flex-direction: column;
-		padding-bottom: 10px;
 		gap: 20px;
 	}
 
@@ -238,6 +251,11 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
+	}
+
+	.project-setup__field-caption {
+		width: 90%;
+		color: var(--clr-text-2);
 	}
 
 	.action-buttons {
