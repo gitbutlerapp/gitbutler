@@ -29,7 +29,7 @@ pub fn list_projects(
             .into_iter()
             .map(|project| ProjectForFrontend {
                 is_open: open_projects.contains(&project.id),
-                inner: project.into(),
+                inner: project.clone().migrated().unwrap_or(project).into(),
             })
             .collect()
     })

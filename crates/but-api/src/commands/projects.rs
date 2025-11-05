@@ -30,7 +30,7 @@ pub fn get_project(
     no_validation: Option<bool>,
 ) -> Result<projects::api::Project, Error> {
     if no_validation.unwrap_or(false) {
-        Ok(gitbutler_project::get_raw(project_id)?.into())
+        Ok(gitbutler_project::get_raw(project_id)?.migrated()?.into())
     } else {
         Ok(gitbutler_project::get_validated(project_id)?.into())
     }

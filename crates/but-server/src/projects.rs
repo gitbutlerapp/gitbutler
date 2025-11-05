@@ -107,7 +107,7 @@ pub async fn list_projects(extra: &Extra) -> Result<serde_json::Value, but_api::
     .into_iter()
     .map(|project| ProjectForFrontend {
         is_open: active_projects.projects.contains_key(&project.id),
-        inner: project.into(),
+        inner: project.clone().migrated().unwrap_or(project).into(),
     })
     .collect::<Vec<_>>();
 
