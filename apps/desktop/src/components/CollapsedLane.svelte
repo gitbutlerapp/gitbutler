@@ -69,7 +69,6 @@
 		margin-top: 10px;
 		overflow: hidden;
 		gap: 10px;
-		transform: rotate(180deg);
 		text-orientation: mixed;
 		pointer-events: none;
 		writing-mode: vertical-lr;
