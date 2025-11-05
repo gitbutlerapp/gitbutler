@@ -4,7 +4,7 @@
 	import ProjectSetupTarget from '$components/ProjectSetupTarget.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
+	import newZenSvg from '$lib/assets/illustrations/new-zen.svg?raw';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
@@ -48,7 +48,7 @@
 	});
 </script>
 
-<DecorativeSplitView img={newProjectSvg} testId={TestId.ProjectSetupPage}>
+<DecorativeSplitView img={newZenSvg} testId={TestId.ProjectSetupPage}>
 	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
 			<ProjectSetupTarget
