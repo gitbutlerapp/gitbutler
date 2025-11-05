@@ -214,6 +214,8 @@
 	}
 
 	function shouldTriggerLoadMore(): boolean {
+		if (!viewport) return false;
+		if (viewport.scrollHeight <= viewport.clientHeight) return true;
 		const distance = getDistanceFromBottom();
 		return distance > 0 && distance < LOAD_MORE_THRESHOLD;
 	}
@@ -292,10 +294,6 @@
 		visibleRange.start = calculateStartIndexFromBottom();
 		offset.top = calculateHeightSum(0, visibleRange.start);
 
-		// Delay scroll to ensure DOM is ready
-		setTimeout(() => {
-			scrollToBottom();
-		}, 0);
 		isTailInitialized = true;
 	}
 
@@ -326,20 +324,23 @@
 		isRecalculating = true;
 		heightMap.length = itemChunks.length;
 
+		const distance = getDistanceFromBottom();
+		let scrollTop = viewport.scrollTop;
+
 		// First-time initialization for tail mode
 		if (!isTailInitialized && stickToBottom) {
 			initializeTail();
+			await tick();
+			scrollTop = viewport!.scrollHeight;
+			scrollToBottom();
 		} else {
 			updateRange();
 		}
 
-		const distance = getDistanceFromBottom();
-		const scrollTop = viewport.scrollTop;
-
 		// Content, sizes, and scroll are affected by this tick.
 		await tick();
 
-		if (distance === 0 && distance !== getDistanceFromBottom()) {
+		if (stickToBottom && distance === 0 && distance !== getDistanceFromBottom()) {
 			// A difference in viewport scrollHeight is occasionally observerd
 			// before and after the `await tick()` call just above. It could
 			// be the result of an incorrect height/offset calculation, or it
@@ -357,7 +358,7 @@
 		}
 
 		if (shouldTriggerLoadMore()) {
-			debouncedLoadMore?.();
+			debouncedLoadMore();
 		}
 
 		for (const rowElement of visibleRowElements) {

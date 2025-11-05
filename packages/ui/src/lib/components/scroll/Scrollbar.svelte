@@ -94,6 +94,9 @@
 		shouldShowInitially || (shouldShowOnHover && initiallyVisible) || shouldAlwaysShow
 	);
 
+	// Used to detect sudden changes to content height.
+	let lastHeight: number | undefined;
+
 	/////////////////////
 	// TIMER FUNCTIONS //
 	/////////////////////
@@ -135,8 +138,25 @@
 			throw new Error('window.ResizeObserver is missing.');
 		}
 
-		const observerSize = new ResizeObserver(updateTrack);
+		const observerSize = new ResizeObserver(() => updateTrack());
 		observerSize.observe(viewport);
+
+		const content = viewport.children.item(0);
+		if (!content) {
+			throw new Error('Expected to find content container');
+		}
+
+		// Sometimes the content size changes before scrollTop, so we
+		// compensate here to avoid jumpiness. The position will be reset
+		// on next scroll event.
+		const observerContentSize = new ResizeObserver(() => {
+			if (lastHeight) {
+				const diff = content.scrollHeight - lastHeight;
+				scrollTop = viewport.scrollTop + diff;
+			}
+			lastHeight = content.scrollHeight;
+		});
+		observerContentSize.observe(content);
 
 		const observerMutations = new MutationObserver(updateTrack);
 		observerMutations.observe(viewport, { childList: true, subtree: true });
@@ -148,6 +168,7 @@
 		return () => {
 			observerSize.disconnect();
 			observerMutations.disconnect();
+			observerContentSize.disconnect();
 			viewport.removeEventListener('scroll', onScroll);
 			viewport.removeEventListener('mouseenter', onViewportMouseEnter);
 			viewport.removeEventListener('mouseleave', onViewportMouseLeave);
