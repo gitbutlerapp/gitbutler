@@ -55,6 +55,10 @@ pub enum Subcommands {
         #[clap(default_value = ".", value_name = "REPOSITORY")]
         path: PathBuf,
     },
+    RemoveProject {
+        /// The name of the project to remove.
+        project_name: String,
+    },
     /// Commit or amend all worktree changes to a new commit.
     Commit {
         /// The repo-relative path to the changed file to commit.

@@ -44,6 +44,7 @@ async fn main() -> Result<()> {
             path.to_owned(),
             switch_to_workspace.to_owned(),
         ),
+        args::Subcommands::RemoveProject { project_name } => command::project::remove(project_name),
         args::Subcommands::RemoveReference {
             permit_empty_stacks,
             keep_metadata,
