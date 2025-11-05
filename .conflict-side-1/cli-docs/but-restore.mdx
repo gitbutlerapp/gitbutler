@@ -1,0 +1,48 @@
+---
+title: 'but restore'
+description: 'Restore to a specific oplog snapshot'
+---
+
+## Usage
+
+```
+but restore [OPTIONS] <OPLOG_SHA>
+```
+
+## Arguments
+
+### `<OPLOG_SHA>`
+
+Oplog SHA to restore to.
+
+- **Type:** String
+- **Required:** Yes
+
+## Options
+
+### `-f, --force`
+
+Skip confirmation prompt.
+
+- **Type:** Flag (boolean)
+- **Default:** `false`
+
+## Examples
+
+Restore to a specific snapshot (with confirmation):
+
+```
+but restore abc123def456
+```
+
+Restore without confirmation prompt:
+
+```
+but restore abc123def456 --force
+```
+
+## Related Commands
+
+- [`but oplog`](but-oplog) - Show operation history
+- [`but undo`](but-undo) - Undo the last operation
+- [`but snapshot`](but-snapshot) - Create an on-demand snapshot
