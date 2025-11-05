@@ -11,6 +11,6 @@ echo "FILE CONTENT: $3"
 pushd remote-project
   git checkout master
   echo "$3" >> "$2"
-  git add "$1"
+  git add "$2"
   git commit -m "$1"
 popd
