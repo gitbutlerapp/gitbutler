@@ -56,10 +56,8 @@
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 
 	// Get current project to check gerrit_mode
-	const projectsQuery = $derived(projectsService.projects());
-	const projects = $derived(projectsQuery.response);
-	const currentProject = $derived(projects?.find((p) => p.id === projectId));
-	const isGerritMode = $derived(currentProject?.gerrit_mode ?? false);
+	const projectResponse = $derived(projectsService.getProject(projectId));
+	const isGerritMode = $derived(projectResponse.response?.gerrit_mode ?? false);
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stackId);
