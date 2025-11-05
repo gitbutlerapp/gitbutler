@@ -1,8 +1,11 @@
 <div align="center">
-   <img align="center" width="128px" src="crates/gitbutler-tauri/icons/release/128x128@2x.png" />
- <h1 align="center"><b>GitButler</b></h1>
- <p align="center">
-  Version Control tool built from the ground up for modern, AI-powered workflows.
+  <img align="center" width="100%" src="./readme-preview.webp" />
+
+  <br />
+  <br />
+
+  <p align="center" >
+    Version Control tool built from the ground up for modern, AI-powered workflows.
     <br />
     <br />
     <a href="https://gitbutler.com">Website</a>
@@ -14,28 +17,29 @@
     <a href="https://gitbutler.com/downloads">Downloads</a>
   </p>
 
-[![TWEET][s1]][l1] [![DISCORD][s2]][l2]
-
-[l1]: https://twitter.com/intent/follow?screen_name=gitbutler
-[l2]: https://discord.gg/MmFkmaJ42D
-</div>
-
-<br/>
-
-![gitbutler_client](https://github.com/user-attachments/assets/bf9bdb33-a979-47a0-b2b2-8fff5ea53afb)
+[![TWEET][s1]][l1] [
+![BLUESKY][s8]][l8 ] [![DISCORD][s2]][l2]
 
 [![CI][s0]][l0] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5] [![DEEPWIKI][s7]][l7]
 
 [s0]: https://github.com/gitbutlerapp/gitbutler/actions/workflows/push.yaml/badge.svg
 [l0]: https://github.com/gitbutlerapp/gitbutler/actions/workflows/push.yaml
 [s1]: https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white
+[l1]: https://twitter.com/intent/follow?screen_name=gitbutler
 [s2]: https://img.shields.io/discord/1060193121130000425?label=Discord&color=5865F2
+[l2]: https://discord.gg/MmFkmaJ42D
 [s3]: https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white
 [l3]: https://www.instagram.com/gitbutler/
 [s5]: https://img.shields.io/youtube/channel/subscribers/UCEwkZIHGqsTGYvX8wgD0LoQ
 [l5]: https://www.youtube.com/@gitbutlerapp
 [s7]: https://deepwiki.com/badge.svg
 [l7]: https://deepwiki.com/gitbutlerapp/gitbutler
+[s8]: https://img.shields.io/badge/Bluesky-0285FF?logo=bluesky&logoColor=fff
+[l8]: https://bsky.app/profile/gitbutler.com
+
+</div>
+
+<br/>
 
 ![Alt](https://repobeats.axiom.co/api/embed/fb23382bcf57c609832661874d3019a43555d6ae.svg 'Repobeats analytics for GitButler')
 
