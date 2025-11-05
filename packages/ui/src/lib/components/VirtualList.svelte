@@ -287,13 +287,49 @@
 	 * Initializes visible range in tail mode.
 	 * Sets range to show last items and scrolls to bottom.
 	 */
-	function initializeTail(): void {
-		visibleRange.end = itemChunks.length;
+	async function initialize() {
+		if (!viewport) return;
+		visibleRange.start = 0;
+
+		const end = calculateVisibleEndIndex();
+		for (let i = 0; i < end; i++) {
+			visibleRange.end = i + 1;
+			await tick();
+			const element = visibleRowElements?.item(i);
+			if (element?.clientHeight) {
+				heightMap[i] = element.clientHeight;
+			}
+			if (calculateHeightSum(0, i + 1) > viewport.clientHeight) {
+				break;
+			}
+		}
+		offset = { top: 0, bottom: calculateHeightSum(visibleRange.end, itemChunks.length) };
+		isTailInitialized = true;
+	}
+
+	/**
+	 * Initializes visible range in tail mode.
+	 * Sets range to show last items and scrolls to bottom.
+	 */
+	async function initializeTail() {
+		if (!viewport) return;
+		const end = itemChunks.length;
+		visibleRange.end = end;
 		offset.bottom = 0;
 
-		visibleRange.start = calculateStartIndexFromBottom();
+		const start = calculateStartIndexFromBottom();
+		for (let i = end; i >= start; i--) {
+			visibleRange.start = i - 1;
+			await tick();
+			const element = visibleRowElements?.item(0);
+			if (element?.clientHeight) {
+				heightMap[i - 1] = element.clientHeight;
+			}
+			if (calculateHeightSum(i - 1, end) > viewport.clientHeight) {
+				break;
+			}
+		}
 		offset.top = calculateHeightSum(0, visibleRange.start);
-
 		isTailInitialized = true;
 	}
 
@@ -328,11 +364,14 @@
 		let scrollTop = viewport.scrollTop;
 
 		// First-time initialization for tail mode
-		if (!isTailInitialized && stickToBottom) {
-			initializeTail();
-			await tick();
-			scrollTop = viewport!.scrollHeight;
-			scrollToBottom();
+		if (!isTailInitialized) {
+			if (stickToBottom) {
+				await initializeTail();
+				scrollTop = viewport!.scrollHeight;
+				scrollToBottom();
+			} else {
+				await initialize();
+			}
 		} else {
 			updateRange();
 		}
