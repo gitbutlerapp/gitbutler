@@ -58,6 +58,38 @@
 	{/snippet}
 	<ThemeSelector {userSettings} />
 </SectionCard>
+
+<SectionCard orientation="row" centerAlign>
+	{#snippet title()}
+		Default file list mode
+	{/snippet}
+	{#snippet caption()}
+		Set the default file list view (can be changed per location).
+	{/snippet}
+	{#snippet actions()}
+		<Select
+			maxWidth={120}
+			value={$userSettings.defaultFileListMode}
+			options={[
+				{ label: 'List view', value: 'list' },
+				{ label: 'Tree view', value: 'tree' }
+			]}
+			onselect={(value) => {
+				userSettings.update((s) => ({
+					...s,
+					defaultFileListMode: value as 'tree' | 'list'
+				}));
+			}}
+		>
+			{#snippet itemSnippet({ item, highlighted })}
+				<SelectItem selected={item.value === $userSettings.defaultFileListMode} {highlighted}>
+					{item.label}
+				</SelectItem>
+			{/snippet}
+		</Select>
+	{/snippet}
+</SectionCard>
+
 <div class="stack-v">
 	<SectionCard centerAlign roundedBottom={false}>
 		{#snippet title()}

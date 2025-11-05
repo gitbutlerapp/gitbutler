@@ -110,6 +110,7 @@
 					autoselect
 					grow
 					{selectionId}
+					persistId={`unapplied-branch-${branchName}`}
 					changes={changes.changes}
 					stats={changes.stats}
 					allowUnselect={false}

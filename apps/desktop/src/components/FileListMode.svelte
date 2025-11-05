@@ -1,28 +1,30 @@
 <script lang="ts">
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { Segment, SegmentControl, TestId } from '@gitbutler/ui';
 
 	type Mode = 'tree' | 'list';
 	type Props = {
 		mode: Mode;
-		persist: 'uncommitted' | 'committed';
+		persistId: string;
 	};
 
-	let { persist, mode = $bindable() }: Props = $props();
+	let { persistId, mode = $bindable() }: Props = $props();
 
-	let saved = persisted<Mode | undefined>(undefined, persist);
+	const userSettings = inject(SETTINGS);
+	let saved = persisted<Mode | undefined>(undefined, `file-list-mode-${persistId}`);
 
+	// Initialize mode from saved value or default setting (runs once on mount)
 	$effect(() => {
-		if ($saved !== undefined && $saved !== mode) {
-			mode = $saved;
-		}
+		mode = $saved ?? $userSettings.defaultFileListMode;
 	});
 </script>
 
 <SegmentControl
 	defaultIndex={mode === 'list' ? 0 : 1}
 	onselect={(id) => {
-		// TODO: Refactor SegmentControl.
+		// Update saved preference; the effect will sync mode
 		$saved = id as Mode;
 	}}
 	size="small"
