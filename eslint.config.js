@@ -154,8 +154,7 @@ export default ts.config(
 			'crates/',
 			'packages/ui/storybook-static',
 			// Storybook Meta type wrapper
-			'packages/ui/src/stories/**/*.stories.ts',
-			'e2e/playwright/fixtures'
+			'packages/ui/src/stories/**/*.stories.ts'
 		]
 	}
 );
