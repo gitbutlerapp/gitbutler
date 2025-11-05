@@ -30,6 +30,7 @@
 		ancestorMostConflictedCommitId?: string;
 		ontoggle?: (collapsed: boolean) => void;
 		allowUnselect?: boolean;
+		persistId?: string;
 	};
 
 	const {
@@ -48,7 +49,8 @@
 		autoselect,
 		ancestorMostConflictedCommitId,
 		ontoggle,
-		allowUnselect = true
+		allowUnselect = true,
+		persistId = 'default'
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -88,7 +90,7 @@
 		</div>
 	{/snippet}
 	{#snippet actions()}
-		<FileListMode bind:mode={listMode} persist="committed" />
+		<FileListMode bind:mode={listMode} persistId={`changed-files-${persistId}`} />
 	{/snippet}
 
 	<div class="filelist-wrapper" class:bottom-border={bottomBorder}>

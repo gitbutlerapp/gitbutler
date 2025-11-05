@@ -392,6 +392,7 @@
 				selectionId={createCommitSelection({ commitId, stackId: stackId })}
 				noshrink={!!previewKey}
 				grow={!previewKey}
+				persistId={`commit-${commitId}`}
 				changes={changes.changes.filter(
 					(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
 				)}
@@ -431,6 +432,7 @@
 				selectionId={createBranchSelection({ stackId: stackId, branchName, remote: undefined })}
 				noshrink={!!previewKey}
 				grow={!previewKey}
+				persistId={`branch-${branchName}`}
 				changes={changes.changes}
 				stats={changes.stats}
 				resizer={previewKey

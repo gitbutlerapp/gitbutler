@@ -45,6 +45,7 @@
 					grow
 					{projectId}
 					selectionId={createCommitSelection({ commitId })}
+					persistId={`unapplied-commit-${commitId}`}
 					changes={changes.changes}
 					allowUnselect={false}
 				/>

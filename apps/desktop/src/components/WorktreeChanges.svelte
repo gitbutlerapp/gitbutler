@@ -49,6 +49,9 @@
 		onscrollexists
 	}: Props = $props();
 
+	// Create a unique persist ID based on stackId and mode (both are static props)
+	const persistId = stackId ? `worktree-${mode}-${stackId}` : `worktree-${mode}`;
+
 	const stackService = inject(STACK_SERVICE);
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
@@ -144,7 +147,7 @@
 					</div>
 				</div>
 				{#if changes.current.length > 0}
-					<FileListMode bind:mode={listMode} persist="uncommitted" />
+					<FileListMode bind:mode={listMode} {persistId} />
 				{/if}
 			</div>
 		{/if}
