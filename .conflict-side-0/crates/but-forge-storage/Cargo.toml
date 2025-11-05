@@ -1,0 +1,21 @@
+[package]
+name = "but-forge-storage"
+version = "0.0.0"
+edition = "2024"
+repository = "https://github.com/gitbutlerapp/gitbutler"
+license-file = "../../LICENSE.md"
+description = "A GitButler CLI tool"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+readme = "../../README.md"
+publish = false
+rust-version = "1.89"
+
+[lib]
+doctest = false
+
+[dependencies]
+serde.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
+gitbutler-storage.workspace = true
+but-secret.workspace = true

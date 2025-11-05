@@ -1,0 +1,55 @@
+[package]
+name = "gitbutler-repo"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+autotests = false
+
+[lib]
+doctest = false
+
+[dependencies]
+git2.workspace = true
+git2-hooks.workspace = true
+gix = { workspace = true, features = ["merge", "status", "tree-editor"] }
+anyhow.workspace = true
+bstr.workspace = true
+tracing.workspace = true
+tempfile.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+resolve-path = "0.1.0"
+gitbutler-command-context.workspace = true
+gitbutler-project.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-error.workspace = true
+gitbutler-commit.workspace = true
+gitbutler-url.workspace = true
+gitbutler-cherry-pick.workspace = true
+gitbutler-oxidize.workspace = true
+gitbutler-diff.workspace = true
+but-rebase.workspace = true
+but-core.workspace = true
+but-status.workspace = true
+but-gerrit.workspace = true
+uuid.workspace = true
+itertools.workspace = true
+toml.workspace = true
+base64 = "0.22.1"
+infer = "0.19.0"
+scopeguard = "1.2.0"
+fuzzy-matcher = "0.3.7"
+ignore = "0.4.25"
+
+[[test]]
+name = "repo"
+path = "tests/mod.rs"
+
+[dev-dependencies]
+gitbutler-testsupport.workspace = true
+gitbutler-user.workspace = true
+but-settings.workspace = true
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
+insta.workspace = true

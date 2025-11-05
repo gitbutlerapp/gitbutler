@@ -1,0 +1,51 @@
+---
+title: 'but base'
+description: 'Commands for managing the base branch'
+---
+
+## Usage
+
+```
+but base <SUBCOMMAND>
+```
+
+## Subcommands
+
+### check
+
+Fetches remotes from the remote and checks the mergeability of the branches in the workspace.
+
+```
+but base check
+```
+
+Shows the status of the base branch including:
+
+- Base branch name
+- Number of upstream commits
+- Recent commits
+- Status of active branches (updatable, integrated, conflicted, etc.)
+
+### update
+
+Updates the workspace (with all applied branches) to include the latest changes from the base branch.
+
+```
+but base update
+```
+
+Integrates upstream changes into your workspace branches, rebasing or deleting branches as appropriate.
+
+## Examples
+
+Check base branch status:
+
+```
+but base check
+```
+
+Update workspace with base branch changes:
+
+```
+but base update
+```

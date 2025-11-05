@@ -1,0 +1,158 @@
+<script lang="ts">
+	import { FileIcon, Icon, Tooltip } from '@gitbutler/ui';
+	import { splitFilePath } from '@gitbutler/ui/utils/filePath';
+	import { fly } from 'svelte/transition';
+	import type { PromptAttachment } from '$lib/codegen/types';
+
+	type Props = {
+		attachments: PromptAttachment[];
+		showRemoveButton?: boolean;
+		onRemove?: (attachment: PromptAttachment) => void;
+	};
+
+	const { attachments, onRemove: onRemoveFile, showRemoveButton = true }: Props = $props();
+
+	function handleRemove(attachment: PromptAttachment): void {
+		onRemoveFile?.(attachment);
+	}
+
+	function getTooltipText(attachment: PromptAttachment): string {
+		if (attachment.type === 'commit') {
+			return `${attachment.commitId}`;
+		} else if (attachment.type === 'file') {
+			const commitInfo = attachment.commitId ? ` (from commit ${attachment.commitId})` : '';
+			return `${attachment.path}${commitInfo}`;
+		} else if (attachment.type === 'lines') {
+			const commitInfo = attachment.commitId ? ` (from commit ${attachment.commitId})` : '';
+			return `Lines ${attachment.start}-${attachment.end}${attachment.path}${commitInfo}`;
+		}
+		return '';
+	}
+</script>
+
+<div class="attachments">
+	{#each attachments as attachment}
+		<div class="attachment" in:fly={{ y: 10, duration: 150 }}>
+			<Tooltip text={getTooltipText(attachment)}>
+				<div class="attachment-content text-12 text-semibold">
+					<!-- COMMIT -->
+					{#if attachment.type === 'commit'}
+						<Icon name="commit" color="var(--clr-text-2)" />
+						<span class="path">
+							#{attachment.commitId.slice(0, 6)}
+						</span>
+					{/if}
+					<!-- FILE -->
+					{#if attachment.type === 'file'}
+						<FileIcon fileName={attachment.path} />
+
+						<span class="path">
+							{splitFilePath(attachment.path).filename}
+						</span>
+
+						{#if attachment.commitId}
+							<Icon name="commit" color="var(--clr-text-3)" />
+							<Tooltip text={attachment.commitId}>
+								<span class="commit-badge">
+									#{attachment.commitId.slice(0, 6)}
+								</span>
+							</Tooltip>
+						{/if}
+					{/if}
+					<!-- LINES -->
+					{#if attachment.type === 'lines'}
+						{@const { start, end } = attachment}
+						<FileIcon fileName={attachment.path} />
+
+						<span class="path">
+							{splitFilePath(attachment.path).filename}
+						</span>
+
+						<Icon name="text" color="var(--clr-text-3)" />
+						<span>
+							{start}:{end}
+						</span>
+
+						{#if attachment.commitId}
+							<Icon name="commit" color="var(--clr-text-3)" />
+							<Tooltip text={attachment.commitId}>
+								<span class="commit-badge">
+									#{attachment.commitId.slice(0, 6)}
+								</span>
+							</Tooltip>
+						{/if}
+					{/if}
+				</div>
+			</Tooltip>
+
+			{#if showRemoveButton}
+				<button
+					type="button"
+					class="remove-button"
+					onclick={() => handleRemove(attachment)}
+					aria-label="Remove {attachment}"
+					title="Remove file"
+				>
+					<Icon name="cross-small" />
+				</button>
+			{/if}
+		</div>
+	{/each}
+</div>
+
+<style lang="postcss">
+	.attachments {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+
+	.attachment {
+		display: flex;
+		flex-shrink: 1;
+		align-items: center;
+		justify-content: space-between;
+		height: var(--size-button);
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--size-button);
+		cursor: default;
+	}
+
+	.attachment-content {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		padding: 0 8px;
+		overflow-x: hidden;
+		gap: 6px;
+	}
+
+	.path {
+		max-width: 400px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.commit-badge {
+		color: var(--clr-text-3);
+		white-space: nowrap;
+	}
+
+	.remove-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--size-button);
+		height: var(--size-button);
+		margin-left: -8px;
+		color: var(--clr-text-3);
+		transition: all 0.2s ease;
+
+		&:hover {
+			background-color: var(--clr-bg-error);
+			color: var(--clr-text-error);
+		}
+	}
+</style>

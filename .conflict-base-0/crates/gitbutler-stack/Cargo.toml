@@ -1,0 +1,41 @@
+[package]
+name = "gitbutler-stack"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.89"
+autotests = false
+
+[lib]
+doctest = false
+
+[dependencies]
+git2.workspace = true
+gix = { workspace = true, features = [] }
+itertools.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+toml.workspace = true
+gitbutler-reference.workspace = true
+but-core.workspace = true
+but-rebase.workspace = true
+but-graph.workspace = true
+gitbutler-time.workspace = true
+gitbutler-diff.workspace = true
+gitbutler-error.workspace = true
+gitbutler-fs.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-commit.workspace = true
+gitbutler-oxidize.workspace = true
+bstr.workspace = true
+
+[[test]]
+name = "stack"
+path = "tests/mod.rs"
+
+[dev-dependencies]
+gitbutler-testsupport.workspace = true
+gitbutler-repo-actions.workspace = true
+tempfile.workspace = true
