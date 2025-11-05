@@ -295,8 +295,8 @@
 		// Delay scroll to ensure DOM is ready
 		setTimeout(() => {
 			scrollToBottom();
-			isTailInitialized = true;
 		}, 0);
+		isTailInitialized = true;
 	}
 
 	/**
@@ -333,13 +333,28 @@
 			updateRange();
 		}
 
+		const distance = getDistanceFromBottom();
 		const scrollTop = viewport.scrollTop;
+
+		// Content, sizes, and scroll are affected by this tick.
 		await tick();
-		// Strange scroll motion appears out of thin air, so we reset
-		// it here to keep things smooth. It could have something to do
-		// with content shrink is offset by padding. Would be great
-		// to understand it better.
-		viewport.scrollTop = scrollTop;
+
+		if (distance === 0 && distance !== getDistanceFromBottom()) {
+			// A difference in viewport scrollHeight is occasionally observerd
+			// before and after the `await tick()` call just above. It could
+			// be the result of an incorrect height/offset calculation, or it
+			// just content shifting in place after render. If that happens for
+			// we can lose touch with the bottom.
+			scrollToBottom();
+		} else {
+			if (viewport.scrollTop !== scrollTop) {
+				// Strange scroll motion appears out of thin air, so we reset
+				// it here to keep things smooth. It could have something to do
+				// with content shrink is offset by padding. Would be great
+				// to understand it better.
+				viewport.scrollTop = scrollTop;
+			}
+		}
 
 		if (shouldTriggerLoadMore()) {
 			debouncedLoadMore?.();
@@ -381,8 +396,8 @@
 						// In tail mode, adjust scroll when top item's height is measured
 						if (stickToBottom && index === visibleRange.start) {
 							const heightDiff = target.clientHeight - defaultHeight;
-							if (heightDiff !== 0) {
-								viewport?.scrollBy({ top: heightDiff });
+							if (heightDiff !== 0 && viewport && target.clientTop <= viewport.scrollTop) {
+								viewport.scrollBy({ top: heightDiff });
 							}
 						}
 						// Scroll to bottom when last item resizes during initialization or sticky mode
