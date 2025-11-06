@@ -7,7 +7,7 @@ pub mod forge;
 pub mod review;
 
 fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
-    if host.contains("github.com") {
+    if host.contains("github.com") || host.starts_with("github.") {
         Some(ForgeName::GitHub)
     } else if host.contains("gitlab.com") || host.starts_with("gitlab.") {
         Some(ForgeName::GitLab)
