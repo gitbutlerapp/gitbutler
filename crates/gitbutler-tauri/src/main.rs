@@ -404,7 +404,7 @@ fn main() -> anyhow::Result<()> {
 
 /// read all objects, migrate them, and write them back if there was a migration.
 fn migrate_projects() -> anyhow::Result<()> {
-    for mut project in gitbutler_project::dangerously_list_without_migration()? {
+    for mut project in gitbutler_project::dangerously_list_projects_without_migration()? {
         if let Ok(true) = project.migrate() {
             let (title, worktree_dir) = (project.title.clone(), project.worktree_dir()?.to_owned());
             if let Err(err) = gitbutler_project::update(project.into()) {

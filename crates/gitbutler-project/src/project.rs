@@ -162,8 +162,14 @@ impl Project {
         if !self.git_dir.as_os_str().is_empty() {
             return Ok(false);
         }
-        let repo = gix::open_opts(&self.worktree_dir, gix::open::Options::isolated())
-            .context("BUG: worktree is supposed to be valid here for migration")?;
+        let repo = gix::open_opts(&self.worktree_dir, gix::open::Options::isolated()).inspect_err(
+            |err| {
+                tracing::error!(
+                    "failed to open worktree at {} for migration: {err}",
+                    self.worktree_dir.display()
+                )
+            },
+        )?;
         self.git_dir = repo.git_dir().to_owned();
         // NOTE: we set the worktree so the frontend is happier until this usage can be reviewed,
         // probably for supporting bare repositories.
@@ -193,7 +199,7 @@ impl Project {
     /// Finds an existing project by its path. Errors out if not found.
     // TODO: find by git-dir instead!
     pub fn find_by_worktree_dir(worktree_dir: &Path) -> anyhow::Result<Project> {
-        let mut projects = crate::dangerously_list_without_migration()?;
+        let mut projects = crate::dangerously_list_projects_without_migration()?;
         // Sort projects by longest pathname to shortest.
         // We need to do this because users might have one gitbutler project
         // nexted insided of another via a gitignored folder.

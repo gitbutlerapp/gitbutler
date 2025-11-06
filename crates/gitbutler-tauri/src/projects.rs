@@ -21,15 +21,24 @@ pub fn list_projects(
 ) -> Result<Vec<ProjectForFrontend>, Error> {
     let open_projects = window_state.open_projects();
     gitbutler_project::assure_app_can_startup_or_fix_it(
-        gitbutler_project::dangerously_list_without_migration(),
+        gitbutler_project::dangerously_list_projects_without_migration(),
     )
     .map_err(Into::into)
     .map(|projects| {
         projects
             .into_iter()
-            .map(|project| ProjectForFrontend {
-                is_open: open_projects.contains(&project.id),
-                inner: project.clone().migrated().unwrap_or(project).into(),
+            .map(|project| {
+                anyhow::Ok(ProjectForFrontend {
+                    is_open: open_projects.contains(&project.id),
+                    inner: project.migrated().map(Into::into)?,
+                })
+            })
+            .filter_map(|res| match res {
+                Ok(p) => Some(p),
+                Err(err) => {
+                    tracing::warn!(?err, "Skipping over project as it failed migration");
+                    None
+                }
             })
             .collect()
     })

@@ -102,7 +102,7 @@ pub async fn list_projects(extra: &Extra) -> Result<serde_json::Value, but_api::
     let active_projects = extra.active_projects.lock().await;
     // For server implementation, we don't have window state, so all projects are marked as not open
     let projects_for_frontend = gitbutler_project::assure_app_can_startup_or_fix_it(
-        gitbutler_project::dangerously_list_without_migration(),
+        gitbutler_project::dangerously_list_projects_without_migration(),
     )?
     .into_iter()
     .map(|project| ProjectForFrontend {

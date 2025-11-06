@@ -28,7 +28,7 @@ pub fn add(data_dir: PathBuf, path: PathBuf, refname: Option<RemoteRefname>) -> 
 }
 
 pub fn remove(project_name: &str) -> Result<()> {
-    let projects = gitbutler_project::dangerously_list_without_migration()?;
+    let projects = gitbutler_project::dangerously_list_projects_without_migration()?;
     let project = projects
         .into_iter()
         .find(|p| p.title == project_name)
