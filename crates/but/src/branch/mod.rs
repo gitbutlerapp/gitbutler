@@ -48,12 +48,17 @@ pub enum Subcommands {
     },
 }
 
-pub async fn handle(cmd: &Option<Subcommands>, project: &Project, _json: bool) -> anyhow::Result<()> {
+pub async fn handle(
+    cmd: &Option<Subcommands>,
+    project: &Project,
+    _json: bool,
+) -> anyhow::Result<()> {
     match cmd {
         None => {
-            // Default to list when no subcommand is provided
-            list::list(project, false).await
+            let local = false;
+            list::list(project, local).await
         }
+        Some(Subcommands::List { local }) => list::list(project, *local).await,
         Some(Subcommands::New {
             branch_name,
             anchor,
@@ -145,7 +150,6 @@ pub async fn handle(cmd: &Option<Subcommands>, project: &Project, _json: bool) -
             println!("Branch '{}' not found in any stack", branch_name);
             Ok(())
         }
-        Some(Subcommands::List { local }) => list::list(project, *local).await,
         Some(Subcommands::Unapply { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(
                 project.id,

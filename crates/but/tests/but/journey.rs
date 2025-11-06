@@ -118,6 +118,18 @@ fn from_workspace() -> anyhow::Result<()> {
         "snapshots/from-workspace/status01-verbose.stdout.term.svg"
     ]);
 
+    // List is the default
+    env.but("branch")
+        .assert()
+        .success()
+        .stdout_eq(file!["snapshots/from-workspace/branch01.stdout.term.svg"]);
+
+    // But list is also explicit.
+    env.but("branch list")
+        .assert()
+        .success()
+        .stdout_eq(file!["snapshots/from-workspace/branch01.stdout.term.svg"]);
+
     // TODO: more operations on the repository!
     Ok(())
 }
