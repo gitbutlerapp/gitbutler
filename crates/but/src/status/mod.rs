@@ -218,8 +218,11 @@ pub fn print_group(
             .dimmed()
             .italic();
 
-            let reviews =
-                crate::forge::review::get_review_numbers(&branch.name.to_string(), review_map);
+            let reviews = crate::forge::review::get_review_numbers(
+                &branch.name.to_string(),
+                &branch.pr_number,
+                review_map,
+            );
 
             println!(
                 "┊{}┄{} [{}]{} {} {}",

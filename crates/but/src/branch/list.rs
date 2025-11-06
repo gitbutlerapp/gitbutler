@@ -28,15 +28,21 @@ pub async fn list(project: &Project, local: bool) -> Result<(), anyhow::Error> {
             continue;
         }
 
-        let reviews =
-            crate::forge::review::get_review_numbers(&branch.name.to_string(), &branch_review_map);
+        let reviews = crate::forge::review::get_review_numbers(
+            &branch.name.to_string(),
+            &None,
+            &branch_review_map,
+        );
 
         println!("{}{}", branch.name, reviews);
     }
 
     for branch in remote_only_branches {
-        let reviews =
-            crate::forge::review::get_review_numbers(&branch.name.to_string(), &branch_review_map);
+        let reviews = crate::forge::review::get_review_numbers(
+            &branch.name.to_string(),
+            &None,
+            &branch_review_map,
+        );
         println!("{} {}{}", "(remote)".dimmed(), branch.name, reviews);
     }
     Ok(())
@@ -58,6 +64,7 @@ fn print_applied_branches(
                 let branch_entry = format!("* {}", branch.name);
                 let reviews = crate::forge::review::get_review_numbers(
                     &branch.name.to_string(),
+                    &None,
                     branch_review_map,
                 );
                 println!("{}{}", branch_entry.green(), reviews);
@@ -82,6 +89,7 @@ fn print_applied_branches(
 
             let reviews = crate::forge::review::get_review_numbers(
                 &branch.name.to_string(),
+                &None,
                 branch_review_map,
             );
 
