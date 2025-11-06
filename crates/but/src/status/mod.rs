@@ -26,9 +26,34 @@ struct CommonMergeBase {
     message: String,
 }
 
+// JSON output types with CliIds
+#[derive(Serialize)]
+struct JsonBranchDetails {
+    #[serde(flatten)]
+    inner: but_workspace::ui::BranchDetails,
+    cli_id: String,
+}
+
+#[derive(Serialize)]
+struct JsonStackDetails {
+    derived_name: String,
+    push_status: but_workspace::ui::PushStatus,
+    branch_details: Vec<JsonBranchDetails>,
+    is_conflicted: bool,
+    cli_id: Option<String>,
+}
+
+#[derive(Serialize)]
+struct JsonStackEntry {
+    stack_id: Option<gitbutler_stack::StackId>,
+    details: Option<JsonStackDetails>,
+    assignments: Vec<FileAssignment>,
+    cli_id: String,
+}
+
 #[derive(Serialize)]
 struct WorktreeStatus {
-    stacks: Vec<StackEntry>,
+    stacks: Vec<JsonStackEntry>,
     common_merge_base: CommonMergeBase,
 }
 
@@ -95,8 +120,70 @@ pub(crate) async fn worktree(
     };
 
     if json {
+        // Helper function to get CLI ID from branch name
+        fn branch_cli_id(branch_name: &BString) -> String {
+            CliId::branch(branch_name.to_str().unwrap_or("unknown")).to_string()
+        }
+
+        // Convert stack_details to JSON format with CliIds
+        let json_stacks: Vec<JsonStackEntry> = stack_details
+            .into_iter()
+            .map(|(stack_id, (details, mut assignments))| {
+                // Determine the CLI ID for this stack
+                let cli_id = if stack_id.is_none() {
+                    // Unassigned changes
+                    CliId::Unassigned.to_string()
+                } else if let Some(ref details) = details {
+                    // Use the first branch's name to generate the CLI ID
+                    details
+                        .branch_details
+                        .first()
+                        .map(|branch| branch_cli_id(&branch.name))
+                        .unwrap_or_else(|| CliId::branch("unknown").to_string())
+                } else {
+                    CliId::branch("unknown").to_string()
+                };
+
+                // Add CLI IDs to file assignments
+                for assignment in &mut assignments {
+                    if !assignment.assignments.is_empty() {
+                        assignment.cli_id = Some(
+                            CliId::file_from_assignment(&assignment.assignments[0]).to_string(),
+                        );
+                    }
+                }
+
+                // Convert details if present
+                let json_details = details.map(|details| {
+                    let branch_details: Vec<JsonBranchDetails> = details
+                        .branch_details
+                        .into_iter()
+                        .map(|branch| JsonBranchDetails {
+                            cli_id: branch_cli_id(&branch.name),
+                            inner: branch,
+                        })
+                        .collect();
+
+                    JsonStackDetails {
+                        derived_name: details.derived_name,
+                        push_status: details.push_status,
+                        branch_details,
+                        is_conflicted: details.is_conflicted,
+                        cli_id: Some(cli_id.clone()),
+                    }
+                });
+
+                JsonStackEntry {
+                    stack_id,
+                    details: json_details,
+                    assignments,
+                    cli_id,
+                }
+            })
+            .collect();
+
         let worktree_status = WorktreeStatus {
-            stacks: stack_details,
+            stacks: json_stacks,
             common_merge_base: common_merge_base_data,
         };
         let json_output = serde_json::to_string_pretty(&worktree_status)?;

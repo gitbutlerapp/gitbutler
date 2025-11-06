@@ -6,6 +6,8 @@ pub(crate) struct FileAssignment {
     #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub path: BString,
     pub assignments: Vec<HunkAssignment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cli_id: Option<String>,
 }
 
 impl FileAssignment {
@@ -19,6 +21,7 @@ impl FileAssignment {
         Self {
             path: path.clone(),
             assignments: filtered_assignments,
+            cli_id: None,
         }
     }
     #[expect(dead_code)]
