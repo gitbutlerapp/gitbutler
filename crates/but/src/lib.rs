@@ -7,6 +7,7 @@ use args::{Args, CommandName, Subcommands, actions, claude, cursor};
 use but_claude::hooks::OutputAsJson;
 use but_settings::AppSettings;
 use colored::Colorize;
+use gix::date::time::CustomFormat;
 use metrics::{Event, Metrics, Props, metrics_if_configured};
 
 mod base;
@@ -31,6 +32,8 @@ mod rub;
 mod status;
 mod ui;
 mod worktree;
+
+const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
 
 /// Handle `args` which must be what's passed by `std::env::args_os()`.
 pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {

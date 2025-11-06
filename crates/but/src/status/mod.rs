@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::CLI_DATE;
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_core::ui::{TreeChange, TreeStatus};
@@ -8,10 +9,10 @@ use but_settings::AppSettings;
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, TimeExt};
 use gitbutler_project::Project;
 use serde::Serialize;
+
 pub(crate) mod assignment;
 
 use crate::id::CliId;
@@ -24,6 +25,7 @@ struct CommonMergeBase {
     target_name: String,
     common_merge_base: String,
     message: String,
+    commit_date: String,
 }
 
 #[derive(Serialize)]
@@ -81,17 +83,20 @@ pub(crate) async fn worktree(
     let target_name = format!("{}/{}", target.branch.remote(), target.branch.branch());
     let repo = ctx.gix_repo()?;
     let base_commit = repo.find_commit(target.sha.to_gix())?;
+    let base_commit = base_commit.decode()?;
     let message = base_commit
-        .message_bstr()
+        .message
         .to_string()
         .replace('\n', " ")
         .chars()
         .take(50)
         .collect::<String>();
+    let formatted_date = base_commit.committer().time()?.format_or_unix(CLI_DATE);
     let common_merge_base_data = CommonMergeBase {
         target_name: target_name.clone(),
         common_merge_base: target.sha.to_string()[..7].to_string(),
         message: message.clone(),
+        commit_date: formatted_date,
     };
 
     if json {
@@ -131,9 +136,10 @@ pub(crate) async fn worktree(
     }
     let dot = "●".purple();
     println!(
-        "{dot} {} (common base) [{}] {}",
+        "{dot} {} (common base) [{}] {} {}",
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
+        common_merge_base_data.commit_date.dimmed(),
         common_merge_base_data.message
     );
     Ok(())
@@ -440,7 +446,7 @@ fn print_commit(
 
     if verbose {
         // Verbose format: author and timestamp on first line, message on second line
-        let formatted_time = created_at.format_or_unix(gix::date::time::format::ISO8601);
+        let formatted_time = created_at.format_or_unix(CLI_DATE);
         println!(
             "┊{dot}   {}{} {} {} {} {} {} {}",
             &commit_id.to_string()[..2].blue().underline(),
