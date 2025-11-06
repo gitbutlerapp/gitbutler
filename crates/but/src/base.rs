@@ -38,16 +38,14 @@ pub fn handle(cmd: &Subcommands, project: &Project, json: bool) -> anyhow::Resul
                 "⏫ Upstream commits:\t{} new commits on {}\n",
                 base_branch.behind, base_branch.branch_name
             );
-            let commits = if *all {
-                base_branch.upstream_commits.iter().collect::<Vec<_>>()
+
+            let commits_to_show = if *all {
+                base_branch.upstream_commits.len()
             } else {
-                base_branch
-                    .upstream_commits
-                    .iter()
-                    .take(3)
-                    .collect::<Vec<_>>()
+                base_branch.upstream_commits.len().min(3)
             };
-            for commit in commits {
+
+            for commit in base_branch.upstream_commits.iter().take(commits_to_show) {
                 println!(
                     "\t{} {}",
                     &commit.id[..7],
