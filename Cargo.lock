@@ -730,6 +730,7 @@ dependencies = [
  "gitbutler-stack",
  "gix",
  "insta",
+ "open",
  "posthog-rs",
  "ratatui",
  "regex",

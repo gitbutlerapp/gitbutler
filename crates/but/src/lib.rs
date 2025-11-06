@@ -17,6 +17,7 @@ mod completions;
 mod describe;
 mod editor;
 mod forge;
+mod gui;
 mod id;
 mod init;
 mod log;
@@ -256,6 +257,11 @@ async fn match_subcommand(
                 eprintln!("{} {}", e, e.root_cause());
             }
             metrics_if_configured(app_settings, CommandName::Unmark, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Gui => {
+            let result = gui::open(&args.current_dir);
+            metrics_if_configured(app_settings, CommandName::Gui, props(start, &result)).ok();
             result
         }
         Subcommands::Commit {
