@@ -9,6 +9,7 @@ use gix::bstr::BString;
 mod args;
 use args::Args;
 
+use crate::command::graph::Dot;
 use crate::{
     args::Subcommands,
     command::{RepositoryOpenMode, repo_and_maybe_project},
@@ -153,26 +154,34 @@ async fn main() -> Result<()> {
             expensive,
         } => command::ref_info(&args, ref_name.as_deref(), *expensive),
         args::Subcommands::Graph {
+            dot_show,
+            stats,
             ref_name,
-            no_open,
             limit,
             limit_extension,
             hard_limit,
             debug,
             extra_target,
             no_debug_workspace,
-            no_dot,
-        } => command::graph(
+            dot,
+        } => command::graph::doit(
             &args,
             ref_name.as_deref(),
-            *no_open,
+            if *debug {
+                Dot::Debug.into()
+            } else if *dot_show {
+                Dot::OpenAsSVG.into()
+            } else if *dot {
+                Dot::Print.into()
+            } else {
+                None
+            },
             limit.flatten(),
             limit_extension.clone(),
             extra_target.as_deref(),
             *hard_limit,
-            *debug,
             *no_debug_workspace,
-            *no_dot,
+            *stats,
         ),
         args::Subcommands::HunkAssignments => {
             command::assignment::hunk_assignments(&args.current_dir, args.json)

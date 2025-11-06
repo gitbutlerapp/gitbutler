@@ -157,9 +157,10 @@ impl Project {
 }
 
 impl Project {
-    pub(crate) fn migrate(&mut self) -> anyhow::Result<()> {
+    /// Return `true` if the project was migrated, and thus is changed, or `false` otherwise.
+    pub fn migrate(&mut self) -> anyhow::Result<bool> {
         if !self.git_dir.as_os_str().is_empty() {
-            return Ok(());
+            return Ok(false);
         }
         let repo = gix::open_opts(&self.worktree_dir, gix::open::Options::isolated())
             .context("BUG: worktree is supposed to be valid here for migration")?;
@@ -167,7 +168,7 @@ impl Project {
         // NOTE: we set the worktree so the frontend is happier until this usage can be reviewed,
         // probably for supporting bare repositories.
         self.worktree_dir = repo.workdir().context("BUG: we currently only support non-bare repos, yet this one didn't have a worktree dir")?.to_owned();
-        Ok(())
+        Ok(true)
     }
 
     pub(crate) fn worktree_dir_but_should_use_git_dir(&self) -> &Path {
@@ -234,7 +235,7 @@ impl Project {
     /// Use it for fastest-possible access, when incomplete configuration is acceptable.
     pub fn open_isolated(&self) -> anyhow::Result<gix::Repository> {
         Ok(gix::open_opts(
-            &self.git_dir,
+            self.git_dir(),
             gix::open::Options::isolated(),
         )?)
     }
@@ -246,18 +247,18 @@ impl Project {
     ///
     /// Diffing and merging is better done with [`Self::open_for_merging()`].
     pub fn open(&self) -> anyhow::Result<gix::Repository> {
-        Ok(gix::open(&self.git_dir)?)
+        Ok(gix::open(self.git_dir())?)
     }
 
     /// Calls [`but_core::open_repo_for_merging()`]
     pub fn open_for_merging(&self) -> anyhow::Result<gix::Repository> {
-        but_core::open_repo_for_merging(&self.git_dir)
+        but_core::open_repo_for_merging(self.git_dir())
     }
 
     /// Open a git2 repository.
     /// Deprecated, but still in use.
     pub fn open_git2(&self) -> anyhow::Result<git2::Repository> {
-        Ok(git2::Repository::open(&self.git_dir)?)
+        Ok(git2::Repository::open(self.git_dir())?)
     }
 }
 
@@ -292,7 +293,7 @@ impl Project {
     ///
     /// Normally this is `.git/gitbutler` in the project's repository.
     pub fn gb_dir(&self) -> PathBuf {
-        self.git_dir.join("gitbutler")
+        self.git_dir().join("gitbutler")
     }
 
     pub fn snapshot_lines_threshold(&self) -> usize {
@@ -316,6 +317,10 @@ impl Project {
 
     /// Return the path to the directory that holds the repository data and that is associated with the current worktree.
     pub fn git_dir(&self) -> &Path {
+        assert!(
+            !self.git_dir.as_os_str().is_empty(),
+            "BUG: must call `project.migrated()` before using the git_dir to have it initialised."
+        );
         &self.git_dir
     }
 

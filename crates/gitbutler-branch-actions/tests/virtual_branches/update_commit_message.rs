@@ -151,7 +151,7 @@ fn forcepush_allowed() {
 
     gitbutler_project::update_with_path(
         data_dir.as_ref().unwrap(),
-        &projects::UpdateRequest {
+        projects::UpdateRequest {
             id: *project_id,
             ..Default::default()
         },

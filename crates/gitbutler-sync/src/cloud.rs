@@ -180,7 +180,7 @@ fn push_all_refs(
     Ok(())
 }
 fn update_project(project_id: Id<projects::Project>, id: git2::Oid) -> Result<()> {
-    gitbutler_project::update(&projects::UpdateRequest {
+    gitbutler_project::update(projects::UpdateRequest {
         id: project_id,
         gitbutler_code_push_state: Some(CodePushState {
             id,

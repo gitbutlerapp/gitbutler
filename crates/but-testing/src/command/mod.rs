@@ -1,9 +1,4 @@
-use std::{
-    borrow::Cow,
-    io::{Write, stdout},
-    mem::ManuallyDrop,
-    path::Path,
-};
+use std::{borrow::Cow, mem::ManuallyDrop, path::Path};
 
 use anyhow::{Context, anyhow, bail};
 use but_core::{UnifiedDiff, ref_metadata::StackId};
@@ -22,7 +17,6 @@ use but_workspace::{
 use gitbutler_project::{Project, ProjectId};
 use gix::{
     bstr::{BString, ByteSlice},
-    odb::store::RefreshMode,
     refs::Category,
 };
 use tokio::sync::mpsc::unbounded_channel;
@@ -569,96 +563,7 @@ pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> 
     }?)
 }
 
-#[expect(clippy::too_many_arguments)]
-pub fn graph(
-    args: &super::Args,
-    ref_name: Option<&str>,
-    no_open: bool,
-    limit: Option<usize>,
-    limit_extension: Vec<String>,
-    extra_target_spec: Option<&str>,
-    hard_limit: Option<usize>,
-    debug_graph: bool,
-    no_debug_workspace: bool,
-    no_dot: bool,
-) -> anyhow::Result<()> {
-    let (mut repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
-    repo.objects.refresh = RefreshMode::Never;
-    let extra_target = extra_target_spec
-        .map(|rev_spec| repo.rev_parse_single(rev_spec))
-        .transpose()?
-        .map(|id| id.detach());
-    let opts = but_graph::init::Options {
-        extra_target_commit_id: extra_target,
-        collect_tags: true,
-        hard_limit,
-        commits_limit_hint: limit,
-        commits_limit_recharge_location: limit_extension
-            .into_iter()
-            .map(|short_hash| {
-                repo.objects
-                    .lookup_prefix(
-                        gix::hash::Prefix::from_hex(&short_hash).expect("valid hex prefix"),
-                        None,
-                    )
-                    .unwrap()
-                    .expect("object for prefix exists")
-                    .expect("the prefix is unambiguous")
-            })
-            .collect(),
-        dangerously_skip_postprocessing_for_debugging: false,
-    };
-
-    // Never drop - this is read-only.
-    let meta = meta_from_maybe_project(project.as_ref())?;
-    let graph = match ref_name {
-        None => but_graph::Graph::from_head(&repo, &*meta, opts),
-        Some(ref_name) => {
-            let mut reference = repo.find_reference(ref_name)?;
-            let id = reference.peel_to_id()?;
-            but_graph::Graph::from_commit_traversal(id, reference.name().to_owned(), &*meta, opts)
-        }
-    }?;
-
-    let errors = graph.validation_errors();
-    if !errors.is_empty() {
-        eprintln!("VALIDATION FAILED: {errors:?}");
-    }
-    eprintln!("{:#?}", graph.statistics());
-
-    if !no_dot {
-        if no_open {
-            stdout().write_all(graph.dot_graph().as_bytes())?;
-        } else {
-            #[cfg(unix)]
-            graph.open_as_svg();
-        }
-    }
-
-    let workspace = graph.to_workspace()?;
-    if no_debug_workspace {
-        eprintln!(
-            "Workspace with {} stacks and {} segments across all stacks with {} commits total",
-            workspace.stacks.len(),
-            workspace
-                .stacks
-                .iter()
-                .map(|s| s.segments.len())
-                .sum::<usize>(),
-            workspace
-                .stacks
-                .iter()
-                .flat_map(|s| s.segments.iter().map(|s| s.commits.len()))
-                .sum::<usize>(),
-        );
-    } else {
-        eprintln!("{workspace:#?}");
-    }
-    if debug_graph {
-        eprintln!("{graph:#?}");
-    }
-    Ok(())
-}
+pub mod graph;
 
 /// NOTE: THis is a special case while vb.toml is used and while projects are somewhat special.
 fn meta_from_maybe_project(
