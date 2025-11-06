@@ -98,6 +98,9 @@ For examples see `but rub --help`."
     },
     /// Removes all marks from the workspace
     Unmark,
+    /// Open the GitButler GUI for the current project.
+    #[clap(visible_alias = ".")]
+    Gui,
     /// Commit changes to a stack.
     Commit {
         /// Commit message
@@ -210,6 +213,8 @@ pub enum CommandName {
     Undo,
     #[clap(alias = "snapshot")]
     Snapshot,
+    #[clap(alias = "gui", alias = ".")]
+    Gui,
     BaseCheck,
     BaseUpdate,
     BranchNew,

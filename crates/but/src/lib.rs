@@ -17,6 +17,7 @@ mod completions;
 mod describe;
 mod editor;
 mod forge;
+mod gui;
 mod id;
 mod init;
 mod log;
@@ -258,6 +259,12 @@ async fn match_subcommand(
             metrics_if_configured(app_settings, CommandName::Unmark, props(start, &result)).ok();
             result
         }
+        Subcommands::Gui => {
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = gui::open_gui(project.worktree_dir()?);
+            metrics_if_configured(app_settings, CommandName::Gui, props(start, &result)).ok();
+            result
+        }
         Subcommands::Commit {
             message,
             branch,
@@ -425,6 +432,7 @@ fn print_grouped_help() {
 
     // Define command groupings and their order (excluding MISC)
     let groups = [
+        ("Interface".yellow(), vec!["gui"]),
         ("Inspection".yellow(), vec!["status", "log"]),
         (
             "Branching and Committing".yellow(),
