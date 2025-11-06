@@ -166,7 +166,7 @@ fn ids(
     Ok((sources, target_result[0].clone()))
 }
 
-fn parse_sources(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
+pub(crate) fn parse_sources(ctx: &mut CommandContext, source: &str) -> anyhow::Result<Vec<CliId>> {
     // Check if it's a range (contains '-')
     if source.contains('-') {
         parse_range(ctx, source)

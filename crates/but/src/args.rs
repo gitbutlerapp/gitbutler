@@ -186,6 +186,12 @@ For examples see `but rub --help`."
         #[clap(value_enum)]
         shell: Option<clap_complete::Shell>,
     },
+    Absorb {
+        /// If the CliID is an uncommitted change - the change will be absorbed
+        /// If the CliID is a stack - anything assigned to the stack will be absorbed accordingly
+        /// If not provided, everything that is uncommitted will be absorbed
+        source: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
