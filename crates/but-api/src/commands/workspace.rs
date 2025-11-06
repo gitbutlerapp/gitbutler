@@ -208,6 +208,9 @@ fn handle_gerrit(
             .find_commit(commit.id)
             .map_err(anyhow::Error::from)
             .and_then(|c| c.change_id().ok_or(anyhow::anyhow!("no change-id")));
+        if matches!(commit.state, but_workspace::ui::CommitState::Integrated) {
+            return Ok(());
+        }
         if let Ok(change_id) = change_id
             && let Some(meta) = db.get(&change_id)?
         {
