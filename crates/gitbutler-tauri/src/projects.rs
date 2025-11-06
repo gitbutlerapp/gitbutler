@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::{WindowState, window, window::state::ProjectAccessMode};
 use anyhow::{Context, bail};
 use but_api::error::Error;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
@@ -12,36 +13,13 @@ use gix::bstr::ByteSlice;
 use tauri::{State, Window};
 use tracing::instrument;
 
-use crate::{WindowState, window, window::state::ProjectAccessMode};
-
 #[tauri::command(async)]
 #[instrument(skip(window_state), err(Debug))]
 pub fn list_projects(
     window_state: State<'_, WindowState>,
-) -> Result<Vec<ProjectForFrontend>, Error> {
+) -> Result<Vec<but_api::projects::ProjectForFrontend>, Error> {
     let open_projects = window_state.open_projects();
-    gitbutler_project::assure_app_can_startup_or_fix_it(
-        gitbutler_project::dangerously_list_projects_without_migration(),
-    )
-    .map_err(Into::into)
-    .map(|projects| {
-        projects
-            .into_iter()
-            .map(|project| {
-                anyhow::Ok(ProjectForFrontend {
-                    is_open: open_projects.contains(&project.id),
-                    inner: project.migrated().map(Into::into)?,
-                })
-            })
-            .filter_map(|res| match res {
-                Ok(p) => Some(p),
-                Err(err) => {
-                    tracing::warn!(?err, "Skipping over project as it failed migration");
-                    None
-                }
-            })
-            .collect()
-    })
+    but_api::projects::list_projects(open_projects)
 }
 
 /// Additional information to help the user interface communicate what happened with the project.
@@ -184,14 +162,6 @@ pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result
         .context("didn't manage to get any time-based unique ID")?;
     window::create(&handle, &label, id.to_string()).map_err(anyhow::Error::from)?;
     Ok(())
-}
-
-#[derive(serde::Serialize)]
-pub struct ProjectForFrontend {
-    #[serde(flatten)]
-    pub inner: gitbutler_project::api::Project,
-    /// Tell if the project is known to be open in a Window in the frontend.
-    pub is_open: bool,
 }
 
 /// Fatal errors are returned as error, fixed errors for tracing will be `Some(err)`

@@ -100,17 +100,8 @@ pub struct ProjectInfo {
 
 pub async fn list_projects(extra: &Extra) -> Result<serde_json::Value, but_api::error::Error> {
     let active_projects = extra.active_projects.lock().await;
-    // For server implementation, we don't have window state, so all projects are marked as not open
-    let projects_for_frontend = gitbutler_project::assure_app_can_startup_or_fix_it(
-        gitbutler_project::dangerously_list_projects_without_migration(),
-    )?
-    .into_iter()
-    .map(|project| ProjectForFrontend {
-        is_open: active_projects.projects.contains_key(&project.id),
-        inner: project.clone().migrated().unwrap_or(project).into(),
-    })
-    .collect::<Vec<_>>();
-
+    let projects_for_frontend =
+        but_api::projects::list_projects(active_projects.projects.keys().copied().collect())?;
     Ok(json!(projects_for_frontend))
 }
 
@@ -138,12 +129,4 @@ pub async fn set_project_active(
         db_error: None,
         headsup: None
     }))
-}
-
-#[derive(serde::Serialize)]
-pub struct ProjectForFrontend {
-    #[serde(flatten)]
-    pub inner: gitbutler_project::api::Project,
-    /// Tell if the project is known to be open in a Window in the frontend.
-    pub is_open: bool,
 }

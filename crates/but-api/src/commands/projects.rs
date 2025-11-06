@@ -1,7 +1,6 @@
-use std::path::PathBuf;
-
 use but_api_macros::api_cmd;
 use gitbutler_project::{self as projects, ProjectId};
+use std::path::PathBuf;
 use tracing::instrument;
 
 use crate::error::Error;
@@ -37,6 +36,33 @@ pub fn get_project(
 }
 
 #[api_cmd]
+#[instrument(err(Debug))]
+pub fn list_projects(opened_projects: Vec<ProjectId>) -> Result<Vec<ProjectForFrontend>, Error> {
+    gitbutler_project::assure_app_can_startup_or_fix_it(
+        gitbutler_project::dangerously_list_projects_without_migration(),
+    )
+    .map_err(Into::into)
+    .map(|projects| {
+        projects
+            .into_iter()
+            .map(|project| {
+                anyhow::Ok(ProjectForFrontend {
+                    is_open: opened_projects.contains(&project.id),
+                    inner: project.migrated().map(Into::into)?,
+                })
+            })
+            .filter_map(|res| match res {
+                Ok(p) => Some(p),
+                Err(err) => {
+                    tracing::warn!(?err, "Skipping over project as it failed migration");
+                    None
+                }
+            })
+            .collect()
+    })
+}
+
+#[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
 pub fn delete_project(project_id: ProjectId) -> Result<(), Error> {
@@ -50,4 +76,12 @@ pub fn is_gerrit(project_id: ProjectId) -> Result<bool, Error> {
     let project = gitbutler_project::get_raw(project_id)?;
     let repo = project.open()?;
     gitbutler_project::gerrit::is_used_by_default_remote(&repo).map_err(Into::into)
+}
+
+#[derive(serde::Serialize)]
+pub struct ProjectForFrontend {
+    #[serde(flatten)]
+    pub inner: gitbutler_project::api::Project,
+    /// Tell if the project is known to be open in a Window in the frontend.
+    pub is_open: bool,
 }
