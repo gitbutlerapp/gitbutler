@@ -89,5 +89,7 @@
 	}
 	.file-name__path--first {
 		flex: 1;
+		direction: rtl;
+		unicode-bidi: plaintext;
 	}
 </style>

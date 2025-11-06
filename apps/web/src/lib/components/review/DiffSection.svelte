@@ -203,6 +203,7 @@
 		text-align: left;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		unicode-bidi: plaintext;
 
 		& span {
 			margin: 0;
