@@ -99,7 +99,8 @@ For examples see `but rub --help`."
     /// Removes all marks from the workspace
     Unmark,
     /// Open the GitButler GUI for the current project.
-    #[clap(visible_alias = ".")]
+    // TODO: unhide once the FE can be switched to a given project.
+    #[clap(visible_alias = ".", hide = true)]
     Gui,
     /// Commit changes to a stack.
     Commit {
@@ -213,7 +214,7 @@ pub enum CommandName {
     Undo,
     #[clap(alias = "snapshot")]
     Snapshot,
-    #[clap(alias = "gui", alias = ".")]
+    #[clap(alias = "gui")]
     Gui,
     BaseCheck,
     BaseUpdate,

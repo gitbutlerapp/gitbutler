@@ -11,8 +11,7 @@
     clippy::too_many_lines
 )]
 
-use std::sync::Arc;
-
+use anyhow::bail;
 use but_api::{
     App, cherry_apply, cli, config, diff, forge, git, modes, open, oplog, remotes, repo, rules,
     secret, stack, users, virtual_branches, workspace,
@@ -23,6 +22,7 @@ use gitbutler_tauri::{
     WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, github, logs, menu,
     projects, settings, zip,
 };
+use std::sync::Arc;
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_log::{Target, TargetKind};
 use tokio::sync::Mutex;
@@ -56,6 +56,16 @@ fn main() -> anyhow::Result<()> {
     ) {
         tauri_context.config_mut().app.security.csp = updated_csp;
     };
+
+    if let Some(project_to_open) =
+        std::env::var_os("GITBUTLER_PROJECT_DIR").map(std::path::PathBuf::from)
+    {
+        bail!(
+            "GUI says: how do we tell the frontend to open: {}? \
+               We could figure out the project-ID while that's important, and pass it along somehow",
+            project_to_open.display()
+        );
+    }
     let app_settings_for_menu = app_settings.clone();
     runtime.block_on(async {
         tauri::async_runtime::set(tokio::runtime::Handle::current());

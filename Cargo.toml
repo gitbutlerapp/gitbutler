@@ -106,6 +106,7 @@ md5 = "0.8.0"
 bitflags = "2.9.4"
 notify = "8.2.0"
 snapbox = "0.6.23"
+open = "5.3.2"
 
 [profile.release]
 # There are no overrides here as we optimise for fast release builds,

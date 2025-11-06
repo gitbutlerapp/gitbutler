@@ -260,8 +260,7 @@ async fn match_subcommand(
             result
         }
         Subcommands::Gui => {
-            let project = get_or_init_project(&args.current_dir)?;
-            let result = gui::open_gui(project.worktree_dir()?);
+            let result = gui::open(&args.current_dir);
             metrics_if_configured(app_settings, CommandName::Gui, props(start, &result)).ok();
             result
         }
@@ -432,7 +431,6 @@ fn print_grouped_help() {
 
     // Define command groupings and their order (excluding MISC)
     let groups = [
-        ("Interface".yellow(), vec!["gui"]),
         ("Inspection".yellow(), vec!["status", "log"]),
         (
             "Branching and Committing".yellow(),
