@@ -22,6 +22,7 @@ pub mod db;
 pub mod hooks;
 pub mod mcp;
 pub mod notifications;
+mod permissions;
 pub mod prompt_templates;
 mod rules;
 

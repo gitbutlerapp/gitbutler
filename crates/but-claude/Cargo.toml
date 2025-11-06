@@ -39,3 +39,4 @@ rmcp.workspace = true
 tracing.workspace = true
 nix = { version = "0.30.1", features = ["signal"] }
 notify-rust = { workspace = true }
+url.workspace = true
