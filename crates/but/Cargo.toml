@@ -41,6 +41,7 @@ but-graph.workspace = true
 but-workspace.workspace = true
 but-settings.workspace = true
 but-hunk-assignment.workspace = true
+but-hunk-dependency.workspace = true
 but-claude.workspace = true
 but-cursor.workspace = true
 but-tools.workspace = true

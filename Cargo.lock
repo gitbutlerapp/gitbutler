@@ -705,6 +705,7 @@ dependencies = [
  "but-github",
  "but-graph",
  "but-hunk-assignment",
+ "but-hunk-dependency",
  "but-rules",
  "but-secret",
  "but-settings",
