@@ -1,4 +1,4 @@
-<svg width="740px" height="740px" xmlns="http://www.w3.org/2000/svg">
+<svg width="740px" height="758px" xmlns="http://www.w3.org/2000/svg">
   <style>
     .fg { fill: #AAAAAA }
     .bg { fill: #000000 }
@@ -87,17 +87,19 @@
 </tspan>
     <tspan x="10px" y="622px"><tspan>  </tspan><tspan class="fg-green">completions  </tspan><tspan>Generate shell completion scripts for the specified or inferred…</tspan>
 </tspan>
-    <tspan x="10px" y="640px">
+    <tspan x="10px" y="640px"><tspan>  </tspan><tspan class="fg-green">absorb       </tspan>
 </tspan>
-    <tspan x="10px" y="658px"><tspan class="fg-yellow">Options</tspan><tspan>:</tspan>
+    <tspan x="10px" y="658px">
 </tspan>
-    <tspan x="10px" y="676px"><tspan>  -C, --current-dir &lt;PATH&gt;  Run as if but was started in PATH instead of the cu…</tspan>
+    <tspan x="10px" y="676px"><tspan class="fg-yellow">Options</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="694px"><tspan>  -j, --json  Whether to use JSON output format</tspan>
+    <tspan x="10px" y="694px"><tspan>  -C, --current-dir &lt;PATH&gt;  Run as if but was started in PATH instead of the cu…</tspan>
 </tspan>
-    <tspan x="10px" y="712px"><tspan>  -h, --help  Print help</tspan>
+    <tspan x="10px" y="712px"><tspan>  -j, --json  Whether to use JSON output format</tspan>
 </tspan>
-    <tspan x="10px" y="730px">
+    <tspan x="10px" y="730px"><tspan>  -h, --help  Print help</tspan>
+</tspan>
+    <tspan x="10px" y="748px">
 </tspan>
   </text>
 
