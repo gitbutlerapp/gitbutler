@@ -39,10 +39,11 @@ pub fn handle(cmd: &Subcommands, project: &Project, json: bool) -> anyhow::Resul
                 base_branch.behind, base_branch.branch_name
             );
 
+            let total_upstream_commits = base_branch.upstream_commits.len();
             let commits_to_show = if *all {
-                base_branch.upstream_commits.len()
+                total_upstream_commits
             } else {
-                base_branch.upstream_commits.len().min(3)
+                total_upstream_commits.min(3)
             };
 
             for commit in base_branch.upstream_commits.iter().take(commits_to_show) {
@@ -58,7 +59,7 @@ pub fn handle(cmd: &Subcommands, project: &Project, json: bool) -> anyhow::Resul
                         .collect::<String>()
                 );
             }
-            let hidden_commits = base_branch.upstream_commits.len().saturating_sub(3);
+            let hidden_commits = total_upstream_commits.saturating_sub(3);
             if hidden_commits > 0 && !*all {
                 println!("\t... ({hidden_commits} more - run `but base check --all` to see all)");
             }
