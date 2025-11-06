@@ -1,4 +1,5 @@
 use but_api::NoParams;
+use colored::Colorize;
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
     #[clap(subcommand)]
@@ -6,7 +7,7 @@ pub struct Platform {
 }
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    /// Authenticat with your forge provider (at the moment, only GitHub is supported)
+    /// Authenticate with your forge provider (at the moment, only GitHub is supported)
     Auth,
     /// List authenticated forge accounts known to GitButler
     ListUsers,
@@ -44,9 +45,35 @@ async fn forget_github_username(username: &String) -> anyhow::Result<()> {
 async fn list_github_users() -> anyhow::Result<()> {
     let known_accounts = but_api::github::list_known_github_accounts().await?;
     println!("Known GitHub usernames:");
+    let mut some_accounts_invalid = false;
     for account in known_accounts {
-        println!("- {}", account);
+        let account_status = but_api::github::check_github_credentials(&account)
+            .await
+            .ok();
+
+        let message = match account_status {
+            Some(but_github::CredentialCheckResult::Valid) => "(valid credentials)".green().bold(),
+            Some(but_github::CredentialCheckResult::Invalid) => {
+                some_accounts_invalid = true;
+                "(invalid credentials)".bold().yellow()
+            }
+            Some(but_github::CredentialCheckResult::NoCredentials) => {
+                some_accounts_invalid = true;
+                "(no credentials)".bold().yellow()
+            }
+            None => " (unknown status)".bold().red(),
+        };
+
+        println!("- {} {}", account, message);
     }
+
+    if some_accounts_invalid {
+        println!(
+            "\nSome accounts have invalid or missing credentials.\nYou may want to re-authenticate with those accounts using the '{}' command.",
+            "but forge auth".bold()
+        );
+    }
+
     Ok(())
 }
 

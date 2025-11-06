@@ -242,6 +242,31 @@ pub async fn get_gh_user(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CredentialCheckResult {
+    Valid,
+    Invalid,
+    NoCredentials,
+}
+
+/// Check the validity of the stored credentials for the given GitHub account.
+pub async fn check_credentials(
+    account: &GithubAccountIdentifier,
+    storage: &but_forge_storage::controller::Controller,
+) -> Result<CredentialCheckResult> {
+    if let Some(access_token) = token::get_gh_access_token(account, storage)? {
+        let gh = account
+            .client(&access_token)
+            .context("Failed to create GitHub client")?;
+        match gh.get_authenticated().await {
+            Ok(_) => Ok(CredentialCheckResult::Valid),
+            Err(_) => Ok(CredentialCheckResult::Invalid),
+        }
+    } else {
+        Ok(CredentialCheckResult::NoCredentials)
+    }
+}
+
 pub async fn list_known_github_accounts(
     storage: &but_forge_storage::controller::Controller,
 ) -> Result<Vec<token::GithubAccountIdentifier>> {

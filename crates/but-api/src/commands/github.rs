@@ -163,3 +163,12 @@ pub async fn list_known_github_accounts() -> Result<Vec<but_github::GithubAccoun
         .await
         .map_err(Into::into)
 }
+
+pub async fn check_github_credentials(
+    account: &but_github::GithubAccountIdentifier,
+) -> Result<but_github::CredentialCheckResult, Error> {
+    let storage = but_forge_storage::controller::Controller::from_path(but_path::app_data_dir()?);
+    but_github::check_credentials(account, &storage)
+        .await
+        .map_err(Into::into)
+}
