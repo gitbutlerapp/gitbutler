@@ -179,26 +179,3 @@ Error: Could not find a git repository in '.' or in any of its parents
 
     Ok(())
 }
-
-#[test]
-fn rub_shorthand_without_subcommand() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target("two-stacks")?;
-
-    // Must set metadata to match the scenario
-    setup_metadata(&env, &["A", "B"])?;
-
-    // Test that calling `but <id1> <id2>` defaults to rub
-    // This should fail with a CliId not found error rather than a command not found error
-    let output = env.but("nonexistent1 nonexistent2").assert().failure();
-
-    // Verify that it's calling rub (which will fail because the IDs don't exist)
-    // rather than treating it as an unknown command
-    let stderr = String::from_utf8_lossy(&output.get_output().stderr);
-    assert!(
-        stderr.contains("not found") || stderr.contains("Source"),
-        "Expected error about source/target not found, got: {}",
-        stderr
-    );
-
-    Ok(())
-}

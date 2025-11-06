@@ -439,8 +439,8 @@ fn print_grouped_help() {
 
     println!("{}", "The GitButler CLI change control system".red());
     println!();
-    println!("Usage: but [OPTIONS] [SOURCE] [TARGET]");
-    println!("       but [OPTIONS] <COMMAND>");
+    println!("Usage: but [OPTIONS] <COMMAND>");
+    println!("       but [OPTIONS] [RUB-SOURCE] [RUB-TARGET]");
     println!();
 
     // Keep track of which commands we've already printed

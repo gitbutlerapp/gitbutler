@@ -279,6 +279,8 @@ pub fn r(name: &str) -> &gix::refs::FullNameRef {
     name.try_into().expect("statically known valid ref-name")
 }
 
+// TODO: in most cases, this shouldn't be necessary as single-branch mode is a thing.
+//       Review each usage, try without.
 pub fn setup_metadata(env: &Sandbox, branch_names: &[&str]) -> anyhow::Result<()> {
     let mut meta = env.meta()?;
     let mut ws = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
