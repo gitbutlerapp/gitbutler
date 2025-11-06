@@ -104,6 +104,24 @@ impl Sandbox {
             .action_env("SNAPSHOTS")
             .redact_with(redactions)
     }
+
+    /// Create an assert with custom redactions. Adapt as needed.
+    pub fn assert_with_uuid_and_timestamp_redactions(&self) -> Assert {
+        let mut redactions = Redactions::new();
+        redactions
+            .insert(
+                "[UUID]",
+                regex::Regex::new(r#"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"#).unwrap(),
+            )
+            .unwrap();
+        redactions
+            .insert("[TIMESTAMP]", regex::Regex::new(r#"[1-9]\d{12}"#).unwrap())
+            .unwrap();
+        Assert::new()
+            .action_env("SNAPSHOTS")
+            .redact_with(redactions)
+    }
+
     /// Print the paths to our directories, and keep them.
     pub fn debug(mut self) -> ! {
         eprintln!(
