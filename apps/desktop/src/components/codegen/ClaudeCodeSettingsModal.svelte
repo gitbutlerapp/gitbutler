@@ -1,24 +1,16 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import ClaudeCheck from '$components/v3/ClaudeCheck.svelte';
-	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
+	import ClaudeCheck from '$components/codegen/ClaudeCheck.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { newlineOnEnter } from '$lib/config/uiFeatureFlags';
 	import { inject } from '@gitbutler/core/context';
-	import { Modal, SectionCard, Toggle, Spacer } from '@gitbutler/ui';
+	import { Modal, SectionCard, Toggle, Spacer, Link } from '@gitbutler/ui';
 	import type { Modal as ModalType } from '@gitbutler/ui';
 
 	type Props = {
 		onClose: () => void;
 	};
 	const { onClose }: Props = $props();
-
-	const {
-		claudeExecutable,
-		recheckedAvailability,
-		checkClaudeAvailability,
-		updateClaudeExecutable
-	} = useAvailabilityChecking();
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
@@ -79,14 +71,9 @@
 <Modal bind:this={modal} width={520} {onClose} noPadding>
 	<ScrollableContainer>
 		<div class="settings-content">
-			<ClaudeCheck
-				claudeExecutable={claudeExecutable.current}
-				recheckedAvailability={recheckedAvailability.current}
-				onUpdateExecutable={updateClaudeExecutable}
-				onCheckAvailability={checkClaudeAvailability}
-			/>
+			<ClaudeCheck showTitle />
 
-			<Spacer margin={10} />
+			<Spacer margin={10} dotted />
 
 			<SectionCard orientation="row" labelFor="autoCommitAfterCompletion">
 				{#snippet title()}
@@ -111,8 +98,6 @@
 				{/snippet}
 				{#snippet caption()}
 					Use the model configured in .claude/settings.json.
-					<br />
-					Useful for 3rd party API providers.
 				{/snippet}
 				{#snippet actions()}
 					<Toggle
@@ -125,10 +110,10 @@
 
 			<SectionCard orientation="row" labelFor="newlineOnEnter">
 				{#snippet title()}
-					Newline on enter
+					Newline on Enter
 				{/snippet}
 				{#snippet caption()}
-					By default enter submits the prompt.
+					Use Enter for line breaks and Cmd+Enter to submit.
 				{/snippet}
 				{#snippet actions()}
 					<Toggle
@@ -138,25 +123,6 @@
 					/>
 				{/snippet}
 			</SectionCard>
-
-			<SectionCard orientation="row" labelFor="dangerouslyAllowAllPermissions">
-				{#snippet title()}
-					⚠ Dangerously allow all permissions
-				{/snippet}
-				{#snippet caption()}
-					Skips all permission prompts and allows Claude Code unrestricted access. Use with extreme
-					caution.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="dangerouslyAllowAllPermissions"
-						checked={dangerouslyAllowAllPermissions}
-						onchange={updateDangerouslyAllowAllPermissions}
-					/>
-				{/snippet}
-			</SectionCard>
-
-			<Spacer margin={10} />
 
 			<div class="stack-v">
 				<SectionCard orientation="row" labelFor="notifyOnCompletion" roundedBottom={false}>
@@ -184,6 +150,34 @@
 					{/snippet}
 				</SectionCard>
 			</div>
+
+			<Spacer margin={10} dotted />
+
+			<SectionCard orientation="row" labelFor="dangerouslyAllowAllPermissions">
+				{#snippet title()}
+					⚠ Dangerously allow all permissions
+				{/snippet}
+				{#snippet caption()}
+					Skips all permission prompts and allows Claude Code unrestricted access. Use with extreme
+					caution.
+				{/snippet}
+				{#snippet actions()}
+					<Toggle
+						id="dangerouslyAllowAllPermissions"
+						checked={dangerouslyAllowAllPermissions}
+						onchange={updateDangerouslyAllowAllPermissions}
+					/>
+				{/snippet}
+			</SectionCard>
+
+			<Spacer margin={10} dotted />
+
+			<p class="text-13 text-body clr-text-2">
+				Get the full guide to Agents in GitButler in <Link
+					href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
+					>our documentation</Link
+				>
+			</p>
 		</div>
 	</ScrollableContainer>
 </Modal>
@@ -193,6 +187,6 @@
 		display: flex;
 		flex-direction: column;
 		padding: 16px;
-		gap: 12px;
+		gap: 8px;
 	}
 </style>

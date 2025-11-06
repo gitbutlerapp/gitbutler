@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-
+	import ClaudeCheck from '$components/codegen/ClaudeCheck.svelte';
 	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
 	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
@@ -13,6 +13,7 @@
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
 	import CodegenTodoAccordion from '$components/codegen/CodegenTodoAccordion.svelte';
+	import noClaudeCodeSvg from '$lib/assets/empty-state/claude-disconected.svg?raw';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
@@ -51,7 +52,8 @@
 		EmptyStatePlaceholder,
 		KebabButton,
 		Modal,
-		Tooltip
+		Tooltip,
+		Link
 	} from '@gitbutler/ui';
 
 	import VirtualList from '@gitbutler/ui/components/VirtualList.svelte';
@@ -358,16 +360,16 @@
 								{formatCompactNumber(stats.tokens)}
 							</span>
 						</Tooltip>
-					{/if}
 
-					<Tooltip text="{contextUsage}% context used">
-						<div class="context-utilization-scale" style="--context-utilization: {contextUsage}">
-							<svg viewBox="0 0 17 17">
-								<circle class="bg-circle" cx="8.5" cy="8.5" r="6.5" />
-								<circle class="progress-circle" cx="8.5" cy="8.5" r="6.5" />
-							</svg>
-						</div>
-					</Tooltip>
+						<Tooltip text="{contextUsage}% context used">
+							<div class="context-utilization-scale" style="--context-utilization: {contextUsage}">
+								<svg viewBox="0 0 17 17">
+									<circle class="bg-circle" cx="8.5" cy="8.5" r="6.5" />
+									<circle class="progress-circle" cx="8.5" cy="8.5" r="6.5" />
+								</svg>
+							</div>
+						</Tooltip>
+					{/if}
 
 					<KebabButton>
 						{#snippet contextMenu({ close })}
@@ -491,7 +493,35 @@
 					<CodegenTodoAccordion {todos} />
 				{/if}
 
-				{#if !isStackActive && formattedMessages.length === 0}
+				{#if claudeAvailable.response?.status === 'not_available' && formattedMessages.length === 0}
+					<div class="no-agent-placeholder">
+						<div class="no-agent-placeholder__content">
+							{@html noClaudeCodeSvg}
+							<h2 class="text-serif-42">Connect Claude Code</h2>
+							<p class="text-13 text-body clr-text-2">
+								If you haven't installed Claude Code, check our <Link
+									class="clr-text-1"
+									href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
+									>installation guide</Link
+								>.
+								<br />
+								Click the button below to check if Claude Code is now available.
+							</p>
+
+							<div>
+								<ClaudeCheck />
+							</div>
+						</div>
+
+						<p class="text-12 text-body clr-text-2">
+							Having trouble connecting?
+							<br />
+							Check the <Link href="https://docs.claude.com/en/docs/claude-code/troubleshooting"
+								>troubleshooting guide</Link
+							> for common issues and solutions.
+						</p>
+					</div>
+				{:else if !isStackActive && formattedMessages.length === 0}
 					<div class="chat-view__placeholder">
 						<EmptyStatePlaceholder
 							image={laneNewSvg}
@@ -544,7 +574,9 @@
 
 			{#snippet input()}
 				{#if claudeAvailable.response?.status === 'not_available'}
-					<CodegenChatClaudeNotAvaliableBanner onSettingsBtnClick={() => settingsModal?.show()} />
+					{#if formattedMessages.length > 0}
+						<CodegenChatClaudeNotAvaliableBanner onSettingsBtnClick={() => settingsModal?.show()} />
+					{/if}
 				{:else}
 					{@const status = currentStatus(events, isStackActive)}
 					<CodegenInput
@@ -798,5 +830,22 @@
 			background: var(--clr-text-3);
 			content: '';
 		}
+	}
+
+	.no-agent-placeholder {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		height: 100%;
+		padding: 40px;
+	}
+
+	.no-agent-placeholder__content {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		height: 100%;
+		margin-bottom: 32px;
+		gap: 18px;
 	}
 </style>
