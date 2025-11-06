@@ -1,4 +1,4 @@
 mod commit;
 mod journey;
-mod status_json;
+mod status;
 pub mod utils;
