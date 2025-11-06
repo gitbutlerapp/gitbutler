@@ -10,6 +10,7 @@ use colored::Colorize;
 use gix::date::time::CustomFormat;
 use metrics::{Event, Metrics, Props, metrics_if_configured};
 
+mod absorb;
 mod base;
 mod branch;
 mod command;
@@ -324,6 +325,12 @@ async fn match_subcommand(
         Subcommands::Snapshot { message } => {
             let project = get_or_init_project(&args.current_dir)?;
             let result = oplog::create_snapshot(&project, args.json, message.as_deref());
+            metrics_if_configured(app_settings, CommandName::Snapshot, props(start, &result)).ok();
+            result
+        }
+        Subcommands::Absorb { source } => {
+            let project = get_or_init_project(&args.current_dir)?;
+            let result = absorb::handle(&project, args.json, source.as_deref());
             metrics_if_configured(app_settings, CommandName::Snapshot, props(start, &result)).ok();
             result
         }
