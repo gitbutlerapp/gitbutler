@@ -325,7 +325,7 @@
 					size="large"
 					value={gheHostInput}
 					oninput={(value) => (gheHostInput = value)}
-					helperText="This should be the root URL of the API. For example, if your GitHub Enterprise Server's hostname is github.acme-inc.com, then set the base URL to github.acme-inc.com/api/v3"
+					helperText="This should be the root URL of the API. For example, if your GitHub Enterprise Server's hostname is github.acme-inc.com, then set the base URL to https://github.acme-inc.com/api/v3"
 					error={gheHostError}
 				/>
 				<Textbox
