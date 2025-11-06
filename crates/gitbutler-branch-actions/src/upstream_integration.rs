@@ -310,6 +310,7 @@ fn get_stack_status(
         // to the frontend at the minute.
         let local_commit_ids = local_commits
             .iter()
+            .filter(|c| !matches!(c.state, but_workspace::ui::CommitState::Integrated))
             .map(|commit| commit.id)
             .rev()
             .collect::<Vec<_>>();
