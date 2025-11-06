@@ -14,14 +14,18 @@ pub struct Platform {
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// Fetches remotes from the remote and checks the mergeability of the branches in the workspace.
-    Check,
+    Check {
+        /// Show all upstream commits instead of just the first 3
+        #[clap(long)]
+        all: bool,
+    },
     /// Updates the workspace (with all applied branches) to include the latest changes from the base branch.
     Update,
 }
 
 pub fn handle(cmd: &Subcommands, project: &Project, json: bool) -> anyhow::Result<()> {
     match cmd {
-        Subcommands::Check => {
+        Subcommands::Check { all } => {
             if !json {
                 println!("🔍 Checking base branch status...");
             }
@@ -34,7 +38,15 @@ pub fn handle(cmd: &Subcommands, project: &Project, json: bool) -> anyhow::Resul
                 "⏫ Upstream commits:\t{} new commits on {}\n",
                 base_branch.behind, base_branch.branch_name
             );
-            let commits = base_branch.recent_commits.iter().take(3);
+            let commits = if *all {
+                base_branch.upstream_commits.iter().collect::<Vec<_>>()
+            } else {
+                base_branch
+                    .upstream_commits
+                    .iter()
+                    .take(3)
+                    .collect::<Vec<_>>()
+            };
             for commit in commits {
                 println!(
                     "\t{} {}",
@@ -49,7 +61,7 @@ pub fn handle(cmd: &Subcommands, project: &Project, json: bool) -> anyhow::Resul
                 );
             }
             let hidden_commits = base_branch.behind.saturating_sub(3);
-            if hidden_commits > 0 {
+            if hidden_commits > 0 && !*all {
                 println!("\t... ({hidden_commits} more - run `but base check --all` to see all)");
             }
 

@@ -142,7 +142,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             metrics_if_configured(
                 app_settings,
                 match cmd {
-                    base::Subcommands::Check => CommandName::BaseCheck,
+                    base::Subcommands::Check { .. } => CommandName::BaseCheck,
                     base::Subcommands::Update => CommandName::BaseUpdate,
                 },
                 props(start, &result),
