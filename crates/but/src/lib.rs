@@ -61,7 +61,43 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     but_secret::secret::set_application_namespace(namespace);
     let start = std::time::Instant::now();
 
+    // If no subcommand is provided but we have source and target, default to rub
     match &args.cmd {
+        None if args.source.is_some() && args.target.is_some() => {
+            // Default to rub when two arguments are provided without a subcommand
+            let source = args
+                .source
+                .as_ref()
+                .expect("source is checked to be Some in match guard");
+            let target = args
+                .target
+                .as_ref()
+                .expect("target is checked to be Some in match guard");
+            let project = get_or_init_project(&args.current_dir)?;
+            let result =
+                rub::handle(&project, args.json, source, target).context("Rubbed the wrong way.");
+            if let Err(e) = &result {
+                eprintln!("{} {}", e, e.root_cause());
+            }
+            metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
+            result
+        }
+        None => {
+            // No subcommand and no source/target means help was requested
+            print_grouped_help();
+            Ok(())
+        }
+        Some(cmd) => match_subcommand(cmd, &args, app_settings, start).await,
+    }
+}
+
+async fn match_subcommand(
+    cmd: &Subcommands,
+    args: &Args,
+    app_settings: AppSettings,
+    start: std::time::Instant,
+) -> Result<()> {
+    match cmd {
         Subcommands::Mcp { internal } => {
             if *internal {
                 mcp_internal::start(app_settings).await
@@ -209,7 +245,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             if let Err(e) = &result {
                 eprintln!("{} {}", e, e.root_cause());
             }
-            metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
+            metrics_if_configured(app_settings, CommandName::Mark, props(start, &result)).ok();
             result
         }
         Subcommands::Unmark => {
@@ -219,7 +255,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             if let Err(e) = &result {
                 eprintln!("{} {}", e, e.root_cause());
             }
-            metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
+            metrics_if_configured(app_settings, CommandName::Unmark, props(start, &result)).ok();
             result
         }
         Subcommands::Commit {
@@ -404,6 +440,7 @@ fn print_grouped_help() {
     println!("{}", "The GitButler CLI change control system".red());
     println!();
     println!("Usage: but [OPTIONS] <COMMAND>");
+    println!("       but [OPTIONS] [RUB-SOURCE] [RUB-TARGET]");
     println!();
 
     // Keep track of which commands we've already printed

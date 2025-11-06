@@ -14,9 +14,15 @@ pub struct Args {
     /// Whether to use JSON output format.
     #[clap(long, short = 'j', global = true)]
     pub json: bool,
+    /// Source entity for rub operation (when no subcommand is specified).
+    #[clap(value_name = "SOURCE")]
+    pub source: Option<String>,
+    /// Target entity for rub operation (when no subcommand is specified).
+    #[clap(value_name = "TARGET", requires = "source")]
+    pub target: Option<String>,
     /// Subcommand to run.
     #[clap(subcommand)]
-    pub cmd: Subcommands,
+    pub cmd: Option<Subcommands>,
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -246,6 +252,8 @@ pub enum CommandName {
     )]
     CursorStop,
     Worktree,
+    Mark,
+    Unmark,
     ForgeAuth,
     ForgeListUsers,
     ForgeForget,

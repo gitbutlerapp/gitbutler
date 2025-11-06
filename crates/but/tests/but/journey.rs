@@ -3,6 +3,36 @@ use crate::utils::setup_metadata;
 use snapbox::{file, str};
 
 #[test]
+fn nice_help() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+    env.but(None)
+        .assert()
+        .success()
+        .stdout_eq(file!["snapshots/no-arg.stdout.term.svg"]);
+
+    env.but("-h")
+        .assert()
+        .success()
+        .stdout_eq(file!["snapshots/no-arg.stdout.term.svg"]);
+
+    env.but("--help")
+        .assert()
+        .success()
+        .stdout_eq(file!["snapshots/no-arg.stdout.term.svg"]);
+
+    // The help should be nice, as it's a complex command.
+    env.but("rub --help")
+        .assert()
+        .success()
+        .stdout_eq(file!["snapshots/rub-long-help.stdout.term.svg"]);
+    env.but("rub -h")
+        .assert()
+        .success()
+        .stdout_eq(file!["snapshots/rub-short-help.stdout.term.svg"]);
+    Ok(())
+}
+
+#[test]
 fn from_scratch_needs_work() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
 

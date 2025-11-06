@@ -69,3 +69,5 @@ packages/ui/tests/.cache
 
 # Auto-generated design tokens
 packages/ui/src/styles/tokens.css
+
+debug-graph-??.svg

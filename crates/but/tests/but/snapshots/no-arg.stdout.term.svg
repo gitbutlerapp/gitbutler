@@ -1,0 +1,104 @@
+<svg width="740px" height="740px" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .fg { fill: #AAAAAA }
+    .bg { fill: #000000 }
+    .fg-green { fill: #00AA00 }
+    .fg-red { fill: #AA0000 }
+    .fg-yellow { fill: #AA5500 }
+    .container {
+      padding: 0 10px;
+      line-height: 18px;
+    }
+    tspan {
+      font: 14px SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      white-space: pre;
+      line-height: 18px;
+    }
+  </style>
+
+  <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
+
+  <text xml:space="preserve" class="container fg">
+    <tspan x="10px" y="28px"><tspan class="fg-red">The GitButler CLI change control system</tspan>
+</tspan>
+    <tspan x="10px" y="46px">
+</tspan>
+    <tspan x="10px" y="64px"><tspan>Usage: but [OPTIONS] &lt;COMMAND&gt;</tspan>
+</tspan>
+    <tspan x="10px" y="82px"><tspan>       but [OPTIONS] [RUB-SOURCE] [RUB-TARGET]</tspan>
+</tspan>
+    <tspan x="10px" y="100px">
+</tspan>
+    <tspan x="10px" y="118px"><tspan class="fg-yellow">Inspection</tspan><tspan>:</tspan>
+</tspan>
+    <tspan x="10px" y="136px"><tspan>  </tspan><tspan class="fg-green">status       </tspan><tspan>Overview of the uncommitted changes in the repository</tspan>
+</tspan>
+    <tspan x="10px" y="154px"><tspan>  </tspan><tspan class="fg-green">log          </tspan><tspan>Show commits on active branches in your workspace</tspan>
+</tspan>
+    <tspan x="10px" y="172px">
+</tspan>
+    <tspan x="10px" y="190px"><tspan class="fg-yellow">Branching and Committing</tspan><tspan>:</tspan>
+</tspan>
+    <tspan x="10px" y="208px"><tspan>  </tspan><tspan class="fg-green">commit       </tspan><tspan>Commit changes to a stack</tspan>
+</tspan>
+    <tspan x="10px" y="226px"><tspan>  </tspan><tspan class="fg-green">push         </tspan><tspan>Push a branch/stack to remote</tspan>
+</tspan>
+    <tspan x="10px" y="244px"><tspan>  </tspan><tspan class="fg-green">new          </tspan><tspan>Insert a blank commit before the specified commit, or at the to…</tspan>
+</tspan>
+    <tspan x="10px" y="262px"><tspan>  </tspan><tspan class="fg-green">branch       </tspan><tspan>Commands for managing branches</tspan>
+</tspan>
+    <tspan x="10px" y="280px"><tspan>  </tspan><tspan class="fg-green">base         </tspan><tspan>Commands for managing the base</tspan>
+</tspan>
+    <tspan x="10px" y="298px"><tspan>  </tspan><tspan class="fg-green">mark         </tspan><tspan>Creates or removes a rule for auto-assigning or auto-comitting</tspan>
+</tspan>
+    <tspan x="10px" y="316px"><tspan>  </tspan><tspan class="fg-green">unmark       </tspan><tspan>Removes all marks from the workspace</tspan>
+</tspan>
+    <tspan x="10px" y="334px">
+</tspan>
+    <tspan x="10px" y="352px"><tspan class="fg-yellow">Editing Commits</tspan><tspan>:</tspan>
+</tspan>
+    <tspan x="10px" y="370px"><tspan>  </tspan><tspan class="fg-green">rub          </tspan><tspan>Combines two entities together to perform an operation</tspan>
+</tspan>
+    <tspan x="10px" y="388px"><tspan>  </tspan><tspan class="fg-green">describe     </tspan><tspan>Edit the commit message of the specified commit</tspan>
+</tspan>
+    <tspan x="10px" y="406px">
+</tspan>
+    <tspan x="10px" y="424px"><tspan class="fg-yellow">Operation History</tspan><tspan>:</tspan>
+</tspan>
+    <tspan x="10px" y="442px"><tspan>  </tspan><tspan class="fg-green">oplog        </tspan><tspan>Show operation history (last 20 entries)</tspan>
+</tspan>
+    <tspan x="10px" y="460px"><tspan>  </tspan><tspan class="fg-green">undo         </tspan><tspan>Undo the last operation by reverting to the previous snapshot</tspan>
+</tspan>
+    <tspan x="10px" y="478px"><tspan>  </tspan><tspan class="fg-green">restore      </tspan><tspan>Restore to a specific oplog snapshot</tspan>
+</tspan>
+    <tspan x="10px" y="496px"><tspan>  </tspan><tspan class="fg-green">snapshot     </tspan><tspan>Create an on-demand snapshot with optional message</tspan>
+</tspan>
+    <tspan x="10px" y="514px">
+</tspan>
+    <tspan x="10px" y="532px"><tspan class="fg-yellow">Other Commands</tspan><tspan>:</tspan>
+</tspan>
+    <tspan x="10px" y="550px"><tspan>  </tspan><tspan class="fg-green">init         </tspan><tspan>Initializes a GitButler project from a git repository in the cu…</tspan>
+</tspan>
+    <tspan x="10px" y="568px"><tspan>  </tspan><tspan class="fg-green">mcp          </tspan><tspan>Starts up the MCP server</tspan>
+</tspan>
+    <tspan x="10px" y="586px"><tspan>  </tspan><tspan class="fg-green">forge        </tspan><tspan>Commands for interacting with forges like GitHub, GitLab (comin…</tspan>
+</tspan>
+    <tspan x="10px" y="604px"><tspan>  </tspan><tspan class="fg-green">review       </tspan><tspan>Command for creating and publishing code reviews to a forge</tspan>
+</tspan>
+    <tspan x="10px" y="622px"><tspan>  </tspan><tspan class="fg-green">completions  </tspan><tspan>Generate shell completion scripts for the specified or inferred…</tspan>
+</tspan>
+    <tspan x="10px" y="640px">
+</tspan>
+    <tspan x="10px" y="658px"><tspan class="fg-yellow">Options</tspan><tspan>:</tspan>
+</tspan>
+    <tspan x="10px" y="676px"><tspan>  -C, --current-dir &lt;PATH&gt;  Run as if but was started in PATH instead of the cu…</tspan>
+</tspan>
+    <tspan x="10px" y="694px"><tspan>  -j, --json  Whether to use JSON output format</tspan>
+</tspan>
+    <tspan x="10px" y="712px"><tspan>  -h, --help  Print help</tspan>
+</tspan>
+    <tspan x="10px" y="730px">
+</tspan>
+  </text>
+
+</svg>
