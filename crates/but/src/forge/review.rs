@@ -26,8 +26,7 @@ pub enum Subcommands {
     /// Publish review requests for active branches in your workspace.
     /// By default, publishes reviews for all active branches.
     Publish {
-        /// Publish reviews only for the specified branch.
-        #[clap(long, short = 'b')]
+        /// Branch name or CliId to publish a review for. If not provided, publishes reviews for all active branches.
         branch: Option<String>,
         /// Force push even if it's not fast-forward (defaults to true).
         #[clap(long, short = 'f', default_value_t = true)]
@@ -57,10 +56,15 @@ pub async fn publish_reviews(
     let applied_stacks =
         but_api::workspace::stacks(project.id, Some(but_workspace::StacksFilter::InWorkspace))?;
     match branch {
-        Some(branch_name) => {
+        Some(branch_input) => {
+            // Resolve the branch input as a CliId to support both branch names and CliIds
+            let app_settings = AppSettings::load_from_default_path_creating()?;
+            let ctx = &mut CommandContext::open(project, app_settings)?;
+            let branch_name = resolve_branch_name(ctx, branch_input)?;
+
             handle_specific_branch_publish(
                 project,
-                branch_name,
+                &branch_name,
                 &review_map,
                 &applied_stacks,
                 skip_force_push_protection,
@@ -528,5 +532,59 @@ pub fn get_review_numbers(
         format!(" ({})", review_numbers).blue()
     } else {
         "".to_string().normal()
+    }
+}
+
+/// Resolve a branch input string to an actual branch name.
+///
+/// This function handles both exact branch names and CliId matches (including partial matches).
+/// The CliId resolution allows users to specify branches using shortened identifiers similar
+/// to how the `rub` command works.
+///
+/// # Arguments
+/// * `ctx` - The command context used for resolving CliIds
+/// * `branch_input` - The branch name or CliId to resolve
+///
+/// # Returns
+/// * `Ok(String)` - The resolved branch name
+///
+/// # Errors
+/// * Returns an error if no matches are found
+/// * Returns an error if the input is ambiguous (matches multiple entities)
+/// * Returns an error if the input resolves to a non-branch entity (e.g., a commit or file)
+fn resolve_branch_name(ctx: &mut CommandContext, branch_input: &str) -> anyhow::Result<String> {
+    // CliId::from_str handles both exact branch names and CliId matches (including partial matches)
+    let mut cli_ids = crate::id::CliId::from_str(ctx, branch_input)?;
+
+    if cli_ids.is_empty() {
+        anyhow::bail!(
+            "Branch '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
+            branch_input
+        );
+    }
+
+    if cli_ids.len() > 1 {
+        let matches: Vec<String> = cli_ids
+            .iter()
+            .map(|id| match id {
+                crate::id::CliId::Branch { name } => format!("{id} (branch '{name}')"),
+                _ => format!("{} ({})", id, id.kind()),
+            })
+            .collect();
+        anyhow::bail!(
+            "Branch identifier '{}' is ambiguous. Matches: {}. Try using more characters, a longer identifier, or the full branch name to disambiguate.",
+            branch_input,
+            matches.join(", ")
+        );
+    }
+
+    // Extract branch name from the resolved CliId
+    match cli_ids.pop().unwrap() {
+        crate::id::CliId::Branch { name } => Ok(name),
+        other => anyhow::bail!(
+            "Expected a branch, but '{}' resolved to {}",
+            branch_input,
+            other.kind()
+        ),
     }
 }
