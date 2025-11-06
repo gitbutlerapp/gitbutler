@@ -121,3 +121,57 @@ fn from_workspace() -> anyhow::Result<()> {
     // TODO: more operations on the repository!
     Ok(())
 }
+
+#[test]
+fn json_flag_can_be_placed_before_or_after_subcommand() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+
+    // Test that --json flag works in both positions with help command (doesn't need a valid repo)
+    env.but("--json completions --help")
+        .assert()
+        .success();
+
+    env.but("completions --help --json")
+        .assert()
+        .success();
+
+    // Test with actual commands that need a repo (they'll fail but should accept the flag)
+    // Before subcommand
+    env.but("--json status")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Could not find a git repository in '.' or in any of its parents
+
+"#]]);
+
+    // After subcommand
+    env.but("status --json")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Could not find a git repository in '.' or in any of its parents
+
+"#]]);
+
+    // Test with log command as well
+    // Before subcommand
+    env.but("--json log")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Could not find a git repository in '.' or in any of its parents
+
+"#]]);
+
+    // After subcommand
+    env.but("log --json")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Could not find a git repository in '.' or in any of its parents
+
+"#]]);
+
+    Ok(())
+}

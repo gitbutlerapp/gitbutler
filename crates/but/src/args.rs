@@ -12,7 +12,7 @@ pub struct Args {
     #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]
     pub current_dir: PathBuf,
     /// Whether to use JSON output format.
-    #[clap(long, short = 'j')]
+    #[clap(long, short = 'j', global = true)]
     pub json: bool,
     /// Subcommand to run.
     #[clap(subcommand)]
