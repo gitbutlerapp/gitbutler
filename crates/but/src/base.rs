@@ -58,7 +58,7 @@ pub fn handle(cmd: &Subcommands, project: &Project, json: bool) -> anyhow::Resul
                         .collect::<String>()
                 );
             }
-            let hidden_commits = base_branch.behind.saturating_sub(3);
+            let hidden_commits = base_branch.upstream_commits.len().saturating_sub(3);
             if hidden_commits > 0 && !*all {
                 println!("\t... ({hidden_commits} more - run `but base check --all` to see all)");
             }
