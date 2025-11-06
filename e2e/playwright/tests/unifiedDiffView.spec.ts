@@ -69,8 +69,8 @@ test('should be able to select the hunks correctly in a complex file', async ({
 	const unifiedDiffView = getByTestId(page, 'unified-diff-view');
 	await expect(unifiedDiffView).toBeVisible();
 
-	let leftLines = [1, 5, 9, 11, 13, 18, 21];
-	let rightLines = [1, 5, 9, 11, 13, 18, 21];
+	let leftLines = [1, 5, 9, 11, 13, 19, 23];
+	let rightLines = [1, 5, 9, 11, 13, 19, 23];
 
 	// Unselect a couple of lines
 	await unselectHunkLines(fileName, unifiedDiffView, leftLines, rightLines);
