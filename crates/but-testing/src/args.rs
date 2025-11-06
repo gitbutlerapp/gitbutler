@@ -175,9 +175,12 @@ pub enum Subcommands {
     },
     /// Returns a segmented graph starting from `HEAD`.
     Graph {
-        /// Debug-print the whole graph.
+        /// Debug-print the whole graph, and ignore all other dot-related flags
         #[clap(long, short = 'd')]
         debug: bool,
+        /// Print graph statistics at the very beginning, to get a grasp of huge graphs.
+        #[clap(long, short = 's')]
+        stats: bool,
         /// The rev-spec of the extra target to provide for traversal.
         #[clap(long)]
         extra_target: Option<String>,
@@ -186,9 +189,9 @@ pub enum Subcommands {
         /// If too large, it takes a long time or runs out of memory.
         #[clap(long)]
         no_debug_workspace: bool,
-        /// Do not output the dot-file to stdout.
-        #[clap(long, conflicts_with = "no_open")]
-        no_dot: bool,
+        /// Output the dot-file to stdout.
+        #[clap(long, conflicts_with = "dot_show")]
+        dot: bool,
         /// The maximum number of commits to traverse.
         ///
         /// Use only as safety net to prevent runaways.
@@ -202,9 +205,9 @@ pub enum Subcommands {
         /// Refill the limit when running over these hashes, provided as short or long hash.
         #[clap(long, short = 'e')]
         limit_extension: Vec<String>,
-        /// Avoid opening the resulting dot-file and instead write it to standard output.
+        /// Open the dot-file as SVG instead of writing it to stdout.
         #[clap(long)]
-        no_open: bool,
+        dot_show: bool,
         /// The name of the ref to start the graph traversal at.
         ref_name: Option<String>,
     },
