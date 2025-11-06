@@ -24,6 +24,7 @@ struct CommonMergeBase {
     target_name: String,
     common_merge_base: String,
     message: String,
+    commit_date: String,
 }
 
 #[derive(Serialize)]
@@ -88,10 +89,14 @@ pub(crate) async fn worktree(
         .chars()
         .take(50)
         .collect::<String>();
+    let decoded_commit = base_commit.decode()?;
+    let commit_date = decoded_commit.committer().time()?;
+    let formatted_date = commit_date.format_or_unix(gix::date::time::format::ISO8601);
     let common_merge_base_data = CommonMergeBase {
         target_name: target_name.clone(),
         common_merge_base: target.sha.to_string()[..7].to_string(),
         message: message.clone(),
+        commit_date: formatted_date,
     };
 
     if json {
@@ -131,9 +136,10 @@ pub(crate) async fn worktree(
     }
     let dot = "●".purple();
     println!(
-        "{dot} {} (common base) [{}] {}",
+        "{dot} {} (common base) [{}] {} {}",
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
+        common_merge_base_data.commit_date.dimmed(),
         common_merge_base_data.message
     );
     Ok(())
