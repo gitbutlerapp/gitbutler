@@ -513,6 +513,7 @@ pub async fn get_review_map(
 
 pub fn get_review_numbers(
     branch_name: &str,
+    associated_review_number: &Option<usize>,
     branch_review_map: &std::collections::HashMap<
         String,
         Vec<gitbutler_forge::review::ForgeReview>,
@@ -526,6 +527,8 @@ pub fn get_review_numbers(
             .join(", ");
 
         format!(" ({})", review_numbers).blue()
+    } else if let Some(pr_number) = associated_review_number {
+        format!(" (#{})", pr_number).blue()
     } else {
         "".to_string().normal()
     }
