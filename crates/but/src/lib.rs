@@ -154,10 +154,10 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             let project = get_or_init_project(&args.current_dir)?;
             let result = branch::handle(cmd, &project, args.json).await;
             let metrics_command = match cmd {
-                branch::Subcommands::New { .. } => CommandName::BranchNew,
-                branch::Subcommands::Delete { .. } => CommandName::BranchDelete,
-                branch::Subcommands::List { .. } => CommandName::BranchList,
-                branch::Subcommands::Unapply { .. } => CommandName::BranchUnapply,
+                None | Some(branch::Subcommands::List { .. }) => CommandName::BranchList,
+                Some(branch::Subcommands::New { .. }) => CommandName::BranchNew,
+                Some(branch::Subcommands::Delete { .. }) => CommandName::BranchDelete,
+                Some(branch::Subcommands::Unapply { .. }) => CommandName::BranchUnapply,
             };
             metrics_if_configured(app_settings, metrics_command, props(start, &result)).ok();
             result

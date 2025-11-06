@@ -10,7 +10,7 @@ mod list;
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
     #[clap(subcommand)]
-    pub cmd: Subcommands,
+    pub cmd: Option<Subcommands>,
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -48,12 +48,21 @@ pub enum Subcommands {
     },
 }
 
-pub async fn handle(cmd: &Subcommands, project: &Project, _json: bool) -> anyhow::Result<()> {
+pub async fn handle(
+    cmd: &Option<Subcommands>,
+    project: &Project,
+    _json: bool,
+) -> anyhow::Result<()> {
     match cmd {
-        Subcommands::New {
+        None => {
+            let local = false;
+            list::list(project, local).await
+        }
+        Some(Subcommands::List { local }) => list::list(project, *local).await,
+        Some(Subcommands::New {
             branch_name,
             anchor,
-        } => {
+        }) => {
             let ctx =
                 CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
             // Get branch name or use canned name
@@ -120,7 +129,7 @@ pub async fn handle(cmd: &Subcommands, project: &Project, _json: bool) -> anyhow
             println!("Created branch {branch_name}");
             Ok(())
         }
-        Subcommands::Delete { branch_name, force } => {
+        Some(Subcommands::Delete { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(
                 project.id,
                 Some(but_workspace::StacksFilter::InWorkspace),
@@ -141,8 +150,7 @@ pub async fn handle(cmd: &Subcommands, project: &Project, _json: bool) -> anyhow
             println!("Branch '{}' not found in any stack", branch_name);
             Ok(())
         }
-        Subcommands::List { local } => list::list(project, *local).await,
-        Subcommands::Unapply { branch_name, force } => {
+        Some(Subcommands::Unapply { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(
                 project.id,
                 Some(but_workspace::StacksFilter::InWorkspace),
