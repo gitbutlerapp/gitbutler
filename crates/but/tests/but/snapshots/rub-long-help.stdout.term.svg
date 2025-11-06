@@ -1,4 +1,4 @@
-<svg width="740px" height="470px" xmlns="http://www.w3.org/2000/svg">
+<svg width="740px" height="524px" xmlns="http://www.w3.org/2000/svg">
   <style>
     .fg { fill: #AAAAAA }
     .bg { fill: #000000 }
@@ -42,7 +42,7 @@
 </tspan>
     <tspan x="10px" y="226px">
 </tspan>
-    <tspan x="10px" y="244px"><tspan class="underline bold">Usage:</tspan><tspan> </tspan><tspan class="bold">but rub</tspan><tspan> &lt;SOURCE&gt; &lt;TARGET&gt;</tspan>
+    <tspan x="10px" y="244px"><tspan class="underline bold">Usage:</tspan><tspan> </tspan><tspan class="bold">but rub</tspan><tspan> [OPTIONS] &lt;SOURCE&gt; &lt;TARGET&gt;</tspan>
 </tspan>
     <tspan x="10px" y="262px">
 </tspan>
@@ -62,11 +62,17 @@
 </tspan>
     <tspan x="10px" y="406px"><tspan class="underline bold">Options:</tspan>
 </tspan>
-    <tspan x="10px" y="424px"><tspan>  </tspan><tspan class="bold">-h</tspan><tspan>, </tspan><tspan class="bold">--help</tspan>
+    <tspan x="10px" y="424px"><tspan>  </tspan><tspan class="bold">-j</tspan><tspan>, </tspan><tspan class="bold">--json</tspan>
 </tspan>
-    <tspan x="10px" y="442px"><tspan>          Print help (see a summary with '-h')</tspan>
+    <tspan x="10px" y="442px"><tspan>          Whether to use JSON output format</tspan>
 </tspan>
     <tspan x="10px" y="460px">
+</tspan>
+    <tspan x="10px" y="478px"><tspan>  </tspan><tspan class="bold">-h</tspan><tspan>, </tspan><tspan class="bold">--help</tspan>
+</tspan>
+    <tspan x="10px" y="496px"><tspan>          Print help (see a summary with '-h')</tspan>
+</tspan>
+    <tspan x="10px" y="514px">
 </tspan>
   </text>
 
