@@ -1,0 +1,73 @@
+<svg width="740px" height="470px" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .fg { fill: #AAAAAA }
+    .bg { fill: #000000 }
+    .container {
+      padding: 0 10px;
+      line-height: 18px;
+    }
+    .bold { font-weight: bold; }
+    .underline { text-decoration-line: underline; }
+    tspan {
+      font: 14px SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      white-space: pre;
+      line-height: 18px;
+    }
+  </style>
+
+  <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
+
+  <text xml:space="preserve" class="container fg">
+    <tspan x="10px" y="28px"><tspan>Combines two entities together to perform an operation.</tspan>
+</tspan>
+    <tspan x="10px" y="46px">
+</tspan>
+    <tspan x="10px" y="64px"><tspan>Non-exhaustive list of operations:</tspan>
+</tspan>
+    <tspan x="10px" y="82px"><tspan>      │Source     │Target</tspan>
+</tspan>
+    <tspan x="10px" y="100px"><tspan>──────┼───────────┼──────</tspan>
+</tspan>
+    <tspan x="10px" y="118px"><tspan>Amend │File,Branch│Commit</tspan>
+</tspan>
+    <tspan x="10px" y="136px"><tspan>Squash│Commit     │Commit</tspan>
+</tspan>
+    <tspan x="10px" y="154px"><tspan>Assign│File,Branch│Branch</tspan>
+</tspan>
+    <tspan x="10px" y="172px"><tspan>Move  │Commit     │Branch</tspan>
+</tspan>
+    <tspan x="10px" y="190px">
+</tspan>
+    <tspan x="10px" y="208px"><tspan>For examples see `but rub --help`.</tspan>
+</tspan>
+    <tspan x="10px" y="226px">
+</tspan>
+    <tspan x="10px" y="244px"><tspan class="underline bold">Usage:</tspan><tspan> </tspan><tspan class="bold">but rub</tspan><tspan> &lt;SOURCE&gt; &lt;TARGET&gt;</tspan>
+</tspan>
+    <tspan x="10px" y="262px">
+</tspan>
+    <tspan x="10px" y="280px"><tspan class="underline bold">Arguments:</tspan>
+</tspan>
+    <tspan x="10px" y="298px"><tspan>  &lt;SOURCE&gt;</tspan>
+</tspan>
+    <tspan x="10px" y="316px"><tspan>          The source entity to combine</tspan>
+</tspan>
+    <tspan x="10px" y="334px">
+</tspan>
+    <tspan x="10px" y="352px"><tspan>  &lt;TARGET&gt;</tspan>
+</tspan>
+    <tspan x="10px" y="370px"><tspan>          The target entity to combine with the source</tspan>
+</tspan>
+    <tspan x="10px" y="388px">
+</tspan>
+    <tspan x="10px" y="406px"><tspan class="underline bold">Options:</tspan>
+</tspan>
+    <tspan x="10px" y="424px"><tspan>  </tspan><tspan class="bold">-h</tspan><tspan>, </tspan><tspan class="bold">--help</tspan>
+</tspan>
+    <tspan x="10px" y="442px"><tspan>          Print help (see a summary with '-h')</tspan>
+</tspan>
+    <tspan x="10px" y="460px">
+</tspan>
+  </text>
+
+</svg>
