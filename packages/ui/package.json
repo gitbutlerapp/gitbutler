@@ -31,6 +31,7 @@
 	"devDependencies": {
 		"@codemirror/lang-cpp": "^6.0.3",
 		"@codemirror/lang-css": "^6.3.1",
+		"@codemirror/lang-go": "^6.0.1",
 		"@codemirror/lang-html": "^6.4.9",
 		"@codemirror/lang-java": "^6.0.2",
 		"@codemirror/lang-javascript": "^6.2.4",
