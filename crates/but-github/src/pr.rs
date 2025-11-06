@@ -37,7 +37,10 @@ pub async fn create(
             .context("Failed to create pull request")?;
         Ok(pr)
     } else {
-        bail!("No GitHub access token found for account '{}'", account_id);
+        bail!(
+            "No GitHub access token found for account '{}'.\nPlease, try to re-authenticate with this account.",
+            account_id
+        );
     }
 }
 
