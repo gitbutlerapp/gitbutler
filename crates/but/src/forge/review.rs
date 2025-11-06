@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     editor::get_text_from_editor_no_comments,
+    id::CliId,
     ui::{SimpleBranch, SimpleStack},
 };
 
@@ -57,10 +58,10 @@ pub async fn publish_reviews(
     let applied_stacks =
         but_api::workspace::stacks(project.id, Some(but_workspace::StacksFilter::InWorkspace))?;
     match branch {
-        Some(branch_name) => {
-            handle_specific_branch_publish(
+        Some(branch_id) => {
+            let branch_names = get_branch_names(project, branch_id)?;
+            handle_multiple_branches_in_workspace(
                 project,
-                branch_name,
                 &review_map,
                 &applied_stacks,
                 skip_force_push_protection,
@@ -68,11 +69,12 @@ pub async fn publish_reviews(
                 run_hooks,
                 default,
                 json,
+                Some(branch_names),
             )
             .await
         }
         None => {
-            handle_all_branches_in_workspace(
+            handle_multiple_branches_in_workspace(
                 project,
                 &review_map,
                 &applied_stacks,
@@ -81,14 +83,32 @@ pub async fn publish_reviews(
                 run_hooks,
                 default,
                 json,
+                None,
             )
             .await
         }
     }
 }
 
+fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
+    let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let branch_ids = crate::id::CliId::from_str(&mut ctx, branch_id)?
+        .iter()
+        .filter_map(|clid| match clid {
+            CliId::Branch { name } => Some(name.clone()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    if branch_ids.is_empty() {
+        anyhow::bail!("No branch found for ID: {}", branch_id);
+    }
+
+    Ok(branch_ids)
+}
+
 #[allow(clippy::too_many_arguments)]
-pub async fn handle_all_branches_in_workspace(
+pub async fn handle_multiple_branches_in_workspace(
     project: &Project,
     review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
     applied_stacks: &[but_workspace::ui::StackEntry],
@@ -97,16 +117,20 @@ pub async fn handle_all_branches_in_workspace(
     run_hooks: bool,
     default_message: bool,
     json: bool,
+    selected_branches: Option<Vec<String>>,
 ) -> anyhow::Result<()> {
     let mut overall_outcome = PublishReviewsOutcome {
         published: vec![],
         already_existing: vec![],
     };
 
-    let simple_stacks = generate_simple_stacks(project, review_map, applied_stacks)?;
-
-    // Run the branches selector UI to let the user choose which branches to publish reviews for.
-    let selected_branches = crate::ui::run_branch_selector_ui(simple_stacks)?;
+    let selected_branches = if let Some(branches) = selected_branches {
+        branches
+    } else {
+        let simple_stacks = generate_simple_stacks(project, review_map, applied_stacks)?;
+        // Run the branches selector UI to let the user choose which branches to publish reviews for.
+        crate::ui::run_branch_selector_ui(simple_stacks)?
+    };
 
     if selected_branches.is_empty() {
         if !json {
@@ -189,52 +213,6 @@ fn generate_simple_stacks(
         simple_stacks.push(simple_stack);
     }
     Ok(simple_stacks)
-}
-
-#[allow(clippy::too_many_arguments)]
-pub async fn handle_specific_branch_publish(
-    project: &Project,
-    branch_name: &str,
-    review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
-    applied_stacks: &[but_workspace::ui::StackEntry],
-    skip_force_push_protection: bool,
-    with_force: bool,
-    run_hooks: bool,
-    default_message: bool,
-    json: bool,
-) -> anyhow::Result<()> {
-    let Some(stack_entry) = applied_stacks
-        .iter()
-        .find(|entry| entry.heads.iter().any(|h| h.name == branch_name))
-    else {
-        anyhow::bail!(
-            "Branch '{}' is not part of any applied stack in the workspace.",
-            branch_name
-        );
-    };
-
-    let outcome = publish_reviews_for_branch_and_dependents(
-        project,
-        branch_name,
-        review_map,
-        stack_entry,
-        skip_force_push_protection,
-        with_force,
-        run_hooks,
-        default_message,
-        json,
-    )
-    .await?;
-
-    if json {
-        let outcome_json = serde_json::to_string_pretty(&outcome)?;
-        println!("{}", outcome_json);
-    } else {
-        println!();
-        display_review_publication_summary(outcome);
-    }
-
-    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
