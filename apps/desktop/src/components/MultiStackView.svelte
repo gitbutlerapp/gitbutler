@@ -21,6 +21,7 @@
 	import { inject } from '@gitbutler/core/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
+	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { flip } from 'svelte/animate';
 	import type { Stack } from '$lib/stacks/stack';
@@ -54,6 +55,9 @@
 	);
 	let visibleIndexes = $state<number[]>([0]);
 	let isCreateNewVisible = $state<boolean>(false);
+
+	/** Used to offset content shift from opening an unassigned change preview. */
+	let lastWidth = $state<number>();
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -153,6 +157,15 @@
 				.map((b, i) => (b.id ? { id: b.id, order: i } : undefined))
 				.filter(isDefined)
 		});
+	}}
+	use:resizeObserver={(data) => {
+		if (lastWidth && lanesScrollableEl) {
+			const diff = lastWidth - lanesScrollableEl.clientWidth;
+			if (Math.abs(diff) > 100) {
+				lanesScrollableEl.scrollBy({ left: diff });
+			}
+		}
+		lastWidth = data.frame.width;
 	}}
 >
 	<div class="lanes-scrollable">
