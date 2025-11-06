@@ -89,6 +89,5 @@
 	}
 	.file-name__path--first {
 		flex: 1;
-		direction: rtl;
 	}
 </style>
