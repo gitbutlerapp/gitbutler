@@ -839,6 +839,9 @@ importers:
       autoprefixer:
         specifier: ^10.4.21
         version: 10.4.21(postcss@8.5.6)
+      codemirror-lang-elixir:
+        specifier: ^4.0.0
+        version: 4.0.0
       codemirror-lang-hcl:
         specifier: ^0.1.0
         version: 0.1.0
@@ -3982,6 +3985,9 @@ packages:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
 
+  codemirror-lang-elixir@4.0.0:
+    resolution: {integrity: sha512-mzFesxo/t6KOxwnkqVd34R/q7yk+sMtHh6vUKGAvjwHmpL7bERHB+vQAsmU/nqrndkwVeJEHWGw/z/ybfdiudA==}
+
   codemirror-lang-hcl@0.1.0:
     resolution: {integrity: sha512-duwKEaQDhkJWad4YQ9pv4282BS6hCdR+gS/qTAj3f9bypXNNZ42bIN43h9WK3DjyZRENtVlUQdrQM1sA44wHmA==}
 
@@ -5678,6 +5684,9 @@ packages:
 
   lexical@0.27.1:
     resolution: {integrity: sha512-EXlRE/NQO9quKFuz4Z2pu5f48oF8LZOAw0YpN0RmGQx2CbqmEi7SIgO+d+NUKVx9Qs1vX0DL5S7GJpvpZBOE3w==}
+
+  lezer-elixir@1.1.2:
+    resolution: {integrity: sha512-K3yPMJcNhqCL6ugr5NkgOC1g37rcOM38XZezO9lBXy0LwWFd8zdWXfmRbY829vZVk0OGCQoI02yDWp9FF2OWZA==}
 
   lib0@0.2.114:
     resolution: {integrity: sha512-gcxmNFzA4hv8UYi8j43uPlQ7CGcyMJ2KQb5kZASw6SnAKAf10hK12i2fjrS3Cl/ugZa5Ui6WwIu1/6MIXiHttQ==}
@@ -11918,6 +11927,11 @@ snapshots:
 
   clsx@2.1.1: {}
 
+  codemirror-lang-elixir@4.0.0:
+    dependencies:
+      '@codemirror/language': 6.11.2
+      lezer-elixir: 1.1.2
+
   codemirror-lang-hcl@0.1.0:
     dependencies:
       '@codemirror/language': 6.11.2
@@ -13970,6 +13984,11 @@ snapshots:
       type-check: 0.4.0
 
   lexical@0.27.1: {}
+
+  lezer-elixir@1.1.2:
+    dependencies:
+      '@lezer/highlight': 1.2.1
+      '@lezer/lr': 1.4.2
 
   lib0@0.2.114:
     dependencies:

@@ -65,6 +65,7 @@
 		"@types/postcss-pxtorem": "^6.1.0",
 		"@vitest/browser": "catalog:",
 		"autoprefixer": "^10.4.21",
+		"codemirror-lang-elixir": "^4.0.0",
 		"codemirror-lang-hcl": "^0.1.0",
 		"cpy-cli": "^5.0.0",
 		"cssnano": "^7.1.0",
