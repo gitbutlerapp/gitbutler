@@ -5243,16 +5243,11 @@ fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
         standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
     )?
     .validated()?;
-    // TODO: this shouldn't move past the base on 1ee1e34!
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣1 on 1ee1e34
-    └── ≡📙:3:A <> origin/A →:4:⇣1 {1}
+    └── ≡📙:3:A <> origin/A →:4:⇣1 on 1ee1e34 {1}
         └── 📙:3:A <> origin/A →:4:⇣1
-            ├── 🟣2181501
-            ├── ❄️1ee1e34 (🏘️|✓)
-            ├── ❄️c822d66 (🏘️|✓)
-            ├── ❄️bce0c5e (🏘️|✓)
-            └── ❄️3183e43 (🏘️|✓)
+            └── 🟣2181501
     ");
 
     Ok(())
@@ -5279,15 +5274,11 @@ fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<(
         standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
     )?
     .validated()?;
-    // TODO: Can we arbitrarily split the segment below the low base of all stacks to prevent
-    //       it from going all the way down?
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣1 on 081bae9
-    └── ≡📙:3:A <> origin/A →:4:⇣1 {1}
+    └── ≡📙:3:A <> origin/A →:4:⇣1 on 081bae9 {1}
         └── 📙:3:A <> origin/A →:4:⇣1
-            ├── 🟣197ddce
-            ├── ❄️081bae9 (🏘️|✓)
-            └── ❄️3183e43 (🏘️|✓)
+            └── 🟣197ddce
     ");
 
     Ok(())
