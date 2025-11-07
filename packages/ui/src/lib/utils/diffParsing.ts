@@ -17,6 +17,7 @@ import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
 import { kotlin } from '@codemirror/legacy-modes/mode/clike';
 import { commonLisp } from '@codemirror/legacy-modes/mode/commonlisp';
+import { dockerFile } from '@codemirror/legacy-modes/mode/dockerfile';
 import { jinja2 } from '@codemirror/legacy-modes/mode/jinja2';
 import { lua } from '@codemirror/legacy-modes/mode/lua';
 import { powerShell } from '@codemirror/legacy-modes/mode/powershell';
@@ -375,7 +376,14 @@ export function parserFromExtension(extension: string): Parser | undefined {
 }
 
 export function parserFromFilename(filename: string): Parser | undefined {
-	const ext = filename.split('.').pop();
+	const basename = filename.split('/').pop() || '';
+	const ext = basename.split('.').pop()?.toLowerCase();
+
+	// Handle Dockerfiles (with common variations).
+	if (basename === 'Dockerfile' || basename.startsWith('Dockerfile.') || ext === 'dockerfile') {
+		return StreamLanguage.define(dockerFile).parser;
+	}
+
 	if (!ext) return undefined;
 	return parserFromExtension(ext);
 }
