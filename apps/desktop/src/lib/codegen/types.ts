@@ -213,7 +213,7 @@ export type ModelType = 'haiku' | 'sonnet' | 'sonnet[1m]' | 'opus' | 'opusplan';
 export type PermissionMode = 'default' | 'plan' | 'acceptEdits';
 
 export type PromptTemplate = {
-	label: string;
+	fileName: string;
 	template: string;
 };
 

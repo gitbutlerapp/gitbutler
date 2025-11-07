@@ -12,6 +12,7 @@
 	import CodegenPromptConfigModal from '$components/codegen/CodegenPromptConfigModal.svelte';
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
+	import CodegenTemplatesCarousel from '$components/codegen/CodegenTemplatesCarousel.svelte';
 	import CodegenTodoAccordion from '$components/codegen/CodegenTodoAccordion.svelte';
 	import noClaudeCodeSvg from '$lib/assets/empty-state/claude-disconected.svg?raw';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
@@ -27,6 +28,7 @@
 		getTodos,
 		type Message
 	} from '$lib/codegen/messages';
+	import { parseTemplates, templatesToDisplayFormat } from '$lib/codegen/templateParser';
 
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { vscodePath } from '$lib/project/project';
@@ -126,6 +128,14 @@
 
 	const promptTemplates = $derived(claudeCodeService.promptTemplates(projectId));
 	const promptDirs = $derived(claudeCodeService.promptDirs(projectId));
+
+	// Parse templates once and cache the results
+	const parsedTemplates = $derived(
+		promptTemplates.response ? parseTemplates(promptTemplates.response) : []
+	);
+
+	// Get templates in display format for UI components
+	const templatesForDisplay = $derived(templatesToDisplayFormat(parsedTemplates));
 
 	async function openPromptConfigDir(path: string) {
 		await claudeCodeService.createPromptDir({ projectId, path });
@@ -235,9 +245,9 @@
 		}, 100);
 	}
 
-	function insertTemplate(template: string) {
+	function insertTemplate(templateContent: string) {
 		const currentPrompt = messageSender.prompt;
-		const newPrompt = currentPrompt + (currentPrompt ? '\n\n' : '') + template;
+		const newPrompt = currentPrompt + (currentPrompt ? '\n\n' : '') + templateContent;
 		messageSender.setPrompt(newPrompt);
 		inputRef?.setText(newPrompt);
 		templateContextMenu?.close();
@@ -403,7 +413,7 @@
 							</ContextMenuSection>
 							<ContextMenuSection>
 								<ContextMenuItem
-									label="Clear context"
+									label="Clear context and rules"
 									icon="clear"
 									disabled={isDisabled}
 									onclick={() => {
@@ -527,20 +537,44 @@
 					</div>
 				{:else if !isStackActive && formattedMessages.length === 0}
 					<div class="chat-view__placeholder">
-						<EmptyStatePlaceholder
-							image={laneNewSvg}
-							width={320}
-							topBottomPadding={0}
-							bottomMargin={0}
-						>
-							{#snippet title()}
-								Let's build something amazing
+						<div class="chat-view__placeholder-content">
+							<EmptyStatePlaceholder
+								image={laneNewSvg}
+								width={320}
+								topBottomPadding={0}
+								bottomMargin={0}
+							>
+								{#snippet title()}
+									Let's build something amazing
+								{/snippet}
+								{#snippet caption()}
+									Your branch is ready for AI.
+									<br />
+									Describe what you want to build,
+									<br />
+									and I’ll generate the code.
+								{/snippet}
+							</EmptyStatePlaceholder>
+						</div>
+
+						<ReduxResult result={promptTemplates.result} {projectId}>
+							{#snippet children(_templates)}
+								<CodegenTemplatesCarousel
+									templates={templatesForDisplay}
+									onInsertTemplate={(template) => {
+										const fullTemplate = parsedTemplates.find(
+											(t) => t.fileName === template.fileName
+										);
+										if (fullTemplate) {
+											insertTemplate(fullTemplate.parsed.content);
+										}
+									}}
+									onEdit={() => {
+										promptConfigModal?.show();
+									}}
+								/>
 							{/snippet}
-							{#snippet caption()}
-								Your branch is ready for AI-powered development. Describe what you'd like to build,
-								and I'll generate the code to get you started.
-							{/snippet}
-						</EmptyStatePlaceholder>
+						</ReduxResult>
 					</div>
 				{:else}
 					<VirtualList
@@ -747,12 +781,16 @@
 >
 	<ContextMenuSection>
 		<ReduxResult result={promptTemplates.result} {projectId}>
-			{#snippet children(promptTemplates, { projectId: _projectId })}
-				{#each promptTemplates as template}
+			{#snippet children(_promptTemplates, { projectId: _projectId })}
+				{#each parsedTemplates as template}
+					{@const displayName = template.parsed.name || template.fileName}
+
 					<ContextMenuItem
-						label={template.label}
+						label={displayName}
+						emoji={template.parsed.emoji || undefined}
+						icon={template.parsed.emoji ? undefined : 'script'}
 						onclick={() => {
-							insertTemplate(template.template);
+							insertTemplate(template.parsed.content);
 						}}
 					/>
 				{/each}
@@ -785,9 +823,17 @@
 	.chat-view__placeholder {
 		display: flex;
 		flex: 1;
+		flex-direction: column;
+	}
+
+	.chat-view__placeholder-content {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: 0 32px;
+		padding: 28px;
+		text-align: center;
 	}
 
 	.context-utilization-scale {

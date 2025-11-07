@@ -11,6 +11,7 @@
 
 	interface Props {
 		icon?: keyof typeof iconsJson | undefined;
+		emoji?: string;
 		label: string;
 		disabled?: boolean;
 		selected?: boolean;
@@ -25,6 +26,7 @@
 	const {
 		onclick,
 		icon,
+		emoji,
 		label,
 		disabled,
 		selected = false,
@@ -70,7 +72,11 @@
 		onmouseenter={handleMouseEnter}
 	>
 		<div class="menu-item__content">
-			{#if icon}
+			{#if emoji}
+				<div class="text-12">
+					{emoji}
+				</div>
+			{:else if icon}
 				<div class="menu-item__icon">
 					<Icon name={icon} />
 				</div>
