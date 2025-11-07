@@ -6,6 +6,7 @@ use axum::{
         WebSocketUpgrade,
         ws::{Message, WebSocket},
     },
+    middleware::Next,
     response::IntoResponse,
     routing::{any, get},
 };
@@ -94,6 +95,14 @@ pub async fn run() {
                 async move |req| handle_ws_request(req, broadcaster).await
             }),
         )
+        // Spawning in a separate thread to prevent abort if the client
+        // disconnects. We need this to ensure locks are removed after
+        // the claude processes finishes.
+        .route_layer(middleware::from_fn(
+            |req: axum::extract::Request<Body>, next: Next| async move {
+                tokio::task::spawn(next.run(req)).await.unwrap()
+            },
+        ))
         .layer(ServiceBuilder::new().layer(cors));
 
     let port = std::env::var("BUTLER_PORT").unwrap_or("6978".into());
