@@ -28,6 +28,7 @@ pub struct Args {
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// Show commits on active branches in your workspace.
+    #[clap(hide = true)]
     Log,
     /// Overview of the uncommitted changes in the repository.
     #[clap(alias = "st")]
