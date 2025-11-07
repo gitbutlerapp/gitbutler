@@ -55,7 +55,8 @@ export class CodegenAnalytics {
 				dangerouslySkipPermissions: settings?.claude?.dangerouslyAllowAllPermissions ?? false,
 				tokensUsed: usage.tokens,
 				totalMessagesSent: totalMessagesSent,
-				claudeVersion: claudeCheck?.status === 'available' ? claudeCheck.version : undefined
+				claudeVersion: claudeCheck?.status === 'available' ? claudeCheck.version : undefined,
+				promptLength: args.message.length
 			};
 
 			return namespaceProps(claudeMetrics, 'claude');
