@@ -5,7 +5,7 @@ use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_project::Project;
 
 pub async fn list(project: &Project, local: bool) -> Result<(), anyhow::Error> {
-    let stdout = std::io::stdout();
+    let mut stdout = std::io::stdout();
     let filter = if local {
         Some(BranchListingFilter {
             local: Some(true),
@@ -37,7 +37,7 @@ pub async fn list(project: &Project, local: bool) -> Result<(), anyhow::Error> {
             &branch_review_map,
         );
 
-        writeln!(stdout.lock(), "{}{}", branch.name, reviews).ok();
+        writeln!(stdout, "{}{}", branch.name, reviews).ok();
     }
 
     for branch in remote_only_branches {
@@ -46,7 +46,7 @@ pub async fn list(project: &Project, local: bool) -> Result<(), anyhow::Error> {
             &None,
             &branch_review_map,
         );
-        writeln!(stdout.lock(), "{} {}{}", "(remote)".dimmed(), branch.name, reviews).ok();
+        writeln!(stdout, "{} {}{}", "(remote)".dimmed(), branch.name, reviews).ok();
     }
     Ok(())
 }
@@ -58,7 +58,7 @@ fn print_applied_branches(
         Vec<gitbutler_forge::review::ForgeReview>,
     >,
 ) {
-    let stdout = std::io::stdout();
+    let mut stdout = std::io::stdout();
     for stack in applied_stacks {
         let first_branch = stack.heads.first();
         let last_branch = stack.heads.last();
@@ -71,7 +71,7 @@ fn print_applied_branches(
                     &None,
                     branch_review_map,
                 );
-                writeln!(stdout.lock(), "{}{}", branch_entry.green(), reviews).ok();
+                writeln!(stdout, "{}{}", branch_entry.green(), reviews).ok();
                 continue;
             }
 
@@ -97,7 +97,7 @@ fn print_applied_branches(
                 branch_review_map,
             );
 
-            writeln!(stdout.lock(), "{}{}", branch_entry.green(), reviews).ok();
+            writeln!(stdout, "{}{}", branch_entry.green(), reviews).ok();
         }
     }
 }

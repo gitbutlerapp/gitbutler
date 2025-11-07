@@ -7,10 +7,12 @@ use but_workspace::{
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use std::io::Write;
 
 use crate::id::CliId;
 
 pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> {
+    let mut stdout = std::io::stdout();
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
     let stacks = stacks(ctx)?
@@ -53,7 +55,8 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
                 .to_string()
                 .underline()
                 .blue();
-            println!(
+            writeln!(
+                stdout,
                 "{}{}{} [{}] {} {}",
                 "│ ".repeat(nesting),
                 extra_space,
@@ -61,7 +64,8 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
                 branch.name.to_string().green().bold(),
                 id,
                 mark.clone().unwrap_or_default()
-            );
+            )
+            .ok();
             mark = None; // show this on the first branch in the stack
             for (j, commit) in branch.upstream_commits.iter().enumerate() {
                 let time_string = chrono::DateTime::from_timestamp_millis(commit.created_at as i64)
@@ -70,7 +74,8 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
                     .to_string();
                 let state_str = "{upstream}";
                 let extra_space = if stacked { "│ " } else { "  " };
-                println!(
+                writeln!(
+                    stdout,
                     "{}{}● {}{} {} {} {}",
                     "│ ".repeat(nesting),
                     extra_space,
@@ -79,18 +84,21 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
                     state_str.yellow(),
                     commit.author.name,
                     time_string.dimmed(),
-                );
-                println!(
+                )
+                .ok();
+                writeln!(
+                    stdout,
                     "{}{}┊ {}",
                     "│ ".repeat(nesting),
                     extra_space,
                     commit.message.to_string().lines().next().unwrap_or("")
-                );
+                )
+                .ok();
                 let bend = if stacked { "├" } else { "╭" };
                 if j == branch.upstream_commits.len() - 1 {
-                    println!("{}{}─╯", "│ ".repeat(nesting), bend);
+                    writeln!(stdout, "{}{}─╯", "│ ".repeat(nesting), bend).ok();
                 } else {
-                    println!("{}  ┊", "│ ".repeat(nesting));
+                    writeln!(stdout, "{}  ┊", "│ ".repeat(nesting)).ok();
                 }
             }
             for commit in branch.commits.iter() {
@@ -115,7 +123,8 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
                     .ok_or(anyhow::anyhow!("Could not parse timestamp"))?
                     .format("%Y-%m-%d %H:%M:%S")
                     .to_string();
-                println!(
+                writeln!(
+                    stdout,
                     "{}● {}{} {} {} {} {} {}",
                     "│ ".repeat(nesting),
                     &commit.id.to_string()[..2].blue().underline(),
@@ -125,18 +134,21 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
                     commit.author.name,
                     time_string.dimmed(),
                     mark.clone().unwrap_or_default()
-                );
-                println!(
+                )
+                .ok();
+                writeln!(
+                    stdout,
                     "{}│ {}",
                     "│ ".repeat(nesting),
                     commit.message.to_string().lines().next().unwrap_or("")
-                );
+                )
+                .ok();
                 if i == stacks.len() - 1 {
                     if nesting == 0 {
-                        println!("│");
+                        writeln!(stdout, "│").ok();
                     }
                 } else {
-                    println!("{}│", "│ ".repeat(nesting));
+                    writeln!(stdout, "{}│", "│ ".repeat(nesting)).ok();
                 }
                 stacked = true;
             }
@@ -146,10 +158,10 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
     if nesting > 0 {
         for _ in (0..nesting - 1).rev() {
             if nesting == 1 {
-                println!("└─╯");
+                writeln!(stdout, "└─╯").ok();
             } else {
                 let prefix = "│ ".repeat(nesting - 2);
-                println!("{prefix}├─╯");
+                writeln!(stdout, "{prefix}├─╯").ok();
             }
             nesting -= 1;
         }
@@ -160,7 +172,7 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
         .sha
         .to_string()[..7]
         .to_string();
-    println!("● {common_merge_base} (base)");
+    writeln!(stdout, "● {common_merge_base} (base)").ok();
 
     Ok(())
 }
@@ -214,6 +226,6 @@ pub(crate) fn stack_details(
 
 fn output_json(stacks: Vec<but_workspace::ui::StackDetails>) -> anyhow::Result<()> {
     let json_output = serde_json::to_string_pretty(&stacks)?;
-    println!("{json_output}");
+    writeln!(std::io::stdout(), "{json_output}").ok();
     Ok(())
 }

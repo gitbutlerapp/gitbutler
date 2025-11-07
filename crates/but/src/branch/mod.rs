@@ -60,6 +60,7 @@ pub enum Subcommands {
 }
 
 pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> anyhow::Result<()> {
+    let mut stdout = io::stdout();
     match cmd {
         None => {
             let local = false;
@@ -136,11 +137,11 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
                     branch: branch_name,
                     anchor: anchor_for_json,
                 };
-                println!("{}", serde_json::to_string_pretty(&response)?);
+                writeln!(stdout, "{}", serde_json::to_string_pretty(&response)?).ok();
             } else if atty::is(Stream::Stdout) {
-                println!("Created branch {branch_name}");
+                writeln!(stdout, "Created branch {branch_name}").ok();
             } else {
-                println!("{branch_name}");
+                writeln!(stdout, "{branch_name}").ok();
             }
             Ok(())
         }
@@ -162,7 +163,7 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
                 }
             }
 
-            println!("Branch '{}' not found in any stack", branch_name);
+            writeln!(stdout, "Branch '{}' not found in any stack", branch_name).ok();
             Ok(())
         }
         Some(Subcommands::Unapply { branch_name, force }) => {
@@ -183,7 +184,7 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
                 }
             }
 
-            println!("Branch '{}' not found in any stack", branch_name);
+            writeln!(stdout, "Branch '{}' not found in any stack", branch_name).ok();
             Ok(())
         }
     }
@@ -195,6 +196,7 @@ fn confirm_unapply_stack(
     stack_entry: &StackEntry,
     force: bool,
 ) -> Result<(), anyhow::Error> {
+    let mut stdout = io::stdout();
     let branches = stack_entry
         .heads
         .iter()
@@ -203,10 +205,12 @@ fn confirm_unapply_stack(
         .join(", ");
 
     if !force {
-        println!(
+        writeln!(
+            stdout,
             "Are you sure you want to unapply stack with branches '{}'? [y/N]:",
             branches
-        );
+        )
+        .ok();
 
         io::stdout().flush()?;
         let mut input = String::new();
@@ -214,16 +218,18 @@ fn confirm_unapply_stack(
 
         let input = input.trim().to_lowercase();
         if input != "y" && input != "yes" {
-            println!("Aborted unapply operation.");
+            writeln!(stdout, "Aborted unapply operation.").ok();
             return Ok(());
         }
     }
 
     but_api::virtual_branches::unapply_stack(project.id, sid)?;
-    println!(
+    writeln!(
+        stdout,
         "Unapplied stack with branches '{}' from workspace",
         branches
-    );
+    )
+    .ok();
     Ok(())
 }
 
@@ -233,11 +239,14 @@ fn confirm_branch_deletion(
     branch_name: &str,
     force: bool,
 ) -> Result<(), anyhow::Error> {
+    let mut stdout = io::stdout();
     if !force {
-        println!(
+        writeln!(
+            stdout,
             "Are you sure you want to delete branch '{}'? [y/N]:",
             branch_name
-        );
+        )
+        .ok();
 
         io::stdout().flush()?;
         let mut input = String::new();
@@ -245,12 +254,12 @@ fn confirm_branch_deletion(
 
         let input = input.trim().to_lowercase();
         if input != "y" && input != "yes" {
-            println!("Aborted branch deletion.");
+            writeln!(stdout, "Aborted branch deletion.").ok();
             return Ok(());
         }
     }
 
     but_api::stack::remove_branch(project.id, sid, branch_name.to_owned())?;
-    println!("Deleted branch {branch_name}");
+    writeln!(stdout, "Deleted branch {branch_name}").ok();
     Ok(())
 }

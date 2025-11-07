@@ -48,12 +48,12 @@ pub(crate) fn print<T>(this: &T, json: bool) -> anyhow::Result<()>
 where
     T: ?Sized + Serialize + std::fmt::Debug,
 {
-    let stdout = std::io::stdout();
+    let mut stdout = std::io::stdout();
     if json {
         let json = serde_json::to_string_pretty(&this)?;
-        writeln!(stdout.lock(), "{json}").ok();
+        writeln!(stdout, "{json}").ok();
     } else {
-        writeln!(stdout.lock(), "{this:#?}").ok();
+        writeln!(stdout, "{this:#?}").ok();
     }
     Ok(())
 }

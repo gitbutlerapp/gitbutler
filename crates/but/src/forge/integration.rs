@@ -30,23 +30,30 @@ pub async fn handle(cmd: Subcommands) -> anyhow::Result<()> {
 
 async fn forget_github_username(username: &String) -> anyhow::Result<()> {
     let known_accounts = but_api::github::list_known_github_accounts().await?;
+    let mut stdout = std::io::stdout();
     if let Some(account_to_delete) = known_accounts
         .into_iter()
         .find(|account| account.username() == username)
     {
         let message = format!("Forgot GitHub account '{}'", &account_to_delete);
         but_api::github::forget_github_account(account_to_delete)?;
-        println!("{}", message);
+        writeln!(stdout, "{}", message).ok();
         Ok(())
     } else {
-        println!("No known GitHub account with username '{}'", username);
+        writeln!(
+            stdout,
+            "No known GitHub account with username '{}'",
+            username
+        )
+        .ok();
         Ok(())
     }
 }
 
 async fn list_github_users() -> anyhow::Result<()> {
     let known_accounts = but_api::github::list_known_github_accounts().await?;
-    println!("Known GitHub usernames:");
+    let mut stdout = std::io::stdout();
+    writeln!(stdout, "Known GitHub usernames:").ok();
     let mut some_accounts_invalid = false;
     for account in known_accounts {
         let account_status = but_api::github::check_github_credentials(&account)
@@ -66,14 +73,15 @@ async fn list_github_users() -> anyhow::Result<()> {
             None => " (unknown status)".bold().red(),
         };
 
-        println!("- {} {}", account, message);
+        writeln!(stdout, "- {} {}", account, message).ok();
     }
 
     if some_accounts_invalid {
-        println!(
+        writeln!(
+            stdout,
             "\nSome accounts have invalid or missing credentials.\nYou may want to re-authenticate with those accounts using the '{}' command.",
             "but forge auth".bold()
-        );
+        ).ok();
     }
 
     Ok(())
@@ -82,17 +90,23 @@ async fn list_github_users() -> anyhow::Result<()> {
 /// Helper function to extract properties for metrics
 async fn auth_github() -> anyhow::Result<()> {
     let code = but_api::github::init_device_oauth(NoParams {}).await?;
-    println!(
+    let mut stdout = std::io::stdout();
+    writeln!(
+        stdout,
         "Device authorization initiated. Please visit the following URL and enter the code:\n\nhttps://github.com/login/device\n\nCode: {}\n\n",
         code.user_code
-    );
+    ).ok();
 
-    println!("Type 'y' and press Enter after you have successfully authorized the device:");
+    writeln!(
+        stdout,
+        "Type 'y' and press Enter after you have successfully authorized the device:"
+    )
+    .ok();
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
 
     if input.trim().to_lowercase() != "y" {
-        println!("Authorization process aborted by user.");
+        writeln!(stdout, "Authorization process aborted by user.").ok();
         return Ok(());
     }
 
@@ -101,19 +115,19 @@ async fn auth_github() -> anyhow::Result<()> {
     })
     .await;
 
-    let stdout = std::io::stdout();
-    let stderr = std::io::stderr();
+    let mut stdout = std::io::stdout();
+    let mut stderr = std::io::stderr();
     match auth_outcome {
         Ok(status) => {
             writeln!(
-                stdout.lock(),
+                stdout,
                 "Authentication successful! Welcome, {}.",
                 status.login
             )
             .ok();
         }
         Err(e) => {
-            writeln!(stderr.lock(), "Authentication failed: {}", anyhow::format_err!(e)).ok();
+            writeln!(stderr, "Authentication failed: {}", anyhow::format_err!(e)).ok();
         }
     }
 

@@ -16,6 +16,7 @@ use crate::{
     id::CliId,
     ui::{SimpleBranch, SimpleStack},
 };
+use std::io::Write;
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -119,6 +120,7 @@ pub async fn handle_multiple_branches_in_workspace(
     json: bool,
     selected_branches: Option<Vec<String>>,
 ) -> anyhow::Result<()> {
+    let mut stdout = std::io::stdout();
     let mut overall_outcome = PublishReviewsOutcome {
         published: vec![],
         already_existing: vec![],
@@ -134,7 +136,11 @@ pub async fn handle_multiple_branches_in_workspace(
 
     if selected_branches.is_empty() {
         if !json {
-            println!("No branches selected for review publication. Aborting.");
+            writeln!(
+                stdout,
+                "No branches selected for review publication. Aborting."
+            )
+            .ok();
         }
 
         return Ok(());
@@ -170,9 +176,9 @@ pub async fn handle_multiple_branches_in_workspace(
 
     if json {
         let outcome_json = serde_json::to_string_pretty(&overall_outcome)?;
-        println!("{}", outcome_json);
+        writeln!(stdout, "{}", outcome_json).ok();
     } else {
-        println!();
+        writeln!(stdout,).ok();
         display_review_publication_summary(overall_outcome);
     }
 
@@ -227,6 +233,7 @@ async fn publish_reviews_for_branch_and_dependents(
     default_message: bool,
     json: bool,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
+    let mut stdout = std::io::stdout();
     let (base_branch, _) = get_base_branch_and_repo(project)?;
     let all_branches_up_to_subject = stack_entry
         .heads
@@ -236,13 +243,15 @@ async fn publish_reviews_for_branch_and_dependents(
         .collect::<Vec<_>>();
 
     if !json && !all_branches_up_to_subject.is_empty() {
-        println!(
+        writeln!(
+            stdout,
             "Pushing branch '{}' with {} dependent branch(es) first",
             branch_name,
             all_branches_up_to_subject.len()
-        );
+        )
+        .ok();
     } else if !json {
-        println!("Pushing branch '{}'", branch_name);
+        writeln!(stdout, "Pushing branch '{}'", branch_name).ok();
     }
 
     let result = but_api::stack::push_stack(
@@ -258,24 +267,26 @@ async fn publish_reviews_for_branch_and_dependents(
     )?;
 
     if !json {
-        println!("Push completed successfully");
-        println!("Pushed to remote: {}", result.remote);
+        writeln!(stdout, "Push completed successfully").ok();
+        writeln!(stdout, "Pushed to remote: {}", result.remote).ok();
         if !result.branch_to_remote.is_empty() {
             for (branch, remote_ref) in &result.branch_to_remote {
-                println!("  {} -> {}", branch, remote_ref);
+                writeln!(stdout, "  {} -> {}", branch, remote_ref).ok();
             }
         }
-        println!();
+        writeln!(stdout,).ok();
     }
 
     let mut newly_published = Vec::new();
     let mut already_existing = Vec::new();
     let mut current_target_branch = base_branch.short_name();
     for head in stack_entry.heads.iter().rev() {
-        println!(
+        writeln!(
+            stdout,
             "Publishing review for branch '{}' targetting '{}",
             head.name, current_target_branch
-        );
+        )
+        .ok();
 
         let published_review = publish_review_for_branch(
             project,
@@ -322,6 +333,7 @@ fn get_base_branch_and_repo(
 
 /// Display a summary of published and already existing reviews
 fn display_review_publication_summary(outcome: PublishReviewsOutcome) {
+    let mut stdout = std::io::stdout();
     // Group published reviews by branch name
     let mut published_by_branch: BTreeMap<&str, Vec<&gitbutler_forge::review::ForgeReview>> =
         BTreeMap::new();
@@ -332,7 +344,7 @@ fn display_review_publication_summary(outcome: PublishReviewsOutcome) {
             .push(review);
     }
     for (branch, reviews) in published_by_branch {
-        println!("Published reviews for branch '{}':", branch);
+        writeln!(stdout, "Published reviews for branch '{}':", branch).ok();
         for review in reviews {
             print_review_information(review);
         }
@@ -348,7 +360,7 @@ fn display_review_publication_summary(outcome: PublishReviewsOutcome) {
             .push(review);
     }
     for (branch, reviews) in existing_by_branch {
-        println!("Review(s) already exist for branch '{}':", branch);
+        writeln!(stdout, "Review(s) already exist for branch '{}':", branch).ok();
         for review in reviews {
             print_review_information(review);
         }
@@ -357,13 +369,15 @@ fn display_review_publication_summary(outcome: PublishReviewsOutcome) {
 
 /// Print review information in a formatted way
 fn print_review_information(review: &gitbutler_forge::review::ForgeReview) {
-    println!(
+    writeln!(
+        std::io::stdout(),
         "  '{}' ({}{}): {}",
         review.title.bold(),
         review.unit_symbol.blue(),
         review.number.to_string().blue(),
         review.html_url.underline()
-    );
+    )
+    .ok();
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

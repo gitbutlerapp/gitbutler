@@ -12,6 +12,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, TimeExt};
 use gitbutler_project::Project;
 use serde::Serialize;
+use std::io::Write;
 
 pub(crate) mod assignment;
 
@@ -42,6 +43,7 @@ pub(crate) async fn worktree(
     review: bool,
 ) -> anyhow::Result<()> {
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let mut stdout = std::io::stdout();
     but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
     let review_map = if review {
@@ -105,7 +107,7 @@ pub(crate) async fn worktree(
             common_merge_base: common_merge_base_data,
         };
         let json_output = serde_json::to_string_pretty(&worktree_status)?;
-        println!("{json_output}");
+        writeln!(stdout, "{json_output}").ok();
         return Ok(());
     }
 
@@ -135,17 +137,20 @@ pub(crate) async fn worktree(
         )?;
     }
     let dot = "●".purple();
-    println!(
+    writeln!(
+        stdout,
         "{dot} {} (common base) [{}] {} {}",
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.commit_date.dimmed(),
         common_merge_base_data.message
-    );
+    )
+    .ok();
     Ok(())
 }
 
 fn print_assignments(assignments: &Vec<FileAssignment>, changes: &[TreeChange], dotted: bool) {
+    let mut stdout = std::io::stdout();
     for fa in assignments {
         let state = status_from_changes(changes, fa.path.clone());
         let path = match &state {
@@ -182,9 +187,9 @@ fn print_assignments(assignments: &Vec<FileAssignment>, changes: &[TreeChange], 
             locks = format!("🔒 {locks}");
         }
         if dotted {
-            println!("┊   {id} {status} {path} {locks}");
+            writeln!(stdout, "┊   {id} {status} {path} {locks}").ok();
         } else {
-            println!("┊│   {id} {status} {path} {locks}");
+            writeln!(stdout, "┊│   {id} {status} {path} {locks}").ok();
         }
     }
 }
@@ -204,6 +209,7 @@ pub fn print_group(
     first: bool,
     review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
 ) -> anyhow::Result<()> {
+    let mut stdout = std::io::stdout();
     if let Some(group) = &group {
         let mut first = true;
         for branch in &group.branch_details {
@@ -213,7 +219,7 @@ pub fn print_group(
                 .blue();
             let notch = if first { "╭" } else { "├" };
             if !first {
-                println!("┊│");
+                writeln!(stdout, "┊│").ok();
             }
 
             let no_commits = if branch.commits.is_empty() {
@@ -230,7 +236,8 @@ pub fn print_group(
                 review_map,
             );
 
-            println!(
+            writeln!(
+                stdout,
                 "┊{}┄{} [{}]{} {} {}",
                 notch,
                 id,
@@ -238,7 +245,8 @@ pub fn print_group(
                 reviews,
                 no_commits,
                 stack_mark.clone().unwrap_or_default()
-            );
+            )
+            .ok();
             *stack_mark = None; // Only show the stack mark for the first branch
             if first {
                 print_assignments(&assignments, changes, false);
@@ -293,18 +301,20 @@ pub fn print_group(
         }
     } else {
         let id = CliId::Unassigned.to_string().underline().blue();
-        println!(
+        writeln!(
+            stdout,
             "╭┄{} [{}] {}",
             id,
             "Unassigned Changes".to_string().green().bold(),
             stack_mark.clone().unwrap_or_default()
-        );
+        )
+        .ok();
         print_assignments(&assignments, changes, true);
     }
     if !first {
-        println!("├╯");
+        writeln!(stdout, "├╯").ok();
     }
-    println!("┊");
+    writeln!(stdout, "┊").ok();
     Ok(())
 }
 
@@ -405,6 +415,7 @@ fn print_commit(
     show_url: bool,
     review_url: Option<String>,
 ) -> anyhow::Result<()> {
+    let mut stdout = std::io::stdout();
     let mark = if marked {
         Some("◀ Marked ▶".red().bold())
     } else {
@@ -447,7 +458,8 @@ fn print_commit(
     if verbose {
         // Verbose format: author and timestamp on first line, message on second line
         let formatted_time = created_at.format_or_unix(CLI_DATE);
-        println!(
+        writeln!(
+            stdout,
             "┊{dot}   {}{} {} {} {} {} {} {}",
             &commit_id.to_string()[..2].blue().underline(),
             &commit_id.to_string()[2..7].dimmed(),
@@ -459,8 +471,9 @@ fn print_commit(
                 .map(|r| format!("◖{}◗", r.underline().blue()))
                 .unwrap_or_default(),
             mark.unwrap_or_default()
-        );
-        println!("┊│     {message}");
+        )
+        .ok();
+        writeln!(stdout, "┊│     {message}").ok();
     } else {
         // Original format: everything on one line
         let review_url = if show_url {
@@ -469,7 +482,8 @@ fn print_commit(
             review_url.map(|_| format!("◖{}◗", "r".normal()))
         }
         .unwrap_or_default();
-        println!(
+        writeln!(
+            stdout,
             "┊{dot}   {}{} {} {} {} {} {}",
             &commit_id.to_string()[..2].blue().underline(),
             &commit_id.to_string()[2..7].dimmed(),
@@ -478,7 +492,8 @@ fn print_commit(
             conflicted_str,
             review_url,
             mark.unwrap_or_default()
-        );
+        )
+        .ok();
     }
     if show_files {
         for change in &commit_details.changes.changes {
@@ -488,7 +503,7 @@ fn print_commit(
                 .underline();
             let path = path_with_color(&change.status, change.path.to_string());
             let status_letter = status_letter(&change.status);
-            println!("┊│     {cid} {status_letter} {path}");
+            writeln!(stdout, "┊│     {cid} {status_letter} {path}").ok();
         }
     }
     Ok(())

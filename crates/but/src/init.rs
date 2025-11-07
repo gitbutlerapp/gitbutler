@@ -4,7 +4,7 @@ use std::path::Path;
 use anyhow::Context;
 
 pub(crate) fn repo(repo_path: &Path, _json: bool, init_repo: bool) -> anyhow::Result<()> {
-    let stdout = std::io::stdout();
+    let mut stdout = std::io::stdout();
     let repo = if init_repo
         && matches!(
             gix::open(repo_path),
@@ -70,7 +70,7 @@ pub(crate) fn repo(repo_path: &Path, _json: bool, init_repo: bool) -> anyhow::Re
 
         but_api::virtual_branches::set_base_branch(project.id, name.clone(), Some(remote_name))?;
         writeln!(
-            stdout.lock(),
+            stdout,
             "Initialized GitButler project from {}. The default target is {}",
             repo_path.display(),
             name
@@ -78,7 +78,7 @@ pub(crate) fn repo(repo_path: &Path, _json: bool, init_repo: bool) -> anyhow::Re
         .ok();
     } else {
         writeln!(
-            stdout.lock(),
+            stdout,
             "The repository {} is already initialized as GitButler project. The default target is {:?}",
             repo_path.display(),
             target.map(|t| t.branch_name)

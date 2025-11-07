@@ -12,11 +12,11 @@ pub(crate) fn assign_file_to_branch(
     path: &str,
     branch_name: &str,
 ) -> anyhow::Result<()> {
-    let stdout = std::io::stdout();
+    let mut stdout = std::io::stdout();
     let reqs = to_assignment_request(ctx, path, Some(branch_name))?;
     do_assignments(ctx, reqs)?;
     writeln!(
-        stdout.lock(),
+        stdout,
         "Assigned {} → {}.",
         path.bold(),
         format!("[{branch_name}]").green()
@@ -26,10 +26,10 @@ pub(crate) fn assign_file_to_branch(
 }
 
 pub(crate) fn unassign_file(ctx: &mut CommandContext, path: &str) -> anyhow::Result<()> {
-    let stdout = std::io::stdout();
+    let mut stdout = std::io::stdout();
     let reqs = to_assignment_request(ctx, path, None)?;
     do_assignments(ctx, reqs)?;
-    writeln!(stdout.lock(), "Unassigned {}", path.bold()).ok();
+    writeln!(stdout, "Unassigned {}", path.bold()).ok();
     Ok(())
 }
 
@@ -38,7 +38,7 @@ pub(crate) fn assign_all(
     from_branch: Option<&str>,
     to_branch: Option<&str>,
 ) -> anyhow::Result<()> {
-    let stdout = std::io::stdout();
+    let mut stdout = std::io::stdout();
     let from_stack_id = branch_name_to_stack_id(ctx, from_branch)?;
     let to_stack_id = branch_name_to_stack_id(ctx, to_branch)?;
 
@@ -62,7 +62,7 @@ pub(crate) fn assign_all(
     do_assignments(ctx, reqs)?;
     if to_branch.is_some() {
         writeln!(
-            stdout.lock(),
+            stdout,
             "Assigned all {} changes to {}.",
             from_branch
                 .map(|b| format!("[{b}]").green())
@@ -74,7 +74,7 @@ pub(crate) fn assign_all(
         .ok();
     } else {
         writeln!(
-            stdout.lock(),
+            stdout,
             "Unassigned all {} changes.",
             from_branch
                 .map(|b| format!("[{b}]").green())

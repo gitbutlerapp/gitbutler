@@ -7,9 +7,9 @@ use gitbutler_oxidize::ObjectIdExt;
 use gix::ObjectId;
 
 pub(crate) fn commit(ctx: &mut CommandContext, oid: &ObjectId) -> anyhow::Result<()> {
-    let stdout = std::io::stdout();
+    let mut stdout = std::io::stdout();
     gitbutler_branch_actions::undo_commit(ctx, stack_id_by_commit_id(ctx, oid)?, oid.to_git2())?;
-    writeln!(stdout.lock(), "Uncommitted {}", oid.to_string()[..7].blue()).ok();
+    writeln!(stdout, "Uncommitted {}", oid.to_string()[..7].blue()).ok();
     Ok(())
 }
 

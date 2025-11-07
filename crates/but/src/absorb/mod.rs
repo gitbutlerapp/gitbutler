@@ -148,9 +148,9 @@ fn absorb_all(
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
 ) -> anyhow::Result<()> {
-    let stdout = std::io::stdout();
+    let mut stdout = std::io::stdout();
     if assignments.is_empty() {
-        writeln!(stdout.lock(), "No uncommitted changes to absorb").ok();
+        writeln!(stdout, "No uncommitted changes to absorb").ok();
         return Ok(());
     }
 
@@ -313,8 +313,8 @@ fn amend_commit(
     commit_id: gix::ObjectId,
     diff_specs: Vec<DiffSpec>,
 ) -> anyhow::Result<()> {
-    let stdout = std::io::stdout();
-    let stderr = std::io::stderr();
+    let mut stdout = std::io::stdout();
+    let mut stderr = std::io::stderr();
     // Convert commit_id to HexHash
     let hex_hash = HexHash::from(commit_id);
 
@@ -324,7 +324,7 @@ fn amend_commit(
 
     if !outcome.paths_to_rejected_changes.is_empty() {
         writeln!(
-            stderr.lock(),
+            stderr,
             "Warning: Failed to absorb {} file(s)",
             outcome.paths_to_rejected_changes.len()
         )
@@ -332,7 +332,7 @@ fn amend_commit(
     }
 
     writeln!(
-        stdout.lock(),
+        stdout,
         "Absorbed changes into commit {}",
         &commit_id.to_hex().to_string()[..7]
     )

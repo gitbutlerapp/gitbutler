@@ -60,11 +60,11 @@ fn parse_worktree_identifier(
 }
 
 pub fn handle(cmd: Subcommands, project: &gitbutler_project::Project, json: bool) -> Result<()> {
-    let stderr = std::io::stderr();
+    let mut stderr = std::io::stderr();
     match handle_inner(cmd, project, json) {
         Ok(_) => Ok(()),
         Err(e) => {
-            writeln!(stderr.lock(), "{:?}", e).ok();
+            writeln!(stderr, "{:?}", e).ok();
             Err(e)
         }
     }
@@ -75,6 +75,7 @@ pub fn handle_inner(
     project: &gitbutler_project::Project,
     json: bool,
 ) -> Result<()> {
+    let mut stdout = std::io::stdout();
     match cmd {
         Subcommands::New { reference } => {
             // Naivly append refs/heads/ if it's not present to always have a
@@ -86,11 +87,16 @@ pub fn handle_inner(
             };
             let output = but_api::worktree::worktree_new(project.id, reference)?;
             if json {
-                println!("{}", serde_json::to_string_pretty(&output)?);
+                writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?).ok();
             } else {
-                println!("Created worktree at: {}", output.created.path.display());
+                writeln!(
+                    stdout,
+                    "Created worktree at: {}",
+                    output.created.path.display()
+                )
+                .ok();
                 if let Some(reference) = output.created.created_from_ref {
-                    println!("Reference: {}", reference);
+                    writeln!(stdout, "Reference: {}", reference).ok();
                 }
             }
             Ok(())
@@ -98,19 +104,19 @@ pub fn handle_inner(
         Subcommands::List => {
             let output = but_api::worktree::worktree_list(project.id)?;
             if json {
-                println!("{}", serde_json::to_string_pretty(&output)?);
+                writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?).ok();
             } else if output.entries.is_empty() {
-                println!("No worktrees found");
+                writeln!(stdout, "No worktrees found").ok();
             } else {
                 for entry in &output.entries {
-                    println!("Path: {}", entry.path.display());
+                    writeln!(stdout, "Path: {}", entry.path.display()).ok();
                     if let Some(reference) = &entry.created_from_ref {
-                        println!("Reference: {}", reference);
+                        writeln!(stdout, "Reference: {}", reference).ok();
                     }
                     if let Some(base) = entry.base {
-                        println!("Base: {}", base);
+                        writeln!(stdout, "Base: {}", base).ok();
                     }
-                    println!();
+                    writeln!(stdout,).ok();
                 }
             }
             Ok(())
@@ -151,40 +157,49 @@ pub fn handle_inner(
                 )?;
 
                 if json {
-                    println!("{}", serde_json::to_string_pretty(&status)?);
+                    writeln!(stdout, "{}", serde_json::to_string_pretty(&status)?).ok();
                 } else {
-                    println!("Integration status for worktree: {}", id.as_str());
-                    println!("Target: {}", target_ref);
+                    writeln!(stdout, "Integration status for worktree: {}", id.as_str()).ok();
+                    writeln!(stdout, "Target: {}", target_ref).ok();
                     match status {
                         IntegrationStatus::NoMergeBaseFound => {
-                            println!("Status: Cannot integrate - no merge base found");
+                            writeln!(stdout, "Status: Cannot integrate - no merge base found").ok();
                         }
                         IntegrationStatus::WorktreeIsBare => {
-                            println!("Status: Cannot integrate - worktree is bare");
+                            writeln!(stdout, "Status: Cannot integrate - worktree is bare").ok();
                         }
                         IntegrationStatus::CausesWorkspaceConflicts => {
-                            println!("Status: Cannot integrate - would cause workspace conflicts");
+                            writeln!(
+                                stdout,
+                                "Status: Cannot integrate - would cause workspace conflicts"
+                            )
+                            .ok();
                         }
                         IntegrationStatus::Integratable {
                             cherry_pick_conflicts,
                             commits_above_conflict,
                             working_dir_conflicts,
                         } => {
-                            println!("Status: Integratable");
+                            writeln!(stdout, "Status: Integratable").ok();
                             if cherry_pick_conflicts {
-                                println!("  Warning: Cherry-pick will have conflicts");
+                                writeln!(stdout, "  Warning: Cherry-pick will have conflicts").ok();
                             }
                             if commits_above_conflict {
-                                println!("  Warning: Commits above will have conflicts");
+                                writeln!(stdout, "  Warning: Commits above will have conflicts")
+                                    .ok();
                             }
                             if working_dir_conflicts {
-                                println!("  Warning: Working directory will have conflicts");
+                                writeln!(
+                                    stdout,
+                                    "  Warning: Working directory will have conflicts"
+                                )
+                                .ok();
                             }
                             if !cherry_pick_conflicts
                                 && !commits_above_conflict
                                 && !working_dir_conflicts
                             {
-                                println!("  No conflicts expected");
+                                writeln!(stdout, "  No conflicts expected").ok();
                             }
                         }
                     }
@@ -194,10 +209,10 @@ pub fn handle_inner(
                 but_api::worktree::worktree_integrate(project.id, id.clone(), target_ref.clone())?;
 
                 if json {
-                    println!("{{\"status\": \"success\"}}");
+                    writeln!(stdout, "{{\"status\": \"success\"}}").ok();
                 } else {
-                    println!("Successfully integrated worktree: {}", id.as_str());
-                    println!("Target: {}", target_ref);
+                    writeln!(stdout, "Successfully integrated worktree: {}", id.as_str()).ok();
+                    writeln!(stdout, "Target: {}", target_ref).ok();
                 }
             }
 
@@ -219,17 +234,19 @@ pub fn handle_inner(
                 )?;
 
                 if json {
-                    println!("{}", serde_json::to_string_pretty(&output)?);
+                    writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?).ok();
                 } else if output.destroyed_ids.is_empty() {
-                    println!("No worktrees found for reference: {}", reference);
+                    writeln!(stdout, "No worktrees found for reference: {}", reference).ok();
                 } else {
-                    println!(
+                    writeln!(
+                        stdout,
                         "Destroyed {} worktree(s) for reference: {}",
                         output.destroyed_ids.len(),
                         reference
-                    );
+                    )
+                    .ok();
                     for id in &output.destroyed_ids {
-                        println!("  - {}", id.as_str());
+                        writeln!(stdout, "  - {}", id.as_str()).ok();
                     }
                 }
             } else {
@@ -238,9 +255,9 @@ pub fn handle_inner(
                 let output = but_api::worktree::worktree_destroy_by_id(project.id, id.clone())?;
 
                 if json {
-                    println!("{}", serde_json::to_string_pretty(&output)?);
+                    writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?).ok();
                 } else {
-                    println!("Destroyed worktree: {}", id.as_str());
+                    writeln!(stdout, "Destroyed worktree: {}", id.as_str()).ok();
                 }
             }
 

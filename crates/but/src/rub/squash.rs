@@ -12,7 +12,7 @@ pub(crate) fn commits(
     source: &ObjectId,
     destination: &ObjectId,
 ) -> anyhow::Result<()> {
-    let stdout = std::io::stdout();
+    let mut stdout = std::io::stdout();
     let source_stack = stack_id_by_commit_id(ctx, source)?;
     let destination_stack = stack_id_by_commit_id(ctx, destination)?;
     if source_stack != destination_stack {
@@ -26,7 +26,7 @@ pub(crate) fn commits(
         destination.to_git2(),
     )?;
     writeln!(
-        stdout.lock(),
+        stdout,
         "Squashed {} → {}",
         source.to_string()[..7].blue(),
         destination.to_string()[..7].blue()

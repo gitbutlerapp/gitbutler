@@ -5,6 +5,7 @@ use gitbutler_branch_actions::upstream_integration::{
     StackStatuses::{UpToDate, UpdatesRequired},
 };
 use gitbutler_project::Project;
+use std::io::Write;
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -20,23 +21,27 @@ pub enum Subcommands {
 }
 
 pub fn handle(cmd: Subcommands, project: &Project, json: bool) -> anyhow::Result<()> {
+    let mut stdout = std::io::stdout();
     match cmd {
         Subcommands::Check => {
             if !json {
-                println!("🔍 Checking base branch status...");
+                writeln!(stdout, "🔍 Checking base branch status...").ok();
             }
             let base_branch = but_api::virtual_branches::fetch_from_remotes(
                 project.id,
                 Some("auto".to_string()),
             )?;
-            println!("\n📍 Base branch:\t\t{}", base_branch.branch_name);
-            println!(
+            writeln!(stdout, "\n📍 Base branch:\t\t{}", base_branch.branch_name).ok();
+            writeln!(
+                stdout,
                 "⏫ Upstream commits:\t{} new commits on {}\n",
                 base_branch.behind, base_branch.branch_name
-            );
+            )
+            .ok();
             let commits = base_branch.recent_commits.iter().take(3);
             for commit in commits {
-                println!(
+                writeln!(
+                    stdout,
                     "\t{} {}",
                     &commit.id[..7],
                     &commit
@@ -46,29 +51,34 @@ pub fn handle(cmd: Subcommands, project: &Project, json: bool) -> anyhow::Result
                         .chars()
                         .take(72)
                         .collect::<String>()
-                );
+                )
+                .ok();
             }
             let hidden_commits = base_branch.behind.saturating_sub(3);
             if hidden_commits > 0 {
-                println!("\t... ({hidden_commits} more - run `but base check --all` to see all)");
+                writeln!(
+                    stdout,
+                    "\t... ({hidden_commits} more - run `but base check --all` to see all)"
+                )
+                .ok();
             }
 
             let status =
                 but_api::virtual_branches::upstream_integration_statuses(project.id, None)?;
 
             match status {
-                UpToDate => println!("\n✅ Everything is up to date"),
+                UpToDate => _ = writeln!(stdout, "\n✅ Everything is up to date").ok(),
                 UpdatesRequired {
                     worktree_conflicts,
                     statuses,
                 } => {
                     if !worktree_conflicts.is_empty() {
-                        println!(
+                        writeln!(stdout,
                             "\n❗️ There are uncommitted changes in the worktree that may conflict with the updates."
-                        );
+                        ).ok();
                     }
                     if !statuses.is_empty() {
-                        println!("\n{}", "Active Branch Status".bold());
+                        writeln!(stdout, "\n{}", "Active Branch Status".bold()).ok();
                         for (_id, status) in statuses {
                             for bs in status.branch_statuses {
                                 let status_icon = match bs.status {
@@ -95,13 +105,14 @@ pub fn handle(cmd: Subcommands, project: &Project, json: bool) -> anyhow::Result
                                     }
                                     Empty => "Nothing to do".normal(),
                                 };
-                                println!("\n{} {} ({})", status_icon, bs.name, status_text);
+                                writeln!(stdout, "\n{} {} ({})", status_icon, bs.name, status_text)
+                                    .ok();
                             }
                         }
                     }
                 }
             }
-            println!("\nRun `but base update` to update your branches");
+            writeln!(stdout, "\nRun `but base update` to update your branches").ok();
             Ok(())
         }
         Subcommands::Update => {
@@ -109,7 +120,7 @@ pub fn handle(cmd: Subcommands, project: &Project, json: bool) -> anyhow::Result
                 but_api::virtual_branches::upstream_integration_statuses(project.id, None)?;
             let resolutions = match status {
                 UpToDate => {
-                    println!("✅ Everything is up to date");
+                    writeln!(stdout, "✅ Everything is up to date").ok();
                     None
                 }
                 UpdatesRequired {
@@ -117,17 +128,22 @@ pub fn handle(cmd: Subcommands, project: &Project, json: bool) -> anyhow::Result
                     statuses,
                 } => {
                     if !worktree_conflicts.is_empty() {
-                        println!(
+                        writeln!(stdout,
                             "❗️ There are uncommitted changes in the worktree that may conflict with
                             the updates. Please commit or stash them and try again."
-                        );
+                        )
+                        .ok();
                         None
                     } else {
-                        println!("🔄 Updating branches...");
+                        writeln!(stdout, "🔄 Updating branches...").ok();
                         let mut resolutions = vec![];
                         for (maybe_stack_id, status) in statuses {
                             let Some(stack_id) = maybe_stack_id else {
-                                println!("No stack ID, assuming we're on single-branch mode...",);
+                                writeln!(
+                                    stdout,
+                                    "No stack ID, assuming we're on single-branch mode...",
+                                )
+                                .ok();
                                 continue;
                             };
                             let approach = if status

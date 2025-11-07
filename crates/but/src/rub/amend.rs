@@ -18,7 +18,7 @@ pub(crate) fn file_to_commit(
     stack_id: Option<StackId>,
     oid: &ObjectId,
 ) -> anyhow::Result<()> {
-    let stdout = std::io::stdout();
+    let mut stdout = std::io::stdout();
     let diff_specs: Vec<DiffSpec> = wt_assignments(ctx)?
         .into_iter()
         .filter(|assignment| assignment.stack_id == stack_id && assignment.path == path)
@@ -33,7 +33,7 @@ pub(crate) fn file_to_commit(
             format!("{}{}", s[..2].blue().underline(), s[2..7].blue())
         })
         .unwrap_or_default();
-    writeln!(stdout.lock(), "Amended {} → {}", path.bold(), new_commit).ok();
+    writeln!(stdout, "Amended {} → {}", path.bold(), new_commit).ok();
     Ok(())
 }
 
@@ -42,7 +42,7 @@ pub(crate) fn assignments_to_commit(
     branch_name: Option<&str>,
     oid: &ObjectId,
 ) -> anyhow::Result<()> {
-    let stdout = std::io::stdout();
+    let mut stdout = std::io::stdout();
     let stack_id = branch_name_to_stack_id(ctx, branch_name)?;
     let diff_specs: Vec<DiffSpec> = wt_assignments(ctx)?
         .into_iter()
@@ -60,14 +60,14 @@ pub(crate) fn assignments_to_commit(
 
     if let Some(branch_name) = branch_name {
         writeln!(
-            stdout.lock(),
+            stdout,
             "Amended assigned files {} → {}",
             format!("[{branch_name}]").green(),
             new_commit,
         )
         .ok();
     } else {
-        writeln!(stdout.lock(), "Amended unassigned files → {new_commit}").ok();
+        writeln!(stdout, "Amended unassigned files → {new_commit}").ok();
     }
     Ok(())
 }
