@@ -1,4 +1,5 @@
 use crate::utils::{Sandbox, setup_metadata};
+use snapbox::str;
 
 #[test]
 fn branch_new_outputs_branch_name() -> anyhow::Result<()> {
@@ -11,41 +12,22 @@ fn branch_new_outputs_branch_name() -> anyhow::Result<()> {
 
     setup_metadata(&env, &["A"])?;
 
-    // Create a new branch and capture the output
-    let output = env
-        .but("branch new my-feature")
+    env.but("branch new my-feature")
         .assert()
         .success()
-        .get_output()
-        .stdout
-        .clone();
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+my-feature
 
-    let output_str = String::from_utf8(output)?;
+"#]]);
 
-    // The output should be just the branch name (with newline)
-    assert_eq!(output_str.trim(), "my-feature");
-
-    Ok(())
-}
-
-#[test]
-fn branch_new_with_anchor() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target("one-stack")?;
-    setup_metadata(&env, &["A"])?;
-
-    // Create a new branch with an anchor (using longer ID)
-    let output = env
-        .but("branch new my-feature --anchor 9477ae7")
+    env.but("branch new --anchor 9477ae7 my-anchored-feature")
         .assert()
         .success()
-        .get_output()
-        .stdout
-        .clone();
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+my-anchored-feature
 
-    let output_str = String::from_utf8(output)?;
-
-    // The output should be just the branch name (with newline)
-    assert_eq!(output_str.trim(), "my-feature");
-
+"#]]);
     Ok(())
 }
