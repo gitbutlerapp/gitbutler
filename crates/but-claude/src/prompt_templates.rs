@@ -10,23 +10,23 @@ use serde::Serialize;
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PromptTemplate {
-    pub label: String,
+    pub file_name: String,
     pub template: String,
 }
 
 fn default_template() -> Vec<PromptTemplate> {
     vec![
         PromptTemplate {
-            label: "bug-fix".to_string(),
-            template: "Please fix the bug in this code:\n\n```\n// Your code here\n```\n\nExpected behavior:\nActual behavior:\nSteps to reproduce:".to_string(),
+            file_name: "bug-fix".to_string(),
+            template: "---\nname: Bug Fix\nemoji: 🐛\n---\n\nPlease fix the bug in this code:\n\n```\n// Your code here\n```\n\nExpected behavior:\nActual behavior:\nSteps to reproduce:".to_string(),
         },
         PromptTemplate {
-            label: "code-review".to_string(),
-            template: "Please review this code for:\n- Performance issues\n- Security vulnerabilities\n- Best practices\n- Code style\n\n```\n// Your code here\n```".to_string(),
+            file_name: "code-review".to_string(),
+            template: "---\nname: Code Review\nemoji: 👀\n---\n\nPlease review this code for:\n- Performance issues\n- Security vulnerabilities\n- Best practices\n- Code style\n\n```\n// Your code here\n```".to_string(),
         },
         PromptTemplate {
-            label: "refactor".to_string(),
-            template: "Please refactor this code to improve:\n- Readability\n- Performance\n- Maintainability\n\n```\n// Your code here\n```\n\nRequirements:".to_string(),
+            file_name: "refactor".to_string(),
+            template: "---\nname: Refactor\nemoji: ♻️\n---\n\nPlease refactor this code to improve:\n- Readability\n- Performance\n- Maintainability\n\n```\n// Your code here\n```\n\nRequirements:".to_string(),
         },
     ]
 }
@@ -96,7 +96,7 @@ pub fn list_templates(project: &Project) -> Result<Vec<PromptTemplate>> {
                         out.insert(
                             label.to_owned(),
                             PromptTemplate {
-                                label: label.to_owned(),
+                                file_name: label.to_owned(),
                                 template,
                             },
                         );
@@ -107,14 +107,14 @@ pub fn list_templates(project: &Project) -> Result<Vec<PromptTemplate>> {
             // Special case the global dir to create defaults
             if dir.label == "Global" {
                 for template in write_global_defaults(&dir.path)? {
-                    out.insert(template.label.clone(), template);
+                    out.insert(template.file_name.clone(), template);
                 }
             }
         }
     }
 
     let mut out = out.into_values().collect::<Vec<_>>();
-    out.sort_by_key(|a| a.label.clone());
+    out.sort_by_key(|a| a.file_name.clone());
 
     Ok(out)
 }
@@ -142,8 +142,8 @@ fn write_global_defaults(path: &Path) -> Result<Vec<PromptTemplate>> {
 
     for default in &defaults {
         std::fs::write(
-            path.join(format!("{}.md", default.label)),
-            default.template.clone(),
+            path.join(format!("{}.md", default.file_name)),
+            &default.template,
         )?;
     }
 

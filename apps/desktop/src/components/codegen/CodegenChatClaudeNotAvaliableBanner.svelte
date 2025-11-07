@@ -20,8 +20,12 @@
 				Connect Claude Code to keep going with this session.
 			</p>
 		</div>
-		<Button kind="outline" style="neutral" icon="mixer" type="button" onclick={onSettingsBtnClick}
-			>Set up connection…</Button
+		<Button
+			style="neutral"
+			icon="mixer"
+			type="button"
+			reversedDirection
+			onclick={onSettingsBtnClick}>Set up connection…</Button
 		>
 	</div>
 </div>
@@ -35,15 +39,16 @@
 		left: 0;
 		justify-content: center;
 		width: 100%;
-		padding: 16px;
+		padding: 14px;
 	}
 	.not-available-banner {
 		display: flex;
 		bottom: 16px;
+		flex-direction: column;
 		width: fit-content;
 		padding: 16px;
 		overflow: hidden;
-		gap: 28px;
+		gap: 16px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
@@ -62,12 +67,5 @@
 		margin-right: 2px;
 		transform: translateY(2px);
 		color: var(--clr-theme-warn-element);
-	}
-
-	@container chat (max-width: 600px) {
-		.not-available-banner {
-			flex-direction: column;
-			gap: 16px;
-		}
 	}
 </style>

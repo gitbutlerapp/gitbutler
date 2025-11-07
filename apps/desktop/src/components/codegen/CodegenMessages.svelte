@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-
+	import ClaudeCheck from '$components/codegen/ClaudeCheck.svelte';
 	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
 	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
 	import CodegenChatLayout from '$components/codegen/CodegenChatLayout.svelte';
@@ -12,7 +12,9 @@
 	import CodegenPromptConfigModal from '$components/codegen/CodegenPromptConfigModal.svelte';
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
+	import CodegenTemplatesCarousel from '$components/codegen/CodegenTemplatesCarousel.svelte';
 	import CodegenTodoAccordion from '$components/codegen/CodegenTodoAccordion.svelte';
+	import noClaudeCodeSvg from '$lib/assets/empty-state/claude-disconected.svg?raw';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
@@ -26,6 +28,7 @@
 		getTodos,
 		type Message
 	} from '$lib/codegen/messages';
+	import { parseTemplates, templatesToDisplayFormat } from '$lib/codegen/templateParser';
 
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { vscodePath } from '$lib/project/project';
@@ -51,7 +54,8 @@
 		EmptyStatePlaceholder,
 		KebabButton,
 		Modal,
-		Tooltip
+		Tooltip,
+		Link
 	} from '@gitbutler/ui';
 
 	import VirtualList from '@gitbutler/ui/components/VirtualList.svelte';
@@ -99,6 +103,7 @@
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
 	let promptConfigModal = $state<CodegenPromptConfigModal>();
 	let virtualList = $state<VirtualList<Message>>();
+	let inputRef = $state<CodegenInput>();
 
 	const modelOptions: { label: string; value: ModelType }[] = [
 		{ label: 'Haiku', value: 'haiku' },
@@ -124,12 +129,21 @@
 	const promptTemplates = $derived(claudeCodeService.promptTemplates(projectId));
 	const promptDirs = $derived(claudeCodeService.promptDirs(projectId));
 
+	// Parse templates once and cache the results
+	const parsedTemplates = $derived(
+		promptTemplates.response ? parseTemplates(promptTemplates.response) : []
+	);
+
+	// Get templates in display format for UI components
+	const templatesForDisplay = $derived(templatesToDisplayFormat(parsedTemplates));
+
 	async function openPromptConfigDir(path: string) {
 		await claudeCodeService.createPromptDir({ projectId, path });
 
 		const editorUri = getEditorUri({
 			schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-			path: [path]
+			path: [path],
+			searchParams: { windowId: '_blank' }
 		});
 
 		urlService.openExternalUrl(editorUri);
@@ -221,7 +235,7 @@
 		permissionMode: reactive(() => selectedPermissionMode)
 	});
 
-	const initialPrompt = $state.snapshot(messageSender.prompt);
+	const initialPrompt = $derived(messageSender.prompt);
 
 	async function sendMessage(prompt: string) {
 		await messageSender.sendMessage(prompt, attachments);
@@ -231,9 +245,11 @@
 		}, 100);
 	}
 
-	function insertTemplate(template: string) {
+	function insertTemplate(templateContent: string) {
 		const currentPrompt = messageSender.prompt;
-		messageSender.setPrompt(currentPrompt + (currentPrompt ? '\n\n' : '') + template);
+		const newPrompt = currentPrompt + (currentPrompt ? '\n\n' : '') + templateContent;
+		messageSender.setPrompt(newPrompt);
+		inputRef?.setText(newPrompt);
 		templateContextMenu?.close();
 	}
 
@@ -358,16 +374,16 @@
 								{formatCompactNumber(stats.tokens)}
 							</span>
 						</Tooltip>
-					{/if}
 
-					<Tooltip text="{contextUsage}% context used">
-						<div class="context-utilization-scale" style="--context-utilization: {contextUsage}">
-							<svg viewBox="0 0 17 17">
-								<circle class="bg-circle" cx="8.5" cy="8.5" r="6.5" />
-								<circle class="progress-circle" cx="8.5" cy="8.5" r="6.5" />
-							</svg>
-						</div>
-					</Tooltip>
+						<Tooltip text="{contextUsage}% context used">
+							<div class="context-utilization-scale" style="--context-utilization: {contextUsage}">
+								<svg viewBox="0 0 17 17">
+									<circle class="bg-circle" cx="8.5" cy="8.5" r="6.5" />
+									<circle class="progress-circle" cx="8.5" cy="8.5" r="6.5" />
+								</svg>
+							</div>
+						</Tooltip>
+					{/if}
 
 					<KebabButton>
 						{#snippet contextMenu({ close })}
@@ -491,22 +507,72 @@
 					<CodegenTodoAccordion {todos} />
 				{/if}
 
-				{#if !isStackActive && formattedMessages.length === 0}
+				{#if claudeAvailable.response?.status === 'not_available' && formattedMessages.length === 0}
+					<div class="no-agent-placeholder">
+						<div class="no-agent-placeholder__content">
+							{@html noClaudeCodeSvg}
+							<h2 class="text-serif-42">Connect Claude Code</h2>
+							<p class="text-13 text-body clr-text-2">
+								If you haven't installed Claude Code, check our <Link
+									class="clr-text-1"
+									href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
+									>installation guide</Link
+								>.
+								<br />
+								Click the button below to check if Claude Code is now available.
+							</p>
+
+							<div>
+								<ClaudeCheck />
+							</div>
+						</div>
+
+						<p class="text-12 text-body clr-text-2">
+							Having trouble connecting?
+							<br />
+							Check the <Link href="https://docs.claude.com/en/docs/claude-code/troubleshooting"
+								>troubleshooting guide</Link
+							> for common issues and solutions.
+						</p>
+					</div>
+				{:else if !isStackActive && formattedMessages.length === 0}
 					<div class="chat-view__placeholder">
-						<EmptyStatePlaceholder
-							image={laneNewSvg}
-							width={320}
-							topBottomPadding={0}
-							bottomMargin={0}
-						>
-							{#snippet title()}
-								Let's build something amazing
+						<div class="chat-view__placeholder-content">
+							<EmptyStatePlaceholder
+								image={laneNewSvg}
+								width={320}
+								topBottomPadding={0}
+								bottomMargin={0}
+							>
+								{#snippet title()}
+									Let's build something amazing
+								{/snippet}
+								{#snippet caption()}
+									Your branch is ready for AI.
+									<br />
+									What should we code?
+								{/snippet}
+							</EmptyStatePlaceholder>
+						</div>
+
+						<ReduxResult result={promptTemplates.result} {projectId}>
+							{#snippet children(_templates)}
+								<CodegenTemplatesCarousel
+									templates={templatesForDisplay}
+									onInsertTemplate={(template) => {
+										const fullTemplate = parsedTemplates.find(
+											(t) => t.fileName === template.fileName
+										);
+										if (fullTemplate) {
+											insertTemplate(fullTemplate.parsed.content);
+										}
+									}}
+									onEdit={() => {
+										promptConfigModal?.show();
+									}}
+								/>
 							{/snippet}
-							{#snippet caption()}
-								Your branch is ready for AI-powered development. Describe what you'd like to build,
-								and I'll generate the code to get you started.
-							{/snippet}
-						</EmptyStatePlaceholder>
+						</ReduxResult>
 					</div>
 				{:else}
 					<VirtualList
@@ -544,10 +610,13 @@
 
 			{#snippet input()}
 				{#if claudeAvailable.response?.status === 'not_available'}
-					<CodegenChatClaudeNotAvaliableBanner onSettingsBtnClick={() => settingsModal?.show()} />
+					{#if formattedMessages.length > 0}
+						<CodegenChatClaudeNotAvaliableBanner onSettingsBtnClick={() => settingsModal?.show()} />
+					{/if}
 				{:else}
 					{@const status = currentStatus(events, isStackActive)}
 					<CodegenInput
+						bind:this={inputRef}
 						{projectId}
 						{stackId}
 						branchName={stableBranchName}
@@ -710,11 +779,17 @@
 >
 	<ContextMenuSection>
 		<ReduxResult result={promptTemplates.result} {projectId}>
-			{#snippet children(promptTemplates, { projectId: _projectId })}
-				{#each promptTemplates as template}
+			{#snippet children(_promptTemplates, { projectId: _projectId })}
+				{#each parsedTemplates as template}
+					{@const displayName = template.parsed.name || template.fileName}
+
 					<ContextMenuItem
-						label={template.label}
-						onclick={() => insertTemplate(template.template)}
+						label={displayName}
+						emoji={template.parsed.emoji || undefined}
+						icon={template.parsed.emoji ? undefined : 'script'}
+						onclick={() => {
+							insertTemplate(template.parsed.content);
+						}}
 					/>
 				{/each}
 			{/snippet}
@@ -723,8 +798,11 @@
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Edit templates"
-			icon="open-editor"
-			onclick={() => promptConfigModal?.show()}
+			icon="edit"
+			onclick={() => {
+				promptConfigModal?.show();
+				templateContextMenu?.close();
+			}}
 		/>
 	</ContextMenuSection>
 </ContextMenu>
@@ -743,9 +821,17 @@
 	.chat-view__placeholder {
 		display: flex;
 		flex: 1;
+		flex-direction: column;
+	}
+
+	.chat-view__placeholder-content {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: 0 32px;
+		padding: 28px;
+		text-align: center;
 	}
 
 	.context-utilization-scale {
@@ -798,5 +884,22 @@
 			background: var(--clr-text-3);
 			content: '';
 		}
+	}
+
+	.no-agent-placeholder {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		height: 100%;
+		padding: 40px;
+	}
+
+	.no-agent-placeholder__content {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		height: 100%;
+		margin-bottom: 32px;
+		gap: 18px;
 	}
 </style>
