@@ -1,0 +1,10 @@
+{
+  "created": {
+    "id": "experiment",
+    "path": "[TEMP_PATH]/.git/gitbutler/worktrees/experiment",
+    "createdFromRef": "refs/heads/A",
+    "base": "9477ae721ab521d9d0174f70e804ce3ff9f6fb56"
+  },
+  "branchName": "gitbutler/worktree/experiment",
+  "baseCommitMessage": "add A/n"
+}
