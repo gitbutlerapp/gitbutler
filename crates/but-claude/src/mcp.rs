@@ -17,6 +17,8 @@ use rmcp::{
     schemars, tool, tool_handler, tool_router,
 };
 
+use crate::permissions::{PermissionCheck, Permissions};
+
 pub async fn start(repo_path: &Path) -> Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let client_info = Arc::new(Mutex::new(None));
@@ -24,6 +26,7 @@ pub async fn start(repo_path: &Path) -> Result<()> {
     let server = Mcp {
         project,
         tool_router: Mcp::tool_router(),
+        runtime_permissions: Default::default(),
     };
     let service = server.serve(transport).await?;
     let info = service.peer_info();
@@ -35,10 +38,11 @@ pub async fn start(repo_path: &Path) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Mcp {
     project: Project,
     tool_router: ToolRouter<Self>,
+    runtime_permissions: Arc<Mutex<Permissions>>,
 }
 
 #[tool_router(vis = "pub")]
@@ -47,7 +51,7 @@ impl Mcp {
         name = "approval_prompt",
         description = "Permission check for tool calls"
     )]
-    pub async fn approval_prompt(
+    pub fn approval_prompt(
         &self,
         request: Parameters<McpPermissionRequest>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
@@ -79,6 +83,19 @@ impl Mcp {
         req: crate::ClaudePermissionRequest,
         timeout: std::time::Duration,
     ) -> anyhow::Result<bool> {
+        // If we already have the permission handled, we can skip the user asking
+        {
+            let result = (*self.runtime_permissions.lock().unwrap())
+                .check(&req)
+                .unwrap_or_default();
+
+            match result {
+                PermissionCheck::Approved => return Ok(true),
+                PermissionCheck::Denied => return Ok(false),
+                _ => (),
+            };
+        }
+
         let app_settings = AppSettings::load_from_default_path_creating()?;
 
         // Send notification for permission request
@@ -104,6 +121,7 @@ impl Mcp {
         )?;
         let mut approved_state = false;
         let start_time = std::time::Instant::now();
+
         for item in rx {
             if start_time.elapsed() > timeout {
                 eprintln!("Timeout waiting for permission approval (1 day)");
@@ -113,8 +131,18 @@ impl Mcp {
                 Ok(ItemKind::ClaudePermissionRequests) => {
                     if let Some(updated) = ctx.db()?.claude_permission_requests().get(&req.id)? {
                         if let Some(decision_str) = updated.decision {
-                            let decision: crate::PermissionDecision = serde_json::from_str(&decision_str)?;
+                            let decision: crate::PermissionDecision =
+                                serde_json::from_str(&decision_str)?;
                             approved_state = decision.is_allowed();
+
+                            // Handle the decision - persist to settings and update runtime permissions
+                            let project_path = self.project.worktree_dir()?.canonicalize()?;
+                            let mut runtime_perms = self.runtime_permissions.lock().unwrap();
+                            if let Err(e) = decision.handle(&req, &project_path, &mut runtime_perms)
+                            {
+                                tracing::warn!("Failed to handle permission decision: {}", e);
+                            }
+
                             break;
                         }
                     } else {

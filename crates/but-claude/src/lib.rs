@@ -189,6 +189,133 @@ impl PermissionDecision {
                 | PermissionDecision::AllowAlways
         )
     }
+
+    /// Handle the decision by performing the appropriate action based on the variant
+    pub fn handle(
+        &self,
+        request: &ClaudePermissionRequest,
+        project_path: &std::path::Path,
+        runtime_permissions: &mut crate::permissions::Permissions,
+    ) -> anyhow::Result<()> {
+        use crate::permissions::{
+            Permission, SerializationContext, SettingsKind, add_permission_to_settings,
+        };
+
+        // Extract permissions from the request (may be multiple for bash with && or ||)
+        let permissions = Permission::from_request(request)?;
+
+        // Build serialization context
+        let home_path = dirs::home_dir()
+            .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+        let global_claude_dir = home_path.join(".claude");
+
+        match self {
+            PermissionDecision::AllowOnce => {
+                // Single request - no persistence needed
+                Ok(())
+            }
+            PermissionDecision::AllowSession => {
+                for permission in permissions {
+                    runtime_permissions.add_approved(permission);
+                }
+                Ok(())
+            }
+            PermissionDecision::AllowProject => {
+                let ctx =
+                    SerializationContext::new(&home_path, project_path, &global_claude_dir, false);
+                let settings_path = project_path.join(".claude/settings.local.json");
+
+                // Ensure .claude directory exists
+                if let Some(parent) = settings_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+
+                for permission in permissions {
+                    add_permission_to_settings(
+                        &SettingsKind::Allow,
+                        &permission,
+                        &ctx,
+                        &settings_path,
+                    )?;
+                    runtime_permissions.add_approved(permission);
+                }
+                Ok(())
+            }
+            PermissionDecision::AllowAlways => {
+                let ctx =
+                    SerializationContext::new(&home_path, project_path, &global_claude_dir, true);
+                let settings_path = home_path.join(".claude/settings.json");
+
+                // Ensure .claude directory exists
+                if let Some(parent) = settings_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+
+                for permission in permissions {
+                    add_permission_to_settings(
+                        &SettingsKind::Allow,
+                        &permission,
+                        &ctx,
+                        &settings_path,
+                    )?;
+                    runtime_permissions.add_approved(permission);
+                }
+                Ok(())
+            }
+            PermissionDecision::DenyOnce => {
+                // Single request - no persistence needed
+                Ok(())
+            }
+            PermissionDecision::DenySession => {
+                for permission in permissions {
+                    runtime_permissions.add_denied(permission);
+                }
+                Ok(())
+            }
+            PermissionDecision::DenyProject => {
+                let ctx =
+                    SerializationContext::new(&home_path, project_path, &global_claude_dir, false);
+                let settings_path = project_path.join(".claude/settings.local.json");
+
+                // Ensure .claude directory exists
+                if let Some(parent) = settings_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+
+                for permission in permissions {
+                    add_permission_to_settings(
+                        &SettingsKind::Deny,
+                        &permission,
+                        &ctx,
+                        &settings_path,
+                    )?;
+                    runtime_permissions.add_denied(permission);
+                }
+                Ok(())
+            }
+            PermissionDecision::DenyAlways => {
+                let ctx =
+                    SerializationContext::new(&home_path, project_path, &global_claude_dir, true);
+                let settings_path = home_path.join(".claude/settings.json");
+
+                // Ensure .claude directory exists
+                if let Some(parent) = settings_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+
+                for permission in permissions {
+                    add_permission_to_settings(
+                        &SettingsKind::Deny,
+                        &permission,
+                        &ctx,
+                        &settings_path,
+                    )?;
+                    runtime_permissions.add_denied(permission);
+                }
+                Ok(())
+            }
+        }
+    }
 }
 
 /// Represents a request for permission to use a tool in the Claude MCP.

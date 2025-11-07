@@ -37,7 +37,8 @@
 							style="standalone"
 							{toolCall}
 							requiresApproval={{
-								onPermissionDecision: async (id, decision) => await onPermissionDecision?.(id, decision)
+								onPermissionDecision: async (id, decision) =>
+									await onPermissionDecision?.(id, decision)
 							}}
 						/>
 					{/each}
