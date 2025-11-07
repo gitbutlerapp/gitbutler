@@ -95,6 +95,18 @@ pub async fn claude_get_session_details(
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
 #[instrument(err(Debug))]
+pub fn claude_get_user_message(
+    project_id: ProjectId,
+    offset: Option<i64>,
+) -> Result<Option<ClaudeMessage>, Error> {
+    let project = gitbutler_project::get(project_id)?;
+    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    Ok(but_claude::db::get_user_message(&mut ctx, offset)?)
+}
+
+#[api_cmd]
+#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[instrument(err(Debug))]
 pub fn claude_list_permission_requests(
     project_id: ProjectId,
 ) -> Result<Vec<but_claude::ClaudePermissionRequest>, Error> {

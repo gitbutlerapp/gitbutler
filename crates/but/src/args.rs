@@ -316,6 +316,13 @@ pub mod claude {
         Stop,
         #[clap(alias = "pp")]
         PermissionPromptMcp,
+        /// Get the last user message (for testing purposes)
+        #[clap(hide = true)]
+        Last {
+            /// Offset to skip N most recent messages (positive integer)
+            #[clap(long, short = 'o', default_value = "0")]
+            offset: usize,
+        },
     }
 }
 
