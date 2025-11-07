@@ -12,7 +12,6 @@
 	import CodegenPromptConfigModal from '$components/codegen/CodegenPromptConfigModal.svelte';
 	import CodegenServiceMessageThinking from '$components/codegen/CodegenServiceMessageThinking.svelte';
 	import CodegenServiceMessageUseTool from '$components/codegen/CodegenServiceMessageUseTool.svelte';
-	import CodegenTemplatesCarousel from '$components/codegen/CodegenTemplatesCarousel.svelte';
 	import CodegenTodoAccordion from '$components/codegen/CodegenTodoAccordion.svelte';
 	import noClaudeCodeSvg from '$lib/assets/empty-state/claude-disconected.svg?raw';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
@@ -28,7 +27,7 @@
 		getTodos,
 		type Message
 	} from '$lib/codegen/messages';
-	import { parseTemplates, templatesToDisplayFormat } from '$lib/codegen/templateParser';
+	import { parseTemplates } from '$lib/codegen/templateParser';
 
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { vscodePath } from '$lib/project/project';
@@ -133,9 +132,6 @@
 	const parsedTemplates = $derived(
 		promptTemplates.response ? parseTemplates(promptTemplates.response) : []
 	);
-
-	// Get templates in display format for UI components
-	const templatesForDisplay = $derived(templatesToDisplayFormat(parsedTemplates));
 
 	async function openPromptConfigDir(path: string) {
 		await claudeCodeService.createPromptDir({ projectId, path });
@@ -537,42 +533,21 @@
 					</div>
 				{:else if !isStackActive && formattedMessages.length === 0}
 					<div class="chat-view__placeholder">
-						<div class="chat-view__placeholder-content">
-							<EmptyStatePlaceholder
-								image={laneNewSvg}
-								width={320}
-								topBottomPadding={0}
-								bottomMargin={0}
-							>
-								{#snippet title()}
-									Let's build something amazing
-								{/snippet}
-								{#snippet caption()}
-									Your branch is ready for AI.
-									<br />
-									What should we code?
-								{/snippet}
-							</EmptyStatePlaceholder>
-						</div>
-
-						<ReduxResult result={promptTemplates.result} {projectId}>
-							{#snippet children(_templates)}
-								<CodegenTemplatesCarousel
-									templates={templatesForDisplay}
-									onInsertTemplate={(template) => {
-										const fullTemplate = parsedTemplates.find(
-											(t) => t.fileName === template.fileName
-										);
-										if (fullTemplate) {
-											insertTemplate(fullTemplate.parsed.content);
-										}
-									}}
-									onEdit={() => {
-										promptConfigModal?.show();
-									}}
-								/>
+						<EmptyStatePlaceholder
+							image={laneNewSvg}
+							width={320}
+							topBottomPadding={0}
+							bottomMargin={0}
+						>
+							{#snippet title()}
+								Let's build something amazing
 							{/snippet}
-						</ReduxResult>
+							{#snippet caption()}
+								Your branch is ready for AI.
+								<br />
+								What should we code?
+							{/snippet}
+						</EmptyStatePlaceholder>
 					</div>
 				{:else}
 					<VirtualList
@@ -822,16 +797,9 @@
 		display: flex;
 		flex: 1;
 		flex-direction: column;
-	}
-
-	.chat-view__placeholder-content {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		padding: 28px;
-		text-align: center;
 	}
 
 	.context-utilization-scale {
