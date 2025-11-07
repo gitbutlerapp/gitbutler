@@ -17,6 +17,7 @@ import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
 import { kotlin } from '@codemirror/legacy-modes/mode/clike';
 import { commonLisp } from '@codemirror/legacy-modes/mode/commonlisp';
+import { jinja2 } from '@codemirror/legacy-modes/mode/jinja2';
 import { lua } from '@codemirror/legacy-modes/mode/lua';
 import { powerShell } from '@codemirror/legacy-modes/mode/powershell';
 import { protobuf } from '@codemirror/legacy-modes/mode/protobuf';
@@ -278,6 +279,11 @@ export function parserFromExtension(extension: string): Parser | undefined {
 
 		case 'java':
 			return java().language.parser;
+
+		case 'j2':
+		case 'jinja':
+		case 'jinja2':
+			return StreamLanguage.define(jinja2).parser;
 
 		case 'kt':
 		case 'kts':
