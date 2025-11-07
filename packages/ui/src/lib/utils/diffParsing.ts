@@ -28,6 +28,7 @@ import { swift } from '@codemirror/legacy-modes/mode/swift';
 import { toml } from '@codemirror/legacy-modes/mode/toml';
 import { NodeType, Tree, Parser } from '@lezer/common';
 import { tags, highlightTree } from '@lezer/highlight';
+import { nix } from '@replit/codemirror-lang-nix';
 import { hcl } from 'codemirror-lang-hcl';
 import diff_match_patch from 'diff-match-patch';
 import type { BrandedId } from '$lib/utils/branding';
@@ -322,6 +323,9 @@ export function parserFromExtension(extension: string): Parser | undefined {
 
 		case 'md':
 			return markdown().language.parser;
+
+		case 'nix':
+			return nix().language.parser;
 
 		// case 'text/x-coffeescript':
 		//     return new LanguageSupport(await CodeMirror.coffeescript());

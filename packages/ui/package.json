@@ -51,6 +51,7 @@
 		"@lezer/common": "^1.2.3",
 		"@lezer/highlight": "^1.2.1",
 		"@playwright/experimental-ct-svelte": "^1.56.1",
+		"@replit/codemirror-lang-nix": "^6.0.1",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
 		"@storybook/addon-docs": "^10.0.2",
 		"@storybook/addon-links": "^10.0.2",
