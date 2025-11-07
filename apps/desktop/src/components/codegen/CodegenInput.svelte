@@ -194,6 +194,11 @@
 		'Describe what to build.',
 		'What to code?'
 	];
+
+	// Expose method to set text programmatically (e.g., for template insertion)
+	export function setText(text: string) {
+		editorRef?.setText(text);
+	}
 </script>
 
 <div class="dialog-wrapper">

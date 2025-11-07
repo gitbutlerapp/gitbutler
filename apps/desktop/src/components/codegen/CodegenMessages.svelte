@@ -101,6 +101,7 @@
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
 	let promptConfigModal = $state<CodegenPromptConfigModal>();
 	let virtualList = $state<VirtualList<Message>>();
+	let inputRef = $state<CodegenInput>();
 
 	const modelOptions: { label: string; value: ModelType }[] = [
 		{ label: 'Haiku', value: 'haiku' },
@@ -224,7 +225,7 @@
 		permissionMode: reactive(() => selectedPermissionMode)
 	});
 
-	const initialPrompt = $state.snapshot(messageSender.prompt);
+	const initialPrompt = $derived(messageSender.prompt);
 
 	async function sendMessage(prompt: string) {
 		await messageSender.sendMessage(prompt, attachments);
@@ -236,7 +237,9 @@
 
 	function insertTemplate(template: string) {
 		const currentPrompt = messageSender.prompt;
-		messageSender.setPrompt(currentPrompt + (currentPrompt ? '\n\n' : '') + template);
+		const newPrompt = currentPrompt + (currentPrompt ? '\n\n' : '') + template;
+		messageSender.setPrompt(newPrompt);
+		inputRef?.setText(newPrompt);
 		templateContextMenu?.close();
 	}
 
@@ -581,6 +584,7 @@
 				{:else}
 					{@const status = currentStatus(events, isStackActive)}
 					<CodegenInput
+						bind:this={inputRef}
 						{projectId}
 						{stackId}
 						branchName={stableBranchName}
