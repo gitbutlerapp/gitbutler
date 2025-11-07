@@ -591,8 +591,8 @@ importers:
         specifier: ^6.11.2
         version: 6.11.2
       '@codemirror/legacy-modes':
-        specifier: ^6.5.1
-        version: 6.5.1
+        specifier: ^6.5.2
+        version: 6.5.2
       '@csstools/postcss-bundler':
         specifier: ^1.0.15
         version: 1.0.15(postcss@8.5.6)
@@ -737,6 +737,9 @@ importers:
       '@codemirror/lang-css':
         specifier: ^6.3.1
         version: 6.3.1
+      '@codemirror/lang-go':
+        specifier: ^6.0.1
+        version: 6.0.1
       '@codemirror/lang-html':
         specifier: ^6.4.9
         version: 6.4.9
@@ -770,12 +773,15 @@ importers:
       '@codemirror/lang-xml':
         specifier: ^6.1.0
         version: 6.1.0
+      '@codemirror/lang-yaml':
+        specifier: ^6.1.2
+        version: 6.1.2
       '@codemirror/language':
         specifier: ^6.11.2
         version: 6.11.2
       '@codemirror/legacy-modes':
-        specifier: ^6.5.1
-        version: 6.5.1
+        specifier: ^6.5.2
+        version: 6.5.2
       '@csstools/postcss-bundler':
         specifier: ^2.0.8
         version: 2.0.8(postcss@8.5.6)
@@ -791,6 +797,9 @@ importers:
       '@playwright/experimental-ct-svelte':
         specifier: ^1.56.1
         version: 1.56.1(@types/node@24.3.0)(sass-embedded@1.82.0)(svelte@5.38.0)(tsx@4.19.3)(vite@6.3.5(@types/node@24.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.8.1))(yaml@2.8.1)
+      '@replit/codemirror-lang-nix':
+        specifier: ^6.0.1
+        version: 6.0.1(@codemirror/autocomplete@6.18.6)(@codemirror/language@6.11.2)(@codemirror/state@6.5.2)(@codemirror/view@6.38.1)(@lezer/common@1.2.3)(@lezer/highlight@1.2.1)(@lezer/lr@1.4.2)
       '@replit/codemirror-lang-svelte':
         specifier: ^6.0.0
         version: 6.0.0(@codemirror/autocomplete@6.18.6)(@codemirror/lang-css@6.3.1)(@codemirror/lang-html@6.4.9)(@codemirror/lang-javascript@6.2.4)(@codemirror/language@6.11.2)(@codemirror/state@6.5.2)(@codemirror/view@6.38.1)(@lezer/common@1.2.3)(@lezer/highlight@1.2.1)(@lezer/javascript@1.5.1)(@lezer/lr@1.4.2)
@@ -830,6 +839,12 @@ importers:
       autoprefixer:
         specifier: ^10.4.21
         version: 10.4.21(postcss@8.5.6)
+      codemirror-lang-elixir:
+        specifier: ^4.0.0
+        version: 4.0.0
+      codemirror-lang-hcl:
+        specifier: ^0.1.0
+        version: 0.1.0
       cpy-cli:
         specifier: ^5.0.0
         version: 5.0.0
@@ -1041,8 +1056,8 @@ packages:
   '@codemirror/language@6.11.2':
     resolution: {integrity: sha512-p44TsNArL4IVXDTbapUmEkAlvWs2CFQbcfc0ymDsis1kH2wh0gcY96AS29c/vp2d0y2Tquk1EDSaawpzilUiAw==}
 
-  '@codemirror/legacy-modes@6.5.1':
-    resolution: {integrity: sha512-DJYQQ00N1/KdESpZV7jg9hafof/iBNp9h7TYo1SLMk86TWl9uDsVdho2dzd81K+v4retmK6mdC7WpuOQDytQqw==}
+  '@codemirror/legacy-modes@6.5.2':
+    resolution: {integrity: sha512-/jJbwSTazlQEDOQw2FJ8LEEKVS72pU0lx6oM54kGpL8t/NJ2Jda3CZ4pcltiKTdqYSRk3ug1B3pil1gsjA6+8Q==}
 
   '@codemirror/lint@6.8.5':
     resolution: {integrity: sha512-s3n3KisH7dx3vsoeGMxsbRAgKe4O1vbrnKBClm99PU0fWxmxsx5rR2PfqQgIt+2MMJBHbiJ5rfIdLYfB9NNvsA==}
@@ -2312,6 +2327,17 @@ packages:
         optional: true
       react-redux:
         optional: true
+
+  '@replit/codemirror-lang-nix@6.0.1':
+    resolution: {integrity: sha512-lvzjoYn9nfJzBD5qdm3Ut6G3+Or2wEacYIDJ49h9+19WSChVnxv4ojf+rNmQ78ncuxIt/bfbMvDLMeMP0xze6g==}
+    peerDependencies:
+      '@codemirror/autocomplete': ^6.0.0
+      '@codemirror/language': ^6.0.0
+      '@codemirror/state': ^6.0.0
+      '@codemirror/view': ^6.0.0
+      '@lezer/common': ^1.0.0
+      '@lezer/highlight': ^1.0.0
+      '@lezer/lr': ^1.0.0
 
   '@replit/codemirror-lang-svelte@6.0.0':
     resolution: {integrity: sha512-U2OqqgMM6jKelL0GNWbAmqlu1S078zZNoBqlJBW+retTc5M4Mha6/Y2cf4SVg6ddgloJvmcSpt4hHrVoM4ePRA==}
@@ -3958,6 +3984,12 @@ packages:
   clsx@2.1.1:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
+
+  codemirror-lang-elixir@4.0.0:
+    resolution: {integrity: sha512-mzFesxo/t6KOxwnkqVd34R/q7yk+sMtHh6vUKGAvjwHmpL7bERHB+vQAsmU/nqrndkwVeJEHWGw/z/ybfdiudA==}
+
+  codemirror-lang-hcl@0.1.0:
+    resolution: {integrity: sha512-duwKEaQDhkJWad4YQ9pv4282BS6hCdR+gS/qTAj3f9bypXNNZ42bIN43h9WK3DjyZRENtVlUQdrQM1sA44wHmA==}
 
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
@@ -5652,6 +5684,9 @@ packages:
 
   lexical@0.27.1:
     resolution: {integrity: sha512-EXlRE/NQO9quKFuz4Z2pu5f48oF8LZOAw0YpN0RmGQx2CbqmEi7SIgO+d+NUKVx9Qs1vX0DL5S7GJpvpZBOE3w==}
+
+  lezer-elixir@1.1.2:
+    resolution: {integrity: sha512-K3yPMJcNhqCL6ugr5NkgOC1g37rcOM38XZezO9lBXy0LwWFd8zdWXfmRbY829vZVk0OGCQoI02yDWp9FF2OWZA==}
 
   lib0@0.2.114:
     resolution: {integrity: sha512-gcxmNFzA4hv8UYi8j43uPlQ7CGcyMJ2KQb5kZASw6SnAKAf10hK12i2fjrS3Cl/ugZa5Ui6WwIu1/6MIXiHttQ==}
@@ -8429,7 +8464,7 @@ snapshots:
       '@lezer/lr': 1.4.2
       style-mod: 4.1.2
 
-  '@codemirror/legacy-modes@6.5.1':
+  '@codemirror/legacy-modes@6.5.2':
     dependencies:
       '@codemirror/language': 6.11.2
 
@@ -9854,6 +9889,16 @@ snapshots:
       reselect: 5.1.1
     optionalDependencies:
       react: 19.1.1
+
+  '@replit/codemirror-lang-nix@6.0.1(@codemirror/autocomplete@6.18.6)(@codemirror/language@6.11.2)(@codemirror/state@6.5.2)(@codemirror/view@6.38.1)(@lezer/common@1.2.3)(@lezer/highlight@1.2.1)(@lezer/lr@1.4.2)':
+    dependencies:
+      '@codemirror/autocomplete': 6.18.6
+      '@codemirror/language': 6.11.2
+      '@codemirror/state': 6.5.2
+      '@codemirror/view': 6.38.1
+      '@lezer/common': 1.2.3
+      '@lezer/highlight': 1.2.1
+      '@lezer/lr': 1.4.2
 
   '@replit/codemirror-lang-svelte@6.0.0(@codemirror/autocomplete@6.18.6)(@codemirror/lang-css@6.3.1)(@codemirror/lang-html@6.4.9)(@codemirror/lang-javascript@6.2.4)(@codemirror/language@6.11.2)(@codemirror/state@6.5.2)(@codemirror/view@6.38.1)(@lezer/common@1.2.3)(@lezer/highlight@1.2.1)(@lezer/javascript@1.5.1)(@lezer/lr@1.4.2)':
     dependencies:
@@ -11881,6 +11926,17 @@ snapshots:
     optional: true
 
   clsx@2.1.1: {}
+
+  codemirror-lang-elixir@4.0.0:
+    dependencies:
+      '@codemirror/language': 6.11.2
+      lezer-elixir: 1.1.2
+
+  codemirror-lang-hcl@0.1.0:
+    dependencies:
+      '@codemirror/language': 6.11.2
+      '@lezer/highlight': 1.2.1
+      '@lezer/lr': 1.4.2
 
   color-convert@2.0.1:
     dependencies:
@@ -13928,6 +13984,11 @@ snapshots:
       type-check: 0.4.0
 
   lexical@0.27.1: {}
+
+  lezer-elixir@1.1.2:
+    dependencies:
+      '@lezer/highlight': 1.2.1
+      '@lezer/lr': 1.4.2
 
   lib0@0.2.114:
     dependencies:

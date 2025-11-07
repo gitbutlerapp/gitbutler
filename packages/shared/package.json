@@ -52,7 +52,7 @@
 		"@codemirror/lang-xml": "^6.1.0",
 		"@codemirror/lang-yaml": "^6.1.2",
 		"@codemirror/language": "^6.11.2",
-		"@codemirror/legacy-modes": "^6.5.1",
+		"@codemirror/legacy-modes": "^6.5.2",
 		"@csstools/postcss-bundler": "^1.0.15",
 		"@gitbutler/core": "workspace:*",
 		"@gitbutler/ui": "workspace:*",
