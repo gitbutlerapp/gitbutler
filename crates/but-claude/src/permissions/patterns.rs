@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use gix::glob::wildmatch::Mode;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// Context for serializing permission patterns
@@ -27,7 +28,7 @@ impl SerializationContext {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BashPattern {
     base: String,
     /// If this is true, the match must be exact, otherwise a partial match is permitted
@@ -75,7 +76,7 @@ impl BashPattern {
 /// Claude always gives us an absolute path so we should match against that.
 ///
 /// Our representation of a path pattern will be an absolute glob.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathPattern {
     /// Absolute glob path
     ///
@@ -147,7 +148,7 @@ impl PathPattern {
 
 /// What kind of pattern to serialize as.
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PathPatternKind {
     HomeRelative,
     Absolute,
@@ -182,7 +183,7 @@ impl PathPattern {
 ///
 /// In practice, I'm not entirly sure if WebFetch actually requires
 /// permissions...
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UrlPattern {
     FullMatch(String),
     Domain(String),
@@ -212,7 +213,7 @@ impl UrlPattern {
 }
 
 /// Matching for an MCP server or server tool
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpPattern {
     pattern: String,
 }

@@ -158,8 +158,8 @@ async fn match_subcommand(
                 metrics_if_configured(app_settings, CommandName::ClaudeStop, p).ok();
                 Ok(())
             }
-            claude::Subcommands::PermissionPromptMcp => {
-                but_claude::mcp::start(&args.current_dir).await
+            claude::Subcommands::PermissionPromptMcp { session_id } => {
+                but_claude::mcp::start(&args.current_dir, session_id).await
             }
             claude::Subcommands::Last { offset } => {
                 let project = get_or_init_project(&args.current_dir)?;

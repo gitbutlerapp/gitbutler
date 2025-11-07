@@ -4,11 +4,13 @@ mod settings;
 use anyhow::{Context, Result};
 pub use patterns::SerializationContext;
 use patterns::*;
+use serde::{Deserialize, Serialize};
 pub use settings::{SettingsKind, add_permission_to_settings};
 
 use crate::ClaudePermissionRequest;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "subject")]
 pub enum Permission {
     Bash(Option<BashPattern>),
     Write(Option<PathPattern>),
@@ -130,6 +132,31 @@ pub enum PermissionCheck {
 // ClaudePermissionRequest { id: "toolu_01B3WY7EaVhZoNnCZt5zXJ3a", created_at: 2025-11-06T13:21:27.041897, updated_at: 2025-11-06T13:21:27.041910, tool_name: "WebSearch", input: Object {"query": String("GitButler virtual branches git client")}, decision: None }
 
 impl Permissions {
+    pub fn new(approved: Vec<Permission>, denied: Vec<Permission>) -> Self {
+        Self { approved, denied }
+    }
+
+    /// Create permissions from slices, cloning the data
+    pub fn from_slices(approved: &[Permission], denied: &[Permission]) -> Self {
+        Self {
+            approved: approved.to_vec(),
+            denied: denied.to_vec(),
+        }
+    }
+
+    /// Merge multiple permission sources into one
+    pub fn merge<'a>(sources: impl IntoIterator<Item = &'a Self>) -> Self {
+        let mut approved = Vec::new();
+        let mut denied = Vec::new();
+
+        for source in sources {
+            approved.extend_from_slice(&source.approved);
+            denied.extend_from_slice(&source.denied);
+        }
+
+        Self { approved, denied }
+    }
+
     pub fn check(&self, request: &ClaudePermissionRequest) -> Result<PermissionCheck> {
         let terms = extract_terms_to_match(request)?;
 
@@ -161,6 +188,16 @@ impl Permissions {
     /// Add a denied permission to the runtime permissions
     pub fn add_denied(&mut self, permission: Permission) {
         self.denied.push(permission);
+    }
+
+    /// Get the approved permissions
+    pub fn approved(&self) -> &[Permission] {
+        &self.approved
+    }
+
+    /// Get the denied permissions
+    pub fn denied(&self) -> &[Permission] {
+        &self.denied
     }
 }
 

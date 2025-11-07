@@ -114,7 +114,7 @@ impl ClaudeMcpConfig {
         out
     }
 
-    pub fn mcp_servers_with_security(&self) -> McpConfig {
+    pub fn mcp_servers_with_security(&self, current_session_id: uuid::Uuid) -> McpConfig {
         let cli_path = get_cli_path()
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or("but".into());
@@ -125,7 +125,12 @@ impl ClaudeMcpConfig {
                 r#type: Some("stdio".to_owned()),
                 command: Some(cli_path),
                 url: None,
-                args: Some(vec!["claude".to_owned(), "pp".to_owned()]),
+                args: Some(vec![
+                    "claude".to_owned(),
+                    "permission-prompt-mcp".to_owned(),
+                    "--session-id".to_owned(),
+                    current_session_id.to_string(),
+                ]),
                 env: Some(HashMap::new()),
                 headers: None,
             },

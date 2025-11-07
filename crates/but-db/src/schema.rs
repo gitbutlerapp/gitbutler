@@ -63,6 +63,8 @@ diesel::table! {
         created_at -> Timestamp,
         updated_at -> Timestamp,
         in_gui -> Bool,
+        approved_permissions -> Text,
+        denied_permissions -> Text,
     }
 }
 

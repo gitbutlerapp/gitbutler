@@ -23,6 +23,8 @@ pub fn save_new_session_with_gui_flag(
         created_at: now,
         updated_at: now,
         in_gui,
+        approved_permissions: vec![],
+        denied_permissions: vec![],
     };
     ctx.db()?
         .claude_sessions()
@@ -63,6 +65,23 @@ pub fn set_session_in_gui(
     ctx.db()?
         .claude_sessions()
         .update_in_gui(&session_id.to_string(), in_gui)?;
+    Ok(())
+}
+
+/// Updates the permissions for a given session in the database.
+pub fn update_session_permissions(
+    ctx: &mut CommandContext,
+    session_id: Uuid,
+    approved_permissions: &[crate::Permission],
+    denied_permissions: &[crate::Permission],
+) -> anyhow::Result<()> {
+    let approved_json = serde_json::to_string(approved_permissions)?;
+    let denied_json = serde_json::to_string(denied_permissions)?;
+    ctx.db()?.claude_sessions().update_permissions(
+        &session_id.to_string(),
+        &approved_json,
+        &denied_json,
+    )?;
     Ok(())
 }
 
@@ -189,6 +208,10 @@ impl TryFrom<but_db::ClaudeSession> for crate::ClaudeSession {
     type Error = anyhow::Error;
     fn try_from(value: but_db::ClaudeSession) -> Result<Self, Self::Error> {
         let session_ids: Vec<Uuid> = serde_json::from_str(&value.session_ids)?;
+        let approved_permissions: Vec<crate::Permission> =
+            serde_json::from_str(&value.approved_permissions)?;
+        let denied_permissions: Vec<crate::Permission> =
+            serde_json::from_str(&value.denied_permissions)?;
         Ok(crate::ClaudeSession {
             id: Uuid::parse_str(&value.id)?,
             current_id: Uuid::parse_str(&value.current_id)?,
@@ -196,6 +219,8 @@ impl TryFrom<but_db::ClaudeSession> for crate::ClaudeSession {
             created_at: value.created_at,
             updated_at: value.updated_at,
             in_gui: value.in_gui,
+            approved_permissions,
+            denied_permissions,
         })
     }
 }
@@ -204,6 +229,8 @@ impl TryFrom<crate::ClaudeSession> for but_db::ClaudeSession {
     type Error = anyhow::Error;
     fn try_from(value: crate::ClaudeSession) -> Result<Self, Self::Error> {
         let session_ids = serde_json::to_string(&value.session_ids)?;
+        let approved_permissions = serde_json::to_string(&value.approved_permissions)?;
+        let denied_permissions = serde_json::to_string(&value.denied_permissions)?;
         Ok(but_db::ClaudeSession {
             id: value.id.to_string(),
             current_id: value.current_id.to_string(),
@@ -211,6 +238,8 @@ impl TryFrom<crate::ClaudeSession> for but_db::ClaudeSession {
             created_at: value.created_at,
             updated_at: value.updated_at,
             in_gui: value.in_gui,
+            approved_permissions,
+            denied_permissions,
         })
     }
 }

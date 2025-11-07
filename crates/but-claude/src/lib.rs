@@ -22,16 +22,18 @@ pub mod db;
 pub mod hooks;
 pub mod mcp;
 pub mod notifications;
-mod permissions;
+pub mod permissions;
 pub mod prompt_templates;
 mod rules;
+
+pub use permissions::Permission;
 
 /// Represents a Claude Code session that GitButler is tracking.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeSession {
     /// The unique and stable identifier for the session. This is the first session_id that was used.
-    id: Uuid,
+    pub id: Uuid,
     /// The most recent session ID. If a session is stopped and resumed, Claude will copy over the past context into a new session. This value is unique.
     current_id: Uuid,
     /// All session IDs that have been used for this session, including the current one.
@@ -42,6 +44,20 @@ pub struct ClaudeSession {
     updated_at: chrono::NaiveDateTime,
     /// Whether this session is used by the GUI.
     pub in_gui: bool,
+    /// Permissions that have been approved for this session.
+    approved_permissions: Vec<Permission>,
+    /// Permissions that have been denied for this session.
+    denied_permissions: Vec<Permission>,
+}
+
+impl ClaudeSession {
+    pub fn approved_permissions(&self) -> &[Permission] {
+        &self.approved_permissions
+    }
+
+    pub fn denied_permissions(&self) -> &[Permission] {
+        &self.denied_permissions
+    }
 }
 
 /// Represents a message in a Claude session, referencing the stable session ID.
@@ -196,6 +212,8 @@ impl PermissionDecision {
         request: &ClaudePermissionRequest,
         project_path: &std::path::Path,
         runtime_permissions: &mut crate::permissions::Permissions,
+        ctx: Option<&mut gitbutler_command_context::CommandContext>,
+        session_id: Option<uuid::Uuid>,
     ) -> anyhow::Result<()> {
         use crate::permissions::{
             Permission, SerializationContext, SettingsKind, add_permission_to_settings,
@@ -215,8 +233,19 @@ impl PermissionDecision {
                 Ok(())
             }
             PermissionDecision::AllowSession => {
-                for permission in permissions {
-                    runtime_permissions.add_approved(permission);
+                // Add to runtime permissions
+                for permission in &permissions {
+                    runtime_permissions.add_approved(permission.clone());
+                }
+
+                // Also save to session database if available
+                if let (Some(ctx), Some(sess_id)) = (ctx, session_id)
+                    && let Ok(Some(session)) = crate::db::get_session_by_current_id(ctx, sess_id)
+                {
+                    let mut approved = session.approved_permissions().to_vec();
+                    approved.extend(permissions);
+                    let denied = session.denied_permissions().to_vec();
+                    crate::db::update_session_permissions(ctx, session.id, &approved, &denied)?;
                 }
                 Ok(())
             }
@@ -267,8 +296,19 @@ impl PermissionDecision {
                 Ok(())
             }
             PermissionDecision::DenySession => {
-                for permission in permissions {
-                    runtime_permissions.add_denied(permission);
+                // Add to runtime permissions
+                for permission in &permissions {
+                    runtime_permissions.add_denied(permission.clone());
+                }
+
+                // Also save to session database if available
+                if let (Some(ctx), Some(sess_id)) = (ctx, session_id)
+                    && let Ok(Some(session)) = crate::db::get_session_by_current_id(ctx, sess_id)
+                {
+                    let approved = session.approved_permissions().to_vec();
+                    let mut denied = session.denied_permissions().to_vec();
+                    denied.extend(permissions);
+                    crate::db::update_session_permissions(ctx, session.id, &approved, &denied)?;
                 }
                 Ok(())
             }
