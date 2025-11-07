@@ -27,8 +27,6 @@ pub struct Args {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    /// Show commits on active branches in your workspace.
-    Log,
     /// Overview of the uncommitted changes in the repository.
     #[clap(alias = "st")]
     Status {
@@ -196,8 +194,6 @@ For examples see `but rub --help`."
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
 pub enum CommandName {
-    #[clap(alias = "log")]
-    Log,
     #[clap(alias = "st")]
     Status,
     #[clap(alias = "stf", hide = true)]
