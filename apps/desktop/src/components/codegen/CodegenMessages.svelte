@@ -747,14 +747,23 @@
 				{#each promptTemplates as template}
 					<ContextMenuItem
 						label={template.label}
-						onclick={() => insertTemplate(template.template)}
+						onclick={() => {
+							insertTemplate(template.template);
+						}}
 					/>
 				{/each}
 			{/snippet}
 		</ReduxResult>
 	</ContextMenuSection>
 	<ContextMenuSection>
-		<ContextMenuItem label="Edit templates" icon="edit" onclick={() => promptConfigModal?.show()} />
+		<ContextMenuItem
+			label="Edit templates"
+			icon="edit"
+			onclick={() => {
+				promptConfigModal?.show();
+				templateContextMenu?.close();
+			}}
+		/>
 	</ContextMenuSection>
 </ContextMenu>
 
