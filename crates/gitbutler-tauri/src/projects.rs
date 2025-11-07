@@ -114,7 +114,6 @@ fn reconcile_in_workspace_state_of_vb_toml(ctx: &mut CommandContext) -> Option<(
         )
         .ok()?;
     let ws = graph.to_workspace().ok()?;
-    graph.open_as_svg();
 
     let mut seen = BTreeSet::new();
     for in_workspace_stack_id in ws.stacks.iter().filter_map(|s| s.id) {

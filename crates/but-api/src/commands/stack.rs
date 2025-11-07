@@ -81,7 +81,8 @@ pub fn create_reference(
         .transpose()?;
 
     let mut guard = ctx.project().exclusive_worktree_access();
-    let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
+    let (repo, mut meta, graph) =
+        ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
     let graph = but_workspace::branch::create_reference(
         new_ref.clone(),
         anchor,
@@ -112,7 +113,8 @@ pub fn create_branch(
     if ctx.app_settings().feature_flags.ws3 {
         use but_workspace::branch::create_reference::Position::Above;
         let mut guard = project.exclusive_worktree_access();
-        let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
+        let (repo, mut meta, graph) =
+            ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
         let ws = graph.to_workspace()?;
         let stack = ws.try_find_stack_by_id(stack_id)?;
         let new_ref = Category::LocalBranch
@@ -176,7 +178,8 @@ pub fn remove_branch(
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let mut guard = project.exclusive_worktree_access();
     if ctx.app_settings().feature_flags.ws3 {
-        let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
+        let (repo, mut meta, graph) =
+            ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
         let ws = graph.to_workspace()?;
         let ref_name = Category::LocalBranch
             .to_full_name(branch_name.as_str())

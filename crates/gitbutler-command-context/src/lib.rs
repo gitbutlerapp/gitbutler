@@ -142,7 +142,7 @@ impl CommandContext {
     /// for until the end of the operation for the protection to be effective.
     ///
     /// Use [`Self::graph_and_meta()`] if control over the repository configuration is needed.
-    pub fn graph_and_meta_mut_and_repo(
+    pub fn graph_and_meta_mut_and_repo_from_head(
         &self,
         _write: &mut WorktreeWritePermission,
     ) -> Result<(

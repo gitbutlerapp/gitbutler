@@ -155,7 +155,7 @@ impl BranchManager<'_> {
         // Assume that this is always about 'apply' and hijack the entire method.
         // That way we'd learn what's missing.
         if self.ctx.app_settings().feature_flags.apply3 {
-            let (repo, mut meta, graph) = self.ctx.graph_and_meta_mut_and_repo(perm)?;
+            let (repo, mut meta, graph) = self.ctx.graph_and_meta_mut_and_repo_from_head(perm)?;
             let ws = graph.to_workspace()?;
             let target = target.to_string();
             let branch_to_apply = target.as_str().try_into()?;
