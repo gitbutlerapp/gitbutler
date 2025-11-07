@@ -26,13 +26,8 @@
 			</button>
 		{/each}
 
-		<button
-			type="button"
-			class="templates-card templates-edit"
-			onclick={onEdit}
-			title="Edit Templates"
-		>
-			<Icon name="mixer" color="var(--clr-text-2)" />
+		<button type="button" class="templates-card templates-edit" onclick={onEdit}>
+			<Icon name="edit" color="var(--clr-text-2)" />
 			<div class="text-13 text-semibold">Edit…</div>
 		</button>
 	</div>

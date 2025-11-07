@@ -21,6 +21,9 @@
 	let showSuccess = $state(false);
 	let hideResultTimer: ReturnType<typeof setTimeout> | undefined = $state();
 
+	// Check availability on mount to show correct initial state
+	const availabilityQuery = $derived(claudeCodeService.checkAvailable(undefined));
+
 	$effect(() => {
 		if (settingsStore.current?.claude) {
 			claudeExecutable = settingsStore.current.claude.executable;
@@ -58,11 +61,6 @@
 					hideResultTimer = undefined;
 				}, 3000);
 			}
-
-			// Show path input if connection failed
-			if (recheckedAvailability === 'recheck-failed') {
-				showClaudeCodePathInput = true;
-			}
 		} finally {
 			isChecking = false;
 		}
@@ -80,13 +78,18 @@
 		showSuccess = false;
 	}
 
-	let showClaudeCodePathInput = $state(false);
+	// Derived state to check if Claude Code is not available
+	const isClaudeNotAvailable = $derived(
+		recheckedAvailability === 'recheck-failed' ||
+			(recheckedAvailability === undefined &&
+				availabilityQuery.response?.status === 'not_available')
+	);
 </script>
 
 {#if showTitle}
 	<div class="flex items-center gap-8 m-b-6">
 		<div class="flex items-center gap-8 flex-1">
-			{#if recheckedAvailability === 'recheck-failed'}
+			{#if isClaudeNotAvailable}
 				<Icon name="warning" color="warning" />
 				<h4 class="text-16 text-semibold text-body">Claude Code can't be found</h4>
 			{:else}
@@ -94,46 +97,19 @@
 				<h4 class="text-16 text-semibold text-body">Claude code is connected</h4>
 			{/if}
 		</div>
-
-		<button
-			class="underline-dotted text-12 clr-text-2"
-			type="button"
-			onclick={() => {
-				showClaudeCodePathInput = !showClaudeCodePathInput;
-			}}
-		>
-			{showClaudeCodePathInput ? 'Hide' : 'Specify'} Claude Code path
-		</button>
 	</div>
 {/if}
 
 <div class="claude-config">
-	{#if showClaudeCodePathInput}
-		<Textbox
-			label="Claude Code path:"
-			value={claudeExecutable}
-			placeholder="Path to the Claude Code executable"
-			onchange={updateClaudeExecutable}
-			error={recheckedAvailability === 'recheck-failed'
-				? "Couldn't connect. Check the path and try again"
-				: undefined}
-		/>
-	{/if}
-
-	{#if !showClaudeCodePathInput && !showTitle}
-		<p class="text-13 text-body m-b-6">
-			<span class="clr-text-2">Advanced:</span>
-			<button
-				class="underline-dotted"
-				type="button"
-				onclick={() => {
-					showClaudeCodePathInput = true;
-				}}
-			>
-				{showClaudeCodePathInput ? 'Hide' : 'Specify'} Claude Code path
-			</button>
-		</p>
-	{/if}
+	<Textbox
+		label="Claude Code path:"
+		value={claudeExecutable}
+		placeholder="Path to the Claude Code executable"
+		onchange={updateClaudeExecutable}
+		error={recheckedAvailability === 'recheck-failed'
+			? "Couldn't connect. Check the path and try again"
+			: undefined}
+	/>
 
 	{#if showSuccess}
 		<div
@@ -157,16 +133,6 @@
 </div>
 
 <style lang="postcss">
-	.claude-check {
-		display: flex;
-		align-items: center;
-		padding: 10px 14px;
-		gap: 14px;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
-	}
-
 	.claude-config {
 		display: flex;
 		flex-direction: column;
@@ -187,11 +153,6 @@
 		&.success {
 			background-color: var(--clr-theme-succ-soft);
 			color: var(--clr-theme-succ-on-soft);
-		}
-
-		&.error {
-			background-color: var(--clr-theme-err-soft);
-			color: var(--clr-theme-err-on-soft);
 		}
 	}
 </style>
