@@ -1,9 +1,9 @@
-use std::io::{self, Write};
-
+use atty::Stream;
 use but_settings::AppSettings;
 use but_workspace::{StackId, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use std::io::{self, Write};
 
 mod list;
 
@@ -126,7 +126,11 @@ pub async fn handle(
                     anchor,
                 },
             )?;
-            println!("Created branch {branch_name}");
+            if atty::is(Stream::Stdout) {
+                println!("Created branch {branch_name}");
+            } else {
+                println!("{branch_name}");
+            }
             Ok(())
         }
         Some(Subcommands::Delete { branch_name, force }) => {

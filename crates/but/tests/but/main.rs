@@ -1,3 +1,4 @@
+mod branch;
 mod commit;
 mod journey;
 mod rub;
