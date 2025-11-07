@@ -22,7 +22,6 @@ mod forge;
 mod gui;
 mod id;
 mod init;
-mod log;
 mod mark;
 mod mcp;
 mod mcp_internal;
@@ -203,13 +202,6 @@ async fn match_subcommand(
             let result = worktree::handle(cmd, &project, args.json);
             metrics_if_configured(app_settings, CommandName::Worktree, props(start, &result)).ok();
             result
-        }
-        Subcommands::Log => {
-            let project = get_or_init_project(&args.current_dir)?;
-            let result = log::commit_graph(&project, args.json);
-            metrics_if_configured(app_settings, CommandName::Log, props(start, &result)).ok();
-            result?;
-            Ok(())
         }
         Subcommands::Status {
             show_files,
@@ -435,7 +427,7 @@ fn print_grouped_help() {
 
     // Define command groupings and their order (excluding MISC)
     let groups = [
-        ("Inspection".yellow(), vec!["status", "log"]),
+        ("Inspection".yellow(), vec!["status"]),
         (
             "Branching and Committing".yellow(),
             vec!["commit", "push", "new", "branch", "base", "mark", "unmark"],
