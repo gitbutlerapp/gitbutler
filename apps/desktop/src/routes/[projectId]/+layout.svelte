@@ -265,7 +265,7 @@
 		if (autoFetchIntervalMinutes < 0) {
 			return;
 		}
-		// fetchRemoteForProject();
+		fetchRemoteForProject();
 		clearFetchInterval();
 		const intervalMs = autoFetchIntervalMinutes * 60 * 1000;
 		intervalId = setInterval(async () => {
