@@ -187,6 +187,7 @@ For examples see `but rub --help`."
         #[clap(value_enum)]
         shell: Option<clap_complete::Shell>,
     },
+    /// Automatically absorb uncomitted changes to an existing commit
     Absorb {
         /// If the CliID is an uncommitted change - the change will be absorbed
         /// If the CliID is a stack - anything assigned to the stack will be absorbed accordingly
