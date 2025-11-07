@@ -19,6 +19,7 @@ import { kotlin } from '@codemirror/legacy-modes/mode/clike';
 import { powerShell } from '@codemirror/legacy-modes/mode/powershell';
 import { protobuf } from '@codemirror/legacy-modes/mode/protobuf';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
+import { toml } from '@codemirror/legacy-modes/mode/toml';
 import { NodeType, Tree, Parser } from '@lezer/common';
 import { tags, highlightTree } from '@lezer/highlight';
 import diff_match_patch from 'diff-match-patch';
@@ -336,6 +337,9 @@ export function parserFromExtension(extension: string): Parser | undefined {
 
 		case 'rb':
 			return StreamLanguage.define(ruby).parser;
+
+		case 'toml':
+			return StreamLanguage.define(toml).parser;
 
 		case 'yml':
 		case 'yaml':
