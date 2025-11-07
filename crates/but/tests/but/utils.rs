@@ -122,6 +122,22 @@ impl Sandbox {
             .redact_with(redactions)
     }
 
+    /// Create an assert with path redactions for worktree tests
+    pub fn assert_with_path_redactions(&self) -> Assert {
+        let mut redactions = Redactions::new();
+        // Redact the actual sandbox temporary directory path
+        let projects_root = self
+            .projects_root()
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        redactions.insert("[TEMP_PATH]", projects_root).unwrap();
+        Assert::new()
+            .action_env("SNAPSHOTS")
+            .redact_with(redactions)
+    }
+
     /// Print the paths to our directories, and keep them.
     pub fn debug(mut self) -> ! {
         eprintln!(
