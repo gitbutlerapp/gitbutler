@@ -3,9 +3,29 @@ use but_settings::AppSettings;
 use but_workspace::{StackId, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use serde::Serialize;
 use std::io::{self, Write};
 
 mod list;
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+enum BranchNewResponse {
+    Success(BranchNewOutput),
+    Error(BranchNewError),
+}
+
+#[derive(Debug, Serialize)]
+struct BranchNewOutput {
+    branch: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    anchor: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct BranchNewError {
+    error: String,
+}
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -51,7 +71,7 @@ pub enum Subcommands {
 pub async fn handle(
     cmd: &Option<Subcommands>,
     project: &Project,
-    _json: bool,
+    json: bool,
 ) -> anyhow::Result<()> {
     match cmd {
         None => {
@@ -69,13 +89,24 @@ pub async fn handle(
             let branch_name = if let Some(name) = branch_name {
                 let repo = ctx.gix_repo()?;
                 if repo.try_find_reference(name)?.is_some() {
-                    println!("Branch '{name}' already exists");
+                    if json {
+                        let response = BranchNewResponse::Error(BranchNewError {
+                            error: format!("Branch '{}' already exists", name),
+                        });
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        println!("Branch '{name}' already exists");
+                    }
                     return Ok(());
                 }
                 name.clone()
             } else {
                 but_api::workspace::canned_branch_name(project.id)?
             };
+
+            // Store anchor string for JSON output
+            let anchor_for_json = anchor.clone();
+
             let anchor = if let Some(anchor_str) = anchor {
                 // Use the new create_reference API when anchor is provided
                 let mut ctx = ctx; // Make mutable for CliId resolution
@@ -126,7 +157,14 @@ pub async fn handle(
                     anchor,
                 },
             )?;
-            if atty::is(Stream::Stdout) {
+
+            if json {
+                let response = BranchNewResponse::Success(BranchNewOutput {
+                    branch: branch_name,
+                    anchor: anchor_for_json,
+                });
+                println!("{}", serde_json::to_string_pretty(&response)?);
+            } else if atty::is(Stream::Stdout) {
                 println!("Created branch {branch_name}");
             } else {
                 println!("{branch_name}");
