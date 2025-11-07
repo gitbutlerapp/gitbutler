@@ -176,10 +176,10 @@ pub async fn handle_multiple_branches_in_workspace(
 
     if json {
         let outcome_json = serde_json::to_string_pretty(&overall_outcome)?;
-        writeln!(stdout, "{}", outcome_json).ok();
+        writeln!(stdout, "{}", outcome_json)?;
     } else {
-        writeln!(stdout,).ok();
-        display_review_publication_summary(overall_outcome)?;
+        writeln!(stdout).ok();
+        display_review_publication_summary(overall_outcome).ok();
     }
 
     Ok(())

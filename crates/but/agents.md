@@ -3,6 +3,7 @@
     - Obtain `stdout` once per function using `let mut stdout = std::io::stdout();`
     - Use `stdout` when writing: `writeln!(stdout, "…").ok();`
     - Use `atty::is` to print human output, otherwise print output optimised for use in bash scripts, when single values are returned.
+    - **But** when writing `json`, always use `writeln!(stdout, "{json_pretty}")?`
 * Error or side-channel information goes to `stderr` with `writeln!(stderr, …).ok()`.
     - Obtain `stderr` once per function using `let mut stderr = std::io::stderr();`
     - Use `stderr` when writing: `writeln!(stderr, "…").ok();`

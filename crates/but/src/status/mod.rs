@@ -107,7 +107,7 @@ pub(crate) async fn worktree(
             common_merge_base: common_merge_base_data,
         };
         let json_output = serde_json::to_string_pretty(&worktree_status)?;
-        writeln!(stdout, "{json_output}").ok();
+        writeln!(stdout, "{json_output}")?;
         return Ok(());
     }
 
@@ -255,7 +255,7 @@ pub fn print_group(
             .ok();
             *stack_mark = None; // Only show the stack mark for the first branch
             if first {
-                print_assignments(&assignments, changes, false)?;
+                print_assignments(&assignments, changes, false).ok();
             }
             first = false;
             for commit in &branch.upstream_commits {
@@ -315,7 +315,7 @@ pub fn print_group(
             stack_mark.clone().unwrap_or_default()
         )
         .ok();
-        print_assignments(&assignments, changes, true)?;
+        print_assignments(&assignments, changes, true).ok();
     }
     if !first {
         writeln!(stdout, "├╯").ok();

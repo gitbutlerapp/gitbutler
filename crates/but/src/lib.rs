@@ -43,7 +43,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     // Check if help is requested with no subcommand
     if args.len() == 1 || args.iter().any(|arg| arg == "--help" || arg == "-h") && args.len() == 2 {
-        print_grouped_help()?;
+        print_grouped_help().ok();
         return Ok(());
     }
 
@@ -52,7 +52,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     if args_vec.iter().any(|arg| arg == "push")
         && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
     {
-        push::print_help()?;
+        push::print_help().ok();
         return Ok(());
     }
 
@@ -91,7 +91,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         }
         None => {
             // No subcommand and no source/target means help was requested
-            print_grouped_help()?;
+            print_grouped_help().ok();
             Ok(())
         }
         Some(cmd) => match_subcommand(cmd, args, app_settings, start).await,
