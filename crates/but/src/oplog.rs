@@ -42,7 +42,7 @@ pub(crate) fn show_oplog(project: &Project, json: bool, since: Option<&str>) -> 
 
     if snapshots.is_empty() {
         if json {
-            writeln!(stdout, "[]").ok();
+            writeln!(stdout, "[]")?;
         } else {
             writeln!(stdout, "No operations found in history.").ok();
         }
@@ -52,7 +52,7 @@ pub(crate) fn show_oplog(project: &Project, json: bool, since: Option<&str>) -> 
     if json {
         // Output JSON format
         let json_output = serde_json::to_string_pretty(&snapshots)?;
-        writeln!(stdout, "{json_output}").ok();
+        writeln!(stdout, "{json_output}")?;
     } else {
         // Output human-readable format
         writeln!(stdout, "{}", "Operations History".blue().bold()).ok();
@@ -271,7 +271,7 @@ pub(crate) fn create_snapshot(
             "message": message.unwrap_or(""),
             "operation": "create_snapshot"
         });
-        writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?).ok();
+        writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?)?;
     } else {
         writeln!(
             stdout,

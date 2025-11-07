@@ -137,7 +137,7 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
                     branch: branch_name,
                     anchor: anchor_for_json,
                 };
-                writeln!(stdout, "{}", serde_json::to_string_pretty(&response)?).ok();
+                writeln!(stdout, "{}", serde_json::to_string_pretty(&response)?)?;
             } else if atty::is(Stream::Stdout) {
                 writeln!(stdout, "Created branch {branch_name}").ok();
             } else {

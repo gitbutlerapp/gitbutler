@@ -87,7 +87,7 @@ pub fn handle_inner(
             };
             let output = but_api::worktree::worktree_new(project.id, reference)?;
             if json {
-                writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?).ok();
+                writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?)?;
             } else {
                 writeln!(
                     stdout,
@@ -104,7 +104,7 @@ pub fn handle_inner(
         Subcommands::List => {
             let output = but_api::worktree::worktree_list(project.id)?;
             if json {
-                writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?).ok();
+                writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?)?;
             } else if output.entries.is_empty() {
                 writeln!(stdout, "No worktrees found").ok();
             } else {
@@ -157,7 +157,7 @@ pub fn handle_inner(
                 )?;
 
                 if json {
-                    writeln!(stdout, "{}", serde_json::to_string_pretty(&status)?).ok();
+                    writeln!(stdout, "{}", serde_json::to_string_pretty(&status)?)?;
                 } else {
                     writeln!(stdout, "Integration status for worktree: {}", id.as_str()).ok();
                     writeln!(stdout, "Target: {}", target_ref).ok();
@@ -209,7 +209,7 @@ pub fn handle_inner(
                 but_api::worktree::worktree_integrate(project.id, id.clone(), target_ref.clone())?;
 
                 if json {
-                    writeln!(stdout, "{{\"status\": \"success\"}}").ok();
+                    writeln!(stdout, "{{\"status\": \"success\"}}")?;
                 } else {
                     writeln!(stdout, "Successfully integrated worktree: {}", id.as_str()).ok();
                     writeln!(stdout, "Target: {}", target_ref).ok();
@@ -234,7 +234,7 @@ pub fn handle_inner(
                 )?;
 
                 if json {
-                    writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?).ok();
+                    writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?)?;
                 } else if output.destroyed_ids.is_empty() {
                     writeln!(stdout, "No worktrees found for reference: {}", reference).ok();
                 } else {
@@ -255,7 +255,7 @@ pub fn handle_inner(
                 let output = but_api::worktree::worktree_destroy_by_id(project.id, id.clone())?;
 
                 if json {
-                    writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?).ok();
+                    writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?)?;
                 } else {
                     writeln!(stdout, "Destroyed worktree: {}", id.as_str()).ok();
                 }

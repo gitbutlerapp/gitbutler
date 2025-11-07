@@ -150,90 +150,83 @@ pub fn handle(args: Args, project: &Project, _json: bool) -> anyhow::Result<()> 
     Ok(())
 }
 
-pub fn print_help() {
+pub fn print_help() -> std::io::Result<()> {
     let stdout = std::io::stdout();
     let mut stdout = stdout.lock();
 
     // Print basic push help
-    writeln!(stdout, "Push a branch/stack to remote").ok();
-    writeln!(stdout,).ok();
-    writeln!(stdout, "Usage: but push [OPTIONS] <BRANCH_ID>").ok();
-    writeln!(stdout,).ok();
-    writeln!(stdout, "Arguments:").ok();
-    writeln!(stdout, "  <BRANCH_ID>  Branch name or CLI ID to push").ok();
-    writeln!(stdout,).ok();
-    writeln!(stdout, "Options:").ok();
+    writeln!(stdout, "Push a branch/stack to remote")?;
+    writeln!(stdout,)?;
+    writeln!(stdout, "Usage: but push [OPTIONS] <BRANCH_ID>")?;
+    writeln!(stdout,)?;
+    writeln!(stdout, "Arguments:")?;
+    writeln!(stdout, "  <BRANCH_ID>  Branch name or CLI ID to push")?;
+    writeln!(stdout,)?;
+    writeln!(stdout, "Options:")?;
     writeln!(
         stdout,
         "  -f, --with-force                  Force push even if it's not fast-forward"
-    )
-    .ok();
+    )?;
     writeln!(
         stdout,
         "  -s, --skip-force-push-protection  Skip force push protection checks"
-    )
-    .ok();
+    )?;
     writeln!(
         stdout,
         "  -r, --run-hooks                   Run pre-push hooks"
-    )
-    .ok();
+    )?;
 
     // Check if gerrit mode is enabled and show gerrit options
     if is_gerrit_enabled_for_help() {
-        writeln!(stdout,).ok();
-        writeln!(stdout, "Gerrit Options:").ok();
+        writeln!(stdout,)?;
+        writeln!(stdout, "Gerrit Options:")?;
         writeln!(
             stdout,
             "  -w, --wip                         Mark change as work-in-progress"
-        )
-        .ok();
+        )?;
         writeln!(
             stdout,
             "  -y, --ready                       Mark change as ready for review (default)"
-        )
-        .ok();
+        )?;
         writeln!(
             stdout,
             "  -a, --hashtag, --tag <TAG>        Add hashtag to change (can be used multiple times)"
-        )
-        .ok();
+        )?;
         writeln!(
             stdout,
             "  -t, --topic <TOPIC>               Add custom topic to change"
-        )
-        .ok();
+        )?;
         writeln!(
             stdout,
             "      --tb, --topic-from-branch     Use branch name as topic"
-        )
-        .ok();
+        )?;
         writeln!(
             stdout,
             "  -p, --private                     Mark change as private"
-        )
-        .ok();
-        writeln!(stdout,).ok();
-        writeln!(stdout, "Notes:").ok();
+        )?;
+        writeln!(stdout,)?;
+        writeln!(stdout, "Notes:")?;
         writeln!(
             stdout,
             "  - --wip and --ready are mutually exclusive. Ready is the default state."
-        )
-        .ok();
-        writeln!(stdout,
+        )?;
+        writeln!(
+            stdout,
             "  - --topic and --topic-from-branch are mutually exclusive. At most one topic can be set."
-        ).ok();
+        )?;
         writeln!(
             stdout,
             "  - Multiple hashtags can be specified by using --hashtag (or --tag) multiple times."
-        )
-        .ok();
-        writeln!(stdout,
+        )?;
+        writeln!(
+            stdout,
             "  - Multiple flags can be combined (e.g., --ready --private --tag tag1 --hashtag tag2)."
-        ).ok();
+        )?;
     }
 
-    writeln!(stdout, "  -h, --help                        Print help").ok();
+    writeln!(stdout, "  -h, --help                        Print help")?;
+
+    Ok(())
 }
 
 fn is_gerrit_enabled_for_help() -> bool {

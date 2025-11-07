@@ -51,7 +51,7 @@ where
     let mut stdout = std::io::stdout();
     if json {
         let json = serde_json::to_string_pretty(&this)?;
-        writeln!(stdout, "{json}").ok();
+        writeln!(stdout, "{json}")?;
     } else {
         writeln!(stdout, "{this:#?}").ok();
     }

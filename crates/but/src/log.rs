@@ -22,7 +22,10 @@ pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> 
         .collect::<Vec<_>>();
 
     if json {
-        return output_json(stacks.into_iter().map(|(_, stack)| stack).collect());
+        let stacks: Vec<_> = stacks.into_iter().map(|(_, stack)| stack).collect();
+        let json_output = serde_json::to_string_pretty(&stacks)?;
+        writeln!(std::io::stdout(), "{json_output}")?;
+        return Ok(());
     }
 
     let mut nesting = 0;
@@ -222,10 +225,4 @@ pub(crate) fn stack_details(
     } else {
         but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
     }
-}
-
-fn output_json(stacks: Vec<but_workspace::ui::StackDetails>) -> anyhow::Result<()> {
-    let json_output = serde_json::to_string_pretty(&stacks)?;
-    writeln!(std::io::stdout(), "{json_output}").ok();
-    Ok(())
 }
