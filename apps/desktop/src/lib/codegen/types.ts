@@ -186,6 +186,19 @@ export function sessionMessage(sessionDetails: ClaudeSessionDetails): string | u
 
 export type ClaudeStatus = 'disabled' | 'enabled' | 'running' | 'compacting';
 
+/**
+ * Represents a permission decision with both the action (allow/deny) and scope.
+ */
+export type PermissionDecision =
+	| 'allowOnce'
+	| 'allowSession'
+	| 'allowProject'
+	| 'allowAlways'
+	| 'denyOnce'
+	| 'denySession'
+	| 'denyProject'
+	| 'denyAlways';
+
 export type ClaudePermissionRequest = {
 	/** Maps to the tool_use_id from the MCP request */
 	id: string;
@@ -197,8 +210,8 @@ export type ClaudePermissionRequest = {
 	toolName: string;
 	/** The input for the tool */
 	input: unknown;
-	/** The status of the request or null if not yet handled */
-	approved?: boolean;
+	/** The permission decision or null if not yet handled */
+	decision?: PermissionDecision;
 };
 
 export type ClaudeTodo = {

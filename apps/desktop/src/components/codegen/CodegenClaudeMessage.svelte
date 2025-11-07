@@ -6,13 +6,13 @@
 	import CodegenUserMessage from '$components/codegen/CodegenUserMessage.svelte';
 	import { type Message } from '$lib/codegen/messages';
 	import { Icon, Markdown } from '@gitbutler/ui';
+	import type { PermissionDecision } from '$lib/codegen/types';
 
 	type Props = {
 		message: Message;
-		onApproval?: (id: string) => Promise<void>;
-		onRejection?: (id: string) => Promise<void>;
+		onPermissionDecision?: (id: string, decision: PermissionDecision) => Promise<void>;
 	};
-	const { message, onApproval, onRejection }: Props = $props();
+	const { message, onPermissionDecision }: Props = $props();
 
 	let expanded = $state(false);
 </script>
@@ -37,8 +37,8 @@
 							style="standalone"
 							{toolCall}
 							requiresApproval={{
-								onApproval: async (id) => await onApproval?.(id),
-								onRejection: async (id) => await onRejection?.(id)
+								onPermissionDecision: async (id, decision) =>
+									await onPermissionDecision?.(id, decision)
 							}}
 						/>
 					{/each}

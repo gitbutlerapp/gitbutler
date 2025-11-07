@@ -5,7 +5,8 @@ resolver = "2"
 [workspace.dependencies]
 bstr = "1.12.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { version = "0.74.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [] }
+gix = { version = "0.74.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [
+] }
 gix-testtools = "0.16.1"
 insta = "1.43.2"
 git2 = { version = "0.20.0", features = [
@@ -32,6 +33,24 @@ tracing-subscriber = "0.3.20"
 tempfile = "3.23"
 rand = "0.9.2"
 notify-rust = "4.11.7"
+git2-hooks = { version = "0.5.0" }
+itertools = "0.14.0"
+dirs = "6.0.0"
+rmcp = { version = "0.8.3", default-features = false, features = [
+    "base64",
+    "server",
+    "macros",
+] }
+serde_json_lenient = "0.2.3"
+reqwest = { version = "0.12.24", default-features = false, features = [
+    "rustls-tls",
+] }
+chrono = { version = "0.4.42", default-features = false, features = ["std"] }
+md5 = "0.8.0"
+bitflags = "2.9.4"
+notify = "8.2.0"
+snapbox = "0.6.23"
+url = "2.5.7"
 
 gitbutler-id = { path = "crates/gitbutler-id" }
 gitbutler-git = { path = "crates/gitbutler-git" }
@@ -66,11 +85,16 @@ gitbutler-oxidize = { path = "crates/gitbutler-oxidize" }
 gitbutler-stack = { path = "crates/gitbutler-stack" }
 gitbutler-forge = { path = "crates/gitbutler-forge" }
 gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
-but-forge-storage = {path = "crates/but-forge-storage" }
+but-forge-storage = { path = "crates/but-forge-storage" }
 but-settings = { path = "crates/but-settings" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
-schemars = { version = "1.0.4", default-features = false, features = ["std", "derive"] }
-async-openai = { version = "0.30.1", default-features = false, features = ["rustls"] }
+schemars = { version = "1.0.4", default-features = false, features = [
+    "std",
+    "derive",
+] }
+async-openai = { version = "0.30.1", default-features = false, features = [
+    "rustls",
+] }
 but = { path = "crates/but" }
 but-testsupport = { path = "crates/but-testsupport" }
 but-rebase = { path = "crates/but-rebase" }
@@ -95,17 +119,6 @@ but-broadcaster = { path = "crates/but-broadcaster" }
 but-gerrit = { path = "crates/but-gerrit" }
 but-cherry-apply = { path = "crates/but-cherry-apply" }
 but-github = { path = "crates/but-github" }
-git2-hooks = { version = "0.5.0" }
-itertools = "0.14.0"
-dirs = "6.0.0"
-rmcp = { version = "0.8.3", default-features = false, features = ["base64", "server", "macros"] }
-serde_json_lenient = "0.2.3"
-reqwest = { version = "0.12.24", default-features = false, features = ["rustls-tls"] }
-chrono = { version = "0.4.42", default-features = false, features = ["std"] }
-md5 = "0.8.0"
-bitflags = "2.9.4"
-notify = "8.2.0"
-snapbox = "0.6.23"
 open = "5.3.2"
 
 [profile.release]
@@ -141,4 +154,3 @@ zlib-rs = { opt-level = 3 }
 # This one is special as we can run into debug assertions otherwise.
 # They have a time, but let's chose the time instead of always being hit by it.
 gix-merge = { opt-level = 3, debug-assertions = false }
-

@@ -376,6 +376,21 @@ async fn spawn_command(
     let app_settings = ctx.lock().await.app_settings().clone();
     let claude_executable = app_settings.claude.executable.clone();
     let cc_settings = ClaudeSettings::open(&project_path).await;
+
+    // Determine what session ID Claude will use - needed for MCP server configuration
+    let transcript_current_id =
+        Transcript::current_valid_session_id(&project_path, &session).await?;
+    let claude_session_id = if summary_to_resume.is_some() {
+        // If resuming after compaction, Claude will use a new random ID
+        uuid::Uuid::new_v4()
+    } else if let Some(current_id) = transcript_current_id {
+        // If resuming, Claude will use the existing current_id
+        current_id
+    } else {
+        // If starting new, Claude will use the stable session.id
+        session.id
+    };
+
     let mcp_config = ClaudeMcpConfig::open(&cc_settings, &project_path).await;
     let disabled_mcp_servers = user_params
         .disabled_mcp_servers
@@ -384,7 +399,7 @@ async fn spawn_command(
         .map(String::as_str)
         .collect::<Vec<&str>>();
     let mcp_config = &mcp_config
-        .mcp_servers_with_security()
+        .mcp_servers_with_security(claude_session_id)
         .exclude(&disabled_mcp_servers);
     tracing::info!(
         "spawn_command mcp_servers: {:?}",
@@ -445,20 +460,21 @@ async fn spawn_command(
         };
     }
 
-    let current_id = Transcript::current_valid_session_id(&project_path, &session).await?;
-
-    // If we are resuming after a compaction, we always want to create a new session with a random ID.
+    // Pass the session ID to Claude Code
+    // We've already determined claude_session_id earlier based on whether we're resuming or starting new
     if summary_to_resume.is_some() {
-        command.args(["--session-id", &format!("{}", uuid::Uuid::new_v4())]);
-    } else if let Some(current_id) = current_id {
-        command.args(["--resume", &format!("{current_id}")]);
+        // After compaction, start with a new session ID
+        command.args(["--session-id", &format!("{}", claude_session_id)]);
+    } else if transcript_current_id.is_some() {
+        // Resume existing session
+        command.args(["--resume", &format!("{}", claude_session_id)]);
     } else {
-        // Ensure that there isn't an existant invalid transcript
+        // Start new session - ensure there isn't an existing invalid transcript
         let path = Transcript::get_transcript_path(&project_path, session.id)?;
         if fs::try_exists(&path).await? {
             fs::remove_file(&path).await?;
         }
-        command.args(["--session-id", &format!("{}", session.id)]);
+        command.args(["--session-id", &format!("{}", claude_session_id)]);
     }
 
     command.args(["--append-system-prompt", SYSTEM_PROMPT]);

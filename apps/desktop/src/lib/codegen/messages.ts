@@ -113,7 +113,7 @@ export function formatMessages(
 					}
 
 					const permReq = permReqsById[toolCall.id];
-					if (permReq && !isDefined(permReq.approved)) {
+					if (permReq && !isDefined(permReq.decision)) {
 						lastAssistantMessage.toolCallsPendingApproval.push(toolCall);
 					} else {
 						if (permReq) {

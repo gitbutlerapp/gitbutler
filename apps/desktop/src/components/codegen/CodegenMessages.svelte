@@ -59,7 +59,13 @@
 
 	import VirtualList from '@gitbutler/ui/components/VirtualList.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
-	import type { ClaudeMessage, ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
+	import type {
+		ClaudeMessage,
+		ThinkingLevel,
+		ModelType,
+		PermissionMode,
+		PermissionDecision
+	} from '$lib/codegen/types';
 
 	type Props = {
 		projectId: string;
@@ -177,11 +183,8 @@
 		}
 	}
 
-	async function onApproval(id: string) {
-		await claudeCodeService.updatePermissionRequest({ projectId, requestId: id, approval: true });
-	}
-	async function onRejection(id: string) {
-		await claudeCodeService.updatePermissionRequest({ projectId, requestId: id, approval: false });
+	async function onPermissionDecision(id: string, decision: PermissionDecision) {
+		await claudeCodeService.updatePermissionRequest({ projectId, requestId: id, decision });
 	}
 	async function onAbort() {
 		await claudeCodeService.cancelSession({ projectId, stackId });
@@ -562,7 +565,7 @@
 					>
 						{#snippet chunkTemplate(messages)}
 							{#each messages as message}
-								<CodegenClaudeMessage {message} {onApproval} {onRejection} />
+								<CodegenClaudeMessage {message} {onPermissionDecision} />
 							{/each}
 						{/snippet}
 						{@const thinkingStatus = currentStatus(events, isStackActive)}

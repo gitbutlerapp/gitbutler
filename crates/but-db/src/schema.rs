@@ -63,6 +63,8 @@ diesel::table! {
         created_at -> Timestamp,
         updated_at -> Timestamp,
         in_gui -> Bool,
+        approved_permissions -> Text,
+        denied_permissions -> Text,
     }
 }
 
@@ -83,7 +85,7 @@ diesel::table! {
         updated_at -> Timestamp,
         tool_name -> Text,
         input -> Text,
-        approved -> Nullable<Bool>,
+        decision -> Nullable<Text>,
     }
 }
 

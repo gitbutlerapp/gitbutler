@@ -21,6 +21,8 @@ pub struct ClaudeSession {
     pub created_at: chrono::NaiveDateTime,
     pub updated_at: chrono::NaiveDateTime,
     pub in_gui: bool,
+    pub approved_permissions: String,
+    pub denied_permissions: String,
 }
 
 #[derive(
@@ -57,7 +59,7 @@ pub struct ClaudePermissionRequest {
     pub updated_at: chrono::NaiveDateTime,
     pub tool_name: String,
     pub input: String,
-    pub approved: Option<bool>,
+    pub decision: Option<String>,
 }
 
 impl DbHandle {
@@ -116,13 +118,17 @@ impl ClaudePermissionRequestsHandle<'_> {
         Ok(())
     }
 
-    pub fn set_approval(&mut self, id: &str, approved: bool) -> Result<(), diesel::result::Error> {
+    pub fn set_decision(
+        &mut self,
+        id: &str,
+        decision: Option<String>,
+    ) -> Result<(), diesel::result::Error> {
         diesel::update(
             crate::schema::claude_permission_requests::table
                 .filter(crate::schema::claude_permission_requests::id.eq(id)),
         )
         .set((
-            crate::schema::claude_permission_requests::approved.eq(approved),
+            crate::schema::claude_permission_requests::decision.eq(decision),
             crate::schema::claude_permission_requests::updated_at
                 .eq(chrono::Local::now().naive_local()),
         ))
@@ -197,6 +203,22 @@ impl ClaudeSessionsHandle<'_> {
         diesel::update(claude_sessions.filter(crate::schema::claude_sessions::id.eq(id)))
             .set((
                 crate::schema::claude_sessions::in_gui.eq(in_gui),
+                crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
+            ))
+            .execute(&mut self.db.conn)?;
+        Ok(())
+    }
+
+    pub fn update_permissions(
+        &mut self,
+        id: &str,
+        approved_permissions: &str,
+        denied_permissions: &str,
+    ) -> Result<(), diesel::result::Error> {
+        diesel::update(claude_sessions.filter(crate::schema::claude_sessions::id.eq(id)))
+            .set((
+                crate::schema::claude_sessions::approved_permissions.eq(approved_permissions),
+                crate::schema::claude_sessions::denied_permissions.eq(denied_permissions),
                 crate::schema::claude_sessions::updated_at.eq(chrono::Local::now().naive_local()),
             ))
             .execute(&mut self.db.conn)?;

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
 	import { getToolIcon } from '$lib/utils/codegenTools';
-	import { AsyncButton, Icon, Markdown } from '@gitbutler/ui';
+	import { DropdownButton, ContextMenuItem, Icon, Markdown } from '@gitbutler/ui';
+	import type { PermissionDecision } from '$lib/codegen/types';
 
 	export type RequiresApproval = {
-		onApproval: (id: string) => Promise<void>;
-		onRejection: (id: string) => Promise<void>;
+		onPermissionDecision: (id: string, decision: PermissionDecision) => Promise<void>;
 	};
 
 	type Props = {
@@ -17,6 +17,30 @@
 	const { toolCall, style, requiresApproval = undefined, fullWidth }: Props = $props();
 
 	let expanded = $derived(!!requiresApproval);
+	let allowDropdownButton = $state<ReturnType<typeof DropdownButton>>();
+	let denyDropdownButton = $state<ReturnType<typeof DropdownButton>>();
+
+	// Persisted state for selected permission scopes
+	type AllowDecision = 'allowOnce' | 'allowSession' | 'allowProject' | 'allowAlways';
+	type DenyDecision = 'denyOnce' | 'denySession' | 'denyProject' | 'denyAlways';
+
+	let selectedAllowDecision = $state<AllowDecision>('allowSession');
+	let selectedDenyDecision = $state<DenyDecision>('denySession');
+
+	// Labels for each decision type
+	const allowLabels: Record<AllowDecision, string> = {
+		allowOnce: 'Allow once',
+		allowProject: 'Allow this project',
+		allowSession: 'Allow in this session',
+		allowAlways: 'Allow always'
+	};
+
+	const denyLabels: Record<DenyDecision, string> = {
+		denyOnce: 'Deny once',
+		denySession: 'Deny this session',
+		denyProject: 'Deny this project',
+		denyAlways: 'Deny always'
+	};
 </script>
 
 <div class="tool-call {style}" class:full-width={fullWidth}>
@@ -42,16 +66,87 @@
 
 		{#if requiresApproval}
 			<div class="flex gap-4 m-l-8">
-				<AsyncButton
+				<DropdownButton
+					bind:this={denyDropdownButton}
+					style="error"
 					kind="outline"
-					size="tag"
-					action={async () => await requiresApproval.onRejection(toolCall.id)}>Reject</AsyncButton
+					onclick={async () => {
+						await requiresApproval.onPermissionDecision(toolCall.id, selectedDenyDecision);
+						denyDropdownButton?.close();
+					}}
 				>
-				<AsyncButton
+					{denyLabels[selectedDenyDecision]}
+					{#snippet contextMenuSlot()}
+						<ContextMenuItem
+							label="Deny once"
+							onclick={() => {
+								selectedDenyDecision = 'denyOnce';
+								denyDropdownButton?.close();
+							}}
+						/>
+						<ContextMenuItem
+							label="Deny in this session"
+							onclick={() => {
+								selectedDenyDecision = 'denySession';
+								denyDropdownButton?.close();
+							}}
+						/>
+						<ContextMenuItem
+							label="Deny in this project"
+							onclick={() => {
+								selectedDenyDecision = 'denyProject';
+								denyDropdownButton?.close();
+							}}
+						/>
+						<ContextMenuItem
+							label="Deny always"
+							onclick={() => {
+								selectedDenyDecision = 'denyAlways';
+								denyDropdownButton?.close();
+							}}
+						/>
+					{/snippet}
+				</DropdownButton>
+				<DropdownButton
+					bind:this={allowDropdownButton}
 					style="pop"
-					size="tag"
-					action={async () => await requiresApproval.onApproval(toolCall.id)}>Approve</AsyncButton
+					onclick={async () => {
+						await requiresApproval.onPermissionDecision(toolCall.id, selectedAllowDecision);
+						allowDropdownButton?.close();
+					}}
 				>
+					{allowLabels[selectedAllowDecision]}
+					{#snippet contextMenuSlot()}
+						<ContextMenuItem
+							label="Allow once"
+							onclick={() => {
+								selectedAllowDecision = 'allowOnce';
+								allowDropdownButton?.close();
+							}}
+						/>
+						<ContextMenuItem
+							label="Allow in this session"
+							onclick={() => {
+								selectedAllowDecision = 'allowSession';
+								allowDropdownButton?.close();
+							}}
+						/>
+						<ContextMenuItem
+							label="Allow in this project"
+							onclick={() => {
+								selectedAllowDecision = 'allowProject';
+								allowDropdownButton?.close();
+							}}
+						/>
+						<ContextMenuItem
+							label="Allow always"
+							onclick={() => {
+								selectedAllowDecision = 'allowAlways';
+								allowDropdownButton?.close();
+							}}
+						/>
+					{/snippet}
+				</DropdownButton>
 			</div>
 		{/if}
 	</button>

@@ -6,6 +6,7 @@ import {
 	type ThinkingLevel,
 	type ModelType,
 	type PermissionMode,
+	type PermissionDecision,
 	type PromptTemplate,
 	type PromptDir,
 	type McpConfig,
@@ -226,7 +227,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				{
 					projectId: string;
 					requestId: string;
-					approval: boolean;
+					decision: PermissionDecision;
 				}
 			>({
 				extraOptions: {

@@ -17,13 +17,35 @@ use rmcp::{
     schemars, tool, tool_handler, tool_router,
 };
 
-pub async fn start(repo_path: &Path) -> Result<()> {
+use crate::permissions::{PermissionCheck, Permissions};
+
+pub async fn start(repo_path: &Path, session_id_str: &str) -> Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let client_info = Arc::new(Mutex::new(None));
     let transport = (tokio::io::stdin(), tokio::io::stdout());
+
+    // Parse the current session ID from Claude Code
+    let current_session_id = uuid::Uuid::parse_str(session_id_str)
+        .map_err(|e| anyhow::anyhow!("Invalid session ID '{}': {}", session_id_str, e))?;
+
+    // Look up the session by current_id to get the stable session ID
+    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let ctx = &mut CommandContext::open(&project, app_settings)?;
+    let session = crate::db::get_session_by_current_id(ctx, current_session_id)?
+        .ok_or_else(|| anyhow::anyhow!("Session not found in database: {}", current_session_id))?;
+
+    tracing::info!(
+        "Starting MCP server for session {} (current_id: {})",
+        session.id,
+        current_session_id
+    );
+
+    // Use the stable session.id, not the current_id
     let server = Mcp {
         project,
         tool_router: Mcp::tool_router(),
+        runtime_permissions: Default::default(),
+        session_id: session.id,
     };
     let service = server.serve(transport).await?;
     let info = service.peer_info();
@@ -35,10 +57,12 @@ pub async fn start(repo_path: &Path) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Mcp {
     project: Project,
     tool_router: ToolRouter<Self>,
+    runtime_permissions: Arc<Mutex<Permissions>>,
+    session_id: uuid::Uuid,
 }
 
 #[tool_router(vis = "pub")]
@@ -47,7 +71,7 @@ impl Mcp {
         name = "approval_prompt",
         description = "Permission check for tool calls"
     )]
-    pub async fn approval_prompt(
+    pub fn approval_prompt(
         &self,
         request: Parameters<McpPermissionRequest>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
@@ -80,15 +104,34 @@ impl Mcp {
         timeout: std::time::Duration,
     ) -> anyhow::Result<bool> {
         let app_settings = AppSettings::load_from_default_path_creating()?;
+        let ctx = &mut CommandContext::open(&self.project, app_settings)?;
+
+        // Load session permissions from database (using stable session ID)
+        let session = crate::db::get_session_by_id(ctx, self.session_id)?
+            .ok_or_else(|| anyhow::anyhow!("Session not found: {}", self.session_id))?;
+
+        // Merge runtime and session permissions
+        let runtime_perms = self.runtime_permissions.lock().unwrap();
+        let session_perms =
+            Permissions::from_slices(session.approved_permissions(), session.denied_permissions());
+        let combined_perms = Permissions::merge([&*runtime_perms, &session_perms]);
+        drop(runtime_perms); // Release the lock
+
+        // Check the combined permissions
+        let result = combined_perms.check(&req).unwrap_or_default();
+        match result {
+            PermissionCheck::Approved => return Ok(true),
+            PermissionCheck::Denied => return Ok(false),
+            PermissionCheck::Ask => (), // Continue to ask the user
+        }
 
         // Send notification for permission request
         if let Err(e) =
-            crate::notifications::notify_permission_request(&app_settings, &req.tool_name)
+            crate::notifications::notify_permission_request(ctx.app_settings(), &req.tool_name)
         {
             tracing::warn!("Failed to send permission request notification: {}", e);
         }
 
-        let ctx = &mut CommandContext::open(&self.project, app_settings)?;
         // Create a record that will be seen by the user in the UI
         ctx.db()?
             .claude_permission_requests()
@@ -104,6 +147,7 @@ impl Mcp {
         )?;
         let mut approved_state = false;
         let start_time = std::time::Instant::now();
+
         for item in rx {
             if start_time.elapsed() > timeout {
                 eprintln!("Timeout waiting for permission approval (1 day)");
@@ -112,8 +156,25 @@ impl Mcp {
             match item {
                 Ok(ItemKind::ClaudePermissionRequests) => {
                     if let Some(updated) = ctx.db()?.claude_permission_requests().get(&req.id)? {
-                        if let Some(approved) = updated.approved {
-                            approved_state = approved;
+                        if let Some(decision_str) = updated.decision {
+                            let decision: crate::PermissionDecision =
+                                serde_json::from_str(&decision_str)?;
+                            approved_state = decision.is_allowed();
+
+                            // Handle the decision - persist to settings/session/database and update runtime permissions
+                            let project_path = self.project.worktree_dir()?.canonicalize()?;
+                            let mut runtime_perms = self.runtime_permissions.lock().unwrap();
+
+                            if let Err(e) = decision.handle(
+                                &req,
+                                &project_path,
+                                &mut runtime_perms,
+                                Some(ctx),
+                                Some(self.session_id),
+                            ) {
+                                tracing::warn!("Failed to handle permission decision: {}", e);
+                            }
+
                             break;
                         }
                     } else {
@@ -140,7 +201,7 @@ impl From<McpPermissionRequest> for crate::ClaudePermissionRequest {
             updated_at: chrono::Utc::now().naive_utc(),
             tool_name: request.tool_name,
             input: request.input,
-            approved: None,
+            decision: None,
         }
     }
 }

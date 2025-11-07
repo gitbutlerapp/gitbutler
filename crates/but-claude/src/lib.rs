@@ -22,15 +22,18 @@ pub mod db;
 pub mod hooks;
 pub mod mcp;
 pub mod notifications;
+pub mod permissions;
 pub mod prompt_templates;
 mod rules;
+
+pub use permissions::Permission;
 
 /// Represents a Claude Code session that GitButler is tracking.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeSession {
     /// The unique and stable identifier for the session. This is the first session_id that was used.
-    id: Uuid,
+    pub id: Uuid,
     /// The most recent session ID. If a session is stopped and resumed, Claude will copy over the past context into a new session. This value is unique.
     current_id: Uuid,
     /// All session IDs that have been used for this session, including the current one.
@@ -41,6 +44,20 @@ pub struct ClaudeSession {
     updated_at: chrono::NaiveDateTime,
     /// Whether this session is used by the GUI.
     pub in_gui: bool,
+    /// Permissions that have been approved for this session.
+    approved_permissions: Vec<Permission>,
+    /// Permissions that have been denied for this session.
+    denied_permissions: Vec<Permission>,
+}
+
+impl ClaudeSession {
+    pub fn approved_permissions(&self) -> &[Permission] {
+        &self.approved_permissions
+    }
+
+    pub fn denied_permissions(&self) -> &[Permission] {
+        &self.denied_permissions
+    }
 }
 
 /// Represents a message in a Claude session, referencing the stable session ID.
@@ -155,6 +172,192 @@ pub struct ClaudeSessionDetails {
     pub in_gui: bool,
 }
 
+/// Represents a permission decision with both the action (allow/deny) and scope.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum PermissionDecision {
+    /// Allow this single request
+    AllowOnce,
+    /// Allow for the current session
+    AllowSession,
+    /// Allow for this project
+    AllowProject,
+    /// Allow globally (always)
+    AllowAlways,
+    /// Deny this single request
+    DenyOnce,
+    /// Deny for the current session
+    DenySession,
+    /// Deny for this project
+    DenyProject,
+    /// Deny globally (always)
+    DenyAlways,
+}
+
+impl PermissionDecision {
+    /// Returns true if this is an allow decision
+    pub fn is_allowed(&self) -> bool {
+        matches!(
+            self,
+            PermissionDecision::AllowOnce
+                | PermissionDecision::AllowSession
+                | PermissionDecision::AllowProject
+                | PermissionDecision::AllowAlways
+        )
+    }
+
+    /// Handle the decision by performing the appropriate action based on the variant
+    pub fn handle(
+        &self,
+        request: &ClaudePermissionRequest,
+        project_path: &std::path::Path,
+        runtime_permissions: &mut crate::permissions::Permissions,
+        ctx: Option<&mut gitbutler_command_context::CommandContext>,
+        session_id: Option<uuid::Uuid>,
+    ) -> anyhow::Result<()> {
+        use crate::permissions::{
+            Permission, SerializationContext, SettingsKind, add_permission_to_settings,
+        };
+
+        // Extract permissions from the request (may be multiple for bash with && or ||)
+        let permissions = Permission::from_request(request)?;
+
+        // Build serialization context
+        let home_path = dirs::home_dir()
+            .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+        let global_claude_dir = home_path.join(".claude");
+
+        match self {
+            PermissionDecision::AllowOnce => {
+                // Single request - no persistence needed
+                Ok(())
+            }
+            PermissionDecision::AllowSession => {
+                // Add to runtime permissions
+                for permission in &permissions {
+                    runtime_permissions.add_approved(permission.clone());
+                }
+
+                // Also save to session database if available
+                if let (Some(ctx), Some(sess_id)) = (ctx, session_id)
+                    && let Ok(Some(session)) = crate::db::get_session_by_current_id(ctx, sess_id)
+                {
+                    let mut approved = session.approved_permissions().to_vec();
+                    approved.extend(permissions);
+                    let denied = session.denied_permissions().to_vec();
+                    crate::db::update_session_permissions(ctx, session.id, &approved, &denied)?;
+                }
+                Ok(())
+            }
+            PermissionDecision::AllowProject => {
+                let ctx =
+                    SerializationContext::new(&home_path, project_path, &global_claude_dir, false);
+                let settings_path = project_path.join(".claude/settings.local.json");
+
+                // Ensure .claude directory exists
+                if let Some(parent) = settings_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+
+                for permission in permissions {
+                    add_permission_to_settings(
+                        &SettingsKind::Allow,
+                        &permission,
+                        &ctx,
+                        &settings_path,
+                    )?;
+                    runtime_permissions.add_approved(permission);
+                }
+                Ok(())
+            }
+            PermissionDecision::AllowAlways => {
+                let ctx =
+                    SerializationContext::new(&home_path, project_path, &global_claude_dir, true);
+                let settings_path = home_path.join(".claude/settings.json");
+
+                // Ensure .claude directory exists
+                if let Some(parent) = settings_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+
+                for permission in permissions {
+                    add_permission_to_settings(
+                        &SettingsKind::Allow,
+                        &permission,
+                        &ctx,
+                        &settings_path,
+                    )?;
+                    runtime_permissions.add_approved(permission);
+                }
+                Ok(())
+            }
+            PermissionDecision::DenyOnce => {
+                // Single request - no persistence needed
+                Ok(())
+            }
+            PermissionDecision::DenySession => {
+                // Add to runtime permissions
+                for permission in &permissions {
+                    runtime_permissions.add_denied(permission.clone());
+                }
+
+                // Also save to session database if available
+                if let (Some(ctx), Some(sess_id)) = (ctx, session_id)
+                    && let Ok(Some(session)) = crate::db::get_session_by_current_id(ctx, sess_id)
+                {
+                    let approved = session.approved_permissions().to_vec();
+                    let mut denied = session.denied_permissions().to_vec();
+                    denied.extend(permissions);
+                    crate::db::update_session_permissions(ctx, session.id, &approved, &denied)?;
+                }
+                Ok(())
+            }
+            PermissionDecision::DenyProject => {
+                let ctx =
+                    SerializationContext::new(&home_path, project_path, &global_claude_dir, false);
+                let settings_path = project_path.join(".claude/settings.local.json");
+
+                // Ensure .claude directory exists
+                if let Some(parent) = settings_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+
+                for permission in permissions {
+                    add_permission_to_settings(
+                        &SettingsKind::Deny,
+                        &permission,
+                        &ctx,
+                        &settings_path,
+                    )?;
+                    runtime_permissions.add_denied(permission);
+                }
+                Ok(())
+            }
+            PermissionDecision::DenyAlways => {
+                let ctx =
+                    SerializationContext::new(&home_path, project_path, &global_claude_dir, true);
+                let settings_path = home_path.join(".claude/settings.json");
+
+                // Ensure .claude directory exists
+                if let Some(parent) = settings_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+
+                for permission in permissions {
+                    add_permission_to_settings(
+                        &SettingsKind::Deny,
+                        &permission,
+                        &ctx,
+                        &settings_path,
+                    )?;
+                    runtime_permissions.add_denied(permission);
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 /// Represents a request for permission to use a tool in the Claude MCP.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -169,8 +372,8 @@ pub struct ClaudePermissionRequest {
     pub tool_name: String,
     /// The input for the tool
     pub input: serde_json::Value,
-    /// The status of the request or None if not yet handled
-    pub approved: Option<bool>,
+    /// The permission decision or None if not yet handled
+    pub decision: Option<PermissionDecision>,
 }
 
 /// Represents the thinking level for Claude Code.
