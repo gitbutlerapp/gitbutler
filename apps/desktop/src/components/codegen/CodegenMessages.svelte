@@ -550,9 +550,7 @@
 								{#snippet caption()}
 									Your branch is ready for AI.
 									<br />
-									Describe what you want to build,
-									<br />
-									and I’ll generate the code.
+									What should we code?
 								{/snippet}
 							</EmptyStatePlaceholder>
 						</div>
