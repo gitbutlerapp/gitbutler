@@ -374,7 +374,7 @@ async fn match_subcommand(
         Subcommands::Absorb { source } => {
             let project = get_or_init_project(&args.current_dir)?;
             let result = absorb::handle(&project, args.json, source.as_deref());
-            metrics_if_configured(app_settings, CommandName::Snapshot, props(start, &result)).ok();
+            metrics_if_configured(app_settings, CommandName::Absorb, props(start, &result)).ok();
             result
         }
         Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, repo)

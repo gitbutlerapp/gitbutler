@@ -57,6 +57,7 @@ pub enum Command {
     ForgeForget,
     PublishReview,
     Completions,
+    Absorb,
     Unknown,
 }
 
@@ -95,6 +96,7 @@ impl From<CommandName> for EventKind {
             CommandName::ForgeForget => EventKind::Cli(Command::ForgeForget),
             CommandName::PublishReview => EventKind::Cli(Command::PublishReview),
             CommandName::Completions => EventKind::Cli(Command::Completions),
+            CommandName::Absorb => EventKind::Cli(Command::Absorb),
             CommandName::Unknown => EventKind::Cli(Command::Unknown),
         }
     }

@@ -198,6 +198,8 @@ For examples see `but rub --help`."
 pub enum CommandName {
     #[clap(alias = "log")]
     Log,
+    #[clap(alias = "absorb")]
+    Absorb,
     #[clap(alias = "st")]
     Status,
     #[clap(alias = "stf", hide = true)]
