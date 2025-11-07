@@ -83,7 +83,7 @@ diesel::table! {
         updated_at -> Timestamp,
         tool_name -> Text,
         input -> Text,
-        approved -> Nullable<Bool>,
+        decision -> Nullable<Text>,
     }
 }
 

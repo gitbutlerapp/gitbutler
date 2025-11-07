@@ -172,15 +172,16 @@ pub fn list_all_permission_requests(
         .collect::<Result<_, _>>()
 }
 
-/// Update permission request approval state to either true or false
+/// Update permission request decision
 pub fn update_permission_request(
     ctx: &mut CommandContext,
     id: &str,
-    approval: bool,
+    decision: crate::PermissionDecision,
 ) -> anyhow::Result<()> {
+    let decision_str = serde_json::to_string(&decision)?;
     ctx.db()?
         .claude_permission_requests()
-        .set_approval(id, approval)?;
+        .set_decision(id, Some(decision_str))?;
     Ok(())
 }
 
@@ -276,13 +277,18 @@ impl TryFrom<crate::ClaudeMessage> for but_db::ClaudeMessage {
 impl TryFrom<but_db::ClaudePermissionRequest> for crate::ClaudePermissionRequest {
     type Error = anyhow::Error;
     fn try_from(value: but_db::ClaudePermissionRequest) -> Result<Self, Self::Error> {
+        let decision = value
+            .decision
+            .as_ref()
+            .map(|s| serde_json::from_str(s))
+            .transpose()?;
         Ok(crate::ClaudePermissionRequest {
             id: value.id.to_string(),
             created_at: value.created_at,
             updated_at: value.updated_at,
             tool_name: value.tool_name,
             input: serde_json::from_str(&value.input)?,
-            approved: value.approved,
+            decision,
         })
     }
 }
@@ -290,13 +296,17 @@ impl TryFrom<but_db::ClaudePermissionRequest> for crate::ClaudePermissionRequest
 impl TryFrom<crate::ClaudePermissionRequest> for but_db::ClaudePermissionRequest {
     type Error = anyhow::Error;
     fn try_from(value: crate::ClaudePermissionRequest) -> Result<Self, Self::Error> {
+        let decision = value
+            .decision
+            .map(|s| serde_json::to_string(&s))
+            .transpose()?;
         Ok(but_db::ClaudePermissionRequest {
             id: value.id,
             created_at: value.created_at,
             updated_at: value.updated_at,
             tool_name: value.tool_name,
             input: serde_json::to_string(&value.input)?,
-            approved: value.approved,
+            decision,
         })
     }
 }

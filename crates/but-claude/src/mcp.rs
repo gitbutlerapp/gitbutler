@@ -112,8 +112,9 @@ impl Mcp {
             match item {
                 Ok(ItemKind::ClaudePermissionRequests) => {
                     if let Some(updated) = ctx.db()?.claude_permission_requests().get(&req.id)? {
-                        if let Some(approved) = updated.approved {
-                            approved_state = approved;
+                        if let Some(decision_str) = updated.decision {
+                            let decision: crate::PermissionDecision = serde_json::from_str(&decision_str)?;
+                            approved_state = decision.is_allowed();
                             break;
                         }
                     } else {
@@ -140,7 +141,7 @@ impl From<McpPermissionRequest> for crate::ClaudePermissionRequest {
             updated_at: chrono::Utc::now().naive_utc(),
             tool_name: request.tool_name,
             input: request.input,
-            approved: None,
+            decision: None,
         }
     }
 }

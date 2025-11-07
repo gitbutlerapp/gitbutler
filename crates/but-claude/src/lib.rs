@@ -156,6 +156,41 @@ pub struct ClaudeSessionDetails {
     pub in_gui: bool,
 }
 
+/// Represents a permission decision with both the action (allow/deny) and scope.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum PermissionDecision {
+    /// Allow this single request
+    AllowOnce,
+    /// Allow for the current session
+    AllowSession,
+    /// Allow for this project
+    AllowProject,
+    /// Allow globally (always)
+    AllowAlways,
+    /// Deny this single request
+    DenyOnce,
+    /// Deny for the current session
+    DenySession,
+    /// Deny for this project
+    DenyProject,
+    /// Deny globally (always)
+    DenyAlways,
+}
+
+impl PermissionDecision {
+    /// Returns true if this is an allow decision
+    pub fn is_allowed(&self) -> bool {
+        matches!(
+            self,
+            PermissionDecision::AllowOnce
+                | PermissionDecision::AllowSession
+                | PermissionDecision::AllowProject
+                | PermissionDecision::AllowAlways
+        )
+    }
+}
+
 /// Represents a request for permission to use a tool in the Claude MCP.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -170,8 +205,8 @@ pub struct ClaudePermissionRequest {
     pub tool_name: String,
     /// The input for the tool
     pub input: serde_json::Value,
-    /// The status of the request or None if not yet handled
-    pub approved: Option<bool>,
+    /// The permission decision or None if not yet handled
+    pub decision: Option<PermissionDecision>,
 }
 
 /// Represents the thinking level for Claude Code.
