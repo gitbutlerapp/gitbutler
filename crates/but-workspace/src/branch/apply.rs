@@ -339,7 +339,7 @@ pub(crate) mod function {
             !std::ptr::eq(branch_orig, branch);
         let (local_tracking_config_and_ref_info, commit_to_create_branch_at) =
             if incoming_branch_is_remote_tracking_without_local_tracking {
-                setup_local_tracking_configuration(repo, branch, branch_orig, ws_ref_id)?
+                setup_local_tracking_configuration(repo, branch, branch_orig)?
                     .map(|(config, commit)| (Some(config), Some(commit)))
                     .unwrap_or_default()
             } else {
@@ -784,26 +784,16 @@ pub(crate) mod function {
 
     /// Setup `local_tracking_ref` to track `remote_tracking_ref` using the typical pattern, and prepare the configuration file
     /// so that it can replace `.git/config` of `repo` when written back, with everything the same but the branch configuration added.
-    /// We also return the commit at which `local_tracking_ref` should be placed, which is assumed to not exist, and `repo` will be used
-    /// for computing the merge-base with `ws_ref_id`, traditionally, without a graph, as forcing the graph here wouldn't buy us anything.
-    /// Merge-base computations can still be done with `repo` IF the graph isn't up to date.
+    /// We also return the commit at which `local_tracking_ref` should be placed, which is assumed to not exist.
     fn setup_local_tracking_configuration(
         repo: &gix::Repository,
         local_tracking_ref: &FullNameRef,
         remote_tracking_ref: &FullNameRef,
-        ws_ref_id: gix::ObjectId,
     ) -> anyhow::Result<Option<(gix::config::File<'static>, gix::ObjectId)>> {
         let remote_tracking_commit_id = repo
             .find_reference(remote_tracking_ref)?
             .peel_to_commit()?
             .id();
-        let merge_base_commit_id = repo
-            .merge_base(remote_tracking_commit_id, ws_ref_id)
-            .unwrap_or_else(|_| {
-                tracing::warn!("Couldn't find merge-base between remote tip {remote_tracking_commit_id} and workspace tip {ws_ref_id} - placing local tracking ref on remote tip");
-                remote_tracking_commit_id
-            })
-            .detach();
 
         // TODO(gix): Make config refreshes possible, and use the higher level API, and add a way
         //       to only write back what changed and of course to add local sections more obviously.
@@ -826,7 +816,7 @@ pub(crate) mod function {
                     Some(local_tracking_ref.as_bstr()),
                 );
         }
-        Ok(Some((config, merge_base_commit_id)))
+        Ok(Some((config, remote_tracking_commit_id.into())))
     }
 
     fn add_branch_as_stack_forcefully(

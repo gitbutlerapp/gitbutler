@@ -178,19 +178,23 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
     let ws = graph.to_workspace()?;
     // both branches, main and feature, are available in the newly created workspace ref.
     insta::assert_snapshot!(graph_workspace(&ws), @r"
-    📕🏘️⚠️:0:gitbutler/workspace <> ✓! on 3183e43
-    ├── ≡📙:3:feature on 3183e43 {2ec}
-    │   └── 📙:3:feature
-    └── ≡📙:2:main on 3183e43 {1a5}
-        └── 📙:2:main
+    📕🏘️:0:gitbutler/workspace <> ✓! on 3183e43
+    ├── ≡📙:2:feature on 3183e43 {2ec}
+    │   └── 📙:2:feature
+    │       └── ·6b40b15 (🏘️)
+    └── ≡📙:3:main on 3183e43 {1a5}
+        └── 📙:3:main
     ");
 
     // the new local tracking ref actually exists, and is in the right spot.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 6b40b15 (origin/feature) without-local-tracking
+    *   e00cf08 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 6b40b15 (origin/feature, feature) without-local-tracking
+    |/  
     | * 552e7dc (origin/main) only-on-remote
     |/  
-    * 3183e43 (HEAD -> gitbutler/workspace, main, feature) M1
+    * 3183e43 (main) M1
     ");
 
     let config = repo.local_common_config_for_editing()?;
