@@ -105,8 +105,16 @@ pub fn set_project_active(
 fn reconcile_in_workspace_state_of_vb_toml(ctx: &mut CommandContext) -> Option<()> {
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
-    let (_repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(perm).ok()?;
+    let (_repo, mut meta, graph) = ctx
+        .graph_and_meta_mut_and_repo_from_reference(
+            "refs/heads/gitbutler/workspace"
+                .try_into()
+                .expect("statically known to be valid"),
+            perm,
+        )
+        .ok()?;
     let ws = graph.to_workspace().ok()?;
+    graph.open_as_svg();
 
     let mut seen = BTreeSet::new();
     for in_workspace_stack_id in ws.stacks.iter().filter_map(|s| s.id) {

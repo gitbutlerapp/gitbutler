@@ -156,6 +156,35 @@ impl CommandContext {
         Ok((repo, VirtualBranchesTomlMetadataMut(meta), graph))
     }
 
+    /// Open the repository with standard options and create a new Graph traversal from the given `ref_name`,
+    /// along with a new metadata instance, and the graph itself.
+    ///
+    /// The write-permission is required to obtain a mutable metadata instance. Note that it must be held
+    /// for until the end of the operation for the protection to be effective.
+    ///
+    /// Use [`Self::graph_and_meta()`] if control over the repository configuration is needed.
+    pub fn graph_and_meta_mut_and_repo_from_reference(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+        _write: &mut WorktreeWritePermission,
+    ) -> Result<(
+        gix::Repository,
+        VirtualBranchesTomlMetadataMut,
+        but_graph::Graph,
+    )> {
+        let repo = self.gix_repo()?;
+        let meta = self.meta_inner()?;
+        let mut reference = repo.find_reference(ref_name)?;
+        let commit_id = reference.peel_to_commit()?.id();
+        let graph = but_graph::Graph::from_commit_traversal(
+            commit_id,
+            reference.name().to_owned(),
+            &meta,
+            meta.graph_options(),
+        )?;
+        Ok((repo, VirtualBranchesTomlMetadataMut(meta), graph))
+    }
+
     /// Return a newly opened `gitoxide` repository, with all configuration available
     /// to correctly figure out author and committer names (i.e. with most global configuration loaded),
     /// *and* which will perform diffs quickly thanks to an adequate object cache.
