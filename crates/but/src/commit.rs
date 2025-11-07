@@ -21,6 +21,7 @@ use crate::{
 };
 
 pub(crate) fn insert_blank_commit(project: &Project, _json: bool, target: &str) -> Result<()> {
+    let stdout = std::io::stdout();
     let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     // Resolve the target ID
@@ -78,7 +79,7 @@ pub(crate) fn insert_blank_commit(project: &Project, _json: bool, target: &str) 
         Some(target_commit_id.to_string()),
         offset,
     )?;
-    println!("{success_message}");
+    writeln!(stdout.lock(), "{success_message}").ok();
     Ok(())
 }
 
@@ -207,7 +208,8 @@ pub(crate) fn commit(
     files_to_commit.extend(stack_assigned);
 
     if files_to_commit.is_empty() {
-        println!("No changes to commit.");
+        let stdout = std::io::stdout();
+        writeln!(stdout.lock(), "No changes to commit.").ok();
         return Ok(());
     }
 
@@ -284,14 +286,17 @@ pub(crate) fn commit(
         target_branch.name.to_string(),
     )?;
 
+    let stdout = std::io::stdout();
     let commit_short = match outcome.new_commit {
         Some(id) => id.to_string()[..7].to_string(),
         None => "unknown".to_string(),
     };
-    println!(
+    writeln!(
+        stdout.lock(),
         "Created commit {} on branch {}",
         commit_short, target_branch.name
-    );
+    )
+    .ok();
 
     Ok(())
 }
@@ -300,6 +305,7 @@ fn create_independent_branch(
     branch_name: &str,
     project: &Project,
 ) -> anyhow::Result<(but_workspace::StackId, but_workspace::ui::StackDetails)> {
+    let stdout = std::io::stdout();
     // Create a new independent stack with the given branch name
     let (new_stack_id_opt, _new_ref) = but_api::commands::stack::create_reference(
         project.id,
@@ -310,7 +316,12 @@ fn create_independent_branch(
     )?;
 
     if let Some(new_stack_id) = new_stack_id_opt {
-        println!("Created new independent branch '{}'", branch_name);
+        writeln!(
+            stdout.lock(),
+            "Created new independent branch '{}'", 
+            branch_name
+        )
+        .ok();
         Ok((
             new_stack_id,
             workspace::stack_details(project.id, Some(new_stack_id))?,
@@ -400,14 +411,26 @@ fn find_stack_by_hint(
 fn prompt_for_stack_selection(
     stacks: &[(but_workspace::StackId, but_workspace::ui::StackDetails)],
 ) -> anyhow::Result<(but_workspace::StackId, but_workspace::ui::StackDetails)> {
-    println!("Multiple stacks found. Choose one to commit to:");
+    let stdout = std::io::stdout();
+    writeln!(
+        stdout.lock(),
+        "Multiple stacks found. Choose one to commit to:"
+    )
+    .ok();
     for (i, (stack_id, stack_details)) in stacks.iter().enumerate() {
         let branch_names: Vec<String> = stack_details
             .branch_details
             .iter()
             .map(|b| b.name.to_string())
             .collect();
-        println!("  {}. {} [{}]", i + 1, stack_id, branch_names.join(", "));
+        writeln!(
+            stdout.lock(),
+            "  {}. {} [{}]", 
+            i + 1, 
+            stack_id, 
+            branch_names.join(", ")
+        )
+        .ok();
     }
 
     print!("Enter selection (1-{}): ", stacks.len());

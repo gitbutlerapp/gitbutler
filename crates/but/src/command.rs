@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use but_action::Source;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
@@ -46,11 +48,12 @@ pub(crate) fn print<T>(this: &T, json: bool) -> anyhow::Result<()>
 where
     T: ?Sized + Serialize + std::fmt::Debug,
 {
+    let stdout = std::io::stdout();
     if json {
         let json = serde_json::to_string_pretty(&this)?;
-        println!("{json}");
+        writeln!(stdout.lock(), "{json}").ok();
     } else {
-        println!("{this:#?}");
+        writeln!(stdout.lock(), "{this:#?}").ok();
     }
     Ok(())
 }

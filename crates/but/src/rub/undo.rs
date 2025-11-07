@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use but_workspace::StackId;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
@@ -5,8 +7,9 @@ use gitbutler_oxidize::ObjectIdExt;
 use gix::ObjectId;
 
 pub(crate) fn commit(ctx: &mut CommandContext, oid: &ObjectId) -> anyhow::Result<()> {
+    let stdout = std::io::stdout();
     gitbutler_branch_actions::undo_commit(ctx, stack_id_by_commit_id(ctx, oid)?, oid.to_git2())?;
-    println!("Uncommitted {}", oid.to_string()[..7].blue());
+    writeln!(stdout.lock(), "Uncommitted {}", oid.to_string()[..7].blue()).ok();
     Ok(())
 }
 

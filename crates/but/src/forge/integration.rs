@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use but_api::NoParams;
 use colored::Colorize;
 #[derive(Debug, clap::Parser)]
@@ -99,12 +101,19 @@ async fn auth_github() -> anyhow::Result<()> {
     })
     .await;
 
+    let stdout = std::io::stdout();
+    let stderr = std::io::stderr();
     match auth_outcome {
         Ok(status) => {
-            println!("Authentication successful! Welcome, {}.", status.login);
+            writeln!(
+                stdout.lock(),
+                "Authentication successful! Welcome, {}.",
+                status.login
+            )
+            .ok();
         }
         Err(e) => {
-            eprintln!("Authentication failed: {}", anyhow::format_err!(e));
+            writeln!(stderr.lock(), "Authentication failed: {}", anyhow::format_err!(e)).ok();
         }
     }
 

@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::io::Write;
 
 use bstr::{BString, ByteSlice};
 use but_api::{diff, hex_hash::HexHash, virtual_branches};
@@ -147,8 +148,9 @@ fn absorb_all(
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
 ) -> anyhow::Result<()> {
+    let stdout = std::io::stdout();
     if assignments.is_empty() {
-        println!("No uncommitted changes to absorb");
+        writeln!(stdout.lock(), "No uncommitted changes to absorb").ok();
         return Ok(());
     }
 
@@ -311,6 +313,8 @@ fn amend_commit(
     commit_id: gix::ObjectId,
     diff_specs: Vec<DiffSpec>,
 ) -> anyhow::Result<()> {
+    let stdout = std::io::stdout();
+    let stderr = std::io::stderr();
     // Convert commit_id to HexHash
     let hex_hash = HexHash::from(commit_id);
 
@@ -319,16 +323,20 @@ fn amend_commit(
     )?;
 
     if !outcome.paths_to_rejected_changes.is_empty() {
-        eprintln!(
+        writeln!(
+            stderr.lock(),
             "Warning: Failed to absorb {} file(s)",
             outcome.paths_to_rejected_changes.len()
-        );
+        )
+        .ok();
     }
 
-    println!(
+    writeln!(
+        stdout.lock(),
         "Absorbed changes into commit {}",
         &commit_id.to_hex().to_string()[..7]
-    );
+    )
+    .ok();
 
     Ok(())
 }

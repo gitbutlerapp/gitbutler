@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::str::FromStr;
 
 use anyhow::bail;
@@ -36,6 +37,7 @@ pub(crate) fn handle(
 }
 
 fn mark_commit(ctx: &mut CommandContext, oid: gix::ObjectId, delete: bool) -> anyhow::Result<()> {
+    let stdout = std::io::stdout();
     if delete {
         let rules = but_rules::list_rules(ctx)?;
         for rule in rules {
@@ -43,7 +45,7 @@ fn mark_commit(ctx: &mut CommandContext, oid: gix::ObjectId, delete: bool) -> an
                 but_rules::delete_rule(ctx, &rule.id())?;
             }
         }
-        println!("Mark was removed");
+        writeln!(stdout.lock(), "Mark was removed").ok();
         return Ok(());
     }
     let repo = ctx.gix_repo()?;
@@ -60,11 +62,17 @@ fn mark_commit(ctx: &mut CommandContext, oid: gix::ObjectId, delete: bool) -> an
         action,
     };
     but_rules::create_rule(ctx, req)?;
-    println!("Changes will be amended into commit → {}", &oid.to_string());
+    writeln!(
+        stdout.lock(),
+        "Changes will be amended into commit → {}",
+        &oid.to_string()
+    )
+    .ok();
     Ok(())
 }
 
 fn mark_branch(ctx: &mut CommandContext, branch_name: String, delete: bool) -> anyhow::Result<()> {
+    let stdout = std::io::stdout();
     let stack_id = branch_name_to_stack_id(ctx, Some(&branch_name))?;
     if delete {
         let rules = but_rules::list_rules(ctx)?;
@@ -73,7 +81,7 @@ fn mark_branch(ctx: &mut CommandContext, branch_name: String, delete: bool) -> a
                 but_rules::delete_rule(ctx, &rule.id())?;
             }
         }
-        println!("Mark was removed");
+        writeln!(stdout.lock(), "Mark was removed").ok();
         return Ok(());
     }
     // TODO: if there are other marks of this kind, get rid of them
@@ -89,7 +97,11 @@ fn mark_branch(ctx: &mut CommandContext, branch_name: String, delete: bool) -> a
         action,
     };
     but_rules::create_rule(ctx, req)?;
-    println!("Changes will be assigned to → {branch_name}");
+    writeln!(
+        stdout.lock(),
+        "Changes will be assigned to → {branch_name}"
+    )
+    .ok();
     Ok(())
 }
 
@@ -116,13 +128,14 @@ pub(crate) fn commit_marked(ctx: &mut CommandContext, commit_id: String) -> anyh
 }
 
 pub(crate) fn unmark(project: &Project, _json: bool) -> anyhow::Result<()> {
+    let stdout = std::io::stdout();
     let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     let rules = but_rules::list_rules(ctx)?;
     let rule_count = rules.len();
 
     if rule_count == 0 {
-        println!("No marks to remove");
+        writeln!(stdout.lock(), "No marks to remove").ok();
         return Ok(());
     }
 
@@ -130,10 +143,12 @@ pub(crate) fn unmark(project: &Project, _json: bool) -> anyhow::Result<()> {
         but_rules::delete_rule(ctx, &rule.id())?;
     }
 
-    println!(
+    writeln!(
+        stdout.lock(),
         "Removed {} mark{}",
         rule_count,
         if rule_count == 1 { "" } else { "s" }
-    );
+    )
+    .ok();
     Ok(())
 }

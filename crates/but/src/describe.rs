@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use anyhow::Result;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
@@ -42,6 +44,7 @@ pub(crate) fn describe_target(project: &Project, _json: bool, target: &str) -> R
 }
 
 fn edit_branch_name(_ctx: &CommandContext, project: &Project, branch_name: &str) -> Result<()> {
+    let stdout = std::io::stdout();
     // Find which stack this branch belongs to
     let stacks =
         but_api::workspace::stacks(project.id, Some(but_workspace::StacksFilter::InWorkspace))?;
@@ -59,12 +62,23 @@ fn edit_branch_name(_ctx: &CommandContext, project: &Project, branch_name: &str)
                 branch_name.to_owned(),
                 new_name.clone(),
             )?;
-            println!("Renamed branch '{}' to '{}", branch_name, new_name);
+            writeln!(
+                stdout.lock(),
+                "Renamed branch '{}' to '{}'",
+                branch_name,
+                new_name
+            )
+            .ok();
             return Ok(());
         }
     }
 
-    println!("Branch '{}' not found in any stack", branch_name);
+    writeln!(
+        stdout.lock(),
+        "Branch '{}' not found in any stack", 
+        branch_name
+    )
+    .ok();
     Ok(())
 }
 
@@ -73,6 +87,7 @@ fn edit_commit_message_by_id(
     project: &Project,
     commit_oid: gix::ObjectId,
 ) -> Result<()> {
+    let stdout = std::io::stdout();
     // Find which stack this commit belongs to
     let stacks = but_api::workspace::stacks(project.id, None)?;
     let mut found_commit_message = None;
@@ -131,7 +146,7 @@ fn edit_commit_message_by_id(
     let new_message = get_commit_message_from_editor(&current_message, &changed_files)?;
 
     if new_message.trim() == current_message.trim() {
-        println!("No changes to commit message.");
+        writeln!(stdout.lock(), "No changes to commit message.").ok();
         return Ok(());
     }
 
@@ -144,11 +159,13 @@ fn edit_commit_message_by_id(
         &new_message,
     )?;
 
-    println!(
+    writeln!(
+        stdout.lock(),
         "Updated commit message for {} (now {})",
         &commit_oid.to_string()[..7],
         &new_commit_oid.to_string()[..7]
-    );
+    )
+    .ok();
 
     Ok(())
 }

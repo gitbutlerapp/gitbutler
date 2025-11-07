@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::io::Write;
 
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
@@ -17,6 +18,7 @@ pub fn commited_file_to_another_commit(
     source_id: gix::ObjectId,
     target_id: gix::ObjectId,
 ) -> Result<()> {
+    let stdout = std::io::stdout();
     let source_stack = stack_id_by_commit_id(ctx, &source_id)?;
     let target_stack = stack_id_by_commit_id(ctx, &target_id)?;
 
@@ -44,7 +46,7 @@ pub fn commited_file_to_another_commit(
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
-    println!("Moved files between commits!");
+    writeln!(stdout.lock(), "Moved files between commits!").ok();
 
     Ok(())
 }
@@ -55,6 +57,7 @@ pub fn uncommit_file(
     source_id: gix::ObjectId,
     target_branch: Option<&str>,
 ) -> Result<()> {
+    let stdout = std::io::stdout();
     let source_stack = stack_id_by_commit_id(ctx, &source_id)?;
 
     let repo = ctx.gix_repo()?;
@@ -123,7 +126,7 @@ pub fn uncommit_file(
         but_hunk_assignment::assign(ctx, to_assign, None)?;
     }
 
-    println!("Uncommitted changes");
+    writeln!(stdout.lock(), "Uncommitted changes").ok();
 
     Ok(())
 }

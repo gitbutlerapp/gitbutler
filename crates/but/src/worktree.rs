@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
@@ -59,10 +60,11 @@ fn parse_worktree_identifier(
 }
 
 pub fn handle(cmd: Subcommands, project: &gitbutler_project::Project, json: bool) -> Result<()> {
+    let stderr = std::io::stderr();
     match handle_inner(cmd, project, json) {
         Ok(_) => Ok(()),
         Err(e) => {
-            eprintln!("{:?}", e);
+            writeln!(stderr.lock(), "{:?}", e).ok();
             Err(e)
         }
     }

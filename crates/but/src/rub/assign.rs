@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_workspace::StackId;
 use colored::Colorize;
@@ -10,20 +12,24 @@ pub(crate) fn assign_file_to_branch(
     path: &str,
     branch_name: &str,
 ) -> anyhow::Result<()> {
+    let stdout = std::io::stdout();
     let reqs = to_assignment_request(ctx, path, Some(branch_name))?;
     do_assignments(ctx, reqs)?;
-    println!(
+    writeln!(
+        stdout.lock(),
         "Assigned {} → {}.",
         path.bold(),
         format!("[{branch_name}]").green()
-    );
+    )
+    .ok();
     Ok(())
 }
 
 pub(crate) fn unassign_file(ctx: &mut CommandContext, path: &str) -> anyhow::Result<()> {
+    let stdout = std::io::stdout();
     let reqs = to_assignment_request(ctx, path, None)?;
     do_assignments(ctx, reqs)?;
-    println!("Unassigned {}", path.bold());
+    writeln!(stdout.lock(), "Unassigned {}", path.bold()).ok();
     Ok(())
 }
 
@@ -32,6 +38,7 @@ pub(crate) fn assign_all(
     from_branch: Option<&str>,
     to_branch: Option<&str>,
 ) -> anyhow::Result<()> {
+    let stdout = std::io::stdout();
     let from_stack_id = branch_name_to_stack_id(ctx, from_branch)?;
     let to_stack_id = branch_name_to_stack_id(ctx, to_branch)?;
 
@@ -54,7 +61,8 @@ pub(crate) fn assign_all(
     }
     do_assignments(ctx, reqs)?;
     if to_branch.is_some() {
-        println!(
+        writeln!(
+            stdout.lock(),
             "Assigned all {} changes to {}.",
             from_branch
                 .map(|b| format!("[{b}]").green())
@@ -62,14 +70,17 @@ pub(crate) fn assign_all(
             to_branch
                 .map(|b| format!("[{b}]").green())
                 .unwrap_or_else(|| "unassigned".to_string().bold())
-        );
+        )
+        .ok();
     } else {
-        println!(
+        writeln!(
+            stdout.lock(),
             "Unassigned all {} changes.",
             from_branch
                 .map(|b| format!("[{b}]").green())
                 .unwrap_or_else(|| "unassigned".to_string().bold())
-        );
+        )
+        .ok();
     }
     Ok(())
 }
