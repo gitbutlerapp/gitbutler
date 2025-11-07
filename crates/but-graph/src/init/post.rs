@@ -77,7 +77,7 @@ impl Graph {
         // We perform view-related updates here for convenience, but also because the graph
         // traversal should have nothing to do with workspace details. It's just about laying
         // the foundation for figuring out our workspaces more easily.
-        self.workspace_upgrades(meta, repo)?;
+        self.workspace_upgrades(meta, repo, &refs_by_id)?;
 
         // Point entrypoint to the right spot after all the virtual branches were added.
         self.set_entrypoint_to_ref_name(meta)?;
@@ -352,6 +352,23 @@ impl Graph {
             );
             self.inner.remove_edge(edge.id);
         }
+
+        if cidx_for_new_segment == 0 {
+            // The top-segment is still connected with edges that think they link to a commit, so adjust them.
+            let edges_to_adjust: Vec<_> = self
+                .inner
+                .edges_directed(sidx, Direction::Incoming)
+                .map(|e| e.id())
+                .collect();
+            for edge_id in edges_to_adjust {
+                let edge = self
+                    .inner
+                    .edge_weight_mut(edge_id)
+                    .expect("still present as we just saw it");
+                edge.dst = None;
+                edge.dst_id = None;
+            }
+        }
         Ok(new_segment_sidx)
     }
 
@@ -532,13 +549,22 @@ impl Graph {
         &mut self,
         meta: &OverlayMetadata<'_, T>,
         repo: &OverlayRepo<'_>,
+        refs_by_id: &RefsById,
     ) -> anyhow::Result<()> {
-        let Some((ws_sidx, ws_stacks, ws_data, ws_target)) = self
+        let Some((ws_sidx, ws_stacks, ws_data, ws_target, ws_low_bound_sidx)) = self
             .to_workspace_inner(workspace::Downgrade::Disallow)
             .ok()
             .and_then(|mut ws| {
                 let md = ws.metadata.take();
-                md.map(|md| (ws.id, ws.stacks, md, ws.target))
+                md.map(|md| {
+                    let lower_bound_if_in_workspace = ws.lower_bound_segment_id.filter(|lb_sidx| {
+                        ws.stacks
+                            .iter()
+                            .flat_map(|s| s.segments.iter().map(|s| s.id))
+                            .any(|sid| sid == *lb_sidx)
+                    });
+                    (ws.id, ws.stacks, md, ws.target, lower_bound_if_in_workspace)
+                })
             })
         else {
             return Ok(());
@@ -809,6 +835,16 @@ impl Graph {
                 })
             });
             self[sidx].sibling_segment_id = named_segment_id;
+        }
+
+        // The named-segment check is needed as we don't want to double-split unnamed segments.
+        // What this really does is to pass ownership of the base commit from a named segment to an unnamed one,
+        // as all algorithms kind of rely on it.
+        // So if this ever becomes a problem, we can also try to adjust said algorithms downstream.
+        if let Some(low_bound_segment_id) = ws_low_bound_sidx
+            && self[low_bound_segment_id].ref_name.is_some()
+        {
+            self.split_segment(low_bound_segment_id, 0, None, Some(refs_by_id), meta)?;
         }
         Ok(())
     }

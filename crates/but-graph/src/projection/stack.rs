@@ -70,7 +70,7 @@ impl Stack {
         }
         if let Some((last_segment, last_aggregated_sidx)) = segments.last_mut().and_then(|s| {
             let sidx = s.commits_by_segment.last().map(|t| t.0)?;
-            (s, sidx).into()
+            Some((s, sidx))
         }) {
             let first_parent_sidx = graph
                 .neighbors_directed(last_aggregated_sidx, Direction::Outgoing)

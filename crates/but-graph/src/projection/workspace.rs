@@ -584,7 +584,7 @@ impl Graph {
                                 return stop;
                             }
                             // Check for anonymous segments with sibling ID - these know their
-                            // named counterparts and we want to set the name, but they must
+                            // named counterparts, and we want to set the name, but they must
                             // be in their own stack-segment.
                             if s.ref_name.is_none() && s.sibling_segment_id.is_some() {
                                 return stop;
@@ -851,7 +851,7 @@ impl Graph {
     fn collect_stack_segments(
         &self,
         from: SegmentIndex,
-        entrypoint_sidx: Option<SegmentIndex>,
+        mut entrypoint_sidx: Option<SegmentIndex>,
         mut is_one_past_end_of_stack_segment: impl FnMut(&Segment) -> bool,
         mut starts_next_stack_segment: impl FnMut(&Segment) -> bool,
         mut discard_stack: impl FnMut(&StackSegment) -> bool,
@@ -866,6 +866,7 @@ impl Graph {
             let mut segment = StackSegment::from_graph_segments(&segments, self)?;
             if entrypoint_sidx.is_some_and(|id| segment.id == id) {
                 segment.is_entrypoint = true;
+                entrypoint_sidx = None;
             }
             out.push(segment);
             next = stopped_at

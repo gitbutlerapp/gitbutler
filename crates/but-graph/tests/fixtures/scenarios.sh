@@ -205,6 +205,65 @@ git init special-branches
 
 mkdir ws
 (cd ws
+  git init remote-and-integrated-tracking-linear
+  (cd remote-and-integrated-tracking-linear
+     commit M1
+     commit M-base
+     git branch A
+     git checkout -b soon-origin-A main
+       commit A-remote
+     git checkout main
+       commit M-advanced
+       setup_target_to_match_main
+
+     git checkout A
+     create_workspace_commit_once A
+     setup_remote_tracking soon-origin-A A "move"
+  )
+
+  git init remote-and-integrated-tracking
+  (cd remote-and-integrated-tracking
+     commit M1
+     commit M2
+     git checkout -b tmp1
+      commit X
+     git checkout main
+     commit Y
+     git merge --no-ff tmp1 -m "M-base"
+     git branch A
+     git checkout -b soon-origin-A main
+       commit A-remote
+     git checkout main
+       commit M-advanced
+       setup_target_to_match_main
+
+     git checkout A
+     create_workspace_commit_once A
+     setup_remote_tracking soon-origin-A A "move"
+  )
+
+  git init remote-and-integrated-tracking-extra-commit
+  (cd remote-and-integrated-tracking-extra-commit
+     commit M1
+     commit M2
+     git checkout -b tmp1
+      commit X
+     git checkout main
+     commit Y
+     git merge --no-ff tmp1 -m "M-base"
+     git checkout -b A
+       commit A-local
+     git checkout -b soon-origin-A main
+       commit A-remote
+     git checkout main
+       commit M-advanced
+       setup_target_to_match_main
+
+     git checkout A
+     create_workspace_commit_once A
+     setup_remote_tracking soon-origin-A A "move"
+  )
+
   git init single-stack-ambiguous
   (cd single-stack-ambiguous
      commit init

@@ -5219,6 +5219,109 @@ fn dependent_branch_on_base() -> anyhow::Result<()> {
 }
 
 #[test]
+fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-and-integrated-tracking")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * d018f71 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * c1e26b0 (origin/main, main) M-advanced
+    |/  
+    | * 2181501 (origin/A) A-remote
+    |/  
+    *   1ee1e34 (A) M-base
+    |\  
+    | * efc3b77 (tmp1) X
+    * | c822d66 Y
+    |/  
+    * bce0c5e M2
+    * 3183e43 M1
+    ");
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣1 on 1ee1e34
+    └── ≡📙:3:A <> origin/A →:4:⇣1 on 1ee1e34 {1}
+        └── 📙:3:A <> origin/A →:4:⇣1
+            └── 🟣2181501
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/remote-and-integrated-tracking-linear")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 21e584f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * 8dc508f (origin/main, main) M-advanced
+    |/  
+    | * 197ddce (origin/A) A-remote
+    |/  
+    * 081bae9 (A) M-base
+    * 3183e43 M1
+    ");
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣1 on 081bae9
+    └── ≡📙:3:A <> origin/A →:4:⇣1 on 081bae9 {1}
+        └── 📙:3:A <> origin/A →:4:⇣1
+            └── 🟣197ddce
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn remote_and_integrated_tracking_branch_on_merge_extra_target() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/remote-and-integrated-tracking-extra-commit")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 5f2810f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9f47a25 (A) A-local
+    | * c1e26b0 (origin/main, main) M-advanced
+    |/  
+    | * 2181501 (origin/A) A-remote
+    |/  
+    *   1ee1e34 M-base
+    |\  
+    | * efc3b77 (tmp1) X
+    * | c822d66 Y
+    |/  
+    * bce0c5e M2
+    * 3183e43 M1
+    ");
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣1 on 1ee1e34
+    └── ≡📙:3:A <> origin/A →:4:⇡1⇣1 on 1ee1e34 {1}
+        └── 📙:3:A <> origin/A →:4:⇡1⇣1
+            ├── 🟣2181501
+            └── ·9f47a25 (🏘️)
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn unapplied_branch_on_base() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/unapplied-branch-on-base")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
