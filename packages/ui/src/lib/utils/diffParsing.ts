@@ -21,6 +21,7 @@ import { lua } from '@codemirror/legacy-modes/mode/lua';
 import { powerShell } from '@codemirror/legacy-modes/mode/powershell';
 import { protobuf } from '@codemirror/legacy-modes/mode/protobuf';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
+import { shell } from '@codemirror/legacy-modes/mode/shell';
 import { swift } from '@codemirror/legacy-modes/mode/swift';
 import { toml } from '@codemirror/legacy-modes/mode/toml';
 import { NodeType, Tree, Parser } from '@lezer/common';
@@ -307,9 +308,6 @@ export function parserFromExtension(extension: string): Parser | undefined {
 		case 'md':
 			return markdown().language.parser;
 
-		// case 'text/x-sh':
-		//     return new LanguageSupport(await CodeMirror.shell());
-
 		// case 'text/x-coffeescript':
 		//     return new LanguageSupport(await CodeMirror.coffeescript());
 
@@ -340,6 +338,11 @@ export function parserFromExtension(extension: string): Parser | undefined {
 
 			// highlighting svelte with js + jsx works much better than the above
 			return javascript({ typescript: true, jsx: true }).language.parser;
+
+		case 'sh':
+		case 'bash':
+		case 'zsh':
+			return StreamLanguage.define(shell).parser;
 
 		case 'swift':
 			return StreamLanguage.define(swift).parser;
