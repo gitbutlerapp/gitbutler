@@ -179,7 +179,7 @@ pub async fn handle_multiple_branches_in_workspace(
         writeln!(stdout, "{}", outcome_json).ok();
     } else {
         writeln!(stdout,).ok();
-        display_review_publication_summary(overall_outcome);
+        display_review_publication_summary(overall_outcome)?;
     }
 
     Ok(())
@@ -332,7 +332,7 @@ fn get_base_branch_and_repo(
 }
 
 /// Display a summary of published and already existing reviews
-fn display_review_publication_summary(outcome: PublishReviewsOutcome) {
+fn display_review_publication_summary(outcome: PublishReviewsOutcome) -> std::io::Result<()> {
     let mut stdout = std::io::stdout();
     // Group published reviews by branch name
     let mut published_by_branch: BTreeMap<&str, Vec<&gitbutler_forge::review::ForgeReview>> =
@@ -344,9 +344,9 @@ fn display_review_publication_summary(outcome: PublishReviewsOutcome) {
             .push(review);
     }
     for (branch, reviews) in published_by_branch {
-        writeln!(stdout, "Published reviews for branch '{}':", branch).ok();
+        writeln!(stdout, "Published reviews for branch '{}':", branch)?;
         for review in reviews {
-            print_review_information(review);
+            print_review_information(review)?;
         }
     }
 
@@ -360,15 +360,17 @@ fn display_review_publication_summary(outcome: PublishReviewsOutcome) {
             .push(review);
     }
     for (branch, reviews) in existing_by_branch {
-        writeln!(stdout, "Review(s) already exist for branch '{}':", branch).ok();
+        writeln!(stdout, "Review(s) already exist for branch '{}':", branch)?;
         for review in reviews {
-            print_review_information(review);
+            print_review_information(review)?;
         }
     }
+
+    Ok(())
 }
 
 /// Print review information in a formatted way
-fn print_review_information(review: &gitbutler_forge::review::ForgeReview) {
+fn print_review_information(review: &gitbutler_forge::review::ForgeReview) -> std::io::Result<()> {
     writeln!(
         std::io::stdout(),
         "  '{}' ({}{}): {}",
@@ -376,8 +378,9 @@ fn print_review_information(review: &gitbutler_forge::review::ForgeReview) {
         review.unit_symbol.blue(),
         review.number.to_string().blue(),
         review.html_url.underline()
-    )
-    .ok();
+    )?;
+
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

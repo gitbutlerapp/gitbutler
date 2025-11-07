@@ -43,7 +43,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     // Check if help is requested with no subcommand
     if args.len() == 1 || args.iter().any(|arg| arg == "--help" || arg == "-h") && args.len() == 2 {
-        print_grouped_help();
+        print_grouped_help()?;
         return Ok(());
     }
 
@@ -52,7 +52,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     if args_vec.iter().any(|arg| arg == "push")
         && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
     {
-        push::print_help();
+        push::print_help()?;
         return Ok(());
     }
 
@@ -91,7 +91,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         }
         None => {
             // No subcommand and no source/target means help was requested
-            print_grouped_help();
+            print_grouped_help()?;
             Ok(())
         }
         Some(cmd) => match_subcommand(cmd, args, app_settings, start).await,
@@ -462,7 +462,7 @@ where
     props
 }
 
-fn print_grouped_help() {
+fn print_grouped_help() -> std::io::Result<()> {
     use std::collections::HashSet;
 
     use clap::CommandFactory;
@@ -510,12 +510,11 @@ fn print_grouped_help() {
         stdout,
         "{}",
         "The GitButler CLI change control system".red()
-    )
-    .ok();
-    writeln!(stdout).ok();
-    writeln!(stdout, "Usage: but [OPTIONS] <COMMAND>").ok();
-    writeln!(stdout, "       but [OPTIONS] [RUB-SOURCE] [RUB-TARGET]").ok();
-    writeln!(stdout).ok();
+    )?;
+    writeln!(stdout)?;
+    writeln!(stdout, "Usage: but [OPTIONS] <COMMAND>")?;
+    writeln!(stdout, "       but [OPTIONS] [RUB-SOURCE] [RUB-TARGET]")?;
+    writeln!(stdout)?;
 
     // Keep track of which commands we've already printed
     let mut printed_commands = HashSet::new();
@@ -524,7 +523,7 @@ fn print_grouped_help() {
 
     // Print grouped commands
     for (group_name, command_names) in &groups {
-        writeln!(stdout, "{group_name}:").ok();
+        writeln!(stdout, "{group_name}:")?;
         for cmd_name in command_names {
             if let Some(subcmd) = subcommands.iter().find(|c| c.get_name() == *cmd_name) {
                 let about = subcmd.get_about().unwrap_or_default().to_string();
@@ -537,12 +536,11 @@ fn print_grouped_help() {
                     "  {:<LONGEST_COMMAND_LEN$}{}",
                     cmd_name.green(),
                     truncated_about,
-                )
-                .ok();
+                )?;
                 printed_commands.insert(cmd_name.to_string());
             }
         }
-        writeln!(stdout).ok();
+        writeln!(stdout)?;
     }
 
     // Collect any remaining commands not in the explicit groups
@@ -553,7 +551,7 @@ fn print_grouped_help() {
 
     // Print MISC section if there are any ungrouped commands
     if !misc_commands.is_empty() {
-        writeln!(stdout, "{}:", "Other Commands".yellow()).ok();
+        writeln!(stdout, "{}:", "Other Commands".yellow())?;
         for subcmd in misc_commands {
             let about = subcmd.get_about().unwrap_or_default().to_string();
             // Calculate available width: terminal_width - indent (2) - command column (10) - buffer (1)
@@ -564,13 +562,12 @@ fn print_grouped_help() {
                 "  {:<LONGEST_COMMAND_LEN$}{}",
                 subcmd.get_name().green(),
                 truncated_about
-            )
-            .ok();
+            )?;
         }
-        writeln!(stdout).ok();
+        writeln!(stdout)?;
     }
 
-    writeln!(stdout, "{}:", "Options".yellow()).ok();
+    writeln!(stdout, "{}:", "Options".yellow())?;
     // Truncate long option descriptions if needed
     let option_descriptions = [
         (
@@ -584,8 +581,10 @@ fn print_grouped_help() {
     for (flag, desc) in option_descriptions {
         let available_width = terminal_width.saturating_sub(flag.len() + 2);
         let truncated_desc = truncate_text(desc, available_width);
-        writeln!(stdout, "{}  {}", flag, truncated_desc).ok();
+        writeln!(stdout, "{}  {}", flag, truncated_desc)?;
     }
+
+    Ok(())
 }
 
 mod trace {

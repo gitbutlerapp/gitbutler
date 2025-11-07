@@ -149,7 +149,11 @@ pub(crate) async fn worktree(
     Ok(())
 }
 
-fn print_assignments(assignments: &Vec<FileAssignment>, changes: &[TreeChange], dotted: bool) {
+fn print_assignments(
+    assignments: &Vec<FileAssignment>,
+    changes: &[TreeChange],
+    dotted: bool,
+) -> std::io::Result<()> {
     let mut stdout = std::io::stdout();
     for fa in assignments {
         let state = status_from_changes(changes, fa.path.clone());
@@ -187,11 +191,13 @@ fn print_assignments(assignments: &Vec<FileAssignment>, changes: &[TreeChange], 
             locks = format!("🔒 {locks}");
         }
         if dotted {
-            writeln!(stdout, "┊   {id} {status} {path} {locks}").ok();
+            writeln!(stdout, "┊   {id} {status} {path} {locks}")?;
         } else {
-            writeln!(stdout, "┊│   {id} {status} {path} {locks}").ok();
+            writeln!(stdout, "┊│   {id} {status} {path} {locks}")?;
         }
     }
+
+    Ok(())
 }
 
 #[expect(clippy::too_many_arguments)]
@@ -249,7 +255,7 @@ pub fn print_group(
             .ok();
             *stack_mark = None; // Only show the stack mark for the first branch
             if first {
-                print_assignments(&assignments, changes, false);
+                print_assignments(&assignments, changes, false)?;
             }
             first = false;
             for commit in &branch.upstream_commits {
@@ -309,7 +315,7 @@ pub fn print_group(
             stack_mark.clone().unwrap_or_default()
         )
         .ok();
-        print_assignments(&assignments, changes, true);
+        print_assignments(&assignments, changes, true)?;
     }
     if !first {
         writeln!(stdout, "├╯").ok();
