@@ -1,7 +1,9 @@
+mod bash;
 mod patterns;
 mod settings;
 
 use anyhow::{Context, Result};
+use bash::split_bash_commands;
 pub use patterns::SerializationContext;
 use patterns::*;
 use serde::{Deserialize, Serialize};
@@ -258,11 +260,11 @@ fn extract_terms_to_match(request: &ClaudePermissionRequest) -> Result<Option<Ve
 
     match request.tool_name.as_str() {
         "Bash" => {
-            // TODO(CTO): Split commands at && and ||s
             let command = request.input["command"]
                 .as_str()
                 .context("Expected bash tool to have command string")?;
-            Ok(Some(vec![command.into()]))
+            let commands = split_bash_commands(command);
+            Ok(Some(commands))
         }
         "Edit" | "Write" => {
             let path = request.input["file_path"]
