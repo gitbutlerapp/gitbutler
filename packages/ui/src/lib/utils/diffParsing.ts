@@ -28,6 +28,7 @@ import { swift } from '@codemirror/legacy-modes/mode/swift';
 import { toml } from '@codemirror/legacy-modes/mode/toml';
 import { NodeType, Tree, Parser } from '@lezer/common';
 import { tags, highlightTree } from '@lezer/highlight';
+import { hcl } from 'codemirror-lang-hcl';
 import diff_match_patch from 'diff-match-patch';
 import type { BrandedId } from '$lib/utils/branding';
 
@@ -277,6 +278,13 @@ export function parserFromExtension(extension: string): Parser | undefined {
 
 		case 'go':
 			return go().language.parser;
+
+		case 'hcl':
+		case 'hcl2':
+		case 'nomad':
+		case 'tf':
+		case 'tfvars':
+			return hcl().language.parser;
 
 		case 'java':
 			return java().language.parser;
