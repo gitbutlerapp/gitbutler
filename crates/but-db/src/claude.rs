@@ -262,4 +262,21 @@ impl ClaudeMessagesHandle<'_> {
         .execute(&mut self.db.conn)?;
         Ok(())
     }
+
+    /// Gets the most recent message matching a provided content type
+    pub fn get_message_of_type(
+        &mut self,
+        content_type: String,
+        offset: Option<i64>,
+    ) -> Result<Option<ClaudeMessage>, diesel::result::Error> {
+        let offset = offset.unwrap_or(0);
+        let message = claude_messages
+            .filter(crate::schema::claude_messages::content_type.eq(content_type))
+            .order(crate::schema::claude_messages::created_at.desc())
+            .offset(offset)
+            .limit(1)
+            .first::<ClaudeMessage>(&mut self.db.conn)
+            .optional()?;
+        Ok(message)
+    }
 }

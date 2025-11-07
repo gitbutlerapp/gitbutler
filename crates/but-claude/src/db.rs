@@ -144,6 +144,23 @@ pub fn list_messages_by_session(
         .collect::<Result<_, _>>()
 }
 
+/// Gets the most recent user input message
+/// Optionally an offset may be provided. The offset must be a positive integer
+pub fn get_user_message(
+    ctx: &mut CommandContext,
+    offset: Option<i64>,
+) -> anyhow::Result<Option<crate::ClaudeMessage>> {
+    let message = ctx
+        .db()?
+        .claude_messages()
+        .get_message_of_type(ClaudeMessageDbContentType::UserInput.to_string(), offset)?;
+
+    match message {
+        Some(m) => Ok(Some(m.try_into()?)),
+        None => Ok(None),
+    }
+}
+
 /// Lists all Permission Requests
 pub fn list_all_permission_requests(
     ctx: &mut CommandContext,
