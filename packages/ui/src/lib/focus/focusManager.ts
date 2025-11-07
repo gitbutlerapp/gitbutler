@@ -92,7 +92,7 @@ export class FocusManager {
 		if (e.target instanceof HTMLElement) {
 			const focusableNode = this.findNearestFocusableElement(e.target);
 			if (focusableNode && focusableNode.element.contains(e.target)) {
-				this.setActiveNode(focusableNode);
+				this.setActiveNode(focusableNode, true);
 				this.setOutline(false);
 			}
 		}
@@ -173,7 +173,7 @@ export class FocusManager {
 		}
 
 		if (options.activate) {
-			this.setActiveNode(newNode);
+			this.setActiveNode(newNode, false);
 		}
 	}
 
@@ -208,13 +208,13 @@ export class FocusManager {
 		this.cursor.set(undefined);
 	}
 
-	private setActiveNode(node?: FocusableNode): boolean {
+	private setActiveNode(node?: FocusableNode, skipScroll?: boolean): boolean {
 		if (!node) return false;
 		const previousNode = this.currentNode;
 
 		if (!node.options.focusable) return false;
 
-		this.focusElement(node.element);
+		this.focusElement(node.element, skipScroll);
 		this.cursor.set(node.element);
 
 		if (node === this.currentNode) return true;
@@ -944,7 +944,7 @@ export class FocusManager {
 		}
 	}
 
-	focusElement(element: HTMLElement): void {
+	focusElement(element: HTMLElement, skipScroll?: boolean): void {
 		if (!element || !element.isConnected) return;
 
 		if (element.tabIndex !== -1) {
@@ -955,7 +955,9 @@ export class FocusManager {
 				activeElement.blur();
 			}
 		}
-		scrollIntoViewIfNeeded(element);
+		if (!skipScroll) {
+			scrollIntoViewIfNeeded(element);
+		}
 	}
 
 	// ============================================
