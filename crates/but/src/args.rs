@@ -181,6 +181,7 @@ For examples see `but rub --help`."
     /// Command for creating and publishing code reviews to a forge.
     Review(forge::review::Platform),
     /// Generate shell completion scripts for the specified or inferred shell.
+    #[clap(hide = true)]
     Completions {
         /// The shell to generate completions for, or the one extracted from the `SHELL` environment variable.
         #[clap(value_enum)]

@@ -502,6 +502,9 @@ fn print_grouped_help() {
         println!();
     }
 
+    println!("To add command completion, add this to your shell rc: (for example ~/.zshrc)");
+    println!("  eval \"$(but completions zsh)\"\n");
+
     println!("{}:", "Options".yellow());
     // Truncate long option descriptions if needed
     let option_descriptions = [
