@@ -57,7 +57,7 @@ export class GitHubClient implements ApiClient {
 
 	get octokit(): Octokit {
 		if (!this._client) {
-			this._client = newClient(this._token);
+			this._client = newClient(this._token, this._host);
 		}
 		return this._client;
 	}
