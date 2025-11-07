@@ -47,7 +47,7 @@ pub enum Subcommands {
 
 pub async fn publish_reviews(
     project: &Project,
-    branch: &Option<String>,
+    branch: Option<String>,
     skip_force_push_protection: bool,
     with_force: bool,
     run_hooks: bool,
@@ -59,7 +59,7 @@ pub async fn publish_reviews(
         but_api::workspace::stacks(project.id, Some(but_workspace::StacksFilter::InWorkspace))?;
     match branch {
         Some(branch_id) => {
-            let branch_names = get_branch_names(project, branch_id)?;
+            let branch_names = get_branch_names(project, &branch_id)?;
             handle_multiple_branches_in_workspace(
                 project,
                 &review_map,

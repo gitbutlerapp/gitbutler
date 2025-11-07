@@ -7,6 +7,17 @@ use std::io::{self, Write};
 
 mod list;
 
+mod json {
+    use serde::Serialize;
+
+    #[derive(Debug, Serialize)]
+    pub struct BranchNewOutput {
+        pub branch: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub anchor: Option<String>,
+    }
+}
+
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
     #[clap(subcommand)]
@@ -48,17 +59,13 @@ pub enum Subcommands {
     },
 }
 
-pub async fn handle(
-    cmd: &Option<Subcommands>,
-    project: &Project,
-    _json: bool,
-) -> anyhow::Result<()> {
+pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> anyhow::Result<()> {
     match cmd {
         None => {
             let local = false;
             list::list(project, local).await
         }
-        Some(Subcommands::List { local }) => list::list(project, *local).await,
+        Some(Subcommands::List { local }) => list::list(project, local).await,
         Some(Subcommands::New {
             branch_name,
             anchor,
@@ -66,22 +73,19 @@ pub async fn handle(
             let ctx =
                 CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
             // Get branch name or use canned name
-            let branch_name = if let Some(name) = branch_name {
-                let repo = ctx.gix_repo()?;
-                if repo.try_find_reference(name)?.is_some() {
-                    println!("Branch '{name}' already exists");
-                    return Ok(());
-                }
-                name.clone()
-            } else {
-                but_api::workspace::canned_branch_name(project.id)?
-            };
+            let branch_name = branch_name
+                .map(Ok::<_, but_api::error::Error>)
+                .unwrap_or_else(|| but_api::workspace::canned_branch_name(project.id))?;
+
+            // Store anchor string for JSON output
+            let anchor_for_json = anchor.clone();
+
             let anchor = if let Some(anchor_str) = anchor {
                 // Use the new create_reference API when anchor is provided
                 let mut ctx = ctx; // Make mutable for CliId resolution
 
                 // Resolve the anchor string to a CliId
-                let anchor_ids = crate::id::CliId::from_str(&mut ctx, anchor_str)?;
+                let anchor_ids = crate::id::CliId::from_str(&mut ctx, &anchor_str)?;
                 if anchor_ids.is_empty() {
                     return Err(anyhow::anyhow!("Could not find anchor: {}", anchor_str));
                 }
@@ -126,7 +130,14 @@ pub async fn handle(
                     anchor,
                 },
             )?;
-            if atty::is(Stream::Stdout) {
+
+            if json {
+                let response = json::BranchNewOutput {
+                    branch: branch_name,
+                    anchor: anchor_for_json,
+                };
+                println!("{}", serde_json::to_string_pretty(&response)?);
+            } else if atty::is(Stream::Stdout) {
                 println!("Created branch {branch_name}");
             } else {
                 println!("{branch_name}");
@@ -147,7 +158,7 @@ pub async fn handle(
                 }
 
                 if let Some(sid) = stack_entry.id {
-                    return confirm_branch_deletion(project, sid, branch_name, force);
+                    return confirm_branch_deletion(project, sid, &branch_name, force);
                 }
             }
 
@@ -182,7 +193,7 @@ fn confirm_unapply_stack(
     project: &Project,
     sid: StackId,
     stack_entry: &StackEntry,
-    force: &bool,
+    force: bool,
 ) -> Result<(), anyhow::Error> {
     let branches = stack_entry
         .heads
@@ -219,8 +230,8 @@ fn confirm_unapply_stack(
 fn confirm_branch_deletion(
     project: &Project,
     sid: StackId,
-    branch_name: &String,
-    force: &bool,
+    branch_name: &str,
+    force: bool,
 ) -> Result<(), anyhow::Error> {
     if !force {
         println!(
@@ -239,7 +250,7 @@ fn confirm_branch_deletion(
         }
     }
 
-    but_api::stack::remove_branch(project.id, sid, branch_name.clone())?;
+    but_api::stack::remove_branch(project.id, sid, branch_name.to_owned())?;
     println!("Deleted branch {branch_name}");
     Ok(())
 }

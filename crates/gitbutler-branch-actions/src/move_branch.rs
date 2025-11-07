@@ -237,7 +237,7 @@ fn extract_and_rebase_source_branch(
         let source_rebase_result = source_stack_rebase.rebase()?;
         let new_source_head = repository.find_commit(source_rebase_result.top_commit)?;
 
-        source_stack.remove_branch(ctx, subject_branch_name.to_string())?;
+        source_stack.remove_branch(ctx, subject_branch_name)?;
 
         source_stack.set_stack_head(
             vb_state,

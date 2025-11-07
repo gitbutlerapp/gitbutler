@@ -267,9 +267,8 @@ fn add_series_target_commit_not_in_stack() -> Result<()> {
 fn remove_branch_last_fails() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
-    let result = test_ctx
-        .stack
-        .remove_branch(&ctx, test_ctx.stack.heads[0].name().clone());
+    let branch_name = test_ctx.stack.heads[0].name().to_owned();
+    let result = test_ctx.stack.remove_branch(&ctx, &branch_name);
     assert_eq!(
         result.err().unwrap().to_string(),
         "Cannot remove the last branch from the stack"
@@ -281,9 +280,7 @@ fn remove_branch_last_fails() -> Result<()> {
 fn remove_branch_nonexistent_fails() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
-    let result = test_ctx
-        .stack
-        .remove_branch(&ctx, "does-not-exist".to_string());
+    let result = test_ctx.stack.remove_branch(&ctx, "does-not-exist");
     assert_eq!(
         result.err().unwrap().to_string(),
         "Series with name does-not-exist not found"
@@ -310,9 +307,7 @@ fn remove_branch_with_multiple_last_heads() -> Result<()> {
     assert!(result.is_ok());
     assert_eq!(head_names(&test_ctx), vec!["to_stay", "virtual"]);
 
-    let result = test_ctx
-        .stack
-        .remove_branch(&ctx, default_head.name().clone());
+    let result = test_ctx.stack.remove_branch(&ctx, default_head.name());
     assert!(result.is_ok());
     assert_eq!(head_names(&test_ctx), vec!["to_stay"]);
     assert_eq!(
@@ -342,9 +337,7 @@ fn remove_branch_no_orphan_commits() -> Result<()> {
     assert!(result.is_ok());
     assert_eq!(head_names(&test_ctx), vec!["to_stay", "virtual"]);
 
-    let result = test_ctx
-        .stack
-        .remove_branch(&ctx, default_head.name().clone());
+    let result = test_ctx.stack.remove_branch(&ctx, default_head.name());
     assert!(result.is_ok());
     assert_eq!(head_names(&test_ctx), vec!["to_stay"]);
     assert_eq!(

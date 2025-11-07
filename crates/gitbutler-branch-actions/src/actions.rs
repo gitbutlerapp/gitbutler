@@ -112,7 +112,7 @@ pub fn delete_local_branch(
         }
         // Delete the branch head or if it is the only one, delete the entire stack
         if stack.heads.len() > 1 {
-            stack.remove_branch(ctx, given_name.clone())?;
+            stack.remove_branch(ctx, &given_name)?;
         } else {
             handle.delete_branch_entry(&stack.id)?;
         }

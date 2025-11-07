@@ -16,11 +16,11 @@ pub(crate) fn get_head(heads: &[StackBranch], name: &str) -> Result<(usize, Stac
 /// to the top of the stack as a result.
 pub(crate) fn remove_head(
     mut heads: Vec<StackBranch>,
-    name: String,
+    name: &str,
     repo: &gix::Repository,
 ) -> Result<(Vec<StackBranch>, bool)> {
     // find the head that corresponds to the supplied name, together with its index
-    let (idx, head) = get_head(&heads, &name)?;
+    let (idx, head) = get_head(&heads, name)?;
     if heads.len() == 1 {
         bail!("Cannot remove the last branch from the stack")
     }
