@@ -435,12 +435,19 @@ fn print_grouped_help() {
 
     // Define command groupings and their order (excluding MISC)
     let groups = [
-        ("Inspection".yellow(), vec!["status", "log"]),
+        ("Inspection".yellow(), vec!["status"]),
         (
             "Branching and Committing".yellow(),
-            vec!["commit", "push", "new", "branch", "base", "mark", "unmark"],
+            vec!["commit", "new", "branch", "base", "mark", "unmark"],
         ),
-        ("Editing Commits".yellow(), vec!["rub", "describe"]),
+        (
+            "Server Interaction".yellow(),
+            vec!["push", "review", "forge"],
+        ),
+        (
+            "Editing Commits".yellow(),
+            vec!["rub", "describe", "absorb"],
+        ),
         (
             "Operation History".yellow(),
             vec!["oplog", "undo", "restore", "snapshot"],
