@@ -126,7 +126,7 @@ pub async fn handle(
                     anchor,
                 },
             )?;
-            println!("Created branch {branch_name}");
+            println!("{branch_name}");
             Ok(())
         }
         Some(Subcommands::Delete { branch_name, force }) => {
