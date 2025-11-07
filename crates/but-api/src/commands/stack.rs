@@ -197,7 +197,7 @@ pub fn remove_branch(
             },
         )?;
     } else {
-        gitbutler_branch_actions::stack::remove_branch(&ctx, stack_id, branch_name)?;
+        gitbutler_branch_actions::stack::remove_branch(&ctx, stack_id, &branch_name)?;
     }
     Ok(())
 }

@@ -68,17 +68,13 @@ pub enum Subcommands {
     },
 }
 
-pub async fn handle(
-    cmd: &Option<Subcommands>,
-    project: &Project,
-    json: bool,
-) -> anyhow::Result<()> {
+pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> anyhow::Result<()> {
     match cmd {
         None => {
             let local = false;
             list::list(project, local).await
         }
-        Some(Subcommands::List { local }) => list::list(project, *local).await,
+        Some(Subcommands::List { local }) => list::list(project, local).await,
         Some(Subcommands::New {
             branch_name,
             anchor,
@@ -88,7 +84,7 @@ pub async fn handle(
             // Get branch name or use canned name
             let branch_name = if let Some(name) = branch_name {
                 let repo = ctx.gix_repo()?;
-                if repo.try_find_reference(name)?.is_some() {
+                if repo.try_find_reference(name.as_str())?.is_some() {
                     if json {
                         let response = BranchNewResponse::Error(BranchNewError {
                             error: format!("Branch '{}' already exists", name),
@@ -112,7 +108,7 @@ pub async fn handle(
                 let mut ctx = ctx; // Make mutable for CliId resolution
 
                 // Resolve the anchor string to a CliId
-                let anchor_ids = crate::id::CliId::from_str(&mut ctx, anchor_str)?;
+                let anchor_ids = crate::id::CliId::from_str(&mut ctx, &anchor_str)?;
                 if anchor_ids.is_empty() {
                     return Err(anyhow::anyhow!("Could not find anchor: {}", anchor_str));
                 }
@@ -185,7 +181,7 @@ pub async fn handle(
                 }
 
                 if let Some(sid) = stack_entry.id {
-                    return confirm_branch_deletion(project, sid, branch_name, force);
+                    return confirm_branch_deletion(project, sid, &branch_name, force);
                 }
             }
 
@@ -220,7 +216,7 @@ fn confirm_unapply_stack(
     project: &Project,
     sid: StackId,
     stack_entry: &StackEntry,
-    force: &bool,
+    force: bool,
 ) -> Result<(), anyhow::Error> {
     let branches = stack_entry
         .heads
@@ -257,8 +253,8 @@ fn confirm_unapply_stack(
 fn confirm_branch_deletion(
     project: &Project,
     sid: StackId,
-    branch_name: &String,
-    force: &bool,
+    branch_name: &str,
+    force: bool,
 ) -> Result<(), anyhow::Error> {
     if !force {
         println!(
@@ -277,7 +273,7 @@ fn confirm_branch_deletion(
         }
     }
 
-    but_api::stack::remove_branch(project.id, sid, branch_name.clone())?;
+    but_api::stack::remove_branch(project.id, sid, branch_name.to_owned())?;
     println!("Deleted branch {branch_name}");
     Ok(())
 }

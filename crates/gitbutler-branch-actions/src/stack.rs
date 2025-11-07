@@ -73,10 +73,10 @@ pub struct CreateSeriesRequest {
 /// The very last branch (reference) cannot be removed (A Stack must always contain at least one reference)
 /// If there were commits/changes that were *only* referenced by the removed branch,
 /// those commits are moved to the branch underneath it (or more accurately, the preceding it)
-pub fn remove_branch(ctx: &CommandContext, stack_id: StackId, branch_name: String) -> Result<()> {
+pub fn remove_branch(ctx: &CommandContext, stack_id: StackId, branch_name: &str) -> Result<()> {
     let mut guard = ctx.project().exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    let _ = ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission());
+    let _ = ctx.snapshot_remove_dependent_branch(branch_name, guard.write_permission());
     ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.remove_branch(ctx, branch_name)

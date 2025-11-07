@@ -19,7 +19,7 @@ pub enum Subcommands {
     Update,
 }
 
-pub fn handle(cmd: &Subcommands, project: &Project, json: bool) -> anyhow::Result<()> {
+pub fn handle(cmd: Subcommands, project: &Project, json: bool) -> anyhow::Result<()> {
     match cmd {
         Subcommands::Check => {
             if !json {

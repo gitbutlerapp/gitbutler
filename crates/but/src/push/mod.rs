@@ -107,7 +107,7 @@ fn get_gerrit_flags(
     Ok(flags)
 }
 
-pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()> {
+pub fn handle(args: Args, project: &Project, _json: bool) -> anyhow::Result<()> {
     let mut ctx = CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
 
     // Check gerrit mode early
@@ -124,7 +124,7 @@ pub fn handle(args: &Args, project: &Project, _json: bool) -> anyhow::Result<()>
     let stack_id = find_stack_id_by_branch_name(project, &branch_name)?;
 
     // Convert CLI args to gerrit flags with validation
-    let gerrit_flags = get_gerrit_flags(args, &branch_name, gerrit_mode)?;
+    let gerrit_flags = get_gerrit_flags(&args, &branch_name, gerrit_mode)?;
 
     // Call push_stack
     let result: PushResult = but_api::stack::push_stack(

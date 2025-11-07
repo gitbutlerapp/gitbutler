@@ -533,7 +533,7 @@ impl Stack {
     /// those commits are moved to the branch underneath it (or more accurately, the preceding it)
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
-    pub fn remove_branch(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()> {
+    pub fn remove_branch(&mut self, ctx: &CommandContext, branch_name: &str) -> Result<()> {
         self.ensure_initialized()?;
         (self.heads, _) = remove_head(self.heads.clone(), branch_name, &ctx.gix_repo()?)?;
         let state = branch_state(ctx);

@@ -55,7 +55,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         return Ok(());
     }
 
-    let args: Args = clap::Parser::parse_from(args);
+    let mut args: Args = clap::Parser::parse_from(args);
     let app_settings = AppSettings::load_from_default_path_creating()?;
 
     if args.trace > 0 {
@@ -67,7 +67,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let start = std::time::Instant::now();
 
     // If no subcommand is provided but we have source and target, default to rub
-    match &args.cmd {
+    match args.cmd.take() {
         None if args.source.is_some() && args.target.is_some() => {
             // Default to rub when two arguments are provided without a subcommand
             let source = args
@@ -92,19 +92,19 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             print_grouped_help();
             Ok(())
         }
-        Some(cmd) => match_subcommand(cmd, &args, app_settings, start).await,
+        Some(cmd) => match_subcommand(cmd, args, app_settings, start).await,
     }
 }
 
 async fn match_subcommand(
-    cmd: &Subcommands,
-    args: &Args,
+    cmd: Subcommands,
+    args: Args,
     app_settings: AppSettings,
     start: std::time::Instant,
 ) -> Result<()> {
     match cmd {
         Subcommands::Mcp { internal } => {
-            if *internal {
+            if internal {
                 mcp_internal::start(app_settings).await
             } else {
                 mcp::start(app_settings).await
@@ -115,9 +115,8 @@ async fn match_subcommand(
                 description,
                 handler,
             }) => {
-                let handler = *handler;
                 let project = get_or_init_project(&args.current_dir)?;
-                command::handle_changes(&project, args.json, handler, description)
+                command::handle_changes(&project, args.json, handler, &description)
             }
             None => {
                 let project = get_or_init_project(&args.current_dir)?;
@@ -128,8 +127,8 @@ async fn match_subcommand(
             command_name,
             props,
         } => {
-            let event = &mut Event::new((*command_name).into());
-            if let Ok(props) = Props::from_json_string(props) {
+            let event = &mut Event::new(command_name.into());
+            if let Ok(props) = Props::from_json_string(&props) {
                 props.update_event(event);
             }
             Metrics::capture_blocking(&app_settings, event.clone()).await;
@@ -170,7 +169,7 @@ async fn match_subcommand(
                 Ok(())
             }
             cursor::Subcommands::Stop { nightly } => {
-                let result = but_cursor::handle_stop(*nightly).await;
+                let result = but_cursor::handle_stop(nightly).await;
                 let p = props(start, &result);
                 println!("{}", serde_json::to_string(&result?)?);
                 metrics_if_configured(app_settings, CommandName::CursorStop, p).ok();
@@ -179,27 +178,23 @@ async fn match_subcommand(
         },
         Subcommands::Base(base::Platform { cmd }) => {
             let project = get_or_init_project(&args.current_dir)?;
+            let metrics_cmd = match cmd {
+                base::Subcommands::Check => CommandName::BaseCheck,
+                base::Subcommands::Update => CommandName::BaseUpdate,
+            };
             let result = base::handle(cmd, &project, args.json);
-            metrics_if_configured(
-                app_settings,
-                match cmd {
-                    base::Subcommands::Check => CommandName::BaseCheck,
-                    base::Subcommands::Update => CommandName::BaseUpdate,
-                },
-                props(start, &result),
-            )
-            .ok();
+            metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             Ok(())
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result = branch::handle(cmd, &project, args.json).await;
             let metrics_command = match cmd {
                 None | Some(branch::Subcommands::List { .. }) => CommandName::BranchList,
                 Some(branch::Subcommands::New { .. }) => CommandName::BranchNew,
                 Some(branch::Subcommands::Delete { .. }) => CommandName::BranchDelete,
                 Some(branch::Subcommands::Unapply { .. }) => CommandName::BranchUnapply,
             };
+            let result = branch::handle(cmd, &project, args.json).await;
             metrics_if_configured(app_settings, metrics_command, props(start, &result)).ok();
             result
         }
@@ -222,21 +217,20 @@ async fn match_subcommand(
             review,
         } => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result =
-                status::worktree(&project, args.json, *show_files, *verbose, *review).await;
+            let result = status::worktree(&project, args.json, show_files, verbose, review).await;
             metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
             result
         }
         Subcommands::Stf { verbose, review } => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result = status::worktree(&project, args.json, true, *verbose, *review).await;
+            let result = status::worktree(&project, args.json, true, verbose, review).await;
             metrics_if_configured(app_settings, CommandName::Stf, props(start, &result)).ok();
             result
         }
         Subcommands::Rub { source, target } => {
             let project = get_or_init_project(&args.current_dir)?;
             let result =
-                rub::handle(&project, args.json, source, target).context("Rubbed the wrong way.");
+                rub::handle(&project, args.json, &source, &target).context("Rubbed the wrong way.");
             if let Err(e) = &result {
                 eprintln!("{} {}", e, e.root_cause());
             }
@@ -245,7 +239,7 @@ async fn match_subcommand(
         }
         Subcommands::Mark { target, delete } => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result = mark::handle(&project, args.json, target, *delete)
+            let result = mark::handle(&project, args.json, &target, delete)
                 .context("Can't mark this. Taaaa-na-na-na. Can't mark this.");
             if let Err(e) = &result {
                 eprintln!("{} {}", e, e.root_cause());
@@ -280,8 +274,8 @@ async fn match_subcommand(
                 args.json,
                 message.as_deref(),
                 branch.as_deref(),
-                *only,
-                *create,
+                only,
+                create,
             );
             metrics_if_configured(app_settings, CommandName::Commit, props(start, &result)).ok();
             result
@@ -294,13 +288,13 @@ async fn match_subcommand(
         }
         Subcommands::New { target } => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result = commit::insert_blank_commit(&project, args.json, target);
+            let result = commit::insert_blank_commit(&project, args.json, &target);
             metrics_if_configured(app_settings, CommandName::New, props(start, &result)).ok();
             result
         }
         Subcommands::Describe { target } => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result = describe::describe_target(&project, args.json, target);
+            let result = describe::describe_target(&project, args.json, &target);
             metrics_if_configured(app_settings, CommandName::Describe, props(start, &result)).ok();
             result
         }
@@ -312,7 +306,7 @@ async fn match_subcommand(
         }
         Subcommands::Restore { oplog_sha, force } => {
             let project = get_or_init_project(&args.current_dir)?;
-            let result = oplog::restore_to_oplog(&project, args.json, oplog_sha, *force);
+            let result = oplog::restore_to_oplog(&project, args.json, &oplog_sha, force);
             metrics_if_configured(app_settings, CommandName::Restore, props(start, &result)).ok();
             result
         }
@@ -334,15 +328,15 @@ async fn match_subcommand(
             metrics_if_configured(app_settings, CommandName::Snapshot, props(start, &result)).ok();
             result
         }
-        Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, *repo)
+        Subcommands::Init { repo } => init::repo(&args.current_dir, args.json, repo)
             .context("Failed to initialize GitButler project."),
         Subcommands::Forge(forge::integration::Platform { cmd }) => {
-            let result = forge::integration::handle(cmd).await;
             let metrics_cmd = match cmd {
                 forge::integration::Subcommands::Auth => CommandName::ForgeAuth,
                 forge::integration::Subcommands::ListUsers => CommandName::ForgeListUsers,
                 forge::integration::Subcommands::Forget { .. } => CommandName::ForgeForget,
             };
+            let result = forge::integration::handle(cmd).await;
             metrics_if_configured(app_settings, metrics_cmd, props(start, &result)).ok();
             result
         }
@@ -358,10 +352,10 @@ async fn match_subcommand(
                 let result = forge::review::publish_reviews(
                     &project,
                     branch,
-                    *skip_force_push_protection,
-                    *with_force,
-                    *run_hooks,
-                    *default,
+                    skip_force_push_protection,
+                    with_force,
+                    run_hooks,
+                    default,
                     args.json,
                 )
                 .await
@@ -375,7 +369,7 @@ async fn match_subcommand(
                 result
             }
         },
-        Subcommands::Completions { shell } => completions::generate_completions(*shell),
+        Subcommands::Completions { shell } => completions::generate_completions(shell),
     }
 }
 

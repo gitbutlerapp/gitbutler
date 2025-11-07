@@ -21,7 +21,7 @@ pub enum Subcommands {
     List,
     /// Integrate a worktree
     Integrate {
-        /// The path to the worktree to integrate
+        /// The path or name of the worktree to integrate
         path: String,
         /// The target reference to integrate into (defaults to the reference the worktree was created from)
         #[clap(long)]
@@ -48,9 +48,8 @@ fn parse_worktree_identifier(
     input: &str,
     _project: &gitbutler_project::Project,
 ) -> Result<WorktreeId> {
-    let input_path = PathBuf::from(input);
-
     // If it's an absolute path or looks like a full path, extract the name from it
+    let input_path = PathBuf::from(input);
     if input_path.is_absolute() || input_path.components().count() > 1 {
         return WorktreeId::from_path(&input_path);
     }
@@ -59,7 +58,7 @@ fn parse_worktree_identifier(
     Ok(WorktreeId::from_bstr(input))
 }
 
-pub fn handle(cmd: &Subcommands, project: &gitbutler_project::Project, json: bool) -> Result<()> {
+pub fn handle(cmd: Subcommands, project: &gitbutler_project::Project, json: bool) -> Result<()> {
     match handle_inner(cmd, project, json) {
         Ok(_) => Ok(()),
         Err(e) => {
@@ -70,7 +69,7 @@ pub fn handle(cmd: &Subcommands, project: &gitbutler_project::Project, json: boo
 }
 
 pub fn handle_inner(
-    cmd: &Subcommands,
+    cmd: Subcommands,
     project: &gitbutler_project::Project,
     json: bool,
 ) -> Result<()> {
@@ -115,7 +114,7 @@ pub fn handle_inner(
             Ok(())
         }
         Subcommands::Integrate { path, target, dry } => {
-            let id = parse_worktree_identifier(path, project)?;
+            let id = parse_worktree_identifier(&path, project)?;
 
             // Determine the target reference
             let target_ref = if let Some(target_str) = target {
@@ -141,7 +140,7 @@ pub fn handle_inner(
                 )?
             };
 
-            if *dry {
+            if dry {
                 // Dry run - check integration status
                 let status = but_api::worktree::worktree_integration_status(
                     project.id,
@@ -203,7 +202,7 @@ pub fn handle_inner(
             Ok(())
         }
         Subcommands::Destroy { target, reference } => {
-            if *reference {
+            if reference {
                 // Treat target as a reference - parse it
                 let reference = if target.starts_with("refs/") {
                     gix::refs::FullName::try_from(target.clone())?
@@ -233,7 +232,7 @@ pub fn handle_inner(
                 }
             } else {
                 // Treat target as a path or worktree name
-                let id = parse_worktree_identifier(target, project)?;
+                let id = parse_worktree_identifier(&target, project)?;
                 let output = but_api::worktree::worktree_destroy_by_id(project.id, id.clone())?;
 
                 if json {
