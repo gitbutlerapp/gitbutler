@@ -21,6 +21,7 @@ import { lua } from '@codemirror/legacy-modes/mode/lua';
 import { powerShell } from '@codemirror/legacy-modes/mode/powershell';
 import { protobuf } from '@codemirror/legacy-modes/mode/protobuf';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
+import { swift } from '@codemirror/legacy-modes/mode/swift';
 import { toml } from '@codemirror/legacy-modes/mode/toml';
 import { NodeType, Tree, Parser } from '@lezer/common';
 import { tags, highlightTree } from '@lezer/highlight';
@@ -339,6 +340,9 @@ export function parserFromExtension(extension: string): Parser | undefined {
 
 			// highlighting svelte with js + jsx works much better than the above
 			return javascript({ typescript: true, jsx: true }).language.parser;
+
+		case 'swift':
+			return StreamLanguage.define(swift).parser;
 
 		case 'vue':
 			return vue().language.parser;
