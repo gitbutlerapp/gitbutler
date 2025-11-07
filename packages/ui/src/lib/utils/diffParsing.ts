@@ -16,6 +16,7 @@ import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
 import { kotlin } from '@codemirror/legacy-modes/mode/clike';
+import { lua } from '@codemirror/legacy-modes/mode/lua';
 import { powerShell } from '@codemirror/legacy-modes/mode/powershell';
 import { protobuf } from '@codemirror/legacy-modes/mode/protobuf';
 import { ruby } from '@codemirror/legacy-modes/mode/ruby';
@@ -281,6 +282,9 @@ export function parserFromExtension(extension: string): Parser | undefined {
 
 		case 'json':
 			return json().language.parser;
+
+		case 'lua':
+			return StreamLanguage.define(lua).parser;
 
 		case 'php':
 			return php().language.parser;
