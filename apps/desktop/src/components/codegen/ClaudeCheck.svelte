@@ -84,7 +84,7 @@
 </script>
 
 {#if showTitle}
-	<div class="flex items-center gap-8">
+	<div class="flex items-center gap-8 m-b-6">
 		<div class="flex items-center gap-8 flex-1">
 			{#if recheckedAvailability === 'recheck-failed'}
 				<Icon name="warning" color="warning" />
