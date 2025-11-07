@@ -773,6 +773,9 @@ importers:
       '@codemirror/lang-xml':
         specifier: ^6.1.0
         version: 6.1.0
+      '@codemirror/lang-yaml':
+        specifier: ^6.1.2
+        version: 6.1.2
       '@codemirror/language':
         specifier: ^6.11.2
         version: 6.11.2
