@@ -3,28 +3,19 @@ use but_settings::AppSettings;
 use but_workspace::{StackId, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
-use serde::Serialize;
 use std::io::{self, Write};
 
 mod list;
 
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
-enum BranchNewResponse {
-    Success(BranchNewOutput),
-    Error(BranchNewError),
-}
+mod json {
+    use serde::Serialize;
 
-#[derive(Debug, Serialize)]
-struct BranchNewOutput {
-    branch: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    anchor: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct BranchNewError {
-    error: String,
+    #[derive(Debug, Serialize)]
+    pub struct BranchNewOutput {
+        pub branch: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub anchor: Option<String>,
+    }
 }
 
 #[derive(Debug, clap::Parser)]
@@ -82,23 +73,9 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
             let ctx =
                 CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
             // Get branch name or use canned name
-            let branch_name = if let Some(name) = branch_name {
-                let repo = ctx.gix_repo()?;
-                if repo.try_find_reference(name.as_str())?.is_some() {
-                    if json {
-                        let response = BranchNewResponse::Error(BranchNewError {
-                            error: format!("Branch '{}' already exists", name),
-                        });
-                        println!("{}", serde_json::to_string_pretty(&response)?);
-                    } else {
-                        println!("Branch '{name}' already exists");
-                    }
-                    return Ok(());
-                }
-                name.clone()
-            } else {
-                but_api::workspace::canned_branch_name(project.id)?
-            };
+            let branch_name = branch_name
+                .map(Ok::<_, but_api::error::Error>)
+                .unwrap_or_else(|| but_api::workspace::canned_branch_name(project.id))?;
 
             // Store anchor string for JSON output
             let anchor_for_json = anchor.clone();
@@ -155,10 +132,10 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
             )?;
 
             if json {
-                let response = BranchNewResponse::Success(BranchNewOutput {
+                let response = json::BranchNewOutput {
                     branch: branch_name,
                     anchor: anchor_for_json,
-                });
+                };
                 println!("{}", serde_json::to_string_pretty(&response)?);
             } else if atty::is(Stream::Stdout) {
                 println!("Created branch {branch_name}");
