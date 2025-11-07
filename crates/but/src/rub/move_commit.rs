@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use colored::Colorize;
 use gitbutler_branch_actions::reorder::commits_order;
 use gitbutler_command_context::CommandContext;
@@ -12,6 +14,7 @@ pub(crate) fn to_branch(
     oid: &ObjectId,
     branch_name: &str,
 ) -> anyhow::Result<()> {
+    let mut stdout = std::io::stdout();
     let target_stack_id = branch_name_to_stack_id(ctx, Some(branch_name))?.ok_or(
         anyhow::anyhow!("Could not find stack for branch {}", branch_name),
     )?;
@@ -37,30 +40,40 @@ pub(crate) fn to_branch(
     {
         match illegal_move {
             gitbutler_branch_actions::MoveCommitIllegalAction::DependsOnCommits(deps) => {
-                println!(
+                writeln!(
+                    stdout,
                     "Cannot move commit {} because it depends on commits: {}",
                     oid,
                     deps.join(", ")
-                );
+                )
+                .ok();
             }
             gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentChanges(deps) => {
-                println!(
+                writeln!(
+                    stdout,
                     "Cannot move commit {} because it has dependent changes: {}",
                     oid,
                     deps.join(", ")
-                );
+                )
+                .ok();
             }
             gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentUncommittedChanges => {
-                println!("Cannot move commit {oid} because it has dependent uncommitted changes");
+                writeln!(
+                    stdout,
+                    "Cannot move commit {oid} because it has dependent uncommitted changes"
+                )
+                .ok();
             }
         }
 
         return Ok(());
     }
-    println!(
+    writeln!(
+        stdout,
         "Moved {} → {}",
         oid.to_string()[..7].blue(),
         format!("[{branch_name}]").green()
-    );
+    )
+    .ok();
     Ok(())
 }

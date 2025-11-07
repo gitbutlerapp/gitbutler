@@ -1,7 +1,12 @@
 ### Output
-* Usable output goes to `stdout` with `wrinteln!(stdout, "…")`, with `stdout` being a re-used variable filled with `std::io::stdout()`.
-    - Use `atty::is` to print human output, otherwise print output optimised for use in shell scripts, when single values are returned.
-* Error or side-channel information goes to `stderr` with `writeln!(stderr, "…")`, with `stderr` being a re-used variable filled with `std::io::stderr()` as needed.
+* Usable output goes to `stdout` with `writeln!(stdout, …).ok()`.
+    - Obtain `stdout` once per function using `let mut stdout = std::io::stdout();`
+    - Use `stdout` when writing: `writeln!(stdout, "…").ok();`
+    - Use `atty::is` to print human output, otherwise print output optimised for use in bash scripts, when single values are returned.
+* Error or side-channel information goes to `stderr` with `writeln!(stderr, …).ok()`.
+    - Obtain `stderr` once per function using `let mut stderr = std::io::stderr();`
+    - Use `stderr` when writing: `writeln!(stderr, "…").ok();`
+* The `.ok()` at the end ignores write errors gracefully (e.g., broken pipe) instead of panicking.
 * `--json` only outputs the happy path, there are no JSON errors.
 
 ### Testing

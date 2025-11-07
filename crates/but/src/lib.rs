@@ -1,4 +1,5 @@
 use std::ffi::OsString;
+use std::io::Write;
 
 use anyhow::{Context, Result};
 
@@ -82,7 +83,8 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             let result =
                 rub::handle(&project, args.json, source, target).context("Rubbed the wrong way.");
             if let Err(e) = &result {
-                eprintln!("{} {}", e, e.root_cause());
+                let mut stderr = std::io::stderr();
+                writeln!(stderr, "{} {}", e, e.root_cause()).ok();
             }
             metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
             result
@@ -211,16 +213,18 @@ async fn match_subcommand(
         },
         Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
             cursor::Subcommands::AfterEdit => {
+                let mut stdout = std::io::stdout();
                 let result = but_cursor::handle_after_edit().await;
                 let p = props(start, &result);
-                println!("{}", serde_json::to_string(&result?)?);
+                writeln!(stdout, "{}", serde_json::to_string(&result?)?).ok();
                 metrics_if_configured(app_settings, CommandName::CursorStop, p).ok();
                 Ok(())
             }
             cursor::Subcommands::Stop { nightly } => {
+                let mut stdout = std::io::stdout();
                 let result = but_cursor::handle_stop(nightly).await;
                 let p = props(start, &result);
-                println!("{}", serde_json::to_string(&result?)?);
+                writeln!(stdout, "{}", serde_json::to_string(&result?)?).ok();
                 metrics_if_configured(app_settings, CommandName::CursorStop, p).ok();
                 Ok(())
             }
@@ -277,31 +281,34 @@ async fn match_subcommand(
             result
         }
         Subcommands::Rub { source, target } => {
+            let mut stderr = std::io::stderr();
             let project = get_or_init_project(&args.current_dir)?;
             let result =
                 rub::handle(&project, args.json, &source, &target).context("Rubbed the wrong way.");
             if let Err(e) = &result {
-                eprintln!("{} {}", e, e.root_cause());
+                writeln!(stderr, "{} {}", e, e.root_cause()).ok();
             }
             metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
             result
         }
         Subcommands::Mark { target, delete } => {
+            let mut stderr = std::io::stderr();
             let project = get_or_init_project(&args.current_dir)?;
             let result = mark::handle(&project, args.json, &target, delete)
                 .context("Can't mark this. Taaaa-na-na-na. Can't mark this.");
             if let Err(e) = &result {
-                eprintln!("{} {}", e, e.root_cause());
+                writeln!(stderr, "{} {}", e, e.root_cause()).ok();
             }
             metrics_if_configured(app_settings, CommandName::Mark, props(start, &result)).ok();
             result
         }
         Subcommands::Unmark => {
+            let mut stderr = std::io::stderr();
             let project = get_or_init_project(&args.current_dir)?;
             let result = mark::unmark(&project, args.json)
                 .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.");
             if let Err(e) = &result {
-                eprintln!("{} {}", e, e.root_cause());
+                writeln!(stderr, "{} {}", e, e.root_cause()).ok();
             }
             metrics_if_configured(app_settings, CommandName::Unmark, props(start, &result)).ok();
             result
@@ -436,8 +443,9 @@ fn get_or_init_project(
         }?;
         Ok(project)
     } else {
+        let mut stdout = std::io::stdout();
         let error_desc = "Bare repositories are not supported.";
-        println!("{error_desc}");
+        writeln!(stdout, "{error_desc}").ok();
         anyhow::bail!(error_desc);
     }
 }
@@ -459,6 +467,8 @@ fn print_grouped_help() {
 
     use clap::CommandFactory;
     use terminal_size::{Width, terminal_size};
+
+    let mut stdout = std::io::stdout();
 
     // Get terminal width, default to 80 if detection fails
     let terminal_width = if let Some((Width(w), _)) = terminal_size() {
@@ -496,11 +506,16 @@ fn print_grouped_help() {
         ),
     ];
 
-    println!("{}", "The GitButler CLI change control system".red());
-    println!();
-    println!("Usage: but [OPTIONS] <COMMAND>");
-    println!("       but [OPTIONS] [RUB-SOURCE] [RUB-TARGET]");
-    println!();
+    writeln!(
+        stdout,
+        "{}",
+        "The GitButler CLI change control system".red()
+    )
+    .ok();
+    writeln!(stdout).ok();
+    writeln!(stdout, "Usage: but [OPTIONS] <COMMAND>").ok();
+    writeln!(stdout, "       but [OPTIONS] [RUB-SOURCE] [RUB-TARGET]").ok();
+    writeln!(stdout).ok();
 
     // Keep track of which commands we've already printed
     let mut printed_commands = HashSet::new();
@@ -509,7 +524,7 @@ fn print_grouped_help() {
 
     // Print grouped commands
     for (group_name, command_names) in &groups {
-        println!("{group_name}:");
+        writeln!(stdout, "{group_name}:").ok();
         for cmd_name in command_names {
             if let Some(subcmd) = subcommands.iter().find(|c| c.get_name() == *cmd_name) {
                 let about = subcmd.get_about().unwrap_or_default().to_string();
@@ -517,15 +532,17 @@ fn print_grouped_help() {
                 let available_width =
                     terminal_width.saturating_sub(LONGEST_COMMAND_LEN_AND_ELLIPSIS);
                 let truncated_about = truncate_text(&about, available_width);
-                println!(
+                writeln!(
+                    stdout,
                     "  {:<LONGEST_COMMAND_LEN$}{}",
                     cmd_name.green(),
                     truncated_about,
-                );
+                )
+                .ok();
                 printed_commands.insert(cmd_name.to_string());
             }
         }
-        println!();
+        writeln!(stdout).ok();
     }
 
     // Collect any remaining commands not in the explicit groups
@@ -536,22 +553,24 @@ fn print_grouped_help() {
 
     // Print MISC section if there are any ungrouped commands
     if !misc_commands.is_empty() {
-        println!("{}:", "Other Commands".yellow());
+        writeln!(stdout, "{}:", "Other Commands".yellow()).ok();
         for subcmd in misc_commands {
             let about = subcmd.get_about().unwrap_or_default().to_string();
             // Calculate available width: terminal_width - indent (2) - command column (10) - buffer (1)
             let available_width = terminal_width.saturating_sub(LONGEST_COMMAND_LEN_AND_ELLIPSIS);
             let truncated_about = truncate_text(&about, available_width);
-            println!(
+            writeln!(
+                stdout,
                 "  {:<LONGEST_COMMAND_LEN$}{}",
                 subcmd.get_name().green(),
                 truncated_about
-            );
+            )
+            .ok();
         }
-        println!();
+        writeln!(stdout).ok();
     }
 
-    println!("{}:", "Options".yellow());
+    writeln!(stdout, "{}:", "Options".yellow()).ok();
     // Truncate long option descriptions if needed
     let option_descriptions = [
         (
@@ -565,7 +584,7 @@ fn print_grouped_help() {
     for (flag, desc) in option_descriptions {
         let available_width = terminal_width.saturating_sub(flag.len() + 2);
         let truncated_desc = truncate_text(desc, available_width);
-        println!("{}  {}", flag, truncated_desc);
+        writeln!(stdout, "{}  {}", flag, truncated_desc).ok();
     }
 }
 
