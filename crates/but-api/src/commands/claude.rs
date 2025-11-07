@@ -97,7 +97,7 @@ pub async fn claude_get_session_details(
 #[instrument(err(Debug))]
 pub fn claude_get_user_message(
     project_id: ProjectId,
-    offset: Option<usize>,
+    offset: Option<i64>,
 ) -> Result<Option<ClaudeMessage>, Error> {
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;

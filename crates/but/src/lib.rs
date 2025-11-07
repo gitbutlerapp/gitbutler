@@ -159,6 +159,55 @@ async fn match_subcommand(
             claude::Subcommands::PermissionPromptMcp => {
                 but_claude::mcp::start(&args.current_dir).await
             }
+            claude::Subcommands::Last { offset } => {
+                let project = get_or_init_project(&args.current_dir)?;
+                let mut ctx = gitbutler_command_context::CommandContext::open(
+                    &project,
+                    app_settings.clone(),
+                )?;
+                let message = but_claude::db::get_user_message(&mut ctx, Some(offset as i64))?;
+                match message {
+                    Some(msg) => {
+                        if args.json {
+                            // For JSON output, include timestamp and message
+                            let output = serde_json::json!({
+                                "timestamp": msg.created_at().format("%Y-%m-%d %H:%M:%S").to_string(),
+                                "message": match msg.content() {
+                                    but_claude::ClaudeMessageContent::UserInput(input) => &input.message,
+                                    _ => "",
+                                }
+                            });
+                            println!("{}", serde_json::to_string_pretty(&output)?);
+                        } else {
+                            // For human-readable output, show timestamp and message
+                            println!(
+                                "{} {}",
+                                "Timestamp:".bold(),
+                                msg.created_at()
+                                    .format("%Y-%m-%d %H:%M:%S")
+                                    .to_string()
+                                    .cyan()
+                            );
+                            match msg.content() {
+                                but_claude::ClaudeMessageContent::UserInput(input) => {
+                                    println!("{}", input.message);
+                                }
+                                _ => {
+                                    println!("{}", "Not a user input message".red());
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        if args.json {
+                            println!("null");
+                        } else {
+                            println!("No user message found at offset {}", offset);
+                        }
+                    }
+                }
+                Ok(())
+            }
         },
         Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
             cursor::Subcommands::AfterEdit => {

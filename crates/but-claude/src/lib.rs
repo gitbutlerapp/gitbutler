@@ -57,6 +57,16 @@ pub struct ClaudeMessage {
     content: ClaudeMessageContent,
 }
 
+impl ClaudeMessage {
+    pub fn created_at(&self) -> chrono::NaiveDateTime {
+        self.created_at
+    }
+
+    pub fn content(&self) -> &ClaudeMessageContent {
+        &self.content
+    }
+}
+
 /// Represents the kind of content in a Claude message.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
