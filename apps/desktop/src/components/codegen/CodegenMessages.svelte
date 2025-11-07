@@ -131,7 +131,8 @@
 
 		const editorUri = getEditorUri({
 			schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-			path: [path]
+			path: [path],
+			searchParams: { windowId: '_blank' }
 		});
 
 		urlService.openExternalUrl(editorUri);
@@ -753,11 +754,7 @@
 		</ReduxResult>
 	</ContextMenuSection>
 	<ContextMenuSection>
-		<ContextMenuItem
-			label="Edit templates"
-			icon="open-editor"
-			onclick={() => promptConfigModal?.show()}
-		/>
+		<ContextMenuItem label="Edit templates" icon="edit" onclick={() => promptConfigModal?.show()} />
 	</ContextMenuSection>
 </ContextMenu>
 

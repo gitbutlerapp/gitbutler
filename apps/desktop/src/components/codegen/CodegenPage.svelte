@@ -21,7 +21,6 @@
 	import { useAvailabilityChecking } from '$lib/codegen/availabilityChecking.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { currentStatus, lastInteractionTime, usageStats } from '$lib/codegen/messages';
-
 	import { commitStatusLabel } from '$lib/commits/commit';
 	import { isAiRule, type RuleFilter } from '$lib/rules/rule';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
