@@ -16,6 +16,7 @@ import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, StreamLanguage } from '@codemirror/language';
 import { kotlin } from '@codemirror/legacy-modes/mode/clike';
+import { commonLisp } from '@codemirror/legacy-modes/mode/commonlisp';
 import { lua } from '@codemirror/legacy-modes/mode/lua';
 import { powerShell } from '@codemirror/legacy-modes/mode/powershell';
 import { protobuf } from '@codemirror/legacy-modes/mode/protobuf';
@@ -282,6 +283,12 @@ export function parserFromExtension(extension: string): Parser | undefined {
 
 		case 'json':
 			return json().language.parser;
+
+		case 'lisp':
+		case 'lsp':
+		case 'cl': // Common Lisp
+		case 'el': // Emacs Lisp
+			return StreamLanguage.define(commonLisp).parser;
 
 		case 'lua':
 			return StreamLanguage.define(lua).parser;
