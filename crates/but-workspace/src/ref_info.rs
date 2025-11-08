@@ -27,9 +27,9 @@ pub struct Commit {
     pub message: BString,
     /// The signature at which the commit was authored.
     pub author: gix::actor::Signature,
-    /// The references pointing to this commit, even after dereferencing tag objects.
+    /// The references pointing to this commit, even after dereferencing tag objects, along with workspace information.
     /// These can be names of tags and branches.
-    pub refs: Vec<gix::refs::FullName>,
+    pub refs: Vec<but_graph::RefInfo>,
     /// Additional properties to help classify this commit.
     pub flags: StackCommitFlags,
     /// Whether the commit is in a conflicted state, a GitButler concept.
@@ -112,7 +112,7 @@ impl std::fmt::Debug for LocalCommit {
         let refs = self
             .refs
             .iter()
-            .map(|rn| format!("►{}", rn.shorten()))
+            .map(|ri| ri.debug_string())
             .collect::<Vec<_>>()
             .join(", ");
         write!(
@@ -220,7 +220,8 @@ pub struct Options {
 /// A segment of a commit graph, representing a set of commits exclusively.
 #[derive(Clone, Eq, PartialEq)]
 pub struct Segment {
-    /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit.
+    /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit,
+    /// along with worktree information.
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
     /// a commit anymore that was reached by our rev-walk.
@@ -228,7 +229,7 @@ pub struct Segment {
     /// Alternatively, the naming would have been ambiguous.
     /// Finally, this is `None` of the original name can be found searching upwards, finding exactly one
     /// named segment.
-    pub ref_name: Option<gix::refs::FullName>,
+    pub ref_info: Option<but_graph::RefInfo>,
     /// An ID which can uniquely identify this segment among all segments within the graph that owned it.
     /// Note that it's not suitable to permanently identify the segment, so should not be persisted.
     pub id: SegmentIndex,
@@ -283,7 +284,7 @@ impl Segment {
 impl std::fmt::Debug for Segment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Segment {
-            ref_name,
+            ref_info,
             id,
             commits,
             commits_on_remote,
@@ -301,9 +302,9 @@ impl std::fmt::Debug for Segment {
         .field("id", &id)
         .field(
             "ref_name",
-            &match ref_name.as_ref() {
+            &match ref_info.as_ref() {
                 None => "None".to_string(),
-                Some(name) => name.to_string(),
+                Some(ri) => ri.debug_string(),
             },
         )
         .field(
@@ -447,17 +448,17 @@ pub(crate) mod function {
             lower_bound_segment_id,
         } = graph.to_workspace()?;
 
-        let (workspace_ref_name, is_managed_commit, ancestor_workspace_commit) = match kind {
-            WorkspaceKind::Managed { ref_name } => (Some(ref_name), true, None),
-            WorkspaceKind::ManagedMissingWorkspaceCommit { ref_name } => {
+        let (workspace_ref_info, is_managed_commit, ancestor_workspace_commit) = match kind {
+            WorkspaceKind::Managed { ref_info } => (Some(ref_info), true, None),
+            WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info: ref_name } => {
                 let maybe_ancestor_workspace_commit =
                     find_ancestor_workspace_commit(graph, repo, id, lower_bound_segment_id);
                 (Some(ref_name), false, maybe_ancestor_workspace_commit)
             }
-            WorkspaceKind::AdHoc => (graph[id].ref_name.clone(), false, None),
+            WorkspaceKind::AdHoc => (graph[id].ref_info.clone(), false, None),
         };
         let mut info = RefInfo {
-            workspace_ref_name,
+            workspace_ref_info,
             lower_bound: lower_bound_segment_id,
             extra_target,
             stacks: stacks
@@ -519,7 +520,7 @@ pub(crate) mod function {
     impl crate::ref_info::Segment {
         fn try_from_graph_segment(
             but_graph::projection::StackSegment {
-                ref_name,
+                ref_info,
                 base,
                 base_segment_id: _,
                 remote_tracking_ref_name,
@@ -556,7 +557,7 @@ pub(crate) mod function {
                 })
                 .transpose()?;
             Ok(Self {
-                ref_name,
+                ref_info,
                 id,
                 remote_tracking_ref_name,
                 commits,

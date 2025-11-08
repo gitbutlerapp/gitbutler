@@ -13,10 +13,15 @@ fn unborn_untracked() -> anyhow::Result<()> {
     // in absence of a target ref.
     insta::assert_debug_snapshot!(&info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/main",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/main",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -25,7 +30,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/main",
+                        ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -106,7 +111,7 @@ fn detached() -> anyhow::Result<()> {
     // We do know that `main` is pointing at the local commit though, despite the unnamed segment owning it.
     insta::assert_debug_snapshot!(&info, @r#"
     RefInfo {
-        workspace_ref_name: None,
+        workspace_ref_info: None,
         stacks: [
             Stack {
                 id: None,
@@ -157,10 +162,15 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
     // The conflict is detected in the local commit.
     insta::assert_debug_snapshot!(&info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/main",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/main",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -169,7 +179,7 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/main",
+                        ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(💥8450331, "GitButler WIP Commit\n\n\n", local),
@@ -261,10 +271,15 @@ fn single_branch() -> anyhow::Result<()> {
     );
     insta::assert_debug_snapshot!(&info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/main",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/main",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -273,7 +288,7 @@ fn single_branch() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/main",
+                        ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(b5743a3, "10\n", local),
@@ -374,10 +389,15 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(&info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/main",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/main",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -386,7 +406,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/main",
+                        ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(b5743a3, "10\n", local, ►above-10),
@@ -399,7 +419,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(1),
-                        ref_name: "refs/heads/nine",
+                        ref_name: "►nine",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(344e320, "9\n", local),
@@ -414,7 +434,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(2),
-                        ref_name: "refs/heads/six",
+                        ref_name: "►six",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(c4f2a35, "6\n", local),
@@ -429,7 +449,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/three",
+                        ref_name: "►three",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(281da94, "3\n", local),
@@ -443,7 +463,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/one",
+                        ref_name: "►one",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(3d57fc1, "1\n", local),

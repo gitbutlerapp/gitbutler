@@ -453,7 +453,7 @@ impl Stack {
     pub fn ref_name(&self) -> Option<&gix::refs::FullName> {
         self.segments
             .first()
-            .and_then(|name| name.ref_name.as_ref())
+            .and_then(|name| name.ref_info.as_ref().map(|ri| &ri.ref_name))
     }
 }
 

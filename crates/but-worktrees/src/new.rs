@@ -24,13 +24,7 @@ pub fn worktree_new(
 
     let (repo, _, graph) = ctx.graph_and_meta(repo, perm)?;
     let ws = graph.to_workspace()?;
-    let mut ws_segment_names = ws
-        .stacks
-        .into_iter()
-        .flat_map(|s| s.segments)
-        .filter_map(|s| s.ref_name);
-
-    if !ws_segment_names.any(|n| n.as_ref() == refname) {
+    if ws.find_segment_and_stack_by_refname(refname).is_none() {
         bail!("Branch not found in workspace");
     }
 

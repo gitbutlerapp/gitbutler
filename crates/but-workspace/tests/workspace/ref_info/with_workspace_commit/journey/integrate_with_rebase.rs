@@ -32,10 +32,15 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -46,7 +51,7 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/A",
+                            ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(f9c2b14, "A2\n", integrated(36c87e5)),
@@ -110,10 +115,15 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -124,7 +134,7 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/A",
+                            ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(5039218, "A2\n", local/remote(identity)),
@@ -185,10 +195,15 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -199,7 +214,7 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/A",
+                            ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(e9c9d74, "A2\n", local/remote(ad92cce)),
@@ -263,10 +278,15 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -277,7 +297,7 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/A",
+                            ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(f9c2b14, "A2\n", integrated(85063c1)),

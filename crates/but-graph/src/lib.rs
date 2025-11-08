@@ -201,7 +201,7 @@
 mod segment;
 /// Use this for basic types like [`petgraph::Direction`], and graph algorithms.
 pub use petgraph;
-pub use segment::{Commit, CommitFlags, Segment, SegmentMetadata};
+pub use segment::{Commit, CommitFlags, RefInfo, Segment, SegmentMetadata, Worktree};
 
 mod api;
 /// Produce a graph from a Git repository.

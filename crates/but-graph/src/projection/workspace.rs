@@ -88,8 +88,8 @@ impl Workspace<'_> {
             || self
                 .graph
                 .lookup_sibling_segment(t.segment_index)
-                .and_then(|local_tracking_segment| local_tracking_segment.ref_name.as_ref())
-                .is_some_and(|local_tracking_ref| local_tracking_ref.as_ref() == name)
+                .and_then(|local_tracking_segment| local_tracking_segment.ref_name())
+                .is_some_and(|local_tracking_ref| local_tracking_ref == name)
     }
 
     /// Return the `commit` at the tip of the workspace itself, and do so by following empty segments along the
@@ -168,9 +168,8 @@ impl Workspace<'_> {
                     .iter()
                     .enumerate()
                     .find_map(|(seg_idx, seg)| {
-                        seg.ref_name
-                            .as_ref()
-                            .is_some_and(|rn| rn.as_ref() == ref_name)
+                        seg.ref_name()
+                            .is_some_and(|rn| rn == ref_name)
                             .then_some((stack_idx, seg_idx))
                     })
             })
@@ -221,7 +220,7 @@ impl Workspace<'_> {
                 .any(|segments| {
                     segments
                         .iter()
-                        .any(|s| s.ref_name.as_ref().is_some_and(|rn| rn.as_ref() == name))
+                        .any(|s| s.ref_name().is_some_and(|rn| rn == name))
                 })
         }
     }
@@ -233,9 +232,8 @@ impl Workspace<'_> {
     ) -> Option<(&Stack, &StackSegment)> {
         self.stacks.iter().find_map(|stack| {
             stack.segments.iter().find_map(|seg| {
-                seg.ref_name
-                    .as_ref()
-                    .is_some_and(|rn| rn.as_ref() == name)
+                seg.ref_name()
+                    .is_some_and(|rn| rn == name)
                     .then_some((stack, seg))
             })
         })
@@ -263,8 +261,8 @@ pub enum WorkspaceKind {
     /// This also means that we have a workspace commit that `ref_name` points to directly, which is also owned
     /// exclusively by the underlying segment.
     Managed {
-        /// The name of the reference pointing to the workspace commit. Useful for deriving the workspace name.
-        ref_name: gix::refs::FullName,
+        /// The name of the reference pointing to the workspace commit, along with workspace info. Useful for deriving the workspace name.
+        ref_info: crate::RefInfo,
     },
     /// Information for when a workspace reference was *possibly* advanced by hand and does not point to a
     /// managed workspace commit (anymore).
@@ -275,7 +273,7 @@ pub enum WorkspaceKind {
     /// (i.e. those that have no commits and are just marked by references).
     ManagedMissingWorkspaceCommit {
         /// The name of the reference pointing to the workspace commit. Useful for deriving the workspace name.
-        ref_name: gix::refs::FullName,
+        ref_info: crate::RefInfo,
     },
     /// A segment is checked out directly.
     ///
@@ -305,13 +303,11 @@ impl WorkspaceKind {
 }
 
 impl WorkspaceKind {
-    fn managed(ref_name: &Option<gix::refs::FullName>) -> anyhow::Result<Self> {
-        Ok(WorkspaceKind::Managed {
-            ref_name: ref_name
-                .as_ref()
-                .cloned()
-                .context("BUG: managed workspaces must always be on a named segment")?,
-        })
+    fn managed(ref_info: &Option<crate::RefInfo>) -> anyhow::Result<Self> {
+        let ref_info = ref_info
+            .clone()
+            .context("BUG: managed workspaces must always be on a named segment")?;
+        Ok(WorkspaceKind::Managed { ref_info })
     }
 }
 
@@ -337,7 +333,7 @@ impl Target {
     ) -> Option<Self> {
         let target_segment = graph.inner.node_indices().find_map(|n| {
             let s = &graph[n];
-            (s.ref_name.as_ref() == Some(ref_name)).then_some(s)
+            (s.ref_name() == Some(ref_name.as_ref())).then_some(s)
         })?;
         Some(Target {
             ref_name: ref_name.to_owned(),
@@ -438,7 +434,7 @@ impl Graph {
                             })?;
 
                         (
-                            WorkspaceKind::managed(&ws_segment.ref_name)?,
+                            WorkspaceKind::managed(&ws_segment.ref_info)?,
                             ws_segment.workspace_metadata().cloned(),
                             ws_segment,
                             Some(ep.segment_index),
@@ -455,7 +451,7 @@ impl Graph {
                     }
                 }
                 Some(meta) => (
-                    WorkspaceKind::managed(&ep.segment.ref_name)?,
+                    WorkspaceKind::managed(&ep.segment.ref_info)?,
                     Some(meta.clone()),
                     ep.segment,
                     None,
@@ -542,17 +538,17 @@ impl Graph {
         }
 
         if ws.kind.has_managed_ref() && self[ws.id].commits.is_empty() {
+            let ref_info = ws_tip_segment
+                .ref_info
+                .as_ref()
+                .expect("BUG: must be set or we wouldn't be here");
             ws.kind = WorkspaceKind::ManagedMissingWorkspaceCommit {
-                ref_name: ws_tip_segment
-                    .ref_name
-                    .clone()
-                    .expect("BUG: must be set or we wouldn't be here"),
+                ref_info: ref_info.clone(),
             };
         }
 
         fn segment_name_is_special(s: &Segment) -> bool {
-            s.ref_name
-                .as_ref()
+            s.ref_name()
                 .is_some_and(|rn| rn.as_bstr().starts_with_str("refs/heads/gitbutler/"))
         }
 
@@ -586,16 +582,15 @@ impl Graph {
                             // Check for anonymous segments with sibling ID - these know their
                             // named counterparts, and we want to set the name, but they must
                             // be in their own stack-segment.
-                            if s.ref_name.is_none() && s.sibling_segment_id.is_some() {
+                            if s.ref_info.is_none() && s.sibling_segment_id.is_some() {
                                 return stop;
                             }
                             if segment_name_is_special(s) {
                                 return !stop;
                             }
                             match (
-                                &stack_segment.ref_name,
-                                s.ref_name
-                                    .as_ref()
+                                &stack_segment.ref_info,
+                                s.ref_name()
                                     .filter(|rn| rn.category() == Some(Category::LocalBranch)),
                             ) {
                                 (Some(_), Some(_)) | (None, Some(_)) => stop,
@@ -648,7 +643,7 @@ impl Graph {
                         if segment_name_is_special(s) {
                             return !stop;
                         }
-                        match (&start.ref_name, &s.ref_name) {
+                        match (&start.ref_info, &s.ref_info) {
                             (Some(_), Some(_)) | (None, Some(_)) => stop,
                             (Some(_), None) | (None, None) => !stop,
                         }
@@ -722,14 +717,14 @@ fn find_matching_stack_id(
     fn ref_names_with_weight(
         s: &StackSegment,
     ) -> impl Iterator<Item = (u64, &gix::refs::FullNameRef)> {
-        s.ref_name
+        s.ref_info
             .as_ref()
-            .map(|r| (100_000, r.as_ref()))
+            .map(|ri| (100_000, ri.ref_name.as_ref()))
             .into_iter()
             .chain(
                 s.commits
                     .iter()
-                    .flat_map(|c| c.refs.iter().map(|r| (1, r.as_ref()))),
+                    .flat_map(|c| c.refs.iter().map(|ri| (1, ri.ref_name.as_ref()))),
             )
     }
 
@@ -878,8 +873,7 @@ impl Graph {
             if s.is_entrypoint {
                 return true;
             }
-            s.ref_name
-                .as_ref()
+            s.ref_name()
                 .and_then(|rn| rn.category())
                 .is_none_or(|c| c == Category::LocalBranch)
         }
@@ -919,7 +913,7 @@ impl Graph {
         {
             tracing::warn!(
                 "Ignoring stack {:?} ({:?}) as it is pruned",
-                out.first().and_then(|s| s.ref_name.as_ref()),
+                out.first().and_then(|s| s.ref_info.as_ref()),
                 from,
             );
             return Ok(None);
@@ -1026,8 +1020,7 @@ impl Workspace<'_> {
                     // to the same commit.
                     || {
                     let mut prune = s.id != remote_sidx
-                        && s.ref_name
-                        .as_ref()
+                        && s.ref_name()
                         .is_some_and(|orn| orn.category() == Some(Category::RemoteBranch));
                     if prune && may_take_commits_from_first_remote {
                         prune = false;
@@ -1112,7 +1105,12 @@ impl<'graph> Workspace<'graph> {
     /// Note that for managed workspaces, this can be retrieved via [`WorkspaceKind::Managed`].
     /// Note that it can be expected to be set on any workspace, but the data would allow it to not be set.
     pub fn ref_name(&self) -> Option<&'graph gix::refs::FullNameRef> {
-        self.graph[self.id].ref_name.as_ref().map(|rn| rn.as_ref())
+        self.graph[self.id].ref_name()
+    }
+
+    /// Like [Self::ref_name()], but returns reference and worktree information instead.
+    pub fn ref_info(&self) -> Option<&'graph crate::RefInfo> {
+        self.graph[self.id].ref_info.as_ref()
     }
 
     /// Like [`Self::ref_name()`], but return a generic `<anonymous>` name for unnamed workspaces.
@@ -1128,15 +1126,21 @@ impl Workspace<'_> {
     pub fn debug_string(&self) -> String {
         let graph = self.graph;
         let (name, sign) = match &self.kind {
-            WorkspaceKind::Managed { ref_name } => (Graph::ref_debug_string(ref_name), "🏘️"),
-            WorkspaceKind::ManagedMissingWorkspaceCommit { ref_name } => {
-                (Graph::ref_debug_string(ref_name), "🏘️⚠️")
-            }
+            WorkspaceKind::Managed { ref_info } => (
+                Graph::ref_debug_string(ref_info.ref_name.as_ref(), ref_info.worktree.as_ref()),
+                "🏘️",
+            ),
+            WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info } => (
+                Graph::ref_debug_string(ref_info.ref_name.as_ref(), ref_info.worktree.as_ref()),
+                "🏘️⚠️",
+            ),
             WorkspaceKind::AdHoc => (
                 graph[self.id]
-                    .ref_name
+                    .ref_info
                     .as_ref()
-                    .map_or("DETACHED".into(), Graph::ref_debug_string),
+                    .map_or("DETACHED".into(), |ri| {
+                        Graph::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref())
+                    }),
                 "⌂",
             ),
         };

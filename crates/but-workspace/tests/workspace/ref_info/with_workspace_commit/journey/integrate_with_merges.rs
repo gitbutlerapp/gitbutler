@@ -31,10 +31,15 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -45,7 +50,7 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/A",
+                            ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(f9c2b14, "A2\n", local),
@@ -102,10 +107,15 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -116,7 +126,7 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/A",
+                            ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(f9c2b14, "A2\n", local),
@@ -175,10 +185,15 @@ fn remote_diverged() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -189,7 +204,7 @@ fn remote_diverged() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/A",
+                            ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(a62b0de, "A2\n", local),
@@ -258,10 +273,15 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -272,7 +292,7 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(5),
-                            ref_name: "refs/heads/A",
+                            ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(a62b0de, "A2\n", local),
@@ -327,10 +347,15 @@ fn remote_behind() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -341,7 +366,7 @@ fn remote_behind() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/A",
+                            ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(a62b0de, "A2\n", local),
@@ -403,10 +428,15 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -417,7 +447,7 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(5),
-                            ref_name: "refs/heads/A",
+                            ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(a62b0de, "A2\n", local),
@@ -473,10 +503,15 @@ fn remote_ahead() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -487,7 +522,7 @@ fn remote_ahead() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/A",
+                            ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(120a217, "A1\n", local/remote(identity)),
@@ -546,10 +581,15 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -560,7 +600,7 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(4),
-                            ref_name: "refs/heads/A",
+                            ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(120a217, "A1\n", integrated(120a217)),

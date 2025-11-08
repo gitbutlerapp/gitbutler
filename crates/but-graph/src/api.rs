@@ -133,13 +133,13 @@ impl Graph {
         name: &gix::refs::FullNameRef,
     ) -> Option<(&Segment, &Commit)> {
         self.inner.node_weights().find_map(|s| {
-            if s.ref_name.as_ref().is_some_and(|rn| rn.as_ref() == name) {
+            if s.ref_name().is_some_and(|rn| rn == name) {
                 self.tip_skip_empty(s.id).map(|c| (s, c))
             } else {
                 s.commits.iter().find_map(|c| {
                     c.refs
                         .iter()
-                        .any(|rn| rn.as_ref() == name)
+                        .any(|ri| ri.ref_name.as_ref() == name)
                         .then_some((s, c))
                 })
             }
@@ -156,7 +156,7 @@ impl Graph {
     pub fn named_segment_by_ref_name(&self, name: &gix::refs::FullNameRef) -> Option<&Segment> {
         self.inner
             .node_weights()
-            .find(|s| s.ref_name.as_ref().is_some_and(|rn| rn.as_ref() == name))
+            .find(|s| s.ref_name().is_some_and(|rn| rn == name))
     }
 
     /// Starting a `segment`, ignore all segments that have no commit and return the first commit

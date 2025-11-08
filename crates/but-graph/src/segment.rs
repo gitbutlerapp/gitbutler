@@ -1,6 +1,6 @@
-use bitflags::bitflags;
-
 use crate::{CommitIndex, SegmentIndex};
+use bitflags::bitflags;
+use bstr::{BString, ByteSlice};
 
 /// A commit with must useful information extracted from the Git commit itself.
 #[derive(Clone, Eq, PartialEq)]
@@ -13,7 +13,70 @@ pub struct Commit {
     pub flags: CommitFlags,
     /// The references pointing to this commit, even after dereferencing tag objects.
     /// These can be names of tags and branches.
-    pub refs: Vec<gix::refs::FullName>,
+    pub refs: Vec<RefInfo>,
+}
+
+impl Commit {
+    /// Return an iterator over all reference names that point to this commit.
+    pub fn ref_iter(&self) -> impl Iterator<Item = &gix::refs::FullName> + Clone {
+        self.refs.iter().map(|ri| &ri.ref_name)
+    }
+}
+
+/// A structure to inform about a reference which was present at a commit.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct RefInfo {
+    /// The name of the reference.
+    pub ref_name: gix::refs::FullName,
+    /// If `Some`, provide information about the worktree that checks out the reference at `ref_name`,
+    /// i.e. its `HEAD` points to `ref_name` directly or indirectly due to chains of .
+    ///
+    /// It is `None` if no worktree needs to be updated if this reference is changed.
+    pub worktree: Option<Worktree>,
+}
+
+/// Describes which worktree is checked out.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Worktree {
+    /// The main worktree, i.e. the primary workspace associated with this repository, is checked out.
+    ///
+    /// It cannot be removed.
+    Main,
+    /// The identifier of the worktree, which is always `.git/worktrees/<id>`,
+    /// indicating that this is a linked worktree that can be removed.
+    LinkedId(BString),
+}
+
+impl Worktree {
+    /// Produce a string that identifies this instance concisely, and visually distinguishable.
+    /// Use `ref_name` to deduplicate the name we chose.
+    pub fn debug_string(&self, ref_name: &gix::refs::FullNameRef) -> String {
+        match self {
+            Worktree::Main => "[🌳]".to_owned(),
+            Worktree::LinkedId(id) => {
+                format!(
+                    "[📁{id}]",
+                    id = if ref_name.shorten() != id {
+                        id.as_bstr()
+                    } else {
+                        "".into()
+                    }
+                )
+            }
+        }
+    }
+}
+
+impl RefInfo {
+    /// Produce a string that identifies this instance concisely, and visually distinguishable.
+    pub fn debug_string(&self) -> String {
+        let ws = self
+            .worktree
+            .as_ref()
+            .map(|ws| ws.debug_string(self.ref_name.as_ref()))
+            .unwrap_or_default();
+        format!("►{}{ws}", self.ref_name.shorten())
+    }
 }
 
 impl std::fmt::Debug for Commit {
@@ -21,7 +84,7 @@ impl std::fmt::Debug for Commit {
         let refs = self
             .refs
             .iter()
-            .map(|rn| format!("►{}", rn.shorten()))
+            .map(|ri| ri.debug_string())
             .collect::<Vec<_>>()
             .join(", ");
         write!(
@@ -98,7 +161,8 @@ pub struct Segment {
     /// Thus, higher numbers mean they are further down.
     /// If `0`, this is a root node, i.e. one without any incoming connections.
     pub generation: usize,
-    /// The unambiguous or disambiguated name of the branch *or tag* at the tip of the segment, i.e. at the first commit.
+    /// The unambiguous or disambiguated name of the branch *or tag* at the tip of the segment, i.e. at the first commit,
+    /// along with its worktree if one happens to point at it.
     ///
     /// Even though most of the time this will be local branches, when setting the entrypoint onto a commit with a *tag*,
     /// it will be used for naming it.
@@ -109,7 +173,7 @@ pub struct Segment {
     /// Alternatively, the naming would have been ambiguous.
     /// Finally, this is `None` of the original name can be found searching upwards, finding exactly one
     /// named segment.
-    pub ref_name: Option<gix::refs::FullName>,
+    pub ref_info: Option<RefInfo>,
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
     /// Its presence means that a remote is configured and that the stack content
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
@@ -140,6 +204,10 @@ pub enum SegmentMetadata {
 
 /// Direct Access (without graph)
 impl Segment {
+    /// Return the name of the reference that points to the first commit reachable through this segment.
+    pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
+        self.ref_info.as_ref().map(|ri| ri.ref_name.as_ref())
+    }
     /// Return the top-most commit id of the segment.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.commits.first().map(|commit| commit.id)
@@ -186,7 +254,7 @@ impl std::fmt::Debug for Segment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             let Segment {
-                ref_name,
+                ref_info,
                 generation,
                 id,
                 commits,
@@ -199,9 +267,9 @@ impl std::fmt::Debug for Segment {
                 .field("generation", generation)
                 .field(
                     "ref_name",
-                    &match ref_name.as_ref() {
+                    &match ref_info.as_ref() {
                         None => "None".to_string(),
-                        Some(name) => name.to_string(),
+                        Some(name) => name.debug_string(),
                     },
                 )
                 .field(
