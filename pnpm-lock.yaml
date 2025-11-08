@@ -181,8 +181,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@gitbutler/design-core':
-        specifier: ^1.2.6
-        version: 1.2.6
+        specifier: ^1.3.2
+        version: 1.3.2
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -389,8 +389,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@gitbutler/design-core':
-        specifier: ^1.2.6
-        version: 1.2.6
+        specifier: ^1.3.2
+        version: 1.3.2
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -786,8 +786,8 @@ importers:
         specifier: ^2.0.8
         version: 2.0.8(postcss@8.5.6)
       '@gitbutler/design-core':
-        specifier: ^1.2.6
-        version: 1.2.6
+        specifier: ^1.3.2
+        version: 1.3.2
       '@lezer/common':
         specifier: ^1.2.3
         version: 1.2.3
@@ -1661,8 +1661,8 @@ packages:
     resolution: {integrity: sha512-oC5cM6jS7aFOp0luTw5mWSRuMgdxwHRLZQ/aWkI+ETMfsprR/HyxsXfljlMY/XJ/fRxTbRJiodR5Axf66WjO3w==}
     engines: {node: '>=18.20.0'}
 
-  '@gitbutler/design-core@1.2.6':
-    resolution: {integrity: sha512-SSI0QX1wOpvg4FvoAhETCB8KOdBKZI7jPngXdCtLfzcJNCJ6QypPhFjs64z4dJfnIre7DYpTqqB1PLOetkGDKQ==}
+  '@gitbutler/design-core@1.3.2':
+    resolution: {integrity: sha512-8LS6kZP/YHlvoTahS+/hKhfy2wE/CfbooOnGP89BW1Xa8EzlehJVDvb4AT8QYiDaQfqy1TayV7gYKsQ/ZHQj3A==}
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -8962,7 +8962,7 @@ snapshots:
       '@gitbeaker/core': 42.5.0
       '@gitbeaker/requester-utils': 42.5.0
 
-  '@gitbutler/design-core@1.2.6': {}
+  '@gitbutler/design-core@1.3.2': {}
 
   '@humanfs/core@0.19.1': {}
 
@@ -11114,6 +11114,27 @@ snapshots:
       - utf-8-validate
       - vite
 
+  '@vitest/browser@3.2.4(msw@2.7.0(@types/node@24.3.0)(typescript@5.9.2))(playwright@1.56.1)(vite@6.4.1(@types/node@24.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.8.1))(vitest@3.2.4)(webdriverio@9.18.4)':
+    dependencies:
+      '@testing-library/dom': 10.4.1
+      '@testing-library/user-event': 14.6.1(@testing-library/dom@10.4.1)
+      '@vitest/mocker': 3.2.4(msw@2.7.0(@types/node@24.3.0)(typescript@5.9.2))(vite@6.4.1(@types/node@24.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.8.1))
+      '@vitest/utils': 3.2.4
+      magic-string: 0.30.17
+      sirv: 3.0.1
+      tinyrainbow: 2.0.0
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@24.3.0)(@vitest/browser@3.2.4)(@vitest/ui@3.2.4)(happy-dom@14.12.3)(jsdom@26.1.0)(msw@2.7.0(@types/node@24.3.0)(typescript@5.9.2))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.8.1)
+      ws: 8.18.3
+    optionalDependencies:
+      playwright: 1.56.1
+      webdriverio: 9.18.4
+    transitivePeerDependencies:
+      - bufferutil
+      - msw
+      - utf-8-validate
+      - vite
+    optional: true
+
   '@vitest/expect@3.2.4':
     dependencies:
       '@types/chai': 5.2.2
@@ -11158,6 +11179,16 @@ snapshots:
       msw: 2.7.0(@types/node@24.3.0)(typescript@5.9.2)
       vite: 6.3.5(@types/node@24.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.8.1)
 
+  '@vitest/mocker@3.2.4(msw@2.7.0(@types/node@24.3.0)(typescript@5.9.2))(vite@6.4.1(@types/node@24.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.8.1))':
+    dependencies:
+      '@vitest/spy': 3.2.4
+      estree-walker: 3.0.3
+      magic-string: 0.30.17
+    optionalDependencies:
+      msw: 2.7.0(@types/node@24.3.0)(typescript@5.9.2)
+      vite: 6.4.1(@types/node@24.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.8.1)
+    optional: true
+
   '@vitest/pretty-format@2.1.9':
     dependencies:
       tinyrainbow: 1.2.0
@@ -11197,7 +11228,7 @@ snapshots:
       sirv: 3.0.1
       tinyglobby: 0.2.14
       tinyrainbow: 2.0.0
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@24.3.0)(@vitest/browser@3.2.4)(@vitest/ui@3.2.4)(happy-dom@14.12.3)(jsdom@26.1.0)(msw@2.7.0(@types/node@24.3.0)(typescript@5.9.2))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.8.1)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.17.0)(@vitest/browser@3.2.4)(@vitest/ui@3.2.4)(happy-dom@14.12.3)(jsdom@26.1.0)(msw@2.7.0(@types/node@22.17.0)(typescript@5.9.2))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.8.1)
 
   '@vitest/utils@3.2.4':
     dependencies:
@@ -16533,7 +16564,7 @@ snapshots:
     optionalDependencies:
       '@types/debug': 4.1.12
       '@types/node': 24.3.0
-      '@vitest/browser': 3.2.4(msw@2.7.0(@types/node@24.3.0)(typescript@5.9.2))(playwright@1.56.1)(vite@6.3.5(@types/node@24.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.8.1))(vitest@3.2.4)(webdriverio@9.18.4)
+      '@vitest/browser': 3.2.4(msw@2.7.0(@types/node@24.3.0)(typescript@5.9.2))(playwright@1.56.1)(vite@6.4.1(@types/node@24.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.8.1))(vitest@3.2.4)(webdriverio@9.18.4)
       '@vitest/ui': 3.2.4(vitest@3.2.4)
       happy-dom: 14.12.3
       jsdom: 26.1.0
