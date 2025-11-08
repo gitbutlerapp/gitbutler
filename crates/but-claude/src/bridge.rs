@@ -608,11 +608,21 @@ fn spawn_response_streaming(
     stack_id: StackId,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let reader = BufReader::new(read_stdout);
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+
+        // Spawn a blocking task to read lines from the pipe
+        std::thread::spawn(move || {
+            let reader = BufReader::new(read_stdout);
+            for line in reader.lines().map_while(Result::ok) {
+                if tx.send(line).is_err() {
+                    break;
+                }
+            }
+        });
+
         let mut first = true;
-        for line in reader.lines() {
+        while let Some(line) = rx.recv().await {
             let mut ctx = ctx.lock().await;
-            let line = line.unwrap();
             let parsed_event: serde_json::Value = serde_json::from_str(&line).unwrap();
 
             if first {
