@@ -70,8 +70,8 @@ pub struct ClaudeMessage {
     session_id: Uuid,
     /// The timestamp when the message was created.
     created_at: chrono::NaiveDateTime,
-    /// The content of the message, which can be either output from Claude or user input.
-    content: ClaudeMessageContent,
+    /// The payload of the message from different sources.
+    payload: MessagePayload,
 }
 
 impl ClaudeMessage {
@@ -84,34 +84,32 @@ impl ClaudeMessage {
     }
 }
 
-/// Represents the kind of content in a Claude message.
+/// The actual message payload from different sources.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
-pub enum ClaudeMessageContent {
-    /// Came from Claude standard out stream
-    ClaudeOutput(serde_json::Value),
-    /// Inserted via  GitButler (what the user typed)
-    UserInput(UserInput),
-    /// Metadata provided by GitButler around the Claude Code statuts
-    GitButlerMessage(GitButlerMessage),
+#[serde(rename_all = "camelCase")]
+pub enum MessagePayload {
+    /// Output from Claude Code CLI stdout stream
+    Claude(ClaudeOutput),
+    /// Input provided by the user
+    User(UserInput),
+    /// System message from GitButler about the session
+    System(SystemMessage),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FileAttachment {
-    path: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     commit_id: Option<String>,
+    path: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct LinesAttachment {
+    commit_id: Option<String>,
     path: String,
     start: usize,
     end: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    commit_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -122,11 +120,19 @@ pub struct CommitAttachment {
 
 /// Represents a file attachment with full content (used in API input).
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase", tag = "type")]
+#[serde(rename_all = "camelCase")]
 pub enum PromptAttachment {
     Lines(LinesAttachment),
     File(FileAttachment),
     Commit(CommitAttachment),
+}
+
+/// Raw output from Claude API
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeOutput {
+    /// Raw JSON value from Claude API streaming output
+    pub data: serde_json::Value,
 }
 
 /// Represents user input in a Claude session.
@@ -140,10 +146,10 @@ pub struct UserInput {
     pub attachments: Option<Vec<PromptAttachment>>,
 }
 
-/// Metadata provided by GitButler.
+/// System messages from GitButler about the Claude session state.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
-pub enum GitButlerMessage {
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum SystemMessage {
     /// Claude code has exited naturally.
     ClaudeExit {
         code: i32,
@@ -439,7 +445,7 @@ pub async fn send_claude_message(
     broadcaster: Arc<Mutex<Broadcaster>>,
     session_id: uuid::Uuid,
     stack_id: StackId,
-    content: ClaudeMessageContent,
+    content: MessagePayload,
 ) -> Result<()> {
     let message = db::save_new_message(ctx, session_id, content.clone())?;
     let project_id = ctx.project().id;

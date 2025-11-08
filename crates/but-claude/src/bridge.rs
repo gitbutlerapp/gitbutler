@@ -41,8 +41,8 @@ use tokio::{
 };
 
 use crate::{
-    ClaudeMessage, ClaudeMessageContent, ClaudeUserParams, GitButlerMessage, PermissionMode,
-    PromptAttachment, ThinkingLevel, Transcript, UserInput,
+    ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode,
+    PromptAttachment, SystemMessage, ThinkingLevel, Transcript, UserInput,
     claude_config::fmt_claude_settings,
     claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
     claude_settings::ClaudeSettings,
@@ -167,11 +167,9 @@ impl Claudes {
                     broadcaster.clone(),
                     rule.session_id,
                     stack_id,
-                    ClaudeMessageContent::GitButlerMessage(
-                        crate::GitButlerMessage::UnhandledException {
-                            message: format!("{res}"),
-                        },
-                    ),
+                    MessagePayload::System(crate::SystemMessage::UnhandledException {
+                        message: format!("{res}"),
+                    }),
                 )
                 .await;
             }
@@ -213,11 +211,11 @@ impl Claudes {
             let mut ctx = ctx.lock().await;
             let messages = list_messages_by_session(&mut ctx, session.id)?;
 
-            if let Some(ClaudeMessage { content, .. }) = messages.last() {
-                match content {
-                    ClaudeMessageContent::GitButlerMessage(GitButlerMessage::CompactFinished {
-                        summary,
-                    }) => Some(summary.clone()),
+            if let Some(ClaudeMessage { payload, .. }) = messages.last() {
+                match payload {
+                    MessagePayload::System(SystemMessage::CompactFinished { summary }) => {
+                        Some(summary.clone())
+                    }
                     _ => None,
                 }
             } else {
@@ -234,7 +232,7 @@ impl Claudes {
                 broadcaster.clone(),
                 session_id,
                 stack_id,
-                ClaudeMessageContent::UserInput(UserInput {
+                MessagePayload::User(UserInput {
                     message: user_params.message.clone(), // Original user message for display
                     attachments: user_params.attachments.clone(),
                 }),
@@ -315,7 +313,7 @@ async fn handle_exit(
                 broadcaster.clone(),
                 session_id,
                 stack_id,
-                ClaudeMessageContent::GitButlerMessage(crate::GitButlerMessage::ClaudeExit {
+                MessagePayload::System(crate::SystemMessage::ClaudeExit {
                     code: exit_status.code().unwrap_or(0),
                     message: buf.clone(),
                 }),
@@ -347,7 +345,7 @@ async fn handle_exit(
                 broadcaster.clone(),
                 session_id,
                 stack_id,
-                ClaudeMessageContent::GitButlerMessage(crate::GitButlerMessage::UserAbort),
+                MessagePayload::System(crate::SystemMessage::UserAbort),
             )
             .await?;
         }
@@ -630,7 +628,9 @@ fn spawn_response_streaming(
                 first = false;
             }
 
-            let message_content = ClaudeMessageContent::ClaudeOutput(parsed_event.clone());
+            let message_content = MessagePayload::Claude(ClaudeOutput {
+                data: parsed_event.clone(),
+            });
             send_claude_message(
                 &mut ctx,
                 broadcaster.clone(),

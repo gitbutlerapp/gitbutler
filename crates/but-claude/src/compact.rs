@@ -26,7 +26,7 @@ use tokio::{
 };
 
 use crate::{
-    ClaudeMessageContent, ClaudeSession, GitButlerMessage, Transcript,
+    ClaudeSession, MessagePayload, SystemMessage, Transcript,
     bridge::{Claude, Claudes},
     db,
     rules::list_claude_assignment_rules,
@@ -98,11 +98,9 @@ impl Claudes {
                     broadcaster.clone(),
                     rule.session_id,
                     stack_id,
-                    ClaudeMessageContent::GitButlerMessage(
-                        crate::GitButlerMessage::UnhandledException {
-                            message: format!("{res}"),
-                        },
-                    ),
+                    MessagePayload::System(crate::SystemMessage::UnhandledException {
+                        message: format!("{res}"),
+                    }),
                 )
                 .await;
             }
@@ -143,7 +141,7 @@ impl Claudes {
                 broadcaster.clone(),
                 rule.session_id,
                 stack_id,
-                ClaudeMessageContent::GitButlerMessage(GitButlerMessage::CompactStart),
+                MessagePayload::System(SystemMessage::CompactStart),
             )
             .await?;
         }
@@ -155,9 +153,7 @@ impl Claudes {
                 broadcaster.clone(),
                 rule.session_id,
                 stack_id,
-                ClaudeMessageContent::GitButlerMessage(GitButlerMessage::CompactFinished {
-                    summary,
-                }),
+                MessagePayload::System(SystemMessage::CompactFinished { summary }),
             )
             .await?;
         }
@@ -187,10 +183,10 @@ impl Claudes {
         };
 
         // Find the last result message
-        let Some(output) = messages.into_iter().rev().find_map(|m| match m.content {
-            ClaudeMessageContent::ClaudeOutput(o) => {
-                if o["type"].as_str() == Some("assistant") {
-                    Some(o)
+        let Some(output) = messages.into_iter().rev().find_map(|m| match m.payload {
+            MessagePayload::Claude(o) => {
+                if o.data["type"].as_str() == Some("assistant") {
+                    Some(o.data)
                 } else {
                     None
                 }
