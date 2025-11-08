@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
+    body::Body,
     extract::{
         WebSocketUpgrade,
         ws::{Message, WebSocket},
@@ -98,7 +99,7 @@ pub async fn run() {
         // Spawning in a separate thread to prevent abort if the client
         // disconnects. We need this to ensure locks are removed after
         // the claude processes finishes.
-        .route_layer(middleware::from_fn(
+        .route_layer(axum::middleware::from_fn(
             |req: axum::extract::Request<Body>, next: Next| async move {
                 tokio::task::spawn(next.run(req)).await.unwrap()
             },
