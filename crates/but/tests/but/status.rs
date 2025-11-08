@@ -2,6 +2,46 @@ use crate::utils::Sandbox;
 use crate::utils::setup_metadata;
 
 #[test]
+fn worktrees() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_slow("two-worktrees")?;
+    insta::assert_snapshot!(env.git_log()?, @r"
+    *   063d8c1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 3e01e28 (B) B
+    * | 4c4624e (A) A
+    |/  
+    | * 8dc508f (origin/main, origin/HEAD, main) M-advanced
+    |/  
+    | * 197ddce (origin/A) A-remote
+    |/  
+    * 081bae9 M-base
+    * 3183e43 M1
+    ");
+
+    // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
+    setup_metadata(&env, &["A", "B"])?;
+
+    env.but("status")
+        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/two-worktrees/status-with-worktrees.stdout.term.svg"
+        ]);
+
+    env.but("status --verbose")
+        .with_assert(env.assert_with_uuid_and_timestamp_redactions())
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/two-worktrees/status-with-worktrees-verbose.stdout.term.svg"
+        ]);
+    Ok(())
+}
+
+#[test]
 fn json_shows_paths_as_strings() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target("two-stacks")?;
 
@@ -72,6 +112,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
           "branchDetails": [
             {
               "name": "A",
+              "linkedWorktreeId": null,
               "remoteTrackingBranch": null,
               "description": null,
               "prNumber": null,
@@ -126,6 +167,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
           "branchDetails": [
             {
               "name": "B",
+              "linkedWorktreeId": null,
               "remoteTrackingBranch": null,
               "description": null,
               "prNumber": null,

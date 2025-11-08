@@ -391,6 +391,7 @@ pub fn stack_details(
 
         branch_details.push(ui::BranchDetails {
             name: branch.name().to_owned().into(),
+            linked_worktree_id: None, /* not implemented in legacy mode */
             remote_tracking_branch: upstream_reference.map(Into::into),
             description: branch.description.clone(),
             pr_number: branch.pr_number,
@@ -549,10 +550,9 @@ impl ui::BranchDetails {
             base,
         }: &Segment,
     ) -> anyhow::Result<Self> {
-        let ref_name = ref_info
+        let ref_info = ref_info
             .clone()
-            .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?
-            .ref_name;
+            .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?;
         let (description, updated_at, review_id, pr_number) = metadata
             .clone()
             .map(|meta| {
@@ -566,10 +566,15 @@ impl ui::BranchDetails {
             .unwrap_or_default();
         let base_commit = base.unwrap_or(gix::hash::Kind::Sha1.null());
         Ok(ui::BranchDetails {
-            is_remote_head: ref_name
+            is_remote_head: ref_info
+                .ref_name
                 .category()
                 .is_some_and(|c| matches!(c, gix::refs::Category::RemoteBranch)),
-            name: ref_name.shorten().into(),
+            name: ref_info.ref_name.shorten().into(),
+            linked_worktree_id: ref_info.worktree.and_then(|ws| match ws {
+                but_graph::Worktree::Main => None,
+                but_graph::Worktree::LinkedId(id) => Some(id),
+            }),
             remote_tracking_branch: remote_tracking_ref_name
                 .as_ref()
                 .map(|full_name| full_name.as_bstr().into()),

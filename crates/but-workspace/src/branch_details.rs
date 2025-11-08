@@ -86,6 +86,7 @@ pub fn branch_details(
 
     Ok(ui::BranchDetails {
         name: branch_name.into(),
+        linked_worktree_id: None, /* not implemented in legacy mode */
         remote_tracking_branch: upstream
             .as_ref()
             .and_then(|upstream| upstream.get().name())
@@ -228,6 +229,7 @@ pub fn branch_details_v3(
 
     Ok(ui::BranchDetails {
         name: name.as_bstr().into(),
+        linked_worktree_id: None, /* probably not needed here */
         remote_tracking_branch: remote_tracking_branch.map(|b| b.name().as_bstr().to_owned()),
         description: meta.description.clone(),
         pr_number: meta.review.pull_request,
