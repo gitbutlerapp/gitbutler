@@ -503,7 +503,7 @@
 
 	.review-wrapper {
 		border-top: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		background-color: var(--clr-bg-1);
 
 		&:not(.no-padding) {
 			padding: 12px;
