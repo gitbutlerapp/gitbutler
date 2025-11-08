@@ -45,7 +45,8 @@ pub fn create_virtual_branch(
     let ws3_enabled = ctx.app_settings().feature_flags.ws3;
     let stack_entry = if ws3_enabled {
         let mut guard = project.exclusive_worktree_access();
-        let (repo, mut meta, graph) = ctx.graph_and_meta_mut_and_repo(guard.write_permission())?;
+        let (repo, mut meta, graph) =
+            ctx.graph_and_meta_mut_and_repo_from_head(guard.write_permission())?;
         let ws = graph.to_workspace()?;
         let new_ref = Category::LocalBranch
             .to_full_name(
