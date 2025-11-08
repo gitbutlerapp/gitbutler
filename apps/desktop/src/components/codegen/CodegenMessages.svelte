@@ -775,7 +775,7 @@
 	</ContextMenuSection>
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Edit templates"
+			label="Edit templates…"
 			icon="edit"
 			onclick={() => {
 				promptConfigModal?.show();
