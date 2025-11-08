@@ -10,8 +10,7 @@
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { ircPath, projectPath, isWorkspacePath } from '$lib/routes/routes.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
+	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import {
 		Button,
@@ -28,25 +27,22 @@
 	type Props = {
 		projectId: string;
 		projectTitle: string;
-		actionsDisabled?: boolean;
 	};
 
-	const { projectId, projectTitle, actionsDisabled = false }: Props = $props();
+	const { projectId, projectTitle }: Props = $props();
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const ircService = inject(IRC_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
-	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
 	const baseReponse = $derived(projectId ? baseBranchService.baseBranch(projectId) : undefined);
 	const base = $derived(baseReponse?.response);
 	const settingsStore = $derived(settingsService.appSettings);
-	const isWorkspace = $derived(isWorkspacePath());
-	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 	const singleBranchMode = $derived($settingsStore?.featureFlags.singleBranch ?? false);
 	const useCustomTitleBar = $derived(!($settingsStore?.ui.useNativeTitleBar ?? false));
 	const backend = inject(BACKEND);
+	const mac = $derived(backend.platformName === 'macos');
 
 	const mode = $derived(modeService.mode({ projectId }));
 	const currentMode = $derived(mode.response);
@@ -97,13 +93,6 @@
 	function openModal() {
 		modal?.show();
 	}
-
-	const projectState = $derived(uiState.project(projectId));
-	const showingActions = $derived(projectState.showActions.current);
-
-	function toggleButActions() {
-		uiState.project(projectId).showActions.set(!showingActions);
-	}
 </script>
 
 {#if projectId}
@@ -118,15 +107,14 @@
 	use:focusable
 >
 	<div class="chrome-left" data-tauri-drag-region={useCustomTitleBar}>
-		<div class="chrome-left-buttons" class:has-traffic-lights={useCustomTitleBar}>
-			<SyncButton {projectId} disabled={actionsDisabled} />
-
+		<div class="chrome-left-buttons" class:mac class:has-traffic-lights={useCustomTitleBar}>
+			<SyncButton {projectId} />
 			{#if isHasUpstreamCommits}
 				<Button
 					testId={TestId.IntegrateUpstreamCommitsButton}
 					style="pop"
 					onclick={openModal}
-					disabled={!projectId || actionsDisabled}
+					disabled={!projectId}
 				>
 					{upstreamCommits} upstream {upstreamCommits === 1 ? 'commit' : 'commits'}
 				</Button>
@@ -254,62 +242,6 @@
 				}}
 			/>
 		{/if}
-		{#if canUseActions}
-			<Button
-				kind="outline"
-				class="actions-button"
-				reversedDirection
-				onclick={() => {
-					toggleButActions();
-				}}
-				disabled={actionsDisabled || !isWorkspace}
-			>
-				{#snippet custom()}
-					<svg
-						width="20"
-						height="18"
-						class="actions-icon"
-						viewBox="0 0 20 18"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-						class:activated={showingActions}
-					>
-						<path
-							class="actions-icon__monitor"
-							d="M4 16H16C17.6569 16 19 14.6569 19 13V11.8541C19 10.7178 18.358 9.679 17.3416 9.17082L15.5528 8.27639C15.214 8.107 15 7.76074 15 7.38197V5C15 3.34315 13.6569 2 12 2H4C2.34315 2 1 3.34315 1 5V13C1 14.6569 2.34315 16 4 16Z"
-							stroke-width="1.5"
-						/>
-						<path
-							class="actions-icon__star"
-							d="M7.65242 4.74446C7.76952 4.41851 8.23048 4.41851 8.34758 4.74446L8.98803 6.52723C9.23653 7.21894 9.78106 7.76348 10.4728 8.01197L12.2555 8.65242C12.5815 8.76952 12.5815 9.23048 12.2555 9.34758L10.4728 9.98803C9.78106 10.2365 9.23653 10.7811 8.98803 11.4728L8.34758 13.2555C8.23048 13.5815 7.76952 13.5815 7.65242 13.2555L7.01197 11.4728C6.76347 10.7811 6.21894 10.2365 5.52723 9.98803L3.74446 9.34758C3.41851 9.23048 3.41851 8.76952 3.74446 8.65242L5.52723 8.01197C6.21894 7.76347 6.76348 7.21894 7.01197 6.52723L7.65242 4.74446Z"
-						/>
-
-						<svg
-							width="18"
-							height="14"
-							viewBox="0 0 18 14"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<defs>
-								<linearGradient
-									id="activated-gradient"
-									x1="7.5"
-									y1="2"
-									x2="16.3281"
-									y2="10.6554"
-									gradientUnits="userSpaceOnUse"
-								>
-									<stop stop-color="#816BDA" />
-									<stop offset="1" stop-color="#2EDBD2" />
-								</linearGradient>
-							</defs>
-						</svg>
-					</svg>
-				{/snippet}
-				Actions
-			</Button>
-		{/if}
 	</div>
 </div>
 
@@ -321,41 +253,6 @@
 		padding: 14px;
 		overflow: hidden;
 		gap: 12px;
-	}
-
-	.actions-icon {
-		opacity: var(--opacity-btn-icon-outline);
-	}
-
-	.actions-icon__star,
-	.actions-icon__monitor {
-		transform-box: fill-box;
-		transform-origin: center;
-		transition: transform 0.3s;
-	}
-
-	.actions-icon__star {
-		fill: var(--clr-text-1);
-	}
-
-	.actions-icon__monitor {
-		stroke: var(--clr-text-1);
-	}
-
-	:global(.chrome-header .actions-button) {
-		&:hover:not(:disabled) .actions-icon,
-		.actions-icon.activated {
-			opacity: 1;
-
-			& .actions-icon__star {
-				fill: #fff;
-				transform: rotate(90deg);
-			}
-			& .actions-icon__monitor {
-				fill: url(#activated-gradient);
-				stroke: url(#activated-gradient);
-			}
-		}
 	}
 
 	.chrome-selector-wrapper {
