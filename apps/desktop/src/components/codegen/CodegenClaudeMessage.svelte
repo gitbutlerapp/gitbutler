@@ -12,8 +12,9 @@
 		projectId: string;
 		message: Message;
 		onPermissionDecision?: (id: string, decision: PermissionDecision) => Promise<void>;
+		toolCallsExpandedState?: Map<string, boolean>;
 	};
-	const { projectId, message, onPermissionDecision }: Props = $props();
+	const { projectId, message, onPermissionDecision, toolCallsExpandedState }: Props = $props();
 
 	let expanded = $state(false);
 </script>
@@ -35,7 +36,12 @@
 		</CodegenServiceMessage>
 	{:else}
 		<CodegenAssistantMessage content={message.message} />
-		<CodegenToolCalls {projectId} toolCalls={message.toolCalls} />
+		<CodegenToolCalls
+			{projectId}
+			toolCalls={message.toolCalls}
+			messageId={message.createdAt}
+			{toolCallsExpandedState}
+		/>
 
 		{#if message.toolCallsPendingApproval.length > 0}
 			{#each message.toolCallsPendingApproval as toolCall}
