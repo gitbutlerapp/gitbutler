@@ -1,16 +1,13 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import Feed from '$components/Feed.svelte';
 	import MainViewport from '$components/MainViewport.svelte';
 	import MultiStackView from '$components/MultiStackView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SelectionView from '$components/SelectionView.svelte';
 	import UnassignedView from '$components/UnassignedView.svelte';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { TestId } from '@gitbutler/ui';
 
@@ -23,27 +20,17 @@
 	const { projectId, scrollToStackId, onScrollComplete }: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
-	const uiState = inject(UI_STATE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
-	const settingsService = inject(SETTINGS_SERVICE);
 
 	const selectionId = createWorktreeSelection({ stackId: undefined });
 	const worktreeSelection = $derived(idSelection.getById(selectionId));
 	const stacksQuery = $derived(stackService.stacks(projectId));
-	const projectState = $derived(uiState.project(projectId));
-	const settingsStore = $derived(settingsService.appSettings);
-	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
-	const showingActions = $derived(projectState.showActions.current && canUseActions);
 
 	const lastAdded = $derived(worktreeSelection.lastAdded);
 	const previewOpen = $derived(!!$lastAdded?.key);
 
 	let selectionPreviewScrollContainer: HTMLDivElement | undefined = $state();
 </script>
-
-{#snippet right()}
-	<Feed {projectId} onCloseClick={() => uiState.project(projectId).showActions.set(false)} />
-{/snippet}
 
 {#snippet leftPreview()}
 	<ConfigurableScrollableContainer
@@ -69,8 +56,6 @@
 	leftWidth={{ default: 280, min: 260 }}
 	preview={previewOpen ? leftPreview : undefined}
 	previewWidth={{ default: 480, min: 220 }}
-	right={showingActions ? right : undefined}
-	rightWidth={{ default: 320, min: 220 }}
 >
 	{#snippet left()}
 		<UnassignedView {projectId} />

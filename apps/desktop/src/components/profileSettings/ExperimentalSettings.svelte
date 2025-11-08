@@ -23,23 +23,7 @@
 </p>
 
 <div class="experimental-settings__toggles">
-	<SectionCard labelFor="gitbutler-actions" roundedTop roundedBottom={false} orientation="row">
-		{#snippet title()}
-			GitButler Actions
-		{/snippet}
-		{#snippet caption()}
-			Enable the GitButler Actions log
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="gitbutler-actions"
-				checked={$settingsStore?.featureFlags.actions}
-				onclick={() =>
-					settingsService.updateFeatureFlags({ actions: !$settingsStore?.featureFlags.actions })}
-			/>
-		{/snippet}
-	</SectionCard>
-	<SectionCard labelFor="ws3" roundedTop={false} roundedBottom={false} orientation="row">
+	<SectionCard labelFor="ws3" roundedTop roundedBottom={false} orientation="row">
 		{#snippet title()}
 			New workspace backend
 		{/snippet}
@@ -122,73 +106,66 @@
 
 	{#if $user?.role === 'admin'}
 		<Spacer margin={20} />
-		{#if $settingsStore?.featureFlags.actions}
-			<SectionCard labelFor="butbot" roundedTop roundedBottom={false} orientation="row">
-				{#snippet title()}
-					butbot
-				{/snippet}
-				{#snippet caption()}
-					Enable the butbot chat.
-				{/snippet}
-				{#snippet actions()}
-					<Toggle
-						id="butbot"
-						checked={$settingsStore?.featureFlags.butbot}
-						onclick={() =>
-							settingsService.updateFeatureFlags({ butbot: !$settingsStore?.featureFlags.butbot })}
-					/>
-				{/snippet}
-			</SectionCard>
-		{/if}
-
-		<SectionCard
-			labelFor="single-branch"
-			roundedTop={false}
-			roundedBottom={false}
-			orientation="row"
-		>
+		<SectionCard labelFor="butbot" roundedTop roundedBottom={false} orientation="row">
 			{#snippet title()}
-				Single-branch mode
+				butbot
 			{/snippet}
 			{#snippet caption()}
-				Stay in the workspace view when leaving the gitbutler/workspace branch.
+				Enable the butbot chat.
 			{/snippet}
 			{#snippet actions()}
 				<Toggle
-					id="single-branch"
-					checked={$settingsStore?.featureFlags.singleBranch}
+					id="butbot"
+					checked={$settingsStore?.featureFlags.butbot}
 					onclick={() =>
-						settingsService.updateFeatureFlags({
-							singleBranch: !$settingsStore?.featureFlags.singleBranch
-						})}
+						settingsService.updateFeatureFlags({ butbot: !$settingsStore?.featureFlags.butbot })}
 				/>
 			{/snippet}
 		</SectionCard>
+	{/if}
 
-		<SectionCard labelFor="irc" roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
-			{#snippet title()}
-				IRC
-			{/snippet}
-			{#snippet caption()}
-				Enable experimental in-app chat.
-			{/snippet}
+	<SectionCard labelFor="single-branch" roundedTop={false} roundedBottom={false} orientation="row">
+		{#snippet title()}
+			Single-branch mode
+		{/snippet}
+		{#snippet caption()}
+			Stay in the workspace view when leaving the gitbutler/workspace branch.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="single-branch"
+				checked={$settingsStore?.featureFlags.singleBranch}
+				onclick={() =>
+					settingsService.updateFeatureFlags({
+						singleBranch: !$settingsStore?.featureFlags.singleBranch
+					})}
+			/>
+		{/snippet}
+	</SectionCard>
+
+	<SectionCard labelFor="irc" roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
+		{#snippet title()}
+			IRC
+		{/snippet}
+		{#snippet caption()}
+			Enable experimental in-app chat.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle id="irc" checked={$ircEnabled} onclick={() => ($ircEnabled = !$ircEnabled)} />
+		{/snippet}
+	</SectionCard>
+	{#if $ircEnabled}
+		<SectionCard roundedTop={false} topDivider orientation="column">
 			{#snippet actions()}
-				<Toggle id="irc" checked={$ircEnabled} onclick={() => ($ircEnabled = !$ircEnabled)} />
+				<Textbox
+					value={$ircServer}
+					size="large"
+					label="Server"
+					placeholder="wss://irc.gitbutler.com:443"
+					onchange={(value) => ($ircServer = value)}
+				/>
 			{/snippet}
 		</SectionCard>
-		{#if $ircEnabled}
-			<SectionCard roundedTop={false} topDivider orientation="column">
-				{#snippet actions()}
-					<Textbox
-						value={$ircServer}
-						size="large"
-						label="Server"
-						placeholder="wss://irc.gitbutler.com:443"
-						onchange={(value) => ($ircServer = value)}
-					/>
-				{/snippet}
-			</SectionCard>
-		{/if}
 	{/if}
 </div>
 
