@@ -17,14 +17,19 @@
 	}
 
 	function getTooltipText(attachment: PromptAttachment): string {
-		if (attachment.type === 'commit') {
-			return `${attachment.commitId}`;
-		} else if (attachment.type === 'file') {
-			const commitInfo = attachment.commitId ? ` (from commit ${attachment.commitId})` : '';
-			return `${attachment.path}${commitInfo}`;
-		} else if (attachment.type === 'lines') {
-			const commitInfo = attachment.commitId ? ` (from commit ${attachment.commitId})` : '';
-			return `Lines ${attachment.start}-${attachment.end}${attachment.path}${commitInfo}`;
+		switch (attachment.type) {
+			case 'file': {
+				const { commitId, path } = attachment;
+				const commitInfo = commitId ? ` (from commit ${commitId})` : '';
+				return `${path}${commitInfo}`;
+			}
+			case 'lines': {
+				const { commitId, path, start, end } = attachment;
+				const commitInfo = commitId ? ` (from commit ${commitId})` : '';
+				return `Lines ${start}-${end}${path}${commitInfo}`;
+			}
+			case 'commit':
+				return `${attachment.commitId}`;
 		}
 		return '';
 	}
@@ -44,28 +49,29 @@
 					{/if}
 					<!-- FILE -->
 					{#if attachment.type === 'file'}
-						<FileIcon fileName={attachment.path} />
+						{@const { path, commitId } = attachment}
+						<FileIcon fileName={path} />
 
 						<span class="path">
-							{splitFilePath(attachment.path).filename}
+							{splitFilePath(path).filename}
 						</span>
 
-						{#if attachment.commitId}
+						{#if commitId}
 							<Icon name="commit" color="var(--clr-text-3)" />
-							<Tooltip text={attachment.commitId}>
+							<Tooltip text={commitId}>
 								<span class="commit-badge">
-									#{attachment.commitId.slice(0, 6)}
+									#{commitId.slice(0, 6)}
 								</span>
 							</Tooltip>
 						{/if}
 					{/if}
 					<!-- LINES -->
 					{#if attachment.type === 'lines'}
-						{@const { start, end } = attachment}
-						<FileIcon fileName={attachment.path} />
+						{@const { commitId, path, start, end } = attachment}
+						<FileIcon fileName={path} />
 
 						<span class="path">
-							{splitFilePath(attachment.path).filename}
+							{splitFilePath(path).filename}
 						</span>
 
 						<Icon name="text" color="var(--clr-text-3)" />
@@ -73,11 +79,11 @@
 							{start}:{end}
 						</span>
 
-						{#if attachment.commitId}
+						{#if commitId}
 							<Icon name="commit" color="var(--clr-text-3)" />
-							<Tooltip text={attachment.commitId}>
+							<Tooltip text={commitId}>
 								<span class="commit-badge">
-									#{attachment.commitId.slice(0, 6)}
+									#{commitId.slice(0, 6)}
 								</span>
 							</Tooltip>
 						{/if}

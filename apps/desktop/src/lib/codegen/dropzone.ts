@@ -57,7 +57,7 @@ export class CodegenCommitDropHandler implements DropzoneHandler {
 	}
 
 	ondrop(data: CommitDropData): void {
-		this.add([{ type: 'commit', branchName: this.branchName, commitId: data.commit.id }]);
+		this.add([{ type: 'commit', commitId: data.commit.id }]);
 	}
 }
 
@@ -106,7 +106,6 @@ export class CodegenHunkDropHandler implements DropzoneHandler {
 		this.add([
 			{
 				type: 'lines',
-				branchName: this.branchName,
 				path: data.change.path,
 				start: data.hunk.newStart,
 				end: data.hunk.newStart + data.hunk.newLines - 1,

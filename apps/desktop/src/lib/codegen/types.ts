@@ -3,24 +3,10 @@ import type { Message, MessageParam, Usage } from '@anthropic-ai/sdk/resources/i
 /**
  * Represents a file attachment with full content (used in API input).
  */
-export type PromptAttachment = { branchName: string } & (
-	| {
-			type: 'file';
-			path: string;
-			commitId?: string;
-	  }
-	| {
-			type: 'lines';
-			path: string;
-			start: number;
-			end: number;
-			commitId?: string;
-	  }
-	| {
-			type: 'commit';
-			commitId: string;
-	  }
-);
+export type PromptAttachment =
+	| { type: 'file'; path: string; commitId?: string }
+	| { type: 'lines'; path: string; start: number; end: number; commitId?: string }
+	| { type: 'commit'; commitId: string };
 
 /**
  * Result of checking Claude Code availability
@@ -118,56 +104,57 @@ export type ClaudeMessage = {
 	sessionId: string;
 	/** The timestamp when the message was created. */
 	createdAt: string;
-	/** The content of the message, which can be either output from Claude or user input. */
-	content: ClaudeMessageContent;
+	/** The payload of the message from different sources. */
+	payload: MessagePayload;
 };
 
 /**
- * Represents the kind of content in a Claude message.
+ * The actual message payload from different sources.
+ * Uses external tagging for protobuf compatibility.
  */
-export type ClaudeMessageContent =
-	/** Came from Claude standard out stream */
-	| {
-			type: 'claudeOutput';
-			subject: ClaudeCodeMessage;
-	  }
-	/** Inserted via GitButler (what the user typed) */
-	| {
-			type: 'userInput';
-			subject: { message: string; attachments?: PromptAttachment[] };
-	  }
-	| {
-			type: 'gitButlerMessage';
-			subject: GitButlerMessage;
-	  };
+export type MessagePayload =
+	/** Output from Claude Code CLI stdout stream */
+	| ({ source: 'claude' } & ClaudeOutput)
+	/** Input provided by the user */
+	| ({ source: 'user' } & UserInput)
+	/** System message from GitButler about the session */
+	| ({ source: 'system' } & SystemMessage);
 
-export type GitButlerMessage =
+/**
+ * Raw output from Claude API
+ */
+export type ClaudeOutput = {
+	/** Raw JSON value from Claude API streaming output */
+	data: ClaudeCodeMessage;
+};
+
+export type UserInput = {
+	message: string;
+	attachments?: PromptAttachment[];
+};
+
+/**
+ * System messages from GitButler about the Claude session state.
+ */
+export type SystemMessage =
 	| {
 			type: 'claudeExit';
-			subject: {
-				code: number;
-				message: string;
-			};
+			code: number;
+			message: string;
 	  }
 	| {
 			type: 'userAbort';
-			subject: undefined;
 	  }
 	| {
 			type: 'unhandledException';
-			subject: {
-				message: string;
-			};
+			message: string;
 	  }
 	| {
 			type: 'compactStart';
-			subject: undefined;
 	  }
 	| {
 			type: 'compactFinished';
-			subject: {
-				summary: string;
-			};
+			summary: string;
 	  };
 
 /**

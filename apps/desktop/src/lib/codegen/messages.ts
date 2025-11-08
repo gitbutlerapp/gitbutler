@@ -69,19 +69,19 @@ export function formatMessages(
 	let lastAssistantMessage: Message | undefined = undefined;
 
 	for (const [_idx, event] of events.entries()) {
-		if (event.content.type === 'userInput') {
+		if (event.payload.source === 'user') {
 			wrapUpAgentSide();
 			out.push({
 				type: 'user',
-				message: event.content.subject.message,
-				attachments: event.content.subject.attachments
+				message: event.payload.message,
+				attachments: event.payload.attachments
 			});
 			lastAssistantMessage = undefined;
-		} else if (event.content.type === 'claudeOutput') {
-			const subject = event.content.subject;
+		} else if (event.payload.source === 'claude') {
+			const payload = event.payload.data;
 			// We've either triggered a tool call, or sent a message
-			if (subject.type === 'assistant') {
-				const message = subject.message;
+			if (payload.type === 'assistant') {
+				const message = payload.message;
 				if (message.content[0]!.type === 'text') {
 					if (message.content[0]!.text === loginRequiredMessage) {
 						continue;
@@ -123,8 +123,8 @@ export function formatMessages(
 					}
 					toolCalls[toolCall.id] = toolCall;
 				}
-			} else if (subject.type === 'user') {
-				const content = subject.message.content;
+			} else if (payload.type === 'user') {
+				const content = payload.message.content;
 				if (Array.isArray(content) && content[0]!.type === 'tool_result') {
 					const result = content[0]!;
 					const foundToolCall = toolCalls[result.tool_use_id];
@@ -140,64 +140,59 @@ export function formatMessages(
 					}
 				}
 			}
-		} else if (event.content.type === 'gitButlerMessage') {
-			const subject = event.content.subject;
+		} else if (event.payload.source === 'system') {
+			const message = event.payload;
 			if (
-				subject.type === 'claudeExit' ||
-				subject.type === 'userAbort' ||
-				subject.type === 'unhandledException' ||
-				subject.type === 'compactStart' ||
-				subject.type === 'compactFinished'
+				message.type === 'claudeExit' ||
+				message.type === 'userAbort' ||
+				message.type === 'unhandledException' ||
+				message.type === 'compactStart' ||
+				message.type === 'compactFinished'
 			) {
 				wrapUpAgentSide();
 			}
 
-			if (subject.type === 'claudeExit' && subject.subject.code !== 0) {
+			if (message.type === 'claudeExit' && message.code !== 0) {
 				if (previousEventLoginFailureQuery(events, event)) {
-					const message: Message = {
+					out.push({
 						type: 'claude',
 						message: `Claude Code is currently not logged in.\n\n Please run \`claude\` in your terminal and complete the login flow in order to use the GitButler Claude Code integration.`,
 						toolCalls: [],
 						toolCallsPendingApproval: []
-					};
-					out.push(message);
+					});
 				} else {
-					const message: Message = {
+					out.push({
 						type: 'claude',
-						message: `Claude exited with non 0 error code \n\n\`\`\`\n${subject.subject.message}\n\`\`\``,
+						message: `Claude exited with non 0 error code \n\n\`\`\`\n${message.message}\n\`\`\``,
 						toolCalls: [],
 						toolCallsPendingApproval: []
-					};
-					out.push(message);
+					});
 				}
 			}
-			if (subject.type === 'unhandledException') {
-				const message: Message = {
+			if (message.type === 'unhandledException') {
+				out.push({
 					type: 'claude',
-					message: `Encountered an unhandled exception when executing Claude.\nPlease verify your Claude Code installation location and try clearing the context. \n\n\`\`\`\n${subject.subject.message}\n\`\`\``,
+					message: `Encountered an unhandled exception when executing Claude.\nPlease verify your Claude Code installation location and try clearing the context. \n\n\`\`\`\n${message.message}\n\`\`\``,
 					toolCalls: [],
 					toolCallsPendingApproval: []
-				};
-				out.push(message);
+				});
 			}
-			if (subject.type === 'userAbort') {
-				const message: Message = {
+			if (message.type === 'userAbort') {
+				out.push({
 					type: 'claude',
 					message: `I've stopped! What can I help you with next?`,
 					toolCalls: [],
 					toolCallsPendingApproval: []
-				};
-				out.push(message);
+				});
 			}
-			if (subject.type === 'compactFinished') {
-				const message: Message = {
+			if (message.type === 'compactFinished') {
+				out.push({
 					type: 'claude',
 					subtype: 'compaction',
-					message: `Context compaction completed: ${subject.subject.summary}`,
+					message: `Context compaction completed: ${message.summary}`,
 					toolCalls: [],
 					toolCallsPendingApproval: []
-				};
-				out.push(message);
+				});
 			}
 		}
 	}
@@ -231,10 +226,12 @@ function previousEventLoginFailureQuery(events: ClaudeMessage[], event: ClaudeMe
 	const idx = events.findIndex((e) => e === event);
 	if (idx <= 0) return false;
 	const previous = events[idx - 1]!;
-	if (previous.content.type !== 'claudeOutput') return false;
-	if (previous.content.subject.type !== 'result') return false;
-	if (previous.content.subject.subtype !== 'success') return false;
-	if (previous.content.subject.result !== loginRequiredMessage) return false;
+
+	if (previous.payload.source !== 'claude') return false;
+	const content = previous.payload.data;
+	if (content.type !== 'result') return false;
+	if (content.subtype !== 'success') return false;
+	if (content.result !== loginRequiredMessage) return false;
 	return true;
 }
 
@@ -328,10 +325,10 @@ export function usageStats(events: ClaudeMessage[]): {
 
 	for (let i = events.length - 1; i >= 0; i--) {
 		const event = events[i]!;
-		if (event.content.type !== 'claudeOutput') continue;
-		const message = event.content.subject;
-		if (message.type !== 'assistant') continue;
-		lastAssistantMessage = message;
+		if (event.payload.source !== 'claude') continue;
+		const content = event.payload.data;
+		if (content.type !== 'assistant') continue;
+		lastAssistantMessage = content;
 		break;
 	}
 
@@ -352,14 +349,14 @@ export function usageStats(events: ClaudeMessage[]): {
 
 	for (let i = events.length - 1; i >= 0; i--) {
 		const event = events[i]!;
-		if (event.content.type !== 'claudeOutput') continue;
-		const message = event.content.subject;
-		if (message.type !== 'assistant') continue;
-		if (usedIds.has(message.message.id)) continue;
-		usedIds.add(message.message.id);
-		const modelPricing = findModelPricing(message.message.model);
+		if (event.payload.source !== 'claude') continue;
+		const content = event.payload.data;
+		if (content.type !== 'assistant') continue;
+		if (usedIds.has(content.message.id)) continue;
+		usedIds.add(content.message.id);
+		const modelPricing = findModelPricing(content.message.model);
 		if (!modelPricing) continue;
-		const usage = message.message.usage;
+		const usage = content.message.usage;
 
 		cost += (usage.input_tokens * modelPricing.input) / 1_000_000;
 		cost += (usage.output_tokens * modelPricing.output) / 1_000_000;
@@ -386,25 +383,22 @@ function findModelPricing(name: string) {
 export function currentStatus(events: ClaudeMessage[], isActive: boolean): ClaudeStatus {
 	if (events.length === 0) return 'disabled';
 	const lastEvent = events.at(-1)!;
-	if (lastEvent.content.type === 'claudeOutput' && lastEvent.content.subject.type === 'result') {
+	if (lastEvent.payload.source === 'claude' && lastEvent.payload.data.type === 'result') {
 		// Once we have the TODOs, if all the TODOs are completed, we can change
 		// this to conditionally return 'enabled' or 'completed'
 		return 'enabled';
 	}
 
-	if (
-		lastEvent.content.type === 'gitButlerMessage' &&
-		lastEvent.content.subject.type === 'compactStart'
-	) {
+	if (lastEvent.payload.source === 'system' && lastEvent.payload.type === 'compactStart') {
 		return 'compacting';
 	}
 
 	if (
-		lastEvent.content.type === 'gitButlerMessage' &&
-		(lastEvent.content.subject.type === 'userAbort' ||
-			lastEvent.content.subject.type === 'claudeExit' ||
-			lastEvent.content.subject.type === 'unhandledException' ||
-			lastEvent.content.subject.type === 'compactFinished')
+		lastEvent.payload.source === 'system' &&
+		(lastEvent.payload.type === 'userAbort' ||
+			lastEvent.payload.type === 'claudeExit' ||
+			lastEvent.payload.type === 'unhandledException' ||
+			lastEvent.payload.type === 'compactFinished')
 	) {
 		// Once we have the TODOs, if all the TODOs are completed, we can change
 		// this to conditionally return 'enabled' or 'completed'
@@ -429,11 +423,8 @@ export function isCompletedWithStatus(events: ClaudeMessage[], isActive: boolean
 		// The last event after 'completed' is _usually_ "claudeExit", but not
 		// always. If it is, we use it, or just assume success.
 		const lastEvent = events.at(-1)!;
-		if (
-			lastEvent.content.type === 'gitButlerMessage' &&
-			lastEvent.content.subject.type === 'claudeExit'
-		) {
-			return { type: 'completed', code: lastEvent.content.subject.subject.code };
+		if (lastEvent.payload.source === 'system' && lastEvent.payload.type === 'claudeExit') {
+			return { type: 'completed', code: lastEvent.payload.code };
 		} else {
 			return { type: 'completed', code: 0 };
 		}
@@ -454,8 +445,8 @@ export function thinkingOrCompactingStartedAt(events: ClaudeMessage[]): Date | u
 	for (let i = events.length - 1; i >= 0; --i) {
 		const e = events[i]!;
 		if (
-			e.content.type === 'userInput' ||
-			(e.content.type === 'gitButlerMessage' && e.content.subject.type === 'compactStart')
+			'user' in e.payload ||
+			(e.payload.source === 'system' && e.payload.type === 'compactStart')
 		) {
 			event = e;
 			break;
@@ -484,11 +475,11 @@ export function lastInteractionTime(events: ClaudeMessage[]): Date | undefined {
 export function getTodos(events: ClaudeMessage[]): ClaudeTodo[] {
 	let todos: ClaudeTodo[] | undefined;
 	for (let i = events.length - 1; i >= 0; --i) {
-		const content = events[i]!.content;
-		if (content.type !== 'claudeOutput') continue;
-		const subject = content.subject;
-		if (subject.type !== 'assistant') continue;
-		const msgContent = subject.message.content[0]!;
+		const event = events[i]!;
+		if (event.payload.source !== 'claude') continue;
+		const content = event.payload.data;
+		if (content.type !== 'assistant') continue;
+		const msgContent = content.message.content[0]!;
 		if (msgContent.type !== 'tool_use') continue;
 		if (msgContent.name !== 'TodoWrite') continue;
 		todos = (msgContent.input as { todos: ClaudeTodo[] }).todos;
@@ -545,30 +536,30 @@ export function extractLastMessage(messages: ClaudeMessage[]): string | undefine
 		const message = messages[i];
 		if (!message) continue;
 
-		const { content } = message;
-		if (content.type === 'claudeOutput') {
-			const output = content.subject;
-			if (output.type === 'assistant') {
-				const contentBlocks = output.message.content;
+		const { payload } = message;
+		if (payload.source === 'claude') {
+			const content = payload.data;
+			if (content.type === 'assistant') {
+				const contentBlocks = content.message.content;
 				const summary = contentBlockToString(contentBlocks.at(-1));
 				if (summary) return summary;
-			} else if (output.type === 'result') {
-				if (output.subtype === 'success') {
-					if (output.result) return output.result;
+			} else if (content.type === 'result') {
+				if (content.subtype === 'success') {
+					if (content.result) return content.result;
 				} else {
 					return 'an error has occurred';
 				}
-			} else if (output.type === 'user') {
-				const content = output.message.content;
-				if (typeof content === 'string') {
-					return content;
+			} else if (content.type === 'user') {
+				const messageContent = content.message.content;
+				if (typeof messageContent === 'string') {
+					return messageContent;
 				} else {
-					const summary = contentBlockToString(content.at(-1));
+					const summary = contentBlockToString(messageContent.at(-1));
 					if (summary) return summary;
 				}
 			}
-		} else if (content.type === 'userInput') {
-			return content.subject.message;
+		} else if (payload.source === 'user') {
+			return payload.message;
 		}
 	}
 }
