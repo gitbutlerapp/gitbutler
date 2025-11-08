@@ -549,9 +549,9 @@
 								Let's build something amazing
 							{/snippet}
 							{#snippet caption()}
-								Your branch is ready for AI.
+								Your canvas is clear
 								<br />
-								What should we code?
+								Let the code take shape
 							{/snippet}
 						</EmptyStatePlaceholder>
 					</div>
