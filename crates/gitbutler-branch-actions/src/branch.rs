@@ -424,7 +424,7 @@ impl GitButlerStack {
                 .segments
                 .iter()
                 .map(|s| GitbutlerStackSegment {
-                    tip: s.ref_name.clone().unwrap_or_else(|| {
+                    tip: s.ref_info.clone().map(|ri| ri.ref_name).unwrap_or_else(|| {
                         gix::refs::FullName::try_from(
                             "refs/heads/unnamed-ref-and-we-fake-a-name-fix-me",
                         )

@@ -120,6 +120,13 @@ git init multi-root
   git checkout main && git merge --allow-unrelated-histories C
 )
 
+git init ambiguous-worktrees
+(cd ambiguous-worktrees
+  commit M
+  git worktree add ../wt-outside-ambiguous-worktree
+  git worktree add wt-inside-ambiguous-worktree
+)
+
 # A single root that splits up into 4 branches and merges again
 git init four-diamond
 (cd four-diamond
@@ -205,6 +212,32 @@ git init special-branches
 
 mkdir ws
 (cd ws
+  git init ambiguous-worktrees
+  (cd ambiguous-worktrees
+    set -x
+    commit M1
+    commit M-base
+
+    git branch A
+    git worktree add -b A-inside wt-A-inside
+    git worktree add -b A-outside ../wt-A-outside
+
+    git checkout -b soon-origin-A main
+      commit A-remote
+    git checkout main
+      commit M-advanced
+      setup_target_to_match_main
+
+    git checkout -b B A
+      commit B
+    git checkout A
+    git worktree add wt-B-inside B
+
+    create_workspace_commit_once A B
+    setup_remote_tracking soon-origin-A A "move"
+    git worktree add wt-origin-A-inside origin/A
+  )
+
   git init remote-and-integrated-tracking-linear
   (cd remote-and-integrated-tracking-linear
      commit M1

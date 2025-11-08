@@ -135,10 +135,10 @@ pub fn create_branch(
                 {
                     let segment = stack.segments.first().context("BUG: no empty stacks")?;
                     segment
-                    .ref_name
+                    .ref_info
                     .as_ref()
-                    .map(|rn| but_workspace::branch::create_reference::Anchor::AtSegment {
-                        ref_name: Cow::Borrowed(rn.as_ref()),
+                    .map(|ri| but_workspace::branch::create_reference::Anchor::AtSegment {
+                        ref_name: Cow::Borrowed(ri.ref_name.as_ref()),
                         position: Above,
                     })
                     .or_else(|| {

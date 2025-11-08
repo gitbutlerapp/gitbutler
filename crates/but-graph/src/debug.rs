@@ -96,14 +96,14 @@ impl Graph {
             Ok(())
         };
         for node in self.inner.node_weights_mut() {
-            if let Some(rn) = node.ref_name.as_mut() {
-                anon(rn)?;
+            if let Some(ri) = node.ref_info.as_mut() {
+                anon(&mut ri.ref_name)?;
             }
             if let Some(rn) = node.remote_tracking_ref_name.as_mut() {
                 anon(rn)?;
             }
-            for rn in node.commits.iter_mut().flat_map(|c| c.refs.iter_mut()) {
-                anon(rn)?;
+            for ri in node.commits.iter_mut().flat_map(|c| c.refs.iter_mut()) {
+                anon(&mut ri.ref_name)?;
             }
             if let Some(SegmentMetadata::Workspace(md)) = node.metadata.as_mut() {
                 if let Some(rn) = md.target_ref.as_mut() {
@@ -154,7 +154,9 @@ impl Graph {
                     commit
                         .refs
                         .iter()
-                        .map(|rn| format!("►{}", { Self::ref_debug_string(rn) }))
+                        .map(|ri| format!("►{}", {
+                            Self::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref())
+                        }))
                         .collect::<Vec<_>>()
                         .join(", ")
                 )
@@ -163,34 +165,43 @@ impl Graph {
     }
 
     /// Shorten the given `name` so it's still clear if it is a special ref (like tag) or not.
-    pub fn ref_debug_string(name: &gix::refs::FullName) -> String {
-        let (cat, sn) = name.category_and_short_name().expect("valid refs");
+    pub fn ref_debug_string(
+        ref_name: &gix::refs::FullNameRef,
+        worktree: Option<&crate::Worktree>,
+    ) -> String {
+        let (cat, sn) = ref_name.category_and_short_name().expect("valid refs");
         // Only shorten those that look good and are unambiguous enough.
-        if matches!(cat, Category::LocalBranch | Category::RemoteBranch) {
-            sn
-        } else {
-            name.as_bstr()
-                .strip_prefix(b"refs/")
-                .map(|n| n.as_bstr())
-                .unwrap_or(name.as_bstr())
-        }
-        .to_string()
+        format!(
+            "{}{ws}",
+            if matches!(cat, Category::LocalBranch | Category::RemoteBranch) {
+                sn
+            } else {
+                ref_name
+                    .as_bstr()
+                    .strip_prefix(b"refs/")
+                    .map(|n| n.as_bstr())
+                    .unwrap_or(ref_name.as_bstr())
+            },
+            ws = worktree
+                .map(|ws| ws.debug_string(ref_name))
+                .unwrap_or_default()
+        )
     }
 
     /// Return a useful one-line string showing the relationship between `ref_name`, `remote_ref_name` and how
     /// they are linked with `sibling_id`.
     pub fn ref_and_remote_debug_string(
-        ref_name: Option<&gix::refs::FullName>,
+        ref_info: Option<&crate::RefInfo>,
         remote_ref_name: Option<&gix::refs::FullName>,
         sibling_id: Option<SegmentIndex>,
     ) -> String {
         format!(
             "{ref_name}{remote}",
-            ref_name = ref_name
+            ref_name = ref_info
                 .as_ref()
-                .map(|rn| format!(
+                .map(|ri| format!(
                     "{}{maybe_id}",
-                    Graph::ref_debug_string(rn),
+                    Graph::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref()),
                     maybe_id = sibling_id
                         .filter(|_| remote_ref_name.is_none())
                         .map(|id| format!(" →:{}:", id.index()))
@@ -206,7 +217,7 @@ impl Graph {
                 .as_ref()
                 .map(|remote_ref_name| format!(
                     " <> {remote_name}{maybe_id}",
-                    remote_name = Graph::ref_debug_string(remote_ref_name),
+                    remote_name = Graph::ref_debug_string(remote_ref_name.as_ref(), None),
                     maybe_id = sibling_id
                         .map(|id| format!(" →:{}:", id.index()))
                         .unwrap_or_default()
@@ -289,14 +300,14 @@ impl Graph {
             let name = format!(
                 "{ref_name_and_remote}{maybe_centering_newline}",
                 ref_name_and_remote = Self::ref_and_remote_debug_string(
-                    s.ref_name.as_ref(),
+                    s.ref_info.as_ref(),
                     s.remote_tracking_ref_name.as_ref(),
                     s.sibling_segment_id
                 ),
                 maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" },
             );
             // Reduce noise by preferring ref-based entry-points.
-            let show_segment_entrypoint = s.ref_name.is_some()
+            let show_segment_entrypoint = s.ref_info.is_some()
                 && entrypoint.is_some_and(|(s, cidx)| s == sidx && matches!(cidx, None | Some(0)));
             let mut commits = s
                 .commits

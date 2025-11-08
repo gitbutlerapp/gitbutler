@@ -127,8 +127,9 @@ fn try_from_stack_v3(
         .into_iter()
         .map(|segment| -> anyhow::Result<_> {
             let ref_name = segment
-                .ref_name
-                .context("This type can't represent this state and it shouldn't have to")?;
+                .ref_info
+                .context("This type can't represent this state and it shouldn't have to")?
+                .ref_name;
             Ok(ui::StackHeadInfo {
                 tip: repo
                     .find_reference(ref_name.as_ref())
@@ -183,9 +184,9 @@ pub fn stacks_v3(
             let is_applied = applied_stacks.iter().any(|stack| {
                 stack.segments.iter().any(|segment| {
                     segment
-                        .ref_name
+                        .ref_info
                         .as_ref()
-                        .is_some_and(|name| name == &ref_name)
+                        .is_some_and(|ri| ri.ref_name == ref_name)
                 })
             });
             if is_applied {
@@ -490,10 +491,10 @@ pub fn stack_details_v3(
     // This is more of a badly tested hack to quickly filter parts of a stack that aren't checked out.
     // Better to switch over to the new data-structured for proper handling of detached heads, and anonymous segments.
     if let Some(head_ref) = repo.head_ref()? {
-        let needs_filtering_to_hide_segments_not_checked_out = stack
-            .segments
-            .iter()
-            .position(|s| s.ref_name.as_ref().map(|n| n.as_ref()) == Some(head_ref.name()));
+        let needs_filtering_to_hide_segments_not_checked_out =
+            stack.segments.iter().position(|s| {
+                s.ref_info.as_ref().map(|ri| ri.ref_name.as_ref()) == Some(head_ref.name())
+            });
         if let Some(stack_pos) = needs_filtering_to_hide_segments_not_checked_out {
             stack.segments.drain(..stack_pos);
         }
@@ -536,7 +537,7 @@ impl ui::BranchDetails {
     fn from_segment(
         Segment {
             id: _,
-            ref_name,
+            ref_info,
             commits: commits_unique_from_tip,
             commits_on_remote: commits_unique_in_remote_tracking_branch,
             remote_tracking_ref_name,
@@ -548,9 +549,10 @@ impl ui::BranchDetails {
             base,
         }: &Segment,
     ) -> anyhow::Result<Self> {
-        let ref_name = ref_name
+        let ref_name = ref_info
             .clone()
-            .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?;
+            .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?
+            .ref_name;
         let (description, updated_at, review_id, pr_number) = metadata
             .clone()
             .map(|meta| {

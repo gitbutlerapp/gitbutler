@@ -182,6 +182,10 @@ impl<'repo> OverlayRepo<'repo> {
         self.inner
     }
 
+    pub fn for_worktree_only(&self) -> &'repo gix::Repository {
+        self.inner
+    }
+
     pub fn remote_names(&self) -> gix::remote::Names<'repo> {
         self.inner.remote_names()
     }

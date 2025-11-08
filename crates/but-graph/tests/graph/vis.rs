@@ -3,7 +3,7 @@
 use std::str::FromStr;
 
 use but_core::ref_metadata;
-use but_graph::{Commit, CommitFlags, Graph, Segment, SegmentIndex, SegmentMetadata};
+use but_graph::{Commit, CommitFlags, Graph, RefInfo, Segment, SegmentIndex, SegmentMetadata};
 use but_testsupport::graph_tree;
 use gix::ObjectId;
 
@@ -18,7 +18,10 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     // these are in the segments above it.
     let local_target = Segment {
         id: 0.into(),
-        ref_name: Some("refs/heads/main".try_into()?),
+        ref_info: Some(RefInfo {
+            ref_name: "refs/heads/main".try_into()?,
+            worktree: None,
+        }),
         remote_tracking_ref_name: Some("refs/remotes/origin/main".try_into()?),
         metadata: Some(SegmentMetadata::Workspace(ref_metadata::Workspace {
             ref_info: Default::default(),
@@ -36,7 +39,10 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         // A newly created branch which appears at the workspace base.
         Segment {
             id: 1.into(),
-            ref_name: Some("refs/heads/new-stack".try_into()?),
+            ref_info: Some(RefInfo {
+                ref_name: "refs/heads/new-stack".try_into()?,
+                worktree: None,
+            }),
             ..Default::default()
         },
         0,
@@ -45,7 +51,10 @@ fn post_graph_traversal() -> anyhow::Result<()> {
 
     let remote_to_local_target = Segment {
         id: 2.into(),
-        ref_name: Some("refs/remotes/origin/main".try_into()?),
+        ref_info: Some(RefInfo {
+            ref_name: "refs/remotes/origin/main".try_into()?,
+            worktree: None,
+        }),
         commits: vec![commit(id("c"), Some(init_commit_id), CommitFlags::empty())],
         ..Default::default()
     };
@@ -54,7 +63,10 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     let branch = Segment {
         id: 3.into(),
         generation: 2,
-        ref_name: Some("refs/heads/A".try_into()?),
+        ref_info: Some(RefInfo {
+            ref_name: "refs/heads/A".try_into()?,
+            worktree: None,
+        }),
         remote_tracking_ref_name: Some("refs/remotes/origin/A".try_into()?),
         sibling_segment_id: Some(SegmentIndex::from(1)),
         commits: vec![
@@ -67,7 +79,10 @@ fn post_graph_traversal() -> anyhow::Result<()> {
 
     let remote_to_root_branch = Segment {
         id: 4.into(),
-        ref_name: Some("refs/remotes/origin/A".try_into()?),
+        ref_info: Some(RefInfo {
+            ref_name: "refs/remotes/origin/A".try_into()?,
+            worktree: None,
+        }),
         commits: vec![
             commit(id("b"), Some(init_commit_id), CommitFlags::empty()),
             // Note that the initial commit was assigned to the base segment already,

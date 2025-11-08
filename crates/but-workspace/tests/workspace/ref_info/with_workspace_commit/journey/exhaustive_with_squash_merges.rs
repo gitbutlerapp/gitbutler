@@ -23,10 +23,15 @@ fn j01_unborn() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/main",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/main",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -35,7 +40,7 @@ fn j01_unborn() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(0),
-                            ref_name: "refs/heads/main",
+                            ref_name: "►main[🌳]",
                             remote_tracking_ref_name: "None",
                             commits: [],
                             commits_on_remote: [],
@@ -70,10 +75,15 @@ fn j02_first_commit() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/main",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/main",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -82,7 +92,7 @@ fn j02_first_commit() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(0),
-                            ref_name: "refs/heads/main",
+                            ref_name: "►main[🌳]",
                             remote_tracking_ref_name: "None",
                             commits: [
                                 LocalCommit(fafd9d0, "init\n", local),
@@ -123,10 +133,15 @@ However, without an official workspace it still won't be acting as a target.
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/main",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/main",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -135,7 +150,7 @@ However, without an official workspace it still won't be acting as a target.
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(0),
-                            ref_name: "refs/heads/main",
+                            ref_name: "►main[🌳]",
                             remote_tracking_ref_name: "None",
                             commits: [
                                 LocalCommit(fafd9d0, "init\n", local),
@@ -170,10 +185,15 @@ However, without an official workspace it still won't be acting as a target.
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/main",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/main",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -182,7 +202,7 @@ However, without an official workspace it still won't be acting as a target.
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(0),
-                            ref_name: "refs/heads/main",
+                            ref_name: "►main[🌳]",
                             remote_tracking_ref_name: "None",
                             commits: [
                                 LocalCommit(fafd9d0, "init\n", integrated(fafd9d0)),
@@ -226,10 +246,15 @@ fn j04_create_workspace() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [],
             target: Some(
@@ -271,10 +296,15 @@ fn j05_empty_stack() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -287,7 +317,7 @@ fn j05_empty_stack() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/S1",
+                            ref_name: "►S1",
                             remote_tracking_ref_name: "None",
                             commits: [],
                             commits_on_remote: [],
@@ -337,10 +367,15 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -351,7 +386,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/S1",
+                            ref_name: "►S1",
                             remote_tracking_ref_name: "None",
                             commits: [
                                 LocalCommit(ba16348, "one\n", local),
@@ -391,10 +426,15 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -407,7 +447,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/S1",
+                            ref_name: "►S1",
                             remote_tracking_ref_name: "None",
                             commits: [
                                 LocalCommit(ba16348, "one\n", local),
@@ -459,10 +499,15 @@ fn j07_push_commit() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -475,7 +520,7 @@ fn j07_push_commit() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/S1",
+                            ref_name: "►S1",
                             remote_tracking_ref_name: "refs/remotes/origin/S1",
                             commits: [
                                 LocalCommit(ba16348, "one\n", local/remote(identity)),
@@ -532,10 +577,15 @@ Create a new local commit right after the previous pushed one
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -548,7 +598,7 @@ Create a new local commit right after the previous pushed one
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/S1",
+                            ref_name: "►S1",
                             remote_tracking_ref_name: "refs/remotes/origin/S1",
                             commits: [
                                 LocalCommit(9f4d478, "two\n", local),
@@ -604,10 +654,15 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -620,7 +675,7 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/S1",
+                            ref_name: "►S1",
                             remote_tracking_ref_name: "refs/remotes/origin/S1",
                             commits: [
                                 LocalCommit(314cacb, "two\n", local/remote(9a2fcdf)),
@@ -683,10 +738,15 @@ The remote squash-merges S1 *and* changes the 'file' so it looks entirely differ
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -699,7 +759,7 @@ The remote squash-merges S1 *and* changes the 'file' so it looks entirely differ
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/S1",
+                            ref_name: "►S1",
                             remote_tracking_ref_name: "refs/remotes/origin/S1",
                             commits: [
                                 LocalCommit(314cacb, "two\n", integrated(d110262)),
@@ -772,10 +832,15 @@ The remote was re-used and merged once more with more changes.
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -788,7 +853,7 @@ The remote was re-used and merged once more with more changes.
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/S1",
+                            ref_name: "►S1",
                             remote_tracking_ref_name: "refs/remotes/origin/S1",
                             commits: [
                                 LocalCommit(314cacb, "two\n", integrated(d110262)),
@@ -869,10 +934,15 @@ A new multi-segment stack is created without remote and squash merged locally.
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
-            workspace_ref_name: Some(
-                FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
             ),
             stacks: [
                 Stack {
@@ -885,7 +955,7 @@ A new multi-segment stack is created without remote and squash merged locally.
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(3),
-                            ref_name: "refs/heads/S1",
+                            ref_name: "►S1",
                             remote_tracking_ref_name: "refs/remotes/origin/S1",
                             commits: [
                                 LocalCommit(314cacb, "two\n", integrated(d110262)),
@@ -910,7 +980,7 @@ A new multi-segment stack is created without remote and squash merged locally.
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(5),
-                            ref_name: "refs/heads/local",
+                            ref_name: "►local",
                             remote_tracking_ref_name: "None",
                             commits: [
                                 LocalCommit(1af5d57, "new local file\n", integrated(ca783a4)),
@@ -923,7 +993,7 @@ A new multi-segment stack is created without remote and squash merged locally.
                         },
                         ref_info::ui::Segment {
                             id: NodeIndex(6),
-                            ref_name: "refs/heads/local-bottom",
+                            ref_name: "►local-bottom",
                             remote_tracking_ref_name: "None",
                             commits: [
                                 LocalCommit(de02b20, "new local-bottom file\n", integrated(ca783a4)),

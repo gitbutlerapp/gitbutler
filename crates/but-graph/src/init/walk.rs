@@ -1,13 +1,7 @@
 //! Utilities for graph-walking specifically.
-use std::{collections::BTreeSet, ops::Deref};
-
-use anyhow::{Context, bail};
-use but_core::{RefMetadata, ref_metadata};
-use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
-use petgraph::Direction;
-
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
+    Worktree,
     init::{
         Goals, PetGraph,
         overlay::{OverlayMetadata, OverlayRepo},
@@ -16,6 +10,12 @@ use crate::{
     },
     is_workspace_ref_name,
 };
+use anyhow::{Context, bail};
+use but_core::{RefMetadata, ref_metadata};
+use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
+use petgraph::Direction;
+use std::collections::BTreeMap;
+use std::{collections::BTreeSet, ops::Deref};
 
 pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
 
@@ -34,17 +34,17 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
         &OverlayRepo<'_>,
         &OverlayMetadata<'_, T>,
     ),
+    worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Vec<SegmentIndex>> {
     next.inner
         .make_contiguous()
         .sort_by_key(|(_id, _flags, instruction, _limit)| {
             // put local branches first, everything else later.
             graph[instruction.segment_idx()]
-                .ref_name
-                .as_ref()
+                .ref_name()
                 .map(|rn| match rn.category() {
                     Some(Category::LocalBranch) => {
-                        if is_workspace_ref_name(rn.as_ref()) {
+                        if is_workspace_ref_name(rn) {
                             Kind::Workspace
                         } else {
                             Kind::Local
@@ -117,7 +117,7 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
                 .cloned()
                 .expect("each ws-tip has one entry on queue");
             let new_anon_segment = graph.insert_segment_set_entrypoint(
-                branch_segment_from_name_and_meta(None, meta, None)?,
+                branch_segment_from_name_and_meta(None, meta, None, worktree_by_branch)?,
             );
             // This segment acts as stand-in - always process it even if the queue says it's done.
             _ = next.push_front_exhausted((
@@ -313,6 +313,7 @@ pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
     info: &TraverseInfo,
     refs_by_id: &RefsById,
     meta: &OverlayMetadata<'_, T>,
+    worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Option<SegmentIndex>> {
     let src_segment = &graph[src_sidx];
     if src_segment.commits.is_empty() {
@@ -333,7 +334,8 @@ pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
         return Ok(None);
     };
 
-    let segment_below = branch_segment_from_name_and_meta(maybe_segment_name, meta, None)?;
+    let segment_below =
+        branch_segment_from_name_and_meta(maybe_segment_name, meta, None, worktree_by_branch)?;
     let segment_below = graph.connect_new_segment(
         src_sidx,
         src_segment
@@ -395,8 +397,15 @@ pub fn branch_segment_from_name_and_meta<T: RefMetadata>(
     ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
     meta: &OverlayMetadata<'_, T>,
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
+    worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Segment> {
-    branch_segment_from_name_and_meta_sibling(ref_name, None, meta, refs_by_id_lookup)
+    branch_segment_from_name_and_meta_sibling(
+        ref_name,
+        None,
+        meta,
+        refs_by_id_lookup,
+        worktree_by_branch,
+    )
 }
 
 /// Like `branch_segment_from_name_and_meta`, but allows to set `sibling_sidx` as well to link
@@ -406,12 +415,13 @@ pub fn branch_segment_from_name_and_meta_sibling<T: RefMetadata>(
     sibling_sidx: Option<SegmentIndex>,
     meta: &OverlayMetadata<'_, T>,
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
+    worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Segment> {
     let (ref_name, metadata) =
         unambiguous_local_branch_and_segment_data(ref_name, meta, refs_by_id_lookup)?;
     Ok(Segment {
         metadata,
-        ref_name,
+        ref_info: ref_name.map(|rn| crate::RefInfo::from_ref(rn, worktree_by_branch)),
         sibling_segment_id: sibling_sidx,
         ..Default::default()
     })
@@ -514,7 +524,12 @@ impl TraverseInfo {
         self,
         flags: CommitFlags,
         refs: Vec<gix::refs::FullName>,
+        worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<Commit> {
+        let refs: Vec<_> = refs
+            .into_iter()
+            .map(|rn| crate::RefInfo::from_ref(rn, worktree_by_branch))
+            .collect();
         Ok(match self.commit {
             Some(commit) => Commit {
                 refs,
@@ -720,6 +735,7 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
     limit: Limit,
     goals: &mut Goals,
     next: &Queue,
+    worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<RemoteQueueOutcome> {
     let mut goal_flags = CommitFlags::empty();
     let mut limit_flags = CommitFlags::empty();
@@ -748,9 +764,8 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
         if next.iter().any(|t| {
             t.0 == remote_tip
                 && graph[t.2.segment_idx()]
-                    .ref_name
-                    .as_ref()
-                    .is_some_and(|rn| rn == &remote_tracking_branch)
+                    .ref_name()
+                    .is_some_and(|rn| rn == remote_tracking_branch.as_ref())
         }) {
             continue;
         };
@@ -759,6 +774,7 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
                 Some((remote_tracking_branch.clone(), None)),
                 meta,
                 None,
+                worktree_by_branch,
             )?);
 
         let remote_limit = limit.with_indirect_goal(id, goals);
@@ -802,7 +818,7 @@ pub fn possibly_split_occupied_segment(
         // If a normal branch walks into a workspace branch, put the workspace branch on top
         // so it doesn't own the existing commit.
         if graph[dst_sidx].workspace_metadata().is_some() &&
-            graph[src_sidx].ref_name.as_ref()
+            graph[src_sidx].ref_name()
                 .and_then(|rn| rn.category()).is_some_and(|c| matches!(c, Category::LocalBranch)) {
             // `dst` is basically swapping with `src`, so must swap commits and connections.
             swap_commits_and_connections(&mut graph.inner, dst_sidx, src_sidx);
@@ -810,9 +826,9 @@ pub fn possibly_split_occupied_segment(
 
             // Assure the first commit doesn't name the new owner segment.
             {
-                let s = &mut graph[src_sidx];
+                let s: &mut Segment = &mut graph[src_sidx];
                 if let Some(c) = s.commits.first_mut() {
-                    c.refs.retain(|rn| Some(rn) != s.ref_name.as_ref())
+                    c.refs.retain(|ri| Some(&ri.ref_name) != s.ref_info.as_ref().map(|rn| &rn.ref_name))
                 }
                 // Update the commit-ownership of the connecting commit, but also
                 // of all other commits in the segment.
@@ -940,4 +956,62 @@ pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) -> anyhow::Res
             false
         });
     Ok(())
+}
+
+pub(crate) type WorktreeByBranch = BTreeMap<gix::refs::FullName, Vec<Worktree>>;
+
+pub fn worktree_branches(repo: &gix::Repository) -> anyhow::Result<WorktreeByBranch> {
+    fn maybe_insert_head(
+        head: Option<gix::Head<'_>>,
+        out: &mut WorktreeByBranch,
+    ) -> anyhow::Result<()> {
+        let Some((head, wd)) = head.and_then(|head| {
+            head.repo.worktree().map(|wt| {
+                (
+                    head,
+                    match wt.id() {
+                        None => Worktree::Main,
+                        Some(id) => Worktree::LinkedId(id.to_owned()),
+                    },
+                )
+            })
+        }) else {
+            return Ok(());
+        };
+
+        out.entry("HEAD".try_into().expect("valid"))
+            .or_default()
+            .push(wd.to_owned());
+        let mut ref_chain = Vec::new();
+        let mut cursor = head.try_into_referent();
+        while let Some(ref_) = cursor {
+            ref_chain.push(ref_.name().to_owned());
+            cursor = ref_.follow().transpose()?;
+        }
+        for name in ref_chain {
+            out.entry(name).or_default().push(wd.to_owned());
+        }
+
+        Ok(())
+    }
+
+    let mut map = BTreeMap::new();
+    maybe_insert_head(repo.head().ok(), &mut map)?;
+    for proxy in repo.worktrees()? {
+        let repo = proxy.into_repo_with_possibly_inaccessible_worktree()?;
+        maybe_insert_head(repo.head().ok(), &mut map)?;
+    }
+    Ok(map)
+}
+
+impl crate::RefInfo {
+    pub(crate) fn from_ref(
+        ref_name: gix::refs::FullName,
+        worktree_by_branch: &WorktreeByBranch,
+    ) -> Self {
+        let worktree = worktree_by_branch
+            .get(&ref_name)
+            .and_then(|worktrees| worktrees.first().cloned());
+        Self { ref_name, worktree }
+    }
 }

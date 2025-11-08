@@ -270,9 +270,9 @@ pub(crate) mod function {
         // The returned workspace ref name will be set to the new merge commit, if created, or it may not change
         // at all if the workspace can be created by just setting metadata.
         let (workspace_ref_name_to_update, branches_to_apply) = match &workspace.kind {
-            WorkspaceKind::Managed { ref_name }
-            | WorkspaceKind::ManagedMissingWorkspaceCommit { ref_name } => {
-                (ref_name.clone(), vec![branch])
+            WorkspaceKind::Managed { ref_info }
+            | WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info } => {
+                (ref_info.ref_name.clone(), vec![branch])
             }
             WorkspaceKind::AdHoc => {
                 // We need to switch over to a possibly existing workspace.
@@ -511,24 +511,24 @@ pub(crate) mod function {
                 // or if it has to be a dependent branch. Stacks only work if the ref rests on a base
                 // outside the workspace, so if we find it in the workspace (in an ambiguous spot) it must be
                 // a dependent branch
-                if let Some(segment_to_insert_above) = workspace
-                    .stacks
-                    .iter()
-                    .flat_map(|stack| stack.segments.iter())
-                    .find_map(|segment| {
-                        segment.commits.iter().flat_map(|c| c.refs.iter()).find_map(
-                            |ambiguous_rn| {
-                                (ambiguous_rn.as_ref() == **rn)
-                                    .then_some(segment.ref_name.as_ref())
-                                    .flatten()
-                            },
-                        )
-                    })
+                if let Some(segment_to_insert_above) =
+                    workspace
+                        .stacks
+                        .iter()
+                        .flat_map(|stack| stack.segments.iter())
+                        .find_map(|segment| {
+                            segment.commits.iter().flat_map(|c| c.ref_iter()).find_map(
+                                |ambiguous_rn| {
+                                    (ambiguous_rn == **rn)
+                                        .then_some(segment.ref_name())
+                                        .flatten()
+                                },
+                            )
+                        })
                 {
-                    match ws_mut.insert_new_segment_above_anchor_if_not_present(
-                        rn,
-                        segment_to_insert_above.as_ref(),
-                    ) {
+                    match ws_mut
+                        .insert_new_segment_above_anchor_if_not_present(rn, segment_to_insert_above)
+                    {
                         None => {
                             // For now bail, until we know it's worth fixing this case automatically.
                             bail!(
@@ -540,7 +540,7 @@ pub(crate) mod function {
                             ws_mut.remove_segment(rn);
                             if ws_mut.insert_new_segment_above_anchor_if_not_present(
                                 rn,
-                                segment_to_insert_above.as_ref(),
+                                segment_to_insert_above,
                             ) != Some(true)
                             {
                                 bail!(
@@ -750,7 +750,7 @@ pub(crate) mod function {
                     if prune {
                         superseded.push((
                             segment.id,
-                            segment.ref_name.clone(),
+                            segment.ref_name().map(|rn| rn.to_owned()),
                             segment.commits.first().map(|c| c.id),
                         ));
                     }

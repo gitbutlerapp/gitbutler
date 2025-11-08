@@ -6,6 +6,7 @@ use gix::{
     prelude::{ObjectIdExt, ReferenceExt},
     refs::Category,
 };
+use std::collections::BTreeMap;
 use tracing::instrument;
 
 use crate::{CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata};
@@ -154,10 +155,17 @@ impl Graph {
                 // It's OK to default-initialise this here as overlays are only used when redoing
                 // the traversal.
                 let (_repo, meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
+                let wt_by_branch = {
+                    // Assume linked worktrees are never unborn!
+                    let mut m = BTreeMap::new();
+                    m.insert(ref_name.clone(), vec![crate::Worktree::Main]);
+                    m
+                };
                 graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
                     Some((ref_name, None)),
                     &meta,
                     None,
+                    &wt_by_branch,
                 )?);
                 return Ok(graph);
             }
@@ -182,7 +190,7 @@ impl Graph {
             if let Some((rn, first_commit)) = s
                 .commits
                 .first_mut()
-                .and_then(|first_commit| s.ref_name.take().map(|rn| (rn, first_commit)))
+                .and_then(|first_commit| s.ref_info.take().map(|rn| (rn, first_commit)))
             {
                 first_commit.refs.push(rn);
             }
@@ -350,6 +358,8 @@ impl Graph {
         let tip_is_not_workspace_commit = !workspaces
             .iter()
             .any(|(_, wsrn, _)| Some(wsrn) == ref_name.as_ref());
+        let worktree_by_branch = worktree_branches(repo.for_worktree_only())?;
+
         let mut ctx = post::Context {
             repo,
             symbolic_remote_names: &symbolic_remote_names,
@@ -358,12 +368,14 @@ impl Graph {
             refs_by_id,
             hard_limit: false,
             dangerously_skip_postprocessing_for_debugging,
+            worktree_by_branch,
         };
         if tip_is_not_workspace_commit {
             let current = graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
                 None,
                 meta,
                 Some((&ctx.refs_by_id, tip)),
+                &ctx.worktree_by_branch,
             )?);
             _ = next.push_back_exhausted((
                 tip,
@@ -406,8 +418,12 @@ impl Graph {
                     max_limit.with_indirect_goal(tip, &mut goals),
                 )
             };
-            let mut ws_segment =
-                branch_segment_from_name_and_meta(Some((ws_ref, None)), meta, None)?;
+            let mut ws_segment = branch_segment_from_name_and_meta(
+                Some((ws_ref, None)),
+                meta,
+                None,
+                &ctx.worktree_by_branch,
+            )?;
             // The limits for the target ref and the worktree ref are synced so they can always find each other,
             // while being able to stop when the entrypoint is included.
             ws_segment.metadata = Some(SegmentMetadata::Workspace(ws_meta));
@@ -439,6 +455,7 @@ impl Graph {
                     Some((target_ref, None)),
                     meta,
                     None,
+                    &ctx.worktree_by_branch,
                 )?);
                 let (local_sidx, local_goal) =
                     if let Some((local_ref_name, target_local_tip)) = local_tip_info {
@@ -448,12 +465,13 @@ impl Graph {
                                 Some(target_segment),
                                 meta,
                                 Some((&ctx.refs_by_id, target_local_tip)),
+                                &ctx.worktree_by_branch,
                             )?);
                         // We use auto-naming based on ambiguity - if the name ends up something else,
                         // remove the nodes sibling link.
                         let has_sibling_link = {
                             let s = &mut graph[local_sidx];
-                            if s.ref_name.as_ref().is_none_or(|rn| rn != &local_ref_name) {
+                            if s.ref_name().is_none_or(|rn| rn != local_ref_name.as_ref()) {
                                 s.sibling_segment_id = None;
                                 false
                             } else {
@@ -504,6 +522,7 @@ impl Graph {
                     None,
                     meta,
                     Some((&ctx.refs_by_id, extra_target)),
+                    &ctx.worktree_by_branch,
                 )?);
                 _ = next.push_front_exhausted((
                     extra_target,
@@ -550,6 +569,7 @@ impl Graph {
                     None,
                     meta,
                     Some((&ctx.refs_by_id, segment_tip.detach())),
+                    &ctx.worktree_by_branch,
                 )?;
 
                 // However, if this is a remote segment that is explicitly mentioned, and we couldn't name
@@ -557,8 +577,11 @@ impl Graph {
                 let is_remote = segment_name
                     .category()
                     .is_some_and(|c| c == Category::RemoteBranch);
-                if segment.ref_name.is_none() && is_remote {
-                    segment.ref_name = Some(segment_name.clone());
+                if segment.ref_info.is_none() && is_remote {
+                    segment.ref_info = Some(crate::RefInfo::from_ref(
+                        segment_name.clone(),
+                        &ctx.worktree_by_branch,
+                    ));
                     segment.metadata = meta
                         .branch_opt(segment_name.as_ref())?
                         .map(SegmentMetadata::Branch);
@@ -577,6 +600,7 @@ impl Graph {
             &mut graph,
             &mut next,
             (ws_tips, repo, meta),
+            &ctx.worktree_by_branch,
         )?;
         max_commits_recharge_location.sort();
         while let Some((id, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
@@ -614,6 +638,7 @@ impl Graph {
                             &info,
                             &ctx.refs_by_id,
                             meta,
+                            &ctx.worktree_by_branch,
                         )?
                         .unwrap_or(src_sidx);
                         e.insert(src_sidx);
@@ -641,6 +666,7 @@ impl Graph {
                             None,
                             meta,
                             Some((&ctx.refs_by_id, id)),
+                            &ctx.worktree_by_branch,
                         )?;
                         let segment_below = graph.connect_new_segment(
                             parent_above,
@@ -672,6 +698,7 @@ impl Graph {
                 limit,
                 &mut goals,
                 &next,
+                &ctx.worktree_by_branch,
             )?;
 
             let segment = &mut graph[segment_idx_for_id];
@@ -700,8 +727,9 @@ impl Graph {
                     refs_at_commit_before_removal
                         .clone()
                         .into_iter()
-                        .filter(|rn| segment.ref_name.as_ref() != Some(rn))
+                        .filter(|rn| segment.ref_name() != Some(rn.as_ref()))
                         .collect(),
+                    &ctx.worktree_by_branch,
                 )?,
             );
 
@@ -738,7 +766,7 @@ impl Graph {
                     .tip_skip_empty(tip_sidx)
                     .context("BUG: entrypoint must eventually point to a commit")?
                     .id;
-                let ref_name = self[tip_sidx].ref_name.clone();
+                let ref_name = self[tip_sidx].ref_info.clone().map(|ri| ri.ref_name);
                 (tip, ref_name)
             }
         };

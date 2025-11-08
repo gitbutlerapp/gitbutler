@@ -40,7 +40,7 @@ impl Graph {
             .map(|s| {
                 let s = &self[s];
                 (
-                    s.ref_name.clone(),
+                    s.ref_info.clone().map(|ri| ri.ref_name),
                     s.id,
                     s.non_empty_flags_of_first_commit(),
                 )
@@ -86,7 +86,7 @@ impl Graph {
         for n in self.inner.node_indices().map(|n| &self[n]) {
             *commits += n.commits.len();
 
-            if n.ref_name.is_none() {
+            if n.ref_info.is_none() {
                 *segments_unnamed += 1;
             }
             if n.remote_tracking_ref_name.is_some() {

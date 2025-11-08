@@ -168,7 +168,7 @@ impl inner::RefInfo {
     /// The `repo` is used just to get ref-names, for convenience.
     pub fn for_ui(
         crate::RefInfo {
-            workspace_ref_name,
+            workspace_ref_info,
             stacks,
             target,
             extra_target: _,
@@ -186,7 +186,7 @@ impl inner::RefInfo {
             .map(|stack| Stack::for_ui(stack, &remote_names))
             .collect::<Result<_, _>>()?;
         Ok(inner::RefInfo {
-            workspace_ref: workspace_ref_name.map(Into::into),
+            workspace_ref: workspace_ref_info.map(|ri| ri.ref_name.into()),
             stacks,
             target: target
                 .map(|t| Target::for_ui(t, &remote_names))
@@ -286,7 +286,7 @@ pub struct Segment {
 impl Segment {
     fn for_ui(
         crate::ref_info::Segment {
-            ref_name,
+            ref_info,
             id: _,
             remote_tracking_ref_name,
             commits,
@@ -300,7 +300,7 @@ impl Segment {
         names: &gix::remote::Names,
     ) -> anyhow::Result<Self> {
         Ok(Segment {
-            ref_name: ref_name.map(Into::into),
+            ref_name: ref_info.map(|ri| ri.ref_name.into()),
             remote_tracking_ref_name: remote_tracking_ref_name
                 .map(|r| RemoteTrackingReference::for_ui(r, names))
                 .transpose()?,

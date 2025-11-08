@@ -79,7 +79,7 @@ pub fn graph_tree(graph: &Graph) -> StringTree {
 }
 
 fn no_first_commit_on_named_segments(mut ep: EntryPoint<'_>) -> EntryPoint<'_> {
-    if ep.segment.ref_name.is_some() && ep.commit_index == Some(0) {
+    if ep.segment.ref_info.is_some() && ep.commit_index == Some(0) {
         ep.commit_index = None;
     }
     ep
@@ -104,11 +104,11 @@ fn recurse_segment(
             "→:{sidx}:{name}",
             sidx = sidx.index(),
             name = graph[sidx]
-                .ref_name
+                .ref_info
                 .as_ref()
-                .map(|n| format!(
+                .map(|ri| format!(
                     " ({}{maybe_sibling})",
-                    Graph::ref_debug_string(n),
+                    Graph::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref()),
                     maybe_sibling = segment
                         .sibling_segment_id
                         .map_or_else(String::new, |sid| format!(" →:{}:", sid.index()))
@@ -123,7 +123,7 @@ fn recurse_segment(
     let mut show_segment_entrypoint = segment_is_entrypoint;
     if segment_is_entrypoint {
         // Reduce noise by preferring ref-based entry-points.
-        if segment.ref_name.is_none() && ep.commit_index.is_some() {
+        if segment.ref_info.is_none() && ep.commit_index.is_some() {
             show_segment_entrypoint = false;
         }
     }
@@ -166,7 +166,7 @@ fn recurse_segment(
             ""
         },
         ref_name_and_remote = Graph::ref_and_remote_debug_string(
-            segment.ref_name.as_ref(),
+            segment.ref_info.as_ref(),
             segment.remote_tracking_ref_name.as_ref(),
             segment.sibling_segment_id
         ),

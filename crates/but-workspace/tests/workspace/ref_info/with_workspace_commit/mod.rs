@@ -42,10 +42,15 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
     let info = head_info(&repo, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -58,7 +63,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
@@ -101,10 +106,15 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
     // Information doesn't change just because the starting point is different.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -117,7 +127,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 segments: [
                     👉ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
@@ -164,10 +174,15 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
     let info = ref_info(at, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -180,7 +195,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 segments: [
                     👉ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
@@ -240,10 +255,15 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -256,7 +276,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/B-on-A",
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
                             LocalCommit(3ba6995, "change in B\n", local/remote(ec39463)),
@@ -269,7 +289,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(f504e38, "change after push\n", local),
@@ -331,10 +351,15 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -347,7 +372,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/B-on-A",
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
                             LocalCommit(3ba6995, "change in B\n", local/remote(ec39463)),
@@ -360,7 +385,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(f504e38, "change after push\n", local),
@@ -373,7 +398,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "refs/heads/base-of-A",
+                        ref_name: "►base-of-A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(807f596, "change in A\n", local/remote(identity)),
@@ -433,10 +458,15 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -449,7 +479,7 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/B-on-A",
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
                             LocalCommit(de11c03, "change in B\n", local/remote(identity)),
@@ -462,7 +492,7 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(0ee3a9e, "change in A\n", integrated(0ee3a9e)),
@@ -531,10 +561,15 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
     let info = head_info(&repo, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -547,7 +582,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/B-on-A",
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
                             LocalCommit(de11c03, "change in B\n", local/remote(identity)),
@@ -592,10 +627,15 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -608,7 +648,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/B-on-A",
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
                             LocalCommit(de11c03, "change in B\n", local/remote(identity)),
@@ -621,7 +661,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(0ee3a9e, "change in A\n", integrated(0ee3a9e)),
@@ -680,10 +720,15 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
     let info = head_info(&repo, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -694,7 +739,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/B",
+                        ref_name: "►B",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(da597e8, "B\n", local),
@@ -707,7 +752,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(1818c17, "A\n", integrated(0b6b861)),
@@ -750,10 +795,15 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
     // branch up to the workspace base, which we should consider.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -764,7 +814,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/B",
+                        ref_name: "►B",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(da597e8, "B\n", local),
@@ -777,7 +827,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(1818c17, "A\n", integrated(0b6b861)),
@@ -838,10 +888,15 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
     let info = ref_info(repo.find_reference("A")?, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -854,7 +909,7 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                 segments: [
                     👉ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d5d3a92, "unique local tip\n", local),
@@ -921,10 +976,15 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -937,7 +997,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "refs/heads/lane",
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -958,7 +1018,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/advanced-lane-2",
+                        ref_name: "►advanced-lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(93d7eac, "change 2\n", local),
@@ -981,7 +1041,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
@@ -1050,10 +1110,15 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
     let info = ref_info(repo.find_reference("lane")?, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -1066,7 +1131,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 segments: [
                     👉ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/lane",
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
@@ -1079,7 +1144,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(7),
-                        ref_name: "refs/heads/lane-segment-01",
+                        ref_name: "►lane-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1090,7 +1155,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(8),
-                        ref_name: "refs/heads/lane-segment-02",
+                        ref_name: "►lane-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1111,7 +1176,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/lane-2",
+                        ref_name: "►lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1122,7 +1187,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "refs/heads/lane-2-segment-01",
+                        ref_name: "►lane-2-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1133,7 +1198,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "refs/heads/lane-2-segment-02",
+                        ref_name: "►lane-2-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1188,10 +1253,15 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
     let info = ref_info(repo.find_reference("lane")?, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -1204,7 +1274,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/lane-2",
+                        ref_name: "►lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1215,7 +1285,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "refs/heads/lane-2-segment-01",
+                        ref_name: "►lane-2-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1226,7 +1296,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "refs/heads/lane-2-segment-02",
+                        ref_name: "►lane-2-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1247,7 +1317,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 segments: [
                     👉ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/lane",
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
@@ -1260,7 +1330,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(7),
-                        ref_name: "refs/heads/lane-segment-01",
+                        ref_name: "►lane-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1271,7 +1341,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(8),
-                        ref_name: "refs/heads/lane-segment-02",
+                        ref_name: "►lane-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1327,10 +1397,15 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -1343,7 +1418,7 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
@@ -1366,7 +1441,7 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/lane",
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1421,10 +1496,15 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -1435,7 +1515,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
@@ -1498,10 +1578,15 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
     let info = head_info(&repo, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -1514,7 +1599,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "refs/heads/dependant",
+                        ref_name: "►dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1525,7 +1610,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
@@ -1575,10 +1660,15 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -1591,7 +1681,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [],
                         commits_on_remote: [],
@@ -1602,7 +1692,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "refs/heads/dependant",
+                        ref_name: "►dependant",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
@@ -1663,10 +1753,15 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
     let info = head_info(&repo, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -1679,7 +1774,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "refs/heads/on-top-of-dependant",
+                        ref_name: "►on-top-of-dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1690,7 +1785,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "refs/heads/dependant",
+                        ref_name: "►dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1701,7 +1796,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(7),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
@@ -1749,10 +1844,15 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
     let info = head_info(&repo, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -1765,7 +1865,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "refs/heads/dependant",
+                        ref_name: "►dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1776,7 +1876,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "refs/heads/on-top-of-dependant",
+                        ref_name: "►on-top-of-dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1787,7 +1887,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(7),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
@@ -1848,10 +1948,15 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -1864,7 +1969,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/on-top-of-lane",
+                        ref_name: "►on-top-of-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/on-top-of-lane",
                         commits: [
                             LocalCommit(788ad06, "change on top\n", local/remote(identity)),
@@ -1877,7 +1982,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/lane",
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "refs/remotes/origin/lane",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
@@ -1938,10 +2043,15 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -1954,7 +2064,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                 segments: [
                     👉ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(aadad9d, "shared by name\n", local/remote(2b1808c)),
@@ -1968,7 +2078,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "refs/heads/integrated",
+                        ref_name: "►integrated",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(f15ca75, "other integrated\n", integrated(f15ca75)),
@@ -2025,10 +2135,15 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
     // It's fine to have no managed commit, but we have to deal with it - see flag is_managed.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -2041,7 +2156,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
@@ -2064,7 +2179,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/lane",
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -2101,10 +2216,15 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
     let info = ref_info(repo.find_reference("advanced-lane")?, &meta, opts).unwrap();
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -2117,7 +2237,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 segments: [
                     👉ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
@@ -2140,7 +2260,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/lane",
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -2200,10 +2320,15 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     let info = head_info(&repo, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -2216,7 +2341,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/lane",
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -2237,7 +2362,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
@@ -2277,10 +2402,15 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     let info = ref_info(repo.find_reference("advanced-lane")?, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -2293,7 +2423,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/lane",
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -2314,7 +2444,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 segments: [
                     👉ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
@@ -2353,10 +2483,15 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     let info = ref_info(repo.find_reference("lane")?, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -2369,7 +2504,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 segments: [
                     👉ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/lane",
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -2390,7 +2525,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
@@ -2435,10 +2570,15 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -2451,7 +2591,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
@@ -2474,7 +2614,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/lane",
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -2526,10 +2666,15 @@ fn disjoint() -> anyhow::Result<()> {
     // We see the commit in the branch as there is no base to hide it.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/disjoint",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/disjoint",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -2538,7 +2683,7 @@ fn disjoint() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/disjoint",
+                        ref_name: "►disjoint[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(32791d2, "disjoint init\n", local),
@@ -2590,10 +2735,15 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     // Stack A isn't listed, so it has no stack id.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -2606,7 +2756,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/C-on-A",
+                        ref_name: "►C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
@@ -2619,7 +2769,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
@@ -2642,7 +2792,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "refs/heads/B-on-A",
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(4e5484a, "add new file in B-on-A\n", local),
@@ -2655,7 +2805,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
@@ -2698,10 +2848,15 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     // A partial workspace is provided, but the entire workspace is known.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -2714,7 +2869,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 segments: [
                     👉ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/C-on-A",
+                        ref_name: "►C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
@@ -2727,7 +2882,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
@@ -2750,7 +2905,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "refs/heads/B-on-A",
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(4e5484a, "add new file in B-on-A\n", local),
@@ -2763,7 +2918,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
@@ -2806,10 +2961,15 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     // It's like the stack is part of the workspace, the result is the same, with entrypoints changed.
     insta::assert_debug_snapshot!(b_info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -2822,7 +2982,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/C-on-A",
+                        ref_name: "►C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
@@ -2835,7 +2995,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
@@ -2858,7 +3018,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 segments: [
                     👉ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/B-on-A",
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(4e5484a, "add new file in B-on-A\n", local),
@@ -2871,7 +3031,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
@@ -2915,10 +3075,15 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     // It's notable how there are two entrypoints, so the UI has to assure both are visible.
     insta::assert_debug_snapshot!(a_info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -2931,7 +3096,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
-                        ref_name: "refs/heads/C-on-A",
+                        ref_name: "►C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
@@ -2944,7 +3109,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                     },
                     👉ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
@@ -2967,7 +3132,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "refs/heads/B-on-A",
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(4e5484a, "add new file in B-on-A\n", local),
@@ -2980,7 +3145,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                     },
                     👉ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/A",
+                        ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
@@ -3036,10 +3201,15 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
     // not any other branch that happens to point at that commit.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -3052,7 +3222,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/unrelated",
+                        ref_name: "►unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -3090,10 +3260,15 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
     // It can be checked out with the same effect, the parent workspace is still known.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [
             Stack {
@@ -3106,7 +3281,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 segments: [
                     👉ref_info::ui::Segment {
                         id: NodeIndex(3),
-                        ref_name: "refs/heads/unrelated",
+                        ref_name: "►unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -3147,10 +3322,15 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
     // Now there should be no stack, it's an empty workspace.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+                worktree: Some(
+                    Main,
+                ),
+            },
         ),
         stacks: [],
         target: Some(
@@ -3180,10 +3360,13 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
     let info = ref_info(repo.find_reference("unrelated")?, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/unrelated",
-            ),
+        workspace_ref_info: Some(
+            RefInfo {
+                ref_name: FullName(
+                    "refs/heads/unrelated",
+                ),
+                worktree: None,
+            },
         ),
         stacks: [
             Stack {
@@ -3192,7 +3375,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(0),
-                        ref_name: "refs/heads/unrelated",
+                        ref_name: "►unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(c166d42, "init-integration\n", integrated(c166d42), ►main),

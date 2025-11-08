@@ -452,17 +452,15 @@ pub(super) mod function {
             .rev()
             .find_map(|seg_idx| {
                 let s = &stack.segments[seg_idx];
-                s.ref_name
-                    .as_ref()
-                    .map(|rn| (rn.as_ref(), Below))
+                s.ref_name()
+                    .map(|rn| (rn, Below))
                     .filter(|_| s.metadata.is_some())
             })
             .or_else(|| {
                 (anchor_seg_idx + 1..stack.segments.len()).find_map(|seg_idx| {
                     let s = &stack.segments[seg_idx];
-                    s.ref_name
-                        .as_ref()
-                        .map(|rn| (rn.as_ref(), Above))
+                    s.ref_name()
+                        .map(|rn| (rn, Above))
                         .filter(|_| s.metadata.is_some())
                 })
             })

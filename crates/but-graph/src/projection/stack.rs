@@ -29,9 +29,7 @@ impl Stack {
 
     /// Return the name of the first segment of the stack.
     pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
-        self.segments
-            .first()
-            .and_then(|s| s.ref_name.as_ref().map(|rn| rn.as_ref()))
+        self.segments.first().and_then(|s| s.ref_name())
     }
 
     /// Return the first commit of the first non-empty segment, or `None` this stack is completely empty, or has only empty segments.
@@ -144,14 +142,15 @@ impl std::fmt::Debug for Stack {
 /// these fields are significant.
 #[derive(Clone)]
 pub struct StackSegment {
-    /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit.
+    /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit,
+    /// along with its worktree information.
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
     /// a commit anymore that was reached by our rev-walk.
     /// This can happen if the ref is deleted, or if it was advanced by other means.
     /// Alternatively, the naming could have been ambiguous while this is the first segment in the stack.
     /// named segment.
-    pub ref_name: Option<gix::refs::FullName>,
+    pub ref_info: Option<crate::RefInfo>,
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
     /// Its presence means [`commits_unique_in_remote_tracking_branch`] are possibly available.
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
@@ -221,17 +220,22 @@ impl StackSegment {
         self.commits.first().map(|c| c.id)
     }
 
+    /// Return the name of the stack segment, if present.
+    pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
+        self.ref_info.as_ref().map(|ri| ri.ref_name.as_ref())
+    }
+
     /// Returns an iterator over all reachable reference names, that is the name of the segment if present
     /// and all ref-names pointing to/stored in local commits.
     pub fn ref_names(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> {
-        self.ref_name
+        self.ref_info
             .as_ref()
-            .map(|r| r.as_ref())
+            .map(|ri| ri.ref_name.as_ref())
             .into_iter()
             .chain(
                 self.commits
                     .iter()
-                    .flat_map(|c| c.refs.iter().map(|r| r.as_ref())),
+                    .flat_map(|c| c.refs.iter().map(|ri| ri.ref_name.as_ref())),
             )
     }
 }
@@ -262,7 +266,7 @@ impl StackSegment {
         let &&crate::Segment {
             id,
             generation: _,
-            ref ref_name,
+            ref_info: ref ref_name,
             ref remote_tracking_ref_name,
             sibling_segment_id,
             commits: _,
@@ -283,7 +287,7 @@ impl StackSegment {
                 .filter(|_| is_first && ref_name.is_none())
             {
                 let sibling = &graph[sibling_sidx];
-                ref_name = &sibling.ref_name;
+                ref_name = &sibling.ref_info;
                 metadata = &sibling.metadata;
                 remote_tracking_ref_name = &sibling.remote_tracking_ref_name;
                 graph.visit_all_segments_including_start_until(
@@ -320,7 +324,7 @@ impl StackSegment {
         }
 
         Ok(StackSegment {
-            ref_name: ref_name.clone(),
+            ref_info: ref_name.clone(),
             id,
             remote_tracking_ref_name: remote_tracking_ref_name.clone(),
             sibling_segment_id,
@@ -381,7 +385,7 @@ impl StackSegment {
             meta = if self.metadata.is_some() { "📙" } else { "" },
             id = self.id.index(),
             ref_name_remote = Graph::ref_and_remote_debug_string(
-                self.ref_name.as_ref(),
+                self.ref_info.as_ref(),
                 self.remote_tracking_ref_name.as_ref(),
                 self.sibling_segment_id
             ),
@@ -408,12 +412,17 @@ pub struct StackCommit {
     pub parent_ids: Vec<gix::ObjectId>,
     /// Additional properties to help classify this commit.
     pub flags: StackCommitFlags,
-    /// The references pointing to this commit, even after dereferencing tag objects.
+    /// The references pointing to this commit, even after dereferencing tag objects, along with their worktree information.
     /// These can be names of tags and branches.
-    pub refs: Vec<gix::refs::FullName>,
+    pub refs: Vec<crate::RefInfo>,
 }
 
 impl StackCommit {
+    /// Return an iterator over all reference names that point to this commit.
+    pub fn ref_iter(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> + Clone {
+        self.refs.iter().map(|ri| ri.ref_name.as_ref())
+    }
+
     /// Collect additional information on `commit` using `repo`.
     pub fn from_graph_commit(commit: &crate::Commit) -> Self {
         StackCommit {
@@ -466,7 +475,9 @@ impl StackCommit {
                     " {}",
                     self.refs
                         .iter()
-                        .map(|rn| format!("►{}", { Graph::ref_debug_string(rn) }))
+                        .map(|ri| format!("►{}", {
+                            Graph::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref())
+                        }))
                         .collect::<Vec<_>>()
                         .join(", ")
                 )

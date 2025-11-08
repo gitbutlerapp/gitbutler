@@ -52,7 +52,7 @@ pub(crate) mod function {
                 && stack
                     .segments
                     .iter()
-                    .filter(|s| s.ref_name.is_some())
+                    .filter(|s| s.ref_info.is_some())
                     .count()
                     < 2)
         {
@@ -99,13 +99,13 @@ pub(crate) mod function {
                 && let Some(commit) = stack
                     .segments
                     .first()
-                    .and_then(|s| s.commits.first().filter(|_| s.ref_name.is_none()))
+                    .and_then(|s| s.commits.first().filter(|_| s.ref_info.is_none()))
             {
                 let (name_of_segment_below, target_id) = stack
                     .segments
                     .iter()
                     .find_map(|s| {
-                        let rn = s.ref_name.as_ref()?;
+                        let rn = s.ref_name()?;
                         workspace.graph.tip_skip_empty(s.id).map(|c| (rn, c.id))
                     })
                     .with_context(|| {
@@ -114,7 +114,7 @@ pub(crate) mod function {
                     })?;
 
                 repo.reference(
-                    name_of_segment_below.as_ref(),
+                    name_of_segment_below,
                     commit.id,
                     PreviousValue::MustExistAndMatch(gix::refs::Target::Object(target_id)),
                     "move segment reference up to avoid anonymous stack",

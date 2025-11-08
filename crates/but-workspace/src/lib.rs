@@ -172,8 +172,8 @@ impl HunkHeader {
 #[derive(Debug, Clone)]
 pub struct RefInfo {
     /// The name of the ref that points to a workspace commit,
-    /// *or* the name of the first stack segment.
-    pub workspace_ref_name: Option<gix::refs::FullName>,
+    /// *or* the name of the first stack segment, along with worktree information.
+    pub workspace_ref_info: Option<but_graph::RefInfo>,
     /// The stacks visible in the current workspace.
     ///
     /// This is an empty array if the `HEAD` is unborn.
