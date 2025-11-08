@@ -299,7 +299,6 @@
 		/* Theme Variables - All themes use the same pattern */
 		:where(&.neutral) {
 			--theme-outline-text: var(--clr-btn-ntrl-outline-text);
-			--theme-outline-text-hover: var(--clr-btn-ntrl-outline-text-hover);
 			--theme-outline-bg: var(--clr-btn-ntrl-outline-bg);
 			--theme-outline-border: var(--clr-btn-ntrl-outline);
 			--theme-solid-text: var(--clr-theme-ntrl-on-element);
@@ -309,7 +308,6 @@
 
 		:where(&.pop) {
 			--theme-outline-text: var(--clr-btn-pop-outline-text);
-			--theme-outline-text-hover: var(--clr-btn-pop-outline-text-hover);
 			--theme-outline-bg: var(--clr-btn-pop-outline-bg);
 			--theme-outline-border: var(--clr-btn-pop-outline);
 			--theme-solid-text: var(--clr-theme-pop-on-element);
@@ -319,7 +317,6 @@
 
 		:where(&.success) {
 			--theme-outline-text: var(--clr-btn-succ-outline-text);
-			--theme-outline-text-hover: var(--clr-btn-succ-outline-text-hover);
 			--theme-outline-bg: var(--clr-btn-succ-outline-bg);
 			--theme-outline-border: var(--clr-btn-succ-outline);
 			--theme-solid-text: var(--clr-theme-succ-on-element);
@@ -329,7 +326,6 @@
 
 		:where(&.error) {
 			--theme-outline-text: var(--clr-btn-err-outline-text);
-			--theme-outline-text-hover: var(--clr-btn-err-outline-text-hover);
 			--theme-outline-bg: var(--clr-btn-err-outline-bg);
 			--theme-outline-border: var(--clr-btn-err-outline);
 			--theme-solid-text: var(--clr-theme-err-on-element);
@@ -339,7 +335,6 @@
 
 		:where(&.warning) {
 			--theme-outline-text: var(--clr-btn-warn-outline-text);
-			--theme-outline-text-hover: var(--clr-btn-warn-outline-text-hover);
 			--theme-outline-bg: var(--clr-btn-warn-outline-bg);
 			--theme-outline-border: var(--clr-btn-warn-outline);
 			--theme-solid-text: var(--clr-theme-warn-on-element);
@@ -349,7 +344,6 @@
 
 		:where(&.purple) {
 			--theme-outline-text: var(--clr-btn-purp-outline-text);
-			--theme-outline-text-hover: var(--clr-btn-purp-outline-text-hover);
 			--theme-outline-bg: var(--clr-btn-purp-outline-bg);
 			--theme-outline-border: var(--clr-btn-purp-outline);
 			--theme-solid-text: var(--clr-theme-purp-on-element);
@@ -364,12 +358,7 @@
 			--btn-bg: var(--theme-outline-bg);
 		}
 
-		:where(&.outline:not(:disabled):hover),
-		:where(&.ghost:not(:disabled):hover),
-		:where(&.outline.activated),
-		:where(&.ghost.activated) {
-			--label-clr: var(--theme-outline-text-hover);
-		}
+		/* Hover and activated states maintain the same text color as default state */
 
 		:where(&.outline) {
 			--btn-border-clr: var(--theme-outline-border);
