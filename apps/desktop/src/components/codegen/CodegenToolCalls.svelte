@@ -7,13 +7,13 @@
 	type Props = {
 		projectId: string;
 		toolCalls: ToolCall[];
+		messageId: string;
+		toolCallsExpandedState?: Map<string, boolean>;
 	};
-	const { projectId, toolCalls }: Props = $props();
+	const { projectId, toolCalls, messageId, toolCallsExpandedState }: Props = $props();
 
 	const filteredCalls = $derived(toolCalls.filter((tc) => tc.name !== 'TodoWrite'));
 
-	// If only one tool call, always expanded
-	let expanded = $derived(true);
 	const toolDisplayLimit = 2;
 
 	const toolsToDisplay = $derived.by(() => {
@@ -22,8 +22,15 @@
 		return [...loadingTools, ...loadedTools].slice(0, toolDisplayLimit);
 	});
 
+	// Initialize from map, default to true
+	let expanded = $state(toolCallsExpandedState?.get(messageId) ?? true);
+
 	function toggleExpanded() {
 		expanded = !expanded;
+		// Persist to map if available
+		if (toolCallsExpandedState) {
+			toolCallsExpandedState.set(messageId, expanded);
+		}
 	}
 </script>
 

@@ -284,8 +284,8 @@
 	}
 
 	/**
-	 * Initializes visible range in tail mode.
-	 * Sets range to show last items and scrolls to bottom.
+	 * Initializes visible range from the top.
+	 * Measures chunks starting from the first item until viewport is filled.
 	 */
 	async function initialize() {
 		if (!viewport) return;
@@ -380,10 +380,10 @@
 		await tick();
 
 		if (stickToBottom && distance === 0 && distance !== getDistanceFromBottom()) {
-			// A difference in viewport scrollHeight is occasionally observerd
+			// A difference in viewport scrollHeight is occasionally observed
 			// before and after the `await tick()` call just above. It could
 			// be the result of an incorrect height/offset calculation, or it
-			// just content shifting in place after render. If that happens for
+			// could be content shifting in place after render. If that happens,
 			// we can lose touch with the bottom.
 			scrollToBottom();
 		} else {
@@ -431,19 +431,28 @@
 
 					const indexStr = target.getAttribute('data-index');
 					const index = indexStr ? parseInt(indexStr, 10) : undefined;
-					if (index !== undefined && !(index in heightMap)) {
-						heightMap[index] = target.clientHeight;
-						// In tail mode, adjust scroll when top item's height is measured
-						if (stickToBottom && index === visibleRange.start) {
-							const heightDiff = target.clientHeight - defaultHeight;
-							if (heightDiff !== 0 && viewport && target.clientTop <= viewport.scrollTop) {
-								viewport.scrollBy({ top: heightDiff });
+					if (index !== undefined) {
+						const firstRender = !(index in heightMap);
+						if (heightMap[index] !== target.clientHeight) {
+							heightMap[index] = target.clientHeight;
+						}
+
+						if (firstRender) {
+							// In tail mode, adjust scroll when top item's height is measured
+							if (stickToBottom && index === visibleRange.start) {
+								const heightDiff = target.clientHeight - defaultHeight;
+								if (heightDiff !== 0 && viewport && target.clientTop <= viewport.scrollTop) {
+									viewport.scrollBy({ top: heightDiff });
+								}
+							}
+							// Scroll to bottom when last item resizes during initialization or sticky mode
+							if (stickToBottom && index === visibleRange.end - 1) {
+								scrollToBottom();
 							}
 						}
-						// Scroll to bottom when last item resizes during initialization or sticky mode
-						if (stickToBottom && index === visibleRange.end - 1) {
-							scrollToBottom();
-						}
+					}
+					if (index !== undefined) {
+						recalculateVisibleRange();
 					}
 				}
 

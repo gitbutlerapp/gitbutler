@@ -110,6 +110,9 @@
 	let virtualList = $state<VirtualList<Message>>();
 	let inputRef = $state<CodegenInput>();
 
+	// Track expanded state for tool calls by message createdAt timestamp
+	const toolCallsExpandedState = new Map<string, boolean>();
+
 	const modelOptions: { label: string; value: ModelType }[] = [
 		{ label: 'Haiku', value: 'haiku' },
 		{ label: 'Sonnet', value: 'sonnet' },
@@ -565,7 +568,12 @@
 					>
 						{#snippet chunkTemplate(messages)}
 							{#each messages as message}
-								<CodegenClaudeMessage {projectId} {message} {onPermissionDecision} />
+								<CodegenClaudeMessage
+									{projectId}
+									{message}
+									{onPermissionDecision}
+									{toolCallsExpandedState}
+								/>
 							{/each}
 						{/snippet}
 						{@const thinkingStatus = currentStatus(events, isStackActive)}
