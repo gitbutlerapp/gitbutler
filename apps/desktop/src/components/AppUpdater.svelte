@@ -30,75 +30,67 @@
 		<div class="floating-button">
 			<Button icon="cross-small" kind="ghost" onclick={handleDismiss} />
 		</div>
-		<div class="img">
-			<div class="circle-img">
+		<div class="update-img">
+			<div class="update-img__screen">
 				{#if status !== 'Done' && status !== 'Up-to-date'}
 					<svg
-						class="arrow-img"
-						width="12"
-						height="34"
-						viewBox="0 0 12 34"
+						width="1rem"
+						height="1rem"
+						viewBox="0 0 18 16"
 						fill="none"
 						xmlns="http://www.w3.org/2000/svg"
+						class="arrow-img"
 					>
 						<path
-							d="M6 21V32.5M6 32.5L1 27.5M6 32.5L11 27.5"
-							stroke="var(--clr-scale-ntrl-100)"
-							stroke-width="1.5"
-						/>
-						<path
-							d="M6 0V11.5M6 11.5L1 6.5M6 11.5L11 6.5"
-							stroke="var(--clr-scale-ntrl-100)"
-							stroke-width="1.5"
+							d="M0.647705 7.2L8.64771 14M8.64771 14L16.6477 7.2M8.64771 14V0"
+							stroke="var(--clr-scale-pop-50)"
+							stroke-width="2"
 						/>
 					</svg>
 				{:else}
 					<svg
-						class="tick-img"
-						width="14"
-						height="11"
-						viewBox="0 0 14 11"
+						width="1.188rem"
+						height="0.75rem"
+						viewBox="0 0 19 12"
 						fill="none"
 						xmlns="http://www.w3.org/2000/svg"
 					>
 						<path
-							d="M1 4.07692L5.57143 9L13 1"
-							stroke="var(--clr-scale-ntrl-100)"
-							stroke-width="1.5"
+							d="M0.688721 4.06198L7.48872 10.5211L17.6887 0.721069"
+							stroke="var(--clr-scale-pop-50)"
+							stroke-width="2"
 						/>
 					</svg>
 				{/if}
 			</div>
 
 			<svg
-				width="60"
-				height="36"
-				viewBox="0 0 60 36"
-				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
+				width="4.375rem"
+				height="3.438rem"
+				viewBox="0 0 70 55"
+				fill="none"
 			>
 				<path
-					d="M31.5605 35.5069C31.4488 35.5097 31.3368 35.5112 31.2245 35.5112H12.8571C5.75633 35.5112 0 29.7548 0 22.654C0 15.5532 5.75634 9.79688 12.8571 9.79688H16.123C18.7012 4.02354 24.493 0 31.2245 0C39.7331 0 46.7402 6.42839 47.6541 14.6934H49.5918C55.3401 14.6934 60 19.3533 60 25.1015C60 30.8498 55.3401 35.5097 49.5918 35.5097H32.4489C32.2692 35.5097 32.0906 35.5051 31.913 35.4961C31.7958 35.5009 31.6783 35.5045 31.5605 35.5069Z"
+					opacity="0.9"
+					d="M3.68052 9.9494C4.23548 4.4545 9.13986 0.449887 14.6348 1.00485L41.2092 3.68877C46.704 4.24373 50.7086 9.14811 50.1537 14.643L49.7111 19.025C49.3935 22.17 50.5815 25.28 52.9151 27.4122L57.0014 31.146C59.3777 33.3172 60.5635 36.4995 60.1876 39.6963L59.8519 42.5504C59.2143 47.9719 54.3468 51.8803 48.9155 51.3318L9.94939 47.3963C4.45449 46.8414 0.44989 41.937 1.00485 36.4421L3.68052 9.9494Z"
 					fill="var(--clr-scale-pop-70)"
 				/>
-				<g opacity="0.4">
-					<path
-						d="M39 35.5102V29.2505H29.25V9.75049H39V19.5005H48.75V29.2505H58.5V30.4877C56.676 33.4983 53.3688 35.5102 49.5918 35.5102H39Z"
-						fill="var(--clr-scale-pop-50)"
-					/>
-					<path
-						d="M46.3049 9.75049H39V1.93967C42.2175 3.65783 44.8002 6.4091 46.3049 9.75049Z"
-						fill="var(--clr-scale-pop-50)"
-					/>
-					<path
-						d="M9.75 35.1337C10.745 35.3806 11.7858 35.5117 12.8571 35.5117H29.25V29.2505H9.75V19.5005H19.5V9.75049H29.25V0.117188C25.4568 0.568673 22.0577 2.30464 19.5 4.87786V9.75049H16.144C16.137 9.7661 16.13 9.78173 16.123 9.79737H12.8571C11.7858 9.79737 10.745 9.92841 9.75 10.1753V19.5005H0.389701C0.135193 20.5097 0 21.5663 0 22.6545C0 25.0658 0.663785 27.322 1.81859 29.2505H9.75V35.1337Z"
-						fill="var(--clr-scale-pop-50)"
-					/>
-				</g>
+				<path
+					opacity="0.6"
+					d="M56 21L69 20.2778M56 13.0556L66 8"
+					stroke="var(--clr-theme-pop-element)"
+					stroke-width="1.5"
+				/>
+				<path
+					d="M14 53.0894L14.3084 39L23.8379 44.4513L33.5791 39.4218L33.2707 53.5112L23.7106 48.0806L14 53.0894Z"
+					stroke="var(--clr-scale-pop-50)"
+					stroke-width="1.2"
+				/>
 			</svg>
 		</div>
 
-		<h4 class="text-13 label">
+		<h4 class="text-14 text-semibold">
 			{#if status === 'Up-to-date'}
 				You are up-to-date!
 			{:else if status === 'Downloading'}
@@ -182,26 +174,20 @@
 	.update-banner {
 		display: flex;
 		z-index: var(--z-blocker);
-
 		position: fixed;
 		bottom: 12px;
 		left: 12px;
 		flex-direction: column;
 		align-items: center;
-
 		width: 100%;
 		max-width: 220px;
-		padding: 24px;
+		padding: 16px;
 		gap: 16px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		cursor: default;
 		user-select: none;
-	}
-
-	.label {
-		color: var(--clr-scale-ntrl-0);
 	}
 
 	.buttons {
@@ -212,7 +198,6 @@
 	}
 
 	/* STATUS SECTION */
-
 	.status-section {
 		display: flex;
 		position: relative;
@@ -284,45 +269,29 @@
 
 		& .arrow-img {
 			transform: rotate(180deg);
-			animation: moving-arrow 1s ease-in-out infinite;
+			animation: moving-arrow 1s ease-out infinite;
 		}
 	}
 
 	/* IMAGE */
-
-	.img {
+	.update-img {
+		display: flex;
 		position: relative;
-		margin-bottom: 4px;
+		margin-left: 6px;
 	}
 
-	.circle-img {
+	.update-img__screen {
+		display: flex;
 		position: absolute;
-		bottom: -8px;
-		left: 17px;
-		width: 26px;
-		height: 26px;
+		top: 7px;
+		left: 8px;
+		align-items: center;
+		justify-content: center;
+		width: 33px;
+		height: 30px;
 		overflow: hidden;
-		border-radius: 50%;
-		background-color: var(--clr-scale-pop-40);
-		transition: transform 0.2s ease-in-out;
-
-		&:after {
-			position: absolute;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			border-radius: 50%;
-			background-color: transparent;
-			box-shadow: inset 0 0 4px 4px var(--clr-scale-pop-40);
-			content: '';
-		}
-	}
-
-	.arrow-img {
-		position: absolute;
-		top: -14px;
-		left: 7px;
+		border-radius: 8px;
+		background-color: var(--clr-scale-pop-95);
 	}
 
 	.tick-img {
@@ -333,16 +302,17 @@
 
 	.floating-button {
 		position: absolute;
-		top: 10px;
-		right: 10px;
+		top: 8px;
+		right: 8px;
 	}
 
 	@keyframes moving-arrow {
 		0% {
-			transform: translateY(0);
+			transform: translateY(-3px);
 		}
 		100% {
-			transform: translateY(21px);
+			transform: translateY(3px);
+			opacity: 0.3;
 		}
 	}
 </style>
