@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
-	import { getToolIcon } from '$lib/utils/codegenTools';
-	import { DropdownButton, ContextMenuItem, Icon, Markdown } from '@gitbutler/ui';
+	import { formatToolCall, getToolIcon } from '$lib/utils/codegenTools';
+	import { DropdownButton, ContextMenuItem, Icon } from '@gitbutler/ui';
 	import type { PermissionDecision } from '$lib/codegen/types';
 
 	export type RequiresApproval = {
@@ -9,6 +9,7 @@
 	};
 
 	type Props = {
+		projectId: string;
 		style?: 'nested' | 'standalone';
 		toolCall: ToolCall;
 		requiresApproval?: RequiresApproval;
@@ -16,7 +17,7 @@
 	};
 	const { toolCall, style, requiresApproval = undefined, fullWidth }: Props = $props();
 
-	let expanded = $derived(!!requiresApproval);
+	let expanded = $state(true);
 	let allowDropdownButton = $state<ReturnType<typeof DropdownButton>>();
 	let denyDropdownButton = $state<ReturnType<typeof DropdownButton>>();
 
@@ -44,25 +45,16 @@
 </script>
 
 <div class="tool-call {style}" class:full-width={fullWidth}>
-	<button
-		type="button"
-		class="tool-call-header"
-		class:expanded
-		onclick={() => (expanded = !expanded)}
-	>
-		<div class="tool-call-header__sublevel"></div>
-
-		<div class="tool-call-header__arrow">
-			<Icon name="chevron-right" />
-		</div>
-
+	<div class="tool-details text-13" class:expanded>
 		{#if toolCallLoading(toolCall)}
 			<Icon name="spinner" />
 		{:else}
 			<Icon name={getToolIcon(toolCall.name)} color="var(--clr-text-3)" />
 		{/if}
 
-		<p class="text-13 text-left full-width truncate">{toolCall.name}</p>
+		<span class="tool-name text-12">{toolCall.name}</span>
+
+		<span class="summary truncate grow clr-text-2">{formatToolCall(toolCall)}</span>
 
 		{#if requiresApproval}
 			<div class="flex gap-4 m-l-8">
@@ -149,18 +141,7 @@
 				</DropdownButton>
 			</div>
 		{/if}
-	</button>
-
-	{#if expanded}
-		<div class="tool-call-content">
-			<Markdown content={`\`\`\`\nRequest:\n${JSON.stringify(toolCall.input)}\n\`\`\``} />
-			{#if toolCall.result}
-				<Markdown
-					content={`\`\`\`\nResponse:\n${toolCall.result.replaceAll('```', '\\`\\`\\`')}\n\`\`\``}
-				/>
-			{/if}
-		</div>
-	{/if}
+	</div>
 </div>
 
 <style lang="postcss">
@@ -169,12 +150,10 @@
 		flex-direction: column;
 
 		max-width: 100%;
-		overflow: hidden;
-		border-bottom: 1px solid var(--clr-border-2);
 
-		&:last-child {
-			border-bottom: none;
-		}
+		padding: 1px 32px 1px 12px;
+		overflow: hidden;
+		user-select: text;
 
 		&:not(.full-width) {
 			max-width: fit-content;
@@ -183,55 +162,23 @@
 		&.full-width {
 			width: 100%;
 		}
+		&.standalone {
+			padding: 12px 0;
+		}
 	}
 
-	.tool-call-header {
+	.tool-details {
 		display: flex;
 		position: relative;
 		align-items: center;
-		padding: 10px 12px 10px 22px;
+		padding: 2px 0;
 		gap: 8px;
-		background-color: var(--clr-bg-2);
-
-		&:hover {
-			background-color: var(--clr-bg-2-muted);
-
-			.tool-call-header__arrow {
-				color: var(--clr-text-2);
-			}
-		}
-
-		&.expanded {
-			border-bottom: 1px solid var(--clr-border-3);
-
-			.tool-call-header__arrow {
-				transform: rotate(90deg);
-			}
-		}
-	}
-
-	.tool-call-header__sublevel {
-		position: absolute;
-		top: 0;
-		left: 15px;
-		width: 1px;
-		height: 100%;
-		background-color: var(--clr-border-2);
-	}
-
-	.tool-call-header__arrow {
-		display: flex;
-		color: var(--clr-text-3);
-		transition:
-			color var(--transition-fast),
-			transform var(--transition-medium);
 	}
 
 	.tool-call-content {
 		display: flex;
 		flex-direction: column;
 		max-width: 100%;
-		padding: 12px;
 		gap: 8px;
 	}
 
@@ -241,18 +188,11 @@
 		overflow-x: scroll;
 	}
 
-	/* STANDALONE MODE */
-	.tool-call.standalone {
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
+	.tool-name {
+		white-space: nowrap;
+	}
 
-		.tool-call-header {
-			padding-left: 12px;
-			border-radius: var(--radius-ml) var(--radius-ml) 0 0;
-		}
-
-		.tool-call-header__sublevel {
-			display: none;
-		}
+	.summary {
+		font-family: var(--font-mono);
 	}
 </style>

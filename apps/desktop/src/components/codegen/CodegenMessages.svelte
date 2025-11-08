@@ -560,12 +560,12 @@
 						items={formattedMessages}
 						batchSize={1}
 						visibility={$userSettings.scrollbarVisibilityState}
-						padding={{ left: 20, right: 20, top: 12, bottom: 12 }}
+						padding={{ left: 24, right: 18, top: 12, bottom: 12 }}
 						defaultHeight={65}
 					>
 						{#snippet chunkTemplate(messages)}
 							{#each messages as message}
-								<CodegenClaudeMessage {message} {onPermissionDecision} />
+								<CodegenClaudeMessage {projectId} {message} {onPermissionDecision} />
 							{/each}
 						{/snippet}
 						{@const thinkingStatus = currentStatus(events, isStackActive)}

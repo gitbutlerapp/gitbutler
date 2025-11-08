@@ -5,21 +5,28 @@
 	import CodegenToolCalls from '$components/codegen/CodegenToolCalls.svelte';
 	import CodegenUserMessage from '$components/codegen/CodegenUserMessage.svelte';
 	import { type Message } from '$lib/codegen/messages';
-	import { Icon, Markdown } from '@gitbutler/ui';
+	import { Icon, Markdown, Timestamp } from '@gitbutler/ui';
 	import type { PermissionDecision } from '$lib/codegen/types';
 
 	type Props = {
+		projectId: string;
 		message: Message;
 		onPermissionDecision?: (id: string, decision: PermissionDecision) => Promise<void>;
 	};
-	const { message, onPermissionDecision }: Props = $props();
+	const { projectId, message, onPermissionDecision }: Props = $props();
 
 	let expanded = $state(false);
 </script>
 
 {#if message.type === 'user'}
+	<div class="timestamp text-12 text-bold text-right">
+		<Timestamp date={message.createdAt} />
+	</div>
 	<CodegenUserMessage content={message.message} attachments={message.attachments} />
 {:else if message.type === 'claude'}
+	<div class="timestamp text-12 text-bold">
+		<Timestamp date={message.createdAt} />
+	</div>
 	{#if 'subtype' in message && message.subtype === 'compaction'}
 		<CodegenServiceMessage style="neutral" face="compacted" reverseElementsOrder>
 			{#snippet extraContent()}
@@ -27,24 +34,21 @@
 			{/snippet}
 		</CodegenServiceMessage>
 	{:else}
-		<CodegenAssistantMessage content={message.message}>
-			{#snippet extraContent()}
-				<CodegenToolCalls toolCalls={message.toolCalls} />
+		<CodegenAssistantMessage content={message.message} />
+		<CodegenToolCalls {projectId} toolCalls={message.toolCalls} />
 
-				{#if message.toolCallsPendingApproval.length > 0}
-					{#each message.toolCallsPendingApproval as toolCall}
-						<CodegenToolCall
-							style="standalone"
-							{toolCall}
-							requiresApproval={{
-								onPermissionDecision: async (id, decision) =>
-									await onPermissionDecision?.(id, decision)
-							}}
-						/>
-					{/each}
-				{/if}
-			{/snippet}
-		</CodegenAssistantMessage>
+		{#if message.toolCallsPendingApproval.length > 0}
+			{#each message.toolCallsPendingApproval as toolCall}
+				<CodegenToolCall
+					{projectId}
+					style="standalone"
+					{toolCall}
+					requiresApproval={{
+						onPermissionDecision: async (id, decision) => await onPermissionDecision?.(id, decision)
+					}}
+				/>
+			{/each}
+		{/if}
 	{/if}
 {/if}
 
@@ -120,5 +124,11 @@
 
 	.compaction-summary__content {
 		padding: 12px;
+	}
+
+	.timestamp {
+		padding-top: 12px;
+		color: var(--clr-scale-ntrl-60);
+		font-family: var(--font-mono);
 	}
 </style>

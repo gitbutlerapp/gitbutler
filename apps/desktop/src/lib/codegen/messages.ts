@@ -12,32 +12,46 @@ import type {
 } from '$lib/codegen/types';
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/index.mjs';
 
-export type Message =
+export type Message = { createdAt: string } &
 	/* This is strictly only things that the real fleshy human has said */
-	| {
-			type: 'user';
-			message: string;
-			attachments?: PromptAttachment[];
-	  }
-	/* Output from claude. This is grouped as: A claude message with a bunch of tool calls. */
-	| {
-			type: 'claude';
-			message: string;
-			toolCalls: ToolCall[];
-			toolCallsPendingApproval: ToolCall[];
-	  }
-	| {
-			type: 'claude';
-			subtype: 'compaction';
-			message: string;
-			toolCalls: ToolCall[];
-			toolCallsPendingApproval: ToolCall[];
-	  };
+	(| {
+				type: 'user';
+				message: string;
+				attachments?: PromptAttachment[];
+		  }
+		/* Output from claude. This is grouped as: A claude message with a bunch of tool calls. */
+		| {
+				type: 'claude';
+				message: string;
+				toolCalls: ToolCall[];
+				toolCallsPendingApproval: ToolCall[];
+		  }
+		| {
+				type: 'claude';
+				subtype: 'compaction';
+				message: string;
+				toolCalls: ToolCall[];
+				toolCallsPendingApproval: ToolCall[];
+		  }
+	);
+
+export type ToolCallName =
+	| 'Read'
+	| 'Edit'
+	| 'Write'
+	| 'Bash'
+	| 'Grep'
+	| 'Glob'
+	| 'Task'
+	| 'TodoWrite'
+	| 'WebFetch'
+	| 'WebSearch'
+	| string; // Allow unknown tools from Claude Code
 
 export type ToolCall = {
-	name: string;
+	name: ToolCallName;
 	id: string;
-	input: object;
+	input: Record<string, any>;
 	result: string | undefined;
 	requestAt: Date;
 	approvedAt?: Date;
@@ -72,6 +86,7 @@ export function formatMessages(
 		if (event.payload.source === 'user') {
 			wrapUpAgentSide();
 			out.push({
+				createdAt: event.createdAt,
 				type: 'user',
 				message: event.payload.message,
 				attachments: event.payload.attachments
@@ -87,6 +102,7 @@ export function formatMessages(
 						continue;
 					}
 					lastAssistantMessage = {
+						createdAt: event.createdAt,
 						type: 'claude',
 						message: message.content[0]!.text,
 						toolCalls: [],
@@ -105,6 +121,7 @@ export function formatMessages(
 					if (!lastAssistantMessage) {
 						lastAssistantMessage = {
 							type: 'claude',
+							createdAt: event.createdAt,
 							message: '',
 							toolCalls: [],
 							toolCallsPendingApproval: []
@@ -156,6 +173,7 @@ export function formatMessages(
 				if (previousEventLoginFailureQuery(events, event)) {
 					out.push({
 						type: 'claude',
+						createdAt: event.createdAt,
 						message: `Claude Code is currently not logged in.\n\n Please run \`claude\` in your terminal and complete the login flow in order to use the GitButler Claude Code integration.`,
 						toolCalls: [],
 						toolCallsPendingApproval: []
@@ -165,7 +183,8 @@ export function formatMessages(
 						type: 'claude',
 						message: `Claude exited with non 0 error code \n\n\`\`\`\n${message.message}\n\`\`\``,
 						toolCalls: [],
-						toolCallsPendingApproval: []
+						toolCallsPendingApproval: [],
+						createdAt: event.createdAt
 					});
 				}
 			}
@@ -174,12 +193,14 @@ export function formatMessages(
 					type: 'claude',
 					message: `Encountered an unhandled exception when executing Claude.\nPlease verify your Claude Code installation location and try clearing the context. \n\n\`\`\`\n${message.message}\n\`\`\``,
 					toolCalls: [],
-					toolCallsPendingApproval: []
+					toolCallsPendingApproval: [],
+					createdAt: event.createdAt
 				});
 			}
 			if (message.type === 'userAbort') {
 				out.push({
 					type: 'claude',
+					createdAt: event.createdAt,
 					message: `I've stopped! What can I help you with next?`,
 					toolCalls: [],
 					toolCallsPendingApproval: []
@@ -188,6 +209,7 @@ export function formatMessages(
 			if (message.type === 'compactFinished') {
 				out.push({
 					type: 'claude',
+					createdAt: event.createdAt,
 					subtype: 'compaction',
 					message: `Context compaction completed: ${message.summary}`,
 					toolCalls: [],
@@ -445,7 +467,7 @@ export function thinkingOrCompactingStartedAt(events: ClaudeMessage[]): Date | u
 	for (let i = events.length - 1; i >= 0; --i) {
 		const e = events[i]!;
 		if (
-			'user' in e.payload ||
+			e.payload.source === 'user' ||
 			(e.payload.source === 'system' && e.payload.type === 'compactStart')
 		) {
 			event = e;
