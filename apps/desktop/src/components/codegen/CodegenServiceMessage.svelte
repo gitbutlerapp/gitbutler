@@ -38,7 +38,7 @@
 	.service-message__wrapper {
 		display: flex;
 		width: 100%;
-		padding: 8px 0 16px 12px;
+		padding: 8px 0 16px 0;
 	}
 	.service-message {
 		display: flex;
