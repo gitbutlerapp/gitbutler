@@ -5,17 +5,20 @@
 	import { Icon } from '@gitbutler/ui';
 
 	type Props = {
+		projectId: string;
 		toolCalls: ToolCall[];
 	};
-	const { toolCalls }: Props = $props();
+	const { projectId, toolCalls }: Props = $props();
+
+	const filteredCalls = $derived(toolCalls.filter((tc) => tc.name !== 'TodoWrite'));
 
 	// If only one tool call, always expanded
-	let expanded = $derived(toolCalls.length === 1);
-	const toolDisplayLimit = 3;
+	let expanded = $derived(true);
+	const toolDisplayLimit = 2;
 
 	const toolsToDisplay = $derived.by(() => {
-		const loadingTools = toolCalls.filter((tc) => toolCallLoading(tc));
-		const loadedTools = toolCalls.filter((tc) => !toolCallLoading(tc));
+		const loadingTools = filteredCalls.filter((tc) => toolCallLoading(tc));
+		const loadedTools = filteredCalls.filter((tc) => !toolCallLoading(tc));
 		return [...loadingTools, ...loadedTools].slice(0, toolDisplayLimit);
 	});
 
@@ -24,10 +27,10 @@
 	}
 </script>
 
-{#if toolCalls.length > 0}
-	{#if toolCalls.length === 1}
+{#if filteredCalls.length > 0}
+	{#if filteredCalls.length === 1}
 		<!-- Only one tool call: show expanded directly, no container -->
-		<CodegenToolCall toolCall={toolCalls[0]!} style="standalone" />
+		<CodegenToolCall {projectId} toolCall={toolCalls[0]!} style="standalone" />
 	{:else}
 		<div class="tool-calls-wrapper">
 			<div
@@ -36,30 +39,23 @@
 				style="--initial-tool-items: {toolCalls.length - toolDisplayLimit}"
 			>
 				<!-- Header for multiple tool calls -->
-				<button type="button" class="tool-calls-header" onclick={toggleExpanded}>
-					<div class="tool-calls-header__arrow" class:expanded>
+				<button
+					type="button"
+					class="tool-calls-header text-13"
+					onclick={toggleExpanded}
+					class:expanded
+				>
+					<div class="tool-calls-header__arrow">
 						<Icon name="chevron-right" />
 					</div>
-					<span class="text-13 text-semibold">{toolCalls.length} tool calls</span>
-				</button>
-
-				<!-- Content -->
-				{#if expanded}
-					<div class="tool-calls-expanded">
-						{#each toolCalls as toolCall}
-							<CodegenToolCall fullWidth {toolCall} />
-						{/each}
-					</div>
-				{:else}
-					<div class="tool-calls-collapsed text-13">
-						{#each toolsToDisplay as toolCall, idx}
+					<span class="text-bold text-12">{filteredCalls.length} tool calls</span>
+					{#if !expanded}
+						{#each toolsToDisplay as toolCall}
 							<div
 								class="tool-calls-collapsed__item"
-								class:hidable={toolCalls.length > toolDisplayLimit}
+								class:hidable={filteredCalls.length > toolDisplayLimit}
 							>
-								{#if idx !== 0}
-									<span class="separator">•</span>
-								{/if}
+								<span class="separator">•</span>
 								{#if toolCallLoading(toolCall)}
 									<Icon name="spinner" />
 								{:else}
@@ -69,10 +65,19 @@
 							</div>
 						{/each}
 
-						{#if toolCalls.length > toolDisplayLimit}
+						{#if filteredCalls.length > toolDisplayLimit}
 							<span class="separator">•</span>
 							<p>+<span class="tool-calls-amount"></span> more</p>
 						{/if}
+					{/if}
+				</button>
+
+				<!-- Content -->
+				{#if expanded}
+					<div class="tool-calls-expanded">
+						{#each filteredCalls as toolCall}
+							<CodegenToolCall {projectId} fullWidth {toolCall} />
+						{/each}
 					</div>
 				{/if}
 			</div>
@@ -84,18 +89,14 @@
 	.tool-calls-wrapper {
 		container-name: assistant-message;
 		container-type: inline-size;
+		padding: 0 0 12px;
 	}
 
 	.tool-calls-container {
 		width: fit-content;
+		width: 100%;
 		max-width: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
-
-		&.expanded {
-			width: 100%;
-		}
 	}
 
 	/* Hide items in collapsed mode based on container width */
@@ -122,15 +123,11 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
-		padding: 8px 12px 8px 8px;
+		padding: 8px 12px 12px 0;
 		gap: 8px;
-		border: none;
 		cursor: pointer;
-		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-1-muted);
-
 			.tool-calls-header__arrow {
 				color: var(--clr-text-2);
 			}
@@ -143,21 +140,10 @@
 		transition:
 			background-color var(--transition-fast),
 			transform var(--transition-medium);
-
-		&.expanded {
-			transform: rotate(90deg);
-		}
 	}
 
-	.tool-calls-collapsed {
-		display: flex;
-		align-items: center;
-		padding: 8px 10px;
-		overflow: hidden;
-		gap: 8px;
-		border-top: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
+	.expanded .tool-calls-header__arrow {
+		transform: rotate(90deg);
 	}
 
 	.tool-calls-collapsed__item {
@@ -176,7 +162,6 @@
 		flex-direction: column;
 		width: 100%;
 		overflow: hidden;
-		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.separator {

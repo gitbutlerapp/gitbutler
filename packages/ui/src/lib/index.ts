@@ -47,6 +47,7 @@ export { default as Textarea } from '$components/Textarea.svelte';
 export { default as Textbox } from '$components/Textbox.svelte';
 export { default as EmailTextbox } from '$components/EmailTextbox.svelte';
 export { default as TimeAgo } from '$components/TimeAgo.svelte';
+export { default as Timestamp } from '$components/Timestamp.svelte';
 export { default as Toggle } from '$components/Toggle.svelte';
 export { default as Tooltip } from '$components/Tooltip.svelte';
 
