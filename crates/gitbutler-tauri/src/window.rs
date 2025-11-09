@@ -73,53 +73,12 @@ pub(crate) mod state {
         impl From<(ProjectId, ItemKind)> for ChangeForFrontend {
             fn from(project_item: (ProjectId, ItemKind)) -> Self {
                 let (project_id, item) = project_item;
-                match item {
-                    ItemKind::Actions => ChangeForFrontend {
-                        name: format!("project://{project_id}/db-updates"),
-                        payload: serde_json::json!({
-                            "kind": "actions"
-                        }),
-                        project_id,
-                    },
-                    ItemKind::Workflows => ChangeForFrontend {
-                        name: format!("project://{project_id}/db-updates"),
-                        payload: serde_json::json!({
-                            "kind": "workflows"
-                        }),
-                        project_id,
-                    },
-                    ItemKind::Assignments => ChangeForFrontend {
-                        name: format!("project://{project_id}/hunk-assignment-update"),
-                        payload: serde_json::json!({
-                            "kind": "hunk-assignments"
-                        }),
-                        project_id,
-                    },
-                    ItemKind::Rules => ChangeForFrontend {
-                        name: format!("project://{project_id}/rule-updates"),
-                        payload: serde_json::json!({
-                            "kind": "rules"
-                        }),
-                        project_id,
-                    },
-                    ItemKind::ClaudePermissionRequests => ChangeForFrontend {
-                        name: format!("project://{project_id}/claude-permission-requests"),
-                        payload: serde_json::json!({
-                            "kind": "claude-permission-requests"
-                        }),
-                        project_id,
-                    },
-                    _ => {
-                        tracing::warn!("Unhandled ItemKind in ChangeForFrontend: {item:?}");
-                        ChangeForFrontend {
-                            name: format!("project://{project_id}/db-updates"),
-                            payload: serde_json::json!({
-                                "kind": "unknown",
-                                "item": format!("{:?}", item)
-                            }),
-                            project_id,
-                        }
-                    }
+                // Use the shared conversion function from but_broadcaster
+                let event = but_broadcaster::FrontendEvent::from_db_item(project_id, item);
+                ChangeForFrontend {
+                    name: event.name,
+                    payload: event.payload,
+                    project_id,
                 }
             }
         }

@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use anyhow::{Context as _, Result};
 use but_api::{App, error::ToError};
 use but_broadcaster::FrontendEvent;
+use but_db::poll::DBWatcherHandle;
 use but_settings::AppSettingsWithDiskSync;
+use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, ProjectId};
 use gitbutler_watcher::{Change, WatcherHandle};
 use serde::Deserialize;
@@ -17,8 +19,15 @@ struct SetProjectActiveParams {
     id: ProjectId,
 }
 
+struct ProjectHandles {
+    // Watchers are kept alive, drop handles cleanup.
+    _file_watcher: WatcherHandle,
+    // Watchers are kept alive, drop handles cleanup.
+    _db_watcher: DBWatcherHandle,
+}
+
 pub struct ActiveProjects {
-    projects: HashMap<ProjectId, WatcherHandle>,
+    projects: HashMap<ProjectId, ProjectHandles>,
 }
 
 impl ActiveProjects {
@@ -38,6 +47,7 @@ impl ActiveProjects {
             return Ok(());
         }
 
+        // Set up file watcher for worktree changes
         let handler = gitbutler_watcher::Handler::new({
             let broadcaster = ctx.broadcaster.clone();
 
@@ -75,14 +85,37 @@ impl ActiveProjects {
             }
         });
 
-        let watcher = gitbutler_watcher::watch_in_background(
+        let file_watcher = gitbutler_watcher::watch_in_background(
             handler,
             project.worktree_dir()?,
             project.id,
-            app_settings_sync,
+            app_settings_sync.clone(),
         )?;
 
-        self.projects.insert(project.id, watcher);
+        // Set up database watcher for database changes
+        let settings = app_settings_sync.get()?.clone();
+        let mut command_ctx = CommandContext::open(project, settings)?;
+        let db = command_ctx.db()?;
+        let db_watcher = but_db::poll::watch_in_background(db, {
+            let broadcaster = ctx.broadcaster.clone();
+            let project_id = project.id;
+            move |item| {
+                let event = FrontendEvent::from_db_item(project_id, item);
+                let broadcaster = broadcaster.clone();
+                tokio::task::spawn(async move {
+                    broadcaster.lock().await.send(event);
+                });
+                Ok(())
+            }
+        })?;
+
+        self.projects.insert(
+            project.id,
+            ProjectHandles {
+                _file_watcher: file_watcher,
+                _db_watcher: db_watcher,
+            },
+        );
         Ok(())
     }
 }
@@ -100,8 +133,8 @@ pub struct ProjectInfo {
 
 pub async fn list_projects(extra: &Extra) -> Result<serde_json::Value, but_api::error::Error> {
     let active_projects = extra.active_projects.lock().await;
-    let projects_for_frontend =
-        but_api::projects::list_projects(active_projects.projects.keys().copied().collect())?;
+    let project_ids: Vec<ProjectId> = active_projects.projects.keys().copied().collect();
+    let projects_for_frontend = but_api::projects::list_projects(project_ids)?;
     Ok(json!(projects_for_frontend))
 }
 
@@ -121,8 +154,6 @@ pub async fn set_project_active(
     active_projects.set_active(&project, ctx, app_settings_sync)?;
 
     // let is_exclusive = !active_projects.projects.contains(&params.id);
-
-    // TODO: Migrate DB, start watcher
 
     Ok(json!(ProjectInfo {
         is_exclusive: true,

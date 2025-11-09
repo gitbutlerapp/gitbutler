@@ -14,3 +14,6 @@ tokio = { workspace = true, features = ["full"] }
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
+but-db.workspace = true
+gitbutler-project.workspace = true
+tracing.workspace = true
