@@ -9,6 +9,7 @@ import type {
 	ClaudeStatus,
 	ClaudeTodo,
 	PromptAttachment,
+	GitButlerUpdate,
 	SystemMessage
 } from '$lib/codegen/types';
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/index.mjs';
@@ -37,6 +38,9 @@ export type Message = { createdAt: string } &
 		| ({
 				source: 'system';
 		  } & SystemMessage)
+		| ({
+				source: 'gitButler';
+		  } & GitButlerUpdate)
 	);
 
 export type ToolCallName =
@@ -220,6 +224,7 @@ export function formatMessages(
 					toolCallsPendingApproval: []
 				});
 			}
+		} else if (payload.source === 'gitButler') {
 			if (payload.type === 'commitCreated') {
 				out.push({
 					createdAt: message.createdAt,
@@ -279,7 +284,7 @@ type UserFeedbackStatus =
 	  };
 
 export function userFeedbackStatus(messages: Message[]): UserFeedbackStatus {
-	const lastMessage = messages.at(-1);
+	const lastMessage = messages.filter((m) => m.source !== 'gitButler')?.at(-1);
 	if (!lastMessage || lastMessage.source === 'user' || lastMessage.source === 'system') {
 		return { waitingForFeedback: false, msSpentWaiting: 0 };
 	}

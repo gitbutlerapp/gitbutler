@@ -3,11 +3,11 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import type { SystemMessage } from '$lib/codegen/types';
+	import type { GitButlerUpdate } from '$lib/codegen/types';
 
 	interface Props {
 		projectId: string;
-		message: SystemMessage;
+		message: GitButlerUpdate;
 	}
 
 	let { projectId, message }: Props = $props();

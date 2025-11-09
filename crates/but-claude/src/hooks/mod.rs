@@ -250,8 +250,8 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
             // Write commit notification messages to the database
             // These will be broadcasted by the main process after Claude completes
             let session_uuid = uuid::Uuid::parse_str(&session_id)?;
-            let commit_message = crate::MessagePayload::System(
-                crate::SystemMessage::CommitCreated(crate::CommitCreatedDetails {
+            let commit_message = crate::MessagePayload::GitButler(
+                crate::GitButlerUpdate::CommitCreated(crate::CommitCreatedDetails {
                     stack_id: Some(branch.stack_id.to_string()),
                     branch_name: Some(final_branch_name),
                     commit_ids: Some(final_commit_ids),

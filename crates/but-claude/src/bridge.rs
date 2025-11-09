@@ -291,7 +291,7 @@ impl Claudes {
             if let Ok(all_messages) = db::list_messages_by_session(&mut ctx_guard, session_id) {
                 let new_messages: Vec<_> = all_messages
                     .into_iter()
-                    .filter(|msg| matches!(msg.payload, MessagePayload::System(_)))
+                    .filter(|msg| matches!(msg.payload, MessagePayload::GitButler(_)))
                     .filter(|msg| msg.created_at > session_start_time)
                     .collect();
 
