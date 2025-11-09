@@ -94,69 +94,10 @@
 {#if version || status === 'Up-to-date'}
 	<div class="update-banner" data-testid="update-banner" class:busy={$loading}>
 		<div class="floating-button">
-			<Button icon="cross-small" kind="ghost" onclick={handleDismiss} />
-		</div>
-		<div class="update-img">
-			<div class="update-img__screen">
-				{#if status !== 'Done' && status !== 'Up-to-date'}
-					<svg
-						width="1rem"
-						height="1rem"
-						viewBox="0 0 18 16"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-						class="arrow-img"
-					>
-						<path
-							d="M0.647705 7.2L8.64771 14M8.64771 14L16.6477 7.2M8.64771 14V0"
-							stroke="var(--clr-scale-pop-50)"
-							stroke-width="2"
-						/>
-					</svg>
-				{:else}
-					<svg
-						width="1.188rem"
-						height="0.75rem"
-						viewBox="0 0 19 12"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path
-							d="M0.688721 4.06198L7.48872 10.5211L17.6887 0.721069"
-							stroke="var(--clr-scale-pop-50)"
-							stroke-width="2"
-						/>
-					</svg>
-				{/if}
-			</div>
-
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="4.375rem"
-				height="3.438rem"
-				viewBox="0 0 70 55"
-				fill="none"
-			>
-				<path
-					opacity="0.9"
-					d="M3.68052 9.9494C4.23548 4.4545 9.13986 0.449887 14.6348 1.00485L41.2092 3.68877C46.704 4.24373 50.7086 9.14811 50.1537 14.643L49.7111 19.025C49.3935 22.17 50.5815 25.28 52.9151 27.4122L57.0014 31.146C59.3777 33.3172 60.5635 36.4995 60.1876 39.6963L59.8519 42.5504C59.2143 47.9719 54.3468 51.8803 48.9155 51.3318L9.94939 47.3963C4.45449 46.8414 0.44989 41.937 1.00485 36.4421L3.68052 9.9494Z"
-					fill="var(--clr-scale-pop-70)"
-				/>
-				<path
-					opacity="0.6"
-					d="M56 21L69 20.2778M56 13.0556L66 8"
-					stroke="var(--clr-theme-pop-element)"
-					stroke-width="1.5"
-				/>
-				<path
-					d="M14 53.0894L14.3084 39L23.8379 44.4513L33.5791 39.4218L33.2707 53.5112L23.7106 48.0806L14 53.0894Z"
-					stroke="var(--clr-scale-pop-50)"
-					stroke-width="1.2"
-				/>
-			</svg>
+			<Button icon="cross-small" size="tag" kind="ghost" onclick={handleDismiss} />
 		</div>
 
-		<h4 class="text-13 text-semibold">
+		<h4 class="text-13 text-semibold update-banner__status">
 			{#if status === 'Up-to-date'}
 				You are up-to-date!
 			{:else if status === 'Downloading'}
@@ -281,13 +222,19 @@
 		align-items: center;
 		width: 100%;
 		max-width: 220px;
-		padding: 16px;
+		padding: 20px;
 		gap: 16px;
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
+		box-shadow: var(--fx-shadow-l);
 		cursor: default;
 		user-select: none;
+	}
+
+	.update-banner__status {
+		padding: 4px 0;
+		text-align: center;
 	}
 
 	.buttons {
@@ -303,12 +250,10 @@
 		position: relative;
 		flex-direction: column;
 		align-items: center;
-
 		width: 100%;
 		overflow: hidden;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-pop-element);
-
 		transition:
 			transform 0.15s ease-in-out,
 			height 0.15s ease-in-out;
@@ -366,34 +311,6 @@
 			);
 			animation: slide 1.6s ease-in infinite;
 		}
-
-		& .arrow-img {
-			transform: rotate(180deg);
-			animation: moving-arrow 1s ease-out infinite;
-		}
-	}
-
-	/* IMAGE */
-	.update-img {
-		display: flex;
-		position: relative;
-		margin-top: 2px;
-		margin-bottom: -4px;
-		margin-left: 6px;
-	}
-
-	.update-img__screen {
-		display: flex;
-		position: absolute;
-		top: 7px;
-		left: 8px;
-		align-items: center;
-		justify-content: center;
-		width: 33px;
-		height: 30px;
-		overflow: hidden;
-		border-radius: 8px;
-		background-color: var(--clr-scale-pop-95);
 	}
 
 	.floating-button {
