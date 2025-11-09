@@ -453,8 +453,7 @@
 		}
 
 		.links {
-			flex-direction: row;
-			flex-wrap: wrap;
+			align-self: start;
 			justify-content: space-between;
 			gap: 16px;
 		}
@@ -464,7 +463,6 @@
 		}
 
 		.links-list {
-			align-self: flex-end;
 			padding-bottom: 0;
 			gap: 8px 12px;
 			border-bottom: none !important;
