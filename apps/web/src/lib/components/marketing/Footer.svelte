@@ -2,12 +2,17 @@
 	import HeaderAuthSection from '$lib/components/HeaderAuthSection.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
 	import osIcons from '$lib/data/os-icons.json';
+	import { setTheme, themeStore } from '$lib/utils/theme.svelte';
+	import { Icon } from '@gitbutler/ui';
 
 	interface Props {
 		showDownloadLinks?: boolean;
 	}
 
 	const { showDownloadLinks = true }: Props = $props();
+
+	// Get the current theme
+	const currentTheme = $derived($themeStore);
 </script>
 
 <footer class="footer">
@@ -119,19 +124,51 @@
 
 		<HeaderAuthSection hideIfUserAuthenticated />
 
-		<div class="meta-links">
-			<span class="meta-links__copyright"
-				>©{new Date().getFullYear()} GitButler. All rights reserved.</span
-			>
-			<span class="meta-links__legal">
-				<a href="/privacy">
-					{jsonLinks.legal.privacyPolicy.label}
-				</a>
-				<span> | </span>
-				<a href={jsonLinks.legal.termsOfService.url}>
-					{jsonLinks.legal.termsOfService.label}
-				</a>
-			</span>
+		<div class="stack-v gap-20">
+			<div class="meta-links">
+				<span class="meta-links__copyright"
+					>©{new Date().getFullYear()} GitButler. All rights reserved.</span
+				>
+				<span class="meta-links__legal">
+					<a href="/privacy">
+						{jsonLinks.legal.privacyPolicy.label}
+					</a>
+					<span> | </span>
+					<a href={jsonLinks.legal.termsOfService.url}>
+						{jsonLinks.legal.termsOfService.label}
+					</a>
+				</span>
+			</div>
+
+			<div class="theme-switcher">
+				<button
+					type="button"
+					class="theme-switcher__button"
+					class:active={currentTheme === 'light'}
+					onclick={() => setTheme('light')}
+					aria-label="Light theme"
+				>
+					<Icon name="light-theme" />
+				</button>
+				<button
+					type="button"
+					class="theme-switcher__button"
+					class:active={currentTheme === 'system'}
+					onclick={() => setTheme('system')}
+					aria-label="System theme"
+				>
+					<Icon name="system-theme" />
+				</button>
+				<button
+					type="button"
+					class="theme-switcher__button"
+					class:active={currentTheme === 'dark'}
+					onclick={() => setTheme('dark')}
+					aria-label="Dark theme"
+				>
+					<Icon name="dark-theme" />
+				</button>
+			</div>
 		</div>
 	</div>
 </footer>
@@ -176,6 +213,10 @@
 		filter: contrast(145%) brightness(1050%) invert(100%);
 		opacity: 0.7;
 		pointer-events: none;
+
+		:global(.dark) & {
+			opacity: 0.3;
+		}
 
 		@media all and (-webkit-min-device-pixel-ratio: 0) and (min-resolution: 0.001dpcm) {
 			mix-blend-mode: color-dodge;
@@ -329,6 +370,32 @@
 				color: var(--clr-text-1);
 				text-decoration: none;
 			}
+		}
+	}
+
+	.theme-switcher {
+		display: flex;
+		align-self: flex-start;
+		border: 1px solid var(--clr-border-2);
+		border-radius: 100px;
+	}
+
+	.theme-switcher__button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		color: var(--clr-text-3);
+		cursor: pointer;
+		transition: color 0.1s ease-in-out;
+
+		&:hover {
+			color: var(--clr-text-2);
+		}
+
+		&.active {
+			color: var(--clr-text-1);
 		}
 	}
 
