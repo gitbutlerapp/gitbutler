@@ -76,7 +76,6 @@ export class FocusManager {
 		if (this.handleTabKey(context, event)) return true;
 		if (this.handleEscapeKey(event)) return true;
 		if (this.hasSelection()) return false;
-		if (this.handleOutlineDisplay(context)) return true;
 		if (this.handleActions(event)) return true;
 
 		return this.handleNavigation(event, context);
@@ -173,7 +172,7 @@ export class FocusManager {
 		}
 
 		if (options.activate) {
-			this.setActiveNode(newNode, false);
+			this.setActiveNode(newNode, true);
 		}
 	}
 
@@ -190,7 +189,7 @@ export class FocusManager {
 		if (this.currentNode?.element === element) {
 			const previousElement = this.getValidPreviousElement();
 			if (previousElement) {
-				this.setActiveNode(this.nodeMap.get(previousElement));
+				this.setActiveNode(this.nodeMap.get(previousElement), true);
 				removeFromArray(this.previousElements, previousElement);
 			} else {
 				this.clearCurrent();
@@ -422,20 +421,6 @@ export class FocusManager {
 		event.preventDefault();
 		event.stopPropagation();
 		return true;
-	}
-
-	private handleOutlineDisplay(navigationContext: NavigationContext): boolean {
-		if (!navigationContext.action) return false;
-		if (!this.shouldShowOutlineOnly(navigationContext)) return false;
-
-		if (!this.shouldShowOutlineOnly(navigationContext)) return false;
-		const targetNode = this.findNavigableDescendant(this.currentNode);
-		if (targetNode) {
-			this.setActiveNode(targetNode);
-			this.setOutline(true);
-			return true;
-		}
-		return false;
 	}
 
 	private tryActionHandler(event: KeyboardEvent): boolean {
