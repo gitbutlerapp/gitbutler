@@ -24,6 +24,7 @@ import {
 	REORDER_DROPZONE_FACTORY,
 	ReorderDropzoneFactory
 } from '$lib/dragging/stackingReorderDropzoneManager';
+import FeedFactory, { FEED_FACTORY } from '$lib/feed/feed';
 import { FILE_SERVICE, FileService } from '$lib/files/fileService';
 import { DefaultForgeFactory, DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 import { GITHUB_CLIENT, GitHubClient } from '$lib/forge/github/githubClient';
@@ -268,6 +269,7 @@ export function initDependencies(args: {
 	// FEEDS & NOTIFICATIONS
 	// ============================================================================
 
+	const feedFactory = new FeedFactory(backend, stackService);
 	const feedService = new FeedService(httpClient, appState.appDispatch);
 
 	// ============================================================================
@@ -337,6 +339,7 @@ export function initDependencies(args: {
 		[DRAG_STATE_SERVICE, dragStateService],
 		[DROPZONE_REGISTRY, dropzoneRegistry],
 		[EVENT_CONTEXT, eventContext],
+		[FEED_FACTORY, feedFactory],
 		[FEED_SERVICE, feedService],
 		[FILE_SERVICE, fileService],
 		[FOCUS_MANAGER, focusManager],

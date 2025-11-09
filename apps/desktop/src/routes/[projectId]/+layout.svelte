@@ -15,6 +15,7 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { FEED_FACTORY } from '$lib/feed/feed';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import { useGitHubAccessToken } from '$lib/forge/github/hooks.svelte';
@@ -209,9 +210,16 @@
 	// FEED & UPDATES MANAGEMENT
 	// =============================================================================
 
+	const feedFactory = inject(FEED_FACTORY);
+
 	// Listen for stack details updates
 	$effect(() => {
 		stackService.stackDetailsUpdateListener(projectId);
+	});
+
+	// Listen for feed updates
+	$effect(() => {
+		feedFactory.getFeed(projectId);
 	});
 
 	// =============================================================================

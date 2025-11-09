@@ -11,6 +11,7 @@ export const MOCK_FEATURE_FLAGS: FeatureFlags = {
 	cv3: false,
 	ws3: false,
 	apply3: false,
+	actions: false,
 	butbot: false,
 	rules: false,
 	singleBranch: false
