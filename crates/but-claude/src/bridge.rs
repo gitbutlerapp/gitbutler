@@ -284,14 +284,14 @@ impl Claudes {
         )
         .await?;
 
-        // Broadcast any messages created during this Claude session
-        // (e.g., commit notifications from the Stop hook)
+        // Broadcast system any messages created during this Claude session
+        // (e.g., commit created notification from the Stop hook)
         {
             let mut ctx_guard = ctx.lock().await;
             if let Ok(all_messages) = db::list_messages_by_session(&mut ctx_guard, session_id) {
-                // Find messages created after session started
                 let new_messages: Vec<_> = all_messages
                     .into_iter()
+                    .filter(|msg| matches!(msg.payload, MessagePayload::System(_)))
                     .filter(|msg| msg.created_at > session_start_time)
                     .collect();
 
