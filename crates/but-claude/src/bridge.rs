@@ -27,7 +27,7 @@ use std::{
 };
 
 use anyhow::{Result, bail};
-use but_broadcaster::Broadcaster;
+use but_broadcaster::{Broadcaster, FrontendEvent};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use serde::Serialize;
@@ -183,6 +183,9 @@ impl Claudes {
         stack_id: StackId,
         user_params: ClaudeUserParams,
     ) -> Result<()> {
+        // Capture the start time to filter messages created during this session
+        let session_start_time = chrono::Utc::now().naive_utc();
+
         let (send_kill, mut recv_kill) = unbounded_channel();
         self.requests
             .lock()
@@ -280,6 +283,29 @@ impl Claudes {
             cmd_exit,
         )
         .await?;
+
+        // Broadcast any messages created during this Claude session
+        // (e.g., commit notifications from the Stop hook)
+        {
+            let mut ctx_guard = ctx.lock().await;
+            if let Ok(all_messages) = db::list_messages_by_session(&mut ctx_guard, session_id) {
+                // Find messages created after session started
+                let new_messages: Vec<_> = all_messages
+                    .into_iter()
+                    .filter(|msg| msg.created_at > session_start_time)
+                    .collect();
+
+                let project_id = ctx_guard.project().id;
+
+                // Broadcast each new message
+                for message in new_messages {
+                    broadcaster.lock().await.send(FrontendEvent {
+                        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+                        payload: serde_json::json!(message),
+                    });
+                }
+            }
+        }
 
         // Send completion notification
         {

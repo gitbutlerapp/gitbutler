@@ -184,9 +184,14 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					const unsubscribe = listen<ClaudeMessage>(
 						`project://${arg.projectId}/claude/${arg.stackId}/message_recieved`,
 						async (event) => {
-							const message = event.payload;
+							const { payload } = event.payload;
+							if (payload.source === 'system' && payload.type === 'commitCreated') {
+								lifecycleApi.dispatch(
+									api.util.invalidateTags([invalidatesItem(ReduxTag.StackDetails, arg.stackId)])
+								);
+							}
 							lifecycleApi.updateCachedData((events) => {
-								events.push(message);
+								events.push(event.payload);
 							});
 
 							api.util.invalidateTags([invalidatesList(ReduxTag.ClaudeStackActive)]);

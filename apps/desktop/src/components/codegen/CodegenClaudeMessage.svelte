@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CodegenAssistantMessage from '$components/codegen/CodegenAssistantMessage.svelte';
 	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
+	import CodegenSystemMessage from '$components/codegen/CodegenSystemMessage.svelte';
 	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
 	import CodegenToolCalls from '$components/codegen/CodegenToolCalls.svelte';
 	import CodegenUserMessage from '$components/codegen/CodegenUserMessage.svelte';
@@ -19,12 +20,12 @@
 	let expanded = $state(false);
 </script>
 
-{#if message.type === 'user'}
+{#if message.source === 'user'}
 	<div class="timestamp text-12 text-bold text-right">
 		<Timestamp date={message.createdAt} />
 	</div>
 	<CodegenUserMessage content={message.message} attachments={message.attachments} />
-{:else if message.type === 'claude'}
+{:else if message.source === 'claude'}
 	<div class="timestamp text-12 text-bold">
 		<Timestamp date={message.createdAt} />
 	</div>
@@ -56,6 +57,11 @@
 			{/each}
 		{/if}
 	{/if}
+{:else if message.source === 'system'}
+	<div class="timestamp text-12 text-bold">
+		<Timestamp date={message.createdAt} />
+	</div>
+	<CodegenSystemMessage {projectId} {message} />
 {/if}
 
 {#snippet compactionSummary(summary: string)}

@@ -18,7 +18,7 @@ pub async fn rename_branch(
     client: &Client<OpenAIConfig>,
     parameters: RenameBranchParams,
     trigger_id: uuid::Uuid,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<String> {
     let RenameBranchParams {
         commit_id,
         commit_message,
@@ -59,7 +59,7 @@ pub async fn rename_branch(
         workflow::Kind::RenameBranch(workflow::RenameBranchOutcome {
             stack_id,
             old_branch_name: current_branch_name,
-            new_branch_name: normalized_branch_name,
+            new_branch_name: normalized_branch_name.clone(),
         }),
         workflow::Trigger::Snapshot(trigger_id),
         status,
@@ -70,5 +70,5 @@ pub async fn rename_branch(
     .persist(ctx)
     .ok();
 
-    Ok(())
+    Ok(normalized_branch_name)
 }

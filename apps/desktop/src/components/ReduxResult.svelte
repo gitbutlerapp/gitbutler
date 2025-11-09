@@ -25,6 +25,7 @@
 		children: Snippet<[A, Env<B, C>]>;
 		loading?: Snippet<[A | undefined]>;
 		error?: Snippet<[unknown]>;
+		empty?: Snippet<[]>;
 		onerror?: (err: unknown) => void;
 	} & StackEnv<B> &
 		ProjectEnv<C>;
@@ -99,6 +100,10 @@
 	{@render props.children(display.result.data, display.env)}
 {:else if display.result?.status === 'pending' || display.result?.status === 'uninitialized'}
 	{@render loadingComponent(display.result.data, display.result.status)}
+{:else if display.result?.status === 'fulfilled'}
+	{@render props.empty?.()}
+{:else}
+	what
 {/if}
 
 <style>

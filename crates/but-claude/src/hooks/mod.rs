@@ -163,7 +163,7 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
         &summary,
         Some(prompt.clone()),
         ActionHandler::HandleChangesSimple,
-        Source::ClaudeCode(session_id),
+        Source::ClaudeCode(session_id.clone()),
         Some(stack_id),
     )?;
 
@@ -204,7 +204,7 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
                 }
             }
 
-            match elegibility {
+            let final_branch_name = match elegibility {
                 RenameEligibility::Eligible { commit_id } => {
                     let reword_result = commit_message_mapping.get(&commit_id).cloned();
 
@@ -222,13 +222,43 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
                             id,
                         )
                         .await
-                        .ok();
+                        .ok()
+                        .unwrap_or_else(|| branch.branch_name.clone())
+                    } else {
+                        branch.branch_name.clone()
                     }
                 }
-                RenameEligibility::NotEligible => {
-                    // Do nothing, branch is not eligible for renaming
-                }
-            }
+                RenameEligibility::NotEligible => branch.branch_name.clone(),
+            };
+
+            // Build final commit IDs list - using reworded IDs if available, original otherwise
+            let final_commit_ids: Vec<String> = branch
+                .new_commits
+                .iter()
+                .map(|commit| {
+                    if let Ok(commit_id) = gix::ObjectId::from_str(commit) {
+                        commit_message_mapping
+                            .get(&commit_id)
+                            .map(|(new_id, _)| new_id.to_string())
+                            .unwrap_or_else(|| commit.clone())
+                    } else {
+                        commit.clone()
+                    }
+                })
+                .collect();
+
+            // Write commit notification messages to the database
+            // These will be broadcasted by the main process after Claude completes
+            let session_uuid = uuid::Uuid::parse_str(&session_id)?;
+            let commit_message = crate::MessagePayload::System(
+                crate::SystemMessage::CommitCreated(crate::CommitCreatedDetails {
+                    stack_id: Some(branch.stack_id.to_string()),
+                    branch_name: Some(final_branch_name),
+                    commit_ids: Some(final_commit_ids),
+                }),
+            );
+
+            crate::db::save_new_message(defer.ctx, session_uuid, commit_message)?;
         }
     }
 
