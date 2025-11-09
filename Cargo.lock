@@ -887,9 +887,12 @@ dependencies = [
 name = "but-broadcaster"
 version = "0.0.0"
 dependencies = [
+ "but-db",
+ "gitbutler-project",
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
  "uuid",
 ]
 
@@ -1205,11 +1208,13 @@ dependencies = [
  "axum",
  "but-api",
  "but-broadcaster",
+ "but-db",
  "but-feedback",
  "but-path",
  "but-secret",
  "but-settings",
  "futures-util",
+ "gitbutler-command-context",
  "gitbutler-project",
  "gitbutler-watcher",
  "serde",

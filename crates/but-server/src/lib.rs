@@ -66,7 +66,6 @@ pub async fn run() {
     let extra = Extra {
         active_projects: Arc::new(Mutex::new(ActiveProjects::new())),
     };
-    // TODO: This needs to watch and send events accordingly (it's done in the Tauri main but not here)
     let app_settings =
         AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings");
 

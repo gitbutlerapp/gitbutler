@@ -33,9 +33,11 @@ uuid.workspace = true
 
 but-api.workspace = true
 but-broadcaster.workspace = true
+but-db.workspace = true
 but-path.workspace = true
 but-settings.workspace = true
 but-feedback.workspace = true
+gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 gitbutler-watcher.workspace = true
 tracing.workspace = true
