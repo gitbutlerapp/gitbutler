@@ -185,7 +185,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						`project://${arg.projectId}/claude/${arg.stackId}/message_recieved`,
 						async (event) => {
 							const { payload } = event.payload;
-							if (payload.source === 'system' && payload.type === 'commitCreated') {
+							if (payload.source === 'gitButler' && payload.type === 'commitCreated') {
 								lifecycleApi.dispatch(
 									api.util.invalidateTags([invalidatesItem(ReduxTag.StackDetails, arg.stackId)])
 								);
