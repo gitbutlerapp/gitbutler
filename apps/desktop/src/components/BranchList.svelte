@@ -6,6 +6,7 @@
 	import BranchCommitList from '$components/BranchCommitList.svelte';
 	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
 	import CodegenRow from '$components/CodegenRow.svelte';
+	import CodegenRowUi from '$components/CodegenRowUi.svelte';
 	import ConflictResolutionConfirmModal from '$components/ConflictResolutionConfirmModal.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import LineOverlay from '$components/LineOverlay.svelte';
@@ -210,6 +211,9 @@
 				{@const codegenQuery = stackId
 					? claudeCodeService.messages({ projectId, stackId })
 					: undefined}
+				{@const codegenActive =
+					(codegenQuery?.response && codegenQuery.response.length > 0) ||
+					laneState.selection.current?.codegen}
 				{@render branchInsertionDz(branchName)}
 				<BranchCard
 					type="stack-branch"
@@ -225,15 +229,11 @@
 					{isNewBranch}
 					{pushStatus}
 					{isConflicted}
-					hasCodegenRow={$newCodegenEnabled &&
-						firstBranch &&
-						stackId !== undefined &&
-						codegenQuery?.response &&
-						codegenQuery.response.length > 0}
 					{lastUpdatedAt}
 					{reviewId}
 					{prNumber}
 					{allOtherPrNumbersInStack}
+					hasCodegenRow={$newCodegenEnabled && firstBranch && codegenActive}
 					numberOfCommits={localAndRemoteCommits.length}
 					numberOfUpstreamCommits={upstreamOnlyCommits.length}
 					numberOfBranchesInStack={branches.length}
@@ -322,7 +322,7 @@
 							isFirstBranchInStack={firstBranch}
 							isLastBranchInStack={lastBranch}
 						/>
-						{#if $newCodegenEnabled && first && codegenQuery?.response?.length === 0}
+						{#if $newCodegenEnabled && first && codegenQuery?.response?.length === 0 && !laneState.selection.current?.codegen}
 							<Button
 								icon="ai-small"
 								style="neutral"
@@ -367,6 +367,8 @@
 									selected={codegenSelected}
 									{onselect}
 								/>
+							{:else if laneState.selection.current?.codegen}
+								<CodegenRowUi {branchName} text="New session" />
 							{/if}
 						{/if}
 					{/snippet}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CardOverlay from '$components/CardOverlay.svelte';
+	import CodegenRowUi from '$components/CodegenRowUi.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
@@ -13,11 +14,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/core/context';
-	import { Icon } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { slide } from 'svelte/transition';
 	import type { ClaudeStatus, PromptAttachment } from '$lib/codegen/types';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	type Props = {
 		projectId: string;
@@ -35,16 +32,6 @@
 
 	const claudeService = inject(CLAUDE_CODE_SERVICE);
 	const messages = claudeService.messages({ projectId, stackId });
-
-	let active = $state(false);
-
-	function getCurrentIconName(): keyof typeof iconsJson {
-		if (status === 'running' || status === 'compacting') {
-			return 'spinner';
-		}
-		return 'ai';
-	}
-
 	const attachmentService = inject(ATTACHMENT_SERVICE);
 
 	function addAttachment(items: PromptAttachment[]) {
@@ -57,7 +44,7 @@
 		new CodegenHunkDropHandler(stackId, branchName, addAttachment)
 	]);
 
-	function toggleSelection() {
+	function handleSelection() {
 		laneState.selection.set(
 			selected ? undefined : { branchName, codegen: true, previewOpen: true }
 		);
@@ -69,98 +56,28 @@
 	{#snippet overlay({ hovered, activated })}
 		<CardOverlay {hovered} {activated} label="Reference" />
 	{/snippet}
-	<button
-		type="button"
-		class="codegen-row"
-		class:selected
-		class:active
-		onclick={toggleSelection}
-		use:focusable={{
-			onAction: toggleSelection,
-			onActive: (value) => (active = value),
-			focusable: true
-		}}
-	>
-		{#if selected}
-			<div
-				class="indicator"
-				class:selected
-				class:active
-				in:slide={{ axis: 'x', duration: 150 }}
-			></div>
-		{/if}
 
-		<ReduxResult {projectId} result={messages.result}>
-			{#snippet children(messages)}
-				{@const lastMessage = extractLastMessage(messages)}
-				{@const lastSummary = lastMessage ? truncate(lastMessage, 360, 8) : undefined}
-				{@const todos = getTodos(messages)}
-				{@const completedCount = todos.filter((t) => t.status === 'completed').length}
-				{@const totalCount = todos.length}
-
-				<Icon name={getCurrentIconName()} color="var(--clr-theme-purp-element)" />
-				<h3 class="text-13 text-semibold truncate codegen-row__title">{lastSummary}</h3>
-
-				{#if totalCount > 1}
-					<span class="text-12 codegen-row__todos">Todos ({completedCount}/{totalCount})</span>
-
-					{#if completedCount === totalCount}
-						<Icon name="success-outline" color="success" />
-					{/if}
-				{/if}
-			{/snippet}
-		</ReduxResult>
-	</button>
+	<ReduxResult {projectId} result={messages.result}>
+		{#snippet children(messages)}
+			{@const lastMessage = extractLastMessage(messages)}
+			{@const text = lastMessage ? truncate(lastMessage, 360, 8) : undefined}
+			{@const todoData = getTodos(messages)}
+			{@const todos = {
+				completed: todoData.filter((t) => t.status === 'completed').length,
+				total: todoData.length
+			}}
+			<CodegenRowUi
+				{branchName}
+				{status}
+				{selected}
+				{text}
+				{handlers}
+				{todos}
+				onselect={handleSelection}
+			/>
+		{/snippet}
+	</ReduxResult>
 </Dropzone>
 
 <style lang="postcss">
-	.codegen-row {
-		display: flex;
-		position: relative;
-		width: 100%;
-		padding: 12px;
-		padding-left: 14px;
-		gap: 8px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
-		background-color: var(--clr-theme-purp-bg);
-		text-align: left;
-		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: var(--clr-theme-purp-bg-muted);
-		}
-
-		/* Selected in focus */
-		&.active.selected {
-			background-color: var(--clr-theme-purp-bg-muted);
-		}
-	}
-
-	.codegen-row__title {
-		flex: 1;
-		color: var(--clr-theme-purp-on-soft);
-	}
-
-	.codegen-row__todos {
-		flex-shrink: 0;
-		color: var(--clr-theme-purp-on-soft);
-		opacity: 0.7;
-	}
-
-	.indicator {
-		position: absolute;
-		top: 50%;
-		left: 0;
-		width: 4px;
-		height: 45%;
-		transform: translateY(-50%);
-		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-		background-color: var(--clr-theme-purp-element);
-		transition: transform var(--transition-fast);
-
-		&.active {
-			background-color: var(--clr-theme-purp-element);
-		}
-	}
 </style>
