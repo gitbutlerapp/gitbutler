@@ -1,10 +1,16 @@
 <script lang="ts">
-	import { showToast } from '$lib/notifications/toasts';
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { UPDATER_SERVICE, type InstallStatus } from '$lib/updater/updater';
 	import { inject } from '@gitbutler/core/context';
-	import { Button } from '@gitbutler/ui';
+	import { Button, Modal, Markdown } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 	import { env } from '$env/dynamic/public';
+
+	interface Release {
+		version: string;
+		notes: string | null;
+		released_at: string;
+	}
 
 	const updaterService = inject(UPDATER_SERVICE);
 	const update = updaterService.update;
@@ -14,9 +20,65 @@
 	let releaseNotes = $state<string | undefined>();
 	let status = $state<InstallStatus | undefined>();
 
+	let releaseNotesModal = $state<Modal>();
+	let releases = $state<Release[]>([]);
+	let currentReleaseIndex = $state(0);
+	let loadingReleases = $state(false);
+
 	$effect(() => {
 		({ version, releaseNotes, status } = $update);
 	});
+
+	async function fetchReleases() {
+		if (releases.length > 0) return; // Already fetched
+
+		loadingReleases = true;
+		try {
+			const response = await fetch(
+				'https://app.gitbutler.com/api/downloads?limit=10&channel=release'
+			);
+			const data = await response.json();
+			releases = data.map((r: any) => ({
+				version: r.version,
+				notes: r.notes,
+				released_at: r.released_at
+			}));
+			// Set current release to the one from the updater if it matches
+			if (version) {
+				const index = releases.findIndex((r) => r.version === version);
+				if (index !== -1) {
+					currentReleaseIndex = index;
+				}
+			}
+		} catch (error) {
+			console.error('Failed to fetch releases:', error);
+		} finally {
+			loadingReleases = false;
+		}
+	}
+
+	function handleOpenModal() {
+		fetchReleases();
+		releaseNotesModal?.show();
+	}
+
+	function goToPreviousRelease() {
+		if (currentReleaseIndex > 0) {
+			currentReleaseIndex--;
+		}
+	}
+
+	function goToNextRelease() {
+		if (currentReleaseIndex < releases.length - 1) {
+			currentReleaseIndex++;
+		}
+	}
+
+	const currentRelease = $derived(releases.length > 0 ? releases[currentReleaseIndex] : null);
+
+	const displayVersion = $derived(currentRelease ? currentRelease.version : version);
+
+	const displayNotes = $derived(currentRelease ? currentRelease.notes : releaseNotes);
 
 	function handleDismiss() {
 		updaterService.dismiss();
@@ -24,6 +86,10 @@
 
 	const inFlatpak = $derived(!!env.PUBLIC_FLATPAK_ID);
 </script>
+
+{#snippet previousVersionSnippet()}
+	{releases[currentReleaseIndex + 1]?.version}
+{/snippet}
 
 {#if version || status === 'Up-to-date'}
 	<div class="update-banner" data-testid="update-banner" class:busy={$loading}>
@@ -90,7 +156,7 @@
 			</svg>
 		</div>
 
-		<h4 class="text-14 text-semibold">
+		<h4 class="text-13 text-semibold">
 			{#if status === 'Up-to-date'}
 				You are up-to-date!
 			{:else if status === 'Downloading'}
@@ -112,18 +178,7 @@
 
 		<div class="buttons">
 			{#if releaseNotes}
-				<Button
-					kind="outline"
-					onmousedown={() => {
-						showToast({
-							id: 'release-notes',
-							title: `Release notes for ${version}`,
-							message: releaseNotes || 'no release notes available'
-						});
-					}}
-				>
-					Release notes
-				</Button>
+				<Button kind="outline" onclick={handleOpenModal}>Release notes</Button>
 			{/if}
 			{#if !inFlatpak}
 				<div class="status-section">
@@ -168,6 +223,51 @@
 			{/if}
 		</div>
 	</div>
+{/if}
+
+{#if releaseNotes}
+	<Modal bind:this={releaseNotesModal} width={480} noPadding>
+		<ConfigurableScrollableContainer>
+			<div class="p-16">
+				{#if loadingReleases}
+					<div class="loading-state">
+						<p class="text-12">Loading releases...</p>
+					</div>
+				{:else}
+					<div class="release-notes-header">
+						<h3 class="text-15 text-bold">
+							<span class="text-12 m-r-4">📒</span> Release Notes - {displayVersion}
+						</h3>
+
+						<div class="flex gap-2">
+							<Button
+								kind="outline"
+								size="tag"
+								disabled={currentReleaseIndex === 0}
+								onclick={goToPreviousRelease}
+								icon="chevron-left"
+								reversedDirection
+							/>
+							<Button
+								kind="outline"
+								size="tag"
+								disabled={currentReleaseIndex === releases.length - 1}
+								onclick={goToNextRelease}
+								icon="chevron-right"
+								children={releases[currentReleaseIndex + 1]?.version
+									? previousVersionSnippet
+									: undefined}
+							></Button>
+						</div>
+					</div>
+
+					<div class="text-12 text-body release-notes-content">
+						<Markdown content={displayNotes || 'No release notes available'} />
+					</div>
+				{/if}
+			</div>
+		</ConfigurableScrollableContainer>
+	</Modal>
 {/if}
 
 <style lang="postcss">
@@ -277,6 +377,8 @@
 	.update-img {
 		display: flex;
 		position: relative;
+		margin-top: 2px;
+		margin-bottom: -4px;
 		margin-left: 6px;
 	}
 
@@ -294,12 +396,6 @@
 		background-color: var(--clr-scale-pop-95);
 	}
 
-	.tick-img {
-		position: absolute;
-		top: 8px;
-		left: 6px;
-	}
-
 	.floating-button {
 		position: absolute;
 		top: 8px;
@@ -314,5 +410,34 @@
 			transform: translateY(3px);
 			opacity: 0.3;
 		}
+	}
+
+	/* RELEASE NOTES MODAL */
+	.release-notes-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 12px;
+	}
+
+	.release-notes-content {
+		display: flex;
+		flex-direction: column;
+
+		& :global(h1) {
+			margin-top: 6px;
+			font-size: 15px;
+		}
+
+		& :global(h2) {
+			margin-top: 6px;
+			font-size: 13px;
+		}
+	}
+
+	.loading-state {
+		padding: 32px 0;
+		color: var(--clr-text-2);
+		text-align: center;
 	}
 </style>
