@@ -41,6 +41,7 @@ mod with_workspace {
             @r#"
         BranchDetails {
             name: "refs/heads/A",
+            linked_worktree_id: None,
             remote_tracking_branch: None,
             description: Some(
                 "A: description",
@@ -89,6 +90,7 @@ mod with_workspace {
         insta::assert_debug_snapshot!(but_workspace::branch_details_v3(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
         BranchDetails {
             name: "refs/heads/A",
+            linked_worktree_id: None,
             remote_tracking_branch: Some(
                 "refs/remotes/origin/A",
             ),
@@ -141,6 +143,7 @@ mod with_workspace {
         insta::assert_debug_snapshot!(but_workspace::branch_details_v3(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
         BranchDetails {
             name: "refs/heads/A",
+            linked_worktree_id: None,
             remote_tracking_branch: Some(
                 "refs/remotes/origin/A",
             ),
@@ -178,6 +181,7 @@ mod with_workspace {
         insta::assert_debug_snapshot!(but_workspace::branch_details_v3(&repo, refname("origin/A").as_ref(), &store).unwrap(), @r#"
         BranchDetails {
             name: "refs/remotes/origin/A",
+            linked_worktree_id: None,
             remote_tracking_branch: None,
             description: None,
             pr_number: None,
@@ -220,6 +224,7 @@ mod with_workspace {
         insta::assert_debug_snapshot!(but_workspace::branch_details_v3(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
         BranchDetails {
             name: "refs/heads/A",
+            linked_worktree_id: None,
             remote_tracking_branch: Some(
                 "refs/remotes/origin/A",
             ),

@@ -362,6 +362,10 @@ pub struct BranchDetails {
     /// The name of the branch.
     #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub name: BString,
+    /// The id of the linked worktree that has the reference of `name` checked out.
+    /// Note that we don't list the main worktree here.
+    #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
+    pub linked_worktree_id: Option<BString>,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
     #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
     pub remote_tracking_branch: Option<BString>,

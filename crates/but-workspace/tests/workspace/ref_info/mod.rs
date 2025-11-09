@@ -82,6 +82,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
         branch_details: [
             BranchDetails {
                 name: "main",
+                linked_worktree_id: None,
                 remote_tracking_branch: None,
                 description: None,
                 pr_number: None,
@@ -232,6 +233,7 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
         branch_details: [
             BranchDetails {
                 name: "main",
+                linked_worktree_id: None,
                 remote_tracking_branch: None,
                 description: None,
                 pr_number: None,
@@ -348,6 +350,7 @@ fn single_branch() -> anyhow::Result<()> {
         branch_details: [
             BranchDetails {
                 name: "main",
+                linked_worktree_id: None,
                 remote_tracking_branch: None,
                 description: None,
                 pr_number: None,
@@ -537,6 +540,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
         branch_details: [
             BranchDetails {
                 name: "main",
+                linked_worktree_id: None,
                 remote_tracking_branch: None,
                 description: None,
                 pr_number: None,
@@ -557,6 +561,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
             },
             BranchDetails {
                 name: "nine",
+                linked_worktree_id: None,
                 remote_tracking_branch: None,
                 description: None,
                 pr_number: None,
@@ -579,6 +584,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
             },
             BranchDetails {
                 name: "six",
+                linked_worktree_id: None,
                 remote_tracking_branch: None,
                 description: None,
                 pr_number: None,
@@ -601,6 +607,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
             },
             BranchDetails {
                 name: "three",
+                linked_worktree_id: None,
                 remote_tracking_branch: None,
                 description: None,
                 pr_number: None,
@@ -622,6 +629,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
             },
             BranchDetails {
                 name: "one",
+                linked_worktree_id: None,
                 remote_tracking_branch: None,
                 description: None,
                 pr_number: None,

@@ -216,6 +216,7 @@ pub fn print_group(
     review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
 ) -> anyhow::Result<()> {
     let mut stdout = std::io::stdout();
+    let repo = project.open_isolated()?;
     if let Some(group) = &group {
         let mut first = true;
         for branch in &group.branch_details {
@@ -242,15 +243,24 @@ pub fn print_group(
                 review_map,
             );
 
+            let workspace = branch
+                .linked_worktree_id
+                .as_ref()
+                .and_then(|id| {
+                    let ws = repo.worktree_proxy_by_id(id.as_bstr())?;
+                    let base = ws.base().ok()?;
+                    let git_dir = gix::path::realpath(repo.git_dir()).ok();
+                    let base = git_dir
+                        .and_then(|git_dir| base.strip_prefix(git_dir).ok())
+                        .unwrap_or_else(|| &base);
+                    format!(" 📁 {base}", base = base.display()).into()
+                })
+                .unwrap_or_default();
             writeln!(
                 stdout,
-                "┊{}┄{} [{}]{} {} {}",
-                notch,
-                id,
-                branch.name.to_string().green().bold(),
-                reviews,
-                no_commits,
-                stack_mark.clone().unwrap_or_default()
+                "┊{notch}┄{id} [{branch}{workspace}]{reviews} {no_commits} {stack_mark}",
+                stack_mark = stack_mark.clone().unwrap_or_default(),
+                branch = branch.name.to_string().green().bold(),
             )
             .ok();
             *stack_mark = None; // Only show the stack mark for the first branch

@@ -6,7 +6,7 @@ use but_settings::app_settings::{
     Claude, ExtraCsp, FeatureFlags, Fetch, GitHubOAuthAppSettings, Reviews, TelemetrySettings,
     UiSettings,
 };
-use but_testsupport::gix_testtools::tempfile;
+use but_testsupport::gix_testtools::{Creation, tempfile};
 use but_workspace::StackId;
 use snapbox::{Assert, Redactions};
 use std::env;
@@ -49,9 +49,24 @@ impl Sandbox {
     /// TODO: we shouldn't have to add the project for interaction - it's only useful for listing.
     /// TODO: there should be no need for the target.
     pub fn init_scenario_with_target(name: &str) -> anyhow::Result<Sandbox> {
-        let project = but_testsupport::gix_testtools::scripted_fixture_writable(format!(
-            "scenario/{name}.sh"
-        ))
+        Self::init_scenario_with_target_inner(name, Creation::CopyFromReadOnly)
+    }
+
+    /// Like [`Self::init_scenario_with_target`], Execute the script at `name` instead of
+    /// copying it - necessary if Git places absolute paths.
+    pub fn init_scenario_with_target_slow(name: &str) -> anyhow::Result<Sandbox> {
+        Self::init_scenario_with_target_inner(name, Creation::ExecuteScript)
+    }
+
+    fn init_scenario_with_target_inner(
+        name: &str,
+        script_creation: Creation,
+    ) -> anyhow::Result<Sandbox> {
+        let project = but_testsupport::gix_testtools::scripted_fixture_writable_with_args(
+            format!("scenario/{name}.sh"),
+            None::<String>,
+            script_creation,
+        )
         .map_err(anyhow::Error::from_boxed)?;
         let sandbox = Sandbox {
             projects_root: Some(project),
@@ -146,6 +161,20 @@ impl Sandbox {
             self.projects_root()
                 .join(".git/gitbutler/virtual_branches.toml"),
         )
+    }
+
+    /// return the graph at `HEAD`, along with the `(graph, repo, meta)` repository and metadata used to create it.
+    pub fn graph_at_head(
+        &self,
+    ) -> anyhow::Result<(
+        but_graph::Graph,
+        gix::Repository,
+        impl but_core::RefMetadata,
+    )> {
+        let repo = self.repo()?;
+        let meta = self.meta()?;
+        let graph = but_graph::Graph::from_head(&repo, &meta, Default::default())?;
+        Ok((graph, repo, meta))
     }
 
     /// Show a git log for all refs.

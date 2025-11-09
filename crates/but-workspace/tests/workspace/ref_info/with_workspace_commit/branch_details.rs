@@ -15,6 +15,7 @@ fn disjoint() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(actual, @r#"
     BranchDetails {
         name: "refs/heads/disjoint",
+        linked_worktree_id: None,
         remote_tracking_branch: None,
         description: None,
         pr_number: None,
@@ -40,6 +41,7 @@ fn disjoint() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(actual, @r#"
     BranchDetails {
         name: "refs/heads/main",
+        linked_worktree_id: None,
         remote_tracking_branch: None,
         description: None,
         pr_number: None,

@@ -214,7 +214,6 @@ mkdir ws
 (cd ws
   git init ambiguous-worktrees
   (cd ambiguous-worktrees
-    set -x
     commit M1
     commit M-base
 

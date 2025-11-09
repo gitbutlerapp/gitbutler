@@ -169,6 +169,7 @@ mod stacks {
             branch_details: [
                 BranchDetails {
                     name: "C-on-A",
+                    linked_worktree_id: None,
                     remote_tracking_branch: None,
                     description: None,
                     pr_number: None,
@@ -191,6 +192,7 @@ mod stacks {
                 },
                 BranchDetails {
                     name: "A",
+                    linked_worktree_id: None,
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/A",
                     ),
@@ -283,6 +285,7 @@ mod stack_details {
             branch_details: [
                 BranchDetails {
                     name: "dependant",
+                    linked_worktree_id: None,
                     remote_tracking_branch: None,
                     description: None,
                     pr_number: None,
@@ -301,6 +304,7 @@ mod stack_details {
                 },
                 BranchDetails {
                     name: "advanced-lane",
+                    linked_worktree_id: None,
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/advanced-lane",
                     ),
@@ -356,6 +360,7 @@ mod stack_details {
             branch_details: [
                 BranchDetails {
                     name: "B-on-A",
+                    linked_worktree_id: None,
                     remote_tracking_branch: None,
                     description: None,
                     pr_number: None,
@@ -378,6 +383,7 @@ mod stack_details {
                 },
                 BranchDetails {
                     name: "A",
+                    linked_worktree_id: None,
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/A",
                     ),
@@ -413,6 +419,7 @@ mod stack_details {
             branch_details: [
                 BranchDetails {
                     name: "C-on-A",
+                    linked_worktree_id: None,
                     remote_tracking_branch: None,
                     description: None,
                     pr_number: None,
@@ -435,6 +442,7 @@ mod stack_details {
                 },
                 BranchDetails {
                     name: "A",
+                    linked_worktree_id: None,
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/A",
                     ),
