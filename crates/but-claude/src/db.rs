@@ -250,6 +250,7 @@ enum MessagePayloadDbType {
     Claude,
     User,
     System,
+    GitButlerUpdate,
     // Legacy names for backward compatibility
     ClaudeOutput,
     UserInput,
@@ -280,6 +281,9 @@ impl TryFrom<but_db::ClaudeMessage> for crate::ClaudeMessage {
             .into(),
             MessagePayloadDbType::System => {
                 crate::MessagePayload::System(serde_json::from_str(&value.content)?)
+            }
+            MessagePayloadDbType::GitButlerUpdate => {
+                crate::MessagePayload::GitButler(serde_json::from_str(&value.content)?)
             }
             MessagePayloadDbType::GitButlerMessage => {
                 crate::legacy::ClaudeMessageContent::GitButlerMessage(serde_json::from_str(
@@ -312,6 +316,10 @@ impl TryFrom<crate::ClaudeMessage> for but_db::ClaudeMessage {
             crate::MessagePayload::System(msg) => {
                 let content = serde_json::to_string(&msg)?;
                 (MessagePayloadDbType::System, content)
+            }
+            crate::MessagePayload::GitButler(msg) => {
+                let content = serde_json::to_string(&msg)?;
+                (MessagePayloadDbType::GitButlerUpdate, content)
             }
         };
 

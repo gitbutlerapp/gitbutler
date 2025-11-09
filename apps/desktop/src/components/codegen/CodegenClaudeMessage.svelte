@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CodegenAssistantMessage from '$components/codegen/CodegenAssistantMessage.svelte';
+	import CodegenGitButlerMessage from '$components/codegen/CodegenGitButlerMessage.svelte';
 	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
-	import CodegenSystemMessage from '$components/codegen/CodegenSystemMessage.svelte';
 	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
 	import CodegenToolCalls from '$components/codegen/CodegenToolCalls.svelte';
 	import CodegenUserMessage from '$components/codegen/CodegenUserMessage.svelte';
@@ -57,11 +57,11 @@
 			{/each}
 		{/if}
 	{/if}
-{:else if message.source === 'system'}
+{:else if message.source === 'gitButler'}
 	<div class="timestamp text-12 text-bold">
 		<Timestamp date={message.createdAt} />
 	</div>
-	<CodegenSystemMessage {projectId} {message} />
+	<CodegenGitButlerMessage {projectId} {message} />
 {/if}
 
 {#snippet compactionSummary(summary: string)}

@@ -118,7 +118,9 @@ export type MessagePayload =
 	/** Input provided by the user */
 	| ({ source: 'user' } & UserInput)
 	/** System message from GitButler about the session */
-	| ({ source: 'system' } & SystemMessage);
+	| ({ source: 'system' } & SystemMessage)
+	/** Updates by GitButler */
+	| ({ source: 'gitButler' } & GitButlerUpdate);
 
 /**
  * Raw output from Claude API
@@ -163,6 +165,15 @@ export type SystemMessage =
 			commitIds: string[];
 	  };
 
+/**
+ * System messages from GitButler about the Claude session state.
+ */
+export type GitButlerUpdate = {
+	type: 'commitCreated';
+	stackId?: string;
+	branchName?: string;
+	commitIds: string[];
+};
 /**
  * Details about a Claude session, extracted from the Claude transcript.
  * This data is derived just in time, i.e. not persisted by GitButler.

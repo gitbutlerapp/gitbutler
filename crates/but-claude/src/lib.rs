@@ -85,6 +85,13 @@ impl ClaudeMessage {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum GitButlerUpdate {
+    /// Update about new commit creation
+    CommitCreated(CommitCreatedDetails),
+}
+
 /// The actual message payload from different sources.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "source")]
@@ -95,6 +102,8 @@ pub enum MessagePayload {
     User(UserInput),
     /// System message from GitButler about the session
     System(SystemMessage),
+    /// Resource update, e.g. a commit was created
+    GitButler(GitButlerUpdate),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -179,7 +188,7 @@ pub enum SystemMessage {
     CompactFinished {
         summary: String,
     },
-    /// Commits were created by Claude.
+    /// Deprecated and will be removed, see `GitButlerUpdate::CommitCreated`.
     CommitCreated(CommitCreatedDetails),
 }
 
