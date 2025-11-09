@@ -425,6 +425,7 @@
 		visibleRowElements = viewport.getElementsByClassName('list-row');
 		itemObserver = new ResizeObserver((entries) =>
 			untrack(() => {
+				let shouldRecalculate = false;
 				for (const entry of entries) {
 					const { target } = entry;
 					if (!target.isConnected) continue;
@@ -452,7 +453,7 @@
 						}
 					}
 					if (index !== undefined) {
-						recalculateVisibleRange();
+						shouldRecalculate = true;
 					}
 				}
 
@@ -462,6 +463,9 @@
 					if (hasGrown) {
 						scrollToBottom();
 					}
+				}
+				if (shouldRecalculate) {
+					recalculateVisibleRange();
 				}
 			})
 		);

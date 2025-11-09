@@ -8,31 +8,35 @@ import type {
 	ClaudePermissionRequest,
 	ClaudeStatus,
 	ClaudeTodo,
-	PromptAttachment
+	PromptAttachment,
+	SystemMessage
 } from '$lib/codegen/types';
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/index.mjs';
 
 export type Message = { createdAt: string } &
 	/* This is strictly only things that the real fleshy human has said */
 	(| {
-				type: 'user';
+				source: 'user';
 				message: string;
 				attachments?: PromptAttachment[];
 		  }
 		/* Output from claude. This is grouped as: A claude message with a bunch of tool calls. */
 		| {
-				type: 'claude';
+				source: 'claude';
 				message: string;
 				toolCalls: ToolCall[];
 				toolCallsPendingApproval: ToolCall[];
 		  }
 		| {
-				type: 'claude';
+				source: 'claude';
 				subtype: 'compaction';
 				message: string;
 				toolCalls: ToolCall[];
 				toolCallsPendingApproval: ToolCall[];
 		  }
+		| ({
+				source: 'system';
+		  } & SystemMessage)
 	);
 
 export type ToolCallName =
@@ -82,46 +86,46 @@ export function formatMessages(
 	let toolCalls: Record<string, ToolCall> = {};
 	let lastAssistantMessage: Message | undefined = undefined;
 
-	for (const [_idx, event] of events.entries()) {
-		if (event.payload.source === 'user') {
+	for (const [_idx, message] of events.entries()) {
+		const payload = message.payload;
+		if (payload.source === 'user') {
 			wrapUpAgentSide();
 			out.push({
-				createdAt: event.createdAt,
-				type: 'user',
-				message: event.payload.message,
-				attachments: event.payload.attachments
+				createdAt: message.createdAt,
+				source: 'user',
+				message: payload.message,
+				attachments: payload.attachments
 			});
 			lastAssistantMessage = undefined;
-		} else if (event.payload.source === 'claude') {
-			const payload = event.payload.data;
+		} else if (payload.source === 'claude') {
 			// We've either triggered a tool call, or sent a message
-			if (payload.type === 'assistant') {
-				const message = payload.message;
-				if (message.content[0]!.type === 'text') {
-					if (message.content[0]!.text === loginRequiredMessage) {
+			if (payload.data.type === 'assistant') {
+				const claudeOutput = payload.data.message;
+				if (claudeOutput.content[0]!.type === 'text') {
+					if (claudeOutput.content[0]!.text === loginRequiredMessage) {
 						continue;
 					}
 					lastAssistantMessage = {
-						createdAt: event.createdAt,
-						type: 'claude',
-						message: message.content[0]!.text,
+						createdAt: message.createdAt,
+						source: 'claude',
+						message: claudeOutput.content[0]!.text,
 						toolCalls: [],
 						toolCallsPendingApproval: []
 					};
 					out.push(lastAssistantMessage);
-				} else if (message.content[0]!.type === 'tool_use') {
-					const content = message.content[0]!;
+				} else if (claudeOutput.content[0]!.type === 'tool_use') {
+					const content = claudeOutput.content[0]!;
 					const toolCall: ToolCall = {
 						id: content.id,
 						name: content.name,
 						input: content.input as object,
 						result: undefined,
-						requestAt: normalizeDate(new Date(event.createdAt))
+						requestAt: normalizeDate(new Date(message.createdAt))
 					};
 					if (!lastAssistantMessage) {
 						lastAssistantMessage = {
-							type: 'claude',
-							createdAt: event.createdAt,
+							source: 'claude',
+							createdAt: message.createdAt,
 							message: '',
 							toolCalls: [],
 							toolCallsPendingApproval: []
@@ -140,8 +144,8 @@ export function formatMessages(
 					}
 					toolCalls[toolCall.id] = toolCall;
 				}
-			} else if (payload.type === 'user') {
-				const content = payload.message.content;
+			} else if (payload.data.type === 'user') {
+				const content = payload.data.message.content;
 				if (Array.isArray(content) && content[0]!.type === 'tool_result') {
 					const result = content[0]!;
 					const foundToolCall = toolCalls[result.tool_use_id];
@@ -157,63 +161,69 @@ export function formatMessages(
 					}
 				}
 			}
-		} else if (event.payload.source === 'system') {
-			const message = event.payload;
+		} else if (payload.source === 'system') {
 			if (
-				message.type === 'claudeExit' ||
-				message.type === 'userAbort' ||
-				message.type === 'unhandledException' ||
-				message.type === 'compactStart' ||
-				message.type === 'compactFinished'
+				payload.type === 'claudeExit' ||
+				payload.type === 'userAbort' ||
+				payload.type === 'unhandledException' ||
+				payload.type === 'compactStart' ||
+				payload.type === 'compactFinished' ||
+				payload.type === 'commitCreated'
 			) {
 				wrapUpAgentSide();
 			}
 
-			if (message.type === 'claudeExit' && message.code !== 0) {
-				if (previousEventLoginFailureQuery(events, event)) {
+			if (payload.type === 'claudeExit' && payload.code !== 0) {
+				if (previousEventLoginFailureQuery(events, message)) {
 					out.push({
-						type: 'claude',
-						createdAt: event.createdAt,
+						source: 'claude',
+						createdAt: message.createdAt,
 						message: `Claude Code is currently not logged in.\n\n Please run \`claude\` in your terminal and complete the login flow in order to use the GitButler Claude Code integration.`,
 						toolCalls: [],
 						toolCallsPendingApproval: []
 					});
 				} else {
 					out.push({
-						type: 'claude',
-						message: `Claude exited with non 0 error code \n\n\`\`\`\n${message.message}\n\`\`\``,
+						source: 'claude',
+						message: `Claude exited with non 0 error code \n\n\`\`\`\n${payload.message}\n\`\`\``,
 						toolCalls: [],
 						toolCallsPendingApproval: [],
-						createdAt: event.createdAt
+						createdAt: message.createdAt
 					});
 				}
 			}
-			if (message.type === 'unhandledException') {
+			if (payload.type === 'unhandledException') {
 				out.push({
-					type: 'claude',
-					message: `Encountered an unhandled exception when executing Claude.\nPlease verify your Claude Code installation location and try clearing the context. \n\n\`\`\`\n${message.message}\n\`\`\``,
+					source: 'claude',
+					message: `Encountered an unhandled exception when executing Claude.\nPlease verify your Claude Code installation location and try clearing the context. \n\n\`\`\`\n${payload.message}\n\`\`\``,
 					toolCalls: [],
 					toolCallsPendingApproval: [],
-					createdAt: event.createdAt
+					createdAt: message.createdAt
 				});
 			}
-			if (message.type === 'userAbort') {
+			if (payload.type === 'userAbort') {
 				out.push({
-					type: 'claude',
-					createdAt: event.createdAt,
+					source: 'claude',
+					createdAt: message.createdAt,
 					message: `I've stopped! What can I help you with next?`,
 					toolCalls: [],
 					toolCallsPendingApproval: []
 				});
 			}
-			if (message.type === 'compactFinished') {
+			if (payload.type === 'compactFinished') {
 				out.push({
-					type: 'claude',
-					createdAt: event.createdAt,
+					source: 'claude',
+					createdAt: message.createdAt,
 					subtype: 'compaction',
-					message: `Context compaction completed: ${message.summary}`,
+					message: `Context compaction completed: ${payload.summary}`,
 					toolCalls: [],
 					toolCallsPendingApproval: []
+				});
+			}
+			if (payload.type === 'commitCreated') {
+				out.push({
+					createdAt: message.createdAt,
+					...payload
 				});
 			}
 		}
@@ -232,7 +242,7 @@ export function formatMessages(
 		}
 		toolCalls = {};
 		// Move pending approval tool calls to completed tool calls
-		if (lastAssistantMessage?.type === 'claude') {
+		if (lastAssistantMessage?.source === 'claude') {
 			lastAssistantMessage.toolCalls = [
 				...lastAssistantMessage.toolCalls,
 				...lastAssistantMessage.toolCallsPendingApproval
@@ -270,7 +280,7 @@ type UserFeedbackStatus =
 
 export function userFeedbackStatus(messages: Message[]): UserFeedbackStatus {
 	const lastMessage = messages.at(-1);
-	if (!lastMessage || lastMessage.type === 'user') {
+	if (!lastMessage || lastMessage.source === 'user' || lastMessage.source === 'system') {
 		return { waitingForFeedback: false, msSpentWaiting: 0 };
 	}
 	if (lastMessage.toolCallsPendingApproval.length > 0) {

@@ -72,7 +72,7 @@ export class CodegenAnalytics {
 	}
 
 	private countUserMessages(formattedMessages: Message[]): number {
-		return formattedMessages.filter((message) => message.type === 'user').length;
+		return formattedMessages.filter((message) => message.source === 'user').length;
 	}
 }
 

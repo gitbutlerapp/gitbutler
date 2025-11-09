@@ -147,6 +147,18 @@ pub struct UserInput {
     pub attachments: Option<Vec<PromptAttachment>>,
 }
 
+/// Details about commits created by Claude.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitCreatedDetails {
+    #[serde(default)]
+    pub stack_id: Option<String>,
+    #[serde(default)]
+    pub branch_name: Option<String>,
+    #[serde(default)]
+    pub commit_ids: Option<Vec<String>>,
+}
+
 /// System messages from GitButler about the Claude session state.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type")]
@@ -167,6 +179,8 @@ pub enum SystemMessage {
     CompactFinished {
         summary: String,
     },
+    /// Commits were created by Claude.
+    CommitCreated(CommitCreatedDetails),
 }
 
 /// Details about a Claude session, extracted from the Claude transcript.
