@@ -157,12 +157,6 @@ export type SystemMessage =
 	| {
 			type: 'compactFinished';
 			summary: string;
-	  }
-	| {
-			type: 'commitCreated';
-			stackId: string;
-			branchName: string;
-			commitIds: string[];
 	  };
 
 /**

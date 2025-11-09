@@ -171,8 +171,7 @@ export function formatMessages(
 				payload.type === 'userAbort' ||
 				payload.type === 'unhandledException' ||
 				payload.type === 'compactStart' ||
-				payload.type === 'compactFinished' ||
-				payload.type === 'commitCreated'
+				payload.type === 'compactFinished'
 			) {
 				wrapUpAgentSide();
 			}
