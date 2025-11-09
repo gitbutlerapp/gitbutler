@@ -4,8 +4,9 @@
 		"demo": "https://youtu.be/DhJtNNhCNLM?si=vQRBaxCB4srOB_NW"
 	},
 	"app-preview": {
-		"src": "/images/app-preview.png",
-		"alt": "App Preview"
+		"alt": "App Preview",
+		"light-src": "/images/app-preview-light.png",
+		"dark-src": "/images/app-preview-dark.png"
 	},
 	"main-features": [
 		{

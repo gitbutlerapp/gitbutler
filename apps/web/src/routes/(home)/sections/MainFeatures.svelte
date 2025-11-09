@@ -1,13 +1,19 @@
 <script lang="ts">
 	import Features from '$home/components/Features.svelte';
 	import contentJSON from '$home/data/content.json';
+	import { effectiveThemeStore } from '$lib/utils/theme.svelte';
 
 	const previewContent = contentJSON['app-preview'];
 	const featuresContent = contentJSON['main-features'];
+
+	// Get the effective theme (light or dark) and reactive image source
+	const previewSrc = $derived(
+		$effectiveThemeStore === 'dark' ? previewContent['dark-src'] : previewContent['light-src']
+	);
 </script>
 
 <div class="features-wrap">
-	<img class="app-preview" src={previewContent.src} alt={previewContent.alt} />
+	<img class="app-preview" src={previewSrc} alt={previewContent.alt} />
 
 	<Features items={featuresContent} />
 </div>

@@ -9,6 +9,7 @@
 	import { getValidReleases } from '$lib/types/releases';
 	import { UserService, USER_SERVICE } from '$lib/user/userService';
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
+	import { initTheme } from '$lib/utils/theme.svelte';
 	import { provide } from '@gitbutler/core/context';
 	import { HttpClient, HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 	import { PROJECT_SERVICE, ProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -21,6 +22,9 @@
 	import '../styles/global.css';
 	import '@gitbutler/design-core/core';
 	import '@gitbutler/design-core/utility';
+
+	// Initialize theme system
+	initTheme();
 
 	interface Props {
 		children: Snippet;
