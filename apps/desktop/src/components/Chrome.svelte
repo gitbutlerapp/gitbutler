@@ -22,7 +22,7 @@
 <ReduxResult {projectId} result={projectQuery.result}>
 	{#snippet children(project, { projectId })}
 		<div class="chrome" use:focusable={{ vertical: true, activate: true }}>
-			<ChromeHeader {projectId} projectTitle={project.title} />
+			<ChromeHeader {projectId} projectTitle={project.title} actionsDisabled={sidebarDisabled} />
 			<div class="chrome-body" use:focusable>
 				<EnsureAuthorInfo {projectId} />
 				<ChromeSidebar {projectId} disabled={sidebarDisabled} />

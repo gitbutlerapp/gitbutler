@@ -75,6 +75,7 @@ export type ProjectUiState = {
 	exclusiveAction: ExclusiveAction | undefined;
 	stackId: string | undefined;
 	branchesSelection: BranchesSelection;
+	showActions: boolean;
 	branchesToPoll: string[];
 	selectedClaudeSession: { stackId: string; head: string } | undefined;
 	thinkingLevel: ThinkingLevel;
@@ -168,6 +169,7 @@ export class UiState {
 		exclusiveAction: undefined,
 		branchesSelection: {},
 		stackId: undefined,
+		showActions: false,
 		branchesToPoll: [],
 		selectedClaudeSession: undefined,
 		thinkingLevel: 'normal',

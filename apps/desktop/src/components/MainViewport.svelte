@@ -46,8 +46,15 @@ the window, then enlarge it and retain the original widths of the layout.
 			min: number;
 		};
 		middle: Snippet;
+		right?: Snippet;
+		rightWidth: {
+			default: number;
+			min: number;
+		};
 	};
-	const { testId, name, left, leftWidth, preview, previewWidth, middle }: Props = $props();
+
+	const { testId, name, left, leftWidth, preview, previewWidth, middle, right, rightWidth }: Props =
+		$props();
 
 	const userSettings = inject(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
@@ -57,13 +64,16 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	let leftPreferredWidth = $derived(pxToRem(leftWidth.default, zoom));
 	let previewPreferredWidth = $derived(pxToRem(previewWidth?.default, zoom));
+	let rightPreferredWidth = $derived(pxToRem(rightWidth.default, zoom));
 
 	let leftDiv = $state<HTMLDivElement>();
 	let previewDiv = $state<HTMLDivElement>();
+	let rightDiv = $state<HTMLDivElement>();
 
 	const leftMinWidth = $derived(pxToRem(leftWidth.min, zoom));
 	const leftDefaultWidth = $derived(pxToRem(leftWidth.default, zoom));
 	const previewMinWidth = $derived(preview ? pxToRem(previewWidth?.min, zoom) : 0);
+	const rightMinWidth = $derived(pxToRem(rightWidth.min, zoom));
 
 	// These need to stay in px since they are bound to elements.
 	let containerBindWidth = $state<number>(1000); // TODO: What initial value should we give this?
@@ -80,28 +90,41 @@ the window, then enlarge it and retain the original widths of the layout.
 	const marginSum = 1;
 
 	const middleMinWidth = $derived(
-		containerMinWidth - leftMinWidth - pxToRem(previewWidth?.min, zoom) - marginSum
+		containerMinWidth - leftMinWidth - pxToRem(previewWidth?.min, zoom) - rightMinWidth - marginSum
 	);
 
 	const leftMaxWidth = $derived(
-		containerBindWidthRem - previewMinWidth - middleMinWidth - marginSum
+		containerBindWidthRem - previewMinWidth - middleMinWidth - rightMinWidth - marginSum
 	);
 
 	// Calculate derived widths with proper constraints
 	const finalLeftWidth = $derived(
 		Math.min(
-			containerBindWidthRem - previewMinWidth - middleMinWidth - marginSum,
+			containerBindWidthRem - previewMinWidth - middleMinWidth - rightMinWidth - marginSum,
 			Math.max(leftMinWidth, leftPreferredWidth)
 		)
 	);
 
 	const previewMaxWidth = $derived(
-		containerBindWidthRem - finalLeftWidth - middleMinWidth - marginSum
+		containerBindWidthRem - finalLeftWidth - middleMinWidth - rightMinWidth - marginSum
 	);
 
-	const remainingForPreview = $derived(containerBindWidthRem - finalLeftWidth - middleMinWidth);
+	const remainingForPreview = $derived(
+		containerBindWidthRem - finalLeftWidth - middleMinWidth - rightMinWidth
+	);
 	const finalPreviewWidth = $derived(
 		preview ? Math.min(remainingForPreview, Math.max(previewMinWidth, previewPreferredWidth)) : 0
+	);
+
+	const remainingForRight = $derived(
+		containerBindWidthRem - finalLeftWidth - finalPreviewWidth - middleMinWidth - marginSum
+	);
+	const finalRightWidth = $derived(
+		Math.min(remainingForRight, Math.max(rightMinWidth, rightPreferredWidth))
+	);
+
+	const rightMaxWidth = $derived(
+		containerBindWidthRem - finalLeftWidth - finalPreviewWidth - middleMinWidth - 1
 	);
 </script>
 
@@ -164,9 +187,37 @@ the window, then enlarge it and retain the original widths of the layout.
 		</div>
 	{/if}
 
-	<div class="main-section view-wrapper dotted-pattern" style:min-width={middleMinWidth + 'rem'}>
+	<div
+		class="main-section view-wrapper dotted-pattern"
+		style:min-width={middleMinWidth + 'rem'}
+		style:margin-right={right ? '0' : ''}
+	>
 		{@render middle()}
 	</div>
+
+	{#if right}
+		<div
+			class="right-sideview"
+			bind:this={rightDiv}
+			style:width={finalRightWidth + 'rem'}
+			use:focusable
+		>
+			<Resizer
+				viewport={rightDiv}
+				direction="left"
+				minWidth={rightMinWidth}
+				defaultValue={pxToRem(rightWidth.default, zoom)}
+				maxWidth={rightMaxWidth}
+				persistId="viewport-${name}-right-sideview"
+				onWidth={(width) => {
+					rightPreferredWidth = width;
+				}}
+			/>
+			<div class="right-sideview-content">
+				{@render right()}
+			</div>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -248,6 +299,26 @@ the window, then enlarge it and retain the original widths of the layout.
 		height: 100%;
 		margin-left: 8px;
 		overflow-x: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+	}
+
+	.right-sideview {
+		display: flex;
+		position: relative;
+		flex-grow: 0;
+		flex-shrink: 0;
+		flex-direction: column;
+		justify-content: flex-start;
+		height: 100%;
+		margin-left: 8px;
+	}
+
+	.right-sideview-content {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		height: 100%;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 	}
