@@ -1,4 +1,3 @@
-import { abbreviatePath } from '@gitbutler/ui/utils/filePath';
 import type { ToolCall } from '$lib/codegen/messages';
 import type iconsJson from '@gitbutler/ui/data/icons.json';
 
@@ -58,21 +57,21 @@ export function formatToolCall(toolCall: ToolCall): string {
 
 	switch (toolCall.name) {
 		case 'Read':
-			return abbreviatePath(input['file_path']);
+			return input['file_path'];
 
 		case 'Edit':
 		case 'Write':
-			return abbreviatePath(input['file_path']);
+			return input['file_path'];
 
 		case 'Bash':
 			// Show description if available, otherwise truncate command
 			return truncate(input['command'], 128);
 
 		case 'Grep':
-			return `"${input['pattern']}"${input['path'] ? ` in ${abbreviatePath(input['path'])}` : ''}`;
+			return `"${input['pattern']}"${input['path'] ? ` in ${input['path']}` : ''}`;
 
 		case 'Glob':
-			return `"${input['pattern']}"${input['path'] ? ` in ${abbreviatePath(input['path'])}` : ''}`;
+			return `"${input['pattern']}"${input['path'] ? ` in ${input['path']}` : ''}`;
 
 		case 'Task':
 			return input['description'] || 'Running subtask';
