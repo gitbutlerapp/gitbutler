@@ -4,19 +4,20 @@
 	import AttachmentList from '$components/codegen/AttachmentList.svelte';
 	import CodegenQueued from '$components/codegen/CodegenQueued.svelte';
 	import FileSearch from '$components/codegen/FileSearch.svelte';
+	import { BACKEND } from '$lib/backend';
 	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import {
 		CodegenCommitDropHandler,
 		CodegenFileDropHandler,
 		CodegenHunkDropHandler
 	} from '$lib/codegen/dropzone';
+	import { type UserInput, type PromptAttachment, type ClaudeMessage } from '$lib/codegen/types';
 	import { newlineOnEnter } from '$lib/config/uiFeatureFlags';
 	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { showError } from '$lib/notifications/toasts';
 	import { inject } from '@gitbutler/core/context';
-	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin } from '@gitbutler/ui';
+	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin, UpDownPlugin } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
-	import type { PromptAttachment } from '$lib/codegen/types';
 	import type { FileSuggestionUpdate } from '@gitbutler/ui/richText/plugins/FilePlugin.svelte';
 	import type { Snippet } from 'svelte';
 
@@ -48,6 +49,7 @@
 		onChange
 	}: Props = $props();
 
+	const backend = inject(BACKEND);
 	const attachmentService = inject(ATTACHMENT_SERVICE);
 	const attachments = $derived(attachmentService.getByBranch(branchName));
 
@@ -261,6 +263,21 @@
 						onUpdateSuggestion={onFileSuggestionUpdate}
 						onExitSuggestion={() => {
 							fileSuggestions = undefined;
+						}}
+					/>
+					<UpDownPlugin
+						historyLookup={async (offset) => {
+							const result = await backend.invoke<
+								ClaudeMessage<{ source: 'user' } & UserInput> | undefined
+							>('claude_get_user_message', {
+								projectId,
+								offset
+							});
+							const attachments = result?.payload.attachments;
+							if (attachments) {
+								attachmentService.add(branchName, attachments);
+							}
+							return result?.payload.message;
 						}}
 					/>
 				{/snippet}

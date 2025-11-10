@@ -540,6 +540,7 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "claude_get_user_message" => claude::claude_get_user_message_cmd(request.params),
         "claude_list_permission_requests" => {
             claude::claude_list_permission_requests_cmd(request.params)
         }

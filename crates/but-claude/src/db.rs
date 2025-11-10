@@ -173,7 +173,7 @@ pub fn get_user_message(
     let message = ctx
         .db()?
         .claude_messages()
-        .get_message_of_type(MessagePayloadDbType::UserInput.to_string(), offset)?;
+        .get_message_of_type(MessagePayloadDbType::User.to_string(), offset)?;
 
     match message {
         Some(m) => Ok(Some(m.try_into()?)),
