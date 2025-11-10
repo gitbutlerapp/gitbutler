@@ -120,6 +120,10 @@ but-gerrit = { path = "crates/but-gerrit" }
 but-cherry-apply = { path = "crates/but-cherry-apply" }
 but-github = { path = "crates/but-github" }
 open = "5.3.2"
+regex = { version = "1.11.3", default-features = false, features = ["std", "unicode" ] }
+clap = { version = "4.5.51", default-features = false, features = ["derive", "std", "help"]}
+tracing-forest = { version = "0.3.0" }
+sysinfo = { version = "0.37.2", default-features = false }
 
 [profile.release]
 # There are no overrides here as we optimise for fast release builds,
@@ -151,6 +155,8 @@ gix-actor = { opt-level = 3 }
 gix-config = { opt-level = 3 }
 sha1-checked = { opt-level = 3 }
 zlib-rs = { opt-level = 3 }
+serde = { opt-level = 3 }
+serde_json = { opt-level = 3 }
 # This one is special as we can run into debug assertions otherwise.
 # They have a time, but let's chose the time instead of always being hit by it.
 gix-merge = { opt-level = 3, debug-assertions = false }

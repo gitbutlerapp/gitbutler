@@ -249,17 +249,16 @@ impl Graph {
         options: Options,
     ) -> anyhow::Result<Self> {
         let (repo, meta, _entrypoint) = Overlay::default().into_parts(tip.repo, meta);
-        Graph::from_commit_traversal_inner(tip.detach(), &repo, ref_name, &meta, options)
+        Graph::from_commit_traversal_inner(tip.detach(), &repo, ref_name.into(), &meta, options)
     }
 
     fn from_commit_traversal_inner<T: RefMetadata>(
         tip: gix::ObjectId,
         repo: &OverlayRepo<'_>,
-        ref_name: impl Into<Option<gix::refs::FullName>>,
+        ref_name: Option<gix::refs::FullName>,
         meta: &OverlayMetadata<'_, T>,
         options: Options,
     ) -> anyhow::Result<Self> {
-        let ref_name = ref_name.into();
         {
             if let Some(name) = &ref_name {
                 let span = tracing::Span::current();

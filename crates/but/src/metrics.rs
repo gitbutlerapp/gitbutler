@@ -260,7 +260,7 @@ pub(crate) fn metrics_if_configured(
     }
     if let Some(v) = cmd.to_possible_value() {
         let binary_path = std::env::current_exe().unwrap_or_default();
-        let mut group = tokio::process::Command::new(binary_path)
+        tokio::process::Command::new(binary_path)
             .arg("metrics")
             .arg("--command-name")
             .arg(v.get_name())
@@ -271,7 +271,6 @@ pub(crate) fn metrics_if_configured(
             .group()
             .kill_on_drop(false)
             .spawn()?;
-        group.inner().id().map(|id| sysinfo::Pid::from(id as usize));
     }
     Ok(())
 }

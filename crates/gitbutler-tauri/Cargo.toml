@@ -47,7 +47,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot"] }
 tracing.workspace = true
 tracing-appender = "0.2.3"
 tracing-subscriber.workspace = true
-tracing-forest = { version = "0.2.0" }
+tracing-forest.workspace = true
 gitbutler-watcher.workspace = true
 gitbutler-repo-actions.workspace = true
 gitbutler-command-context.workspace = true
