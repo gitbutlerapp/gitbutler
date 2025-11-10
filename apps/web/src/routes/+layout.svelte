@@ -13,7 +13,6 @@
 	import { provide } from '@gitbutler/core/context';
 	import { HttpClient, HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 	import { PROJECT_SERVICE, ProjectService } from '@gitbutler/shared/organizations/projectService';
-	import { getRecentlyPushedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService, WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { type Snippet } from 'svelte';
@@ -63,11 +62,10 @@
 
 	// Releases data for changelog
 	let releases: any[] = $state([]);
-	const recentProjects = getRecentlyPushedProjects();
 
 	// Check if current page should use marketing layout
 	const isMarketingPage = $derived(
-		(page.route.id === '/(app)' && recentProjects.current.length === 0) ||
+		page.route.id === '/(app)' ||
 			page.route.id === '/(app)/home' ||
 			page.route.id === '/downloads' ||
 			page.route.id === '/nightly'

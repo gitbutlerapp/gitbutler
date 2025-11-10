@@ -1,43 +1,16 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import RedirectToProfileIfLoggedIn from '$lib/auth/RedirectToProfileIfLoggedIn.svelte';
-	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
-	import { isFound } from '@gitbutler/shared/network/loadable';
-	import { getRecentlyPushedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 
-	const routes = inject(WEB_ROUTES_SERVICE);
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 
 	const loggedIn = $derived($user !== undefined);
-	const recentProjects = getRecentlyPushedProjects();
-	let hasRecentProjects = $state(false);
-
-	$effect(() => {
-		if (recentProjects.current.length >= 1) {
-			const project = recentProjects.current[0];
-			hasRecentProjects = true;
-			if (isFound(project)) {
-				goto(
-					routes.projectReviewUrl({
-						ownerSlug: project.value.owner,
-						projectSlug: project.value.slug
-					})
-				);
-			}
-		}
-	});
 </script>
 
 {#if !loggedIn}
 	<p>Loading...</p>
-{:else if hasRecentProjects}
-	<DashboardLayout>
-		<p>You have no recent projects!</p>
-	</DashboardLayout>
 {:else}
 	<!-- For now, just redirect the user back to the  -->
 	<RedirectToProfileIfLoggedIn />
