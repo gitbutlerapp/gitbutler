@@ -1,0 +1,16 @@
+{
+  "entries": [
+    {
+      "id": "from-a",
+      "path": "[TEMP_PATH]/.git/gitbutler/worktrees/from-a",
+      "createdFromRef": "refs/heads/A",
+      "base": "9477ae721ab521d9d0174f70e804ce3ff9f6fb56"
+    },
+    {
+      "id": "from-b",
+      "path": "[TEMP_PATH]/.git/gitbutler/worktrees/from-b",
+      "createdFromRef": "refs/heads/B",
+      "base": "d3e2ba36c529fbdce8de90593e22aceae21f9b17"
+    }
+  ]
+}
