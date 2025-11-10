@@ -111,34 +111,36 @@ pub(crate) async fn worktree(
         commit_date: formatted_date,
     };
 
-    // Fetch upstream state information (similar to `but base check`)
-    let upstream_state = but_api::virtual_branches::fetch_from_remotes(project.id, Some("auto".to_string()))
+    // Get cached upstream state information (without fetching)
+    let upstream_state = but_api::virtual_branches::get_base_branch_data(project.id)
         .ok()
+        .flatten()
         .and_then(|base_branch| {
             if base_branch.behind > 0 {
-                // Get the latest commit on the upstream branch
-                base_branch.recent_commits.first().and_then(|latest_commit| {
-                    let commit_message = latest_commit
-                        .description
-                        .to_string()
-                        .replace('\n', " ")
-                        .chars()
-                        .take(50)
-                        .collect::<String>();
+                // Get the latest commit on the upstream branch (current_sha is the tip of the remote branch)
+                let commit_id = base_branch.current_sha;
+                repo.find_commit(commit_id.to_gix())
+                    .ok()
+                    .and_then(|commit_obj| {
+                        let commit = commit_obj.decode().ok()?;
+                        let commit_message = commit
+                            .message
+                            .to_string()
+                            .replace('\n', " ")
+                            .chars()
+                            .take(50)
+                            .collect::<String>();
 
-                    // Convert u128 milliseconds to seconds for gix::date::Time
-                    let timestamp_secs = (latest_commit.created_at / 1000) as i64;
-                    let time = gix::date::Time::new(timestamp_secs as gix::date::SecondsSinceUnixEpoch, 0);
-                    let formatted_date = time.format_or_unix(CLI_DATE);
+                        let formatted_date = commit.committer().time().ok()?.format_or_unix(CLI_DATE);
 
-                    Some(UpstreamState {
-                        target_name: base_branch.branch_name.clone(),
-                        behind_count: base_branch.behind,
-                        latest_commit: latest_commit.id[..7].to_string(),
-                        message: commit_message,
-                        commit_date: formatted_date,
+                        Some(UpstreamState {
+                            target_name: base_branch.branch_name.clone(),
+                            behind_count: base_branch.behind,
+                            latest_commit: commit_id.to_string()[..7].to_string(),
+                            message: commit_message,
+                            commit_date: formatted_date,
+                        })
                     })
-                })
             } else {
                 None
             }
