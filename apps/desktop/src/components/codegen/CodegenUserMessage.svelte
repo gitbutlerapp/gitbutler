@@ -39,6 +39,7 @@
 		overflow: hidden;
 		gap: 10px;
 		border-radius: var(--radius-ml);
+		border-bottom-right-radius: 0;
 		background-color: var(--clr-bg-2);
 		text-wrap: wrap;
 		word-break: break-word;
