@@ -97,7 +97,7 @@ export type ClaudeSession = {
 /**
  * Represents a message in a Claude session, referencing the stable session ID.
  */
-export type ClaudeMessage = {
+export type ClaudeMessage<T extends MessagePayload = MessagePayload> = {
 	/** Message identifier */
 	id: string;
 	/** The stable session ID that this message belongs to. */
@@ -105,7 +105,7 @@ export type ClaudeMessage = {
 	/** The timestamp when the message was created. */
 	createdAt: string;
 	/** The payload of the message from different sources. */
-	payload: MessagePayload;
+	payload: T;
 };
 
 /**

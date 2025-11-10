@@ -1,6 +1,7 @@
 <script module lang="ts">
 	import RichTextEditor from '$lib/richText/RichTextEditor.svelte';
 	import Formatter from '$lib/richText/plugins/Formatter.svelte';
+	import UpDownPlugin from '$lib/richText/plugins/UpDownPlugin.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
@@ -34,6 +35,7 @@
 				>
 					{#snippet plugins()}
 						<Formatter bind:this={formatter} />
+						<UpDownPlugin historyLookup={async (offset) => `offset ${offset}`} />
 					{/snippet}
 				</RichTextEditor>
 			</div>
