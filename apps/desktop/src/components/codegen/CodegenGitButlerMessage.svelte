@@ -19,9 +19,8 @@
 	<div class="system-message text-13">
 		<p>New commit{message.commitIds.length > 1 ? 's' : ''} created!</p>
 		{#each message.commitIds as commitId}
-			{@const { stackId } = message}
-			{@const commit = stackService.commitById(projectId, stackId, commitId)}
-			<ReduxResult {projectId} {stackId} result={commit.result}>
+			{@const commit = stackService.commitDetails(projectId, commitId)}
+			<ReduxResult {projectId} result={commit.result}>
 				{#snippet children(commit)}
 					<div class="commit-bubble">
 						<CommitDetails {commit} />
@@ -41,6 +40,7 @@
 		flex-direction: column;
 		padding: 12px 0;
 		gap: 12px;
+		user-select: text;
 	}
 
 	.commit-bubble {
