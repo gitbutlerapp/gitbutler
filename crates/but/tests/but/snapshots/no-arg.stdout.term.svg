@@ -1,4 +1,4 @@
-<svg width="740px" height="758px" xmlns="http://www.w3.org/2000/svg">
+<svg width="768px" height="956px" xmlns="http://www.w3.org/2000/svg">
   <style>
     .fg { fill: #AAAAAA }
     .bg { fill: #000000 }
@@ -29,77 +29,99 @@
 </tspan>
     <tspan x="10px" y="100px">
 </tspan>
-    <tspan x="10px" y="118px"><tspan class="fg-yellow">Inspection</tspan><tspan>:</tspan>
+    <tspan x="10px" y="118px"><tspan>The GitButler CLI can be used to do nearly anything the desktop client can do (and more).</tspan>
 </tspan>
-    <tspan x="10px" y="136px"><tspan>  </tspan><tspan class="fg-green">status       </tspan><tspan>Overview of the uncommitted changes in the repository</tspan>
+    <tspan x="10px" y="136px"><tspan>It is a drop in replacement for most of the Git commands you would normally use, but Git</tspan>
 </tspan>
-    <tspan x="10px" y="154px"><tspan>  </tspan><tspan class="fg-green">log          </tspan><tspan>Show commits on active branches in your workspace</tspan>
+    <tspan x="10px" y="154px"><tspan>commands (blame, log, etc) can also be used, as GitButler is fully Git compatible.</tspan>
 </tspan>
     <tspan x="10px" y="172px">
 </tspan>
-    <tspan x="10px" y="190px"><tspan class="fg-yellow">Branching and Committing</tspan><tspan>:</tspan>
+    <tspan x="10px" y="190px"><tspan>Checkout the full docs here: https://docs.gitbutler.com/cli-overview</tspan>
 </tspan>
-    <tspan x="10px" y="208px"><tspan>  </tspan><tspan class="fg-green">commit       </tspan><tspan>Commit changes to a stack</tspan>
+    <tspan x="10px" y="208px">
 </tspan>
-    <tspan x="10px" y="226px"><tspan>  </tspan><tspan class="fg-green">push         </tspan><tspan>Push a branch/stack to remote</tspan>
+    <tspan x="10px" y="226px"><tspan class="fg-yellow">Inspection</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="244px"><tspan>  </tspan><tspan class="fg-green">new          </tspan><tspan>Insert a blank commit before the specified commit, or at the to…</tspan>
+    <tspan x="10px" y="244px"><tspan>  </tspan><tspan class="fg-green">status       </tspan><tspan>Overview of the uncommitted changes in the repository</tspan>
 </tspan>
-    <tspan x="10px" y="262px"><tspan>  </tspan><tspan class="fg-green">branch       </tspan><tspan>Commands for managing branches</tspan>
+    <tspan x="10px" y="262px">
 </tspan>
-    <tspan x="10px" y="280px"><tspan>  </tspan><tspan class="fg-green">base         </tspan><tspan>Commands for managing the base</tspan>
+    <tspan x="10px" y="280px"><tspan class="fg-yellow">Branching and Committing</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="298px"><tspan>  </tspan><tspan class="fg-green">mark         </tspan><tspan>Creates or removes a rule for auto-assigning or auto-comitting</tspan>
+    <tspan x="10px" y="298px"><tspan>  </tspan><tspan class="fg-green">commit       </tspan><tspan>Commit changes to a stack</tspan>
 </tspan>
-    <tspan x="10px" y="316px"><tspan>  </tspan><tspan class="fg-green">unmark       </tspan><tspan>Removes all marks from the workspace</tspan>
+    <tspan x="10px" y="316px"><tspan>  </tspan><tspan class="fg-green">new          </tspan><tspan>Insert a blank commit before the specified commit, or at the to…</tspan>
 </tspan>
-    <tspan x="10px" y="334px">
+    <tspan x="10px" y="334px"><tspan>  </tspan><tspan class="fg-green">branch       </tspan><tspan>Commands for managing branches</tspan>
 </tspan>
-    <tspan x="10px" y="352px"><tspan class="fg-yellow">Editing Commits</tspan><tspan>:</tspan>
+    <tspan x="10px" y="352px"><tspan>  </tspan><tspan class="fg-green">base         </tspan><tspan>Commands for managing the base</tspan>
 </tspan>
-    <tspan x="10px" y="370px"><tspan>  </tspan><tspan class="fg-green">rub          </tspan><tspan>Combines two entities together to perform an operation</tspan>
+    <tspan x="10px" y="370px"><tspan>  </tspan><tspan class="fg-green">mark         </tspan><tspan>Creates or removes a rule for auto-assigning or auto-comitting</tspan>
 </tspan>
-    <tspan x="10px" y="388px"><tspan>  </tspan><tspan class="fg-green">describe     </tspan><tspan>Edit the commit message of the specified commit</tspan>
+    <tspan x="10px" y="388px"><tspan>  </tspan><tspan class="fg-green">unmark       </tspan><tspan>Removes all marks from the workspace</tspan>
 </tspan>
     <tspan x="10px" y="406px">
 </tspan>
-    <tspan x="10px" y="424px"><tspan class="fg-yellow">Operation History</tspan><tspan>:</tspan>
+    <tspan x="10px" y="424px"><tspan class="fg-yellow">Server Interactions</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="442px"><tspan>  </tspan><tspan class="fg-green">oplog        </tspan><tspan>Show operation history (last 20 entries)</tspan>
+    <tspan x="10px" y="442px"><tspan>  </tspan><tspan class="fg-green">push         </tspan><tspan>Push a branch/stack to remote</tspan>
 </tspan>
-    <tspan x="10px" y="460px"><tspan>  </tspan><tspan class="fg-green">undo         </tspan><tspan>Undo the last operation by reverting to the previous snapshot</tspan>
+    <tspan x="10px" y="460px"><tspan>  </tspan><tspan class="fg-green">review       </tspan><tspan>Command for creating and publishing code reviews to a forge</tspan>
 </tspan>
-    <tspan x="10px" y="478px"><tspan>  </tspan><tspan class="fg-green">restore      </tspan><tspan>Restore to a specific oplog snapshot</tspan>
+    <tspan x="10px" y="478px"><tspan>  </tspan><tspan class="fg-green">forge        </tspan><tspan>Commands for interacting with forges like GitHub, GitLab (comin…</tspan>
 </tspan>
-    <tspan x="10px" y="496px"><tspan>  </tspan><tspan class="fg-green">snapshot     </tspan><tspan>Create an on-demand snapshot with optional message</tspan>
+    <tspan x="10px" y="496px">
 </tspan>
-    <tspan x="10px" y="514px">
+    <tspan x="10px" y="514px"><tspan class="fg-yellow">Editing Commits</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="532px"><tspan class="fg-yellow">Other Commands</tspan><tspan>:</tspan>
+    <tspan x="10px" y="532px"><tspan>  </tspan><tspan class="fg-green">rub          </tspan><tspan>Combines two entities together to perform an operation</tspan>
 </tspan>
-    <tspan x="10px" y="550px"><tspan>  </tspan><tspan class="fg-green">init         </tspan><tspan>Initializes a GitButler project from a git repository in the cu…</tspan>
+    <tspan x="10px" y="550px"><tspan>  </tspan><tspan class="fg-green">describe     </tspan><tspan>Edit the commit message of the specified commit</tspan>
 </tspan>
-    <tspan x="10px" y="568px"><tspan>  </tspan><tspan class="fg-green">mcp          </tspan><tspan>Starts up the MCP server</tspan>
+    <tspan x="10px" y="568px"><tspan>  </tspan><tspan class="fg-green">absorb       </tspan><tspan>Automatically absorb uncomitted changes to an existing commit</tspan>
 </tspan>
-    <tspan x="10px" y="586px"><tspan>  </tspan><tspan class="fg-green">forge        </tspan><tspan>Commands for interacting with forges like GitHub, GitLab (comin…</tspan>
+    <tspan x="10px" y="586px">
 </tspan>
-    <tspan x="10px" y="604px"><tspan>  </tspan><tspan class="fg-green">review       </tspan><tspan>Command for creating and publishing code reviews to a forge</tspan>
+    <tspan x="10px" y="604px"><tspan class="fg-yellow">Operation History</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="622px"><tspan>  </tspan><tspan class="fg-green">completions  </tspan><tspan>Generate shell completion scripts for the specified or inferred…</tspan>
+    <tspan x="10px" y="622px"><tspan>  </tspan><tspan class="fg-green">oplog        </tspan><tspan>Show operation history (last 20 entries)</tspan>
 </tspan>
-    <tspan x="10px" y="640px"><tspan>  </tspan><tspan class="fg-green">absorb       </tspan>
+    <tspan x="10px" y="640px"><tspan>  </tspan><tspan class="fg-green">undo         </tspan><tspan>Undo the last operation by reverting to the previous snapshot</tspan>
 </tspan>
-    <tspan x="10px" y="658px">
+    <tspan x="10px" y="658px"><tspan>  </tspan><tspan class="fg-green">restore      </tspan><tspan>Restore to a specific oplog snapshot</tspan>
 </tspan>
-    <tspan x="10px" y="676px"><tspan class="fg-yellow">Options</tspan><tspan>:</tspan>
+    <tspan x="10px" y="676px"><tspan>  </tspan><tspan class="fg-green">snapshot     </tspan><tspan>Create an on-demand snapshot with optional message</tspan>
 </tspan>
-    <tspan x="10px" y="694px"><tspan>  -C, --current-dir &lt;PATH&gt;  Run as if but was started in PATH instead of the cu…</tspan>
+    <tspan x="10px" y="694px">
 </tspan>
-    <tspan x="10px" y="712px"><tspan>  -j, --json  Whether to use JSON output format</tspan>
+    <tspan x="10px" y="712px"><tspan class="fg-yellow">Other Commands</tspan><tspan>:</tspan>
 </tspan>
-    <tspan x="10px" y="730px"><tspan>  -h, --help  Print help</tspan>
+    <tspan x="10px" y="730px"><tspan>  </tspan><tspan class="fg-green">init         </tspan><tspan>Initializes a GitButler project from a git repository in the cu…</tspan>
 </tspan>
     <tspan x="10px" y="748px">
+</tspan>
+    <tspan x="10px" y="766px"><tspan>To add command completion, add this to your shell rc: (for example ~/.zshrc)</tspan>
+</tspan>
+    <tspan x="10px" y="784px"><tspan>  eval "$(but completions zsh)"</tspan>
+</tspan>
+    <tspan x="10px" y="802px">
+</tspan>
+    <tspan x="10px" y="820px"><tspan>To use the GitButler CLI with coding agents (Claude Code hooks, Cursor hooks, MCP), see:</tspan>
+</tspan>
+    <tspan x="10px" y="838px"><tspan>  https://docs.gitbutler.com/features/ai-integration/ai-overview</tspan>
+</tspan>
+    <tspan x="10px" y="856px">
+</tspan>
+    <tspan x="10px" y="874px"><tspan class="fg-yellow">Options</tspan><tspan>:</tspan>
+</tspan>
+    <tspan x="10px" y="892px"><tspan>  -C, --current-dir &lt;PATH&gt;  Run as if but was started in PATH instead of the cu…</tspan>
+</tspan>
+    <tspan x="10px" y="910px"><tspan>  -j, --json  Whether to use JSON output format</tspan>
+</tspan>
+    <tspan x="10px" y="928px"><tspan>  -h, --help  Print help</tspan>
+</tspan>
+    <tspan x="10px" y="946px">
 </tspan>
   </text>
 
