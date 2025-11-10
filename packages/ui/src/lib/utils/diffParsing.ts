@@ -272,10 +272,12 @@ export function parserFromExtension(extension: string): Parser | undefined {
 
 		case 'c':
 		case 'h':
+		case 'cc':
 		case 'cpp':
 		case 'c++':
 		case 'hpp':
 		case 'h++':
+		case 'hxx':
 			return cpp().language.parser;
 
 		case 'ex':
