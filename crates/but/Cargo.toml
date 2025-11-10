@@ -22,16 +22,14 @@ posthog-rs = { version = "0.3.7" }
 serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
 strum = { version = "0.27", features = ["derive"] }
-clap = { version = "4.5.51", features = ["derive", "env", "wrap_help"] }
+clap = { workspace = true, features = ["env", "wrap_help", "color", "error-context", "usage", "suggestions" ] }
 clap_complete = "4.5.60"
 chrono.workspace = true
 bstr.workspace = true
-regex = "1.11.3"
+regex.workspace = true
 anyhow.workspace = true
-# rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", branch = "main" }
 rmcp.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
-sysinfo = "0.37.1"
 gitbutler-project.workspace = true
 gix.workspace = true
 but-core.workspace = true
@@ -63,12 +61,12 @@ colored = "3.0.0"
 serde_json.workspace = true
 terminal_size = "0.4.3"
 tracing.workspace = true
-tracing-subscriber = { version = "0.3", features = [
+tracing-subscriber = { workspace = true, features = [
     "env-filter",
     "std",
     "fmt",
 ] }
-tracing-forest = { version = "0.2.0" }
+tracing-forest.workspace = true
 ratatui = "0.29.0"
 crossterm = "0.29.0"
 atty = "0.2.0"

@@ -34,11 +34,11 @@ gitbutler-reference.workspace = true
 
 gitbutler-commit = { workspace = true, optional = true, features = ["testing"] }
 
-clap = { version = "4.5.51", features = ["derive", "env"] }
+clap = { workspace = true, features = ["env"] }
 gix.workspace = true
 anyhow.workspace = true
 itertools.workspace = true
-tracing-forest = { version = "0.2.0" }
+tracing-forest.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
 dirs-next = "2.0.0"

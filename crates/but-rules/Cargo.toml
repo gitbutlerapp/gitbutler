@@ -13,7 +13,7 @@ doctest = false
 anyhow.workspace = true
 itertools.workspace = true
 serde.workspace = true
-regex = "1.11.3"
+regex = { workspace = true, features = ["perf"] }
 gix = { workspace = true }
 chrono.workspace = true
 serde_regex = "1.1.0"

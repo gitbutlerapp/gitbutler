@@ -19,7 +19,7 @@ termtree = "0.5.1"
 gix-testtools.workspace = true
 but-graph.workspace = true
 but-core.workspace = true
-regex = "1.11.3"
+regex = { workspace = true }
 snapbox = { workspace = true, optional = true }
 
 [dev-dependencies]

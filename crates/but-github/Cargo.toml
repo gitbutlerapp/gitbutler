@@ -22,4 +22,4 @@ anyhow.workspace = true
 gitbutler-user.workspace = true
 serde_json.workspace = true
 reqwest = { workspace = true, features = ["json"] }
-octorust = "0.10.0"
+octorust = { version = "0.10.0", default-features = false }
