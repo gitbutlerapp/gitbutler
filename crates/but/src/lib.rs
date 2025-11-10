@@ -494,12 +494,19 @@ fn print_grouped_help() -> std::io::Result<()> {
 
     // Define command groupings and their order (excluding MISC)
     let groups = [
-        ("Inspection".yellow(), vec!["status", "log"]),
+        ("Inspection".yellow(), vec!["status"]),
         (
             "Branching and Committing".yellow(),
-            vec!["commit", "push", "new", "branch", "base", "mark", "unmark"],
+            vec!["commit", "new", "branch", "base", "mark", "unmark"],
         ),
-        ("Editing Commits".yellow(), vec!["rub", "describe"]),
+        (
+            "Server Interactions".yellow(),
+            vec!["push", "review", "forge"],
+        ),
+        (
+            "Editing Commits".yellow(),
+            vec!["rub", "describe", "absorb"],
+        ),
         (
             "Operation History".yellow(),
             vec!["oplog", "undo", "restore", "snapshot"],
@@ -514,6 +521,24 @@ fn print_grouped_help() -> std::io::Result<()> {
     writeln!(stdout)?;
     writeln!(stdout, "Usage: but [OPTIONS] <COMMAND>")?;
     writeln!(stdout, "       but [OPTIONS] [RUB-SOURCE] [RUB-TARGET]")?;
+    writeln!(stdout)?;
+    writeln!(
+        stdout,
+        "The GitButler CLI can be used to do nearly anything the desktop client can do (and more)."
+    )?;
+    writeln!(
+        stdout,
+        "It is a drop in replacement for most of the Git commands you would normally use, but Git"
+    )?;
+    writeln!(
+        stdout,
+        "commands (blame, log, etc) can also be used, as GitButler is fully Git compatible."
+    )?;
+    writeln!(stdout)?;
+    writeln!(
+        stdout,
+        "Checkout the full docs here: https://docs.gitbutler.com/cli-overview"
+    )?;
     writeln!(stdout)?;
 
     // Keep track of which commands we've already printed
@@ -566,6 +591,24 @@ fn print_grouped_help() -> std::io::Result<()> {
         }
         writeln!(stdout)?;
     }
+
+    // Add command completion instructions
+    writeln!(
+        stdout,
+        "To add command completion, add this to your shell rc: (for example ~/.zshrc)"
+    )?;
+    writeln!(stdout, "  eval \"$(but completions zsh)\"")?;
+    writeln!(stdout)?;
+
+    writeln!(
+        stdout,
+        "To use the GitButler CLI with coding agents (Claude Code hooks, Cursor hooks, MCP), see:"
+    )?;
+    writeln!(
+        stdout,
+        "  https://docs.gitbutler.com/features/ai-integration/ai-overview"
+    )?;
+    writeln!(stdout)?;
 
     writeln!(stdout, "{}:", "Options".yellow())?;
     // Truncate long option descriptions if needed

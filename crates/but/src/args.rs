@@ -28,6 +28,7 @@ pub struct Args {
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// Show commits on active branches in your workspace.
+    #[clap(hide = true)]
     Log,
     /// Overview of the uncommitted changes in the repository.
     #[clap(alias = "st")]
@@ -154,6 +155,7 @@ For examples see `but rub --help`."
         message: Option<String>,
     },
     /// Starts up the MCP server.
+    #[clap(hide = true)]
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
         #[clap(long, short = 'i', hide = true)]
@@ -181,11 +183,13 @@ For examples see `but rub --help`."
     /// Command for creating and publishing code reviews to a forge.
     Review(forge::review::Platform),
     /// Generate shell completion scripts for the specified or inferred shell.
+    #[clap(hide = true)]
     Completions {
         /// The shell to generate completions for, or the one extracted from the `SHELL` environment variable.
         #[clap(value_enum)]
         shell: Option<clap_complete::Shell>,
     },
+    /// Automatically absorb uncomitted changes to an existing commit
     Absorb {
         /// If the CliID is an uncommitted change - the change will be absorbed
         /// If the CliID is a stack - anything assigned to the stack will be absorbed accordingly
