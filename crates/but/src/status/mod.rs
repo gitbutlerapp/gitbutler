@@ -29,10 +29,20 @@ struct CommonMergeBase {
     commit_date: String,
 }
 
+#[derive(Serialize, Clone)]
+struct UpstreamState {
+    target_name: String,
+    behind_count: usize,
+    latest_commit: String,
+    message: String,
+    commit_date: String,
+}
+
 #[derive(Serialize)]
 struct WorktreeStatus {
     stacks: Vec<StackEntry>,
     common_merge_base: CommonMergeBase,
+    upstream_state: Option<UpstreamState>,
 }
 
 pub(crate) async fn worktree(
@@ -101,10 +111,44 @@ pub(crate) async fn worktree(
         commit_date: formatted_date,
     };
 
+    // Fetch upstream state information (similar to `but base check`)
+    let upstream_state = but_api::virtual_branches::fetch_from_remotes(project.id, Some("auto".to_string()))
+        .ok()
+        .and_then(|base_branch| {
+            if base_branch.behind > 0 {
+                // Get the latest commit on the upstream branch
+                base_branch.recent_commits.first().and_then(|latest_commit| {
+                    let commit_message = latest_commit
+                        .description
+                        .to_string()
+                        .replace('\n', " ")
+                        .chars()
+                        .take(50)
+                        .collect::<String>();
+
+                    // Convert u128 milliseconds to seconds for gix::date::Time
+                    let timestamp_secs = (latest_commit.created_at / 1000) as i64;
+                    let time = gix::date::Time::new(timestamp_secs as gix::date::SecondsSinceUnixEpoch, 0);
+                    let formatted_date = time.format_or_unix(CLI_DATE);
+
+                    Some(UpstreamState {
+                        target_name: base_branch.branch_name.clone(),
+                        behind_count: base_branch.behind,
+                        latest_commit: latest_commit.id[..7].to_string(),
+                        message: commit_message,
+                        commit_date: formatted_date,
+                    })
+                })
+            } else {
+                None
+            }
+        });
+
     if json {
         let worktree_status = WorktreeStatus {
             stacks: stack_details,
             common_merge_base: common_merge_base_data,
+            upstream_state: upstream_state.clone(),
         };
         let json_output = serde_json::to_string_pretty(&worktree_status)?;
         writeln!(stdout, "{json_output}")?;
@@ -136,6 +180,21 @@ pub(crate) async fn worktree(
             &review_map,
         )?;
     }
+    // Display upstream state if there are new commits
+    if let Some(upstream) = &upstream_state {
+        let dot = "●".yellow();
+        writeln!(
+            stdout,
+            "{dot} {} (upstream) [{}] ⏫ {} new commits {} {}",
+            upstream.latest_commit.dimmed(),
+            upstream.target_name.green().bold(),
+            upstream.behind_count,
+            upstream.commit_date.dimmed(),
+            upstream.message
+        )
+        .ok();
+    }
+
     let dot = "●".purple();
     writeln!(
         stdout,
