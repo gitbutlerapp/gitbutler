@@ -269,13 +269,14 @@ export class UiState {
 
 				// If the value is an array of strings, we add methods to add/remove
 				if (Array.isArray(mutableResult) && mutableResult.every(isStr)) {
-					const result = mutableResult;
 					(props[key] as GlobalProperty<string[]>).add = (...value: string[]) => {
-						mutableResult = [...result, ...value.filter((v) => !result.includes(v))];
+						const current = mutableResult as string[];
+						mutableResult = [...current, ...value.filter((v) => !current.includes(v))];
 						this.update(`${id}:${key}`, mutableResult);
 					};
 					(props[key] as GlobalProperty<string[]>).remove = (value: string) => {
-						mutableResult = result.filter((v) => v !== value);
+						const current = mutableResult as string[];
+						mutableResult = current.filter((v) => v !== value);
 						this.update(`${id}:${key}`, mutableResult);
 					};
 				}
