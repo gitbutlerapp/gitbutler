@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
 	import { formatToolCall, getToolIcon } from '$lib/utils/codegenTools';
 	import { DropdownButton, ContextMenuItem, Icon, Select, SelectItem } from '@gitbutler/ui';
@@ -21,7 +22,9 @@
 	};
 	const { toolCall, style, requiresApproval = undefined, fullWidth }: Props = $props();
 
-	let expanded = $state(true);
+	let expanded = $state(false);
+	let resultDiv = $state<HTMLDivElement>();
+	let resultContentDiv = $state<HTMLDivElement>();
 	let allowDropdownButton = $state<ReturnType<typeof DropdownButton>>();
 	let denyDropdownButton = $state<ReturnType<typeof DropdownButton>>();
 
@@ -74,7 +77,17 @@
 </script>
 
 <div class="tool-call {style}" class:full-width={fullWidth}>
-	<div class="tool-details text-13" class:expanded>
+	<button
+		type="button"
+		class="tool-details text-13"
+		class:expanded
+		onclick={() => {
+			expanded = !expanded;
+		}}
+	>
+		<div class="tool-call-header__arrow">
+			<Icon name="chevron-right" />
+		</div>
 		{#if toolCallLoading(toolCall)}
 			<Icon name="spinner" />
 		{:else}
@@ -84,7 +97,7 @@
 		<span class="tool-name text-12">{toolCall.name}</span>
 
 		<span class="summary truncate grow clr-text-2">{formatToolCall(toolCall)}</span>
-	</div>
+	</button>
 
 	{#if requiresApproval}
 		<div class="flex gap-4">
@@ -196,6 +209,22 @@
 			</DropdownButton>
 		</div>
 	{/if}
+
+	{#if expanded && toolCall.result}
+		<div
+			bind:this={resultDiv}
+			class="tool-call-wrapper text-13"
+			class:border={resultDiv &&
+				resultContentDiv &&
+				resultDiv.clientHeight < resultContentDiv.clientHeight}
+		>
+			<ConfigurableScrollableContainer maxHeight="20lh">
+				<div bind:this={resultContentDiv} class="tool-call-content text-13">
+					{toolCall.result.slice(0, 65536)}
+				</div>
+			</ConfigurableScrollableContainer>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -229,19 +258,44 @@
 		align-items: center;
 		padding: 2px 0;
 		gap: 8px;
+
+		&:hover {
+			.tool-call-header__arrow {
+				color: var(--clr-text-2);
+			}
+		}
+	}
+
+	.tool-call-header__arrow {
+		display: flex;
+		color: var(--clr-text-3);
+		transition:
+			background-color var(--transition-fast),
+			transform var(--transition-medium);
+	}
+
+	.expanded .tool-call-header__arrow {
+		transform: rotate(90deg);
+	}
+
+	.tool-call-wrapper {
+		margin-bottom: 12px;
+		overflow: hidden;
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-2);
+
+		&.border {
+			border: 1px solid var(--clr-border-3);
+		}
 	}
 
 	.tool-call-content {
-		display: flex;
-		flex-direction: column;
-		max-width: 100%;
-		gap: 8px;
+		padding: 10px 14px;
+		font-family: var(--font-mono);
+		white-space: pre-line;
 	}
 
 	.tool-call-content :global(pre) {
-		margin: 0;
-		padding-bottom: 0px;
-		overflow-x: scroll;
 	}
 
 	.tool-name {
