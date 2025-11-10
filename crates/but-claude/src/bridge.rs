@@ -30,6 +30,8 @@ use anyhow::{Result, bail};
 use but_broadcaster::{Broadcaster, FrontendEvent};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
+use gitbutler_stack::VirtualBranchesHandle;
+use gix::bstr::ByteSlice;
 use serde::Serialize;
 use tokio::{
     fs,
@@ -262,6 +264,7 @@ impl Claudes {
             ctx.clone(),
             user_params,
             summary_to_resume,
+            stack_id,
         )
         .await?;
         let cmd_exit = tokio::select! {
@@ -385,6 +388,7 @@ enum Exit {
 }
 
 /// Spawns the actual claude code command
+#[allow(clippy::too_many_arguments)]
 async fn spawn_command(
     writer: std::io::PipeWriter,
     write_stderr: std::io::PipeWriter,
@@ -393,6 +397,7 @@ async fn spawn_command(
     ctx: Arc<Mutex<CommandContext>>,
     user_params: ClaudeUserParams,
     summary_to_resume: Option<String>,
+    stack_id: StackId,
 ) -> Result<Child> {
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
@@ -501,7 +506,13 @@ async fn spawn_command(
         command.args(["--session-id", &format!("{}", claude_session_id)]);
     }
 
-    command.args(["--append-system-prompt", SYSTEM_PROMPT]);
+    // Format branch information for the system prompt
+    let branch_info = {
+        let mut ctx = ctx.lock().await;
+        format_branch_info(&mut ctx, stack_id)
+    };
+    let system_prompt = format!("{}\n\n{}", SYSTEM_PROMPT, branch_info);
+    command.args(["--append-system-prompt", &system_prompt]);
 
     if !user_params.add_dirs.is_empty() {
         command.arg("--add-dir");
@@ -566,6 +577,160 @@ Sorry, this project is managed by GitButler so you must integrate upstream upstr
 </response>
 </example>
 </git-usage>";
+
+/// Formats branch information for the system prompt
+fn format_branch_info(ctx: &mut CommandContext, stack_id: StackId) -> String {
+    let mut output = String::from(
+        "<branch-info>\n\
+        This repository uses GitButler for branch management. While git shows you are on\n\
+        the `gitbutler/workspace` branch, this is actually a merge commit containing one or\n\
+        more independent stacks of branches being worked on simultaneously.\n\n\
+        This session is specific to a particular branch within that workspace. When asked about\n\
+        the current branch or what changes have been made, you should focus on the current working\n\
+        branch listed below, not the workspace branch itself.\n\n\
+        Changes and diffs should be understood relative to the target branch (upstream), as that\n\
+        represents the integration point for this work.\n\n\
+        When asked about uncommitted changes you must only consider changes assigned to the stack.\n\n",
+    );
+
+    append_target_branch_info(&mut output, ctx);
+    append_stack_branches_info(&mut output, stack_id, ctx);
+    append_assigned_files_info(&mut output, stack_id, ctx);
+
+    output.push_str("</branch-info>");
+    output
+}
+
+/// Appends target branch (upstream) information to the output
+fn append_target_branch_info(output: &mut String, ctx: &CommandContext) {
+    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    match state.get_default_target() {
+        Ok(target) => {
+            output.push_str(&format!(
+                "Target branch (upstream): {}/{}\n\n",
+                target.branch.remote(),
+                target.branch.branch()
+            ));
+        }
+        Err(e) => {
+            tracing::warn!("Failed to fetch target branch information: {}", e);
+        }
+    }
+}
+
+/// Appends information about branches in the stack
+fn append_stack_branches_info(output: &mut String, stack_id: StackId, ctx: &mut CommandContext) {
+    match but_workspace::stack_branches(stack_id, ctx) {
+        Ok(branches) if !branches.is_empty() => {
+            if let Some(first_branch) = branches.first() {
+                let first_branch_name = first_branch.name.to_str_lossy();
+                output.push_str(&format!(
+                    "When running git commands that reference HEAD (e.g., `git diff origin/master...HEAD`),\n\
+                    replace HEAD with the current working branch name: `{}`\n\n",
+                    first_branch_name
+                ));
+            }
+
+            output.push_str("The following branches are part of the current stack:\n");
+
+            // Write first branch with marker
+            if let Some(first_branch) = branches.first() {
+                output.push_str(&format!(
+                    "- {} (current working branch)\n",
+                    first_branch.name.to_str_lossy()
+                ));
+            }
+
+            // Write remaining branches
+            for branch in branches.iter().skip(1) {
+                output.push_str(&format!("- {}\n", branch.name.to_str_lossy()));
+            }
+        }
+        Ok(_) => {
+            output.push_str("There are no branches in the current stack.\n");
+        }
+        Err(e) => {
+            tracing::warn!("Failed to fetch branch information: {}", e);
+            output.push_str("Unable to fetch branch information.\n");
+        }
+    }
+}
+
+/// Appends information about files assigned to this stack
+fn append_assigned_files_info(output: &mut String, stack_id: StackId, ctx: &mut CommandContext) {
+    let assignments = match but_hunk_assignment::assignments_with_fallback(
+        ctx,
+        false,
+        None::<Vec<but_core::TreeChange>>,
+        None,
+    ) {
+        Ok((assignments, _error)) => assignments,
+        Err(e) => {
+            tracing::warn!("Failed to fetch hunk assignments: {}", e);
+            return;
+        }
+    };
+
+    let file_assignments = group_assignments_by_file(&assignments, stack_id);
+    if file_assignments.is_empty() {
+        return;
+    }
+
+    let mut file_paths: Vec<_> = file_assignments.keys().copied().collect();
+    file_paths.sort();
+
+    output.push_str("\nFiles currently assigned to this stack:\n");
+    for file_path in file_paths {
+        format_file_with_line_ranges(output, file_path, &file_assignments[file_path]);
+    }
+}
+
+type FileAssignments<'a> = HashMap<&'a str, Vec<&'a but_hunk_assignment::HunkAssignment>>;
+
+/// Groups hunk assignments by file path for the given stack
+fn group_assignments_by_file(
+    assignments: &[but_hunk_assignment::HunkAssignment],
+    stack_id: StackId,
+) -> FileAssignments<'_> {
+    assignments
+        .iter()
+        .filter(|a| a.stack_id == Some(stack_id))
+        .fold(HashMap::new(), |mut acc, assignment| {
+            acc.entry(assignment.path.as_str())
+                .or_default()
+                .push(assignment);
+            acc
+        })
+}
+
+/// Formats a file path with its associated line ranges
+fn format_file_with_line_ranges(
+    output: &mut String,
+    file_path: &str,
+    hunks: &[&but_hunk_assignment::HunkAssignment],
+) {
+    let line_ranges: Vec<String> = hunks
+        .iter()
+        .filter_map(|hunk| hunk.hunk_header.as_ref())
+        .map(|header| {
+            format!(
+                "{}-{}",
+                header.new_start,
+                header.new_start + header.new_lines
+            )
+        })
+        .collect();
+
+    if line_ranges.is_empty() {
+        output.push_str(&format!("- {}\n", file_path));
+    } else {
+        output.push_str(&format!(
+            "- {} (lines: {})\n",
+            file_path,
+            line_ranges.join(", ")
+        ));
+    }
+}
 
 fn format_message_with_summary(
     summary: &str,
