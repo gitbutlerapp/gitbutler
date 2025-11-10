@@ -34,6 +34,7 @@
 	.message-bubble {
 		display: flex;
 		flex-direction: column;
+		max-width: var(--message-max-width);
 		padding: 10px 14px;
 		overflow: hidden;
 		gap: 10px;
