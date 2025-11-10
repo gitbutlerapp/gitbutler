@@ -305,4 +305,15 @@
 	.summary {
 		font-family: var(--font-mono);
 	}
+
+	.truncate-left {
+		overflow: hidden;
+		direction: rtl;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		& > span {
+			direction: ltr;
+			unicode-bidi: isolate;
+		}
+	}
 </style>
