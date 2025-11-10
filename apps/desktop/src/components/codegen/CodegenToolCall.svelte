@@ -83,7 +83,9 @@
 
 		<span class="tool-name text-12">{toolCall.name}</span>
 
-		<span class="summary truncate grow clr-text-2">{formatToolCall(toolCall)}</span>
+		<span class="summary truncate-left clr-text-2">
+			<span>{formatToolCall(toolCall)}</span>
+		</span>
 	</div>
 
 	{#if requiresApproval}
@@ -250,5 +252,16 @@
 
 	.summary {
 		font-family: var(--font-mono);
+	}
+
+	.truncate-left {
+		overflow: hidden;
+		direction: rtl;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		& > span {
+			direction: ltr;
+			unicode-bidi: isolate;
+		}
 	}
 </style>
