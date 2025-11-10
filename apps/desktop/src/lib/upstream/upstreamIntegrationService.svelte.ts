@@ -1,5 +1,5 @@
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
-import { updateStaleStackSelectionInBranchesView, type UiState } from '$lib/state/uiState.svelte';
+import { updateStaleBranchSelectionInBranchesView, type UiState } from '$lib/state/uiState.svelte';
 import { InjectionToken } from '@gitbutler/core/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { StackService } from '$lib/stacks/stackService.svelte';
@@ -103,7 +103,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					invalidatesList(ReduxTag.BranchListing)
 				],
 				transformResponse: (response: IntegrationOutcome, _, { projectId }) => {
-					updateStaleStackSelectionInBranchesView(uiState, projectId, response.deletedBranches);
+					updateStaleBranchSelectionInBranchesView(uiState, projectId, response.deletedBranches);
 					return response;
 				}
 			}),

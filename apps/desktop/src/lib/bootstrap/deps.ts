@@ -191,7 +191,7 @@ export function initDependencies(args: {
 
 	const gitService = new GitService(backend, clientState.backendApi);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
-	const branchService = new BranchService(clientState['backendApi']);
+	const branchService = new BranchService(clientState['backendApi'], uiState);
 	const cherryApplyService = new CherryApplyService(clientState.backendApi);
 	const remotesService = new RemotesService(backend);
 	const hooksService = new HooksService(clientState.backendApi);

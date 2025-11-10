@@ -528,7 +528,7 @@ export function updateStalePrSelection(uiState: UiState, projectId: string, prs:
 	}
 }
 
-export function updateStaleStackSelectionInBranchesView(
+export function updateStaleBranchSelectionInBranchesView(
 	uiState: UiState,
 	projectId: string,
 	deletedBranches: string[]
@@ -536,6 +536,18 @@ export function updateStaleStackSelectionInBranchesView(
 	const projectState = uiState.project(projectId);
 	const selection = projectState.branchesSelection.current;
 	if (selection.branchName && deletedBranches.includes(selection.branchName)) {
+		projectState.branchesSelection.set({});
+	}
+}
+
+export function retainBranchSelectionInBranchesView(
+	uiState: UiState,
+	projectId: string,
+	branches: string[]
+) {
+	const projectState = uiState.project(projectId);
+	const selection = projectState.branchesSelection.current;
+	if (selection.branchName && !branches.includes(selection.branchName)) {
 		projectState.branchesSelection.set({});
 	}
 }
