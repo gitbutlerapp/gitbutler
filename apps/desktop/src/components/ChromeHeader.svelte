@@ -39,7 +39,6 @@
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const ircService = inject(IRC_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
-	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
 	const shortcutService = inject(SHORTCUT_SERVICE);
 	const baseReponse = $derived(projectId ? baseBranchService.baseBranch(projectId) : undefined);
@@ -48,6 +47,7 @@
 	const singleBranchMode = $derived($settingsStore?.featureFlags.singleBranch ?? false);
 	const useCustomTitleBar = $derived(!($settingsStore?.ui.useNativeTitleBar ?? false));
 	const backend = inject(BACKEND);
+	const uiState = inject(UI_STATE);
 
 	const mode = $derived(modeService.mode({ projectId }));
 	const currentMode = $derived(mode.response);
@@ -288,7 +288,6 @@
 		overflow: hidden;
 		gap: 12px;
 	}
-
 	.chrome-selector-wrapper {
 		display: flex;
 		position: relative;
