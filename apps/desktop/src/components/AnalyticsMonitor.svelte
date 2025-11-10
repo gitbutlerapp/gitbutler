@@ -27,7 +27,6 @@ attached to posthog events.
 
 	$effect(() => {
 		eventContext.update({
-			showActions: projectState.showActions.current,
 			exclusiveAction: projectState.exclusiveAction.current?.type
 		});
 	});
@@ -63,7 +62,6 @@ attached to posthog events.
 	$effect(() => {
 		eventContext.update({
 			v3: true,
-			butlerActions: $settingsService?.featureFlags.actions,
 			ws3: $settingsService?.featureFlags.ws3,
 			rules: $settingsService?.featureFlags.rules
 		});

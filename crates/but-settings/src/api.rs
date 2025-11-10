@@ -19,8 +19,6 @@ pub struct FeatureFlagsUpdate {
     pub cv3: Option<bool>,
     pub ws3: Option<bool>,
     pub apply3: Option<bool>,
-    pub actions: Option<bool>,
-    pub butbot: Option<bool>,
     pub rules: Option<bool>,
     pub single_branch: Option<bool>,
 }
@@ -92,8 +90,6 @@ impl AppSettingsWithDiskSync {
             cv3,
             ws3,
             apply3,
-            actions,
-            butbot,
             rules,
             single_branch,
         }: FeatureFlagsUpdate,
@@ -107,12 +103,6 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(apply3) = apply3 {
             settings.feature_flags.apply3 = apply3;
-        }
-        if let Some(actions) = actions {
-            settings.feature_flags.actions = actions;
-        }
-        if let Some(butbot) = butbot {
-            settings.feature_flags.butbot = butbot;
         }
         if let Some(rules) = rules {
             settings.feature_flags.rules = rules;
