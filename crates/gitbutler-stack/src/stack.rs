@@ -663,11 +663,10 @@ impl Stack {
         repo: &gix::Repository,
         for_archival: &[Reference],
         delete_local_refs: bool,
-    ) -> Result<(Vec<String>, Vec<String>)> {
+    ) -> Result<Vec<String>> {
         self.ensure_initialized()?;
 
-        let mut newly_archived_branches = vec![];
-        let mut review_ids_to_close = vec![];
+        let mut deleted_branches = vec![];
 
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         let state = branch_state(ctx);
@@ -678,13 +677,16 @@ impl Stack {
                 Reference::Virtual(r) => r == head.name(),
             }) {
                 head.archived = true;
-                newly_archived_branches.push(head.name().clone());
-                if let Some(review_id) = head.review_id.clone() {
-                    review_ids_to_close.push(review_id);
-                }
 
                 if delete_local_refs {
-                    head.delete_reference(repo).ok(); // Fail silently because interrupting this is worse
+                    match head.delete_reference(repo) {
+                        Ok(_) => {
+                            deleted_branches.push(head.name().clone());
+                        }
+                        Err(_) => {
+                            // Ignore errors when deleting references
+                        }
+                    }
                 }
             }
         }
@@ -701,7 +703,7 @@ impl Stack {
 
         state.set_stack(self.clone())?;
 
-        Ok((newly_archived_branches, review_ids_to_close))
+        Ok(deleted_branches)
     }
 
     /// Prepares push details according to the series to be pushed (picking out the correct sha and remote refname)

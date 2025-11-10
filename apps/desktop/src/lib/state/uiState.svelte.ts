@@ -527,3 +527,15 @@ export function updateStalePrSelection(uiState: UiState, projectId: string, prs:
 		projectState.branchesSelection.set({});
 	}
 }
+
+export function updateStaleStackSelectionInBranchesView(
+	uiState: UiState,
+	projectId: string,
+	deletedBranches: string[]
+) {
+	const projectState = uiState.project(projectId);
+	const selection = projectState.branchesSelection.current;
+	if (selection.branchName && deletedBranches.includes(selection.branchName)) {
+		projectState.branchesSelection.set({});
+	}
+}

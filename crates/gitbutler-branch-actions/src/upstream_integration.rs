@@ -98,10 +98,8 @@ pub struct BaseBranchResolution {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct IntegrationOutcome {
-    /// This is the list of branch names that have become archived as a result of the upstream integration
-    archived_branches: Vec<String>,
-    /// This is the list of review ids that have been closed as a result of the upstream integration
-    review_ids_to_close: Vec<String>,
+    /// The list of branches that have been deleted as a result of the upstream integration
+    deleted_branches: Vec<String>,
 }
 
 impl StackStatus {
@@ -468,8 +466,7 @@ pub(crate) fn integrate_upstream(
     let virtual_branches_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let default_target = virtual_branches_state.get_default_target()?;
 
-    let mut newly_archived_branches = vec![];
-    let mut to_be_closed_review_ids = vec![];
+    let mut deleted_branches = vec![];
 
     // Ensure resolutions match current statuses
     {
@@ -544,7 +541,15 @@ pub(crate) fn integrate_upstream(
 
             if delete_local_refs {
                 for head in &stack.heads {
-                    head.delete_reference(&gix_repo).ok();
+                    let branch_name = head.name.to_str().context("Invalid branch name")?;
+                    match head.delete_reference(&gix_repo) {
+                        Ok(_) => {
+                            deleted_branches.push(branch_name.to_string());
+                        }
+                        _ => {
+                            // Fail silently because interrupting this is worse
+                        }
+                    }
                 }
             }
         }
@@ -611,10 +616,9 @@ pub(crate) fn integrate_upstream(
                 .map(|r| r.delete_integrated_branches)
                 .unwrap_or(false);
 
-            let (mut archived_branches, mut review_ids_to_close) =
+            let stack_branches_deleted =
                 stack.archive_integrated_heads(ctx, &gix_repo, for_archival, delete_local_refs)?;
-            newly_archived_branches.append(&mut archived_branches);
-            to_be_closed_review_ids.append(&mut review_ids_to_close);
+            deleted_branches.extend(stack_branches_deleted);
         }
 
         {
@@ -625,10 +629,10 @@ pub(crate) fn integrate_upstream(
         crate::integration::update_workspace_commit(&virtual_branches_state, ctx, false)?;
     }
 
-    Ok(IntegrationOutcome {
-        archived_branches: newly_archived_branches,
-        review_ids_to_close: to_be_closed_review_ids,
-    })
+    deleted_branches.sort();
+    deleted_branches.dedup();
+
+    Ok(IntegrationOutcome { deleted_branches })
 }
 
 pub(crate) fn resolve_upstream_integration(
