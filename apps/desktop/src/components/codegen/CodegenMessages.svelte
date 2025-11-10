@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import AddedDirectories from '$components/codegen/AddedDirectories.svelte';
 	import ClaudeCheck from '$components/codegen/ClaudeCheck.svelte';
 	import ClaudeCodeSettingsModal from '$components/codegen/ClaudeCodeSettingsModal.svelte';
 	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
@@ -604,75 +605,89 @@
 			{/snippet}
 
 			{#snippet input()}
-				{#if claudeAvailable.response?.status === 'not_available'}
-					{#if formattedMessages.length > 0}
-						<CodegenChatClaudeNotAvaliableBanner onSettingsBtnClick={() => settingsModal?.show()} />
+				<div class="dialog-wrapper">
+					{#if claudeAvailable.response?.status === 'not_available'}
+						{#if formattedMessages.length > 0}
+							<CodegenChatClaudeNotAvaliableBanner
+								onSettingsBtnClick={() => settingsModal?.show()}
+							/>
+						{/if}
+					{:else}
+						{@const status = currentStatus(events, isStackActive)}
+						{@const laneState = uiState.lane(stackId)}
+						{@const addedDirs = laneState.addedDirs.current}
+
+						<AddedDirectories
+							{addedDirs}
+							onRemoveDir={(dir) => {
+								laneState.addedDirs.remove(dir);
+							}}
+						/>
+
+						<CodegenInput
+							bind:this={inputRef}
+							{projectId}
+							{stackId}
+							branchName={stableBranchName}
+							value={initialPrompt}
+							loading={['running', 'compacting'].includes(status)}
+							compacting={status === 'compacting'}
+							onChange={(prompt) => messageSender.setPrompt(prompt)}
+							onsubmit={sendMessage}
+							{onAbort}
+						>
+							{#snippet actionsOnLeft()}
+								{@const permissionModeLabel = permissionModeOptions.find(
+									(a) => a.value === selectedPermissionMode
+								)?.label}
+
+								<div class="flex m-right-4 gap-2">
+									<Button
+										bind:el={templateTrigger}
+										kind="ghost"
+										icon="script"
+										tooltip="Insert template"
+										onclick={(e) => templateContextMenu?.toggle(e)}
+									/>
+									<Button
+										bind:el={thinkingModeTrigger}
+										kind="ghost"
+										icon="thinking"
+										reversedDirection
+										onclick={() => thinkingModeContextMenu?.toggle()}
+										tooltip="Thinking mode"
+										children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
+									/>
+									<Button
+										bind:el={permissionModeTrigger}
+										kind="ghost"
+										icon={getPermissionModeIcon(selectedPermissionMode)}
+										shrinkable
+										onclick={() => permissionModeContextMenu?.toggle()}
+										tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
+											? 'Permission modes disable when all permissions are allowed'
+											: permissionModeLabel}
+										disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
+									/>
+								</div>
+							{/snippet}
+
+							{#snippet actionsOnRight()}
+								{#if !claudeSettings?.useConfiguredModel}
+									<Button
+										bind:el={modelTrigger}
+										kind="ghost"
+										icon="chevron-down"
+										shrinkable
+										onclick={() => modelContextMenu?.toggle()}
+									>
+										{modelOptions.find((a) => a.value === selectedModel)?.label}
+									</Button>
+								{/if}
+							{/snippet}
+						</CodegenInput>
 					{/if}
-				{:else}
-					{@const status = currentStatus(events, isStackActive)}
-					<CodegenInput
-						bind:this={inputRef}
-						{projectId}
-						{stackId}
-						branchName={stableBranchName}
-						value={initialPrompt}
-						loading={['running', 'compacting'].includes(status)}
-						compacting={status === 'compacting'}
-						onChange={(prompt) => messageSender.setPrompt(prompt)}
-						onsubmit={sendMessage}
-						{onAbort}
-					>
-						{#snippet actionsOnLeft()}
-							{@const permissionModeLabel = permissionModeOptions.find(
-								(a) => a.value === selectedPermissionMode
-							)?.label}
-
-							<div class="flex m-right-4 gap-2">
-								<Button
-									bind:el={templateTrigger}
-									kind="ghost"
-									icon="script"
-									tooltip="Insert template"
-									onclick={(e) => templateContextMenu?.toggle(e)}
-								/>
-								<Button
-									bind:el={thinkingModeTrigger}
-									kind="ghost"
-									icon="thinking"
-									reversedDirection
-									onclick={() => thinkingModeContextMenu?.toggle()}
-									tooltip="Thinking mode"
-									children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
-								/>
-								<Button
-									bind:el={permissionModeTrigger}
-									kind="ghost"
-									icon={getPermissionModeIcon(selectedPermissionMode)}
-									shrinkable
-									onclick={() => permissionModeContextMenu?.toggle()}
-									tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
-										? 'Permission modes disable when all permissions are allowed'
-										: permissionModeLabel}
-									disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
-								/>
-							</div>
-						{/snippet}
-
-						{#snippet actionsOnRight()}
-							{#if !claudeSettings?.useConfiguredModel}
-								<Button
-									bind:el={modelTrigger}
-									kind="ghost"
-									icon="chevron-down"
-									shrinkable
-									onclick={() => modelContextMenu?.toggle()}
-								>
-									{modelOptions.find((a) => a.value === selectedModel)?.label}
-								</Button>
-							{/if}
-						{/snippet}
-					</CodegenInput>
-				{/if}
+				</div>
 			{/snippet}
 		</CodegenChatLayout>
 	{/snippet}
@@ -872,6 +887,17 @@
 			background: var(--clr-text-3);
 			content: '';
 		}
+	}
+
+	.dialog-wrapper {
+		display: flex;
+		position: relative;
+		flex-shrink: 0;
+		flex-direction: column;
+		width: 100%;
+		padding: 16px;
+		gap: 8px;
+		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.no-agent-placeholder {

@@ -121,11 +121,11 @@
 	}
 
 	.queue-clear-button {
-		color: var(--clr-text-2);
+		color: var(--clr-text-3);
 		transition: color var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-1);
+			color: var(--clr-text-2);
 		}
 	}
 
