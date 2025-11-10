@@ -7,14 +7,43 @@ import type iconsJson from '@gitbutler/ui/data/icons.json';
 export type CreateBranchFromBranchOutcome = {
 	stackId: string;
 	unappliedStacks: string[];
+	unappliedStacksShortNames: string[];
 };
+
+function stackCount(numStacks: number): string {
+	if (numStacks === 1) {
+		return 'one stack';
+	} else {
+		return 'some stacks';
+	}
+}
+
+function prettyNamedListIfPossible(expectedNames: number, names: string[]): string {
+	// It could happen that not all stacks had names, for now we don't deal with that.
+	// Also, the old codepath doesn't produce names.
+	if (expectedNames !== names.length) {
+		return stackCount(expectedNames);
+	}
+	if (names.length === 0) {
+		return '';
+	} else if (names.length === 1) {
+		return `stack ${names[0]}`;
+	} else if (names.length === 2) {
+		return `stack ${names[0]} and stack ${names[1]}`;
+	}
+
+	const allButLast = names.slice(0, -1);
+	const last = names[names.length - 1];
+
+	return `${allButLast.map((n) => `stack ${n}`).join(', ')}, and stack ${last}`;
+}
 
 export function handleCreateBranchFromBranchOutcome(outcome: CreateBranchFromBranchOutcome) {
 	if (outcome.unappliedStacks.length > 0) {
 		showToast({
 			testId: TestId.StacksUnappliedToast,
-			title: 'Heads up: We had to unapply some stacks to apply this one',
-			message: `There were some conflicts detected when applying this branch into your workspace, so we automatically unapplied ${outcome.unappliedStacks.length} ${outcome.unappliedStacks.length === 1 ? 'stack' : 'stacks'}.
+			title: `Heads up: We had to unapply ${stackCount(outcome.unappliedStacks.length)} to apply this one`,
+			message: `There were some conflicts detected when applying this branch into your workspace, so we automatically unapplied ${prettyNamedListIfPossible(outcome.unappliedStacks.length, outcome.unappliedStacksShortNames)}.
 You can always re-apply them later from the branches page.`
 		});
 	}

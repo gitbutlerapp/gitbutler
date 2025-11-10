@@ -192,15 +192,20 @@ impl BranchManager<'_> {
                 .id
                 .context("BUG: newly applied stacks should always have a stack id")?;
             let conflicted_stack_short_names_for_display = ws
-                .stacks
-                .iter()
-                .filter_map(|s| {
-                    out.conflicting_stack_ids
-                        .contains(&s.id?)
-                        .then(|| s.ref_name().map(|rn| rn.shorten().to_string()))
-                        .flatten()
+                .metadata
+                .as_ref()
+                .map(|md| {
+                    md.stacks
+                        .iter()
+                        .filter_map(|s| {
+                            out.conflicting_stack_ids
+                                .contains(&s.id)
+                                .then(|| s.ref_name().map(|rn| rn.shorten().to_string()))
+                                .flatten()
+                        })
+                        .collect::<Vec<_>>()
                 })
-                .collect();
+                .unwrap_or_default();
             return Ok((
                 applied_branch_stack_id,
                 out.conflicting_stack_ids,
