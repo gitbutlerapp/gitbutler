@@ -1,6 +1,7 @@
+use crate::diff::unified_diffs;
 use crate::{
     commit::conflict_repo,
-    diff::{ui::repo, unified_diffs},
+    diff::{ui::repo, unified_patches},
 };
 
 #[test]
@@ -95,7 +96,28 @@ fn many_changes() -> anyhow::Result<()> {
     )
     "#);
 
-    insta::assert_debug_snapshot!(unified_diffs(changes.0, &repo)?, @r#"
+    insta::assert_snapshot!(unified_diffs(&changes.0, &repo)?, @r"
+    rename from aa-renamed-old-name
+    rename to aa-renamed-new-name
+
+    --- a/executable-bit-added
+    +++ b/executable-bit-added
+
+    --- a/file-to-link
+    +++ b/file-to-link
+    @@ -1,0 +1,1 @@
+    +link-target
+
+    --- a/modified
+    +++ b/modified
+    @@ -1,0 +1,1 @@
+    +change
+
+    +++ a/removed
+    --- /dev/null
+    ");
+
+    insta::assert_debug_snapshot!(unified_patches(&changes.0, &repo)?, @r#"
     [
         Patch {
             hunks: [],
@@ -226,7 +248,28 @@ fn many_changes() -> anyhow::Result<()> {
     )
     "#);
 
-    insta::assert_debug_snapshot!(unified_diffs(changes.0, &repo)?, @r#"
+    insta::assert_snapshot!(unified_diffs(&changes.0, &repo)?, @r"
+    rename from aa-renamed-new-name
+    rename to aa-renamed-old-name
+
+    --- a/executable-bit-added
+    +++ b/executable-bit-added
+
+    --- a/file-to-link
+    +++ b/file-to-link
+    @@ -1,1 +1,0 @@
+    -link-target
+
+    --- a/modified
+    +++ b/modified
+    @@ -1,1 +1,0 @@
+    -change
+
+    --- /dev/null
+    +++ b/removed
+    ");
+
+    insta::assert_debug_snapshot!(unified_patches(&changes.0, &repo)?, @r#"
     [
         Patch {
             hunks: [],
@@ -305,7 +348,7 @@ fn many_changes_without_symlink_support() -> anyhow::Result<()> {
     }
     "#);
     // It can do it as long as the symlink isn't on disk.
-    insta::assert_debug_snapshot!(change.unified_diff(&repo, 3)?, @r#"
+    insta::assert_debug_snapshot!(change.unified_patch(&repo, 3)?, @r#"
     Some(
         Patch {
             hunks: [

@@ -1,5 +1,5 @@
 use bstr::{BString, ByteSlice};
-use but_core::UnifiedDiff;
+use but_core::UnifiedPatch;
 use but_testsupport::{git_status, visualize_disk_tree_skip_dot_git};
 use but_workspace::{DiffSpec, HunkHeader, discard_workspace_changes};
 
@@ -125,8 +125,8 @@ fn from_end() -> anyhow::Result<()> {
         17
         18
         "));
-        let Some(UnifiedDiff::Patch { mut hunks, .. }) =
-            change.unified_diff(&repo, CONTEXT_LINES)?
+        let Some(UnifiedPatch::Patch { mut hunks, .. }) =
+            change.unified_patch(&repo, CONTEXT_LINES)?
         else {
             unreachable!("We know there are hunks")
         };
@@ -199,8 +199,8 @@ fn from_beginning() -> anyhow::Result<()> {
         .into_iter()
         .find(|change| change.path == filename)
     {
-        let Some(UnifiedDiff::Patch { mut hunks, .. }) =
-            change.unified_diff(&repo, CONTEXT_LINES)?
+        let Some(UnifiedPatch::Patch { mut hunks, .. }) =
+            change.unified_patch(&repo, CONTEXT_LINES)?
         else {
             unreachable!("We know there are hunks")
         };
@@ -823,7 +823,7 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
 
 mod util {
     use bstr::BString;
-    use but_core::{TreeChange, UnifiedDiff, unified_diff::DiffHunk};
+    use but_core::{TreeChange, UnifiedPatch, unified_diff::DiffHunk};
     use gix::prelude::ObjectIdExt;
 
     pub fn previous_change_text(
@@ -854,7 +854,7 @@ mod util {
             .find(|change| change.path == filename)
             .expect("well-known fixture");
 
-        let Some(UnifiedDiff::Patch { hunks, .. }) = change.unified_diff(repo, context_lines)?
+        let Some(UnifiedPatch::Patch { hunks, .. }) = change.unified_patch(repo, context_lines)?
         else {
             unreachable!("We know there are hunks")
         };

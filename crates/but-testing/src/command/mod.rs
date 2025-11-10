@@ -1,7 +1,7 @@
 use std::{borrow::Cow, mem::ManuallyDrop, path::Path};
 
 use anyhow::{Context, anyhow, bail};
-use but_core::{UnifiedDiff, ref_metadata::StackId};
+use but_core::{UnifiedPatch, ref_metadata::StackId};
 use but_db::poll::ItemKind;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
@@ -698,8 +698,8 @@ fn indices_or_headers_to_hunk_headers(
                     change.path == *path
                         && change.previous_path() == previous_path.as_ref().map(|p| p.as_bstr())
                 }).with_context(|| format!("Couldn't find worktree change for file at '{path}' (previous-path: {previous_path:?}"))?;
-            let Some(UnifiedDiff::Patch { hunks, .. }) =
-                worktree_changes.unified_diff(repo, UI_CONTEXT_LINES)?
+            let Some(UnifiedPatch::Patch { hunks, .. }) =
+                worktree_changes.unified_patch(repo, UI_CONTEXT_LINES)?
             else {
                 bail!("No hunks available for given '{path}'")
             };

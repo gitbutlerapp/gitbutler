@@ -190,7 +190,7 @@ pub struct Commit<'repo> {
 /// or how it previously looked like in case of a deletion.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", content = "subject")]
-pub enum UnifiedDiff {
+pub enum UnifiedPatch {
     /// The resource was a binary and couldn't be diffed.
     Binary,
     /// The file was too large and couldn't be diffed.

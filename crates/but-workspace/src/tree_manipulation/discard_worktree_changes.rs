@@ -548,7 +548,7 @@ mod file {
 mod hunk {
     use anyhow::bail;
     use bstr::ByteSlice;
-    use but_core::{ChangeState, TreeChange, UnifiedDiff};
+    use but_core::{ChangeState, TreeChange, UnifiedPatch};
     use gix::{
         filter::plumbing::{
             driver::apply::{Delay, MaybeDelayed},
@@ -592,12 +592,12 @@ mod hunk {
         let mut diff_filter = but_core::unified_diff::filter_from_state(
             repo,
             Some(state_in_worktree),
-            UnifiedDiff::CONVERSION_MODE,
+            UnifiedPatch::CONVERSION_MODE,
         )?;
-        let Some(UnifiedDiff::Patch {
+        let Some(UnifiedPatch::Patch {
             hunks: hunks_in_worktree,
             ..
-        }) = wt_change.unified_diff_with_filter(repo, context_lines, &mut diff_filter)?
+        }) = wt_change.unified_patch_with_filter(repo, context_lines, &mut diff_filter)?
         else {
             bail!("Couldn't obtain diff for worktree changes.")
         };

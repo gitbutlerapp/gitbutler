@@ -4,7 +4,7 @@ use gitbutler_serde::BStringForFrontend;
 use gix::object::tree::EntryKind;
 use serde::{Deserialize, Serialize};
 
-use crate::{IgnoredWorktreeChange, UnifiedDiff};
+use crate::IgnoredWorktreeChange;
 
 /// The type returned by [`crate::diff::worktree_changes()`].
 #[derive(Debug, Clone, Serialize)]
@@ -16,12 +16,12 @@ pub struct WorktreeChanges {
 }
 
 impl WorktreeChanges {
-    pub fn try_as_unidiff_string(
+    pub fn try_to_unidiff(
         &self,
         repo: &gix::Repository,
         context_lines: u32,
-    ) -> anyhow::Result<String> {
-        changes_to_unidiff_string(self.changes.clone(), repo, context_lines)
+    ) -> anyhow::Result<BString> {
+        changes_to_unidiff(self.changes.clone(), repo, context_lines)
     }
 }
 
@@ -52,59 +52,30 @@ pub struct TreeChanges {
 }
 
 impl TreeChanges {
-    pub fn try_as_unidiff_string(
+    pub fn try_to_unidiff(
         &self,
         repo: &gix::Repository,
         context_lines: u32,
-    ) -> anyhow::Result<String> {
-        changes_to_unidiff_string(self.changes.clone(), repo, context_lines)
+    ) -> anyhow::Result<BString> {
+        changes_to_unidiff(self.changes.clone(), repo, context_lines)
     }
 }
 
-fn changes_to_unidiff_string(
+/// Notably skip changes that
+fn changes_to_unidiff(
     changes: Vec<TreeChange>,
     repo: &gix::Repository,
     context_lines: u32,
-) -> anyhow::Result<String> {
-    let mut builder = String::new();
+) -> anyhow::Result<BString> {
+    let mut out = BString::default();
     for change in changes {
-        match &change.status {
-            TreeStatus::Addition { .. } => {
-                builder.push_str("--- /dev/null\n");
-                builder.push_str(&format!("+++ b/{}\n", &change.path.to_string()));
-            }
-            TreeStatus::Deletion { .. } => {
-                builder.push_str(&format!("+++ a/{}\n", &change.path.to_string()));
-                builder.push_str("--- /dev/null\n");
-            }
-            TreeStatus::Modification { .. } => {
-                builder.push_str(&format!("--- a/{}\n", &change.path.to_string()));
-                builder.push_str(&format!("+++ b/{}\n", &change.path.to_string()));
-            }
-            TreeStatus::Rename { previous_path, .. } => {
-                let previous_path = previous_path.to_string();
-                builder.push_str(&format!("rename from {previous_path}\n"));
-                builder.push_str(&format!("rename to {}\n", &change.path.to_string()));
-            }
-        }
-        match crate::TreeChange::from(change).unified_diff(repo, context_lines)? {
-            Some(UnifiedDiff::Patch {
-                hunks,
-                is_result_of_binary_to_text_conversion,
-                ..
-            }) => {
-                if is_result_of_binary_to_text_conversion {
-                    continue;
-                }
-                for hunk in hunks {
-                    builder.push_str(&hunk.diff.to_string());
-                    builder.push('\n');
-                }
-            }
-            _ => continue,
-        }
+        let Some(diff) = crate::TreeChange::from(change).unified_diff(repo, context_lines)? else {
+            continue;
+        };
+        out.extend_from_slice(&diff);
+        out.push(b'\n');
     }
-    Ok(builder)
+    Ok(out)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -326,11 +297,11 @@ impl From<crate::ModeFlags> for ModeFlags {
 #[serde(rename_all = "camelCase")]
 pub struct ChangeUnifiedDiff {
     tree_change: TreeChange,
-    diff: crate::UnifiedDiff,
+    diff: crate::UnifiedPatch,
 }
 
-impl From<&(crate::TreeChange, crate::UnifiedDiff)> for ChangeUnifiedDiff {
-    fn from(unified_diff: &(crate::TreeChange, crate::UnifiedDiff)) -> Self {
+impl From<&(crate::TreeChange, crate::UnifiedPatch)> for ChangeUnifiedDiff {
+    fn from(unified_diff: &(crate::TreeChange, crate::UnifiedPatch)) -> Self {
         ChangeUnifiedDiff {
             tree_change: unified_diff.0.clone().into(),
             diff: unified_diff.1.clone(),
@@ -342,7 +313,7 @@ impl From<&(crate::TreeChange, crate::UnifiedDiff)> for ChangeUnifiedDiff {
 pub struct FlatChangeUnifiedDiff {
     pub path: BStringForFrontend,
     pub status: String,
-    pub diff: crate::UnifiedDiff,
+    pub diff: crate::UnifiedPatch,
 }
 
 fn status_to_string(status: &crate::TreeStatus) -> String {
@@ -354,8 +325,8 @@ fn status_to_string(status: &crate::TreeStatus) -> String {
     }
 }
 
-impl From<&(crate::TreeChange, crate::UnifiedDiff)> for FlatChangeUnifiedDiff {
-    fn from(unified_diff: &(crate::TreeChange, crate::UnifiedDiff)) -> Self {
+impl From<&(crate::TreeChange, crate::UnifiedPatch)> for FlatChangeUnifiedDiff {
+    fn from(unified_diff: &(crate::TreeChange, crate::UnifiedPatch)) -> Self {
         FlatChangeUnifiedDiff {
             path: unified_diff.0.path.clone().into(),
             status: status_to_string(&unified_diff.0.status),
@@ -371,8 +342,8 @@ pub struct FlatUnifiedWorktreeChanges {
     pub changes: Vec<FlatChangeUnifiedDiff>,
 }
 
-impl From<&Vec<(crate::TreeChange, crate::UnifiedDiff)>> for FlatUnifiedWorktreeChanges {
-    fn from(changes: &Vec<(crate::TreeChange, crate::UnifiedDiff)>) -> Self {
+impl From<&Vec<(crate::TreeChange, crate::UnifiedPatch)>> for FlatUnifiedWorktreeChanges {
+    fn from(changes: &Vec<(crate::TreeChange, crate::UnifiedPatch)>) -> Self {
         FlatUnifiedWorktreeChanges {
             changes: changes.iter().map(FlatChangeUnifiedDiff::from).collect(),
         }
@@ -390,13 +361,13 @@ pub struct UnifiedWorktreeChanges {
 impl
     From<(
         crate::WorktreeChanges,
-        &Vec<(crate::TreeChange, crate::UnifiedDiff)>,
+        &Vec<(crate::TreeChange, crate::UnifiedPatch)>,
     )> for UnifiedWorktreeChanges
 {
     fn from(
         (worktree_changes, changes): (
             crate::WorktreeChanges,
-            &Vec<(crate::TreeChange, crate::UnifiedDiff)>,
+            &Vec<(crate::TreeChange, crate::UnifiedPatch)>,
         ),
     ) -> Self {
         UnifiedWorktreeChanges {

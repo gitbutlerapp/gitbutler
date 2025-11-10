@@ -14,7 +14,7 @@ mod state;
 
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
-use but_core::UnifiedDiff;
+use but_core::UnifiedPatch;
 use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
@@ -265,7 +265,7 @@ pub fn assign(
         but_core::diff::worktree_changes(repo)?.changes;
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
-        let diff = change.unified_diff(repo, ctx.app_settings().context_lines);
+        let diff = change.unified_patch(repo, ctx.app_settings().context_lines);
         worktree_assignments.extend(diff_to_assignments(
             diff.ok().flatten(),
             change.path.clone(),
@@ -355,7 +355,7 @@ pub fn assignments_with_fallback(
     }
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
-        let diff = change.unified_diff(repo, ctx.app_settings().context_lines);
+        let diff = change.unified_patch(repo, ctx.app_settings().context_lines);
         worktree_assignments.extend(diff_to_assignments(
             diff.ok().flatten(),
             change.path.clone(),
@@ -459,11 +459,11 @@ fn hunk_dependency_assignments(deps: &HunkDependencies) -> Result<Vec<HunkAssign
 }
 
 /// This also generates a UUID for the assignment
-fn diff_to_assignments(diff: Option<UnifiedDiff>, path: BString) -> Vec<HunkAssignment> {
+fn diff_to_assignments(diff: Option<UnifiedPatch>, path: BString) -> Vec<HunkAssignment> {
     let path_str = path.to_str_lossy();
     if let Some(diff) = diff {
         match diff {
-            but_core::UnifiedDiff::Binary => vec![HunkAssignment {
+            but_core::UnifiedPatch::Binary => vec![HunkAssignment {
                 id: Some(Uuid::new_v4()),
                 hunk_header: None,
                 path: path_str.into(),
@@ -474,7 +474,7 @@ fn diff_to_assignments(diff: Option<UnifiedDiff>, path: BString) -> Vec<HunkAssi
                 line_nums_removed: None,
                 diff: None,
             }],
-            but_core::UnifiedDiff::TooLarge { .. } => vec![HunkAssignment {
+            but_core::UnifiedPatch::TooLarge { .. } => vec![HunkAssignment {
                 id: Some(Uuid::new_v4()),
                 hunk_header: None,
                 path: path_str.into(),
@@ -485,7 +485,7 @@ fn diff_to_assignments(diff: Option<UnifiedDiff>, path: BString) -> Vec<HunkAssi
                 line_nums_removed: None,
                 diff: None,
             }],
-            but_core::UnifiedDiff::Patch {
+            but_core::UnifiedPatch::Patch {
                 hunks,
                 is_result_of_binary_to_text_conversion,
                 ..
