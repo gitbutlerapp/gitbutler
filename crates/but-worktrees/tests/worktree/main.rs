@@ -70,6 +70,7 @@ mod worktree_new {
             &mut test_ctx.ctx,
             guard.read_permission(),
             feature_a_name.as_ref(),
+            None,
         )?;
 
         assert_eq!(
@@ -118,6 +119,7 @@ mod worktree_new {
             &mut test_ctx.ctx,
             guard.read_permission(),
             feature_b_name.as_ref(),
+            None,
         )?;
 
         assert_eq!(
@@ -166,6 +168,7 @@ mod worktree_new {
             &mut test_ctx.ctx,
             guard.read_permission(),
             feature_c_name.as_ref(),
+            None,
         )?;
 
         assert_eq!(
@@ -205,11 +208,36 @@ mod worktree_list {
 
         let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
         let feature_c_name = gix::refs::FullName::try_from("refs/heads/feature-c")?;
-        let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
-        let b = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
-        let c = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
-        let d = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
-        let e = worktree_new(&mut ctx, guard.read_permission(), feature_c_name.as_ref())?;
+        let a = worktree_new(
+            &mut ctx,
+            guard.read_permission(),
+            feature_a_name.as_ref(),
+            None,
+        )?;
+        let b = worktree_new(
+            &mut ctx,
+            guard.read_permission(),
+            feature_a_name.as_ref(),
+            None,
+        )?;
+        let c = worktree_new(
+            &mut ctx,
+            guard.read_permission(),
+            feature_a_name.as_ref(),
+            None,
+        )?;
+        let d = worktree_new(
+            &mut ctx,
+            guard.read_permission(),
+            feature_a_name.as_ref(),
+            None,
+        )?;
+        let e = worktree_new(
+            &mut ctx,
+            guard.read_permission(),
+            feature_c_name.as_ref(),
+            None,
+        )?;
 
         let all = &[&a, &b, &c, &d, &e];
 
@@ -243,7 +271,12 @@ mod worktree_destroy {
         let mut guard = ctx.project().exclusive_worktree_access();
 
         let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
-        let outcome = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
+        let outcome = worktree_new(
+            &mut ctx,
+            guard.read_permission(),
+            feature_a_name.as_ref(),
+            None,
+        )?;
 
         // Verify it was created
         let list_before = worktree_list(&mut ctx, guard.read_permission())?;
@@ -275,11 +308,36 @@ mod worktree_destroy {
         let feature_c_name = gix::refs::FullName::try_from("refs/heads/feature-c")?;
 
         // Create 3 worktrees from feature-a and 2 from feature-c
-        worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
-        worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
-        worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
-        worktree_new(&mut ctx, guard.read_permission(), feature_c_name.as_ref())?;
-        worktree_new(&mut ctx, guard.read_permission(), feature_c_name.as_ref())?;
+        worktree_new(
+            &mut ctx,
+            guard.read_permission(),
+            feature_a_name.as_ref(),
+            None,
+        )?;
+        worktree_new(
+            &mut ctx,
+            guard.read_permission(),
+            feature_a_name.as_ref(),
+            None,
+        )?;
+        worktree_new(
+            &mut ctx,
+            guard.read_permission(),
+            feature_a_name.as_ref(),
+            None,
+        )?;
+        worktree_new(
+            &mut ctx,
+            guard.read_permission(),
+            feature_c_name.as_ref(),
+            None,
+        )?;
+        worktree_new(
+            &mut ctx,
+            guard.read_permission(),
+            feature_c_name.as_ref(),
+            None,
+        )?;
 
         // Verify all 5 were created
         let list_before = worktree_list(&mut ctx, guard.read_permission())?;
@@ -318,7 +376,12 @@ mod worktree_destroy {
         let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
 
         // Create worktrees from feature-a
-        worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
+        worktree_new(
+            &mut ctx,
+            guard.read_permission(),
+            feature_a_name.as_ref(),
+            None,
+        )?;
 
         // Try to destroy worktrees from feature-b (which don't exist)
         let destroy_outcome = worktree_destroy_by_reference(

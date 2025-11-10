@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use but_api::worktree::IntegrationStatus;
 use but_worktrees::WorktreeId;
+use colored::Colorize;
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -17,6 +18,9 @@ pub enum Subcommands {
     New {
         /// The reference (branch, commit, etc.) to create the worktree from
         reference: String,
+        /// Custom name for the worktree branch (defaults to UUID)
+        #[clap(short = 'b', long)]
+        name: Option<String>,
     },
     /// List all worktrees
     List,
@@ -77,7 +81,7 @@ pub fn handle_inner(
 ) -> Result<()> {
     let mut stdout = std::io::stdout();
     match cmd {
-        Subcommands::New { reference } => {
+        Subcommands::New { reference, name } => {
             // Naivly append refs/heads/ if it's not present to always have a
             // full reference.
             let reference = if reference.starts_with("refs/heads/") {
@@ -85,19 +89,48 @@ pub fn handle_inner(
             } else {
                 gix::refs::FullName::try_from(format!("refs/heads/{}", reference))?
             };
-            let output = but_api::worktree::worktree_new(project.id, reference)?;
+            let output =
+                but_api::worktree::worktree_new(project.id, reference.clone(), name.clone())?;
             if json {
                 writeln!(stdout, "{}", serde_json::to_string_pretty(&output)?)?;
             } else {
+                // Enhanced output with colors
                 writeln!(
                     stdout,
-                    "Created worktree at: {}",
-                    output.created.path.display()
+                    "Preparing worktree (new branch '{}')",
+                    output.branch_name.green()
                 )
                 .ok();
-                if let Some(reference) = output.created.created_from_ref {
-                    writeln!(stdout, "Reference: {}", reference).ok();
+                writeln!(
+                    stdout,
+                    " - creating worktree from branch: {}",
+                    reference.as_bstr().to_string().cyan()
+                )
+                .ok();
+
+                // Display base commit info
+                if let Some(base) = output.created.base {
+                    let base_short = &base.to_hex().to_string()[..7];
+                    let commit_msg = output
+                        .base_commit_message
+                        .unwrap_or_else(|| "No commit message".to_string());
+                    writeln!(
+                        stdout,
+                        " - worktree base at {} [{}] {}",
+                        base_short.yellow(),
+                        reference.as_bstr().to_string().cyan(),
+                        commit_msg
+                    )
+                    .ok();
                 }
+
+                writeln!(stdout, "\n{}", "Checking out new tree...".dimmed()).ok();
+                writeln!(
+                    stdout,
+                    "\nCreated worktree at: {}",
+                    output.created.path.display().to_string().green()
+                )
+                .ok();
             }
             Ok(())
         }
