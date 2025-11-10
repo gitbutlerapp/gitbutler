@@ -186,8 +186,17 @@
 		}
 	}
 
-	async function onPermissionDecision(id: string, decision: PermissionDecision) {
-		await claudeCodeService.updatePermissionRequest({ projectId, requestId: id, decision });
+	async function onPermissionDecision(
+		id: string,
+		decision: PermissionDecision,
+		useWildcard: boolean
+	) {
+		await claudeCodeService.updatePermissionRequest({
+			projectId,
+			requestId: id,
+			decision,
+			useWildcard
+		});
 	}
 	async function onAbort() {
 		await claudeCodeService.cancelSession({ projectId, stackId });

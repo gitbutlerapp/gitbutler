@@ -233,6 +233,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					projectId: string;
 					requestId: string;
 					decision: PermissionDecision;
+					useWildcard: boolean;
 				}
 			>({
 				extraOptions: {

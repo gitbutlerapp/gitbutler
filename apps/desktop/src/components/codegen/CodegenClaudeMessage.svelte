@@ -12,7 +12,11 @@
 	type Props = {
 		projectId: string;
 		message: Message;
-		onPermissionDecision?: (id: string, decision: PermissionDecision) => Promise<void>;
+		onPermissionDecision?: (
+			id: string,
+			decision: PermissionDecision,
+			useWildcard: boolean
+		) => Promise<void>;
 		toolCallsExpandedState?: Map<string, boolean>;
 	};
 	const { projectId, message, onPermissionDecision, toolCallsExpandedState }: Props = $props();
@@ -51,7 +55,8 @@
 					style="standalone"
 					{toolCall}
 					requiresApproval={{
-						onPermissionDecision: async (id, decision) => await onPermissionDecision?.(id, decision)
+						onPermissionDecision: async (id, decision, useWildcard) =>
+							await onPermissionDecision?.(id, decision, useWildcard)
 					}}
 				/>
 			{/each}

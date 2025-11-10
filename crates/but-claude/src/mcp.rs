@@ -156,7 +156,7 @@ impl Mcp {
             match item {
                 Ok(ItemKind::ClaudePermissionRequests) => {
                     if let Some(updated) = ctx.db()?.claude_permission_requests().get(&req.id)? {
-                        if let Some(decision_str) = updated.decision {
+                        if let Some(decision_str) = updated.decision.clone() {
                             let decision: crate::PermissionDecision =
                                 serde_json::from_str(&decision_str)?;
                             approved_state = decision.is_allowed();
@@ -166,7 +166,7 @@ impl Mcp {
                             let mut runtime_perms = self.runtime_permissions.lock().unwrap();
 
                             if let Err(e) = decision.handle(
-                                &req,
+                                &updated.try_into()?,
                                 &project_path,
                                 &mut runtime_perms,
                                 Some(ctx),
@@ -202,6 +202,7 @@ impl From<McpPermissionRequest> for crate::ClaudePermissionRequest {
             tool_name: request.tool_name,
             input: request.input,
             decision: None,
+            use_wildcard: false, // Default to false for requests coming from MCP
         }
     }
 }

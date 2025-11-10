@@ -86,6 +86,7 @@ diesel::table! {
         tool_name -> Text,
         input -> Text,
         decision -> Nullable<Text>,
+        use_wildcard -> Bool,
     }
 }
 

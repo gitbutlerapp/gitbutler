@@ -36,10 +36,10 @@ pub struct BashPattern {
 }
 
 impl BashPattern {
-    pub fn new_exact(command: String) -> Self {
+    pub fn new(command: String, exact: bool) -> Self {
         Self {
             base: command,
-            exact: true,
+            exact,
         }
     }
 

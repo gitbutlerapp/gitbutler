@@ -63,7 +63,14 @@ impl Permission {
                     // Create a permission for each command in the bash request
                     let permissions = terms
                         .into_iter()
-                        .map(|cmd| Self::Bash(Some(BashPattern::new_exact(cmd))))
+                        .map(|cmd| {
+                            if request.use_wildcard {
+                                let first = cmd.split(' ').next().unwrap_or(&cmd);
+                                Self::Bash(Some(BashPattern::new(first.into(), false)))
+                            } else {
+                                Self::Bash(Some(BashPattern::new(cmd, true)))
+                            }
+                        })
                         .collect();
                     return Ok(permissions);
                 }
@@ -73,10 +80,13 @@ impl Permission {
                 if let Some(terms) = terms
                     && let Some(path_str) = terms.first()
                 {
-                    let pattern = PathPattern::new(
-                        std::path::PathBuf::from(path_str),
-                        PathPatternKind::Absolute,
-                    );
+                    let path = std::path::PathBuf::from(path_str);
+                    let pattern = if request.use_wildcard {
+                        let parent = path.parent().context("Failed to get path parent")?;
+                        PathPattern::new(parent.join("**/*"), PathPatternKind::Absolute)
+                    } else {
+                        PathPattern::new(path, PathPatternKind::Absolute)
+                    };
                     return if request.tool_name == "Edit" {
                         Ok(vec![Self::Edit(Some(pattern))])
                     } else {
@@ -309,7 +319,7 @@ mod test {
 
         #[test]
         fn exact_command() {
-            let pattern = BashPattern::new_exact("git status".to_string());
+            let pattern = BashPattern::new("git status".to_string(), true);
             let perm = Permission::Bash(Some(pattern));
             let ctx = create_test_context(false);
 
@@ -318,7 +328,7 @@ mod test {
 
         #[test]
         fn command_with_special_chars() {
-            let pattern = BashPattern::new_exact("echo 'hello world'".to_string());
+            let pattern = BashPattern::new("echo 'hello world'".to_string(), true);
             let perm = Permission::Bash(Some(pattern));
             let ctx = create_test_context(false);
 

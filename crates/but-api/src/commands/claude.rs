@@ -121,6 +121,7 @@ pub fn claude_update_permission_request(
     project_id: ProjectId,
     request_id: String,
     decision: but_claude::PermissionDecision,
+    use_wildcard: bool,
 ) -> Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
     let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -128,6 +129,7 @@ pub fn claude_update_permission_request(
         &mut ctx,
         &request_id,
         decision,
+        use_wildcard,
     )?)
 }
 
