@@ -112,6 +112,10 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - run: cargo fmt --check --all
       - run: cargo check --workspace --all-targets
+      - run: |
+          # should work without any features
+          cargo check -p but-project
+        name: Special `cargo check` runs
       - name: cargo clippy
         run: |
           rustup component add clippy

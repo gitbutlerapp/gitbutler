@@ -1291,12 +1291,12 @@ const UI_CONTEXT_LINES: u32 = 3;
 
 mod utils {
     use bstr::BString;
-    use but_core::UnifiedDiff;
+    use but_core::UnifiedPatch;
 
     pub fn worktree_change_diffs(
         repo: &gix::Repository,
         context_lines: u32,
-    ) -> anyhow::Result<Vec<(Option<BString>, BString, UnifiedDiff)>> {
+    ) -> anyhow::Result<Vec<(Option<BString>, BString, UnifiedPatch)>> {
         Ok(but_core::diff::worktree_changes(repo)?
             .changes
             .iter()
@@ -1304,7 +1304,7 @@ mod utils {
                 (
                     c.previous_path().map(ToOwned::to_owned),
                     c.path.clone(),
-                    c.unified_diff(repo, context_lines).unwrap().unwrap(),
+                    c.unified_patch(repo, context_lines).unwrap().unwrap(),
                 )
             })
             .collect())

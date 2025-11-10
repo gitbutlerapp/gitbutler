@@ -26,7 +26,7 @@ fn id_to_tree(repo: &gix::Repository, id: gix::ObjectId) -> anyhow::Result<gix::
 /// They are sorted by their current path.
 ///
 /// Additionally, line-stats aggregated for all changes will be computed, which incurs a considerable fraction of the cost
-/// of asking for [UnifiedDiffs](TreeChange::unified_diff()).
+/// of asking for [UnifiedDiffs](TreeChange::unified_patch()).
 pub fn tree_changes(
     repo: &gix::Repository,
     lhs: Option<gix::ObjectId>,

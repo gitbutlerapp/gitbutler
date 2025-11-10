@@ -33,7 +33,9 @@ pub async fn rename_branch(
         .flat_map(|s| s.heads.iter().map(|h| h.name.clone().to_string()))
         .collect::<Vec<_>>();
     let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, commit_id)?;
-    let diff = changes.try_as_unidiff_string(repo, ctx.app_settings().context_lines)?;
+    let diff = changes
+        .try_to_unidiff(repo, ctx.app_settings().context_lines)?
+        .to_string();
     let diffs = vec![diff];
 
     let commit_messages = vec![commit_message];

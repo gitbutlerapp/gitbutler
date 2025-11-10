@@ -580,7 +580,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
     let diffs: Vec<_> = but_core::diff::worktree_changes(&repo)?
         .changes
         .iter()
-        .map(|tree_change| tree_change.unified_diff(&repo, 3))
+        .map(|tree_change| tree_change.unified_patch(&repo, 3))
         .collect::<std::result::Result<Vec<_>, _>>()?
         .into_iter()
         .flatten()

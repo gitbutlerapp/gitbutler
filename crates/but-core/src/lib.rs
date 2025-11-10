@@ -86,6 +86,9 @@ pub use repo_ext::RepositoryExt;
 pub mod ref_metadata;
 use crate::ref_metadata::ValueInfo;
 
+/// Utilities to sync project access.
+pub mod sync;
+
 /// A utility to extra the name of the remote from a remote tracking ref with `ref_name`.
 /// If it's not a remote tracking ref, or no remote in `remote_names` (like `origin`) matches,
 /// `None` is returned.
@@ -190,7 +193,7 @@ pub struct Commit<'repo> {
 /// or how it previously looked like in case of a deletion.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", content = "subject")]
-pub enum UnifiedDiff {
+pub enum UnifiedPatch {
     /// The resource was a binary and couldn't be diffed.
     Binary,
     /// The file was too large and couldn't be diffed.

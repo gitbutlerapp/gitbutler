@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::BTreeMap, io::Read, path::Path};
 
 use anyhow::bail;
 use bstr::{BStr, ByteSlice};
-use but_core::{RepositoryExt, UnifiedDiff};
+use but_core::{RepositoryExt, UnifiedPatch};
 use gix::{
     filter::plumbing::pipeline::convert::ToGitOutcome, merge::tree::TreatAsUnresolved,
     object::tree::EntryKind, prelude::ObjectIdExt,
@@ -204,16 +204,16 @@ pub fn apply_worktree_changes<'repo>(
             let mut diff_filter = but_core::unified_diff::filter_from_state(
                 repo,
                 worktree_change.status.state(),
-                UnifiedDiff::CONVERSION_MODE,
+                UnifiedPatch::CONVERSION_MODE,
             )?;
             debug_assert_eq!(
-                UnifiedDiff::CONVERSION_MODE,
+                UnifiedPatch::CONVERSION_MODE,
                 gix::diff::blob::pipeline::Mode::ToGitUnlessBinaryToTextIsPresent,
                 "BUG: if this changes, the uses of worktree filters need a review"
             );
             // TODO(perf): avoid computing the unified diff here, we only need hunks with, usually with zero context.
-            let Some(UnifiedDiff::Patch { hunks, .. }) =
-                worktree_change.unified_diff_with_filter(repo, context_lines, &mut diff_filter)?
+            let Some(UnifiedPatch::Patch { hunks, .. }) =
+                worktree_change.unified_patch_with_filter(repo, context_lines, &mut diff_filter)?
             else {
                 into_err_spec(possible_change, RejectionReason::FileToLargeOrBinary);
                 continue;
@@ -225,10 +225,10 @@ pub fn apply_worktree_changes<'repo>(
                 .any(|h| h.old_range().is_null() || h.new_range().is_null());
             let worktree_hunks: Vec<HunkHeader> = hunks.into_iter().map(Into::into).collect();
             let worktree_hunks_no_context = if has_hunk_selections {
-                let Some(UnifiedDiff::Patch {
+                let Some(UnifiedPatch::Patch {
                     hunks: hunks_no_context,
                     ..
-                }) = worktree_change.unified_diff_with_filter(repo, 0, &mut diff_filter)?
+                }) = worktree_change.unified_patch_with_filter(repo, 0, &mut diff_filter)?
                 else {
                     into_err_spec(possible_change, RejectionReason::FileToLargeOrBinary);
                     continue;

@@ -1,10 +1,10 @@
-use but_core::{ChangeState, UnifiedDiff, unified_diff};
+use but_core::{ChangeState, UnifiedPatch, unified_diff};
 use gix::object::tree::EntryKind;
 
 #[test]
 fn file_added_in_worktree() -> anyhow::Result<()> {
     let repo = crate::diff::worktree_changes::repo("added-modified-in-worktree")?;
-    let actual = extract_patch(UnifiedDiff::compute(
+    let actual = extract_patch(UnifiedPatch::compute(
         &repo,
         "modified".into(),
         None,
@@ -29,7 +29,7 @@ fn file_added_in_worktree() -> anyhow::Result<()> {
 #[test]
 fn binary_text_in_unborn() -> anyhow::Result<()> {
     let repo = crate::diff::worktree_changes::repo("diff-binary-to-text-unborn")?;
-    let actual = extract_patch(UnifiedDiff::compute(
+    let actual = extract_patch(UnifiedPatch::compute(
         &repo,
         "file.binary".into(),
         None,
@@ -55,7 +55,7 @@ fn binary_text_in_unborn() -> anyhow::Result<()> {
 fn binary_text_renamed_unborn() -> anyhow::Result<()> {
     let repo = crate::diff::worktree_changes::repo("diff-binary-to-text-renamed-in-worktree")?;
     // In case of renames, it uses the name of the previous file for attribute lookups.
-    let actual = extract_patch(UnifiedDiff::compute(
+    let actual = extract_patch(UnifiedPatch::compute(
         &repo,
         "after-rename.binary".into(),
         Some("before-rename.binary".into()),
@@ -90,7 +90,7 @@ fn file_deleted_in_worktree() -> anyhow::Result<()> {
         kind: EntryKind::Blob,
     };
     let no_current_state = None;
-    let actual = extract_patch(UnifiedDiff::compute(
+    let actual = extract_patch(UnifiedPatch::compute(
         &repo,
         "modified".into(),
         None,
@@ -114,7 +114,7 @@ fn big_file_20_in_worktree() -> anyhow::Result<()> {
     let mut repo = crate::diff::worktree_changes::repo("big-file-20-unborn")?;
     repo.config_snapshot_mut()
         .set_value(&gix::config::tree::Core::BIG_FILE_THRESHOLD, "20")?;
-    let actual = UnifiedDiff::compute(
+    let actual = UnifiedPatch::compute(
         &repo,
         "big".into(),
         None,
@@ -127,10 +127,10 @@ fn big_file_20_in_worktree() -> anyhow::Result<()> {
     )?
     .expect("present");
     match actual {
-        UnifiedDiff::Binary | UnifiedDiff::Patch { .. } => {
+        UnifiedPatch::Binary | UnifiedPatch::Patch { .. } => {
             unreachable!("Should be considered too large")
         }
-        UnifiedDiff::TooLarge { size_in_bytes } => {
+        UnifiedPatch::TooLarge { size_in_bytes } => {
             assert_eq!(
                 size_in_bytes, 21,
                 "at this size, it's one too large for the big-file limit"
@@ -143,7 +143,7 @@ fn big_file_20_in_worktree() -> anyhow::Result<()> {
 #[test]
 fn binary_file_in_worktree() -> anyhow::Result<()> {
     let repo = crate::diff::worktree_changes::repo("binary-file-unborn")?;
-    let actual = UnifiedDiff::compute(
+    let actual = UnifiedPatch::compute(
         &repo,
         "with-null-bytes".into(),
         None,
@@ -156,10 +156,10 @@ fn binary_file_in_worktree() -> anyhow::Result<()> {
     )?
     .expect("present");
     match actual {
-        UnifiedDiff::TooLarge { .. } | UnifiedDiff::Patch { .. } => {
+        UnifiedPatch::TooLarge { .. } | UnifiedPatch::Patch { .. } => {
             unreachable!("Should be considered binary, but was {actual:?}");
         }
-        UnifiedDiff::Binary => {
+        UnifiedPatch::Binary => {
             // There is no more information here, binary files aren't diffed.
         }
     }
@@ -170,7 +170,7 @@ fn binary_file_in_worktree() -> anyhow::Result<()> {
 #[cfg(unix)]
 fn symlink_modified_in_worktree() -> anyhow::Result<()> {
     let repo = crate::diff::worktree_changes::repo_unix("symlink-change-in-worktree")?;
-    let actual = extract_patch(UnifiedDiff::compute(
+    let actual = extract_patch(UnifiedPatch::compute(
         &repo,
         "symlink".into(),
         None,
@@ -225,17 +225,17 @@ fn submodule_added() -> anyhow::Result<()> {
     ]
     "#);
     assert!(
-        changes[1].unified_diff(&repo, 3)?.is_none(),
+        changes[1].unified_patch(&repo, 3)?.is_none(),
         "submodules produce no diffs"
     );
     Ok(())
 }
 
-fn extract_patch(diff: Option<UnifiedDiff>) -> Vec<unified_diff::DiffHunk> {
+fn extract_patch(diff: Option<UnifiedPatch>) -> Vec<unified_diff::DiffHunk> {
     match diff {
-        None | Some(UnifiedDiff::Binary | UnifiedDiff::TooLarge { .. }) => {
+        None | Some(UnifiedPatch::Binary | UnifiedPatch::TooLarge { .. }) => {
             unreachable!("should have patches")
         }
-        Some(UnifiedDiff::Patch { hunks, .. }) => hunks,
+        Some(UnifiedPatch::Patch { hunks, .. }) => hunks,
     }
 }

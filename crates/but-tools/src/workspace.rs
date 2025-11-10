@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Context;
 use bstr::BString;
-use but_core::{TreeChange, UnifiedDiff};
+use but_core::{TreeChange, UnifiedPatch};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_workspace::{CommmitSplitOutcome, StackId, ui::StackEntryNoOpt};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
@@ -1857,13 +1857,13 @@ fn entries_to_simple_stacks(
 }
 
 fn get_file_changes(
-    changes: &[(TreeChange, UnifiedDiff)],
+    changes: &[(TreeChange, UnifiedPatch)],
     assingments: Vec<but_hunk_assignment::HunkAssignment>,
 ) -> Vec<FileChange> {
     let mut file_changes = vec![];
     for (change, unified_diff) in changes.iter() {
         match unified_diff {
-            but_core::UnifiedDiff::Patch { hunks, .. } => {
+            but_core::UnifiedPatch::Patch { hunks, .. } => {
                 let path = change.path.to_string();
                 let status = match &change.status {
                     but_core::TreeStatus::Addition { .. } => "added".to_string(),
@@ -1918,12 +1918,12 @@ fn unified_diff_for_changes(
     repo: &gix::Repository,
     changes: Vec<but_core::TreeChange>,
     context_lines: u32,
-) -> anyhow::Result<Vec<(but_core::TreeChange, but_core::UnifiedDiff)>> {
+) -> anyhow::Result<Vec<(but_core::TreeChange, but_core::UnifiedPatch)>> {
     changes
         .into_iter()
         .map(|tree_change| {
             tree_change
-                .unified_diff(repo, context_lines)
+                .unified_patch(repo, context_lines)
                 .map(|diff| (tree_change, diff.expect("no submodule")))
         })
         .collect::<Result<Vec<_>, _>>()

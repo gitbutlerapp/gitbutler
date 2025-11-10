@@ -106,7 +106,7 @@ impl CommandContext {
     /// Also note that there are plenty of other places where repositories are opened ad-hoc, and
     /// there is no need to use this type there at all - opening a repo is very cheap still.
     pub fn gix_repo(&self) -> Result<gix::Repository> {
-        Ok(gix::open(self.repo().path())?)
+        self.project.open()
     }
 
     /// Create a new Graph traversal from the current HEAD, using (and returning) the given `repo` (configured by the caller),
@@ -131,6 +131,7 @@ impl CommandContext {
     /// Return a wrapper for metadata that only supports read-only access when presented with the project wide permission
     /// to read data.
     /// This is helping to prevent races with mutable instances.
+    // NOTE: this
     pub fn meta(&self, _read_only: &WorktreeReadPermission) -> Result<VirtualBranchesTomlMetadata> {
         self.meta_inner().map(VirtualBranchesTomlMetadata)
     }

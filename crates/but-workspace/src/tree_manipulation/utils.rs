@@ -167,7 +167,7 @@ pub fn create_tree_without_diff(
                         );
                     };
 
-                    let diff = but_core::UnifiedDiff::compute(
+                    let diff = but_core::UnifiedPatch::compute(
                         repository,
                         change.path.as_bstr(),
                         Some(before_path.as_bstr()),
@@ -185,7 +185,7 @@ pub fn create_tree_without_diff(
                         "Cannot diff submodules - if this is encountered we should look into it",
                     )?;
 
-                    let but_core::UnifiedDiff::Patch {
+                    let but_core::UnifiedPatch::Patch {
                         hunks: diff_hunks, ..
                     } = diff
                     else {

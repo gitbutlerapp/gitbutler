@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_core::{UnifiedDiff, WorktreeChanges, diff};
+use but_core::{UnifiedPatch, WorktreeChanges, diff};
 use but_testsupport::gix_testtools;
 
 #[test]
@@ -48,7 +48,7 @@ fn executable_bit_added_in_worktree() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r"
     [
         Patch {
             hunks: [],
@@ -89,7 +89,7 @@ fn executable_bit_removed_in_worktree() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r"
     [
         Patch {
             hunks: [],
@@ -130,7 +130,7 @@ fn executable_bit_removed_in_index() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r"
     [
         Patch {
             hunks: [],
@@ -171,7 +171,7 @@ fn executable_bit_added_in_index() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r"
     [
         Patch {
             hunks: [],
@@ -205,7 +205,7 @@ fn untracked_in_unborn() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r"
     [
         Patch {
             hunks: [],
@@ -239,7 +239,7 @@ fn added_in_unborn() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r"
     [
         Patch {
             hunks: [],
@@ -295,7 +295,7 @@ fn submodule_added_in_unborn() -> Result<()> {
     }
     "#);
     assert_eq!(
-        unified_diffs(actual, &repo).unwrap_err().to_string(),
+        unified_patches(actual, &repo).unwrap_err().to_string(),
         "Can only diff blobs and links, not Commit"
     );
     Ok(())
@@ -368,7 +368,7 @@ fn submodule_changed_head() -> Result<()> {
     }
     "#);
     assert_eq!(
-        unified_diffs(actual, &repo).unwrap_err().to_string(),
+        unified_patches(actual, &repo).unwrap_err().to_string(),
         "Can only diff blobs and links, not Commit"
     );
     Ok(())
@@ -404,7 +404,7 @@ fn case_folding_worktree_changes() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [
@@ -452,7 +452,7 @@ fn case_folding_worktree_and_index_changes() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [
@@ -499,7 +499,7 @@ fn file_to_dir_in_worktree() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [],
@@ -552,7 +552,7 @@ fn file_to_dir_in_index() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [],
@@ -605,7 +605,7 @@ fn dir_to_file_in_worktree() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [
@@ -658,7 +658,7 @@ fn dir_to_file_in_index() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [
@@ -709,7 +709,7 @@ fn file_to_symlink_in_worktree() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [
@@ -773,7 +773,7 @@ fn file_to_symlink_in_index() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [
@@ -819,7 +819,7 @@ fn symlink_to_file_in_worktree() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [
@@ -865,7 +865,7 @@ fn symlink_to_file_in_index() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [
@@ -932,7 +932,7 @@ fn added_modified_in_worktree() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [],
@@ -988,7 +988,7 @@ fn non_utf8_decoding() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [
@@ -1030,7 +1030,7 @@ fn modified_in_index() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [
@@ -1068,7 +1068,7 @@ fn deleted_in_worktree() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [
@@ -1105,7 +1105,7 @@ fn deleted_in_index() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r#"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r#"
     [
         Patch {
             hunks: [
@@ -1148,7 +1148,7 @@ fn renamed_in_index() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r"
     [
         Patch {
             hunks: [],
@@ -1187,7 +1187,7 @@ fn renamed_in_index_with_executable_bit() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r"
     [
         Patch {
             hunks: [],
@@ -1226,7 +1226,7 @@ fn renamed_in_worktree() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r"
     [
         Patch {
             hunks: [],
@@ -1265,7 +1265,7 @@ fn renamed_in_worktree_with_executable_bit() -> Result<()> {
         ignored_changes: [],
     }
     "#);
-    insta::assert_debug_snapshot!(unified_diffs(actual, &repo)?, @r"
+    insta::assert_debug_snapshot!(unified_patches(actual, &repo)?, @r"
     [
         Patch {
             hunks: [],
@@ -1309,7 +1309,7 @@ fn modified_in_index_and_worktree_mod_mod() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1366,7 +1366,7 @@ fn modified_in_index_and_worktree_mod_mod_symlink() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1419,7 +1419,7 @@ fn modified_in_index_and_worktree_add_mod() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1456,7 +1456,7 @@ fn modified_in_index_and_worktree_add_del() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1497,7 +1497,7 @@ fn modified_in_index_and_worktree_del_add() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1547,7 +1547,7 @@ fn modified_in_index_and_worktree_mod_del() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     // newlines at the end should work.
@@ -1591,7 +1591,7 @@ fn modified_in_index_and_worktree_rename_mod() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1634,7 +1634,7 @@ fn modified_in_index_and_worktree_rename_rename() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     assert_eq!(
@@ -1671,7 +1671,7 @@ fn modified_in_index_and_worktree_rename_del() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1713,7 +1713,7 @@ fn modified_in_index_and_worktree_mod_rename() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     insta::assert_snapshot!(hunks[0].diff, @r"
@@ -1767,13 +1767,13 @@ fn modified_in_index_and_worktree_rename_add() -> Result<()> {
     "#);
 
     let [
-        UnifiedDiff::Patch {
+        UnifiedPatch::Patch {
             hunks: ref hunks1, ..
         },
-        UnifiedDiff::Patch {
+        UnifiedPatch::Patch {
             hunks: ref hunks2, ..
         },
-    ] = unified_diffs(actual, &repo)?[..]
+    ] = unified_patches(actual, &repo)?[..]
     else {
         unreachable!("need hunks")
     };
@@ -1821,7 +1821,7 @@ fn modified_in_index_and_worktree_add_rename() -> Result<()> {
     }
     "#);
 
-    let [UnifiedDiff::Patch { ref hunks, .. }] = unified_diffs(actual, &repo)?[..] else {
+    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
     assert_eq!(
@@ -1832,11 +1832,11 @@ fn modified_in_index_and_worktree_add_rename() -> Result<()> {
     Ok(())
 }
 
-fn unified_diffs(
+fn unified_patches(
     worktree: WorktreeChanges,
     repo: &gix::Repository,
-) -> anyhow::Result<Vec<UnifiedDiff>> {
-    super::unified_diffs(worktree.changes, repo)
+) -> anyhow::Result<Vec<UnifiedPatch>> {
+    super::unified_patches(&worktree.changes, repo)
 }
 
 pub fn repo_in(fixture_name: &str, name: &str) -> anyhow::Result<gix::Repository> {

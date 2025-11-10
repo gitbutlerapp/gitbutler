@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, io::Read, path::PathBuf};
 
 use anyhow::{Context, bail};
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice, ByteVec};
 use gix::{
     dir::{entry, walk::EmissionMode},
     filter::plumbing::pipeline::convert::ToGitOutcome,
@@ -18,7 +18,7 @@ use tracing::instrument;
 
 use crate::{
     ChangeState, IgnoredWorktreeChange, IgnoredWorktreeTreeChangeStatus, ModeFlags, TreeChange,
-    TreeStatus, UnifiedDiff, WorktreeChanges,
+    TreeStatus, UnifiedPatch, WorktreeChanges,
 };
 
 /// Identify where a [`TreeChange`] is from.
@@ -873,34 +873,114 @@ fn disk_kind_to_entry_kind(
     ))
 }
 
+/// Unified diffs
 impl TreeChange {
+    /// Like [`Self::unified_patch()`], but also provides the file header for diffs like this:
+    ///
+    /// ```patch
+    /// --- a/README.md
+    /// +++ b/README.md
+    /// @@ -1,5 +1,5 @@
+    /// -This is old text.
+    /// +This is new text.
+    ///  More content...
+    /// ```
+    ///
+    /// Return `None` if this change cannot produce a diff, typically because a submodule is involved.
+    ///
+    /// Warning: we return binary-to-text conversions as patches, so these diffs aren't usable for actual patching,
+    /// as they also remove the information about such filter, and it's unclear to the caller if they ran at all.
+    // TODO: also add mode information, but it's not super trivial to decide on a good format.
+    pub fn unified_diff(
+        &self,
+        repo: &gix::Repository,
+        context_lines: u32,
+    ) -> anyhow::Result<Option<BString>> {
+        fn prefixed_path_line(prefix: &str, path: &BString, out: &mut BString) {
+            out.push_str(prefix);
+            out.push_str(path);
+            out.push(b'\n');
+        }
+
+        let mut out = BString::default();
+        match &self.status {
+            TreeStatus::Addition { .. } => {
+                out.push_str("--- /dev/null\n");
+                prefixed_path_line("+++ b/", &self.path, &mut out);
+            }
+            TreeStatus::Deletion { .. } => {
+                prefixed_path_line("+++ a/", &self.path, &mut out);
+                out.push_str("--- /dev/null\n");
+            }
+            TreeStatus::Modification { .. } => {
+                prefixed_path_line("--- a/", &self.path, &mut out);
+                prefixed_path_line("+++ b/", &self.path, &mut out);
+            }
+            TreeStatus::Rename { previous_path, .. } => {
+                out.push_str("rename from ");
+                out.push_str(previous_path);
+                out.push(b'\n');
+
+                out.push_str("rename to ");
+                out.push_str(&self.path);
+                out.push(b'\n');
+            }
+        }
+        match self.unified_patch(repo, context_lines)? {
+            Some(UnifiedPatch::Patch { hunks, .. }) => {
+                for hunk in hunks {
+                    out.push_str(&hunk.diff);
+                }
+            }
+            None => {}
+            _ => return Ok(None),
+        }
+        Ok(Some(out))
+    }
+
     /// Obtain a unified diff by comparing the previous and current state of this change, using `repo` to retrieve objects or
     /// for obtaining a working tree to read files from disk.
     /// Note that the mount of lines of context around each hunk are currently hardcoded to `3` as it *might* be relevant for creating
     /// commits later.
     /// Return `None` if this change cannot produce a diff, typically because a submodule is involved.
-    pub fn unified_diff(
+    /// Note that this format only contains hunk-headers and the patches themselves, not the file header.
+    ///
+    /// ### Example
+    ///
+    /// ```diff
+    /// @@ -1,5 +1,5 @@
+    /// -This is old text.
+    /// +This is new text.
+    ///  More content...
+    /// ```
+    ///
+    /// Note that the file header is missing, so the following is *not* present.
+    /// ```
+    /// --- a/README.md
+    /// +++ b/README.md
+    /// ```
+    pub fn unified_patch(
         &self,
         repo: &gix::Repository,
         context_lines: u32,
-    ) -> anyhow::Result<Option<UnifiedDiff>> {
+    ) -> anyhow::Result<Option<UnifiedPatch>> {
         let mut diff_filter = crate::unified_diff::filter_from_state(
             repo,
             self.status.state(),
-            UnifiedDiff::CONVERSION_MODE,
+            UnifiedPatch::CONVERSION_MODE,
         )?;
-        self.unified_diff_with_filter(repo, context_lines, &mut diff_filter)
+        self.unified_patch_with_filter(repo, context_lines, &mut diff_filter)
     }
 
-    /// Like [`Self::unified_diff()`], but uses `diff_filter` to control the content used for the diff.
-    pub fn unified_diff_with_filter(
+    /// Like [`Self::unified_patch()`], but uses `diff_filter` to control the content used for the diff.
+    pub fn unified_patch_with_filter(
         &self,
         repo: &gix::Repository,
         context_lines: u32,
         diff_filter: &mut gix::diff::blob::Platform,
-    ) -> anyhow::Result<Option<UnifiedDiff>> {
+    ) -> anyhow::Result<Option<UnifiedPatch>> {
         match &self.status {
-            TreeStatus::Deletion { previous_state } => UnifiedDiff::compute_with_filter(
+            TreeStatus::Deletion { previous_state } => UnifiedPatch::compute_with_filter(
                 repo,
                 self.path.as_bstr(),
                 None,
@@ -912,7 +992,7 @@ impl TreeChange {
             TreeStatus::Addition {
                 state,
                 is_untracked: _,
-            } => UnifiedDiff::compute_with_filter(
+            } => UnifiedPatch::compute_with_filter(
                 repo,
                 self.path.as_bstr(),
                 None,
@@ -925,7 +1005,7 @@ impl TreeChange {
                 state,
                 previous_state,
                 flags: _,
-            } => UnifiedDiff::compute_with_filter(
+            } => UnifiedPatch::compute_with_filter(
                 repo,
                 self.path.as_bstr(),
                 None,
@@ -939,7 +1019,7 @@ impl TreeChange {
                 previous_state,
                 state,
                 flags: _,
-            } => UnifiedDiff::compute_with_filter(
+            } => UnifiedPatch::compute_with_filter(
                 repo,
                 self.path.as_bstr(),
                 Some(previous_path.as_bstr()),

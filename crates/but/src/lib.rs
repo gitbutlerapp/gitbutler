@@ -1,7 +1,7 @@
+use anyhow::{Context, Result};
 use std::ffi::OsString;
 use std::io::Write;
-
-use anyhow::{Context, Result};
+use std::path::Path;
 
 mod args;
 use args::{Args, CommandName, Subcommands, actions, claude, cursor};
@@ -79,7 +79,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 .target
                 .as_ref()
                 .expect("target is checked to be Some in match guard");
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result =
                 rub::handle(&project, args.json, source, target).context("Rubbed the wrong way.");
             if let Err(e) = &result {
@@ -117,11 +117,11 @@ async fn match_subcommand(
                 description,
                 handler,
             }) => {
-                let project = get_or_init_project(&args.current_dir)?;
+                let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
                 command::handle_changes(&project, args.json, handler, &description)
             }
             None => {
-                let project = get_or_init_project(&args.current_dir)?;
+                let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
                 command::list_actions(&project, args.json, 0, 10)
             }
         },
@@ -162,7 +162,7 @@ async fn match_subcommand(
                 but_claude::mcp::start(&args.current_dir, &session_id).await
             }
             claude::Subcommands::Last { offset } => {
-                let project = get_or_init_project(&args.current_dir)?;
+                let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
                 let mut ctx = gitbutler_command_context::CommandContext::open(
                     &project,
                     app_settings.clone(),
@@ -230,7 +230,7 @@ async fn match_subcommand(
             }
         },
         Subcommands::Base(base::Platform { cmd }) => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let metrics_cmd = match cmd {
                 base::Subcommands::Check => CommandName::BaseCheck,
                 base::Subcommands::Update => CommandName::BaseUpdate,
@@ -240,7 +240,7 @@ async fn match_subcommand(
             Ok(())
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let metrics_command = match cmd {
                 None | Some(branch::Subcommands::List { .. }) => CommandName::BranchList,
                 Some(branch::Subcommands::New { .. }) => CommandName::BranchNew,
@@ -252,13 +252,13 @@ async fn match_subcommand(
             result
         }
         Subcommands::Worktree(worktree::Platform { cmd }) => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = worktree::handle(cmd, &project, args.json);
             metrics_if_configured(app_settings, CommandName::Worktree, props(start, &result)).ok();
             result
         }
         Subcommands::Log => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = log::commit_graph(&project, args.json);
             metrics_if_configured(app_settings, CommandName::Log, props(start, &result)).ok();
             result?;
@@ -269,20 +269,20 @@ async fn match_subcommand(
             verbose,
             review,
         } => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_project_with_legacy_support(&args.current_dir)?;
             let result = status::worktree(&project, args.json, show_files, verbose, review).await;
             metrics_if_configured(app_settings, CommandName::Status, props(start, &result)).ok();
             result
         }
         Subcommands::Stf { verbose, review } => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_project_with_legacy_support(&args.current_dir)?;
             let result = status::worktree(&project, args.json, true, verbose, review).await;
             metrics_if_configured(app_settings, CommandName::Stf, props(start, &result)).ok();
             result
         }
         Subcommands::Rub { source, target } => {
             let mut stderr = std::io::stderr();
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result =
                 rub::handle(&project, args.json, &source, &target).context("Rubbed the wrong way.");
             if let Err(e) = &result {
@@ -293,7 +293,7 @@ async fn match_subcommand(
         }
         Subcommands::Mark { target, delete } => {
             let mut stderr = std::io::stderr();
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = mark::handle(&project, args.json, &target, delete)
                 .context("Can't mark this. Taaaa-na-na-na. Can't mark this.");
             if let Err(e) = &result {
@@ -304,7 +304,7 @@ async fn match_subcommand(
         }
         Subcommands::Unmark => {
             let mut stderr = std::io::stderr();
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = mark::unmark(&project, args.json)
                 .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.");
             if let Err(e) = &result {
@@ -324,7 +324,7 @@ async fn match_subcommand(
             create,
             only,
         } => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = commit::commit(
                 &project,
                 args.json,
@@ -337,49 +337,49 @@ async fn match_subcommand(
             result
         }
         Subcommands::Push(push_args) => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = push::handle(push_args, &project, args.json);
             metrics_if_configured(app_settings, CommandName::Push, props(start, &result)).ok();
             result
         }
         Subcommands::New { target } => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = commit::insert_blank_commit(&project, args.json, &target);
             metrics_if_configured(app_settings, CommandName::New, props(start, &result)).ok();
             result
         }
         Subcommands::Describe { target } => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = describe::describe_target(&project, args.json, &target);
             metrics_if_configured(app_settings, CommandName::Describe, props(start, &result)).ok();
             result
         }
         Subcommands::Oplog { since } => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = oplog::show_oplog(&project, args.json, since.as_deref());
             metrics_if_configured(app_settings, CommandName::Oplog, props(start, &result)).ok();
             result
         }
         Subcommands::Restore { oplog_sha, force } => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = oplog::restore_to_oplog(&project, args.json, &oplog_sha, force);
             metrics_if_configured(app_settings, CommandName::Restore, props(start, &result)).ok();
             result
         }
         Subcommands::Undo => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = oplog::undo_last_operation(&project, args.json);
             metrics_if_configured(app_settings, CommandName::Undo, props(start, &result)).ok();
             result
         }
         Subcommands::Snapshot { message } => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = oplog::create_snapshot(&project, args.json, message.as_deref());
             metrics_if_configured(app_settings, CommandName::Snapshot, props(start, &result)).ok();
             result
         }
         Subcommands::Absorb { source } => {
-            let project = get_or_init_project(&args.current_dir)?;
+            let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
             let result = absorb::handle(&project, args.json, source.as_deref());
             metrics_if_configured(app_settings, CommandName::Absorb, props(start, &result)).ok();
             result
@@ -404,7 +404,7 @@ async fn match_subcommand(
                 run_hooks,
                 default,
             } => {
-                let project = get_or_init_project(&args.current_dir)?;
+                let project = get_or_init_legacy_non_bare_project(&args.current_dir)?;
                 let result = forge::review::publish_reviews(
                     &project,
                     branch,
@@ -429,7 +429,7 @@ async fn match_subcommand(
     }
 }
 
-fn get_or_init_project(
+fn get_or_init_legacy_non_bare_project(
     current_dir: &std::path::Path,
 ) -> anyhow::Result<gitbutler_project::Project> {
     let repo = gix::discover(current_dir)?;
@@ -448,6 +448,47 @@ fn get_or_init_project(
         writeln!(stdout, "{error_desc}").ok();
         anyhow::bail!(error_desc);
     }
+}
+
+/// Legacy - none of this should be kept.
+/// Turn this instance into a project, which knows about the Git repository discovered from `directory`
+/// and which can derive all other information from there.
+pub fn get_or_init_project_with_legacy_support(
+    directory: impl AsRef<Path>,
+) -> anyhow::Result<but_project::Project> {
+    let directory = directory.as_ref();
+    let repo = gix::discover(directory)?;
+    let worktree_dir = repo
+        .workdir()
+        .context("Bare repositories are not yet supported.")?;
+    let project = gitbutler_project::Project::find_by_worktree_dir_opt(worktree_dir)?
+        .map(anyhow::Ok)
+        .unwrap_or_else(|| {
+            init::repo(directory, false, false)
+                .and_then(|()| gitbutler_project::Project::find_by_worktree_dir(directory))
+        })?;
+    Ok(but_project::Project {
+        settings: AppSettings::load_from_default_path_creating()?,
+        legacy: project,
+        repo,
+    })
+}
+
+/// Discover the Git repository in `directory` and return it,
+pub fn get_project_with_legacy_support(
+    directory: impl AsRef<Path>,
+) -> anyhow::Result<but_project::Project> {
+    let directory = directory.as_ref();
+    let repo = gix::discover(directory)?;
+    let worktree_dir = repo
+        .workdir()
+        .context("Bare repositories are not yet supported.")?;
+    let project = gitbutler_project::Project::find_by_worktree_dir(worktree_dir)?;
+    Ok(but_project::Project {
+        settings: AppSettings::load_from_default_path_creating()?,
+        legacy: project,
+        repo,
+    })
 }
 
 pub(crate) fn props<E, T, R>(start: std::time::Instant, result: R) -> Props

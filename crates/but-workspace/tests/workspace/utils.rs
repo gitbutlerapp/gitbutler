@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use bstr::ByteSlice;
-use but_core::{TreeChange, TreeStatus, UnifiedDiff, unified_diff::DiffHunk};
+use but_core::{TreeChange, TreeStatus, UnifiedPatch, unified_diff::DiffHunk};
 use but_testsupport::{
     gix_testtools,
     gix_testtools::{Creation, tempfile},
@@ -183,8 +183,8 @@ pub fn to_change_specs_all_hunks_with_context_lines(
                 ..Default::default()
             },
             _ => {
-                match change.unified_diff(repo, context_lines)? {
-                    Some(but_core::UnifiedDiff::Patch { hunks, .. }) => DiffSpec {
+                match change.unified_patch(repo, context_lines)? {
+                    Some(but_core::UnifiedPatch::Patch { hunks, .. }) => DiffSpec {
                         previous_path: change.previous_path().map(ToOwned::to_owned),
                         path: change.path,
                         hunk_headers: hunks.into_iter().map(Into::into).collect(),
@@ -307,9 +307,9 @@ pub fn worktree_changes_with_diffs(
         .into_iter()
         .map(|tree_change| {
             let diff = tree_change
-                .unified_diff(repo, 0 /* context_lines */)
+                .unified_patch(repo, 0 /* context_lines */)
                 .expect("diffs can always be generated");
-            let Some(UnifiedDiff::Patch { hunks, .. }) = diff else {
+            let Some(UnifiedPatch::Patch { hunks, .. }) = diff else {
                 unreachable!("don't use this with binary files or large files or submodules")
             };
             (tree_change, hunks.into_iter().map(LeanDiffHunk).collect())

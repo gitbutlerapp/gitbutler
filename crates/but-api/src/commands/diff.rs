@@ -28,12 +28,12 @@ use crate::{error::Error, hex_hash::HexHash};
 pub fn tree_change_diffs(
     project_id: ProjectId,
     change: TreeChange,
-) -> anyhow::Result<Option<but_core::UnifiedDiff>, Error> {
+) -> anyhow::Result<Option<but_core::UnifiedPatch>, Error> {
     let change: but_core::TreeChange = change.into();
     let project = gitbutler_project::get(project_id)?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
     let repo = project.open()?;
-    Ok(change.unified_diff(&repo, app_settings.context_lines)?)
+    Ok(change.unified_patch(&repo, app_settings.context_lines)?)
 }
 
 #[derive(Debug, Serialize)]

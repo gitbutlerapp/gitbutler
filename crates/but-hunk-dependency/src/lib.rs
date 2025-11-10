@@ -128,7 +128,7 @@
 mod input;
 
 use anyhow::Context;
-use but_core::{TreeChange, UnifiedDiff};
+use but_core::{TreeChange, UnifiedPatch};
 use gitbutler_oxidize::ObjectIdExt;
 use gix::{prelude::ObjectIdExt as _, trace};
 pub use input::{InputCommit, InputDiffHunk, InputFile, InputStack};
@@ -185,8 +185,8 @@ pub fn tree_changes_to_input_files(
 ) -> anyhow::Result<Vec<InputFile>> {
     let mut files = Vec::new();
     for change in changes {
-        let diff = change.unified_diff(repo, 0)?;
-        let Some(UnifiedDiff::Patch { hunks, .. }) = diff else {
+        let diff = change.unified_patch(repo, 0)?;
+        let Some(UnifiedPatch::Patch { hunks, .. }) = diff else {
             trace::warn!(
                 "Skipping change at '{}' as it doesn't have hunks to calculate dependencies for (binary/too large)",
                 change.path

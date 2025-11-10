@@ -6,9 +6,9 @@ use gix::diff::blob::{
 };
 use serde::Serialize;
 
-use super::{ChangeState, UnifiedDiff};
+use super::{ChangeState, UnifiedPatch};
 
-/// A hunk as used in a [UnifiedDiff], which also contains all added and removed lines.
+/// A hunk as used in a [UnifiedPatch], which also contains all added and removed lines.
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiffHunk {
@@ -50,7 +50,7 @@ impl std::fmt::Debug for DiffHunk {
     }
 }
 
-impl UnifiedDiff {
+impl UnifiedPatch {
     /// Determine how resources are converted to their form used for diffing.
     ///
     /// `ToGit` means that we want to see manifests of `git-lfs` for instance, or generally the result of 'clean' filters.
@@ -201,7 +201,7 @@ impl UnifiedDiff {
                 );
                 let hunks = gix::diff::blob::diff(algorithm, &input, uni_diff)?.hunks;
                 let (lines_added, lines_removed) = compute_line_changes(&hunks);
-                UnifiedDiff::Patch {
+                UnifiedPatch::Patch {
                     is_result_of_binary_to_text_conversion: prep.old_or_new_is_derived,
                     hunks,
                     lines_added,
@@ -229,11 +229,11 @@ impl UnifiedDiff {
                     .expect("BUG: one of the resources must have been binary/too big");
                 let big_file_size = repo.big_file_threshold()?;
                 if size > big_file_size {
-                    UnifiedDiff::TooLarge {
+                    UnifiedPatch::TooLarge {
                         size_in_bytes: size,
                     }
                 } else {
-                    UnifiedDiff::Binary
+                    UnifiedPatch::Binary
                 }
             }
         }))

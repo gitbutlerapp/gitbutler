@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use but_core::{UnifiedDiff, unified_diff::DiffHunk};
+use but_core::{UnifiedPatch, unified_diff::DiffHunk};
 use gitbutler_command_context::{CommandContext, gix_repo_for_merging};
 use gitbutler_oxidize::OidExt;
 use gitbutler_stack::StackId;
@@ -62,8 +62,8 @@ impl HunkDependencies {
     ) -> anyhow::Result<HunkDependencies> {
         let mut diffs = Vec::<(String, DiffHunk, Vec<HunkLock>)>::new();
         for change in worktree_changes {
-            let unidiff = change.unified_diff(repo, 0 /* zero context lines */)?;
-            let Some(UnifiedDiff::Patch { hunks, .. }) = unidiff else {
+            let unidiff = change.unified_patch(repo, 0 /* zero context lines */)?;
+            let Some(UnifiedPatch::Patch { hunks, .. }) = unidiff else {
                 continue;
             };
             for hunk in hunks {
