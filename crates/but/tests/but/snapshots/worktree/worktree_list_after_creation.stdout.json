@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "id": "list-test",
+      "path": "[TEMP_PATH]/.git/gitbutler/worktrees/list-test",
+      "createdFromRef": "refs/heads/A",
+      "base": "9477ae721ab521d9d0174f70e804ce3ff9f6fb56"
+    }
+  ]
+}

@@ -23,6 +23,7 @@ gitbutler-stack.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-workspace.workspace = true
 gitbutler-branch-actions.workspace = true
+gitbutler-serde.workspace = true
 serde.workspace = true
 uuid.workspace = true
 bstr.workspace = true

@@ -19,7 +19,12 @@ fn test_create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
 
     let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
-    let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
+    let a = worktree_new(
+        &mut ctx,
+        guard.read_permission(),
+        feature_a_name.as_ref(),
+        None,
+    )?;
 
     bash_at(
         &a.created.path,
@@ -99,7 +104,12 @@ fn test_causes_conflicts_above() -> anyhow::Result<()> {
 
     let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
-    let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
+    let a = worktree_new(
+        &mut ctx,
+        guard.read_permission(),
+        feature_a_name.as_ref(),
+        None,
+    )?;
 
     bash_at(
         &a.created.path,
@@ -182,7 +192,12 @@ fn test_causes_workdir_conflicts_simple() -> anyhow::Result<()> {
     let mut guard = ctx.project().exclusive_worktree_access();
 
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
-    let b = worktree_new(&mut ctx, guard.read_permission(), feature_b_name.as_ref())?;
+    let b = worktree_new(
+        &mut ctx,
+        guard.read_permission(),
+        feature_b_name.as_ref(),
+        None,
+    )?;
 
     bash_at(&path, r#"echo "qux" > foo.txt"#)?;
     bash_at(
@@ -239,7 +254,12 @@ fn test_causes_workdir_conflicts_complex() -> anyhow::Result<()> {
 
     let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
-    let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
+    let a = worktree_new(
+        &mut ctx,
+        guard.read_permission(),
+        feature_a_name.as_ref(),
+        None,
+    )?;
 
     bash_at(&path, r#"echo "qux" > foo.txt"#)?;
     bash_at(
@@ -310,7 +330,12 @@ fn test_causes_workspace_conflict() -> anyhow::Result<()> {
     let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
     let feature_c_name = gix::refs::FullName::try_from("refs/heads/feature-c")?;
-    let c = worktree_new(&mut ctx, guard.read_permission(), feature_c_name.as_ref())?;
+    let c = worktree_new(
+        &mut ctx,
+        guard.read_permission(),
+        feature_c_name.as_ref(),
+        None,
+    )?;
 
     bash_at(
         &c.created.path,

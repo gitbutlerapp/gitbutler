@@ -1,0 +1,43 @@
+<svg width="1028px" height="182px" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .fg { fill: #AAAAAA }
+    .bg { fill: #000000 }
+    .fg-cyan { fill: #00AAAA }
+    .fg-green { fill: #00AA00 }
+    .fg-yellow { fill: #AA5500 }
+    .container {
+      padding: 0 10px;
+      line-height: 18px;
+    }
+    .dimmed { opacity: 0.7; }
+    tspan {
+      font: 14px SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      white-space: pre;
+      line-height: 18px;
+    }
+  </style>
+
+  <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
+
+  <text xml:space="preserve" class="container fg">
+    <tspan x="10px" y="28px"><tspan>Preparing worktree (new branch '</tspan><tspan class="fg-green">gitbutler/worktree/from-a</tspan><tspan>')</tspan>
+</tspan>
+    <tspan x="10px" y="46px"><tspan> - creating worktree from branch: </tspan><tspan class="fg-cyan">refs/heads/A</tspan>
+</tspan>
+    <tspan x="10px" y="64px"><tspan> - worktree base at </tspan><tspan class="fg-yellow">9477ae7</tspan><tspan> [</tspan><tspan class="fg-cyan">refs/heads/A</tspan><tspan>] add A</tspan>
+</tspan>
+    <tspan x="10px" y="82px">
+</tspan>
+    <tspan x="10px" y="100px">
+</tspan>
+    <tspan x="10px" y="118px"><tspan class="dimmed">Checking out new tree...</tspan>
+</tspan>
+    <tspan x="10px" y="136px">
+</tspan>
+    <tspan x="10px" y="154px"><tspan>Created worktree at: </tspan><tspan class="fg-green">[TEMP_PATH]/.git/gitbutler/worktrees/from-a</tspan>
+</tspan>
+    <tspan x="10px" y="172px">
+</tspan>
+  </text>
+
+</svg>

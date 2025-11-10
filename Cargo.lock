@@ -1373,6 +1373,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-oxidize",
  "gitbutler-project",
+ "gitbutler-serde",
  "gitbutler-stack",
  "gitbutler-testsupport",
  "gitbutler-workspace",

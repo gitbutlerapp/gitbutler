@@ -5,13 +5,21 @@ pub use bstring::BStringForFrontend;
 
 pub mod bstring_lossy {
     use bstr::{BString, ByteSlice};
-    use serde::Serialize;
+    use serde::{Deserialize, Deserializer, Serialize};
 
     pub fn serialize<S>(v: &BString, s: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         v.to_str_lossy().serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<BString, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(d)?;
+        Ok(BString::from(s))
     }
 }
 
@@ -205,5 +213,30 @@ pub mod oid {
         let hex = String::deserialize(d)?;
         hex.parse()
             .map_err(|err: git2::Error| serde::de::Error::custom(err.to_string()))
+    }
+}
+
+/// use like `#[serde(with = "gitbutler_serde::fullname_opt")]` to serialize [`Option<gix::refs::FullName>`].
+pub mod fullname_opt {
+    use bstr::ByteSlice;
+    use serde::{Deserialize, Deserializer, Serialize};
+
+    pub fn serialize<S>(v: &Option<gix::refs::FullName>, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        v.as_ref().map(|v| v.as_bstr().to_str_lossy()).serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Option<gix::refs::FullName>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let name = <Option<String> as Deserialize>::deserialize(d)?;
+        name.map(|v| {
+            gix::refs::FullName::try_from(v.as_str())
+                .map_err(|err| serde::de::Error::custom(err.to_string()))
+        })
+        .transpose()
     }
 }

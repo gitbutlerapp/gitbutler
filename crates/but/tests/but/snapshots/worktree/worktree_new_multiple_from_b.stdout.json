@@ -1,0 +1,10 @@
+{
+  "created": {
+    "id": "from-b",
+    "path": "[TEMP_PATH]/.git/gitbutler/worktrees/from-b",
+    "createdFromRef": "refs/heads/B",
+    "base": "d3e2ba36c529fbdce8de90593e22aceae21f9b17"
+  },
+  "branchName": "gitbutler/worktree/from-b",
+  "baseCommitMessage": "add B/n"
+}
