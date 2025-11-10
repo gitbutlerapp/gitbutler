@@ -6,7 +6,7 @@
 	import CodegenToolCalls from '$components/codegen/CodegenToolCalls.svelte';
 	import CodegenUserMessage from '$components/codegen/CodegenUserMessage.svelte';
 	import { type Message } from '$lib/codegen/messages';
-	import { Icon, Markdown, Timestamp } from '@gitbutler/ui';
+	import { Icon, Markdown } from '@gitbutler/ui';
 	import type { PermissionDecision } from '$lib/codegen/types';
 
 	type Props = {
@@ -25,14 +25,8 @@
 </script>
 
 {#if message.source === 'user'}
-	<div class="timestamp text-12 text-bold text-right">
-		<Timestamp date={message.createdAt} />
-	</div>
 	<CodegenUserMessage content={message.message} attachments={message.attachments} />
 {:else if message.source === 'claude'}
-	<div class="timestamp text-12 text-bold">
-		<Timestamp date={message.createdAt} />
-	</div>
 	{#if 'subtype' in message && message.subtype === 'compaction'}
 		<CodegenServiceMessage style="neutral" face="compacted" reverseElementsOrder>
 			{#snippet extraContent()}
@@ -47,7 +41,6 @@
 			messageId={message.createdAt}
 			{toolCallsExpandedState}
 		/>
-
 		{#if message.toolCallsPendingApproval.length > 0}
 			{#each message.toolCallsPendingApproval as toolCall}
 				<CodegenToolCall
@@ -63,9 +56,6 @@
 		{/if}
 	{/if}
 {:else if message.source === 'gitButler'}
-	<div class="timestamp text-12 text-bold">
-		<Timestamp date={message.createdAt} />
-	</div>
 	<CodegenGitButlerMessage {projectId} {message} />
 {/if}
 
@@ -143,9 +133,18 @@
 		padding: 12px;
 	}
 
+	.message-assistant-wrapper {
+		display: flex;
+		flex-direction: column;
+		max-width: var(--message-max-width);
+	}
+
 	.timestamp {
-		padding-top: 12px;
-		color: var(--clr-scale-ntrl-60);
-		font-family: var(--font-mono);
+		color: var(--clr-text-2);
+		transition: color var(--transition-medium);
+
+		&:hover {
+			color: var(--clr-text-2);
+		}
 	}
 </style>

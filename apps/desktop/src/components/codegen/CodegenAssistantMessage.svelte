@@ -1,27 +1,24 @@
 <script lang="ts">
 	import { Markdown } from '@gitbutler/ui';
-	import type { Snippet } from 'svelte';
 
 	interface Props {
 		content?: string;
-		extraContent?: Snippet;
 	}
 
 	let { content }: Props = $props();
 </script>
 
-<div class="message-assistant text-13 text-body">
-	{#if content}
+{#if content}
+	<div class="message-assistant text-13 text-body">
 		<Markdown {content} />
-	{/if}
-</div>
+	</div>
+{/if}
 
 <style lang="postcss">
 	.message-assistant {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		max-width: var(--message-max-width);
 		padding: 8px 0;
 		overflow: hidden;
 		gap: 10px;
