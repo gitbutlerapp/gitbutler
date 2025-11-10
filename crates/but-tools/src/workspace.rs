@@ -1410,7 +1410,7 @@ pub fn split_branch(
     let refname = Refname::Local(LocalRefname::new(&params.new_branch_name, None));
     let branch_manager = ctx.branch_manager();
 
-    let (stack_id, _) = branch_manager.create_virtual_branch_from_branch(
+    let (stack_id, _, _) = branch_manager.create_virtual_branch_from_branch(
         &refname,
         None,
         None,

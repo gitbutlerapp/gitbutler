@@ -623,6 +623,7 @@ export default class MockBackend {
 
 		// Do nothing for now
 		return {
+			unappliedStacksShortNames: [],
 			stackId: 'something',
 			unappliedStacks: []
 		};

@@ -133,12 +133,13 @@ pub(crate) fn tear_off_branch(
         .context("failed to update gitbutler workspace")?;
 
     let branch_manager = ctx.branch_manager();
-    let (_, unapplied_stacks) = branch_manager.create_virtual_branch_from_branch(
-        &Refname::Local(LocalRefname::new(subject_branch_name, None)),
-        None,
-        None,
-        perm,
-    )?;
+    let (_, unapplied_stacks, _unapplied_stack_shortnames) = branch_manager
+        .create_virtual_branch_from_branch(
+            &Refname::Local(LocalRefname::new(subject_branch_name, None)),
+            None,
+            None,
+            perm,
+        )?;
 
     Ok(MoveBranchResult {
         deleted_stacks,

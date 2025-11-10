@@ -34,13 +34,21 @@ use crate::{
 pub struct CreateBranchFromBranchOutcome {
     pub stack_id: StackId,
     pub unapplied_stacks: Vec<StackId>,
+    pub unapplied_stacks_short_names: Vec<String>,
 }
 
-impl From<(StackId, Vec<StackId>)> for CreateBranchFromBranchOutcome {
-    fn from((stack_id, unapplied_stacks): (StackId, Vec<StackId>)) -> Self {
+impl From<(StackId, Vec<StackId>, Vec<String>)> for CreateBranchFromBranchOutcome {
+    fn from(
+        (stack_id, unapplied_stacks, unapplied_stacks_short_names): (
+            StackId,
+            Vec<StackId>,
+            Vec<String>,
+        ),
+    ) -> Self {
         Self {
             stack_id,
             unapplied_stacks,
+            unapplied_stacks_short_names,
         }
     }
 }
@@ -145,7 +153,7 @@ impl BranchManager<'_> {
         upstream_branch: Option<RemoteRefname>,
         pr_number: Option<usize>,
         perm: &mut WorktreeWritePermission,
-    ) -> Result<(StackId, Vec<StackId>)> {
+    ) -> Result<(StackId, Vec<StackId>, Vec<String>)> {
         let branch_name = target
             .branch()
             .expect("always a branch reference")
@@ -183,7 +191,26 @@ impl BranchManager<'_> {
                 .0
                 .id
                 .context("BUG: newly applied stacks should always have a stack id")?;
-            return Ok((applied_branch_stack_id, out.conflicting_stack_ids));
+            let conflicted_stack_short_names_for_display = ws
+                .metadata
+                .as_ref()
+                .map(|md| {
+                    md.stacks
+                        .iter()
+                        .filter_map(|s| {
+                            out.conflicting_stack_ids
+                                .contains(&s.id)
+                                .then(|| s.ref_name().map(|rn| rn.shorten().to_string()))
+                                .flatten()
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            return Ok((
+                applied_branch_stack_id,
+                out.conflicting_stack_ids,
+                conflicted_stack_short_names_for_display,
+            ));
         }
         let old_cwd = (!self.ctx.app_settings().feature_flags.cv3)
             .then(|| self.ctx.repo().create_wd_tree(0).map(|tree| tree.id()))
@@ -312,14 +339,14 @@ impl BranchManager<'_> {
         self.ctx.add_branch_reference(&branch)?;
 
         match self.apply_branch(branch.id, perm, old_workspace, old_cwd) {
-            Ok((_, unapplied_stacks)) => Ok((branch.id, unapplied_stacks)),
+            Ok((_, unapplied_stacks)) => Ok((branch.id, unapplied_stacks, vec![])),
             Err(err)
                 if err
                     .downcast_ref()
                     .is_some_and(|marker: &Marker| *marker == Marker::ProjectConflict) =>
             {
                 // if branch conflicts with the workspace, it's ok. keep it unapplied
-                Ok((branch.id, vec![]))
+                Ok((branch.id, vec![], vec![]))
             }
             Err(err) => Err(err).context("failed to apply"),
         }

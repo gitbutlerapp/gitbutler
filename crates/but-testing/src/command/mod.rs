@@ -282,7 +282,7 @@ pub mod stacks {
             let ref_name = Refname::from_str(&format!("refs/remotes/{remote_name}/{name}"))?;
             let remote_ref_name = RemoteRefname::new(remote_name, name);
 
-            let (stack_id, _) = gitbutler_branch_actions::create_virtual_branch_from_branch(
+            let (stack_id, _, _) = gitbutler_branch_actions::create_virtual_branch_from_branch(
                 ctx,
                 &ref_name,
                 Some(remote_ref_name),
