@@ -192,7 +192,7 @@
 			current.stackId || (current.branchName && !isTargetBranch)}
 		{@const isNonLocalPr = !isStackOrNormalBranchPreview && current.prNumber !== undefined}
 
-		<div class="branches-view">
+		<div class="branches-view" data-testid={TestId.BranchesView}>
 			<div class="relative overflow-hidden radius-ml">
 				<div
 					bind:this={branchViewLeftEl}

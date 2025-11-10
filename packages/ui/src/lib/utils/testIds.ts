@@ -65,6 +65,7 @@ export enum TestId {
 	Stack = 'stack',
 	StackHeader = 'stack-header',
 	StackOfflaneDropzone = 'stack-offlane-dropzone',
+	BranchesView = 'branches-view',
 	BranchesViewApplyBranchButton = 'branches-view-apply-branch-button',
 	BranchesViewDeleteLocalBranchButton = 'branches-view-delete-local-branch-button',
 	BranchesViewApplyFromForkButton = 'branches-view-apply-from-fork-button',
