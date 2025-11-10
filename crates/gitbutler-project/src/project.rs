@@ -197,8 +197,14 @@ impl Project {
         .migrated()
     }
     /// Finds an existing project by its path. Errors out if not found.
-    // TODO: find by git-dir instead!
     pub fn find_by_worktree_dir(worktree_dir: &Path) -> anyhow::Result<Project> {
+        Self::find_by_worktree_dir_opt(worktree_dir)?
+            .context("No project found with the given path")
+    }
+
+    /// Finds an existing project by its path or return `None` if there was none. Errors out if not found.
+    // TODO: find by git-dir instead!
+    pub fn find_by_worktree_dir_opt(worktree_dir: &Path) -> anyhow::Result<Option<Project>> {
         let mut projects = crate::dangerously_list_projects_without_migration()?;
         // Sort projects by longest pathname to shortest.
         // We need to do this because users might have one gitbutler project
@@ -219,17 +225,17 @@ impl Project {
         } else {
             worktree_dir.to_path_buf()
         };
-        let project = projects
-            .into_iter()
-            .find(|p| {
-                // Canonicalize project path for comparison
-                match p.worktree_dir.canonicalize() {
-                    Ok(proj_canon) => resolved_path.starts_with(proj_canon),
-                    Err(_) => false,
-                }
-            })
-            .context("No project found with the given path")?;
-        project.migrated()
+
+        let Some(project) = projects.into_iter().find(|p| {
+            // Canonicalize project path for comparison
+            match p.worktree_dir.canonicalize() {
+                Ok(proj_canon) => resolved_path.starts_with(proj_canon),
+                Err(_) => false,
+            }
+        }) else {
+            return Ok(None);
+        };
+        project.migrated().map(Some)
     }
 }
 

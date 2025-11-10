@@ -718,6 +718,7 @@ dependencies = [
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
+ "but-project",
  "but-rules",
  "but-secret",
  "but-settings",
@@ -959,10 +960,12 @@ dependencies = [
  "bstr",
  "but-testsupport",
  "chardetng",
+ "fslock",
  "gitbutler-error",
  "gitbutler-serde",
  "gix",
  "insta",
+ "parking_lot",
  "serde",
  "serde_json",
  "toml 0.9.8",
@@ -1141,6 +1144,19 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "dirs 6.0.0",
+]
+
+[[package]]
+name = "but-project"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-core",
+ "but-graph",
+ "but-settings",
+ "gitbutler-command-context",
+ "gitbutler-project",
+ "gix",
 ]
 
 [[package]]
@@ -3673,7 +3689,6 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-path",
- "fslock",
  "git2",
  "gitbutler-error",
  "gitbutler-forge",
@@ -3683,7 +3698,6 @@ dependencies = [
  "gitbutler-testsupport",
  "gix",
  "insta",
- "parking_lot",
  "resolve-path",
  "serde",
  "serde_json",

@@ -5,12 +5,11 @@ use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_core::ui::{TreeChange, TreeStatus};
 use but_hunk_assignment::HunkAssignment;
-use but_settings::AppSettings;
+use but_project::Project;
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, TimeExt};
-use gitbutler_project::Project;
 use serde::Serialize;
 use std::io::Write;
 
@@ -42,10 +41,24 @@ pub(crate) async fn worktree(
     verbose: bool,
     review: bool,
 ) -> anyhow::Result<()> {
-    let ctx = &mut CommandContext::open(project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = project.legacy_ctx()?;
     let mut stdout = std::io::stdout();
-    but_rules::process_rules(ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
+    but_rules::process_rules(&mut ctx).ok(); // TODO: this is doing double work (dependencies can be reused)
 
+    let guard = project.shared_worktree_access();
+    let meta = project.meta(guard.read_permission())?;
+
+    // TODO: use this for status inforamtion instead.
+    let _head_info = but_workspace::head_info(
+        &project.repo,
+        &meta,
+        but_workspace::ref_info::Options {
+            expensive_commit_info: true,
+            ..Default::default()
+        },
+    )?;
+
+    let project = &project.legacy;
     let review_map = if review {
         crate::forge::review::get_review_map(project).await?
     } else {
@@ -60,7 +73,7 @@ pub(crate) async fn worktree(
         by_file
             .entry(assignment.path_bytes.clone())
             .or_default()
-            .push(assignment.clone());
+            .push(assignment);
     }
     let mut assignments_by_file: BTreeMap<BString, FileAssignment> = BTreeMap::new();
     for (path, assignments) in &by_file {
@@ -114,7 +127,7 @@ pub(crate) async fn worktree(
     let stack_details_len = stack_details.len();
     for (i, (stack_id, (details, assignments))) in stack_details.into_iter().enumerate() {
         let mut stack_mark = stack_id.and_then(|stack_id| {
-            if crate::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
+            if crate::mark::stack_marked(&mut ctx, stack_id).unwrap_or_default() {
                 Some("◀ Marked ▶".red().bold())
             } else {
                 None
@@ -130,7 +143,7 @@ pub(crate) async fn worktree(
             verbose,
             review,
             &mut stack_mark,
-            ctx,
+            &mut ctx,
             i == stack_details_len - 1,
             i == 0,
             &review_map,
@@ -202,7 +215,7 @@ fn print_assignments(
 
 #[expect(clippy::too_many_arguments)]
 pub fn print_group(
-    project: &Project,
+    project: &gitbutler_project::Project,
     group: Option<StackDetails>,
     assignments: Vec<FileAssignment>,
     changes: &[TreeChange],

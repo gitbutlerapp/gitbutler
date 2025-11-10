@@ -1,0 +1,27 @@
+[package]
+name = "but-project"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+description = "A project implementation to act as 'context'"
+rust-version = "1.89"
+
+[lib]
+doctest = false
+test = false
+
+[features]
+# Support for a built-in legacy project.
+legacy = ["dep:gitbutler-project", "dep:gitbutler-command-context"]
+
+[dependencies]
+gitbutler-project = { workspace = true, optional = true }
+gitbutler-command-context = { workspace = true, optional = true }
+
+but-core.workspace = true
+but-settings.workspace = true
+but-graph.workspace = true
+anyhow.workspace = true
+gix.workspace = true
+

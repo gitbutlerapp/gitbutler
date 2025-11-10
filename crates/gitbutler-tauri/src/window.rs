@@ -102,7 +102,7 @@ pub(crate) mod state {
         watcher: gitbutler_watcher::WatcherHandle,
         /// An active lock to signal that the entire project is locked for the Window this state belongs to.
         /// Let's make it optional while it's only in our own way, while aiming for making that reasonably well working.
-        exclusive_access: Option<gitbutler_project::access::LockFile>,
+        exclusive_access: Option<but_core::sync::LockFile>,
         // Database watcher handle.
         #[expect(dead_code)]
         db_watcher: but_db::poll::DBWatcherHandle,

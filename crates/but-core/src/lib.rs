@@ -86,6 +86,9 @@ pub use repo_ext::RepositoryExt;
 pub mod ref_metadata;
 use crate::ref_metadata::ValueInfo;
 
+/// Utilities to sync project access.
+pub mod sync;
+
 /// A utility to extra the name of the remote from a remote tracking ref with `ref_name`.
 /// If it's not a remote tracking ref, or no remote in `remote_names` (like `origin`) matches,
 /// `None` is returned.
