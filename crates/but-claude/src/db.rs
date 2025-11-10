@@ -197,11 +197,12 @@ pub fn update_permission_request(
     ctx: &mut CommandContext,
     id: &str,
     decision: crate::PermissionDecision,
+    use_wildcard: bool,
 ) -> anyhow::Result<()> {
     let decision_str = serde_json::to_string(&decision)?;
     ctx.db()?
         .claude_permission_requests()
-        .set_decision(id, Some(decision_str))?;
+        .set_decision_and_wildcard(id, Some(decision_str), use_wildcard)?;
     Ok(())
 }
 
@@ -348,6 +349,7 @@ impl TryFrom<but_db::ClaudePermissionRequest> for crate::ClaudePermissionRequest
             tool_name: value.tool_name,
             input: serde_json::from_str(&value.input)?,
             decision,
+            use_wildcard: value.use_wildcard,
         })
     }
 }
@@ -366,6 +368,7 @@ impl TryFrom<crate::ClaudePermissionRequest> for but_db::ClaudePermissionRequest
             tool_name: value.tool_name,
             input: serde_json::to_string(&value.input)?,
             decision,
+            use_wildcard: value.use_wildcard,
         })
     }
 }

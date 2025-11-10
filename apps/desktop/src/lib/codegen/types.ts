@@ -210,6 +210,8 @@ export type ClaudePermissionRequest = {
 	input: unknown;
 	/** The permission decision or null if not yet handled */
 	decision?: PermissionDecision;
+	/** Whether to use wildcard permissions (optional, for backward compatibility) */
+	useWildcard?: boolean;
 };
 
 export type ClaudeTodo = {

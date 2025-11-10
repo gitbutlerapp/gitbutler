@@ -404,6 +404,8 @@ pub struct ClaudePermissionRequest {
     pub input: serde_json::Value,
     /// The permission decision or None if not yet handled
     pub decision: Option<PermissionDecision>,
+    /// Whether to use wildcard permissions for this request
+    pub use_wildcard: bool,
 }
 
 /// Represents the thinking level for Claude Code.

@@ -60,6 +60,7 @@ pub struct ClaudePermissionRequest {
     pub tool_name: String,
     pub input: String,
     pub decision: Option<String>,
+    pub use_wildcard: bool,
 }
 
 impl DbHandle {
@@ -129,6 +130,26 @@ impl ClaudePermissionRequestsHandle<'_> {
         )
         .set((
             crate::schema::claude_permission_requests::decision.eq(decision),
+            crate::schema::claude_permission_requests::updated_at
+                .eq(chrono::Local::now().naive_local()),
+        ))
+        .execute(&mut self.db.conn)?;
+        Ok(())
+    }
+
+    pub fn set_decision_and_wildcard(
+        &mut self,
+        id: &str,
+        decision: Option<String>,
+        use_wildcard: bool,
+    ) -> Result<(), diesel::result::Error> {
+        diesel::update(
+            crate::schema::claude_permission_requests::table
+                .filter(crate::schema::claude_permission_requests::id.eq(id)),
+        )
+        .set((
+            crate::schema::claude_permission_requests::decision.eq(decision),
+            crate::schema::claude_permission_requests::use_wildcard.eq(use_wildcard),
             crate::schema::claude_permission_requests::updated_at
                 .eq(chrono::Local::now().naive_local()),
         ))
