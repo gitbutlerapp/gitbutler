@@ -262,7 +262,7 @@ export function initDependencies(args: {
 	const upstreamIntegrationService = new UpstreamIntegrationService(
 		clientState,
 		stackService,
-		projectsService
+		uiState
 	);
 
 	// ============================================================================

@@ -5,6 +5,5 @@ export const MOCK_BRANCH_STATUSES_RESPONSE: BranchStatusesResponse = {
 };
 
 export const MOCK_INTEGRATION_OUTCOME: IntegrationOutcome = {
-	archivedBranches: [],
-	reviewIdsToClose: []
+	deletedBranches: []
 };

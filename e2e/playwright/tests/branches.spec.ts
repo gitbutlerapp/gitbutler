@@ -574,3 +574,70 @@ test('should handle gracefully applying two conflicting branches', async ({
 	// The modal explaining this should be visible
 	await waitForTestId(page, 'stacks-unapplied-toast');
 });
+
+test('should update the stale selection of an unexisting branch', async ({
+	page,
+	context
+}, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	await gitbutler.runScript('project-with-remote-branches.sh');
+	// Apply branch1
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// Navigate to branches page
+	await clickByTestId(page, 'navigation-branches-button');
+	let header = await waitForTestId(page, 'target-commit-list-header');
+
+	await expect(header).toContainText('origin/master');
+
+	let branchListCards = getByTestId(page, 'branch-list-card');
+	await expect(branchListCards).toHaveCount(3);
+
+	// Select the branch1
+	let firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
+	await expect(firstBranchCard).toBeVisible();
+	await firstBranchCard.click();
+
+	// Go back to the workspace
+	await clickByTestId(page, 'navigation-workspace-button');
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be one stack applied
+	const stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+
+	// Branch one was merged in the forge
+	await gitbutler.runScript('merge-upstream-branch-to-base.sh', ['branch1']);
+
+	// Click the sync button
+	await clickByTestId(page, 'sync-button');
+
+	// Update the workspace
+	await clickByTestId(page, 'integrate-upstream-commits-button');
+	await clickByTestId(page, 'integrate-upstream-action-button');
+	await waitForTestIdToNotExist(page, 'integrate-upstream-action-button');
+
+	// There should be no stacks
+	await waitForTestIdToNotExist(page, 'stack');
+
+	// Navigate to branches page
+	await clickByTestId(page, 'navigation-branches-button');
+	await waitForTestId(page, 'branches-view');
+
+	header = await waitForTestId(page, 'target-commit-list-header');
+
+	await expect(header).toContainText('origin/master');
+	// The previously selected branch1 should not be selected anymore
+	branchListCards = getByTestId(page, 'branch-list-card');
+	await expect(branchListCards).toHaveCount(2);
+	firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
+	await expect(firstBranchCard).not.toBeVisible();
+});
