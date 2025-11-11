@@ -260,6 +260,19 @@
 	color: var(--clr-theme-pop-on-soft);
 }
 
+.inline-code {
+	padding: 2px 4px;
+	border-radius: var(--radius-s);
+	background: var(--clr-bg-2);
+	font-size: 0.9em;
+	font-family: var(--font-mono);
+}
+
+.inline-code:focus {
+	outline: none;
+	box-shadow: rgb(180 213 255) 0px 0px 0px 2px;
+}
+
 .filepath {
 	border-radius: var(--radius-s);
 	background: var(--clr-theme-scale-pop-80);
