@@ -478,7 +478,6 @@
 		position: relative;
 		flex-direction: column;
 		width: 100%;
-		overflow: hidden;
 	}
 
 	.branch-header__item {

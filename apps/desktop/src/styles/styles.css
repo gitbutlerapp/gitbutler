@@ -125,6 +125,29 @@ body {
 	}
 }
 
+@keyframes row-wiggle {
+	0%,
+	12%,
+	100% {
+		transform: translateX(0px) rotate(0deg);
+	}
+	2% {
+		transform: translateX(-3px) rotate(-0.2deg);
+	}
+	4% {
+		transform: translateX(3px) rotate(0.2deg);
+	}
+	6% {
+		transform: translateX(-3px) rotate(-0.2deg);
+	}
+	8% {
+		transform: translateX(3px) rotate(0.2deg);
+	}
+	10% {
+		transform: translateX(0px) rotate(0deg);
+	}
+}
+
 .dotted-pattern {
 	background-image: radial-gradient(
 		oklch(from var(--clr-scale-ntrl-50) l c h / 0.13) 1px,
