@@ -2,7 +2,6 @@ use std::collections::{BTreeSet, VecDeque};
 
 use anyhow::bail;
 use bstr::{BStr, BString, ByteSlice, ByteVec};
-use but_core::TreeStatus;
 use gix::{
     diff::{
         rewrites::tracker::{Change, ChangeKind},
@@ -13,10 +12,10 @@ use gix::{
 };
 
 use crate::{
-    branch::checkout::{Outcome, UncommitedWorktreeChanges},
+    TreeStatus,
     ext::ObjectStorageExt,
     snapshot,
-    snapshot::create_tree::no_workspace_and_meta,
+    worktree::checkout::{Outcome, UncommitedWorktreeChanges},
 };
 
 pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
@@ -30,7 +29,7 @@ pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
     if changed_files.is_empty() {
         return Ok(None);
     };
-    let changes = but_core::diff::worktree_changes_no_renames(repo)?;
+    let changes = crate::diff::worktree_changes_no_renames(repo)?;
     if !changes.changes.is_empty() || !changes.ignored_changes.is_empty() {
         let actual_head_tree_id = repo.head_tree_id_or_empty()?;
         if actual_head_tree_id != source_tree_id {
@@ -86,7 +85,6 @@ pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
                     selection: selection_of_changes_checkout_would_affect,
                     head: false,
                 },
-                no_workspace_and_meta(),
             )?;
 
             if !out.is_empty() {

@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
     BranchStatus::{Conflicted, Empty, Integrated, SaflyUpdatable},
@@ -5,7 +7,6 @@ use gitbutler_branch_actions::upstream_integration::{
     StackStatuses::{UpToDate, UpdatesRequired},
 };
 use gitbutler_project::Project;
-use std::io::Write;
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {

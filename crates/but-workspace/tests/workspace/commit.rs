@@ -1,13 +1,13 @@
 mod from_new_merge_with_metadata {
-    use crate::ref_info::with_workspace_commit::utils::{
-        named_read_only_in_memory_scenario, named_writable_scenario_with_description_and_graph,
-    };
     use bstr::ByteSlice;
     use but_graph::init::{Options, Overlay};
     use but_testsupport::{visualize_commit_graph_all, visualize_tree};
     use but_workspace::WorkspaceCommit;
-    use gix::prelude::ObjectIdExt;
-    use gix::refs::Target;
+    use gix::{prelude::ObjectIdExt, refs::Target};
+
+    use crate::ref_info::with_workspace_commit::utils::{
+        named_read_only_in_memory_scenario, named_writable_scenario_with_description_and_graph,
+    };
 
     #[test]
     fn without_conflict_journey() -> anyhow::Result<()> {

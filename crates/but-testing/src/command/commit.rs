@@ -1,9 +1,8 @@
 use std::path::Path;
 
 use anyhow::bail;
-use but_core::TreeChange;
+use but_core::{DiffSpec, TreeChange};
 use but_workspace::{
-    DiffSpec,
     commit_engine::StackSegmentId,
     legacy::commit_engine::{ReferenceFrame, create_commit_and_update_refs},
 };
@@ -149,7 +148,6 @@ fn commit_with_project(
         project,
         None,
         destination,
-        None,
         changes,
         0, /* context-lines */
         guard.write_permission(),
@@ -207,7 +205,6 @@ fn commit_without_project(
         },
         &mut VirtualBranchesState::default(),
         destination,
-        None,
         changes,
         0,
     )?;

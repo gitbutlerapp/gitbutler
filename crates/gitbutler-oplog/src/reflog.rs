@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use anyhow::Result;
+use but_oxidize::OidExt as _;
 use gitbutler_fs::write;
-use gitbutler_oxidize::OidExt as _;
 use gitbutler_project::Project;
 use gitbutler_repo::{GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME};
 use gitbutler_stack::VirtualBranchesHandle;
@@ -167,7 +167,7 @@ fn serialize_line(line: gix::refs::file::log::LineRef<'_>) -> String {
 mod set_target_ref {
     use std::path::PathBuf;
 
-    use gitbutler_oxidize::OidExt;
+    use but_oxidize::OidExt;
     use gix::refs::file::log::LineRef;
     use pretty_assertions::assert_eq;
     use tempfile::tempdir;

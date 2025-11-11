@@ -1,10 +1,11 @@
 [package]
-name = "gitbutler-oxidize"
+name = "but-oxidize"
 version = "0.0.0"
 edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+description = "Utilities to convert between `gitoxide` and `git`"
 
 [lib]
 doctest = false

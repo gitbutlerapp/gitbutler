@@ -2,10 +2,10 @@ use std::collections::BTreeSet;
 
 use anyhow::Context;
 use bstr::ByteSlice;
-use gitbutler_oxidize::ObjectIdExt;
-use gix::index::entry::Stage;
+use but_oxidize::ObjectIdExt;
 use gix::{
     diff::rewrites::tracker::ChangeKind,
+    index::entry::Stage,
     objs::TreeRefIter,
     prelude::ObjectIdExt as _,
     refs::{
@@ -15,8 +15,7 @@ use gix::{
 };
 use tracing::instrument;
 
-use super::{Options, Outcome};
-use crate::branch::checkout::utils::merge_worktree_changes_into_destination_or_keep_snapshot;
+use super::{Options, Outcome, utils::merge_worktree_changes_into_destination_or_keep_snapshot};
 
 /// Like [`safe_checkout()`], but the current tree will always be fetched from
 pub fn safe_checkout_from_head(

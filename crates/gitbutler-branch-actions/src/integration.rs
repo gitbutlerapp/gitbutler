@@ -2,13 +2,13 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, anyhow};
 use bstr::ByteSlice;
+use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_error::Marker;
-use but_workspace::branch::checkout::UncommitedWorktreeChanges;
+use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
-use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     RepositoryExt, SignaturePurpose,
@@ -156,11 +156,11 @@ pub fn update_workspace_commit(
     )?;
 
     let checkout_res = if checkout_new_worktree && let Some(prev_head_id) = prev_head_id {
-        let res = but_workspace::branch::safe_checkout(
+        let res = but_core::worktree::safe_checkout(
             prev_head_id.to_gix(),
             final_commit.to_gix(),
             &gix_repo,
-            but_workspace::branch::checkout::Options {
+            but_core::worktree::checkout::Options {
                 uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                 skip_head_update: true,
             },

@@ -4,8 +4,10 @@ mod refspec;
 mod askpass {
     use std::time::Duration;
 
-    use gitbutler_git::executor::{AskpassServer, GitExecutor, Socket};
-    use gitbutler_git::tokio::{TokioAskpassServer, TokioExecutor};
+    use gitbutler_git::{
+        executor::{AskpassServer, GitExecutor, Socket},
+        tokio::{TokioAskpassServer, TokioExecutor},
+    };
 
     // cargo test --package gitbutler-git --lib test_askpass
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

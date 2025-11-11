@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
 use anyhow::{Context, Result, anyhow, bail};
+use but_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch::{BranchUpdateRequest, dedup};
@@ -8,9 +9,6 @@ use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_diff::GitHunk;
-use gitbutler_oxidize::{
-    GixRepositoryExt, ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid,
-};
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{Refname, RemoteRefname, normalize_branch_name};
 use gitbutler_repo::{

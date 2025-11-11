@@ -1,7 +1,6 @@
-use crate::diff::unified_diffs;
 use crate::{
     commit::conflict_repo,
-    diff::{ui::repo, unified_patches},
+    diff::{ui::repo, unified_diffs, unified_patches},
 };
 
 #[test]

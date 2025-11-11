@@ -1,7 +1,9 @@
-use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::OidExt;
-use gitbutler_stack::VirtualBranchesHandle;
 use std::path::Path;
+
+use but_oxidize::OidExt;
+use gitbutler_command_context::CommandContext;
+use gitbutler_stack::VirtualBranchesHandle;
+use serde::{Deserialize, Serialize};
 
 pub mod commit_engine;
 pub mod head;
@@ -12,18 +14,17 @@ pub use head::{
 };
 
 pub mod tree_manipulation;
+// TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
+pub use stacks::{
+    local_and_remote_commits, stack_branches, stack_details, stack_details_v3, stack_heads_info,
+    stacks, stacks_v3,
+};
 pub use tree_manipulation::{
     MoveChangesResult,
     move_between_commits::move_changes_between_commits,
     remove_changes_from_commit_in_stack::remove_changes_from_commit_in_stack,
     split_branch::{split_branch, split_into_dependent_branch},
     split_commit::{CommitFiles, CommmitSplitOutcome, split_commit},
-};
-
-// TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
-pub use stacks::{
-    local_and_remote_commits, stack_branches, stack_details, stack_details_v3, stack_heads_info,
-    stacks, stacks_v3,
 };
 
 /// Various types for the frontend.
@@ -86,6 +87,18 @@ pub fn log_target_first_parent(
         commits.push(commit.try_into()?);
     }
     Ok(commits)
+}
+/// A filter for the list of stacks.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub enum StacksFilter {
+    /// Show all stacks
+    All,
+    /// Show only applied stacks
+    #[default]
+    InWorkspace,
+    /// Show only unapplied stacks
+    // TODO: figure out where this is used. V2 maybe? If so, it can be removed eventually.
+    Unapplied,
 }
 
 fn state_handle(gb_state_path: &Path) -> VirtualBranchesHandle {

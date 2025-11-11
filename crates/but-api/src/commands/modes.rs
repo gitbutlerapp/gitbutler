@@ -1,9 +1,8 @@
 //! In place of commands.rs
 use anyhow::Context;
 use but_api_macros::api_cmd;
-use but_core::ui::TreeChange;
+use but_core::{ref_metadata::StackId, ui::TreeChange};
 use but_settings::AppSettings;
-use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_edit_mode::ConflictEntryPresence;
 use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};

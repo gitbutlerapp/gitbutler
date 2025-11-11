@@ -1,9 +1,9 @@
 use anyhow::Result;
 use but_core::Reference;
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{Rebase, RebaseStep, ReferenceSpec};
 use gitbutler_cherry_pick::GixRepositoryExt;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_stack::{CommitOrChangeId, StackBranch, StackId, VirtualBranchesHandle};
 

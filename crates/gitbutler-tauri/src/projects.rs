@@ -3,7 +3,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{WindowState, window, window::state::ProjectAccessMode};
 use anyhow::{Context, bail};
 use but_api::error::Error;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
@@ -12,6 +11,8 @@ use gitbutler_project::ProjectId;
 use gix::bstr::ByteSlice;
 use tauri::{State, Window};
 use tracing::instrument;
+
+use crate::{WindowState, window, window::state::ProjectAccessMode};
 
 #[tauri::command(async)]
 #[instrument(skip(window_state), err(Debug))]

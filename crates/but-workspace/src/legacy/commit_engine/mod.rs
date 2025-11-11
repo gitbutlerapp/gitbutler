@@ -1,21 +1,19 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a [reference frame](ReferenceFrame).
 
-use crate::commit_engine::{
-    CreateCommitOutcome, Destination, MoveSourceCommit, RejectionReason, StackSegmentId,
-    create_commit, index,
-};
 use anyhow::{Context, bail};
 use bstr::BString;
-use but_core::ref_metadata::StackId;
+use but_core::{DiffSpec, ref_metadata::StackId, tree::create_tree::RejectionReason};
 use but_rebase::merge::ConflictErrorContext;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
-use gix::prelude::ObjectIdExt;
-use gix::refs::transaction::PreviousValue;
+use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
 
-use crate::legacy::commit_engine::reference_frame::InferenceMode;
-use crate::{DiffSpec, WorkspaceCommit};
+use crate::{
+    WorkspaceCommit,
+    commit_engine::{CreateCommitOutcome, Destination, StackSegmentId, create_commit, index},
+    legacy::commit_engine::reference_frame::InferenceMode,
+};
 
 /// Utility types
 pub mod reference_frame;
@@ -81,7 +79,6 @@ pub fn create_commit_simple(
                     .map_err(anyhow::Error::from)?,
             }),
         },
-        None,
         worktree_changes,
         ctx.app_settings().context_lines,
         perm,
@@ -118,17 +115,10 @@ pub fn create_commit_and_update_refs(
     frame: ReferenceFrame,
     vb: &mut VirtualBranchesState,
     destination: Destination,
-    move_source: Option<MoveSourceCommit>,
     changes: Vec<DiffSpec>,
     context_lines: u32,
 ) -> anyhow::Result<CreateCommitOutcome> {
-    let mut out = create_commit(
-        repo,
-        destination.clone(),
-        move_source,
-        changes.clone(),
-        context_lines,
-    )?;
+    let mut out = create_commit(repo, destination.clone(), changes.clone(), context_lines)?;
 
     let Some(new_commit) = out.new_commit else {
         return Ok(out);
@@ -409,13 +399,11 @@ pub fn create_commit_and_update_refs(
 /// if present. Alternatively, it uses the current `HEAD` as only reference point.
 /// Note that virtual branches will be updated and written back after this call, which will obtain
 /// an exclusive workspace lock as well.
-#[expect(clippy::too_many_arguments)]
 pub fn create_commit_and_update_refs_with_project(
     repo: &gix::Repository,
     project: &gitbutler_project::Project,
     maybe_stackid: Option<StackId>,
     destination: Destination,
-    move_source: Option<MoveSourceCommit>,
     changes: Vec<DiffSpec>,
     context_lines: u32,
     _perm: &mut WorktreeWritePermission,
@@ -445,15 +433,8 @@ pub fn create_commit_and_update_refs_with_project(
         }
         Some(stack_id) => ReferenceFrame::infer(repo, &vb, InferenceMode::StackId(stack_id))?,
     };
-    let out = create_commit_and_update_refs(
-        repo,
-        frame,
-        &mut vb,
-        destination,
-        move_source,
-        changes,
-        context_lines,
-    )?;
+    let out =
+        create_commit_and_update_refs(repo, frame, &mut vb, destination, changes, context_lines)?;
 
     vbh.write_file(&vb)?;
     Ok(out)

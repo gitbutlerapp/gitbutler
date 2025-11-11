@@ -28,7 +28,7 @@ use std::{
 
 use anyhow::{Result, bail};
 use but_broadcaster::{Broadcaster, FrontendEvent};
-use but_workspace::StackId;
+use but_core::ref_metadata::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::bstr::ByteSlice;

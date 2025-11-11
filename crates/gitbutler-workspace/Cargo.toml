@@ -11,15 +11,17 @@ autotests = false
 doctest = false
 
 [dependencies]
-anyhow.workspace = true
-gix.workspace = true
-git2.workspace = true
+but-oxidize.workspace = true
+but-core.workspace = true
+but-rebase.workspace = true
+
 gitbutler-stack.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-project.workspace = true
 gitbutler-commit.workspace = true
-gitbutler-oxidize.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-cherry-pick.workspace = true
-but-workspace.workspace = true
-but-rebase.workspace = true
+
+anyhow.workspace = true
+gix.workspace = true
+git2.workspace = true

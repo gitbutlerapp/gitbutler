@@ -7,11 +7,11 @@ use std::{
 };
 
 use but_core::TreeChange;
+use but_oxidize::ObjectIdExt;
 use but_tools::emit::{Emittable, Emitter, TokenUpdate};
-use but_workspace::{StackId, legacy::ui::StackEntry};
+use but_workspace::legacy::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::{Project, ProjectId, access::WorktreeWritePermission};
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 pub use openai::{CredentialsKind, OpenAiProvider};
@@ -30,6 +30,7 @@ pub mod reword;
 mod simple;
 mod workflow;
 pub use action::{ActionListing, Source, list_actions};
+use but_core::ref_metadata::StackId;
 use but_graph::VirtualBranchesTomlMetadata;
 pub use openai::{
     ChatMessage, ToolCallContent, ToolResponseContent, structured_output_blocking,
@@ -228,7 +229,7 @@ fn stacks(ctx: &CommandContext, repo: &gix::Repository) -> anyhow::Result<Vec<St
         but_workspace::legacy::stacks_v3(
             repo,
             &meta,
-            but_workspace::StacksFilter::InWorkspace,
+            but_workspace::legacy::StacksFilter::InWorkspace,
             None,
         )
     } else {
@@ -236,7 +237,7 @@ fn stacks(ctx: &CommandContext, repo: &gix::Repository) -> anyhow::Result<Vec<St
             ctx,
             &project.gb_dir(),
             repo,
-            but_workspace::StacksFilter::InWorkspace,
+            but_workspace::legacy::StacksFilter::InWorkspace,
         )
     }
 }

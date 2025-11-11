@@ -1,14 +1,15 @@
 //! Utilities for testing.
 #![deny(missing_docs)]
 
+use std::{collections::HashMap, io::Write, path::Path};
+
 use gix::{
     Repository,
     bstr::{BStr, ByteSlice},
     config::tree::Key,
 };
 pub use gix_testtools;
-use std::io::Write;
-use std::{collections::HashMap, path::Path};
+use gix_testtools::{Creation, tempfile};
 
 mod in_memory_meta;
 pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
@@ -167,6 +168,53 @@ pub fn git_status(repo: &gix::Repository) -> std::io::Result<String> {
     Ok(out.stdout.to_str().expect("no illformed UTF-8").to_string())
 }
 
+/// Show one index entry per line, without content.
+pub fn visualize_index(index: &gix::index::State) -> String {
+    use std::fmt::Write;
+    let mut buf = String::new();
+    for entry in index.entries() {
+        let path = entry.path(index);
+        writeln!(
+            &mut buf,
+            "{mode:o}:{id} {path}{stage}",
+            id = &entry.id.to_hex_with_len(7),
+            mode = entry.mode.bits(),
+            stage = {
+                let stage = entry.flags.stage();
+                if stage == gix::index::entry::Stage::Unconflicted {
+                    "".to_string()
+                } else {
+                    format!(":{stage}", stage = stage as usize)
+                }
+            }
+        )
+        .expect("enough memory")
+    }
+    buf
+}
+
+/// Show one index entry per line, *with* content.
+pub fn visualize_index_with_content(repo: &gix::Repository, index: &gix::index::State) -> String {
+    use std::fmt::Write;
+    let mut buf = String::new();
+    for entry in index.entries() {
+        let path = entry.path(index);
+        writeln!(
+            &mut buf,
+            "{mode:o}:{id} {path} {content:?}",
+            id = &entry.id.to_hex_with_len(7),
+            mode = entry.mode.bits(),
+            content = repo
+                .find_blob(entry.id)
+                .expect("index only has blobs")
+                .data
+                .as_bstr()
+        )
+        .expect("enough memory")
+    }
+    buf
+}
+
 /// Display a Git tree in the style of the `tree` CLI program, but include blob contents and usful Git metadata.
 pub fn visualize_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
     fn visualize_tree(
@@ -273,6 +321,181 @@ pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree:
     Ok(tree(root, false)?)
 }
 
+/// Write a `sequence` of numbers into `repo`.workdir / `filename`, where `sequences` can be `Some((1, 5))`,
+/// or `Some((None, 5))`.
+pub fn write_sequence(
+    repo: &gix::Repository,
+    filename: &str,
+    sequences: impl IntoIterator<Item = (impl Into<Option<usize>>, impl Into<Option<usize>>)>,
+) -> anyhow::Result<()> {
+    use std::fmt::Write;
+    let mut out = String::new();
+    for (start, end) in sequences {
+        let (start, end) = match (start.into(), end.into()) {
+            (Some(start), Some(end)) => (start, end),
+            (Some(start), None) => (1, start),
+            invalid => panic!("invalid sequence: {invalid:?}"),
+        };
+        for num in start..=end {
+            writeln!(&mut out, "{num}")?;
+        }
+    }
+    std::fs::write(
+        repo.workdir().expect("non-bare").join(filename),
+        out.as_bytes(),
+    )?;
+    Ok(())
+}
+
+/// Obtain a `(repo, tmp)` where `tmp` is a copy of the `tests/fixtures/scenario/$name.sh` script.
+pub fn writable_scenario(name: &str) -> (Repository, tempfile::TempDir) {
+    writable_scenario_inner(name, Creation::CopyFromReadOnly, None::<String>)
+        .expect("fixtures will yield valid repositories")
+}
+
+/// Obtain a `(repo, tmp)` where `tmp` is a copy of the `tests/fixtures/scenario/$name.sh` script,
+/// to which `args` were passed.
+pub fn writable_scenario_with_args(
+    name: &str,
+    args: impl IntoIterator<Item = impl Into<String>>,
+) -> (Repository, tempfile::TempDir) {
+    writable_scenario_inner(name, Creation::CopyFromReadOnly, args)
+        .expect("fixtures will yield valid repositories")
+}
+
+/// Obtain a `(repo, tmp)` where `tmp` is the result of the execution of the `tests/fixtures/scenario/$name.sh` script.
+///
+/// It's slow because it has to re-execute the script, in case the script creates files with absolute paths in them.
+pub fn writable_scenario_slow(name: &str) -> (Repository, tempfile::TempDir) {
+    writable_scenario_inner(name, Creation::ExecuteScript, None::<String>)
+        .expect("fixtures will yield valid repositories")
+}
+
+/// Obtain a `(repo, tmp)` where `tmp` is a copy of the `tests/fixtures/scenario/$name.sh` script,
+/// while expecting a `tmp.path / signature.key` file to exist.
+///
+/// This works by creating an archive of a fixture that creates such a key file, which is then checked
+/// in and reused on subsequent runs. That way, the key can remain the same, without the need to regenerate
+/// it each time.
+///
+/// Git will also be configured to use the key for signing in the returned `repo`.
+pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile::TempDir) {
+    let (mut repo, tmp) = writable_scenario_inner(name, Creation::CopyFromReadOnly, None::<String>)
+        .expect("fixtures will yield valid repositories");
+    let signing_key_path = repo.workdir().expect("non-bare").join("signature.key");
+    assert!(
+        signing_key_path.is_file(),
+        "Expecting signing key at '{}'",
+        signing_key_path.display()
+    );
+    // It seems `Creation::CopyReadOnly` doesn't retain the mode
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let key = std::fs::File::open(&signing_key_path).expect("file exists");
+        key.set_permissions(std::fs::Permissions::from_mode(0o400))
+            .expect("must assure permissions are 400");
+    }
+
+    repo.config_snapshot_mut()
+        .set_raw_value(
+            &"user.signingKey",
+            gix::path::into_bstr(signing_key_path).as_ref(),
+        )
+        .expect("in-memory values can always be set");
+    write_local_config(&repo)
+        .expect("need this to be in configuration file while git2 is involved");
+    (repo, tmp)
+}
+
+/// Obtain a `repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
+/// Note that this is non-isolated, and will be affected by environment variables.
+pub fn read_only_in_memory_scenario_non_isolated_keep_env(
+    name: &str,
+) -> anyhow::Result<gix::Repository> {
+    read_only_in_memory_scenario_named_env(name, "", gix::open::permissions::Environment::all())
+}
+
+/// Obtain an isolated repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
+pub fn read_only_in_memory_scenario(name: &str) -> anyhow::Result<gix::Repository> {
+    read_only_in_memory_scenario_named(name, "")
+}
+
+/// Obtain an isolated `repo` from the `tests/fixtures/$dirname/$script_name.sh` script, with in-memory objects.
+pub fn read_only_in_memory_scenario_named(
+    script_name: &str,
+    dirname: &str,
+) -> anyhow::Result<gix::Repository> {
+    read_only_in_memory_scenario_named_env(
+        script_name,
+        dirname,
+        gix::open::permissions::Environment::isolated(),
+    )
+}
+
+/// Obtain an `repo` from the `tests/fixtures/$dirname/$script_name.sh` script, with in-memory objects, using `open_env`
+/// to control how environment variables are handled.
+pub fn read_only_in_memory_scenario_named_env(
+    script_name: &str,
+    dirname: &str,
+    open_env: gix::open::permissions::Environment,
+) -> anyhow::Result<gix::Repository> {
+    let root = gix_testtools::scripted_fixture_read_only(format!("scenario/{script_name}.sh"))
+        .map_err(anyhow::Error::from_boxed)?;
+    let mut options = gix::open::Options::isolated();
+    options.permissions.env = open_env;
+    let repo = gix::open_opts(root.join(dirname), freeze_time(options))?.with_object_memory();
+    Ok(repo)
+}
+
+/// Write the repository local configuration in `repo` back to its `.git/config`.
+///
+/// In-memory config changes aren't always enough as we still only have snapshots,
+/// without the ability to keep the entire configuration fresh.
+pub fn write_local_config(repo: &gix::Repository) -> anyhow::Result<()> {
+    repo.config_snapshot().write_to_filter(
+        &mut std::fs::File::create(repo.path().join("config"))?,
+        |section| section.meta().source == gix::config::Source::Local,
+    )?;
+    Ok(())
+}
+
+fn writable_scenario_inner(
+    name: &str,
+    creation: Creation,
+    args: impl IntoIterator<Item = impl Into<String>>,
+) -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {
+    let tmp = gix_testtools::scripted_fixture_writable_with_args(
+        format!("scenario/{name}.sh"),
+        args,
+        creation,
+    )
+    .map_err(anyhow::Error::from_boxed)?;
+    let mut options = crate::open_repo_config()?;
+    options.permissions.env = gix::open::permissions::Environment::all();
+    let repo = gix::open_opts(tmp.path(), freeze_time(options))?;
+    Ok((repo, tmp))
+}
+
+/// Set `opts` to use a predefined time each time a commit author or signature is created.
+fn freeze_time(opts: gix::open::Options) -> gix::open::Options {
+    use gix::config::tree::{User, gitoxide};
+    // Note: this should equal what's used other free-time functions that
+    // are environment based, as env-vars override this.
+    // TODO: don't allow the test-suite to change the current environment (which was needed to help old code)
+    let time = "946771200 +0000".into();
+    opts.config_overrides(
+        [
+            User::NAME.validated_assignment("user".into()),
+            User::EMAIL.validated_assignment("email@example.com".into()),
+            gitoxide::Commit::AUTHOR_DATE.validated_assignment(time),
+            gitoxide::Commit::COMMITTER_DATE.validated_assignment(time),
+        ]
+        .into_iter()
+        .map(Result::unwrap),
+    )
+}
+
 /// Windows dummy
 #[cfg(not(unix))]
 pub fn visualize_disk_tree_skip_dot_git(_root: &Path) -> anyhow::Result<termtree::Tree<String>> {
@@ -350,6 +573,5 @@ pub use graph::{graph_tree, graph_workspace};
 
 mod prepare_cmd_env;
 pub use prepare_cmd_env::isolate_env_std_cmd;
-
 #[cfg(feature = "snapbox")]
 pub use prepare_cmd_env::isolate_snapbox_cmd;

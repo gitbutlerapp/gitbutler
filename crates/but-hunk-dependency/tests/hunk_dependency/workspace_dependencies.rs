@@ -865,7 +865,7 @@ fn dependencies_handle_complex_branch_checkout() -> anyhow::Result<()> {
 }
 
 mod util {
-    use gitbutler_oxidize::OidExt;
+    use but_oxidize::OidExt;
     use gitbutler_stack::VirtualBranchesHandle;
 
     use crate::{WorkspaceDigest, intersect_workspace_ranges};

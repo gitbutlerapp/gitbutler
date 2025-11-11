@@ -17,8 +17,10 @@ pub async fn list(project: &Project, local: bool) -> Result<(), anyhow::Error> {
 
     let branch_review_map = crate::forge::review::get_review_map(project).await?;
 
-    let applied_stacks =
-        but_api::workspace::stacks(project.id, Some(but_workspace::StacksFilter::InWorkspace))?;
+    let applied_stacks = but_api::workspace::stacks(
+        project.id,
+        Some(but_workspace::legacy::StacksFilter::InWorkspace),
+    )?;
     print_applied_branches(&applied_stacks, &branch_review_map);
     let branches = but_api::virtual_branches::list_branches(project.id, filter)?;
     let (branches, remote_only_branches): (Vec<_>, Vec<_>) =

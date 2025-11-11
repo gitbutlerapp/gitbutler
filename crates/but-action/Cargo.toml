@@ -25,6 +25,7 @@ but-workspace = { workspace = true, features = ["legacy"] }
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
 but-tools.workspace = true
+but-oxidize.workspace = true
 
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true
@@ -32,7 +33,6 @@ gitbutler-operating-modes.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-oplog.workspace = true
-gitbutler-oxidize.workspace = true
 gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
 

@@ -1,20 +1,15 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a workspace.
 
-use crate::DiffSpec;
 use anyhow::bail;
-use but_core::RepositoryExt;
-use but_core::ref_metadata::StackId;
+use but_core::{
+    DiffSpec, RepositoryExt,
+    ref_metadata::StackId,
+    tree::{CreateTreeOutcome, create_tree, create_tree::RejectionReason},
+};
 use but_rebase::{RebaseOutput, commit::DateMode};
 use gix::prelude::ObjectIdExt as _;
 
-pub(crate) mod tree;
-use tree::{CreateTreeOutcome, create_tree};
-
 pub(crate) mod index;
-
-mod hunks;
-pub use hunks::apply_hunks;
-pub use tree::apply_worktree_changes;
 
 /// Types for use in the frontend with serialization support.
 pub mod ui;
@@ -53,27 +48,6 @@ pub struct StackSegmentId {
     pub stack_id: StackId,
     /// The name of the ref pointing to the tip of the stack segment the commit is supposed to go into. It is necessary to disambiguate the reference update.
     pub segment_ref: gix::refs::FullName,
-}
-
-/// Identify the commit that contains the patches to be moved, along with the branch that should be rewritten.
-#[derive(Debug, Clone, Copy)]
-pub struct MoveSourceCommit {
-    /// The commit that acts as the source of all changes. Note that these changes will be *removed* from the
-    /// commit, which gets rewritten in the process.
-    pub commit_id: gix::ObjectId,
-    /// The commit at the *very top* of the branch which has the commit that acts as source of changes in its ancestry.
-    pub branch_tip: gix::ObjectId,
-}
-
-/// The range of a hunk as denoted by a 1-based starting line, and the amount of lines from there.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub struct HunkRange {
-    /// The number of the first line in the hunk, 1 based.
-    pub start: u32,
-    /// The amount of lines in the range.
-    ///
-    /// If `0`, this is an empty hunk.
-    pub lines: u32,
 }
 
 /// A type used in [`CreateCommitOutcome`] to indicate how a reference was changed so it keeps pointing
@@ -115,48 +89,9 @@ pub struct CreateCommitOutcome {
     pub index: Option<gix::index::File>,
 }
 
-/// Provide a description of why a [`DiffSpec`] was rejected for application to the tree of a commit.
-#[derive(Default, Debug, Copy, Clone, PartialEq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RejectionReason {
-    /// All changes were applied, but they didn't end up effectively change the tree to something differing from the target tree.
-    /// This means the changes were a no-op.
-    /// Is that even possible? The code says so, for good measure.
-    // We don't really have a default, this is just for convenience
-    #[default]
-    NoEffectiveChanges,
-    /// The final cherry-pick to bring the new tree down onto the target tree (merge it in) failed with a conflict.
-    CherryPickMergeConflict,
-    /// The final merge of the workspace commit failed with a conflict.
-    WorkspaceMergeConflict,
-    /// The final merge of the workspace commit failed with a conflict,
-    /// but the involved file wasn't anything the user provided as diff-spec.
-    WorkspaceMergeConflictOfUnrelatedFile,
-    /// This is just a theoretical possibility that *could* happen if somebody deletes a file that was there before *right after* we checked its
-    /// metadata and found that it still exists.
-    /// So if you see this, you could also have won the lottery.
-    WorktreeFileMissingForObjectConversion,
-    /// When performing a unified diff, it had to refused as the file was too large or turned out to be binary.
-    /// Note that this only happens for binary files if there is no `diff.<name>.textconv` filters configured.
-    FileToLargeOrBinary,
-    /// A change with multiple hunks to be applied wasn't present in the base-tree.
-    /// Previously this was possible when untracked files were added with their single hunk specified, but now this shouldn't be happening anymore.
-    PathNotFoundInBaseTree,
-    /// There was a change, but the path pointed to something that wasn't a file or a link.
-    /// You would see this if also in case of submodules or repositories to be added with hunks, which shouldn't be easy to do accidentally even.
-    UnsupportedDirectoryEntry,
-    /// The base version of a file to apply worktree changes to as present in a Git tree had an undiffable entry type.
-    /// This can happen if the target tree has an entry that isn't of the same type as the source worktree changes.
-    UnsupportedTreeEntry,
-    /// The DiffSpec points to an actual change, or a subset of that change using a file path and optionally hunks into that file.
-    /// However, at least one hunk was not fully contained.
-    MissingDiffSpecAssociation,
-}
-
 /// Alter the single `destination` in a given `frame` with as many `changes` as possible and write new objects into `repo`,
 /// but only if the commit succeeds.
 ///
-/// If `move_source` is `Some(source)`, all changes are considered to originate from the given commit to move out of, otherwise they originate from the worktree.
 /// `context_lines` is the amount of lines of context included in each [`HunkHeader`], and the value that will be used to recover the existing hunks,
 /// so that the hunks can be matched.
 ///
@@ -186,7 +121,6 @@ pub enum RejectionReason {
 pub fn create_commit(
     repo: &gix::Repository,
     destination: Destination,
-    move_source: Option<MoveSourceCommit>,
     changes: Vec<DiffSpec>,
     context_lines: u32,
 ) -> anyhow::Result<CreateCommitOutcome> {
@@ -233,7 +167,7 @@ pub fn create_commit(
         rejected_specs,
         destination_tree,
         changed_tree_pre_cherry_pick,
-    } = create_tree(repo, target_tree, move_source, changes, context_lines)?;
+    } = create_tree(repo, target_tree, changes, context_lines)?;
     let new_commit = if let Some(new_tree) = destination_tree {
         match destination {
             Destination::NewCommit {

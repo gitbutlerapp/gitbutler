@@ -1,7 +1,6 @@
+use std::{ffi::OsString, io::Write, path::Path};
+
 use anyhow::{Context, Result};
-use std::ffi::OsString;
-use std::io::Write;
-use std::path::Path;
 
 mod args;
 use args::{Args, CommandName, Subcommands, actions, claude, cursor};

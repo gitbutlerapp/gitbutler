@@ -1,7 +1,8 @@
+use std::path::{Path, PathBuf};
+
 use anyhow::{Context, Result};
 use gix::glob::wildmatch::Mode;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 
 /// Context for serializing permission patterns
 #[derive(Debug, Clone)]
@@ -265,8 +266,9 @@ mod test {
     }
 
     mod path {
-        use crate::permissions::{PathPattern, PathPatternKind};
         use std::path::Path;
+
+        use crate::permissions::{PathPattern, PathPatternKind};
 
         #[test]
         fn matches_glob() {
@@ -284,8 +286,9 @@ mod test {
     }
 
     mod url_pattern {
-        use crate::permissions::UrlPattern;
         use anyhow::Result;
+
+        use crate::permissions::UrlPattern;
 
         #[test]
         fn full_matches() -> Result<()> {

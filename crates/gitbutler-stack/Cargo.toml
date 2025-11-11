@@ -15,12 +15,12 @@ but-core.workspace = true
 but-rebase.workspace = true
 but-graph.workspace = true
 but-error.workspace = true
+but-oxidize.workspace = true
 
 gitbutler-fs.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-commit.workspace = true
-gitbutler-oxidize.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-time.workspace = true
 gitbutler-diff.workspace = true

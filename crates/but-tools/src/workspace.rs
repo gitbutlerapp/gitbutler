@@ -6,16 +6,16 @@ use std::{
 
 use anyhow::Context;
 use bstr::BString;
-use but_core::{TreeChange, UnifiedPatch};
+use but_core::{TreeChange, UnifiedPatch, ref_metadata::StackId};
 use but_graph::VirtualBranchesTomlMetadata;
-use but_workspace::{StackId, legacy::CommmitSplitOutcome, legacy::ui::StackEntryNoOpt};
+use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id};
+use but_workspace::legacy::{CommmitSplitOutcome, ui::StackEntryNoOpt};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
     entry::{OperationKind, SnapshotDetails},
 };
-use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id};
 use gitbutler_project::Project;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
@@ -204,7 +204,7 @@ pub fn create_commit(
     let worktree = but_core::diff::worktree_changes(&repo)?;
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
 
-    let file_changes: Vec<but_workspace::DiffSpec> = worktree
+    let file_changes: Vec<but_core::DiffSpec> = worktree
         .changes
         .iter()
         .filter(|change| params.files.contains(&change.path.to_string()))
@@ -542,7 +542,7 @@ pub fn amend_commit_inner(
     let mut guard = ctx.project().exclusive_worktree_access();
     let worktree = but_core::diff::worktree_changes(&repo)?;
 
-    let file_changes: Vec<but_workspace::DiffSpec> = worktree
+    let file_changes: Vec<but_core::DiffSpec> = worktree
         .changes
         .iter()
         .filter(|change| params.files.contains(&change.path.to_string()))
@@ -571,7 +571,6 @@ pub fn amend_commit_inner(
             commit_id,
             new_message: Some(message),
         },
-        None,
         file_changes,
         settings.context_lines,
         guard.write_permission(),
@@ -913,7 +912,7 @@ pub fn move_file_changes(
     let changes = params
         .files
         .iter()
-        .map(|f| but_workspace::DiffSpec {
+        .map(|f| but_core::DiffSpec {
             path: BString::from(f.as_str()),
             previous_path: None,
             hunk_headers: vec![],
@@ -1639,7 +1638,7 @@ pub struct RichHunk {
     /// The diff string.
     pub diff: String,
     /// The stack ID this hunk is assigned to, if any.
-    pub assigned_to_stack: Option<but_workspace::StackId>,
+    pub assigned_to_stack: Option<but_core::ref_metadata::StackId>,
     /// The locks this hunk has, if any.
     pub dependency_locks: Vec<but_hunk_dependency::ui::HunkLock>,
 }
@@ -1692,7 +1691,7 @@ pub struct SimpleBranch {
 #[serde(rename_all = "camelCase")]
 pub struct SimpleStack {
     /// The stack ID.
-    pub id: but_workspace::StackId,
+    pub id: but_core::ref_metadata::StackId,
     /// The name of the stack.
     pub name: String,
     /// The branches in the stack.
@@ -2054,7 +2053,7 @@ fn stacks(
         but_workspace::legacy::stacks_v3(
             repo,
             &meta,
-            but_workspace::StacksFilter::InWorkspace,
+            but_workspace::legacy::StacksFilter::InWorkspace,
             None,
         )
     } else {
@@ -2062,7 +2061,7 @@ fn stacks(
             ctx,
             &project.gb_dir(),
             repo,
-            but_workspace::StacksFilter::InWorkspace,
+            but_workspace::legacy::StacksFilter::InWorkspace,
         )
     }
 }

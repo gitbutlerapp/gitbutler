@@ -1,11 +1,10 @@
 use std::str::FromStr;
 
+use but_core::{DiffSpec, ref_metadata::StackId};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
 use but_hunk_dependency::ui::HunkDependencies;
-use but_workspace::{
-    DiffSpec, StackId, StacksFilter, legacy::commit_engine, legacy::ui::StackEntry,
-};
+use but_workspace::legacy::{StacksFilter, commit_engine, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use itertools::Itertools;
 
@@ -122,7 +121,6 @@ fn handle_amend(
             // TODO: Expose this in the UI for 'edit message' functionality.
             new_message: None,
         },
-        None,
         changes,
         ctx.app_settings().context_lines,
         guard.write_permission(),

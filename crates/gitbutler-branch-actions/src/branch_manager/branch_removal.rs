@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
+use but_core::DiffSpec;
+use but_oxidize::{GixRepositoryExt as _, ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_oplog::SnapshotExt;
-use gitbutler_oxidize::{GixRepositoryExt as _, ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
@@ -19,7 +20,7 @@ impl BranchManager<'_> {
         stack_id: StackId,
         perm: &mut WorktreeWritePermission,
         delete_vb_state: bool,
-        assigned_diffspec: Vec<but_workspace::DiffSpec>,
+        assigned_diffspec: Vec<DiffSpec>,
         safe_checkout: bool,
     ) -> Result<String> {
         let vb_state = self.ctx.project().virtual_branches();

@@ -3,10 +3,8 @@ use std::{
     sync::Arc,
 };
 
-use but_workspace::{
-    StackId,
-    legacy::ui::{StackEntry, StackEntryNoOpt},
-};
+use but_core::ref_metadata::StackId;
+use but_workspace::legacy::ui::{StackEntry, StackEntryNoOpt};
 use gitbutler_command_context::CommandContext;
 use gix::ObjectId;
 use serde_json::json;

@@ -3,8 +3,8 @@ mod ownership;
 
 use anyhow::Result;
 use but_core::Reference;
+use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{CommitOrChangeId, PatchReferenceUpdate, StackBranch, VirtualBranchesHandle};

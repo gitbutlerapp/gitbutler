@@ -17,8 +17,9 @@ mod commit {
     };
 
     use anyhow::anyhow;
-    use but_core::RefMetadata;
     use serde::Serialize;
+
+    use crate::RefMetadata;
 
     /// A commit representing a snapshot, along with metadata.
     #[expect(dead_code)]

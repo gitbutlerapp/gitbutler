@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
-use but_core::TreeStatusKind;
-use but_workspace::StackId;
+use but_core::{TreeStatusKind, ref_metadata::StackId};
 
 use crate::utils::PaniclessSubtraction;
 

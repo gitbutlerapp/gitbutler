@@ -5,8 +5,8 @@ use anyhow::Result;
 pub use branch_trees::{
     BranchHeadAndTree, compute_updated_branch_head, compute_updated_branch_head_for_commits,
 };
+use but_oxidize::OidExt;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::OidExt;
 use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_stack::VirtualBranchesHandle;
 

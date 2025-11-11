@@ -1,6 +1,5 @@
 use anyhow::anyhow;
-use but_core::TreeStatusKind;
-use but_workspace::StackId;
+use but_core::{TreeStatusKind, ref_metadata::StackId};
 use gix::bstr::BString;
 
 /// A whole stack for the purpose of generating hunk locking information from it, for use in [`WorkspaceRanges::try_from_stacks()`](crate::WorkspaceRanges::try_from_stacks()) .

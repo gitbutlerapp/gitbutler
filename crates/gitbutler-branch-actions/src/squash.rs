@@ -1,4 +1,5 @@
 use anyhow::{Context, Ok, Result, bail};
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
@@ -6,7 +7,6 @@ use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
 };
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     RepositoryExt as _,

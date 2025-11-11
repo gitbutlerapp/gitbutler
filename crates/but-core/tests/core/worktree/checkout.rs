@@ -1,15 +1,12 @@
-use crate::{
-    branch::checkout::utils::build_commit,
-    utils::{
-        read_only_in_memory_scenario, visualize_index, writable_scenario, writable_scenario_slow,
-    },
-};
+use but_core::worktree::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout};
 use but_testsupport::{
-    git_status, visualize_commit_graph_all, visualize_disk_tree_skip_dot_git, visualize_tree,
+    git_status, read_only_in_memory_scenario, visualize_commit_graph_all,
+    visualize_disk_tree_skip_dot_git, visualize_index, visualize_tree, writable_scenario,
+    writable_scenario_slow,
 };
-use but_workspace::branch::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout};
-use gix::object::tree::EntryKind;
-use gix::prelude::ObjectIdExt;
+use gix::{object::tree::EntryKind, prelude::ObjectIdExt};
+
+use crate::worktree::utils::build_commit;
 
 #[test]
 fn update_unborn_head() -> anyhow::Result<()> {
@@ -860,27 +857,4 @@ fn overwrite_options() -> checkout::Options {
     }
 }
 
-mod utils {
-    /// Using the `repo` `HEAD` commit, build a new commit based on its tree with `edit` and `message`, and return the `(current_commit, new_commit)`.
-    pub fn build_commit<'repo>(
-        repo: &'repo gix::Repository,
-        mut edit: impl FnMut(&mut gix::object::tree::Editor) -> anyhow::Result<()>,
-        message: &str,
-    ) -> anyhow::Result<(gix::Commit<'repo>, gix::Commit<'repo>)> {
-        let head_commit = repo.head_commit()?;
-
-        repo.write_blob([])?;
-        let mut editor = head_commit.tree()?.edit()?;
-        edit(&mut editor)?;
-
-        let new_commit_id = repo
-            .write_object(gix::objs::Commit {
-                tree: editor.write()?.detach(),
-                parents: [head_commit.id].into(),
-                message: message.into(),
-                ..head_commit.decode()?.to_owned()
-            })?
-            .detach();
-        Ok((head_commit, repo.find_commit(new_commit_id)?))
-    }
-}
+mod utils {}

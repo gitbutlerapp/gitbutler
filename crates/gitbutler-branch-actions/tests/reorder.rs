@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
+use but_oxidize::{ObjectIdExt, RepoExt};
 use git2::Oid;
 use gitbutler_branch_actions::{SeriesOrder, StackOrder, reorder_stack};
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_testsupport::testing_repository::assert_commit_tree_matches;
 use itertools::Itertools;

@@ -1,9 +1,9 @@
 use anyhow::{Result, bail};
 // A happy little module for uploading stacks.
+use but_oxidize::{ObjectIdExt, OidExt as _, git2_signature_to_gix_signature};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::HasCommitHeaders as _;
 use gitbutler_oplog::reflog::{ReflogCommits, set_reference_to_oplog};
-use gitbutler_oxidize::{ObjectIdExt, OidExt as _, git2_signature_to_gix_signature};
 use gitbutler_repo::{commit_message::CommitMessage, signature};
 use gitbutler_stack::{Stack, StackId, VirtualBranchesHandle};
 use gitbutler_user::User;

@@ -1,9 +1,9 @@
 use std::io::Write;
 
-use but_workspace::StackId;
+use but_core::ref_metadata::StackId;
+use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
 use gix::ObjectId;
 
 pub(crate) fn commit(ctx: &mut CommandContext, oid: &ObjectId) -> anyhow::Result<()> {

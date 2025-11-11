@@ -2,6 +2,7 @@ use bstr::ByteSlice;
 use but_core::{
     RefMetadata, RepositoryExt, ref_metadata,
     ref_metadata::{StackId, WorkspaceCommitRelation::Outside},
+    worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_graph::init::{Options, Overlay};
 use but_testsupport::{
@@ -11,7 +12,6 @@ use but_testsupport::{
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
-    checkout::UncommitedWorktreeChanges,
 };
 use gix::refs::Category;
 

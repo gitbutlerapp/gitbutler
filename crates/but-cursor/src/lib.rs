@@ -8,7 +8,7 @@ use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
-use but_workspace::StacksFilter;
+use but_workspace::legacy::StacksFilter;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use gitbutler_stack::VirtualBranchesHandle;
@@ -45,7 +45,7 @@ pub struct Edit {
 
 #[derive(Default)]
 struct ProduceDiffHunk {
-    headers: Vec<but_workspace::HunkHeader>,
+    headers: Vec<but_core::HunkHeader>,
 }
 impl gix::diff::blob::unified_diff::ConsumeBinaryHunkDelegate for ProduceDiffHunk {
     fn consume_binary_hunk(
@@ -54,7 +54,7 @@ impl gix::diff::blob::unified_diff::ConsumeBinaryHunkDelegate for ProduceDiffHun
         _header_str: &str,
         _hunk: &[u8],
     ) -> std::io::Result<()> {
-        self.headers.push(but_workspace::HunkHeader {
+        self.headers.push(but_core::HunkHeader {
             old_start: header.before_hunk_start,
             old_lines: header.before_hunk_len,
             new_start: header.after_hunk_start,
@@ -65,7 +65,7 @@ impl gix::diff::blob::unified_diff::ConsumeBinaryHunkDelegate for ProduceDiffHun
 }
 
 impl Edit {
-    fn generate_headers(&self) -> anyhow::Result<Vec<but_workspace::HunkHeader>> {
+    fn generate_headers(&self) -> anyhow::Result<Vec<but_core::HunkHeader>> {
         let interner = gix::diff::blob::intern::InternedInput::new(
             self.old_string.as_bytes(),
             self.new_string.as_bytes(),

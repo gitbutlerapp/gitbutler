@@ -1,17 +1,17 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, io::Write};
 
-use crate::CLI_DATE;
 use assignment::FileAssignment;
 use bstr::{BString, ByteSlice};
 use but_core::ui::{TreeChange, TreeStatus};
 use but_hunk_assignment::HunkAssignment;
+use but_oxidize::{ObjectIdExt, OidExt, TimeExt};
 use but_project::Project;
 use but_workspace::ui::StackDetails;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::{ObjectIdExt, OidExt, TimeExt};
 use serde::Serialize;
-use std::io::Write;
+
+use crate::CLI_DATE;
 
 pub(crate) mod assignment;
 

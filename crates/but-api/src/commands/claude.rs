@@ -8,8 +8,8 @@ use but_claude::{
     claude_settings::ClaudeSettings,
     prompt_templates,
 };
+use but_core::ref_metadata::StackId;
 use but_settings::AppSettings;
-use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use serde::Deserialize;

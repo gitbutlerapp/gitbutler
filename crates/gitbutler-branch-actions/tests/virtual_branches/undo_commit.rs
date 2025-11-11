@@ -1,6 +1,6 @@
+use but_oxidize::ObjectIdExt;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::list_commit_files;
-use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_testsupport::stack_details;
 
 use super::*;

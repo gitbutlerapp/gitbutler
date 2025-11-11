@@ -1,10 +1,11 @@
 use anyhow::{Context, Result};
+use but_core::ref_metadata::StackId;
 use but_graph::virtual_branches_legacy_types::CommitOrChangeId;
+use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
-use but_workspace::{StackId, legacy::stack_ext::StackExt};
+use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_cherry_pick::GixRepositoryExt;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackBranch, VirtualBranchesHandle};

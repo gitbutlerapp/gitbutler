@@ -1,10 +1,10 @@
 use anyhow::{Context as _, Result, bail};
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_diff::Hunk;
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{OwnershipClaim, Stack, StackId};
 use tracing::instrument;

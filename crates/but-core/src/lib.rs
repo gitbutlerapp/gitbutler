@@ -25,6 +25,7 @@
 //!     - `BString` has a `BStringForFrontend` counterpart.
 //!     - `gix::ObjectId` has a `with = but_serde::object_id` serialization module.
 //! * **Make it work, make it work right, and if time and profiler permits, make it work fast**.
+//! * **If this crate gets too fat, spin modules off into their own crates**
 //! * **All of the above can and should be scrutinized and is there is no hard rules.**
 //!
 //! ### Terminology
@@ -57,6 +58,12 @@ use serde::Serialize;
 
 /// Functions to obtain changes between various items.
 pub mod diff;
+/// Fundamental data types for re-use
+mod diff_types;
+pub use diff_types::{DiffSpec, HunkHeader, ModeFlags};
+
+mod hunks;
+pub use hunks::{HunkRange, apply_hunks};
 
 /// Commit related utility types.
 pub mod commit;
@@ -83,12 +90,23 @@ pub use settings::git::types::GitConfigSettings;
 mod repo_ext;
 pub use repo_ext::RepositoryExt;
 
+pub mod snapshot;
+
+/// Utilities to deal with git worktrees.
+pub mod worktree;
+
+/// Utilities to create Git trees.
+pub mod tree;
+
 /// Various types
 pub mod ref_metadata;
 use crate::ref_metadata::ValueInfo;
 
 /// Utilities to sync project access.
 pub mod sync;
+
+mod ext;
+pub use ext::ObjectStorageExt;
 
 /// A utility to extra the name of the remote from a remote tracking ref with `ref_name`.
 /// If it's not a remote tracking ref, or no remote in `remote_names` (like `origin`) matches,
@@ -384,15 +402,18 @@ pub struct WorktreeChanges {
     pub index_conflicts: Vec<(BString, Box<[Option<ConflictIndexEntry>; 3]>)>,
 }
 
-/// Computed using the file kinds/modes of two [`ChangeState`] instances to represent
-/// the *dominant* change to display. Note that it can stack with a content change,
-/// but *should not only in case of a `TypeChange*`*.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[expect(missing_docs)]
-pub enum ModeFlags {
-    ExecutableBitAdded,
-    ExecutableBitRemoved,
-    TypeChangeFileToLink,
-    TypeChangeLinkToFile,
-    TypeChange,
+#[cfg(test)]
+pub(crate) mod utils {
+    use crate::HunkHeader;
+
+    pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
+        let ((old_start, old_lines), (new_start, new_lines)) =
+            but_testsupport::hunk_header(old, new);
+        HunkHeader {
+            old_start,
+            old_lines,
+            new_start,
+            new_lines,
+        }
+    }
 }

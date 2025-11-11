@@ -1,8 +1,9 @@
-use atty::Stream;
 use std::io::{self, Write};
 
+use atty::Stream;
+use but_core::ref_metadata::StackId;
 use but_settings::AppSettings;
-use but_workspace::{StackId, legacy::ui::StackEntry};
+use but_workspace::legacy::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
@@ -155,7 +156,7 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
         Some(Subcommands::Delete { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(
                 project.id,
-                Some(but_workspace::StacksFilter::InWorkspace),
+                Some(but_workspace::legacy::StacksFilter::InWorkspace),
             )?;
 
             // Find which stack this branch belongs to
@@ -177,7 +178,7 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
         Some(Subcommands::Unapply { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(
                 project.id,
-                Some(but_workspace::StacksFilter::InWorkspace),
+                Some(but_workspace::legacy::StacksFilter::InWorkspace),
             )?;
 
             // Find which stack this branch belongs to

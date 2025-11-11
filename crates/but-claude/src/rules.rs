@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
+use but_core::ref_metadata::StackId;
 use but_rules::{CreateRuleRequest, UpdateRuleRequest};
-use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

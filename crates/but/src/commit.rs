@@ -9,10 +9,9 @@ use but_api::{
     commands::{diff, virtual_branches, workspace},
     hex_hash::HexHash,
 };
-use but_core::ui::TreeChange;
+use but_core::{DiffSpec, ui::TreeChange};
 use but_hunk_assignment::HunkAssignment;
 use but_settings::AppSettings;
-use but_workspace::DiffSpec;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
@@ -116,7 +115,7 @@ fn find_branch_head_commit(
 fn find_stack_containing_commit(
     project_id: gitbutler_project::ProjectId,
     commit_id: gix::ObjectId,
-) -> Result<but_workspace::StackId> {
+) -> Result<but_core::ref_metadata::StackId> {
     let stack_entries = workspace::stacks(project_id, None)?;
 
     for stack_entry in &stack_entries {
@@ -154,7 +153,10 @@ pub(crate) fn commit(
     // Get all stacks using but-api
     let project_id = project.id;
     let stack_entries = workspace::stacks(project_id, None)?;
-    let stacks: Vec<(but_workspace::StackId, but_workspace::ui::StackDetails)> = stack_entries
+    let stacks: Vec<(
+        but_core::ref_metadata::StackId,
+        but_workspace::ui::StackDetails,
+    )> = stack_entries
         .iter()
         .filter_map(|s| {
             s.id.and_then(|id| {
@@ -259,7 +261,7 @@ pub(crate) fn commit(
         .iter()
         .map(|fa| {
             // Collect hunk headers from all assignments for this file
-            let hunk_headers: Vec<but_workspace::HunkHeader> = fa
+            let hunk_headers: Vec<but_core::HunkHeader> = fa
                 .assignments
                 .iter()
                 .filter_map(|assignment| assignment.hunk_header)
@@ -304,7 +306,10 @@ pub(crate) fn commit(
 fn create_independent_branch(
     branch_name: &str,
     project: &Project,
-) -> anyhow::Result<(but_workspace::StackId, but_workspace::ui::StackDetails)> {
+) -> anyhow::Result<(
+    but_core::ref_metadata::StackId,
+    but_workspace::ui::StackDetails,
+)> {
     let mut stdout = std::io::stdout();
     // Create a new independent stack with the given branch name
     let (new_stack_id_opt, _new_ref) = but_api::commands::stack::create_reference(
@@ -329,10 +334,16 @@ fn create_independent_branch(
 fn select_stack(
     ctx: &mut CommandContext,
     project: &Project,
-    stacks: &[(but_workspace::StackId, but_workspace::ui::StackDetails)],
+    stacks: &[(
+        but_core::ref_metadata::StackId,
+        but_workspace::ui::StackDetails,
+    )],
     branch_hint: Option<&str>,
     create_branch: bool,
-) -> anyhow::Result<(but_workspace::StackId, but_workspace::ui::StackDetails)> {
+) -> anyhow::Result<(
+    but_core::ref_metadata::StackId,
+    but_workspace::ui::StackDetails,
+)> {
     // Handle empty stacks case
     if stacks.is_empty() {
         anyhow::ensure!(
@@ -378,9 +389,15 @@ fn select_stack(
 
 fn find_stack_by_hint(
     ctx: &mut CommandContext,
-    stacks: &[(but_workspace::StackId, but_workspace::ui::StackDetails)],
+    stacks: &[(
+        but_core::ref_metadata::StackId,
+        but_workspace::ui::StackDetails,
+    )],
     hint: &str,
-) -> Option<(but_workspace::StackId, but_workspace::ui::StackDetails)> {
+) -> Option<(
+    but_core::ref_metadata::StackId,
+    but_workspace::ui::StackDetails,
+)> {
     // Try exact branch name match
     for (stack_id, stack_details) in stacks {
         if stack_details.branch_details.iter().any(|b| b.name == hint) {
@@ -404,8 +421,14 @@ fn find_stack_by_hint(
 }
 
 fn prompt_for_stack_selection(
-    stacks: &[(but_workspace::StackId, but_workspace::ui::StackDetails)],
-) -> anyhow::Result<(but_workspace::StackId, but_workspace::ui::StackDetails)> {
+    stacks: &[(
+        but_core::ref_metadata::StackId,
+        but_workspace::ui::StackDetails,
+    )],
+) -> anyhow::Result<(
+    but_core::ref_metadata::StackId,
+    but_workspace::ui::StackDetails,
+)> {
     let mut stdout = std::io::stdout();
     writeln!(stdout, "Multiple stacks found. Choose one to commit to:").ok();
     for (i, (stack_id, stack_details)) in stacks.iter().enumerate() {

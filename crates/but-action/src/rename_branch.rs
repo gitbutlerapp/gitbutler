@@ -1,7 +1,7 @@
 use std::vec;
 
 use async_openai::{Client, config::OpenAIConfig};
-use but_workspace::StackId;
+use but_core::ref_metadata::StackId;
 use gitbutler_command_context::CommandContext;
 
 use crate::workflow::{self, Workflow};

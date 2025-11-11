@@ -25,7 +25,7 @@ pub mod logging;
 
 pub mod commit_message;
 
-use gitbutler_oxidize::gix_to_git2_signature;
+use but_oxidize::gix_to_git2_signature;
 pub const GITBUTLER_COMMIT_AUTHOR_NAME: &str = "GitButler";
 pub const GITBUTLER_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 

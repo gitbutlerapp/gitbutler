@@ -1,9 +1,9 @@
 use std::io::Write;
 
 use anyhow::Result;
+use but_oxidize::ObjectIdExt;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::Project;
 
 use crate::{editor::get_text_from_editor_no_comments, id::CliId};
@@ -46,8 +46,10 @@ pub(crate) fn describe_target(project: &Project, _json: bool, target: &str) -> R
 fn edit_branch_name(_ctx: &CommandContext, project: &Project, branch_name: &str) -> Result<()> {
     let mut stdout = std::io::stdout();
     // Find which stack this branch belongs to
-    let stacks =
-        but_api::workspace::stacks(project.id, Some(but_workspace::StacksFilter::InWorkspace))?;
+    let stacks = but_api::workspace::stacks(
+        project.id,
+        Some(but_workspace::legacy::StacksFilter::InWorkspace),
+    )?;
     for stack_entry in &stacks {
         if stack_entry.heads.iter().all(|b| b.name != branch_name) {
             // Not found in this stack,

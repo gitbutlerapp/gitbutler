@@ -1,15 +1,15 @@
-use but_testsupport::visualize_tree;
-use but_workspace::snapshot;
+use but_core::snapshot;
+use but_testsupport::{read_only_in_memory_scenario, visualize_tree};
 use gix::prelude::ObjectIdExt;
 
-use crate::{snapshot::args_for_worktree_changes, utils::read_only_in_memory_scenario};
+use crate::snapshot::args_for_worktree_changes;
 
 #[test]
 fn unborn_empty() -> anyhow::Result<()> {
     let repo = read_only_in_memory_scenario("unborn-empty")?;
-    let (head_tree_id, state, no_workspace_and_meta) = args_for_worktree_changes(&repo)?;
+    let (head_tree_id, state) = args_for_worktree_changes(&repo)?;
 
-    let out = snapshot::create_tree(head_tree_id, state, no_workspace_and_meta)?;
+    let out = snapshot::create_tree(head_tree_id, state)?;
     assert!(
         out.is_empty(),
         "There is nothing to pick up and no change at all."
@@ -49,9 +49,9 @@ fn unborn_empty() -> anyhow::Result<()> {
 #[test]
 fn unborn_untracked() -> anyhow::Result<()> {
     let repo = read_only_in_memory_scenario("unborn-untracked-all-file-types")?;
-    let (head_tree_id, mut state, no_workspace_and_meta) = args_for_worktree_changes(&repo)?;
+    let (head_tree_id, mut state) = args_for_worktree_changes(&repo)?;
 
-    let out = snapshot::create_tree(head_tree_id, state.clone(), no_workspace_and_meta)?;
+    let out = snapshot::create_tree(head_tree_id, state.clone())?;
     assert!(!out.is_empty(), "it picks up the untracked files");
     insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @r#"
     a863d4e
@@ -98,7 +98,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
     );
 
     state.selection.clear();
-    let out = snapshot::create_tree(head_tree_id, state, no_workspace_and_meta)?;
+    let out = snapshot::create_tree(head_tree_id, state)?;
     // An empty selection always means there is no effective change.
     insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @"4b825dc");
     Ok(())
@@ -107,9 +107,9 @@ fn unborn_untracked() -> anyhow::Result<()> {
 #[test]
 fn worktree_all_filetypes() -> anyhow::Result<()> {
     let repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
-    let (head_tree_id, mut state, no_workspace_and_meta) = args_for_worktree_changes(&repo)?;
+    let (head_tree_id, mut state) = args_for_worktree_changes(&repo)?;
 
-    let out = snapshot::create_tree(head_tree_id, state.clone(), no_workspace_and_meta)?;
+    let out = snapshot::create_tree(head_tree_id, state.clone())?;
     insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @r#"
     9d274f3
     ├── HEAD:3fd29f0 
@@ -159,7 +159,7 @@ fn worktree_all_filetypes() -> anyhow::Result<()> {
     );
 
     state.selection.clear();
-    let out = snapshot::create_tree(head_tree_id, state, no_workspace_and_meta)?;
+    let out = snapshot::create_tree(head_tree_id, state)?;
     // An empty selection always means there is no effective change.
     insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @"4b825dc");
     Ok(())

@@ -1,8 +1,7 @@
 use anyhow::Context;
 use bstr::{BStr, BString, ByteSlice};
-use but_core::unified_diff::DiffHunk;
 
-use crate::{HunkHeader, commit_engine::HunkRange};
+use crate::HunkHeader;
 
 /// Given an `old_image` and a `new_image`, along with `hunks` that represent selections in `new_image`, apply these
 /// hunks to `old_image` and return the newly constructed image.
@@ -70,7 +69,18 @@ pub fn apply_hunks(
     Ok(result_image)
 }
 
-// TODO: one day make `HunkHeader` use this type instead of loose fields.
+/// The range of a hunk as denoted by a 1-based starting line, and the amount of lines from there.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct HunkRange {
+    /// The number of the first line in the hunk, 1 based.
+    pub start: u32,
+    /// The amount of lines in the range.
+    ///
+    /// If `0`, this is an empty hunk.
+    pub lines: u32,
+}
+
+// TODO: one day make this struct use `HunkRange` instead of loose fields.
 impl HunkHeader {
     /// Return our old-range as self-contained structure.
     pub fn old_range(&self) -> HunkRange {
@@ -91,16 +101,6 @@ impl HunkHeader {
     /// Return `true` if this hunk is fully contained in the other hunk.
     pub fn contains(self, other: HunkHeader) -> bool {
         self.old_range().contains(other.old_range()) && self.new_range().contains(other.new_range())
-    }
-}
-
-impl std::fmt::Debug for HunkHeader {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            r#"HunkHeader("-{},{}", "+{},{}")"#,
-            self.old_start, self.old_lines, self.new_start, self.new_lines
-        )
     }
 }
 
@@ -146,26 +146,6 @@ impl HunkRange {
     /// Return `true` if this range is a null-range, a marker value that doesn't happen.
     pub fn is_null(&self) -> bool {
         self.start == 0 && self.lines == 0
-    }
-}
-
-impl From<DiffHunk> for HunkHeader {
-    fn from(
-        DiffHunk {
-            old_start,
-            old_lines,
-            new_start,
-            new_lines,
-            // TODO(performance): if difflines are discarded, we could also just not compute them.
-            diff: _,
-        }: DiffHunk,
-    ) -> Self {
-        HunkHeader {
-            old_start,
-            old_lines,
-            new_start,
-            new_lines,
-        }
     }
 }
 

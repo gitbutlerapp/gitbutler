@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
 
 use bstr::BString;
-use but_graph::VirtualBranchesTomlMetadata;
+
+use crate::WorktreeChanges;
 
 /// A way to determine what should be included in the snapshot when calling [create_tree()](function::create_tree).
 #[derive(Debug, Clone)]
@@ -9,7 +10,7 @@ pub struct State {
     /// The result of a previous worktree changes call, but [the one **without** renames](but_core::diff::worktree_changes_no_renames()).
     ///
     /// It contains detailed information about the complete set of possible changes to become part of the worktree.
-    pub changes: but_core::WorktreeChanges,
+    pub changes: WorktreeChanges,
     /// Repository-relative and slash-separated paths that match any change in the  [`changes`](State::changes) field
     /// to define which entry in `changes` is actually stored in the snapshot.
     /// It is *not* error if there is no match, as there can be snapshots without working tree changes, but with other changes.
@@ -50,25 +51,16 @@ impl Outcome {
     }
 }
 
-/// A utility to more easily use *no* workspace or metadata.
-pub fn no_workspace_and_meta() -> Option<(
-    &'static but_graph::projection::Workspace<'static>,
-    &'static VirtualBranchesTomlMetadata,
-)> {
-    None
-}
-
 pub(super) mod function {
     use std::collections::BTreeSet;
 
     use anyhow::{Context, bail};
     use bstr::{BString, ByteSlice};
-    use but_core::{ChangeState, RefMetadata};
     use gix::{diff::index::Change, object::tree::EntryKind};
     use tracing::instrument;
 
     use super::{Outcome, State};
-    use crate::{DiffSpec, commit_engine};
+    use crate::{ChangeState, DiffSpec, TreeChange, TreeStatus, WorktreeChanges, tree};
 
     /// Create a tree that represents the snapshot for the given `selection`, whereas the basis for these changes
     /// is the `head_tree_id` *(i.e. the tree to which `HEAD` is ultimately pointing to)* -
@@ -105,7 +97,7 @@ pub(super) mod function {
     ///     - It's present only if there is at least one modification compared to the `HEAD^{tree}`.
     /// * `index-conflicts`
     ///     - `<entry-path>/[1,2,3]` - the blobs at their respective stages.
-    #[instrument(skip(changes, _workspace_and_meta), err(Debug))]
+    #[instrument(skip(changes), err(Debug))]
     pub fn create_tree(
         head_tree_id: gix::Id<'_>,
         State {
@@ -113,7 +105,6 @@ pub(super) mod function {
             selection,
             head: _to_be_implemented,
         }: State,
-        _workspace_and_meta: Option<(&but_graph::projection::Workspace, &impl RefMetadata)>,
     ) -> anyhow::Result<Outcome> {
         // Assure this is a tree early.
         let head_tree = head_tree_id.object()?.into_tree();
@@ -129,9 +120,9 @@ pub(super) mod function {
                 return None;
             }
             // Create a pretend-addition to pick up conflicted paths as well.
-            Ok(DiffSpec::from(but_core::TreeChange {
+            Ok(DiffSpec::from(TreeChange {
                 path: rela_path.to_owned(),
-                status: but_core::TreeStatus::Addition {
+                status: TreeStatus::Addition {
                     state: ChangeState {
                         id: repo.object_hash().null(),
                         // This field isn't relevant when entries are read from disk.
@@ -143,7 +134,7 @@ pub(super) mod function {
             .into()
         }));
 
-        let (new_tree, base_tree) = commit_engine::tree::apply_worktree_changes(
+        let (new_tree, base_tree) = tree::apply_worktree_changes(
             head_tree_id.into(),
             repo,
             &mut changes_to_apply,
@@ -199,7 +190,7 @@ pub(super) mod function {
     fn snapshot_index(
         snapshot_tree: &mut gix::object::tree::Editor,
         base_tree: gix::Tree,
-        changes: but_core::WorktreeChanges,
+        changes: WorktreeChanges,
         selection: BTreeSet<BString>,
     ) -> anyhow::Result<Option<(Option<gix::ObjectId>, Option<gix::ObjectId>)>> {
         let conflicts: Vec<_> = changes

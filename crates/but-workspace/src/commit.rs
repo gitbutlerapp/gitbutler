@@ -31,7 +31,7 @@ pub mod merge {
     use anyhow::{Context, bail};
     use but_core::ref_metadata::{MaybeDebug, WorkspaceCommitRelation};
     use but_graph::SegmentIndex;
-    use gitbutler_oxidize::GixRepositoryExt;
+    use but_oxidize::GixRepositoryExt;
     use gix::prelude::ObjectIdExt;
     use tracing::instrument;
 

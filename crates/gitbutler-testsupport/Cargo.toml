@@ -11,6 +11,22 @@ doctest = false
 test = false
 
 [dependencies]
+but-settings.workspace = true
+but-oxidize.workspace = true
+but-graph.workspace = true
+but-workspace.workspace = true
+
+gitbutler-branch-actions = { path = "../gitbutler-branch-actions" }
+gitbutler-repo = { path = "../gitbutler-repo" }
+gitbutler-command-context.workspace = true
+gitbutler-project.workspace = true
+gitbutler-user.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-storage.workspace = true
+gitbutler-url.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-commit.workspace = true
+
 anyhow.workspace = true
 once_cell = "1.20"
 git2.workspace = true
@@ -20,19 +36,5 @@ serde_json.workspace = true
 gix-testtools.workspace = true
 gix.workspace = true
 parking_lot.workspace = true
-gitbutler-branch-actions = { path = "../gitbutler-branch-actions" }
-gitbutler-repo = { path = "../gitbutler-repo" }
-gitbutler-command-context.workspace = true
-gitbutler-project.workspace = true
-but-graph.workspace = true
-but-workspace.workspace = true
-gitbutler-user.workspace = true
-gitbutler-reference.workspace = true
-gitbutler-storage.workspace = true
-gitbutler-url.workspace = true
-gitbutler-stack.workspace = true
-but-settings.workspace = true
-gitbutler-oxidize.workspace = true
-gitbutler-commit.workspace = true
 termtree = "0.5.1"
 uuid.workspace = true

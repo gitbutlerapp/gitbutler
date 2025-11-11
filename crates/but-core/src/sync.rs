@@ -1,7 +1,11 @@
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+
 use anyhow::{Context, bail};
 use parking_lot::{ArcRwLockReadGuard, ArcRwLockWriteGuard, RawRwLock};
-use std::path::Path;
-use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
 
 /// Try to obtain the exclusive inter-process lock on the entire project that stores its application data in `project_data`,
 /// preventing other GitButler instances to operate on it entirely.

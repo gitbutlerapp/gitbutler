@@ -25,8 +25,8 @@ but-graph.workspace = true
 but-rebase.workspace = true
 but-error.workspace = true
 but-serde.workspace = true
+but-oxidize.workspace = true
 
-gitbutler-oxidize.workspace = true
 gitbutler-stack = { workspace = true, optional = true}
 gitbutler-command-context = { workspace = true, optional = true}
 gitbutler-cherry-pick = { workspace = true, optional = true}

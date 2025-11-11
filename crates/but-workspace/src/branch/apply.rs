@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use but_core::ref_metadata::StackId;
+use but_core::{ref_metadata::StackId, worktree::checkout::UncommitedWorktreeChanges};
 
-use crate::branch::{OnWorkspaceMergeConflict, checkout::UncommitedWorktreeChanges};
+use crate::branch::OnWorkspaceMergeConflict;
 
 /// Returned by [function::apply()].
 pub struct Outcome<'graph> {
@@ -110,23 +110,18 @@ pub struct Options {
 pub(crate) mod function {
     use std::borrow::Cow;
 
-    use super::{Options, Outcome, WorkspaceMerge, WorkspaceReferenceNaming};
-    use crate::commit::merge::Tip;
-    use crate::{WorkspaceCommit, branch::checkout, ext::ObjectStorageExt, ref_info::WorkspaceExt};
     use anyhow::{Context, bail};
-    use but_core::ref_metadata::StackKind;
     use but_core::{
-        RefMetadata, RepositoryExt, extract_remote_name, ref_metadata,
+        ObjectStorageExt, RefMetadata, RepositoryExt, extract_remote_name, ref_metadata,
         ref_metadata::{
-            StackId,
+            StackId, StackKind,
             StackKind::AppliedAndUnapplied,
             Workspace,
             WorkspaceCommitRelation::{Merged, Outside},
         },
     };
-    use but_graph::petgraph::Direction;
-    use but_graph::{SegmentIndex, init::Overlay, projection::WorkspaceKind};
-    use gitbutler_oxidize::GixRepositoryExt;
+    use but_graph::{SegmentIndex, init::Overlay, petgraph::Direction, projection::WorkspaceKind};
+    use but_oxidize::GixRepositoryExt;
     use gix::{
         prelude::ObjectIdExt,
         reference::Category,
@@ -136,6 +131,9 @@ pub(crate) mod function {
         },
     };
     use tracing::instrument;
+
+    use super::{Options, Outcome, WorkspaceMerge, WorkspaceReferenceNaming};
+    use crate::{WorkspaceCommit, commit::merge::Tip, ref_info::WorkspaceExt};
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
     /// along with its `meta`-data if it doesn't exist yet.
@@ -216,11 +214,11 @@ pub(crate) mod function {
             let current_head_commit = workspace
                 .graph.entrypoint_commit()
                 .context("The entrypoint must have a commit - it's equal to HEAD, and we skipped unborn earlier")?;
-            crate::branch::safe_checkout(
+            but_core::worktree::safe_checkout(
                 current_head_commit.id,
                 commit_to_checkout.id,
                 repo,
-                checkout::Options {
+                but_core::worktree::checkout::Options {
                     uncommitted_changes,
                     skip_head_update: false,
                 },
@@ -629,11 +627,11 @@ pub(crate) mod function {
             &ws_md,
             local_tracking_config_and_ref_info,
         )?;
-        crate::branch::safe_checkout(
+        but_core::worktree::safe_checkout(
             prev_head_id,
             new_head_id,
             repo,
-            checkout::Options {
+            but_core::worktree::checkout::Options {
                 uncommitted_changes,
                 skip_head_update: true,
             },

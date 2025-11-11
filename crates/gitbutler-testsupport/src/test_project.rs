@@ -1,6 +1,6 @@
 use std::{fs, path, path::PathBuf};
 
-use gitbutler_oxidize::{GixRepositoryExt, git2_to_gix_object_id, gix_to_git2_oid};
+use but_oxidize::{GixRepositoryExt, git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::RepositoryExt;
 use tempfile::TempDir;

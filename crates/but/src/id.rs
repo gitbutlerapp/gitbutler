@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
+use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
-use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

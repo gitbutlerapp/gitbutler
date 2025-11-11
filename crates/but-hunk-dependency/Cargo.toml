@@ -13,9 +13,9 @@ doctest = false
 but-core.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
 but-serde.workspace = true
+but-oxidize.workspace = true
 
 gitbutler-command-context.workspace = true
-gitbutler-oxidize.workspace = true
 # For `ui` module
 gitbutler-stack.workspace = true
 # TODO: remove once not needed anymore
@@ -27,8 +27,10 @@ serde.workspace = true
 gix = { workspace = true, features = [] }
 
 [dev-dependencies]
-gix-testtools.workspace = true
+but-oxidize.workspace = true
+
 gitbutler-testsupport.workspace = true
-gitbutler-oxidize.workspace = true
+
+gix-testtools.workspace = true
 insta.workspace = true
 serde_json.workspace = true

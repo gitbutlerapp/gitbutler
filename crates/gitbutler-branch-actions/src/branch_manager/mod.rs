@@ -1,6 +1,6 @@
 pub use branch_creation::CreateBranchFromBranchOutcome;
+use but_oxidize::OidExt;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::OidExt;
 
 mod branch_creation;
 mod branch_removal;
@@ -11,10 +11,10 @@ pub(crate) fn checkout_remerged_head(
     repo: &gix::Repository,
 ) -> anyhow::Result<()> {
     let (workspace_tree_id, _, _) = but_workspace::legacy::remerged_workspace_tree_v2(ctx, repo)?;
-    but_workspace::branch::safe_checkout_from_head(
+    but_core::worktree::safe_checkout_from_head(
         workspace_tree_id.to_gix(),
         repo,
-        but_workspace::branch::checkout::Options::default(),
+        but_core::worktree::checkout::Options::default(),
     )?;
     Ok(())
 }

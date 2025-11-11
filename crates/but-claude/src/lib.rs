@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use but_broadcaster::{Broadcaster, FrontendEvent};
-use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -10,6 +9,8 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 pub mod bridge;
 pub use bridge::ClaudeCheckResult;
+use but_core::ref_metadata::StackId;
+
 pub(crate) mod claude_config;
 pub mod claude_mcp;
 pub mod claude_settings;

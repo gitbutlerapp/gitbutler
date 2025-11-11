@@ -8,19 +8,22 @@ use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RefMetadata;
 use but_graph::VirtualBranchesTomlMetadata;
+use but_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
 use gitbutler_stack::{Stack, StackBranch, StackId};
 use gix::date::parse::TimeBuf;
 use itertools::Itertools;
 use tracing::instrument;
 
-use crate::legacy::ui::{StackEntry, StackHeadInfo};
 use crate::{
-    RefInfo, StacksFilter, branch, head_info,
-    legacy::integrated::IsCommitIntegrated,
-    legacy::state_handle,
+    RefInfo, branch, head_info,
+    legacy::{
+        StacksFilter,
+        integrated::IsCommitIntegrated,
+        state_handle,
+        ui::{StackEntry, StackHeadInfo},
+    },
     ref_info,
     ref_info::Segment,
     ui,

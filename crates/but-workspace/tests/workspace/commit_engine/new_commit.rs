@@ -1,6 +1,6 @@
+use but_core::DiffSpec;
 use but_testsupport::assure_stable_env;
-use but_workspace::{DiffSpec, commit_engine};
-use commit_engine::Destination;
+use but_workspace::{commit_engine, commit_engine::Destination};
 use gix::prelude::ObjectIdExt;
 
 use crate::utils::{
@@ -105,7 +105,6 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
     let outcome = commit_engine::create_commit(
         &repo,
         destination,
-        None,
         vec![DiffSpec {
             previous_path: None,
             path: "not-yet-tracked".into(),
@@ -129,7 +128,6 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
     let outcome = commit_engine::create_commit(
         &repo,
         destination.clone(),
-        None,
         vec![DiffSpec {
             previous_path: None,
             path: "also-untracked".into(),
@@ -154,7 +152,6 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
     let outcome = commit_engine::create_commit(
         &repo,
         destination,
-        None,
         vec![DiffSpec {
             previous_path: None,
             path: "also-untracked".into(),
@@ -217,7 +214,6 @@ fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
     let outcome = commit_engine::create_commit(
         &repo,
         new_commit_from_unborn,
-        None,
         vec![diff_spec(None, "link", Some(hunk_header("-1,0", "+1,1")))],
         CONTEXT_LINES,
     )?;
@@ -273,7 +269,6 @@ fn unborn_with_added_submodules() -> anyhow::Result<()> {
                     .into(),
             stack_segment: None,
         },
-        None,
         to_change_specs_whole_file(worktree_changes),
         CONTEXT_LINES,
     )?;
@@ -329,7 +324,6 @@ fn deletions() -> anyhow::Result<()> {
     let outcome = commit_engine::create_commit(
         &repo,
         new_commit_from_deletions,
-        None,
         // Pass the link with hunks that indicate a line deletion.
         vec![diff_spec(None, "link", Some(hunk_header("-1,1", "+1,0")))],
         CONTEXT_LINES,
@@ -377,7 +371,6 @@ fn modifications() -> anyhow::Result<()> {
     let outcome = commit_engine::create_commit(
         &repo,
         new_commit_from_rename,
-        None,
         // Pass the link with hunks that indicate a modification.
         vec![diff_spec(None, "link", Some(hunk_header("-1,1", "+1,1")))],
         CONTEXT_LINES,
@@ -488,7 +481,6 @@ fn renames() -> anyhow::Result<()> {
     let outcome = commit_engine::create_commit(
         &repo,
         new_commit_from_rename,
-        None,
         // Links are never considered renamed, so this is only the addition part.
         vec![diff_spec(
             None,
@@ -596,7 +588,6 @@ fn renames_with_selections() -> anyhow::Result<()> {
             message: "renames need special care to delete the source, even with selection".into(),
             stack_segment: None,
         },
-        None,
         vec![
             diff_spec(
                 Some("executable"),
@@ -686,7 +677,6 @@ fn modification_with_complex_selection() -> anyhow::Result<()> {
             message: "commit only the modified file with a complex selection".into(),
             stack_segment: None,
         },
-        None,
         vec![diff_spec(
             None,
             "all-modified",
@@ -725,7 +715,6 @@ fn modification_with_complex_selection() -> anyhow::Result<()> {
             message: "like before, but select individual lines like the UI would".into(),
             stack_segment: None,
         },
-        None,
         vec![diff_spec(
             None,
             "all-modified",
@@ -829,7 +818,6 @@ fn submodule_typechanges() -> anyhow::Result<()> {
                     .into(),
             stack_segment: None,
         },
-        None,
         to_change_specs_whole_file(worktree_changes),
         CONTEXT_LINES,
     )?;
@@ -890,7 +878,6 @@ fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
         let outcome = commit_engine::create_commit(
             &repo,
             first_commit,
-            None,
             to_change_specs_all_hunks_with_context_lines(
                 &repo,
                 but_core::diff::worktree_changes(&repo)?,
@@ -1257,7 +1244,6 @@ fn validate_no_change_on_noop() -> anyhow::Result<()> {
                 .into(),
             stack_segment: None,
         },
-        None,
         specs.clone(),
         CONTEXT_LINES,
     )?;

@@ -1,18 +1,17 @@
 use std::{borrow::Cow, mem::ManuallyDrop, path::Path};
 
 use anyhow::{Context, anyhow, bail};
-use but_core::{UnifiedPatch, ref_metadata::StackId};
+use but_core::{
+    DiffSpec, HunkHeader, UnifiedPatch, ref_metadata::StackId,
+    worktree::checkout::UncommitedWorktreeChanges,
+};
 use but_db::poll::ItemKind;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
-use but_workspace::{
-    DiffSpec, HunkHeader,
-    branch::{
-        OnWorkspaceMergeConflict,
-        apply::{WorkspaceMerge, WorkspaceReferenceNaming},
-        checkout::UncommitedWorktreeChanges,
-        create_reference::{Anchor, Position},
-    },
+use but_workspace::branch::{
+    OnWorkspaceMergeConflict,
+    apply::{WorkspaceMerge, WorkspaceReferenceNaming},
+    create_reference::{Anchor, Position},
 };
 use gitbutler_project::{Project, ProjectId};
 use gix::{
@@ -99,7 +98,7 @@ fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
 pub fn parse_diff_spec(arg: &Option<String>) -> Result<Option<Vec<DiffSpec>>, anyhow::Error> {
     arg.as_deref()
         .map(|value| {
-            serde_json::from_str::<Vec<but_workspace::DiffSpec>>(value)
+            serde_json::from_str::<Vec<but_core::DiffSpec>>(value)
                 .map(|diff_spec| diff_spec.into_iter().collect())
                 .map_err(|e| anyhow!("Failed to parse diff_spec: {}", e))
         })
@@ -166,7 +165,7 @@ pub mod stacks {
 
     use anyhow::Context;
     use but_settings::AppSettings;
-    use but_workspace::{StacksFilter, legacy::stack_branches, legacy::ui};
+    use but_workspace::legacy::{StacksFilter, stack_branches, ui};
     use gitbutler_command_context::CommandContext;
     use gitbutler_reference::{Refname, RemoteRefname};
     use gitbutler_stack::StackId;
@@ -483,7 +482,7 @@ pub(crate) fn discard_change(
         &path,
         previous_path.as_ref(),
     )?;
-    let spec = but_workspace::DiffSpec {
+    let spec = but_core::DiffSpec {
         previous_path,
         path,
         hunk_headers,

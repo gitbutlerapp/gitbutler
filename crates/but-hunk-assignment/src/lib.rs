@@ -14,11 +14,10 @@ mod state;
 
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
-use but_core::UnifiedPatch;
+use but_core::{HunkHeader, UnifiedPatch, ref_metadata::StackId};
 use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
-use but_workspace::{HunkHeader, StackId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use itertools::Itertools;
@@ -103,10 +102,10 @@ impl TryFrom<HunkAssignment> for but_db::HunkAssignment {
     }
 }
 
-impl From<HunkAssignment> for but_workspace::DiffSpec {
+impl From<HunkAssignment> for but_core::DiffSpec {
     fn from(value: HunkAssignment) -> Self {
         let hunk_headers = if let Some(header) = value.hunk_header {
-            vec![but_workspace::HunkHeader {
+            vec![but_core::HunkHeader {
                 old_start: header.old_start,
                 old_lines: header.old_lines,
                 new_start: header.new_start,
@@ -115,7 +114,7 @@ impl From<HunkAssignment> for but_workspace::DiffSpec {
         } else {
             vec![]
         };
-        but_workspace::DiffSpec {
+        but_core::DiffSpec {
             previous_path: None, // TODO
             path: value.path_bytes.clone(),
             hunk_headers,
@@ -616,7 +615,7 @@ pub fn assignments_to_requests(assignments: Vec<HunkAssignment>) -> Vec<HunkAssi
 #[cfg(test)]
 mod tests {
     use bstr::BString;
-    use but_workspace::{HunkHeader, StackId};
+    use but_core::{HunkHeader, ref_metadata::StackId};
 
     use super::*;
     use crate::reconcile::MultipleOverlapping;

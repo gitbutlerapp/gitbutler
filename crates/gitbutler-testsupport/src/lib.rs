@@ -1,7 +1,7 @@
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
 use but_graph::VirtualBranchesTomlMetadata;
-use but_workspace::{StackId, StacksFilter, ui::StackDetails};
+use but_workspace::{legacy::StacksFilter, ui::StackDetails};
 use gitbutler_command_context::CommandContext;
 use gix::bstr::BStr;
 /// Direct access to lower-level utilities for cases where this is enough.
@@ -319,7 +319,8 @@ pub mod read_only {
 
 use std::path::{Path, PathBuf};
 
-use gitbutler_oxidize::git2_to_gix_object_id;
+use but_oxidize::git2_to_gix_object_id;
+use gitbutler_stack::StackId;
 use gix::{bstr::ByteSlice, prelude::ObjectIdExt};
 use once_cell::sync::Lazy;
 

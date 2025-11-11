@@ -2,9 +2,9 @@ use std::str::FromStr;
 
 use anyhow::{Context, Result, anyhow, bail};
 use but_error::Code;
+use but_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
-use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{

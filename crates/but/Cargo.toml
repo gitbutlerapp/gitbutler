@@ -36,6 +36,7 @@ but-worktrees.workspace = true
 but-serde.workspace = true
 but-github.workspace = true
 but-secret.workspace = true
+but-oxidize.workspace = true
 
 gitbutler-project.workspace = true
 gitbutler-commit.workspace = true
@@ -45,7 +46,6 @@ gitbutler-branch.workspace = true
 gitbutler-forge.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-reference.workspace = true
-gitbutler-oxidize.workspace = true
 gitbutler-oplog.workspace = true
 
 posthog-rs = { version = "0.3.7" }

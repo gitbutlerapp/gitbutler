@@ -1,5 +1,6 @@
-use anyhow::{Context, Result, bail};
 use std::process::Stdio;
+
+use anyhow::{Context, Result, bail};
 
 /// Open the GitButler GUI application for `possibly_project_dir`.
 ///

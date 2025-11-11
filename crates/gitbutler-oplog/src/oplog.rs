@@ -8,12 +8,12 @@ use std::{
 use anyhow::{Context, Result, anyhow, bail};
 use but_core::{TreeChange, diff::tree_changes};
 use but_graph::virtual_branches_legacy_types;
-use git2::FileMode;
-use gitbutler_command_context::{CommandContext, RepositoryExtLite};
-use gitbutler_oxidize::{
+use but_oxidize::{
     GixRepositoryExt, ObjectIdExt as _, OidExt, RepoExt, git2_to_gix_object_id, gix_time_to_git2,
     gix_to_git2_oid,
 };
+use git2::FileMode;
+use gitbutler_command_context::{CommandContext, RepositoryExtLite};
 use gitbutler_project::{
     AUTO_TRACK_LIMIT_BYTES, Project,
     access::{WorktreeReadPermission, WorktreeWritePermission},
@@ -634,10 +634,10 @@ fn restore_snapshot(
 
     // Define the checkout builder
     if ctx.app_settings().feature_flags.cv3 {
-        but_workspace::branch::safe_checkout_from_head(
+        but_core::worktree::safe_checkout_from_head(
             workdir_tree.id().to_gix(),
             &gix_repo,
-            but_workspace::branch::checkout::Options::default(),
+            but_core::worktree::checkout::Options::default(),
         )?;
     } else {
         let mut checkout_builder = git2::build::CheckoutBuilder::new();

@@ -1,8 +1,8 @@
 use anyhow::Result;
+use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
-use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
@@ -120,11 +120,11 @@ pub fn update_uncommited_changes_with_tree(
         let old_tree_id = merge_workspace(repo, old)?.to_gix();
         let new_tree_id = merge_workspace(repo, new)?.to_gix();
         let gix_repo = ctx.gix_repo_for_merging()?;
-        but_workspace::branch::safe_checkout(
+        but_core::worktree::safe_checkout(
             old_tree_id,
             new_tree_id,
             &gix_repo,
-            but_workspace::branch::checkout::Options::default(),
+            but_core::worktree::checkout::Options::default(),
         )?;
     }
     Ok(())

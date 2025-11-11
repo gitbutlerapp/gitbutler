@@ -1,8 +1,8 @@
 use std::ops::Deref;
 
 use anyhow::{Context, Result};
+use but_oxidize::git2_to_gix_object_id;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_oxidize::git2_to_gix_object_id;
 
 #[derive(Default)]
 pub enum ConflictedTreeKey {
@@ -116,7 +116,7 @@ impl GixRepositoryExt for gix::Repository {
             ConflictedTreeKey::Theirs,
         )?;
 
-        use gitbutler_oxidize::GixRepositoryExt;
+        use but_oxidize::GixRepositoryExt;
         self.merge_trees(
             base,
             ours,

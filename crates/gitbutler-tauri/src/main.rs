@@ -11,6 +11,8 @@
     clippy::too_many_lines
 )]
 
+use std::sync::Arc;
+
 use anyhow::bail;
 use but_api::{
     App, cherry_apply, cli, config, diff, forge, git, modes, open, oplog, remotes, repo, rules,
@@ -22,7 +24,6 @@ use gitbutler_tauri::{
     WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, github, logs, menu,
     projects, settings, zip,
 };
-use std::sync::Arc;
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_log::{Target, TargetKind};
 use tokio::sync::Mutex;

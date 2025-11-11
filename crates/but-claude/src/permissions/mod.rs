@@ -294,8 +294,9 @@ fn extract_terms_to_match(request: &ClaudePermissionRequest) -> Result<Option<Ve
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use std::path::PathBuf;
+
+    use super::*;
 
     fn create_test_context(for_global: bool) -> SerializationContext {
         SerializationContext::new(

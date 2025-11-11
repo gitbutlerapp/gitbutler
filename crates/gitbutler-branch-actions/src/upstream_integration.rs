@@ -4,14 +4,12 @@ use anyhow::{Context, Result, anyhow, bail};
 use bstr::ByteSlice;
 use but_core::Reference;
 use but_graph::VirtualBranchesTomlMetadata;
+use but_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use but_rebase::{RebaseOutput, RebaseStep};
 use but_serde::BStringForFrontend;
 use but_workspace::{legacy::stack_ext::StackDetailsExt, ref_info::Options};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
-use gitbutler_oxidize::{
-    GixRepositoryExt, ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid,
-};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     RepositoryExt as _,
@@ -235,7 +233,7 @@ fn stacks(
         but_workspace::legacy::stacks_v3(
             repo,
             &meta,
-            but_workspace::StacksFilter::InWorkspace,
+            but_workspace::legacy::StacksFilter::InWorkspace,
             None,
         )
     } else {
@@ -243,7 +241,7 @@ fn stacks(
             ctx,
             &project.gb_dir(),
             repo,
-            but_workspace::StacksFilter::InWorkspace,
+            but_workspace::legacy::StacksFilter::InWorkspace,
         )
     }
 }

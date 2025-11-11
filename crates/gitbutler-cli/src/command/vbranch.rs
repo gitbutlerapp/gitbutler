@@ -1,11 +1,12 @@
 use anyhow::{Context, Result, bail};
+use but_core::ref_metadata::StackId;
 use but_graph::VirtualBranchesTomlMetadata;
+use but_oxidize::ObjectIdExt;
 use but_settings::AppSettings;
-use but_workspace::{StackId, StacksFilter, ui::StackDetails};
+use but_workspace::{legacy::StacksFilter, ui::StackDetails};
 use gitbutler_branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest};
 use gitbutler_branch_actions::{BranchManagerExt, get_branch_listing_details, list_branches};
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::Project;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
@@ -207,7 +208,7 @@ pub fn commit(project: Project, branch_name: String, message: String) -> Result<
 
     let repo = ctx.gix_repo()?;
     let worktree = but_core::diff::worktree_changes(&repo)?;
-    let file_changes: Vec<but_workspace::DiffSpec> =
+    let file_changes: Vec<but_core::DiffSpec> =
         worktree.changes.iter().map(Into::into).collect::<Vec<_>>();
 
     let outcome = but_workspace::legacy::commit_engine::create_commit_simple(

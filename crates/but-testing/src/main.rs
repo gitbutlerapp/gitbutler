@@ -2,17 +2,16 @@
 use std::{path::PathBuf, str::FromStr};
 
 use anyhow::{Context, Result, bail};
-use but_workspace::HunkHeader;
 use command::parse_diff_spec;
 use gix::bstr::BString;
 
 mod args;
 use args::Args;
+use but_core::HunkHeader;
 
-use crate::command::graph::Dot;
 use crate::{
     args::Subcommands,
-    command::{RepositoryOpenMode, repo_and_maybe_project},
+    command::{RepositoryOpenMode, graph::Dot, repo_and_maybe_project},
 };
 
 mod command;

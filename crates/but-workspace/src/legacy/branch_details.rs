@@ -2,8 +2,8 @@ use std::{collections::HashSet, path::Path};
 
 use anyhow::{Context, bail};
 use but_error::Code;
+use but_oxidize::OidExt;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::OidExt;
 
 use crate::{
     legacy::state_handle,

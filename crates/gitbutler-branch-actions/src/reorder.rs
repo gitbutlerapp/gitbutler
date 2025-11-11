@@ -1,8 +1,8 @@
 use anyhow::{Context, Result, bail};
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{RebaseOutput, RebaseStep};
 use git2::Oid;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{Stack, StackId};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};

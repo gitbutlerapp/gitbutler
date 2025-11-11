@@ -1,19 +1,57 @@
-use std::{borrow::Cow, collections::BTreeMap, io::Read, path::Path};
+use std::{borrow::Cow, collections::BTreeMap};
 
 use anyhow::bail;
-use bstr::{BStr, ByteSlice};
-use but_core::{RepositoryExt, UnifiedPatch};
-use gix::{
-    filter::plumbing::pipeline::convert::ToGitOutcome, merge::tree::TreatAsUnresolved,
-    object::tree::EntryKind, prelude::ObjectIdExt,
-};
+use bstr::ByteSlice;
+use gix::{merge::tree::TreatAsUnresolved, object::tree::EntryKind, prelude::ObjectIdExt};
 
-use crate::{
-    DiffSpec, HunkHeader,
-    commit_engine::{HunkRange, MoveSourceCommit, RejectionReason, apply_hunks},
-};
+use crate::{DiffSpec, HunkHeader, HunkRange, RepositoryExt, UnifiedPatch, apply_hunks};
 
-/// Additional information about the outcome of a [`create_tree()`] call.
+/// Utility types for the [`create_tree()`] function
+pub mod create_tree {
+
+    /// Provide a description of why a [`DiffSpec`] was rejected for application to the tree of a commit.
+    #[derive(Default, Debug, Copy, Clone, PartialEq, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub enum RejectionReason {
+        /// All changes were applied, but they didn't end up effectively change the tree to something differing from the target tree.
+        /// This means the changes were a no-op.
+        /// Is that even possible? The code says so, for good measure.
+        // We don't really have a default, this is just for convenience
+        #[default]
+        NoEffectiveChanges,
+        /// The final cherry-pick to bring the new tree down onto the target tree (merge it in) failed with a conflict.
+        CherryPickMergeConflict,
+        /// The final merge of the workspace commit failed with a conflict.
+        WorkspaceMergeConflict,
+        /// The final merge of the workspace commit failed with a conflict,
+        /// but the involved file wasn't anything the user provided as diff-spec.
+        WorkspaceMergeConflictOfUnrelatedFile,
+        /// This is just a theoretical possibility that *could* happen if somebody deletes a file that was there before *right after* we checked its
+        /// metadata and found that it still exists.
+        /// So if you see this, you could also have won the lottery.
+        WorktreeFileMissingForObjectConversion,
+        /// When performing a unified diff, it had to refused as the file was too large or turned out to be binary.
+        /// Note that this only happens for binary files if there is no `diff.<name>.textconv` filters configured.
+        FileToLargeOrBinary,
+        /// A change with multiple hunks to be applied wasn't present in the base-tree.
+        /// Previously this was possible when untracked files were added with their single hunk specified, but now this shouldn't be happening anymore.
+        PathNotFoundInBaseTree,
+        /// There was a change, but the path pointed to something that wasn't a file or a link.
+        /// You would see this if also in case of submodules or repositories to be added with hunks, which shouldn't be easy to do accidentally even.
+        UnsupportedDirectoryEntry,
+        /// The base version of a file to apply worktree changes to as present in a Git tree had an undiffable entry type.
+        /// This can happen if the target tree has an entry that isn't of the same type as the source worktree changes.
+        UnsupportedTreeEntry,
+        /// The DiffSpec points to an actual change, or a subset of that change using a file path and optionally hunks into that file.
+        /// However, at least one hunk was not fully contained.
+        MissingDiffSpecAssociation,
+    }
+}
+use create_tree::RejectionReason;
+
+use crate::worktree::worktree_file_to_git_in_buf;
+
+/// Additional information about the outcome of a [`super::create_tree()`] call.
 #[derive(Debug)]
 pub struct CreateTreeOutcome {
     /// Changes that were removed from `new_tree` because they caused conflicts when rebasing dependent commits,
@@ -33,7 +71,6 @@ pub struct CreateTreeOutcome {
 pub fn create_tree(
     repo: &gix::Repository,
     target_tree: gix::ObjectId,
-    move_source: Option<MoveSourceCommit>,
     changes: Vec<DiffSpec>,
     context_lines: u32,
 ) -> anyhow::Result<CreateTreeOutcome> {
@@ -42,11 +79,7 @@ pub fn create_tree(
         (Some(target_tree), None)
     } else {
         'retry: loop {
-            let (new_tree, actual_base_tree) = if let Some(_source) = move_source {
-                todo!(
-                    "get base tree and apply changes by cherry-picking, probably can all be done by one function, but optimizations are different"
-                )
-            } else {
+            let (new_tree, actual_base_tree) = {
                 let changes_base_tree = repo
                     .head()?
                     .id()
@@ -137,7 +170,8 @@ fn into_err_spec(input: &mut PossibleChange, reason: RejectionReason) {
     };
 }
 
-type PossibleChange = Result<DiffSpec, (RejectionReason, DiffSpec)>;
+/// A utility type to keep track of `Ok` specs to use, or `Err` specs that have been rejected.
+pub type PossibleChange = Result<DiffSpec, (RejectionReason, DiffSpec)>;
 
 /// Apply `changes` to `changes_base_tree` and return the newly written tree as `(new_tree, actual_base_tree)`.
 /// All `changes` are expected to originate from `changes_base_tree`, and will be applied `changes_base_tree`.
@@ -158,7 +192,7 @@ pub fn apply_worktree_changes<'repo>(
         .filter_map(|c| c.as_ref().ok())
         .any(|c| !c.hunk_headers.is_empty());
     let worktree_changes = has_changes_with_hunks
-        .then(|| but_core::diff::worktree_changes(repo).map(|wtc| wtc.changes))
+        .then(|| crate::diff::worktree_changes(repo).map(|wtc| wtc.changes))
         .transpose()?;
     let mut current_worktree = Vec::new();
 
@@ -201,7 +235,7 @@ pub fn apply_worktree_changes<'repo>(
                 into_err_spec(possible_change, RejectionReason::NoEffectiveChanges);
                 continue;
             };
-            let mut diff_filter = but_core::unified_diff::filter_from_state(
+            let mut diff_filter = crate::unified_diff::filter_from_state(
                 repo,
                 worktree_change.status.state(),
                 UnifiedPatch::CONVERSION_MODE,
@@ -309,40 +343,6 @@ pub fn apply_worktree_changes<'repo>(
 
     let altered_base_tree_id = base_tree_editor.write()?;
     Ok((altered_base_tree_id, actual_base_tree))
-}
-
-/// `md` is used to know how to read the entry, and we assume that it was pre-filtered
-/// so we only hit items we can handle.
-pub(crate) fn worktree_file_to_git_in_buf(
-    buf: &mut Vec<u8>,
-    md: &gix::index::fs::Metadata,
-    rela_path: &BStr,
-    path: &Path,
-    pipeline: &mut gix::filter::Pipeline<'_>,
-    index: &gix::index::State,
-) -> anyhow::Result<()> {
-    buf.clear();
-    if md.is_symlink() {
-        buf.extend_from_slice(&gix::path::os_string_into_bstring(
-            std::fs::read_link(path)?.into(),
-        )?);
-    } else {
-        let to_git = pipeline.convert_to_git(
-            std::fs::File::open(path)?,
-            &gix::path::from_bstr(rela_path),
-            index,
-        )?;
-        match to_git {
-            ToGitOutcome::Unchanged(mut file) => {
-                file.read_to_end(buf)?;
-            }
-            ToGitOutcome::Process(mut stream) => {
-                stream.read_to_end(buf)?;
-            }
-            ToGitOutcome::Buffer(buf2) => buf.extend_from_slice(buf2),
-        };
-    }
-    Ok(())
 }
 
 /// Given `hunks_to_keep` (ascending hunks by starting line) and the set of `worktree_hunks_no_context`
