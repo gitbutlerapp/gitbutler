@@ -2,7 +2,7 @@ use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_rebase::{Rebase, RebaseOutput, RebaseStep};
 use but_status::create_wd_tree;
-use but_workspace::stack_ext::StackExt;
+use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{GixRepositoryExt as _, ObjectIdExt};

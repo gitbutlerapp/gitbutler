@@ -54,7 +54,7 @@ mod util {
 
 use but_cherry_apply::CherryApplyStatus;
 use but_graph::VirtualBranchesTomlMetadata;
-use but_workspace::stack_details_v3;
+use but_workspace::legacy::stack_details_v3;
 
 mod clean_to_both {
     use util::test_ctx;

@@ -62,7 +62,7 @@ pub fn commit(
     };
 
     let mut guard = project.exclusive_worktree_access();
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs_with_project(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project,
         None,
@@ -111,7 +111,7 @@ pub fn amend(
     };
 
     let mut guard = project.exclusive_worktree_access();
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs_with_project(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project,
         stack_id,

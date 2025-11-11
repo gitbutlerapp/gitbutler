@@ -10,17 +10,19 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
-anyhow.workspace = true
-gix.workspace = true
-but-workspace.workspace = true
+but-workspace = {workspace = true, features = ["legacy"]}
 but-rebase.workspace = true
 but-graph.workspace = true
+
 gitbutler-oxidize.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-workspace.workspace = true
 gitbutler-project.workspace = true
+
+anyhow.workspace = true
+gix.workspace = true
 serde.workspace = true
 
 [dev-dependencies]

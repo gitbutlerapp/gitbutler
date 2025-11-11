@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf, vec};
 
 use anyhow::{Context, Result, anyhow, bail};
 use but_rebase::RebaseStep;
-use but_workspace::stack_ext::StackExt;
+use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch::{BranchUpdateRequest, dedup};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
@@ -207,7 +207,7 @@ pub fn commit(
     // get the files to commit
     let diffs = gitbutler_diff::workdir(
         ctx.repo(),
-        but_workspace::remerged_workspace_commit_v2(ctx)?,
+        but_workspace::legacy::remerged_workspace_commit_v2(ctx)?,
     )?;
     let statuses = get_applied_status_cached(ctx, None, &diffs)
         .context("failed to get status by branch")?

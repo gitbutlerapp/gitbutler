@@ -33,7 +33,7 @@ pub fn commited_file_to_another_commit(
         .map(Into::into)
         .collect::<Vec<DiffSpec>>();
 
-    but_workspace::move_changes_between_commits(
+    but_workspace::legacy::move_changes_between_commits(
         ctx,
         source_stack,
         source_id,
@@ -88,7 +88,7 @@ pub fn uncommit_file(
     )?
     .0;
 
-    but_workspace::remove_changes_from_commit_in_stack(
+    but_workspace::legacy::remove_changes_from_commit_in_stack(
         ctx,
         source_stack,
         source_id,

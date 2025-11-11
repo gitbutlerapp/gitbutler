@@ -220,9 +220,9 @@ pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
             ctx.project().gb_dir().join("virtual_branches.toml"),
         )
         .unwrap();
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default(), None)
+        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
     } else {
-        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
+        but_workspace::legacy::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
     }
     .unwrap();
     let mut details = vec![];
@@ -237,9 +237,9 @@ pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
                     ctx.project().gb_dir().join("virtual_branches.toml"),
                 )
                 .unwrap();
-                but_workspace::stack_details_v3(stack_id.into(), &repo, &meta)
+                but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta)
             } else {
-                but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
+                but_workspace::legacy::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
             }
             .unwrap(),
         ));

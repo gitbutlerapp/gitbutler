@@ -1,6 +1,6 @@
 mod stacks {
     use but_testsupport::visualize_commit_graph_all;
-    use but_workspace::{StacksFilter, stack_details_v3, stacks_v3};
+    use but_workspace::{StacksFilter, legacy::stack_details_v3, legacy::stacks_v3};
 
     use crate::ref_info::with_workspace_commit::{
         read_only_in_memory_scenario,
@@ -252,12 +252,12 @@ mod stacks {
 }
 
 mod stack_details {
-    use but_testsupport::visualize_commit_graph_all;
-
     use crate::ref_info::with_workspace_commit::{
         read_only_in_memory_scenario,
         utils::{StackState, add_stack, add_stack_with_segments},
     };
+    use but_testsupport::visualize_commit_graph_all;
+    use but_workspace::legacy::stack_details_v3;
 
     #[test]
     fn simple_fully_pushed() -> anyhow::Result<()> {
@@ -277,7 +277,7 @@ mod stack_details {
             StackState::InWorkspace,
             &["advanced-lane"],
         );
-        let actual = but_workspace::stack_details_v3(stack_id.into(), &repo, &meta)?;
+        let actual = stack_details_v3(stack_id.into(), &repo, &meta)?;
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
             derived_name: "dependant",
@@ -352,7 +352,7 @@ mod stack_details {
 
         let b_stack_id = add_stack(&mut meta, 1, "B-on-A", StackState::InWorkspace);
         let c_stack_id = add_stack(&mut meta, 2, "C-on-A", StackState::InWorkspace);
-        let actual = but_workspace::stack_details_v3(Some(b_stack_id), &repo, &meta)?;
+        let actual = stack_details_v3(Some(b_stack_id), &repo, &meta)?;
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
             derived_name: "B-on-A",
@@ -411,7 +411,7 @@ mod stack_details {
         }
         "#);
 
-        let actual = but_workspace::stack_details_v3(Some(c_stack_id), &repo, &meta)?;
+        let actual = stack_details_v3(Some(c_stack_id), &repo, &meta)?;
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
             derived_name: "C-on-A",

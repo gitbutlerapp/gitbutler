@@ -1,11 +1,3 @@
-use but_testsupport::{assure_stable_env, visualize_commit_graph};
-use but_workspace::{
-    DiffSpec,
-    commit_engine::{Destination, ReferenceFrame, StackSegmentId},
-};
-use gitbutler_stack::VirtualBranchesState;
-use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
-
 use crate::{
     commit_engine::{
         refs_update::utils::{
@@ -21,6 +13,14 @@ use crate::{
         write_sequence,
     },
 };
+use but_testsupport::{assure_stable_env, visualize_commit_graph};
+use but_workspace::legacy::commit_engine::ReferenceFrame;
+use but_workspace::{
+    DiffSpec,
+    commit_engine::{Destination, StackSegmentId},
+};
+use gitbutler_stack::VirtualBranchesState;
+use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
 
 #[test]
 fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
@@ -28,7 +28,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
 
     let (repo, _tmp) = writable_scenario("unborn-untracked");
     let mut vb = VirtualBranchesState::default();
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: None,
@@ -61,7 +61,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     assure_no_worktree_changes(&repo)?;
 
     write_worktree_file(&repo, "new-file", "other content")?;
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: None,
@@ -99,7 +99,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     )?;
 
     write_worktree_file(&repo, "new-file", "change")?;
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: None,
@@ -125,7 +125,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
     ");
 
     write_worktree_file(&repo, "new-file", "yet another change")?;
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: None,
@@ -177,7 +177,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
 
     write_worktree_file(&repo, "new-file", "the final change")?;
     let new_commit = outcome.new_commit.unwrap();
-    let mut outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let mut outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: None,
@@ -292,7 +292,7 @@ fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result
     vb.branches.insert(stack.id, stack);
 
     write_sequence(&repo, "new-file", [(15, None)])?;
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: Some(workspace_commit_id),
@@ -362,7 +362,7 @@ fn first_partial_commit_to_tip_from_unborn_head() -> anyhow::Result<()> {
     ]
     "#);
 
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: None,
@@ -418,7 +418,7 @@ fn first_partial_commit_to_tip_from_unborn_head() -> anyhow::Result<()> {
     let head_commit = outcome.new_commit.unwrap();
     insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit)?, @"* 5284afd (HEAD -> main) initial commit with two lines");
 
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: None,
@@ -485,7 +485,7 @@ fn first_partial_commit_to_tip_from_unborn_head() -> anyhow::Result<()> {
     // See #8213.
     let delay_to_assure_non_racy_git_index = std::time::Duration::from_secs(1);
     std::thread::sleep(delay_to_assure_non_racy_git_index);
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: None,
@@ -592,7 +592,7 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
     vb.branches.insert(stack.id, stack);
     // Add 10 lines to the end.
     write_sequence(&repo, "file", [(30, None)])?;
-    let mut outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let mut outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: None,
@@ -689,7 +689,7 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
     assert!(!head_commit.is_conflicted());
 
     write_sequence(&repo, "file", [(40, None)])?;
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: None,
@@ -748,7 +748,7 @@ fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
     vb.branches.insert(stack.id, stack);
 
     write_sequence(&repo, "file", [(110, None)])?;
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: Some(head_commit_id),
@@ -801,7 +801,7 @@ fn deletions() -> anyhow::Result<()> {
     └── submodule:160000:a047f81
     "#);
 
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: None,
@@ -851,7 +851,7 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
     // another 10 to the end (HEAD range is 1-30).
     write_sequence(&repo, "file", [(40, None)])?;
     let branch_b = repo.rev_parse_single("B")?.detach();
-    let mut outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let mut outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: Some(repo.rev_parse_single("merge")?.detach()),
@@ -923,7 +923,7 @@ fn insert_commits_into_workspace_with_conflict() -> anyhow::Result<()> {
     // 10 to the end, without a conflict.
     write_sequence(&repo, "other-file", [(35, 85)])?;
     let branch_b = repo.rev_parse_single("B")?.detach();
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: Some(repo.rev_parse_single("merge")?.detach()),
@@ -1049,7 +1049,7 @@ fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
             new_message: None,
         },
     ] {
-        let out = but_workspace::commit_engine::create_commit_and_update_refs(
+        let out = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
             &repo,
             ReferenceFrame {
                 workspace_tip: Some(repo.rev_parse_single("merge")?.detach()),
@@ -1127,7 +1127,7 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
 
     // initial is 1-30, remove first 5
     write_sequence(&repo, "file", [(5, 30)])?;
-    let mut outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let mut outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: Some(head_commit_id.detach()),
@@ -1214,7 +1214,7 @@ fn two_commits_three_buckets_disambiguate_insertion_position_to_one_below_top() 
     ");
 
     write_sequence(&repo, "file", [(5, None)])?;
-    let mut outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let mut outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame::default(),
         &mut vb,
@@ -1272,7 +1272,7 @@ fn two_commits_three_buckets_disambiguate_insertion_position_to_top() -> anyhow:
     ");
 
     write_sequence(&repo, "file", [(5, None)])?;
-    let mut outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let mut outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame::default(),
         &mut vb,
@@ -1345,7 +1345,7 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     // This forces us to handle the index update (more) correctly, but also shows
     // that the removal of 10 lines is just going away during the cherry-pick.
     write_sequence(&repo, "file", [(5, 20)])?;
-    let mut outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let mut outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: Some(head_commit_id.detach()),
@@ -1422,7 +1422,7 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     "#);
 
     // Put 5 of these ten lines as removals onto branch B
-    let mut outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let mut outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: Some(rewritten_head_id.detach()),
@@ -1497,7 +1497,7 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
 
     let rewritten_head_id = repo.head_id()?;
     let top_of_branch = outcome.new_commit.expect("created above");
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: Some(rewritten_head_id.detach()),
@@ -1565,7 +1565,7 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     // This forces us to handle the index update (more) correctly, but also shows
     // that the removal of 10 lines is just going away during the cherry-pick.
     write_sequence(&repo, "file", [(5, 20)])?;
-    let mut outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let mut outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: Some(head_commit_id.detach()),
@@ -1637,7 +1637,7 @@ fn amend_edit_message_only() -> anyhow::Result<()> {
     vb.branches.insert(stack.id, stack);
 
     assure_no_worktree_changes(&repo)?;
-    let mut outcome = but_workspace::commit_engine::create_commit_and_update_refs(
+    let mut outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
         &repo,
         ReferenceFrame {
             workspace_tip: Some(head_commit_id.detach()),

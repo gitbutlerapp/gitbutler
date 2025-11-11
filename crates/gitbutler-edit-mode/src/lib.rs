@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_core::TreeChange;
-use but_workspace::{StackId, stack_ext::StackExt};
+use but_workspace::{StackId, legacy::stack_ext::StackExt};
 use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};

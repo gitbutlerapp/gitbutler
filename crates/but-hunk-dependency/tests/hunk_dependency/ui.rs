@@ -294,14 +294,14 @@ mod util {
     pub struct TestContext {
         pub repo: gix::Repository,
         /// All the stacks in the workspace
-        pub stacks_entries: Vec<but_workspace::ui::StackEntry>,
+        pub stacks_entries: Vec<but_workspace::legacy::ui::StackEntry>,
         /// The storage directory for GitButler.
         pub gitbutler_dir: PathBuf,
     }
 
     fn test_ctx_at(script_name: &str, name: &str) -> anyhow::Result<TestContext> {
         let ctx = gitbutler_testsupport::read_only::fixture(script_name, name)?;
-        let stacks = but_workspace::stacks(
+        let stacks = but_workspace::legacy::stacks(
             &ctx,
             &ctx.project().gb_dir(),
             &ctx.gix_repo()?,
@@ -318,7 +318,10 @@ mod util {
     impl TestContext {
         /// Find a stack which contains a branch with the given `short_name`.
         #[expect(unused)]
-        pub fn stack_with_branch(&self, short_name: &str) -> &but_workspace::ui::StackEntry {
+        pub fn stack_with_branch(
+            &self,
+            short_name: &str,
+        ) -> &but_workspace::legacy::ui::StackEntry {
             self.stacks_entries
                 .iter()
                 .find(|s| s.name() == Some(short_name.into()))

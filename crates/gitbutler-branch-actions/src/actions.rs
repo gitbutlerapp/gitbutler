@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use but_workspace::{DiffSpec, commit_engine, stack_heads_info, ui};
+use but_workspace::{DiffSpec, legacy::commit_engine, legacy::stack_heads_info, legacy::ui};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
@@ -305,7 +305,7 @@ fn amend_with_commit_engine(
         &ctx.gix_repo()?,
         ctx.project(),
         Some(stack_id),
-        commit_engine::Destination::AmendCommit {
+        but_workspace::commit_engine::Destination::AmendCommit {
             commit_id: commit_oid.to_gix(),
             new_message: None,
         },

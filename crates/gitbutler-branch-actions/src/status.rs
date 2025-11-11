@@ -36,7 +36,7 @@ pub fn get_applied_status(
 ) -> Result<VirtualBranchesStatus> {
     let diffs = gitbutler_diff::workdir(
         ctx.repo(),
-        but_workspace::remerged_workspace_commit_v2(ctx)?,
+        but_workspace::legacy::remerged_workspace_commit_v2(ctx)?,
     )?;
     get_applied_status_cached(ctx, perm, &diffs)
 }

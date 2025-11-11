@@ -22,17 +22,17 @@
 //! * **DiffSpec**
 //!   - A type that identifies changes, either as whole file, or as hunks in the file.
 //!   - It doesn't specify if the change is in a commit, or in the worktree, so that information must be provided separately.
-use std::{collections::HashMap, path::Path};
+use std::collections::HashMap;
 
-use anyhow::Result;
 use bstr::BString;
 use but_core::TreeChange;
-use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::OidExt;
-use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
-mod integrated;
+/// **Do not use!**
+/// A module with code that depends on `gitbutler-` crates. As such, it's supposed to be ported or rewritten.
+/// The structure of the module mirrors the root of this crate, as code was moved here.
+#[cfg(feature = "legacy")]
+pub mod legacy;
 
 /// Types specifically for the user-interface.
 pub mod ui;
@@ -40,18 +40,7 @@ pub mod ui;
 pub mod commit_engine;
 /// Tools for manipulating trees
 pub mod tree_manipulation;
-pub use tree_manipulation::{
-    MoveChangesResult,
-    discard_worktree_changes::discard_workspace_changes,
-    move_between_commits::move_changes_between_commits,
-    remove_changes_from_commit_in_stack::remove_changes_from_commit_in_stack,
-    split_branch::{split_branch, split_into_dependent_branch},
-    split_commit::{CommitFiles, CommmitSplitOutcome, split_commit},
-};
-pub mod head;
-pub use head::{
-    merge_worktree_with_workspace, remerged_workspace_commit_v2, remerged_workspace_tree_v2,
-};
+pub use tree_manipulation::discard_worktree_changes::discard_workspace_changes;
 
 /// 🚧utilities for applying and unapplying branches 🚧.
 /// Ignore the name of this module; it's just a place to put code by now.
@@ -70,19 +59,8 @@ pub(crate) mod commit;
 pub mod ref_info;
 pub use ref_info::function::{head_info, ref_info};
 
-/// High level Stack funtions that use primitives from this crate (`but-workspace`)
-pub mod stack_ext;
-
-/// Functions related to retrieving stack information.
-mod stacks;
-// TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
-pub use stacks::{
-    local_and_remote_commits, stack_branches, stack_details, stack_details_v3, stack_heads_info,
-    stacks, stacks_v3,
-};
-
 mod branch_details;
-pub use branch_details::{branch_details, branch_details_v3, local_commits_for_branch};
+pub use branch_details::{branch_details, local_commits_for_branch};
 use but_graph::SegmentIndex;
 
 /// A change that should be used to create a new commit or alter an existing one, along with enough information to know where to find it.
@@ -241,7 +219,7 @@ pub struct WorkspaceCommit<'repo> {
 }
 
 /// An ID uniquely identifying stacks.
-pub use gitbutler_stack::StackId;
+pub use but_core::ref_metadata::StackId;
 
 /// A filter for the list of stacks.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
@@ -254,63 +232,6 @@ pub enum StacksFilter {
     /// Show only unapplied stacks
     // TODO: figure out where this is used. V2 maybe? If so, it can be removed eventually.
     Unapplied,
-}
-
-/// Returns the last-seen fork-point that the workspace has with the target branch with which it wants to integrate.
-// TODO: at some point this should be optional, integration branch doesn't have to be defined.
-pub fn common_merge_base_with_target_branch(gb_dir: &Path) -> Result<gix::ObjectId> {
-    Ok(VirtualBranchesHandle::new(gb_dir)
-        .get_default_target()?
-        .sha
-        .to_gix())
-}
-
-/// Return a list of commits on the target branch
-/// Starts either from the target branch or from the provided commit id, up to the limit provided.
-///
-/// Returns the commits in reverse order, i.e., from the most recent to the oldest.
-/// The `Commit` type is the same as that of the other workspace endpoints - for that reason,
-/// the fields `has_conflicts` and `state` are somewhat meaningless.
-pub fn log_target_first_parent(
-    ctx: &CommandContext,
-    last_commit_id: Option<gix::ObjectId>,
-    limit: usize,
-) -> Result<Vec<ui::Commit>> {
-    let repo = ctx.gix_repo()?;
-    let traversal_root_id = match last_commit_id {
-        Some(id) => {
-            let commit = repo.find_commit(id)?;
-            commit.parent_ids().next()
-        }
-        None => {
-            let state = state_handle(&ctx.project().gb_dir());
-            let default_target = state.get_default_target()?;
-            Some(
-                repo.find_reference(&default_target.branch.to_string())?
-                    .peel_to_commit()?
-                    .id(),
-            )
-        }
-    };
-    let traversal_root_id = match traversal_root_id {
-        Some(id) => id,
-        None => return Ok(vec![]),
-    };
-
-    let mut commits: Vec<ui::Commit> = vec![];
-    for commit_info in traversal_root_id.ancestors().first_parent_only().all()? {
-        if commits.len() == limit {
-            break;
-        }
-        let commit = commit_info?.id().object()?.into_commit();
-
-        commits.push(commit.try_into()?);
-    }
-    Ok(commits)
-}
-
-fn state_handle(gb_state_path: &Path) -> VirtualBranchesHandle {
-    VirtualBranchesHandle::new(gb_state_path)
 }
 
 /// If there are multiple diffs spces where path and previous_path are the same, collapse them into one.

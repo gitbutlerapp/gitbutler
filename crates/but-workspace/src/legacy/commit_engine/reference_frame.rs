@@ -2,7 +2,7 @@ use anyhow::{Context, bail};
 use gitbutler_stack::{StackId, VirtualBranchesState};
 use gix::{prelude::ObjectIdExt, revision::walk::Sorting};
 
-use crate::commit_engine::{ReferenceFrame, reference_frame};
+use crate::legacy::commit_engine::ReferenceFrame;
 
 /// How to infer the reference frame.
 pub enum InferenceMode {
@@ -17,7 +17,7 @@ impl ReferenceFrame {
     pub fn infer(
         repo: &gix::Repository,
         vb: &VirtualBranchesState,
-        mode: reference_frame::InferenceMode,
+        mode: InferenceMode,
     ) -> anyhow::Result<Self> {
         let head_id = repo.head_id()?;
         let workspace_commit = head_id.object()?.into_commit().decode()?.to_owned();

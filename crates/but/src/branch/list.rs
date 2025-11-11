@@ -52,7 +52,7 @@ pub async fn list(project: &Project, local: bool) -> Result<(), anyhow::Error> {
 }
 
 fn print_applied_branches(
-    applied_stacks: &[but_workspace::ui::StackEntry],
+    applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     branch_review_map: &std::collections::HashMap<
         String,
         Vec<gitbutler_forge::review::ForgeReview>,

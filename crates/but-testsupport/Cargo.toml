@@ -13,12 +13,14 @@ doctest = false
 snapbox = ["dep:snapbox"]
 
 [dependencies]
+but-graph.workspace = true
+but-core.workspace = true
+
+gix-testtools.workspace = true
+
 gix.workspace = true
 anyhow.workspace = true
 termtree = "0.5.1"
-gix-testtools.workspace = true
-but-graph.workspace = true
-but-core.workspace = true
 regex = { workspace = true }
 snapbox = { workspace = true, optional = true }
 

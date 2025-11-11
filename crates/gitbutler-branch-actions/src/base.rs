@@ -72,7 +72,8 @@ pub fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
 fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Result<BaseBranch> {
     let gix_repo = ctx.gix_repo_for_merging()?;
     if ctx.app_settings().feature_flags.cv3 {
-        let workspace_commit_to_checkout = but_workspace::remerged_workspace_commit_v2(ctx)?;
+        let workspace_commit_to_checkout =
+            but_workspace::legacy::remerged_workspace_commit_v2(ctx)?;
         let tree_to_checkout_to_avoid_ref_update = gix_repo
             .find_commit(workspace_commit_to_checkout.to_gix())?
             .tree_id()?;
@@ -87,7 +88,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
         )?;
     } else {
         let (mut outcome, conflict_kind) =
-            but_workspace::merge_worktree_with_workspace(ctx, &gix_repo)?;
+            but_workspace::legacy::merge_worktree_with_workspace(ctx, &gix_repo)?;
 
         if outcome.has_unresolved_conflicts(conflict_kind) {
             return Err(anyhow!("Conflicts while going back to gitbutler/workspace"))

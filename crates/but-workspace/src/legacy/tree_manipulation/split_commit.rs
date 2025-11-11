@@ -3,7 +3,7 @@ use but_rebase::Rebase;
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 
-use crate::{
+use crate::legacy::{
     MoveChangesResult,
     stack_ext::StackExt,
     tree_manipulation::{

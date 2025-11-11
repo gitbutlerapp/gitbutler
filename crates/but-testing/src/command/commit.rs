@@ -4,7 +4,8 @@ use anyhow::bail;
 use but_core::TreeChange;
 use but_workspace::{
     DiffSpec,
-    commit_engine::{ReferenceFrame, StackSegmentId, create_commit_and_update_refs},
+    commit_engine::StackSegmentId,
+    legacy::commit_engine::{ReferenceFrame, create_commit_and_update_refs},
 };
 use gitbutler_project::Project;
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
@@ -143,7 +144,7 @@ fn commit_with_project(
         }
     };
     let mut guard = project.exclusive_worktree_access();
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs_with_project(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         repo,
         project,
         None,

@@ -80,8 +80,8 @@ pub fn locks(current_dir: &Path, simple: bool, use_json: bool) -> anyhow::Result
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
     let input_stacks = but_hunk_dependency::workspace_stacks_to_input_stacks(
         &repo,
-        &but_workspace::stacks(&ctx, &project.gb_dir(), &repo, Default::default())?,
-        but_workspace::common_merge_base_with_target_branch(&project.gb_dir())?,
+        &but_workspace::legacy::stacks(&ctx, &project.gb_dir(), &repo, Default::default())?,
+        but_workspace::legacy::common_merge_base_with_target_branch(&project.gb_dir())?,
     )?;
     let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;
 

@@ -7,7 +7,7 @@ use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_stack::{CommitOrChangeId, StackBranch, StackId, VirtualBranchesHandle};
 
-use crate::{
+use crate::legacy::{
     MoveChangesResult,
     stack_ext::StackExt,
     tree_manipulation::remove_changes_from_commit_in_stack::{

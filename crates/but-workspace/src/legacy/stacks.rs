@@ -1,3 +1,4 @@
+//! Functions related to retrieving stack information.
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
@@ -15,12 +16,14 @@ use gix::date::parse::TimeBuf;
 use itertools::Itertools;
 use tracing::instrument;
 
+use crate::legacy::ui::{StackEntry, StackHeadInfo};
 use crate::{
     RefInfo, StacksFilter, branch, head_info,
-    integrated::IsCommitIntegrated,
+    legacy::integrated::IsCommitIntegrated,
+    legacy::state_handle,
     ref_info,
-    ref_info::{Commit, LocalCommit, LocalCommitRelation, Segment},
-    state_handle, ui,
+    ref_info::Segment,
+    ui,
     ui::{CommitState, PushStatus, StackDetails},
 };
 
@@ -57,14 +60,14 @@ fn id_from_name_v2_to_v3_opt(
 pub fn stack_heads_info(
     stack: &Stack,
     repo: &gix::Repository,
-) -> anyhow::Result<Vec<ui::StackHeadInfo>> {
+) -> anyhow::Result<Vec<StackHeadInfo>> {
     let branches = stack
         .branches()
         .into_iter()
         .rev()
         .filter_map(|branch| {
             let tip = branch.head_oid(repo).ok()?;
-            Some(ui::StackHeadInfo {
+            Some(StackHeadInfo {
                 name: branch.name().to_owned().into(),
                 tip,
                 is_checked_out: false,
@@ -85,7 +88,7 @@ pub fn stacks(
     gb_dir: &Path,
     repo: &gix::Repository,
     filter: StacksFilter,
-) -> anyhow::Result<Vec<ui::StackEntry>> {
+) -> anyhow::Result<Vec<StackEntry>> {
     let state = state_handle(gb_dir);
 
     let stacks = match filter {
@@ -109,7 +112,7 @@ pub fn stacks(
 
     stacks
         .sorted_by_key(|s| s.order)
-        .map(|stack| ui::StackEntry::try_new(repo, &stack))
+        .map(|stack| StackEntry::try_new(repo, &stack))
         .collect()
 }
 
@@ -117,7 +120,7 @@ fn try_from_stack_v3(
     repo: &gix::Repository,
     stack: branch::Stack,
     meta: &VirtualBranchesTomlMetadata,
-) -> anyhow::Result<ui::StackEntry> {
+) -> anyhow::Result<StackEntry> {
     let name = stack
         .name()
         .context("Every V2/V3 stack has a name as long as it's in a gitbutler workspace")?
@@ -130,7 +133,7 @@ fn try_from_stack_v3(
                 .ref_info
                 .context("This type can't represent this state and it shouldn't have to")?
                 .ref_name;
-            Ok(ui::StackHeadInfo {
+            Ok(StackHeadInfo {
                 tip: repo
                     .find_reference(ref_name.as_ref())
                     .ok()
@@ -142,7 +145,7 @@ fn try_from_stack_v3(
             })
         })
         .collect::<anyhow::Result<_>>()?;
-    Ok(ui::StackEntry {
+    Ok(StackEntry {
         id: id_from_name_v2_to_v3_opt(name.as_ref(), meta)?,
         tip: heads
             .first()
@@ -165,7 +168,7 @@ pub fn stacks_v3(
     meta: &VirtualBranchesTomlMetadata,
     filter: StacksFilter,
     ref_name_override: Option<&gix::refs::FullNameRef>,
-) -> anyhow::Result<Vec<ui::StackEntry>> {
+) -> anyhow::Result<Vec<StackEntry>> {
     // TODO: See if this works at all once VirtualBranches.toml isn't the backing anymore.
     //       Probably needs to change, maybe even alongside the notion of 'unapplied'.
     //       In future, unapplied stacks could just be stacks, either with one segment, or multiple ones - any branch with another branch
@@ -174,7 +177,7 @@ pub fn stacks_v3(
         repo: &gix::Repository,
         meta: &VirtualBranchesTomlMetadata,
         applied_stacks: &[branch::Stack],
-    ) -> anyhow::Result<Vec<ui::StackEntry>> {
+    ) -> anyhow::Result<Vec<StackEntry>> {
         let mut out = Vec::new();
         for item in meta.iter() {
             let (ref_name, ref_meta) = item?;
@@ -200,11 +203,11 @@ pub fn stacks_v3(
                 .try_id()
                 .with_context(|| format!("Encountered symbolic reference: {ref_name}"))?
                 .detach();
-            out.push(ui::StackEntry {
+            out.push(StackEntry {
                 id: id_from_name_v2_to_v3_opt(ref_name.as_ref(), meta)?,
                 // TODO: this is just a simulation and such a thing doesn't really exist in the V3 world, let's see how it goes.
                 //       Thus, we just pass ourselves as first segment, similar to having no other segments.
-                heads: vec![ui::StackHeadInfo {
+                heads: vec![StackHeadInfo {
                     name: ref_name.shorten().into(),
                     tip,
                     is_checked_out: false,
@@ -230,7 +233,7 @@ pub fn stacks_v3(
         repo: &gix::Repository,
         stacks: Vec<branch::Stack>,
         meta: &VirtualBranchesTomlMetadata,
-    ) -> Vec<ui::StackEntry> {
+    ) -> Vec<StackEntry> {
         stacks
             .into_iter()
             .filter_map(|stack| try_from_stack_v3(repo, stack, meta).ok())
@@ -608,80 +611,6 @@ impl ui::BranchDetails {
                 .map(Into::into)
                 .collect(),
         })
-    }
-}
-
-impl From<&Commit> for ui::UpstreamCommit {
-    fn from(
-        Commit {
-            id,
-            parent_ids: _,
-            tree_id: _,
-            message,
-            author,
-            // TODO: also pass refs for the frontend.
-            refs: _,
-            // TODO: also pass flags for the frontend.
-            flags: _,
-            // TODO: Represent this in the UI (maybe) and/or deal with divergence of the local and remote tracking branch.
-            has_conflicts: _,
-            change_id: _,
-        }: &Commit,
-    ) -> Self {
-        ui::UpstreamCommit {
-            id: *id,
-            message: message.clone(),
-            created_at: author.time.seconds as i128 * 1000,
-            author: author
-                .to_ref(&mut gix::date::parse::TimeBuf::default())
-                .into(),
-        }
-    }
-}
-
-impl From<&LocalCommit> for ui::Commit {
-    fn from(
-        LocalCommit {
-            inner:
-                Commit {
-                    id,
-                    tree_id: _,
-                    parent_ids,
-                    message,
-                    author,
-                    // TODO: also pass refs
-                    refs: _,
-                    // TODO: also flags refs
-                    flags: _,
-                    has_conflicts,
-                    change_id: _,
-                },
-            relation,
-        }: &LocalCommit,
-    ) -> Self {
-        ui::Commit {
-            id: *id,
-            parent_ids: parent_ids.clone(),
-            message: message.clone(),
-            has_conflicts: *has_conflicts,
-            state: (*relation).into(),
-            created_at: author.time.seconds as i128 * 1000,
-            author: author
-                .to_ref(&mut gix::date::parse::TimeBuf::default())
-                .into(),
-            gerrit_review_url: None,
-        }
-    }
-}
-
-impl From<LocalCommitRelation> for ui::CommitState {
-    fn from(value: LocalCommitRelation) -> Self {
-        use ui::CommitState as E;
-        match value {
-            LocalCommitRelation::LocalOnly => E::LocalOnly,
-            LocalCommitRelation::LocalAndRemote(id) => E::LocalAndRemote(id),
-            LocalCommitRelation::Integrated(_) => E::Integrated,
-        }
     }
 }
 

@@ -12,10 +12,7 @@ use but_action::{
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
-use but_workspace::{
-    HunkHeader, StackId, StacksFilter,
-    ui::{StackDetails, StackEntry},
-};
+use but_workspace::{HunkHeader, StackId, StacksFilter, legacy::ui::StackEntry, ui::StackDetails};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, access::WorktreeWritePermission};
@@ -288,7 +285,7 @@ pub enum RenameEligibility {
 /// This is determined by first checking if the newly added commits are only one and the branch tip matches the commit ID.
 pub fn is_branch_eligible_for_rename(
     ctx: &CommandContext,
-    stacks: &[but_workspace::ui::StackEntry],
+    stacks: &[but_workspace::legacy::ui::StackEntry],
     branch: &but_action::UpdatedBranch,
 ) -> Result<RenameEligibility, anyhow::Error> {
     // Find the stack entry for this branch
@@ -493,7 +490,7 @@ fn original_session_id(ctx: &mut CommandContext, current_id: String) -> Result<S
 pub fn get_or_create_session(
     ctx: &mut CommandContext,
     session_id: &str,
-    stacks: Vec<but_workspace::ui::StackEntry>,
+    stacks: Vec<but_workspace::legacy::ui::StackEntry>,
     vb_state: &VirtualBranchesHandle,
 ) -> Result<StackId, anyhow::Error> {
     let mut guard = ctx.project().exclusive_worktree_access();
@@ -599,9 +596,9 @@ fn stack_details(ctx: &CommandContext, stack_id: StackId) -> anyhow::Result<Stac
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project().gb_dir().join("virtual_branches.toml"),
         )?;
-        but_workspace::stack_details_v3(Some(stack_id), &repo, &meta)
+        but_workspace::legacy::stack_details_v3(Some(stack_id), &repo, &meta)
     } else {
-        but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
+        but_workspace::legacy::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
     }
 }
 
@@ -611,9 +608,9 @@ fn list_stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project().gb_dir().join("virtual_branches.toml"),
         )?;
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default(), None)
+        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
     } else {
-        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
+        but_workspace::legacy::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
     }
 }
 

@@ -16,22 +16,22 @@ doctest = false
 testing = ["dep:gitbutler-commit"]
 
 [dependencies]
+but-settings.workspace = true
+but-core.workspace = true
+but-db.workspace = true
+but-workspace = {workspace = true, features = ["legacy"]}
+but-graph.workspace = true
+but-hunk-dependency.workspace = true
+but-hunk-assignment.workspace = true
+
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-project.workspace = true
 gitbutler-filemonitor.workspace = true
-but-settings.workspace = true
-but-core.workspace = true
-but-db.workspace = true
-but-workspace.workspace = true
-but-graph.workspace = true
-but-hunk-dependency.workspace = true
-but-hunk-assignment.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-reference.workspace = true
-
 gitbutler-commit = { workspace = true, optional = true, features = ["testing"] }
 
 clap = { workspace = true, features = ["env"] }

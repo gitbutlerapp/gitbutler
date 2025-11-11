@@ -71,9 +71,9 @@ pub(crate) fn stacks(ctx: &CommandContext) -> Result<Vec<(StackId, StackDetails)
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project().gb_dir().join("virtual_branches.toml"),
         )?;
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default(), None)
+        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
     } else {
-        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
+        but_workspace::legacy::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
     }?;
     let mut details = vec![];
     for stack in stacks {
@@ -86,9 +86,9 @@ pub(crate) fn stacks(ctx: &CommandContext) -> Result<Vec<(StackId, StackDetails)
                 let meta = VirtualBranchesTomlMetadata::from_path(
                     ctx.project().gb_dir().join("virtual_branches.toml"),
                 )?;
-                but_workspace::stack_details_v3(stack_id.into(), &repo, &meta)
+                but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta)
             } else {
-                but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
+                but_workspace::legacy::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
             }?,
         ));
     }
@@ -210,7 +210,7 @@ pub fn commit(project: Project, branch_name: String, message: String) -> Result<
     let file_changes: Vec<but_workspace::DiffSpec> =
         worktree.changes.iter().map(Into::into).collect::<Vec<_>>();
 
-    let outcome = but_workspace::commit_engine::create_commit_simple(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_simple(
         &ctx,
         stack.id,
         None,

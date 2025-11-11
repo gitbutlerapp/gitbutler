@@ -1,5 +1,4 @@
-use anyhow::Context;
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BString, ByteSlice};
 use serde::Serialize;
 
 /// Utilities for diffing, with workspace integration.
@@ -10,211 +9,11 @@ pub mod ref_info;
 pub use ref_info::inner::RefInfo;
 
 /// This code is a fork of [`gitbutler_branch_actions::author`] to avoid depending on the `gitbutler_branch_actions` crate.
-mod author {
-    use bstr::ByteSlice;
-    use serde::Serialize;
-
-    /// Represents the author of a commit.
-    #[derive(Serialize, Hash, Clone, PartialEq, Eq)]
-    #[serde(rename_all = "camelCase")]
-    pub struct Author {
-        /// The name from the git commit signature
-        pub name: String,
-        /// The email from the git commit signature
-        pub email: String,
-        /// A URL to a gravatar image for the email from the commit signature
-        pub gravatar_url: url::Url,
-    }
-
-    impl std::fmt::Debug for Author {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{} <{}>", self.name, self.email)
-        }
-    }
-
-    impl From<git2::Signature<'_>> for Author {
-        fn from(value: git2::Signature<'_>) -> Self {
-            let name = value.name().unwrap_or_default().to_string();
-            let email = value.email().unwrap_or_default().to_string();
-            let gravatar_url = gravatar_url_from_email(email.as_str());
-            Author {
-                name,
-                email,
-                gravatar_url,
-            }
-        }
-    }
-
-    impl From<gix::actor::SignatureRef<'_>> for Author {
-        fn from(value: gix::actor::SignatureRef<'_>) -> Self {
-            let gravatar_url = gravatar_url_from_email(&value.email.to_str_lossy());
-
-            Author {
-                name: value.name.to_string(),
-                email: value.email.to_string(),
-                gravatar_url,
-            }
-        }
-    }
-
-    pub fn gravatar_url_from_email(email: &str) -> url::Url {
-        let gravatar_url = format!(
-            "https://www.gravatar.com/avatar/{:x}?s=100&r=g&d=retro",
-            md5::compute(email.to_lowercase())
-        );
-        url::Url::parse(gravatar_url.as_str()).expect("an MD5 as part of the URl is always valid")
-    }
-}
+mod author;
 pub use author::Author;
-use gitbutler_stack::{Stack, StackId};
 
-/// The information about the branch inside a stack
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StackHeadInfo {
-    /// The name of the branch.
-    #[serde(with = "but_serde::bstring_lossy")]
-    pub name: BString,
-    /// The tip of the branch.
-    #[serde(with = "but_serde::object_id")]
-    pub tip: gix::ObjectId,
-    /// If `true`, then this head is checked directly so `HEAD` points to it, and this is only ever `true` for a single head.
-    /// This is `false` if the worktree is checked out.
-    pub is_checked_out: bool,
-}
-
-impl StackHeadInfo {
-    /// Delete the reference for this head from the repository if it exists and matches the expected OID.
-    pub fn delete_reference(&self, repo: &gix::Repository) -> anyhow::Result<()> {
-        let ref_name = format!("refs/heads/{}", self.name.to_str()?.trim_matches('/'));
-        let current_name: BString = ref_name.into();
-        if let Some(reference) = repo.try_find_reference(&current_name)? {
-            but_core::branch::SafeDelete::new(repo)?.delete_reference(&reference)?;
-        }
-        Ok(())
-    }
-}
-
-/// Represents a lightweight version of a [`Stack`] for listing.
-/// NOTE: this is a UI type mostly because it's still modeled after the legacy stack with StackId, something that doesn't exist anymore.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StackEntry {
-    /// The ID of the stack.
-    pub id: Option<StackId>,
-    /// The list of the branch information that are part of the stack.
-    /// The list is never empty.
-    /// The first entry in the list is always the most recent branch on top the stack.
-    pub heads: Vec<StackHeadInfo>,
-    /// The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch.
-    #[serde(with = "but_serde::object_id")]
-    pub tip: gix::ObjectId,
-    /// The zero-based index for sorting stacks.
-    pub order: Option<usize>,
-    /// If `true`, then any head in this stack is checked directly so `HEAD` points to it, and this is only ever `true` for a single stack.
-    pub is_checked_out: bool,
-}
-
-/// **Temporary type to help transitioning to the optional version of stack-entry** and ultimately, to [`crate::RefInfo`].
-/// WARNING: for use by parts in the code that can rely on having a non-optional `stack_id`. The goal is to have none of these.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StackEntryNoOpt {
-    /// The ID of the stack.
-    pub id: StackId,
-    /// The list of the branch information that are part of the stack.
-    /// The list is never empty.
-    /// The first entry in the list is always the most recent branch on top the stack.
-    pub heads: Vec<StackHeadInfo>,
-    /// The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch.
-    #[serde(with = "but_serde::object_id")]
-    pub tip: gix::ObjectId,
-    /// The zero-based index for sorting stacks.
-    pub order: Option<usize>,
-    /// If `true`, then any head in this stack is checked directly so `HEAD` points to it, and this is only ever `true` for a single stack.
-    pub is_checked_out: bool,
-}
-
-impl StackEntry {
-    /// The name of the stack, which is the name of the top-most branch.
-    pub fn name(&self) -> Option<&BStr> {
-        self.heads.first().map(|head| head.name.as_ref())
-    }
-}
-
-impl StackEntryNoOpt {
-    /// The name of the stack, which is the name of the top-most branch.
-    pub fn name(&self) -> Option<&BStr> {
-        self.heads.first().map(|head| head.name.as_ref())
-    }
-}
-
-impl TryFrom<StackEntry> for StackEntryNoOpt {
-    type Error = anyhow::Error;
-
-    fn try_from(
-        StackEntry {
-            id,
-            heads,
-            tip,
-            order,
-            is_checked_out,
-        }: StackEntry,
-    ) -> Result<Self, Self::Error> {
-        let id = id.context("BUG(opt-stack-id)")?;
-        Ok(StackEntryNoOpt {
-            id,
-            heads,
-            tip,
-            order,
-            is_checked_out,
-        })
-    }
-}
-
-impl From<StackEntryNoOpt> for StackEntry {
-    fn from(
-        StackEntryNoOpt {
-            id,
-            heads,
-            tip,
-            order,
-            is_checked_out,
-        }: StackEntryNoOpt,
-    ) -> Self {
-        StackEntry {
-            id: Some(id),
-            heads,
-            tip,
-            order,
-            is_checked_out,
-        }
-    }
-}
-
-impl StackEntry {
-    pub(crate) fn try_new(repo: &gix::Repository, stack: &Stack) -> anyhow::Result<Self> {
-        Ok(StackEntry {
-            id: Some(stack.id),
-            heads: crate::stack_heads_info(stack, repo)?,
-            tip: stack.head_oid(repo)?,
-            order: Some(stack.order),
-            is_checked_out: false,
-        })
-    }
-}
-
-impl StackEntryNoOpt {
-    pub(crate) fn try_new(repo: &gix::Repository, stack: &Stack) -> anyhow::Result<Self> {
-        Ok(StackEntryNoOpt {
-            id: stack.id,
-            heads: crate::stack_heads_info(stack, repo)?,
-            tip: stack.head_oid(repo)?,
-            order: Some(stack.order),
-            is_checked_out: false,
-        })
-    }
-}
+use crate::ref_info::{LocalCommit, LocalCommitRelation};
+use crate::ui;
 
 /// Represents the state a commit could be in.
 #[derive(Debug, Clone, Serialize)]
@@ -446,4 +245,78 @@ pub struct Branch {
     /// If this branch is at the bottom of the stack, this is the merge base of the stack.
     #[serde(with = "but_serde::object_id")]
     pub base_commit: gix::ObjectId,
+}
+
+impl From<&crate::ref_info::Commit> for ui::UpstreamCommit {
+    fn from(
+        crate::ref_info::Commit {
+            id,
+            parent_ids: _,
+            tree_id: _,
+            message,
+            author,
+            // TODO: also pass refs for the frontend.
+            refs: _,
+            // TODO: also pass flags for the frontend.
+            flags: _,
+            // TODO: Represent this in the UI (maybe) and/or deal with divergence of the local and remote tracking branch.
+            has_conflicts: _,
+            change_id: _,
+        }: &crate::ref_info::Commit,
+    ) -> Self {
+        ui::UpstreamCommit {
+            id: *id,
+            message: message.clone(),
+            created_at: author.time.seconds as i128 * 1000,
+            author: author
+                .to_ref(&mut gix::date::parse::TimeBuf::default())
+                .into(),
+        }
+    }
+}
+
+impl From<&LocalCommit> for ui::Commit {
+    fn from(
+        LocalCommit {
+            inner:
+                crate::ref_info::Commit {
+                    id,
+                    tree_id: _,
+                    parent_ids,
+                    message,
+                    author,
+                    // TODO: also pass refs
+                    refs: _,
+                    // TODO: also flags refs
+                    flags: _,
+                    has_conflicts,
+                    change_id: _,
+                },
+            relation,
+        }: &LocalCommit,
+    ) -> Self {
+        ui::Commit {
+            id: *id,
+            parent_ids: parent_ids.clone(),
+            message: message.clone(),
+            has_conflicts: *has_conflicts,
+            state: (*relation).into(),
+            created_at: author.time.seconds as i128 * 1000,
+            author: author
+                .to_ref(&mut gix::date::parse::TimeBuf::default())
+                .into(),
+            gerrit_review_url: None,
+        }
+    }
+}
+
+impl From<LocalCommitRelation> for ui::CommitState {
+    fn from(value: LocalCommitRelation) -> Self {
+        use crate::ui::CommitState as E;
+        match value {
+            LocalCommitRelation::LocalOnly => E::LocalOnly,
+            LocalCommitRelation::LocalAndRemote(id) => E::LocalAndRemote(id),
+            LocalCommitRelation::Integrated(_) => E::Integrated,
+        }
+    }
 }

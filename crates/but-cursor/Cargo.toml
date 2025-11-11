@@ -10,19 +10,21 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
-anyhow.workspace = true
-serde.workspace = true
-gitbutler-project.workspace = true
-but-workspace.workspace = true
+but-workspace = {workspace = true, features = ["legacy"] }
 but-claude.workspace = true # Move out get_or_create_session and remove this dependency
-gitbutler-command-context.workspace = true
 but-settings.workspace = true
 but-graph.workspace = true
 but-action.workspace = true
 but-hunk-assignment.workspace = true
+but-core.workspace = true
+
+gitbutler-project.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-stack.workspace = true
+
+anyhow.workspace = true
+serde.workspace = true
 md5.workspace = true
 diesel = { version = "2.2.12", features = ["sqlite"] }
-but-core.workspace = true
-gitbutler-stack.workspace = true
 serde_json.workspace = true
 gix = { workspace = true, features = [] }

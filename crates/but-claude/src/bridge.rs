@@ -620,7 +620,7 @@ fn append_target_branch_info(output: &mut String, ctx: &CommandContext) {
 
 /// Appends information about branches in the stack
 fn append_stack_branches_info(output: &mut String, stack_id: StackId, ctx: &mut CommandContext) {
-    match but_workspace::stack_branches(stack_id, ctx) {
+    match but_workspace::legacy::stack_branches(stack_id, ctx) {
         Ok(branches) if !branches.is_empty() => {
             if let Some(first_branch) = branches.first() {
                 let first_branch_name = first_branch.name.to_str_lossy();

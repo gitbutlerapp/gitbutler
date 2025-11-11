@@ -6,7 +6,7 @@ use but_core::Reference;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_rebase::{RebaseOutput, RebaseStep};
 use but_serde::BStringForFrontend;
-use but_workspace::{ref_info::Options, stack_ext::StackDetailsExt};
+use but_workspace::{legacy::stack_ext::StackDetailsExt, ref_info::Options};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{
@@ -173,7 +173,7 @@ enum IntegrationResult {
 pub struct UpstreamIntegrationContext<'a> {
     _permission: Option<&'a mut WorktreeWritePermission>,
     repo: &'a git2::Repository,
-    stacks_in_workspace: Vec<but_workspace::ui::StackEntry>,
+    stacks_in_workspace: Vec<but_workspace::legacy::ui::StackEntry>,
     new_target: git2::Commit<'a>,
     target: Target,
     ctx: &'a CommandContext,
@@ -227,14 +227,19 @@ impl<'a> UpstreamIntegrationContext<'a> {
 fn stacks(
     ctx: &CommandContext,
     repo: &gix::Repository,
-) -> anyhow::Result<Vec<but_workspace::ui::StackEntry>> {
+) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
     let project = ctx.project();
     if ctx.app_settings().feature_flags.ws3 {
         let meta =
             VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
-        but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace, None)
+        but_workspace::legacy::stacks_v3(
+            repo,
+            &meta,
+            but_workspace::StacksFilter::InWorkspace,
+            None,
+        )
     } else {
-        but_workspace::stacks(
+        but_workspace::legacy::stacks(
             ctx,
             &project.gb_dir(),
             repo,
@@ -252,12 +257,12 @@ fn stack_details(
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project().gb_dir().join("virtual_branches.toml"),
         )?;
-        but_workspace::stack_details_v3(stack_id, &repo, &meta)
+        but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
     } else {
         let Some(stack_id) = stack_id else {
             bail!("Failed to get stack details: stack ID not provided");
         };
-        but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
+        but_workspace::legacy::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
     }
 }
 

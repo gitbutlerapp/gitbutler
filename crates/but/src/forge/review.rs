@@ -112,7 +112,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
 pub async fn handle_multiple_branches_in_workspace(
     project: &Project,
     review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
-    applied_stacks: &[but_workspace::ui::StackEntry],
+    applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     skip_force_push_protection: bool,
     with_force: bool,
     run_hooks: bool,
@@ -188,7 +188,7 @@ pub async fn handle_multiple_branches_in_workspace(
 fn generate_simple_stacks(
     project: &Project,
     review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
-    applied_stacks: &[but_workspace::ui::StackEntry],
+    applied_stacks: &[but_workspace::legacy::ui::StackEntry],
 ) -> Result<Vec<SimpleStack>, anyhow::Error> {
     let mut simple_stacks = vec![];
     let (base_branch, repo) = get_base_branch_and_repo(project)?;
@@ -226,7 +226,7 @@ async fn publish_reviews_for_branch_and_dependents(
     project: &Project,
     branch_name: &str,
     review_map: &std::collections::HashMap<String, Vec<gitbutler_forge::review::ForgeReview>>,
-    stack_entry: &but_workspace::ui::StackEntry,
+    stack_entry: &but_workspace::legacy::ui::StackEntry,
     skip_force_push_protection: bool,
     with_force: bool,
     run_hooks: bool,

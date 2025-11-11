@@ -1,9 +1,6 @@
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
-use but_workspace::{
-    StackId, StacksFilter,
-    ui::{StackDetails, StackEntry},
-};
+use but_workspace::{StackId, StacksFilter, legacy::ui::StackEntry, ui::StackDetails};
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -206,9 +203,9 @@ pub(crate) fn stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project().gb_dir().join("virtual_branches.toml"),
         )?;
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default(), None)
+        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
     } else {
-        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
+        but_workspace::legacy::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
     }
 }
 
@@ -221,8 +218,8 @@ pub(crate) fn stack_details(
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project().gb_dir().join("virtual_branches.toml"),
         )?;
-        but_workspace::stack_details_v3(Some(stack_id), &repo, &meta)
+        but_workspace::legacy::stack_details_v3(Some(stack_id), &repo, &meta)
     } else {
-        but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
+        but_workspace::legacy::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
     }
 }

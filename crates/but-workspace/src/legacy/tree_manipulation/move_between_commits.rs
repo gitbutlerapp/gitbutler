@@ -11,7 +11,7 @@ use super::{
         replace_pick_with_commit,
     },
 };
-use crate::{DiffSpec, stack_ext::StackExt};
+use crate::{DiffSpec, legacy::stack_ext::StackExt};
 
 /// Move changes between to commits.
 ///
