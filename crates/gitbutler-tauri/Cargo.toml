@@ -19,12 +19,27 @@ test = false
 tauri-build = { version = "2.3.1", features = [] }
 
 [dependencies]
-anyhow.workspace = true
-backtrace = { version = "0.3.76", optional = true }
-console-subscriber = "0.5.0"
-gix = { workspace = true, features = ["max-performance", "worktree-mutation" ] }
-serde.workspace = true
-serde_json = { workspace = true, features = ["arbitrary_precision"] }
+but = { workspace = true, optional = true }
+but-feedback.workspace = true
+but-error.workspace = true
+but-secret.workspace = true
+but-broadcaster.workspace = true
+but-db.workspace = true
+but-settings.workspace = true
+but-workspace.workspace = true
+but-core.workspace = true
+but-action.workspace = true
+but-bot.workspace = true
+but-api = { workspace = true, features = ["tauri"] }
+but-claude.workspace = true
+but-github.workspace = true
+
+gitbutler-watcher.workspace = true
+gitbutler-repo-actions.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-id.workspace = true
+gitbutler-project.workspace = true
+
 tauri = { version = "^2.9.2", features = ["unstable"] }
 tauri-plugin-dialog = "2.4.2"
 tauri-plugin-fs = "2.4.2"
@@ -39,6 +54,13 @@ tauri-plugin-updater = "2.9.0"
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-clipboard-manager = "2.3.2"
 
+anyhow.workspace = true
+backtrace = { version = "0.3.76", optional = true }
+console-subscriber = "0.5.0"
+gix = { workspace = true, features = ["max-performance", "worktree-mutation" ] }
+serde.workspace = true
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
+
 parking_lot.workspace = true
 log = "^0.4"
 git2.workspace = true
@@ -48,29 +70,10 @@ tracing.workspace = true
 tracing-appender = "0.2.3"
 tracing-subscriber.workspace = true
 tracing-forest.workspace = true
-gitbutler-watcher.workspace = true
-gitbutler-repo-actions.workspace = true
-gitbutler-command-context.workspace = true
-but-feedback.workspace = true
-gitbutler-project.workspace = true
-but-error.workspace = true
-but-secret.workspace = true
-gitbutler-id.workspace = true
-but-broadcaster.workspace = true
-but-db.workspace = true
-but-settings.workspace = true
-but-workspace.workspace = true
-but-core.workspace = true
-but-action.workspace = true
-but-bot.workspace = true
-but-api = { workspace = true, features = ["tauri"] }
-but-claude.workspace = true
-but-github.workspace = true
 open.workspace = true
 url = "2.5.4"
 but-path.workspace = true
 uuid.workspace = true
-but = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-trafficlights-positioner = { git = "https://github.com/gitbutlerapp/tauri-plugin-trafficlights-positioner", branch = "v2" }

@@ -1,7 +1,8 @@
 #![deny(missing_docs)]
 //! The basic primitives that GitButler is built around.
 //!
-//! It also is a catch-all for code until it's worth putting it into its own crate.
+//! It also is a catch-all for code until it's worth putting it into its own crate, *as long as it doesn't come with more dependencies*.
+//! As such, this is very much intended to **be a leaf crate**, i.e. a crate that can be used in many places for basic functionality.
 //!
 //! ### Data for consumption by UI
 //!
