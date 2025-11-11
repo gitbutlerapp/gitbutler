@@ -80,13 +80,23 @@
 			if (!isTextNode(anchorNode)) return;
 
 			const offset = anchor.offset;
-			const text = anchorNode.getTextContent().slice(0, offset);
+			const fullText = anchorNode.getTextContent();
+			const textBeforeCursor = fullText.slice(0, offset);
+			const textAfterCursor = fullText.slice(offset);
 			const match = '@' + fileStart;
-			if (text.includes(match)) {
-				const newText = text.replace(match, '`' + path + '`');
+			const matchIndex = textBeforeCursor.lastIndexOf(match);
+			if (matchIndex !== -1) {
+				const replacement = '`' + path + '`';
+				const newTextBefore =
+					textBeforeCursor.slice(0, matchIndex) +
+					replacement +
+					textBeforeCursor.slice(matchIndex + match.length);
+				const newText = newTextBefore + textAfterCursor;
 				const newNode = new TextNode(newText);
+				const selectionStart = matchIndex;
+				const selectionEnd = matchIndex + replacement.length;
 				anchorNode.replace(newNode);
-				newNode.selectEnd();
+				newNode.select(selectionStart, selectionEnd);
 			}
 		});
 
