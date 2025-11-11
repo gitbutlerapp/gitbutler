@@ -14,6 +14,9 @@ doctest = false
 testing = []
 
 [dependencies]
+but-error.workspace = true
+gitbutler-serde.workspace = true
+
 serde.workspace = true
 bstr.workspace = true
 tracing.workspace = true
@@ -25,8 +28,6 @@ gix = { workspace = true, features = [
     "serde",
     "status",
 ] }
-gitbutler-serde.workspace = true
-gitbutler-error.workspace = true
 uuid.workspace = true
 toml.workspace = true
 chardetng = "0.1.17"

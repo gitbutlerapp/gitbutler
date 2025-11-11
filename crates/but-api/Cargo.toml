@@ -62,7 +62,7 @@ serde-error = "0.1.3"
 gix = { workspace = true, features = ["worktree-mutation" ] }
 git2.workspace = true
 but-feedback.workspace = true
-gitbutler-error.workspace = true
+but-error.workspace = true
 but-rules.workspace = true
 gitbutler-forge.workspace = true
 open.workspace = true

@@ -11,11 +11,12 @@ autotests = false
 doctest = false
 
 [dependencies]
+but-error.workspace = true
+
 anyhow.workspace = true
 tracing.workspace = true
 serde.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
-gitbutler-error.workspace = true
 keyring.workspace = true
 
 [[test]]

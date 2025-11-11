@@ -10,27 +10,30 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
-anyhow.workspace = true
-bstr.workspace = true
-git2.workspace = true
 but-core.workspace = true
 but-graph.workspace = true
 but-rebase.workspace = true
-gix = { workspace = true, features = ["worktree-mutation"] }
+but-error.workspace = true
+
+gitbutler-oxidize.workspace = true
+gitbutler-serde.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-command-context.workspace = true
-gitbutler-error.workspace = true
-gitbutler-oxidize.workspace = true
 gitbutler-cherry-pick.workspace = true
 gitbutler-project.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-repo.workspace = true
+
+anyhow.workspace = true
+bstr.workspace = true
+git2.workspace = true
+gix = { workspace = true, features = ["worktree-mutation"] }
 serde.workspace = true
-gitbutler-serde.workspace = true
 itertools.workspace = true
 url = { version = "2.5.4", features = ["serde"] }
 md5.workspace = true
 tracing.workspace = true
+
 # For SPMC channel
 flume = "0.11.1"
 tempfile.workspace = true

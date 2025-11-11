@@ -813,6 +813,7 @@ dependencies = [
  "but-cherry-apply",
  "but-claude",
  "but-core",
+ "but-error",
  "but-feedback",
  "but-forge-storage",
  "but-gerrit",
@@ -833,7 +834,6 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-edit-mode",
- "gitbutler-error",
  "gitbutler-forge",
  "gitbutler-id",
  "gitbutler-operating-modes",
@@ -959,10 +959,10 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-error",
  "but-testsupport",
  "chardetng",
  "fslock",
- "gitbutler-error",
  "gitbutler-serde",
  "gix",
  "insta",
@@ -1015,6 +1015,13 @@ dependencies = [
 [[package]]
 name = "but-debugging"
 version = "0.0.0"
+
+[[package]]
+name = "but-error"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+]
 
 [[package]]
 name = "but-feedback"
@@ -1167,9 +1174,9 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
+ "but-error",
  "but-gerrit",
  "but-testsupport",
- "gitbutler-error",
  "gitbutler-oxidize",
  "gix",
  "insta",
@@ -1209,7 +1216,7 @@ name = "but-secret"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "gitbutler-error",
+ "but-error",
  "gix",
  "keyring",
  "serde",
@@ -1349,6 +1356,7 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
+ "but-error",
  "but-graph",
  "but-rebase",
  "but-testsupport",
@@ -1357,7 +1365,6 @@ dependencies = [
  "gitbutler-cherry-pick",
  "gitbutler-command-context",
  "gitbutler-commit",
- "gitbutler-error",
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
@@ -3374,6 +3381,7 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
+ "but-error",
  "but-gerrit",
  "but-graph",
  "but-hunk-assignment",
@@ -3387,7 +3395,6 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-diff",
- "gitbutler-error",
  "gitbutler-forge",
  "gitbutler-git",
  "gitbutler-hunk-dependency",
@@ -3520,13 +3527,6 @@ dependencies = [
  "serde",
  "tempfile",
  "tracing",
-]
-
-[[package]]
-name = "gitbutler-error"
-version = "0.0.0"
-dependencies = [
- "anyhow",
 ]
 
 [[package]]
@@ -3689,9 +3689,9 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-core",
+ "but-error",
  "but-path",
  "git2",
- "gitbutler-error",
  "gitbutler-forge",
  "gitbutler-id",
  "gitbutler-serde",
@@ -3727,6 +3727,7 @@ dependencies = [
  "base64 0.22.1",
  "bstr",
  "but-core",
+ "but-error",
  "but-gerrit",
  "but-rebase",
  "but-settings",
@@ -3738,7 +3739,6 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-diff",
- "gitbutler-error",
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
@@ -3766,10 +3766,10 @@ name = "gitbutler-repo-actions"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-error",
  "git2",
  "gitbutler-command-context",
  "gitbutler-commit",
- "gitbutler-error",
  "gitbutler-git",
  "gitbutler-id",
  "gitbutler-oxidize",
@@ -3802,13 +3802,13 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
+ "but-error",
  "but-graph",
  "but-rebase",
  "git2",
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-diff",
- "gitbutler-error",
  "gitbutler-fs",
  "gitbutler-oxidize",
  "gitbutler-reference",
@@ -3835,10 +3835,10 @@ name = "gitbutler-sync"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-error",
  "git2",
  "gitbutler-command-context",
  "gitbutler-commit",
- "gitbutler-error",
  "gitbutler-id",
  "gitbutler-oplog",
  "gitbutler-oxidize",
@@ -3875,6 +3875,7 @@ dependencies = [
  "but-claude",
  "but-core",
  "but-db",
+ "but-error",
  "but-feedback",
  "but-github",
  "but-path",
@@ -3884,7 +3885,6 @@ dependencies = [
  "console-subscriber",
  "git2",
  "gitbutler-command-context",
- "gitbutler-error",
  "gitbutler-id",
  "gitbutler-project",
  "gitbutler-repo-actions",

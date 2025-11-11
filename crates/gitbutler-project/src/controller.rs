@@ -1,7 +1,7 @@
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
-use gitbutler_error::error;
+use but_error::Code;
 
 use super::{Project, ProjectId, storage, storage::UpdateRequest};
 use crate::{AuthKey, project::AddProjectOutcome};
@@ -216,7 +216,7 @@ impl Controller {
                     "Could not open repository at '{}'{suffix}",
                     project.worktree_dir.display()
                 )
-                .context(error::Code::ProjectMissing));
+                .context(Code::ProjectMissing));
             }
         }
 

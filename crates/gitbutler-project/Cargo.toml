@@ -13,7 +13,7 @@ doctest = false
 anyhow.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
-gitbutler-error.workspace = true
+but-error.workspace = true
 but-path.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-id.workspace = true

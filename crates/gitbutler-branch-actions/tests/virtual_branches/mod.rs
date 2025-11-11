@@ -1,10 +1,10 @@
 use std::{fs, path, path::PathBuf, str::FromStr};
 
+use but_error::Marker;
 use but_settings::AppSettings;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
 use gitbutler_command_context::CommandContext;
-use gitbutler_error::error::Marker;
 use gitbutler_project::{self as projects, Project, ProjectId};
 use gitbutler_reference::Refname;
 use gitbutler_testsupport::{TestProject, VAR_NO_CLEANUP, paths};

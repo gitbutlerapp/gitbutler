@@ -4,8 +4,8 @@ use std::{
 };
 
 use anyhow::{Context, Result, anyhow};
+use but_error::Code;
 use gitbutler_command_context::CommandContext;
-use gitbutler_error::error::Code;
 use gitbutler_id::id::Id;
 use gitbutler_oplog::OplogExt;
 use gitbutler_project as projects;

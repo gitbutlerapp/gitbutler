@@ -59,7 +59,7 @@ pub fn set_project_active(
             let code = err.code();
             let err = anyhow::Error::from(err);
             if code == git2::ErrorCode::Owner {
-                err.context(gitbutler_error::error::Code::RepoOwnership)
+                err.context(but_error::Code::RepoOwnership)
             } else {
                 err
             }

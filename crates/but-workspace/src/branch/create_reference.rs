@@ -316,7 +316,7 @@ pub(super) mod function {
                     gix::refs::file::transaction::commit::Error::CreateOrUpdateRefLog(
                         gix::refs::file::log::create_or_update::Error::MissingCommitter,
                     ),
-                ) => Some(gitbutler_error::error::Code::AuthorMissing),
+                ) => Some(but_error::Code::AuthorMissing),
                 _ => None,
             };
             let err = anyhow::Error::from(err);

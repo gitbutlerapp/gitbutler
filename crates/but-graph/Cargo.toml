@@ -13,6 +13,7 @@ test = true
 
 [dependencies]
 but-core.workspace = true
+gitbutler-serde.workspace = true
 
 gix = { workspace = true, features = ["revision"] }
 bstr.workspace = true
@@ -25,7 +26,6 @@ tracing.workspace = true
 itertools.workspace = true
 toml.workspace = true
 serde.workspace = true
-gitbutler-serde.workspace = true
 md5.workspace = true
 gitbutler-reference.workspace = true
 hex = "0.4.3"
