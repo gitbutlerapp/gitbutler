@@ -425,7 +425,7 @@
 							</ContextMenuSection>
 							<ContextMenuSection>
 								<ContextMenuItem
-									label="Clear context and rules"
+									label="Clear context"
 									icon="clear"
 									disabled={isDisabled}
 									onclick={() => {
