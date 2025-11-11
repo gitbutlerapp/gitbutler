@@ -1,3 +1,4 @@
+import { createInlineCodeNode } from '$lib/richText/node/inlineCode';
 import {
 	$isRangeSelection,
 	$getSelection,
@@ -217,6 +218,43 @@ export function insertTextAtCaret(editor: LexicalEditor, text: string) {
 	});
 }
 
+/**
+ * Parse a line of text and create nodes, converting backtick-wrapped text to InlineCodeNodes
+ */
+function parseLineToNodes(line: string): TextNode[] {
+	const nodes: TextNode[] = [];
+	const backtickRegex = /`([^`]+)`/g;
+	let lastIndex = 0;
+	let match;
+
+	while ((match = backtickRegex.exec(line)) !== null) {
+		// Add text before the backtick match
+		if (match.index > lastIndex) {
+			const beforeText = line.slice(lastIndex, match.index);
+			nodes.push($createTextNode(beforeText));
+		}
+
+		// Add inline code node
+		const code = match[1];
+		nodes.push(createInlineCodeNode(code));
+
+		lastIndex = backtickRegex.lastIndex;
+	}
+
+	// Add remaining text after the last match
+	if (lastIndex < line.length) {
+		const remainingText = line.slice(lastIndex);
+		nodes.push($createTextNode(remainingText));
+	}
+
+	// If no matches were found, return a single text node with the whole line
+	if (nodes.length === 0) {
+		nodes.push($createTextNode(line));
+	}
+
+	return nodes;
+}
+
 export function setEditorText(editor: LexicalEditor, text: string) {
 	editor.update(() => {
 		const root = $getRoot();
@@ -224,8 +262,8 @@ export function setEditorText(editor: LexicalEditor, text: string) {
 		const paragraphNode = $createParagraphNode();
 		const lines = text.split('\n');
 		for (let i = 0; i < lines.length; i++) {
-			const textNode = $createTextNode(lines[i]);
-			paragraphNode.append(textNode);
+			const lineNodes = parseLineToNodes(lines[i]);
+			lineNodes.forEach((node) => paragraphNode.append(node));
 			// Only add line break if it's not the last line
 			if (i < lines.length - 1) {
 				paragraphNode.append($createLineBreakNode());

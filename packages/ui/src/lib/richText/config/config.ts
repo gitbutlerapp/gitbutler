@@ -1,5 +1,6 @@
 import { EmojiNode } from '$lib/richText/node/emoji';
 import { GhostText } from '$lib/richText/node/ghostText';
+import { InlineCodeNode } from '$lib/richText/node/inlineCode';
 import { MentionNode } from '$lib/richText/node/mention';
 import {
 	HeadingNode,
@@ -91,6 +92,7 @@ export function standardConfig(args: {
 			CodeHighlightNode,
 			EmojiNode,
 			KeywordNode,
+			InlineCodeNode,
 			MentionNode,
 			GhostText
 		]
