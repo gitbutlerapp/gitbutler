@@ -262,8 +262,6 @@ impl Sandbox {
                 cv3: true,
                 apply3: true,
                 undo: true,
-                actions: true,
-                butbot: true,
                 rules: true,
                 single_branch: true,
             },
