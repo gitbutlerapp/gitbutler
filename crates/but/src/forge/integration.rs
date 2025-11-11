@@ -1,6 +1,7 @@
 use std::io::Write;
 
 use but_api::NoParams;
+use cli_prompts::DisplayPrompt;
 use colored::Colorize;
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -16,7 +17,8 @@ pub enum Subcommands {
     /// Forget a previously authenticated forge account
     Forget {
         /// The username of the forge account to forget
-        username: String,
+        /// If not provided, you'll be prompted to select which account(s) to forget. If only one account exists, it will be forgotten automatically.
+        username: Option<String>,
     },
 }
 
@@ -24,30 +26,68 @@ pub async fn handle(cmd: Subcommands) -> anyhow::Result<()> {
     match cmd {
         Subcommands::Auth => auth_github().await,
         Subcommands::ListUsers => list_github_users().await,
-        Subcommands::Forget { username } => forget_github_username(&username).await,
+        Subcommands::Forget { username } => forget_github_username(username).await,
     }
 }
 
-async fn forget_github_username(username: &String) -> anyhow::Result<()> {
+async fn forget_github_username(username: Option<String>) -> anyhow::Result<()> {
     let known_accounts = but_api::github::list_known_github_accounts().await?;
     let mut stdout = std::io::stdout();
-    if let Some(account_to_delete) = known_accounts
-        .into_iter()
-        .find(|account| account.username() == username)
-    {
-        let message = format!("Forgot GitHub account '{}'", &account_to_delete);
-        but_api::github::forget_github_account(account_to_delete)?;
-        writeln!(stdout, "{}", message).ok();
-        Ok(())
+
+    let accounts_to_delete: Vec<_> = if let Some(username) = &username {
+        known_accounts
+            .into_iter()
+            .filter(|account| account.username() == username)
+            .collect()
     } else {
-        writeln!(
-            stdout,
-            "No known GitHub account with username '{}'",
-            username
-        )
-        .ok();
-        Ok(())
+        known_accounts
+    };
+
+    // Handle case where no matching account was found
+    if accounts_to_delete.is_empty() {
+        if let Some(username) = &username {
+            writeln!(
+                stdout,
+                "No known GitHub account with username '{}'",
+                username
+            )
+            .ok();
+        }
+        return Ok(());
     }
+
+    // Handle different scenarios based on number of accounts
+    match accounts_to_delete.as_slice() {
+        [single_account] => {
+            // Single account: delete automatically
+            but_api::github::forget_github_account(single_account.clone())?;
+            writeln!(stdout, "Forgot GitHub account '{}'", single_account).ok();
+        }
+        _ => {
+            // Multiple accounts: prompt user to select
+            let account_prompt = cli_prompts::prompts::Multiselect::new_transformed(
+                "Which of the following accounts do you want to forget?",
+                accounts_to_delete.into_iter(),
+                |acc| acc.to_string(),
+            );
+
+            let selected_accounts = account_prompt
+                .display()
+                .map_err(|_| anyhow::anyhow!("Could not determine which accounts to delete"))?;
+
+            if selected_accounts.is_empty() {
+                writeln!(stdout, "No accounts were selected to forget.").ok();
+                return Ok(());
+            }
+
+            for account in selected_accounts {
+                but_api::github::forget_github_account(account.clone())?;
+                writeln!(stdout, "Forgot GitHub account '{}'", account).ok();
+            }
+        }
+    }
+
+    Ok(())
 }
 
 async fn list_github_users() -> anyhow::Result<()> {
