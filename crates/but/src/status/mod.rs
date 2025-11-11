@@ -187,7 +187,7 @@ pub(crate) async fn worktree(
         let dot = "●".yellow();
         writeln!(
             stdout,
-            "{dot} {} (upstream) [{}] ⏫ {} new commits {} {}",
+            "┊{dot} {} (upstream) [{}] ⏫ {} new commits {} {}",
             upstream.latest_commit.dimmed(),
             upstream.target_name.green().bold(),
             upstream.behind_count,
@@ -195,12 +195,14 @@ pub(crate) async fn worktree(
             upstream.message
         )
         .ok();
+        writeln!(stdout, "┊│").ok();
     }
 
     let dot = "●".purple();
     writeln!(
         stdout,
-        "{dot} {} (common base) [{}] {} {}",
+        "{}┴ {} (common base) [{}] {} {}",
+        if upstream_state.is_some() { "┊" } else { "" },
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.commit_date.dimmed(),
