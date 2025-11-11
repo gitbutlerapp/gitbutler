@@ -19,6 +19,7 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
+		max-width: var(--message-max-width);
 		padding: 8px 0;
 		overflow: hidden;
 		gap: 10px;

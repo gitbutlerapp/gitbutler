@@ -1,8 +1,8 @@
 <script lang="ts">
+	import CodegenApprovalToolCall from '$components/codegen/CodegenApprovalToolCall.svelte';
 	import CodegenAssistantMessage from '$components/codegen/CodegenAssistantMessage.svelte';
 	import CodegenGitButlerMessage from '$components/codegen/CodegenGitButlerMessage.svelte';
 	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
-	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
 	import CodegenToolCalls from '$components/codegen/CodegenToolCalls.svelte';
 	import CodegenUserMessage from '$components/codegen/CodegenUserMessage.svelte';
 	import { type Message } from '$lib/codegen/messages';
@@ -28,7 +28,7 @@
 	<CodegenUserMessage content={message.message} attachments={message.attachments} />
 {:else if message.source === 'claude'}
 	{#if 'subtype' in message && message.subtype === 'compaction'}
-		<CodegenServiceMessage style="neutral" face="compacted" reverseElementsOrder>
+		<CodegenServiceMessage style="neutral" face="compacted">
 			{#snippet extraContent()}
 				{@render compactionSummary(message.message)}
 			{/snippet}
@@ -43,14 +43,11 @@
 		/>
 		{#if message.toolCallsPendingApproval.length > 0}
 			{#each message.toolCallsPendingApproval as toolCall}
-				<CodegenToolCall
+				<CodegenApprovalToolCall
 					{projectId}
-					style="standalone"
 					{toolCall}
-					requiresApproval={{
-						onPermissionDecision: async (id, decision, useWildcard) =>
-							await onPermissionDecision?.(id, decision, useWildcard)
-					}}
+					onPermissionDecision={async (id, decision, useWildcard) =>
+						await onPermissionDecision?.(id, decision, useWildcard)}
 				/>
 			{/each}
 		{/if}
@@ -75,7 +72,7 @@
 				</p>
 			</button>
 			{#if expanded}
-				<div class="text-13 compaction-summary__content">
+				<div class="text-13 text-body compaction-summary__content">
 					<Markdown content={summary} />
 				</div>
 			{/if}
@@ -85,6 +82,7 @@
 
 <style lang="postcss">
 	.compaction-summary__wrapper {
+		width: calc(100% - 42px);
 		max-width: var(--message-max-width);
 	}
 
@@ -131,20 +129,5 @@
 
 	.compaction-summary__content {
 		padding: 12px;
-	}
-
-	.message-assistant-wrapper {
-		display: flex;
-		flex-direction: column;
-		max-width: var(--message-max-width);
-	}
-
-	.timestamp {
-		color: var(--clr-text-2);
-		transition: color var(--transition-medium);
-
-		&:hover {
-			color: var(--clr-text-2);
-		}
 	}
 </style>

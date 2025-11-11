@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Modal, Segment, SegmentControl, Icon, Button } from '@gitbutler/ui';
-	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
+	import Codeblock from '$components/codegen/Codeblock.svelte';
+	import { Modal, Segment, SegmentControl, Button } from '@gitbutler/ui';
 	import type { PromptDir } from '$lib/codegen/types';
 
 	type Props = {
@@ -20,15 +20,7 @@
 </script>
 
 {#snippet pathContent({ path, caption }: { path: string; caption: string })}
-	<div class="prompt-path">
-		<button type="button" class="prompt-path__copy" onclick={() => copyToClipboard(path)}>
-			<Icon name="copy" />
-		</button>
-
-		<span class="prompt-path__label"> Location: </span>
-		<span class="prompt-path__path">{path}</span>
-	</div>
-
+	<Codeblock content={path} label="Location:" />
 	<p class="text-13 text-body clr-text-2">{caption}</p>
 {/snippet}
 
