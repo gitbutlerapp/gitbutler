@@ -10,16 +10,17 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
+but-error.workspace = true
+but-path.workspace = true
+but-serde =  { workspace = true, features = ["legacy"] }
+but-core.workspace = true
+
+gitbutler-storage.workspace = true
+gitbutler-forge.workspace = true
+
 anyhow.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
-gitbutler-error.workspace = true
-but-path.workspace = true
-gitbutler-serde.workspace = true
-gitbutler-id.workspace = true
-gitbutler-storage.workspace = true
-but-core.workspace = true
-gitbutler-forge.workspace = true
 git2.workspace = true
 gix = { workspace = true, features = [
     "dirwalk",

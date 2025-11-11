@@ -36,7 +36,7 @@ pub struct DiffHunk {
     ///
     /// Also note that this has possibly been decoded lossily, assuming UTF8 if the encoding couldn't be determined,
     /// replacing invalid codepoints with markers.
-    #[serde(serialize_with = "gitbutler_serde::bstring_lossy::serialize")]
+    #[serde(serialize_with = "but_serde::bstring_lossy::serialize")]
     pub diff: BString,
 }
 

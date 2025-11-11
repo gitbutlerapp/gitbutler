@@ -1,7 +1,7 @@
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
-use gitbutler_error::error;
+use but_error::Code;
 
 use super::{Project, ProjectId, storage, storage::UpdateRequest};
 use crate::{AuthKey, project::AddProjectOutcome};
@@ -127,13 +127,12 @@ impl Controller {
         );
 
         let project = Project {
-            id,
             title,
             // TODO(1.0): make this always `None`, until the field can be removed for good.
             worktree_dir: resolved_path,
             api: None,
             git_dir: repo.git_dir().to_owned(),
-            ..Default::default()
+            ..Project::default_with_id(id)
         };
 
         self.projects_storage
@@ -216,7 +215,7 @@ impl Controller {
                     "Could not open repository at '{}'{suffix}",
                     project.worktree_dir.display()
                 )
-                .context(error::Code::ProjectMissing));
+                .context(Code::ProjectMissing));
             }
         }
 

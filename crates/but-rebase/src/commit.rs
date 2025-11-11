@@ -3,7 +3,7 @@ use std::{borrow::Cow, io::Write, path::Path, process::Stdio};
 use anyhow::{Context, anyhow, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{GitConfigSettings, RepositoryExt, cmd::prepare_with_shell_on_windows};
-use gitbutler_error::error::Code;
+use but_error::Code;
 use gix::{config::Source, objs::WriteTo};
 
 /// What to do with the committer (actor) and the commit time when [creating a new commit](create()).

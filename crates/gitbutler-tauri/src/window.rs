@@ -65,7 +65,7 @@ pub(crate) mod state {
                     name: "settings://update".to_string(),
                     payload: serde_json::json!(settings),
                     // TODO: remove dummy project id
-                    project_id: ProjectId::default(),
+                    project_id: ProjectId::generate(),
                 }
             }
         }

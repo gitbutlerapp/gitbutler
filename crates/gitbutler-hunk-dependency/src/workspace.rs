@@ -14,7 +14,7 @@ use crate::{HunkRange, InputCommit, InputStack, StackRanges};
 pub struct RangeCalculationError {
     pub error_message: String,
     pub stack_id: StackId,
-    #[serde(with = "gitbutler_serde::oid")]
+    #[serde(with = "but_serde::oid")]
     pub commit_id: git2::Oid,
     pub path: PathBuf,
 }

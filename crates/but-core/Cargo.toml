@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 rust-version = "1.89"
+description = "A leaf-crate with core algorithms and types"
 
 [lib]
 doctest = false
@@ -14,6 +15,9 @@ doctest = false
 testing = []
 
 [dependencies]
+but-error.workspace = true
+but-serde.workspace = true
+
 serde.workspace = true
 bstr.workspace = true
 tracing.workspace = true
@@ -24,14 +28,16 @@ gix = { workspace = true, features = [
     "parallel",
     "serde",
     "status",
+    "merge"
 ] }
-gitbutler-serde.workspace = true
-gitbutler-error.workspace = true
-uuid.workspace = true
+# for V1 conflict commits
 toml.workspace = true
 chardetng = "0.1.17"
 
-# for locking
+# for `id`
+uuid.workspace = true
+
+# for `sync`
 fslock = "0.2.1"
 parking_lot = { workspace = true, features = ["arc_lock"] }
 

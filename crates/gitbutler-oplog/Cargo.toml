@@ -11,26 +11,28 @@ autotests = false
 doctest = false
 
 [dependencies]
+but-graph.workspace = true
+but-serde = { workspace = true, features = ["legacy"]}
+but-core.workspace = true
+but-workspace.workspace = true
+
+gitbutler-command-context.workspace = true
+gitbutler-project.workspace = true
+gitbutler-oxidize.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-fs.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-repo.workspace = true
+
 anyhow.workspace = true
 git2.workspace = true
-gitbutler-repo.workspace = true
 serde.workspace = true
 itertools.workspace = true
 strum = { version = "0.27", features = ["derive"] }
 tracing.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 toml.workspace = true
-but-graph.workspace = true
-gitbutler-command-context.workspace = true
-gitbutler-project.workspace = true
-gitbutler-oxidize.workspace = true
-gitbutler-branch.workspace = true
-gitbutler-serde.workspace = true
-gitbutler-fs.workspace = true
-gitbutler-reference.workspace = true
-gitbutler-stack.workspace = true
-but-core.workspace = true
-but-workspace.workspace = true
 
 [[test]]
 name = "oplog"

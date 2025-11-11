@@ -1,7 +1,8 @@
 #![deny(missing_docs)]
 //! The basic primitives that GitButler is built around.
 //!
-//! It also is a catch-all for code until it's worth putting it into its own crate.
+//! It also is a catch-all for code until it's worth putting it into its own crate, *as long as it doesn't come with more dependencies*.
+//! As such, this is very much intended to **be a leaf crate**, i.e. a crate that can be used in many places for basic functionality.
 //!
 //! ### Data for consumption by UI
 //!
@@ -22,7 +23,7 @@
 //! * **Implement `Serialize` on utility types to facilitate transfer to the frontend**
 //!     - But don't make bigger types frontend-specific. If that is needed, create a new type in the frontend-crate that uses frontend types.
 //!     - `BString` has a `BStringForFrontend` counterpart.
-//!     - `gix::ObjectId` has a `with = gitbutler_serde::object_id` serialization module.
+//!     - `gix::ObjectId` has a `with = but_serde::object_id` serialization module.
 //! * **Make it work, make it work right, and if time and profiler permits, make it work fast**.
 //! * **All of the above can and should be scrutinized and is there is no hard rules.**
 //!
@@ -364,7 +365,7 @@ pub enum IgnoredWorktreeTreeChangeStatus {
 #[derive(Clone, Serialize)]
 pub struct IgnoredWorktreeChange {
     /// The worktree-relative path to the change.
-    #[serde(serialize_with = "gitbutler_serde::bstring_lossy::serialize")]
+    #[serde(serialize_with = "but_serde::bstring_lossy::serialize")]
     pub path: BString,
     /// The status that caused this change to be ignored.
     pub status: IgnoredWorktreeTreeChangeStatus,

@@ -17,7 +17,7 @@ use crate::{InputStack, RangeCalculationError, WorkspaceRanges};
 pub struct HunkLock {
     // TODO: Rename this stack_id.
     pub branch_id: StackId,
-    #[serde(with = "gitbutler_serde::oid")]
+    #[serde(with = "but_serde::oid")]
     pub commit_id: git2::Oid,
 }
 

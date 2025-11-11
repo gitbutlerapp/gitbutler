@@ -11,11 +11,13 @@ autotests = false
 doctest = false
 
 [dependencies]
+but-serde = { workspace = true, features = ["legacy"]}
+
+gitbutler-diff.workspace = true
+gitbutler-stack.workspace = true
+
 anyhow.workspace = true
 git2.workspace = true
-gitbutler-diff.workspace = true
-gitbutler-serde.workspace = true
-gitbutler-stack.workspace = true
 itertools.workspace = true
 serde.workspace = true
 

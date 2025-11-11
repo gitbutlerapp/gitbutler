@@ -4,12 +4,11 @@ use std::{
 };
 
 use anyhow::{Context, Result, anyhow};
+use but_error::Code;
 use gitbutler_command_context::CommandContext;
-use gitbutler_error::error::Code;
-use gitbutler_id::id::Id;
 use gitbutler_oplog::OplogExt;
 use gitbutler_project as projects;
-use gitbutler_project::{CodePushState, Project};
+use gitbutler_project::{CodePushState, ProjectId};
 use gitbutler_reference::Refname;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 use gitbutler_url::Url;
@@ -64,7 +63,7 @@ fn push_target(
     ctx: &CommandContext,
     default_target: &Target,
     gb_code_last_commit: Option<git2::Oid>,
-    project_id: Id<Project>,
+    project_id: ProjectId,
     user: &users::User,
     batch_size: usize,
 ) -> Result<()> {
@@ -150,11 +149,7 @@ fn collect_refs(ctx: &CommandContext) -> anyhow::Result<Vec<Refname>> {
         .collect::<Vec<_>>())
 }
 
-fn push_all_refs(
-    ctx: &CommandContext,
-    user: &users::User,
-    project_id: Id<projects::Project>,
-) -> Result<()> {
+fn push_all_refs(ctx: &CommandContext, user: &users::User, project_id: ProjectId) -> Result<()> {
     let gb_references = collect_refs(ctx)?;
     let all_refs: Vec<_> = gb_references
         .iter()
@@ -179,14 +174,13 @@ fn push_all_refs(
     }
     Ok(())
 }
-fn update_project(project_id: Id<projects::Project>, id: git2::Oid) -> Result<()> {
+fn update_project(project_id: ProjectId, id: git2::Oid) -> Result<()> {
     gitbutler_project::update(projects::UpdateRequest {
-        id: project_id,
         gitbutler_code_push_state: Some(CodePushState {
             id,
             timestamp: time::SystemTime::now(),
         }),
-        ..Default::default()
+        ..projects::UpdateRequest::default_with_id(project_id)
     })
     .context("failed to update last push")?;
     Ok(())

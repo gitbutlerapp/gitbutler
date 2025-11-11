@@ -1,12 +1,11 @@
 use but_api::{commands::askpass, error::Error};
-use gitbutler_id::id::Id;
-use gitbutler_repo_actions::askpass::AskpassRequest;
+use gitbutler_repo_actions::askpass::AskpassRequestId;
 use tracing::instrument;
 
 #[tauri::command(async)]
 #[instrument(skip(response))]
 pub async fn submit_prompt_response(
-    id: Id<AskpassRequest>,
+    id: AskpassRequestId,
     response: Option<String>,
 ) -> Result<(), Error> {
     askpass::submit_prompt_response(askpass::SubmitPromptResponseParams { id, response }).await

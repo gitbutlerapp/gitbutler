@@ -214,7 +214,7 @@ fn inject_branch_steps_into_destination(
 /// Extracts the steps corresponding to the branch to move, and rebases the source stack without those steps.
 fn extract_and_rebase_source_branch(
     ctx: &CommandContext,
-    source_stack_id: but_core::Id<'S'>,
+    source_stack_id: StackId,
     subject_branch_name: &str,
     repository: &gix::Repository,
     vb_state: &VirtualBranchesHandle,

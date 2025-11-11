@@ -11,6 +11,21 @@ autotests = false
 doctest = false
 
 [dependencies]
+but-error.workspace = true
+but-rebase.workspace = true
+but-core.workspace = true
+but-status.workspace = true
+but-gerrit.workspace = true
+
+gitbutler-command-context.workspace = true
+gitbutler-project.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-commit.workspace = true
+gitbutler-url.workspace = true
+gitbutler-cherry-pick.workspace = true
+gitbutler-oxidize.workspace = true
+gitbutler-diff.workspace = true
+
 git2.workspace = true
 git2-hooks.workspace = true
 gix = { workspace = true, features = ["merge", "status", "tree-editor"] }
@@ -21,19 +36,6 @@ tempfile.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 resolve-path = "0.1.0"
-gitbutler-command-context.workspace = true
-gitbutler-project.workspace = true
-gitbutler-reference.workspace = true
-gitbutler-error.workspace = true
-gitbutler-commit.workspace = true
-gitbutler-url.workspace = true
-gitbutler-cherry-pick.workspace = true
-gitbutler-oxidize.workspace = true
-gitbutler-diff.workspace = true
-but-rebase.workspace = true
-but-core.workspace = true
-but-status.workspace = true
-but-gerrit.workspace = true
 uuid.workspace = true
 itertools.workspace = true
 toml.workspace = true

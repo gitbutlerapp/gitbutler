@@ -325,7 +325,7 @@ impl Claudes {
 async fn handle_exit(
     ctx: Arc<Mutex<CommandContext>>,
     broadcaster: Arc<Mutex<Broadcaster>>,
-    stack_id: but_core::Id<'S'>,
+    stack_id: StackId,
     session_id: uuid::Uuid,
     mut read_stderr: PipeReader,
     mut handle: Child,

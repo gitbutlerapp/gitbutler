@@ -454,9 +454,8 @@ pub fn fetch_from_remotes(
     //
     // TODO: This cross dependency likely indicates that last_fetched is stored in the wrong place - value is coupled with virtual branches state
     gitbutler_project::update(gitbutler_project::UpdateRequest {
-        id: project.id,
         project_data_last_fetched: Some(project_data_last_fetched.clone()),
-        ..Default::default()
+        ..gitbutler_project::UpdateRequest::default_with_id(project.id)
     })
     .context("failed to update project with last fetched timestamp")?;
 

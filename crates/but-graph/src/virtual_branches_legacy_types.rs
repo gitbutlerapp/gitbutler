@@ -19,7 +19,7 @@ pub struct VirtualBranches {
     pub branch_targets: HashMap<StackId, Target>,
     /// The current state of the virtual branches
     pub branches: HashMap<StackId, Stack>,
-    #[serde(with = "gitbutler_serde::object_id_opt", default)]
+    #[serde(with = "but_serde::object_id_opt", default)]
     pub last_pushed_base: Option<gix::ObjectId>,
 }
 
@@ -49,7 +49,7 @@ mod stack {
         /// Used e.g. when listing commits from a fork.
         pub upstream: Option<RemoteRefname>,
         // upstream_head is the last commit on we've pushed to the upstream branch
-        #[serde(with = "gitbutler_serde::object_id_opt", default)]
+        #[serde(with = "but_serde::object_id_opt", default)]
         pub upstream_head: Option<gix::ObjectId>,
         #[serde(
             serialize_with = "serialize_u128",
@@ -62,10 +62,10 @@ mod stack {
         )]
         pub updated_timestamp_ms: u128,
         /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
-        #[serde(with = "gitbutler_serde::object_id")]
+        #[serde(with = "but_serde::object_id")]
         pub tree: gix::ObjectId,
         /// head is id of the last "virtual" commit in this branch
-        #[serde(with = "gitbutler_serde::object_id")]
+        #[serde(with = "but_serde::object_id")]
         pub head: gix::ObjectId,
         pub ownership: BranchOwnershipClaims,
         // order is the number by which UI should sort branches

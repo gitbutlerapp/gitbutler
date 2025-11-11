@@ -61,9 +61,9 @@ fn annotate_linux_keychain(err: anyhow::Error) -> anyhow::Error {
         // Ideally, e2e could be made to auto-confirm this particular message after a timeout, maybe?
         || (!cfg!(debug_assertions) && err_string.contains("DBus error"))
     {
-        err.context(gitbutler_error::error::Code::SecretKeychainNotFound)
+        err.context(but_error::Code::SecretKeychainNotFound)
     } else if err_string.contains("Secret Service: no result found") {
-        err.context(gitbutler_error::error::Code::MissingLoginKeychain)
+        err.context(but_error::Code::MissingLoginKeychain)
     } else {
         err
     }

@@ -56,7 +56,7 @@
 //!
 //! ```rust
 //!# use anyhow::{Result, Context};
-//!# use gitbutler_error::error::Code;
+//!# use but_error::Code;
 //!
 //! fn do_io() -> std::io::Result<()> {
 //!     Err(std::io::Error::new(std::io::ErrorKind::Other, "this didn't work"))
@@ -82,15 +82,15 @@
 //!
 //! ```rust
 //!# use anyhow::{Result, Context};
-//!# use gitbutler_error::error;
+//!# use but_error::Code;
 //!
 //! fn do_io() -> std::io::Result<()> {
 //!     Err(std::io::Error::new(std::io::ErrorKind::Other, "this didn't work"))
 //! }
 //!
 //! fn a() -> Result<()> {
-//!     do_io().context(error::Context::new("This message is shown and only this meessage")
-//!                         .with_code(error::Code::Validation))
+//!     do_io().context(but_error::Context::new("This message is shown and only this meessage")
+//!                         .with_code(Code::Validation))
 //! }
 //!
 //! fn main() {

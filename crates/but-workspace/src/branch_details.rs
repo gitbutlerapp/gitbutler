@@ -2,8 +2,8 @@ use std::{collections::HashSet, path::Path};
 
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
+use but_error::Code;
 use gitbutler_command_context::CommandContext;
-use gitbutler_error::error::Code;
 use gitbutler_oxidize::OidExt;
 use gix::{date::parse::TimeBuf, prelude::ObjectIdExt, reference::Category, remote::Direction};
 use itertools::Itertools;

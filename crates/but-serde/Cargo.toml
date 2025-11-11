@@ -1,5 +1,5 @@
 [package]
-name = "gitbutler-id"
+name = "but-serde"
 version = "0.0.0"
 edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
@@ -9,6 +9,12 @@ rust-version = "1.89"
 [lib]
 doctest = false
 
+[features]
+legacy = ["dep:git2"]
+
 [dependencies]
+git2 = { workspace = true, optional = true }
+
+gix.workspace = true
 serde.workspace = true
-uuid.workspace = true
+bstr.workspace = true

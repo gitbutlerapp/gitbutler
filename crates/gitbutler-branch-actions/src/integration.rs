@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, anyhow};
 use bstr::ByteSlice;
+use but_error::Marker;
 use but_workspace::branch::checkout::UncommitedWorktreeChanges;
 use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_error::error::Marker;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::WorktreeWritePermission;

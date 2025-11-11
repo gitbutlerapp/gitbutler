@@ -10,6 +10,18 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
+but-db.workspace = true
+but-core.workspace = true
+but-hunk-assignment.workspace = true
+but-graph.workspace = true
+but-workspace.workspace = true
+but-hunk-dependency.workspace = true
+
+gitbutler-command-context.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-branch-actions.workspace = true
+
 anyhow.workspace = true
 itertools.workspace = true
 serde.workspace = true
@@ -18,14 +30,4 @@ gix = { workspace = true }
 chrono.workspace = true
 serde_regex = "1.1.0"
 serde_json.workspace = true
-gitbutler-command-context.workspace = true
-but-db.workspace = true
-but-core.workspace = true
-but-hunk-assignment.workspace = true
-but-graph.workspace = true
-but-workspace.workspace = true
-but-hunk-dependency.workspace = true
-gitbutler-stack.workspace = true
-gitbutler-branch.workspace = true
-gitbutler-branch-actions.workspace = true
 uuid.workspace = true

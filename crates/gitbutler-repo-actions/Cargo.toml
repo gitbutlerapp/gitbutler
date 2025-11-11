@@ -10,6 +10,19 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
+but-error.workspace = true
+but-core.workspace = true
+
+gitbutler-command-context.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-oxidize.workspace = true
+gitbutler-git.workspace = true
+gitbutler-project.workspace = true
+gitbutler-commit.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-time.workspace = true
+
 git2.workspace = true
 serde.workspace = true
 tokio = { workspace = true, features = [
@@ -20,15 +33,4 @@ tokio = { workspace = true, features = [
 ] }
 log = "^0.4"
 anyhow.workspace = true
-gitbutler-command-context.workspace = true
 tracing.workspace = true
-gitbutler-stack.workspace = true
-gitbutler-id.workspace = true
-gitbutler-oxidize.workspace = true
-gitbutler-git.workspace = true
-gitbutler-project.workspace = true
-gitbutler-error.workspace = true
-gitbutler-commit.workspace = true
-gitbutler-reference.workspace = true
-gitbutler-repo.workspace = true
-gitbutler-time.workspace = true

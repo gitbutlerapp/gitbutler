@@ -1,7 +1,7 @@
 use but_api_macros::api_cmd;
 use but_core::{RepositoryExt, settings::git::ui::GitConfigSettings};
+use but_serde::bstring_opt_lossy;
 use gitbutler_project::ProjectId;
-use gitbutler_serde::bstring_opt_lossy;
 use gix::bstr::BString;
 use serde::Serialize;
 use tracing::instrument;

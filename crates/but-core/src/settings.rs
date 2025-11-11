@@ -15,7 +15,7 @@ pub mod git {
 
     /// UI types
     pub mod ui {
-        use gitbutler_serde::BStringForFrontend;
+        use but_serde::BStringForFrontend;
 
         /// See [`GitConfigSettings`](crate::GitConfigSettings) for the docs.
         #[derive(Debug, PartialEq, Clone, Default, serde::Serialize, serde::Deserialize)]

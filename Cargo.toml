@@ -3,6 +3,68 @@ members = ["crates/gitbutler-*", "crates/but-*", "crates/but"]
 resolver = "2"
 
 [workspace.dependencies]
+but = { path = "crates/but" }
+but-testsupport = { path = "crates/but-testsupport" }
+but-rebase = { path = "crates/but-rebase" }
+but-core = { path = "crates/but-core" }
+but-project = { path = "crates/but-project" }
+but-workspace = { path = "crates/but-workspace" }
+but-hunk-assignment = { path = "crates/but-hunk-assignment" }
+but-hunk-dependency = { path = "crates/but-hunk-dependency" }
+but-worktrees = { path = "crates/but-worktrees" }
+but-db = { path = "crates/but-db" }
+but-path = { path = "crates/but-path" }
+but-graph = { path = "crates/but-graph" }
+but-rules = { path = "crates/but-rules" }
+but-action = { path = "crates/but-action" }
+but-bot = { path = "crates/but-bot" }
+but-status = { path = "crates/but-status" }
+but-tools = { path = "crates/but-tools" }
+but-api = { path = "crates/but-api" }
+but-api-macros = { path = "crates/but-api-macros" }
+but-claude = { path = "crates/but-claude" }
+but-cursor = { path = "crates/but-cursor" }
+but-broadcaster = { path = "crates/but-broadcaster" }
+but-gerrit = { path = "crates/but-gerrit" }
+but-cherry-apply = { path = "crates/but-cherry-apply" }
+but-github = { path = "crates/but-github" }
+but-error = { path = "crates/but-error" }
+but-serde = { path = "crates/but-serde" }
+but-secret = { path = "crates/but-secret" }
+but-feedback = { path = "crates/but-feedback" }
+but-forge-storage = { path = "crates/but-forge-storage" }
+but-settings = { path = "crates/but-settings" }
+
+gitbutler-git = { path = "crates/gitbutler-git" }
+gitbutler-watcher = { path = "crates/gitbutler-watcher" }
+gitbutler-filemonitor = { path = "crates/gitbutler-filemonitor" }
+gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
+gitbutler-branch-actions = { path = "crates/gitbutler-branch-actions" }
+gitbutler-sync = { path = "crates/gitbutler-sync" }
+gitbutler-oplog = { path = "crates/gitbutler-oplog" }
+gitbutler-repo = { path = "crates/gitbutler-repo" }
+gitbutler-repo-actions = { path = "crates/gitbutler-repo-actions" }
+gitbutler-command-context = { path = "crates/gitbutler-command-context" }
+gitbutler-project = { path = "crates/gitbutler-project" }
+gitbutler-user = { path = "crates/gitbutler-user" }
+gitbutler-branch = { path = "crates/gitbutler-branch" }
+gitbutler-reference = { path = "crates/gitbutler-reference" }
+gitbutler-storage = { path = "crates/gitbutler-storage" }
+gitbutler-fs = { path = "crates/gitbutler-fs" }
+gitbutler-time = { path = "crates/gitbutler-time" }
+gitbutler-commit = { path = "crates/gitbutler-commit" }
+gitbutler-tagged-string = { path = "crates/gitbutler-tagged-string" }
+gitbutler-url = { path = "crates/gitbutler-url" }
+gitbutler-diff = { path = "crates/gitbutler-diff" }
+gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
+gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
+gitbutler-cherry-pick = { path = "crates/gitbutler-cherry-pick" }
+gitbutler-oxidize = { path = "crates/gitbutler-oxidize" }
+gitbutler-stack = { path = "crates/gitbutler-stack" }
+gitbutler-forge = { path = "crates/gitbutler-forge" }
+gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
+gitbutler-workspace = { path = "crates/gitbutler-workspace" }
+
 bstr = "1.12.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 gix = { version = "0.74.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [
@@ -51,43 +113,6 @@ bitflags = "2.9.4"
 notify = "8.2.0"
 snapbox = "0.6.23"
 url = "2.5.7"
-
-gitbutler-id = { path = "crates/gitbutler-id" }
-gitbutler-git = { path = "crates/gitbutler-git" }
-gitbutler-watcher = { path = "crates/gitbutler-watcher" }
-gitbutler-filemonitor = { path = "crates/gitbutler-filemonitor" }
-gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
-gitbutler-branch-actions = { path = "crates/gitbutler-branch-actions" }
-gitbutler-sync = { path = "crates/gitbutler-sync" }
-gitbutler-oplog = { path = "crates/gitbutler-oplog" }
-gitbutler-repo = { path = "crates/gitbutler-repo" }
-gitbutler-repo-actions = { path = "crates/gitbutler-repo-actions" }
-gitbutler-command-context = { path = "crates/gitbutler-command-context" }
-but-feedback = { path = "crates/but-feedback" }
-gitbutler-project = { path = "crates/gitbutler-project" }
-gitbutler-user = { path = "crates/gitbutler-user" }
-gitbutler-branch = { path = "crates/gitbutler-branch" }
-gitbutler-reference = { path = "crates/gitbutler-reference" }
-gitbutler-error = { path = "crates/gitbutler-error" }
-gitbutler-serde = { path = "crates/gitbutler-serde" }
-but-secret = { path = "crates/but-secret" }
-gitbutler-storage = { path = "crates/gitbutler-storage" }
-gitbutler-fs = { path = "crates/gitbutler-fs" }
-gitbutler-time = { path = "crates/gitbutler-time" }
-gitbutler-commit = { path = "crates/gitbutler-commit" }
-gitbutler-tagged-string = { path = "crates/gitbutler-tagged-string" }
-gitbutler-url = { path = "crates/gitbutler-url" }
-gitbutler-diff = { path = "crates/gitbutler-diff" }
-gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
-gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
-gitbutler-cherry-pick = { path = "crates/gitbutler-cherry-pick" }
-gitbutler-oxidize = { path = "crates/gitbutler-oxidize" }
-gitbutler-stack = { path = "crates/gitbutler-stack" }
-gitbutler-forge = { path = "crates/gitbutler-forge" }
-gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
-but-forge-storage = { path = "crates/but-forge-storage" }
-but-settings = { path = "crates/but-settings" }
-gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 schemars = { version = "1.0.4", default-features = false, features = [
     "std",
     "derive",
@@ -95,31 +120,6 @@ schemars = { version = "1.0.4", default-features = false, features = [
 async-openai = { version = "0.30.1", default-features = false, features = [
     "rustls",
 ] }
-but = { path = "crates/but" }
-but-testsupport = { path = "crates/but-testsupport" }
-but-rebase = { path = "crates/but-rebase" }
-but-core = { path = "crates/but-core" }
-but-project = { path = "crates/but-project" }
-but-workspace = { path = "crates/but-workspace" }
-but-hunk-assignment = { path = "crates/but-hunk-assignment" }
-but-hunk-dependency = { path = "crates/but-hunk-dependency" }
-but-worktrees = { path = "crates/but-worktrees" }
-but-db = { path = "crates/but-db" }
-but-path = { path = "crates/but-path" }
-but-graph = { path = "crates/but-graph" }
-but-rules = { path = "crates/but-rules" }
-but-action = { path = "crates/but-action" }
-but-bot = { path = "crates/but-bot" }
-but-status = { path = "crates/but-status" }
-but-tools = { path = "crates/but-tools" }
-but-api = { path = "crates/but-api" }
-but-api-macros = { path = "crates/but-api-macros" }
-but-claude = { path = "crates/but-claude" }
-but-cursor = { path = "crates/but-cursor" }
-but-broadcaster = { path = "crates/but-broadcaster" }
-but-gerrit = { path = "crates/but-gerrit" }
-but-cherry-apply = { path = "crates/but-cherry-apply" }
-but-github = { path = "crates/but-github" }
 open = "5.3.2"
 regex = { version = "1.11.3", default-features = false, features = ["std", "unicode" ] }
 clap = { version = "4.5.51", default-features = false, features = ["derive", "std", "help"]}

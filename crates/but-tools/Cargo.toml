@@ -11,6 +11,22 @@ doctest = false
 test = false
 
 [dependencies]
+but-core.workspace = true
+but-workspace.workspace = true
+but-graph.workspace = true
+but-serde.workspace = true
+but-hunk-dependency.workspace = true
+but-hunk-assignment.workspace = true
+
+gitbutler-command-context.workspace = true
+gitbutler-oplog.workspace = true
+gitbutler-branch-actions.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-project.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-oxidize.workspace = true
+gitbutler-reference.workspace = true
+
 async-openai.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
@@ -19,17 +35,3 @@ serde.workspace = true
 serde-error = "0.1.3"
 bstr.workspace = true
 gix.workspace = true
-but-core.workspace = true
-but-workspace.workspace = true
-gitbutler-command-context.workspace = true
-gitbutler-oplog.workspace = true
-but-graph.workspace = true
-gitbutler-branch-actions.workspace = true
-gitbutler-branch.workspace = true
-gitbutler-project.workspace = true
-gitbutler-stack.workspace = true
-gitbutler-serde.workspace = true
-gitbutler-oxidize.workspace = true
-gitbutler-reference.workspace = true
-but-hunk-dependency.workspace = true
-but-hunk-assignment.workspace = true

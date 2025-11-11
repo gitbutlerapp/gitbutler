@@ -10,22 +10,21 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
+but-core.workspace = true
+but-workspace.workspace = true
+but-serde.workspace = true
+
+gitbutler-command-context.workspace = true
+gitbutler-oxidize.workspace = true
+# For `ui` module
+gitbutler-stack.workspace = true
+# TODO: remove once not needed anymore
+git2.workspace = true
+
 anyhow.workspace = true
 itertools.workspace = true
 serde.workspace = true
 gix = { workspace = true, features = [] }
-but-core.workspace = true
-but-workspace.workspace = true
-gitbutler-command-context.workspace = true
-gitbutler-serde.workspace = true
-
-# TODO: remove once not needed anymore
-git2.workspace = true
-gitbutler-oxidize.workspace = true
-
-# For `ui` module
-rustc-hash = "2.1.0"
-gitbutler-stack.workspace = true
 
 [dev-dependencies]
 gix-testtools.workspace = true

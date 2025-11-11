@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use gitbutler_error::{error, error::Code};
+use but_error::Code;
 use serde::Deserialize;
 
 use crate::{App, error::Error};
@@ -19,7 +19,7 @@ pub fn get_project_archive_path(
     let project_id = params
         .project_id
         .parse()
-        .context(error::Context::new_static(
+        .context(but_error::Context::new_static(
             Code::Validation,
             "Malformed project id",
         ))?;
@@ -41,7 +41,7 @@ pub fn get_anonymous_graph_path(
     let project_id = params
         .project_id
         .parse()
-        .context(error::Context::new_static(
+        .context(but_error::Context::new_static(
             Code::Validation,
             "Malformed project id",
         ))?;

@@ -1,7 +1,7 @@
 use anyhow::Context;
 use but_api::error::Error;
+use but_error::Code;
 use but_settings::AppSettingsWithDiskSync;
-use gitbutler_error::error::{self, Code};
 #[cfg(target_os = "macos")]
 use tauri::menu::AboutMetadata;
 use tauri::{
@@ -23,7 +23,7 @@ pub fn menu_item_set_enabled(handle: AppHandle, id: &str, enabled: bool) -> Resu
         .menu()
         .context("menu not found")?
         .get(id)
-        .with_context(|| error::Context::new(format!("menu item not found: {id}")))?;
+        .with_context(|| but_error::Context::new(format!("menu item not found: {id}")))?;
 
     menu_item
         .as_menuitem()
@@ -37,7 +37,7 @@ pub fn menu_item_set_enabled(handle: AppHandle, id: &str, enabled: bool) -> Resu
 pub fn build<R: Runtime>(
     handle: &AppHandle<R>,
     #[cfg_attr(target_os = "linux", allow(unused_variables))] settings: &AppSettingsWithDiskSync,
-) -> tauri::Result<tauri::menu::Menu<R>> {
+) -> tauri::Result<Menu<R>> {
     let check_for_updates =
         MenuItemBuilder::with_id("global/update", "Check for updates…").build(handle)?;
 
@@ -360,7 +360,7 @@ pub fn handle_event<R: Runtime>(
     tracing::error!("unhandled 'help' menu event: {}", event.id().0);
 }
 
-fn emit<R: Runtime>(window: &tauri::WebviewWindow<R>, event: &str, shortcut: &str) {
+fn emit<R: Runtime>(window: &WebviewWindow<R>, event: &str, shortcut: &str) {
     if let Err(err) = window.emit(event, shortcut) {
         tracing::error!(error = ?err, "failed to emit event");
     }

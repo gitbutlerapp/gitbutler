@@ -4,9 +4,9 @@ use std::{
 };
 
 use anyhow::{Result, anyhow};
+use but_error::Code;
 use but_graph::virtual_branches_legacy_types;
 use git2::Repository;
-use gitbutler_error::error::Code;
 use gitbutler_fs::read_toml_file_or_default;
 use gitbutler_oxidize::{ObjectIdExt, OidExt as _, RepoExt};
 use gitbutler_reference::Refname;

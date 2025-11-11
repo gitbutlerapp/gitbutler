@@ -3,7 +3,7 @@ use but_hunk_assignment::HunkAssignment;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub(crate) struct FileAssignment {
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    #[serde(with = "but_serde::bstring_lossy")]
     pub path: BString,
     pub assignments: Vec<HunkAssignment>,
 }

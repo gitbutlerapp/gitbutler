@@ -73,10 +73,10 @@ use gitbutler_stack::{Stack, StackId};
 #[serde(rename_all = "camelCase")]
 pub struct StackHeadInfo {
     /// The name of the branch.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    #[serde(with = "but_serde::bstring_lossy")]
     pub name: BString,
     /// The tip of the branch.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub tip: gix::ObjectId,
     /// If `true`, then this head is checked directly so `HEAD` points to it, and this is only ever `true` for a single head.
     /// This is `false` if the worktree is checked out.
@@ -107,7 +107,7 @@ pub struct StackEntry {
     /// The first entry in the list is always the most recent branch on top the stack.
     pub heads: Vec<StackHeadInfo>,
     /// The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub tip: gix::ObjectId,
     /// The zero-based index for sorting stacks.
     pub order: Option<usize>,
@@ -127,7 +127,7 @@ pub struct StackEntryNoOpt {
     /// The first entry in the list is always the most recent branch on top the stack.
     pub heads: Vec<StackHeadInfo>,
     /// The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub tip: gix::ObjectId,
     /// The zero-based index for sorting stacks.
     pub order: Option<usize>,
@@ -229,7 +229,7 @@ pub enum CommitState {
     ///
     /// This variant carries the remote commit id.
     /// The `remote_commit_id` may be the same as the `id` or it may be different if the local commit has been rebased or updated in another way.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     LocalAndRemote(gix::ObjectId),
     /// The commit is considered integrated.
     /// This should happen when this commit or the contents of this commit is already part of the base.
@@ -257,13 +257,13 @@ impl CommitState {
 #[serde(rename_all = "camelCase")]
 pub struct Commit {
     /// The OID of the commit.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub id: gix::ObjectId,
     /// The parent OIDs of the commit.
-    #[serde(with = "gitbutler_serde::object_id_vec")]
+    #[serde(with = "but_serde::object_id_vec")]
     pub parent_ids: Vec<gix::ObjectId>,
     /// The message of the commit.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    #[serde(with = "but_serde::bstring_lossy")]
     pub message: BString,
     /// Whether the commit is in a conflicted state.
     /// The Conflicted state of a commit is a GitButler concept.
@@ -317,10 +317,10 @@ impl std::fmt::Debug for Commit {
 #[serde(rename_all = "camelCase")]
 pub struct UpstreamCommit {
     /// The OID of the commit.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub id: gix::ObjectId,
     /// The message of the commit.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    #[serde(with = "but_serde::bstring_lossy")]
     pub message: BString,
     /// Commit creation time in Epoch milliseconds.
     pub created_at: i128,
@@ -360,14 +360,14 @@ pub enum PushStatus {
 #[serde(rename_all = "camelCase")]
 pub struct BranchDetails {
     /// The name of the branch.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    #[serde(with = "but_serde::bstring_lossy")]
     pub name: BString,
     /// The id of the linked worktree that has the reference of `name` checked out.
     /// Note that we don't list the main worktree here.
-    #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
+    #[serde(with = "but_serde::bstring_opt_lossy")]
     pub linked_worktree_id: Option<BString>,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
-    #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
+    #[serde(with = "but_serde::bstring_opt_lossy")]
     pub remote_tracking_branch: Option<BString>,
     /// Description of the branch.
     /// Can include arbitrary utf8 data, eg. markdown etc.
@@ -378,12 +378,12 @@ pub struct BranchDetails {
     pub review_id: Option<String>,
     /// This is the last commit in the branch, aka the tip of the branch.
     /// If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub tip: gix::ObjectId,
     /// This is the base commit from the perspective of this branch.
     /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
     /// If this branch is at the bottom of the stack, this is the merge base of the stack.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub base_commit: gix::ObjectId,
     /// The pushable status for the branch.
     pub push_status: PushStatus,
@@ -420,10 +420,10 @@ pub struct StackDetails {
 #[serde(rename_all = "camelCase")]
 pub struct Branch {
     /// The name of the branch.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    #[serde(with = "but_serde::bstring_lossy")]
     pub name: BString,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
-    #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
+    #[serde(with = "but_serde::bstring_opt_lossy")]
     pub remote_tracking_branch: Option<BString>,
     /// Description of the branch.
     /// Can include arbitrary utf8 data, eg. markdown etc.
@@ -439,11 +439,11 @@ pub struct Branch {
     pub archived: bool,
     /// This is the last commit in the branch, aka the tip of the branch.
     /// If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub tip: gix::ObjectId,
     /// This is the base commit from the perspective of this branch.
     /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
     /// If this branch is at the bottom of the stack, this is the merge base of the stack.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub base_commit: gix::ObjectId,
 }

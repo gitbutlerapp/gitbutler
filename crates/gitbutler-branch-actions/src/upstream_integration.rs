@@ -5,6 +5,7 @@ use bstr::ByteSlice;
 use but_core::Reference;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_rebase::{RebaseOutput, RebaseStep};
+use but_serde::BStringForFrontend;
 use but_workspace::{ref_info::Options, stack_ext::StackDetailsExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
@@ -17,7 +18,6 @@ use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt as _},
     rebase::gitbutler_merge_commits,
 };
-use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{StackId, Target, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
 use gix::merge::tree::TreatAsUnresolved;
@@ -90,7 +90,7 @@ pub enum ResolutionApproach {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct BaseBranchResolution {
-    #[serde(with = "gitbutler_serde::oid")]
+    #[serde(with = "but_serde::oid")]
     target_commit_oid: git2::Oid,
     approach: BaseBranchResolutionApproach,
 }

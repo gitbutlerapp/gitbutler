@@ -18,7 +18,7 @@ pub use frontend::{Error, ToError, UnmarkedError};
 mod frontend {
     use std::borrow::Cow;
 
-    use gitbutler_error::error::AnyhowContextExt;
+    use but_error::AnyhowContextExt;
     use serde::{Serialize, ser::SerializeMap};
 
     /// An error type for serialization which isn't expected to carry a code.
@@ -104,7 +104,7 @@ mod frontend {
     #[cfg(test)]
     mod tests {
         use anyhow::anyhow;
-        use gitbutler_error::error::{Code, Context};
+        use but_error::{Code, Context};
 
         use super::*;
 
