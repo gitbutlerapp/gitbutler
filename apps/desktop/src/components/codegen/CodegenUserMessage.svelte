@@ -47,14 +47,8 @@
 		/* make code blocks visible */
 		:global(.markdown pre) {
 			max-height: 400px;
-			margin: 0 -12px;
-			padding: 0;
-			padding: 6px 12px;
 			overflow-y: auto;
-			border: none;
-			border-radius: 0;
-			background-color: var(--clr-scale-ntrl-20);
-			color: white;
+			background-color: var(--clr-bg-1);
 		}
 	}
 </style>
