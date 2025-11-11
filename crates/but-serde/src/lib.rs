@@ -51,6 +51,7 @@ where
     vec.serialize(s)
 }
 
+#[cfg(feature = "legacy")]
 pub fn as_time_seconds_from_unix_epoch<S>(v: &git2::Time, s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
@@ -58,6 +59,7 @@ where
     v.seconds().serialize(s)
 }
 
+#[cfg(feature = "legacy")]
 pub mod oid_opt {
     use serde::{Deserialize, Deserializer, Serialize};
 
@@ -82,14 +84,13 @@ pub mod oid_opt {
 }
 
 pub mod object_id_opt {
-    use gitbutler_oxidize::{ObjectIdExt, OidExt};
     use serde::{Deserialize, Deserializer, Serialize};
 
     pub fn serialize<S>(v: &Option<gix::ObjectId>, s: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        v.as_ref().map(|v| v.to_git2().to_string()).serialize(s)
+        v.as_ref().map(|v| v.to_string()).serialize(s)
     }
 
     pub fn deserialize<'de, D>(d: D) -> Result<Option<gix::ObjectId>, D::Error>
@@ -98,15 +99,14 @@ pub mod object_id_opt {
     {
         let hex = <Option<String> as Deserialize>::deserialize(d)?;
         hex.map(|v| {
-            v.parse::<git2::Oid>()
-                .map(|oid| oid.to_gix())
-                .map_err(|err: git2::Error| serde::de::Error::custom(err.to_string()))
+            v.parse::<gix::ObjectId>()
+                .map_err(|err| serde::de::Error::custom(err.to_string()))
         })
         .transpose()
     }
 }
 
-/// use like `#[serde(with = "gitbutler_serde::object_id")]` to serialize [`gix::ObjectId`].
+/// use like `#[serde(with = "but_serde::object_id")]` to serialize [`gix::ObjectId`].
 pub mod object_id {
     use std::str::FromStr;
 
@@ -161,6 +161,7 @@ pub mod object_id_vec {
     }
 }
 
+#[cfg(feature = "legacy")]
 pub mod oid_vec {
     use serde::{Deserialize, Deserializer, Serialize};
 
@@ -188,6 +189,7 @@ pub mod oid_vec {
     }
 }
 
+#[cfg(feature = "legacy")]
 pub mod oid {
     use serde::{Deserialize, Deserializer, Serialize};
 

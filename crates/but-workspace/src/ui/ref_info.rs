@@ -209,7 +209,7 @@ pub struct Stack {
     /// which we branched off.
     /// Otherwise, it's the merge-base of all stacks in the current workspace.
     /// It is `None` if this is a stack derived from a branch without relation to any other branch.
-    #[serde(with = "gitbutler_serde::object_id_opt")]
+    #[serde(with = "but_serde::object_id_opt")]
     pub base: Option<gix::ObjectId>,
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
@@ -279,7 +279,7 @@ pub struct Segment {
     /// of the commit-graph along the first parent.
     /// It is `None` if the stack segment contains the first commit in the history, an orphan without ancestry,
     /// or if the history traversal was stopped early.
-    #[serde(with = "gitbutler_serde::object_id_opt")]
+    #[serde(with = "but_serde::object_id_opt")]
     pub base: Option<gix::ObjectId>,
 }
 

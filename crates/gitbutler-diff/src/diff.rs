@@ -2,10 +2,10 @@ use std::{borrow::Cow, collections::HashMap, path::PathBuf, str};
 
 use anyhow::{Context, Result};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
+use but_serde::BStringForFrontend;
 use git2::DiffHunk;
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::RepositoryExtLite;
-use gitbutler_serde::BStringForFrontend;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 

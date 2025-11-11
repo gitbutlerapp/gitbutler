@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 use bstr::BString;
-use gitbutler_serde::BStringForFrontend;
+use but_serde::BStringForFrontend;
 use gix::object::tree::EntryKind;
 use serde::{Deserialize, Serialize};
 
@@ -217,7 +217,7 @@ impl From<crate::TreeStatus> for TreeStatus {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ChangeState {
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub id: gix::ObjectId,
     pub kind: EntryKind,
 }

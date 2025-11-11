@@ -18,20 +18,6 @@ doctest = false
 [features]
 
 [dependencies]
-posthog-rs = { version = "0.3.7" }
-serde.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
-strum = { version = "0.27", features = ["derive"] }
-clap = { workspace = true, features = ["env", "wrap_help", "color", "error-context", "usage", "suggestions" ] }
-clap_complete = "4.5.60"
-chrono.workspace = true
-bstr.workspace = true
-regex.workspace = true
-anyhow.workspace = true
-rmcp.workspace = true
-command-group = { version = "5.0.1", features = ["with-tokio"] }
-gitbutler-project.workspace = true
-gix.workspace = true
 but-core.workspace = true
 but-project = { workspace = true, features = ["legacy"] }
 but-api.workspace = true
@@ -47,18 +33,34 @@ but-tools.workspace = true
 but-rules.workspace = true
 but-gerrit.workspace = true
 but-worktrees.workspace = true
-gitbutler-command-context.workspace = true
-gitbutler-serde.workspace = true
+but-serde.workspace = true
+but-github.workspace = true
+but-secret.workspace = true
+
+gitbutler-project.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-forge.workspace = true
+gitbutler-command-context.workspace = true
 gitbutler-reference.workspace = true
-but-secret.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-oplog.workspace = true
-but-github.workspace = true
+
+posthog-rs = { version = "0.3.7" }
+serde.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
+strum = { version = "0.27", features = ["derive"] }
+clap = { workspace = true, features = ["env", "wrap_help", "color", "error-context", "usage", "suggestions" ] }
+clap_complete = "4.5.60"
+chrono.workspace = true
+bstr.workspace = true
+regex.workspace = true
+anyhow.workspace = true
+rmcp.workspace = true
+command-group = { version = "5.0.1", features = ["with-tokio"] }
+gix.workspace = true
 colored = "3.0.0"
 serde_json.workspace = true
 terminal_size = "0.4.3"

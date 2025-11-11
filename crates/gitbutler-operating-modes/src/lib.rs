@@ -2,9 +2,9 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{Context, Result, bail};
 use bstr::BString;
+use but_serde::BStringForFrontend;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
-use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
@@ -57,7 +57,7 @@ pub fn write_edit_mode_metadata(
 #[serde(rename_all = "camelCase")]
 pub struct EditModeMetadata {
     /// The sha of the commit getting edited.
-    #[serde(with = "gitbutler_serde::oid")]
+    #[serde(with = "but_serde::oid")]
     pub commit_oid: git2::Oid,
     /// The ref of the vbranch which owns this commit.
     pub stack_id: StackId,
@@ -67,7 +67,7 @@ pub struct EditModeMetadata {
 #[serde(rename_all = "camelCase")]
 pub struct OutsideWorkspaceMetadata {
     /// The name of the currently checked out branch or None if in detached head state.
-    #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
+    #[serde(with = "but_serde::bstring_opt_lossy")]
     pub branch_name: Option<BString>,
     /// The paths of any files that would conflict with the workspace as it currently is
     pub worktree_conflicts: Vec<BStringForFrontend>,

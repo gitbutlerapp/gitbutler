@@ -5,9 +5,9 @@ use std::{
     time::SystemTime,
 };
 
+use but_serde::BStringForFrontend;
 use gitbutler_diff::{GitHunk, Hunk, HunkHash};
 use gitbutler_hunk_dependency::locks::HunkLock;
-use gitbutler_serde::BStringForFrontend;
 use itertools::Itertools;
 use md5::Digest;
 use serde::{Deserialize, Serialize};

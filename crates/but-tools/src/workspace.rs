@@ -1648,7 +1648,7 @@ pub struct RichHunk {
 #[serde(rename_all = "camelCase")]
 pub struct SimpleCommit {
     /// The commit sha.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub id: gix::ObjectId,
     /// The commit message.
     pub message_title: String,

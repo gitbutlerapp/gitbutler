@@ -16,24 +16,24 @@ use uuid::Uuid;
 pub enum InteractiveIntegrationStep {
     Skip {
         id: Uuid,
-        #[serde(with = "gitbutler_serde::object_id", rename = "commitId")]
+        #[serde(with = "but_serde::object_id", rename = "commitId")]
         commit_id: ObjectId,
     },
     Pick {
         id: Uuid,
-        #[serde(with = "gitbutler_serde::object_id", rename = "commitId")]
+        #[serde(with = "but_serde::object_id", rename = "commitId")]
         commit_id: ObjectId,
     },
     PickUpstream {
         id: Uuid,
-        #[serde(with = "gitbutler_serde::object_id", rename = "commitId")]
+        #[serde(with = "but_serde::object_id", rename = "commitId")]
         commit_id: ObjectId,
-        #[serde(with = "gitbutler_serde::object_id", rename = "upstreamCommitId")]
+        #[serde(with = "but_serde::object_id", rename = "upstreamCommitId")]
         upstream_commit_id: ObjectId,
     },
     Squash {
         id: Uuid,
-        #[serde(with = "gitbutler_serde::object_id_vec", rename = "commits")]
+        #[serde(with = "but_serde::object_id_vec", rename = "commits")]
         commits: Vec<ObjectId>,
         message: Option<String>,
     },

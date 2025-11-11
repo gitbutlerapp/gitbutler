@@ -15,7 +15,7 @@ testing = []
 
 [dependencies]
 but-error.workspace = true
-gitbutler-serde.workspace = true
+but-serde.workspace = true
 
 serde.workspace = true
 bstr.workspace = true
@@ -27,6 +27,7 @@ gix = { workspace = true, features = [
     "parallel",
     "serde",
     "status",
+    "merge"
 ] }
 uuid.workspace = true
 toml.workspace = true

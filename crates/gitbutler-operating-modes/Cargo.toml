@@ -10,17 +10,19 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
+but-serde = { workspace = true, features = ["legacy"] }
+but-workspace.workspace = true
+
+gitbutler-command-context.workspace = true
+gitbutler-fs.workspace = true
+gitbutler-stack.workspace = true
+
 serde.workspace = true
 tracing.workspace = true
 git2.workspace = true
 anyhow.workspace = true
 toml.workspace = true
-gitbutler-command-context.workspace = true
-gitbutler-serde.workspace = true
-gitbutler-fs.workspace = true
 bstr.workspace = true
-but-workspace.workspace = true
-gitbutler-stack.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]

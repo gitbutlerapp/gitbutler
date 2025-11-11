@@ -14,9 +14,9 @@ but-core.workspace = true
 but-graph.workspace = true
 but-rebase.workspace = true
 but-error.workspace = true
+but-serde.workspace = true
 
 gitbutler-oxidize.workspace = true
-gitbutler-serde.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-cherry-pick.workspace = true

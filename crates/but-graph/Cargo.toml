@@ -13,7 +13,7 @@ test = true
 
 [dependencies]
 but-core.workspace = true
-gitbutler-serde.workspace = true
+but-serde.workspace = true
 
 gix = { workspace = true, features = ["revision"] }
 bstr.workspace = true

@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-use gitbutler_serde::BStringForFrontend;
+use but_serde::BStringForFrontend;
 use serde::Serialize;
 
 use crate::commit_engine::RejectionReason;
@@ -12,7 +12,7 @@ pub struct CreateCommitOutcome {
     /// Paths that contained at least one rejected hunk, for instance, a change that didn't apply, along with the reason for the rejection.
     pub paths_to_rejected_changes: Vec<(RejectionReason, BStringForFrontend)>,
     /// The newly created commit, if there was one. It maybe that a couple of paths were rejected, but the commit was created anyway.
-    #[serde(with = "gitbutler_serde::object_id_opt")]
+    #[serde(with = "but_serde::object_id_opt")]
     pub new_commit: Option<gix::ObjectId>,
 }
 

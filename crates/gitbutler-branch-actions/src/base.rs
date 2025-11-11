@@ -35,9 +35,9 @@ pub struct BaseBranch {
     pub remote_url: String,
     pub push_remote_name: Option<String>,
     pub push_remote_url: String,
-    #[serde(with = "gitbutler_serde::oid")]
+    #[serde(with = "but_serde::oid")]
     pub base_sha: git2::Oid,
-    #[serde(with = "gitbutler_serde::oid")]
+    #[serde(with = "but_serde::oid")]
     pub current_sha: git2::Oid,
     pub behind: usize,
     pub upstream_commits: Vec<RemoteCommit>,
@@ -45,9 +45,9 @@ pub struct BaseBranch {
     pub last_fetched_ms: Option<u128>,
     pub conflicted: bool,
     pub diverged: bool,
-    #[serde(with = "gitbutler_serde::oid_vec")]
+    #[serde(with = "but_serde::oid_vec")]
     pub diverged_ahead: Vec<git2::Oid>,
-    #[serde(with = "gitbutler_serde::oid_vec")]
+    #[serde(with = "but_serde::oid_vec")]
     pub diverged_behind: Vec<git2::Oid>,
     pub forge_repo_info: Option<ForgeRepoInfo>,
 }

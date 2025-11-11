@@ -115,6 +115,7 @@ jobs:
       - run: |
           # should work without any features
           cargo check -p but-project
+          cargo check -p but-serde
         name: Special `cargo check` runs
       - name: cargo clippy
         run: |

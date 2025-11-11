@@ -15,7 +15,7 @@ serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 but-error.workspace = true
 but-path.workspace = true
-gitbutler-serde.workspace = true
+but-serde =  { workspace = true, features = ["legacy"] }
 gitbutler-id.workspace = true
 gitbutler-storage.workspace = true
 but-core.workspace = true

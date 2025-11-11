@@ -17,17 +17,8 @@ doctest = false
 tauri = ["dep:tauri"]
 
 [dependencies]
-serde.workspace = true
-tokio = { workspace = true, features = ["full"] }
-anyhow.workspace = true
-serde_json.workspace = true
-tracing.workspace = true
-tauri = { version = "^2.9.2", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
-
 but-settings.workspace = true
 but-github.workspace = true
-gitbutler-user.workspace = true
-gitbutler-project.workspace = true
 but-secret.workspace = true
 but-workspace.workspace = true
 but-worktrees.workspace = true
@@ -37,7 +28,20 @@ but-hunk-assignment.workspace = true
 but-action.workspace = true
 but-api-macros.workspace = true
 but-rebase.workspace = true
-gitbutler-serde.workspace = true
+but-serde.workspace = true
+but-graph.workspace = true
+but-claude.workspace = true
+but-broadcaster.workspace = true
+but-cherry-apply.workspace = true
+but-hunk-dependency.workspace = true
+but-path.workspace = true
+but-forge-storage.workspace = true
+but-feedback.workspace = true
+but-error.workspace = true
+but-rules.workspace = true
+
+gitbutler-user.workspace = true
+gitbutler-project.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-commit.workspace = true
@@ -50,22 +54,20 @@ gitbutler-repo-actions.workspace = true
 gitbutler-edit-mode.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-sync.workspace = true
-but-graph.workspace = true
-but-claude.workspace = true
-but-broadcaster.workspace = true
-but-cherry-apply.workspace = true
 gitbutler-oplog.workspace = true
-but-hunk-dependency.workspace = true
-but-path.workspace = true
-but-forge-storage.workspace = true
+gitbutler-forge.workspace = true
+gitbutler-id.workspace = true
+
+tauri = { version = "^2.9.2", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
+
+serde.workspace = true
+tokio = { workspace = true, features = ["full"] }
+anyhow.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
 serde-error = "0.1.3"
 gix = { workspace = true, features = ["worktree-mutation" ] }
 git2.workspace = true
-but-feedback.workspace = true
-but-error.workspace = true
-but-rules.workspace = true
-gitbutler-forge.workspace = true
 open.workspace = true
 url = "2.5"
-gitbutler-id.workspace = true
 uuid.workspace = true

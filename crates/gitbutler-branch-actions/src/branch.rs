@@ -9,13 +9,13 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
+use but_serde::BStringForFrontend;
 use gitbutler_branch::{BranchIdentity, ReferenceExtGix};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_oxidize::{GixRepositoryExt, git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::{RemoteRefname, normalize_branch_name};
-use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Stack, StackId, Target};
 use gix::{object::tree::diff::Action, prelude::TreeDiffChangeExt, reference::Category};
 use serde::{Deserialize, Serialize};
@@ -587,7 +587,7 @@ pub struct BranchListing {
     pub name: BranchIdentity,
     /// This is a list of remotes that this branch can be found on (e.g. `origin`, `upstream` etc.),
     /// by collecting remotes from all local branches with the same identity that have a tracking setup.
-    #[serde(serialize_with = "gitbutler_serde::as_string_lossy_vec_remote_name")]
+    #[serde(serialize_with = "but_serde::as_string_lossy_vec_remote_name")]
     pub remotes: Vec<gix::remote::Name<'static>>,
     /// The branch may or may not have a virtual branch associated with it.
     pub stack: Option<StackReference>,

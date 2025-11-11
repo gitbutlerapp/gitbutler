@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::Result;
+use but_serde::BStringForFrontend;
 use git2::BranchType;
 use gitbutler_branch::ReferenceExt;
 use gitbutler_command_context::CommandContext;
@@ -8,7 +9,6 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt};
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::Serialize;
 
@@ -17,14 +17,14 @@ use crate::author::Author;
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranchData {
-    #[serde(with = "gitbutler_serde::oid")]
+    #[serde(with = "but_serde::oid")]
     pub sha: git2::Oid,
     pub name: Refname,
     pub given_name: String,
     pub upstream: Option<RemoteRefname>,
     pub behind: u32,
     pub commits: Vec<RemoteCommit>,
-    #[serde(with = "gitbutler_serde::oid_opt", default)]
+    #[serde(with = "but_serde::oid_opt", default)]
     pub fork_point: Option<git2::Oid>,
     pub is_remote: bool,
 }
@@ -37,7 +37,7 @@ pub struct RemoteCommit {
     pub created_at: u128,
     pub author: Author,
     pub change_id: Option<String>,
-    #[serde(with = "gitbutler_serde::oid_vec")]
+    #[serde(with = "but_serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
     pub conflicted: bool,
 }

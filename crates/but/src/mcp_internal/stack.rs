@@ -59,10 +59,10 @@ pub fn create_stack_with_branch(
 #[serde(rename_all = "camelCase")]
 pub struct Commit {
     /// The OID of the commit.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub id: gix::ObjectId,
     /// The message of the commit.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    #[serde(with = "but_serde::bstring_lossy")]
     pub message: BString,
     /// The author of the commit.
     pub author: String,
@@ -86,10 +86,10 @@ impl std::fmt::Debug for Commit {
 #[serde(rename_all = "camelCase")]
 pub struct UpstreamCommit {
     /// The OID of the commit.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub id: gix::ObjectId,
     /// The message of the commit.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    #[serde(with = "but_serde::bstring_lossy")]
     pub message: BString,
     /// The author of the commit.
     pub author: String,
@@ -121,10 +121,10 @@ impl From<but_workspace::ui::UpstreamCommit> for UpstreamCommit {
 #[serde(rename_all = "camelCase")]
 pub struct BranchDetails {
     /// The name of the branch.
-    #[serde(with = "gitbutler_serde::bstring_lossy")]
+    #[serde(with = "but_serde::bstring_lossy")]
     pub name: BString,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
-    #[serde(with = "gitbutler_serde::bstring_opt_lossy")]
+    #[serde(with = "but_serde::bstring_opt_lossy")]
     pub remote_tracking_branch: Option<BString>,
     /// Description of the branch.
     /// Can include arbitrary utf8 data, eg. markdown etc.
@@ -135,7 +135,7 @@ pub struct BranchDetails {
     pub review_id: Option<String>,
     /// This is the last commit in the branch, aka the tip of the branch.
     /// If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub tip: gix::ObjectId,
     /// All authors of the commits in the branch.
     pub authors: Vec<String>,

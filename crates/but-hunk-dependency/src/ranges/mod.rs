@@ -29,7 +29,7 @@ pub struct WorkspaceRanges {
 pub struct CalculationError {
     pub error_message: String,
     pub stack_id: StackId,
-    #[serde(serialize_with = "gitbutler_serde::object_id::serialize")]
+    #[serde(serialize_with = "but_serde::object_id::serialize")]
     pub commit_id: gix::ObjectId,
     pub path: BString,
 }

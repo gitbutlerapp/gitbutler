@@ -12,7 +12,7 @@ use uuid::Uuid;
 pub struct RewordOutcome {
     pub stack_id: StackId,
     pub branch_name: String,
-    #[serde(with = "gitbutler_serde::object_id")]
+    #[serde(with = "but_serde::object_id")]
     pub commit_id: ObjectId,
     pub new_message: String,
 }
@@ -104,10 +104,10 @@ pub struct Workflow {
     /// The status of the workflow.
     status: Status,
     /// Input commits
-    #[serde(with = "gitbutler_serde::object_id_vec")]
+    #[serde(with = "but_serde::object_id_vec")]
     input_commits: Vec<ObjectId>,
     /// Output commits
-    #[serde(with = "gitbutler_serde::object_id_vec")]
+    #[serde(with = "but_serde::object_id_vec")]
     output_commits: Vec<ObjectId>,
     /// Optional summary of the workflow
     summary: Option<String>,

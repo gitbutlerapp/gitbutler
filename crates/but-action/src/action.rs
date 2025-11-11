@@ -47,10 +47,10 @@ pub struct ButlerAction {
     /// The handler / implementation that performed the action.
     handler: ActionHandler,
     /// A GitBulter Oplog snapshot ID before the action was performed.
-    #[serde(serialize_with = "gitbutler_serde::object_id::serialize")]
+    #[serde(serialize_with = "but_serde::object_id::serialize")]
     snapshot_before: gix::ObjectId,
     /// A GitBulter Oplog snapshot ID after the action was performed.
-    #[serde(serialize_with = "gitbutler_serde::object_id::serialize")]
+    #[serde(serialize_with = "but_serde::object_id::serialize")]
     snapshot_after: gix::ObjectId,
     /// The outcome of the action, if it was successful.
     response: Option<Outcome>,
