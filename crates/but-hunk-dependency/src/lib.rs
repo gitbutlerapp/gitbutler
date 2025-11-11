@@ -129,7 +129,7 @@ mod input;
 
 use anyhow::Context;
 use but_core::{TreeChange, UnifiedPatch};
-use gitbutler_oxidize::ObjectIdExt;
+use but_oxidize::ObjectIdExt;
 use gix::{prelude::ObjectIdExt as _, trace};
 pub use input::{InputCommit, InputDiffHunk, InputFile, InputStack};
 

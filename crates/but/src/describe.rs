@@ -1,9 +1,9 @@
 use std::io::Write;
 
 use anyhow::Result;
+use but_oxidize::ObjectIdExt;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::Project;
 
 use crate::{editor::get_text_from_editor_no_comments, id::CliId};

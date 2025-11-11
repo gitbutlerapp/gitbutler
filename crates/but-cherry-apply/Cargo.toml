@@ -13,8 +13,8 @@ doctest = false
 but-workspace = {workspace = true, features = ["legacy"]}
 but-rebase.workspace = true
 but-graph.workspace = true
+but-oxidize.workspace = true
 
-gitbutler-oxidize.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true
@@ -26,6 +26,8 @@ gix.workspace = true
 serde.workspace = true
 
 [dev-dependencies]
-gix-testtools.workspace = true
+but-oxidize.workspace = true
+
 gitbutler-testsupport.workspace = true
-gitbutler-oxidize.workspace = true
+
+gix-testtools.workspace = true

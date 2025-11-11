@@ -7,10 +7,10 @@ use anyhow::{Context, Result, anyhow, bail};
 use but_core::Reference;
 pub use but_core::ref_metadata::StackId;
 use but_graph::virtual_branches_legacy_types;
+use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use but_rebase::ReferenceSpec;
 use git2::Commit;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_reference::{Refname, RemoteRefname, VirtualRefname, normalize_branch_name};
 use gitbutler_repo::{
     RepositoryExt,

@@ -3,11 +3,11 @@ use std::collections::BTreeMap;
 use anyhow::Context;
 use bstr::ByteSlice;
 use but_api::forge::ListReviewsParams;
+use but_oxidize::OidExt;
 use but_settings::AppSettings;
 use but_workspace::StackId;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::OidExt;
 use gitbutler_project::Project;
 use serde::{Deserialize, Serialize};
 

@@ -3,10 +3,10 @@ use std::{fmt::Display, str::FromStr};
 use anyhow::{Ok, Result};
 use bstr::{BString, ByteSlice};
 use but_graph::virtual_branches_legacy_types;
+use but_oxidize::{ObjectIdExt, RepoExt};
 use git2::Commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
-use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gix::refs::{
     Target,

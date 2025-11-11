@@ -18,6 +18,7 @@ but-workspace = { workspace = true, features = ["legacy"] }
 but-rebase.workspace = true
 but-core.workspace = true
 but-graph.workspace = true
+but-oxidize.workspace = true
 
 gitbutler-oplog.workspace = true
 gitbutler-repo.workspace = true
@@ -30,7 +31,6 @@ gitbutler-url.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-cherry-pick.workspace = true
-gitbutler-oxidize.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-hunk-dependency.workspace = true
 gitbutler-workspace.workspace = true

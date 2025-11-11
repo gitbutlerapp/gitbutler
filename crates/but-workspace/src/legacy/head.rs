@@ -1,8 +1,8 @@
 //! Functions relate to the GitButler workspace head
 use anyhow::{Context, Result};
+use but_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt};
 use gitbutler_repo::{RepositoryExt, SignaturePurpose};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use gix::merge::tree::TreatAsUnresolved;

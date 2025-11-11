@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
+use but_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_hunk_dependency::{
     HunkDependencyOptions, InputCommit, InputDiff, InputFile, InputStack,
     calculate_hunk_dependencies, locks::HunkDependencyResult,
 };
-use gitbutler_oxidize::{ObjectIdExt, RepoExt};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_stack::{Stack, StackId};
 

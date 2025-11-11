@@ -1,8 +1,8 @@
 use anyhow::Result;
+use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
-use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};

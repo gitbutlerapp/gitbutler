@@ -1,8 +1,8 @@
 use colored::Colorize;
 use gix::date::time::CustomFormat;
 
+use but_oxidize::TimeExt;
 use gitbutler_oplog::entry::{OperationKind, Snapshot};
-use gitbutler_oxidize::TimeExt;
 use gitbutler_project::Project;
 use std::io::Write;
 

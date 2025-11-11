@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::anyhow;
+use but_oxidize::OidExt;
 use but_workspace::{DiffSpec, StackId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::OperatingMode;
@@ -8,7 +9,6 @@ use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
 };
-use gitbutler_oxidize::OidExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesHandle;
 use uuid::Uuid;

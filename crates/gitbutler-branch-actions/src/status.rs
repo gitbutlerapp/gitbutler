@@ -1,12 +1,12 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
 use anyhow::{Context, Result, bail};
+use but_oxidize::ObjectIdExt;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{Hunk, diff_files_into_hunks};
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
-use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim, Stack, StackId};
 use tracing::instrument;

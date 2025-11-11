@@ -40,7 +40,7 @@ pub(super) mod function {
 
     use anyhow::{Context, bail};
     use bstr::ByteSlice;
-    use gitbutler_oxidize::GixRepositoryExt;
+    use but_oxidize::GixRepositoryExt;
     use gix::index::entry::{Flags, Stage};
 
     use super::{Options, Outcome};

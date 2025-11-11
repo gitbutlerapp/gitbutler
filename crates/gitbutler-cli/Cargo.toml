@@ -20,6 +20,7 @@ but-settings.workspace = true
 but-graph.workspace = true
 but-workspace.workspace = true
 but-core = { workspace = true, features = ["testing"] }
+but-oxidize.workspace = true
 
 gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
@@ -27,7 +28,6 @@ gitbutler-branch-actions.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-stack.workspace = true
-gitbutler-oxidize.workspace = true
 
 gix = { workspace = true, features = ["max-performance", "tracing"] }
 dirs-next = "2.0.0"

@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use but_core::{UnifiedPatch, unified_diff::DiffHunk};
+use but_oxidize::OidExt;
 use gitbutler_command_context::{CommandContext, gix_repo_for_merging};
-use gitbutler_oxidize::OidExt;
 use gitbutler_stack::StackId;
 use serde::{Deserialize, Serialize};
 

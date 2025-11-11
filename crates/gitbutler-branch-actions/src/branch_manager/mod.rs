@@ -1,6 +1,6 @@
 pub use branch_creation::CreateBranchFromBranchOutcome;
+use but_oxidize::OidExt;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::OidExt;
 
 mod branch_creation;
 mod branch_removal;

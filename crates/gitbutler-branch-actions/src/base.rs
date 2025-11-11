@@ -2,11 +2,11 @@ use std::{path::Path, time};
 
 use anyhow::{Context, Result, anyhow};
 use but_error::Marker;
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::branch::checkout::UncommitedWorktreeChanges;
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
 use gitbutler_forge::forge::ForgeRepoInfo;
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{

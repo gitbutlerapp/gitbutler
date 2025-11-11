@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::{DiffSpec, legacy::commit_engine, legacy::stack_heads_info, legacy::ui};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
@@ -7,7 +8,6 @@ use gitbutler_oplog::{
     OplogExt, SnapshotExt,
     entry::{OperationKind, SnapshotDetails},
 };
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::{FetchResult, access::WorktreeWritePermission};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;

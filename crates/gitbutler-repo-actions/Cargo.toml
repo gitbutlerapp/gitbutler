@@ -12,10 +12,10 @@ doctest = false
 [dependencies]
 but-error.workspace = true
 but-core.workspace = true
+but-oxidize.workspace = true
 
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true
-gitbutler-oxidize.workspace = true
 gitbutler-git.workspace = true
 gitbutler-project.workspace = true
 gitbutler-commit.workspace = true

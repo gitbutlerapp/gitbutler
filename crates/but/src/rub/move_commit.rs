@@ -1,9 +1,9 @@
 use std::io::Write;
 
+use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 use gitbutler_branch_actions::reorder::commits_order;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::ObjectId;
 

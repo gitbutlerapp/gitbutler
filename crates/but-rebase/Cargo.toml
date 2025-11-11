@@ -13,8 +13,7 @@ doctest = false
 but-core.workspace = true
 but-gerrit.workspace = true
 but-error.workspace = true
-
-gitbutler-oxidize.workspace = true
+but-oxidize.workspace = true
 
 gix = { workspace = true, features = ["revision", "merge"]}
 anyhow.workspace = true

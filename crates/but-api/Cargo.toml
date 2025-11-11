@@ -39,6 +39,7 @@ but-forge-storage.workspace = true
 but-feedback.workspace = true
 but-error.workspace = true
 but-rules.workspace = true
+but-oxidize.workspace = true
 
 gitbutler-user.workspace = true
 gitbutler-project.workspace = true
@@ -46,7 +47,6 @@ gitbutler-branch.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-command-context.workspace = true
-gitbutler-oxidize.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-repo.workspace = true

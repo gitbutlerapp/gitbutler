@@ -1,7 +1,7 @@
 use anyhow::{Result, bail};
+use but_oxidize::GixRepositoryExt;
 use but_rebase::{Rebase, RebaseStep, replace_commit_tree};
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::GixRepositoryExt;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 
 use super::{

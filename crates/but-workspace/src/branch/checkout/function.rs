@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use anyhow::Context;
 use bstr::ByteSlice;
-use gitbutler_oxidize::ObjectIdExt;
+use but_oxidize::ObjectIdExt;
 use gix::index::entry::Stage;
 use gix::{
     diff::rewrites::tracker::ChangeKind,

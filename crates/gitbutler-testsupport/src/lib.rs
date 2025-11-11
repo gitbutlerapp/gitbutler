@@ -319,7 +319,7 @@ pub mod read_only {
 
 use std::path::{Path, PathBuf};
 
-use gitbutler_oxidize::git2_to_gix_object_id;
+use but_oxidize::git2_to_gix_object_id;
 use gix::{bstr::ByteSlice, prelude::ObjectIdExt};
 use once_cell::sync::Lazy;
 

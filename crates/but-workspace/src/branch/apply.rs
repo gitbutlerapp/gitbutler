@@ -126,7 +126,7 @@ pub(crate) mod function {
     };
     use but_graph::petgraph::Direction;
     use but_graph::{SegmentIndex, init::Overlay, projection::WorkspaceKind};
-    use gitbutler_oxidize::GixRepositoryExt;
+    use but_oxidize::GixRepositoryExt;
     use gix::{
         prelude::ObjectIdExt,
         reference::Category,

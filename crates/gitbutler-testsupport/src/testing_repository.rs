@@ -1,7 +1,7 @@
 use std::fs;
 
+use but_oxidize::git2_to_gix_object_id;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
-use gitbutler_oxidize::git2_to_gix_object_id;
 use gitbutler_repo::RepositoryExt;
 use gix_testtools::bstr::ByteSlice as _;
 use tempfile::{TempDir, tempdir};

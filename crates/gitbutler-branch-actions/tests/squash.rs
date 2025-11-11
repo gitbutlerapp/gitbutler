@@ -1,9 +1,9 @@
 use anyhow::Result;
 use bstr::ByteSlice;
+use but_oxidize::ObjectIdExt;
 use but_workspace::ui::Commit;
 use gitbutler_branch_actions::squash_commits;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
 use itertools::Itertools;
 use tempfile::TempDir;

@@ -15,10 +15,10 @@ but-graph.workspace = true
 but-serde = { workspace = true, features = ["legacy"]}
 but-core.workspace = true
 but-workspace.workspace = true
+but-oxidize.workspace = true
 
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
-gitbutler-oxidize.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-fs.workspace = true
 gitbutler-reference.workspace = true

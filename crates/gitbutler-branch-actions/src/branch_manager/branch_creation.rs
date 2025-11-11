@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, anyhow, bail};
 use but_error::Marker;
+use but_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt, RepoExt};
 use but_workspace::{
     branch::{
         OnWorkspaceMergeConflict,
@@ -12,7 +13,6 @@ use gitbutler_branch::{self, BranchCreateRequest, dedup};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_oplog::SnapshotExt;
-use gitbutler_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::{AUTO_TRACK_LIMIT_BYTES, access::WorktreeWritePermission};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{RepositoryExt as _, rebase::gitbutler_merge_commits};

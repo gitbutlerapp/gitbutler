@@ -7,11 +7,11 @@ use std::{
 };
 
 use but_core::TreeChange;
+use but_oxidize::ObjectIdExt;
 use but_tools::emit::{Emittable, Emitter, TokenUpdate};
 use but_workspace::{StackId, legacy::ui::StackEntry};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::{Project, ProjectId, access::WorktreeWritePermission};
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 pub use openai::{CredentialsKind, OpenAiProvider};

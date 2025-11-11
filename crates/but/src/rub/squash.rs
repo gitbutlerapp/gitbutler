@@ -1,8 +1,8 @@
 use std::io::Write;
 
+use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
 use gix::ObjectId;
 
 use super::undo::stack_id_by_commit_id;

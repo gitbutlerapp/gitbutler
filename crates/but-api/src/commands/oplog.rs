@@ -18,13 +18,13 @@
 //!
 use anyhow::Context;
 use but_api_macros::api_cmd;
+use but_oxidize::OidExt;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, Snapshot, SnapshotDetails},
 };
-use gitbutler_oxidize::OidExt;
 use gitbutler_project::ProjectId;
 use tracing::instrument;
 

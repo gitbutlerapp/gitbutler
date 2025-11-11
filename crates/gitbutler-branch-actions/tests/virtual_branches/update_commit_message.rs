@@ -1,7 +1,7 @@
+use but_oxidize::ObjectIdExt;
 use but_workspace::ui::PushStatus;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_testsupport::stack_details;
 
 use super::*;

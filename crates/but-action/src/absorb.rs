@@ -1,11 +1,11 @@
 use anyhow::Context;
+use but_oxidize::ObjectIdExt;
 use but_tools::{
     emit::Emitter,
     workspace::{FileChange, SimpleCommit, amend_toolset},
 };
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
 use gix::hashtable::hash_map::HashMap;
 
 use crate::OpenAiProvider;

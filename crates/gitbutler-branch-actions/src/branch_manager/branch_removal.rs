@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
+use but_oxidize::{GixRepositoryExt as _, ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_oplog::SnapshotExt;
-use gitbutler_oxidize::{GixRepositoryExt as _, ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;

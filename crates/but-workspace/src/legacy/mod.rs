@@ -1,5 +1,5 @@
+use but_oxidize::OidExt;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::OidExt;
 use gitbutler_stack::VirtualBranchesHandle;
 use std::path::Path;
 

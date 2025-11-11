@@ -8,12 +8,12 @@ use std::{
 use anyhow::{Context, Result, anyhow, bail};
 use but_core::{TreeChange, diff::tree_changes};
 use but_graph::virtual_branches_legacy_types;
-use git2::FileMode;
-use gitbutler_command_context::{CommandContext, RepositoryExtLite};
-use gitbutler_oxidize::{
+use but_oxidize::{
     GixRepositoryExt, ObjectIdExt as _, OidExt, RepoExt, git2_to_gix_object_id, gix_time_to_git2,
     gix_to_git2_oid,
 };
+use git2::FileMode;
+use gitbutler_command_context::{CommandContext, RepositoryExtLite};
 use gitbutler_project::{
     AUTO_TRACK_LIMIT_BYTES, Project,
     access::{WorktreeReadPermission, WorktreeWritePermission},

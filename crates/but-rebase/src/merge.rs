@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow, bail};
 use bstr::{BString, ByteSlice};
 use but_core::commit::TreeKind;
-use gitbutler_oxidize::GixRepositoryExt;
+use but_oxidize::GixRepositoryExt;
 use gix::prelude::ObjectIdExt;
 
 use crate::commit::DateMode;

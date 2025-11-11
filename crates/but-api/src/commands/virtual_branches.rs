@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, anyhow};
 use but_api_macros::api_cmd;
+use but_oxidize::ObjectIdExt;
 use but_settings::AppSettings;
 use but_workspace::{
     DiffSpec,
@@ -16,7 +17,6 @@ use gitbutler_branch_actions::{
     },
 };
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::{FetchResult, ProjectId};
 use gitbutler_reference::{Refname, RemoteRefname, normalize_branch_name as normalize_name};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};

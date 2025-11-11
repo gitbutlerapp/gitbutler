@@ -8,6 +8,7 @@ use anyhow::Context;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedPatch};
 use but_graph::VirtualBranchesTomlMetadata;
+use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id};
 use but_workspace::{StackId, legacy::CommmitSplitOutcome, legacy::ui::StackEntryNoOpt};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;
@@ -15,7 +16,6 @@ use gitbutler_oplog::{
     OplogExt, SnapshotExt,
     entry::{OperationKind, SnapshotDetails},
 };
-use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id};
 use gitbutler_project::Project;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
