@@ -24,8 +24,8 @@
 	},
 	"devDependencies": {
 		"@anthropic-ai/sdk": "^0.59.0",
-		"@gitbutler/design-core": "^1.3.2",
 		"@gitbutler/core": "workspace:*",
+		"@gitbutler/design-core": "^1.3.2",
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/svelte-comment-injector": "workspace:*",
 		"@gitbutler/ui": "workspace:*",
@@ -85,6 +85,7 @@
 	"dependencies": {
 		"@gitbeaker/rest": "^42.5.0",
 		"@tauri-apps/plugin-clipboard-manager": "^2.3.0",
+		"@tauri-apps/plugin-deep-link": "~2.4.5",
 		"dayjs": "^1.11.13",
 		"ollama": "^0.5.16",
 		"openai": "^4.104.0",
