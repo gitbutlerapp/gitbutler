@@ -246,6 +246,7 @@ async fn match_subcommand(
                 Some(branch::Subcommands::New { .. }) => CommandName::BranchNew,
                 Some(branch::Subcommands::Delete { .. }) => CommandName::BranchDelete,
                 Some(branch::Subcommands::Unapply { .. }) => CommandName::BranchUnapply,
+                Some(branch::Subcommands::Apply { .. }) => CommandName::BranchApply,
             };
             let result = branch::handle(cmd, &project, args.json).await;
             metrics_if_configured(app_settings, metrics_command, props(start, &result)).ok();

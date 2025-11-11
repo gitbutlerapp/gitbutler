@@ -1,10 +1,12 @@
 use atty::Stream;
+use std::io::{self, Write};
+
 use but_settings::AppSettings;
 use but_workspace::{StackId, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
-use std::io::{self, Write};
 
+mod apply;
 mod list;
 
 mod json {
@@ -48,6 +50,11 @@ pub enum Subcommands {
         /// Show only local branches
         #[clap(long, short = 'l')]
         local: bool,
+    },
+    /// Apply a branch to the workspace
+    Apply {
+        /// Name of the branch to apply
+        branch_name: String,
     },
     /// Unapply a branch from the workspace
     Unapply {
@@ -166,6 +173,7 @@ pub async fn handle(cmd: Option<Subcommands>, project: &Project, json: bool) -> 
             writeln!(stdout, "Branch '{}' not found in any stack", branch_name).ok();
             Ok(())
         }
+        Some(Subcommands::Apply { branch_name }) => apply::apply(project, &branch_name, json),
         Some(Subcommands::Unapply { branch_name, force }) => {
             let stacks = but_api::workspace::stacks(
                 project.id,

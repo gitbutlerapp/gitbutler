@@ -234,6 +234,7 @@ pub enum CommandName {
     BranchDelete,
     BranchList,
     BranchUnapply,
+    BranchApply,
     #[clap(
         alias = "claude-pre-tool",
         alias = "claudepretool",

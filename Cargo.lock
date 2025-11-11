@@ -740,6 +740,7 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-oxidize",
  "gitbutler-project",
+ "gitbutler-reference",
  "gitbutler-serde",
  "gitbutler-stack",
  "gix",
