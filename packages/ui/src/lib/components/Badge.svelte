@@ -12,10 +12,10 @@
 		size?: 'icon' | 'tag';
 		class?: string;
 		icon?: keyof typeof iconsJson | undefined;
-		reversedDirection?: boolean;
 		tooltip?: string;
 		children?: Snippet;
 		onclick?: (e: MouseEvent) => void;
+		reversedDirection?: boolean;
 	}
 
 	const {
@@ -25,10 +25,10 @@
 		size = 'icon',
 		class: className = '',
 		icon,
-		reversedDirection,
 		tooltip,
 		children,
-		onclick
+		onclick,
+		reversedDirection = false
 	}: Props = $props();
 </script>
 
@@ -39,13 +39,11 @@
 	<div
 		data-testid={testId}
 		class="badge {style} {kind} {size}-size {className}"
-		class:reversedDirection
+		class:reversed={reversedDirection}
 		{onclick}
 	>
 		{#if children}
-			<span class="badge__label {size === 'icon' ? 'text-10' : 'text-11'} text-semibold"
-				>{@render children()}</span
-			>
+			<span class="badge__label text-11 text-semibold">{@render children()}</span>
 		{/if}
 		{#if icon}
 			<i class="badge__icon">
@@ -163,37 +161,36 @@
 			}
 		}
 
-		/* REVERSED DIRECTION */
-		&.reversedDirection {
+		&.reversed {
 			flex-direction: row-reverse;
 
-			&.icon-size .badge__label {
-				padding: 0 5px 0 2px;
+			&.icon-size {
+				& .badge__label {
+					padding: 0 5px 0 2px;
+				}
+
+				& .badge__icon {
+					padding-right: 0;
+					padding-left: 2px;
+				}
 			}
 
-			&.tag-size .badge__label {
-				padding: 0 8px 0 2px;
-			}
+			&.tag-size {
+				& .badge__label {
+					padding: 0 8px 0 2px;
+				}
 
-			&.tag-size .badge__icon {
-				padding-right: 0;
-				padding-left: 4px;
-			}
-
-			/* When reversed and no icon, padding stays equal */
-			&.icon-size:not(:has(.badge__icon)) .badge__label {
-				padding: 0 5px;
-			}
-
-			&.tag-size:not(:has(.badge__icon)) .badge__label {
-				padding: 0 8px;
+				& .badge__icon {
+					padding-right: 0;
+					padding-left: 4px;
+				}
 			}
 		}
 	}
 
 	.badge__label {
 		display: flex;
-		line-height: 1;
+		line-height: var(--size-icon);
 		white-space: nowrap;
 	}
 

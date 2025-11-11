@@ -64,7 +64,7 @@
 			{/if}
 		</div>
 
-		<span class="text-10 text-semibold review-badge-text">
+		<span class="text-11 text-semibold review-badge-text">
 			{#if status === 'draft'}
 				Draft
 			{:else}

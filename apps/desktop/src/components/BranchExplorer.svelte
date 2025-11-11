@@ -260,7 +260,6 @@
 		justify-content: flex-end;
 		width: 100%;
 		height: 32px;
-
 		margin-bottom: 8px;
 	}
 
@@ -270,7 +269,7 @@
 		top: 50%;
 		left: 0;
 		align-items: center;
-		gap: 4px;
+		gap: 6px;
 		transform: translateY(-50%);
 
 		transition:

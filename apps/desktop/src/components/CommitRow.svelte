@@ -180,7 +180,7 @@
 						onclick={openGerritReview}
 						title="Open Gerrit review #{reviewId}"
 					>
-						<span class="text-10 text-semibold">{reviewId}</span>
+						<span class="text-11 text-semibold">{reviewId}</span>
 					</div>
 				{/if}
 			{/if}

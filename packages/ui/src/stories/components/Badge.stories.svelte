@@ -5,17 +5,16 @@
 
 	const { Story } = defineMeta({
 		title: 'Basic / Badge',
-		component: Badge,
+		component: Badge as any,
 		args: {
-			children,
+			text: 'Badge',
 			style: 'neutral',
 			kind: 'solid',
 			size: 'icon',
-			icon: undefined,
-			reversedDirection: false
+			icon: undefined
 		},
 		argTypes: {
-			children: {
+			text: {
 				control: { type: 'text' }
 			},
 			style: {
@@ -38,20 +37,11 @@
 	});
 </script>
 
-{#snippet children()}
-	Badge
-{/snippet}
-
 <Story name="default">
 	{#snippet template(args)}
-		<Badge
-			style={args.style}
-			kind={args.kind}
-			icon={args.icon}
-			size={args.size}
-			reversedDirection={args.reversedDirection}
-			children={args.children}
-		></Badge>
+		<Badge style={args.style} kind={args.kind} icon={args.icon} size={args.size}>
+			{args.text}
+		</Badge>
 	{/snippet}
 </Story>
 
