@@ -28,10 +28,20 @@ struct CommonMergeBase {
     commit_date: String,
 }
 
+#[derive(Serialize, Clone)]
+struct UpstreamState {
+    target_name: String,
+    behind_count: usize,
+    latest_commit: String,
+    message: String,
+    commit_date: String,
+}
+
 #[derive(Serialize)]
 struct WorktreeStatus {
     stacks: Vec<StackEntry>,
     common_merge_base: CommonMergeBase,
+    upstream_state: Option<UpstreamState>,
 }
 
 pub(crate) async fn worktree(
@@ -114,10 +124,47 @@ pub(crate) async fn worktree(
         commit_date: formatted_date,
     };
 
+    // Get cached upstream state information (without fetching)
+    let upstream_state = but_api::virtual_branches::get_base_branch_data(project.id)
+        .ok()
+        .flatten()
+        .and_then(|base_branch| {
+            if base_branch.behind > 0 {
+                // Get the latest commit on the upstream branch (current_sha is the tip of the remote branch)
+                let commit_id = base_branch.current_sha;
+                repo.find_commit(commit_id.to_gix())
+                    .ok()
+                    .and_then(|commit_obj| {
+                        let commit = commit_obj.decode().ok()?;
+                        let commit_message = commit
+                            .message
+                            .to_string()
+                            .replace('\n', " ")
+                            .chars()
+                            .take(50)
+                            .collect::<String>();
+
+                        let formatted_date =
+                            commit.committer().time().ok()?.format_or_unix(CLI_DATE);
+
+                        Some(UpstreamState {
+                            target_name: base_branch.branch_name.clone(),
+                            behind_count: base_branch.behind,
+                            latest_commit: commit_id.to_string()[..7].to_string(),
+                            message: commit_message,
+                            commit_date: formatted_date,
+                        })
+                    })
+            } else {
+                None
+            }
+        });
+
     if json {
         let worktree_status = WorktreeStatus {
             stacks: stack_details,
             common_merge_base: common_merge_base_data,
+            upstream_state: upstream_state.clone(),
         };
         let json_output = serde_json::to_string_pretty(&worktree_status)?;
         writeln!(stdout, "{json_output}")?;
@@ -149,16 +196,44 @@ pub(crate) async fn worktree(
             &review_map,
         )?;
     }
-    let dot = "●".purple();
-    writeln!(
-        stdout,
-        "{dot} {} (common base) [{}] {} {}",
-        common_merge_base_data.common_merge_base.dimmed(),
-        common_merge_base_data.target_name.green().bold(),
-        common_merge_base_data.commit_date.dimmed(),
-        common_merge_base_data.message
-    )
-    .ok();
+    // Display upstream state if there are new commits
+    if let Some(upstream) = &upstream_state {
+        let dot = "●".yellow();
+        writeln!(
+            stdout,
+            "┊{dot} {} (upstream) ⏫ {} new commits {} {}",
+            upstream.latest_commit.dimmed(),
+            upstream.behind_count,
+            upstream.commit_date.dimmed(),
+            upstream.message
+        )
+        .ok();
+        writeln!(
+            stdout,
+            "{} {} (common base) [{}] {} {}",
+            if upstream_state.is_some() {
+                "├╯"
+            } else {
+                "┊"
+            },
+            common_merge_base_data.common_merge_base.dimmed(),
+            common_merge_base_data.target_name.green().bold(),
+            common_merge_base_data.commit_date.dimmed(),
+            common_merge_base_data.message
+        )
+        .ok();
+    } else {
+        writeln!(
+            stdout,
+            "{}┴ {} (common base) [{}] {} {}",
+            if upstream_state.is_some() { "┊" } else { "" },
+            common_merge_base_data.common_merge_base.dimmed(),
+            common_merge_base_data.target_name.green().bold(),
+            common_merge_base_data.commit_date.dimmed(),
+            common_merge_base_data.message
+        )
+        .ok();
+    }
     Ok(())
 }
 
