@@ -17,9 +17,9 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { inject } from '@gitbutler/core/context';
 	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin, UpDownPlugin } from '@gitbutler/ui';
+	import { tick, type Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import type { FileSuggestionUpdate } from '@gitbutler/ui/richText/plugins/FilePlugin.svelte';
-	import type { Snippet } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -267,17 +267,23 @@
 					/>
 					<UpDownPlugin
 						historyLookup={async (offset) => {
-							const result = await backend.invoke<
+							attachmentService.clearByBranch(branchName);
+							const resp = await backend.invoke<
 								ClaudeMessage<{ source: 'user' } & UserInput> | undefined
 							>('claude_get_user_message', {
 								projectId,
 								offset
 							});
-							const attachments = result?.payload.attachments;
-							if (attachments) {
-								attachmentService.add(branchName, attachments);
+							// Let the state update so payload is removed.
+							await tick();
+							const payload = resp?.payload;
+							if (payload) {
+								const attachments = payload.attachments;
+								if (attachments) {
+									attachmentService.add(branchName, attachments);
+								}
+								return payload.message;
 							}
-							return result?.payload.message;
 						}}
 					/>
 				{/snippet}
