@@ -48,14 +48,17 @@
 				<!-- Header for multiple tool calls -->
 				<button
 					type="button"
-					class="tool-calls-header text-13"
+					class="text-13 tool-calls-header"
 					onclick={toggleExpanded}
 					class:expanded
 				>
-					<div class="tool-calls-header__arrow">
-						<Icon name="chevron-right" />
+					<div class="flex gap-6 items-center">
+						<div class="tool-calls-header__arrow">
+							<Icon name="chevron-right" />
+						</div>
+						<span class="text-semibold">{filteredCalls.length} tool calls</span>
 					</div>
-					<span class="text-bold text-12">{filteredCalls.length} tool calls</span>
+
 					{#if !expanded}
 						{#each toolsToDisplay as toolCall}
 							<div
@@ -63,18 +66,19 @@
 								class:hidable={filteredCalls.length > toolDisplayLimit}
 							>
 								<span class="separator">•</span>
+
 								{#if toolCallLoading(toolCall)}
 									<Icon name="spinner" />
 								{:else}
 									<Icon name={getToolIcon(toolCall.name)} color="var(--clr-text-3)" />
 								{/if}
-								<p class="truncate">{toolCall.name}</p>
+								<p class="clr-text-2 truncate">{toolCall.name}</p>
 							</div>
 						{/each}
 
 						{#if filteredCalls.length > toolDisplayLimit}
 							<span class="separator">•</span>
-							<p>+<span class="tool-calls-amount"></span> more</p>
+							<p class="clr-text-2">+<span class="tool-calls-amount"></span> more</p>
 						{/if}
 					{/if}
 				</button>
@@ -82,9 +86,11 @@
 				<!-- Content -->
 				{#if expanded}
 					<div class="tool-calls-expanded">
-						{#each filteredCalls as toolCall}
-							<CodegenToolCall {projectId} fullWidth {toolCall} />
-						{/each}
+						<div class="tool-calls-expanded__list">
+							{#each filteredCalls as toolCall}
+								<CodegenToolCall {projectId} fullWidth {toolCall} />
+							{/each}
+						</div>
 					</div>
 				{/if}
 			</div>
@@ -96,14 +102,15 @@
 	.tool-calls-wrapper {
 		container-name: assistant-message;
 		container-type: inline-size;
-		padding: 0 0 12px;
+		padding: 12px 0;
 	}
 
 	.tool-calls-container {
 		width: fit-content;
 		width: 100%;
-		max-width: 100%;
+		max-width: var(--message-max-width);
 		overflow: hidden;
+		/* background-color: red; */
 	}
 
 	/* Hide items in collapsed mode based on container width */
@@ -129,8 +136,6 @@
 	.tool-calls-header {
 		display: flex;
 		align-items: center;
-		width: 100%;
-		padding: 8px 12px 12px 0;
 		gap: 8px;
 		cursor: pointer;
 
@@ -143,6 +148,7 @@
 
 	.tool-calls-header__arrow {
 		display: flex;
+		margin-left: -2px;
 		color: var(--clr-text-3);
 		transition:
 			background-color var(--transition-fast),
@@ -154,9 +160,7 @@
 	}
 
 	.tool-calls-collapsed__item {
-		display: flex;
-		align-items: center;
-		gap: 8px;
+		display: contents;
 	}
 
 	.tool-calls-amount:after {
@@ -166,9 +170,16 @@
 
 	.tool-calls-expanded {
 		display: flex;
+		margin-top: 12px;
+		gap: 10px;
+	}
+
+	.tool-calls-expanded__list {
+		display: flex;
 		flex-direction: column;
 		width: 100%;
 		overflow: hidden;
+		gap: 8px;
 	}
 
 	.separator {

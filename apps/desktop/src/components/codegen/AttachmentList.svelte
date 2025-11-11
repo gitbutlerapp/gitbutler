@@ -30,6 +30,8 @@
 			}
 			case 'commit':
 				return `${attachment.commitId}`;
+			case 'directory':
+				return `${attachment.path}`;
 		}
 		return '';
 	}
@@ -87,6 +89,21 @@
 								</span>
 							</Tooltip>
 						{/if}
+					{/if}
+					<!-- DIRECTORY -->
+					{#if attachment.type === 'directory'}
+						{@const { path } = attachment}
+						<span class="path">
+							{path}
+						</span>
+					{/if}
+					<!-- FOLDER -->
+					{#if attachment.type === 'folder'}
+						{@const { path } = attachment}
+						<Icon name="folder" color="var(--clr-text-2)" />
+						<span class="path">
+							{path}
+						</span>
 					{/if}
 				</div>
 			</Tooltip>
@@ -154,11 +171,10 @@
 		height: var(--size-button);
 		margin-left: -8px;
 		color: var(--clr-text-3);
-		transition: all 0.2s ease;
+		transition: color var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-error);
-			color: var(--clr-text-error);
+			color: var(--clr-text-2);
 		}
 	}
 </style>

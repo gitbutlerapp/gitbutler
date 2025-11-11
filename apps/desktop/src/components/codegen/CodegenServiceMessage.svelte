@@ -7,17 +7,16 @@
 		style: 'neutral' | 'pop' | 'error';
 		face: faceType;
 		extraContent?: Snippet;
-		reverseElementsOrder?: boolean;
 	};
 
-	const { children, style, face, extraContent, reverseElementsOrder }: Props = $props();
+	const { children, style, face, extraContent }: Props = $props();
 </script>
 
 <div class="service-message__wrapper">
 	<div class="service-message">
 		<ButPcAvatar mode={face} />
 
-		<div class="service-message__content" class:reverse={reverseElementsOrder}>
+		<div class="service-message__content">
 			{#if children}
 				<div
 					class="service-message__bubble service-message__bubble--{style} service-message__bubble--animate"
@@ -50,14 +49,7 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		overflow: hidden;
 		gap: 10px;
-		text-wrap: wrap;
-		word-break: break-word;
-
-		&.reverse {
-			flex-direction: column-reverse;
-		}
 	}
 	.service-message__bubble {
 		display: flex;
@@ -65,6 +57,7 @@
 		max-width: var(--message-max-width);
 		padding: 10px 12px;
 		border-radius: var(--radius-ml);
+		border-bottom-left-radius: 0;
 		background-color: var(--clr-bg-2);
 		color: var(--clr-text-2);
 	}

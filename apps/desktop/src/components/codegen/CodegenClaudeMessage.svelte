@@ -1,12 +1,12 @@
 <script lang="ts">
+	import CodegenApprovalToolCall from '$components/codegen/CodegenApprovalToolCall.svelte';
 	import CodegenAssistantMessage from '$components/codegen/CodegenAssistantMessage.svelte';
 	import CodegenGitButlerMessage from '$components/codegen/CodegenGitButlerMessage.svelte';
 	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
-	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
 	import CodegenToolCalls from '$components/codegen/CodegenToolCalls.svelte';
 	import CodegenUserMessage from '$components/codegen/CodegenUserMessage.svelte';
 	import { type Message } from '$lib/codegen/messages';
-	import { Icon, Markdown, Timestamp } from '@gitbutler/ui';
+	import { Icon, Markdown } from '@gitbutler/ui';
 	import type { PermissionDecision } from '$lib/codegen/types';
 
 	type Props = {
@@ -25,16 +25,10 @@
 </script>
 
 {#if message.source === 'user'}
-	<div class="timestamp text-12 text-bold text-right">
-		<Timestamp date={message.createdAt} />
-	</div>
 	<CodegenUserMessage content={message.message} attachments={message.attachments} />
 {:else if message.source === 'claude'}
-	<div class="timestamp text-12 text-bold">
-		<Timestamp date={message.createdAt} />
-	</div>
 	{#if 'subtype' in message && message.subtype === 'compaction'}
-		<CodegenServiceMessage style="neutral" face="compacted" reverseElementsOrder>
+		<CodegenServiceMessage style="neutral" face="compacted">
 			{#snippet extraContent()}
 				{@render compactionSummary(message.message)}
 			{/snippet}
@@ -47,25 +41,18 @@
 			messageId={message.createdAt}
 			{toolCallsExpandedState}
 		/>
-
 		{#if message.toolCallsPendingApproval.length > 0}
 			{#each message.toolCallsPendingApproval as toolCall}
-				<CodegenToolCall
+				<CodegenApprovalToolCall
 					{projectId}
-					style="standalone"
 					{toolCall}
-					requiresApproval={{
-						onPermissionDecision: async (id, decision, useWildcard) =>
-							await onPermissionDecision?.(id, decision, useWildcard)
-					}}
+					onPermissionDecision={async (id, decision, useWildcard) =>
+						await onPermissionDecision?.(id, decision, useWildcard)}
 				/>
 			{/each}
 		{/if}
 	{/if}
 {:else if message.source === 'gitButler'}
-	<div class="timestamp text-12 text-bold">
-		<Timestamp date={message.createdAt} />
-	</div>
 	<CodegenGitButlerMessage {projectId} {message} />
 {/if}
 
@@ -85,7 +72,7 @@
 				</p>
 			</button>
 			{#if expanded}
-				<div class="text-13 compaction-summary__content">
+				<div class="text-13 text-body compaction-summary__content">
 					<Markdown content={summary} />
 				</div>
 			{/if}
@@ -95,6 +82,7 @@
 
 <style lang="postcss">
 	.compaction-summary__wrapper {
+		width: calc(100% - 42px);
 		max-width: var(--message-max-width);
 	}
 
@@ -104,6 +92,7 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
+		border-bottom-left-radius: 0;
 
 		&.expanded {
 			width: 100%;
@@ -141,11 +130,5 @@
 
 	.compaction-summary__content {
 		padding: 12px;
-	}
-
-	.timestamp {
-		padding-top: 12px;
-		color: var(--clr-scale-ntrl-60);
-		font-family: var(--font-mono);
 	}
 </style>

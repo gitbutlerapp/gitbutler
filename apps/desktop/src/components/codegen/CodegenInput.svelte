@@ -368,10 +368,6 @@
 <style lang="postcss">
 	.dialog-wrapper {
 		position: relative;
-		flex-shrink: 0;
-		width: 100%;
-		padding: 16px;
-		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.dialog-input {

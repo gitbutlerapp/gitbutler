@@ -5,6 +5,7 @@
 	interface Props {
 		date?: string | Date;
 		showTooltip?: boolean;
+		showSeconds?: boolean;
 	}
 
 	const parsedDate = $derived.by(() => {

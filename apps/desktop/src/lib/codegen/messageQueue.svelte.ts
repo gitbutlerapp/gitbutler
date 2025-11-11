@@ -65,7 +65,6 @@ async function performSend({
 			const isValid = await claudeCodeService.verifyPath({ projectId, path });
 			if (isValid) {
 				laneState?.addedDirs.add(path);
-				chipToasts.success(`Added directory: ${path}`);
 			} else {
 				chipToasts.error(`Invalid directory path: ${path}`);
 			}
