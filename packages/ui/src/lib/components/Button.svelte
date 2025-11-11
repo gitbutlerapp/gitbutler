@@ -166,8 +166,7 @@
 			<span
 				class="btn-label text-semibold truncate"
 				class:text-12={size === 'button' || size === 'cta'}
-				class:text-11={size === 'tag'}
-				class:text-10={size === 'icon'}
+				class:text-11={size === 'tag' || size === 'icon'}
 			>
 				{@render children()}
 

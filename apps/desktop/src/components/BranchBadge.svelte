@@ -16,7 +16,7 @@
 </script>
 
 <span
-	class={[!unstyled && 'text-10 text-bold branch-badge', 'truncate']}
+	class={[!unstyled && 'text-11 text-bold branch-badge', 'truncate']}
 	style:--b-bg-color={bgColor}
 >
 	{label}
