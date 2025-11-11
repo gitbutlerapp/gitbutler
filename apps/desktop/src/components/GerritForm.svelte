@@ -3,7 +3,7 @@
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
-	import { SectionCard, Toggle } from '@gitbutler/ui';
+	import { SectionCard, Toggle, Link } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
@@ -27,6 +27,7 @@
 
 				{#snippet caption()}
 					Enable or disable Gerrit mode for this project.
+					<Link href="https://docs.gitbutler.com/features/gerrit-mode">Learn more</Link>
 				{/snippet}
 
 				{#snippet actions()}
