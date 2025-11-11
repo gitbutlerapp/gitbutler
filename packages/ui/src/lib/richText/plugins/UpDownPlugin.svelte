@@ -40,32 +40,29 @@
 	}
 
 	function handleKeyboardEvent(e: KeyboardEvent): boolean {
-		if (active && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') {
+		const isKeyMatch = e.key === 'ArrowUp' || e.key === 'ArrowDown';
+		const validEnv = active || canActivate();
+		if (!isKeyMatch || !validEnv) {
 			active = false;
 			offset = 0;
 			return false;
 		}
 
-		if (active || canActivate()) {
-			active = true;
-			e.preventDefault();
-			switch (e.key) {
-				case 'ArrowUp': {
-					applyFromHistory(offset++);
-					return true;
+		active = true;
+		e.preventDefault();
+
+		switch (e.key) {
+			case 'ArrowUp':
+				applyFromHistory(offset++);
+				break;
+			case 'ArrowDown':
+				if (offset === 0) {
+					setEditorText(editor, '');
+					return false;
 				}
-				case 'ArrowDown': {
-					if (offset === 0) {
-						setEditorText(editor, '');
-						return false;
-					}
-					applyFromHistory(--offset);
-					return true;
-				}
-			}
+				applyFromHistory(--offset);
 		}
-		offset = 0;
-		return false;
+		return true;
 	}
 
 	$effect(() => {
