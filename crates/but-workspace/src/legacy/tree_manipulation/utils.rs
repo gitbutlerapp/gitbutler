@@ -4,11 +4,10 @@ use std::collections::HashMap;
 
 use anyhow::Context;
 use bstr::ByteSlice as _;
-use but_core::ChangeState;
+use but_core::{ChangeState, DiffSpec, HunkHeader};
 use but_rebase::{RebaseOutput, RebaseStep};
 
 use crate::tree_manipulation::hunk::{HunkSubstraction, subtract_hunks};
-use crate::{DiffSpec, HunkHeader, commit_engine::apply_hunks};
 
 /// Takes a rebase output and returns the commit mapping with any extra
 /// mapping overrides provided.
@@ -198,7 +197,7 @@ pub fn create_tree_without_diff(
                     for hunk in &change.hunk_headers {
                         if diff_hunks
                             .iter()
-                            .any(|diff_hunk| HunkHeader::from(diff_hunk.clone()).contains(*hunk))
+                            .any(|diff_hunk| HunkHeader::from(diff_hunk).contains(*hunk))
                         {
                             good_hunk_headers.push(*hunk);
                         } else {
@@ -221,7 +220,7 @@ pub fn create_tree_without_diff(
                         diff_hunks.into_iter().map(Into::into).collect(),
                         good_hunk_headers,
                     )?;
-                    let new_after_contents = apply_hunks(
+                    let new_after_contents = but_core::apply_hunks(
                         before_blob.data.as_bstr(),
                         after_blob.data.as_bstr(),
                         &new_hunks,

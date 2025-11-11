@@ -1,12 +1,12 @@
+use crate::id::CliId;
+use but_core::ref_metadata::StackId;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
-use but_workspace::{StackId, StacksFilter, legacy::ui::StackEntry, ui::StackDetails};
+use but_workspace::{legacy::StacksFilter, legacy::ui::StackEntry, ui::StackDetails};
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use std::io::Write;
-
-use crate::id::CliId;
 
 pub(crate) fn commit_graph(project: &Project, json: bool) -> anyhow::Result<()> {
     let mut stdout = std::io::stdout();

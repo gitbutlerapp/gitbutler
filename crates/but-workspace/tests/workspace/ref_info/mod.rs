@@ -1,4 +1,4 @@
-use but_workspace::{StacksFilter, legacy::stack_details_v3, legacy::stacks_v3, ref_info};
+use but_workspace::{legacy::StacksFilter, legacy::stack_details_v3, legacy::stacks_v3, ref_info};
 
 use crate::ref_info::utils::{read_only_in_memory_scenario, standard_options};
 

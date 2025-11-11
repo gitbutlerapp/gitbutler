@@ -634,10 +634,10 @@ fn restore_snapshot(
 
     // Define the checkout builder
     if ctx.app_settings().feature_flags.cv3 {
-        but_workspace::branch::safe_checkout_from_head(
+        but_core::worktree::safe_checkout_from_head(
             workdir_tree.id().to_gix(),
             &gix_repo,
-            but_workspace::branch::checkout::Options::default(),
+            but_core::worktree::checkout::Options::default(),
         )?;
     } else {
         let mut checkout_builder = git2::build::CheckoutBuilder::new();

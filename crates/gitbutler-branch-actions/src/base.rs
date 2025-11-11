@@ -1,9 +1,15 @@
 use std::{path::Path, time};
 
+use crate::{
+    VirtualBranchesExt,
+    hunk::VirtualBranchHunk,
+    integration::update_workspace_commit,
+    remote::{RemoteCommit, commit_to_remote_commit},
+};
 use anyhow::{Context, Result, anyhow};
+use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt};
-use but_workspace::branch::checkout::UncommitedWorktreeChanges;
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
 use gitbutler_forge::forge::ForgeRepoInfo;
@@ -19,13 +25,6 @@ use gitbutler_stack::{
 };
 use serde::Serialize;
 use tracing::instrument;
-
-use crate::{
-    VirtualBranchesExt,
-    hunk::VirtualBranchHunk,
-    integration::update_workspace_commit,
-    remote::{RemoteCommit, commit_to_remote_commit},
-};
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -77,11 +76,11 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
         let tree_to_checkout_to_avoid_ref_update = gix_repo
             .find_commit(workspace_commit_to_checkout.to_gix())?
             .tree_id()?;
-        but_workspace::branch::safe_checkout(
+        but_core::worktree::safe_checkout(
             gix_repo.head_id()?.detach(),
             tree_to_checkout_to_avoid_ref_update.detach(),
             &gix_repo,
-            but_workspace::branch::checkout::Options {
+            but_core::worktree::checkout::Options {
                 uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                 skip_head_update: false,
             },

@@ -1,8 +1,10 @@
+use crate::BranchManagerExt;
 use anyhow::{Context, Result};
+use but_core::ref_metadata::StackId;
 use but_graph::virtual_branches_legacy_types::CommitOrChangeId;
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
-use but_workspace::{StackId, legacy::stack_ext::StackExt};
+use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_cherry_pick::GixRepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
@@ -11,8 +13,6 @@ use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
 use gix::refs::transaction::PreviousValue;
 use serde::Serialize;
-
-use crate::BranchManagerExt;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

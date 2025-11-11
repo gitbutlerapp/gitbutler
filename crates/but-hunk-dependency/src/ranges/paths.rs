@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{Context, bail};
 use but_core::TreeStatusKind;
-use but_workspace::StackId;
+use but_core::ref_metadata::StackId;
 
 use crate::{HunkRange, InputDiffHunk, utils::PaniclessSubtraction};
 

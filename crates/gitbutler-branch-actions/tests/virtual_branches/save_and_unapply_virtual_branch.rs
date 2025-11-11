@@ -1,5 +1,5 @@
+use but_core::DiffSpec;
 use but_hunk_assignment::HunkAssignmentRequest;
-use but_workspace::DiffSpec;
 use gitbutler_testsupport::stack_details;
 
 use super::*;

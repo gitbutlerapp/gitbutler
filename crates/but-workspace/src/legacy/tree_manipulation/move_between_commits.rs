@@ -1,4 +1,5 @@
 use anyhow::{Result, bail};
+use but_core::DiffSpec;
 use but_oxidize::GixRepositoryExt;
 use but_rebase::{Rebase, RebaseStep, replace_commit_tree};
 use gitbutler_command_context::CommandContext;
@@ -11,7 +12,7 @@ use super::{
         replace_pick_with_commit,
     },
 };
-use crate::{DiffSpec, legacy::stack_ext::StackExt};
+use crate::legacy::stack_ext::StackExt;
 
 /// Move changes between to commits.
 ///

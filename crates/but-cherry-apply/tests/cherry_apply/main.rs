@@ -37,7 +37,7 @@ mod util {
         pub fn apply(
             &self,
             commit_id: gix::ObjectId,
-            target_stack: but_workspace::StackId,
+            target_stack: but_core::ref_metadata::StackId,
         ) -> anyhow::Result<()> {
             cherry_apply(
                 &self.ctx,

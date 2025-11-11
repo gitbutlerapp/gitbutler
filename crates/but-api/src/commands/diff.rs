@@ -1,5 +1,7 @@
+use crate::{error::Error, hex_hash::HexHash};
 use anyhow::Context;
 use but_api_macros::api_cmd;
+use but_core::ref_metadata::StackId;
 use but_core::{
     Commit,
     commit::ConflictEntries,
@@ -10,15 +12,12 @@ use but_hunk_dependency::ui::{
     HunkDependencies, hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
 use but_settings::AppSettings;
-use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::Refname;
 use gix::refs::Category;
 use serde::Serialize;
 use tracing::instrument;
-
-use crate::{error::Error, hex_hash::HexHash};
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).

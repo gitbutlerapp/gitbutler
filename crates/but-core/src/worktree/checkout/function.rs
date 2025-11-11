@@ -15,8 +15,8 @@ use gix::{
 };
 use tracing::instrument;
 
+use super::utils::merge_worktree_changes_into_destination_or_keep_snapshot;
 use super::{Options, Outcome};
-use crate::branch::checkout::utils::merge_worktree_changes_into_destination_or_keep_snapshot;
 
 /// Like [`safe_checkout()`], but the current tree will always be fetched from
 pub fn safe_checkout_from_head(

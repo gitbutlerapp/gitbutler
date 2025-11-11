@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
+use crate::branch::OnWorkspaceMergeConflict;
 use but_core::ref_metadata::StackId;
-
-use crate::branch::{OnWorkspaceMergeConflict, checkout::UncommitedWorktreeChanges};
+use but_core::worktree::checkout::UncommitedWorktreeChanges;
 
 /// Returned by [function::apply()].
 pub struct Outcome<'graph> {
@@ -112,11 +112,11 @@ pub(crate) mod function {
 
     use super::{Options, Outcome, WorkspaceMerge, WorkspaceReferenceNaming};
     use crate::commit::merge::Tip;
-    use crate::{WorkspaceCommit, branch::checkout, ext::ObjectStorageExt, ref_info::WorkspaceExt};
+    use crate::{WorkspaceCommit, ref_info::WorkspaceExt};
     use anyhow::{Context, bail};
     use but_core::ref_metadata::StackKind;
     use but_core::{
-        RefMetadata, RepositoryExt, extract_remote_name, ref_metadata,
+        ObjectStorageExt, RefMetadata, RepositoryExt, extract_remote_name, ref_metadata,
         ref_metadata::{
             StackId,
             StackKind::AppliedAndUnapplied,
@@ -216,11 +216,11 @@ pub(crate) mod function {
             let current_head_commit = workspace
                 .graph.entrypoint_commit()
                 .context("The entrypoint must have a commit - it's equal to HEAD, and we skipped unborn earlier")?;
-            crate::branch::safe_checkout(
+            but_core::worktree::safe_checkout(
                 current_head_commit.id,
                 commit_to_checkout.id,
                 repo,
-                checkout::Options {
+                but_core::worktree::checkout::Options {
                     uncommitted_changes,
                     skip_head_update: false,
                 },
@@ -629,11 +629,11 @@ pub(crate) mod function {
             &ws_md,
             local_tracking_config_and_ref_info,
         )?;
-        crate::branch::safe_checkout(
+        but_core::worktree::safe_checkout(
             prev_head_id,
             new_head_id,
             repo,
-            checkout::Options {
+            but_core::worktree::checkout::Options {
                 uncommitted_changes,
                 skip_head_update: true,
             },

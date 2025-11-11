@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use but_core::TreeStatusKind;
-use but_workspace::StackId;
+use but_core::ref_metadata::StackId;
 use gix::bstr::BString;
 use itertools::Itertools;
 use serde::Serialize;

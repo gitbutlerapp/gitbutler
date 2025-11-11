@@ -1,5 +1,5 @@
 use but_core::RefMetadata;
-use but_core::ref_metadata::WorkspaceCommitRelation;
+use but_core::ref_metadata::{StackId, WorkspaceCommitRelation};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
 use but_settings::app_settings::{
@@ -7,7 +7,6 @@ use but_settings::app_settings::{
     UiSettings,
 };
 use but_testsupport::gix_testtools::{Creation, tempfile};
-use but_workspace::StackId;
 use snapbox::{Assert, Redactions};
 use std::env;
 use std::io::Write;

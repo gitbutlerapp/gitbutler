@@ -13,7 +13,7 @@ pub fn commit(
     parent_id: Option<String>,
     branch_name: String,
 ) -> anyhow::Result<but_workspace::commit_engine::ui::CreateCommitOutcome> {
-    let changes: Vec<but_workspace::DiffSpec> = diff_spec.into_iter().map(Into::into).collect();
+    let changes: Vec<but_core::DiffSpec> = diff_spec.into_iter().map(Into::into).collect();
     let (repo, project) = crate::mcp_internal::project::repo_and_maybe_project(
         project_dir,
         crate::mcp_internal::project::RepositoryOpenMode::Merge,
@@ -67,7 +67,6 @@ pub fn commit(
         &project,
         None,
         destination,
-        None,
         changes,
         0, /* context-lines */
         guard.write_permission(),
@@ -84,7 +83,7 @@ pub fn amend(
     commit_id: String,
     branch_name: String,
 ) -> anyhow::Result<but_workspace::commit_engine::ui::CreateCommitOutcome> {
-    let changes: Vec<but_workspace::DiffSpec> = diff_spec.into_iter().map(Into::into).collect();
+    let changes: Vec<but_core::DiffSpec> = diff_spec.into_iter().map(Into::into).collect();
     let (repo, project) = crate::mcp_internal::project::repo_and_maybe_project(
         project_dir,
         crate::mcp_internal::project::RepositoryOpenMode::Merge,
@@ -116,7 +115,6 @@ pub fn amend(
         &project,
         stack_id,
         destination,
-        None,
         changes,
         0, /* context-lines */
         guard.write_permission(),
@@ -156,9 +154,9 @@ pub struct DiffSpec {
     pub path: String,
 }
 
-impl From<DiffSpec> for but_workspace::DiffSpec {
+impl From<DiffSpec> for but_core::DiffSpec {
     fn from(spec: DiffSpec) -> Self {
-        but_workspace::DiffSpec {
+        but_core::DiffSpec {
             previous_path: spec.previous_path.map(BString::from),
             path: BString::from(spec.path),
             hunk_headers: vec![],

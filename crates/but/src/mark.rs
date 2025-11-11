@@ -2,9 +2,9 @@ use std::io::Write;
 use std::str::FromStr;
 
 use anyhow::bail;
+use but_core::ref_metadata::StackId;
 use but_rules::Operation;
 use but_settings::AppSettings;
-use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::Project;

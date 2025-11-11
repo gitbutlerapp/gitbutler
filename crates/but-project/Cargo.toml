@@ -16,12 +16,13 @@ test = false
 legacy = ["dep:gitbutler-project", "dep:gitbutler-command-context"]
 
 [dependencies]
-gitbutler-project = { workspace = true, optional = true }
-gitbutler-command-context = { workspace = true, optional = true }
-
 but-core.workspace = true
 but-settings.workspace = true
 but-graph.workspace = true
+
+gitbutler-project = { workspace = true, optional = true }
+gitbutler-command-context = { workspace = true, optional = true }
+
 anyhow.workspace = true
 gix.workspace = true
 

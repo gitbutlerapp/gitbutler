@@ -21,9 +21,9 @@ pub struct Outcome<'repo> {
 /// Edits for application via [`but_core::RefMetadata`].
 pub struct MetadataEdits {
     /// The workspace metadata stored in the snapshot.
-    pub workspace: (gix::refs::FullName, but_core::ref_metadata::Workspace),
+    pub workspace: (gix::refs::FullName, crate::ref_metadata::Workspace),
     /// The branch metadata stored in snapshots.
-    pub branches: Vec<(gix::refs::FullName, but_core::ref_metadata::Branch)>,
+    pub branches: Vec<(gix::refs::FullName, crate::ref_metadata::Branch)>,
 }
 
 /// Options for use in [super::resolve_tree()].

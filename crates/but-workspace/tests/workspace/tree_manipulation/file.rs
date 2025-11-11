@@ -1025,9 +1025,8 @@ D submodule
 }
 
 mod util {
-    use but_workspace::DiffSpec;
-
     use crate::utils::to_change_specs_whole_file;
+    use but_core::DiffSpec;
 
     pub fn file_to_spec(name: &str) -> DiffSpec {
         DiffSpec {

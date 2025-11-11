@@ -902,6 +902,7 @@ name = "but-cherry-apply"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "but-graph",
  "but-oxidize",
  "but-rebase",
@@ -960,10 +961,12 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-error",
+ "but-oxidize",
  "but-serde",
  "but-testsupport",
  "chardetng",
  "fslock",
+ "git2",
  "gix",
  "insta",
  "parking_lot",
@@ -1113,7 +1116,6 @@ dependencies = [
  "but-core",
  "but-db",
  "but-hunk-dependency",
- "but-workspace",
  "gitbutler-command-context",
  "gitbutler-stack",
  "itertools 0.14.0",
@@ -3669,6 +3671,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-core",
  "but-serde",
  "but-workspace",
  "git2",
@@ -3691,7 +3694,6 @@ dependencies = [
  "but-graph",
  "but-oxidize",
  "but-serde",
- "but-workspace",
  "git2",
  "gitbutler-branch",
  "gitbutler-command-context",
@@ -4016,9 +4018,9 @@ name = "gitbutler-workspace"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "but-oxidize",
  "but-rebase",
- "but-workspace",
  "git2",
  "gitbutler-cherry-pick",
  "gitbutler-command-context",

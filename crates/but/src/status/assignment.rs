@@ -1,4 +1,5 @@
 use bstr::BString;
+use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -33,10 +34,7 @@ impl FileAssignment {
     }
 }
 
-pub(crate) fn filter_by_stack_id<'a, I>(
-    input: I,
-    stack_id: &Option<but_workspace::StackId>,
-) -> Vec<FileAssignment>
+pub(crate) fn filter_by_stack_id<'a, I>(input: I, stack_id: &Option<StackId>) -> Vec<FileAssignment>
 where
     I: IntoIterator<Item = &'a FileAssignment>,
 {

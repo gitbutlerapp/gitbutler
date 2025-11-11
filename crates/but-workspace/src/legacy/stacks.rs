@@ -16,9 +16,10 @@ use gix::date::parse::TimeBuf;
 use itertools::Itertools;
 use tracing::instrument;
 
+use crate::legacy::StacksFilter;
 use crate::legacy::ui::{StackEntry, StackHeadInfo};
 use crate::{
-    RefInfo, StacksFilter, branch, head_info,
+    RefInfo, branch, head_info,
     legacy::integrated::IsCommitIntegrated,
     legacy::state_handle,
     ref_info,

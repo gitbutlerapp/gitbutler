@@ -3,15 +3,12 @@ use std::{
     sync::Arc,
 };
 
-use but_workspace::{
-    StackId,
-    legacy::ui::{StackEntry, StackEntryNoOpt},
-};
+use crate::emit::{Emittable, Emitter, ToolCall};
+use but_core::ref_metadata::StackId;
+use but_workspace::legacy::ui::{StackEntry, StackEntryNoOpt};
 use gitbutler_command_context::CommandContext;
 use gix::ObjectId;
 use serde_json::json;
-
-use crate::emit::{Emittable, Emitter, ToolCall};
 
 pub struct WorkspaceToolset<'a> {
     ctx: &'a mut CommandContext,

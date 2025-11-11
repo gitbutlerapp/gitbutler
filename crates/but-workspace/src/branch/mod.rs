@@ -457,10 +457,6 @@ impl Stack {
     }
 }
 
-/// Functions related to workspace checkouts.
-pub mod checkout;
-pub use checkout::function::{safe_checkout, safe_checkout_from_head};
-
 /// What to do if the applied branch conflicts with the existing branches?
 #[derive(Default, Debug, Copy, Clone)]
 pub enum OnWorkspaceMergeConflict {

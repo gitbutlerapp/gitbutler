@@ -10,7 +10,8 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
-but-workspace = {workspace = true, features = ["legacy"]}
+but-core.workspace = true
+but-workspace = { workspace = true, features = ["legacy"] }
 but-rebase.workspace = true
 but-graph.workspace = true
 but-oxidize.workspace = true

@@ -1,14 +1,13 @@
+use crate::OpenAiProvider;
 use anyhow::Context;
+use but_core::ref_metadata::StackId;
 use but_oxidize::ObjectIdExt;
 use but_tools::{
     emit::Emitter,
     workspace::{FileChange, SimpleCommit, amend_toolset},
 };
-use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gix::hashtable::hash_map::HashMap;
-
-use crate::OpenAiProvider;
 
 /// Absorb file changes into existing commits in the project.
 ///

@@ -24,9 +24,7 @@
 //!   - It doesn't specify if the change is in a commit, or in the worktree, so that information must be provided separately.
 use std::collections::HashMap;
 
-use bstr::BString;
-use but_core::TreeChange;
-use serde::{Deserialize, Serialize};
+use but_core::DiffSpec;
 
 /// **Do not use!**
 /// A module with code that depends on `gitbutler-` crates. As such, it's supposed to be ported or rewritten.
@@ -46,8 +44,6 @@ pub use tree_manipulation::discard_worktree_changes::discard_workspace_changes;
 /// Ignore the name of this module; it's just a place to put code by now.
 pub mod branch;
 
-pub mod snapshot;
-
 mod changeset;
 
 /// Utility types for the [`WorkspaceCommit`].
@@ -62,84 +58,6 @@ pub use ref_info::function::{head_info, ref_info};
 mod branch_details;
 pub use branch_details::{branch_details, local_commits_for_branch};
 use but_graph::SegmentIndex;
-
-/// A change that should be used to create a new commit or alter an existing one, along with enough information to know where to find it.
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DiffSpec {
-    /// The previous location of the entry, the source of a rename if there was one.
-    #[serde(rename = "previousPathBytes")]
-    pub previous_path: Option<BString>,
-    /// The worktree-relative path to the worktree file with the content to commit.
-    ///
-    /// If `hunks` is empty, this means the current content of the file should be committed.
-    #[serde(rename = "pathBytes")]
-    pub path: BString,
-    /// If one or more hunks are specified, match them with actual changes currently in the worktree.
-    /// Failure to match them will lead to the change being dropped.
-    /// If empty, the whole file is taken as is if this seems to be an addition.
-    /// Otherwise, the whole file is being deleted.
-    pub hunk_headers: Vec<HunkHeader>,
-}
-
-impl From<&TreeChange> for DiffSpec {
-    fn from(change: &but_core::TreeChange) -> Self {
-        Self {
-            previous_path: change.previous_path().map(ToOwned::to_owned),
-            path: change.path.to_owned(),
-            hunk_headers: vec![],
-        }
-    }
-}
-
-impl From<TreeChange> for DiffSpec {
-    fn from(change: but_core::TreeChange) -> Self {
-        Self {
-            previous_path: change.previous_path().map(ToOwned::to_owned),
-            path: change.path.to_owned(),
-            hunk_headers: vec![],
-        }
-    }
-}
-
-/// The header of a hunk that represents a change to a file.
-#[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HunkHeader {
-    /// The 1-based line number at which the previous version of the file started.
-    pub old_start: u32,
-    /// The non-zero number of lines included in the previous version of the file.
-    pub old_lines: u32,
-    /// The 1-based line number at which the new version of the file started.
-    pub new_start: u32,
-    /// The non-zero number of lines included in the new version of the file.
-    pub new_lines: u32,
-}
-
-impl From<&but_core::unified_diff::DiffHunk> for HunkHeader {
-    fn from(hunk: &but_core::unified_diff::DiffHunk) -> Self {
-        Self {
-            old_start: hunk.old_start,
-            old_lines: hunk.old_lines,
-            new_start: hunk.new_start,
-            new_lines: hunk.new_lines,
-        }
-    }
-}
-
-impl HunkHeader {
-    /// Returns the hunk header with the old and new ranges swapped.
-    ///
-    /// This is useful for applying the hunk in reverse.
-    pub fn reverse(&self) -> Self {
-        Self {
-            old_start: self.new_start,
-            old_lines: self.new_lines,
-            new_start: self.old_start,
-            new_lines: self.old_lines,
-        }
-    }
-}
 
 /// Information about refs, as seen from within or outsie of a workspace.
 ///
@@ -218,22 +136,6 @@ pub struct WorkspaceCommit<'repo> {
     pub inner: gix::objs::Commit,
 }
 
-/// An ID uniquely identifying stacks.
-pub use but_core::ref_metadata::StackId;
-
-/// A filter for the list of stacks.
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
-pub enum StacksFilter {
-    /// Show all stacks
-    All,
-    /// Show only applied stacks
-    #[default]
-    InWorkspace,
-    /// Show only unapplied stacks
-    // TODO: figure out where this is used. V2 maybe? If so, it can be removed eventually.
-    Unapplied,
-}
-
 /// If there are multiple diffs spces where path and previous_path are the same, collapse them into one.
 pub fn flatten_diff_specs(input: Vec<DiffSpec>) -> Vec<DiffSpec> {
     let mut output: HashMap<String, DiffSpec> = HashMap::new();
@@ -256,7 +158,7 @@ pub fn flatten_diff_specs(input: Vec<DiffSpec>) -> Vec<DiffSpec> {
 
 #[cfg(test)]
 pub(crate) mod utils {
-    use crate::{HunkHeader, commit_engine::HunkRange};
+    use but_core::{HunkHeader, HunkRange};
 
     pub fn range(start: u32, lines: u32) -> HunkRange {
         HunkRange { start, lines }
@@ -269,25 +171,6 @@ pub(crate) mod utils {
             old_lines,
             new_start,
             new_lines,
-        }
-    }
-}
-
-pub(crate) mod ext {
-    use gix::objs::Write;
-
-    pub trait ObjectStorageExt {
-        /// Write all in-memory objects into the given writer.
-        fn persist(&self, out: impl gix::objs::Write) -> anyhow::Result<()>;
-    }
-
-    impl ObjectStorageExt for gix::odb::memory::Storage {
-        fn persist(&self, out: impl Write) -> anyhow::Result<()> {
-            for (kind, data) in self.values() {
-                out.write_buf(*kind, data)
-                    .map_err(anyhow::Error::from_boxed)?;
-            }
-            Ok(())
         }
     }
 }

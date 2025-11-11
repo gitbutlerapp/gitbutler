@@ -60,7 +60,7 @@ pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo, Er
 #[instrument(err(Debug))]
 pub fn stacks(
     project_id: ProjectId,
-    filter: Option<but_workspace::StacksFilter>,
+    filter: Option<but_workspace::legacy::StacksFilter>,
 ) -> Result<Vec<StackEntry>, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -288,7 +288,7 @@ pub fn create_commit_from_worktree_changes(
     project_id: ProjectId,
     stack_id: StackId,
     parent_id: Option<HexHash>,
-    worktree_changes: Vec<but_workspace::DiffSpec>,
+    worktree_changes: Vec<but_core::DiffSpec>,
     message: String,
     stack_branch_name: String,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
@@ -333,7 +333,7 @@ pub fn amend_commit_from_worktree_changes(
     project_id: ProjectId,
     stack_id: StackId,
     commit_id: HexHash,
-    worktree_changes: Vec<but_workspace::DiffSpec>,
+    worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = gitbutler_project::get(project_id)?;
     let mut guard = project.exclusive_worktree_access();
@@ -348,7 +348,6 @@ pub fn amend_commit_from_worktree_changes(
             // TODO: Expose this in the UI for 'edit message' functionality.
             new_message: None,
         },
-        None,
         worktree_changes,
         app_settings.context_lines,
         guard.write_permission(),
@@ -369,8 +368,8 @@ pub fn amend_commit_from_worktree_changes(
 #[instrument(err(Debug))]
 pub fn discard_worktree_changes(
     project_id: ProjectId,
-    worktree_changes: Vec<but_workspace::DiffSpec>,
-) -> Result<Vec<but_workspace::DiffSpec>, Error> {
+    worktree_changes: Vec<but_core::DiffSpec>,
+) -> Result<Vec<but_core::DiffSpec>, Error> {
     let project = gitbutler_project::get(project_id)?;
     let repo = project.open()?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -418,7 +417,7 @@ pub fn move_changes_between_commits(
     source_commit_id: HexHash,
     destination_stack_id: StackId,
     destination_commit_id: HexHash,
-    changes: Vec<but_workspace::DiffSpec>,
+    changes: Vec<but_core::DiffSpec>,
 ) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -533,7 +532,7 @@ pub fn uncommit_changes(
     project_id: ProjectId,
     stack_id: StackId,
     commit_id: HexHash,
-    changes: Vec<but_workspace::DiffSpec>,
+    changes: Vec<but_core::DiffSpec>,
     assign_to: Option<StackId>,
 ) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(project_id)?;
@@ -615,7 +614,7 @@ pub fn uncommit_changes(
 pub fn stash_into_branch(
     project_id: ProjectId,
     branch_name: String,
-    worktree_changes: Vec<but_workspace::DiffSpec>,
+    worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
@@ -652,7 +651,6 @@ pub fn stash_into_branch(
                     .map_err(anyhow::Error::from)?,
             }),
         },
-        None,
         worktree_changes,
         ctx.app_settings().context_lines,
         perm,

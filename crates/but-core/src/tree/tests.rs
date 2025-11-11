@@ -1,5 +1,5 @@
 mod to_additive_hunks {
-    use crate::{commit_engine::tree::to_additive_hunks, utils::hunk_header};
+    use crate::{tree::to_additive_hunks, utils::hunk_header};
 
     #[test]
     fn rejected() {

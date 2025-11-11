@@ -233,7 +233,7 @@ fn stacks(
         but_workspace::legacy::stacks_v3(
             repo,
             &meta,
-            but_workspace::StacksFilter::InWorkspace,
+            but_workspace::legacy::StacksFilter::InWorkspace,
             None,
         )
     } else {
@@ -241,7 +241,7 @@ fn stacks(
             ctx,
             &project.gb_dir(),
             repo,
-            but_workspace::StacksFilter::InWorkspace,
+            but_workspace::legacy::StacksFilter::InWorkspace,
         )
     }
 }

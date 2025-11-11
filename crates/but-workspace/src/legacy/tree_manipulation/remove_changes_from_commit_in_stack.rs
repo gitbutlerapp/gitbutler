@@ -1,5 +1,5 @@
 use anyhow::{Result, bail};
-use but_core::TreeChange;
+use but_core::{DiffSpec, TreeChange};
 use but_rebase::{Rebase, replace_commit_tree};
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -7,7 +7,6 @@ use gix::ObjectId;
 
 use super::MoveChangesResult;
 use crate::{
-    DiffSpec,
     legacy::stack_ext::StackExt,
     legacy::tree_manipulation::utils::{
         ChangesSource, create_tree_without_diff, rebase_mapping_with_overrides,

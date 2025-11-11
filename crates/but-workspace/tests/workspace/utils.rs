@@ -1,134 +1,21 @@
 use std::borrow::Cow;
 
 use bstr::ByteSlice;
-use but_core::{TreeChange, TreeStatus, UnifiedPatch, unified_diff::DiffHunk};
-use but_testsupport::{
-    gix_testtools,
-    gix_testtools::{Creation, tempfile},
+use but_core::{
+    DiffSpec, HunkHeader, TreeChange, TreeStatus, UnifiedPatch, unified_diff::DiffHunk,
 };
-use but_workspace::{DiffSpec, HunkHeader, commit_engine::Destination};
-use gix::{config::tree::Key, prelude::ObjectIdExt};
+use but_workspace::commit_engine::Destination;
+use gix::prelude::ObjectIdExt;
 
 pub const CONTEXT_LINES: u32 = 0;
 
-fn writable_scenario_inner(
-    name: &str,
-    creation: Creation,
-    args: impl IntoIterator<Item = impl Into<String>>,
-) -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {
-    let tmp = gix_testtools::scripted_fixture_writable_with_args(
-        format!("scenario/{name}.sh"),
-        args,
-        creation,
-    )
-    .map_err(anyhow::Error::from_boxed)?;
-    let mut options = but_testsupport::open_repo_config()?;
-    options.permissions.env = gix::open::permissions::Environment::all();
-    let repo = gix::open_opts(tmp.path(), freeze_time(options))?;
-    Ok((repo, tmp))
-}
-
-fn freeze_time(opts: gix::open::Options) -> gix::open::Options {
-    use gix::config::tree::{User, gitoxide};
-    // Note: this should equal what's used other free-time functions that
-    // are environment based, as env-vars override this.
-    // TODO: don't allow the test-suite to change the current environment (which was needed to help old code)
-    let time = "946771200 +0000".into();
-    opts.config_overrides(
-        [
-            User::NAME.validated_assignment("user".into()),
-            User::EMAIL.validated_assignment("email@example.com".into()),
-            gitoxide::Commit::AUTHOR_DATE.validated_assignment(time),
-            gitoxide::Commit::COMMITTER_DATE.validated_assignment(time),
-        ]
-        .into_iter()
-        .map(Result::unwrap),
-    )
-}
-
-/// Provide a scenario but assure the returned repository will write objects to memory, with environment control.
-pub fn read_only_in_memory_scenario_env(name: &str) -> anyhow::Result<gix::Repository> {
-    read_only_in_memory_scenario_named_env(name, "", gix::open::permissions::Environment::all())
-}
-
-/// Provide a scenario but assure the returned repository will write objects to memory.
-pub fn read_only_in_memory_scenario(name: &str) -> anyhow::Result<gix::Repository> {
-    read_only_in_memory_scenario_named(name, "")
-}
-
-/// Provide a scenario but assure the returned repository will write objects to memory, in a subdirectory `dirname`.
-pub fn read_only_in_memory_scenario_named(
-    script_name: &str,
-    dirname: &str,
-) -> anyhow::Result<gix::Repository> {
-    read_only_in_memory_scenario_named_env(
-        script_name,
-        dirname,
-        gix::open::permissions::Environment::isolated(),
-    )
-}
-
-/// Provide a scenario but assure the returned repository will write objects to memory, in a subdirectory `dirname`.
-pub fn read_only_in_memory_scenario_named_env(
-    script_name: &str,
-    dirname: &str,
-    open_env: gix::open::permissions::Environment,
-) -> anyhow::Result<gix::Repository> {
-    let root = gix_testtools::scripted_fixture_read_only(format!("scenario/{script_name}.sh"))
-        .map_err(anyhow::Error::from_boxed)?;
-    let mut options = gix::open::Options::isolated();
-    options.permissions.env = open_env;
-    let repo = gix::open_opts(root.join(dirname), freeze_time(options))?.with_object_memory();
-    Ok(repo)
-}
-
-pub fn writable_scenario(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::CopyFromReadOnly, None::<String>)
-        .expect("fixtures will yield valid repositories")
-}
-
-pub fn writable_scenario_with_args(
-    name: &str,
-    args: impl IntoIterator<Item = impl Into<String>>,
-) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::CopyFromReadOnly, args)
-        .expect("fixtures will yield valid repositories")
-}
-
-/// It's slow because it has to re-execute the script, certain things can't be copied.
-pub fn writable_scenario_slow(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::ExecuteScript, None::<String>)
-        .expect("fixtures will yield valid repositories")
-}
-
-pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    let (mut repo, tmp) = writable_scenario_inner(name, Creation::CopyFromReadOnly, None::<String>)
-        .expect("fixtures will yield valid repositories");
-    let signing_key_path = repo.workdir().expect("non-bare").join("signature.key");
-    assert!(
-        signing_key_path.is_file(),
-        "Expecting signing key at '{}'",
-        signing_key_path.display()
-    );
-    // It seems `Creation::CopyReadOnly` doesn't retain the mode
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let key = std::fs::File::open(&signing_key_path).expect("file exists");
-        key.set_permissions(std::fs::Permissions::from_mode(0o400))
-            .expect("must assure permissions are 400");
-    }
-
-    repo.config_snapshot_mut()
-        .set_raw_value(
-            &"user.signingKey",
-            gix::path::into_bstr(signing_key_path).as_ref(),
-        )
-        .expect("in-memory values can always be set");
-    write_local_config(&repo)
-        .expect("need this to be in configuration file while git2 is involved");
-    (repo, tmp)
-}
+pub use but_testsupport::{
+    read_only_in_memory_scenario, read_only_in_memory_scenario_named,
+    read_only_in_memory_scenario_non_isolated_keep_env, visualize_index,
+    visualize_index_with_content, writable_scenario, writable_scenario_slow,
+    writable_scenario_with_args, writable_scenario_with_ssh_key, write_local_config,
+    write_sequence,
+};
 
 /// Always use all the hunks.
 pub fn to_change_specs_whole_file(changes: but_core::WorktreeChanges) -> Vec<DiffSpec> {
@@ -205,30 +92,6 @@ pub fn to_change_specs_all_hunks_with_context_lines(
     Ok(out)
 }
 
-pub fn write_sequence(
-    repo: &gix::Repository,
-    filename: &str,
-    sequences: impl IntoIterator<Item = (impl Into<Option<usize>>, impl Into<Option<usize>>)>,
-) -> anyhow::Result<()> {
-    use std::fmt::Write;
-    let mut out = String::new();
-    for (start, end) in sequences {
-        let (start, end) = match (start.into(), end.into()) {
-            (Some(start), Some(end)) => (start, end),
-            (Some(start), None) => (1, start),
-            invalid => panic!("invalid sequence: {invalid:?}"),
-        };
-        for num in start..=end {
-            writeln!(&mut out, "{num}")?;
-        }
-    }
-    std::fs::write(
-        repo.workdir().expect("non-bare").join(filename),
-        out.as_bytes(),
-    )?;
-    Ok(())
-}
-
 pub fn visualize_tree(
     repo: &gix::Repository,
     outcome: &but_workspace::commit_engine::CreateCommitOutcome,
@@ -243,51 +106,6 @@ pub fn visualize_tree(
             .tree_id()?,
     )
     .to_string())
-}
-
-pub fn visualize_index(index: &gix::index::State) -> String {
-    use std::fmt::Write;
-    let mut buf = String::new();
-    for entry in index.entries() {
-        let path = entry.path(index);
-        writeln!(
-            &mut buf,
-            "{mode:o}:{id} {path}{stage}",
-            id = &entry.id.to_hex_with_len(7),
-            mode = entry.mode.bits(),
-            stage = {
-                let stage = entry.flags.stage();
-                if stage == gix::index::entry::Stage::Unconflicted {
-                    "".to_string()
-                } else {
-                    format!(":{stage}", stage = stage as usize)
-                }
-            }
-        )
-        .expect("enough memory")
-    }
-    buf
-}
-
-pub fn visualize_index_with_content(repo: &gix::Repository, index: &gix::index::State) -> String {
-    use std::fmt::Write;
-    let mut buf = String::new();
-    for entry in index.entries() {
-        let path = entry.path(index);
-        writeln!(
-            &mut buf,
-            "{mode:o}:{id} {path} {content:?}",
-            id = &entry.id.to_hex_with_len(7),
-            mode = entry.mode.bits(),
-            content = repo
-                .find_blob(entry.id)
-                .expect("index only has blobs")
-                .data
-                .as_bstr()
-        )
-        .expect("enough memory")
-    }
-    buf
 }
 
 pub struct LeanDiffHunk(DiffHunk);
@@ -327,14 +145,12 @@ pub fn commit_whole_files_and_all_hunks_from_workspace(
     let whole_file_output = but_workspace::commit_engine::create_commit(
         repo,
         destination.clone(),
-        None,
         to_change_specs_whole_file(worktree_changes.clone()),
         CONTEXT_LINES,
     )?;
     let all_hunks_output = but_workspace::commit_engine::create_commit(
         repo,
         destination,
-        None,
         to_change_specs_all_hunks(repo, worktree_changes)?,
         CONTEXT_LINES,
     )?;
@@ -394,16 +210,6 @@ pub fn visualize_commit(
 
 pub fn cat_commit(commit: gix::Id<'_>) -> anyhow::Result<String> {
     Ok(commit.object()?.data.as_bstr().to_string())
-}
-
-// In-memory config changes aren't enough as we still only have snapshots, without the ability to keep
-// the entire configuration fresh.
-pub fn write_local_config(repo: &gix::Repository) -> anyhow::Result<()> {
-    repo.config_snapshot().write_to_filter(
-        &mut std::fs::File::create(repo.path().join("config"))?,
-        |section| section.meta().source == gix::config::Source::Local,
-    )?;
-    Ok(())
 }
 
 /// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.

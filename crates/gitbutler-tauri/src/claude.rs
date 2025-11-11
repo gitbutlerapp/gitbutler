@@ -9,7 +9,7 @@ use but_api::{
 use but_claude::{
     ClaudeMessage, ClaudeUserParams, ModelType, PermissionMode, PromptAttachment, ThinkingLevel,
 };
-use but_workspace::StackId;
+use but_core::ref_metadata::StackId;
 use gitbutler_project::ProjectId;
 use tauri::State;
 use tracing::instrument;

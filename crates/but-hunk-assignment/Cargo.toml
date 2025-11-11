@@ -10,18 +10,19 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
+but-core.workspace = true
+but-hunk-dependency.workspace = true
+but-db.workspace = true
+
+gitbutler-command-context.workspace = true
+gitbutler-stack.workspace = true
+
 anyhow.workspace = true
 itertools.workspace = true
 serde.workspace = true
 serde-error = "0.1.3"
-but-workspace.workspace = true
-but-core.workspace = true
-but-hunk-dependency.workspace = true
-but-db.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
-gitbutler-command-context.workspace = true
-gitbutler-stack.workspace = true
 bstr.workspace = true
 tracing.workspace = true
 

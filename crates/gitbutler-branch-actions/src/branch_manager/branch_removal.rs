@@ -1,4 +1,7 @@
+use super::{BranchManager, checkout_remerged_head};
+use crate::{VirtualBranchesExt, r#virtual as vbranch};
 use anyhow::{Context, Result};
+use but_core::DiffSpec;
 use but_oxidize::{GixRepositoryExt as _, ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_oplog::SnapshotExt;
@@ -9,9 +12,6 @@ use gitbutler_stack::StackId;
 use gitbutler_workspace::workspace_base;
 use tracing::instrument;
 
-use super::{BranchManager, checkout_remerged_head};
-use crate::{VirtualBranchesExt, r#virtual as vbranch};
-
 impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
     pub fn unapply(
@@ -19,7 +19,7 @@ impl BranchManager<'_> {
         stack_id: StackId,
         perm: &mut WorktreeWritePermission,
         delete_vb_state: bool,
-        assigned_diffspec: Vec<but_workspace::DiffSpec>,
+        assigned_diffspec: Vec<DiffSpec>,
         safe_checkout: bool,
     ) -> Result<String> {
         let vb_state = self.ctx.project().virtual_branches();

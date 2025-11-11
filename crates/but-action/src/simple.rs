@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
+use crate::{Outcome, Source, default_target_setting_if_none};
 use anyhow::anyhow;
+use but_core::DiffSpec;
+use but_core::ref_metadata::StackId;
 use but_oxidize::OidExt;
-use but_workspace::{DiffSpec, StackId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::{
@@ -13,7 +15,6 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesHandle;
 use uuid::Uuid;
 
-use crate::{Outcome, Source, default_target_setting_if_none};
 /// This is a GitButler automation which allows easy handling of uncommitted changes in a repository.
 /// At a high level, it will:
 ///   - Checkout GitButler's workspace branch if not already checked out

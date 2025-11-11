@@ -5,7 +5,6 @@ use bstr::ByteSlice;
 use but_api::forge::ListReviewsParams;
 use but_oxidize::OidExt;
 use but_settings::AppSettings;
-use but_workspace::StackId;
 use colored::{ColoredString, Colorize};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -16,6 +15,7 @@ use crate::{
     id::CliId,
     ui::{SimpleBranch, SimpleStack},
 };
+use but_core::ref_metadata::StackId;
 use std::io::Write;
 
 #[derive(Debug, clap::Parser)]
@@ -56,8 +56,10 @@ pub async fn publish_reviews(
     json: bool,
 ) -> anyhow::Result<()> {
     let review_map = get_review_map(project).await?;
-    let applied_stacks =
-        but_api::workspace::stacks(project.id, Some(but_workspace::StacksFilter::InWorkspace))?;
+    let applied_stacks = but_api::workspace::stacks(
+        project.id,
+        Some(but_workspace::legacy::StacksFilter::InWorkspace),
+    )?;
     match branch {
         Some(branch_id) => {
             let branch_names = get_branch_names(project, &branch_id)?;

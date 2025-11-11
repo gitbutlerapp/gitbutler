@@ -3,10 +3,11 @@ use std::collections::HashMap;
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_core::TreeChange;
+use but_core::ref_metadata::StackId;
 use but_oxidize::{
     GixRepositoryExt, ObjectIdExt, OidExt, RepoExt, git2_to_gix_object_id, gix_to_git2_index,
 };
-use but_workspace::{StackId, legacy::stack_ext::StackExt};
+use but_workspace::legacy::stack_ext::StackExt;
 use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};

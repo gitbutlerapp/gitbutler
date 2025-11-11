@@ -1,6 +1,7 @@
 use but_oxidize::OidExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 pub mod commit_engine;
@@ -86,6 +87,18 @@ pub fn log_target_first_parent(
         commits.push(commit.try_into()?);
     }
     Ok(commits)
+}
+/// A filter for the list of stacks.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub enum StacksFilter {
+    /// Show all stacks
+    All,
+    /// Show only applied stacks
+    #[default]
+    InWorkspace,
+    /// Show only unapplied stacks
+    // TODO: figure out where this is used. V2 maybe? If so, it can be removed eventually.
+    Unapplied,
 }
 
 fn state_handle(gb_state_path: &Path) -> VirtualBranchesHandle {

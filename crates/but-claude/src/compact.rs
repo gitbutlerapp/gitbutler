@@ -14,23 +14,22 @@
 
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
-use but_broadcaster::Broadcaster;
-use but_workspace::StackId;
-use gitbutler_command_context::CommandContext;
-use gix::bstr::ByteSlice;
-use serde::Deserialize;
-use tokio::{
-    process::Command,
-    sync::{Mutex, mpsc::unbounded_channel},
-};
-
 use crate::{
     ClaudeSession, MessagePayload, SystemMessage, Transcript,
     bridge::{Claude, Claudes},
     db,
     rules::list_claude_assignment_rules,
     send_claude_message,
+};
+use anyhow::{Context, Result};
+use but_broadcaster::Broadcaster;
+use but_core::ref_metadata::StackId;
+use gitbutler_command_context::CommandContext;
+use gix::bstr::ByteSlice;
+use serde::Deserialize;
+use tokio::{
+    process::Command,
+    sync::{Mutex, mpsc::unbounded_channel},
 };
 
 #[derive(Deserialize, Debug, Clone)]

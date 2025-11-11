@@ -12,7 +12,7 @@ doctest = false
 
 [dependencies]
 but-oxidize.workspace = true
-but-workspace.workspace = true
+but-core.workspace = true
 but-rebase.workspace = true
 
 gitbutler-stack.workspace = true

@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 
+use crate::{VirtualBranchesExt, branch_manager::BranchManagerExt};
 use anyhow::{Context, Result, anyhow};
 use bstr::ByteSlice;
+use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
-use but_workspace::branch::checkout::UncommitedWorktreeChanges;
 use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -16,8 +17,6 @@ use gitbutler_repo::{
 };
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
-
-use crate::{VirtualBranchesExt, branch_manager::BranchManagerExt};
 
 const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
 pub const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";
@@ -156,11 +155,11 @@ pub fn update_workspace_commit(
     )?;
 
     let checkout_res = if checkout_new_worktree && let Some(prev_head_id) = prev_head_id {
-        let res = but_workspace::branch::safe_checkout(
+        let res = but_core::worktree::safe_checkout(
             prev_head_id.to_gix(),
             final_commit.to_gix(),
             &gix_repo,
-            but_workspace::branch::checkout::Options {
+            but_core::worktree::checkout::Options {
                 uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                 skip_head_update: true,
             },

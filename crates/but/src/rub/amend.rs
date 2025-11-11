@@ -1,16 +1,14 @@
 use std::io::Write;
 
+use super::assign::branch_name_to_stack_id;
+use but_core::DiffSpec;
+use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
-use but_workspace::{
-    DiffSpec, StackId,
-    commit_engine::{self, CreateCommitOutcome},
-};
+use but_workspace::commit_engine::{self, CreateCommitOutcome};
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gix::ObjectId;
-
-use super::assign::branch_name_to_stack_id;
 
 pub(crate) fn file_to_commit(
     ctx: &mut CommandContext,
@@ -96,7 +94,6 @@ fn amend_diff_specs(
             commit_id: oid,
             new_message: None,
         },
-        None,
         but_workspace::flatten_diff_specs(diff_specs),
         ctx.app_settings().context_lines,
         perm,

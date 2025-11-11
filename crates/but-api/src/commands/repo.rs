@@ -1,11 +1,12 @@
 use std::{path::PathBuf, sync::atomic::AtomicBool};
 
+use crate::error::{Error, ToError};
 use anyhow::{Context as _, Result};
 use but_api_macros::api_cmd;
+use but_core::DiffSpec;
 use but_graph::virtual_branches_legacy_types::BranchOwnershipClaims;
 use but_oxidize::ObjectIdExt;
 use but_settings::AppSettings;
-use but_workspace::DiffSpec;
 use gitbutler_branch_actions::{RemoteBranchFile, hooks};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
@@ -14,8 +15,6 @@ use gitbutler_repo::{
     hooks::{HookResult, MessageHookResult},
 };
 use tracing::instrument;
-
-use crate::error::{Error, ToError};
 
 #[api_cmd]
 #[cfg_attr(feature = "tauri", tauri::command(async))]
@@ -126,7 +125,7 @@ pub fn pre_commit_hook_diffspecs(
 
     let mut changes = changes.into_iter().map(Ok).collect::<Vec<_>>();
 
-    let (new_tree, ..) = but_workspace::commit_engine::apply_worktree_changes(
+    let (new_tree, ..) = but_core::tree::apply_worktree_changes(
         head.detach(),
         &repository,
         &mut changes,

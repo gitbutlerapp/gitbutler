@@ -1,4 +1,4 @@
-use but_workspace::StackId;
+use but_core::ref_metadata::StackId;
 use gitbutler_project::ProjectId;
 
 pub type Emitter = dyn Fn(&str, serde_json::Value) + Send + Sync + 'static;

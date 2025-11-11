@@ -1,20 +1,3 @@
-use anyhow::{Context, Result};
-use but_oxidize::{ObjectIdExt, OidExt};
-use but_workspace::{DiffSpec, legacy::commit_engine, legacy::stack_heads_info, legacy::ui};
-use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
-use gitbutler_command_context::CommandContext;
-use gitbutler_operating_modes::ensure_open_workspace_mode;
-use gitbutler_oplog::{
-    OplogExt, SnapshotExt,
-    entry::{OperationKind, SnapshotDetails},
-};
-use gitbutler_project::{FetchResult, access::WorktreeWritePermission};
-use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::RepositoryExt;
-use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{BranchOwnershipClaims, StackId};
-use tracing::instrument;
-
 use super::r#virtual as vbranch;
 use crate::{
     VirtualBranchesExt, base,
@@ -33,6 +16,23 @@ use crate::{
         StackStatuses, UpstreamIntegrationContext,
     },
 };
+use anyhow::{Context, Result};
+use but_core::DiffSpec;
+use but_oxidize::{ObjectIdExt, OidExt};
+use but_workspace::{legacy::commit_engine, legacy::stack_heads_info, legacy::ui};
+use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+use gitbutler_command_context::CommandContext;
+use gitbutler_operating_modes::ensure_open_workspace_mode;
+use gitbutler_oplog::{
+    OplogExt, SnapshotExt,
+    entry::{OperationKind, SnapshotDetails},
+};
+use gitbutler_project::{FetchResult, access::WorktreeWritePermission};
+use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_repo::RepositoryExt;
+use gitbutler_repo_actions::RepoActionsExt;
+use gitbutler_stack::{BranchOwnershipClaims, StackId};
+use tracing::instrument;
 
 pub fn create_commit(
     ctx: &CommandContext,
@@ -255,7 +255,7 @@ pub fn update_stack_order(ctx: &CommandContext, updates: Vec<BranchUpdateRequest
 pub fn unapply_stack(
     ctx: &CommandContext,
     stack_id: StackId,
-    assigned_diffspec: Vec<but_workspace::DiffSpec>,
+    assigned_diffspec: Vec<DiffSpec>,
 ) -> Result<String> {
     let mut guard = ctx.project().exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
@@ -309,7 +309,6 @@ fn amend_with_commit_engine(
             commit_id: commit_oid.to_gix(),
             new_message: None,
         },
-        None,
         worktree_changes,
         3, // for the old API this is hardcoded
         guard.write_permission(),

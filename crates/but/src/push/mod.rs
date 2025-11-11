@@ -1,6 +1,6 @@
 use but_core::RepositoryExt;
+use but_core::ref_metadata::StackId;
 use but_settings::AppSettings;
-use but_workspace::StackId;
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -328,8 +328,10 @@ fn format_branch_suggestions(branches: &[String]) -> String {
 }
 
 fn find_stack_id_by_branch_name(project: &Project, branch_name: &str) -> anyhow::Result<StackId> {
-    let stacks =
-        but_api::workspace::stacks(project.id, Some(but_workspace::StacksFilter::InWorkspace))?;
+    let stacks = but_api::workspace::stacks(
+        project.id,
+        Some(but_workspace::legacy::StacksFilter::InWorkspace),
+    )?;
 
     // Find which stack this branch belongs to
     for stack_entry in &stacks {

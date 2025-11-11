@@ -1,7 +1,7 @@
 use std::io::Write;
 
+use but_core::ref_metadata::StackId;
 use but_oxidize::ObjectIdExt;
-use but_workspace::StackId;
 use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gix::ObjectId;

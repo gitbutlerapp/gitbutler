@@ -1,6 +1,5 @@
 use anyhow::Context;
-
-use crate::{HunkHeader, commit_engine::HunkRange};
+use but_core::{HunkHeader, HunkRange};
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) enum HunkSubstraction {

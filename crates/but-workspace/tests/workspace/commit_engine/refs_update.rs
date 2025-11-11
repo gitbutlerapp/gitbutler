@@ -13,12 +13,10 @@ use crate::{
         write_sequence,
     },
 };
+use but_core::DiffSpec;
 use but_testsupport::{assure_stable_env, visualize_commit_graph};
+use but_workspace::commit_engine::{Destination, StackSegmentId};
 use but_workspace::legacy::commit_engine::ReferenceFrame;
-use but_workspace::{
-    DiffSpec,
-    commit_engine::{Destination, StackSegmentId},
-};
 use gitbutler_stack::VirtualBranchesState;
 use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
 
@@ -40,7 +38,6 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
             message: "initial commit".to_string(),
             stack_segment: None,
         },
-        None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
         CONTEXT_LINES,
     )?;
@@ -73,7 +70,6 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
             message: "second commit".to_string(),
             stack_segment: None,
         },
-        None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
         CONTEXT_LINES,
     )?;
@@ -111,7 +107,6 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
             message: "third commit".to_string(),
             stack_segment: None,
         },
-        None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
         CONTEXT_LINES,
     )?;
@@ -136,7 +131,6 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
             commit_id: new_commit,
             new_message: None,
         },
-        None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
         CONTEXT_LINES,
     )?;
@@ -189,7 +183,6 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
             message: "fourth commit".to_string(),
             stack_segment: None,
         },
-        None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
         CONTEXT_LINES,
     )?;
@@ -304,7 +297,6 @@ fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result
             message: "new file with 15 lines".into(),
             stack_segment: None,
         },
-        None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
         CONTEXT_LINES,
     )?;
@@ -374,7 +366,6 @@ fn first_partial_commit_to_tip_from_unborn_head() -> anyhow::Result<()> {
             message: "initial commit with two lines".to_string(),
             stack_segment: None,
         },
-        None,
         vec![DiffSpec {
             previous_path: None,
             path: "not-yet-tracked".into(),
@@ -430,7 +421,6 @@ fn first_partial_commit_to_tip_from_unborn_head() -> anyhow::Result<()> {
             message: "Add yet another line".to_string(),
             stack_segment: None,
         },
-        None,
         vec![DiffSpec {
             previous_path: None,
             path: "not-yet-tracked".into(),
@@ -497,7 +487,6 @@ fn first_partial_commit_to_tip_from_unborn_head() -> anyhow::Result<()> {
             message: "add a part of an untracked file, again".to_string(),
             stack_segment: None,
         },
-        None,
         vec![
             DiffSpec {
                 previous_path: None,
@@ -604,7 +593,6 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
             message: "between initial and former first".to_string(),
             stack_segment: None,
         },
-        None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
     )?;
@@ -700,7 +688,6 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
             commit_id: repo.rev_parse_single("@~1")?.detach(),
             new_message: None,
         },
-        None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
     )?;
@@ -760,7 +747,6 @@ fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
             message: "extend lines to 110".into(),
             stack_segment: None,
         },
-        None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
     )?;
@@ -813,7 +799,6 @@ fn deletions() -> anyhow::Result<()> {
             message: "deletions maybe a bit special".into(),
             stack_segment: None,
         },
-        None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
     )?;
@@ -863,7 +848,6 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
             message: "add 10 more lines at end".into(),
             stack_segment: None,
         },
-        None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
     )?;
@@ -935,7 +919,6 @@ fn insert_commits_into_workspace_with_conflict() -> anyhow::Result<()> {
             message: "with 'file' conflict, but 'other-file' is fine".into(),
             stack_segment: None,
         },
-        None,
         to_change_specs_whole_file(but_core::diff::worktree_changes(&repo)?),
         CONTEXT_LINES,
     )
@@ -1057,7 +1040,6 @@ fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
             },
             &mut Default::default(),
             destination,
-            None,
             to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
             CONTEXT_LINES,
         )
@@ -1139,7 +1121,6 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
             message: "remove 5 lines from beginning".into(),
             stack_segment: None,
         },
-        None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
     )?;
@@ -1227,7 +1208,6 @@ fn two_commits_three_buckets_disambiguate_insertion_position_to_one_below_top() 
                 stack_id: stack.id,
             }),
         },
-        None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
     )?;
@@ -1285,7 +1265,6 @@ fn two_commits_three_buckets_disambiguate_insertion_position_to_top() -> anyhow:
                 stack_id: stack.id,
             }),
         },
-        None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
     )?;
@@ -1360,7 +1339,6 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
                 stack_id: stack_a.id,
             }),
         },
-        None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
     )?;
@@ -1437,7 +1415,6 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
                 stack_id: stack_b.id,
             }),
         },
-        None,
         vec![DiffSpec {
             previous_path: None,
             path: "file".into(),
@@ -1512,7 +1489,6 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
                 stack_id: stack_b.id,
             }),
         },
-        None,
         vec![],
         CONTEXT_LINES,
     )?;
@@ -1576,7 +1552,6 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
             commit_id: branch_a,
             new_message: None,
         },
-        None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
     )?;
@@ -1648,7 +1623,6 @@ fn amend_edit_message_only() -> anyhow::Result<()> {
             commit_id: branch_a,
             new_message: Some("add 10 to the beginning (amended)".into()),
         },
-        None,
         to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?,
         CONTEXT_LINES,
     )?;

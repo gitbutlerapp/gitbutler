@@ -16,8 +16,8 @@ mod commit {
         str::FromStr,
     };
 
+    use crate::RefMetadata;
     use anyhow::anyhow;
-    use but_core::RefMetadata;
     use serde::Serialize;
 
     /// A commit representing a snapshot, along with metadata.

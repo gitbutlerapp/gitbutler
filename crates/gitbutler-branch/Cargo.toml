@@ -11,13 +11,15 @@ autotests = false
 doctest = false
 
 [dependencies]
-anyhow.workspace = true
-git2.workspace = true
-gix = { workspace = true, features = [] }
+but-graph.workspace = true
+
 gitbutler-reference.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-stack.workspace = true
-but-graph.workspace = true
+
+anyhow.workspace = true
+git2.workspace = true
+gix = { workspace = true, features = [] }
 itertools.workspace = true
 serde.workspace = true
 bstr.workspace = true

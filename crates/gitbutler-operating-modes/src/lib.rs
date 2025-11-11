@@ -2,8 +2,8 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{Context, Result, bail};
 use bstr::BString;
+use but_core::ref_metadata::StackId;
 use but_serde::BStringForFrontend;
-use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};

@@ -3,10 +3,10 @@ use std::io::Write;
 
 use bstr::{BString, ByteSlice};
 use but_api::{diff, hex_hash::HexHash, virtual_branches};
+use but_core::DiffSpec;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::HunkDependencies;
 use but_settings::AppSettings;
-use but_workspace::DiffSpec;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
@@ -66,7 +66,7 @@ fn absorb_file(
     project: &Project,
     _ctx: &mut CommandContext,
     path: &str,
-    _assignment: Option<but_workspace::StackId>,
+    _assignment: Option<but_core::ref_metadata::StackId>,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
 ) -> anyhow::Result<()> {
@@ -171,9 +171,10 @@ fn group_changes_by_target_commit(
     project_id: gitbutler_project::ProjectId,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
-) -> anyhow::Result<BTreeMap<(but_workspace::StackId, gix::ObjectId), Vec<HunkAssignment>>> {
+) -> anyhow::Result<BTreeMap<(but_core::ref_metadata::StackId, gix::ObjectId), Vec<HunkAssignment>>>
+{
     let mut changes_by_commit: BTreeMap<
-        (but_workspace::StackId, gix::ObjectId),
+        (but_core::ref_metadata::StackId, gix::ObjectId),
         Vec<HunkAssignment>,
     > = BTreeMap::new();
 
@@ -196,7 +197,7 @@ fn determine_target_commit(
     project_id: gitbutler_project::ProjectId,
     assignment: &HunkAssignment,
     dependencies: &Option<HunkDependencies>,
-) -> anyhow::Result<(but_workspace::StackId, gix::ObjectId)> {
+) -> anyhow::Result<(but_core::ref_metadata::StackId, gix::ObjectId)> {
     // Priority 1: Check if there's a dependency lock for this hunk
     if let Some(deps) = dependencies
         && let Some(_hunk_id) = assignment.id
@@ -309,7 +310,7 @@ fn convert_assignments_to_diff_specs(
 /// Amend a commit with the given changes
 fn amend_commit(
     project: &Project,
-    stack_id: but_workspace::StackId,
+    stack_id: but_core::ref_metadata::StackId,
     commit_id: gix::ObjectId,
     diff_specs: Vec<DiffSpec>,
 ) -> anyhow::Result<()> {

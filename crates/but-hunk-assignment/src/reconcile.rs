@@ -1,10 +1,9 @@
 use std::cmp::Ordering;
 
-use anyhow::Result;
-use but_workspace::StackId;
-use itertools::Itertools;
-
 use crate::HunkAssignment;
+use anyhow::Result;
+use but_core::ref_metadata::StackId;
+use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MultipleOverlapping {
