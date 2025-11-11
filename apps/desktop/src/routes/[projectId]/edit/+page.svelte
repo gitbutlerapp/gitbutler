@@ -9,7 +9,7 @@
 	// TODO: Refactor so we don't need non-null assertion.
 	const projectId = $derived(page.params.projectId!);
 	const modeService = inject(MODE_SERVICE);
-	const mode = $derived(modeService.mode({ projectId }));
+	const mode = $derived(modeService.mode(projectId));
 
 	let editModeMetadata = $state<EditModeMetadata>();
 
