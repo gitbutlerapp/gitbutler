@@ -44,6 +44,7 @@
 	}
 
 	.commit-bubble {
+		max-width: var(--message-max-width);
 		overflow: hidden;
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-2);
