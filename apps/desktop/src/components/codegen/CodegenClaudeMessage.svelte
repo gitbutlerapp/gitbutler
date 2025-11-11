@@ -92,6 +92,7 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
+		border-bottom-left-radius: 0;
 
 		&.expanded {
 			width: 100%;

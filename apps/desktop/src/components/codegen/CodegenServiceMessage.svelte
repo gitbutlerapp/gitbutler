@@ -57,6 +57,7 @@
 		max-width: var(--message-max-width);
 		padding: 10px 12px;
 		border-radius: var(--radius-ml);
+		border-bottom-left-radius: 0;
 		background-color: var(--clr-bg-2);
 		color: var(--clr-text-2);
 	}
