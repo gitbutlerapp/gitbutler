@@ -52,7 +52,6 @@ notify = "8.2.0"
 snapbox = "0.6.23"
 url = "2.5.7"
 
-gitbutler-id = { path = "crates/gitbutler-id" }
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-filemonitor = { path = "crates/gitbutler-filemonitor" }

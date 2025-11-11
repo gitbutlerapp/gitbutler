@@ -836,7 +836,6 @@ dependencies = [
  "gitbutler-commit",
  "gitbutler-edit-mode",
  "gitbutler-forge",
- "gitbutler-id",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-oxidize",
@@ -3612,14 +3611,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-id"
-version = "0.0.0"
-dependencies = [
- "serde",
- "uuid",
-]
-
-[[package]]
 name = "gitbutler-notify-debouncer"
 version = "0.0.0"
 dependencies = [
@@ -3703,7 +3694,6 @@ dependencies = [
  "but-serde",
  "git2",
  "gitbutler-forge",
- "gitbutler-id",
  "gitbutler-storage",
  "gitbutler-testsupport",
  "gix",
@@ -3775,12 +3765,12 @@ name = "gitbutler-repo-actions"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "but-error",
  "git2",
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-git",
- "gitbutler-id",
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
@@ -3837,7 +3827,6 @@ dependencies = [
  "git2",
  "gitbutler-command-context",
  "gitbutler-commit",
- "gitbutler-id",
  "gitbutler-oplog",
  "gitbutler-oxidize",
  "gitbutler-project",
@@ -3883,7 +3872,6 @@ dependencies = [
  "console-subscriber",
  "git2",
  "gitbutler-command-context",
- "gitbutler-id",
  "gitbutler-project",
  "gitbutler-repo-actions",
  "gitbutler-watcher",

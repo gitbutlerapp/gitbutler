@@ -15,7 +15,6 @@ but-path.workspace = true
 but-serde =  { workspace = true, features = ["legacy"] }
 but-core.workspace = true
 
-gitbutler-id.workspace = true
 gitbutler-storage.workspace = true
 gitbutler-forge.workspace = true
 

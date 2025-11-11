@@ -127,13 +127,12 @@ impl Controller {
         );
 
         let project = Project {
-            id,
             title,
             // TODO(1.0): make this always `None`, until the field can be removed for good.
             worktree_dir: resolved_path,
             api: None,
             git_dir: repo.git_dir().to_owned(),
-            ..Default::default()
+            ..Project::default_with_id(id)
         };
 
         self.projects_storage

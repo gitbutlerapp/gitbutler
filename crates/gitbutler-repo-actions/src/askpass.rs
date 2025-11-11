@@ -1,6 +1,5 @@
 use std::{collections::HashMap, path::Path, sync::Arc};
 
-use gitbutler_id::id::Id;
 use gitbutler_stack::StackId;
 use serde::Serialize;
 use tokio::sync::{Mutex, oneshot};
@@ -38,6 +37,9 @@ pub struct AskpassRequest {
     sender: oneshot::Sender<Option<String>>,
 }
 
+/// An ID for the askpass request.
+pub type AskpassRequestId = but_core::Id<'A'>;
+
 #[derive(Debug, Clone, serde::Serialize)]
 // This is needed to end up with a struct with either `branch_id` or `action`
 #[serde(untagged)]
@@ -49,13 +51,13 @@ pub enum Context {
 
 #[derive(Clone)]
 pub struct AskpassBroker {
-    pending_requests: Arc<Mutex<HashMap<Id<AskpassRequest>, AskpassRequest>>>,
+    pending_requests: Arc<Mutex<HashMap<AskpassRequestId, AskpassRequest>>>,
     submit_prompt_event: Arc<dyn Fn(PromptEvent<Context>) + Send + Sync>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct PromptEvent<C: Serialize + Clone> {
-    id: Id<AskpassRequest>,
+    id: AskpassRequestId,
     prompt: String,
     context: C,
 }
@@ -70,7 +72,7 @@ impl AskpassBroker {
 
     pub async fn submit_prompt(&self, prompt: String, context: Context) -> Option<String> {
         let (sender, receiver) = oneshot::channel();
-        let id = Id::generate();
+        let id = AskpassRequestId::generate();
         let request = AskpassRequest { sender };
         self.pending_requests.lock().await.insert(id, request);
         (self.submit_prompt_event)(PromptEvent {
@@ -81,7 +83,7 @@ impl AskpassBroker {
         receiver.await.unwrap()
     }
 
-    pub async fn handle_response(&self, id: Id<AskpassRequest>, response: Option<String>) {
+    pub async fn handle_response(&self, id: AskpassRequestId, response: Option<String>) {
         let mut pending_requests = self.pending_requests.lock().await;
         if let Some(request) = pending_requests.remove(&id) {
             let _ = request.sender.send(response);

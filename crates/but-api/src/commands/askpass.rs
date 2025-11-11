@@ -1,6 +1,5 @@
 //! In place of commands.rs
-use gitbutler_id::id::Id;
-use gitbutler_repo_actions::askpass::{self, AskpassRequest};
+use gitbutler_repo_actions::askpass::{self, AskpassRequestId};
 use serde::Deserialize;
 
 use crate::error::Error;
@@ -8,7 +7,7 @@ use crate::error::Error;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubmitPromptResponseParams {
-    pub id: Id<AskpassRequest>,
+    pub id: AskpassRequestId,
     pub response: Option<String>,
 }
 

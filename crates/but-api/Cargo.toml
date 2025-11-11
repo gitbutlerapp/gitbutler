@@ -56,7 +56,6 @@ gitbutler-operating-modes.workspace = true
 gitbutler-sync.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-forge.workspace = true
-gitbutler-id.workspace = true
 
 tauri = { version = "^2.9.2", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
 

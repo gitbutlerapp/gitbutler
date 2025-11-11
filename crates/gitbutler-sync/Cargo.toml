@@ -17,7 +17,6 @@ gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 gitbutler-user.workspace = true
 gitbutler-reference.workspace = true
-gitbutler-id.workspace = true
 gitbutler-url.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-oxidize.workspace = true

@@ -12,7 +12,7 @@ pub(crate) struct Storage {
     inner: gitbutler_storage::Storage,
 }
 
-#[derive(Debug, Deserialize, Default, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct UpdateRequest {
     pub id: ProjectId,
     pub title: Option<String>,
@@ -35,6 +35,33 @@ pub struct UpdateRequest {
     #[serde(default = "default_false")]
     pub unset_forge_override: bool,
     pub preferred_forge_user: Option<gitbutler_forge::ForgeUser>,
+}
+
+impl UpdateRequest {
+    /// A way to default the project data, while making its project ID explicit.
+    pub fn default_with_id(id: ProjectId) -> Self {
+        Self {
+            id,
+            title: None,
+            description: None,
+            git_dir: None,
+            path: None,
+            api: None,
+            unset_api: false,
+            gitbutler_data_last_fetched: None,
+            preferred_key: None,
+            ok_with_force_push: None,
+            force_push_protection: None,
+            gitbutler_code_push_state: None,
+            project_data_last_fetched: None,
+            omit_certificate_check: None,
+            use_diff_context: None,
+            snapshot_lines_threshold: None,
+            forge_override: None,
+            unset_forge_override: false,
+            preferred_forge_user: None,
+        }
+    }
 }
 
 impl From<Project> for UpdateRequest {

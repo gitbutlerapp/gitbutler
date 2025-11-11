@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::Context;
-use gitbutler_id::id::Id;
 use serde::{Deserialize, Serialize};
 
 use crate::default_true::DefaultTrue;
@@ -70,10 +69,12 @@ pub struct CodePushState {
     pub timestamp: time::SystemTime,
 }
 
-pub type ProjectId = Id<Project>;
+pub type ProjectId = but_core::Id<'P'>;
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Project {
+    // TODO: We shouldn't need these IDs and most definitely shouldn't persist them.
+    //       A project is a `git_dir`, and from there all other project data can be derived.
     pub id: ProjectId,
     pub title: String,
     pub description: Option<String>,
@@ -123,16 +124,39 @@ pub struct Project {
     pub preferred_forge_user: Option<gitbutler_forge::ForgeUser>,
 }
 
+impl Project {
+    /// Return a new instance with `id` and all other fields defaulted.
+    pub fn default_with_id(id: ProjectId) -> Self {
+        Project {
+            id,
+            title: "".to_string(),
+            description: None,
+            worktree_dir: Default::default(),
+            git_dir: Default::default(),
+            preferred_key: Default::default(),
+            ok_with_force_push: Default::default(),
+            force_push_protection: false,
+            api: None,
+            gitbutler_data_last_fetch: None,
+            gitbutler_code_push_state: None,
+            project_data_last_fetch: None,
+            omit_certificate_check: None,
+            snapshot_lines_threshold: None,
+            forge_override: None,
+            preferred_forge_user: None,
+        }
+    }
+}
+
 /// Testing
 // TODO: remove once `gitbutler-testsupport` isn't needed anymore, and `gitbutler-repo`
 impl Project {
     /// A special constructor needed as `worktree_dir` isn't accessible anymore.
     pub fn new_for_gitbutler_testsupport(title: String, worktree_dir: PathBuf) -> Self {
         Project {
-            id: ProjectId::generate(),
             title,
             worktree_dir,
-            ..Default::default()
+            ..Project::default_with_id(ProjectId::generate())
         }
         .migrated()
         .unwrap()
@@ -143,7 +167,7 @@ impl Project {
         Project {
             worktree_dir,
             preferred_key,
-            ..Default::default()
+            ..Project::default_with_id(ProjectId::generate())
         }
         .migrated()
         .unwrap()
@@ -192,7 +216,7 @@ impl Project {
             .to_owned();
         Project {
             worktree_dir,
-            ..Default::default()
+            ..Project::default_with_id(ProjectId::generate())
         }
         .migrated()
     }
