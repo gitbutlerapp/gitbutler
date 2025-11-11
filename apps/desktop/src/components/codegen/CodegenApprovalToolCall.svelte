@@ -33,8 +33,8 @@
 	type DenyDecision = 'denyOnce' | 'denySession' | 'denyProject' | 'denyAlways';
 	type WildcardDecision = 'precise' | 'wild';
 
-	let selectedAllowDecision = $state<AllowDecision>('allowSession');
-	let selectedDenyDecision = $state<DenyDecision>('denySession');
+	let selectedAllowDecision = $state<AllowDecision>('allowOnce');
+	let selectedDenyDecision = $state<DenyDecision>('denyOnce');
 	let selectedWildcardDecision = $state<WildcardDecision>('precise');
 
 	const allowLabels: Record<AllowDecision, string> = {

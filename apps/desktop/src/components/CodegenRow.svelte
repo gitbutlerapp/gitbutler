@@ -9,11 +9,17 @@
 		CodegenFileDropHandler,
 		CodegenHunkDropHandler
 	} from '$lib/codegen/dropzone';
-	import { extractLastMessage, getTodos } from '$lib/codegen/messages';
+	import {
+		extractLastMessage,
+		formatMessages,
+		getTodos,
+		userFeedbackStatus
+	} from '$lib/codegen/messages';
+	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/core/context';
-	import { Icon } from '@gitbutler/ui';
+	import { Badge, Icon } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { slide } from 'svelte/transition';
 	import type { ClaudeStatus, PromptAttachment } from '$lib/codegen/types';
@@ -35,10 +41,15 @@
 
 	const claudeService = inject(CLAUDE_CODE_SERVICE);
 	const messages = claudeService.messages({ projectId, stackId });
+	const permissionRequests = $derived(claudeService.permissionRequests({ projectId }));
 
 	let active = $state(false);
 
-	function getCurrentIconName(): keyof typeof iconsJson {
+	function getCurrentIconName(hasPendingApproval: boolean): keyof typeof iconsJson {
+		if (hasPendingApproval) {
+			return 'attention';
+		}
+
 		if (status === 'running' || status === 'compacting') {
 			return 'spinner';
 		}
@@ -69,37 +80,46 @@
 	{#snippet overlay({ hovered, activated })}
 		<CardOverlay {hovered} {activated} label="Reference" />
 	{/snippet}
-	<button
-		type="button"
-		class="codegen-row"
-		class:selected
-		class:active
-		onclick={toggleSelection}
-		use:focusable={{
-			onAction: toggleSelection,
-			onActive: (value) => (active = value),
-			focusable: true
-		}}
-	>
-		{#if selected}
-			<div
-				class="indicator"
+
+	<ReduxResult {projectId} result={combineResults(messages.result, permissionRequests.result)}>
+		{#snippet children([messages, permissionReqs])}
+			{@const lastMessage = extractLastMessage(messages)}
+			{@const lastSummary = lastMessage ? truncate(lastMessage, 360, 8) : undefined}
+			{@const todos = getTodos(messages)}
+			{@const completedCount = todos.filter((t) => t.status === 'completed').length}
+			{@const totalCount = todos.length}
+			{@const formattedMessages = formatMessages(messages, permissionReqs, status === 'running')}
+			{@const feedbackStatus = userFeedbackStatus(formattedMessages)}
+			{@const hasPendingApproval = feedbackStatus.waitingForFeedback}
+
+			<button
+				type="button"
+				class="codegen-row"
 				class:selected
 				class:active
-				in:slide={{ axis: 'x', duration: 150 }}
-			></div>
-		{/if}
+				class:codegen-row--wiggle={hasPendingApproval && !selected}
+				onclick={toggleSelection}
+				use:focusable={{
+					onAction: toggleSelection,
+					onActive: (value) => (active = value),
+					focusable: true
+				}}
+			>
+				{#if selected}
+					<div
+						class="indicator"
+						class:selected
+						class:active
+						in:slide={{ axis: 'x', duration: 150 }}
+					></div>
+				{/if}
 
-		<ReduxResult {projectId} result={messages.result}>
-			{#snippet children(messages)}
-				{@const lastMessage = extractLastMessage(messages)}
-				{@const lastSummary = lastMessage ? truncate(lastMessage, 360, 8) : undefined}
-				{@const todos = getTodos(messages)}
-				{@const completedCount = todos.filter((t) => t.status === 'completed').length}
-				{@const totalCount = todos.length}
-
-				<Icon name={getCurrentIconName()} color="var(--clr-theme-purp-element)" />
+				<Icon name={getCurrentIconName(hasPendingApproval)} color="var(--clr-theme-purp-element)" />
 				<h3 class="text-13 text-semibold truncate codegen-row__title">{lastSummary}</h3>
+
+				{#if hasPendingApproval}
+					<Badge style="pop" tooltip="Waiting for approval">Action needed</Badge>
+				{/if}
 
 				{#if totalCount > 1}
 					<span class="text-12 codegen-row__todos">Todos ({completedCount}/{totalCount})</span>
@@ -108,23 +128,26 @@
 						<Icon name="success-outline" color="success" />
 					{/if}
 				{/if}
-			{/snippet}
-		</ReduxResult>
-	</button>
+			</button>
+		{/snippet}
+	</ReduxResult>
 </Dropzone>
 
 <style lang="postcss">
 	.codegen-row {
 		display: flex;
 		position: relative;
+		align-items: center;
 		width: 100%;
-		padding: 12px;
+		height: 44px;
+		padding: 0 12px;
 		padding-left: 14px;
 		gap: 8px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-theme-purp-bg);
 		text-align: left;
+
 		transition: background-color var(--transition-fast);
 
 		&:hover {
@@ -135,6 +158,10 @@
 		&.active.selected {
 			background-color: var(--clr-theme-purp-bg-muted);
 		}
+	}
+
+	.codegen-row--wiggle {
+		animation: row-wiggle 5s ease-in-out infinite;
 	}
 
 	.codegen-row__title {

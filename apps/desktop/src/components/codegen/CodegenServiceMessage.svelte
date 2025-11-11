@@ -79,7 +79,7 @@
 	.service-message__bubble--wiggle {
 		animation:
 			popIn 0.2s cubic-bezier(0.215, 0.61, 0.355, 1) 0.1s both,
-			wiggle 5s ease-in-out infinite;
+			row-wiggle 5s ease-in-out infinite;
 	}
 
 	@keyframes popIn {
@@ -92,29 +92,6 @@
 			transform: scale(1) translateY(0px) rotate(0deg);
 			transform-origin: left bottom;
 			opacity: 1;
-		}
-	}
-
-	@keyframes wiggle {
-		0%,
-		12%,
-		100% {
-			transform: translateX(0px) rotate(0deg);
-		}
-		2% {
-			transform: translateX(-3px) rotate(-0.2deg);
-		}
-		4% {
-			transform: translateX(3px) rotate(0.2deg);
-		}
-		6% {
-			transform: translateX(-3px) rotate(-0.2deg);
-		}
-		8% {
-			transform: translateX(3px) rotate(0.2deg);
-		}
-		10% {
-			transform: translateX(0px) rotate(0deg);
 		}
 	}
 </style>
