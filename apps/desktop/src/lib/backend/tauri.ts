@@ -9,6 +9,7 @@ import {
 	writeText as tauriWriteText,
 	readText as tauriReadText
 } from '@tauri-apps/plugin-clipboard-manager';
+import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { open as filePickerTauri, type OpenDialogOptions } from '@tauri-apps/plugin-dialog';
 import { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';
 import { error as logErrorToFile } from '@tauri-apps/plugin-log';
@@ -36,6 +37,27 @@ export default class Tauri implements IBackend {
 			set(e.payload);
 		});
 	});
+
+	constructor() {
+		async function initDeepLinking() {
+			// Check if app was launched via deep link
+			const urls = (await getCurrent()) ?? [];
+			if (urls.length > 0) {
+				// TODO: Handle deep link URLs on startup
+				// eslint-disable-next-line no-console
+				console.log('Started from deep link:', urls);
+			}
+
+			// Listen for new deep links while app is running
+			onOpenUrl((urls) => {
+				// TODO: Handle deep link URLs on startup
+				// eslint-disable-next-line no-console
+				console.log('Received deep link:', urls);
+			});
+		}
+
+		initDeepLinking();
+	}
 
 	invoke = tauriInvoke;
 	listen = tauriListen;
