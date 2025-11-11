@@ -43,7 +43,7 @@ impl BranchManager<'_> {
         if !assigned_diffspec.is_empty()
             && let Some(head) = stack.heads.last().map(|h| h.name.to_string())
         {
-            but_workspace::commit_engine::create_commit_simple(
+            but_workspace::legacy::commit_engine::create_commit_simple(
                 self.ctx,
                 stack_id,
                 None,

@@ -10,14 +10,6 @@ rust-version = "1.89"
 doctest = false
 
 [dependencies]
-anyhow.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-serde_json_lenient.workspace = true
-strum = { version = "0.27", features = ["derive"] }
-chrono.workspace = true
-uuid.workspace = true
-gix.workspace = true
 but-core.workspace = true
 but-action.workspace = true
 but-broadcaster.workspace = true
@@ -26,13 +18,23 @@ but-graph.workspace = true
 but-rules.workspace = true
 but-settings.workspace = true
 but-hunk-assignment.workspace = true
-but-workspace.workspace = true
+but-workspace = { workspace = true, features = ["legacy"] }
 but-path.workspace = true
+
 gitbutler-branch.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-project.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-branch-actions.workspace = true
+
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_json_lenient.workspace = true
+strum = { version = "0.27", features = ["derive"] }
+chrono.workspace = true
+uuid.workspace = true
+gix.workspace = true
 tokio = { workspace = true, features = ["full"] }
 dirs.workspace = true
 rmcp.workspace = true

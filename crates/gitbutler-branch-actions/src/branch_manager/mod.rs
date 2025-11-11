@@ -10,7 +10,7 @@ pub(crate) fn checkout_remerged_head(
     ctx: &CommandContext,
     repo: &gix::Repository,
 ) -> anyhow::Result<()> {
-    let (workspace_tree_id, _, _) = but_workspace::remerged_workspace_tree_v2(ctx, repo)?;
+    let (workspace_tree_id, _, _) = but_workspace::legacy::remerged_workspace_tree_v2(ctx, repo)?;
     but_workspace::branch::safe_checkout_from_head(
         workspace_tree_id.to_gix(),
         repo,

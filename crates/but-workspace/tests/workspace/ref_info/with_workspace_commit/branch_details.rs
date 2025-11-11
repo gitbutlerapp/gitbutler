@@ -1,5 +1,5 @@
 use but_testsupport::visualize_commit_graph_all;
-use but_workspace::branch_details_v3;
+use but_workspace::branch_details;
 
 use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
 
@@ -11,7 +11,7 @@ fn disjoint() -> anyhow::Result<()> {
 * fafd9d0 (origin/main, main) init
 ");
 
-    let actual = branch_details_v3(&repo, "refs/heads/disjoint".try_into()?, &*meta)?;
+    let actual = branch_details(&repo, "refs/heads/disjoint".try_into()?, &*meta)?;
     insta::assert_debug_snapshot!(actual, @r#"
     BranchDetails {
         name: "refs/heads/disjoint",
@@ -37,7 +37,7 @@ fn disjoint() -> anyhow::Result<()> {
     }
     "#);
 
-    let actual = branch_details_v3(&repo, "refs/heads/main".try_into()?, &*meta)?;
+    let actual = branch_details(&repo, "refs/heads/main".try_into()?, &*meta)?;
     insta::assert_debug_snapshot!(actual, @r#"
     BranchDetails {
         name: "refs/heads/main",

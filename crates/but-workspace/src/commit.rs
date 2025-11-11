@@ -2,7 +2,7 @@ use anyhow::Context;
 use bstr::{BString, ByteSlice};
 use but_core::ref_metadata::MaybeDebug;
 
-use crate::{WorkspaceCommit, ui::StackEntryNoOpt};
+use crate::WorkspaceCommit;
 
 /// A minimal stack for use by [WorkspaceCommit::new_from_stacks()].
 #[derive(Clone)]
@@ -12,15 +12,6 @@ pub struct Stack {
     /// The short name of the stack, which is the name of the top-most branch,
     /// like `main` or `feature/branch` or `origin/tracking-some-PR` or something entirely made up.
     pub name: Option<BString>,
-}
-
-impl From<StackEntryNoOpt> for Stack {
-    fn from(value: StackEntryNoOpt) -> Self {
-        Stack {
-            tip: value.tip,
-            name: value.name().map(ToOwned::to_owned),
-        }
-    }
 }
 
 impl std::fmt::Debug for Stack {

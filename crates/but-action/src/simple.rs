@@ -169,7 +169,7 @@ fn handle_changes_simple_inner(
             .and_then(|s| s.heads.first().map(|h| h.name.to_string()))
             .ok_or(anyhow!("Could not find associated reference name"))?;
 
-        let outcome = but_workspace::commit_engine::create_commit_simple(
+        let outcome = but_workspace::legacy::commit_engine::create_commit_simple(
             ctx,
             stack_id,
             None,

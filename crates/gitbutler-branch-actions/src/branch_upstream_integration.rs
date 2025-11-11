@@ -1,7 +1,7 @@
 use anyhow::{Result, bail};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_rebase::{Rebase, RebaseStep};
-use but_workspace::{stack_ext::StackExt, ui::CommitState};
+use but_workspace::{legacy::stack_ext::StackExt, ui::CommitState};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::access::WorktreeWritePermission;
@@ -52,7 +52,7 @@ pub fn get_initial_integration_steps_for_branch(
     let project = ctx.project();
     let meta =
         VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
-    let stack_details = but_workspace::stack_details_v3(stack_id, &repo, &meta)?;
+    let stack_details = but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)?;
 
     let branch_details = stack_details
         .branch_details

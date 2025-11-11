@@ -146,7 +146,7 @@ mod utils;
 /// `common_merge_base` is expected to be the merge base that all `stacks` have in common, as would be created with [gix::Repository::merge_base_octopus()].
 pub fn workspace_stacks_to_input_stacks(
     repo: &gix::Repository,
-    stacks: &[but_workspace::ui::StackEntry],
+    stacks: &[but_workspace::legacy::ui::StackEntry],
     common_merge_base: gix::ObjectId,
 ) -> anyhow::Result<Vec<InputStack>> {
     let mut out = Vec::new();

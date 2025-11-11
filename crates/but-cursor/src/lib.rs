@@ -139,7 +139,7 @@ pub async fn handle_after_edit() -> anyhow::Result<CursorHookOutput> {
     )?;
     let vb_state = &VirtualBranchesHandle::new(ctx.project().gb_dir());
 
-    let stacks = but_workspace::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
+    let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
     let stack_id =
         but_claude::hooks::get_or_create_session(ctx, &input.conversation_id, stacks, vb_state)?;
 
@@ -208,7 +208,7 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
         ctx.project().gb_dir().join("virtual_branches.toml"),
     )?;
     let vb_state = &VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let stacks = but_workspace::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
+    let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
     let stack_id =
         but_claude::hooks::get_or_create_session(ctx, &input.conversation_id, stacks, vb_state)?;
 
@@ -231,7 +231,7 @@ pub async fn handle_stop(nightly: bool) -> anyhow::Result<CursorHookOutput> {
         Some(stack_id),
     )?;
 
-    let stacks = but_workspace::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
+    let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
 
     // Trigger commit message generation for newly created commits
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if avaialbe

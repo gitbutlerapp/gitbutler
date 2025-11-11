@@ -8,8 +8,8 @@ use gix::ObjectId;
 use super::MoveChangesResult;
 use crate::{
     DiffSpec,
-    stack_ext::StackExt,
-    tree_manipulation::utils::{
+    legacy::stack_ext::StackExt,
+    legacy::tree_manipulation::utils::{
         ChangesSource, create_tree_without_diff, rebase_mapping_with_overrides,
         replace_pick_with_commit,
     },

@@ -166,7 +166,7 @@ pub mod stacks {
 
     use anyhow::Context;
     use but_settings::AppSettings;
-    use but_workspace::{StacksFilter, stack_branches, ui};
+    use but_workspace::{StacksFilter, legacy::stack_branches, legacy::ui};
     use gitbutler_command_context::CommandContext;
     use gitbutler_reference::{Refname, RemoteRefname};
     use gitbutler_stack::StackId;
@@ -190,9 +190,9 @@ pub mod stacks {
         };
         let stacks = if v3 {
             let meta = ref_metadata_toml(ctx.project())?;
-            but_workspace::stacks_v3(&repo, &meta, filter, None)
+            but_workspace::legacy::stacks_v3(&repo, &meta, filter, None)
         } else {
-            but_workspace::stacks(&ctx, &project.gb_dir(), &repo, filter)
+            but_workspace::legacy::stacks(&ctx, &project.gb_dir(), &repo, filter)
         }?;
         if use_json {
             let json = serde_json::to_string_pretty(&stacks)?;
@@ -209,9 +209,9 @@ pub mod stacks {
         let details = if v3 {
             let meta = ref_metadata_toml(ctx.project())?;
             let repo = ctx.gix_repo_for_merging_non_persisting()?;
-            but_workspace::stack_details_v3(id, &repo, &meta)
+            but_workspace::legacy::stack_details_v3(id, &repo, &meta)
         } else {
-            but_workspace::stack_details(
+            but_workspace::legacy::stack_details(
                 &project.gb_dir(),
                 id.context("a StackID is needed for the old implementation")?,
                 &ctx,
@@ -228,7 +228,7 @@ pub mod stacks {
         let ref_name = repo.find_reference(ref_name)?.name().to_owned();
 
         let details = if v3 {
-            but_workspace::branch_details_v3(&repo, ref_name.as_ref(), &meta)
+            but_workspace::branch_details(&repo, ref_name.as_ref(), &meta)
         } else {
             let (category, shortname) = ref_name
                 .category_and_short_name()
@@ -245,7 +245,7 @@ pub mod stacks {
             } else {
                 (shortname.to_str().unwrap(), None)
             };
-            but_workspace::branch_details(&project.gb_dir(), short_name, remote, &ctx)
+            but_workspace::legacy::branch_details(&project.gb_dir(), short_name, remote, &ctx)
         }?;
         debug_print(details)
     }
@@ -290,7 +290,7 @@ pub mod stacks {
             )?;
 
             let stack_entries =
-                but_workspace::stacks(ctx, &project.gb_dir(), &repo, Default::default())?;
+                but_workspace::legacy::stacks(ctx, &project.gb_dir(), &repo, Default::default())?;
             let stack_entry = stack_entries
                 .into_iter()
                 .find(|entry| entry.id == Some(stack_id))
@@ -340,7 +340,7 @@ pub mod stacks {
 
         gitbutler_branch_actions::stack::create_branch(ctx, stack_id, creation_request)?;
         let stack_entries =
-            but_workspace::stacks(ctx, &project.gb_dir(), repo, Default::default())?;
+            but_workspace::legacy::stacks(ctx, &project.gb_dir(), repo, Default::default())?;
 
         let stack_entry = stack_entries
             .into_iter()
@@ -384,7 +384,8 @@ pub mod stacks {
         let ctx = CommandContext::open(&project, app_settings)?;
         let repo = ctx.gix_repo()?;
 
-        let stacks = but_workspace::stacks(&ctx, &project.gb_dir(), &repo, Default::default())?;
+        let stacks =
+            but_workspace::legacy::stacks(&ctx, &project.gb_dir(), &repo, Default::default())?;
         let subject_stack = stacks
             .clone()
             .into_iter()

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{Context, Result, anyhow, bail};
 use but_rebase::RebaseStep;
-use but_workspace::stack_ext::StackExt;
+use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};

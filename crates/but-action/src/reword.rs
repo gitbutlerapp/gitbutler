@@ -1,7 +1,7 @@
 use async_openai::{Client, config::OpenAIConfig};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
-use but_workspace::{StacksFilter, ui::StackEntry};
+use but_workspace::{StacksFilter, legacy::ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::Project;
@@ -88,8 +88,8 @@ fn stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project().gb_dir().join("virtual_branches.toml"),
         )?;
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default(), None)
+        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
     } else {
-        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
+        but_workspace::legacy::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
     }
 }

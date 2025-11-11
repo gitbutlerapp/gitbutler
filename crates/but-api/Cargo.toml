@@ -20,7 +20,7 @@ tauri = ["dep:tauri"]
 but-settings.workspace = true
 but-github.workspace = true
 but-secret.workspace = true
-but-workspace.workspace = true
+but-workspace = { workspace = true, features = ["legacy"] }
 but-worktrees.workspace = true
 but-core.workspace = true
 but-gerrit.workspace = true

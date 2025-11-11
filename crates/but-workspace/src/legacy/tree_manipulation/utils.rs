@@ -7,7 +7,7 @@ use bstr::ByteSlice as _;
 use but_core::ChangeState;
 use but_rebase::{RebaseOutput, RebaseStep};
 
-use super::hunk::{HunkSubstraction, subtract_hunks};
+use crate::tree_manipulation::hunk::{HunkSubstraction, subtract_hunks};
 use crate::{DiffSpec, HunkHeader, commit_engine::apply_hunks};
 
 /// Takes a rebase output and returns the commit mapping with any extra

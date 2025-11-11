@@ -11,7 +11,7 @@ doctest = false
 
 [dependencies]
 but-core.workspace = true
-but-workspace.workspace = true
+but-workspace = { workspace = true, features = ["legacy"] }
 but-serde.workspace = true
 
 gitbutler-command-context.workspace = true

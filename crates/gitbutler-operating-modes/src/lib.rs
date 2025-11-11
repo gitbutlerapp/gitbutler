@@ -137,7 +137,8 @@ fn outside_workspace_metadata(ctx: &CommandContext) -> Result<OutsideWorkspaceMe
         });
     }
 
-    let (outcome, conflict_kind) = but_workspace::merge_worktree_with_workspace(ctx, &gix_repo)?;
+    let (outcome, conflict_kind) =
+        but_workspace::legacy::merge_worktree_with_workspace(ctx, &gix_repo)?;
     let worktree_conflicts = outcome
         .conflicts
         .iter()

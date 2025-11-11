@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use but_graph::virtual_branches_legacy_types::CommitOrChangeId;
 use but_rebase::{Rebase, RebaseStep};
-use but_workspace::{StackId, stack_ext::StackExt};
+use but_workspace::{StackId, legacy::stack_ext::StackExt};
 use gitbutler_cherry_pick::GixRepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;

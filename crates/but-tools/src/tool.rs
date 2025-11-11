@@ -5,7 +5,7 @@ use std::{
 
 use but_workspace::{
     StackId,
-    ui::{StackEntry, StackEntryNoOpt},
+    legacy::ui::{StackEntry, StackEntryNoOpt},
 };
 use gitbutler_command_context::CommandContext;
 use gix::ObjectId;

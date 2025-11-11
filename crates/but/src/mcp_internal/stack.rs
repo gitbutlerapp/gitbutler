@@ -16,7 +16,7 @@ pub fn branch_details(ref_name: &str, current_dir: &Path) -> anyhow::Result<Bran
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
     let ref_name = repo.find_reference(ref_name)?.name().to_owned();
 
-    let details = but_workspace::branch_details_v3(&repo, ref_name.as_ref(), &meta)?;
+    let details = but_workspace::branch_details(&repo, ref_name.as_ref(), &meta)?;
     Ok(parse_branch_details(&repo, details))
 }
 
@@ -25,7 +25,7 @@ pub fn create_stack_with_branch(
     name: &str,
     description: &str,
     current_dir: &Path,
-) -> anyhow::Result<but_workspace::ui::StackEntryNoOpt> {
+) -> anyhow::Result<but_workspace::legacy::ui::StackEntryNoOpt> {
     let project = super::project::project_from_path(current_dir)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 

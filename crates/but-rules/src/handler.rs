@@ -3,7 +3,9 @@ use std::str::FromStr;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
 use but_hunk_dependency::ui::HunkDependencies;
-use but_workspace::{DiffSpec, StackId, StacksFilter, commit_engine, ui::StackEntry};
+use but_workspace::{
+    DiffSpec, StackId, StacksFilter, legacy::commit_engine, legacy::ui::StackEntry,
+};
 use gitbutler_command_context::CommandContext;
 use itertools::Itertools;
 
@@ -43,9 +45,9 @@ pub fn process_workspace_rules(
         let meta = VirtualBranchesTomlMetadata::from_path(
             ctx.project().gb_dir().join("virtual_branches.toml"),
         )?;
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)
+        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)
     } else {
-        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
+        but_workspace::legacy::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
     }?;
 
     for rule in rules {
@@ -115,7 +117,7 @@ fn handle_amend(
         &repo,
         project,
         None,
-        commit_engine::Destination::AmendCommit {
+        but_workspace::commit_engine::Destination::AmendCommit {
             commit_id,
             // TODO: Expose this in the UI for 'edit message' functionality.
             new_message: None,

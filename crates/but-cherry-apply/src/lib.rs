@@ -25,7 +25,7 @@
 use anyhow::{Context, Result, bail};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_rebase::Rebase;
-use but_workspace::{StackId, StacksFilter, stack_ext::StackExt, stacks_v3};
+use but_workspace::{StackId, StacksFilter, legacy::stack_ext::StackExt, legacy::stacks_v3};
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::GixRepositoryExt;

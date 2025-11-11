@@ -6,7 +6,7 @@ use but_workspace::{
         apply::{WorkspaceMerge, WorkspaceReferenceNaming},
         checkout::UncommitedWorktreeChanges,
     },
-    stack_ext::StackExt,
+    legacy::stack_ext::StackExt,
 };
 use gitbutler_branch::{self, BranchCreateRequest, dedup};
 use gitbutler_cherry_pick::RepositoryExt as _;

@@ -15,7 +15,7 @@ pub fn hunk_dependencies_for_changes(
 ) -> anyhow::Result<HunkDependencies> {
     // accelerate tree-tree-diffs
     let repo = gix_repo_for_merging(worktree_dir)?.with_object_memory();
-    let stacks = but_workspace::stacks(ctx, gitbutler_dir, &repo, Default::default())?;
+    let stacks = but_workspace::legacy::stacks(ctx, gitbutler_dir, &repo, Default::default())?;
     let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(gitbutler_dir)
         .get_default_target()?
         .sha;

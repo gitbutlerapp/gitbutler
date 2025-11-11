@@ -8,7 +8,7 @@ use anyhow::Context;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedPatch};
 use but_graph::VirtualBranchesTomlMetadata;
-use but_workspace::{CommmitSplitOutcome, StackId, ui::StackEntryNoOpt};
+use but_workspace::{StackId, legacy::CommmitSplitOutcome, legacy::ui::StackEntryNoOpt};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{
@@ -251,7 +251,7 @@ pub fn create_commit(
         params.message_body.trim()
     );
 
-    let outcome = but_workspace::commit_engine::create_commit_simple(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_simple(
         ctx,
         stack_id,
         None,
@@ -563,7 +563,7 @@ pub fn amend_commit_inner(
         commit_id
     };
 
-    let outcome = but_workspace::commit_engine::create_commit_and_update_refs_with_project(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         project,
         Some(stack_id),
@@ -920,7 +920,7 @@ pub fn move_file_changes(
         })
         .collect::<Vec<_>>();
 
-    let result = but_workspace::move_changes_between_commits(
+    let result = but_workspace::legacy::move_changes_between_commits(
         ctx,
         source_stack_id,
         source_commit_id,
@@ -1396,7 +1396,7 @@ pub fn split_branch(
         guard.write_permission(),
     );
 
-    let (_, move_result) = but_workspace::split_branch(
+    let (_, move_result) = but_workspace::legacy::split_branch(
         ctx,
         source_stack_id,
         params.source_branch_name,
@@ -1532,9 +1532,9 @@ pub fn split_commit(
         .shards
         .into_iter()
         .map(Into::into)
-        .collect::<Vec<but_workspace::CommitFiles>>();
+        .collect::<Vec<but_workspace::legacy::CommitFiles>>();
 
-    let outcome = but_workspace::split_commit(
+    let outcome = but_workspace::legacy::split_commit(
         ctx,
         source_stack_id,
         source_commit_id,
@@ -1614,7 +1614,7 @@ pub struct CommitShard {
     pub files: Vec<String>,
 }
 
-impl From<CommitShard> for but_workspace::CommitFiles {
+impl From<CommitShard> for but_workspace::legacy::CommitFiles {
     fn from(value: CommitShard) -> Self {
         let message = format!(
             "{}\n\n{}",
@@ -1622,7 +1622,7 @@ impl From<CommitShard> for but_workspace::CommitFiles {
             value.message_body.trim()
         );
 
-        but_workspace::CommitFiles {
+        but_workspace::legacy::CommitFiles {
             message,
             files: value.files,
         }
@@ -1826,7 +1826,8 @@ fn entries_to_simple_stacks(
         let branches = branches.iter().filter(|b| !b.archived);
         let mut simple_branches = vec![];
         for branch in branches {
-            let commits = but_workspace::local_and_remote_commits(ctx, repo, branch, &stack)?;
+            let commits =
+                but_workspace::legacy::local_and_remote_commits(ctx, repo, branch, &stack)?;
 
             if commits.is_empty() {
                 continue;
@@ -2046,13 +2047,18 @@ fn find_the_right_commit_id(
 fn stacks(
     ctx: &CommandContext,
     repo: &gix::Repository,
-) -> anyhow::Result<Vec<but_workspace::ui::StackEntry>> {
+) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
     let project = ctx.project();
     if ctx.app_settings().feature_flags.ws3 {
         let meta = ref_metadata_toml(ctx.project())?;
-        but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace, None)
+        but_workspace::legacy::stacks_v3(
+            repo,
+            &meta,
+            but_workspace::StacksFilter::InWorkspace,
+            None,
+        )
     } else {
-        but_workspace::stacks(
+        but_workspace::legacy::stacks(
             ctx,
             &project.gb_dir(),
             repo,

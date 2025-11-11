@@ -10,7 +10,7 @@ use but_graph::{VirtualBranchesTomlMetadata, petgraph::Direction};
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
 use but_workspace::{
-    MoveChangesResult, commit_engine, commit_engine::StackSegmentId, ui::StackEntry,
+    commit_engine, commit_engine::StackSegmentId, legacy::MoveChangesResult, legacy::ui::StackEntry,
 };
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;
@@ -67,9 +67,9 @@ pub fn stacks(
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
     if ctx.app_settings().feature_flags.ws3 {
         let meta = ref_metadata_toml(ctx.project())?;
-        but_workspace::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
+        but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
     } else {
-        but_workspace::stacks(&ctx, &project.gb_dir(), &repo, filter.unwrap_or_default())
+        but_workspace::legacy::stacks(&ctx, &project.gb_dir(), &repo, filter.unwrap_or_default())
     }
     .map_err(Into::into)
 }
@@ -142,9 +142,9 @@ pub fn stack_details(
     let mut details = if ctx.app_settings().feature_flags.ws3 {
         let repo = ctx.gix_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(ctx.project())?;
-        but_workspace::stack_details_v3(stack_id, &repo, &meta)
+        but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
     } else {
-        but_workspace::stack_details(
+        but_workspace::legacy::stack_details(
             &project.gb_dir(),
             stack_id.context("BUG(opt-stack-id)")?,
             &ctx,
@@ -251,9 +251,14 @@ pub fn branch_details(
         }
         .try_into()
         .map_err(anyhow::Error::from)?;
-        but_workspace::branch_details_v3(&repo, ref_name.as_ref(), &meta)
+        but_workspace::branch_details(&repo, ref_name.as_ref(), &meta)
     } else {
-        but_workspace::branch_details(&project.gb_dir(), &branch_name, remote.as_deref(), &ctx)
+        but_workspace::legacy::branch_details(
+            &project.gb_dir(),
+            &branch_name,
+            remote.as_deref(),
+            &ctx,
+        )
     }?;
     let repo = ctx.gix_repo()?;
     let gerrit_mode = ctx
@@ -292,7 +297,7 @@ pub fn create_commit_from_worktree_changes(
     let mut guard = project.exclusive_worktree_access();
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
 
-    let outcome = commit_engine::create_commit_simple(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_simple(
         &ctx,
         stack_id,
         parent_id.map(|id| id.into()),
@@ -334,7 +339,7 @@ pub fn amend_commit_from_worktree_changes(
     let mut guard = project.exclusive_worktree_access();
     let repo = project.open_for_merging()?;
     let app_settings = AppSettings::load_from_default_path_creating()?;
-    let outcome = commit_engine::create_commit_and_update_refs_with_project(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project,
         Some(stack_id),
@@ -423,7 +428,7 @@ pub fn move_changes_between_commits(
         SnapshotDetails::new(OperationKind::AmendCommit),
         guard.write_permission(),
     );
-    let result = but_workspace::move_changes_between_commits(
+    let result = but_workspace::legacy::move_changes_between_commits(
         &ctx,
         source_stack_id,
         source_commit_id.into(),
@@ -458,7 +463,7 @@ pub fn split_branch(
         guard.write_permission(),
     );
 
-    let (_, move_changes_result) = but_workspace::split_branch(
+    let (_, move_changes_result) = but_workspace::legacy::split_branch(
         &ctx,
         source_stack_id,
         source_branch_name,
@@ -501,7 +506,7 @@ pub fn split_branch_into_dependent_branch(
         guard.write_permission(),
     );
 
-    let move_changes_result = but_workspace::split_into_dependent_branch(
+    let move_changes_result = but_workspace::legacy::split_into_dependent_branch(
         &ctx,
         source_stack_id,
         source_branch_name,
@@ -560,7 +565,7 @@ pub fn uncommit_changes(
         None
     };
 
-    let result = but_workspace::remove_changes_from_commit_in_stack(
+    let result = but_workspace::legacy::remove_changes_from_commit_in_stack(
         &ctx,
         stack_id,
         commit_id.into(),
@@ -633,7 +638,7 @@ pub fn stash_into_branch(
     let parent_commit_id = stack.head_oid(&repo)?;
     let branch_name = stack.derived_name()?;
 
-    let outcome = commit_engine::create_commit_and_update_refs_with_project(
+    let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project,
         Some(stack.id),
@@ -693,7 +698,7 @@ pub fn target_commits(
 ) -> Result<Vec<but_workspace::ui::Commit>, Error> {
     let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    but_workspace::log_target_first_parent(
+    but_workspace::legacy::log_target_first_parent(
         &ctx,
         last_commit_id.map(|id| id.into()),
         page_size.unwrap_or(30),

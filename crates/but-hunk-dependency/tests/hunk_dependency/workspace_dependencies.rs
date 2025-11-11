@@ -889,7 +889,7 @@ mod util {
 
     fn test_ctx_at(script_name: &str, name: &str) -> anyhow::Result<TestContext> {
         let ctx = gitbutler_testsupport::read_only::fixture(script_name, name)?;
-        let stacks = but_workspace::stacks(
+        let stacks = but_workspace::legacy::stacks(
             &ctx,
             &ctx.project().gb_dir(),
             &ctx.gix_repo()?,
@@ -911,7 +911,7 @@ mod util {
     pub struct TestContext {
         pub repo: gix::Repository,
         /// All the stacks in the workspace
-        pub stacks_entries: Vec<but_workspace::ui::StackEntry>,
+        pub stacks_entries: Vec<but_workspace::legacy::ui::StackEntry>,
         /// The tip of the local branch that tracks the upstream one.
         pub common_merge_base: gix::ObjectId,
     }

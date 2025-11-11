@@ -9,6 +9,16 @@ rust-version = "1.89"
 [lib]
 doctest = false
 
+[features]
+legacy = [
+    "dep:gitbutler-stack",
+    "dep:gitbutler-command-context",
+    "dep:gitbutler-cherry-pick",
+    "dep:gitbutler-project",
+    "dep:gitbutler-commit",
+    "dep:gitbutler-repo"
+]
+
 [dependencies]
 but-core.workspace = true
 but-graph.workspace = true
@@ -17,12 +27,12 @@ but-error.workspace = true
 but-serde.workspace = true
 
 gitbutler-oxidize.workspace = true
-gitbutler-stack.workspace = true
-gitbutler-command-context.workspace = true
-gitbutler-cherry-pick.workspace = true
-gitbutler-project.workspace = true
-gitbutler-commit.workspace = true
-gitbutler-repo.workspace = true
+gitbutler-stack = { workspace = true, optional = true}
+gitbutler-command-context = { workspace = true, optional = true}
+gitbutler-cherry-pick = { workspace = true, optional = true}
+gitbutler-project = { workspace = true, optional = true}
+gitbutler-commit = { workspace = true, optional = true}
+gitbutler-repo = { workspace = true, optional = true}
 
 anyhow.workspace = true
 bstr.workspace = true
@@ -39,6 +49,8 @@ flume = "0.11.1"
 tempfile.workspace = true
 
 [dev-dependencies]
+# We just want to test everything, with the goal that 'legacy' can one day go away.
+but-workspace = { workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
 insta = { version = "1.43.2", features = ["json"] }
 but-core = { workspace = true, features = ["testing"] }

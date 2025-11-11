@@ -8,7 +8,7 @@ use std::{
 
 use but_core::TreeChange;
 use but_tools::emit::{Emittable, Emitter, TokenUpdate};
-use but_workspace::{StackId, ui::StackEntry};
+use but_workspace::{StackId, legacy::ui::StackEntry};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
@@ -225,9 +225,14 @@ fn stacks(ctx: &CommandContext, repo: &gix::Repository) -> anyhow::Result<Vec<St
     let project = ctx.project();
     if ctx.app_settings().feature_flags.ws3 {
         let meta = ref_metadata_toml(ctx.project())?;
-        but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace, None)
+        but_workspace::legacy::stacks_v3(
+            repo,
+            &meta,
+            but_workspace::StacksFilter::InWorkspace,
+            None,
+        )
     } else {
-        but_workspace::stacks(
+        but_workspace::legacy::stacks(
             ctx,
             &project.gb_dir(),
             repo,

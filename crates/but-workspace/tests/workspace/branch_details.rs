@@ -37,7 +37,7 @@ mod with_workspace {
             .with_target("B")
             .with_named_branch("A");
         insta::assert_debug_snapshot!(
-            but_workspace::branch_details_v3(&repo, refname("A").as_ref(), &store).unwrap(),
+            but_workspace::branch_details(&repo, refname("A").as_ref(), &store).unwrap(),
             @r#"
         BranchDetails {
             name: "refs/heads/A",
@@ -87,7 +87,7 @@ mod with_workspace {
         let store = WorkspaceRefMetadataStore::default()
             .with_target("main")
             .with_named_branch("A");
-        insta::assert_debug_snapshot!(but_workspace::branch_details_v3(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
+        insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
         BranchDetails {
             name: "refs/heads/A",
             linked_worktree_id: None,
@@ -140,7 +140,7 @@ mod with_workspace {
         let store = WorkspaceRefMetadataStore::default()
             .with_target("main")
             .with_named_branch("A");
-        insta::assert_debug_snapshot!(but_workspace::branch_details_v3(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
+        insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
         BranchDetails {
             name: "refs/heads/A",
             linked_worktree_id: None,
@@ -178,7 +178,7 @@ mod with_workspace {
         "#);
 
         // Remote tracking branches are OK to use as well.
-        insta::assert_debug_snapshot!(but_workspace::branch_details_v3(&repo, refname("origin/A").as_ref(), &store).unwrap(), @r#"
+        insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("origin/A").as_ref(), &store).unwrap(), @r#"
         BranchDetails {
             name: "refs/remotes/origin/A",
             linked_worktree_id: None,
@@ -221,7 +221,7 @@ mod with_workspace {
         let store = WorkspaceRefMetadataStore::default()
             .with_target("main")
             .with_named_branch("A");
-        insta::assert_debug_snapshot!(but_workspace::branch_details_v3(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
+        insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
         BranchDetails {
             name: "refs/heads/A",
             linked_worktree_id: None,

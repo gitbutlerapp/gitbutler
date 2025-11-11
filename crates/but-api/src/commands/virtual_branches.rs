@@ -3,7 +3,7 @@ use but_api_macros::api_cmd;
 use but_settings::AppSettings;
 use but_workspace::{
     DiffSpec,
-    ui::{StackEntryNoOpt, StackHeadInfo},
+    legacy::ui::{StackEntryNoOpt, StackHeadInfo},
 };
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
